@@ -40,11 +40,8 @@ static bool is_neg_var(ast_manager & m, expr * e, unsigned num_decls) {
 */
 bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
     // (not (= VAR t)) and (not (iff VAR t)) cases
-    if (m_manager.is_not(e) && (m_manager.is_eq(to_app(e)->get_arg(0)) || m_manager.is_iff(to_app(e)->get_arg(0)))) {
-        app * eq   = to_app(to_app(e)->get_arg(0));
-        SASSERT(m_manager.is_eq(eq) || m_manager.is_iff(eq));
-        expr * lhs = eq->get_arg(0);
-        expr * rhs = eq->get_arg(1);
+    expr *eq, * lhs, *rhs;
+    if (m_manager.is_not(e, eq) && m_manager.is_eq(eq, lhs, rhs)) {
         if (!is_var(lhs, num_decls) && !is_var(rhs, num_decls))
             return false;
         if (!is_var(lhs, num_decls))
@@ -60,9 +57,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
         return true;
     }
     // (iff VAR t) and (iff (not VAR) t) cases
-    else if (m_manager.is_iff(e)) {
-        expr * lhs = to_app(e)->get_arg(0);
-        expr * rhs = to_app(e)->get_arg(1);
+    else if (m_manager.is_eq(e, lhs, rhs) && m_manager.is_bool(lhs)) {
         // (iff VAR t) case
         if (is_var(lhs, num_decls) || is_var(rhs, num_decls)) {
             if (!is_var(lhs, num_decls))
@@ -118,7 +113,7 @@ bool der::is_var_diseq(expr * e, unsigned num_decls, var * & v, expr_ref & t) {
 
 void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     bool reduced = false;
-    pr = 0;
+    pr = nullptr;
     r  = q;
 
     TRACE("der", tout << mk_pp(q, m_manager) << "\n";);
@@ -138,7 +133,7 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
     // Eliminate variables that have become unused
     if (reduced && is_forall(r)) {
         quantifier * q = to_quantifier(r);
-        elim_unused_vars(m_manager, q, params_ref(), r);
+        r = elim_unused_vars(m_manager, q, params_ref());
         if (m_manager.proofs_enabled()) {
             proof * p1 = m_manager.mk_elim_unused_vars(q, r);
             pr = m_manager.mk_transitivity(pr, p1);
@@ -149,14 +144,14 @@ void der::operator()(quantifier * q, expr_ref & r, proof_ref & pr) {
 
 void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     if (!is_forall(q)) {
-        pr = 0;
+        pr = nullptr;
         r  = q;
         return;
     }
 
     expr * e = q->get_expr();
     unsigned num_decls = q->get_num_decls();
-    var * v = 0;
+    var * v = nullptr;
     expr_ref t(m_manager);
 
     if (m_manager.is_or(e)) {
@@ -211,7 +206,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
         r = q;
 
     if (m_manager.proofs_enabled()) {
-        pr = r == q ? 0 : m_manager.mk_der(q, r);
+        pr = r == q ? nullptr : m_manager.mk_der(q, r);
     }
 }
 
@@ -223,7 +218,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
     for (unsigned i = 0; i < definitions.size(); i++) {
         var * v  = vars[i];
         expr * t = definitions[i];
-        if (t == 0 || has_quantifiers(t) || occurs(v, t))
+        if (t == nullptr || has_quantifiers(t) || occurs(v, t))
             definitions[i] = 0;
         else
             found = true; // found at least one candidate
@@ -260,7 +255,7 @@ void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsig
                 vidx = to_var(t)->get_idx();
                 if (fr.second == 0) {
                     CTRACE("der_bug", vidx >= definitions.size(), tout << "vidx: " << vidx << "\n";);
-                    // Remark: The size of definitions may be smaller than the number of variables occuring in the quantified formula.
+                    // Remark: The size of definitions may be smaller than the number of variables occurring in the quantified formula.
                     if (definitions.get(vidx, 0) != 0) {
                         if (visiting.is_marked(t)) {
                             // cycle detected: remove t
@@ -342,14 +337,13 @@ void der::get_elimination_order() {
 
 void der::create_substitution(unsigned sz) {
     m_subst_map.reset();
-    m_subst_map.resize(sz, 0);
+    m_subst_map.resize(sz, nullptr);
 
     for(unsigned i = 0; i < m_order.size(); i++) {
         expr_ref cur(m_map[m_order[i]], m_manager);
 
         // do all the previous substitutions before inserting
-        expr_ref r(m_manager);
-        m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr(), r);
+        expr_ref r = m_subst(cur, m_subst_map.size(), m_subst_map.c_ptr());
 
         unsigned inx = sz - m_order[i]- 1;
         SASSERT(m_subst_map[inx]==0);
@@ -374,21 +368,18 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
     unsigned sz = m_new_args.size();
     expr_ref t(m_manager);
     t = (sz == 1) ? m_new_args[0] : m_manager.mk_or(sz, m_new_args.c_ptr());
-    expr_ref new_e(m_manager);
-    m_subst(t, m_subst_map.size(), m_subst_map.c_ptr(), new_e);
+    expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
 
     // don't forget to update the quantifier patterns
     expr_ref_buffer  new_patterns(m_manager);
     expr_ref_buffer  new_no_patterns(m_manager);
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        expr_ref new_pat(m_manager);
-        m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_pat);
+        expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
         new_patterns.push_back(new_pat);
     }
 
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        expr_ref new_nopat(m_manager);
-        m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr(), new_nopat);
+        expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
         new_no_patterns.push_back(new_nopat);
     }
 

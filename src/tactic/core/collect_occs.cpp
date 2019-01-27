@@ -85,12 +85,9 @@ void collect_occs::operator()(goal const & g, obj_hashtable<expr> & r) {
         process(t);
     }
     
-    ptr_vector<app>::const_iterator it  = m_vars.begin();
-    ptr_vector<app>::const_iterator end = m_vars.end();
-    for (; it != end; ++it) {
-        if (m_more_than_once.is_marked(*it))
-            continue;
-        r.insert(*it);
+    for (expr* e : m_vars) {
+        if (!m_more_than_once.is_marked(e))
+            r.insert(e);
     }
     m_visited.reset();
     m_more_than_once.reset();

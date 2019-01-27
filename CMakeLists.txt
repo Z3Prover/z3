@@ -33,8 +33,8 @@ endif()
 # Project version
 ################################################################################
 set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 6)
-set(Z3_VERSION_PATCH 1)
+set(Z3_VERSION_MINOR 8)
+set(Z3_VERSION_PATCH 5)
 set(Z3_VERSION_TWEAK 0)
 set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
@@ -99,7 +99,7 @@ set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${GIT_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
     if (INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)
@@ -205,9 +205,6 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
-if ("${TARGET_ARCHITECTURE}" STREQUAL "x86_64")
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_AMD64_")
-endif()
 
 
 ################################################################################
@@ -218,12 +215,17 @@ include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-# FIXME: Use CMake's own mechanism for selecting language version
-if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-  z3_add_cxx_flag("-std=c++11" REQUIRED)
-else()
-  message(AUTHOR_WARNING "Not setting C++ language version for compiler")
-endif()
+if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
+  # FIXME: Drop this when we upgrade to newer CMake versions.
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+    z3_add_cxx_flag("-std=c++11" REQUIRED)
+  else()
+    message(AUTHOR_WARNING "Not setting C++ language version for compiler")
+  endif()
+else ()
+  set(CMAKE_CXX_STANDARD 11)
+  set(CMAKE_CXX_STANDARD_REQUIRED ON)
+endif ()
 
 ################################################################################
 # Platform detection
@@ -235,11 +237,14 @@ if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
     list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
   endif()
 elseif ("${CMAKE_SYSTEM_NAME}" STREQUAL "Darwin")
-  # Does OSX really not need any special flags?
+  # Does macOS really not need any special flags?
   message(STATUS "Platform: Darwin")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_FREEBSD_")
+elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "NetBSD")
+  message(STATUS "Platform: NetBSD")
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NetBSD_")
 elseif ("${CMAKE_SYSTEM_NAME}" MATCHES "OpenBSD")
   message(STATUS "Platform: OpenBSD")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_OPENBSD_")
@@ -249,6 +254,15 @@ elseif (CYGWIN)
 elseif (WIN32)
   message(STATUS "Platform: Windows")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_WINDOWS")
+elseif (EMSCRIPTEN)
+  message(STATUS "Platform: Emscripten")
+  list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS
+    "-Os"
+    "-s ALLOW_MEMORY_GROWTH=1"
+    "-s ASSERTIONS=0"
+    "-s DISABLE_EXCEPTION_CATCHING=0"
+    "-s ERROR_ON_UNDEFINED_SYMBOLS=1"
+  )
 else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
@@ -372,9 +386,17 @@ endif()
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
 if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" STREQUAL "i686"))
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
+  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel"))
+    if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+      # Intel's compiler requires linking with libiomp5
+      list(APPEND Z3_DEPENDENT_LIBS "iomp5")
+    endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # FIXME: Remove "x.." when CMP0054 is set to NEW
+  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
+    set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
+    # Intel's compiler requires linking with libiomp5 
+    list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
   elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
@@ -410,6 +432,29 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
+# Save Clang optimization records
+################################################################################
+option(SAVE_CLANG_OPTIMIZATION_RECORDS "Enable saving Clang optimization records." OFF)
+
+if (SAVE_CLANG_OPTIMIZATION_RECORDS)
+  z3_add_cxx_flag("-fsave-optimization-record" REQUIRED)
+endif()
+
+################################################################################
+# If using Ninja, force color output for Clang (and gcc, disabled to check build).
+################################################################################
+if (UNIX AND CMAKE_GENERATOR STREQUAL "Ninja")
+  if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fcolor-diagnostics")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fcolor-diagnostics")
+  endif()
+#  if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color")
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fdiagnostics-color")
+#  endif()
+endif()
+
+################################################################################
 # Option to control what type of library we build
 ################################################################################
 option(BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
@@ -434,7 +479,7 @@ else()
 endif()
 
 ################################################################################
-# Postion independent code
+# Position independent code
 ################################################################################
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add

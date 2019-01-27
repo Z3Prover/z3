@@ -87,7 +87,6 @@ struct cofactor_elim_term_ite::imp {
                 case OP_TRUE:
                 case OP_FALSE:
                 case OP_ITE:
-                case OP_IFF:
                     return;
                 case OP_EQ:
                 case OP_DISTINCT:
@@ -198,7 +197,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {
@@ -219,7 +218,7 @@ struct cofactor_elim_term_ite::imp {
                 break;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     /**
@@ -265,7 +264,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {
@@ -286,7 +285,7 @@ struct cofactor_elim_term_ite::imp {
                 break;
             }
         }
-        expr * best = 0;
+        expr * best = nullptr;
         unsigned best_occs = 0;
         obj_map<expr, unsigned>::iterator it  = occs.begin();
         obj_map<expr, unsigned>::iterator end = occs.end();
@@ -329,7 +328,7 @@ struct cofactor_elim_term_ite::imp {
         bool                  m_strict_upper;
         app *                 m_upper;
 
-        cofactor_rw_cfg(ast_manager & _m, imp & owner, obj_hashtable<expr> * has_term_ite = 0):
+        cofactor_rw_cfg(ast_manager & _m, imp & owner, obj_hashtable<expr> * has_term_ite = nullptr):
             m(_m),
             m_owner(owner),
             m_has_term_ite(has_term_ite),
@@ -349,13 +348,13 @@ struct cofactor_elim_term_ite::imp {
             if (m.is_not(t)) {
                 m_atom = to_app(t)->get_arg(0);
                 m_sign = true;
-                m_term = 0;
+                m_term = nullptr;
                 // TODO: bounds
             }
             else {
                 m_atom = t;
                 m_sign = false;
-                m_term = 0;
+                m_term = nullptr;
                 expr * lhs;
                 expr * rhs;
                 if (m_owner.m_cofactor_equalities && m.is_eq(t, lhs, rhs)) {
@@ -377,19 +376,19 @@ struct cofactor_elim_term_ite::imp {
         bool rewrite_patterns() const { return false; }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             return m_mk_app.mk_core(f, num, args, result);
         }
 
         bool get_subst(expr * s, expr * & t, proof * & pr) {
-            pr = 0;
+            pr = nullptr;
             
             if (s == m_atom) {
                 t = m_sign ? m.mk_false() : m.mk_true();
                 return true;
             }
             
-            if (s == m_term && m_value != 0) {
+            if (s == m_term && m_value != nullptr) {
                 t = m_value;
                 return true;
             }
@@ -406,7 +405,7 @@ struct cofactor_elim_term_ite::imp {
     struct cofactor_rw : rewriter_tpl<cofactor_rw_cfg> {
         cofactor_rw_cfg m_cfg;
     public:
-        cofactor_rw(ast_manager & m, imp & owner, obj_hashtable<expr> * has_term_ite = 0):
+        cofactor_rw(ast_manager & m, imp & owner, obj_hashtable<expr> * has_term_ite = nullptr):
             rewriter_tpl<cofactor_rw_cfg>(m, false, m_cfg),
             m_cfg(m, owner, has_term_ite) {
         }
@@ -444,7 +443,7 @@ struct cofactor_elim_term_ite::imp {
         
         bool get_subst(expr * s, expr * & t, proof * & t_pr) { 
             if (m_candidates.contains(s)) {
-                t_pr = 0;
+                t_pr = nullptr;
 
                 if (m_cache.find(s, t))
                     return true;
@@ -455,7 +454,7 @@ struct cofactor_elim_term_ite::imp {
                 while (true) {
                     // expr * c = m_owner.get_best(curr);
                     expr * c = m_owner.get_first(curr);
-                    if (c == 0) {
+                    if (c == nullptr) {
                         m_cache.insert(s, curr);
                         m_cache_domain.push_back(curr);
                         t = curr.get();
@@ -532,7 +531,7 @@ struct cofactor_elim_term_ite::imp {
             while (true) {
                 expr * c = m_owner.get_best(curr);
                 // expr * c = m_owner.get_first(curr);
-                if (c == 0) {
+                if (c == nullptr) {
                     r = curr.get();
                     return;
                 }
@@ -607,7 +606,7 @@ struct cofactor_elim_term_ite::imp {
                 unsigned num = to_app(t)->get_num_args();
                 for (unsigned i = 0; i < num; i++) {
                     expr * arg = to_app(t)->get_arg(i);
-                    expr * new_arg = 0;
+                    expr * new_arg = nullptr;
                     TRACE("cofactor_bug", tout << "collecting child: " << arg->get_id() << "\n";);
                     m_cache.find(arg, new_arg);
                     SASSERT(new_arg != 0);
@@ -645,7 +644,7 @@ struct cofactor_elim_term_ite::imp {
                 m_cache_domain.push_back(new_t);
                 m_frames.pop_back();
             }
-            expr * result = 0;
+            expr * result = nullptr;
             m_cache.find(t, result);
             r = result;
         }

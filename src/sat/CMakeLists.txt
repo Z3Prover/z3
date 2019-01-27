@@ -1,22 +1,30 @@
 z3_add_component(sat
   SOURCES
+    ba_solver.cpp
     dimacs.cpp
     sat_asymm_branch.cpp
+    sat_bdd.cpp
+    sat_big.cpp
     sat_clause.cpp
     sat_clause_set.cpp
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_drat.cpp
     sat_elim_eqs.cpp
+    sat_elim_vars.cpp
     sat_iff3_finder.cpp
     sat_integrity_checker.cpp
+    sat_local_search.cpp
+    sat_lookahead.cpp
     sat_model_converter.cpp
     sat_mus.cpp
-    sat_par.cpp
+    sat_parallel.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp
     sat_solver.cpp
+    sat_unit_walk.cpp
     sat_watched.cpp
   COMPONENT_DEPENDENCIES
     util

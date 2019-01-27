@@ -82,6 +82,7 @@ struct static_features {
     bool                     m_has_str;         // has String-typed terms
     bool                     m_has_seq_non_str; // has non-String-typed Sequence terms
     bool                     m_has_arrays;      //
+    bool                     m_has_ext_arrays;  // does this use extended array theory.
     rational                 m_arith_k_sum;     // sum of the numerals in arith atoms.
     unsigned                 m_num_arith_terms;
     unsigned                 m_num_arith_eqs;   // equalities of the form t = k where k is a numeral

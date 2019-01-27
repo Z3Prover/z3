@@ -44,15 +44,15 @@ elim_bounds_cfg::elim_bounds_cfg(ast_manager & m):
    It also detects >=, and the atom can be negated.
 */
 bool elim_bounds_cfg::is_bound(expr * n, var * & lower, var * & upper) {
-    upper    = 0;
-    lower    = 0;
+    upper    = nullptr;
+    lower    = nullptr;
     bool neg = false;
     if (m.is_not(n)) {
         n   = to_app(n)->get_arg(0);
         neg = true;
     }
 
-    expr* l = 0, *r = 0;
+    expr* l = nullptr, *r = nullptr;
     bool le  = false;
     if (m_util.is_le(n, l, r) && m_util.is_numeral(r)) {
         n  = l;
@@ -114,7 +114,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
                                      expr * const * new_no_patterns,
                                      expr_ref & result,
                                      proof_ref & result_pr) {
-    if (!q->is_forall()) {
+    if (!is_forall(q)) {
         return false;
     }
     unsigned num_vars = q->get_num_decls();
@@ -139,14 +139,14 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     ptr_buffer<var>    candidates;
 #define ADD_CANDIDATE(V) if (!lowers.contains(V) && !uppers.contains(V)) { candidate_set.insert(V); candidates.push_back(V); }
     for (expr * a : atoms) {
-        var * lower = 0;
-        var * upper = 0;
+        var * lower = nullptr;
+        var * upper = nullptr;
         if (is_bound(a, lower, upper)) {
-            if (lower != 0 && !used_vars.contains(lower->get_idx()) && lower->get_idx() < num_vars) {
+            if (lower != nullptr && !used_vars.contains(lower->get_idx()) && lower->get_idx() < num_vars) {
                 ADD_CANDIDATE(lower);
                 lowers.insert(lower);
             }
-            if (upper != 0 && !used_vars.contains(upper->get_idx()) && upper->get_idx() < num_vars) {
+            if (upper != nullptr && !used_vars.contains(upper->get_idx()) && upper->get_idx() < num_vars) {
                 ADD_CANDIDATE(upper);
                 uppers.insert(upper);
             }
@@ -167,9 +167,9 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     unsigned j = 0;
     for (unsigned i = 0; i < atoms.size(); ++i) {
         expr * a = atoms[i];
-        var * lower = 0;
-        var * upper = 0;
-        if (is_bound(a, lower, upper) && ((lower != 0 && candidate_set.contains(lower)) || (upper != 0 && candidate_set.contains(upper))))
+        var * lower = nullptr;
+        var * upper = nullptr;
+        if (is_bound(a, lower, upper) && ((lower != nullptr && candidate_set.contains(lower)) || (upper != nullptr && candidate_set.contains(upper))))
             continue;
         atoms[j] = a;
         j++;
@@ -178,7 +178,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
         return false;
     }
     atoms.resize(j);
-    expr * new_body = 0;
+    expr * new_body = nullptr;
     switch (atoms.size()) {
     case 0:
         result = m.mk_false();
@@ -194,7 +194,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     }
     quantifier_ref new_q(m);
     new_q = m.update_quantifier(q, new_body);
-    elim_unused_vars(m, new_q, params_ref(), result);
+    result = elim_unused_vars(m, new_q, params_ref());
     result_pr = m.mk_rewrite(q, result);
     TRACE("elim_bounds", tout << mk_pp(q, m) << "\n" << result << "\n";);
     return true;

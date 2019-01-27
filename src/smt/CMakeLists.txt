@@ -13,6 +13,7 @@ z3_add_component(smt
     old_interval.cpp
     qi_queue.cpp
     smt_almost_cg_table.cpp
+    smt_arith_value.cpp
     smt_case_split_queue.cpp
     smt_cg_table.cpp
     smt_checker.cpp
@@ -55,9 +56,11 @@ z3_add_component(smt
     theory_dl.cpp
     theory_dummy.cpp
     theory_fpa.cpp
+    theory_jobscheduler.cpp
     theory_lra.cpp
     theory_opt.cpp
     theory_pb.cpp
+    theory_recfun.cpp
     theory_seq.cpp
     theory_str.cpp
     theory_utvpi.cpp
@@ -70,6 +73,7 @@ z3_add_component(smt
     euclid
     fpa
     grobner
+    nlsat
     lp
     macros
     normal_forms

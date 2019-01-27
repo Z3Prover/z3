@@ -16,15 +16,14 @@ Author:
 Notes:
 
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// FloatiungPoint Numerals
     /// </summary>
-    [ContractVerification(true)]
     public class FPNum : FPExpr
     {
         /// <summary>
@@ -111,7 +110,7 @@ namespace Microsoft.Z3
         /// </summary>
         public string Exponent(bool biased = true)
         {
-            return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject, biased ? 1 : 0);
+            return Native.Z3_fpa_get_numeral_exponent_string(Context.nCtx, NativeObject, (byte)(biased ? 1 : 0));
         }
 
         /// <summary>
@@ -120,7 +119,7 @@ namespace Microsoft.Z3
         public Int64 ExponentInt64(bool biased = true)
         {
             Int64 result = 0;
-            if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result, biased ? 1 : 0) == 0)
+            if (Native.Z3_fpa_get_numeral_exponent_int64(Context.nCtx, NativeObject, ref result, (byte)(biased? 1 : 0)) == 0)
                 throw new Z3Exception("Exponent is not a 64 bit integer");
             return result;
         }
@@ -133,7 +132,7 @@ namespace Microsoft.Z3
         /// </remarks>
         public BitVecExpr ExponentBV(bool biased = true)
         {
-            return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject, biased ? 1 : 0));
+            return new BitVecExpr(Context, Native.Z3_fpa_get_numeral_exponent_bv(Context.nCtx, NativeObject, (byte)(biased ? 1 : 0)));
         }
 
         /// <summary>
@@ -175,7 +174,7 @@ namespace Microsoft.Z3
         internal FPNum(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
 

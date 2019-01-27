@@ -115,14 +115,15 @@ expr_ref pb_rewriter::translate_pb2lia(obj_map<expr,expr*>& vars, expr* fml) {
         else {
             tmp = a.mk_add(es.size(), es.c_ptr());
         }
+        rational k = util.get_k(fml);
         if (util.is_le(fml)) {
-            result = a.mk_le(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = a.mk_le(tmp, a.mk_numeral(k, false));
         }
         else if (util.is_ge(fml)) {
-            result = a.mk_ge(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = a.mk_ge(tmp, a.mk_numeral(k, false));
         }
         else {
-            result = m().mk_eq(tmp, a.mk_numeral(util.get_k(fml), false));
+            result = m().mk_eq(tmp, a.mk_numeral(k, false));
         }
     }
     else {
@@ -233,6 +234,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     }    
 
     bool is_eq = f->get_decl_kind() == OP_PB_EQ;
+    br_status st = BR_DONE;
     
     pb_ast_rewriter_util pbu(m);
     pb_rewriter_util<pb_ast_rewriter_util> util(pbu);
@@ -250,44 +252,88 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
     default: {
         bool all_unit = true;
         unsigned sz = vec.size();
+        rational slack(0);
         m_args.reset();
         m_coeffs.reset();
-        for (unsigned i = 0; i < sz; ++i) {
-            m_args.push_back(vec[i].first);
-            m_coeffs.push_back(vec[i].second);
+        for (auto const& kv : vec) {
+            m_args.push_back(kv.first);
+            m_coeffs.push_back(kv.second);
+            SASSERT(kv.second.is_pos());
+            slack += kv.second;
             all_unit &= m_coeffs.back().is_one();
         }
         if (is_eq) {
             if (sz == 0) {
                 result = k.is_zero()?m.mk_true():m.mk_false();
             }
+            else if (k.is_zero()) {
+                result = mk_not(m, mk_or(m, sz, m_args.c_ptr()));
+            }
+            else if (k.is_one() && all_unit && m_args.size() == 1) {
+                result = m_args.back();
+            }
+            else if (slack == k) {
+                result = mk_and(m, sz, m_args.c_ptr());
+            }
             else {
                 result = m_util.mk_eq(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
             }
         }
-        else if (all_unit && k.is_one()) {
+        else if (all_unit && k.is_one() && sz < 10) {
             result = mk_or(m, sz, m_args.c_ptr());
         }
         else if (all_unit && k == rational(sz)) {
             result = mk_and(m, sz, m_args.c_ptr());
         }
         else {
-            result = m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k);
+            expr_ref_vector conj(m), disj(m);
+            unsigned j = 0; 
+            sz = m_args.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                rational& c = m_coeffs[i];
+                if (slack < c + k) {
+                    conj.push_back(m_args[i]);
+                    slack -= c;
+                    k -= c;
+                }
+                else if (c >= k && k.is_pos()) {
+                    disj.push_back(m_args[i]);
+                }
+                else {
+                    m_args[j] = m_args[i];
+                    m_coeffs[j] = m_coeffs[i];
+                    ++j;
+                }
+            }
+            m_args.shrink(j);
+            m_coeffs.shrink(j);
+            sz = j;
+            if (sz > 0) {
+                disj.push_back(m_util.mk_ge(sz, m_coeffs.c_ptr(), m_args.c_ptr(), k));
+            }
+            if (!disj.empty()) {
+                conj.push_back(mk_or(disj));
+            }
+            result = mk_and(conj);
+
+            if (disj.size() > 1 || conj.size() > 1) {               
+                st = BR_REWRITE3;
+            }            
         }
         break;
     }
     }
-    TRACE("pb",
+    TRACE("pb_verbose",
           expr_ref tmp(m);
           tmp = m.mk_app(f, num_args, args);
           tout << tmp << "\n";
           tout << result << "\n";
           );
-
+    
     TRACE("pb_validate",
           validate_rewrite(f, num_args, args, result););
           
-    return BR_DONE;
+    return st;
 }
 
 

@@ -159,11 +159,11 @@ class fpa_decl_plugin : public decl_plugin {
     func_decl * mk_bv_wrap(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                     unsigned arity, sort * const * domain, sort * range);
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
     unsigned mk_id(mpf const & v);
     void recycled_id(unsigned id);
 
-    virtual bool is_considered_uninterpreted(func_decl * f) { return false; }
+    bool is_considered_uninterpreted(func_decl * f) override { return false; }
 
 public:
     fpa_decl_plugin();
@@ -171,18 +171,18 @@ public:
     bool is_float_sort(sort * s) const { return is_sort_of(s, m_family_id, FLOATING_POINT_SORT); }
     bool is_rm_sort(sort * s) const { return is_sort_of(s, m_family_id, ROUNDING_MODE_SORT); }
 
-    virtual ~fpa_decl_plugin();
-    virtual void finalize();
+    ~fpa_decl_plugin() override;
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh();
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
-    virtual expr * get_some_value(sort * s);
-    virtual bool is_value(app* e) const;
-    virtual bool is_unique_value(app* e) const;
+    decl_plugin * mk_fresh() override;
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
+    expr * get_some_value(sort * s) override;
+    bool is_value(app* e) const override;
+    bool is_unique_value(app* e) const override;
 
     mpf_manager & fm() { return m_fm; }
     func_decl * mk_numeral_decl(mpf const & v);
@@ -197,8 +197,8 @@ public:
         return m_values[id];
     }
 
-    virtual void del(parameter const & p);
-    virtual parameter translate(parameter const & p, decl_plugin & target);
+    void del(parameter const & p) override;
+    parameter translate(parameter const & p, decl_plugin & target) override;
 };
 
 class fpa_util {
@@ -342,7 +342,7 @@ public:
 
     app * mk_bv2rm(expr * bv3) {
         SASSERT(m_bv_util.is_bv(bv3) && m_bv_util.get_bv_size(bv3) == 3);
-        return m().mk_app(m_fid, OP_FPA_BV2RM, 0, 0, 1, &bv3, mk_rm_sort());
+        return m().mk_app(m_fid, OP_FPA_BV2RM, 0, nullptr, 1, &bv3, mk_rm_sort());
     }
 
     bool is_bvwrap(expr const * e) const { return is_app_of(e, get_family_id(), OP_FPA_BVWRAP); }

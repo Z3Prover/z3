@@ -41,12 +41,11 @@ void preprocessor_params::display(std::ostream & out) const {
 
     DISPLAY_PARAM(m_lift_ite);
     DISPLAY_PARAM(m_ng_lift_ite);
-    DISPLAY_PARAM(m_pull_cheap_ite_trees);
+    DISPLAY_PARAM(m_pull_cheap_ite);
     DISPLAY_PARAM(m_pull_nested_quantifiers);
     DISPLAY_PARAM(m_eliminate_term_ite);
     DISPLAY_PARAM(m_macro_finder);
     DISPLAY_PARAM(m_propagate_values);
-    DISPLAY_PARAM(m_propagate_booleans);
     DISPLAY_PARAM(m_refine_inj_axiom);
     DISPLAY_PARAM(m_eliminate_bounds);
     DISPLAY_PARAM(m_simplify_bit2int);

@@ -131,8 +131,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
-    result = *ctx.begin_assertions();
+    result = ctx.assertions().get(0);
     return result;
 }
 
@@ -147,7 +146,7 @@ static void parse_fml(char const* str, app_ref_vector& vars, expr_ref& fml) {
         }
         fml = q->get_expr();
         var_subst vs(m, true);
-        vs(fml, vars.size(), (expr*const*)vars.c_ptr(), fml);
+        fml = vs(fml, vars.size(), (expr*const*)vars.c_ptr());
     }
 }
 

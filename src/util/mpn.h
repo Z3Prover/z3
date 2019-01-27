@@ -37,31 +37,31 @@ public:
     mpn_manager();
     ~mpn_manager();
 
-    int compare(mpn_digit const * a, size_t const lnga,
-                mpn_digit const * b, size_t const lngb) const;
+    int compare(mpn_digit const * a, size_t lnga,
+                mpn_digit const * b, size_t lngb) const;
 
-    bool add(mpn_digit const * a, size_t const lnga,
-             mpn_digit const * b, size_t const lngb,
-             mpn_digit *c, size_t const lngc_alloc,
+    bool add(mpn_digit const * a, size_t lnga,
+             mpn_digit const * b, size_t lngb,
+             mpn_digit *c, size_t lngc_alloc,
              size_t * plngc) const;
 
-    bool sub(mpn_digit const * a, size_t const lnga,
-             mpn_digit const * b, size_t const lngb,
+    bool sub(mpn_digit const * a, size_t lnga,
+             mpn_digit const * b, size_t lngb,
              mpn_digit * c, mpn_digit * pborrow) const;
 
-    bool mul(mpn_digit const * a, size_t const lnga,
-             mpn_digit const * b, size_t const lngb,
+    bool mul(mpn_digit const * a, size_t lnga,
+             mpn_digit const * b, size_t lngb,
              mpn_digit * c) const;
 
-    bool div(mpn_digit const * numer, size_t const lnum,
-             mpn_digit const * denom, size_t const lden,
+    bool div(mpn_digit const * numer, size_t lnum,
+             mpn_digit const * denom, size_t lden,
              mpn_digit * quot,
              mpn_digit * rem);
 
-    char * to_string(mpn_digit const * a, size_t const lng,
-                     char * buf, size_t const lbuf) const;
+    char * to_string(mpn_digit const * a, size_t lng,
+                     char * buf, size_t lbuf) const;
 private:
-    #ifdef _AMD64_
+    #if defined(__LP64__) || defined(_WIN64)
     class  mpn_sbuffer : public sbuffer<mpn_digit> {
     public:
         mpn_sbuffer() : sbuffer<mpn_digit>() {}
@@ -88,29 +88,29 @@ private:
 
     static const mpn_digit zero;
     mpn_sbuffer u, v, t_ms, t_ab;
-    void display_raw(std::ostream & out, mpn_digit const * a, size_t const lng) const;
+    void display_raw(std::ostream & out, mpn_digit const * a, size_t lng) const;
 
-    size_t div_normalize(mpn_digit const * numer, size_t const lnum,
-                         mpn_digit const * denom, size_t const lden,
+    size_t div_normalize(mpn_digit const * numer, size_t lnum,
+                         mpn_digit const * denom, size_t lden,
                          mpn_sbuffer & n_numer,
                          mpn_sbuffer & n_denom) const;
 
     void div_unnormalize(mpn_sbuffer & numer, mpn_sbuffer & denom,
-                         size_t const d, mpn_digit * rem) const;
+                         size_t d, mpn_digit * rem) const;
 
-    bool div_1(mpn_sbuffer & numer, mpn_digit const denom,
+    bool div_1(mpn_sbuffer & numer, mpn_digit denom,
                mpn_digit * quot) const;
 
     bool div_n(mpn_sbuffer & numer, mpn_sbuffer const & denom,
                mpn_digit * quot, mpn_digit * rem,
                mpn_sbuffer & ms, mpn_sbuffer & ab) const;
 
-    void trace(mpn_digit const * a, size_t const lnga, 
-               mpn_digit const * b, size_t const lngb, 
+    void trace(mpn_digit const * a, size_t lnga,
+               mpn_digit const * b, size_t lngb,
                const char * op) const;
 
-    void trace(mpn_digit const * a, size_t const lnga) const;
-    void trace_nl(mpn_digit const * a, size_t const lnga) const;
+    void trace(mpn_digit const * a, size_t lnga) const;
+    void trace_nl(mpn_digit const * a, size_t lnga) const;
 };
 
 #endif

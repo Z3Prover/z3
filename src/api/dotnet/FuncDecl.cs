@@ -18,14 +18,15 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
+
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Function declarations.
     /// </summary>
-    [ContractVerification(true)]
     public class FuncDecl : AST
     {
         /// <summary>
@@ -108,7 +109,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort[]>() != null);
 
                 uint n = DomainSize;
 
@@ -126,7 +126,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort>() != null);
                 return Sort.Create(Context, Native.Z3_get_range(Context.nCtx, NativeObject));
             }
         }
@@ -146,7 +145,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Symbol>() != null);
                 return Symbol.Create(Context, Native.Z3_get_decl_name(Context.nCtx, NativeObject));
             }
         }
@@ -166,7 +164,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Parameter[]>() != null);
 
                 uint num = NumParameters;
                 Parameter[] res = new Parameter[num];
@@ -287,23 +284,32 @@ namespace Microsoft.Z3
         internal FuncDecl(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range)
             : base(ctx, Native.Z3_mk_func_decl(ctx.nCtx, name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
-            Contract.Requires(range != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(range != null);
         }
 
         internal FuncDecl(Context ctx, string prefix, Sort[] domain, Sort range)
             : base(ctx, Native.Z3_mk_fresh_func_decl(ctx.nCtx, prefix, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(range != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(range != null);
         }
+
+        internal FuncDecl(Context ctx, Symbol name, Sort[] domain, Sort range, bool is_rec)
+            : base(ctx, Native.Z3_mk_rec_func_decl(ctx.nCtx, name.NativeObject, AST.ArrayLength(domain), AST.ArrayToNative(domain), range.NativeObject))
+        {
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(range != null);
+        }
+
 
 #if DEBUG
         internal override void CheckNativeObject(IntPtr obj)
@@ -335,7 +341,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Requires(args == null || Contract.ForAll(args, a => a != null));
+                Debug.Assert(args == null || args.All(a => a != null));
 
                 return Apply(args);
             }
@@ -348,7 +354,7 @@ namespace Microsoft.Z3
         /// <returns></returns>
         public Expr Apply(params Expr[] args)
         {
-            Contract.Requires(args == null || Contract.ForAll(args, a => a != null));
+            Debug.Assert(args == null || args.All(a => a != null));
 
             Context.CheckContextMatch<Expr>(args);
             return Expr.Create(Context, this, args);

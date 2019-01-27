@@ -23,23 +23,23 @@ Notes:
 class include_cmd : public cmd {
     char const * m_filename;
 public:
-    include_cmd() : cmd("include"), m_filename(0) {}
-    virtual char const * get_usage() const { return "<string>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "include a file"; }
-    virtual unsigned get_arity() const { return 1; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const { return CPK_STRING; }
-    virtual void set_next_arg(cmd_context & ctx, char const * val) { m_filename = val; }
-    virtual void failure_cleanup(cmd_context & ctx) {}
-    virtual void execute(cmd_context & ctx) {
+    include_cmd() : cmd("include"), m_filename(nullptr) {}
+    char const * get_usage() const override { return "<string>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "include a file"; }
+    unsigned get_arity() const override { return 1; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override { return CPK_STRING; }
+    void set_next_arg(cmd_context & ctx, char const * val) override { m_filename = val; }
+    void failure_cleanup(cmd_context & ctx) override {}
+    void execute(cmd_context & ctx) override {
         std::ifstream is(m_filename);
         if (is.bad() || is.fail())
             throw cmd_exception(std::string("failed to open file '") + m_filename + "'");
         parse_smt2_commands(ctx, is, false, params_ref(), m_filename);
         is.close();
     }
-    virtual void prepare(cmd_context & ctx) { reset(ctx); }
-    virtual void reset(cmd_context & ctx) { m_filename = 0; }
-    virtual void finalize(cmd_context & ctx) { reset(ctx); }
+    void prepare(cmd_context & ctx) override { reset(ctx); }
+    void reset(cmd_context & ctx) override { m_filename = nullptr; }
+    void finalize(cmd_context & ctx) override { reset(ctx); }
 };
 
 void install_smt2_extra_cmds(cmd_context & ctx) {

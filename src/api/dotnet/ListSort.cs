@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// List sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class ListSort : Sort
     {
         /// <summary>
@@ -35,7 +34,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, 0));                                
             }
         }
@@ -47,7 +45,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr>() != null);
                 return Context.MkApp(NilDecl);
             }
         }
@@ -59,7 +56,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_recognizer(Context.nCtx, NativeObject, 0));
             }
         }
@@ -71,7 +67,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor(Context.nCtx, NativeObject, 1));
             }
         }
@@ -84,7 +79,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_recognizer(Context.nCtx, NativeObject, 1));
             }
         }
@@ -96,7 +90,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor_accessor(Context.nCtx, NativeObject, 1, 0));
             }
         }
@@ -108,7 +101,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_datatype_sort_constructor_accessor(Context.nCtx, NativeObject, 1, 1));
             }
         }
@@ -117,9 +109,9 @@ namespace Microsoft.Z3
         internal ListSort(Context ctx, Symbol name, Sort elemSort)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
-            Contract.Requires(elemSort != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(elemSort != null);
 
             IntPtr inil = IntPtr.Zero, iisnil = IntPtr.Zero, 
                    icons = IntPtr.Zero, iiscons = IntPtr.Zero,

@@ -154,7 +154,7 @@ namespace realclosure {
 
     struct value {
         unsigned m_ref_count;  //!< Reference counter
-        bool     m_rational;   //!< True if the value is represented as an abitrary precision rational value.
+        bool     m_rational;   //!< True if the value is represented as an arbitrary precision rational value.
         mpbqi    m_interval;   //!< approximation as an interval with binary rational end-points
         // When performing an operation OP, we may have to make the width (upper - lower) of m_interval very small.
         // The precision (i.e., a small interval) needed for executing OP is usually unnecessary for subsequent operations,
@@ -162,7 +162,7 @@ namespace realclosure {
         // To cope with this issue, we cache the value m_interval in m_old_interval whenever the width of m_interval is below
         // a give threshold. Then, after finishing OP, we restore the old_interval.
         mpbqi *  m_old_interval;
-        value(bool rat):m_ref_count(0), m_rational(rat), m_old_interval(0) {}
+        value(bool rat):m_ref_count(0), m_rational(rat), m_old_interval(nullptr) {}
         bool is_rational() const { return m_rational; }
         mpbqi const & interval() const { return m_interval; }
         mpbqi & interval() { return m_interval; }
@@ -220,7 +220,7 @@ namespace realclosure {
         mpbqi    m_interval;
         mpbqi *  m_old_interval;
 
-        extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx), m_old_interval(0) {}
+        extension(kind k, unsigned idx):m_ref_count(0), m_kind(k), m_idx(idx), m_old_interval(nullptr) {}
 
         unsigned idx() const { return m_idx; }
         kind knd() const { return static_cast<kind>(m_kind); }
@@ -256,7 +256,7 @@ namespace realclosure {
         unsigned         m_mark:1;   // auxiliary mark used during deletion
         int              m_sign;     // Sign of the polynomial associated with m_q_idx
         sign_condition * m_prev;     // Antecedent
-        sign_condition():m_q_idx(0), m_mark(false), m_sign(0), m_prev(0) {}
+        sign_condition():m_q_idx(0), m_mark(false), m_sign(0), m_prev(nullptr) {}
         sign_condition(unsigned qidx, int sign, sign_condition * prev):m_q_idx(qidx), m_mark(false), m_sign(sign), m_prev(prev) {}
 
         sign_condition * prev() const { return m_prev; }
@@ -283,17 +283,17 @@ namespace realclosure {
     struct algebraic : public extension {
         polynomial   m_p;
         mpbqi        m_iso_interval;
-        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constains more than one root of m_p.
+        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constrains more than one root of m_p.
         unsigned     m_sc_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sc_idx < m_sign_det->m_sign_conditions.size()
         bool         m_depends_on_infinitesimals;  //!< True if the polynomial p depends on infinitesimal extensions.
 
-        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(0), m_sc_idx(0), m_depends_on_infinitesimals(false) {}
+        algebraic(unsigned idx):extension(ALGEBRAIC, idx), m_sign_det(nullptr), m_sc_idx(0), m_depends_on_infinitesimals(false) {}
 
         polynomial const & p() const { return m_p; }
         bool depends_on_infinitesimals() const { return m_depends_on_infinitesimals; }
         sign_det * sdt() const { return m_sign_det; }
         unsigned sc_idx() const { return m_sc_idx; }
-        unsigned num_roots_inside_interval() const { return m_sign_det == 0 ? 1 : m_sign_det->num_roots(); }
+        unsigned num_roots_inside_interval() const { return m_sign_det == nullptr ? 1 : m_sign_det->num_roots(); }
         mpbqi & iso_interval() { return m_iso_interval; }
     };
 
@@ -344,13 +344,13 @@ namespace realclosure {
     // ---------------------------------
 
     struct mk_pi_interval : public mk_interval {
-        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+        void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) override {
             im.pi(k, r);
         }
     };
 
     struct mk_e_interval : public mk_interval {
-        virtual void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) {
+        void operator()(unsigned k, mpqi_manager & im, mpqi_manager::interval & r) override {
             im.e(k, r);
         }
     };
@@ -497,8 +497,8 @@ namespace realclosure {
 
         imp(reslimit& lim, unsynch_mpq_manager & qm, params_ref const & p, small_object_allocator * a):
             m_limit(lim),
-            m_allocator(a == 0 ? alloc(small_object_allocator, "realclosure") : a),
-            m_own_allocator(a == 0),
+            m_allocator(a == nullptr ? alloc(small_object_allocator, "realclosure") : a),
+            m_own_allocator(a == nullptr),
             m_qm(qm),
             m_mm(m_qm, *m_allocator),
             m_bqm(m_qm),
@@ -509,8 +509,8 @@ namespace realclosure {
             mpq one(1);
             m_one = mk_rational(one);
             inc_ref(m_one);
-            m_pi = 0;
-            m_e  = 0;
+            m_pi = nullptr;
+            m_e  = nullptr;
 
             m_exec_depth = 0;
 
@@ -657,7 +657,7 @@ namespace realclosure {
         */
         template<typename T>
         void save_interval(T * v, ptr_vector<T> & to_restore) {
-            if (v->m_old_interval != 0)
+            if (v->m_old_interval != nullptr)
                 return; // interval was already saved.
             to_restore.push_back(v);
             inc_ref(v);
@@ -698,7 +698,7 @@ namespace realclosure {
                 set_interval(v->m_interval, *(v->m_old_interval));
                 bqim().del(*(v->m_old_interval));
                 allocator().deallocate(sizeof(mpbqi), v->m_old_interval);
-                v->m_old_interval = 0;
+                v->m_old_interval = nullptr;
                 dec_ref(v);
             }
             to_restore.reset();
@@ -811,12 +811,12 @@ namespace realclosure {
         }
 
         void inc_ref_sign_det(sign_det * sd) {
-            if (sd != 0)
+            if (sd != nullptr)
                 sd->m_ref_count++;
         }
 
         void dec_ref_sign_det(sign_det * sd) {
-            if (sd != 0) {
+            if (sd != nullptr) {
                 sd->m_ref_count--;
                 if (sd->m_ref_count == 0) {
                     del_sign_det(sd);
@@ -887,7 +887,7 @@ namespace realclosure {
 
         void del(numeral & a) {
             dec_ref(a.m_value);
-            a.m_value = 0;
+            a.m_value = nullptr;
         }
 
         void del(numeral_vector & v) {
@@ -910,7 +910,7 @@ namespace realclosure {
            \brief Return true if v is zero.
         */
         static bool is_zero(value * v) {
-            return v == 0;
+            return v == nullptr;
         }
 
         /**
@@ -1260,14 +1260,14 @@ namespace realclosure {
         }
 
         rational_function_value * mk_rational_function_value_core(algebraic * ext, unsigned num_sz, value * const * num) {
-            return mk_rational_function_value_core(ext, num_sz, num, 0, 0);
+            return mk_rational_function_value_core(ext, num_sz, num, 0, nullptr);
         }
 
         /**
            \brief Create a value using the given extension.
         */
         rational_function_value * mk_rational_function_value(extension * ext) {
-            value * num[2] = { 0, one() };
+            value * num[2] = { nullptr, one() };
             value * den[1] = { one() };
             rational_function_value * v = mk_rational_function_value_core(ext, 2, num, 1, den);
             set_interval(v->interval(), ext->interval());
@@ -1741,7 +1741,7 @@ namespace realclosure {
            \brief In the sign determination algorithm main loop, we keep processing polynomials q,
            and checking whether they discriminate the roots of the target polynomial.
 
-           The vectors sc_cardinalities contains the cardinalites of the new realizable sign conditions.
+           The vectors sc_cardinalities contains the cardinalities of the new realizable sign conditions.
            That is, we started we a sequence of sign conditions
                      sc_1, ..., sc_n,
            If q2_used is true, then we expanded this sequence as
@@ -1750,7 +1750,7 @@ namespace realclosure {
 
            Thus, q is useful (i.e., it is a discriminator for the roots of p) IF
                 If !q2_used,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
-                If q2_used,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+                If q2_used,    then There is an i s.t. AtLeastTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
         */
         bool keep_new_sc_assignment(unsigned sz, int const * sc_cardinalities, bool q2_used) {
             SASSERT(q2_used  || sz % 2 == 0);
@@ -1838,7 +1838,7 @@ namespace realclosure {
            interval contains only one root of p.
         */
         void add_root(unsigned p_sz, value * const * p, mpbqi const & interval, mpbqi const & iso_interval, numeral_vector & roots) {
-            add_root(p_sz, p, interval, iso_interval, 0, UINT_MAX, roots);
+            add_root(p_sz, p, interval, iso_interval, nullptr, UINT_MAX, roots);
         }
 
         /**
@@ -1965,7 +1965,7 @@ namespace realclosure {
             // Sequence of sign conditions associated with the columns of M_s
             // These are sign conditions on the polynomials in qs.
             scoped_sign_conditions scs(*this);
-            scs.push_back(0);
+            scs.push_back(nullptr);
 
             // Starting configuration
             //
@@ -2038,7 +2038,7 @@ namespace realclosure {
                 // We should keep q only if it discriminated something.
                 // That is,
                 //   If !use_q2,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
-                //   If use_q2,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+                //   If use_q2,    then There is an i s.t. AtLeastTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
                 if (!keep_new_sc_assignment(sc_cardinalities.size(), sc_cardinalities.c_ptr(), use_q2)) {
                     // skip q since it did not reduced the cardinality of the existing sign conditions.
                     continue;
@@ -2322,7 +2322,7 @@ namespace realclosure {
 
             if (num_neg_roots > 0) {
                 if (num_neg_roots == 1) {
-                    add_root(n, p, neg_interval, minf_zero, 0, UINT_MAX, roots);
+                    add_root(n, p, neg_interval, minf_zero, nullptr, UINT_MAX, roots);
                 }
                 else {
                     if (has_neg_lower) {
@@ -2336,7 +2336,7 @@ namespace realclosure {
 
             if (num_pos_roots > 0) {
                 if (num_pos_roots == 1) {
-                    add_root(n, p, pos_interval, zero_inf, 0, UINT_MAX, roots);
+                    add_root(n, p, pos_interval, zero_inf, nullptr, UINT_MAX, roots);
                 }
                 else {
                     if (has_pos_upper) {
@@ -2668,7 +2668,7 @@ namespace realclosure {
            \brief Remove 0s
         */
         void adjust_size(value_ref_buffer & r) {
-            while (!r.empty() && r.back() == 0) {
+            while (!r.empty() && r.back() == nullptr) {
                 r.pop_back();
             }
         }
@@ -2753,7 +2753,7 @@ namespace realclosure {
         void mul(value * a, unsigned sz, value * const * p, value_ref_buffer & r) {
             SASSERT(p != r.c_ptr());
             r.reset();
-            if (a == 0)
+            if (a == nullptr)
                 return;
             value_ref a_i(*this);
             for (unsigned i = 0; i < sz; i++) {
@@ -2778,7 +2778,7 @@ namespace realclosure {
             value_ref tmp(*this);
             for (unsigned i = 0; i < sz1; i++) {
                 checkpoint();
-                if (p1[i] == 0)
+                if (p1[i] == nullptr)
                     continue;
                 for (unsigned j = 0; j < sz2; j++) {
                     // r[i+j] <- r[i+j] + p1[i]*p2[j]
@@ -3060,7 +3060,7 @@ namespace realclosure {
         bool struct_eq(value * a, value * b) const {
             if (a == b)
                 return true;
-            else if (a == 0 || b == 0)
+            else if (a == nullptr || b == nullptr)
                 return false;
             else if (is_nz_rational(a) && is_nz_rational(b))
                 return qm().eq(to_mpq(a), to_mpq(b));
@@ -3112,7 +3112,7 @@ namespace realclosure {
            - a is a rational_function_value of the form p_a(x)/1 where the coefficients of p_a also have clean denominators.
         */
         bool has_clean_denominators(value * a) const {
-            if (a == 0)
+            if (a == nullptr)
                 return true;
             else if (is_nz_rational(a))
                 return qm().is_int(to_mpq(a));
@@ -3150,7 +3150,7 @@ namespace realclosure {
             INC_DEPTH();
             TRACE("rcf_clean", tout << "clean_denominators_core [" << m_exec_depth << "]\na: "; display(tout, a, false); tout << "\n";);
             p.reset(); q.reset();
-            if (a == 0) {
+            if (a == nullptr) {
                 p = a;
                 q = one();
             }
@@ -3205,8 +3205,8 @@ namespace realclosure {
                     dens.push_back(a_d);
                 }
                 else {
-                    nums.push_back(0);
-                    dens.push_back(0);
+                    nums.push_back(nullptr);
+                    dens.push_back(nullptr);
                 }
             }
             if (all_one) {
@@ -3258,7 +3258,7 @@ namespace realclosure {
                 value_ref m(*this);
                 for (unsigned i = 0; i < p_sz; i++) {
                     if (!nums[i]) {
-                        norm_p.push_back(0);
+                        norm_p.push_back(nullptr);
                     }
                     else {
                         SASSERT(dens[i]);
@@ -3348,7 +3348,7 @@ namespace realclosure {
            If g != 0, then it will compute the gcd of g and the coefficients in a.
         */
         bool gcd_int_coeffs(value * a, mpz & g) {
-            if (a == 0) {
+            if (a == nullptr) {
                 return false;
             }
             else if (is_nz_rational(a)) {
@@ -3410,7 +3410,7 @@ namespace realclosure {
                 for (unsigned i = 0; i < p.size(); i++) {
                     if (p[i]) {
                         a = p[i];
-                        p.set(i, 0);
+                        p.set(i, nullptr);
                         exact_div_z(a, g);
                         p.set(i, a);
                     }
@@ -3448,7 +3448,7 @@ namespace realclosure {
                         new_ais.push_back(ai);
                     }
                     else {
-                        new_ais.push_back(0);
+                        new_ais.push_back(nullptr);
                     }
                 }
                 rational_function_value * r = mk_rational_function_value_core(rf->ext(), new_ais.size(), new_ais.c_ptr(), 1, &m_one);
@@ -3466,11 +3466,11 @@ namespace realclosure {
         // ---------------------------------
 
         bool is_monic(value_ref_buffer const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         bool is_monic(polynomial const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         /**
@@ -3759,7 +3759,7 @@ namespace realclosure {
             while (i > 0) {
                 checkpoint();
                 --i;
-                if (p[i] != 0)
+                if (p[i] != nullptr)
                     bqim().add(r, interval(p[i]), r);
                 if (i > 0)
                     bqim().mul(r, bi, r);
@@ -3772,7 +3772,7 @@ namespace realclosure {
         */
         bool has_refineable_approx_coeffs(unsigned n, value * const * p) {
             for (unsigned i = 0; i < n; i++) {
-                if (p[i] != 0) {
+                if (p[i] != nullptr) {
                     mpbqi & a_i = interval(p[i]);
                     if (a_i.lower_is_inf() || a_i.upper_is_inf())
                         return false;
@@ -3786,7 +3786,7 @@ namespace realclosure {
         */
         void mk_polynomial_value(unsigned n, value * const * p, value * b, value_ref & r) {
             SASSERT(n > 0);
-            if (n == 1 || b == 0) {
+            if (n == 1 || b == nullptr) {
                 r = p[0];
             }
             else {
@@ -3798,7 +3798,7 @@ namespace realclosure {
                 unsigned i = n - 1;
                 while (i > 0) {
                     --i;
-                    if (p[i] != 0)
+                    if (p[i] != nullptr)
                         add(r, p[i], r); // r <- r + a_i
                     if (i > 0)
                         mul(r, b, r); // r <- r * b
@@ -3856,7 +3856,7 @@ namespace realclosure {
         int find_biggest_interval_magnitude(unsigned n, value * const * p) {
             int r = INT_MIN;
             for (unsigned i = 0; i < n; i++) {
-                if (p[i] != 0) {
+                if (p[i] != nullptr) {
                     mpbqi & a_i = interval(p[i]);
                     SASSERT(!a_i.lower_is_inf() && !a_i.upper_is_inf());
                     int m = magnitude(a_i);
@@ -4089,7 +4089,7 @@ namespace realclosure {
         */
         bool refine_coeffs_interval(unsigned n, value * const * p, unsigned prec) {
             for (unsigned i = 0; i < n; i++) {
-                if (p[i] != 0 && !refine_interval(p[i], prec))
+                if (p[i] != nullptr && !refine_interval(p[i], prec))
                     return false;
             }
             return true;
@@ -4243,7 +4243,7 @@ namespace realclosure {
 
         bool refine_algebraic_interval(algebraic * a, unsigned prec) {
             save_interval_if_too_small(a, prec);
-            if (a->sdt() != 0) {
+            if (a->sdt() != nullptr) {
                 // We don't bisect the interval, since it contains more than one root.
                 // To bisect this kind of interval we would have to use Tarski queries.
                 return false;
@@ -4790,7 +4790,7 @@ namespace realclosure {
 
         /**
            \brief Determine the sign of the new rational function value.
-           The idea is to keep refinining the interval until interval of v does not contain 0.
+           The idea is to keep refining the interval until interval of v does not contain 0.
            After a couple of steps we switch to expensive sign determination procedure.
 
            Return false if v is actually zero.
@@ -4941,7 +4941,7 @@ namespace realclosure {
                 }
                 else {
                     // The new value is 0
-                    r = 0;
+                    r = nullptr;
                 }
             }
         }
@@ -4979,7 +4979,7 @@ namespace realclosure {
                 // num <- a + b * ad
                 add(an.size(), an.c_ptr(), b_ad.size(), b_ad.c_ptr(), num);
                 if (num.empty())
-                    r = 0;
+                    r = nullptr;
                 else {
                     value_ref_buffer new_num(*this);
                     value_ref_buffer new_den(*this);
@@ -5003,7 +5003,7 @@ namespace realclosure {
             value_ref_buffer new_num(*this);
             add(an.size(), an.c_ptr(), bn.size(), bn.c_ptr(), new_num);
             if (new_num.empty())
-                r = 0;
+                r = nullptr;
             else {
                 // We don't need to invoke normalize_algebraic even if x (== a->ext()) is algebraic.
                 // Reason: by construction the polynomials a->num() and b->num() are "normalized".
@@ -5035,7 +5035,7 @@ namespace realclosure {
                 value_ref_buffer num(*this);
                 add(an_bd.size(), an_bd.c_ptr(), bn_ad.size(), bn_ad.c_ptr(), num);
                 if (num.empty()) {
-                    r = 0;
+                    r = nullptr;
                 }
                 else {
                     value_ref_buffer den(*this);
@@ -5050,17 +5050,17 @@ namespace realclosure {
         }
 
         void add(value * a, value * b, value_ref & r) {
-            if (a == 0) {
+            if (a == nullptr) {
                 r = b;
             }
-            else if (b == 0) {
+            else if (b == nullptr) {
                 r = a;
             }
             else if (is_nz_rational(a) && is_nz_rational(b)) {
                 scoped_mpq v(qm());
                 qm().add(to_mpq(a), to_mpq(b), v);
                 if (qm().is_zero(v))
-                    r = 0;
+                    r = nullptr;
                 else
                     r = mk_rational_and_swap(v);
             }
@@ -5079,17 +5079,17 @@ namespace realclosure {
         }
 
         void sub(value * a, value * b, value_ref & r) {
-            if (a == 0) {
+            if (a == nullptr) {
                 neg(b, r);
             }
-            else if (b == 0) {
+            else if (b == nullptr) {
                 r = a;
             }
             else if (is_nz_rational(a) && is_nz_rational(b)) {
                 scoped_mpq v(qm());
                 qm().sub(to_mpq(a), to_mpq(b), v);
                 if (qm().is_zero(v))
-                    r = 0;
+                    r = nullptr;
                 else
                     r = mk_rational_and_swap(v);
             }
@@ -5118,8 +5118,8 @@ namespace realclosure {
         }
 
         void neg(value * a, value_ref & r) {
-            if (a == 0) {
-                r = 0;
+            if (a == nullptr) {
+                r = nullptr;
             }
             else if (is_nz_rational(a)) {
                 scoped_mpq v(qm());
@@ -5155,7 +5155,7 @@ namespace realclosure {
                 }
                 else {
                     // The new value is 0
-                    r = 0;
+                    r = nullptr;
                 }
             }
         }
@@ -5252,8 +5252,8 @@ namespace realclosure {
         }
 
         void mul(value * a, value * b, value_ref & r) {
-            if (a == 0 || b == 0) {
-                r = 0;
+            if (a == nullptr || b == nullptr) {
+                r = nullptr;
             }
             else if (is_rational_one(a)) {
                 r = b;
@@ -5287,10 +5287,10 @@ namespace realclosure {
         }
 
         void div(value * a, value * b, value_ref & r) {
-            if (a == 0) {
-                r = 0;
+            if (a == nullptr) {
+                r = nullptr;
             }
-            else if (b == 0) {
+            else if (b == nullptr) {
                 throw exception("division by zero");
             }
             else if (is_rational_one(b)) {
@@ -5461,7 +5461,7 @@ namespace realclosure {
                     // r == 1/inv(new_a)
                     inv(new_a, r);
                 }
-                else if (alpha->sdt() == 0) {
+                else if (alpha->sdt() == nullptr) {
                     // Another easy case: we just have to replace
                     //    alpha->p() with new_p.
                     // The m_iso_interval for p() is also an isolating interval for new_p,
@@ -5474,7 +5474,7 @@ namespace realclosure {
                 }
                 else {
                     // Let sdt be alpha->sdt();
-                    // In pricipal, the signs of the polynomials sdt->qs can be used
+                    // In principal, the signs of the polynomials sdt->qs can be used
                     // to discriminate the roots of new_p. The signs of this polynomials
                     // depend only on alpha, and not on the polynomial used to define alpha
                     // So, in principle, we can reuse m_qs and m_sign_conditions.
@@ -5552,7 +5552,7 @@ namespace realclosure {
         }
 
         void inv(value * a, value_ref & r) {
-            if (a == 0) {
+            if (a == nullptr) {
                 throw exception("division by zero");
             }
             if (is_nz_rational(a)) {
@@ -5644,7 +5644,7 @@ namespace realclosure {
             neg(a.m_value, neg_a);
             p.push_back(neg_a);
             for (unsigned i = 0; i < k - 1; i++)
-                p.push_back(0);
+                p.push_back(nullptr);
             p.push_back(one());
 
             numeral_vector roots;
@@ -5687,9 +5687,9 @@ namespace realclosure {
         // ---------------------------------
 
         int compare(value * a, value * b) {
-            if (a == 0)
+            if (a == nullptr)
                 return -sign(b);
-            else if (b == 0)
+            else if (b == nullptr)
                 return sign(a);
             else if (is_nz_rational(a) && is_nz_rational(b)) {
                 if (qm().eq(to_mpq(a), to_mpq(b)))
@@ -5744,7 +5744,7 @@ namespace realclosure {
             }
 
             void mark(value * v) {
-                if (v == 0 || is_nz_rational(v))
+                if (v == nullptr || is_nz_rational(v))
                     return;
                 rational_function_value * rf = to_rational_function(v);
                 mark(rf->ext());
@@ -5779,7 +5779,7 @@ namespace realclosure {
             bool first = true;
             while (i > 0) {
                 --i;
-                if (p[i] == 0)
+                if (p[i] == nullptr)
                     continue;
                 if (first)
                     first = false;
@@ -5893,7 +5893,7 @@ namespace realclosure {
             out << ", ";
             display_interval(out, a->iso_interval(), pp);
             out << ", ";
-            if (a->sdt() != 0)
+            if (a->sdt() != nullptr)
                 display_sign_conditions(out, a->sdt()->sc(a->sc_idx()), a->sdt()->qs(), compact, pp);
             else
                 out << "{}";
@@ -5931,7 +5931,7 @@ namespace realclosure {
         }
 
         void display(std::ostream & out, value * v, bool compact, bool pp=false) const {
-            if (v == 0)
+            if (v == nullptr)
                 out << "0";
             else if (is_nz_rational(v))
                 qm().display(out, to_mpq(v));

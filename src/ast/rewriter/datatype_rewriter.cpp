@@ -23,6 +23,9 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
     switch(f->get_decl_kind()) {
     case OP_DT_CONSTRUCTOR: return BR_FAILED;
     case OP_DT_RECOGNISER:
+        SASSERT(num_args == 1);
+        result = m_util.mk_is(m_util.get_recognizer_constructor(f), args[0]);
+        return BR_REWRITE1;
     case OP_DT_IS:
         //
         // simplify is_cons(cons(x,y)) -> true
@@ -121,7 +124,7 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     //   (= (+ c5 a5) b5)                    <<< NOT SIMPLIFIED WITH RESPECT TO ARITHMETIC
     //   (= (cons a6 nil) (cons b6 nil)))    <<< NOT SIMPLIFIED WITH RESPECT TO DATATYPE theory
     //
-    // Note that asserted_formulas::reduce() applied the simplier many times.
+    // Note that asserted_formulas::reduce() applied the simplifier many times.
     // After the first simplification step we had:
     //  (= a1 b1)
     //  (= (cons a2 (cons a3 (cons (+ a4 1) (cons (+ a5 c5) (cons a6 nil))))))

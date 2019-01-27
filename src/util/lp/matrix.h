@@ -17,7 +17,6 @@ Revision History:
 
 
 --*/
-#ifdef Z3DEBUG
 #pragma once
 #include "util/lp/numeric_pair.h"
 #include "util/vector.h"
@@ -49,11 +48,24 @@ void apply_to_vector(matrix<T, X> & m, T * w);
 
 
 unsigned get_width_of_column(unsigned j, vector<vector<std::string>> & A);
-void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> & ws, std::ostream & out);
-void print_string_matrix(vector<vector<std::string>> & A);
+void print_matrix_with_widths(vector<vector<std::string>> & A, vector<unsigned> & ws, std::ostream & out, unsigned blanks = 0);
+void print_string_matrix(vector<vector<std::string>> & A, std::ostream &, unsigned blanks_in_front = 0);
 
 template <typename T, typename X>
 void print_matrix(matrix<T, X> const * m, std::ostream & out);
 
+
+template <typename T>
+void print_matrix(const vector<vector<T>> & A, std::ostream & out, unsigned blanks_in_front = 0) {
+    vector<vector<std::string>> s(A.size());
+    for (unsigned i = 0; i < A.size(); i++) {
+        for (const auto & v : A[i]) {
+            s[i].push_back(T_to_string(v));
+        }
+    }
+
+    print_string_matrix(s, out, blanks_in_front);
 }
-#endif
+
+
+}

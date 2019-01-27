@@ -41,7 +41,7 @@ Revision History:
 #include "muz/spacer/spacer_mev_array.h"
 #include "muz/spacer/spacer_qe_project.h"
 
-namespace
+namespace spacer_qe
 {
 bool is_partial_eq (app* a);
 
@@ -186,18 +186,18 @@ bool is_partial_eq (app* a) {
 }
 
 
-namespace qe {
+namespace spacer_qe {
 
     class is_relevant_default : public i_expr_pred {
     public:
-        bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return true;
         }
     };
 
-    class mk_atom_default : public i_nnf_atom {
+    class mk_atom_default : public qe::i_nnf_atom {
     public:
-        virtual void operator()(expr* e, bool pol, expr_ref& result) {
+        void operator()(expr* e, bool pol, expr_ref& result) override {
             if (pol) result = e;
             else result = result.get_manager().mk_not(e);
         }
@@ -378,7 +378,7 @@ namespace qe {
                             rational r;
                             cx = mk_mul (c, m_var->x());
                             cxt = mk_add (cx, t);
-                            VERIFY(mdl.eval(cxt, val, true));
+                            val = mdl(cxt);
                             VERIFY(a.is_numeral(val, r));
                             SASSERT (r > rational::zero () || r < rational::zero ());
                             if (r > rational::zero ()) {
@@ -464,8 +464,7 @@ namespace qe {
             m_strict.reset();
             m_eq.reset ();
 
-            expr_ref var_val (m);
-            VERIFY (mdl.eval (m_var->x(), var_val, true));
+            expr_ref var_val = mdl(m_var->x());
 
             unsigned eq_idx = lits.size ();
             for (unsigned i = 0; i < lits.size(); ++i) {
@@ -492,7 +491,7 @@ namespace qe {
                     rational r;
                     cx = mk_mul (c, m_var->x());
                     cxt = mk_add (cx, t);
-                    VERIFY(mdl.eval(cxt, val, true));
+                    val = mdl(cxt);
                     VERIFY(a.is_numeral(val, r));
 
                     if (is_eq) {
@@ -595,7 +594,7 @@ namespace qe {
                     // c*x + t = 0  <=>  x = -t/c
                     expr_ref eq_term (mk_mul (-(rational::one ()/m_coeffs[eq_idx]), m_terms.get (eq_idx)), m);
                     m_rw (eq_term);
-                    map.insert (m_var->x (), eq_term, 0);
+                    map.insert (m_var->x (), eq_term, nullptr);
                     TRACE ("qe",
                             tout << "Using equality term: " << mk_pp (eq_term, m) << "\n";
                           );
@@ -680,7 +679,7 @@ namespace qe {
                     } else {
                         new_lit = m.mk_true ();
                     }
-                    map.insert (m_lits.get (i), new_lit, 0);
+                    map.insert (m_lits.get (i), new_lit, nullptr);
                     TRACE ("qe",
                             tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                             tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -722,7 +721,7 @@ namespace qe {
                     } else {
                         new_lit = m.mk_true ();
                     }
-                    map.insert (m_lits.get (i), new_lit, 0);
+                    map.insert (m_lits.get (i), new_lit, nullptr);
                     TRACE ("qe",
                             tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                             tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -738,7 +737,7 @@ namespace qe {
                 rational r;
                 cx = mk_mul (m_coeffs[max_t], m_var->x());
                 cxt = mk_add (cx, m_terms.get (max_t));
-                VERIFY(mdl.eval(cxt, val, true));
+                val = mdl(cxt);
                 VERIFY(a.is_numeral(val, r));
 
                 // get the offset from the smallest/largest possible value for x
@@ -796,13 +795,13 @@ namespace qe {
 
             // evaluate x in mdl
             rational r_x;
-            VERIFY(mdl.eval(m_var->x (), val, true));
+            val = mdl(m_var->x ());
             VERIFY(a.is_numeral (val, r_x));
 
             for (unsigned i = 0; i < m_terms.size(); ++i) {
                 rational const& ac = m_coeffs[i];
                 if (!m_eq[i] && ac.is_pos() == do_pos) {
-                    VERIFY(mdl.eval(m_terms.get (i), val, true));
+                    val = mdl(m_terms.get (i));
                     VERIFY(a.is_numeral(val, r));
                     r /= abs(ac);
                     // skip the literal if false in the model
@@ -932,7 +931,7 @@ namespace qe {
                     if (!all_done) continue;
                     // all args so far have been processed
                     // get the correct arg to use
-                    proof* pr = 0; expr* new_arg = 0;
+                    proof* pr = nullptr; expr* new_arg = nullptr;
                     factored_terms.get (old_arg, new_arg, pr);
                     if (new_arg) {
                         // changed
@@ -955,8 +954,7 @@ namespace qe {
                         new_var = m.mk_fresh_const ("mod_var", d->get_range ());
                         eqs.push_back (m.mk_eq (new_var, new_term));
                         // obtain value of new_term in mdl
-                        expr_ref val (m);
-                        mdl.eval (new_term, val, true);
+                        expr_ref val = mdl(new_term);
                         // use the variable from now on
                         new_term = new_var;
                         changed = true;
@@ -965,7 +963,7 @@ namespace qe {
                         mdl.register_decl (new_var->get_decl (), val);
                     }
                     if (changed) {
-                        factored_terms.insert (e, new_term, 0);
+                        factored_terms.insert (e, new_term, nullptr);
                     }
                     done.mark (e, true);
                     todo.pop_back ();
@@ -973,7 +971,7 @@ namespace qe {
             }
 
             // mk new fml
-            proof* pr = 0; expr* new_fml = 0;
+            proof* pr = nullptr; expr* new_fml = nullptr;
             factored_terms.get (fml, new_fml, pr);
             if (new_fml) {
                 fml = new_fml;
@@ -994,9 +992,9 @@ namespace qe {
          * the divisibility atom is a special mod term ((t1-t2) % num == 0)
          */
         void mod2div (expr_ref& fml, expr_map& map) {
-            expr* new_fml = 0;
+            expr* new_fml = nullptr;
 
-            proof *pr = 0;
+            proof *pr = nullptr;
             map.get (fml, new_fml, pr);
             if (new_fml) {
                 fml = new_fml;
@@ -1065,7 +1063,7 @@ namespace qe {
                 new_fml = m.mk_app (a->get_decl (), children.size (), children.c_ptr ());
             }
 
-            map.insert (fml, new_fml, 0);
+            map.insert (fml, new_fml, nullptr);
             fml = new_fml;
         }
 
@@ -1133,7 +1131,7 @@ namespace qe {
                                            z);
                     }
                 }
-                map.insert (m_lits.get (i), new_lit, 0);
+                map.insert (m_lits.get (i), new_lit, nullptr);
                 TRACE ("qe",
                         tout << "Old literal: " << mk_pp (m_lits.get (i), m) << "\n";
                         tout << "New literal: " << mk_pp (new_lit, m) << "\n";
@@ -1145,7 +1143,7 @@ namespace qe {
             expr_substitution sub (m);
             // literals
             for (unsigned i = 0; i < lits.size (); i++) {
-                expr* new_lit = 0; proof* pr = 0;
+                expr* new_lit = nullptr; proof* pr = nullptr;
                 app* old_lit = lits.get (i);
                 map.get (old_lit, new_lit, pr);
                 if (new_lit) {
@@ -1157,7 +1155,7 @@ namespace qe {
                 }
             }
             // substitute for x, if any
-            expr* x_term = 0; proof* pr = 0;
+            expr* x_term = nullptr; proof* pr = nullptr;
             map.get (m_var->x (), x_term, pr);
             if (x_term) {
                 sub.insert (m_var->x (), x_term);
@@ -1292,9 +1290,9 @@ namespace qe {
         model_evaluator_array_util  m_mev;
 
         void reset_v () {
-            m_v = 0;
+            m_v = nullptr;
             m_has_stores_v.reset ();
-            m_subst_term_v = 0;
+            m_subst_term_v = nullptr;
             m_true_sub_v.reset ();
             m_false_sub_v.reset ();
             m_aux_lits_v.reset ();
@@ -1302,7 +1300,7 @@ namespace qe {
         }
 
         void reset () {
-            M = 0;
+            M = nullptr;
             reset_v ();
             m_aux_vars.reset ();
         }
@@ -1393,7 +1391,7 @@ namespace qe {
                         todo.push_back (to_app (arg));
                     }
                     else if (all_done) { // all done so far..
-                        expr* arg_new = 0; proof* pr;
+                        expr* arg_new = nullptr; proof* pr;
                         sel_cache.get (arg, arg_new, pr);
                         if (!arg_new) {
                             arg_new = arg;
@@ -1413,7 +1411,7 @@ namespace qe {
                     app_ref val_const (m.mk_fresh_const ("sel", val_sort), m);
                     m_aux_vars.push_back (val_const);
                     // extend M to include val_const
-                    expr_ref val (m);
+                    expr_ref val(m);
                     m_mev.eval (*M, a_new, val);
                     M->register_decl (val_const->get_decl (), val);
                     // add equality
@@ -1423,12 +1421,12 @@ namespace qe {
                 }
 
                 if (a != a_new) {
-                    sel_cache.insert (a, a_new, 0);
+                    sel_cache.insert (a, a_new, nullptr);
                     pinned.push_back (a_new);
                 }
                 done.mark (a, true);
             }
-            expr* res = 0; proof* pr;
+            expr* res = nullptr; proof* pr;
             sel_cache.get (fml, res, pr);
             if (res) {
                 fml = to_app (res);
@@ -1478,7 +1476,7 @@ namespace qe {
 
         void find_subst_term (app* eq) {
             app_ref p_exp (m);
-            mk_peq (eq->get_arg (0), eq->get_arg (1), 0, 0, p_exp);
+            mk_peq (eq->get_arg (0), eq->get_arg (1), 0, nullptr, p_exp);
             bool subst_eq_found = false;
             while (true) {
                 TRACE ("qe",
@@ -1672,7 +1670,7 @@ namespace qe {
                 expr* rhs = eq->get_arg (1);
                 bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
                 bool rhs_has_v = (rhs == m_v || m_has_stores_v.is_marked (rhs));
-                app* store = 0;
+                app* store = nullptr;
 
                 SASSERT (lhs_has_v || rhs_has_v);
 
@@ -1829,7 +1827,7 @@ namespace qe {
             m_cache.reset ();
             m_pinned.reset ();
             m_idx_lits.reset ();
-            M = 0;
+            M = nullptr;
             m_arr_test.reset ();
             m_has_stores.reset ();
             m_reduce_all_selects = false;
@@ -1864,7 +1862,7 @@ namespace qe {
         bool reduce (expr_ref& e) {
             if (!is_app (e)) return true;
 
-            expr *r = 0;
+            expr *r = nullptr;
             if (m_cache.find (e, r)) {
                 e = r;
                 return true;
@@ -1882,7 +1880,7 @@ namespace qe {
 
                 for (unsigned i = 0; i < a->get_num_args (); ++i) {
                     expr *arg = a->get_arg (i);
-                    expr *narg = 0;
+                    expr *narg = nullptr;
 
                     if (!is_app (arg)) args.push_back (arg);
                     else if (m_cache.find (arg, narg)) {
@@ -2025,7 +2023,7 @@ namespace qe {
             m_idx_vals.reset ();
             m_sel_consts.reset ();
             m_idx_lits.reset ();
-            M = 0;
+            M = nullptr;
             m_sub.reset ();
             m_arr_test.reset ();
         }
@@ -2254,7 +2252,7 @@ namespace qe {
     void arith_project(model& mdl, app_ref_vector& vars, expr_ref& fml) {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
-        atom_set pos_lits, neg_lits;
+        qe::atom_set pos_lits, neg_lits;
         is_relevant_default is_relevant;
         mk_atom_default mk_atom;
         get_nnf (fml, is_relevant, mk_atom, pos_lits, neg_lits);
@@ -2264,7 +2262,7 @@ namespace qe {
     void arith_project(model& mdl, app_ref_vector& vars, expr_ref& fml, expr_map& map) {
         ast_manager& m = vars.get_manager();
         arith_project_util ap(m);
-        atom_set pos_lits, neg_lits;
+        qe::atom_set pos_lits, neg_lits;
         is_relevant_default is_relevant;
         mk_atom_default mk_atom;
         get_nnf (fml, is_relevant, mk_atom, pos_lits, neg_lits);

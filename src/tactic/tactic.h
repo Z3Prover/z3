@@ -24,8 +24,6 @@ Notes:
 #include "tactic/goal.h"
 #include "util/params.h"
 #include "util/statistics.h"
-#include "tactic/model_converter.h"
-#include "tactic/proof_converter.h"
 #include "tactic/tactic_exception.h"
 #include "util/lbool.h"
 
@@ -50,19 +48,7 @@ public:
        
        The list of resultant subgoals is stored in \c result.
        The content of \c in may be destroyed during the operation.
-       
-       The resultant model converter \c mc can be used to convert a model for one of the returned subgoals
-       into a model for \in. If mc == 0, then model construction is disabled or any model for a subgoal
-       of \c in is also a model for \c in.
-       If \c result is decided_sat (i.e., it contains a single empty subgoal), then
-       the model converter is just wrapping the model.
-
-       The resultant proof converter \c pc can be used to convert proofs for each subgoal in \c result
-       into a proof for \c in. If pc == 0, then one of the following conditions should hold:
-         1- proof construction is disabled, 
-         2- result contains a single subgoal, and any proof of unsatisfiability for this subgoal is a proof for \c in.
-         3- result is an decided_unsat (i.e., it contains a single unsat subgoal). The actual proof can be extracted from this goal.
-         
+                
        The output parameter \c core is used to accumulate the unsat core of closed subgoals.
        It must be 0 if dependency tracking is disabled, or the result is decided unsat, or 
        no tagged assertions were used to close any subgoal.
@@ -75,11 +61,7 @@ public:
        
        Therefore, in most cases, pc == 0 and core == 0 for non-branching tactics.
     */
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) = 0;
+    virtual void operator()(goal_ref const & in, goal_ref_buffer& result) = 0;
 
     virtual void collect_statistics(statistics & st) const {}
     virtual void reset_statistics() {}
@@ -96,7 +78,6 @@ protected:
     friend class nary_tactical;
     friend class binary_tactical;
     friend class unary_tactical;
-    friend class nl_purify_tactic;
 
 };
 
@@ -119,9 +100,9 @@ void report_tactic_progress(char const * id, unsigned val);
 
 class skip_tactic : public tactic {
 public:
-    virtual void operator()(goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
-    virtual void cleanup() {}
-    virtual tactic * translate(ast_manager & m) { return this; }
+    void operator()(goal_ref const & in, goal_ref_buffer& result) override;
+    void cleanup() override {}
+    tactic * translate(ast_manager & m) override { return this; } 
 };
 
 tactic * mk_skip_tactic();
@@ -137,22 +118,7 @@ tactic * mk_fail_if_undecided_tactic();
 tactic * mk_report_verbose_tactic(char const * msg, unsigned lvl);
 tactic * mk_trace_tactic(char const * tag);
 
-class tactic_factory {
-public:
-    virtual ~tactic_factory() {}
-    virtual tactic * operator()(ast_manager & m, params_ref const & p) = 0;
-};
-
-#define MK_TACTIC_FACTORY(NAME, CODE)                                           \
-class NAME : public tactic_factory {                                            \
-public:                                                                         \
-    virtual ~NAME() {}                                                          \
-    virtual tactic * operator()(ast_manager & m, params_ref const & p) { CODE } \
-};
-
-#define MK_SIMPLE_TACTIC_FACTORY(NAME, ST)  MK_TACTIC_FACTORY(NAME, return ST;)
-
-void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result, model_converter_ref & mc, proof_converter_ref & pc, expr_dependency_ref & core);
+void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result);
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown);
 
 // Throws an exception if goal \c in requires proof generation.

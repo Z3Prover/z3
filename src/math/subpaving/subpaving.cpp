@@ -38,22 +38,22 @@ namespace subpaving {
         CTX m_ctx;
     public:
         context_wrapper(reslimit& lim, typename CTX::numeral_manager & m, params_ref const & p, small_object_allocator * a):m_ctx(lim, m, p, a) {}
-        virtual ~context_wrapper() {}
-        virtual unsigned num_vars() const { return m_ctx.num_vars(); }
-        virtual var mk_var(bool is_int) { return m_ctx.mk_var(is_int); }
-        virtual bool is_int(var x) const { return m_ctx.is_int(x); }
-        virtual var mk_monomial(unsigned sz, power const * pws) { return m_ctx.mk_monomial(sz, pws); }
-        virtual void inc_ref(ineq * a) { m_ctx.inc_ref(reinterpret_cast<typename CTX::ineq*>(a)); }
-        virtual void dec_ref(ineq * a) { m_ctx.dec_ref(reinterpret_cast<typename CTX::ineq*>(a)); }
-        virtual void add_clause(unsigned sz, ineq * const * atoms) { m_ctx.add_clause(sz, reinterpret_cast<typename CTX::ineq * const *>(atoms)); }
-        virtual void display_constraints(std::ostream & out, bool use_star) const { m_ctx.display_constraints(out, use_star); }
-        virtual void set_display_proc(display_var_proc * p) { m_ctx.set_display_proc(p); }
-        virtual void reset_statistics() { m_ctx.reset_statistics(); }
-        virtual void collect_statistics(statistics & st) const { m_ctx.collect_statistics(st); }
-        virtual void collect_param_descrs(param_descrs & r) { m_ctx.collect_param_descrs(r); }
-        virtual void updt_params(params_ref const & p) { m_ctx.updt_params(p); }
-        virtual void operator()() { m_ctx(); }
-        virtual void display_bounds(std::ostream & out) const { m_ctx.display_bounds(out); }
+        ~context_wrapper() override {}
+        unsigned num_vars() const override { return m_ctx.num_vars(); }
+        var mk_var(bool is_int) override { return m_ctx.mk_var(is_int); }
+        bool is_int(var x) const override { return m_ctx.is_int(x); }
+        var mk_monomial(unsigned sz, power const * pws) override { return m_ctx.mk_monomial(sz, pws); }
+        void inc_ref(ineq * a) override { m_ctx.inc_ref(reinterpret_cast<typename CTX::ineq*>(a)); }
+        void dec_ref(ineq * a) override { m_ctx.dec_ref(reinterpret_cast<typename CTX::ineq*>(a)); }
+        void add_clause(unsigned sz, ineq * const * atoms) override { m_ctx.add_clause(sz, reinterpret_cast<typename CTX::ineq * const *>(atoms)); }
+        void display_constraints(std::ostream & out, bool use_star) const override { m_ctx.display_constraints(out, use_star); }
+        void set_display_proc(display_var_proc * p) override { m_ctx.set_display_proc(p); }
+        void reset_statistics() override { m_ctx.reset_statistics(); }
+        void collect_statistics(statistics & st) const override { m_ctx.collect_statistics(st); }
+        void collect_param_descrs(param_descrs & r) override { m_ctx.collect_param_descrs(r); }
+        void updt_params(params_ref const & p) override { m_ctx.updt_params(p); }
+        void operator()() override { m_ctx(); }
+        void display_bounds(std::ostream & out) const override { m_ctx.display_bounds(out); }
     };
 
     class context_mpq_wrapper : public context_wrapper<context_mpq> {
@@ -66,11 +66,11 @@ namespace subpaving {
             m_as(m) 
         {}
 
-        virtual ~context_mpq_wrapper() {}
+        ~context_mpq_wrapper() override {}
 
-        virtual unsynch_mpq_manager & qm() const { return m_ctx.nm(); }
+        unsynch_mpq_manager & qm() const override { return m_ctx.nm(); }
 
-        virtual var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) {
+        var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             m_as.reserve(sz);
             for (unsigned i = 0; i < sz; i++) {
                 m_ctx.nm().set(m_as[i], as[i]);
@@ -78,7 +78,7 @@ namespace subpaving {
             m_ctx.nm().set(m_c, c);
             return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
         }
-        virtual ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) { 
+        ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) override {
             return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, k, lower, open)); 
         }
     };
@@ -108,11 +108,11 @@ namespace subpaving {
             m_q2(m_qm) {
         }
 
-        virtual ~context_mpf_wrapper() {}
+        ~context_mpf_wrapper() override {}
 
-        virtual unsynch_mpq_manager & qm() const { return m_qm; }
+        unsynch_mpq_manager & qm() const override { return m_qm; }
 
-        virtual var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) {
+        var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
                 for (unsigned i = 0; i < sz; i++) {
@@ -121,11 +121,11 @@ namespace subpaving {
                 int2mpf(c, m_c);
                 return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
-        virtual ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) { 
+        ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) override {
             try {
                 f2n<mpf_manager> & m = m_ctx.nm();
                 if (lower)
@@ -135,7 +135,7 @@ namespace subpaving {
                 m.set(m_c, k);
                 return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -150,12 +150,12 @@ namespace subpaving {
         void int2hwf(mpz const & a, hwf & o) {
             if (!m_qm.is_int64(a))
                 throw subpaving::exception();
-            int64 val   = m_qm.get_int64(a);
+            int64_t val   = m_qm.get_int64(a);
             double dval = static_cast<double>(val);
             m_ctx.nm().set(o, dval);
             double _dval = m_ctx.nm().m().to_double(o);
             // TODO check the following test
-            if (static_cast<int64>(_dval) != val)
+            if (static_cast<int64_t>(_dval) != val)
                 throw subpaving::exception();
         }
         
@@ -165,11 +165,11 @@ namespace subpaving {
             m_qm(qm) {
         }
 
-        virtual ~context_hwf_wrapper() {}
+        ~context_hwf_wrapper() override {}
 
-        virtual unsynch_mpq_manager & qm() const { return m_qm; }
+        unsynch_mpq_manager & qm() const override { return m_qm; }
 
-        virtual var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) {
+        var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
                 for (unsigned i = 0; i < sz; i++) {
@@ -178,11 +178,11 @@ namespace subpaving {
                 int2hwf(c, m_c);
                 return m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
-        virtual ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) { 
+        ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) override {
             try {
                 f2n<hwf_manager> & m = m_ctx.nm();
                 if (lower)
@@ -192,7 +192,7 @@ namespace subpaving {
                 m.set(m_c, k);
                 return reinterpret_cast<ineq*>(m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (f2n<mpf_manager>::exception) {
+            catch (const f2n<mpf_manager>::exception &) {
                 throw subpaving::exception();
             }
         }
@@ -223,11 +223,11 @@ namespace subpaving {
             m_z2(m_qm) {
         }
 
-        virtual ~context_fpoint_wrapper() {}
+        ~context_fpoint_wrapper() override {}
 
-        virtual unsynch_mpq_manager & qm() const { return m_qm; }
+        unsynch_mpq_manager & qm() const override { return m_qm; }
 
-        virtual var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) {
+        var mk_sum(mpz const & c, unsigned sz, mpz const * as, var const * xs) override {
             try {
                 m_as.reserve(sz);
                 for (unsigned i = 0; i < sz; i++) {
@@ -236,12 +236,12 @@ namespace subpaving {
                 int2fpoint(c, m_c);
                 return this->m_ctx.mk_sum(m_c, sz, m_as.c_ptr(), xs);
             }
-            catch (typename context_fpoint::numeral_manager::exception) {
+            catch (const typename context_fpoint::numeral_manager::exception &) {
                 throw subpaving::exception();
             }
         }
         
-        virtual ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) { 
+        ineq * mk_ineq(var x, mpq const & k, bool lower, bool open) override {
             try {
                 typename context_fpoint::numeral_manager & m = this->m_ctx.nm();
                 if (lower)
@@ -251,7 +251,7 @@ namespace subpaving {
                 m.set(m_c, m_qm, k);
                 return reinterpret_cast<ineq*>(this->m_ctx.mk_ineq(x, m_c, lower, open));
             }
-            catch (typename context_fpoint::numeral_manager::exception) {
+            catch (const typename context_fpoint::numeral_manager::exception &) {
                 throw subpaving::exception();
             }
         }

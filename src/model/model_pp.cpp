@@ -31,10 +31,8 @@ static void display_uninterp_sorts(std::ostream & out, model_core const & md) {
         sort * s = md.get_uninterpreted_sort(i);
         out << "(define-sort " << mk_pp(s, m); 
         ptr_vector<expr> const & univ  = md.get_universe(s);
-        ptr_vector<expr>::const_iterator it  = univ.begin();
-        ptr_vector<expr>::const_iterator end = univ.end();
-        for (; it != end; ++it) {
-            out << " " << mk_ismt2_pp(*it, m);
+        for (expr* e : univ) {
+            out << " " << mk_ismt2_pp(e, m);
         }
         out << ")\n";
     }

@@ -25,6 +25,7 @@ Revision History:
 #include "sat/sat_clause.h"
 #include "sat/sat_clause_set.h"
 #include "sat/sat_clause_use_list.h"
+#include "sat/sat_extension.h"
 #include "sat/sat_watched.h"
 #include "sat/sat_model_converter.h"
 #include "util/heap.h"
@@ -39,17 +40,23 @@ namespace sat {
     public:
         void init(unsigned num_vars);
         void insert(clause & c);
+        void block(clause & c);
+        void unblock(clause & c);
         void erase(clause & c);
         void erase(clause & c, literal l);
         clause_use_list & get(literal l) { return m_use_list[l.index()]; }
         clause_use_list const & get(literal l) const { return m_use_list[l.index()]; }
         void finalize() { m_use_list.finalize(); }
+        std::ostream& display(std::ostream& out, literal l) const { return m_use_list[l.index()].display(out); }
     };
 
     class simplifier {
+        friend class ba_solver;
+        friend class elim_vars;
         solver &               s;
         unsigned               m_num_calls;
         use_list               m_use_list;
+        ext_use_list           m_ext_use_list;
         clause_set             m_sub_todo;
         svector<bin_clause>    m_sub_bin_todo;
         unsigned               m_last_sub_trail_sz; // size of the trail since last cleanup
@@ -65,9 +72,17 @@ namespace sat {
         int                    m_elim_counter;
 
         // config
-        bool                   m_elim_blocked_clauses;
-        unsigned               m_elim_blocked_clauses_at;
+        bool                   m_abce; // block clauses using asymmetric added literals
+        bool                   m_cce;  // covered clause elimination
+        bool                   m_acce; // cce with asymmetric literal addition
+        bool                   m_bca;  // blocked (binary) clause addition. 
+        unsigned               m_bce_delay; 
+        bool                   m_bce;  // blocked clause elimination
+        bool                   m_ate;  // asymmetric tautology elimination
+        unsigned               m_bce_at;
+        bool                   m_retain_blocked_clauses;
         unsigned               m_blocked_clause_limit;
+        bool                   m_incremental_mode; 
         bool                   m_resolution;
         unsigned               m_res_limit;
         unsigned               m_res_occ_cutoff;
@@ -83,9 +98,16 @@ namespace sat {
         bool                   m_subsumption;
         unsigned               m_subsumption_limit;
         bool                   m_elim_vars;
+        bool                   m_elim_vars_bdd;
+        unsigned               m_elim_vars_bdd_delay;
 
         // stats
-        unsigned               m_num_blocked_clauses;
+        unsigned               m_num_bce;
+        unsigned               m_num_cce;
+        unsigned               m_num_acce;
+        unsigned               m_num_abce;
+        unsigned               m_num_bca;
+        unsigned               m_num_ate;
         unsigned               m_num_subsumed;
         unsigned               m_num_elim_vars;
         unsigned               m_num_sub_res;
@@ -111,10 +133,9 @@ namespace sat {
 
         void register_clauses(clause_vector & cs);
 
-        void remove_clause_core(clause & c);
         void remove_clause(clause & c);
-        void remove_clause(clause & c, literal l);
-        void remove_bin_clause_half(literal l1, literal l2, bool learned);
+        void set_learned(clause & c);
+        void set_learned(literal l1, literal l2);
 
         bool_var get_min_occ_var(clause const & c) const;
         bool subsumes1(clause const & c1, clause const & c2, literal & l);
@@ -131,20 +152,20 @@ namespace sat {
         void collect_subsumed0(clause const & c1, clause_vector & out);
         void back_subsumption0(clause & c1);
 
-        bool cleanup_clause(clause & c, bool in_use_list);
+        bool cleanup_clause(clause & c);
         bool cleanup_clause(literal_vector & c);
-        void propagate_unit(literal l);
         void elim_lit(clause & c, literal l);
         void elim_dup_bins();
         bool subsume_with_binaries();
         void mark_as_not_learned_core(watch_list & wlist, literal l2);
         void mark_as_not_learned(literal l1, literal l2);
-        void subsume();
 
         void cleanup_watches();
-        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
+        void move_clauses(clause_vector & cs, bool learned);
+        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated);
 
         bool is_external(bool_var v) const;
+        bool is_external(literal l) const { return is_external(l.var()); }
         bool was_eliminated(bool_var v) const;
         lbool value(bool_var v) const;
         lbool value(literal l) const;
@@ -154,7 +175,18 @@ namespace sat {
         struct blocked_clause_elim;
         void elim_blocked_clauses();
 
-        unsigned get_num_non_learned_bin(literal l) const;
+        bool single_threaded() const; // { return s.m_config.m_num_threads == 1; }
+        bool bce_enabled_base() const;
+        bool ate_enabled()  const;
+        bool bce_enabled()  const;
+        bool acce_enabled() const;
+        bool cce_enabled()  const;
+        bool abce_enabled() const;
+        bool bca_enabled()  const;
+        bool elim_vars_bdd_enabled() const;
+        bool elim_vars_enabled() const;
+
+        unsigned num_nonlearned_bin(literal l) const;
         unsigned get_to_elim_cost(bool_var v) const;
         void order_vars_for_elim(bool_var_vector & r);
         void collect_clauses(literal l, clause_wrapper_vector & r);
@@ -185,6 +217,8 @@ namespace sat {
         simplifier(solver & s, params_ref const & p);
         ~simplifier();
 
+        void init_search() { m_num_calls = 0; }
+
         void insert_elim_todo(bool_var v) { m_elim_todo.insert(v); }
 
         void reset_todos() {
@@ -202,6 +236,10 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
+
+        void propagate_unit(literal l);
+        void subsume();
+
     };
 };
 

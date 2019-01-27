@@ -40,6 +40,7 @@ Notes:
 #include "tactic/smtlogics/qfbv_tactic.h"
 #include "solver/tactic2solver.h"
 #include "tactic/bv/bv_bound_chk_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 ///////////////
 
 class qfufbv_ackr_tactic : public tactic {
@@ -51,14 +52,9 @@ public:
         , m_inc_use_sat(false)
     {}
 
-    virtual ~qfufbv_ackr_tactic() { }
+    ~qfufbv_ackr_tactic() override { }
 
-    virtual void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
-        mc = 0;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         ast_manager& m(g->m());
         tactic_report report("qfufbv_ackr", *g);
         fail_if_unsat_core_generation("qfufbv_ackr", g);
@@ -66,7 +62,7 @@ public:
 
         TRACE("qfufbv_ackr_tactic", g->display(tout << "goal:\n"););
         // running implementation
-        expr_ref_vector flas(m);
+        ptr_vector<expr> flas;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
         scoped_ptr<solver> uffree_solver = setup_sat();
@@ -80,27 +76,27 @@ public:
         // report model
         if (g->models_enabled() && (o == l_true)) {
             model_ref abstr_model = imp.get_model();
-            mc = mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model);
+            g->add(mk_qfufbv_ackr_model_converter(m, imp.get_info(), abstr_model));
         }
     }
 
-    void updt_params(params_ref const & _p) {
+    void updt_params(params_ref const & _p) override {
         qfufbv_tactic_params p(_p);
         m_use_sat = p.sat_backend();
         m_inc_use_sat = p.inc_sat_backend();
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         ackermannization_params p(m_p);
         if (!p.eager()) st.update("lackr-its", m_st.m_it);
         st.update("ackr-constraints", m_st.m_ackrs_sz);
     }
 
-    virtual void reset_statistics() { m_st.reset(); }
+    void reset_statistics() override { m_st.reset(); }
 
-    virtual void cleanup() { }
+    void cleanup() override { }
 
-    virtual tactic* translate(ast_manager& m) {
+    tactic* translate(ast_manager& m) override {
         return alloc(qfufbv_ackr_tactic, m, m_p);
     }
 private:
@@ -111,7 +107,7 @@ private:
     bool                                 m_inc_use_sat;
 
     solver* setup_sat() {
-        solver * sat(NULL);
+        solver * sat(nullptr);
         if (m_use_sat) {
             if (m_inc_use_sat) {
                 sat = mk_inc_sat_solver(m_m, m_p);
@@ -125,7 +121,7 @@ private:
             tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);
             sat = mk_tactic2solver(m_m, t.get(), m_p);
         }
-        SASSERT(sat != NULL);
+        SASSERT(sat != nullptr);
         sat->set_produce_models(true);
         return sat;
     }
@@ -162,13 +158,14 @@ static tactic * mk_qfufbv_preamble1(ast_manager & m, params_ref const & p) {
 
 static tactic * mk_qfufbv_preamble(ast_manager & m, params_ref const & p) {
     return and_then(mk_simplify_tactic(m),
-        mk_propagate_values_tactic(m),
-        mk_solve_eqs_tactic(m),
-        mk_elim_uncnstr_tactic(m),
-        if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
-        if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
-        mk_max_bv_sharing_tactic(m)
-        );
+                    mk_propagate_values_tactic(m),
+                    mk_solve_eqs_tactic(m),
+                    mk_elim_uncnstr_tactic(m),
+                    if_no_proofs(if_no_unsat_cores(mk_reduce_args_tactic(m))),
+                    if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
+                    mk_max_bv_sharing_tactic(m),
+                    if_no_proofs(if_no_unsat_cores(mk_ackermannize_bv_tactic(m,p)))
+                    );
 }
 
 tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
@@ -179,7 +176,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * const preamble_st = mk_qfufbv_preamble(m, p);
 
     tactic * st = using_params(and_then(preamble_st,
-        cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic())),
+        cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic(m))),
         main_p);
 
     st->updt_params(p);
@@ -191,5 +188,5 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
     return and_then(preamble_t,
-        cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic()));
+        cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m)));
 }

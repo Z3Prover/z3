@@ -24,7 +24,7 @@ Revision History:
 struct Z3_stats_ref : public api::object {
     statistics m_stats;
     Z3_stats_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_stats_ref() {}
+    ~Z3_stats_ref() override {}
 };
 
 inline Z3_stats_ref * to_stats(Z3_stats s) { return reinterpret_cast<Z3_stats_ref *>(s); }

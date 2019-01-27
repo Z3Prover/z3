@@ -68,7 +68,7 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
 #endif
 
     //    return using_params(or_else(mip,
-    //                            using_params(mk_smt_tactic(), pivot_p)),
+    //                            using_params(mk_smt_tactic(m), pivot_p)),
     //                    p);
 
 #if 0
@@ -82,7 +82,7 @@ tactic * mk_qflra_tactic(ast_manager & m, params_ref const & p) {
                using_params(mk_smt_tactic(), simplex_1), 
                using_params(mk_smt_tactic(), simplex_2));
 #else
-    return using_params(using_params(mk_smt_tactic(), pivot_p), p);
+    return using_params(using_params(mk_smt_tactic(m), pivot_p), p);
 #endif
 
 }

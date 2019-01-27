@@ -29,7 +29,6 @@ enum quick_checker_mode {
 };
 
 struct qi_params {
-    bool               m_qi_ematching;
     std::string        m_qi_cost;
     std::string        m_qi_new_gen;
     double             m_qi_eager_threshold;
@@ -65,14 +64,14 @@ struct qi_params {
           Enodes in the input problem have generation 0.
           
           Some combinations of m_qi_cost and m_qi_new_gen will prevent Z3 from breaking matching loops.
-          For example, the "Weight 0" peformace bug was triggered by the following combination:
+          For example, the "Weight 0" performance bug was triggered by the following combination:
               - m_qi_cost:     (+ weight generation)
               - m_qi_new_gen:  cost
           If a quantifier has weight 0, then the cost of instantiating it with a term in the input problem has cost 0.
           The new enodes created during the instantiation will be tagged with generation = const = 0. So, every enode
           will have generation 0, and consequently every quantifier instantiation will have cost 0.
           
-          Although dangerous, this feature was requested by the Boogie team. In their case, the patterns are carefully constructred,
+          Although dangerous, this feature was requested by the Boogie team. In their case, the patterns are carefully constructed,
           and there are no matching loops. Moreover, the tag some quantifiers with weight 0 to instruct Z3 to never block their instances.
           An example is the select-store axiom. They need this feature to be able to analyze code that contains very long execution paths.
 
@@ -99,7 +98,7 @@ struct qi_params {
         m_mbqi_max_iterations(1000),
         m_mbqi_trace(false),
         m_mbqi_force_template(10),
-        m_mbqi_id(0)  
+        m_mbqi_id(nullptr)
     {
         updt_params(p);
     }

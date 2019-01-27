@@ -30,9 +30,35 @@ Notes:
 namespace smt {
 
     class smt_solver : public solver_na2as {
+
+        struct cuber {
+            smt_solver& m_solver;
+            unsigned    m_round;
+            expr_ref    m_result;
+            cuber(smt_solver& s):
+                m_solver(s),
+                m_round(0),
+                m_result(s.get_manager()) {}
+            expr_ref cube() {
+                switch (m_round) {
+                case 0:
+                    m_result = m_solver.m_context.next_decision();
+                    break;
+                case 1:
+                    m_result = m_solver.get_manager().mk_not(m_result);
+                    break;
+                default:
+                    m_result = m_solver.get_manager().mk_false();
+                    break;
+                }
+                ++m_round;
+                return m_result;
+            }
+        };
+
         smt_params           m_smt_params;
         smt::kernel          m_context;
-        progress_callback  * m_callback;
+        cuber*               m_cuber;
         symbol               m_logic;
         bool                 m_minimizing_core;
         bool                 m_core_extend_patterns;
@@ -45,6 +71,7 @@ namespace smt {
             solver_na2as(m),
             m_smt_params(p),
             m_context(m, m_smt_params),
+            m_cuber(nullptr),
             m_minimizing_core(false),
             m_core_extend_patterns(false),
             m_core_extend_patterns_max_distance(UINT_MAX),
@@ -55,68 +82,91 @@ namespace smt {
             updt_params(p);
         }
 
-        virtual solver * translate(ast_manager & m, params_ref const & p) {
+        solver * translate(ast_manager & m, params_ref const & p) override {
             ast_translation translator(get_manager(), m);
 
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-            for (auto & kv : m_name2assertion) 
-                result->m_name2assertion.insert(translator(kv.m_key),
-                                                translator(kv.m_value));
+
+            if (mc0()) 
+                result->set_model_converter(mc0()->translate(translator));
+
+            for (auto & kv : m_name2assertion) { 
+                expr* val = translator(kv.m_value);
+                expr* t = translator(kv.m_key);
+                result->m_name2assertion.insert(t, val);
+                result->solver_na2as::assert_expr(val, t);
+                m.inc_ref(val);
+            }
 
             return result;
         }
 
-        virtual ~smt_solver() {
+        ~smt_solver() override {
             dec_ref_values(get_manager(), m_name2assertion);
+            dealloc(m_cuber);
         }
 
-        virtual void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
             solver::updt_params(p);
-            m_smt_params.updt_params(p);
-            m_context.updt_params(p);
-            smt_params_helper smth(p);
+            m_smt_params.updt_params(solver::get_params());
+            m_context.updt_params(solver::get_params());
+            smt_params_helper smth(solver::get_params());
             m_core_extend_patterns = smth.core_extend_patterns();
             m_core_extend_patterns_max_distance = smth.core_extend_patterns_max_distance();
             m_core_extend_nonlocal_patterns = smth.core_extend_nonlocal_patterns();
         }
 
-        virtual void collect_param_descrs(param_descrs & r) {
+        params_ref m_params_save;
+        smt_params m_smt_params_save;
+
+        void push_params() override {
+            m_params_save = params_ref();
+            m_params_save.copy(solver::get_params());
+            m_smt_params_save = m_smt_params;
+        }
+
+        void pop_params() override {
+            m_smt_params = m_smt_params_save;
+            solver::reset_params(m_params_save);
+        }
+
+        void collect_param_descrs(param_descrs & r) override {
             m_context.collect_param_descrs(r);
         }
 
-        virtual void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             m_context.collect_statistics(st);
         }
 
-        virtual lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) {
+        lbool get_consequences_core(expr_ref_vector const& assumptions, expr_ref_vector const& vars, expr_ref_vector& conseq) override {
             expr_ref_vector unfixed(m_context.m());
             return m_context.get_consequences(assumptions, vars, conseq, unfixed);
         }
 
-        virtual lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
+        lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override {
             return m_context.find_mutexes(vars, mutexes);
         }
 
-        virtual void assert_expr(expr * t) {
+        void assert_expr_core(expr * t) override {
             m_context.assert_expr(t);
         }
 
-        virtual void assert_expr(expr * t, expr * a) {
+        void assert_expr_core2(expr * t, expr * a) override {
             if (m_name2assertion.contains(a)) {
                 throw default_exception("named assertion defined twice");
             }
-            solver_na2as::assert_expr(t, a);
+            solver_na2as::assert_expr_core2(t, a);
             get_manager().inc_ref(t);
             m_name2assertion.insert(a, t);
         }
 
-        virtual void push_core() {
+        void push_core() override {
             m_context.push();
         }
 
-        virtual void pop_core(unsigned n) {
+        void pop_core(unsigned n) override {
             unsigned cur_sz = m_assumptions.size();
             if (n > 0 && cur_sz > 0) {
                 unsigned lvl = m_scopes.size();
@@ -135,9 +185,14 @@ namespace smt {
             m_context.pop(n);
         }
 
-        virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
             return m_context.check(num_assumptions, assumptions);
+        }
+
+
+        lbool check_sat_cc_core(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
+            return m_context.check(cube, clauses);
         }
 
         struct scoped_minimize_core {
@@ -154,17 +209,17 @@ namespace smt {
             }
         };
 
-        virtual void get_unsat_core(ptr_vector<expr> & r) {
+        void get_unsat_core(expr_ref_vector & r) override {
             unsigned sz = m_context.get_unsat_core_size();
             for (unsigned i = 0; i < sz; i++) {
                 r.push_back(m_context.get_unsat_core_expr(i));
             }
 
-            if (m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
+            if (!m_minimizing_core && smt_params_helper(get_params()).core_minimize()) {
                 scoped_minimize_core scm(*this);
                 mus mus(*this);
                 mus.add_soft(r.size(), r.c_ptr());
-                ptr_vector<expr> r2;
+                expr_ref_vector r2(m);
                 if (l_true == mus.get_mus(r2)) {
                     r.reset();
                     r.append(r2);
@@ -177,42 +232,61 @@ namespace smt {
                 add_nonlocal_pattern_literals_to_core(r);
         }
 
-        virtual void get_model(model_ref & m) {
+        void get_model_core(model_ref & m) override {
             m_context.get_model(m);
         }
 
-        virtual proof * get_proof() {
+        proof * get_proof() override {
             return m_context.get_proof();
         }
 
-        virtual std::string reason_unknown() const {
+        std::string reason_unknown() const override {
             return m_context.last_failure_as_string();
         }
 
-        virtual void set_reason_unknown(char const* msg) {
+        void set_reason_unknown(char const* msg) override {
             m_context.set_reason_unknown(msg);
         }
 
-        virtual void get_labels(svector<symbol> & r) {
+        void get_labels(svector<symbol> & r) override {
             buffer<symbol> tmp;
-            m_context.get_relevant_labels(0, tmp);
+            m_context.get_relevant_labels(nullptr, tmp);
             r.append(tmp.size(), tmp.c_ptr());
         }
 
-        virtual ast_manager & get_manager() const { return m_context.m(); }
+        ast_manager & get_manager() const override { return m_context.m(); }
 
-        virtual void set_progress_callback(progress_callback * callback) {
-            m_callback = callback;
+        void set_progress_callback(progress_callback * callback) override {
             m_context.set_progress_callback(callback);
         }
 
-        virtual unsigned get_num_assertions() const {
+        unsigned get_num_assertions() const override {
             return m_context.size();
         }
 
-        virtual expr * get_assertion(unsigned idx) const {
+        expr * get_assertion(unsigned idx) const override {
             SASSERT(idx < get_num_assertions());
             return m_context.get_formula(idx);
+        }
+
+        expr_ref_vector cube(expr_ref_vector& vars, unsigned cutoff) override {
+            ast_manager& m = get_manager();
+            if (!m_cuber) {
+                m_cuber = alloc(cuber, *this);
+            }
+            expr_ref result = m_cuber->cube();
+            expr_ref_vector lits(m);
+            if (m.is_false(result)) {
+                dealloc(m_cuber);
+                m_cuber = nullptr;
+            }
+            if (m.is_true(result)) {
+                dealloc(m_cuber);
+                m_cuber = nullptr;
+                return lits;
+            }
+            lits.push_back(result);
+            return lits;
         }
 
         struct collect_fds_proc {
@@ -259,7 +333,7 @@ namespace smt {
             for_each_expr(p, visited, e);
         }
 
-        void compute_assrtn_fds(ptr_vector<expr> & core, vector<func_decl_set> & assrtn_fds) {
+        void compute_assrtn_fds(expr_ref_vector & core, vector<func_decl_set> & assrtn_fds) {
             assrtn_fds.resize(m_name2assertion.size());            
             unsigned i = 0;
             for (auto & kv : m_name2assertion) {
@@ -280,7 +354,7 @@ namespace smt {
             return false;
         }
 
-        void add_pattern_literals_to_core(ptr_vector<expr> & core) {
+        void add_pattern_literals_to_core(expr_ref_vector & core) {
             ast_manager & m = get_manager();
             expr_ref_vector new_core_literals(m);
 
@@ -339,7 +413,7 @@ namespace smt {
             for_each_expr(p, visited, e);
         }
 
-        void add_nonlocal_pattern_literals_to_core(ptr_vector<expr> & core) {
+        void add_nonlocal_pattern_literals_to_core(expr_ref_vector & core) {
             ast_manager & m = get_manager();
             for (auto const& kv : m_name2assertion) {
                 expr_ref name(kv.m_key, m);
@@ -351,8 +425,8 @@ namespace smt {
                     collect_body_func_decls(assrtn, body_fds);
 
                     for (func_decl *fd : pattern_fds) {
-                        if (!body_fds.contains(fd)) {
-                            core.insert(name);
+                        if (!body_fds.contains(fd) && !core.contains(name)) {
+                            core.push_back(name);
                             break;
                         }
                     }
@@ -368,7 +442,7 @@ solver * mk_smt_solver(ast_manager & m, params_ref const & p, symbol const & log
 
 class smt_solver_factory : public solver_factory {
 public:
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_smt_solver(m, p, logic);
     }
 };

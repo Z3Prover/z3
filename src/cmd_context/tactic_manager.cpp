@@ -38,13 +38,13 @@ void tactic_manager::insert(probe_info * p) {
 }
 
 tactic_cmd * tactic_manager::find_tactic_cmd(symbol const & s) const {
-    tactic_cmd * c = 0;
+    tactic_cmd * c = nullptr;
     m_name2tactic.find(s, c);
     return c;
 }
 
 probe_info * tactic_manager::find_probe(symbol const & s) const {
-    probe_info * p = 0;
+    probe_info * p = nullptr;
     m_name2probe.find(s, p);
     return p;
 }

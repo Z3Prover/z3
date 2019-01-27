@@ -31,7 +31,7 @@ fpa2bv_rewriter_cfg::fpa2bv_rewriter_cfg(ast_manager & m, fpa2bv_converter & c, 
     m_bindings(m)
 {
     updt_params(p);
-    // We need to make sure that the mananger has the BV plugin loaded.
+    // We need to make sure that the manager has the BV plugin loaded.
     symbol s_bv("bv");
     if (!m_manager.has_plugin(s_bv))
         m_manager.register_plugin(s_bv, alloc(bv_decl_plugin));
@@ -194,6 +194,9 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
                            expr * const * new_no_patterns,
                            expr_ref & result,
                            proof_ref & result_pr) {
+    if (is_lambda(old_q)) {
+        return false;
+    }
     unsigned curr_sz   = m_bindings.size();
     SASSERT(old_q->get_num_decls() <= curr_sz);
     unsigned num_decls = old_q->get_num_decls();
@@ -212,15 +215,21 @@ bool fpa2bv_rewriter_cfg::reduce_quantifier(quantifier * old_q,
             new_decl_names.push_back(symbol(name_buffer.c_str()));
             new_decl_sorts.push_back(m_conv.bu().mk_sort(sbits+ebits));
         }
+        else if (m_conv.is_rm(s)) {
+            name_buffer.reset();
+            name_buffer << n << ".bv";
+            new_decl_names.push_back(symbol(name_buffer.c_str()));
+            new_decl_sorts.push_back(m_conv.bu().mk_sort(3));
+        }
         else {
             new_decl_sorts.push_back(s);
             new_decl_names.push_back(n);
         }
     }
-    result = m().mk_quantifier(old_q->is_forall(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
+    result = m().mk_quantifier(old_q->get_kind(), new_decl_sorts.size(), new_decl_sorts.c_ptr(), new_decl_names.c_ptr(),
                                new_body, old_q->get_weight(), old_q->get_qid(), old_q->get_skid(),
                                old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
-    result_pr = 0;
+    result_pr = nullptr;
     m_bindings.shrink(old_sz);
     TRACE("fpa2bv", tout << "reduce_quantifier[" << old_q->get_depth() << "]: " <<
           mk_ismt2_pp(old_q->get_expr(), m()) << std::endl <<
@@ -245,11 +254,16 @@ bool fpa2bv_rewriter_cfg::reduce_var(var * t, expr_ref & result, proof_ref & res
                                     m_conv.bu().mk_extract(ebits - 1, 0, new_var),
                                     m_conv.bu().mk_extract(sbits+ebits-2, ebits, new_var));
     }
+    else if (m_conv.is_rm(s)) {
+        expr_ref new_var(m());
+        new_var = m().mk_var(t->get_idx(), m_conv.bu().mk_sort(3));
+        new_exp = m_conv.fu().mk_bv2rm(new_var);
+    }
     else
         new_exp = m().mk_var(t->get_idx(), s);
 
     result = new_exp;
-    result_pr = 0;
+    result_pr = nullptr;
     TRACE("fpa2bv", tout << "reduce_var: " << mk_ismt2_pp(t, m()) << " -> " << mk_ismt2_pp(result, m()) << std::endl;);
     return true;
 }

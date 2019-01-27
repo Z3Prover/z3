@@ -32,7 +32,7 @@ namespace format_ns {
         symbol       m_line_break;
         symbol       m_line_break_ext;
         
-        virtual void set_manager(ast_manager * m, family_id id) {
+        void set_manager(ast_manager * m, family_id id) override {
             SASSERT(m->is_format_manager());
             decl_plugin::set_manager(m, id);
             
@@ -42,7 +42,7 @@ namespace format_ns {
         
     public:
         format_decl_plugin():
-            m_format_sort(0),
+            m_format_sort(nullptr),
             m_nil("nil"),
             m_string("string"),
             m_indent("indent"),
@@ -52,24 +52,24 @@ namespace format_ns {
             m_line_break_ext("cr++") {
         }
         
-        virtual ~format_decl_plugin() {}
+        ~format_decl_plugin() override {}
 
-        virtual void finalize() {
+        void finalize() override {
             if (m_format_sort)
                 m_manager->dec_ref(m_format_sort);
         }
 
-        virtual decl_plugin * mk_fresh() {
+        decl_plugin * mk_fresh() override {
             return alloc(format_decl_plugin);
         }
         
-        virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) {
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override {
             SASSERT(k == FORMAT_SORT);
             return m_format_sort;
         }
         
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range) {
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned arity, sort * const * domain, sort * range) override {
             switch (k) {
             case OP_NIL:    
                 return m_manager->mk_func_decl(m_nil, arity, domain, m_format_sort, 
@@ -94,7 +94,7 @@ namespace format_ns {
                 return m_manager->mk_func_decl(m_line_break_ext, arity, domain, m_format_sort, 
                                                func_decl_info(m_family_id, OP_LINE_BREAK_EXT, num_parameters, parameters));
             default:
-                return 0;
+                return nullptr;
             }
         }
     };
@@ -124,8 +124,8 @@ namespace format_ns {
             SASSERT(m_manager.is_format_manager());
         }
         
-        format * visit(var *) { UNREACHABLE(); return 0; }
-        format * visit(quantifier * q, format *, format * const *, format * const *) { UNREACHABLE(); return 0; }
+        format * visit(var *) { UNREACHABLE(); return nullptr; }
+        format * visit(quantifier * q, format *, format * const *, format * const *) { UNREACHABLE(); return nullptr; }
         format * visit(format * n, format * const * children) {
             if (is_app_of(n, m_fid, OP_LINE_BREAK)) 
                 return mk_string(m_manager, " ");
@@ -147,26 +147,18 @@ namespace format_ns {
     format * mk_string(ast_manager & m, char const * str) {
         symbol s(str);
         parameter p(s);
-        return fm(m).mk_app(fid(m), OP_STRING, 1, &p, 0, 0);
+        return fm(m).mk_app(fid(m), OP_STRING, 1, &p, 0, nullptr);
     }
     
     format * mk_int(ast_manager & m, int i) {
-        static char buffer[128];
-#ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "%d", i);
-#else
-        sprintf(buffer, "%d", i);
-#endif
+        char buffer[128];
+        SPRINTF_D(buffer, i);
         return mk_string(m, buffer); 
     }
     
     format * mk_unsigned(ast_manager & m, unsigned u) {
-        static char buffer[128];
-#ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "%u", u);
-#else
-        sprintf(buffer, "%u", u);
-#endif
+        char buffer[128];
+        SPRINTF_U(buffer, u);
         return mk_string(m, buffer); 
     }
     

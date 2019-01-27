@@ -76,7 +76,7 @@ namespace datalog {
             return get_union_decl(m_context);
         }
 
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
         static expr* get_explanation(relation_base const& r);
     };

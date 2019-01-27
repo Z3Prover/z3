@@ -101,14 +101,16 @@ public:
         resize_data(0);
 #if _WINDOWS
         errno_t err = fopen_s(&m_file, fname, "rb");
-        m_ok = (m_file != NULL) && (err == 0);
+        m_ok = (m_file != nullptr) && (err == 0);
 #else
         m_file = fopen(fname, "rb");
-        m_ok = (m_file != NULL);
+        m_ok = (m_file != nullptr);
 #endif
     }
     ~line_reader() {
-        fclose(m_file);
+        if (m_file != nullptr){
+            fclose(m_file);
+        }
     }
 
     bool operator()() { return m_ok; }
@@ -118,7 +120,7 @@ public:
 
        This operation invalidates the line previously retrieved.
 
-       This operatio can be called only if we are not at the end of file.
+       This operation can be called only if we are not at the end of file.
 
        User is free to modify the content of the returned array until the terminating NULL character.
      */
@@ -171,7 +173,7 @@ class char_reader {
 public:
     char_reader(char const* file):
         m_line_reader(file),
-        m_line(0)
+        m_line(nullptr)
     {}
    
     bool operator()() { return m_line_reader(); }
@@ -184,7 +186,7 @@ public:
             m_line = m_line_reader.get_line();
         }
         if (!(m_line[0])) {
-            m_line = 0;
+            m_line = nullptr;
             return '\n';
         }
         char result = m_line[0];
@@ -266,8 +268,8 @@ public:
     }
 
     dlexer():
-        m_input(0),
-        m_reader(0),
+        m_input(nullptr),
+        m_reader(nullptr),
         m_prev_char(0),
         m_curr_char(0),
         m_line(1),
@@ -494,27 +496,27 @@ public:
     {
     }
 
-    virtual bool parse_file(char const * filename) {
+    bool parse_file(char const * filename) override {
         reset();
-        if (filename != 0) {            
+        if (filename != nullptr) {
             set_path(filename);
             char_reader reader(filename);            
             if (!reader()) {
                 get_err() << "ERROR: could not open file '" << filename << "'.\n";
                 return false;
             }
-            return parse_stream(0, &reader);
+            return parse_stream(nullptr, &reader);
         }
         else {
-            return parse_stream(&std::cin, 0);
+            return parse_stream(&std::cin, nullptr);
         }
     }
 
-    virtual bool parse_string(char const * string) {
+    bool parse_string(char const * string) override {
         reset();
         std::string s(string);
         std::istringstream is(s);
-        return parse_stream(&is, 0);
+        return parse_stream(&is, nullptr);
     }
     
 protected:
@@ -701,7 +703,7 @@ protected:
                 if(is_predicate_declaration) {
                     return unexpected(tok, "predicate declaration should not end with '.'");
                 }
-                add_rule(pred, 0, 0, 0);
+                add_rule(pred, 0, nullptr, nullptr);
                 return m_lexer->next_token();
             case TK_LEFT_ARROW:
                 return parse_body(pred);
@@ -777,7 +779,7 @@ protected:
     dtoken parse_infix(dtoken tok1, char const* td, app_ref& pred) {
         symbol td1(td);
         expr_ref v1(m_manager), v2(m_manager);
-        sort* s = 0;
+        sort* s = nullptr;
         dtoken tok2 = m_lexer->next_token();
         if (tok2 != TK_NEQ && tok2 != TK_GT && tok2 != TK_LT && tok2 != TK_EQ) {
             return unexpected(tok2, "built-in infix operator");
@@ -790,12 +792,12 @@ protected:
         symbol td2(td);
 
         if (tok1 == TK_ID) {
-            expr* _v1 = 0;
+            expr* _v1 = nullptr;
             m_vars.find(td1.bare_str(), _v1);
             v1 = _v1;
         }
         if (tok3 == TK_ID) {
-            expr* _v2 = 0;
+            expr* _v2 = nullptr;
             m_vars.find(td2.bare_str(), _v2);
             v2 = _v2;
         }
@@ -842,8 +844,8 @@ protected:
         svector<symbol> arg_names;
         func_decl* f = m_context.try_get_predicate_decl(s);
         tok = parse_args(tok, f, args, arg_names);
-        is_predicate_declaration = f==0;
-        if (f==0) {
+        is_predicate_declaration = f==nullptr;
+        if (f==nullptr) {
             //we're in a declaration
             unsigned arity = args.size();
             ptr_vector<sort> domain;
@@ -874,7 +876,7 @@ protected:
 
     /**
        \brief Parse predicate arguments. If \c f==0, they are arguments of a predicate declaration.
-       If parsing a declaration, argumens names are pushed to the \c arg_names vector.
+       If parsing a declaration, argument names are pushed to the \c arg_names vector.
     */
     dtoken parse_args(dtoken tok, func_decl* f, expr_ref_vector& args, svector<symbol> & arg_names) {
         if (tok != TK_LP) {
@@ -884,7 +886,7 @@ protected:
         tok = m_lexer->next_token();
         while (tok != TK_EOS && tok != TK_ERROR) {
             symbol alias;
-            sort* s = 0;
+            sort* s = nullptr;
 
             if(!f) {
                 //we're in a predicate declaration
@@ -951,7 +953,7 @@ protected:
             symbol data (m_lexer->get_token_data());
             if (is_var(data.bare_str())) {
                 unsigned idx = 0;
-                expr* v = 0;
+                expr* v = nullptr;
                 if (!m_vars.find(data.bare_str(), v)) {
                     idx = m_num_vars++;
                     v = m_manager.mk_var(idx, s);
@@ -979,7 +981,7 @@ protected:
             if(!num.is_uint64()) {
                 return unexpected(tok, "integer expected");
             }
-            uint64 int_num = num.get_uint64();
+            uint64_t int_num = num.get_uint64();
             
             app * numeral = mk_symbol_const(int_num, s);
             args.push_back(numeral);
@@ -1014,7 +1016,7 @@ protected:
         dlexer lexer;
         {
             flet<dlexer*> lexer_let(m_lexer, &lexer);
-            m_lexer->set_stream(0, &stream);
+            m_lexer->set_stream(nullptr, &stream);
             tok = m_lexer->next_token();
             if(parsing_domain) {
                 tok = parse_domains(tok);
@@ -1055,7 +1057,7 @@ protected:
             line.push_back(ch);
             ch = strm.get();
         }
-        return line.size() > 0;
+        return !line.empty();
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {
@@ -1072,7 +1074,7 @@ protected:
         }
     }
 
-    sort * register_finite_sort(symbol name, uint64 domain_size, context::sort_kind k) {
+    sort * register_finite_sort(symbol name, uint64_t domain_size, context::sort_kind k) {
         if(m_sort_dict.contains(name.bare_str())) {
             throw default_exception(default_exception::fmt(), "sort %s already declared", name.bare_str());
         }
@@ -1102,7 +1104,7 @@ protected:
     app* mk_const(symbol const& name, sort* s) {
         app * res;
         if(m_arith.is_int(s)) {
-            uint64 val;
+            uint64_t val;
             if(!string_to_uint64(name.bare_str(), val)) {
                 throw default_exception(default_exception::fmt(), "Invalid integer: \"%s\"", name.bare_str());
             }
@@ -1117,7 +1119,7 @@ protected:
     /**
        \brief Make a constant for DK_SYMBOL sort out of an integer
      */
-    app* mk_symbol_const(uint64 el, sort* s) {
+    app* mk_symbol_const(uint64_t el, sort* s) {
         app * res;
         if(m_arith.is_int(s)) {
             res = m_arith.mk_numeral(rational(el, rational::ui64()), s);
@@ -1128,7 +1130,7 @@ protected:
         }
         return res;
     }
-    app* mk_const(uint64 el, sort* s) {
+    app* mk_const(uint64_t el, sort* s) {
         unsigned idx = m_context.get_constant_number(s, el);
         app * res = m_decl_util.mk_numeral(idx, s);
         return res;
@@ -1137,7 +1139,7 @@ protected:
     table_element mk_table_const(symbol const& name, sort* s) {
         return m_context.get_constant_number(s, name);
     }
-    table_element mk_table_const(uint64 el, sort* s) {
+    table_element mk_table_const(uint64_t el, sort* s) {
         return m_context.get_constant_number(s, el);
     }
 };
@@ -1169,9 +1171,9 @@ protected:
 // -----------------------------------
 
 class wpa_parser_impl : public wpa_parser, dparser {
-    typedef svector<uint64> uint64_vector;
-    typedef hashtable<uint64, uint64_hash, default_eq<uint64> > uint64_set;
-    typedef map<uint64, symbol, uint64_hash, default_eq<uint64> > num2sym;
+    typedef svector<uint64_t> uint64_vector;
+    typedef hashtable<uint64_t, uint64_hash, default_eq<uint64_t> > uint64_set;
+    typedef map<uint64_t, symbol, uint64_hash, default_eq<uint64_t> > num2sym;
     typedef map<symbol, uint64_set*, symbol_hash_proc, symbol_eq_proc> sym2nums;
 
     num2sym m_number_names;
@@ -1186,7 +1188,7 @@ class wpa_parser_impl : public wpa_parser, dparser {
     bool m_use_map_names;
 
     uint64_set& ensure_sort_content(symbol sort_name) {
-        sym2nums::entry * e = m_sort_contents.insert_if_not_there2(sort_name, 0);
+        sym2nums::entry * e = m_sort_contents.insert_if_not_there2(sort_name, nullptr);
         if(!e->get_data().m_value) {
             e->get_data().m_value = alloc(uint64_set);
         }
@@ -1200,13 +1202,13 @@ public:
           m_short_sort(ctx.get_manager()),
           m_use_map_names(ctx.use_map_names()) {
     }
-    ~wpa_parser_impl() {
+    ~wpa_parser_impl() override {
         reset_dealloc_values(m_sort_contents);
     }
     void reset() {
     }
 
-    virtual bool parse_directory(char const * path) {
+    bool parse_directory(char const * path) override {
         bool result = false;
         try {
             result = parse_directory_core(path);
@@ -1261,7 +1263,7 @@ private:
         return true;
     }
 
-    bool inp_num_to_element(sort * s, uint64 num, table_element & res) {
+    bool inp_num_to_element(sort * s, uint64_t num, table_element & res) {
         if(s==m_bool_sort.get() || s==m_short_sort.get()) {
             res = mk_table_const(num, s);
             return true;
@@ -1303,7 +1305,7 @@ private:
         }
     }
 
-    void parse_rules_file(std::string fname) {
+    void parse_rules_file(const std::string & fname) {
         SASSERT(file_exists(fname));
         flet<std::string> flet_cur_file(m_current_file, fname);
 
@@ -1312,10 +1314,10 @@ private:
 
         dlexer lexer;
         m_lexer = &lexer;
-        m_lexer->set_stream(&stm, 0);
+        m_lexer->set_stream(&stm, nullptr);
         dtoken tok = m_lexer->next_token();
         tok = parse_decls(tok);
-        m_lexer = 0;
+        m_lexer = nullptr;
     }
 
     bool parse_rel_line(char * full_line, uint64_vector & args) {
@@ -1332,7 +1334,7 @@ private:
             if(*ptr==0) {
                 break;
             }
-            uint64 num;
+            uint64_t num;
             if(!read_uint64(ptr, num)) {
                 throw default_exception(default_exception::fmt(), "number expected on line %d in file %s", 
                     m_current_line, m_current_file.c_str());
@@ -1347,7 +1349,7 @@ private:
         return true;
     }
 
-    void parse_rel_file(std::string fname) {
+    void parse_rel_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing relation file " << fname << "\n";);
@@ -1389,7 +1391,7 @@ private:
             bool fact_fail = false;
             fact.reset();
             for(unsigned i=0;i<pred_arity; i++) {
-                uint64 const_num = args[i];
+                uint64_t const_num = args[i];
                 table_element c;
                 if(!inp_num_to_element(arg_sorts[i], const_num, c)) {
                     fact_fail = true;
@@ -1415,7 +1417,7 @@ private:
             symbol sort_name = sit->m_key;
             uint64_set & sort_content = *sit->m_value;
             //the +1 is for a zero element which happens to appear in the problem files
-            uint64 domain_size = sort_content.size()+1;
+            uint64_t domain_size = sort_content.size()+1;
             // sort * s;
             if(!m_use_map_names) {
                 /* s = */ register_finite_sort(sort_name, domain_size, context::SK_UINT64);
@@ -1428,7 +1430,7 @@ private:
             uint64_set::iterator cit = sort_content.begin();
             uint64_set::iterator cend = sort_content.end();
             for(; cit!=cend; ++cit) {
-                uint64 const_num = *cit;
+                uint64_t const_num = *cit;
                 inp_num_to_element(s, const_num);
             }
             */
@@ -1443,7 +1445,7 @@ private:
         *ptr=0;
     }
 
-    bool parse_map_line(char * full_line, uint64 & num, symbol & name) {
+    bool parse_map_line(char * full_line, uint64_t & num, symbol & name) {
         cut_off_comment(full_line);
         if(full_line[0]==0) {
             return false;
@@ -1496,7 +1498,7 @@ private:
         return true;
     }
 
-    void parse_map_file(std::string fname) {
+    void parse_map_file(const std::string & fname) {
         SASSERT(file_exists(fname));
 
         IF_VERBOSE(10, verbose_stream() << "Parsing map file " << fname << "\n";);
@@ -1515,7 +1517,7 @@ private:
             m_current_line++;
             char * full_line = rdr.get_line();
 
-            uint64 num;
+            uint64_t num;
             symbol el_name;
 
             if(!parse_map_line(full_line, num, el_name)) {

@@ -245,14 +245,14 @@ namespace datalog {
     }
 
     finite_product_relation * finite_product_relation_plugin::mk_from_table_relation(const table_relation & r) {
-        func_decl* pred = 0;
+        func_decl* pred = nullptr;
         const relation_signature & sig = r.get_signature();
         const table_base & t = r.get_table();
         table_plugin & tplugin = r.get_table().get_plugin();
 
         relation_signature inner_sig; //empty signature for the inner relation
         if(!get_inner_plugin().can_handle_signature(inner_sig)) {
-            return 0;
+            return nullptr;
         }
 
         table_signature idx_singleton_sig;
@@ -270,7 +270,7 @@ namespace datalog {
         idx_singleton_fact.push_back(0);
         idx_singleton->add_fact(idx_singleton_fact);
 
-        scoped_ptr<table_join_fn> join_fun = get_manager().mk_join_fn(t, *idx_singleton, 0, 0, 0);
+        scoped_ptr<table_join_fn> join_fun = get_manager().mk_join_fn(t, *idx_singleton, 0, nullptr, nullptr);
         SASSERT(join_fun);
         scoped_rel<table_base> res_table = (*join_fun)(t, *idx_singleton);
 
@@ -333,7 +333,7 @@ namespace datalog {
             : convenient_relation_join_fn(sig1, sig2, col_cnt, cols1, cols2),
             m_plugin(plugin) {}
 
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             scoped_rel<finite_product_relation> r1_conv;
             if(&r1.get_plugin()!=&m_plugin) {
                 r1_conv = convert(r1);
@@ -390,7 +390,7 @@ namespace datalog {
                     relation_vector & rjoins)
                 : m_parent(parent), m_r1(r1), m_r2(r2), m_rjoins(rjoins) {}
 
-            virtual bool operator()(table_element * func_columns) {
+            bool operator()(table_element * func_columns) override {
                 const relation_base & or1 = m_r1.get_inner_rel(func_columns[0]);
                 const relation_base & or2 = m_r2.get_inner_rel(func_columns[1]);
                 SASSERT(&or1);
@@ -450,7 +450,7 @@ namespace datalog {
             return (*m_rjoin_fn)(r1, r2);
         }
 
-        virtual relation_base * operator()(const relation_base & rb1, const relation_base & rb2) {
+        relation_base * operator()(const relation_base & rb1, const relation_base & rb2) override {
             finite_product_relation_plugin & plugin = get(rb1).get_plugin();
             relation_manager & rmgr = plugin.get_manager();
 
@@ -487,7 +487,7 @@ namespace datalog {
 
             res->init(*res_table, joined_orelations, true);
 
-            if(m_tr_table_joined_cols.size()) {
+            if(!m_tr_table_joined_cols.empty()) {
                 //There were some shared variables between the table and the relation part.
                 //We enforce those equalities here.
                 if(!m_filter_tr_identities) {
@@ -513,7 +513,7 @@ namespace datalog {
                 return alloc(converting_join_fn, *this, rb1.get_signature(), rb2.get_signature(), col_cnt, cols1,
                     cols2);
             }
-            return 0;
+            return nullptr;
         }
         const finite_product_relation & r1 = get(rb1);
         const finite_product_relation & r2 = get(rb2);
@@ -565,7 +565,7 @@ namespace datalog {
             project_reducer(project_fn & parent, relation_vector & relations) 
                 : m_parent(parent), m_relations(relations) {}
 
-            virtual void operator()(table_element * func_columns, const table_element * merged_func_columns) {
+            void operator()(table_element * func_columns, const table_element * merged_func_columns) override {
                 relation_base * tgt = m_relations[static_cast<unsigned>(func_columns[0])]->clone();
                 relation_base & src = *m_relations[static_cast<unsigned>(merged_func_columns[0])];
                 if(!m_parent.m_inner_rel_union) {
@@ -579,7 +579,7 @@ namespace datalog {
             }
         };
 
-        virtual relation_base * operator()(const relation_base & rb) {
+        relation_base * operator()(const relation_base & rb) override {
             const finite_product_relation & r = get(rb);
             finite_product_relation_plugin & plugin = r.get_plugin();
             const table_base & rtable = r.get_table();
@@ -590,7 +590,7 @@ namespace datalog {
             unsigned orig_rel_cnt = r.m_others.size();
             for(unsigned i=0; i<orig_rel_cnt; i++) {
                 relation_base * orig_rel = r.m_others[i];
-                res_relations.push_back(orig_rel ? orig_rel->clone() : 0);
+                res_relations.push_back(orig_rel ? orig_rel->clone() : nullptr);
             }
             SASSERT(res_relations.size()==orig_rel_cnt);
 
@@ -608,7 +608,7 @@ namespace datalog {
                 res_table = (*tproject)(rtable);
             }
 
-            relation_plugin * res_oplugin = 0;
+            relation_plugin * res_oplugin = nullptr;
 
             if(!m_removed_rel_cols.empty()) {
                 unsigned res_rel_cnt = res_relations.size();
@@ -651,7 +651,7 @@ namespace datalog {
     relation_transformer_fn * finite_product_relation_plugin::mk_project_fn(const relation_base & rb, unsigned col_cnt, 
             const unsigned * removed_cols) {
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         return alloc(project_fn, get(rb), col_cnt, removed_cols);
     }
@@ -696,7 +696,7 @@ namespace datalog {
 
         }
 
-        virtual relation_base * operator()(const relation_base & rb) {
+        relation_base * operator()(const relation_base & rb) override {
             const finite_product_relation & r = get(rb);
             const table_base & rtable = r.get_table();
 
@@ -705,7 +705,7 @@ namespace datalog {
             unsigned orig_rel_cnt = r.m_others.size();
             for(unsigned i=0; i<orig_rel_cnt; i++) {
                 relation_base * orig_rel = r.m_others[i];
-                res_relations.push_back(orig_rel ? orig_rel->clone() : 0);
+                res_relations.push_back(orig_rel ? orig_rel->clone() : nullptr);
             }
 
             if(!m_rel_identity) {
@@ -746,7 +746,7 @@ namespace datalog {
         unsigned permutation_cycle_len, const unsigned * permutation_cycle) {
 
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const finite_product_relation & r = get(rb);
         return alloc(rename_fn, r, permutation_cycle_len, permutation_cycle);
@@ -771,7 +771,7 @@ namespace datalog {
 
         relation_union_fn & get_inner_rel_union_op(relation_base & r) {
             if(!m_rel_union) {
-                m_rel_union = r.get_manager().mk_union_fn(r, r, m_use_delta ? &r : 0);
+                m_rel_union = r.get_manager().mk_union_fn(r, r, m_use_delta ? &r : nullptr);
             }
             return *m_rel_union;
         }
@@ -795,9 +795,9 @@ namespace datalog {
                 m_delta_indexes(delta_indexes), 
                 m_delta_rels(delta_rels) {}
 
-            virtual ~union_mapper() {}
+            ~union_mapper() override {}
 
-            virtual bool operator()(table_element * func_columns) {
+            bool operator()(table_element * func_columns) override {
                 relation_base & otgt_orig = m_tgt.get_inner_rel(func_columns[0]);
                 const relation_base & osrc = m_src.get_inner_rel(func_columns[1]);
 
@@ -838,7 +838,7 @@ namespace datalog {
             src_copying_mapper(finite_product_relation & tgt, const finite_product_relation & src) 
                 : m_tgt(tgt), m_src(src) {}
 
-            virtual bool operator()(table_element * func_columns) {
+            bool operator()(table_element * func_columns) override {
                 const relation_base & osrc = m_src.get_inner_rel(func_columns[0]);
                 unsigned new_tgt_idx = m_tgt.get_next_rel_idx();
                 m_tgt.set_inner_rel(new_tgt_idx, osrc.clone());
@@ -847,7 +847,7 @@ namespace datalog {
             }
         };
 
-        virtual void operator()(relation_base & tgtb, const relation_base & srcb, relation_base * deltab) {
+        void operator()(relation_base & tgtb, const relation_base & srcb, relation_base * deltab) override {
             finite_product_relation & tgt = get(tgtb);
             const finite_product_relation & src0 = get(srcb);
             finite_product_relation * delta = get(deltab);
@@ -1088,7 +1088,7 @@ namespace datalog {
     class finite_product_relation_plugin::converting_union_fn : public relation_union_fn {
         scoped_ptr<relation_union_fn> m_tr_union_fun;
     public:
-        virtual void operator()(relation_base & tgtb, const relation_base & srcb, relation_base * deltab) {
+        void operator()(relation_base & tgtb, const relation_base & srcb, relation_base * deltab) override {
             SASSERT(srcb.get_plugin().is_finite_product_relation());
             const finite_product_relation & src = get(srcb);
             finite_product_relation_plugin & plugin = src.get_plugin();
@@ -1104,19 +1104,19 @@ namespace datalog {
     relation_union_fn * finite_product_relation_plugin::mk_union_fn(const relation_base & tgtb, const relation_base & srcb,
         const relation_base * deltab) {
         if(&srcb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const finite_product_relation & src = get(srcb);
         if(&tgtb.get_plugin()!=this || (deltab && &deltab->get_plugin()!=this) ) {
             if(can_convert_to_table_relation(src)) {
                 return alloc(converting_union_fn);
             }
-            return 0;
+            return nullptr;
         }
 
         const finite_product_relation * delta = get(deltab);
 
-        return alloc(union_fn, get(tgtb), delta!=0);
+        return alloc(union_fn, get(tgtb), delta!=nullptr);
     }
 
 
@@ -1131,7 +1131,7 @@ namespace datalog {
         scoped_ptr<relation_mutator_fn> m_tr_filter;
     public:
         filter_identical_fn(const finite_product_relation & r, unsigned col_cnt, const unsigned * identical_cols) 
-                : m_table_filter(0), m_rel_filter(0), m_tr_filter(0) {
+                : m_table_filter(nullptr), m_rel_filter(nullptr), m_tr_filter(nullptr) {
             finite_product_relation_plugin & plugin = r.get_plugin();
             for(unsigned i=0; i<col_cnt; i++) {
                 unsigned col = identical_cols[i];
@@ -1164,7 +1164,7 @@ namespace datalog {
             SASSERT(m_rel_filter);
         }
 
-        virtual void operator()(relation_base & rb) {
+        void operator()(relation_base & rb) override {
             finite_product_relation & r = get(rb);
 
             if(m_table_cols.size()>1) {
@@ -1192,7 +1192,7 @@ namespace datalog {
     relation_mutator_fn * finite_product_relation_plugin::mk_filter_identical_fn(const relation_base & rb, 
             unsigned col_cnt, const unsigned * identical_cols) {
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_identical_fn, get(rb), col_cnt, identical_cols);
     }
@@ -1212,7 +1212,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(relation_base & rb) {
+        void operator()(relation_base & rb) override {
             finite_product_relation & r = get(rb);
 
             if(m_table_filter) {
@@ -1238,7 +1238,7 @@ namespace datalog {
     relation_mutator_fn * finite_product_relation_plugin::mk_filter_equal_fn(const relation_base & rb, 
             const relation_element & value, unsigned col) {
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_equal_fn, get(rb), value, col);
     }
@@ -1311,8 +1311,7 @@ namespace datalog {
             if(m_rel_cond_columns.empty()) {
                 expr_ref_vector renaming(m_manager);
                 get_renaming_args(r.m_sig2table, r.get_signature(), renaming);
-                expr_ref table_cond(m_manager);
-                m_subst(condition, renaming.size(), renaming.c_ptr(), table_cond);
+                expr_ref table_cond = m_subst(condition, renaming.size(), renaming.c_ptr());
                 m_table_filter = rmgr.mk_filter_interpreted_fn(r.get_table(), to_app(table_cond));
             }
             else {
@@ -1320,7 +1319,7 @@ namespace datalog {
 
                 if(!m_table_cond_columns.empty()) {
                     //We will keep the table variables that appear in the condition together 
-                    //with the index column and then iterate throught the tuples, evaluating 
+                    //with the index column and then iterate through the tuples, evaluating
                     //the rest of the condition on the inner relations.
                     unsigned_vector removed_cols;
                     unsigned table_data_col_cnt = r.m_table_sig.size()-1;
@@ -1339,7 +1338,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(relation_base & rb) {
+        void operator()(relation_base & rb) override {
             finite_product_relation & r = get(rb);
             table_base & rtable = r.get_table();
             table_plugin & tplugin = r.get_table_plugin();
@@ -1357,13 +1356,11 @@ namespace datalog {
                 unsigned rel_cnt = r.m_others.size();
                 for(unsigned i=0; i<rel_cnt; i++) {
                     relation_base * inner = r.m_others[i];
-                    if(inner==0) {
+                    if(inner==nullptr) {
                         continue;
                     }
                     if(!m_rel_filter) {
-                        expr_ref inner_cond(m_manager);
-                        m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                            inner_cond);
+                        expr_ref inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
                         m_rel_filter = rmgr.mk_filter_interpreted_fn(*inner, to_app(inner_cond));
                     }
                     (*m_rel_filter)(*inner);
@@ -1411,11 +1408,10 @@ namespace datalog {
 
                 //create the condition with table values substituted in and relation values properly renamed
                 expr_ref inner_cond(m_manager);
-                m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr(), 
-                    inner_cond);
+                inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
 
                 relation_base * new_rel = old_rel.clone();
-
+                
                 scoped_ptr<relation_mutator_fn> filter = rmgr.mk_filter_interpreted_fn(*new_rel, to_app(inner_cond));
                 (*filter)(*new_rel);
  
@@ -1451,7 +1447,7 @@ namespace datalog {
     relation_mutator_fn * finite_product_relation_plugin::mk_filter_interpreted_fn(const relation_base & rb, 
             app * condition) {
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_interpreted_fn, get(rb), condition);
     }
@@ -1537,7 +1533,7 @@ namespace datalog {
                         const finite_product_relation & inters)
                 : m_parent(parent), m_r(r), m_inters(inters) {}
 
-            virtual bool operator()(table_element * func_columns) {
+            bool operator()(table_element * func_columns) override {
                 relation_base * r_inner = m_r.get_inner_rel(func_columns[0]).clone();
                 const relation_base & inters_inner = m_inters.get_inner_rel(func_columns[1]);
 
@@ -1557,7 +1553,7 @@ namespace datalog {
         };
 
 
-        virtual void operator()(relation_base & rb, const relation_base & negb) {
+        void operator()(relation_base & rb, const relation_base & negb) override {
             finite_product_relation & r = get(rb);
             const finite_product_relation & neg = get(negb);
 
@@ -1626,7 +1622,7 @@ namespace datalog {
             const relation_base & negb, unsigned joined_col_cnt, 
             const unsigned * r_cols, const unsigned * negated_cols) {
         if(&rb.get_plugin()!=this || &negb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         
         return alloc(negation_filter_fn, get(rb), get(negb), joined_col_cnt, r_cols, negated_cols);
@@ -1662,7 +1658,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(relation_base & rb) {
+        void operator()(relation_base & rb) override {
             finite_product_relation & r = get(rb);
             finite_product_relation_plugin & plugin = r.get_plugin();
             table_plugin & tplugin = r.get_table_plugin();
@@ -1852,8 +1848,8 @@ namespace datalog {
         m_others.swap(r.m_others);
         m_available_rel_indexes.swap(r.m_available_rel_indexes);
         std::swap(m_full_rel_idx,r.m_full_rel_idx);
-        m_live_rel_collection_project=0;
-        m_empty_rel_removal_filter=0;
+        m_live_rel_collection_project=nullptr;
+        m_empty_rel_removal_filter=nullptr;
 
         relation_base::swap(r0);
     }
@@ -1896,7 +1892,7 @@ namespace datalog {
     unsigned finite_product_relation::get_full_rel_idx() {
         if(m_full_rel_idx==UINT_MAX) {
             m_full_rel_idx = get_next_rel_idx();
-            relation_base * full_other = mk_full_inner(0);
+            relation_base * full_other = mk_full_inner(nullptr);
             m_others[m_full_rel_idx] = full_other;
         }
         return m_full_rel_idx;
@@ -1924,7 +1920,7 @@ namespace datalog {
         }
     }
 
-    void finite_product_relation::extract_table_fact(const relation_fact rf, table_fact & tf) const {
+    void finite_product_relation::extract_table_fact(const relation_fact & rf, table_fact & tf) const {
         const relation_signature & sig = get_signature();
         relation_manager & rmgr = get_manager();
 
@@ -1940,7 +1936,7 @@ namespace datalog {
         tf.push_back(0);
     }
 
-    void finite_product_relation::extract_other_fact(const relation_fact rf, relation_fact & of) const {
+    void finite_product_relation::extract_other_fact(const relation_fact & rf, relation_fact & of) const {
         of.reset();
         unsigned o_sz = m_other_sig.size();
         for(unsigned i=0; i<o_sz; i++) {
@@ -2027,9 +2023,9 @@ namespace datalog {
         table_element full_rel_idx = get_full_rel_idx();
         scoped_rel<table_base> complement_table = m_table->complement(p, &full_rel_idx);
         
-        scoped_ptr<table_union_fn> u_fn = get_manager().mk_union_fn(*m_table, *complement_table, 0);
+        scoped_ptr<table_union_fn> u_fn = get_manager().mk_union_fn(*m_table, *complement_table, nullptr);
         SASSERT(u_fn);
-        (*u_fn)(*m_table, *complement_table, 0);
+        (*u_fn)(*m_table, *complement_table, nullptr);
     }
 
     finite_product_relation * finite_product_relation::complement(func_decl* p) const {
@@ -2043,7 +2039,7 @@ namespace datalog {
     public:
         live_rel_collection_reducer(idx_set & accumulator) : m_accumulator(accumulator) {}
 
-        virtual void operator()(table_element * func_columns, const table_element * merged_func_columns) {
+        void operator()(table_element * func_columns, const table_element * merged_func_columns) override {
             m_accumulator.insert(static_cast<unsigned>(merged_func_columns[0]));
         }
     };

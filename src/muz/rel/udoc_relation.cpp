@@ -203,7 +203,7 @@ namespace datalog {
         return dynamic_cast<udoc_relation&>(r);
     }
     udoc_relation* udoc_plugin::get(relation_base* r) {
-        return r?dynamic_cast<udoc_relation*>(r):0;
+        return r?dynamic_cast<udoc_relation*>(r):nullptr;
     }
     udoc_relation const & udoc_plugin::get(relation_base const& r) {
         return dynamic_cast<udoc_relation const&>(r);        
@@ -261,7 +261,7 @@ namespace datalog {
             num_bits = 1;
             return true;
         }
-        uint64 n, sz;
+        uint64_t n, sz;
         ast_manager& m = get_ast_manager();
         if (dl.is_numeral(e, n) && dl.try_get_size(m.get_sort(e), sz)) {
             num_bits = 0;
@@ -277,7 +277,7 @@ namespace datalog {
             return bv.get_bv_size(s);
         if (m.is_bool(s)) 
             return 1;
-        uint64 sz;
+        uint64_t sz;
         if (dl.try_get_size(s, sz)) {
             while (sz > 0) ++num_bits, sz /= 2;
             return num_bits;
@@ -328,7 +328,7 @@ namespace datalog {
             t2.expand_column_vector(m_cols2);
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             udoc_relation const& r1 = get(_r1);
             udoc_relation const& r2 = get(_r2);
             TRACE("doc", r1.display(tout << "r1:\n"); r2.display(tout  << "r2:\n"););
@@ -351,7 +351,7 @@ namespace datalog {
         const relation_base & t1, const relation_base & t2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if (!check_kind(t1) || !check_kind(t2)) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, *this, get(t1), get(t2), col_cnt, cols1, cols2);
     }
@@ -369,7 +369,7 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & tb) {
+        relation_base * operator()(const relation_base & tb) override {
             TRACE("doc", tb.display(tout << "src:\n"););
             udoc_relation const& t = get(tb);
             udoc_plugin& p = t.get_plugin();
@@ -394,7 +394,7 @@ namespace datalog {
         const relation_base & t, unsigned col_cnt, 
         const unsigned * removed_cols) {
         if (!check_kind(t))
-            return 0;
+            return nullptr;
         return alloc(project_fn, get(t), col_cnt, removed_cols);
     }
 
@@ -462,7 +462,7 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             udoc_relation const& r = get(_r);
             TRACE("doc", r.display(tout << "r:\n"););
             udoc_plugin& p = r.get_plugin();            
@@ -487,20 +487,20 @@ namespace datalog {
             return alloc(rename_fn, get(r), cycle_len, permutation_cycle);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
     class udoc_plugin::union_fn : public relation_union_fn {
     public:
         union_fn() {}
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             udoc_relation& r = get(_r);
             udoc_relation const& src = get(_src);
             udoc_relation* d = get(_delta);
             doc_manager& dm = r.get_dm();
-            udoc* d1 = 0;
+            udoc* d1 = nullptr;
             if (d) d1 = &d->get_udoc();
             IF_VERBOSE(3, r.display(verbose_stream() << "orig:  "););
             r.get_plugin().mk_union(dm, r.get_udoc(), src.get_udoc(), d1);
@@ -539,7 +539,7 @@ namespace datalog {
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn);
     }
@@ -574,7 +574,7 @@ namespace datalog {
             }
         }
         
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             udoc_relation& r = get(_r);
             udoc& d = r.get_udoc();
             doc_manager& dm = r.get_dm();
@@ -585,7 +585,7 @@ namespace datalog {
     };
     relation_mutator_fn * udoc_plugin::mk_filter_identical_fn(
         const relation_base & t, unsigned col_cnt, const unsigned * identical_cols) {
-        return check_kind(t)?alloc(filter_identical_fn, t, col_cnt, identical_cols):0;
+        return check_kind(t)?alloc(filter_identical_fn, t, col_cnt, identical_cols):nullptr;
     }
     class udoc_plugin::filter_equal_fn : public relation_mutator_fn {
         doc_manager& dm;
@@ -602,10 +602,10 @@ namespace datalog {
             SASSERT(num_bits == hi - lo);
             dm.tbvm().set(m_filter->pos(), r, hi-1, lo);
         }
-        virtual ~filter_equal_fn() {
+        ~filter_equal_fn() override {
             dm.deallocate(m_filter);
         }        
-        virtual void operator()(relation_base & tb) {
+        void operator()(relation_base & tb) override {
             udoc_relation & t = get(tb);
             t.get_udoc().intersect(dm, *m_filter);
             SASSERT(t.get_udoc().well_formed(t.get_dm()));
@@ -614,7 +614,7 @@ namespace datalog {
     relation_mutator_fn * udoc_plugin::mk_filter_equal_fn(
         const relation_base & t, const relation_element & value, unsigned col) {
         if (!check_kind(t))
-            return 0;
+            return nullptr;
         return alloc(filter_equal_fn, *this, get(t), value, col);
     }
 
@@ -869,7 +869,7 @@ namespace datalog {
             dm.set(*d, idx, BIT_1);
             result.intersect(dm, *d);
         }
-        else if ((m.is_eq(g, e1, e2) || m.is_iff(g, e1, e2)) && m.is_bool(e1)) {
+        else if (m.is_iff(g, e1, e2)) {
             udoc diff1, diff2;
             diff1.push_back(dm.allocateX());
             diff2.push_back(dm.allocateX());
@@ -932,11 +932,11 @@ namespace datalog {
                   m_udoc.display(dm, tout) << "\n";);
         }
 
-        virtual ~filter_interpreted_fn() {
+        ~filter_interpreted_fn() override {
             m_udoc.reset(dm);
         }
         
-        virtual void operator()(relation_base & tb) {            
+        void operator()(relation_base & tb) override {
             udoc_relation & t = get(tb);
             udoc& u = t.get_udoc();
             SASSERT(u.well_formed(dm));
@@ -951,7 +951,7 @@ namespace datalog {
         }
     };
     relation_mutator_fn * udoc_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
-        return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):0;
+        return check_kind(t)?alloc(filter_interpreted_fn, get(t), get_ast_manager(), condition):nullptr;
     }
 
     class udoc_plugin::join_project_fn : public convenient_relation_join_project_fn {
@@ -987,7 +987,7 @@ namespace datalog {
 
 
         // TBD: replace this by "join" given below.
-        virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+        relation_base* operator()(relation_base const& t1, relation_base const& t2) override {
 #if 1
             return join(get(t1), get(t2));
 #else
@@ -1043,7 +1043,7 @@ namespace datalog {
     public:
       join_project_and_fn() {}
 
-      virtual relation_base* operator()(relation_base const& t1, relation_base const& t2) {
+      relation_base* operator()(relation_base const& t1, relation_base const& t2) override {
           udoc_relation *result = get(t1.clone());
           result->get_udoc().intersect(result->get_dm(), get(t2).get_udoc());
           return result;
@@ -1055,7 +1055,7 @@ namespace datalog {
         unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
         unsigned removed_col_cnt, const unsigned * removed_cols) {    
         if (!check_kind(t1) || !check_kind(t2))
-            return 0;
+            return nullptr;
         // special case where we have h(X) :- f(X), g(X).
         if (joined_col_cnt == removed_col_cnt &&
             t1.get_signature().size() == joined_col_cnt &&
@@ -1121,7 +1121,7 @@ namespace datalog {
             neg.expand_column_vector(m_neg_cols);
         }
         
-        virtual void operator()(relation_base& tb, const relation_base& negb) {
+        void operator()(relation_base& tb, const relation_base& negb) override {
             udoc_relation& t = get(tb);
             udoc_relation const& n = get(negb);
             IF_VERBOSE(3, t.display(verbose_stream() << "dst:"););
@@ -1183,7 +1183,7 @@ namespace datalog {
         const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
         const unsigned *negated_cols) {
         if (!check_kind(t) || !check_kind(neg))
-            return 0;
+            return nullptr;
         return alloc(negation_filter_fn, get(t), get(neg), joined_col_cnt, t_cols, negated_cols);
     }
 
@@ -1223,10 +1223,10 @@ namespace datalog {
             t.compile_guard(guard, m_udoc, m_to_delete);
         }
         
-        virtual ~filter_proj_fn() {
+        ~filter_proj_fn() override {
             m_udoc.reset(dm);
         }
-        virtual relation_base* operator()(const relation_base & tb) {
+        relation_base* operator()(const relation_base & tb) override {
             udoc_relation const & t = get(tb);
             udoc const& u1 = t.get_udoc();
             doc_manager& dm = t.get_dm();
@@ -1250,7 +1250,7 @@ namespace datalog {
     relation_transformer_fn * udoc_plugin::mk_filter_interpreted_and_project_fn(
         const relation_base & t, app * condition,
         unsigned removed_col_cnt, const unsigned * removed_cols) {
-        return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):0;
+        return check_kind(t)?alloc(filter_proj_fn, get(t), get_ast_manager(), condition, removed_col_cnt, removed_cols):nullptr;
     }
 
 

@@ -11,6 +11,7 @@ extern "C" {
 #include <caml/alloc.h>
 #include <caml/fail.h>
 #include <caml/callback.h>
+#include <caml/threads.h>
 
 #ifdef Custom_tag
 #include <caml/custom.h>
@@ -446,4 +447,22 @@ CAMLprim value DLL_PUBLIC n_set_internal_error_handler(value ctx_v)
   Z3_context_plus ctx_p = *(Z3_context_plus*) Data_custom_val(ctx_v);
   Z3_set_error_handler(ctx_p->ctx, MLErrorHandler);
   CAMLreturn(Val_unit);
+}
+
+CAMLprim DLL_PUBLIC value n_mk_config() {
+  CAMLparam0();
+  CAMLlocal1(result);
+  Z3_config z3rv;
+
+  /* invoke Z3 function */
+  z3rv = Z3_mk_config();
+
+  if (z3rv == NULL) {
+    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), "Object allocation failed");
+  }
+
+  /* construct simple return value */
+  result = caml_alloc_custom(&default_custom_ops, sizeof(Z3_config), 0, 1); *(Z3_config*)Data_custom_val(result) = z3rv;
+  /* cleanup and return */
+  CAMLreturn(result);
 }

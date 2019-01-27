@@ -20,8 +20,7 @@ Revision History:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/filter_model_converter.h"
-#include "tactic/extension_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "util/cooperate.h"
 #include "ast/arith_decl_plugin.h"
 #include "tactic/core/simplify_tactic.h"
@@ -94,7 +93,7 @@ class degree_shift_tactic : public tactic {
             m_autil(_m),
             m_pinned(_m),
             m_one(1),
-            m_rw(0) {
+            m_rw(nullptr) {
         }
 
 
@@ -127,9 +126,7 @@ class degree_shift_tactic : public tactic {
 
         void visit_args(expr * t, expr_fast_mark1 & visited) {
             if (is_app(t)) {
-                unsigned num_args = to_app(t)->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) {
-                    expr * arg = to_app(t)->get_arg(i);
+                for (expr * arg : *to_app(t)) {
                     save_degree(arg, m_one);
                     visit(arg, visited);
                 }
@@ -166,11 +163,9 @@ class degree_shift_tactic : public tactic {
 
         void display_candidates(std::ostream & out) {
             out << "candidates:\n";
-            obj_map<app, rational>::iterator it  = m_var2degree.begin();
-            obj_map<app, rational>::iterator end = m_var2degree.end();
-            for (; it != end; ++it) {
-                if (!it->m_value.is_one()) {
-                    out << "POWER: " << it->m_value << "\n" << mk_ismt2_pp(it->m_key, m) << "\n";
+            for (auto const& kv : m_var2degree) {
+                if (!kv.m_value.is_one()) {
+                    out << "POWER: " << kv.m_value << "\n" << mk_ismt2_pp(kv.m_key, m) << "\n";
                 }
             }
         }
@@ -189,63 +184,52 @@ class degree_shift_tactic : public tactic {
         void discard_non_candidates() {
             m_pinned.reset();
             ptr_vector<app> to_delete;
-            obj_map<app, rational>::iterator it  = m_var2degree.begin();
-            obj_map<app, rational>::iterator end = m_var2degree.end();
-            for (; it != end; ++it) {
-                if (it->m_value.is_one())
-                    to_delete.push_back(it->m_key);
+            for (auto const& kv : m_var2degree) {
+                if (kv.m_value.is_one())
+                    to_delete.push_back(kv.m_key);
                 else
-                    m_pinned.push_back(it->m_key); // make sure it is not deleted during simplifications
+                    m_pinned.push_back(kv.m_key); // make sure it is not deleted during simplifications
             }
-            ptr_vector<app>::iterator it2  = to_delete.begin();
-            ptr_vector<app>::iterator end2 = to_delete.end();
-            for (; it2 != end2; ++it2) 
-                m_var2degree.erase(*it2);
+            for (app* a : to_delete) 
+                m_var2degree.erase(a);
         }
 
         void prepare_substitution(model_converter_ref & mc) {
             SASSERT(!m_var2degree.empty());
-            filter_model_converter * fmc = 0;
-            extension_model_converter * xmc = 0;
+            generic_model_converter * xmc = nullptr;
             if (m_produce_models) {
-                fmc = alloc(filter_model_converter, m);
-                xmc = alloc(extension_model_converter, m);
-                mc = concat(fmc, xmc);
+                xmc = alloc(generic_model_converter, m, "degree_shift");
+                mc = xmc;
             }
-            obj_map<app, rational>::iterator it  = m_var2degree.begin();
-            obj_map<app, rational>::iterator end = m_var2degree.end();
-            for (; it != end; ++it) {
-                SASSERT(it->m_value.is_int());
-                SASSERT(it->m_value >= rational(2));
-                app * fresh = m.mk_fresh_const(0, it->m_key->get_decl()->get_range());
+            for (auto const& kv : m_var2degree) {
+                SASSERT(kv.m_value.is_int());
+                SASSERT(kv.m_value >= rational(2));
+                app * fresh = m.mk_fresh_const(nullptr, kv.m_key->get_decl()->get_range());
                 m_pinned.push_back(fresh);
-                m_var2var.insert(it->m_key, fresh);
+                m_var2var.insert(kv.m_key, fresh);
                 if (m_produce_models) {
-                    fmc->insert(fresh->get_decl());
-                    xmc->insert(it->m_key->get_decl(), mk_power(fresh, rational(1)/it->m_value));
+                    xmc->hide(fresh->get_decl());
+                    xmc->add(kv.m_key->get_decl(), mk_power(fresh, rational(1)/kv.m_value));
                 }
                 if (m_produce_proofs) {
-                    expr * s  = mk_power(it->m_key, it->m_value);
+                    expr * s  = mk_power(kv.m_key, kv.m_value);
                     expr * eq = m.mk_eq(fresh, s);
                     proof * pr1 = m.mk_def_intro(eq);
                     proof * result_pr = m.mk_apply_def(fresh, s, pr1);
                     m_pinned.push_back(result_pr);
-                    m_var2pr.insert(it->m_key, result_pr);
+                    m_var2pr.insert(kv.m_key, result_pr);
                 }
             }
         }
 
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             m_produce_proofs = g->proofs_enabled();
             m_produce_models = g->models_enabled();
             tactic_report report("degree_shift", *g);
             collect(*g);
+            model_converter_ref mc;
             discard_non_candidates();
             if (!m_var2degree.empty()) {
                 prepare_substitution(mc);
@@ -267,24 +251,23 @@ class degree_shift_tactic : public tactic {
                 }
 
                 // add >= 0 constraints for variables with even degree
-                obj_map<app, rational>::iterator it  = m_var2degree.begin();
-                obj_map<app, rational>::iterator end = m_var2degree.end();
-                for (; it != end; ++it) {
-                    SASSERT(it->m_value.is_int());
-                    SASSERT(it->m_value >= rational(2));
-                    if (it->m_value.is_even()) {
-                        app * new_var  = m_var2var.find(it->m_key);
+                for (auto const& kv : m_var2degree) {
+                    SASSERT(kv.m_value.is_int());
+                    SASSERT(kv.m_value >= rational(2));
+                    if (kv.m_value.is_even()) {
+                        app * new_var  = m_var2var.find(kv.m_key);
                         app * new_c    = m_autil.mk_ge(new_var, m_autil.mk_numeral(rational(0), false));
-                        proof * new_pr = 0;
+                        proof * new_pr = nullptr;
                         if (m_produce_proofs) {
-                            proof * pr = m_var2pr.find(it->m_key);
+                            proof * pr = m_var2pr.find(kv.m_key);
                             new_pr     = m.mk_th_lemma(m_autil.get_family_id(), new_c, 1, &pr);
                         }
-                        g->assert_expr(new_c, new_pr, 0);
+                        g->assert_expr(new_c, new_pr, nullptr);
                     }
                 }
             }
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("degree_shift", g->display(tout); if (mc) mc->display(tout););
             SASSERT(g->is_well_sorted());
@@ -297,23 +280,20 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(degree_shift_tactic, m);
     }
         
-    virtual ~degree_shift_tactic() {
+    ~degree_shift_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m);
         std::swap(d, m_imp);        
         dealloc(d);

@@ -30,13 +30,13 @@ class aig_lit {
     friend class aig_ref;
     aig * m_ref;
 public:
-    aig_lit(aig * n = 0):m_ref(n) {}
+    aig_lit(aig * n = nullptr):m_ref(n) {}
     aig_lit(aig_ref const & r):m_ref(static_cast<aig*>(r.m_ref)) {}
     bool is_inverted() const { return (reinterpret_cast<size_t>(m_ref) & static_cast<size_t>(1)) == static_cast<size_t>(1); }
     void invert() { m_ref = reinterpret_cast<aig*>(reinterpret_cast<size_t>(m_ref) ^ static_cast<size_t>(1)); }
     aig * ptr() const { return reinterpret_cast<aig*>(reinterpret_cast<size_t>(m_ref) & ~static_cast<size_t>(1)); }
     aig * ptr_non_inverted() const { SASSERT(!is_inverted()); return m_ref; }
-    bool is_null() const { return m_ref == 0; }
+    bool is_null() const { return m_ref == nullptr; }
     friend bool operator==(aig_lit const & r1, aig_lit const & r2) { return r1.m_ref == r2.m_ref; }
     friend bool operator!=(aig_lit const & r1, aig_lit const & r2) { return r1.m_ref != r2.m_ref; }
     aig_lit & operator=(aig_lit const & r) { m_ref = r.m_ref; return *this; }
@@ -151,7 +151,7 @@ struct aig_manager::imp {
         m_num_aigs--;
         if (is_var(n)) {
             m_var_id_gen.recycle(n->m_id);
-            m_var2exprs.set(n->m_id, 0);
+            m_var2exprs.set(n->m_id, nullptr);
         }
         else {
             m_table.erase(n);
@@ -267,7 +267,7 @@ struct aig_manager::imp {
             }
             if  (b == r) {
                 if (sign1) {
-                    // subsitution
+                    // substitution
                     // not (a and b) and r --> (not a) and r   IF b == r
                     l = a;
                     l.invert();
@@ -490,7 +490,6 @@ struct aig_manager::imp {
                     case OP_NOT:
                     case OP_OR:      
                     case OP_AND:
-                    case OP_IFF:
                     case OP_XOR:
                     case OP_IMPLIES:
                     case OP_ITE:
@@ -582,9 +581,6 @@ struct aig_manager::imp {
                 SASSERT(m.m().is_bool(fr.m_t->get_arg(0)));
                 mk_iff(fr.m_spos);
                 break;
-            case OP_IFF:
-                mk_iff(fr.m_spos);
-                break;
             case OP_XOR:
                 mk_xor(fr.m_spos);
                 break;
@@ -635,10 +631,8 @@ struct aig_manager::imp {
         }
 
         bool check_cache() const {
-            obj_map<expr, aig_lit>::iterator it  = m_cache.begin();
-            obj_map<expr, aig_lit>::iterator end = m_cache.end();
-            for (; it != end; ++it) {
-                SASSERT(ref_count(it->m_value) > 0);
+            for (auto const& kv : m_cache) {
+                VERIFY(ref_count(kv.m_value) > 0);
             }
             return true;
         }
@@ -797,7 +791,7 @@ struct aig_manager::imp {
                 m_cache.resize(idx+1);
                 return false;
             }
-            return m_cache.get(idx) != 0;
+            return m_cache.get(idx) != nullptr;
         }
 
         void cache_result(aig * n, expr * t) {
@@ -960,14 +954,14 @@ struct aig_manager::imp {
                 }
                 unsigned idx = to_idx(t);
                 cache.reserve(idx+1);
-                if (cache.get(idx) != 0) {
+                if (cache.get(idx) != nullptr) {
                     todo.pop_back();
                     continue;
                 }
                 bool ok = true;
                 for (unsigned i = 0; i < 2; i++) {
                     aig * c = t->m_children[i].ptr();
-                    if (!is_var(c) && cache.get(to_idx(c), 0) == 0) {
+                    if (!is_var(c) && cache.get(to_idx(c), nullptr) == nullptr) {
                         todo.push_back(c);
                         ok = false;
                     }
@@ -981,7 +975,7 @@ struct aig_manager::imp {
                     if (is_var(c))
                         args[i] = m.m_var2exprs.get(c->m_id);
                     else
-                        args[i] = cache.get(to_idx(c), 0);
+                        args[i] = cache.get(to_idx(c), nullptr);
                     if (!l.is_inverted())
                         args[i] = invert(args[i]);
                 }
@@ -1009,16 +1003,16 @@ struct aig_manager::imp {
                 aig_lit n = roots.back();
                 roots.pop_back();
                 if (n.is_inverted()) {
-                    g.assert_expr(invert(process_root(n.ptr())), 0, 0);
+                    g.assert_expr(invert(process_root(n.ptr())), nullptr, nullptr);
                     continue;
                 }
                 aig * p = n.ptr();
                 if (m.is_ite(p)) {
-                    g.assert_expr(process_root(p), 0, 0);
+                    g.assert_expr(process_root(p), nullptr, nullptr);
                     continue;
                 }
                 if (is_var(p)) {
-                    g.assert_expr(m.var2expr(p), 0, 0);
+                    g.assert_expr(m.var2expr(p), nullptr, nullptr);
                     continue;
                 }
                 roots.push_back(left(p));
@@ -1081,7 +1075,7 @@ struct aig_manager::imp {
 
         bool visit(aig * p) {
             if (is_var(p)) {
-                push_result(0);
+                push_result(nullptr);
                 return true;
             }
             if (is_cached(p))
@@ -1522,7 +1516,7 @@ public:
             }
             SASSERT(ref_count(r) >= 1);
         }
-    catch (aig_exception ex) {
+    catch (const aig_exception & ex) {
         dec_ref(r);
         throw ex;
     }
@@ -1654,8 +1648,8 @@ public:
 
 
 aig_ref::aig_ref():
-    m_manager(0),
-    m_ref(0) {
+    m_manager(nullptr),
+    m_ref(nullptr) {
 }
 
 aig_ref::aig_ref(aig_manager & m, aig_lit const & l):
@@ -1665,15 +1659,15 @@ aig_ref::aig_ref(aig_manager & m, aig_lit const & l):
 }
 
 aig_ref::~aig_ref() {
-    if (m_ref != 0) {
+    if (m_ref != nullptr) {
         m_manager->m_imp->dec_ref(aig_lit(*this));
     }
 }
 
 aig_ref & aig_ref::operator=(aig_ref const & r) {
-    if (r.m_ref != 0)
+    if (r.m_ref != nullptr)
         r.m_manager->m_imp->inc_ref(aig_lit(r));
-    if (m_ref != 0)
+    if (m_ref != nullptr)
         m_manager->m_imp->dec_ref(aig_lit(*this));
     m_ref     = r.m_ref;
     m_manager = r.m_manager;

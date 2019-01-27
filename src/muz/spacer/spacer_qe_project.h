@@ -23,7 +23,7 @@ Notes:
 #include "model/model.h"
 #include "ast/expr_map.h"
 
-namespace qe {
+namespace spacer_qe {
     /**
        Loos-Weispfenning model-based projection for a basic conjunction.
        Lits is a vector of literals.

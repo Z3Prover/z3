@@ -72,7 +72,7 @@ tbv* tbv_manager::allocate(tbv const& bv) {
     copy(*r, bv);
     return r;
 }
-tbv* tbv_manager::allocate(uint64 val) {
+tbv* tbv_manager::allocate(uint64_t val) {
     tbv* v = allocate0();
     for (unsigned bit = std::min(64u, num_tbits()); bit-- > 0;) {
         if (val & (1ULL << bit)) {                        
@@ -84,7 +84,7 @@ tbv* tbv_manager::allocate(uint64 val) {
     return v;
 }
 
-tbv* tbv_manager::allocate(uint64 val, unsigned hi, unsigned lo) {
+tbv* tbv_manager::allocate(uint64_t val, unsigned hi, unsigned lo) {
     tbv* v = allocateX();
     SASSERT(64 >= num_tbits() && num_tbits() > hi && hi >= lo);
     set(*v, val, hi, lo);
@@ -134,7 +134,7 @@ void tbv_manager::set(tbv& dst, unsigned index, tbit value) {
 }
 
 
-void tbv_manager::set(tbv& dst, uint64 val, unsigned hi, unsigned lo) {
+void tbv_manager::set(tbv& dst, uint64_t val, unsigned hi, unsigned lo) {
     SASSERT(lo <= hi && hi < num_tbits());
     for (unsigned i = 0; i < hi - lo + 1; ++i) {
         set(dst, lo + i, (val & (1ULL << i))?BIT_1:BIT_0);

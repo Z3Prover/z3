@@ -20,11 +20,11 @@ Notes:
 #define SOLVER2TACTIC_H_
 
 #include "tactic/tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 class solver;
 
 tactic * mk_solver2tactic(solver* s);
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, obj_map<expr, expr*>& bool2dep, ref<filter_model_converter>& fmc);
+void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, obj_map<expr, expr*>& bool2dep, ref<generic_model_converter>& fmc);
 
 #endif

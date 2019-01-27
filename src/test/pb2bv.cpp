@@ -16,8 +16,9 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/ast_util.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/portfolio/fd_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "solver/solver.h"
+#include "ast/arith_decl_plugin.h"
 
 static void test1() {
     ast_manager m;
@@ -37,7 +38,7 @@ static void test1() {
         expr_ref fml(m), result(m);
         proof_ref proof(m);
         fml = pb.mk_at_least_k(vars.size(), vars.c_ptr(), k);
-        rw(fml, result, proof);
+        rw(true, fml, result, proof);
         std::cout << fml << " |-> " << result << "\n";
     }
     expr_ref_vector lemmas(m);
@@ -60,9 +61,10 @@ static void test_semantics(ast_manager& m, expr_ref_vector const& vars, vector<r
     case 1: fml1 = pb.mk_le(vars.size(), coeffs.c_ptr(), vars.c_ptr(), rational(k)); break;
     default: fml1 = pb.mk_eq(vars.size(), coeffs.c_ptr(), vars.c_ptr(), rational(k)); break;
     }
-    rw(fml1, result1, proof);
+    rw(true, fml1, result1, proof);
     rw.flush_side_constraints(lemmas);
-    std::cout << lemmas << "\n";
+    std::cout << "lemmas: " << lemmas << "\n";
+    std::cout << "simplified: " << result1 << "\n";
     for (unsigned values = 0; values < static_cast<unsigned>(1 << N); ++values) {
         smt_params fp;
         smt::kernel solver(m, fp);
@@ -86,6 +88,12 @@ static void test_semantics(ast_manager& m, expr_ref_vector const& vars, vector<r
         VERIFY(res == l_true);
         solver.assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());
         res = solver.check();
+        if (res != l_false) {
+            IF_VERBOSE(0, solver.display(verbose_stream());
+                       verbose_stream() << vars << " k: " << k << " kind: " << kind << "\n";
+                       for (auto const& c : coeffs) verbose_stream() << c << "\n";
+                       );
+        }
         VERIFY(res == l_false);
     }
 }
@@ -151,10 +159,10 @@ static void test_solver_semantics(ast_manager& m, expr_ref_vector const& vars, v
         std::cout << fml1 << " " << fml2 << "\n";
         th_rw(fml2, result2, proof);
         ENSURE(m.is_true(result2) || m.is_false(result2));
-        lbool res = slv->check_sat(0,0);
+        lbool res = slv->check_sat(0,nullptr);
         VERIFY(res == l_true);
         slv->assert_expr(m.is_true(result2) ? m.mk_not(result1) : result1.get());
-        res = slv->check_sat(0,0);
+        res = slv->check_sat(0,nullptr);
         VERIFY(res == l_false);
     }
 }
@@ -187,9 +195,20 @@ static void test3() {
     }
 }
 
+static void test4() {
+    ast_manager m;
+    reg_decl_plugins(m);
+    arith_util arith(m);
+    expr_ref a(m.mk_const(symbol("a"), arith.mk_int()), m);
+    expr_ref b(m.mk_const(symbol("b"), arith.mk_int()), m);
+    expr_ref eq(m.mk_eq(a,b), m);
+    std::cout << "is_atom: " << is_atom(m, eq) << "\n";
+}
+
 void tst_pb2bv() {
     test1();
     test2();
     test3();
+    test4();
 }
 

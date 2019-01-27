@@ -25,7 +25,7 @@ Notes:
 #ifndef THEORY_OPT_H_
 #define THEORY_OPT_H_
 
-class filter_model_converter;
+class generic_model_converter;
 namespace smt {
     class theory_opt {
     public:

@@ -153,7 +153,7 @@ public:
         m_fresh_predicates.reset();
         m_todo.push_back(n);
         m_proofs.push_back(p);
-        m_produce_proofs = p != 0;
+        m_produce_proofs = p != nullptr;
         while (!m_todo.empty() && checkpoint()) {
             fml = m_todo.back();
             pr = m_proofs.back();
@@ -219,7 +219,7 @@ private:
             quick_for_each_expr(m_proc, m_mark1, fml);
             m_mark1.reset();
         }
-        catch (contains_predicate_proc::found) {
+        catch (const contains_predicate_proc::found &) {
             m_mark1.reset();
             return true;
         }
@@ -269,7 +269,7 @@ private:
             expr* const* args = _or->get_args();
             for (unsigned i = 0; i < sz; ++i) {
                 m_todo.push_back(bind_variables(m.mk_implies(args[i], head)));
-                m_proofs.push_back(0);
+                m_proofs.push_back(nullptr);
             } 
 
             if (premise) {
@@ -284,7 +284,7 @@ private:
                     m_proofs[m_proofs.size()-sz+i] = m.mk_and_elim(p2, i);
                 }
             }                
-            fml = 0;
+            fml = nullptr;
             return;
         }
 
@@ -330,7 +330,7 @@ private:
         bool is_disj = false;
         expr_ref_vector _body(m);
         unsigned num_disj = 0;
-        expr* const* disjs = 0;
+        expr* const* disjs = nullptr;
         if (!contains_predicate(b)) {
             return;
         }
@@ -356,7 +356,7 @@ private:
             negate_args = false;
         }
         if (is_disj) {
-            app* old_head = 0;
+            app* old_head = nullptr;
             if (m_memoize_disj.find(b, old_head)) {
                 body = old_head;
             }
@@ -369,7 +369,7 @@ private:
                         e = m.mk_not(e);
                     }
                     m_todo.push_back(bind_variables(m.mk_implies(e, head)));
-                    m_proofs.push_back(0);
+                    m_proofs.push_back(nullptr);
                     if (produce_proofs()) {
                         defs.push_back(m.mk_def_intro(m_todo.back()));
                         m_proofs[m_proofs.size()-1] = defs.back();
@@ -423,7 +423,7 @@ private:
             if (!is_predicate(e)) {
                 app_ref head = mk_fresh_head(e);
                 m_todo.push_back(bind_variables(m.mk_implies(e, head)));
-                m_proofs.push_back(0);
+                m_proofs.push_back(nullptr);
                 body = m.update_quantifier(q, head);
                 if (produce_proofs()) {
                     proof* def_intro = m.mk_def_intro(m_todo.back());

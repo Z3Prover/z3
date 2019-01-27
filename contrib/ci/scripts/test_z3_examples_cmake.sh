@@ -88,11 +88,14 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
 fi
 
 if [ "X${DOTNET_BINDINGS}" = "X1" ]; then
-  # Build .NET example
-  # FIXME: Move compliation step into CMake target
-  mcs ${Z3_SRC_DIR}/examples/dotnet/Program.cs /target:exe /out:dotnet_test.exe /reference:Microsoft.Z3.dll /r:System.Numerics.dll
   # Run .NET example
-  run_quiet run_non_native_binding mono ./dotnet_test.exe
+  if [ "X${ASAN_BUILD}" = "X1" ]; then
+    # The dotnet test get stuck on ASAN
+    # so don't run it for now.
+    echo "Skipping .NET example under ASan build"
+  else
+    run_quiet run_non_native_binding dotnet ${Z3_BUILD_DIR}/dotnet/netcoreapp2.0/dotnet.dll
+  fi
 fi
 
 if [ "X${JAVA_BINDINGS}" = "X1" ]; then

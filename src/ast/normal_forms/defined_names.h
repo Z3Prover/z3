@@ -77,6 +77,11 @@ public:
     */
     bool mk_pos_name(expr * e, expr_ref & new_def, proof_ref & new_def_pr, app_ref & n, proof_ref & pr);
 
+    /**
+       \brief Create a definition for 'n' using 'e'.
+     */
+    expr_ref mk_definition(expr * e, app * n);
+
     void push();
     void pop(unsigned num_scopes);
     void reset();

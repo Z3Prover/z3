@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "cmd_context/check_logic.h"
+#include "solver/smt_logics.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
@@ -236,10 +237,12 @@ struct check_logic::imp {
                 return;
             }
             else if (m_bv_arrays) {
-                if (get_array_arity(s) != 1)
-                    fail("logic supports only unidimensional arrays");
-                if (!m_bv_util.is_bv_sort(get_array_range(s)) || !m_bv_util.is_bv_sort(get_array_domain(s, 0)))
-                    fail("logic supports only arrays from bitvectors to bitvectors");
+                unsigned sz = get_array_arity(s);
+                for (unsigned i = 0; i < sz; ++i) {
+                    if (!m_bv_util.is_bv_sort(get_array_domain(s, i)))
+                        fail("logic supports only arrays from bitvectors to bitvectors");
+                }
+                check_sort(get_array_range(s));
             }
             else {
                 fail("logic does not support arrays");
@@ -328,17 +331,17 @@ struct check_logic::imp {
 
     bool is_offset(app * t) {
         while (true) {
-            expr * non_numeral = 0;
+            expr * non_numeral = nullptr;
             unsigned num_args = t->get_num_args();
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg = t->get_arg(i);
                 if (is_numeral(arg))
                     continue;
-                if (non_numeral != 0)
+                if (non_numeral != nullptr)
                     return false;
                 non_numeral = arg;
             }
-            if (non_numeral == 0)
+            if (non_numeral == nullptr)
                 return true;
             if (is_diff_var(non_numeral))
                 return true;
@@ -453,7 +456,7 @@ struct check_logic::imp {
         else if (fid == m_dt_util.get_family_id() && m_dt) {
             // nothing to check
         }
-        else if (fid == m_pb_util.get_family_id() && m_logic == "QF_FD") {
+        else if (fid == m_pb_util.get_family_id() && smt_logics::logic_has_pb(m_logic)) {
             // nothing to check
         }
         else {
@@ -475,7 +478,7 @@ struct check_logic::imp {
             quick_for_each_expr(*this, n);
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }
@@ -494,14 +497,14 @@ struct check_logic::imp {
             check_sort(f->get_range());
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }
 };
 
 check_logic::check_logic() {
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 check_logic::~check_logic() {
@@ -512,7 +515,7 @@ check_logic::~check_logic() {
 void check_logic::reset() {
     if (m_imp)
         dealloc(m_imp);
-    m_imp = 0;
+    m_imp = nullptr;
 }
 
 void check_logic::set_logic(ast_manager & m, symbol const & logic) {

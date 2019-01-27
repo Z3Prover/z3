@@ -44,7 +44,7 @@ void cached_var_subst::reset() {
 void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::enode * const * bindings, expr_ref & result) {
     m_new_keys.reserve(num_bindings+1, 0);
     key * new_key = m_new_keys[num_bindings];
-    if (new_key == 0)
+    if (new_key == nullptr)
         new_key = static_cast<key*>(m_region.allocate(sizeof(key) + sizeof(expr*)*num_bindings));
 
     new_key->m_qa           = qa;
@@ -52,7 +52,7 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
     for (unsigned i = 0; i < num_bindings; i++)
         new_key->m_bindings[i] = bindings[i]->get_owner();
 
-    instances::entry * entry = m_instances.insert_if_not_there2(new_key, 0);
+    instances::entry * entry = m_instances.insert_if_not_there2(new_key, nullptr);
     if (entry->get_data().m_key != new_key) {
         SASSERT(entry->get_data().m_value != 0);
         // entry was already there
@@ -63,7 +63,7 @@ void cached_var_subst::operator()(quantifier * qa, unsigned num_bindings, smt::e
 
     SASSERT(entry->get_data().m_value == 0);
     try {
-        m_proc(qa->get_expr(), new_key->m_num_bindings, new_key->m_bindings, result);
+        result = m_proc(qa->get_expr(), new_key->m_num_bindings, new_key->m_bindings);
     }
     catch (...) {
         // CMW: The var_subst reducer was interrupted and m_instances is

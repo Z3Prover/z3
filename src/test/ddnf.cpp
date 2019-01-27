@@ -15,7 +15,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include <map>
 
 /*
-TBD: count number of nodes, number of operations accross all insertions
+TBD: count number of nodes, number of operations across all insertions
 */
 
 void read_nums(std::istream& is, unsigned & x, unsigned& y) {
@@ -26,7 +26,7 @@ void read_nums(std::istream& is, unsigned & x, unsigned& y) {
     std::getline(is, line);
 }
 
-static char const* g_file = 0;
+static char const* g_file = nullptr;
 
 
 void create_forwarding(

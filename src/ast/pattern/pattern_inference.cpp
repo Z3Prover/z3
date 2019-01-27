@@ -168,7 +168,7 @@ bool pattern_inference_cfg::collect::visit_children(expr * n, unsigned delta) {
 
 inline void pattern_inference_cfg::collect::save(expr * n, unsigned delta, info * i) {
     m_cache.insert(entry(n, delta), i);
-    if (i != 0)
+    if (i != nullptr)
         m_info.push_back(i);
 }
 
@@ -181,7 +181,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             uint_set free_vars;
             if (idx < m_num_bindings)
                 free_vars.insert(idx);
-            info * i = 0;
+            info * i = nullptr;
             if (delta == 0)
                 i = alloc(info, m, n, free_vars, 1);
             else
@@ -189,7 +189,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             save(n, delta, i);
         }
         else {
-            save(n, delta, 0);
+            save(n, delta, nullptr);
         }
         return;
     }
@@ -197,7 +197,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         app *       c    = to_app(n);
         func_decl * decl = c->get_decl();
         if (m_owner.is_forbidden(c)) {
-            save(n, delta, 0);
+            save(n, delta, nullptr);
             return;
         }
 
@@ -213,14 +213,14 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         unsigned num   = c->get_num_args();
         for (unsigned i = 0; i < num; i++) {
             expr * child      = c->get_arg(i);
-            info * child_info = 0;
+            info * child_info = nullptr;
 #ifdef Z3DEBUG
             bool found =
 #endif
             m_cache.find(entry(child, delta), child_info);
             SASSERT(found);
-            if (child_info == 0) {
-                save(n, delta, 0);
+            if (child_info == nullptr) {
+                save(n, delta, nullptr);
                 return;
             }
             buffer.push_back(child_info->m_node.get());
@@ -230,7 +230,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
                 changed = true;
         }
 
-        app * new_node = 0;
+        app * new_node = nullptr;
         if (changed)
             new_node = m.mk_app(decl, buffer.size(), buffer.c_ptr());
         else
@@ -254,7 +254,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
         return;
     }
     default:
-        save(n, delta, 0);
+        save(n, delta, nullptr);
         return;
     }
 }
@@ -582,7 +582,7 @@ bool pattern_inference_cfg::reduce_quantifier(
     proof_ref & result_pr) {
 
     TRACE("pattern_inference", tout << "processing:\n" << mk_pp(q, m) << "\n";);
-    if (!q->is_forall()) {
+    if (!is_forall(q)) {
         return false;
     }
 
@@ -594,7 +594,6 @@ bool pattern_inference_cfg::reduce_quantifier(
         unsigned new_weight;
         if (m_database.match_quantifier(q, new_patterns, new_weight)) {
             DEBUG_CODE(for (unsigned i = 0; i < new_patterns.size(); i++) { SASSERT(is_well_sorted(m, new_patterns.get(i))); });
-            quantifier_ref new_q(m);
             if (q->get_num_patterns() > 0) {
                 // just update the weight...
                 TRACE("pattern_inference", tout << "updating weight to: " << new_weight << "\n" << mk_pp(q, m) << "\n";);
@@ -604,10 +603,10 @@ bool pattern_inference_cfg::reduce_quantifier(
                 quantifier_ref tmp(m);
                 tmp    = m.update_quantifier(q, new_patterns.size(), (expr**) new_patterns.c_ptr(), q->get_expr());
                 result = m.update_quantifier_weight(tmp, new_weight);
-                TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(new_q, m) << "\n";);
+                TRACE("pattern_inference", tout << "found patterns in database, weight: " << new_weight << "\n" << mk_pp(result, m) << "\n";);
             }
             if (m.proofs_enabled())
-                result_pr = m.mk_rewrite(q, new_q);
+                result_pr = m.mk_rewrite(q, result);
             return true;
         }
     }
@@ -630,7 +629,7 @@ bool pattern_inference_cfg::reduce_quantifier(
 
     if (new_patterns.empty() && num_no_patterns > 0) {
         if (new_patterns.empty()) {
-            mk_patterns(q->get_num_decls(), new_body, 0, 0, new_patterns);
+            mk_patterns(q->get_num_decls(), new_body, 0, nullptr, new_patterns);
             if (m_params.m_pi_warnings && !new_patterns.empty()) {
                 warning_msg("ignoring nopats annotation because Z3 couldn't find any other pattern (quantifier id: %s)", q->get_qid().str().c_str());
             }
@@ -673,6 +672,7 @@ bool pattern_inference_cfg::reduce_quantifier(
         new_q = m.update_quantifier_weight(new_q, weight);
     if (m.proofs_enabled()) {
         proof* new_body_pr = m.mk_reflexivity(new_body);
+        new_body_pr = m.mk_bind_proof(new_q, new_body_pr);
         result_pr = m.mk_quant_intro(q, new_q, new_body_pr);
     }
 
@@ -683,14 +683,14 @@ bool pattern_inference_cfg::reduce_quantifier(
         pull(new_q, new_expr, new_pr);
         quantifier * result2 = to_quantifier(new_expr);
         if (result2 != new_q) {
-            mk_patterns(result2->get_num_decls(), result2->get_expr(), 0, 0, new_patterns);
+            mk_patterns(result2->get_num_decls(), result2->get_expr(), 0, nullptr, new_patterns);
             if (!new_patterns.empty()) {
                 if (m_params.m_pi_warnings) {
-                    warning_msg("pulled nested quantifier to be able to find an useable pattern (quantifier id: %s)", q->get_qid().str().c_str());
+                    warning_msg("pulled nested quantifier to be able to find an usable pattern (quantifier id: %s)", q->get_qid().str().c_str());
                 }
                 new_q = m.update_quantifier(result2, new_patterns.size(), (expr**) new_patterns.c_ptr(), result2->get_expr());
                 if (m.proofs_enabled()) {
-                    result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_reflexivity(new_q->get_expr())));
+                    result_pr = m.mk_transitivity(new_pr, m.mk_quant_intro(result2, new_q, m.mk_bind_proof(new_q, m.mk_reflexivity(new_q->get_expr()))));
                 }
                 TRACE("pattern_inference", tout << "pulled quantifier:\n" << mk_pp(new_q, m) << "\n";);
             }
@@ -710,7 +710,7 @@ bool pattern_inference_cfg::reduce_quantifier(
 
     result = new_q;
 
-    IF_IVERBOSE(10,
+    IF_VERBOSE(10,
         verbose_stream() << "(smt.inferred-patterns :qid " << q->get_qid() << "\n";
         for (unsigned i = 0; i < new_patterns.size(); i++)
             verbose_stream() << "  " << mk_ismt2_pp(new_patterns[i], m, 2) << "\n";

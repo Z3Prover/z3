@@ -175,7 +175,7 @@ namespace test_mapi
 
             string bench = string.Format("(assert (forall ((x {0}) (y {1})) (= ({2} x y) ({3} y x))))",
                              t.Name, t.Name, f.Name, f.Name);
-            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f });
+            return ctx.ParseSMTLIB2String(bench, new Symbol[] { t.Name }, new Sort[] { t }, new Symbol[] { f.Name }, new FuncDecl[] { f })[0];
         }
 
         /// <summary>
@@ -322,7 +322,6 @@ namespace test_mapi
             Status q = s.Check();
             Console.WriteLine("Solver says: " + q);
             Console.WriteLine("Model: \n" + s.Model);
-            Console.WriteLine("Converted Model: \n" + ar.ConvertModel(0, s.Model));
             if (q != Status.SATISFIABLE)
                 throw new TestFailedException();
         }
@@ -364,10 +363,10 @@ namespace test_mapi
 
             Console.WriteLine("Model = " + s.Model);
 
-            Console.WriteLine("Interpretation of MyArray:\n" + s.Model.FuncInterp(aex.FuncDecl));
+            //Console.WriteLine("Interpretation of MyArray:\n" + s.Model.ConstInterp(aex.FuncDecl));
             Console.WriteLine("Interpretation of x:\n" + s.Model.ConstInterp(xc));
             Console.WriteLine("Interpretation of f:\n" + s.Model.FuncInterp(fd));
-            Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.FuncInterp(aex.FuncDecl));
+            //Console.WriteLine("Interpretation of MyArray as Term:\n" + s.Model.ConstInterp(aex.FuncDecl));
         }
 
         /// <summary>
@@ -612,7 +611,6 @@ namespace test_mapi
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Expr[] bound = new Expr[2] { x, y };
                 Expr body = ctx.MkAnd(ctx.MkEq(f_x, f_y), ctx.MkEq(f_y, g_y));
@@ -629,7 +627,6 @@ namespace test_mapi
                 Expr f_x = ctx.MkApp(f, x);
                 Expr f_y = ctx.MkApp(f, y);
                 Expr g_y = ctx.MkApp(g, y);
-                Pattern[] pats = new Pattern[] { ctx.MkPattern(new Expr[] { f_x, g_y }) };
                 Expr[] no_pats = new Expr[] { f_y };
                 Symbol[] names = new Symbol[] { ctx.MkSymbol("x"), ctx.MkSymbol("y") };
                 Sort[] sorts = new Sort[] { ctx.IntSort, ctx.IntSort };
@@ -730,7 +727,6 @@ namespace test_mapi
         {
             Console.WriteLine("BasicTests");
 
-            Symbol qi = ctx.MkSymbol(1);
             Symbol fname = ctx.MkSymbol("f");
             Symbol x = ctx.MkSymbol("x");
             Symbol y = ctx.MkSymbol("y");
@@ -977,7 +973,8 @@ namespace test_mapi
 
             using (Context ctx = new Context(new Dictionary<string, string>() { { "MODEL", "true" } }))
             {
-                Expr a = ctx.ParseSMTLIB2File(filename);
+                BoolExpr[] fmls = ctx.ParseSMTLIB2File(filename);
+                BoolExpr a = ctx.MkAnd(fmls);
 
                 Console.WriteLine("SMT2 file read time: " + (System.DateTime.Now - before).TotalSeconds + " sec");
 
@@ -1319,7 +1316,7 @@ namespace test_mapi
              new Sort[] { int_type, int_type } // types of projection operators
                 );
             FuncDecl first = tuple.FieldDecls[0];  // declarations are for projections
-            FuncDecl second = tuple.FieldDecls[1];
+            // FuncDecl second = tuple.FieldDecls[1];
             Expr x = ctx.MkConst("x", int_type);
             Expr y = ctx.MkConst("y", int_type);
             Expr n1 = tuple.MkDecl[x, y];
@@ -1383,7 +1380,9 @@ namespace test_mapi
         {
             Console.WriteLine("ParserExample1");
 
-            var fml = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            var fmls = ctx.ParseSMTLIB2String("(declare-const x Int) (declare-const y Int) (assert (> x y)) (assert (> x 0))");
+            var fml = ctx.MkAnd(fmls);
+
             Console.WriteLine("formula {0}", fml);
 
             Model m = Check(ctx, fml, Status.SATISFIABLE);
@@ -1399,7 +1398,7 @@ namespace test_mapi
             FuncDecl a = ctx.MkConstDecl(declNames[0], ctx.MkIntSort());
             FuncDecl b = ctx.MkConstDecl(declNames[1], ctx.MkIntSort());
             FuncDecl[] decls = new FuncDecl[] { a, b };
-            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls);
+            BoolExpr f = ctx.ParseSMTLIB2String("(assert (> a b))", null, null, declNames, decls)[0];
             Console.WriteLine("formula: {0}", f);
             Check(ctx, f, Status.SATISFIABLE);
         }
@@ -1420,7 +1419,7 @@ namespace test_mapi
             BoolExpr thm = ctx.ParseSMTLIB2String("(assert (forall ((x Int) (y Int)) (=> (= x y) (= (gg x 0) (gg 0 y)))))",
              null, null,
              new Symbol[] { ctx.MkSymbol("gg") },
-             new FuncDecl[] { g });
+             new FuncDecl[] { g })[0];
 
             Console.WriteLine("formula: {0}", thm);
             Prove(ctx, thm, false, ca);
@@ -2106,6 +2105,7 @@ namespace test_mapi
 
             Console.WriteLine("OK, model: {0}", s.Model.ToString());
         }
+
 
         public static void TranslationExample()
         {

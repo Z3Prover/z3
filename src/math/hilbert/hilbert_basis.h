@@ -20,7 +20,7 @@ Revision History:
 
     Hilbert basis can be templatized 
     based on traits that define numeral:
-    as rational, mpz, checked_int64 
+    as rational, mpz, checked_int64
     (checked or unchecked).
 
 --*/

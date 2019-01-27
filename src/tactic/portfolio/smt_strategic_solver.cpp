@@ -33,15 +33,17 @@ Notes:
 #include "tactic/smtlogics/qfidl_tactic.h"
 #include "tactic/smtlogics/nra_tactic.h"
 #include "tactic/portfolio/default_tactic.h"
-#include "tactic/portfolio/fd_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "tactic/ufbv/ufbv_tactic.h"
 #include "tactic/fpa/qffp_tactic.h"
-#include "tactic/smtlogics/qfufnra_tactic.h"
 #include "muz/fp/horn_tactic.h"
 #include "smt/smt_solver.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "ast/rewriter/bv_rewriter.h"
 #include "solver/solver2tactic.h"
+#include "solver/parallel_tactic.h"
+#include "solver/parallel_params.hpp"
+
 
 
 tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const & logic) {
@@ -94,17 +96,16 @@ tactic * mk_tactic_for_logic(ast_manager & m, params_ref const & p, symbol const
     else if (logic=="HORN")
         return mk_horn_tactic(m, p);
     else if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
-        return mk_solver2tactic(mk_fd_solver(m, p));
-    //else if (logic=="QF_UFNRA")
-    //    return mk_qfufnra_tactic(m, p);
+        return mk_fd_tactic(m, p);
     else 
         return mk_default_tactic(m, p);
 }
 
 static solver* mk_special_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
-    if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled())
+    parallel_params pp(p);
+    if ((logic == "QF_FD" || logic == "SAT") && !m.proofs_enabled() && !pp.enable())
         return mk_fd_solver(m, p);
-    return 0;
+    return nullptr;
 }
 
 static solver* mk_solver_for_logic(ast_manager & m, params_ref const & p, symbol const& logic) {
@@ -122,8 +123,8 @@ class smt_strategic_solver_factory : public solver_factory {
 public:
     smt_strategic_solver_factory(symbol const & logic):m_logic(logic) {}
     
-    virtual ~smt_strategic_solver_factory() {}
-    virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) {
+    ~smt_strategic_solver_factory() override {}
+    solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         symbol l;
         if (m_logic != symbol::null)
             l = m_logic;

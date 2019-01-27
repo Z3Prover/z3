@@ -52,7 +52,7 @@ namespace datalog {
          */
         mk_coalesce(context & ctx);
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

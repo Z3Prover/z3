@@ -29,7 +29,7 @@ namespace datalog {
             m_context(ctx),
             m(ctx.get_manager()),
             rm(ctx.get_rule_manager()),
-            m_result(0), 
+            m_result(nullptr),
             m_pinned(m) {
     }
 
@@ -89,7 +89,7 @@ namespace datalog {
             app_ref filter_head(m);
             filter_head = m.mk_app(filter_decl, key->filter_args.size(), key->filter_args.c_ptr());
             app * filter_tail = key->new_pred;
-            rule * filter_rule = m_context.get_rule_manager().mk(filter_head, 1, &filter_tail, (const bool *)0);
+            rule * filter_rule = m_context.get_rule_manager().mk(filter_head, 1, &filter_tail, (const bool *)nullptr);
             filter_rule->set_accounting_parent_object(m_context, m_current);
             m_result->add_rule(filter_rule);
             m_context.get_rule_manager().mk_rule_asserted_proof(*filter_rule);
@@ -161,7 +161,7 @@ namespace datalog {
         }
         if(!m_modified) {
             dealloc(m_result);
-            return static_cast<rule_set *>(0);
+            return static_cast<rule_set *>(nullptr);
         }
         m_result->inherit_predicates(source);
         return m_result;

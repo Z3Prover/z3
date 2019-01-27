@@ -126,7 +126,7 @@ unsigned ntz(unsigned sz, unsigned const * data) {
 /**
    \brief dst <- src
    
-   Trucate if src_sz > dst_sz.
+   Truncate if src_sz > dst_sz.
    Fill range [src_sz, dst_sz) of dst with zeros if dst_sz > src_sz.
 */
 void copy(unsigned src_sz, unsigned const * src, 

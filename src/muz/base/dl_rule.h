@@ -54,7 +54,7 @@ namespace datalog {
         bool m_found;
         func_decl* m_func;
         uninterpreted_function_finder_proc(ast_manager& m): 
-            m(m), m_dt(m), m_dl(m), m_found(false), m_func(0) {}
+            m(m), m_dt(m), m_dl(m), m_found(false), m_func(nullptr) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) { }
         void operator()(app * n) {
@@ -71,7 +71,7 @@ namespace datalog {
                 }
             }
         }
-        void reset() { m_found = false; m_func = 0; }
+        void reset() { m_found = false; m_func = nullptr; }
 
         bool found(func_decl*& f) const { f = m_func; return m_found; }
     };
@@ -82,23 +82,35 @@ namespace datalog {
         quantifier_finder_proc() : m_exist(false), m_univ(false) {}
         void operator()(var * n) { }
         void operator()(quantifier * n) {
-            if (n->is_forall()) {
-                m_univ = true;
-            }
-            else {
-                SASSERT(n->is_exists());
-                m_exist = true;
+            switch (n->get_kind()) {
+            case forall_k: m_univ = true; break;
+            case exists_k: m_exist = true; break;
+            case lambda_k: UNREACHABLE();
             }
         }
         void operator()(app * n) { }
         void reset() { m_exist = m_univ = false; }
     };
 
+    struct fd_finder_proc {
+        ast_manager& m;
+        bv_util      m_bv;
+        bool         m_is_fd;
+        fd_finder_proc(ast_manager& m): m(m), m_bv(m), m_is_fd(true) {}
+
+        bool is_fd() const { return m_is_fd; }
+        bool is_fd(sort* s) { return m.is_bool(s) || m_bv.is_bv_sort(s); }
+        void operator()(var* n) { m_is_fd &= is_fd(n->get_sort()); }
+        void operator()(quantifier* ) { m_is_fd = false; }
+        void operator()(app* n) { m_is_fd &= is_fd(n->get_decl()->get_range()); }
+        void reset() { m_is_fd = true; }
+    };
+
 
     /**
        \brief Manager for the \c rule class
 
-       \remark \c rule_manager objects are interchangable as long as they
+       \remark \c rule_manager objects are interchangeable as long as they
          contain the same \c ast_manager object.
     */
     class rule_manager
@@ -119,6 +131,7 @@ namespace datalog {
         mutable uninterpreted_function_finder_proc m_ufproc;
         mutable quantifier_finder_proc m_qproc;
         mutable expr_sparse_mark       m_visited;
+        mutable fd_finder_proc         m_fd_proc;
 
 
         // only the context can create a rule_manager
@@ -209,7 +222,7 @@ namespace datalog {
            
            \remark A tail may contain negation. tail[i] is assumed to be negated if is_neg != 0 && is_neg[i] == true
         */
-        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = 0, 
+        rule * mk(app * head, unsigned n, app * const * tail, bool const * is_neg = nullptr,
                   symbol const& name = symbol::null, bool normalize = true);
 
         /**
@@ -267,6 +280,7 @@ namespace datalog {
         bool has_uninterpreted_non_predicates(rule const& r, func_decl*& f) const;
         void has_quantifiers(rule const& r, bool& existential, bool& universal) const;
         bool has_quantifiers(rule const& r) const;
+        bool is_finite_domain(rule const& r) const;
 
     };
 

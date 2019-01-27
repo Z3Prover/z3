@@ -24,24 +24,24 @@ Notes:
 #include "smt/smt_context.h"
 #include "opt/opt_context.h"
 #include "util/sorting_network.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace opt {
 
     class sortmax : public maxsmt_solver_base {
     public:
-        typedef expr* literal;
-        typedef ptr_vector<expr> literal_vector;
+        typedef expr* pliteral;
+        typedef ptr_vector<expr> pliteral_vector;
         psort_nw<sortmax> m_sort;
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
-        ref<filter_model_converter> m_filter;
+        ref<generic_model_converter> m_filter;
         sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
 
-        virtual ~sortmax() {}
+        ~sortmax() override {}
 
-        lbool operator()() {
+        lbool operator()() override {
             obj_map<expr, rational> soft;            
             if (!init()) {
                 return l_false;
@@ -50,7 +50,7 @@ namespace opt {
             if (is_sat != l_true) {
                 return is_sat;
             }
-            m_filter = alloc(filter_model_converter, m);
+            m_filter = alloc(generic_model_converter, m, "sortmax");
             rational offset = m_lower;
             m_upper = offset;
             expr_ref_vector in(m);
@@ -73,8 +73,7 @@ namespace opt {
             unsigned first = 0;
             it = soft.begin();
             for (; it != end; ++it) {
-                expr_ref tmp(m);
-                if (m_model->eval(it->m_key, tmp) && m.is_true(tmp)) {
+                if (m_model->is_true(it->m_key)) {
                     unsigned n = it->m_value.get_unsigned();
                     while (n > 0) {
                         s().assert_expr(out[first]);
@@ -89,7 +88,7 @@ namespace opt {
             while (l_true == is_sat && first < out.size() && m_lower < m_upper) {
                 trace_bounds("sortmax");
                 s().assert_expr(out[first]);
-                is_sat = s().check_sat(0, 0);
+                is_sat = s().check_sat(0, nullptr);
                 TRACE("opt", tout << is_sat << "\n"; s().display(tout); tout << "\n";);
                 if (m.canceled()) {
                     is_sat = l_undef;
@@ -115,38 +114,35 @@ namespace opt {
         }
 
         void update_assignment() {
-            for (unsigned i = 0; i < m_soft.size(); ++i) {
-                m_assignment[i] = is_true(m_soft[i]);
-            }
+            for (soft& s : m_soft) s.set_value(is_true(s.s));
         }
 
         bool is_true(expr* e) {
-            expr_ref tmp(m);
-            return m_model->eval(e, tmp) && m.is_true(tmp);
+            return m_model->is_true(e);
         }
 
         // definitions used for sorting network
-        literal mk_false() { return m.mk_false(); }
-        literal mk_true() { return m.mk_true(); }
-        literal mk_max(literal a, literal b) { return trail(m.mk_or(a, b)); }
-        literal mk_min(literal a, literal b) { return trail(m.mk_and(a, b)); }
-        literal mk_not(literal a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
+        pliteral mk_false() { return m.mk_false(); }
+        pliteral mk_true() { return m.mk_true(); }
+        pliteral mk_max(unsigned n, pliteral const* as) { return trail(m.mk_or(n, as)); }
+        pliteral mk_min(unsigned n, pliteral const* as) { return trail(m.mk_and(n, as)); }
+        pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
-        std::ostream& pp(std::ostream& out, literal lit) {  return out << mk_pp(lit, m);  }
+        std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_pp(lit, m);  }
         
-        literal trail(literal l) {
+        pliteral trail(pliteral l) {
             m_trail.push_back(l);
             return l;
         }
-        literal fresh() {
-            expr_ref fr(m.mk_fresh_const("sn", m.mk_bool_sort()), m);
+        pliteral fresh(char const* n) {
+            expr_ref fr(m.mk_fresh_const(n, m.mk_bool_sort()), m);
             func_decl* f = to_app(fr)->get_decl();
             m_fresh.push_back(f);
-            m_filter->insert(f);
+            m_filter->hide(f);
             return trail(fr);
         }
         
-        void mk_clause(unsigned n, literal const* lits) {
+        void mk_clause(unsigned n, pliteral const* lits) {
             s().assert_expr(mk_or(m, n, lits));
         }        
         

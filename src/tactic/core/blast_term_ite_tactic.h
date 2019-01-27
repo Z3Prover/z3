@@ -33,6 +33,6 @@ tactic * mk_blast_term_ite_tactic(ast_manager & m, params_ref const & p = params
     ADD_TACTIC("blast-term-ite", "blast term if-then-else by hoisting them.", "mk_blast_term_ite_tactic(m, p)")
 */
 
-void blast_term_ite(expr_ref& fml);
+void blast_term_ite(expr_ref& fml, unsigned max_inflation);
 
 #endif

@@ -88,22 +88,22 @@ inline lbool    to_lbool(Z3_lbool b) { return static_cast<lbool>(b); }
 struct Z3_params_ref : public api::object {
     params_ref m_params;
     Z3_params_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_params_ref() {}
+    ~Z3_params_ref() override {}
 };
 
 inline Z3_params_ref * to_params(Z3_params p) { return reinterpret_cast<Z3_params_ref *>(p); }
 inline Z3_params of_params(Z3_params_ref * p) { return reinterpret_cast<Z3_params>(p); }
-inline params_ref to_param_ref(Z3_params p) { return p == 0 ? params_ref() : to_params(p)->m_params; }
+inline params_ref to_param_ref(Z3_params p) { return p == nullptr ? params_ref() : to_params(p)->m_params; }
 
 struct Z3_param_descrs_ref : public api::object {
     param_descrs m_descrs;
     Z3_param_descrs_ref(api::context& c): api::object(c) {}
-    virtual ~Z3_param_descrs_ref() {}
+    ~Z3_param_descrs_ref() override {}
 };
 
 inline Z3_param_descrs_ref * to_param_descrs(Z3_param_descrs p) { return reinterpret_cast<Z3_param_descrs_ref *>(p); }
 inline Z3_param_descrs of_param_descrs(Z3_param_descrs_ref * p) { return reinterpret_cast<Z3_param_descrs>(p); }
-inline param_descrs * to_param_descrs_ptr(Z3_param_descrs p) { return p == 0 ? 0 : &(to_param_descrs(p)->m_descrs); }
+inline param_descrs * to_param_descrs_ptr(Z3_param_descrs p) { return p == nullptr ? nullptr : &(to_param_descrs(p)->m_descrs); }
 
 
 #define SKIP ((void) 0)

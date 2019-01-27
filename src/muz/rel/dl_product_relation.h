@@ -59,37 +59,37 @@ namespace datalog {
 
         product_relation_plugin(relation_manager& m);
 
-        virtual void initialize(family_id fid);
+        void initialize(family_id fid) override;
 
-        virtual bool can_handle_signature(const relation_signature & s);
-        virtual bool can_handle_signature(const relation_signature & s, family_id kind);
+        bool can_handle_signature(const relation_signature & s) override;
+        bool can_handle_signature(const relation_signature & s, family_id kind) override;
 
         static symbol get_name() { return symbol("product_relation"); }
 
         family_id get_relation_kind(const relation_signature & sig, const rel_spec & spec);
 
-        virtual relation_base * mk_empty(const relation_signature & s);
-        virtual relation_base * mk_empty(const relation_signature & s, family_id kind);
+        relation_base * mk_empty(const relation_signature & s) override;
+        relation_base * mk_empty(const relation_signature & s, family_id kind) override;
 
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s, family_id kind);
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
+        relation_base * mk_full(func_decl* p, const relation_signature & s, family_id kind) override;
 
     protected:
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
 
         static bool is_product_relation(relation_base const& r);
 
@@ -154,15 +154,15 @@ namespace datalog {
         product_relation(product_relation_plugin& p, relation_signature const& s);
         product_relation(product_relation_plugin& p, relation_signature const& s, unsigned num_relations, relation_base** relations);
 
-        ~product_relation();
+        ~product_relation() override;
 
-        virtual bool empty() const;
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual product_relation * clone() const;
-        virtual product_relation * complement(func_decl* p) const;
-        virtual void display(std::ostream & out) const;
-        virtual void to_formula(expr_ref& fml) const;
+        bool empty() const override;
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        product_relation * clone() const override;
+        product_relation * complement(func_decl* p) const override;
+        void display(std::ostream & out) const override;
+        void to_formula(expr_ref& fml) const override;
         product_relation_plugin& get_plugin() const; 
 
         unsigned size() const { return m_relations.size(); }
@@ -175,7 +175,7 @@ namespace datalog {
         */
         bool try_get_single_non_transparent(unsigned & idx) const;
 
-        virtual bool is_precise() const { 
+        bool is_precise() const override {
             for (unsigned i = 0; i < m_relations.size(); ++i) {
                 if (!m_relations[i]->is_precise()) {
                     return false;

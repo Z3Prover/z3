@@ -35,7 +35,7 @@ public:
         unsigned m_i;
     public:
         ref(stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            SASSERT(key < m.size());
+            lp_assert(key < m.size());
         }
         ref & operator=(const B & b) {
             m_vec.emplace_replace(m_i, b);
@@ -48,7 +48,18 @@ public:
         operator const B&() const {
             return m_vec.m_vector[m_i];
         }
-
+        
+        bool operator==(B const& other) const {
+            return m_vec.m_vector[m_i] == other;
+        }
+        B& operator+=(B const &delta) {
+            // not tracking the change here!
+            return m_vec.m_vector[m_i] += delta;
+        }
+        B& operator-=(B const &delta) {
+            // not tracking the change here!
+            return m_vec.m_vector[m_i] -= delta;
+        }
     };
 
     class ref_const {
@@ -56,7 +67,7 @@ public:
         unsigned m_i;
     public:
         ref_const(const stacked_vector<B> &m, unsigned key) :m_vec(m), m_i(key) {
-            SASSERT(key < m.size());
+            lp_assert(key < m.size());
         }
  
         operator const B&() const {
@@ -83,10 +94,10 @@ public:
     }
 
     /*
-    const B & operator[](unsigned a) const {
-        SASSERT(a < m_vector.size());
-        return m_vector[a];
-    }
+      const B & operator[](unsigned a) const {
+      lp_assert(a < m_vector.size());
+      return m_vector[a];
+      }
     */    
     unsigned size() const {
         return m_vector.size();
@@ -104,7 +115,7 @@ public:
 
     template <typename T>  
     void pop_tail(vector<T> & v, unsigned k) {
-        SASSERT(v.size() >= k);
+        lp_assert(v.size() >= k);
         v.resize(v.size() - k);
     }
 
@@ -112,10 +123,16 @@ public:
     void resize(vector<T> & v, unsigned new_size) {
         v.resize(new_size);
     }
+
+    void pop_back() {
+        unsigned last = m_vector.size() - 1;
+        m_changes.push_back(std::make_pair(last, m_vector[last]));
+        m_vector.pop_back();
+    }
     
     void pop(unsigned k) {
-        SASSERT(m_stack_of_vector_sizes.size() >= k);
-        SASSERT(k > 0);
+        lp_assert(m_stack_of_vector_sizes.size() >= k);
+        lp_assert(k > 0);
         resize(m_vector, m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k]);
         pop_tail(m_stack_of_vector_sizes, k);
         unsigned first_change = m_stack_of_change_sizes[m_stack_of_change_sizes.size() - k];
@@ -129,22 +146,22 @@ public:
         resize(m_changes, first_change);
 
         /*
-        while (k-- > 0) {
+          while (k-- > 0) {
             
-            if (m_stack.empty())
-                return;
+          if (m_stack.empty())
+          return;
             
-            delta & d = m_stack.back();
-            SASSERT(m_vector.size() >= d.m_size);
-            while (m_vector.size() > d.m_size)
-                m_vector.pop_back();
+          delta & d = m_stack.back();
+          lp_assert(m_vector.size() >= d.m_size);
+          while (m_vector.size() > d.m_size)
+          m_vector.pop_back();
             
-            for (auto & t : d.m_original_changed) {
-                SASSERT(t.first < m_vector.size());
-                m_vector[t.first] = t.second;
-            }
-            //            SASSERT(d.m_deb_copy == m_vector);
-            m_stack.pop_back();*/
+          for (auto & t : d.m_original_changed) {
+          lp_assert(t.first < m_vector.size());
+          m_vector[t.first] = t.second;
+          }
+          //            lp_assert(d.m_deb_copy == m_vector);
+          m_stack.pop_back();*/
     }   
 
     
@@ -173,7 +190,7 @@ public:
     }
 
     unsigned peek_size(unsigned k) const {
-        SASSERT(k > 0 && k <= m_stack_of_vector_sizes.size());
+        lp_assert(k > 0 && k <= m_stack_of_vector_sizes.size());
         return m_stack_of_vector_sizes[m_stack_of_vector_sizes.size() - k];
     }
 

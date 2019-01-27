@@ -26,12 +26,12 @@ mpq_manager<SYNCH>::mpq_manager() {
 
 template<bool SYNCH>
 mpq_manager<SYNCH>::~mpq_manager() {
-    del(m_n_tmp);
-    del(m_add_tmp1);
-    del(m_add_tmp2);
-    del(m_lt_tmp1);
-    del(m_lt_tmp2);
-    del(m_addmul_tmp);
+    del(m_tmp1);
+    del(m_tmp2);
+    del(m_tmp3);
+    del(m_tmp4);
+    del(m_q_tmp1);
+    del(m_q_tmp2);
 }
 
 
@@ -68,9 +68,9 @@ bool mpq_manager<SYNCH>::rat_lt(mpq const & a, mpq const & b) {
         return r;
     }
     else {
-        mul(na, db, m_lt_tmp1);
-        mul(nb, da, m_lt_tmp2);
-        return lt(m_lt_tmp1, m_lt_tmp2);
+        mul(na, db, m_q_tmp1);
+        mul(nb, da, m_q_tmp2);
+        return lt(m_q_tmp1, m_q_tmp2);
     }
 }
 
@@ -230,6 +230,10 @@ void mpq_manager<SYNCH>::set(mpq & a, char const * val) {
                 exp_sign = true;
                 ++str;
             }
+            else if (str[0] == '+') {
+                exp_sign = false;
+                ++str;
+            }
             while (str[0]) {
                 if ('0' <= str[0] && str[0] <= '9') {
                     SASSERT(str[0] - '0' <= 9);
@@ -315,6 +319,116 @@ unsigned mpq_manager<SYNCH>::prev_power_of_two(mpq const & a) {
     return prev_power_of_two(_tmp);
 }
 
-template class mpq_manager<true>;
-template class mpq_manager<false>;
 
+template<bool SYNCH>
+template<bool SUB>
+void mpq_manager<SYNCH>::lin_arith_op(mpq const& a, mpq const& b, mpq& c, mpz& g, mpz& tmp1, mpz& tmp2, mpz& tmp3) {
+    gcd(a.m_den, b.m_den, g);                   
+    if (is_one(g)) {                            
+       mul(a.m_num, b.m_den, tmp1);             
+       mul(b.m_num, a.m_den, tmp2); 
+       if (SUB) sub(tmp1, tmp2, c.m_num); else add(tmp1, tmp2, c.m_num);
+       mul(a.m_den, b.m_den, c.m_den);          
+    }                                           
+    else {                                      
+        div(a.m_den, g, tmp3);                  
+        mul(tmp3, b.m_den, c.m_den);            
+        mul(tmp3, b.m_num, tmp2);               
+        div(b.m_den, g, tmp3);                  
+        mul(tmp3, a.m_num, tmp1);               
+        if (SUB) sub(tmp1, tmp2, tmp3); else add(tmp1, tmp2, tmp3);
+        gcd(tmp3, g, tmp1);                     
+        if (is_one(tmp1)) {                     
+            set(c.m_num, tmp3);                 
+        }                                       
+        else {                                  
+            div(tmp3, tmp1, c.m_num);           
+            div(c.m_den, tmp1, c.m_den);        
+        }                                       
+    }                                           
+}
+
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c, mpz& g1, mpz& g2, mpz& tmp1, mpz& tmp2) {
+#if 1
+    gcd(a.m_den, b.m_num, g1);
+    gcd(a.m_num, b.m_den, g2);
+    div(a.m_num, g2, tmp1);
+    div(b.m_num, g1, tmp2);
+    mul(tmp1, tmp2, c.m_num);
+    div(b.m_den, g2, tmp1);
+    div(a.m_den, g1, tmp2);
+    mul(tmp1, tmp2, c.m_den);
+#else
+    mul(a.m_num, b.m_num, c.m_num);
+    mul(a.m_den, b.m_den, c.m_den);
+    normalize(c);
+#endif
+}
+
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_mul(mpz const & a, mpq const & b, mpq & c) {
+    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
+    mul(a, b.m_num, c.m_num);
+    set(c.m_den, b.m_den);
+    normalize(c);
+    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+}
+
+
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_mul(mpq const & a, mpq const & b, mpq & c) {
+    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " * " << to_string(b) << " == ";); 
+    if (SYNCH) {
+        mpz g1, g2, tmp1, tmp2;
+        rat_mul(a, b, c, g1, g2, tmp1, tmp2);
+        del(g1);
+        del(g2);
+        del(tmp1);
+        del(tmp2);
+    }
+    else {
+        rat_mul(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
+    }
+    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+}
+
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_add(mpq const & a, mpq const & b, mpq & c) {
+    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " + " << to_string(b) << " == ";); 
+    if (SYNCH) {
+        mpz_stack tmp1, tmp2, tmp3, g;
+        lin_arith_op<false>(a, b, c, g, tmp1, tmp2, tmp3);
+        del(tmp1);
+        del(tmp2);
+        del(tmp3);
+        del(g);
+    }
+    else {
+        lin_arith_op<false>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
+    }
+    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+}
+
+template<bool SYNCH>
+void mpq_manager<SYNCH>::rat_sub(mpq const & a, mpq const & b, mpq & c) {
+    STRACE("rat_mpq", tout << "[mpq] " << to_string(a) << " - " << to_string(b) << " == ";); 
+    if (SYNCH) {
+        mpz tmp1, tmp2, tmp3, g;
+        lin_arith_op<true>(a, b, c, g, tmp1, tmp2, tmp3);
+        del(tmp1);
+        del(tmp2);
+        del(tmp3);
+        del(g);
+    }
+    else {
+        lin_arith_op<true>(a, b, c, m_tmp1, m_tmp2, m_tmp3, m_tmp4);
+    }
+    STRACE("rat_mpq", tout << to_string(c) << "\n";);
+}
+
+
+#ifndef _NO_OMP_
+template class mpq_manager<true>;
+#endif
+template class mpq_manager<false>;

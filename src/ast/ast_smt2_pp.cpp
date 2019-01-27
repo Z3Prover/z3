@@ -31,7 +31,7 @@ using namespace format_ns;
 #define MAX_INDENT   16
 #define SMALL_INDENT 2
 
-format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len) const {
+format * smt2_pp_environment::pp_fdecl_name(symbol const & s, unsigned & len, bool is_skolem) const {
     ast_manager & m = get_manager();
     if (is_smt2_quoted_symbol(s)) {
         std::string str = mk_smt2_quoted_symbol(s);
@@ -63,13 +63,9 @@ format * smt2_pp_environment::pp_fdecl_name(func_decl * f, unsigned & len) const
         len = 3;
         return mk_string(m, "ite");
     }
-    else if (m.is_iff(f)) {
-        len = 1;
-        return mk_string(m, "=");
-    }
     else {
         symbol s = f->get_name();
-        return pp_fdecl_name(s, len);
+        return pp_fdecl_name(s, len, f->is_skolem());
     }
 }
 
@@ -116,8 +112,10 @@ format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
                 (f->get_parameter(i).is_ast() && is_func_decl(f->get_parameter(i).get_ast())));
         if (f->get_parameter(i).is_int())
             fs.push_back(mk_int(get_manager(), f->get_parameter(i).get_int()));
-        else if (f->get_parameter(i).is_rational())
-            fs.push_back(mk_string(get_manager(), f->get_parameter(i).get_rational().to_string().c_str()));
+        else if (f->get_parameter(i).is_rational()) {
+            std::string str = f->get_parameter(i).get_rational().to_string();
+            fs.push_back(mk_string(get_manager(), str.c_str()));
+        }
         else
             fs.push_back(pp_fdecl_ref(to_func_decl(f->get_parameter(i).get_ast())));
     }
@@ -236,11 +234,11 @@ format * smt2_pp_environment::pp_float_literal(app * t, bool use_bv_lits, bool u
     mpf_manager & fm = get_futil().fm();
     scoped_mpf v(fm);
     ast_manager & m = get_manager();
-    format * body = 0;
+    format * body = nullptr;
     string_buffer<> buf;
     VERIFY(get_futil().is_numeral(t, v));
     if (fm.is_nan(v)) {
-        buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";
+        buf << "(_ NaN " << v.get().get_ebits() << " " << v.get().get_sbits() << ")";        
         return mk_string(m, buf.c_str());
     }
     else if (fm.is_pinf(v)) {
@@ -387,7 +385,7 @@ format * smt2_pp_environment::pp_string_literal(app * t) {
 }
 
 format * smt2_pp_environment::pp_datalog_literal(app * t) {
-    uint64 v;
+    uint64_t v;
     VERIFY (get_dlutil().is_numeral(t, v));
     std::ostringstream buffer;
     buffer << v;
@@ -614,9 +612,9 @@ class smt2_printer {
             return f;
         ptr_buffer<format> buf;
         buf.push_back(f);
-        for (unsigned i = 0; i < names.size(); i++) {
-            buf.push_back(pp_simple_attribute(is_pos ? ":lblpos " : ":lblneg ", names[i]));
-        }
+        for (symbol const& n : names) 
+            buf.push_back(pp_simple_attribute(is_pos ? ":lblpos " : ":lblneg ", n));
+
         return mk_seq1(m(), buf.begin(), buf.end(), f2f(), "!");
     }
 
@@ -750,7 +748,7 @@ class smt2_printer {
         }
         buffer<symbol> labels;
         bool is_pos;
-        format * f = 0;
+        format * f = nullptr;
         format ** it  = m_format_stack.c_ptr() + fr.m_spos;
         format ** end = m_format_stack.c_ptr() + m_format_stack.size();
         if (m().is_label(t, is_pos, labels)) {
@@ -891,8 +889,21 @@ class smt2_printer {
         }
     }
 
+    void register_var_names(unsigned n) {
+        unsigned idx = 1;
+        for (unsigned i = 0; i < n; i++) {
+            symbol name = next_name("x", idx);            
+            SASSERT(!m_var_names_set.contains(name));
+            m_var_names.push_back(name);
+            m_var_names_set.insert(name);
+        }
+    }
+
     void unregister_var_names(quantifier * q) {
-        unsigned num_decls = q->get_num_decls();
+        unregister_var_names(q->get_num_decls());
+    }
+
+    void unregister_var_names(unsigned num_decls) {
         for (unsigned i = 0; i < num_decls; i++) {
             symbol s = m_var_names.back();
             m_var_names.pop_back();
@@ -900,23 +911,26 @@ class smt2_printer {
         }
     }
 
-    format * pp_var_decls(quantifier * q) {
+    format * pp_var_args(unsigned num_decls, sort* const* srts) {
         ptr_buffer<format> buf;
-        unsigned num_decls = q->get_num_decls();
         SASSERT(num_decls <= m_var_names.size());
         symbol * it = m_var_names.end() - num_decls;
         for (unsigned i = 0; i < num_decls; i++, it++) {
-            format * fs[1] = { m_env.pp_sort(q->get_decl_sort(i)) };
+            format * fs[1] = { m_env.pp_sort(srts[i]) };
             std::string var_name;
             if (is_smt2_quoted_symbol (*it)) {
                 var_name = mk_smt2_quoted_symbol (*it);
             }
             else {
-              var_name = it->str ();\
+                var_name = it->str ();          
             }
             buf.push_back(mk_seq1<format**,f2f>(m(), fs, fs+1, f2f(), var_name.c_str ()));
         }
         return mk_seq5(m(), buf.begin(), buf.end(), f2f());
+    }
+
+    format * pp_var_decls(quantifier * q) {
+        return pp_var_args(q->get_num_decls(), q->get_decl_sorts());
     }
 
     void process_quantifier(quantifier * q, frame & fr) {
@@ -980,7 +994,7 @@ class smt2_printer {
         }
         format * f_decls = pp_var_decls(q);
         format * fs[2] = { f_decls, f_body };
-        char const * header = q->is_forall() ? "forall" : "exists";
+        char const * header = q->get_kind() == forall_k ? "forall" : (q->get_kind() == exists_k ? "exists" : "lambda");
         format * f = mk_seq3<format**, f2f>(m(), fs, fs+2, f2f(), header, 1, SMALL_INDENT);
 
         info f_info = m_info_stack.back();
@@ -1004,15 +1018,13 @@ class smt2_printer {
     void del_expr2alias_stack() {
         std::for_each(m_expr2alias_stack.begin(), m_expr2alias_stack.end(), delete_proc<expr2alias>());
         m_expr2alias_stack.reset();
-        m_expr2alias = 0;
+        m_expr2alias = nullptr;
     }
 
     void reset_expr2alias_stack() {
         SASSERT(!m_expr2alias_stack.empty());
-        ptr_vector<expr2alias>::iterator it  = m_expr2alias_stack.begin();
-        ptr_vector<expr2alias>::iterator end = m_expr2alias_stack.end();
-        for (; it != end; ++it)
-            (*it)->reset();
+        for (expr2alias * e : m_expr2alias_stack) 
+            e->reset();
         m_expr2alias = m_expr2alias_stack[0];
     }
 
@@ -1029,6 +1041,10 @@ class smt2_printer {
     }
 
     void process(expr * n, format_ref & r) {
+        if (!n) {
+            r = mk_string(m(), "null");
+            return;
+        }
         reset_stacks();
         SASSERT(&(r.get_manager()) == &(fm()));
         m_soccs(n);
@@ -1064,7 +1080,7 @@ public:
         m_manager(env.get_manager()),
         m_env(env),
         m_soccs(m_manager),
-        m_root(0),
+        m_root(nullptr),
         m_aliased_pps(fm()),
         m_next_alias_idx(1),
         m_format_stack(fm()) {
@@ -1092,7 +1108,7 @@ public:
 
     void operator()(expr * n, unsigned num, char const * var_prefix, format_ref & r, sbuffer<symbol> & var_names) {
         reset_var_names();
-        if (var_prefix == 0)
+        if (var_prefix == nullptr)
             var_prefix = "x";
         if (strcmp(var_prefix, ALIAS_PREFIX) == 0) {
             var_prefix = "_a";
@@ -1113,7 +1129,11 @@ public:
         r = m_env.pp_sort(s);
     }
 
-    void operator()(func_decl * f, format_ref & r) {
+    void operator()(func_decl * f, format_ref & r, char const* cmd) {
+        if (!f) {
+            r = mk_string(m(), "null");
+            return;
+        }
         unsigned arity = f->get_arity();
         unsigned len;
         format * fname = m_env.pp_fdecl_name(f, len);
@@ -1125,8 +1145,52 @@ public:
         }
         args[1] = mk_seq5<format**, f2f>(m(), buf.begin(), buf.end(), f2f());
         args[2] = m_env.pp_sort(f->get_range());
-        r = mk_seq1<format**, f2f>(m(), args, args+3, f2f(), "declare-fun");
+        r = mk_seq1<format**, f2f>(m(), args, args+3, f2f(), cmd); 
     }
+
+
+    void operator()(func_decl * f, expr * e, format_ref & r, char const* cmd) {
+        unsigned len;
+        format * fname = m_env.pp_fdecl_name(f, len);
+        register_var_names(f->get_arity());        
+        format * args[4];
+        args[0] = fname;
+        args[1] = pp_var_args(f->get_arity(), f->get_domain());
+        args[2] = m_env.pp_sort(f->get_range());
+        process(e, r);
+        args[3] = r;
+        r = mk_seq1<format**, f2f>(m(), args, args+4, f2f(), cmd); 
+        unregister_var_names(f->get_arity());
+    }
+
+    // format set of mutually recursive definitions
+    void operator()(vector<std::pair<func_decl*, expr*>> const& funs, format_ref & r) {
+        format_ref_vector decls(m()), bodies(m());
+        format_ref r1(m()), r2(m());
+
+        for (auto const& p : funs) {
+            unsigned len;
+            func_decl* f = p.first;
+            expr* e = p.second;
+            format * fname = m_env.pp_fdecl_name(f, len);
+            register_var_names(f->get_arity());        
+            format * args[3];
+            args[0] = fname;
+            args[1] = pp_var_args(f->get_arity(), f->get_domain());
+            args[2] = m_env.pp_sort(f->get_range());
+            decls.push_back(mk_seq1<format**, f2f>(m(), args, args+3, f2f(), ""));                             
+            process(e, r);
+            bodies.push_back(r);
+            unregister_var_names(f->get_arity());
+        }
+        r1 = mk_seq1<format*const*, f2f>(m(), decls.begin(), decls.end(), f2f(), "");
+        r2 = mk_seq1<format*const*, f2f>(m(), bodies.begin(), bodies.end(), f2f(), "");
+        format * args[2];
+        args[0] = r1;
+        args[1] = r2;
+        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-rec-funs");
+    }
+
 
 };
 
@@ -1142,9 +1206,14 @@ void mk_smt2_format(sort * s, smt2_pp_environment & env, params_ref const & p, f
     pr(s, r);
 }
 
-void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ref & r) {
+void mk_smt2_format(func_decl * f, smt2_pp_environment & env, params_ref const & p, format_ref & r, char const* cmd) {
     smt2_printer pr(env, p);
-    pr(f, r);
+    pr(f, r, cmd);
+}
+
+void mk_smt2_format(func_decl * f, expr * e, smt2_pp_environment & env, params_ref const & p, format_ref & r, char const* cmd) {
+    smt2_printer pr(env, p);
+    pr(f, e, r, cmd);
 }
 
 void mk_smt2_format(unsigned sz, expr * const* es, smt2_pp_environment & env, params_ref const & p,
@@ -1155,15 +1224,16 @@ void mk_smt2_format(unsigned sz, expr * const* es, smt2_pp_environment & env, pa
     
     format_ref_vector fmts(fm(m));
     for (unsigned i = 0; i < sz; ++i) {
-        format_ref fr(fm(m));
+        format_ref fr(fm(m));        
         pr(es[i], num_vars, var_prefix, fr, var_names);
-        fmts.push_back(fr);
+        fmts.push_back(std::move(fr));
     }
     r = mk_seq<format**, f2f>(m, fmts.c_ptr(), fmts.c_ptr() + fmts.size(), f2f());
 }
 
 std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & env, params_ref const & p, unsigned indent,
                             unsigned num_vars, char const * var_prefix) {
+    if (!n) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
     sbuffer<symbol> var_names;
@@ -1175,6 +1245,7 @@ std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & e
 }
 
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p, unsigned indent) {
+    if (s == nullptr) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
     sbuffer<symbol> var_names;
@@ -1185,16 +1256,30 @@ std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & e
     return out;
 }
 
-std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p, unsigned indent) {
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p, unsigned indent, char const* cmd) {
+    if (!f) return out << "null";
     ast_manager & m = env.get_manager();
     format_ref r(fm(m));
     sbuffer<symbol> var_names;
-    mk_smt2_format(f, env, p, r);
+    mk_smt2_format(f, env, p, r, cmd);
     if (indent > 0)
         r = mk_indent(m, indent, r.get());
     pp(out, r.get(), m, p);
     return out;
 }
+
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p, unsigned indent, char const* cmd) {
+    if (!f) return out << "null";
+    ast_manager & m = env.get_manager();
+    format_ref r(fm(m));
+    sbuffer<symbol> var_names;
+    mk_smt2_format(f, e, env, p, r, cmd);
+    if (indent > 0)
+        r = mk_indent(m, indent, r.get());
+    pp(out, r.get(), m, p);
+    return out;
+}
+
 
 std::ostream & ast_smt2_pp(std::ostream & out, unsigned sz, expr * const* es, smt2_pp_environment & env, params_ref const & p, unsigned indent,
                             unsigned num_vars, char const * var_prefix) {
@@ -1207,6 +1292,25 @@ std::ostream & ast_smt2_pp(std::ostream & out, unsigned sz, expr * const* es, sm
     pp(out, r.get(), m, p);
     return out;
 }
+
+std::ostream & ast_smt2_pp(std::ostream & out, symbol const& s, bool is_skolem, smt2_pp_environment & env, params_ref const& p) {
+    unsigned len;
+    ast_manager & m = env.get_manager();
+    format_ref r(fm(m));
+    r = env.pp_fdecl_name(s, len, is_skolem);
+    pp(out, r.get(), m, p);
+    return out;
+}
+
+std::ostream & ast_smt2_pp_recdefs(std::ostream & out, vector<std::pair<func_decl*, expr*>> const& funs, smt2_pp_environment & env, params_ref const & p) {
+    ast_manager & m = env.get_manager();
+    format_ref r(fm(m));
+    smt2_printer pr(env, p);
+    pr(funs, r);
+    pp(out, r.get(), m, p);
+    return out;
+}
+
 
 mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, params_ref const & p, unsigned indent, unsigned num_vars, char const * var_prefix):
     m_ast(t),
@@ -1226,9 +1330,11 @@ mk_ismt2_pp::mk_ismt2_pp(ast * t, ast_manager & m, unsigned indent, unsigned num
     m_var_prefix(var_prefix) {
 }
 
+
+
 std::ostream& operator<<(std::ostream& out, mk_ismt2_pp const & p) {
     smt2_pp_environment_dbg env(p.m_manager);    
-    if (p.m_ast == 0) {
+    if (p.m_ast == nullptr) {
         out << "null";
     }
     else if (is_expr(p.m_ast)) {
@@ -1263,24 +1369,24 @@ std::ostream& operator<<(std::ostream& out, sort_ref const&  e) {
 std::ostream& operator<<(std::ostream& out, expr_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, 0);
+    return ast_smt2_pp(out, e.size(), e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, app_ref_vector const&  e) {
     smt2_pp_environment_dbg env(e.get_manager());
     params_ref p;
-    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, 0);
+    return ast_smt2_pp(out, e.size(), (expr*const*)e.c_ptr(), env, p, 0, 0, nullptr);
 }
 
 std::ostream& operator<<(std::ostream& out, func_decl_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i)
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (func_decl* f : e) 
+        out << mk_ismt2_pp(f, e.get_manager()) << "\n";
     return out;
 }
 
 std::ostream& operator<<(std::ostream& out, sort_ref_vector const&  e) {
-    for (unsigned i = 0; i < e.size(); ++i)
-        out << mk_ismt2_pp(e[i], e.get_manager()) << "\n";
+    for (sort* s : e) 
+        out << mk_ismt2_pp(s, e.get_manager()) << "\n";
     return out;
 }
 

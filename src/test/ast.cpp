@@ -44,7 +44,7 @@ static void tst1() {
 //     ast_ref<var_ast> v3 (m.mk_var(1), m);
 //     ENSURE(v1 != v2);
 //     ENSURE(v1 == v3);
-//     TRACE("ast", tout << "reseting v1\n";);
+//     TRACE("ast", tout << "resetting v1\n";);
 //     v1.reset();
 //     TRACE("ast", tout << "overwriting v3\n";);
 //     v3 = v2;

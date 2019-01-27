@@ -65,7 +65,7 @@ class ackr_info {
         }
 
         inline app* find_term(func_decl* c)  const {
-            app * rv = 0;
+            app * rv = nullptr;
             m_c2t.find(c,rv);
             return rv;
         }

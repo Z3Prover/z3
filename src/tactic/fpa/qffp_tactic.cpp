@@ -17,15 +17,16 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "tactic/core/simplify_tactic.h"
-#include "tactic/bv/bit_blaster_tactic.h"
-#include "sat/tactic/sat_tactic.h"
 #include "tactic/fpa/fpa2bv_tactic.h"
-#include "smt/tactic/smt_tactic.h"
+#include "tactic/core/simplify_tactic.h"
 #include "tactic/core/propagate_values_tactic.h"
-#include "ackermannization/ackermannize_bv_tactic.h"
 #include "tactic/arith/probe_arith.h"
+#include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/smtlogics/qfnra_tactic.h"
+#include "sat/tactic/sat_tactic.h"
+#include "sat/sat_solver/inc_sat_solver.h"
+#include "smt/tactic/smt_tactic.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 
 #include "tactic/fpa/qffp_tactic.h"
 
@@ -66,10 +67,10 @@ struct is_non_fp_qfnra_predicate {
 
 class is_fp_qfnra_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_fp_qfnra_predicate>(g);
     }
-    virtual ~is_fp_qfnra_probe() {}
+    ~is_fp_qfnra_probe() override {}
 };
 
 probe * mk_is_fp_qfnra_probe() {
@@ -94,11 +95,11 @@ tactic * mk_qffp_tactic(ast_manager & m, params_ref const & p) {
                            using_params(mk_simplify_tactic(m, p), simp_p),
                            cond(mk_is_propositional_probe(),
                                 cond(mk_produce_proofs_probe(),
-                                     mk_smt_tactic(p), // `sat' does not support proofs.
-                                     mk_sat_tactic(m, p)),
+                                     mk_smt_tactic(m, p), // `sat' does not support proofs.
+                                     mk_psat_tactic(m, p)),
                                 cond(mk_is_fp_qfnra_probe(),
                                      mk_qfnra_tactic(m, p),
-                                     mk_smt_tactic(p))));
+                                     mk_smt_tactic(m, p))));
 
     st->updt_params(p);
     return st;
@@ -141,11 +142,11 @@ struct is_non_qffp_predicate {
 
 class is_qffp_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qffp_predicate>(g);
     }
 
-    virtual ~is_qffp_probe() {}
+    ~is_qffp_probe() override {}
 };
 
 probe * mk_is_qffp_probe() {

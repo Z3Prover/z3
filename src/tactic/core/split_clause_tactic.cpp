@@ -46,21 +46,15 @@ class split_clause_tactic : public tactic {
     }
 
     class split_pc : public proof_converter {
-        ast_manager & m_manager;
-        app *         m_clause;
-        proof *       m_clause_pr;
+        app_ref       m_clause;
+        proof_ref     m_clause_pr;
     public:
-        split_pc(ast_manager & m, app * cls, proof * pr):m_manager(m), m_clause(cls), m_clause_pr(pr) {
-            m.inc_ref(cls); 
-            m.inc_ref(pr);
+        split_pc(ast_manager & m, app * cls, proof * pr):m_clause(cls, m), m_clause_pr(pr, m) {
         }
 
-        ~split_pc() {
-            m_manager.dec_ref(m_clause);
-            m_manager.dec_ref(m_clause_pr);
-        }
+        ~split_pc() override { }
 
-        virtual void operator()(ast_manager & m, unsigned num_source, proof * const * source, proof_ref & result) {
+        proof_ref operator()(ast_manager & m, unsigned num_source, proof * const * source) override {
             // Let m_clause be of the form (l_0 or ... or l_{num_source - 1})
             // Each source[i] proof is a proof for "false" using l_i as a hypothesis
             // So, I use lemma for producing a proof for (not l_i) that does not contain the hypothesis,
@@ -73,12 +67,14 @@ class split_clause_tactic : public tactic {
                 expr * not_li = m.mk_not(m_clause->get_arg(i));
                 prs.push_back(m.mk_lemma(pr_i, not_li));
             }
-            result = m.mk_unit_resolution(prs.size(), prs.c_ptr());
+            return proof_ref(m.mk_unit_resolution(prs.size(), prs.c_ptr()), m);
         }
 
-        virtual proof_converter * translate(ast_translation & translator) {
-            return alloc(split_pc, translator.to(), translator(m_clause), translator(m_clause_pr));
+        proof_converter * translate(ast_translation & translator) override {
+            return alloc(split_pc, translator.to(), translator(m_clause.get()), translator(m_clause_pr.get()));
         }
+
+        void display(std::ostream & out) override { out << "(split-clause-pc)\n"; }
     };
 
 public:
@@ -86,32 +82,28 @@ public:
         updt_params(ref);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         split_clause_tactic * t = alloc(split_clause_tactic);
         t->m_largest_clause = m_largest_clause;
         return t;
     }
     
-    virtual ~split_clause_tactic() {
+    ~split_clause_tactic() override {
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_largest_clause = p.get_bool("split_largest_clause", false);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override { 
         r.insert("split_largest_clause", CPK_BOOL, "(default: false) split the largest clause in the goal.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         SASSERT(in->is_well_sorted());
         tactic_report report("split-clause", *in);
         TRACE("before_split_clause", in->display(tout););
-        pc = 0; mc = 0; core = 0; 
         ast_manager & m = in->m();
         unsigned cls_pos = select_clause(m, in);
         if (cls_pos == UINT_MAX) {
@@ -121,26 +113,23 @@ public:
         app * cls                 = to_app(in->form(cls_pos));
         expr_dependency * cls_dep = in->dep(cls_pos);
         if (produce_proofs)
-            pc = alloc(split_pc, m, cls, in->pr(cls_pos));
-        unsigned cls_sz = cls->get_num_args();
-        report_tactic_progress(":num-new-branches", cls_sz);
-        for (unsigned i = 0; i < cls_sz; i++) {
-            goal * subgoal_i;
-            if (i == cls_sz - 1)
-                subgoal_i = in.get();
-            else
-                subgoal_i = alloc(goal, *in);
-            expr * lit_i = cls->get_arg(i);
-            proof * pr_i = 0;
+            in->set(alloc(split_pc, m, cls, in->pr(cls_pos)));
+        report_tactic_progress(":num-new-branches", cls->get_num_args());
+        for (expr* lit_i : *cls) {
+            goal * subgoal_i = alloc(goal, *in);
+            subgoal_i->set(in->mc());
+            proof * pr_i = nullptr;
             if (produce_proofs)
                 pr_i = m.mk_hypothesis(lit_i);
             subgoal_i->update(cls_pos, lit_i, pr_i, cls_dep);
             subgoal_i->inc_depth();
             result.push_back(subgoal_i);
         }
+        in->set(concat(in->pc(), result.size(), result.c_ptr()));
+        in->add(dependency_converter::concat(result.size(), result.c_ptr()));
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         // do nothing this tactic is too simple
     }
 };

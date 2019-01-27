@@ -30,7 +30,7 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/substitution/matcher.h"
 #include "ast/scoped_proof.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include "ast/ast_util.h"
 
 namespace tb {
@@ -415,7 +415,7 @@ namespace tb {
             try {
                 quick_for_each_expr(p, t);
             }
-            catch (non_constructor) {
+            catch (const non_constructor &) {
                 return false;
             }
             return true;
@@ -561,13 +561,13 @@ namespace tb {
                 }
                 vars.push_back(m.mk_const(symbol(i), sorts[i]));
             }
-            vs(g.get_head(), vars.size(), vars.c_ptr(), fml);
+            fml = vs(g.get_head(), vars.size(), vars.c_ptr());
             m_head = to_app(fml);
             for (unsigned i = 0; i < g.get_num_predicates(); ++i) {
-                vs(g.get_predicate(i), vars.size(), vars.c_ptr(), fml);
+                fml = vs(g.get_predicate(i), vars.size(), vars.c_ptr());
                 m_preds.push_back(to_app(fml));
             }
-            vs(g.get_constraint(), vars.size(), vars.c_ptr(), fml);
+            fml = vs(g.get_constraint(), vars.size(), vars.c_ptr());
             fmls.push_back(fml);
             m_precond = m.mk_and(fmls.size(), fmls.c_ptr());
             IF_VERBOSE(2,
@@ -693,13 +693,12 @@ namespace tb {
             m_solver.assert_expr(postcond);
             lbool is_sat = m_solver.check();
             if (is_sat == l_true) {
-                expr_ref tmp(m);
                 expr* n;
                 model_ref mdl;
                 m_solver.get_model(mdl);
                 for (unsigned i = 0; i < fmls.size(); ++i) {
                     n = fmls[i].get();
-                    if (mdl->eval(n, tmp) && m.is_false(tmp)) {
+                    if (mdl->is_false(n)) {
                         m_refs.push_back(normalize(n));
                         m_sat_lits.insert(m_refs.back());
                     }
@@ -1098,7 +1097,7 @@ namespace tb {
             m_S1.apply(2, delta, expr_offset(src.get_constraint(), 1), tmp2);
             constraint = m.mk_and(tmp, tmp2);
 
-            // perform trival quantifier-elimination:
+            // perform trivial quantifier-elimination:
             uint_set index_set;
             expr_free_vars fv;
             fv(head);
@@ -1129,16 +1128,16 @@ namespace tb {
                 }
                 else {
                     change = true;
-                    m_rename.push_back(0);
+                    m_rename.push_back(nullptr);
                 }
             }
             if (change) {
-                m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr(), constraint);
+                constraint = m_S2(result->get_constraint(), m_rename.size(), m_rename.c_ptr());
                 for (unsigned i = 0; i < result->get_num_predicates(); ++i) {
-                    m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr(), tmp);
+                    tmp = m_S2(result->get_predicate(i), m_rename.size(), m_rename.c_ptr());
                     predicates[i] = to_app(tmp);
                 }
-                m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr(), tmp);
+                tmp = m_S2(result->get_head(), m_rename.size(), m_rename.c_ptr());
                 head = to_app(tmp);
                 result->init(head, predicates, constraint);
             }
@@ -1169,7 +1168,7 @@ namespace tb {
                 if (vars[i]) {
                     v = m.mk_var(i, vars[i]);
                     m_S1.apply(2, delta, expr_offset(v, offset), tmp);
-                    m_S2(tmp, m_rename.size(), m_rename.c_ptr(), tmp);
+                    tmp = m_S2(tmp, m_rename.size(), m_rename.c_ptr());
                     insert_subst(offset, tmp);
                 }
                 else {
@@ -1602,7 +1601,7 @@ namespace datalog {
 
             pc.invert();
             prs.push_back(m.mk_asserted(root));
-            pc(m, 1, prs.c_ptr(), pr);
+            pr = pc(m, 1, prs.c_ptr());
             return pr;
         }
 
@@ -1614,8 +1613,8 @@ namespace datalog {
             }
             expr_ref body = clause.get_body();
             var_subst vs(m, false);
-            vs(body, subst.size(), subst.c_ptr(), body);
-            out << mk_pp(body, m) << "\n";
+            body = vs(body, subst.size(), subst.c_ptr());
+            out << body << "\n";
         }
 
         void resolve_rule(replace_proof_converter& pc, tb::clause const& r1, tb::clause const& r2,

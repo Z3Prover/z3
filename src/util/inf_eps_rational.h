@@ -118,12 +118,12 @@ class inf_eps_rational {
 
     bool is_rational() const { return m_infty.is_zero() && m_r.is_rational(); }
 
-    int64 get_int64() const {
+    int64_t get_int64() const {
         SASSERT(is_int64());
         return m_r.get_int64();
     }
 
-    uint64 get_uint64() const {
+    uint64_t get_uint64() const {
         SASSERT(is_uint64());
         return m_r.get_uint64();
     }

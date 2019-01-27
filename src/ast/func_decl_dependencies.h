@@ -58,7 +58,7 @@ public:
     void reset();
 
     /**
-       \brief Create a dependecy set.
+       \brief Create a dependency set.
        This set should be populated using #collect_func_decls.
        After populating the set, it must be used as an argument for the #insert method.
 
@@ -96,7 +96,7 @@ public:
     */
     bool contains(func_decl * f) const { return m_deps.contains(f); }
 
-    func_decl_set * get_dependencies(func_decl * f) const { func_decl_set * r = 0; m_deps.find(f, r); return r; }
+    func_decl_set * get_dependencies(func_decl * f) const { func_decl_set * r = nullptr; m_deps.find(f, r); return r; }
 
     /**
        \brief Erase \c f (and its dependencies) from the manager.

@@ -82,11 +82,13 @@ namespace smt {
                         if (depth > 0)
                             m_case_split_factor *= (num_args + 1);
                         break;
-                    case OP_IFF:
-                        if (depth == 0)
-                            m_case_split_factor *= 4;
-                        else
-                            m_case_split_factor *= 9;
+                    case OP_EQ:
+                        if (m_manager.is_iff(n)) {
+                            if (depth == 0)
+                                m_case_split_factor *= 4;
+                            else
+                                m_case_split_factor *= 9;
+                        }
                         break;
                     case OP_ITE:
                         if (depth == 0)

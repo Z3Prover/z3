@@ -196,6 +196,9 @@ br_status bv_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         return mk_bv_comp(args[0], args[1], result);
     case OP_MKBV:
         return mk_mkbv(num_args, args, result);
+    case OP_BIT2BOOL:
+        SASSERT(num_args == 1);
+        return mk_bit2bool(args[0], f->get_parameter(0).get_int(), result);
     case OP_BSMUL_NO_OVFL:
         return mk_bvsmul_no_overflow(num_args, args, result);
     case OP_BUMUL_NO_OVFL:
@@ -630,13 +633,13 @@ unsigned bv_rewriter::propagate_extract(unsigned high, expr * arg, expr_ref & re
         const bool curr_is_conc = m_util.is_concat(curr);
         if (curr_is_conc && to_app(curr)->get_num_args() == 0) continue;
         expr * const curr_first = curr_is_conc ? to_app(curr)->get_arg(0) : curr;
-        expr * new_first = NULL;
+        expr * new_first = nullptr;
         if (is_numeral(curr_first, val, curr_first_sz)) {
             SASSERT(curr_first_sz >= removable);
             const unsigned new_num_sz = curr_first_sz - removable;
-            new_first = new_num_sz ? mk_numeral(val, new_num_sz) : NULL;
+            new_first = new_num_sz ? mk_numeral(val, new_num_sz) : nullptr;
         }
-        expr * new_arg = NULL;
+        expr * new_arg = nullptr;
         if (curr_is_conc) {
             const unsigned conc_num = to_app(curr)->get_num_args();
             if (new_first) {
@@ -650,7 +653,7 @@ unsigned bv_rewriter::propagate_extract(unsigned high, expr * arg, expr_ref & re
                 expr * const * const old_conc_args = to_app(curr)->get_args();
                 switch (conc_num) {
                     case 0: UNREACHABLE(); break;
-                    case 1: new_arg = NULL; break;
+                    case 1: new_arg = nullptr; break;
                     case 2: new_arg = to_app(curr)->get_arg(1); break;
                     default: new_arg = m_util.mk_concat(conc_num - 1, old_conc_args + 1);
                 }
@@ -680,8 +683,8 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
         if (v.is_neg())
             mod(v, rational::power_of_two(sz), v);
         if (v.is_uint64()) {
-            uint64 u  = v.get_uint64();
-            uint64 e  = shift_right(u, low) & (shift_left(1ull, sz) - 1ull);
+            uint64_t u  = v.get_uint64();
+            uint64_t e  = shift_right(u, low) & (shift_left(1ull, sz) - 1ull);
             result    = mk_numeral(numeral(e, numeral::ui64()), sz);
             return BR_DONE;
         }
@@ -779,10 +782,11 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
         }
     }
 
-    if (m().is_ite(arg)) {
-        result = m().mk_ite(to_app(arg)->get_arg(0),
-                            m_mk_extract(high, low, to_app(arg)->get_arg(1)),
-                            m_mk_extract(high, low, to_app(arg)->get_arg(2)));
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(arg, c, t, e) &&
+        (t->get_ref_count() == 1 || !m().is_ite(t)) && 
+        (e->get_ref_count() == 1 || !m().is_ite(e))) {
+        result = m().mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
         return BR_REWRITE2;
     }
 
@@ -811,7 +815,7 @@ br_status bv_rewriter::mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result) {
                 SASSERT(r1.is_uint64() && r2.is_uint64());
                 SASSERT(r2.get_uint64() < bv_size);
 
-                uint64 r = shift_left(r1.get_uint64(), r2.get_uint64());
+                uint64_t r = shift_left(r1.get_uint64(), r2.get_uint64());
                 numeral rn(r, numeral::ui64());
                 rn = m_util.norm(rn, bv_size);
                 result   = mk_numeral(rn, bv_size);
@@ -860,7 +864,7 @@ br_status bv_rewriter::mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result) {
             if (bv_size <= 64) {
                 SASSERT(r1.is_uint64());
                 SASSERT(r2.is_uint64());
-                uint64 r = shift_right(r1.get_uint64(), r2.get_uint64());
+                uint64_t r = shift_right(r1.get_uint64(), r2.get_uint64());
                 numeral rn(r, numeral::ui64());
                 rn = m_util.norm(rn, bv_size);
                 result = mk_numeral(rn, bv_size);
@@ -902,11 +906,11 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
     bool is_num1 = is_numeral(arg1, r1, bv_size);
 
     if (bv_size <= 64 && is_num1 && is_num2) {
-        uint64 n1      = r1.get_uint64();
-        uint64 n2_orig = r2.get_uint64();
-        uint64 n2      = n2_orig % bv_size;
+        uint64_t n1      = r1.get_uint64();
+        uint64_t n2_orig = r2.get_uint64();
+        uint64_t n2      = n2_orig % bv_size;
         SASSERT(n2 < bv_size);
-        uint64 r       = shift_right(n1, n2);
+        uint64_t r       = shift_right(n1, n2);
         bool   sign    = (n1 & shift_left(1ull, bv_size - 1ull)) != 0;
         if (n2_orig > n2) {
             if (sign) {
@@ -917,9 +921,9 @@ br_status bv_rewriter::mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result) {
             }
         }
         else if (sign) {
-            uint64 allone  = shift_left(1ull, bv_size) - 1ull;
-            uint64 mask    = ~(shift_left(1ull, bv_size - n2) - 1ull);
-            mask          &= allone;
+            uint64_t allone = shift_left(1ull, bv_size) - 1ull;
+            uint64_t mask   = ~(shift_left(1ull, bv_size - n2) - 1ull);
+            mask &= allone;
             r |= mask;
         }
         result = mk_numeral(numeral(r, numeral::ui64()), bv_size);
@@ -1383,7 +1387,7 @@ br_status bv_rewriter::mk_bv2int(expr * arg, expr_ref & result) {
             --i;
             tmp = args[i].get();
             tmp = m_autil.mk_mul(m_autil.mk_numeral(power(numeral(2), sz), true), tmp);
-            args[i] = tmp;
+            args[i] = std::move(tmp);
             sz += get_bv_size(to_app(arg)->get_arg(i));
         }
         result = m_autil.mk_add(args.size(), args.c_ptr());
@@ -1458,10 +1462,10 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
     bool fused_extract = false;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
-        expr * prev = 0;
+        expr * prev = nullptr;
         if (i > 0)
             prev = new_args.back();
-        if (is_numeral(arg, v1, sz1) && prev != 0 && is_numeral(prev, v2, sz2)) {
+        if (is_numeral(arg, v1, sz1) && prev != nullptr && is_numeral(prev, v2, sz2)) {
             v2  *= rational::power_of_two(sz1);
             v2  += v1;
             new_args.pop_back();
@@ -1476,7 +1480,7 @@ br_status bv_rewriter::mk_concat(unsigned num_args, expr * const * args, expr_re
             expanded = true;
         }
         else if (m_util.is_extract(arg) &&
-                 prev != 0 &&
+                 prev != nullptr &&
                  m_util.is_extract(prev) &&
                  to_app(arg)->get_arg(0) == to_app(prev)->get_arg(0) &&
                  m_util.get_extract_low(prev) == m_util.get_extract_high(arg) + 1) {
@@ -1814,7 +1818,7 @@ br_status bv_rewriter::mk_bv_xor(unsigned num, expr * const * args, expr_ref & r
     //
     if (!v1.is_zero() && num_coeffs == num - 1) {
         // find argument that is not a numeral
-        expr * t = 0;
+        expr * t = nullptr;
         for (unsigned i = 0; i < num; i++) {
             t = args[i];
             if (!is_numeral(t))
@@ -1937,7 +1941,7 @@ br_status bv_rewriter::mk_bv_not(expr * arg, expr_ref & result) {
     }
 
     if (m_bvnot_simpl) {
-        expr *s(0), *t(0);
+        expr *s(nullptr), *t(nullptr);
         if (m_util.is_bv_mul(arg, s, t)) {
             // ~(-1 * x) --> (x - 1)
             bv_size = m_util.get_bv_size(s);
@@ -2021,7 +2025,7 @@ br_status bv_rewriter::mk_bv_ext_rotate_left(expr * arg1, expr * arg2, expr_ref 
     numeral r2;
     unsigned bv_size;
     if (is_numeral(arg2, r2, bv_size)) {
-        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64>(bv_size));
+        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_left(shift, arg1, result);
     }
     return BR_FAILED;
@@ -2031,7 +2035,7 @@ br_status bv_rewriter::mk_bv_ext_rotate_right(expr * arg1, expr * arg2, expr_ref
     numeral r2;
     unsigned bv_size;
     if (is_numeral(arg2, r2, bv_size)) {
-        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64>(bv_size));
+        unsigned shift = static_cast<unsigned>((r2 % numeral(bv_size)).get_uint64() % static_cast<uint64_t>(bv_size));
         return mk_bv_rotate_right(shift, arg1, result);
     }
     return BR_FAILED;
@@ -2200,6 +2204,19 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
     }
 
     return st;
+}
+
+br_status bv_rewriter::mk_bit2bool(expr * n, int idx, expr_ref & result) {
+    rational v, bit;
+    unsigned sz = 0;
+    if (!is_numeral(n, v, sz)) 
+        return BR_FAILED;
+    if (idx < 0 || idx >= static_cast<int>(sz)) 
+        return BR_FAILED;
+    div(v, rational::power_of_two(idx), bit);
+    mod(bit, rational(2), bit);
+    result = m().mk_bool_val(bit.is_one());
+    return BR_DONE;
 }
 
 br_status bv_rewriter::mk_bit2bool(expr * lhs, expr * rhs, expr_ref & result) {
@@ -2400,8 +2417,8 @@ bool bv_rewriter::isolate_term(expr* lhs, expr* rhs, expr_ref& result) {
         return false;
     }
     unsigned sz = to_app(rhs)->get_num_args();
-    expr_ref t1(m()), t2(m());
-    t1 = to_app(rhs)->get_arg(0);
+    expr * t1 = to_app(rhs)->get_arg(0);
+    expr_ref t2(m());
     if (sz > 2) {
         t2 = m().mk_app(get_fid(), OP_BADD, sz-1, to_app(rhs)->get_args()+1);
     }
@@ -2597,14 +2614,10 @@ br_status bv_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
                 result = m().mk_bool_val(new_lhs == new_rhs);
                 return BR_DONE;
             }
-        }
-        else {
-            new_lhs = lhs;
-            new_rhs = rhs;
+            lhs = new_lhs;
+            rhs = new_rhs;
         }
 
-        lhs = new_lhs;
-        rhs = new_rhs;
         // Try to rewrite t1 + t2 = c --> t1 = c - t2
         // Reason: it is much cheaper to bit-blast.
         if (isolate_term(lhs, rhs, result)) {
@@ -2683,7 +2696,7 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
             }
 
             const unsigned sz = m_util.get_bv_size(rhs);
-            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numberals
+            if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numerals
                 numeral rhs_n, e_n, t_n;
                 unsigned rhs_sz, e_sz, t_sz;
                 if (is_numeral(rhs, rhs_n, rhs_sz)

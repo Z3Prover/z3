@@ -52,8 +52,8 @@ class union_find {
         union_find & m_owner;
     public:
         mk_var_trail(union_find & o):m_owner(o) {}
-        virtual ~mk_var_trail() {}
-        virtual void undo(Ctx & ctx) {
+        ~mk_var_trail() override {}
+        void undo(Ctx & ctx) override {
             m_owner.m_find.pop_back();
             m_owner.m_size.pop_back();
             m_owner.m_next.pop_back();
@@ -70,8 +70,8 @@ class union_find {
         unsigned     m_r1;
     public:
         merge_trail(union_find & o, unsigned r1):m_owner(o), m_r1(r1) {}
-        virtual ~merge_trail() {}
-        virtual void undo(Ctx & ctx) { m_owner.unmerge(m_r1); }
+        ~merge_trail() override {}
+        void undo(Ctx & ctx) override { m_owner.unmerge(m_r1); }
     };
 
     void unmerge(unsigned r1) {
@@ -122,8 +122,10 @@ public:
         TRACE("union_find", tout << "merging " << r1 << " " << r2 << "\n";);
         if (r1 == r2)
             return;
-        if (m_size[r1] > m_size[r2])
+        if (m_size[r1] > m_size[r2]) {
             std::swap(r1, r2);
+            std::swap(v1, v2);
+        }
         m_ctx.merge_eh(r2, r1, v2, v1);
         m_find[r1] = r2;
         m_size[r2] += m_size[r1];

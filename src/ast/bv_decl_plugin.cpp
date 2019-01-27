@@ -34,11 +34,11 @@ bv_decl_plugin::bv_decl_plugin():
     m_repeat_sym("repeat"),
     m_bit2bool_sym("bit2bool"),
     m_mkbv_sym("mkbv"),
-    m_bit0(0),
-    m_bit1(0),
-    m_carry(0),
-    m_xor3(0),
-    m_int_sort(0) {
+    m_bit0(nullptr),
+    m_bit1(nullptr),
+    m_carry(nullptr),
+    m_xor3(nullptr),
+    m_int_sort(nullptr) {
 }
 
 void bv_decl_plugin::set_manager(ast_manager * m, family_id id) {
@@ -218,7 +218,7 @@ func_decl * bv_decl_plugin::mk_int2bv(unsigned bv_size, unsigned num_parameters,
 
     if (arity != 1) {
         m_manager->raise_exception("expecting one argument to int2bv");
-        return 0;
+        return nullptr;
     }
 
     if (m_int2bv[bv_size] == 0) {
@@ -237,7 +237,7 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
 
     if (arity != 1) {
         m_manager->raise_exception("expecting one argument to bv2int");
-        return 0;
+        return nullptr;
     }
 
     if (m_bv2int[bv_size] == 0) {
@@ -341,7 +341,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
 
     case OP_EXT_ROTATE_LEFT: return mk_binary(m_ext_rotate_left, k, "ext_rotate_left", bv_size, false);
     case OP_EXT_ROTATE_RIGHT: return mk_binary(m_ext_rotate_right, k, "ext_rotate_right", bv_size, false);
-    default:          return 0;
+    default:          return nullptr;
     }
 }
 
@@ -401,7 +401,7 @@ bool bv_decl_plugin::get_int2bv_size(unsigned num_parameters, parameter const * 
         m_manager->raise_exception("int2bv expects one parameter");
         return false;
     }
-    parameter p(parameters[0]);
+    const parameter &p = parameters[0];
     if (p.is_int()) {
         result = p.get_int();
         return true;
@@ -417,7 +417,7 @@ bool bv_decl_plugin::get_int2bv_size(unsigned num_parameters, parameter const * 
 func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity) {
     if (!(num_parameters == 2 && arity == 0 && parameters[0].is_rational() && parameters[1].is_int())) {
         m_manager->raise_exception("invalid bit-vector numeral declaration");
-        return 0;
+        return nullptr;
     }
     unsigned bv_size = parameters[1].get_int();
     if (bv_size == 0) {
@@ -428,7 +428,7 @@ func_decl * bv_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const
     // After SMT-COMP, I should find all offending modules.
     // For now, I will just simplify the numeral here.
     parameter p0(mod(parameters[0].get_rational(), rational::power_of_two(bv_size)));
-    parameter ps[2] = { p0, parameters[1] };
+    parameter ps[2] = { std::move(p0), parameters[1] };
     sort * bv = get_bv_sort(bv_size);
     return m_manager->mk_const_decl(m_bv_sym, bv, func_decl_info(m_family_id, OP_BV_NUM, num_parameters, ps));
 }
@@ -437,7 +437,7 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
                                         unsigned arity, sort * const * domain) {
     if (!(num_parameters == 1 && parameters[0].is_int() && arity == 1 && parameters[0].get_int() < static_cast<int>(bv_size))) {
         m_manager->raise_exception("invalid bit2bool declaration");
-        return 0;
+        return nullptr;
     }
     unsigned idx = parameters[0].get_int();
     m_bit2bool.reserve(bv_size+1);
@@ -455,7 +455,7 @@ func_decl * bv_decl_plugin::mk_mkbv(unsigned arity, sort * const * domain) {
     for (unsigned i = 0; i < arity; i++) {
         if (!m_manager->is_bool(domain[i])) {
             m_manager->raise_exception("invalid mkbv operator");
-            return 0;
+            return nullptr;
         }
     }
     unsigned bv_size = arity;
@@ -493,26 +493,26 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
     else if (arity == 0) {
         m_manager->raise_exception("no arguments supplied to bit-vector operator");
-        return 0;
+        return nullptr;
     }
     else if (!get_bv_size(domain[0], bv_size)) {
         m_manager->raise_exception("could not extract bit-vector size");
-        return 0;
+        return nullptr;
     }
     func_decl * r = mk_func_decl(k, bv_size);
-    if (r != 0) {
+    if (r != nullptr) {
         if (arity != r->get_arity()) {
             if (r->get_info()->is_associative())
                 arity = r->get_arity();
             else {
                 m_manager->raise_exception("declared arity mismatches supplied arity");
-                return 0;
+                return nullptr;
             }
         }
         for (unsigned i = 0; i < arity; ++i) {
             if (domain[i] != r->get_domain(i)) {
                 m_manager->raise_exception("declared sorts do not match supplied sorts");
-                return 0;
+                return nullptr;
             }
         }
         return r;
@@ -565,7 +565,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         return m_manager->mk_func_decl(m_repeat_sym, arity, domain, get_bv_sort(bv_size * parameters[0].get_int()),
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     default:
-        return 0;
+        return nullptr;
     }
 }
 
@@ -596,24 +596,24 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
     else if (num_args == 0 || !get_bv_size(args[0], bv_size)) {
         m.raise_exception("operator is applied to arguments of the wrong sort");
-        return 0;
+        return nullptr;
     }
     func_decl * r = mk_func_decl(k, bv_size);
-    if (r != 0) {
+    if (r != nullptr) {
         if (num_args != r->get_arity()) {
             if (r->get_info()->is_associative()) {
                 sort * fs = r->get_domain(0);
                 for (unsigned i = 0; i < num_args; ++i) {
                     if (m.get_sort(args[i]) != fs) {
                         m_manager->raise_exception("declared sorts do not match supplied sorts");
-                        return 0;
+                        return nullptr;
                     }
                 }
                 return r;
             }
             else {
                 m.raise_exception("declared arity mismatches supplied arity");
-                return 0;
+                return nullptr;
             }
         }
         for (unsigned i = 0; i < num_args; ++i) {
@@ -621,7 +621,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
                 std::ostringstream buffer;
                 buffer << "Argument " << mk_pp(args[i], m) << " at position " << i << " does not match declaration " << mk_pp(r, m);
                 m.raise_exception(buffer.str().c_str());
-                return 0;
+                return nullptr;
             }
         }
         return r;
@@ -717,7 +717,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
 
-    if (logic == symbol::null || logic == symbol("ALL")) {
+    if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noovfl",OP_BSMUL_NO_OVFL));
         op_names.push_back(builtin_name("bvsmul_noudfl",OP_BSMUL_NO_UDFL));
@@ -746,8 +746,8 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
 expr * bv_decl_plugin::get_some_value(sort * s) {
     SASSERT(s->is_sort_of(m_family_id, BV_SORT));
     unsigned bv_size = s->get_parameter(0).get_int();
-    parameter p[2] = { parameter(rational(0)), parameter(static_cast<int>(bv_size)) };
-    return m_manager->mk_app(m_family_id, OP_BV_NUM, 2, p, 0, 0);
+    parameter p[2] = { parameter(rational::zero()), parameter(static_cast<int>(bv_size)) };
+    return m_manager->mk_app(m_family_id, OP_BV_NUM, 2, p, 0, nullptr);
 }
 
 rational bv_recognizers::norm(rational const & val, unsigned bv_size, bool is_signed) const {
@@ -856,7 +856,7 @@ bv_util::bv_util(ast_manager & m):
 
 app * bv_util::mk_numeral(rational const & val, sort* s) const {
     if (!is_bv_sort(s)) {
-        return 0;
+        return nullptr;
     }
     unsigned bv_size = get_bv_size(s);
     return mk_numeral(val, bv_size);
@@ -864,7 +864,7 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
 
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
-    return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, 0);
+    return m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
 }
 
 sort * bv_util::mk_sort(unsigned bv_size) {

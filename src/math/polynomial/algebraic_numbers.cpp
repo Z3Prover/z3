@@ -48,7 +48,7 @@ namespace algebraic_numbers {
         unsigned   m_sign_lower:1;
         unsigned   m_not_rational:1; // if true we know for sure it is not a rational
         unsigned   m_i:29; // number is the i-th root of p, 0 if it is not known which root of p the number is.
-        algebraic_cell():m_p_sz(0), m_p(0), m_minimal(false), m_not_rational(false), m_i(0) {}
+        algebraic_cell():m_p_sz(0), m_p(nullptr), m_minimal(false), m_not_rational(false), m_i(0) {}
         bool is_minimal() const { return m_minimal != 0; }
     };
 
@@ -186,7 +186,7 @@ namespace algebraic_numbers {
             for (unsigned i = 0; i < c->m_p_sz; i++)
                 qm().del(c->m_p[i]);
             m_allocator.deallocate(sizeof(mpz)*c->m_p_sz, c->m_p);
-            c->m_p    = 0;
+            c->m_p    = nullptr;
             c->m_p_sz = 0;
         }
 
@@ -201,13 +201,13 @@ namespace algebraic_numbers {
         }
 
         void del(numeral & a) {
-            if (a.m_cell == 0)
+            if (a.m_cell == nullptr)
                 return;
             if (a.is_basic())
                 del(a.to_basic());
             else
                 del(a.to_algebraic());
-            a.m_cell = 0;
+            a.m_cell = nullptr;
         }
 
         void reset(numeral & a) {
@@ -215,7 +215,7 @@ namespace algebraic_numbers {
         }
 
         bool is_zero(numeral const & a) {
-            return a.m_cell == 0;
+            return a.m_cell == nullptr;
         }
 
         bool is_pos(numeral const & a) {
@@ -361,7 +361,7 @@ namespace algebraic_numbers {
 
         basic_cell * mk_basic_cell(mpq & n) {
             if (qm().is_zero(n))
-                return 0;
+                return nullptr;
             void * mem = static_cast<basic_cell*>(m_allocator.allocate(sizeof(basic_cell)));
             basic_cell * c = new (mem) basic_cell();
             qm().swap(c->m_value, n);
@@ -948,7 +948,7 @@ namespace algebraic_numbers {
                     // zero is a root of p, and r_i is an isolating interval containing zero,
                     // then c is zero
                     reset(c);
-                    TRACE("algebraic", tout << "reseting\nresult: "; display_root(tout, c); tout << "\n";);
+                    TRACE("algebraic", tout << "resetting\nresult: "; display_root(tout, c); tout << "\n";);
                     return;
                 }
                 int zV = upm().sign_variations_at_zero(seq);
@@ -1037,7 +1037,7 @@ namespace algebraic_numbers {
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
-                    if (seqs[i] == 0)
+                    if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     TRACE("anum_mk_binary", tout << "sequence " << i << "\n"; upm().display(tout, *(seqs[i])); tout << "\n";);
                     int lV = upm().sign_variations_at(*(seqs[i]), r_i.lower());
@@ -1050,7 +1050,7 @@ namespace algebraic_numbers {
                           );
                     if (V <= 0) {
                         // discard sequence, since factor does not contain the root
-                        seqs.set(i, 0);
+                        seqs.set(i, nullptr);
                     }
                     else if (V == 1) {
                         target_i  = i;
@@ -1115,7 +1115,7 @@ namespace algebraic_numbers {
                 unsigned target_i = UINT_MAX; // index of sequence that is isolating
                 int target_lV = 0, target_uV = 0;
                 for (unsigned i = 0; i < num_fs; i++) {
-                    if (seqs[i] == 0)
+                    if (seqs[i] == nullptr)
                         continue; // sequence was discarded because it does not contain the root.
                     int lV = upm().sign_variations_at(*(seqs[i]), r_i.lower());
                     int uV = upm().sign_variations_at(*(seqs[i]), r_i.upper());
@@ -1126,7 +1126,7 @@ namespace algebraic_numbers {
                           );
                     if (V <= 0) {
                         // discard sequence, since factor does not contain the root
-                        seqs.set(i, 0);
+                        seqs.set(i, nullptr);
                     }
                     else if (V == 1) {
                         target_i  = i;
@@ -1728,7 +1728,7 @@ namespace algebraic_numbers {
             COMPARE_INTERVAL();
 
             // if cell_a and cell_b, contain the same polynomial,
-            // and the intervals are overlaping, then they are
+            // and the intervals are overlapping, then they are
             // the same root.
             if (compare_p(cell_a, cell_b)) {
                 m_compare_poly_eq++;
@@ -1825,7 +1825,7 @@ namespace algebraic_numbers {
 
            // Here is an unexplored option for comparing numbers.
            //
-           // The isolating intervals of a and b are still overlaping
+           // The isolating intervals of a and b are still overlapping
            // Then we compute
            //    r(x) = Resultant(x - y1 + y2, p1(y1), p2(y2))
            //    where p1(y1) and p2(y2) are the polynomials defining a and b.
@@ -1932,9 +1932,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             opt_var2basic(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual unsynch_mpq_manager & m() const { return m_imp.qm(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x); }
-            virtual mpq const & operator()(polynomial::var x) const {
+            unsynch_mpq_manager & m() const override { return m_imp.qm(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x); }
+            mpq const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 if (!v.is_basic())
                     throw failed();
@@ -1949,9 +1949,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             var2basic(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual unsynch_mpq_manager & m() const { return m_imp.qm(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x) && m_x2v(x).is_basic(); }
-            virtual mpq const & operator()(polynomial::var x) const {
+            unsynch_mpq_manager & m() const override { return m_imp.qm(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x) && m_x2v(x).is_basic(); }
+            mpq const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 SASSERT(v.is_basic());
                 TRACE("var2basic", tout << "getting value of x" << x << " -> " << m().to_string(m_imp.basic_value(v)) << "\n";);
@@ -1966,9 +1966,9 @@ namespace algebraic_numbers {
             imp & m_imp;
             polynomial::var2anum const & m_x2v;
             var2interval(imp & i, polynomial::var2anum const & x2v):m_imp(i), m_x2v(x2v) {}
-            virtual mpbqi_manager & m() const { return m_imp.bqim(); }
-            virtual bool contains(polynomial::var x) const { return m_x2v.contains(x) && !m_x2v(x).is_basic(); }
-            virtual mpbqi const & operator()(polynomial::var x) const {
+            mpbqi_manager & m() const override { return m_imp.bqim(); }
+            bool contains(polynomial::var x) const override { return m_x2v.contains(x) && !m_x2v(x).is_basic(); }
+            mpbqi const & operator()(polynomial::var x) const override {
                 anum const & v = m_x2v(x);
                 SASSERT(!v.is_basic());
                 return v.to_algebraic()->m_interval;
@@ -1989,7 +1989,7 @@ namespace algebraic_numbers {
                     TRACE("anum_eval_sign", tout << "all variables are assigned to rationals, value of p: " << r << "\n";);
                     return qm().sign(r);
                 }
-                catch (opt_var2basic::failed) {
+                catch (const opt_var2basic::failed &) {
                     // continue
                 }
 
@@ -2220,9 +2220,9 @@ namespace algebraic_numbers {
                 m_x(x),
                 m_v(v) {
             }
-            virtual manager & m() const { return m_am; }
-            virtual bool contains(polynomial::var x) const { return x == m_x || m_x2v.contains(x); }
-            virtual anum const & operator()(polynomial::var x) const {
+            manager & m() const override { return m_am; }
+            bool contains(polynomial::var x) const override { return x == m_x || m_x2v.contains(x); }
+            anum const & operator()(polynomial::var x) const override {
                 if (x == m_x)
                     return m_v;
                 else
@@ -2553,9 +2553,9 @@ namespace algebraic_numbers {
                 m_x2v(x2v),
                 m_v(v) {
             }
-            virtual manager & m() const { return m_am; }
-            virtual bool contains(polynomial::var x) const { return true; }
-            virtual anum const & operator()(polynomial::var x) const {
+            manager & m() const override { return m_am; }
+            bool contains(polynomial::var x) const override { return true; }
+            anum const & operator()(polynomial::var x) const override {
                 if (m_x2v.contains(x))
                     return m_x2v(x);
                 else
@@ -2629,17 +2629,15 @@ namespace algebraic_numbers {
             }
             else if (a.is_basic()) {
                 mpq const & v = basic_value(a);
-                scoped_mpz neg_n(qm());
+                mpz neg_n;
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                unsynch_mpz_manager zmgr;
-                // FIXME: remove these copies
-                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
+                mpz coeffs[2] = { std::move(neg_n), qm().dup(v.denominator()) };
                 out << "(";
                 upm().display(out, 2, coeffs, "#");
                 out << ", 1)"; // first root of the polynomial d*# - n
-                zmgr.del(coeffs[0]);
-                zmgr.del(coeffs[1]);
+                qm().del(coeffs[0]);
+                qm().del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
@@ -2679,17 +2677,15 @@ namespace algebraic_numbers {
             }
             else if (a.is_basic()) {
                 mpq const & v = basic_value(a);
-                scoped_mpz neg_n(qm());
+                mpz neg_n;
                 qm().set(neg_n, v.numerator());
                 qm().neg(neg_n);
-                unsynch_mpz_manager zmgr;
-                // FIXME: remove these copies
-                mpz coeffs[2] = { zmgr.dup(neg_n.get()), zmgr.dup(v.denominator()) };
+                mpz coeffs[2] = { std::move(neg_n), qm().dup(v.denominator()) };
                 out << "(root-obj ";
                 upm().display_smt2(out, 2, coeffs, "x");
                 out << " 1)"; // first root of the polynomial d*# - n
-                zmgr.del(coeffs[0]);
-                zmgr.del(coeffs[1]);
+                qm().del(coeffs[0]);
+                qm().del(coeffs[1]);
             }
             else {
                 algebraic_cell * c = a.to_algebraic();
@@ -2772,7 +2768,7 @@ namespace algebraic_numbers {
     manager::manager(reslimit& lim, unsynch_mpq_manager & m, params_ref const & p, small_object_allocator * a) {
         m_own_allocator = false;
         m_allocator     = a;
-        if (m_allocator == 0) {
+        if (m_allocator == nullptr) {
             m_own_allocator = true;
             m_allocator     = alloc(small_object_allocator, "algebraic");
         }

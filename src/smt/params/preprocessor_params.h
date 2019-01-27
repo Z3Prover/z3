@@ -32,12 +32,11 @@ struct preprocessor_params : public pattern_inference_params,
                              public bit_blaster_params {
     lift_ite_kind   m_lift_ite;
     lift_ite_kind   m_ng_lift_ite;  // lift ite for non ground terms
-    bool            m_pull_cheap_ite_trees;
+    bool            m_pull_cheap_ite;
     bool            m_pull_nested_quantifiers;
     bool            m_eliminate_term_ite;
     bool            m_macro_finder;
     bool            m_propagate_values;
-    bool            m_propagate_booleans;
     bool            m_refine_inj_axiom;
     bool            m_eliminate_bounds;
     bool            m_simplify_bit2int;
@@ -54,12 +53,11 @@ public:
     preprocessor_params(params_ref const & p = params_ref()):
         m_lift_ite(LI_NONE),
         m_ng_lift_ite(LI_NONE), 
-        m_pull_cheap_ite_trees(false),
+        m_pull_cheap_ite(false),
         m_pull_nested_quantifiers(false),
         m_eliminate_term_ite(false),
         m_macro_finder(false),
         m_propagate_values(true),
-        m_propagate_booleans(false), // TODO << check peformance
         m_refine_inj_axiom(true),
         m_eliminate_bounds(false),
         m_simplify_bit2int(false),

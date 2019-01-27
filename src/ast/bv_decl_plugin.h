@@ -122,7 +122,7 @@ inline bv_op_kind get_div0_op(bv_op_kind k) {
 // models the value of "div" it is underspecified (i.e., when the denominator is zero).
 inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
     return m.mk_func_decl(decl->get_family_id(), get_div0_op(static_cast<bv_op_kind>(decl->get_decl_kind())),
-                          0, 0, 1, decl->get_domain());
+                          0, nullptr, 1, decl->get_domain());
 }
 
 class bv_decl_plugin : public decl_plugin {
@@ -204,7 +204,7 @@ protected:
     vector<ptr_vector<func_decl> > m_bit2bool;
     ptr_vector<func_decl>  m_mkbv;
 
-    virtual void set_manager(ast_manager * m, family_id id);
+    void set_manager(ast_manager * m, family_id id) override;
     void mk_bv_sort(unsigned bv_size);
     sort * get_bv_sort(unsigned bv_size);
     func_decl * mk_func_decl(decl_kind k, unsigned bv_size);
@@ -241,34 +241,34 @@ protected:
 public:
     bv_decl_plugin();
 
-    virtual ~bv_decl_plugin() {}
-    virtual void finalize();
+    ~bv_decl_plugin() override {}
+    void finalize() override;
 
-    virtual decl_plugin * mk_fresh() { return alloc(bv_decl_plugin); }
+    decl_plugin * mk_fresh() override { return alloc(bv_decl_plugin); }
 
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters);
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
-                                     unsigned num_args, expr * const * args, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                             unsigned num_args, expr * const * args, sort * range) override;
 
-    virtual bool is_value(app * e) const;
+    bool is_value(app * e) const override;
 
-    virtual bool is_unique_value(app * e) const { return is_value(e); }
+    bool is_unique_value(app * e) const override { return is_value(e); }
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
 
-    virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+    void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
 
-    virtual bool are_distinct(app* a, app* b) const;
+    bool are_distinct(app* a, app* b) const override;
 
-    virtual expr * get_some_value(sort * s);
+    expr * get_some_value(sort * s) override;
 
     bool get_int2bv_size(unsigned num_parameters, parameter const * parameters, int & result);
 
-    virtual bool is_considered_uninterpreted(func_decl * f) {
+    bool is_considered_uninterpreted(func_decl * f) override {
         if (f->get_family_id() != get_family_id())
             return false;
         switch (f->get_decl_kind()) {
@@ -354,6 +354,8 @@ public:
     MATCH_BINARY(is_bv_mul);
     MATCH_BINARY(is_bv_sle);
     MATCH_BINARY(is_bv_ule);
+    MATCH_BINARY(is_bv_ashr);
+    MATCH_BINARY(is_bv_lshr);
     MATCH_BINARY(is_bv_shl);
     MATCH_BINARY(is_bv_urem);
     MATCH_BINARY(is_bv_srem);
@@ -384,7 +386,7 @@ public:
 
     app * mk_numeral(rational const & val, sort* s) const;
     app * mk_numeral(rational const & val, unsigned bv_size) const;
-    app * mk_numeral(uint64 u, unsigned bv_size) const { return mk_numeral(rational(u, rational::ui64()), bv_size); }
+    app * mk_numeral(uint64_t u, unsigned bv_size) const { return mk_numeral(rational(u, rational::ui64()), bv_size); }
     sort * mk_sort(unsigned bv_size);
 
     unsigned get_bv_size(sort const * s) const {

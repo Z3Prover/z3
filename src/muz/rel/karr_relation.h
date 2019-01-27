@@ -45,33 +45,33 @@ namespace datalog {
             a(get_ast_manager())
         {}            
         
-        virtual bool can_handle_signature(const relation_signature & sig) {
+        bool can_handle_signature(const relation_signature & sig) override {
             return get_manager().get_context().karr();
         }
 
         static symbol get_name() { return symbol("karr_relation"); }
 
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
 
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
 
         static karr_relation& get(relation_base& r);
         static karr_relation const & get(relation_base const& r);   
 
-        virtual relation_join_fn * mk_join_fn(
-            const relation_base & t1, const relation_base & t2, 
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+        relation_join_fn * mk_join_fn(
+            const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
 
     private:
         bool dualizeI(matrix& dst, matrix const& src);

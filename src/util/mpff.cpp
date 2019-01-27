@@ -155,27 +155,27 @@ bool mpff_manager::is_uint64(mpff const & n) const {
         !has_one_at_first_k_bits(m_precision, sig(n), -n.m_exponent);                       
 }
 
-uint64 mpff_manager::get_uint64(mpff const & a) const {
+uint64_t mpff_manager::get_uint64(mpff const & a) const {
     SASSERT(is_uint64(a));
     if (is_zero(a)) return 0;
     int exp = -a.m_exponent - sizeof(unsigned) * 8 * (m_precision - 2);
     SASSERT(exp >= 0);
-    uint64 * s = reinterpret_cast<uint64*>(sig(a) + (m_precision - 2));
+    uint64_t * s = reinterpret_cast<uint64_t*>(sig(a) + (m_precision - 2));
     return *s >> exp;
 }
 
-int64 mpff_manager::get_int64(mpff const & a) const {
+int64_t mpff_manager::get_int64(mpff const & a) const {
     SASSERT(is_int64(a));
     if (is_zero(a)) return 0;
     int exp = -a.m_exponent - sizeof(unsigned) * 8 * (m_precision - 2);
     SASSERT(exp >= 0);
-    uint64 * s = reinterpret_cast<uint64*>(sig(a) + (m_precision - 2));
+    uint64_t * s = reinterpret_cast<uint64_t*>(sig(a) + (m_precision - 2));
     // INT64_MIN case
     if (exp == 0 && *s == 0x8000000000000000ull && is_neg(a)) {
         return INT64_MIN;
     }
     else {
-        int64 r = *s >> exp;
+        int64_t r = *s >> exp;
         if (is_neg(a))
             r = -r;
         return r;
@@ -249,26 +249,26 @@ void mpff_manager::set(mpff & n, unsigned v) {
     SASSERT(check(n));
 }
 
-void mpff_manager::set(mpff & n, int64 v) {
+void mpff_manager::set(mpff & n, int64_t v) {
     if (v == 0) {
         reset(n);
     }
     else {
         if (v < 0) {
-            set(n, 1 + static_cast<uint64>(-(1+v)));
+            set(n, 1 + static_cast<uint64_t>(-(1+v)));
             n.m_sign = 1;
         }
         else {
-            set(n, static_cast<uint64>(v));
+            set(n, static_cast<uint64_t>(v));
         }
     }
     SASSERT(check(n));
     SASSERT(get_int64(n) == v);
 }
 
-void mpff_manager::set(mpff & n, uint64 v) {
+void mpff_manager::set(mpff & n, uint64_t v) {
 #ifdef Z3DEBUG
-    uint64 old_v = v;
+    uint64_t old_v = v;
 #endif
     if (v == 0) {
         reset(n);
@@ -278,7 +278,7 @@ void mpff_manager::set(mpff & n, uint64 v) {
         n.m_sign              = 0;
         unsigned * _v         = reinterpret_cast<unsigned*>(&v);
         int num_leading_zeros = nlz(2, _v);
-        n.m_exponent          = static_cast<int>(8 * sizeof(uint64)) - num_leading_zeros - static_cast<int>(m_precision_bits);
+        n.m_exponent          = static_cast<int>(8 * sizeof(uint64_t)) - num_leading_zeros - static_cast<int>(m_precision_bits);
         v <<= num_leading_zeros;
         SASSERT(m_precision >= 2);
         unsigned * s          = sig(n);
@@ -299,7 +299,7 @@ void mpff_manager::set(mpff & n, int num, unsigned den) {
     SASSERT(check(n));
 }
 
-void mpff_manager::set(mpff & n, int64 num, uint64 den) {
+void mpff_manager::set(mpff & n, int64_t num, uint64_t den) {
     scoped_mpff a(*this), b(*this);
     set(a, num);
     set(b, den);
@@ -376,9 +376,11 @@ void mpff_manager::set(mpff & n, unsynch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v); 
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::set(mpff & n, synch_mpz_manager & m, mpz const & v) { 
     set_core(n, m, v); 
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::set_core(mpff & n, mpq_manager<SYNCH> & m, mpq const & v) {
@@ -397,9 +399,11 @@ void mpff_manager::set(mpff & n, unsynch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v); 
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::set(mpff & n, synch_mpq_manager & m, mpq const & v) { 
     set_core(n, m, v); 
 }
+#endif
 
 bool mpff_manager::eq(mpff const & a, mpff const & b) const {
     if (is_zero(a) && is_zero(b))
@@ -470,7 +474,7 @@ bool mpff_manager::lt(mpff const & a, mpff const & b) const {
     }
 }
 
-void mpff_manager::inc_significand(unsigned * s, int64 & exp) {
+void mpff_manager::inc_significand(unsigned * s, int64_t & exp) {
     if (!::inc(m_precision, s)) {
         SASSERT(::is_zero(m_precision, s));
         s[m_precision - 1] = MIN_MSW;
@@ -597,7 +601,7 @@ void mpff_manager::prev(mpff & a) {
     SASSERT(check(a));
 }
 
-void mpff_manager::set_big_exponent(mpff & a, int64 e) {
+void mpff_manager::set_big_exponent(mpff & a, int64_t e) {
     SASSERT(e > INT_MAX || e < INT_MIN);
     if (e > INT_MAX) {
         if (a.m_sign == 1) {
@@ -715,7 +719,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
         else if (num_leading_zeros == sizeof(unsigned) * 8 - 1) {
             // shift 1 right
             bool _inc_significand = ((c.m_sign == 1) != m_to_plus_inf) && has_one_at_first_k_bits(m_precision*2, sig_r, 1);
-            int64 exp_c = exp_a;
+            int64_t exp_c = exp_a;
             exp_c++;
             shr(m_precision + 1, sig_r, 1, m_precision, sig_c);
             if (_inc_significand)
@@ -728,7 +732,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
             // Now, we can assume sig_r has size m_precision 
             SASSERT(num_leading_zeros > 0);
             // shift left num_leading_zeros
-            int64 exp_c = exp_a;
+            int64_t exp_c = exp_a;
             exp_c -= num_leading_zeros;
             shl(m_precision, sig_r, num_leading_zeros, m_precision, sig_c);
             set_exponent(c, exp_c);
@@ -752,7 +756,7 @@ void mpff_manager::add_sub(bool is_sub, mpff const & a, mpff const & b, mpff & c
             reset(c);
         }
         else if (num_leading_zeros > 0) {
-            int64 exp_c = exp_a;
+            int64_t exp_c = exp_a;
             exp_c -= num_leading_zeros;
             shl(m_precision, sig_c, num_leading_zeros, m_precision, sig_c);
             set_exponent(c, exp_c);
@@ -787,10 +791,10 @@ void mpff_manager::mul(mpff const & a, mpff const & b, mpff & c) {
         allocate_if_needed(c);
         TRACE("mpff", tout << "mul("; display(tout, a); tout << ", "; display(tout, b); tout << ")\n";);
         c.m_sign    = a.m_sign ^ b.m_sign;
-        // use int64 to make sure we do not have overflows
-        int64 exp_a = a.m_exponent;
-        int64 exp_b = b.m_exponent;
-        int64 exp_c = exp_a + exp_b;
+        // use int64_t to make sure we do not have overflows
+        int64_t exp_a = a.m_exponent;
+        int64_t exp_b = b.m_exponent;
+        int64_t exp_c = exp_a + exp_b;
         // store result in m_buffers[0]
         unsigned * r = m_buffers[0].c_ptr();
         m_mpn_manager.mul(sig(a), m_precision, sig(b), m_precision, r);
@@ -834,7 +838,7 @@ void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
 #if 1
     else if (is_two(b)) {
         set(c, a);
-        int64 exp_c = a.m_exponent;
+        int64_t exp_c = a.m_exponent;
         exp_c--;
         set_exponent(c, exp_c);
     }
@@ -842,10 +846,10 @@ void mpff_manager::div(mpff const & a, mpff const & b, mpff & c) {
     else {
         allocate_if_needed(c);
         c.m_sign    = a.m_sign ^ b.m_sign;
-        // use int64 to make sure we do not have overflows
-        int64 exp_a = a.m_exponent;
-        int64 exp_b = b.m_exponent;
-        int64 exp_c = exp_a - exp_b;
+        // use int64_t to make sure we do not have overflows
+        int64_t exp_a = a.m_exponent;
+        int64_t exp_b = b.m_exponent;
+        int64_t exp_c = exp_a - exp_b;
         
         exp_c      -= m_precision_bits; // we will multiplying (shifting) a by 2^m_precision_bits.
         // copy a to buffer 0, and shift by m_precision_bits
@@ -1023,7 +1027,7 @@ void mpff_manager::power(mpff const & a, unsigned p, mpff & b) {
                 b.m_sign = 0;
             else
                 b.m_sign = a.m_sign;
-            int64 exp = a.m_exponent;
+            int64_t exp = a.m_exponent;
             exp *= p;
             if (exp > INT_MAX || exp < INT_MIN)
                 throw overflow_exception();
@@ -1057,7 +1061,7 @@ void mpff_manager::power(mpff const & a, unsigned p, mpff & b) {
 bool mpff_manager::is_power_of_two(mpff const & a, unsigned & k) const {
     if (!is_power_of_two(a))
         return false;
-    int64 exp = a.m_exponent + m_precision_bits - 1;
+    int64_t exp = a.m_exponent + m_precision_bits - 1;
     SASSERT(exp >= 0);
     k = static_cast<unsigned>(exp);
     return true;
@@ -1070,16 +1074,18 @@ bool mpff_manager::is_power_of_two(mpff const & a) const {
 
 template<bool SYNCH>
 void mpff_manager::significand_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) {
-    m.set(t, m_precision, sig(n));
+    m.set_digits(t, m_precision, sig(n));
 }
 
 void mpff_manager::significand(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
     significand_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::significand(mpff const & n, synch_mpz_manager & m, mpz & t) {
     significand_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::to_mpz_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) {
@@ -1090,10 +1096,10 @@ void mpff_manager::to_mpz_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) 
         to_buffer(0, n);
         unsigned * b = m_buffers[0].c_ptr();
         shr(m_precision, b, -exp, m_precision, b);
-        m.set(t, m_precision, b);
+        m.set_digits(t, m_precision, b);
     }
     else {
-        m.set(t, m_precision, sig(n));
+        m.set_digits(t, m_precision, sig(n));
         if (exp > 0) {
             _scoped_numeral<mpz_manager<SYNCH> > p(m);
             m.set(p, 2);
@@ -1109,9 +1115,11 @@ void mpff_manager::to_mpz(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::to_mpq_core(mpff const & n, mpq_manager<SYNCH> & m, mpq & t) {
@@ -1132,7 +1140,7 @@ void mpff_manager::to_mpq_core(mpff const & n, mpq_manager<SYNCH> & m, mpq & t) 
             if (exp < 0) {
                 // Avoid -INT_MIN == INT_MIN issue. It is not really useful, since we will run out of memory anyway.
                 if (exp == INT_MIN)
-                    abs_exp = static_cast<unsigned>(-static_cast<int64>(INT_MIN));
+                    abs_exp = static_cast<unsigned>(-static_cast<int64_t>(INT_MIN));
                 else
                     abs_exp = -exp;
             }
@@ -1154,9 +1162,11 @@ void mpff_manager::to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
+#endif
 
 void mpff_manager::display_raw(std::ostream & out, mpff const & n) const {
     if (is_neg(n))
@@ -1177,7 +1187,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     svector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
     int num_trailing_zeros = ntz(m_precision, u_buffer.c_ptr());
     int shift = 0;
-    int64 exp = n.m_exponent; // use int64 to avoid -INT_MIN == INT_MIN issue
+    int64_t exp = n.m_exponent; // use int64_t to avoid -INT_MIN == INT_MIN issue
     if (exp < 0) {
         if (num_trailing_zeros >= -exp) {
             shift = static_cast<int>(-exp);
@@ -1194,7 +1204,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     out << m_mpn_manager.to_string(u_buffer.c_ptr(), m_precision, str_buffer.begin(), str_buffer.size());
     if (exp > 0) {
         if (exp <= 63) {
-            uint64 _exp = 1;
+            uint64_t _exp = 1;
             _exp <<= exp;
             out << "*" << _exp;
         }
@@ -1209,7 +1219,7 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
     else if (exp < 0) {
         exp = -exp;
         if (exp <= 63) {
-            uint64 _exp = 1;
+            uint64_t _exp = 1;
             _exp <<= exp;
             out << "/" << _exp;
         }
@@ -1225,8 +1235,8 @@ void mpff_manager::display(std::ostream & out, mpff const & n) const {
 
 void mpff_manager::display_decimal(std::ostream & out, mpff const & n, unsigned prec, unsigned min_exponent) {
     // The result in scientific notation when n.m_exponent >= min_exponent or n.m_exponent <= - min_exponent - m_precision_bits
-    int64 exp  = n.m_exponent;
-    if (exp >= min_exponent || exp <= -static_cast<int64>(min_exponent) - m_precision_bits || is_int(n)) {
+    int64_t exp  = n.m_exponent;
+    if (exp >= min_exponent || exp <= -static_cast<int64_t>(min_exponent) - m_precision_bits || is_int(n)) {
         display(out, n);
         return;
     }
@@ -1327,7 +1337,7 @@ void mpff_manager::display_smt2(std::ostream & out, mpff const & n, bool decimal
     svector<unsigned> & u_buffer = const_cast<mpff_manager*>(this)->m_buffers[0];
     int num_trailing_zeros = ntz(m_precision, u_buffer.c_ptr());
     int shift = 0;
-    int64 exp = n.m_exponent;
+    int64_t exp = n.m_exponent;
     if (exp < 0) {
         if (num_trailing_zeros >= -exp) {
             shift = static_cast<int>(-exp);
@@ -1353,7 +1363,7 @@ void mpff_manager::display_smt2(std::ostream & out, mpff const & n, bool decimal
     if (exp != 0) {
         if (exp < 0) exp = -exp;
         if (exp <= 63) {
-            uint64 _exp = 1;
+            uint64_t _exp = 1;
             _exp <<= exp;
             out << _exp;
             if (decimal) out << ".0";
@@ -1387,8 +1397,8 @@ unsigned mpff_manager::prev_power_of_two(mpff const & a) {
         return 0;
     if (a.m_exponent <= -static_cast<int>(m_precision_bits))
         return 0; // Number is smaller than 1
-    SASSERT(static_cast<int64>(a.m_exponent) + static_cast<int64>(m_precision_bits) - 1 >= 0);
-    SASSERT(static_cast<int64>(a.m_exponent) + static_cast<int64>(m_precision_bits) - 1 <= static_cast<int64>(static_cast<uint64>(UINT_MAX)));
+    SASSERT(static_cast<int64_t>(a.m_exponent) + static_cast<int64_t>(m_precision_bits) - 1 >= 0);
+    SASSERT(static_cast<int64_t>(a.m_exponent) + static_cast<int64_t>(m_precision_bits) - 1 <= static_cast<int64_t>(static_cast<uint64_t>(UINT_MAX)));
     return m_precision_bits + a.m_exponent - 1;
 }
 

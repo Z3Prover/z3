@@ -47,7 +47,7 @@ tactic * or_else(tactic * t1, tactic * t2, tactic * t3, tactic * t4, tactic * t5
 
 tactic * repeat(tactic * t, unsigned max = UINT_MAX); 
 /**
-   \brief Fails if \c t produeces more than \c threshold subgoals.
+   \brief Fails if \c t produces more than \c threshold subgoals.
    Otherwise, it behaves like \c t.
 */
 tactic * fail_if_branching(tactic * t, unsigned threshold = 1);

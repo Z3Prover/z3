@@ -1398,8 +1398,7 @@ public class Expr extends AST
     /**
      * Indicates whether the term is a proof by condensed transitivity of a
      * relation
-     * Remarks:  Condensed transitivity proof. This proof object is
-     * only used if the parameter PROOF_MODE is 1. It combines several symmetry
+     * Remarks:  Condensed transitivity proof. It combines several symmetry
      * and transitivity proofs. Example: T1: (R a b) T2: (R c b) T3: (R c d)
      * [trans* T1 T2 T3]: (R a d) R must be a symmetric and transitive relation.
      * 
@@ -1506,14 +1505,11 @@ public class Expr extends AST
     /**
      * Indicates whether the term is a proof by rewriting
      * Remarks:  A proof for
-     * rewriting an expression t into an expression s. This proof object is used
-     * if the parameter PROOF_MODE is 1. This proof object can have n
+     * rewriting an expression t into an expression s. This proof object can have n
      * antecedents. The antecedents are proofs for equalities used as
-     * substitution rules. The object is also used in a few cases if the
-     * parameter PROOF_MODE is 2. The cases are: - When applying contextual
+     * substitution rules. The object is used in a few cases . The cases are: - When applying contextual
      * simplification (CONTEXT_SIMPLIFIER=true) - When converting bit-vectors to
-     * Booleans (BIT2BOOL=true) - When pulling ite expression up
-     * (PULL_CHEAP_ITE_TREES=true) 
+     * Booleans (BIT2BOOL=true) 
      * @throws Z3Exception on error
      * @return a boolean
      **/
@@ -1534,17 +1530,6 @@ public class Expr extends AST
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT;
     }
 
-    /**
-     * Indicates whether the term is a proof for pulling quantifiers out.
-     * 
-     * Remarks:  A proof for (iff P Q) where Q is in prenex normal form. This * proof object is only used if the parameter PROOF_MODE is 1. This proof * object has no antecedents 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofPullQuantStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR;
-    }
 
     /**
      * Indicates whether the term is a proof for pushing quantifiers in.
@@ -1804,38 +1789,6 @@ public class Expr extends AST
         return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_NEG;
     }
 
-    /**
-     * Indicates whether the term is a proof for (~ P Q) here Q is in negation
-     * normal form.
-     * Remarks:  A proof for (~ P Q) where Q is in negation normal
-     * form.
-     * 
-     * This proof object is only used if the parameter PROOF_MODE is 1.
-     * 
-     * This proof object may have n antecedents. Each antecedent is a
-     * PR_DEF_INTRO. 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofNNFStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_NNF_STAR;
-    }
-
-    /**
-     * Indicates whether the term is a proof for (~ P Q) where Q is in
-     * conjunctive normal form.
-     * Remarks:  A proof for (~ P Q) where Q is in
-     * conjunctive normal form. This proof object is only used if the parameter
-     * PROOF_MODE is 1. This proof object may have n antecedents. Each
-     * antecedent is a PR_DEF_INTRO. 
-     * @throws Z3Exception on error
-     * @return a boolean
-     **/
-    public boolean isProofCNFStar()
-    {
-        return isApp() && getFuncDecl().getDeclKind() == Z3_decl_kind.Z3_OP_PR_CNF_STAR;
-    }
 
     /**
      * Indicates whether the term is a proof for a Skolemization step

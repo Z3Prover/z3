@@ -23,6 +23,7 @@ Revision History:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "smt/smt_types.h"
+#include <tuple>
 
 class proto_model;
 struct smt_params;
@@ -54,11 +55,12 @@ namespace smt {
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
+                          expr* def,
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          ptr_vector<enode> & used_enodes);
-        bool add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation = 0);
+                          vector<std::tuple<enode *, enode *>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
+        bool add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, expr* def, unsigned generation = 0);
 
         void init_search_eh();
         void assign_eh(quantifier * q);
@@ -91,6 +93,8 @@ namespace smt {
 
         ptr_vector<quantifier>::const_iterator begin_quantifiers() const;
         ptr_vector<quantifier>::const_iterator end_quantifiers() const;
+        ptr_vector<quantifier>::const_iterator begin() const { return begin_quantifiers(); }
+        ptr_vector<quantifier>::const_iterator end() const { return end_quantifiers(); }
         unsigned num_quantifiers() const;
         
     };

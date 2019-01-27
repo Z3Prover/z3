@@ -75,9 +75,9 @@ static void tst_get_implied_equalities1() {
 }
 
 static void tst_get_implied_equalities2() {
-    enable_trace("after_search");
-    enable_trace("get_implied_equalities");
-    enable_trace("implied_equalities");
+    //enable_trace("after_search");
+    //enable_trace("get_implied_equalities");
+    //enable_trace("implied_equalities");
     Z3_config cfg = Z3_mk_config();
     Z3_context ctx = Z3_mk_context(cfg);
     Z3_del_config(cfg);

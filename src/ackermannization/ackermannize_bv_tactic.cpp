@@ -27,23 +27,18 @@ public:
         : m(m), m_p(p)
     {}
 
-    virtual ~ackermannize_bv_tactic() { }
+    ~ackermannize_bv_tactic() override { }
 
-    virtual void operator()(goal_ref const & g,
-        goal_ref_buffer & result,
-        model_converter_ref & mc,
-        proof_converter_ref & pc,
-        expr_dependency_ref & core) {
-        mc = 0;
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         tactic_report report("ackermannize", *g);
         fail_if_unsat_core_generation("ackermannize", g);
         fail_if_proof_generation("ackermannize", g);
         TRACE("ackermannize", g->display(tout << "in\n"););
 
-        expr_ref_vector flas(m);
+        ptr_vector<expr> flas;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
-        lackr lackr(m, m_p, m_st, flas, NULL);
+        lackr lackr(m, m_p, m_st, flas, nullptr);
 
         // mk result
         goal_ref resg(alloc(goal, *g, true));
@@ -52,41 +47,38 @@ public:
             TRACE("ackermannize", tout << "ackermannize not run due to limit" << std::endl;);
             result.reset();
             result.push_back(g.get());
-            mc = 0;
-            pc = 0;
-            core = 0;
             return;
         }
         result.push_back(resg.get());
         // report model
         if (g->models_enabled()) {
-            mc = mk_ackermannize_bv_model_converter(m, lackr.get_info());
+            resg->add(mk_ackermannize_bv_model_converter(m, lackr.get_info()));
         }
-
+        
         resg->inc_depth();
         TRACE("ackermannize", resg->display(tout << "out\n"););
         SASSERT(resg->is_well_sorted());
     }
 
 
-    void updt_params(params_ref const & _p) {
+    void updt_params(params_ref const & _p) override {
         ackermannize_bv_tactic_params p(_p);
         m_lemma_limit = p.div0_ackermann_limit();
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         ackermannize_bv_tactic_params::collect_param_descrs(r);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("ackr-constraints", m_st.m_ackrs_sz);
     }
 
-    virtual void reset_statistics() { m_st.reset(); }
+    void reset_statistics() override { m_st.reset(); }
 
-    virtual void cleanup() { }
+    void cleanup() override { }
 
-    virtual tactic* translate(ast_manager& m) {
+    tactic* translate(ast_manager& m) override {
         return alloc(ackermannize_bv_tactic, m, m_p);
     }
 private:

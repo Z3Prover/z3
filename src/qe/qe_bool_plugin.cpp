@@ -39,16 +39,16 @@ namespace qe {
             m_replace(m)
         {}
         
-        virtual void assign(contains_app& x, expr* fml, rational const& vl) {
+        void assign(contains_app& x, expr* fml, rational const& vl) override {
             SASSERT(vl.is_zero() || vl.is_one());
         }
 
-        virtual bool get_num_branches(contains_app& x, expr* fml, rational& nb) {
+        bool get_num_branches(contains_app& x, expr* fml, rational& nb) override {
             nb = rational(2);
             return true;
         }
 
-        virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
+        void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) override {
             SASSERT(vl.is_one() || vl.is_zero());
             expr* tf = (vl.is_one())?m.mk_true():m.mk_false();
             m_replace.apply_substitution(x.x(), tf, fml);
@@ -57,7 +57,7 @@ namespace qe {
             }
         }
 
-        virtual bool project(contains_app& x, model_ref& model, expr_ref& fml) {
+        bool project(contains_app& x, model_ref& model, expr_ref& fml) override {
             model_evaluator model_eval(*model);
             expr_ref val_x(m);
             rational val;
@@ -65,11 +65,11 @@ namespace qe {
             CTRACE("qe", (!m.is_true(val_x) && !m.is_false(val_x)),
                    tout << "Boolean is a don't care: " << mk_pp(x.x(), m) << "\n";);
             val = m.is_true(val_x)?rational::one():rational::zero();
-            subst(x, val, fml, 0);
+            subst(x, val, fml, nullptr);
             return true;
         }
 
-        virtual unsigned get_weight(contains_app& contains_x, expr* fml) {
+        unsigned get_weight(contains_app& contains_x, expr* fml) override {
             app* x = contains_x.x();            
             bool p = m_ctx.pos_atoms().contains(x);
             bool n = m_ctx.neg_atoms().contains(x);
@@ -79,13 +79,13 @@ namespace qe {
             return 0;
         }
 
-        virtual bool solve(conj_enum& conjs,expr* fml) {
+        bool solve(conj_enum& conjs,expr* fml) override {
             return 
                 solve_units(conjs, fml) ||
                 solve_polarized(fml);
         }
         
-        virtual bool is_uninterpreted(app* a) {
+        bool is_uninterpreted(app* a) override {
             return false;
         }
 
@@ -93,10 +93,8 @@ namespace qe {
 
         bool solve_units(conj_enum& conjs, expr* _fml) {
             expr_ref fml(_fml, m);
-            conj_enum::iterator it = conjs.begin(), end = conjs.end();
             unsigned idx;
-            for (; it != end; ++it) {
-                expr* e = *it;
+            for (expr * e : conjs) {
                 if (!is_app(e)) {
                     continue;
                 }
@@ -138,13 +136,11 @@ namespace qe {
                 return false;
             }
             else if (p && !n) {
-                atom_set::iterator it = m_ctx.pos_atoms().begin(), end = m_ctx.pos_atoms().end();
-                for (; it != end; ++it) {
-                    if (x != *it && contains_x(*it)) return false;
+                for (expr* y : m_ctx.pos_atoms()) {
+                    if (x != y && contains_x(y)) return false;
                 }
-                it = m_ctx.neg_atoms().begin(), end = m_ctx.neg_atoms().end();
-                for (; it != end; ++it) {
-                    if (contains_x(*it)) return false;
+                for (expr* y : m_ctx.neg_atoms()) {
+                    if (contains_x(y)) return false;
                 }
                 // only occurrences of 'x' must be in positive atoms
                 def = m.mk_true();
@@ -152,13 +148,11 @@ namespace qe {
                 return true;
             }
             else if (!p && n) {
-                atom_set::iterator it = m_ctx.pos_atoms().begin(), end = m_ctx.pos_atoms().end();
-                for (; it != end; ++it) {
-                    if (contains_x(*it)) return false;
+                for (expr* y : m_ctx.pos_atoms()) {
+                    if (contains_x(y)) return false;
                 }
-                it = m_ctx.neg_atoms().begin(), end = m_ctx.neg_atoms().end();
-                for (; it != end; ++it) {
-                    if (x != *it && contains_x(*it)) return false;
+                for (expr* y : m_ctx.neg_atoms()) {
+                    if (x != y && contains_x(y)) return false;
                 }
                 def = m.mk_false();
                 m_replace.apply_substitution(x, def, fml);

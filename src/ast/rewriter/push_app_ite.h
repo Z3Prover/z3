@@ -41,11 +41,11 @@ struct push_app_ite_cfg : public default_rewriter_cfg {
    \brief Variation of push_app_ite that applies the transformation on nonground terms only.
 
    \remark This functor uses the app::is_ground method. This method is not
-   completly precise, for instance, any term containing a quantifier is marked as non ground.
+   completely precise, for instance, any term containing a quantifier is marked as non ground.
 */
 class ng_push_app_ite_cfg : public push_app_ite_cfg {
 protected:
-    virtual bool is_target(func_decl * decl, unsigned num_args, expr * const * args);
+    bool is_target(func_decl * decl, unsigned num_args, expr * const * args) override;
 public:
     ng_push_app_ite_cfg(ast_manager& m, bool conservative = true): push_app_ite_cfg(m, conservative) {}
     virtual ~ng_push_app_ite_cfg() {}

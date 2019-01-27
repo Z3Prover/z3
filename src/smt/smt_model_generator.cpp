@@ -24,15 +24,25 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/proto_model/proto_model.h"
+#include "model/model_v2_pp.h"
 
 namespace smt {
 
+    void fresh_value_proc::get_dependencies(buffer<model_value_dependency>& result) { 
+        result.push_back(model_value_dependency(m_value)); 
+    }
+
+    std::ostream& operator<<(std::ostream& out, model_value_dependency const& src) {
+        if (src.is_fresh_value()) return out << "fresh!" << src.get_value()->get_idx();
+        else return out << "#" << src.get_enode()->get_owner_id();
+    }
+
     model_generator::model_generator(ast_manager & m):
         m_manager(m),
-        m_context(0),
+        m_context(nullptr),
         m_fresh_idx(1),
         m_asts(m_manager),
-        m_model(0) {
+        m_model(nullptr) {
     }
 
     model_generator::~model_generator() {
@@ -44,18 +54,16 @@ namespace smt {
         m_fresh_idx = 1;
         m_root2value.reset();
         m_asts.reset();
-        m_model = 0;
+        m_model = nullptr;
     }
 
     void model_generator::init_model() {
         SASSERT(!m_model);
         // PARAM-TODO smt_params ---> params_ref
         m_model = alloc(proto_model, m_manager); // , m_context->get_fparams());
-        ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
-        ptr_vector<theory>::const_iterator end = m_context->end_theories();
-        for (; it != end; ++it) {
-            TRACE("model", tout << "init_model for theory: " << (*it)->get_name() << "\n";);
-            (*it)->init_model(*this);
+        for (theory* th : m_context->theories()) {
+            TRACE("model_generator_bug", tout << "init_model for theory: " << th->get_name() << "\n";);
+            th->init_model(*this);
         }
     }
 
@@ -82,14 +90,11 @@ namespace smt {
     */
     void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, 
                                          ptr_vector<model_value_proc> & procs) {
-        ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end = m_context->end_enodes();
-        for (; it != end; ++it) {
-            enode * r = *it;
+        for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
                 sort * s      = m_manager.get_sort(r->get_owner());
-                model_value_proc * proc = 0;
+                model_value_proc * proc = nullptr;
                 if (m_manager.is_bool(s)) {
                     CTRACE("model", m_context->get_assignment(r) == l_undef, 
                            tout << mk_pp(r->get_owner(), m_manager) << "\n";);
@@ -165,20 +170,20 @@ namespace smt {
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
                                          svector<source> & todo) {
+
         if (src.is_fresh_value()) {
-            // there is an implicit dependency between a fresh value stub of sort S and the root enodes of sort S that are not associated with fresh values.
+            // there is an implicit dependency between a fresh value stub of 
+            // sort S and the root enodes of sort S that are not associated with fresh values.
+            //
             sort * s     = src.get_value()->get_sort();
             if (already_traversed.contains(s))
                 return true;
             bool visited = true;
-            unsigned sz  = roots.size();
-            for (unsigned i = 0; i < sz; i++) {
-                enode * r     = roots[i];
+            for (enode * r : roots) {
                 if (m_manager.get_sort(r->get_owner()) != s)
                     continue;
                 SASSERT(r == r->get_root());
-                model_value_proc * proc = 0;
-                root2proc.find(r, proc);
+                model_value_proc * proc = root2proc[r];
                 SASSERT(proc);
                 if (proc->is_fresh())
                     continue; // r is associated with a fresh value...
@@ -196,20 +201,12 @@ namespace smt {
         enode * n = src.get_enode();
         SASSERT(n == n->get_root());
         bool visited = true;
-        model_value_proc * proc = 0;
-        root2proc.find(n, proc);
-        SASSERT(proc);
+        model_value_proc * proc = root2proc[n];
         buffer<model_value_dependency> dependencies;
         proc->get_dependencies(dependencies);
-        buffer<model_value_dependency>::const_iterator it  = dependencies.begin();
-        buffer<model_value_dependency>::const_iterator end = dependencies.end();
-        for (; it != end; ++it) {
-            model_value_dependency const & dep = *it;
+        for (model_value_dependency const& dep : dependencies) {
             visit_child(dep, colors, todo, visited);
-            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " -> ";
-                  if (dep.is_fresh_value()) tout << "fresh!" << dep.get_value()->get_idx();
-                  else tout << "#" << dep.get_enode()->get_owner_id();
-                  tout << "\n";);
+            TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " -> " << dep << " already visited: " << visited << "\n";);
         }
         return visited;
     }
@@ -222,9 +219,7 @@ namespace smt {
                                          svector<source> & todo,
                                          svector<source> & sorted_sources) {
         TRACE("mg_top_sort", tout << "process source, is_fresh: " << src.is_fresh_value() << " ";
-              if (src.is_fresh_value()) tout << "fresh!" << src.get_value()->get_idx();
-              else tout << "#" << src.get_enode()->get_owner_id();
-              tout << ", todo.size(): " << todo.size() << "\n";);
+              tout << src << ", todo.size(): " << todo.size() << "\n";);
         int color     = get_color(colors, src);
         SASSERT(color != Grey);
         if (color == Black)
@@ -234,17 +229,16 @@ namespace smt {
         while (!todo.empty()) {
             source curr = todo.back();
             TRACE("mg_top_sort", tout << "current source, is_fresh: " << curr.is_fresh_value() << " ";
-                  if (curr.is_fresh_value()) tout << "fresh!" << curr.get_value()->get_idx();
-                  else tout << "#" << curr.get_enode()->get_owner_id();
-                  tout << ", todo.size(): " << todo.size() << "\n";);
+                  tout << curr << ", todo.size(): " << todo.size() << "\n";);
             switch (get_color(colors, curr)) {
             case White:
                 set_color(colors, curr, Grey);
                 visit_children(curr, roots, root2proc, colors, already_traversed, todo);
                 break;
             case Grey:
-                SASSERT(visit_children(curr, roots, root2proc, colors, already_traversed, todo));
+                // SASSERT(visit_children(curr, roots, root2proc, colors, already_traversed, todo));
                 set_color(colors, curr, Black);
+                TRACE("mg_top_sort", tout << "append " << curr << "\n";);
                 sorted_sources.push_back(curr);
                 break;
             case Black:
@@ -273,18 +267,15 @@ namespace smt {
         // topological sort
 
         // traverse all extra fresh values...
-        unsigned sz = m_extra_fresh_values.size();
-        for (unsigned i = 0; i < sz; i++) {
-            extra_fresh_value * f = m_extra_fresh_values[i];
+        for (extra_fresh_value * f : m_extra_fresh_values) {
             process_source(source(f), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
 
         // traverse all enodes that are associated with fresh values...
-        sz = roots.size();
+        unsigned sz = roots.size();
         for (unsigned i = 0; i < sz; i++) {
             enode * r     = roots[i];
-            model_value_proc * proc = 0;
-            root2proc.find(r, proc);
+            model_value_proc * proc = root2proc[r];
             SASSERT(proc);
             if (!proc->is_fresh())
                 continue;
@@ -308,55 +299,40 @@ namespace smt {
         mk_value_procs(root2proc, roots, procs);
         top_sort_sources(roots, root2proc, sources);
         TRACE("sorted_sources",
-              svector<source>::const_iterator it  = sources.begin();
-              svector<source>::const_iterator end = sources.end();
-              for (; it != end; ++it) {
-                  source const & curr = *it;
+              for (source const& curr : sources) {
                   if (curr.is_fresh_value()) {
-                      tout << "fresh!" << curr.get_value()->get_idx() << " " << mk_pp(curr.get_value()->get_sort(), m_manager) << "\n";
+                      tout << curr << " " << mk_pp(curr.get_value()->get_sort(), m_manager) << "\n";
                   }
                   else {
                       enode * n = curr.get_enode();
                       SASSERT(n->get_root() == n);
                       sort * s = m_manager.get_sort(n->get_owner());
-                      tout << "#" << n->get_owner_id() << " " << mk_pp(s, m_manager);
-                      model_value_proc * proc = 0;
-                      root2proc.find(n, proc);
-                      SASSERT(proc);
-                      tout << " is_fresh: " << proc->is_fresh() << "\n";
+                      tout << curr << " " << mk_pp(s, m_manager);
+                      tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
                   }
               });
-        svector<source>::const_iterator it  = sources.begin();
-        svector<source>::const_iterator end = sources.end();
-        for (; it != end; ++it) {
-            source const & curr = *it;
-            
+        for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
-                TRACE("model_fresh_bug", tout << "mk fresh!" << curr.get_value()->get_idx() << " : " << mk_pp(s, m_manager) << "\n";);
+                TRACE("model_fresh_bug", tout << curr << " : " << mk_pp(s, m_manager) << "\n";);
                 expr * val = m_model->get_fresh_value(s);
-                TRACE("model_fresh_bug", tout << "mk fresh!" << curr.get_value()->get_idx() << " := #" << (val == 0 ? UINT_MAX : val->get_id()) << "\n";);
+                TRACE("model_fresh_bug", tout << curr << " := #" << (val == nullptr ? UINT_MAX : val->get_id()) << "\n";);
                 m_asts.push_back(val);
                 curr.get_value()->set_value(val);
             }
             else {
                 enode * n = curr.get_enode();
                 SASSERT(n->get_root() == n);
-                TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << "\n";);
+                TRACE("mg_top_sort", tout << curr << "\n";);
                 dependencies.reset();
                 dependency_values.reset();
-                model_value_proc * proc = 0;
-                VERIFY(root2proc.find(n, proc));
+                model_value_proc * proc = root2proc[n];
                 SASSERT(proc);
                 proc->get_dependencies(dependencies);
-                buffer<model_value_dependency>::const_iterator it2  = dependencies.begin();
-                buffer<model_value_dependency>::const_iterator end2 = dependencies.end();
-                for (; it2 != end2; ++it2) {
-                    model_value_dependency const & d = *it2;
+                for (model_value_dependency const& d : dependencies) {
                     if (d.is_fresh_value()) {
                         CTRACE("mg_top_sort", !d.get_value()->get_value(), 
-                               tout << "#" << n->get_owner_id() << " -> ";
-                               tout << "fresh!" << d.get_value()->get_idx() << "\n";);
+                               tout << "#" << n->get_owner_id() << " -> " << d << "\n";);
                         SASSERT(d.get_value()->get_value());
                         dependency_values.push_back(d.get_value()->get_value());
                     }
@@ -364,7 +340,7 @@ namespace smt {
                         enode * child = d.get_enode();
                         TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m_manager) << "): " << mk_pp(child->get_owner(), m_manager) << " " << mk_pp(child->get_root()->get_owner(), m_manager) << "\n";);
                         child = child->get_root();
-                        app * val = 0;
+                        app * val = nullptr;
                         m_root2value.find(child, val);
                         SASSERT(val);
                         dependency_values.push_back(val);
@@ -381,12 +357,10 @@ namespace smt {
         m_extra_fresh_values.reset();
         
         // send model
-        ptr_vector<enode>::const_iterator it3  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end3 = m_context->end_enodes();
-        for (; it3 != end3; ++it3) {
-            enode * n = *it3;
+        for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
                 func_decl * d = n->get_owner()->get_decl();
+                TRACE("mg_top_sort", tout << d->get_name() << " " << (m_hidden_ufs.contains(d)?"hidden":"visible") << "\n";);
                 if (m_hidden_ufs.contains(d)) continue;
                 expr * val    = get_value(n);
                 m_model->register_decl(d, val);
@@ -395,7 +369,7 @@ namespace smt {
     }
 
     app * model_generator::get_value(enode * n) const {
-        app * val = 0;
+        app * val = nullptr;
         m_root2value.find(n->get_root(), val);
         SASSERT(val);
         return val;
@@ -428,7 +402,10 @@ namespace smt {
             enode * n         = m_context->get_enode(t);
             unsigned num_args = n->get_num_args();
             func_decl * f     = n->get_decl();
-            if (num_args > 0 && n->get_cg() == n && include_func_interp(f)) {
+            if (num_args == 0 && include_func_interp(f)) {
+                m_model->register_decl(f, get_value(n));
+            }
+            else if (num_args > 0 && n->get_cg() == n && include_func_interp(f)) {
                 ptr_buffer<expr> args;
                 expr * result = get_value(n);
                 SASSERT(result);
@@ -438,7 +415,7 @@ namespace smt {
                     args.push_back(arg);
                 }
                 func_interp * fi = m_model->get_func_interp(f);
-                if (fi == 0) {
+                if (fi == nullptr) {
                     fi = alloc(func_interp, m_manager, f->get_arity());
                     m_model->register_decl(f, fi);
                 }
@@ -454,7 +431,7 @@ namespace smt {
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m_manager) << "\n";);
                 if (m_context->get_last_search_failure() == smt::THEORY) {
                     // if the theory solvers are incomplete, then we cannot assume the e-graph is close under congruence
-                    if (fi->get_entry(args.c_ptr()) == 0)
+                    if (fi->get_entry(args.c_ptr()) == nullptr)
                         fi->insert_new_entry(args.c_ptr(), result);
                 }
                 else {
@@ -464,8 +441,7 @@ namespace smt {
         }
     }
 
-    extra_fresh_value * model_generator::mk_extra_fresh_value(sort * s) {
-        SASSERT(s->is_infinite());
+    extra_fresh_value * model_generator::mk_extra_fresh_value(sort * s) {        
         extra_fresh_value * r = alloc(extra_fresh_value, s, m_fresh_idx);
         m_fresh_idx++;
         m_extra_fresh_values.push_back(r);
@@ -483,17 +459,12 @@ namespace smt {
     }
 
     void model_generator::finalize_theory_models() {
-        ptr_vector<theory>::const_iterator it  = m_context->begin_theories();
-        ptr_vector<theory>::const_iterator end = m_context->end_theories();
-        for (; it != end; ++it)
-            (*it)->finalize_model(*this);
+        for (theory* th : m_context->theories()) 
+            th->finalize_model(*this);
     } 
 
     void model_generator::register_existing_model_values() {
-        ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
-        ptr_vector<enode>::const_iterator end = m_context->end_enodes();
-        for (; it != end; ++it) {
-            enode * r = *it;
+        for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 expr * n = r->get_owner();
                 if (m_manager.is_model_value(n)) {
@@ -530,6 +501,7 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
+        TRACE("model", model_v2_pp(tout, *m_model, true););
         return m_model;
     }
     

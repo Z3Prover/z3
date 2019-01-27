@@ -61,10 +61,10 @@ namespace datalog {
         hashtable_table_plugin(relation_manager & manager) 
             : table_plugin(symbol("hashtable"), manager) {}
 
-        virtual table_base * mk_empty(const table_signature & s);
+        table_base * mk_empty(const table_signature & s) override;
 
-        virtual table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
+        table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
     };
 
     class hashtable_table : public table_base {
@@ -84,23 +84,23 @@ namespace datalog {
         hashtable_table_plugin & get_plugin() const
         { return static_cast<hashtable_table_plugin &>(table_base::get_plugin()); }
 
-        virtual void add_fact(const table_fact & f) {
+        void add_fact(const table_fact & f) override {
             m_data.insert(f);
         }
-        virtual void remove_fact(const table_element* fact) {
+        void remove_fact(const table_element* fact) override {
             table_fact f(get_signature().size(), fact);
             m_data.remove(f);
         }
-        virtual bool contains_fact(const table_fact & f) const {
+        bool contains_fact(const table_fact & f) const override {
             return m_data.contains(f);
         }
 
-        virtual iterator begin() const;
-        virtual iterator end() const;
+        iterator begin() const override;
+        iterator end() const override;
 
-        virtual unsigned get_size_estimate_rows() const { return m_data.size(); }
-        virtual unsigned get_size_estimate_bytes() const { return m_data.size()*get_signature().size()*8; }
-        virtual bool knows_exact_size() const { return true; }
+        unsigned get_size_estimate_rows() const override { return m_data.size(); }
+        unsigned get_size_estimate_bytes() const override { return m_data.size()*get_signature().size()*8; }
+        bool knows_exact_size() const override { return true; }
     };
 
     // -----------------------------------
@@ -118,9 +118,9 @@ namespace datalog {
         bitvector_table_plugin(relation_manager & manager) 
             : table_plugin(symbol("bitvector"), manager) {}
 
-        virtual bool can_handle_signature(const table_signature & s);
+        bool can_handle_signature(const table_signature & s) override;
 
-        virtual table_base * mk_empty(const table_signature & s);
+        table_base * mk_empty(const table_signature & s) override;
     };
 
     class bitvector_table : public table_base {
@@ -137,11 +137,11 @@ namespace datalog {
 
         bitvector_table(bitvector_table_plugin & plugin, const table_signature & sig);
     public:
-        virtual void add_fact(const table_fact & f);
-        virtual void remove_fact(const table_element* fact);                   
-        virtual bool contains_fact(const table_fact & f) const;
-        virtual iterator begin() const;
-        virtual iterator end() const;
+        void add_fact(const table_fact & f) override;
+        void remove_fact(const table_element* fact) override;
+        bool contains_fact(const table_fact & f) const override;
+        iterator begin() const override;
+        iterator end() const override;
     };
 
 

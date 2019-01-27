@@ -26,17 +26,19 @@ Revision History:
 namespace sat {
 
     scc::scc(solver & s, params_ref const & p):
-        m_solver(s) {
+        m_solver(s),
+        m_big(s.m_rand) {
         reset_statistics();
         updt_params(p);
     }
 
     struct frame {
         unsigned  m_lidx;
+        unsigned  m_succ_idx;
         bool      m_first;
         watched * m_it;
         watched * m_end;
-        frame(unsigned lidx, watched * it, watched * end):m_lidx(lidx), m_first(true), m_it(it), m_end(end) {}
+        frame(unsigned lidx, watched * it, watched * end, unsigned sidx = 0):m_lidx(lidx), m_succ_idx(sidx), m_first(true), m_it(it), m_end(end) {}
     };
     typedef svector<frame> frames;
 
@@ -44,16 +46,20 @@ namespace sat {
         scc &     m_scc;
         stopwatch m_watch;
         unsigned  m_num_elim;
+        unsigned  m_num_elim_bin;
         report(scc & c):
             m_scc(c),
-            m_num_elim(c.m_num_elim) {
+            m_num_elim(c.m_num_elim),
+            m_num_elim_bin(c.m_num_elim_bin) {
             m_watch.start();
         }
         ~report() {
             m_watch.stop();
+            unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
             IF_VERBOSE(SAT_VB_LVL, 
-                       verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim)
-                       << mk_stat(m_scc.m_solver)
+                       verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
+                       if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
+                       verbose_stream() << mk_stat(m_scc.m_solver)
                        << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
@@ -75,7 +81,7 @@ namespace sat {
         index.resize(num_lits, UINT_MAX);
         lowlink.resize(num_lits, UINT_MAX);
         in_s.resize(num_lits, false);
-        literal_vector roots;
+        literal_vector roots, lits;
         roots.resize(m_solver.num_vars(), null_literal);
         unsigned next_index = 0;
         svector<frame>   frames;
@@ -98,14 +104,15 @@ namespace sat {
                 watch_list & wlist = m_solver.get_wlist(LIDX);                  \
                 frames.push_back(frame(LIDX, wlist.begin(), wlist.end()));      \
             }
-            
+
             NEW_NODE(l_idx);
-            
+
             while (!frames.empty()) {
             loop:
-                frame & fr         = frames.back();
-                unsigned l_idx     = fr.m_lidx;
+                frame & fr = frames.back();
+                unsigned l_idx = fr.m_lidx;
                 if (!fr.m_first) {
+                    SASSERT(fr.m_it->is_binary_clause());
                     // after visiting child
                     literal l2 = fr.m_it->get_literal();
                     unsigned l2_idx = l2.index();
@@ -136,20 +143,19 @@ namespace sat {
                 if (lowlink[l_idx] == index[l_idx]) {
                     // found new SCC
                     CTRACE("scc_cycle", s.back() != l_idx, {
-                          tout << "cycle: ";
-                          unsigned j = s.size() - 1;
-                          unsigned l2_idx;
-                          do {
-                              l2_idx = s[j];
-                              j--;
-                              tout << to_literal(l2_idx) << " ";
-                          }
-                          while (l2_idx != l_idx);
-                          tout << "\n";
-                    });
+                            tout << "cycle: ";
+                            unsigned j = s.size() - 1;
+                            unsigned l2_idx;
+                            do {
+                                l2_idx = s[j];
+                                j--;
+                                tout << to_literal(l2_idx) << " ";
+                            } while (l2_idx != l_idx);
+                            tout << "\n";
+                        });
                     
                     SASSERT(!s.empty());
-                    literal l  = to_literal(l_idx);
+                    literal l = to_literal(l_idx);
                     bool_var v = l.var();
                     if (roots[v] != null_literal) {
                         // variable was already assigned... just consume stack
@@ -158,10 +164,9 @@ namespace sat {
                         do {
                             l2_idx = s.back();
                             s.pop_back();
-                            in_s[l2_idx]  = false;
+                            in_s[l2_idx] = false;
                             SASSERT(roots[to_literal(l2_idx).var()].var() == roots[v].var());
-                        }
-                        while (l2_idx != l_idx);
+                        } while (l2_idx != l_idx);
                     }
                     else {
                         // check if the SCC has an external variable, and check for conflicts
@@ -180,20 +185,19 @@ namespace sat {
                                 r = to_literal(l2_idx);
                                 break;
                             }
-                        }
-                        while (l2_idx != l_idx);
-                        
+                        } while (l2_idx != l_idx);
+
                         if (r == null_literal) {
                             // SCC does not contain external variable
                             r = to_literal(l_idx);
                         }
-                        
+
                         TRACE("scc_detail", tout << "r: " << r << "\n";);
 
                         do {
                             l2_idx = s.back();
                             s.pop_back();
-                            in_s[l2_idx]  = false;
+                            in_s[l2_idx] = false;
                             literal  l2 = to_literal(l2_idx);
                             bool_var v2 = l2.var();
                             if (roots[v2] == null_literal) {
@@ -203,37 +207,63 @@ namespace sat {
                                 else {
                                     roots[v2] = r;
                                 }
-                                if (v2 != r.var()) 
+                                if (v2 != r.var())
                                     to_elim.push_back(v2);
                             }
-                        }
-                        while (l2_idx != l_idx);
+                        } while (l2_idx != l_idx);
                     }
                 }
                 frames.pop_back();
             }
         }
+        for (unsigned i = 0; i < m_solver.num_vars(); ++i) {
+            if (roots[i] == null_literal) {
+                roots[i] = literal(i, false);
+            }
+        }
         TRACE("scc", for (unsigned i = 0; i < roots.size(); i++) { tout << i << " -> " << roots[i] << "\n"; }
-              tout << "to_elim: "; for (unsigned i = 0; i < to_elim.size(); i++) tout << to_elim[i] << " "; tout << "\n";);
+              tout << "to_elim: "; for (unsigned v : to_elim) tout << v << " "; tout << "\n";);
         m_num_elim += to_elim.size();
         elim_eqs eliminator(m_solver);
         eliminator(roots, to_elim);
         TRACE("scc_detail", m_solver.display(tout););
         CASSERT("scc_bug", m_solver.check_invariant());
+
+        if (m_scc_tr) {
+            reduce_tr();
+        }
+        TRACE("scc_detail", m_solver.display(tout););
         return to_elim.size();
     }
 
+    unsigned scc::reduce_tr(bool learned) {        
+        init_big(learned);
+        unsigned num_elim = m_big.reduce_tr(m_solver);
+        m_num_elim_bin += num_elim;
+        return num_elim;
+    }
+
+    void scc::reduce_tr() {
+        unsigned quota = 0, num_reduced = 0, count = 0;
+        while ((num_reduced = reduce_tr(false)) > quota && count++ < 10) { quota = std::max(100u, num_reduced / 2); }
+        quota = 0; count = 0;
+        while ((num_reduced = reduce_tr(true))  > quota && count++ < 10) { quota = std::max(100u, num_reduced / 2); }
+    }
+
     void scc::collect_statistics(statistics & st) const {
-        st.update("elim bool vars", m_num_elim);
+        st.update("sat scc elim vars", m_num_elim);
+        st.update("sat scc elim binary", m_num_elim_bin);
     }
     
     void scc::reset_statistics() {
         m_num_elim = 0;
+        m_num_elim_bin = 0;
     }
 
     void scc::updt_params(params_ref const & _p) {
         sat_scc_params p(_p);
         m_scc = p.scc();
+        m_scc_tr = p.scc_tr();
     }
 
     void scc::collect_param_descrs(param_descrs & d) {

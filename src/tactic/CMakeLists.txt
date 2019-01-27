@@ -1,8 +1,8 @@
 z3_add_component(tactic
   SOURCES
+    dependency_converter.cpp
     equiv_proof_converter.cpp
-    extension_model_converter.cpp
-    filter_model_converter.cpp
+    generic_model_converter.cpp
     goal.cpp
     goal_num_occurs.cpp
     goal_shared_occs.cpp
@@ -22,4 +22,6 @@ z3_add_component(tactic
     probe.h
     sine_filter.h
     tactic.h
+  PYG_FILES
+    tactic_params.pyg
 )

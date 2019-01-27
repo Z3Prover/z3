@@ -18,21 +18,29 @@ Revision History:
 
 --*/
 #pragma once
-
+#define lp_for_z3
 #include <string>
 #include <cmath>
 #include <algorithm>
+#ifdef lp_for_z3
 #include "../rational.h"
 #include "../sstream.h"
 #include "../z3_exception.h"
-
+#else
+ // include "util/numerics/mpq.h"
+ // include "util/numerics/numeric_traits.h"
+#endif
 namespace lp {
-    typedef rational mpq; // rename rationals
+#ifdef lp_for_z3 // rename rationals
+    typedef rational mpq;
+#else
+    typedef lp::mpq mpq;
+#endif
 
 
 template <typename T>
 std::string T_to_string(const T & t); // forward definition
-
+#ifdef lp_for_z3
 template <typename T> class numeric_traits {};
 
 template <>  class numeric_traits<unsigned> {
@@ -42,7 +50,24 @@ public:
     static unsigned one() { return 1; }
     static bool is_zero(unsigned v) { return v == 0; }
     static double get_double(unsigned const & d) { return d; }
+    static bool is_int(unsigned) {return true;}
+    static bool is_pos(unsigned) {return true;}
 };
+
+template <>  class numeric_traits<int> {
+public:
+    static bool precise() { return true; }
+    static int zero() { return 0; }
+    static int one() { return 1; }
+    static bool is_zero(int v) { return v == 0; }
+    static double get_double(int const & d) { return d; }
+    static bool is_int(int) {return true;}
+    static bool is_pos(int j) {return j > 0;}
+    static bool is_neg(int j) {return j < 0;}
+    static int ceil_ratio(int a, int b) { return static_cast<int>(ceil(mpq(a, b)).get_int32());}
+    static int floor_ratio(int a, int b) { return static_cast<int>(floor(mpq(a, b)).get_int32());}
+};
+
 
 template <>  class numeric_traits<double> {
     public:
@@ -71,14 +96,23 @@ template <>  class numeric_traits<double> {
         static rational from_string(std::string const & str) { return rational(str.c_str()); }
         static bool is_pos(const rational & d) {return d.is_pos();}
         static bool is_neg(const rational & d) {return d.is_neg();}
+        static bool is_int(const rational & d) {return d.is_int();}
+        static mpq ceil_ratio(const mpq & a, const mpq & b) {
+            return ceil(a / b);
+        }
+        static mpq floor_ratio(const mpq & a, const mpq & b) {
+            return floor(a / b);
+        }
+
     };
+#endif
 
 template <typename X, typename Y>
 struct convert_struct {
     static X convert(const Y & y){ return X(y);}
     static bool is_epsilon_small(const X & x,  const double & y) { return std::abs(numeric_traits<X>::get_double(x)) < y; }
-    static bool below_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false;}
-    static bool above_bound_numeric(const X &, const X &, const Y &) { /*SASSERT(false);*/ return false; }
+    static bool below_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false;}
+    static bool above_bound_numeric(const X &, const X &, const Y &) { /*lp_unreachable();*/ return false; }
 };
 
 
@@ -148,7 +182,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator/(const numeric_pair &) const {
-        // SASSERT(false);
+        // lp_unreachable();
     }
 
 
@@ -157,7 +191,7 @@ struct numeric_pair {
     }
 
     numeric_pair operator*(const numeric_pair & /*a*/) const  {
-        // SASSERT(false);
+        // lp_unreachable();
     }
 
     numeric_pair&  operator+=(const numeric_pair & a) {
@@ -203,6 +237,11 @@ struct numeric_pair {
     std::string to_string() const {
         return std::string("(") + T_to_string(x) + ", "  + T_to_string(y) + ")";
     }
+
+    bool is_int() const {
+        return x.is_int() && y.is_zero();
+    }
+    
 };
 
 
@@ -229,7 +268,7 @@ numeric_pair<T> operator/(const numeric_pair<T> & r, const X & a) {
 }
 
 // template <numeric_pair, typename T>  bool precise() { return numeric_traits<T>::precise();}
-template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* SASSERT(false); */ return 0;}
+template <typename T> double get_double(const lp::numeric_pair<T> & ) { /* lp_unreachable(); */ return 0;}
 template <typename T>
 class numeric_traits<lp::numeric_pair<T>> {
   public:
@@ -237,7 +276,7 @@ class numeric_traits<lp::numeric_pair<T>> {
     static lp::numeric_pair<T> zero() { return lp::numeric_pair<T>(numeric_traits<T>::zero(), numeric_traits<T>::zero()); }
     static bool is_zero(const lp::numeric_pair<T> & v) { return numeric_traits<T>::is_zero(v.x) && numeric_traits<T>::is_zero(v.y); }
     static double get_double(const lp::numeric_pair<T> & v){ return numeric_traits<T>::get_double(v.x); } // just return the double of the first coordinate
-    static double one() { /*SASSERT(false);*/ return 0;}
+    static double one() { /*lp_unreachable();*/ return 0;}
     static bool is_pos(const numeric_pair<T> &p) {
         return numeric_traits<T>::is_pos(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_pos(p.y));
@@ -246,7 +285,9 @@ class numeric_traits<lp::numeric_pair<T>> {
         return numeric_traits<T>::is_neg(p.x) ||
             (numeric_traits<T>::is_zero(p.x) && numeric_traits<T>::is_neg(p.y));
     }
-
+    static bool is_int(const numeric_pair<T> & p) {
+        return numeric_traits<T>::is_int(p.x) && numeric_traits<T>::is_zero(p.y);
+    }
 };
 
 template <>
@@ -267,11 +308,11 @@ struct convert_struct<numeric_pair<T>, double> {
         return convert_struct<T, double>::is_epsilon_small(p.x, eps) && convert_struct<T, double>::is_epsilon_small(p.y, eps);
     }
     static bool below_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // SASSERT(false);
+        // lp_unreachable();
         return false;
     }
     static bool above_bound_numeric(const numeric_pair<T> &, const numeric_pair<T> &, const double &) {
-        // SASSERT(false);
+        // lp_unreachable();
         return false;
     }
 };
@@ -328,4 +369,26 @@ struct convert_struct<double, double> {
 template <typename X> bool is_epsilon_small(const X & v, const double &eps) { return convert_struct<X, double>::is_epsilon_small(v, eps);}
 template <typename X> bool below_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::below_bound_numeric(x, bound, eps);}
 template <typename X> bool above_bound_numeric(const X & x, const X & bound, const double& eps) { return convert_struct<X, double>::above_bound_numeric(x, bound, eps);}
+template  <typename T>  T floor(const numeric_pair<T> & r) {
+    if (r.x.is_int()) {
+        if (r.y.is_nonneg()) {
+            return r.x;
+        }
+        return r.x - mpq::one();
+    }
+    
+    return floor(r.x);
+}
+
+template <typename T> T ceil(const numeric_pair<T> & r) {
+    if (r.x.is_int()) {
+        if (r.y.is_nonpos()) {
+            return r.x;
+        }
+        return r.x + mpq::one();
+    }
+    
+    return ceil(r.x);
+}
+
 }

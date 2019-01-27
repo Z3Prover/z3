@@ -63,7 +63,7 @@ namespace datalog {
         costs m_processed_cost;
         bool m_being_recorded;
     protected:
-        accounted_object() : m_context(0), m_parent_object(0), m_being_recorded(false) {}
+        accounted_object() : m_context(nullptr), m_parent_object(nullptr), m_being_recorded(false) {}
         ~accounted_object();
     public:
 
@@ -95,7 +95,7 @@ namespace datalog {
         stopwatch * m_stopwatch;
 
         bool m_running;
-        uint64 m_last_time;
+        uint64_t m_last_time;
     public:
         cost_recorder();
         ~cost_recorder();
@@ -107,7 +107,7 @@ namespace datalog {
            before separately.
          */
         void start(accounted_object *);
-        void finish() { start(0); }
+        void finish() { start(nullptr); }
     };
 };
 

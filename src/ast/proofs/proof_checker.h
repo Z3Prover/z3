@@ -48,24 +48,24 @@ class proof_checker {
         func_decl* m_atom;
         func_decl* m_nil;
         sort*      m_cell;
-        virtual void set_manager(ast_manager * m, family_id id);
+        void set_manager(ast_manager * m, family_id id) override;
         func_decl * mk_func_decl(decl_kind k);
     public:
         hyp_decl_plugin();
 
-        virtual ~hyp_decl_plugin() {}
+        ~hyp_decl_plugin() override {}
 
-        virtual void finalize();
+        void finalize() override;
         
-        virtual decl_plugin * mk_fresh() { return alloc(hyp_decl_plugin); }
+        decl_plugin * mk_fresh() override { return alloc(hyp_decl_plugin); }
 
-        virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters);
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned arity, sort * const * domain, sort * range);
-        virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                         unsigned num_args, expr * const * args, sort * range);
-        virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-        virtual void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic);
+        sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const* parameters) override;
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned arity, sort * const * domain, sort * range) override;
+        func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
+                                 unsigned num_args, expr * const * args, sort * range) override;
+        void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+        void get_sort_names(svector<builtin_name> & sort_names, symbol const & logic) override;
     };
 public:
     proof_checker(ast_manager& m);
@@ -77,39 +77,39 @@ private:
     bool check1_spc(proof* p, expr_ref_vector& side_conditions);
     bool check_arith_proof(proof* p);
     bool check_arith_literal(bool is_pos, app* lit, rational const& coeff, expr_ref& sum, bool& is_strict);
-    bool match_fact(proof* p, expr_ref& fact);
+    bool match_fact(proof const* p, expr*& fact) const;
     void add_premise(proof* p);
-    bool match_proof(proof* p);
-    bool match_proof(proof* p, proof_ref& p0);
-    bool match_proof(proof* p, proof_ref& p0, proof_ref& p1);
-    bool match_proof(proof* p, proof_ref_vector& parents);
-    bool match_binary(expr* e, func_decl_ref& d, expr_ref& t1, expr_ref& t2);
-    bool match_op(expr* e, decl_kind k, expr_ref& t1, expr_ref& t2);
-    bool match_op(expr* e, decl_kind k, expr_ref& t);
-    bool match_op(expr* e, decl_kind k, expr_ref_vector& terms);
-    bool match_iff(expr* e, expr_ref& t1, expr_ref& t2);
-    bool match_implies(expr* e, expr_ref& t1, expr_ref& t2);
-    bool match_eq(expr* e, expr_ref& t1, expr_ref& t2);
-    bool match_oeq(expr* e, expr_ref& t1, expr_ref& t2);
-    bool match_not(expr* e, expr_ref& t);
-    bool match_or(expr* e, expr_ref_vector& terms);
-    bool match_and(expr* e, expr_ref_vector& terms);
-    bool match_app(expr* e, func_decl_ref& d, expr_ref_vector& terms);
-    bool match_quantifier(expr*, bool& is_univ, sort_ref_vector&, expr_ref& body);
-    bool match_negated(expr* a, expr* b);
-    bool match_equiv(expr* a, expr_ref& t1, expr_ref& t2);
+    bool match_proof(proof const* p) const;
+    bool match_proof(proof const* p, proof*& p0) const;
+    bool match_proof(proof const* p, proof*& p0, proof*& p1) const;
+    bool match_proof(proof const* p, proof_ref_vector& parents) const;
+    bool match_binary(expr const* e, func_decl*& d, expr*& t1, expr*& t2) const;
+    bool match_op(expr const* e, decl_kind k, expr*& t1, expr*& t2) const;
+    bool match_op(expr const* e, decl_kind k, expr*& t) const;
+    bool match_op(expr const* e, decl_kind k, ptr_vector<expr>& terms) const;
+    bool match_iff(expr const* e, expr*& t1, expr*& t2) const;
+    bool match_implies(expr const* e, expr*& t1, expr*& t2) const;
+    bool match_eq(expr const* e, expr*& t1, expr*& t2) const;
+    bool match_oeq(expr const* e, expr*& t1, expr*& t2) const;
+    bool match_not(expr const* e, expr*& t) const;
+    bool match_or(expr const* e, ptr_vector<expr>& terms) const;
+    bool match_and(expr const* e, ptr_vector<expr>& terms) const;
+    bool match_app(expr const* e, func_decl*& d, ptr_vector<expr>& terms) const;
+    bool match_quantifier(expr const*, bool& is_univ, sort_ref_vector&, expr*& body) const;
+    bool match_negated(expr const* a, expr* b) const;
+    bool match_equiv(expr const* a, expr*& t1, expr*& t2) const;
     void get_ors(expr* e, expr_ref_vector& ors);
     void get_hypotheses(proof* p, expr_ref_vector& ante);
 
-    bool match_nil(expr* e) const;
-    bool match_cons(expr* e, expr_ref& a, expr_ref& b) const;
-    bool match_atom(expr* e, expr_ref& a) const;
+    bool match_nil(expr const* e) const;
+    bool match_cons(expr const* e, expr*& a, expr*& b) const;
+    bool match_atom(expr const* e, expr*& a) const;
     expr* mk_nil();
     expr* mk_cons(expr* a, expr* b);
     expr* mk_atom(expr* e);
-    bool is_hypothesis(proof* p) const;
+    bool is_hypothesis(proof const* p) const;
     expr* mk_hyp(unsigned num_hyps, expr * const * hyps);
-    void dump_proof(proof * pr);
+    void dump_proof(proof const* pr);
     void dump_proof(unsigned num_antecedents, expr * const * antecedents, expr * consequent);
 
     void set_false(expr_ref& e, unsigned idx, expr_ref& lit);

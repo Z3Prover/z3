@@ -93,8 +93,8 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        virtual ~collect_relevant_label_lits() {}
-        virtual void operator()(expr * n);
+        ~collect_relevant_label_lits() override {}
+        void operator()(expr * n) override;
     };
 
     class collect_relevant_labels : public for_each_relevant_expr {
@@ -104,8 +104,8 @@ namespace smt {
             for_each_relevant_expr(ctx),
             m_buffer(b) {
         }
-        virtual ~collect_relevant_labels() {}
-        virtual void operator()(expr * n);
+        ~collect_relevant_labels() override {}
+        void operator()(expr * n) override;
     };
 
 };

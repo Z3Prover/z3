@@ -58,6 +58,25 @@ namespace opt {
             rational    m_value;        // value of m_vars + m_coeff under interpretation of m_var2value.
             bool        m_alive;        // rows can be marked dead if they have been processed.
             void reset() { m_vars.reset(); m_coeff.reset(); m_value.reset(); }
+
+            void neg() { for (var & v : m_vars) v.m_coeff.neg(); m_coeff.neg(); m_value.neg(); }
+            rational get_coefficient(unsigned x) const;
+        };
+
+        // A definition is a linear term of the form (vars + coeff) / div 
+        struct def {
+            def(): m_div(1) {}
+            def(row const& r, unsigned x);
+            def(def const& other): m_vars(other.m_vars), m_coeff(other.m_coeff), m_div(other.m_div) {}
+            vector<var> m_vars;
+            rational    m_coeff;
+            rational    m_div; 
+            def operator+(def const& other) const;
+            def operator/(unsigned n) const { return *this / rational(n); }
+            def operator/(rational const& n) const;
+            def operator*(rational const& n) const;
+            def operator+(rational const& n) const;
+            void normalize();
         };
 
     private:
@@ -81,9 +100,15 @@ namespace opt {
         
         rational get_coefficient(unsigned row_id, unsigned var_id) const;
 
-        rational get_row_value(row const& r) const;
+        rational eval(row const& r) const;
+
+        rational eval(unsigned x) const;
+        
+        rational eval(def const& d) const;
 
         void resolve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
+
+        void solve(unsigned row_src, rational const& a1, unsigned row_dst, unsigned x);
 
         void mul_add(bool same_sign, unsigned row_id1, rational const& c, unsigned row_id2);
 
@@ -95,6 +120,8 @@ namespace opt {
 
         void sub(unsigned dst, rational const& c);
 
+        void del_var(unsigned dst, unsigned x);
+
         void set_row(unsigned row_id, vector<var> const& coeffs, rational const& c, rational const& m, ineq_type rel);       
 
         void add_constraint(vector<var> const& coeffs, rational const& c, rational const& m, ineq_type r);
@@ -105,7 +132,7 @@ namespace opt {
 
         void normalize(unsigned row_id);
 
-        void mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x);
+        void mk_coeffs_without(vector<var>& dst, vector<var> const& src, unsigned x);
 
         unsigned new_row();
 
@@ -117,12 +144,12 @@ namespace opt {
 
         void update_value(unsigned x, rational const& val);
 
-        void project(unsigned var);
+        def project(unsigned var, bool compute_def);
 
-        void solve_for(unsigned row_id, unsigned x);
+        def solve_for(unsigned row_id, unsigned x, bool compute_def);
 
-        void solve_mod(unsigned x, unsigned_vector const& mod_rows);
-
+        def solve_mod(unsigned x, unsigned_vector const& mod_rows, bool compute_def);
+        
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 
         void retire_row(unsigned row_id);
@@ -159,7 +186,7 @@ namespace opt {
         // 
         // Project set of variables from inequalities.
         //
-        void project(unsigned num_vars, unsigned const* vars);
+        vector<def> project(unsigned num_vars, unsigned const* vars, bool compute_def);
 
         //
         // Extract current rows (after projection).
@@ -167,13 +194,17 @@ namespace opt {
         void get_live_rows(vector<row>& rows);
 
         void display(std::ostream& out) const;
-        void display(std::ostream& out, row const& r) const;
+        static std::ostream& display(std::ostream& out, row const& r);
+        static std::ostream& display(std::ostream& out, def const& r);
+        static void display(std::ostream& out, vector<var> const& vars, rational const& coeff);
 
     };
 
 }
 
 std::ostream& operator<<(std::ostream& out, opt::ineq_type ie);
+inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::def const& d) { return opt::model_based_opt::display(out, d); }
+inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::row const& r) { return opt::model_based_opt::display(out, r); }
 
 inline std::ostream& operator<<(std::ostream& out, opt::model_based_opt::var const v) { return out << "v" << v.m_id; }
 

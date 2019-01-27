@@ -99,7 +99,7 @@ public:
 
     // stats const & get_stats(void) { return m_stats; }
     void collect_statistics(statistics & st) const;
-    void reset_statistics(void) { m_stats.reset(); }    
+    void reset_statistics() { m_stats.reset(); }
 
     bool full_eval(model & mdl);
 
@@ -109,7 +109,7 @@ public:
     void mk_inv(unsigned bv_sz, const mpz & old_value, mpz & inverted);
     void mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & flipped);            
 
-    lbool search(void);    
+    lbool search();
 
     lbool operator()();
     void operator()(goal_ref const & g, model_converter_ref & mc);

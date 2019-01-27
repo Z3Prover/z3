@@ -27,6 +27,8 @@ class context_params {
     void set_bool(bool & opt, char const * param, char const * value);
     void set_uint(unsigned & opt, char const * param, char const * value);
 
+    unsigned    m_rlimit;
+
 public:
     bool        m_auto_config;
     bool        m_proof;
@@ -38,14 +40,17 @@ public:
     bool        m_well_sorted_check;
     bool        m_model;
     bool        m_model_validate;
+    bool        m_model_compress;
     bool        m_dump_models;
     bool        m_unsat_core;
     bool        m_smtlib2_compliant; // it must be here because it enable/disable the use of coercions in the ast_manager.
     unsigned    m_timeout;
-    unsigned    m_rlimit;
+    bool        m_statistics;
 
+    unsigned rlimit() const { return m_rlimit; }
     context_params();
     void set(char const * param, char const * value);
+    void set_rlimit(unsigned lim) { m_rlimit = lim; }
     void updt_params();
     void updt_params(params_ref const & p);
     static void collect_param_descrs(param_descrs & d);

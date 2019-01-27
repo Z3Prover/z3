@@ -11,7 +11,7 @@ Copyright (c) 2017 Microsoft Corporation
 #include "sat/sat_solver.h"
 #include "util/gparams.h"
 
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
 
 static void display_statistics() {
@@ -228,8 +228,8 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
     params_ref p = gparams::get_module("sat");
     p.set_bool("produce_models", true);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
-    sat::solver solver2(p, limit, 0);
+    sat::solver solver(p, limit);
+    sat::solver solver2(p, limit);
     g_solver = &solver;
 
     if (file_name) {
@@ -238,10 +238,10 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        if (!parse_dimacs(in, std::cerr, solver)) return;
     }
     else {
-        parse_dimacs(std::cin, solver);
+        if (!parse_dimacs(std::cin, std::cerr, solver)) return;
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
     

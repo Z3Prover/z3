@@ -20,7 +20,7 @@ Notes:
 #include "cmd_context/parametric_cmd.h"
 
 char const * parametric_cmd::get_descr(cmd_context & ctx) const { 
-    if (m_descr == 0) {
+    if (m_descr == nullptr) {
         const_cast<parametric_cmd*>(this)->m_descr = alloc(string_buffer<>);
         m_descr->append(get_main_descr());
         m_descr->append("\nThe following options are available:\n");

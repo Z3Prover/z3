@@ -47,8 +47,7 @@ float cost_evaluator::eval(expr * f) const {
                         return 1.0f;
                 return 0.0f;
             case OP_ITE:      return E(0) != 0.0f ? E(1) : E(2);
-            case OP_EQ:
-            case OP_IFF:      return E(0) == E(1) ? 1.0f : 0.0f;
+            case OP_EQ:       return E(0) == E(1) ? 1.0f : 0.0f;
             case OP_XOR:      return E(0) != E(1) ? 1.0f : 0.0f;
             case OP_IMPLIES:  
                 if (E(0) == 0.0f)

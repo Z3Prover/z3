@@ -17,15 +17,14 @@ Notes:
 
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// The Sort class implements type information for ASTs.
     /// </summary>
-    [ContractVerification(true)]
     public class Sort : AST
     {
         /// <summary>
@@ -41,7 +40,7 @@ namespace Microsoft.Z3
                    (!Object.ReferenceEquals(a, null) &&
                     !Object.ReferenceEquals(b, null) &&
                     a.Context == b.Context &&
-                    Native.Z3_is_eq_sort(a.Context.nCtx, a.NativeObject, b.NativeObject) != 0);
+	            0 != Native.Z3_is_eq_sort(a.Context.nCtx, a.NativeObject, b.NativeObject));
         }
 
         /// <summary>
@@ -100,7 +99,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Symbol>() != null);
                 return Symbol.Create(Context, Native.Z3_get_sort_name(Context.nCtx, NativeObject));
             }
         }
@@ -127,7 +125,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Sort constructor
         /// </summary>
-        internal Sort(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal Sort(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
 #if DEBUG
         internal override void CheckNativeObject(IntPtr obj)
@@ -138,11 +136,9 @@ namespace Microsoft.Z3
         }
 #endif
 
-        [ContractVerification(true)]
         new internal static Sort Create(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<Sort>() != null);
+            Debug.Assert(ctx != null);
 
             switch ((Z3_sort_kind)Native.Z3_get_sort_kind(ctx.nCtx, obj))
             {

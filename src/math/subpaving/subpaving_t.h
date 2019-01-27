@@ -73,17 +73,17 @@ public:
             // TODO: add SIN, COS, TAN, ...
         };
     protected:
-        kind   m_kind;
-        uint64 m_timestamp;
+        kind     m_kind;
+        uint64_t m_timestamp;
     public:
         constraint(kind k):m_kind(k), m_timestamp(0) {}
         
         kind get_kind() const { return m_kind; }
         
         // Return the timestamp of the last propagation visit
-        uint64 timestamp() const { return m_timestamp; }
+        uint64_t timestamp() const { return m_timestamp; }
         // Reset propagation visit time
-        void set_visited(uint64 ts) { m_timestamp = ts; }
+        void set_visited(uint64_t ts) { m_timestamp = ts; }
     };
 
     /**
@@ -149,17 +149,17 @@ public:
         unsigned      m_lower:1;
         unsigned      m_open:1;
         unsigned      m_mark:1;
-        uint64        m_timestamp;
+        uint64_t      m_timestamp;
         bound *       m_prev;
         justification m_jst;
-        void set_timestamp(uint64 ts) { m_timestamp = ts; }
+        void set_timestamp(uint64_t ts) { m_timestamp = ts; }
     public:
         var x() const { return static_cast<var>(m_x); }
         numeral const & value() const { return m_val; }
         numeral & value() { return m_val; }
         bool is_lower() const { return m_lower; }
         bool is_open() const { return m_open; }
-        uint64 timestamp() const { return m_timestamp; }
+        uint64_t timestamp() const { return m_timestamp; }
         bound * prev() const { return m_prev; }
         justification jst() const { return m_jst; }
         void display(std::ostream & out, numeral_manager & nm, display_var_proc const & proc = display_var_proc());
@@ -202,7 +202,7 @@ public:
     public:
         node(context_t & s, unsigned id);
         node(node * parent, unsigned id);
-        // return unique indentifier.
+        // return unique identifier.
         unsigned id() const { return m_id; }
         bound_array_manager & bm() const { return m_bm; }
         bound_array & lowers() { return m_lowers; }
@@ -210,7 +210,7 @@ public:
         bool inconsistent() const { return m_conflict != null_var; }
         void set_conflict(var x) { SASSERT(!inconsistent()); m_conflict = x; }
         bound * trail_stack() const { return m_trail; }
-        bound * parent_trail_stack() const { return m_parent == 0 ? 0 : m_parent->m_trail; }
+        bound * parent_trail_stack() const { return m_parent == nullptr ? nullptr : m_parent->m_trail; }
         bound * lower(var x) const { return bm().get(m_lowers, x); }
         bound * upper(var x) const { return bm().get(m_uppers, x); }
         node * parent() const { return m_parent; }
@@ -221,7 +221,7 @@ public:
         /**
            \brief Return true if x is unbounded in this node
         */
-        bool is_unbounded(var x) const { return lower(x) == 0 && upper(x) == 0; }
+        bool is_unbounded(var x) const { return lower(x) == nullptr && upper(x) == nullptr; }
         void push(bound * b);
     
         void set_first_child(node * n) { m_first_child = n; }
@@ -275,32 +275,32 @@ public:
         numeral const & lower(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->lower(a.m_x);
-                return b == 0 ? a.m_l_val /* don't care */ : b->value();
+                return b == nullptr ? a.m_l_val /* don't care */ : b->value();
             }
             return a.m_l_val;
         }
         numeral const & upper(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->upper(a.m_x);
-                return b == 0 ? a.m_u_val /* don't care */ : b->value();
+                return b == nullptr ? a.m_u_val /* don't care */ : b->value();
             }
             return a.m_u_val;
         }
         numeral & lower(interval & a) { SASSERT(!a.m_constant); return a.m_l_val; }
         numeral & upper(interval & a) { SASSERT(!a.m_constant); return a.m_u_val; }
-        bool lower_is_inf(interval const & a) const { return a.m_constant ? a.m_node->lower(a.m_x) == 0 : a.m_l_inf; }
-        bool upper_is_inf(interval const & a) const { return a.m_constant ? a.m_node->upper(a.m_x) == 0 : a.m_u_inf; }
+        bool lower_is_inf(interval const & a) const { return a.m_constant ? a.m_node->lower(a.m_x) == nullptr : a.m_l_inf; }
+        bool upper_is_inf(interval const & a) const { return a.m_constant ? a.m_node->upper(a.m_x) == nullptr : a.m_u_inf; }
         bool lower_is_open(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->lower(a.m_x);
-                return b == 0 || b->is_open();
+                return b == nullptr || b->is_open();
             }
             return a.m_l_open;
         }
         bool upper_is_open(interval const & a) const {
             if (a.m_constant) {
                 bound * b = a.m_node->upper(a.m_x);
-                return b == 0 || b->is_open();
+                return b == nullptr || b->is_open();
             }
             return a.m_u_open; 
         }
@@ -367,7 +367,7 @@ public:
     private:
         void * m_data;
     public:
-        watched():m_data(0) {}
+        watched():m_data(nullptr) {}
         explicit watched(var x) { m_data = BOXTAGINT(void*, x, DEFINITION); }
         explicit watched(clause * c) { m_data = TAG(void*, c, CLAUSE); }
         kind get_kind() const { return static_cast<kind>(GET_TAG(m_data)); }
@@ -486,7 +486,7 @@ private:
     
     id_gen                    m_node_id_gen;
 
-    uint64                    m_timestamp;
+    uint64_t                  m_timestamp;
     node *                    m_root;
     // m_leaf_head is the head of a doubly linked list of leaf nodes to be processed.
     node *                    m_leaf_head; 
@@ -563,7 +563,7 @@ private:
     void add_clause_core(unsigned sz, ineq * const * atoms, bool lemma, bool watched);
     void del_clause(clause * cls);
 
-    node * mk_node(node * parent = 0);
+    node * mk_node(node * parent = nullptr);
     void del_node(node * n);
     void del_nodes();
 

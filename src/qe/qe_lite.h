@@ -18,8 +18,7 @@ Revision History:
 
 --*/
 
-#ifndef QE_LITE_H_
-#define QE_LITE_H_
+#pragma once
 
 #include "ast/ast.h"
 #include "util/uint_set.h"
@@ -57,7 +56,6 @@ public:
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref& fml);
 
     void operator()(uint_set const& index_set, bool index_of_bound, expr_ref_vector& conjs);
-
     /**
         \brief full rewriting based light-weight quantifier elimination round.
     */
@@ -68,5 +66,3 @@ tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p = params_ref())
 /*
   ADD_TACTIC("qe-light", "apply light-weight quantifier elimination.", "mk_qe_lite_tactic(m, p)")
 */
-
-#endif

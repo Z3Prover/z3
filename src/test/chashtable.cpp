@@ -102,7 +102,7 @@ static void tst3() {
     ENSURE(t.contains(12));
     t.erase(12);
     t.erase(10);
-    ENSURE(t.size() == 0);
+    ENSURE(t.empty());
     ENSURE(t.empty());
     ENSURE(t.used_slots() == 0);
     t.insert(10);

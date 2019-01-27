@@ -506,8 +506,8 @@ struct euclidean_solver::imp {
     }
 
     imp(numeral_manager * m):
-        m_manager(m == 0 ? alloc(numeral_manager) : m),
-        m_owns_m(m == 0),
+        m_manager(m == nullptr ? alloc(numeral_manager) : m),
+        m_owns_m(m == nullptr),
         m_decompose_buffer(*m_manager),
         m_as_buffer(*m_manager),
         m_bs_buffer(*m_manager), 
@@ -550,7 +550,7 @@ struct euclidean_solver::imp {
             return;
         equation * eq;
         if (j == null_justification) {
-            eq = mk_eq(num, as, xs, c, 0, 0, 0);
+            eq = mk_eq(num, as, xs, c, 0, nullptr, nullptr);
         }
         else {
             mpq one(1);
@@ -690,11 +690,11 @@ struct euclidean_solver::imp {
             m().del(eq.m_as[j]);
         eq.m_as.shrink(new_sz);
         eq.m_xs.shrink(new_sz);
-        // ajust c
+        // adjust c
         mpz new_c;
         decompose(m_next_pos_a, m_next_a, eq.m_c, new_c, eq.m_c);
         // create auxiliary equation
-        equation * new_eq = mk_eq(m_tmp_xs.size(), buffer.c_ptr(), m_tmp_xs.c_ptr(), new_c, 0, 0, 0, false);
+        equation * new_eq = mk_eq(m_tmp_xs.size(), buffer.c_ptr(), m_tmp_xs.c_ptr(), new_c, 0, nullptr, nullptr, false);
         // new_eq doesn't need to normalized, since it has unit coefficients
         TRACE("euclidean_solver", tout << "decomposition: new parameter x" << p << " aux eq:\n";
               display(tout, *new_eq); tout << "\n";

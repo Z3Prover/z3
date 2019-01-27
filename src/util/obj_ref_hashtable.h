@@ -7,7 +7,7 @@ Module Name:
 
 Abstract:
 
-    corresponding obj_map with reference count managment.
+    corresponding obj_map with reference count management.
 
 Author:
 
@@ -26,7 +26,7 @@ class obj_ref_map {
     M&                  m;
     obj_map<Key, Value> m_table;
 public:
-    typedef typename obj_map<Key, Value> iterator;
+    typedef typename obj_map<Key, Value>::iterator iterator;
     typedef Key key;
     typedef Value value;
     typedef typename obj_map<Key, Value>::key_data key_data;

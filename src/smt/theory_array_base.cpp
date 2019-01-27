@@ -33,15 +33,19 @@ namespace smt {
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
-        TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
-        if (!m_found_unsupported_op) {
+        if (!get_context().get_fparams().m_array_fake_support && !m_found_unsupported_op) {
+            //array_util autil(get_manager());
+            //func_decl* f = 0;
+            //if (autil.is_as_array(n, f) && f->is_skolem()) return;
+            TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
+            
             get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }
     }
     
     app * theory_array_base::mk_select(unsigned num_args, expr * const * args) {
-        app * r = get_manager().mk_app(get_family_id(), OP_SELECT, 0, 0, num_args, args);
+        app * r = get_manager().mk_app(get_family_id(), OP_SELECT, 0, nullptr, num_args, args);
         TRACE("mk_var_bug", tout << "mk_select: " << r->get_id() << " num_args: " << num_args;
               for (unsigned i = 0; i < num_args; i++) tout << " " << args[i]->get_id();
               tout << "\n";);
@@ -49,7 +53,7 @@ namespace smt {
     }
 
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
-        return get_manager().mk_app(get_family_id(), OP_STORE, 0, 0, num_args, args);
+        return get_manager().mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
 
     app * theory_array_base::mk_default(expr * a) {
@@ -152,7 +156,7 @@ namespace smt {
         expr_ref sel1(m), sel2(m);
         bool init = false;
         literal conseq = null_literal;
-        expr * conseq_expr = 0;
+        expr * conseq_expr = nullptr;
 
         for (unsigned i = 0; i < num_args; i++) {
             enode * idx1 = js[i];
@@ -212,7 +216,7 @@ namespace smt {
 
     func_decl_ref_vector * theory_array_base::register_sort(sort * s_array) {
         unsigned dimension = get_dimension(s_array);
-        func_decl_ref_vector * ext_skolems = 0;
+        func_decl_ref_vector * ext_skolems = nullptr;
         if (!m_sort2skolem.find(s_array, ext_skolems)) {       
             array_util util(get_manager());
             ast_manager & m = get_manager();
@@ -305,7 +309,7 @@ namespace smt {
         context & ctx   = get_context();
         ast_manager & m = get_manager();
 
-        func_decl_ref_vector * funcs = 0;
+        func_decl_ref_vector * funcs = nullptr;
         sort *                     s = m.get_sort(e1);
 
         VERIFY(m_sort2skolem.find(s, funcs));
@@ -495,7 +499,7 @@ namespace smt {
     void theory_array_base::restore_sorts(unsigned old_size) {
         while (m_sorts_trail.size() > old_size) {
             sort * s = m_sorts_trail.back();
-            func_decl_ref_vector * funcs = 0;
+            func_decl_ref_vector * funcs = nullptr;
             if (m_sort2skolem.find(s, funcs)) {
                 m_sort2skolem.remove(s);
                 dealloc(funcs);
@@ -672,9 +676,9 @@ namespace smt {
 
     theory_array_base::select_set * theory_array_base::get_select_set(enode * n) {
         enode * r = n->get_root();
-        select_set * set = 0;
+        select_set * set = nullptr;
         m_selects.find(r, set);
-        if (set == 0) {
+        if (set == nullptr) {
             set = alloc(select_set);
             m_selects.insert(r, set);
             m_selects_domain.push_back(r);
@@ -795,7 +799,7 @@ namespace smt {
             m_sort(s), 
             m_num_entries(0), 
             m_dim(0), 
-            m_else(0), 
+            m_else(nullptr),
             m_unspecified_else(false) {
             m_dependencies.push_back(model_value_dependency(v));
         }
@@ -814,7 +818,7 @@ namespace smt {
             m_sort(s), 
             m_num_entries(0), 
             m_dim(0), 
-            m_else(0),
+            m_else(nullptr),
             m_unspecified_else(false) {
             m_dependencies.push_back(model_value_dependency(else_value));
         }
@@ -824,11 +828,11 @@ namespace smt {
             m_sort(s), 
             m_num_entries(0), 
             m_dim(0), 
-            m_else(0),
+            m_else(nullptr),
             m_unspecified_else(true) {
         }
 
-        virtual ~array_value_proc() {}
+        ~array_value_proc() override {}
      
         void add_entry(unsigned num_args, enode * const * args, enode * value) {
             SASSERT(num_args > 0);
@@ -840,11 +844,11 @@ namespace smt {
             m_dependencies.push_back(model_value_dependency(value));
         }
 
-        virtual void get_dependencies(buffer<model_value_dependency> & result) {
+        void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
         
-        virtual app * mk_value(model_generator & mg, ptr_vector<expr> & values) {
+        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
             // values must have size = m_num_entries * (m_dim + 1) + ((m_else || m_unspecified_else) ? 0 : 1) 
             // an array value is a lookup table + else_value
             // each entry has m_dim indexes that map to a value.
@@ -888,14 +892,14 @@ namespace smt {
         SASSERT(v != null_theory_var);
         sort * s           = get_manager().get_sort(n->get_owner());
         enode * else_val_n = get_default(v);
-        array_value_proc * result = 0;
+        array_value_proc * result = nullptr;
 
         if (m_use_unspecified_default) {
             SASSERT(else_val_n == 0);
             result = alloc(array_value_proc, get_id(), s);
         }
         else {
-            if (else_val_n != 0) {
+            if (else_val_n != nullptr) {
                 SASSERT(get_context().is_relevant(else_val_n));
                 result   = alloc(array_value_proc, get_id(), s, else_val_n);
             }
@@ -905,7 +909,7 @@ namespace smt {
                 // DISABLED. It seems wrong, since different nodes can share the same
                 // else_val according to the mg class.
                 // SASSERT(else_val == 0 || get_context().is_relevant(UNTAG(app*, else_val)));
-                if (else_val == 0) {
+                if (else_val == nullptr) {
                     sort * range = to_sort(s->get_parameter(s->get_num_parameters() - 1).get_ast());
                     // IMPORTANT:
                     // The implementation should not assume a fresh value is created for 
@@ -925,9 +929,9 @@ namespace smt {
             }
         }
         SASSERT(result != 0);
-        select_set * sel_set = 0;
+        select_set * sel_set = nullptr;
         m_selects.find(n->get_root(), sel_set);
-        if (sel_set != 0) {
+        if (sel_set != nullptr) {
             ptr_buffer<enode> args;
             select_set::iterator it  = sel_set->begin();
             select_set::iterator end = sel_set->end();

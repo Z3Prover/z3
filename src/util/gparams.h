@@ -47,7 +47,7 @@ public:
        set_global_param('pp.decimal', 'true')
        will set the parameter "decimal" in the module "pp" to true.
        
-       An exception is thrown if the the parameter name is unknown, or if the value is incorrect.
+       An exception is thrown if the parameter name is unknown, or if the value is incorrect.
     */
     static void set(char const * name, char const * value);
     static void set(symbol const & name, char const * value);
@@ -57,7 +57,7 @@ public:
        
        If the parameter is not set, then it just returns 'default'.
 
-       An exception is thrown if the the parameter name is unknown.
+       An exception is thrown if the parameter name is unknown.
     */
     static std::string get_value(char const * name);
     static std::string get_value(symbol const & name);
@@ -106,7 +106,8 @@ public:
     /**
        \brief Return the global parameter set (i.e., parameters that are not associated with any particular module).
     */
-    static params_ref get();
+
+    static params_ref const& get_ref();
 
     /**
        \brief Dump information about available parameters in the given output stream.

@@ -35,6 +35,9 @@ Revision History:
 #include "util/ref.h"
 #include "util/ref_vector.h"
 #include "util/ref_buffer.h"
+#include "tactic/model_converter.h"
+#include "tactic/proof_converter.h"
+#include "tactic/dependency_converter.h"
 
 class goal {
 public:
@@ -49,6 +52,9 @@ public:
     
 protected:
     ast_manager &         m_manager;
+    model_converter_ref   m_mc;
+    proof_converter_ref   m_pc;
+    dependency_converter_ref m_dc;
     unsigned              m_ref_count;
     expr_array            m_forms;
     expr_array            m_proofs;
@@ -71,6 +77,7 @@ protected:
     unsigned get_not_idx(expr * f) const;
     void shrink(unsigned j);
     void reset_core();
+    bool is_literal(expr* f) const;
     
 public:
     goal(ast_manager & m, bool models_enabled = true, bool core_enabled = false);
@@ -103,23 +110,24 @@ public:
 
     void copy_to(goal & target) const;
     void copy_from(goal const & src) { src.copy_to(*this); }
-    
+
     void assert_expr(expr * f, proof * pr, expr_dependency * d);
     void assert_expr(expr * f, expr_dependency * d);
     void assert_expr(expr * f, expr * d) { assert_expr(f, m().mk_leaf(d)); }
-    void assert_expr(expr * f) { assert_expr(f, static_cast<expr_dependency*>(0)); }
+    void assert_expr(expr * f) { assert_expr(f, static_cast<expr_dependency*>(nullptr)); }
     
     unsigned size() const { return m().size(m_forms); }
 
     unsigned num_exprs() const;
   
     expr * form(unsigned i) const { return m().get(m_forms, i); }
-    proof * pr(unsigned i) const { return proofs_enabled() ? static_cast<proof*>(m().get(m_proofs, i)) : 0; }
-    expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : 0; }
+    proof * pr(unsigned i) const { return proofs_enabled() ? static_cast<proof*>(m().get(m_proofs, i)) : nullptr; }
+    expr_dependency * dep(unsigned i) const { return unsat_core_enabled() ? m().get(m_dependencies, i) : nullptr; }
 
-    void update(unsigned i, expr * f, proof * pr = 0, expr_dependency * dep = 0);
+    void update(unsigned i, expr * f, proof * pr = nullptr, expr_dependency * dep = nullptr);
 
-    void get_formulas(ptr_vector<expr> & result);
+    void get_formulas(ptr_vector<expr> & result) const;
+    void get_formulas(expr_ref_vector & result) const;
     
     void elim_true();
     void elim_redundancies();
@@ -140,6 +148,18 @@ public:
     bool is_decided_unsat() const;
     bool is_decided() const;
     bool is_well_sorted() const;
+
+    dependency_converter* dc() { return m_dc.get(); }
+    model_converter* mc() const { return m_mc.get(); }
+    proof_converter* pc() const { return inconsistent() ? proof2proof_converter(m(), pr(0)) : m_pc.get(); }
+    void add(dependency_converter* d) { m_dc = dependency_converter::concat(m_dc.get(), d); }
+    void add(model_converter* m) { m_mc = concat(m_mc.get(), m); }
+    void add(proof_converter* p) { m_pc = concat(m_pc.get(), p); }
+    void set(dependency_converter* d) { m_dc = d; }
+    void set(model_converter* m) { m_mc = m; }
+    void set(proof_converter* p) { m_pc = p; }
+
+    bool is_cnf() const;
 
     goal * translate(ast_translation & translator) const;
 };
@@ -175,7 +195,7 @@ bool test(goal const & g, Predicate & proc) {
         for (unsigned i = 0; i < sz; i++)
             quick_for_each_expr(proc, visited, g.form(i));
     }
-    catch (typename Predicate::found) {
+    catch (const typename Predicate::found &) {
         return true;
     }
     return false;

@@ -37,8 +37,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
-    result = *ctx.begin_assertions();
+    result = ctx.assertions().get(0);
     return result;
 }
 
@@ -88,8 +87,7 @@ static void test(app* var, expr_ref& fml) {
     std::cout << "projected: " << mk_pp(pr,  m) << "\n";
 
     // projection is consistent with model.
-    expr_ref tmp(m);
-    VERIFY(md->eval(pr, tmp) && m.is_true(tmp));       
+    VERIFY(md->is_true(pr));
 
     // projection implies E x. fml
     {

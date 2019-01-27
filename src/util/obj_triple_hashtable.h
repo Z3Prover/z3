@@ -70,9 +70,9 @@ public:
         friend class entry;
     public:
         key_data():
-            m_key1(0), 
-            m_key2(0),
-            m_key3(0),
+            m_key1(nullptr),
+            m_key2(nullptr),
+            m_key3(nullptr),
             m_hash(0) {
         }
         key_data(Key1 * k1, Key2 * k2, Key3 * k3):
@@ -102,7 +102,7 @@ protected:
         typedef key_data data;
         entry() {}
         unsigned get_hash() const { return m_data.hash(); }
-        bool is_free() const { return m_data.m_key1 == 0; }
+        bool is_free() const { return m_data.m_key1 == nullptr; }
         bool is_deleted() const { return m_data.m_key1 == reinterpret_cast<Key1 *>(1); }
         bool is_used() const { return m_data.m_key1 != reinterpret_cast<Key1 *>(0) && m_data.m_key1 != reinterpret_cast<Key1 *>(1); }
         key_data const & get_data() const { return m_data; }
@@ -110,7 +110,7 @@ protected:
         void set_data(key_data const & d) { m_data = d; }
         void set_hash(unsigned h) { SASSERT(h == m_data.hash()); }
         void mark_as_deleted() { m_data.m_key1 = reinterpret_cast<Key1 *>(1); }
-        void mark_as_free() { m_data.m_key1 = 0; }
+        void mark_as_free() { m_data.m_key1 = nullptr; }
     };
 
     typedef core_hashtable<entry, obj_hash<key_data>, default_eq<key_data> > table;
@@ -164,7 +164,7 @@ public:
         if (e) {
             v = e->get_data().get_value();
         }
-        return (0 != e);
+        return (nullptr != e);
     }
   
     bool contains(Key1 * k1, Key2 * k2, Key3 * k3) const { 

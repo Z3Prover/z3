@@ -261,7 +261,7 @@ namespace datalog {
         void init(relation_signature const& r1_sig, unsigned num_rels1, relation_base const* const* r1, 
                   relation_signature const& r2_sig, unsigned num_rels2, relation_base const* const* r2,
                   unsigned col_cnt, unsigned const* cols1, unsigned const* cols2) {
-            func_decl* p = 0;
+            func_decl* p = nullptr;
             bit_vector bv;
             bv.resize(num_rels2);
             relation_manager& rmgr = m_plugin.get_manager();
@@ -444,16 +444,16 @@ namespace datalog {
             init(r1.get_signature(), 1, rels1, r2.get_signature(), 1, rels2, col_cnt, cols1, cols2);
         }
 
-        ~join_fn() { 
+        ~join_fn() override {
             dealloc_ptr_vector_content(m_joins);
             dealloc_ptr_vector_content(m_full);
         }
 
-        virtual relation_base * operator()(const relation_base & _r1, const relation_base & _r2) {
+        relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             TRACE("dl", _r1.display(tout); _r2.display(tout););
             ptr_vector<relation_base> relations;
             unsigned sz = m_joins.size();
-            relation_base* result = 0;
+            relation_base* result = nullptr;
             for (unsigned i = 0; i < sz; ++i) {
                 relation_base const& r1 = (m_kind1[i] == T_FULL)?(*m_full[m_offset1[i]]):access(m_offset1[i], _r1);
                 relation_base const& r2 = (m_kind2[i] == T_FULL)?(*m_full[m_offset2[i]]):access(m_offset2[i], _r2);
@@ -479,7 +479,7 @@ namespace datalog {
         if (r1.get_kind() != r2.get_kind()) {
             return alloc(join_fn, *this, r1, r2, col_cnt, cols1, cols2);
         }
-        return 0;
+        return nullptr;
     }
 
 
@@ -488,12 +488,12 @@ namespace datalog {
         ptr_vector<relation_transformer_fn> m_transforms;
     public:
         transform_fn(relation_signature s, unsigned num_trans, relation_transformer_fn** trans):
-          m_sig(s),
+          m_sig(std::move(s)),
           m_transforms(num_trans, trans) {}
 
-          ~transform_fn() { dealloc_ptr_vector_content(m_transforms); }
+          ~transform_fn() override { dealloc_ptr_vector_content(m_transforms); }
 
-        virtual relation_base * operator()(const relation_base & _r) {
+        relation_base * operator()(const relation_base & _r) override {
             product_relation const& r = get(_r);
             product_relation_plugin& p = r.get_plugin();
             SASSERT(m_transforms.size() == r.size());
@@ -519,7 +519,7 @@ namespace datalog {
             relation_signature::from_project(r.get_signature(), col_cnt, removed_cols, s);
             return alloc(transform_fn, s, projs.size(), projs.c_ptr());
         }
-        return 0;
+        return nullptr;
     }
    
     relation_transformer_fn * product_relation_plugin::mk_rename_fn(const relation_base & _r, 
@@ -534,7 +534,7 @@ namespace datalog {
             relation_signature::from_rename(r.get_signature(), cycle_len, permutation_cycle, s);
             return alloc(transform_fn, s, trans.size(), trans.c_ptr());
         }
-        return 0;
+        return nullptr;
     }
      
     class product_relation_plugin::aligned_union_fn : public relation_union_fn {
@@ -549,7 +549,7 @@ namespace datalog {
         void mk_union_fn(unsigned i, unsigned j, relation_base const& r1, relation_base const& r2,
                 const relation_base* delta) {
             relation_manager& rmgr = r1.get_manager();
-            relation_union_fn* u = 0;
+            relation_union_fn* u = nullptr;
             if (m_is_widen) {
                 u = rmgr.mk_widen_fn(r1, r2, delta);
             }
@@ -596,7 +596,7 @@ namespace datalog {
                 return;
             }
             do_intersection(*tgt, *src);
-            src = 0;
+            src = nullptr;
         }
 
         void do_intersection(relation_base& tgt, relation_base& src) {
@@ -625,17 +625,17 @@ namespace datalog {
                 m_is_widen(is_widen) {
             SASSERT(vectors_equal(tgt.m_spec, src.m_spec));
             SASSERT(!delta || vectors_equal(tgt.m_spec, delta->m_spec));
-            init(tgt.m_relations, src.m_relations, delta ? &delta->m_relations : 0);
+            init(tgt.m_relations, src.m_relations, delta ? &delta->m_relations : nullptr);
         }
 
-        ~aligned_union_fn() {
+        ~aligned_union_fn() override {
             unsigned sz = m_unions.size();
             for(unsigned i=0; i<sz; i++) {
                 dealloc_ptr_vector_content(m_unions[i]);
             }
         }
 
-        virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
+        void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) override {
             TRACE("dl", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             SASSERT(m_plugin.check_kind(_tgt));
             SASSERT(m_plugin.check_kind(_src));
@@ -650,9 +650,9 @@ namespace datalog {
 
             for (unsigned i = 0; i < num; ++i) {
                 relation_base& itgt = tgt[i];
-                relation_base* idelta = delta ? &(*delta)[i] : 0;
+                relation_base* idelta = delta ? &(*delta)[i] : nullptr;
 
-                scoped_rel<relation_base> fresh_delta = idelta ? idelta->get_plugin().mk_empty(*idelta) : 0;
+                scoped_rel<relation_base> fresh_delta = idelta ? idelta->get_plugin().mk_empty(*idelta) : nullptr;
                 scoped_rel<relation_base> side_result;
                 scoped_rel<relation_base> side_delta;
 
@@ -665,7 +665,7 @@ namespace datalog {
                         TRACE("dl", itgt.display(tout << "tgt:\n"); src[j].display(tout << "src:\n"););
                         // union[i][j]
                         scoped_rel<relation_base> one_side_union = itgt.clone();
-                        scoped_rel<relation_base> one_side_delta = fresh_delta ? fresh_delta->clone() : 0;
+                        scoped_rel<relation_base> one_side_delta = fresh_delta ? fresh_delta->clone() : nullptr;
                         TRACE("dl", one_side_union->display(tout << "union 1:\n"); src[j].display(tout););
                         do_inner_union(i, j, *one_side_union, src[j], one_side_delta.get());
                         TRACE("dl", one_side_union->display(tout << "union:\n"););
@@ -679,7 +679,7 @@ namespace datalog {
 
                         // union[j][i]
                         one_side_union = src[i].clone();
-                        one_side_delta = fresh_delta ? fresh_delta->clone() : 0;
+                        one_side_delta = fresh_delta ? fresh_delta->clone() : nullptr;
                         TRACE("dl", one_side_union->display(tout << "union 2:\n"); tgt[j].display(tout););
                         do_inner_union(i, j, *one_side_union, tgt[j], one_side_delta.get());
                         TRACE("dl", one_side_union->display(tout << "union:\n"););
@@ -697,8 +697,8 @@ namespace datalog {
             }
             for (unsigned i = 0; i < num; ++i) {
                 relation_base& itgt = tgt[i];
-                relation_base* idelta = delta ? &(*delta)[i] : 0;
-                scoped_rel<relation_base> fresh_delta = idelta ? idelta->get_plugin().mk_empty(*idelta) : 0;      
+                relation_base* idelta = delta ? &(*delta)[i] : nullptr;
+                scoped_rel<relation_base> fresh_delta = idelta ? idelta->get_plugin().mk_empty(*idelta) : nullptr;
                 scoped_rel<relation_base> side_result(side_results[i]);
                 scoped_rel<relation_base> side_delta(side_deltas[i]);
 
@@ -748,11 +748,11 @@ namespace datalog {
         }
 
 
-        virtual void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) {
+        void operator()(relation_base& _tgt, const relation_base& _src, relation_base* _delta) override {
             TRACE("dl_verbose", _tgt.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             product_relation& tgt = get(_tgt);
             product_relation const& src0 = get(_src);
-            product_relation* delta = _delta ? get(_delta) : 0;
+            product_relation* delta = _delta ? get(_delta) : nullptr;
 
             tgt.convert_spec(m_common_spec);
             if(delta) {
@@ -783,7 +783,7 @@ namespace datalog {
                 : m_single_rel_idx(single_rel_idx),
                 m_inner_union_fun(inner_union_fun) {}
 
-        virtual void operator()(relation_base& tgt, const relation_base& _src, relation_base* delta) {
+        void operator()(relation_base& tgt, const relation_base& _src, relation_base* delta) override {
             TRACE("dl", tgt.display(tout); _src.display(tout); );
             product_relation const& src = get(_src);
             (*m_inner_union_fun)(tgt, src[m_single_rel_idx], delta);
@@ -815,7 +815,7 @@ namespace datalog {
                 }
             }
         }
-        return 0;
+        return nullptr;
     }
 
     relation_union_fn * product_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src,
@@ -834,9 +834,9 @@ namespace datalog {
         mutator_fn(unsigned sz, relation_mutator_fn** muts):
           m_mutators(sz, muts) {}
 
-       ~mutator_fn() { dealloc_ptr_vector_content(m_mutators); }
+       ~mutator_fn() override { dealloc_ptr_vector_content(m_mutators); }
 
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             TRACE("dl", _r.display(tout););
             product_relation& r = get(_r);
             SASSERT(m_mutators.size() == r.size());
@@ -867,7 +867,7 @@ namespace datalog {
                 return alloc(mutator_fn, mutators.size(), mutators.c_ptr());
             }
         }
-        return 0;
+        return nullptr;
     }
 
     relation_mutator_fn * product_relation_plugin::mk_filter_equal_fn(const relation_base & _t, 
@@ -885,7 +885,7 @@ namespace datalog {
                 return alloc(mutator_fn, mutators.size(), mutators.c_ptr());
             }
         }
-        return 0;
+        return nullptr;
     }
 
     class product_relation_plugin::filter_interpreted_fn : public relation_mutator_fn {
@@ -911,9 +911,9 @@ namespace datalog {
             }
         }
 
-        ~filter_interpreted_fn() { dealloc_ptr_vector_content(m_mutators); }
+        ~filter_interpreted_fn() override { dealloc_ptr_vector_content(m_mutators); }
 
-        void operator()(relation_base& _r) {
+        void operator()(relation_base& _r) override {
             TRACE("dl", _r.display(tout););
             product_relation const& r = get(_r);
             for (unsigned i = 0; i < m_attach.size(); ++i) {
@@ -983,7 +983,7 @@ namespace datalog {
 
     void product_relation::convert_spec(const rel_spec & spec) {
 
-        func_decl* p = 0;
+        func_decl* p = nullptr;
         const relation_signature & sig = get_signature();
         family_id new_kind = get_plugin().get_relation_kind(sig, spec);
         if (new_kind == get_kind()) {
@@ -1008,7 +1008,7 @@ namespace datalog {
         //the loop is quadratic with the number of relations, maybe we want to fix it
         for(unsigned i=0; i<new_sz; i++) {
             family_id ikind = spec[i];
-            relation_base * irel = 0;
+            relation_base * irel = nullptr;
             //we try to find the relation for the new specification among those we already have
             for(unsigned j=0; j<old_sz; j++) {
                 if(m_relations[j] && m_relations[j]->get_kind()==ikind) {
@@ -1096,7 +1096,7 @@ namespace datalog {
             return res;
         }
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     bool product_relation::empty() const {

@@ -38,20 +38,20 @@ namespace datalog {
         expr_ref mk_eq(relation_fact const& f) const;
     public:
         check_relation(check_relation_plugin& p, relation_signature const& s, relation_base* r);
-        virtual ~check_relation();
-        virtual void reset();
-        virtual void add_fact(const relation_fact & f);
-        virtual void add_new_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual check_relation * clone() const;
-        virtual check_relation * complement(func_decl*) const;
-        virtual void to_formula(expr_ref& fml) const;
+        ~check_relation() override;
+        void reset() override;
+        void add_fact(const relation_fact & f) override;
+        void add_new_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        check_relation * clone() const override;
+        check_relation * complement(func_decl*) const override;
+        void to_formula(expr_ref& fml) const override;
         check_relation_plugin& get_plugin() const; 
-        virtual bool fast_empty() const;
-        virtual bool empty() const; 
-        virtual void display(std::ostream& out) const;
-        virtual bool is_precise() const { return m_relation->is_precise(); }
-        virtual unsigned get_size_estimate_rows() const { return m_relation->get_size_estimate_rows(); }
+        bool fast_empty() const override;
+        bool empty() const override;
+        void display(std::ostream& out) const override;
+        bool is_precise() const override { return m_relation->is_precise(); }
+        unsigned get_size_estimate_rows() const override { return m_relation->get_size_estimate_rows(); }
         relation_base&  rb() { return *m_relation; }
         relation_base const& rb() const { return *m_relation; }
         expr_ref ground(expr* fml) const;
@@ -90,39 +90,39 @@ namespace datalog {
             unsigned_vector const& cols1, unsigned_vector const& cols2);
     public:
         check_relation_plugin(relation_manager& rm);
-        ~check_relation_plugin();
+        ~check_relation_plugin() override;
         void set_plugin(relation_plugin* p) { m_base = p; }
 
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
         static symbol get_name() { return symbol("check_relation"); }
-        virtual relation_base * mk_empty(const relation_signature & s);
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_join_fn * mk_join_project_fn(
+        relation_base * mk_empty(const relation_signature & s) override;
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_join_fn * mk_join_project_fn(
             const relation_base & t1, const relation_base & t2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2,
-            unsigned removed_col_cnt, const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(
+            unsigned removed_col_cnt, const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(
             const relation_base& t,
             const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
-            const unsigned *negated_cols);
-        virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(
+            const unsigned *negated_cols) override;
+        relation_transformer_fn * mk_filter_interpreted_and_project_fn(
             const relation_base & t, app * condition,
-            unsigned removed_col_cnt, const unsigned * removed_cols);
+            unsigned removed_col_cnt, const unsigned * removed_cols) override;
 
         void verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
                          unsigned_vector const& cols1, unsigned_vector const& cols2);

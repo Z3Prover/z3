@@ -16,11 +16,12 @@ Author:
 Revision History:
 
 --*/
-#include "tactic/goal.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/well_sorted.h"
+#include "ast/display_dimacs.h"
+#include "tactic/goal.h"
 
 goal::precision goal::mk_union(precision p1, precision p2) {
     if (p1 == PRECISE) return p2;
@@ -85,6 +86,9 @@ goal::goal(goal const & src, bool):
     m_core_enabled(src.unsat_core_enabled()),
     m_inconsistent(false),
     m_precision(src.m_precision) {
+    m_mc = src.m_mc.get();
+    m_pc = src.m_pc.get();
+    m_dc = src.m_dc.get();
 }
 
 goal::~goal() {
@@ -105,6 +109,9 @@ void goal::copy_to(goal & target) const {
     SASSERT(target.m_core_enabled   == m_core_enabled);
     target.m_inconsistent         = m_inconsistent;
     target.m_precision            = mk_union(prec(), target.prec());
+    target.m_mc                   = m_mc.get(); 
+    target.m_pc                   = m_pc.get(); 
+    target.m_dc                   = m_dc.get();
 }
 
 void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
@@ -137,10 +144,10 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
 }
 
 void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
-    expr* g = 0;
+    expr* g = nullptr;
     if (!m().is_and(f) && !(m().is_not(f, g) && m().is_or(g))) {
         if (!save_first) {
-            push_back(f, 0, d);
+            push_back(f, nullptr, d);
         }
         return;
     }
@@ -184,7 +191,7 @@ void goal::quick_process(bool save_first, expr_ref& f, expr_dependency * d) {
                 save_first = false;
             }
             else {
-                push_back(curr, 0, d);
+                push_back(curr, nullptr, d);
             }
         }
     }
@@ -253,10 +260,17 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
 }
 
 void goal::assert_expr(expr * f, expr_dependency * d) {
-    assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : 0, d);
+    assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : nullptr, d);
 }
 
-void goal::get_formulas(ptr_vector<expr> & result) {
+void goal::get_formulas(ptr_vector<expr> & result) const {
+    unsigned sz = size();
+    for (unsigned i = 0; i < sz; i++) {
+        result.push_back(form(i));
+    }
+}
+
+void goal::get_formulas(expr_ref_vector & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
@@ -289,7 +303,7 @@ void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
         quick_process(true, fr, d);
         if (!m_inconsistent) {
             if (m().is_false(fr)) {
-                push_back(f, 0, d);
+                push_back(f, nullptr, d);
             }
             else {
                 m().set(m_forms, i, fr);
@@ -337,10 +351,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
-        ptr_vector<expr>::iterator it  = deps.begin();
-        ptr_vector<expr>::iterator end = deps.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr * d : deps) {
             if (is_uninterp_const(d)) {
                 out << " " << mk_ismt2_pp(d, m());
             }
@@ -354,10 +365,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
     }
     if (!to_pp.empty()) {
         out << "\n  :dependencies-definitions (";
-        obj_hashtable<expr>::iterator it  = to_pp.begin();
-        obj_hashtable<expr>::iterator end = to_pp.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr* d : to_pp) {
             out << "\n  (#" << d->get_id() << "\n  ";
             prn.display(out, d, 2);
             out << ")";
@@ -375,10 +383,7 @@ void goal::display_with_dependencies(std::ostream & out) const {
         out << "\n  |-";
         deps.reset();
         m().linearize(dep(i), deps);
-        ptr_vector<expr>::iterator it  = deps.begin();
-        ptr_vector<expr>::iterator end = deps.end();
-        for (; it != end; ++it) {
-            expr * d = *it;
+        for (expr * d : deps) {
             if (is_uninterp_const(d)) {
                 out << " " << mk_ismt2_pp(d, m());
             }
@@ -430,57 +435,9 @@ void goal::display_ll(std::ostream & out) const {
    \brief Assumes that the formula is already in CNF.
 */
 void goal::display_dimacs(std::ostream & out) const {
-    obj_map<expr, unsigned> expr2var;
-    unsigned num_vars = 0;
-    unsigned num_cls  = size();
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l))
-                l = to_app(l)->get_arg(0);
-            if (expr2var.contains(l))
-                continue;
-            num_vars++;
-            expr2var.insert(l, num_vars);
-        }
-    }
-    out << "p cnf " << num_vars << " " << num_cls << "\n";
-    for (unsigned i = 0; i < num_cls; i++) {
-        expr * f = form(i);
-        unsigned num_lits;
-        expr * const * lits;
-        if (m().is_or(f)) {
-            num_lits = to_app(f)->get_num_args();
-            lits     = to_app(f)->get_args();
-        }
-        else {
-            num_lits = 1;
-            lits     = &f;
-        }
-        for (unsigned j = 0; j < num_lits; j++) {
-            expr * l = lits[j];
-            if (m().is_not(l)) {
-                out << "-";
-                l = to_app(l)->get_arg(0);
-            }
-            unsigned id = UINT_MAX;
-            expr2var.find(l, id);
-            SASSERT(id != UINT_MAX);
-            out << id << " ";
-        }
-        out << "0\n";
-    }
+    expr_ref_vector fmls(m());
+    get_formulas(fmls);
+    ::display_dimacs(out, fmls);
 }
 
 unsigned goal::num_exprs() const {
@@ -498,14 +455,12 @@ void goal::shrink(unsigned j) {
     unsigned sz = size();
     for (unsigned i = j; i < sz; i++)
         m().pop_back(m_forms);
-    if (proofs_enabled()) {
+    if (proofs_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_proofs);
-    }
-    if (unsat_core_enabled()) {
+    if (unsat_core_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_dependencies);
-    }
 }
 
 /**
@@ -575,7 +530,7 @@ void goal::elim_redundancies() {
             if (neg_lits.is_marked(atom))
                 continue;
             if (pos_lits.is_marked(atom)) {
-                proof * p = 0;
+                proof * p = nullptr;
                 if (proofs_enabled()) {
                     proof * prs[2] = { pr(get_idx(atom)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
@@ -592,7 +547,7 @@ void goal::elim_redundancies() {
             if (pos_lits.is_marked(f))
                 continue;
             if (neg_lits.is_marked(f)) {
-                proof * p = 0;
+                proof * p = nullptr;
                 if (proofs_enabled()) {
                     proof * prs[2] = { pr(get_not_idx(f)), pr(i) };
                     p = m().mk_unit_resolution(2, prs);
@@ -650,6 +605,9 @@ goal * goal::translate(ast_translation & translator) const {
     res->m_inconsistent = m_inconsistent;
     res->m_depth        = m_depth;
     res->m_precision    = m_precision;
+    res->m_pc           = m_pc ? m_pc->translate(translator) : nullptr;
+    res->m_mc           = m_mc ? m_mc->translate(translator) : nullptr;
+    res->m_dc           = m_dc ? m_dc->translate(translator) : nullptr;
 
     return res;
 }
@@ -705,4 +663,34 @@ bool is_equal(goal const & s1, goal const & s2) {
     SASSERT(0 <= num2);
     SASSERT(num1 >= num2);
     return num1 == num2;
+}
+
+bool goal::is_cnf() const {
+    for (unsigned i = 0; i < size(); i++) {
+        expr * f = form(i);
+        if (m_manager.is_or(f)) {
+            for (expr* lit : *to_app(f)) {
+                if (!is_literal(lit)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (!is_literal(f)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool goal::is_literal(expr* f) const {
+    m_manager.is_not(f, f);
+    if (!is_app(f)) return false;
+    if (to_app(f)->get_family_id() == m_manager.get_basic_family_id()) {
+        for (expr* arg : *to_app(f)) 
+            if (m_manager.is_bool(arg)) {
+                return false;
+            }
+    }
+    return true;
 }

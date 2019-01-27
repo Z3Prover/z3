@@ -10,46 +10,57 @@ Copyright (c) 2015 Microsoft Corporation
 #include "api/z3.h"
 #include <iostream>
 
-void test_print(Z3_context ctx, Z3_ast a) {
+void test_print(Z3_context ctx, Z3_ast_vector av) {
     Z3_set_ast_print_mode(ctx, Z3_PRINT_SMTLIB2_COMPLIANT);
-    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", 0, 0, 0, 0, 0, a);
+    Z3_ast* args = new Z3_ast[Z3_ast_vector_size(ctx, av)];
+    for (unsigned i = 0; i < Z3_ast_vector_size(ctx, av); ++i) {
+        args[i] = Z3_ast_vector_get(ctx, av, i);
+    }
+    Z3_ast a = Z3_mk_and(ctx, Z3_ast_vector_size(ctx, av), args);
+    Z3_inc_ref(ctx, a);
+    delete[] args;
+    char const* spec1 = Z3_benchmark_to_smtlib_string(ctx, "test", nullptr, nullptr, nullptr, 0, nullptr, a);
+    Z3_dec_ref(ctx, a);
     std::cout << "spec1: benchmark->string\n" << spec1 << "\n";
 
     std::cout << "attempting to parse spec1...\n";
-    Z3_ast b = 
+    Z3_ast_vector b = 
         Z3_parse_smtlib2_string(ctx, 
                                 spec1,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     std::cout << "parse successful, converting ast->string\n";
-    char const* spec2 = Z3_ast_to_string(ctx, b);
+    Z3_ast_vector_inc_ref(ctx, b);
+    char const* spec2 = Z3_ast_vector_to_string(ctx, b);
     std::cout << "spec2: string->ast->string\n" << spec2 << "\n";
+    Z3_ast_vector_dec_ref(ctx, b);
 }
 
 void test_parseprint(char const* spec) {
-    Z3_context ctx = Z3_mk_context(0);
+    Z3_context ctx = Z3_mk_context(nullptr);
     std::cout << "spec:\n" << spec << "\n";
 
-    Z3_ast a = 
+    Z3_ast_vector a = 
         Z3_parse_smtlib2_string(ctx, 
                                 spec,
                                 0,
+                                nullptr,
+                                nullptr,
                                 0,
-                                0,
-                                0,
-                                0,
-                                0);
+                                nullptr,
+                                nullptr);
     
     std::cout << "done parsing\n";
-
+    Z3_ast_vector_inc_ref(ctx, a);
     test_print(ctx, a);
 
     std::cout << "done printing\n";
 
+    Z3_ast_vector_dec_ref(ctx, a);
     Z3_del_context(ctx);
 }
 

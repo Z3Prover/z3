@@ -34,14 +34,14 @@ class optional {
     void destroy() {
         if (m_initialized == 1) {
             dealloc(m_obj);
-            m_obj = 0;
+            m_obj = nullptr;
         }
         m_initialized = 0;
     }
 
 public:
     optional():
-        m_obj(0), m_initialized(0) {}
+        m_obj(nullptr), m_initialized(0) {}
 
     explicit optional(const T & val) {
         construct(val);
@@ -128,7 +128,7 @@ class optional<T*> {
 
 public:
     
-    optional():m_ptr(0) {}
+    optional():m_ptr(nullptr) {}
 
     explicit optional(T * val):m_ptr(val) {}
     
@@ -140,7 +140,7 @@ public:
 
     operator bool() const { return m_ptr != 0; }
 
-    bool operator!() const { return m_ptr == 0; }
+    bool operator!() const { return m_ptr == nullptr; }
 
     void reset() { m_ptr = 0; }
 

@@ -24,12 +24,6 @@ Revision History:
 
 namespace spacer {
 
-
-
-
-
-
-
 class farkas_learner {
     typedef obj_hashtable<expr> expr_set;
 

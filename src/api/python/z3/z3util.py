@@ -199,7 +199,7 @@ def prove(claim,assume=None,verbose=0):
     >>> r,m = prove(True,assume=And(x,Not(x)),verbose=0)
     Traceback (most recent call last):
     ...
-    AssertionError: Assumption is alway False!
+    AssertionError: Assumption is always False!
 
     >>> r,m = prove(Implies(x,x),assume=y,verbose=2); r,model_str(m,as_str=False)
     assume: 
@@ -238,7 +238,7 @@ def prove(claim,assume=None,verbose=0):
             is_proved,_ = prove(Not(assume))
 
             def _f():
-                emsg = "Assumption is alway False!"
+                emsg = "Assumption is always False!"
                 if verbose >= 2:
                     emsg = "{}\n{}".format(assume,emsg)
                 return emsg

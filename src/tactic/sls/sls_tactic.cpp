@@ -42,53 +42,51 @@ public:
         m_engine = alloc(sls_engine, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(sls_tactic, m, m_params);
     }
 
-    virtual ~sls_tactic() {
+    ~sls_tactic() override {
         dealloc(m_engine);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_engine->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
         sls_params::collect_param_descrs(r);
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
         SASSERT(g->is_well_sorted());        
-        mc = 0; pc = 0; core = 0; result.reset();
+        result.reset();
         
         TRACE("sls", g->display(tout););
         tactic_report report("sls", *g);
         
+        model_converter_ref mc;
         m_engine->operator()(g, mc);
-
+        g->add(mc.get());
         g->inc_depth();
         result.push_back(g.get());
         TRACE("sls", g->display(tout););
         SASSERT(g->is_well_sorted());
     }
 
-    virtual void cleanup() {        
+    void cleanup() override {
         sls_engine * d = alloc(sls_engine, m, m_params);
         std::swap(d, m_engine);            
         dealloc(d);
     }
     
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         m_engine->collect_statistics(st);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_engine->reset_statistics();
     }
 

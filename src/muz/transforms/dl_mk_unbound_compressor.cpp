@@ -346,7 +346,7 @@ namespace datalog {
         // TODO mc
 
         if (!m_context.compress_unbound()) {
-            return 0;
+            return nullptr;
         }
 
         m_modified = false;
@@ -387,7 +387,7 @@ namespace datalog {
             }
         }
 
-        rule_set * result = static_cast<rule_set *>(0);
+        rule_set * result = static_cast<rule_set *>(nullptr);
         if (m_modified) {
             result = alloc(rule_set, m_context);
             unsigned fin_rule_cnt = m_rules.size();

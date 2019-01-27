@@ -11,7 +11,6 @@ z3_add_component(smtlogic_tactics
     qfnra_tactic.cpp
     qfufbv_ackr_model_converter.cpp
     qfufbv_tactic.cpp
-    qfufnra_tactic.cpp
     qfuf_tactic.cpp
     quant_tactics.cpp
   COMPONENT_DEPENDENCIES
@@ -22,7 +21,6 @@ z3_add_component(smtlogic_tactics
     fp
     muz
     nlsat_tactic
-    nlsat_smt_tactic
     qe
     sat_solver
     smt_tactic
@@ -40,6 +38,5 @@ z3_add_component(smtlogic_tactics
     qfnra_tactic.h
     qfuf_tactic.h
     qfufbv_tactic.h
-    qfufnra_tactic.h
     quant_tactics.h
 )

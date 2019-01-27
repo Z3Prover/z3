@@ -756,7 +756,7 @@ namespace smt {
        (n_x, k_x) <= (n_y + n_c, k_y + k_c)
        
 
-       The only intersting case is n_x < n_y + n_c and k_x > k_y + k_c. 
+       The only interesting case is n_x < n_y + n_c and k_x > k_y + k_c.
        Using the definition of infinitesimal numbers
        we have:
        
@@ -867,7 +867,7 @@ namespace smt {
         }
         else {
             context& ctx = get_context();
-            enode * e = 0;
+            enode * e = nullptr;
             theory_var v = 0;
             if (ctx.e_internalized(n)) {
                 e = ctx.get_enode(to_app(n));                
@@ -1055,7 +1055,7 @@ namespace smt {
 
     template<typename Ext>
     expr_ref theory_dense_diff_logic<Ext>::mk_ge(
-        filter_model_converter& fm, theory_var v, inf_eps const& val) {
+        generic_model_converter& fm, theory_var v, inf_eps const& val) {
         return mk_ineq(v, val, false);
     }
 

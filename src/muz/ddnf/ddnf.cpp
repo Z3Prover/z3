@@ -206,7 +206,7 @@ namespace datalog {
             return find(t);
         }
 
-        tbv* allocate(uint64 v, unsigned hi, unsigned lo) {
+        tbv* allocate(uint64_t v, unsigned hi, unsigned lo) {
             return m_tbv.allocate(v, hi, lo);
         }
 
@@ -332,7 +332,7 @@ namespace datalog {
 
 
         void internalize() {
-            // populate maps (should be bit-sets) of decendants.
+            // populate maps (should be bit-sets) of descendants.
             if (m_internalized) {                
                 return;
             }
@@ -437,7 +437,7 @@ namespace datalog {
             }
         }
         
-        tbv* allocate(unsigned num_bits, uint64 v, unsigned hi, unsigned lo) {
+        tbv* allocate(unsigned num_bits, uint64_t v, unsigned hi, unsigned lo) {
             return get(num_bits).allocate(v, hi, lo);
         }
         void insert(unsigned num_bits, tbv const& t) {
@@ -462,7 +462,7 @@ namespace datalog {
     private:
 
         ddnf_mgr* insert(unsigned n) {
-            ddnf_mgr* m = 0;
+            ddnf_mgr* m = nullptr;
             if (!m_mgrs.find(n, m)) {
                 m = alloc(ddnf_mgr, n);
                 m_mgrs.insert(n, m);
@@ -673,7 +673,7 @@ namespace datalog {
 
         void dump_rules(rule_set& rules) {
             init_ctx(rules);
-            m_inner_ctx.display_smt2(0, 0, std::cout);
+            m_inner_ctx.display_smt2(0, nullptr, std::cout);
         }
 
         lbool execute_rules(rule_set& rules) {
@@ -715,7 +715,7 @@ namespace datalog {
                 compile_expr(r.get_tail(i), tmp);
                 body.push_back(to_app(tmp));
             }
-            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), 0, r.name(), false);
+            rule* r_new = rm.mk(head, body.size(), body.c_ptr(), nullptr, r.name(), false);
             new_rules.add_rule(r_new);
             IF_VERBOSE(20, r_new->display(m_ctx, verbose_stream()););
             if (old_rules.is_output_predicate(r.get_decl())) {
@@ -775,11 +775,11 @@ namespace datalog {
                 return bv.mk_sort(nb);
             }
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
 
         void compile_expr(expr* e, expr_ref& result) {
-            expr* r = 0;
+            expr* r = nullptr;
             if (m_cache.find(e, r)) {
                 result = r;
                 return;
@@ -847,7 +847,7 @@ namespace datalog {
         }
 
         void compile_eq(expr* e, expr_ref& result, var* v, unsigned hi, unsigned lo, expr* c) {
-            tbv* t = 0;
+            tbv* t = nullptr;
             // TBD: hi, lo are ignored.
             VERIFY(m_expr2tbv.find(e, t));            
             var_ref w(m);

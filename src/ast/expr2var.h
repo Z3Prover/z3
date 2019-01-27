@@ -32,12 +32,14 @@ Notes:
 class expr2var {
 public:
     typedef unsigned var;
-    typedef obj_map<expr, var> expr2var_mapping;
-    typedef expr2var_mapping::iterator iterator;
+    typedef obj_map<expr, var>::key_data key_value;
+    typedef key_value const* iterator;
     typedef ptr_vector<expr>::const_iterator recent_iterator;
 protected:
     ast_manager &    m_manager;
-    expr2var_mapping m_mapping;
+    
+    unsigned_vector    m_id2map;
+    svector<key_value> m_mapping;
     ptr_vector<expr> m_recent_exprs;
     unsigned_vector  m_recent_lim;
     bool             m_interpreted_vars;
@@ -51,7 +53,7 @@ public:
     
     var to_var(expr * n) const;
     
-    bool is_var(expr * n) const { return m_mapping.contains(n); }
+    bool is_var(expr * n) const { return m_id2map.get(n->get_id(), UINT_MAX) != UINT_MAX; }
 
     void display(std::ostream & out) const;
     

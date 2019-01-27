@@ -47,16 +47,13 @@ class fpa2bv_tactic : public tactic {
         }
 
         void operator()(goal_ref const & g,
-                        goal_ref_buffer & result,
-                        model_converter_ref & mc,
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
             m_proofs_enabled      = g->proofs_enabled();
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
 
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             tactic_report report("fpa2bv", *g);
             m_rw.reset();
 
@@ -93,14 +90,14 @@ class fpa2bv_tactic : public tactic {
                         expr * sgn, *sig, *exp;
                         m_conv.split_fp(new_curr, sgn, exp, sig);
                         result.back()->assert_expr(m.mk_eq(sgn, m_conv.bu().mk_numeral(0, 1)));
-                        result.back()->assert_expr(m.mk_eq(exp, m_conv.bu().mk_numeral(-1, m_conv.bu().get_bv_size(exp))));
+                        result.back()->assert_expr(m.mk_eq(exp, m_conv.bu().mk_bv_neg(m_conv.bu().mk_numeral(1, m_conv.bu().get_bv_size(exp)))));
                         result.back()->assert_expr(m.mk_eq(sig, m_conv.bu().mk_numeral(1, m_conv.bu().get_bv_size(sig))));
                     }
                 }
             }
 
             if (g->models_enabled())
-                mc = mk_fpa2bv_model_converter(m, m_conv);
+                g->add(mk_fpa2bv_model_converter(m, m_conv));
 
             g->inc_depth();
             result.push_back(g.get());
@@ -110,7 +107,7 @@ class fpa2bv_tactic : public tactic {
 
             SASSERT(g->is_well_sorted());
             TRACE("fpa2bv", tout << "AFTER: " << std::endl; g->display(tout);
-                            if (mc) mc->display(tout); tout << std::endl; );
+                  if (g->mc()) g->mc()->display(tout); tout << std::endl; );
         }
     };
 
@@ -123,36 +120,33 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(fpa2bv_tactic, m, m_params);
     }
 
-    virtual ~fpa2bv_tactic() {
+    ~fpa2bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {
     }
 
-    virtual void operator()(goal_ref const & in,
-                            goal_ref_buffer & result,
-                            model_converter_ref & mc,
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());
         }
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m, m_params);
         std::swap(d, m_imp);
         dealloc(d);

@@ -41,7 +41,7 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/scoped_proof.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/ast_util.h"
@@ -57,7 +57,8 @@ namespace datalog {
           m_hnf(m),
           m_qe(m, params_ref(), false),
           m_rwr(m),
-          m_ufproc(m) {}
+          m_ufproc(m),
+          m_fd_proc(m) {}
 
     void rule_manager::inc_ref(rule * r) {
         if (r) {
@@ -81,7 +82,7 @@ namespace datalog {
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e) {
-        return collect_vars(e, 0);
+        return collect_vars(e, nullptr);
     }
 
     var_idx_set& rule_manager::collect_vars(expr* e1, expr* e2) {
@@ -274,11 +275,11 @@ namespace datalog {
         bind_variables(query, false, q);
 
         quantifier_hoister qh(m);
-        qh.pull_quantifier(false, q, 0, &names);
+        qh.pull_quantifier(false, q, nullptr, &names);
         // retrieve free variables.
         m_free_vars(q);
         vars.append(m_free_vars.size(), m_free_vars.c_ptr());
-        if (vars.contains(static_cast<sort*>(0))) {
+        if (vars.contains(static_cast<sort*>(nullptr))) {
             var_subst sub(m, false);
             expr_ref_vector args(m);
             // [s0, 0, s2, ..]
@@ -292,7 +293,7 @@ namespace datalog {
                     args.push_back(m.mk_var(0, m.mk_bool_sort()));
                 }
             }
-            sub(q, args.size(), args.c_ptr(), q);
+            q = sub(q, args.size(), args.c_ptr());
             vars.reset();
             m_free_vars(q);
             vars.append(m_free_vars.size(), m_free_vars.c_ptr());
@@ -306,7 +307,7 @@ namespace datalog {
         }
         body.push_back(to_app(q));
         flatten_body(body);
-        func_decl* body_pred = 0;
+        func_decl* body_pred = nullptr;
         for (unsigned i = 0; i < body.size(); i++) {
             if (is_uninterp(body[i].get())) {
                 body_pred = body[i]->get_decl();
@@ -326,8 +327,8 @@ namespace datalog {
         rules.set_output_predicate(qpred);
 
         if (m_ctx.get_model_converter()) {
-            filter_model_converter* mc = alloc(filter_model_converter, m);
-            mc->insert(qpred);
+            generic_model_converter* mc = alloc(generic_model_converter, m, "dl_rule");
+            mc->hide(qpred);
             m_ctx.add_model_converter(mc);
         }
 
@@ -421,7 +422,7 @@ namespace datalog {
         try {
             quick_for_each_expr(proc, fml);
         }
-        catch (contains_predicate_proc::found) {
+        catch (const contains_predicate_proc::found &) {
             return true;
         }
         return false;
@@ -438,11 +439,7 @@ namespace datalog {
                 e = e2;
             }
         }
-        if (is_quantifier(e)) {
-            q = to_quantifier(e);
-            return q->is_forall();
-        }
-        return false;
+        return ::is_forall(e);
     }
 
 
@@ -472,7 +469,7 @@ namespace datalog {
         r->m_head       = head;
         r->m_name       = name;
         r->m_tail_size  = n;
-        r->m_proof      = 0;
+        r->m_proof      = nullptr;
         m.inc_ref(r->m_head);
 
         app * * uninterp_tail = r->m_tail; //grows upwards
@@ -482,7 +479,7 @@ namespace datalog {
         bool has_neg = false;
 
         for (unsigned i = 0; i < n; i++) {
-            bool  is_neg = (is_negated != 0 && is_negated[i]);
+            bool  is_neg = (is_negated != nullptr && is_negated[i]);
             app * curr = tail[i];
 
             if (is_neg && !m_ctx.is_predicate(curr)) {
@@ -548,7 +545,7 @@ namespace datalog {
         r->m_tail_size    = n;
         r->m_positive_cnt = source->m_positive_cnt;
         r->m_uninterp_cnt = source->m_uninterp_cnt;
-        r->m_proof        = 0;
+        r->m_proof        = nullptr;
         m.inc_ref(r->m_head);
         for (unsigned i = 0; i < n; i++) {
             r->m_tail[i] = source->m_tail[i];
@@ -745,7 +742,7 @@ namespace datalog {
         expr_ref unbound_tail_pre_quant(m), fixed_tail(m), quant_tail(m);
 
         var_subst vs(m, false);
-        vs(unbound_tail, subst.size(), subst.c_ptr(), unbound_tail_pre_quant);
+        unbound_tail_pre_quant = vs(unbound_tail, subst.size(), subst.c_ptr());
 
         quant_tail = m.mk_exists(q_var_cnt, qsorts.c_ptr(), qnames.c_ptr(), unbound_tail_pre_quant);
 
@@ -816,10 +813,10 @@ namespace datalog {
         app_ref_vector new_tail(m);
         svector<bool> tail_neg;
         var_subst vs(m, false);
-        vs(r->get_head(), sz, es, tmp);
+        tmp = vs(r->get_head(), sz, es);
         new_head = to_app(tmp);
         for (unsigned i = 0; i < r->get_tail_size(); ++i) {
-            vs(r->get_tail(i), sz, es, tmp);
+            tmp = vs(r->get_tail(i), sz, es);
             new_tail.push_back(to_app(tmp));
             tail_neg.push_back(r->is_neg_tail(i));
         }
@@ -932,6 +929,23 @@ namespace datalog {
         return exist || univ;
     }
 
+    bool rule_manager::is_finite_domain(rule const& r) const {
+        m_visited.reset();
+        m_fd_proc.reset();
+        for (unsigned i = r.get_uninterpreted_tail_size(); i < r.get_tail_size(); ++i) {
+            for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, r.get_tail(i));
+        }        
+        for (unsigned i = 0; i < r.get_uninterpreted_tail_size(); ++i) {
+            for (expr* arg : *r.get_tail(i)) {
+                for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, arg);
+            }
+        }
+        for (expr* arg : *r.get_head()) {
+            for_each_expr_core<fd_finder_proc,expr_sparse_mark, true, false>(m_fd_proc, m_visited, arg);
+        }
+        return m_fd_proc.is_fd();
+    }
+
     bool rule::has_negation() const {
         for (unsigned i = 0; i < get_uninterpreted_tail_size(); ++i) {
             if (is_neg_tail(i)) {
@@ -978,14 +992,13 @@ namespace datalog {
                 subst_vals.push_back(m.mk_var(next_fresh_var++, var_srt));
             }
             else {
-                subst_vals.push_back(0);
+                subst_vals.push_back(nullptr);
             }
         }
 
         var_subst vs(m, false);
 
-        expr_ref new_head_e(m);
-        vs(m_head, subst_vals.size(), subst_vals.c_ptr(), new_head_e);
+        expr_ref new_head_e = vs(m_head, subst_vals.size(), subst_vals.c_ptr());
 
         m.inc_ref(new_head_e);
         m.dec_ref(m_head);
@@ -993,8 +1006,7 @@ namespace datalog {
 
         for (unsigned i = 0; i < m_tail_size; i++) {
             app * old_tail = get_tail(i);
-            expr_ref new_tail_e(m);
-            vs(old_tail, subst_vals.size(), subst_vals.c_ptr(), new_tail_e);
+            expr_ref new_tail_e = vs(old_tail, subst_vals.size(), subst_vals.c_ptr());
             bool  sign     = is_neg_tail(i);
             m.inc_ref(new_tail_e);
             m.dec_ref(old_tail);

@@ -9,7 +9,6 @@ z3_add_component(arith_tactics
     card2bv_tactic.cpp
     degree_shift_tactic.cpp
     diff_neq_tactic.cpp
-    elim01_tactic.cpp
     eq2bv_tactic.cpp
     factor_tactic.cpp
     fix_dl_var_tactic.cpp
@@ -33,7 +32,6 @@ z3_add_component(arith_tactics
     card2bv_tactic.h
     degree_shift_tactic.h
     diff_neq_tactic.h
-    elim01_tactic.h
     eq2bv_tactic.h
     factor_tactic.h
     fix_dl_var_tactic.h

@@ -18,14 +18,14 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Quantifier expressions.
     /// </summary>
-    [ContractVerification(true)]
     public class Quantifier : BoolExpr
     {
         /// <summary>
@@ -33,7 +33,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsUniversal
         {
-            get { return Native.Z3_is_quantifier_forall(Context.nCtx, NativeObject) != 0; }
+            get { return 0 != Native.Z3_is_quantifier_forall(Context.nCtx, NativeObject); }
         }
 
         /// <summary>
@@ -41,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsExistential
         {
-            get { return !IsUniversal; }
+            get { return 0 != Native.Z3_is_quantifier_exists(Context.nCtx, NativeObject); }
         }
 
         /// <summary>
@@ -67,7 +67,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Pattern[]>() != null);
 
                 uint n = NumPatterns;
                 Pattern[] res = new Pattern[n];
@@ -92,7 +91,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Pattern[]>() != null);
 
                 uint n = NumNoPatterns;
                 Pattern[] res = new Pattern[n];
@@ -117,7 +115,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Symbol[]>() != null);
 
                 uint n = NumBound;
                 Symbol[] res = new Symbol[n];
@@ -134,7 +131,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort[]>() != null);
 
                 uint n = NumBound;
                 Sort[] res = new Sort[n];
@@ -151,7 +147,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr>() != null);
 
                 return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
             }
@@ -168,19 +163,18 @@ namespace Microsoft.Z3
         }
 
         #region Internal
-        [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
         internal Quantifier(Context ctx, bool isForall, Sort[] sorts, Symbol[] names, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(sorts != null);
-            Contract.Requires(names != null);
-            Contract.Requires(body != null);
-            Contract.Requires(sorts.Length == names.Length);
-            Contract.Requires(Contract.ForAll(sorts, s => s != null));
-            Contract.Requires(Contract.ForAll(names, n => n != null));
-            Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
-            Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
+            Debug.Assert(ctx != null);
+            Debug.Assert(sorts != null);
+            Debug.Assert(names != null);
+            Debug.Assert(body != null);
+            Debug.Assert(sorts.Length == names.Length);
+            Debug.Assert(sorts.All(s => s != null));
+            Debug.Assert(names.All(n => n != null));
+            Debug.Assert(patterns == null || patterns.All(p => p != null));
+            Debug.Assert(noPatterns == null || noPatterns.All(np => np != null));
 
             Context.CheckContextMatch<Pattern>(patterns);
             Context.CheckContextMatch<Expr>(noPatterns);
@@ -193,7 +187,7 @@ namespace Microsoft.Z3
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier(ctx.nCtx, (byte)(isForall ? 1 : 0) , weight,
                                            AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                            AST.ArrayLength(sorts), AST.ArrayToNative(sorts),
                                            Symbol.ArrayToNative(names),
@@ -201,7 +195,7 @@ namespace Microsoft.Z3
             }
             else
             {
-                NativeObject = Native.Z3_mk_quantifier_ex(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_ex(ctx.nCtx, (byte)(isForall ? 1 : 0), weight,
                                   AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                   AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                   AST.ArrayLength(noPatterns), AST.ArrayToNative(noPatterns),
@@ -211,16 +205,15 @@ namespace Microsoft.Z3
             }
         }
 
-        [ContractVerification(false)] // F: Clousot ForAll decompilation gets confused below. Setting verification off until I fixed the bug
         internal Quantifier(Context ctx, bool isForall, Expr[] bound, Expr body, uint weight = 1, Pattern[] patterns = null, Expr[] noPatterns = null, Symbol quantifierID = null, Symbol skolemID = null)
             : base(ctx, IntPtr.Zero)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(body != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(body != null);
 
-            Contract.Requires(patterns == null || Contract.ForAll(patterns, p => p != null));
-            Contract.Requires(noPatterns == null || Contract.ForAll(noPatterns, np => np != null));
-            Contract.Requires(bound == null || Contract.ForAll(bound, n => n != null));
+            Debug.Assert(patterns == null || patterns.All(p => p != null));
+            Debug.Assert(noPatterns == null || noPatterns.All(np => np != null));
+            Debug.Assert(bound == null || bound.All(n => n != null));
 
             Context.CheckContextMatch<Expr>(noPatterns);
             Context.CheckContextMatch<Pattern>(patterns);
@@ -229,14 +222,14 @@ namespace Microsoft.Z3
 
             if (noPatterns == null && quantifierID == null && skolemID == null)
             {
-                NativeObject = Native.Z3_mk_quantifier_const(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_const(ctx.nCtx, (byte)(isForall ? 1 : 0) , weight,
                                                  AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                                  AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
                                                  body.NativeObject);
             }
             else
             {
-                NativeObject = Native.Z3_mk_quantifier_const_ex(ctx.nCtx, (isForall) ? 1 : 0, weight,
+                NativeObject = Native.Z3_mk_quantifier_const_ex(ctx.nCtx, (byte)(isForall ? 1 : 0), weight,
                                         AST.GetNativeObject(quantifierID), AST.GetNativeObject(skolemID),
                                         AST.ArrayLength(bound), AST.ArrayToNative(bound),
                                         AST.ArrayLength(patterns), AST.ArrayToNative(patterns),
@@ -246,7 +239,7 @@ namespace Microsoft.Z3
         }
 
 
-        internal Quantifier(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal Quantifier(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
 #if DEBUG
         internal override void CheckNativeObject(IntPtr obj)

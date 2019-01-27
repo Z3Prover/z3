@@ -52,22 +52,22 @@ namespace smt {
             theory_var    m_var;
             unsigned      m_idx;
             var_pos_occ * m_next;
-            var_pos_occ(theory_var v = null_theory_var, unsigned idx = 0, var_pos_occ * next = 0):m_var(v), m_idx(idx), m_next(next) {} 
+            var_pos_occ(theory_var v = null_theory_var, unsigned idx = 0, var_pos_occ * next = nullptr):m_var(v), m_idx(idx), m_next(next) {}
         };
 
         struct bit_atom : public atom {
             var_pos_occ * m_occs;
-            bit_atom():m_occs(0) {}
-            virtual ~bit_atom() {}
-            virtual bool is_bit() const { return true; }
+            bit_atom():m_occs(nullptr) {}
+            ~bit_atom() override {}
+            bool is_bit() const override { return true; }
         };
 
         struct le_atom : public atom {
             literal    m_var;
             literal    m_def;
             le_atom(literal v, literal d):m_var(v), m_def(d) {}
-            virtual ~le_atom() {}
-            virtual bool is_bit() const { return false; }
+            ~le_atom() override {}
+            bool is_bit() const override { return false; }
         };
 
         /**
@@ -216,21 +216,21 @@ namespace smt {
         void assert_bv2int_axiom(app* n);
 
     protected:
-        virtual void init(context * ctx);
-        virtual theory_var mk_var(enode * n);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
+        void init(context * ctx) override;
+        theory_var mk_var(enode * n) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
         virtual void expand_diseq(theory_var v1, theory_var v2);
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void relevant_eh(app * n);
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual bool include_func_interp(func_decl* f);
+        void assign_eh(bool_var v, bool is_true) override;
+        void relevant_eh(app * n) override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        bool include_func_interp(func_decl* f) override;
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
 
@@ -240,16 +240,16 @@ namespace smt {
         //
         // -----------------------------------
         bv_factory *    m_factory;
-        virtual void init_model(model_generator & m);
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        void init_model(model_generator & m) override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
     public:
         theory_bv(ast_manager & m, theory_bv_params const & params, bit_blaster_params const & bb_params);
-        virtual ~theory_bv();
+        ~theory_bv() override;
         
-        virtual theory * mk_fresh(context * new_ctx);
+        theory * mk_fresh(context * new_ctx) override;
 
-        virtual char const * get_name() const { return "bit-vector"; }
+        char const * get_name() const override { return "bit-vector"; }
 
         th_trail_stack & get_trail_stack() { return m_trail_stack; }
         void merge_eh(theory_var, theory_var, theory_var v1, theory_var v2);
@@ -259,16 +259,16 @@ namespace smt {
         void display_var(std::ostream & out, theory_var v) const;
         void display_bit_atom(std::ostream & out, bool_var v, bit_atom const * a) const;
         void display_atoms(std::ostream & out) const;
-        virtual void display(std::ostream & out) const;
-        virtual void collect_statistics(::statistics & st) const;
+        void display(std::ostream & out) const override;
+        void collect_statistics(::statistics & st) const override;
 
         bool get_fixed_value(app* x, numeral & result) const;
 
 
 #ifdef Z3DEBUG
-        bool check_assignment(theory_var v) const;
-        bool check_invariant() const;
-        bool check_zero_one_bits(theory_var v) const;
+        bool check_assignment(theory_var v);
+        bool check_invariant();
+        bool check_zero_one_bits(theory_var v);
 #endif
     };
 };

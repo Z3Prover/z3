@@ -18,14 +18,14 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Objects of this class track statistical information about solvers. 
     /// </summary>
-    [ContractVerification(true)]
     public class Statistics : Z3Object
     {
         /// <summary>
@@ -56,13 +56,12 @@ namespace Microsoft.Z3
             public bool IsDouble { get { return m_is_double; } }
 
             /// <summary>
-            /// The string representation of the the entry's value.
+            /// The string representation of the entry's value.
             /// </summary>
             public string Value
             {
                 get
                 {
-                    Contract.Ensures(Contract.Result<string>() != null);
 
                     if (IsUInt)
                         return m_uint.ToString();
@@ -124,9 +123,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Entry[]>() != null);
-                Contract.Ensures(Contract.Result<Entry[]>().Length == this.Size);
-                Contract.Ensures(Contract.ForAll(0, Contract.Result<Entry[]>().Length, j => Contract.Result<Entry[]>()[j] != null));
 
                 uint n = Size;
                 Entry[] res = new Entry[n];
@@ -153,7 +149,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string[]>() != null);
 
                 uint n = Size;
                 string[] res = new string[n];
@@ -184,7 +179,7 @@ namespace Microsoft.Z3
         internal Statistics(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

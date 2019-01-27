@@ -16,7 +16,10 @@ Author:
 
 Notes:
 
-    This is a revision of spacer_virtual_solver by Arie Gurfinkel
+    This is a revision of spacer_virtual_solver 
+    consolidated with spacer_smt_context_manager
+    by Arie Gurfinkel
+    Use this module as a replacement for spacer_smt_context_manager.
 
 --*/
 #ifndef SOLVER_POOL_H_
@@ -39,11 +42,11 @@ class solver_pool {
         void reset() { memset(this, 0, sizeof(*this)); }
     };
 
-    ref<solver>        m_base_solver;
-    unsigned           m_num_solvers_per_pool;
-    unsigned           m_num_solvers_in_last_pool;
+    ref<solver>         m_base_solver;
+    unsigned            m_num_pools;
+    unsigned            m_current_pool;
     sref_vector<solver> m_solvers;
-    stats              m_stats;
+    stats               m_stats;
 
     stopwatch m_check_watch;
     stopwatch m_check_sat_watch;
@@ -55,7 +58,7 @@ class solver_pool {
     ptr_vector<solver> get_base_solvers() const;
   
 public:
-    solver_pool(solver* base_solver, unsigned num_solvers_per_pool);
+    solver_pool(solver* base_solver, unsigned num_pools);
 
     void collect_statistics(statistics &st) const;
     void reset_statistics();
@@ -63,6 +66,8 @@ public:
     solver* mk_solver();
 
     void reset_solver(solver* s);
+    void updt_params(const params_ref &p);
+
 };
 
 

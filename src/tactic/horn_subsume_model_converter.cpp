@@ -96,8 +96,7 @@ bool horn_subsume_model_converter::mk_horn(
 
     // substitute variables directly.
     if (!subst.empty()) {
-        expr_ref tmp(body_expr);
-        vs(tmp, subst.size(), subst.c_ptr(), body_expr);
+        body_expr = vs(body_expr, subst.size(), subst.c_ptr());
     }    
 
     if (fv.empty()) {
@@ -123,7 +122,7 @@ bool horn_subsume_model_converter::mk_horn(
     // formula is closed.
     DEBUG_CODE(expr_free_vars fv; fv(clause); SASSERT(fv.empty()););
         
-    while (is_quantifier(clause) && to_quantifier(clause)->is_forall()) {
+    while (is_quantifier(clause) && to_quantifier(clause)->get_kind() == forall_k) {
         quantifier* q = to_quantifier(clause);
         clause = q->get_expr();
     }
@@ -170,6 +169,10 @@ void horn_subsume_model_converter::add_default_false_interpretation(expr* e, mod
 }
 
 
+void horn_subsume_model_converter::operator()(expr_ref& fml) {
+    NOT_IMPLEMENTED_YET();
+}
+
 void horn_subsume_model_converter::operator()(model_ref& mr) {
 
     func_decl_ref pred(m);
@@ -190,11 +193,10 @@ void horn_subsume_model_converter::operator()(model_ref& mr) {
         add_default_false_interpretation(body, mr);
         SASSERT(m.is_bool(body));
                 
-        TRACE("mc", tout << "eval: " << h->get_name() << "\n" << mk_pp(body, m) << "\n";);
-        expr_ref tmp(body);
-        mr->eval(tmp, body);
+        TRACE("mc", tout << "eval: " << h->get_name() << "\n" << body << "\n";);
+        body = (*mr)(body);
         
-        TRACE("mc", tout << "to:\n" << mk_pp(body, m) << "\n";);
+        TRACE("mc", tout << "to:\n" << body << "\n";);
                 
         if (arity == 0) {
             expr* e = mr->get_const_interp(h);

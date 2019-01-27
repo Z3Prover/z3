@@ -24,30 +24,30 @@ Revision History:
 
 namespace sat {
 
-#define LAZY_USE_LIST
-
     /**
        \brief Clause use list with delayed deletion.
     */
     class clause_use_list {
         clause_vector   m_clauses;
-#ifdef LAZY_USE_LIST
         unsigned        m_size;
-#endif
+        unsigned        m_num_redundant;
     public:
         clause_use_list() {
             STRACE("clause_use_list_bug", tout << "[cul_created] " << this << "\n";);
-#ifdef LAZY_USE_LIST
             m_size = 0; 
-#endif
+            m_num_redundant = 0;
         }
         
         unsigned size() const { 
-#ifdef LAZY_USE_LIST
             return m_size; 
-#else
-            return m_clauses.size();
-#endif
+        }
+
+        unsigned num_redundant() const {
+            return m_num_redundant;
+        }
+        
+        unsigned num_irredundant() const {
+            return m_size - m_num_redundant;
         }
 
         bool empty() const { return size() == 0; }
@@ -57,58 +57,59 @@ namespace sat {
             SASSERT(!m_clauses.contains(&c)); 
             SASSERT(!c.was_removed()); 
             m_clauses.push_back(&c); 
-#ifdef LAZY_USE_LIST
             m_size++; 
-#endif
+            if (c.is_learned()) ++m_num_redundant;
         }
 
         void erase_not_removed(clause & c) { 
             STRACE("clause_use_list_bug", tout << "[cul_erase_not_removed] " << this << " " << &c << "\n";);
-#ifdef LAZY_USE_LIST
             SASSERT(m_clauses.contains(&c)); 
             SASSERT(!c.was_removed()); 
             m_clauses.erase(&c); 
             m_size--; 
-#else
-            m_clauses.erase(&c);
-#endif
+            if (c.is_learned()) --m_num_redundant;
         }
 
         void erase(clause & c) { 
             STRACE("clause_use_list_bug", tout << "[cul_erase] " << this << " " << &c << "\n";);
-#ifdef LAZY_USE_LIST
             SASSERT(m_clauses.contains(&c)); 
             SASSERT(c.was_removed()); 
             m_size--; 
-#else
-            m_clauses.erase(&c);
-#endif
+            if (c.is_learned()) --m_num_redundant;
+        }
+
+        void block(clause const& c) {
+            SASSERT(c.is_learned());
+            ++m_num_redundant;
+            SASSERT(check_invariant());
+        }
+
+        void unblock(clause const& c) {
+            SASSERT(!c.is_learned());
+            --m_num_redundant;
+            SASSERT(check_invariant());
         }
         
         void reset() { 
             m_clauses.finalize(); 
-#ifdef LAZY_USE_LIST
             m_size = 0; 
-#endif
+            m_num_redundant = 0;
         }
         
         bool check_invariant() const;
 
         // iterate & compress
-        class iterator {
+        class iterator {            
             clause_vector & m_clauses;
             unsigned        m_size;
             unsigned        m_i;
-#ifdef LAZY_USE_LIST
             unsigned        m_j;
             void consume();
-#endif
+
         public:
             iterator(clause_vector & v):m_clauses(v), m_size(v.size()), m_i(0) {
-#ifdef LAZY_USE_LIST
                 m_j = 0;
                 consume(); 
-#endif
             }
             ~iterator();
             bool at_end() const { return m_i == m_size; }
@@ -117,14 +118,21 @@ namespace sat {
                 SASSERT(!at_end()); 
                 SASSERT(!m_clauses[m_i]->was_removed()); 
                 m_i++; 
-#ifdef LAZY_USE_LIST
                 m_j++; 
                 consume(); 
-#endif
             }
         };
         
         iterator mk_iterator() const { return iterator(const_cast<clause_use_list*>(this)->m_clauses); }
+
+        std::ostream& display(std::ostream& out) const {
+            iterator it = mk_iterator();
+            while (!it.at_end()) {
+                out << it.curr() << "\n";
+                it.next();
+            }
+            return out;
+        }
     };
 
 };

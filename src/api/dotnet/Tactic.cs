@@ -18,7 +18,7 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
 
 namespace Microsoft.Z3
 {
@@ -28,7 +28,6 @@ namespace Microsoft.Z3
     /// and <c>Context.TacticNames</c>.
     /// It may also be obtained using the command <c>(help-tactic)</c> in the SMT 2.0 front-end.
     /// </summary>
-    [ContractVerification(true)]
     public class Tactic : Z3Object
     {
         /// <summary>
@@ -38,7 +37,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
 
                 return Native.Z3_tactic_get_help(Context.nCtx, NativeObject);
             }
@@ -59,8 +57,7 @@ namespace Microsoft.Z3
         /// </summary>
         public ApplyResult Apply(Goal g, Params p = null)
         {
-            Contract.Requires(g != null);
-            Contract.Ensures(Contract.Result<ApplyResult>() != null);
+            Debug.Assert(g != null);
 
             Context.CheckContextMatch(g);
             if (p == null)
@@ -79,8 +76,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Requires(g != null);
-                Contract.Ensures(Contract.Result<ApplyResult>() != null);
+                Debug.Assert(g != null);
 
                 return Apply(g);
             }
@@ -94,7 +90,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Solver>() != null);
 
                 return Context.MkSolver(this);
             }
@@ -104,12 +99,12 @@ namespace Microsoft.Z3
         internal Tactic(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal Tactic(Context ctx, string name)
             : base(ctx, Native.Z3_mk_tactic(ctx.nCtx, name))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         /// <summary>

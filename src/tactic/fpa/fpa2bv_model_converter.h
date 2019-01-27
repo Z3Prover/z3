@@ -33,29 +33,24 @@ public:
         m_bv2fp(alloc(bv2fpa_converter, m, conv)) {
     }
 
-    virtual ~fpa2bv_model_converter() {
+    ~fpa2bv_model_converter() override {
         dealloc(m_bv2fp);
     }
 
-    virtual void operator()(model_ref & md, unsigned goal_idx) {
-        SASSERT(goal_idx == 0);
+    void operator()(model_ref & md) override {
         model * new_model = alloc(model, m);
         convert(md.get(), new_model);
         md = new_model;
     }
 
-    virtual void operator()(model_ref & md) {
-        operator()(md, 0);
-    }
+    void display(std::ostream & out) override;
 
-    void display(std::ostream & out);
-
-    virtual model_converter * translate(ast_translation & translator);
+    model_converter * translate(ast_translation & translator) override;
 
 protected:
     fpa2bv_model_converter(ast_manager & m) :
         m(m),
-        m_bv2fp(0) {}
+        m_bv2fp(nullptr) {}
 
     void convert(model_core * mc, model * float_mdl);
 };

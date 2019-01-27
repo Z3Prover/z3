@@ -29,10 +29,10 @@ Revision History:
 */
 bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
     expr * n = q->get_expr();
-    expr* arg1 = 0, * arg2 = 0, *narg = 0;
-    expr* app1 = 0, * app2 = 0;
-    expr* var1 = 0, * var2 = 0;
-    if (q->is_forall() && m.is_or(n, arg1, arg2)) {
+    expr* arg1 = nullptr, * arg2 = nullptr, *narg = nullptr;
+    expr* app1 = nullptr, * app2 = nullptr;
+    expr* var1 = nullptr, * var2 = nullptr;
+    if (is_forall(q) && m.is_or(n, arg1, arg2)) {
         if (m.is_not(arg2)) 
             std::swap(arg1, arg2);
         if (m.is_not(arg1, narg) && 
@@ -84,7 +84,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     ptr_buffer<sort> decls;
                     buffer<symbol>   names;
                     
-                    expr * var            = 0;
+                    expr * var            = nullptr;
                     for (unsigned i = 0; i < num; i++) {
                         expr * c = f1->get_arg(i);
                         if (is_var(c)) {

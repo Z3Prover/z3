@@ -19,7 +19,7 @@ Revision History:
 --*/
 
 #include "ast/rewriter/expr_safe_replace.h"
-#include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/var_subst.h"
 #include "ast/ast_pp.h"
 
 
@@ -61,7 +61,7 @@ void expr_safe_replace::operator()(expr* e, expr_ref& res) {
             m_args.reset();
             bool arg_differs = false;
             for (unsigned i = 0; i < n; ++i) {
-                expr* d = 0, *arg = c->get_arg(i);
+                expr* d = nullptr, *arg = c->get_arg(i);
                 if (m_cache.find(arg, d)) {
                     m_args.push_back(d);
                     arg_differs |= arg != d;

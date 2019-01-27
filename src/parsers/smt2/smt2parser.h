@@ -21,6 +21,6 @@ Revision History:
 
 #include "cmd_context/cmd_context.h"
 
-bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive = false, params_ref const & p = params_ref(), char const * filename = 0);
+bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive = false, params_ref const & p = params_ref(), char const * filename = nullptr);
 
 #endif

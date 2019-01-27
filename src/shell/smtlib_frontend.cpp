@@ -34,7 +34,7 @@ Revision History:
 
 extern bool g_display_statistics;
 static clock_t             g_start_time;
-static cmd_context *       g_cmd_context = 0;
+static cmd_context *       g_cmd_context = nullptr;
 
 static void display_statistics() {
     clock_t end_time = clock();
@@ -73,7 +73,6 @@ unsigned read_smtlib2_commands(char const * file_name) {
     cmd_context ctx;
 
     ctx.set_solver_factory(mk_smt_strategic_solver_factory());
-    ctx.set_interpolating_solver_factory(mk_smt_solver_factory());
 
     install_dl_cmds(ctx);
     install_dbg_cmds(ctx);
@@ -102,7 +101,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
     #pragma omp critical (g_display_stats)
     {
         display_statistics();
-        g_cmd_context = 0;
+        g_cmd_context = nullptr;
     }
     return result ? 0 : 1;
 }

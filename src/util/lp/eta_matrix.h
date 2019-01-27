@@ -46,7 +46,7 @@ public:
 #endif
         m_column_index(column_index) {}
 
-    bool is_dense() const { return false; }
+    bool is_dense() const override { return false; }
 
     void print(std::ostream & out) {
         print_matrix(*this, out);
@@ -65,30 +65,30 @@ public:
         return m_diagonal_element;
     }
 
-    void apply_from_left(vector<X> & w, lp_settings & );
+    void apply_from_left(vector<X> & w, lp_settings & ) override;
 
     template <typename L>
     void apply_from_left_local(indexed_vector<L> & w, lp_settings & settings);
 
-    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) {
+    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override {
         apply_from_left_local(w, settings);
     }
 
 
     void push_back(unsigned row_index, T val ) {
-        SASSERT(row_index != m_column_index);
+        lp_assert(row_index != m_column_index);
         m_column_vector.push_back(row_index, val);
     }
 
-    void apply_from_right(vector<T> & w);
-    void apply_from_right(indexed_vector<T> & w);
+    void apply_from_right(vector<T> & w) override;
+    void apply_from_right(indexed_vector<T> & w) override;
 
-    T get_elem(unsigned i, unsigned j) const;
 #ifdef Z3DEBUG
-    unsigned row_count() const { return m_length; }
-    unsigned column_count() const { return m_length; }
-    void set_number_of_rows(unsigned m) { m_length = m; }
-    void set_number_of_columns(unsigned n) { m_length = n; }
+    T get_elem(unsigned i, unsigned j) const override;
+    unsigned row_count() const override { return m_length; }
+    unsigned column_count() const override { return m_length; }
+    void set_number_of_rows(unsigned m) override { m_length = m; }
+    void set_number_of_columns(unsigned n) override { m_length = n; }
 #endif
     void divide_by_diagonal_element() {
         m_column_vector.divide(m_diagonal_element);

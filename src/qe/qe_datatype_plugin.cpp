@@ -46,7 +46,7 @@ Copyright (c) 2015 Microsoft Corporation
 //   -> \/_i R_C(t_i) & phi[t_i/x]  \/ phi[false, true]
 // 
 //  Justification: 
-//  - We will asume that each of t_i, s_j are constructor terms.
+//  - We will assume that each of t_i, s_j are constructor terms.
 //  - We can assume that x \notin t_i, x \notin s_j, or otherwise use simplification.
 //  - We can assume that x occurs only in equalities or disequalities, or the recognizer, since 
 //    otherwise, we could simplify equalities, or QE does not apply.
@@ -261,7 +261,7 @@ namespace qe {
                 return false;
             }
             func_decl* c = a->get_decl();
-            func_decl* r = m_util.get_constructor_recognizer(c);
+            func_decl_ref r(m_util.get_constructor_is(c), m);
             ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c);
             SASSERT(acc.size() == a->get_num_args());
             //
@@ -380,7 +380,7 @@ namespace qe {
             }
             func_decl* c = l->get_decl();
             ptr_vector<func_decl> const& acc = *m_util.get_constructor_accessors(c);
-            func_decl* rec = m_util.get_constructor_recognizer(c);
+            func_decl* rec = m_util.get_constructor_is(c);
             expr_ref_vector conj(m);
             conj.push_back(m.mk_app(rec, r));
             for (unsigned i = 0; i < acc.size(); ++i) {
@@ -389,7 +389,7 @@ namespace qe {
                 conj.push_back(m.mk_eq(l_i, r_i));                
             }
             expr* e = m.mk_and(conj.size(), conj.c_ptr());
-            m_map.insert(a, e, 0);            
+            m_map.insert(a, e, nullptr);
             TRACE("qe", tout << "replace: " << mk_pp(a, m) << " ==> \n" << mk_pp(e, m) << "\n";);
             return true;
         }
@@ -435,7 +435,7 @@ namespace qe {
         {
         }
                      
-        virtual ~datatype_plugin() {
+        ~datatype_plugin() override {
             {
                 eqs_cache::iterator it = m_eqs_cache.begin(), end = m_eqs_cache.end();
                 for (; it != end; ++it) {
@@ -451,7 +451,7 @@ namespace qe {
             
         }
         
-        virtual bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) {
+        bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             if (m_datatype_util.is_recursive(s)) {
@@ -463,7 +463,7 @@ namespace qe {
         }
 
                 
-        virtual void assign(contains_app& x, expr* fml, rational const& vl) {
+        void assign(contains_app& x, expr* fml, rational const& vl) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             TRACE("qe", tout << mk_pp(x.x(), m) << " " << vl << "\n";);
@@ -475,7 +475,7 @@ namespace qe {
             }
         }
 
-        virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
+        void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) override {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             TRACE("qe", tout << mk_pp(x.x(), m) << " " << vl << "\n";);
@@ -487,20 +487,20 @@ namespace qe {
             }
         }
         
-        virtual unsigned get_weight( contains_app& x, expr* fml) {
+        unsigned get_weight( contains_app& x, expr* fml) override {
             return UINT_MAX;
         }
 
-        virtual bool solve( conj_enum& conj, expr* fml) {
+        bool solve( conj_enum& conj, expr* fml) override {
             return false;
         }
 
-        virtual bool simplify( expr_ref& fml) {
+        bool simplify( expr_ref& fml) override {
             lift_foreign_vars lift(m, m_datatype_util, m_ctx);
             return lift.lift(fml);
         }
 
-        virtual bool mk_atom(expr* e, bool p, expr_ref& result) {
+        bool mk_atom(expr* e, bool p, expr_ref& result) override {
             return false;
         }
 
@@ -521,7 +521,7 @@ namespace qe {
         // replace x by C(y1,..,yn) where y1,..,yn are fresh variables.
         //
         void subst_constructor(contains_app& x, func_decl* c, expr_ref& fml, expr_ref* def) {
-            subst_clos* sub = 0;
+            subst_clos* sub = nullptr;
             
             if (m_subst_cache.find(x.x(), c, sub)) {
                 m_replace.apply_substitution(x.x(), sub->first, fml);
@@ -588,7 +588,7 @@ namespace qe {
 
             unsigned sz = m_datatype_util.get_datatype_num_constructors(s);
             num_branches = rational(sz);
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
            
             //
             // If 'x' does not yet have a recognizer, then branch according to recognizers.
@@ -620,14 +620,14 @@ namespace qe {
         void assign_rec(contains_app& contains_x, expr* fml, rational const& vl) {
             app* x = contains_x.x();
             sort* s = x->get_decl()->get_range();
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
 
             //
             // If 'x' does not yet have a recognizer, then branch according to recognizers.
             // 
             if (!has_recognizer(x, fml, r, c)) {
                 c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
-                r = m_datatype_util.get_constructor_recognizer(c);
+                r = m_datatype_util.get_constructor_is(c);
                 app* is_c = m.mk_app(r, x);                
                 // assert v => r(x)            
                 m_ctx.add_constraint(true, is_c);
@@ -665,7 +665,7 @@ namespace qe {
             app* x = contains_x.x();
             sort* s = x->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
 
             TRACE("qe", tout << mk_pp(x, m) << " " << vl << " " << mk_pp(fml, m) << " " << (def != 0) << "\n";);
             //
@@ -674,7 +674,7 @@ namespace qe {
             // 
             if (!has_recognizer(x, fml, r, c)) {
                 c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
-                r = m_datatype_util.get_constructor_recognizer(c);
+                r = m_datatype_util.get_constructor_is(c);
                 app* is_c = m.mk_app(r, x);                
                 fml = m.mk_and(is_c, fml);
                 app_ref fresh_x(m.mk_fresh_const("x", s), m);
@@ -748,7 +748,7 @@ namespace qe {
             sort* s = x.x()->get_decl()->get_range();
             unsigned sz = m_datatype_util.get_datatype_num_constructors(s);
             num_branches = rational(sz);
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
 
             if (sz != 1 && has_recognizer(x.x(), fml, r, c)) {
                 TRACE("qe", tout << mk_pp(x.x(), m) << " has a recognizer\n";);
@@ -768,14 +768,14 @@ namespace qe {
             if (sz == 1) {
                 return;
             }
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
             if (has_recognizer(x, fml, r, c)) {
                 TRACE("qe", tout << mk_pp(x, m) << " has a recognizer\n";);
                 return;
             }
             
             c = m_datatype_util.get_datatype_constructors(s)->get(vl.get_unsigned());
-            r = m_datatype_util.get_constructor_recognizer(c);
+            r = m_datatype_util.get_constructor_is(c);
             app* is_c = m.mk_app(r, x);
             
             // assert v => r(x)
@@ -787,7 +787,7 @@ namespace qe {
             sort* s = x.x()->get_decl()->get_range();
             SASSERT(m_datatype_util.is_datatype(s));
             SASSERT(!m_datatype_util.is_recursive(s));
-            func_decl* c = 0, *r = 0;
+            func_decl* c = nullptr, *r = nullptr;
             if (has_recognizer(x.x(), fml, r, c)) {
                 TRACE("qe", tout << mk_pp(x.x(), m) << " has a recognizer\n";);
             }
@@ -807,7 +807,7 @@ namespace qe {
         public:
             has_select(app* x, func_decl* c, datatype_util& u): m_x(x), m_c(c), m_util(u) {}
 
-            virtual bool operator()(expr* e) {
+            bool operator()(expr* e) override {
                 if (!is_app(e)) return false;
                 app* a = to_app(e);
                 if (!m_util.is_accessor(a)) return false;
@@ -824,13 +824,13 @@ namespace qe {
         }
 
         datatype_atoms& get_eqs(app* x, expr* fml) {
-            datatype_atoms* eqs = 0;
+            datatype_atoms* eqs = nullptr;
             VERIFY (m_eqs_cache.find(x, fml, eqs));
             return *eqs;
         }
 
         bool update_eqs(contains_app& contains_x, expr* fml) {
-            datatype_atoms* eqs = 0;
+            datatype_atoms* eqs = nullptr;
             if (m_eqs_cache.find(contains_x.x(), fml, eqs)) {
                 return true;
             }

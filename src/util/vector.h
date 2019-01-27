@@ -28,6 +28,7 @@ Revision History:
 #include<algorithm>
 #include<type_traits>
 #include<memory.h>
+#include<functional>
 #include "util/memory_manager.h"
 #include "util/hash.h"
 #include "util/z3_exception.h"
@@ -57,7 +58,7 @@ class vector {
     }
 
     void expand_vector() {
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             SZ capacity = 2;
             SZ * mem    = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * capacity + sizeof(SZ) * 2));
             *mem              = capacity; 
@@ -132,12 +133,12 @@ public:
     typedef const T * const_iterator;
 
     vector():
-        m_data(0) {
+        m_data(nullptr) {
     }
 
     vector(SZ s) {
         if (s == 0) {
-            m_data = 0;
+            m_data = nullptr;
             return;
         }
         SZ * mem = reinterpret_cast<SZ*>(memory::allocate(sizeof(T) * s + sizeof(SZ) * 2));
@@ -155,24 +156,24 @@ public:
     }
 
     vector(SZ s, T const & elem):
-        m_data(0) {
+        m_data(nullptr) {
         resize(s, elem);
     }
 
     vector(vector const & source):
-        m_data(0) {
+        m_data(nullptr) {
         if (source.m_data) {
             copy_core(source);
         }
         SASSERT(size() == source.size());
     }
 
-    vector(vector&& other) : m_data(0) {
+    vector(vector&& other) : m_data(nullptr) {
         std::swap(m_data, other.m_data);
     }
 
     vector(SZ s, T const * data):
-        m_data(0) {
+        m_data(nullptr) {
         for (SZ i = 0; i < s; i++) {
             push_back(data[i]);
         }
@@ -185,9 +186,27 @@ public:
 
     void finalize() {
         destroy();
-        m_data = 0;
+        m_data = nullptr;
     }
 
+    bool operator==(vector const & other) const {
+        if (this == &other) {
+            return true;
+        }
+        if (size() != other.size())
+            return false;
+        for (unsigned i = 0; i < size(); i++) {
+            if ((*this)[i] != other[i])
+                return false;
+        }
+        return true;
+    }
+
+    bool operator!=(vector const & other) const {
+        return !(*this == other);
+    }
+
+    
     vector & operator=(vector const & source) {
         if (this == &source) {
             return *this;
@@ -197,7 +216,7 @@ public:
             copy_core(source);
         }
         else {
-            m_data = 0;
+            m_data = nullptr;
         }
         return *this;
     }
@@ -207,8 +226,53 @@ public:
             return *this;
         }
         destroy();
-        m_data = 0;
+        m_data = nullptr;
         std::swap(m_data, source.m_data);
+        return *this;
+    }
+
+    bool containsp(std::function<bool(T)>& predicate) const {
+        for (auto const& t : *this)
+            if (predicate(t)) 
+                return true;
+        return false;
+    }
+
+    /**
+     * retain elements that satisfy predicate. aka 'where'.
+     */
+    vector filter_pure(std::function<bool(T)>& predicate) const {
+        vector result;
+        for (auto& t : *this)
+            if (predicate(t)) 
+                result.push_back(t);
+        return result;
+    }
+
+    vector& filter_update(std::function<bool(T)>& predicate) {
+        unsigned j = 0;
+        for (auto& t : *this)
+            if (predicate(t)) 
+                set(j++, t);
+        shrink(j);
+        return *this;
+    }
+
+    /**
+     * update elements using f, aka 'select'
+     */
+    template <typename S>
+    vector<S> map_pure(std::function<S(T)>& f) const {
+        vector<S> result;
+        for (auto& t : *this)
+            result.push_back(f(t));
+        return result;
+    }
+
+    vector& map_update(std::function<T(T)>& f) {
+        unsigned j = 0;
+        for (auto& t : *this)
+            set(j++, f(t));
         return *this;
     }
 
@@ -224,18 +288,18 @@ public:
     void clear() { reset(); }
 
     bool empty() const { 
-        return m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0; 
+        return m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == 0;
     }
 
     SZ size() const { 
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             return 0;  
         }
         return reinterpret_cast<SZ *>(m_data)[SIZE_IDX]; 
     }
 
     SZ capacity() const { 
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             return 0;
         }
         return reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]; 
@@ -349,7 +413,7 @@ public:
     }
 
     void push_back(T const & elem) {
-        if (m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
+        if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(elem); 
@@ -357,7 +421,7 @@ public:
     }
 
     void push_back(T && elem) {
-        if (m_data == 0 || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
+        if (m_data == nullptr || reinterpret_cast<SZ *>(m_data)[SIZE_IDX] == reinterpret_cast<SZ *>(m_data)[CAPACITY_IDX]) {
             expand_vector();
         }
         new (m_data + reinterpret_cast<SZ *>(m_data)[SIZE_IDX]) T(std::move(elem));
@@ -471,7 +535,7 @@ public:
 
     void fill(unsigned sz, T const & elem) {
         resize(sz);
-        fill(sz, elem);
+        fill(elem);
     }
 
     bool contains(T const & elem) const {
@@ -547,6 +611,11 @@ typedef svector<unsigned> unsigned_vector;
 typedef svector<char> char_vector;
 typedef svector<signed char> signed_char_vector;
 typedef svector<double> double_vector;
+
+inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
+    for (unsigned u : v) out << u << " ";
+    return out;
+}
 
 template<typename Hash, typename Vec>
 struct vector_hash_tpl {

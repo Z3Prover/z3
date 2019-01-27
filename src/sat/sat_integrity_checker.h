@@ -21,6 +21,7 @@ Revision History:
 #define SAT_INTEGRITY_CHECKER_H_
 
 #include "sat/sat_types.h"
+#include "sat/sat_watched.h"
 
 namespace sat {
     class integrity_checker {
@@ -35,6 +36,8 @@ namespace sat {
         bool check_assignment() const;
         bool check_bool_vars() const;
         bool check_watches() const;
+        bool check_watches(literal l, watch_list const& wlist) const;
+        bool check_watches(literal l) const;
         bool check_reinit_stack() const;
         bool check_disjoint_clauses() const;
         bool operator()() const;

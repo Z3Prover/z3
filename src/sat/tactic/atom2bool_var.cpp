@@ -16,26 +16,35 @@ Author:
 Notes:
 
 --*/
-#include "sat/tactic/atom2bool_var.h"
-#include "ast/ast_smt2_pp.h"
+
 #include "util/ref_util.h"
+#include "ast/ast_smt2_pp.h"
 #include "tactic/goal.h"
+#include "sat/tactic/atom2bool_var.h"
 
 void atom2bool_var::mk_inv(expr_ref_vector & lit2expr) const {
-    obj_map<expr, var>::iterator it  = m_mapping.begin();
-    obj_map<expr, var>::iterator end = m_mapping.end();
-    for (; it != end; ++it) {
-        sat::literal l(static_cast<sat::bool_var>(it->m_value), false);
-        lit2expr.set(l.index(), it->m_key);
+    for (auto const& kv : m_mapping) {
+        sat::literal l(static_cast<sat::bool_var>(kv.m_value), false);
+        lit2expr.set(l.index(), kv.m_key);
         l.neg();
-        lit2expr.set(l.index(), m().mk_not(it->m_key));
+        lit2expr.set(l.index(), m().mk_not(kv.m_key));
+    }
+}
+
+void atom2bool_var::mk_var_inv(app_ref_vector & var2expr) const {
+    for (auto const& kv : m_mapping) {
+        var2expr.set(kv.m_value, to_app(kv.m_key));
     }
 }
 
 sat::bool_var atom2bool_var::to_bool_var(expr * n) const {
-    sat::bool_var v = sat::null_bool_var;
-    m_mapping.find(n, v);
-    return v;
+    unsigned idx = m_id2map.get(n->get_id(), UINT_MAX);
+    if (idx == UINT_MAX) {
+        return sat::null_bool_var;
+    }
+    else {
+        return m_mapping[idx].m_value;
+    }
 }
 
 struct collect_boolean_interface_proc {
@@ -70,7 +79,7 @@ struct collect_boolean_interface_proc {
                 continue;
             if (is_app(t) && to_app(t)->get_family_id() == m.get_basic_family_id() && to_app(t)->get_num_args() > 0) {
                 decl_kind k = to_app(t)->get_decl_kind();
-                if (k == OP_OR || k == OP_NOT || k == OP_IFF || ((k == OP_EQ || k == OP_ITE) && m.is_bool(to_app(t)->get_arg(1)))) {
+                if (k == OP_OR || k == OP_NOT || ((k == OP_EQ || k == OP_ITE) && m.is_bool(to_app(t)->get_arg(1)))) {
                     unsigned num = to_app(t)->get_num_args();
                     for (unsigned i = 0; i < num; i++) {
                         expr * arg = to_app(t)->get_arg(i);

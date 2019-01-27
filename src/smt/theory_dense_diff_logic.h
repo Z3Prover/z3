@@ -182,7 +182,7 @@ namespace smt {
             return false; 
         }
         app * mk_zero_for(expr * n);
-        theory_var mk_var(enode * n);
+        theory_var mk_var(enode * n) override;
         theory_var internalize_term_core(app * n);
         void found_non_diff_logic_expr(expr * n);
         bool is_connected(theory_var source, theory_var target) const { return m_matrix[source][target].m_edge_id != null_edge_id; }
@@ -214,38 +214,38 @@ namespace smt {
         // Internalization
         //
         // -----------------------------------
-        virtual bool internalize_atom(app * n, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void internalize_eq_eh(app * atom, bool_var v);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
+        bool internalize_atom(app * n, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void internalize_eq_eh(app * atom, bool_var v) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
         
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual bool use_diseqs() const;
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
+        void assign_eh(bool_var v, bool is_true) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        bool use_diseqs() const override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
 
-        virtual void conflict_resolution_eh(app * atom, bool_var v);
+        void conflict_resolution_eh(app * atom, bool_var v) override;
 
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
         
-        virtual void restart_eh();
-        virtual void init_search_eh();
-        virtual final_check_status final_check_eh();
+        void restart_eh() override;
+        void init_search_eh() override;
+        final_check_status final_check_eh() override;
         
-        virtual bool can_propagate();
-        virtual void propagate();
+        bool can_propagate() override;
+        void propagate() override;
         
-        virtual void flush_eh();
-        virtual void reset_eh();
+        void flush_eh() override;
+        void reset_eh() override;
         
         bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
 
-        virtual bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const;
+        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
         virtual void display_atom(std::ostream & out, atom * a) const;
-        virtual void collect_statistics(::statistics & st) const;
+        void collect_statistics(::statistics & st) const override;
 
         // -----------------------------------
         //
@@ -258,8 +258,8 @@ namespace smt {
         void compute_epsilon();
         void fix_zero();
 
-        virtual void init_model(model_generator & m);
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        void init_model(model_generator & m) override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         // -----------------------------------
         //
@@ -267,11 +267,11 @@ namespace smt {
         //
         // -----------------------------------
 
-        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared);
-        virtual inf_eps_rational<inf_rational> value(theory_var v);
-        virtual theory_var add_objective(app* term);
+        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        inf_eps_rational<inf_rational> value(theory_var v) override;
+        theory_var add_objective(app* term) override;
         virtual expr_ref mk_gt(theory_var v, inf_eps const& val);
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_eps const& val);
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_eps const& val);
         
         // -----------------------------------
         //
@@ -280,16 +280,16 @@ namespace smt {
         // -----------------------------------
     public:
         theory_dense_diff_logic(ast_manager & m, theory_arith_params & p);
-        virtual ~theory_dense_diff_logic() { reset_eh(); }
+        ~theory_dense_diff_logic() override { reset_eh(); }
         
-        virtual theory * mk_fresh(context * new_ctx);
+        theory * mk_fresh(context * new_ctx) override;
 
-        virtual char const * get_name() const { return "difference-logic"; }
+        char const * get_name() const override { return "difference-logic"; }
 
         /**
            \brief See comment in theory::mk_eq_atom
         */
-        virtual app * mk_eq_atom(expr * lhs, expr * rhs) { return m_autil.mk_eq(lhs, rhs); }
+        app * mk_eq_atom(expr * lhs, expr * rhs) override { return m_autil.mk_eq(lhs, rhs); }
     };
 
     typedef theory_dense_diff_logic<mi_ext>  theory_dense_mi;

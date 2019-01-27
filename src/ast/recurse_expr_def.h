@@ -72,7 +72,7 @@ void recurse_expr<T, Visitor, IgnorePatterns, CallDestructors>::process(expr * n
         break;
     case AST_QUANTIFIER:  
         if (IgnorePatterns) {
-            cache_result(n, this->Visitor::visit(to_quantifier(n), get_cached(to_quantifier(n)->get_expr()), 0, 0));
+            cache_result(n, this->Visitor::visit(to_quantifier(n), get_cached(to_quantifier(n)->get_expr()), nullptr, nullptr));
         }
         else {
             m_results1.reset();

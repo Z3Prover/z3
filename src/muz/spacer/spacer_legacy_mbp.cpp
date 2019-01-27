@@ -71,10 +71,11 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
         expr_substitution sub(m);
         proof_ref pr(m.mk_asserted(m.mk_true()), m);
         expr_ref bval(m);
+        model::scoped_model_completion _scm(*M, true);
         for (unsigned i = 0; i < vars.size(); i++) {
             if (m.is_bool(vars.get(i))) {
                 // obtain the interpretation of the ith var using model completion
-                VERIFY(M->eval(vars.get(i), bval, true));
+                bval = (*M)(vars.get(i));
                 sub.insert(vars.get(i), bval, pr);
             } else {
                 arith_vars.push_back(vars.get(i));
@@ -99,14 +100,14 @@ void qe_project(ast_manager& m, app_ref_vector& vars, expr_ref& fml, model_ref& 
                  );
             {
                 scoped_no_proof _sp(m);
-                qe::arith_project(*M, arith_vars, fml, map);
+                spacer_qe::arith_project(*M, arith_vars, fml, map);
             }
             SASSERT(arith_vars.empty());
             TRACE("spacer",
                   tout << "Projected arith vars:\n" << mk_pp(fml, m) << "\n";
                  );
         }
-        SASSERT(M->eval(fml, bval, true) && m.is_true(bval));    // M |= fml
+        SASSERT(M->is_true(fml));
         vars.reset();
         vars.append(arith_vars);
     }

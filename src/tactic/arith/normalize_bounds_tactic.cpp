@@ -21,8 +21,7 @@ Revision History:
 #include "tactic/tactical.h"
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "tactic/extension_model_converter.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
@@ -80,12 +79,7 @@ class normalize_bounds_tactic : public tactic {
             return false;
         }
         
-        void operator()(goal_ref const & in, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+        void operator()(goal_ref const & in, goal_ref_buffer & result) {
             bool produce_models = in->models_enabled();
             bool produce_proofs = in->proofs_enabled();
             tactic_report report("normalize-bounds", *in);
@@ -98,30 +92,25 @@ class normalize_bounds_tactic : public tactic {
                 return;
             }
             
-            extension_model_converter * mc1 = 0;
-            filter_model_converter   * mc2  = 0;
+            generic_model_converter   * gmc  = nullptr;
             if (produce_models) {
-                mc1 = alloc(extension_model_converter, m);
-                mc2 = alloc(filter_model_converter, m);
-                mc  = concat(mc2, mc1);
+                gmc = alloc(generic_model_converter, m, "normalize_bounds");
+                in->add(gmc);
             }
             
             unsigned num_norm_bounds = 0;
             expr_substitution subst(m);
             rational val;
-            bound_manager::iterator it  = m_bm.begin();
-            bound_manager::iterator end = m_bm.end();
-            for (; it != end; ++it) {
-                expr * x = *it;
+            for (expr * x : m_bm) {
                 if (is_target(x, val)) {
                     num_norm_bounds++;
                     sort * s = m.get_sort(x);
-                    app * x_prime = m.mk_fresh_const(0, s);
+                    app * x_prime = m.mk_fresh_const(nullptr, s);
                     expr * def = m_util.mk_add(x_prime, m_util.mk_numeral(val, s));
                     subst.insert(x, def);
                     if (produce_models) {
-                        mc1->insert(to_app(x)->get_decl(), def);
-                        mc2->insert(x_prime->get_decl());
+                        gmc->hide(x_prime->get_decl());
+                        gmc->add(to_app(x)->get_decl(), def);
                     }
                 }
             }
@@ -156,37 +145,34 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(normalize_bounds_tactic, m, m_params);
     }
 
-    virtual ~normalize_bounds_tactic() {
+    ~normalize_bounds_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_produce_models(r);
         r.insert("norm_int_only", CPK_BOOL, "(default: true) normalize only the bounds of integer constants.");
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
-            (*m_imp)(in, result, mc, pc, core);
+            (*m_imp)(in, result);
         }
         catch (rewriter_exception & ex) {
             throw tactic_exception(ex.msg());
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        

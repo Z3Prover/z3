@@ -55,8 +55,8 @@ class cmd_exception : public default_exception {
     }
 public:
     cmd_exception(char const * msg):default_exception(msg), m_line(-1), m_pos(-1) {}
-    cmd_exception(std::string const & msg):default_exception(msg), m_line(-1), m_pos(-1) {}
-    cmd_exception(std::string const & msg, int line, int pos):default_exception(msg), m_line(line), m_pos(pos) {}
+    cmd_exception(std::string && msg):default_exception(std::move(msg)), m_line(-1), m_pos(-1) {}
+    cmd_exception(std::string && msg, int line, int pos):default_exception(std::move(msg)), m_line(line), m_pos(pos) {}
     cmd_exception(char const * msg, symbol const & s): 
         default_exception(compose(msg,s)),m_line(-1),m_pos(-1) {}
     cmd_exception(char const * msg, symbol const & s, int line, int pos): 
@@ -91,8 +91,8 @@ public:
     virtual void reset(cmd_context & ctx) {}
     virtual void finalize(cmd_context & ctx) {}
     virtual symbol get_name() const { return m_name; }
-    virtual char const * get_usage() const { return 0; }
-    virtual char const * get_descr(cmd_context & ctx) const { return 0; }
+    virtual char const * get_usage() const { return nullptr; }
+    virtual char const * get_descr(cmd_context & ctx) const { return nullptr; }
     virtual unsigned get_arity() const { return 0; }
 
     // command invocation

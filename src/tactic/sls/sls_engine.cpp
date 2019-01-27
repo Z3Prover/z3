@@ -100,36 +100,27 @@ void sls_engine::checkpoint() {
 }
 
 bool sls_engine::full_eval(model & mdl) {
-    bool res = true;
-
-    unsigned sz = m_assertions.size();
-    for (unsigned i = 0; i < sz && res; i++) {
-        checkpoint();
-        expr_ref o(m_manager);
-
-        if (!mdl.eval(m_assertions[i], o, true))
-            exit(ERR_INTERNAL_FATAL);
-
-        res = m_manager.is_true(o.get());
-    }
-
-    TRACE("sls", tout << "Evaluation: " << res << std::endl;);
-
-    return res;
+    model::scoped_model_completion _scm(mdl, true);
+    for (expr* a : m_assertions) {
+        checkpoint();        
+        if (!mdl.is_true(a)) {
+            TRACE("sls", tout << "Evaluation: false\n";);
+            return false;
+        }
+    }    
+    return true;
 }
 
 double sls_engine::top_score() {
     double top_sum = 0.0;
-    unsigned sz = m_assertions.size();
-    for (unsigned i = 0; i < sz; i++) {
-        expr * e = m_assertions[i];
+    for (expr* e : m_assertions) {
         top_sum += m_tracker.get_score(e);
     }
 
     TRACE("sls_top", tout << "Score distribution:";
-    for (unsigned i = 0; i < sz; i++)
-        tout << " " << m_tracker.get_score(m_assertions[i]);
-    tout << " AVG: " << top_sum / (double)sz << std::endl;);
+          for (expr* e : m_assertions) 
+              tout << " " << m_tracker.get_score(e);
+          tout << " AVG: " << top_sum / (double)m_assertions.size() << std::endl;);
 
     m_tracker.set_top_sum(top_sum);
 
@@ -191,7 +182,7 @@ bool sls_engine::what_if(
     // Andreas: Had this idea on my last day. Maybe we could add a noise here similar to the one that worked so well for ucb assertion selection.
     // r += 0.0001 * m_tracker.get_random_uint(8);
 
-    // Andreas: For some reason it is important to use > here instead of >=. Probably related to prefering the LSB.
+    // Andreas: For some reason it is important to use > here instead of >=. Probably related to preferring the LSB.
     if (r > best_score) {
         best_score = r;
         best_const = fd_inx;
@@ -449,7 +440,7 @@ lbool sls_engine::search() {
 
         // get candidate variables
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
-        if (!to_evaluate.size())
+        if (to_evaluate.empty())
         {
             res = l_true;
             goto bailout;
@@ -501,7 +492,7 @@ lbool sls_engine::search() {
 
             score = m_tracker.get_top_sum();
 
-            // update assertion weights if a weigthing is enabled (sp < 1024)
+            // update assertion weights if a weighting is enabled (sp < 1024)
             if (m_paws)
             {
                 for (unsigned i = 0; i < sz; i++)
@@ -537,7 +528,7 @@ bailout:
 
 void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
     if (g->inconsistent()) {
-        mc = 0;
+        mc = nullptr;
         return;
     }
 
@@ -565,7 +556,7 @@ void sls_engine::operator()(goal_ref const & g, model_converter_ref & mc) {
         g->reset();
     }
     else
-        mc = 0;
+        mc = nullptr;
 }
 
 lbool sls_engine::operator()() {    

@@ -27,10 +27,6 @@ class heap : private LT {
     int_vector    m_values;
     int_vector    m_value2indices;
 
-    bool less_than(int v1, int v2) const { 
-        return LT::operator()(v1, v2); 
-    }
-
     static int left(int i) { 
         return i << 1; 
     }
@@ -124,6 +120,10 @@ public:
         m_values.push_back(-1);
         set_bounds(s);
         CASSERT("heap", check_invariant());
+    }
+
+    bool less_than(int v1, int v2) const { 
+        return LT::operator()(v1, v2); 
     }
 
     bool empty() const { 

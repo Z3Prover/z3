@@ -17,17 +17,16 @@ Notes:
 
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// The abstract syntax tree (AST) class.
     /// </summary>
-    [ContractVerification(true)]
     public class AST : Z3Object, IComparable
     {
         /// <summary>
@@ -43,7 +42,7 @@ namespace Microsoft.Z3
                    (!Object.ReferenceEquals(a, null) &&
                     !Object.ReferenceEquals(b, null) &&
                     a.Context.nCtx == b.Context.nCtx &&
-                    Native.Z3_is_eq_ast(a.Context.nCtx, a.NativeObject, b.NativeObject) != 0);
+                    0 != Native.Z3_is_eq_ast(a.Context.nCtx, a.NativeObject, b.NativeObject));
         }
 
         /// <summary>
@@ -114,8 +113,7 @@ namespace Microsoft.Z3
         /// <returns>A copy of the AST which is associated with <paramref name="ctx"/></returns>
         public AST Translate(Context ctx)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<AST>() != null);
+            Debug.Assert(ctx != null);
 
             if (ReferenceEquals(Context, ctx))
                 return this;
@@ -202,14 +200,13 @@ namespace Microsoft.Z3
         /// </summary>
         public string SExpr()
         {
-            Contract.Ensures(Contract.Result<string>() != null);
 
             return Native.Z3_ast_to_string(Context.nCtx, NativeObject);
         }
 
         #region Internal
-        internal AST(Context ctx) : base(ctx) { Contract.Requires(ctx != null); }
-        internal AST(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal AST(Context ctx) : base(ctx) { Debug.Assert(ctx != null); }
+        internal AST(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
         internal class DecRefQueue : IDecRefQueue
         {
@@ -246,8 +243,7 @@ namespace Microsoft.Z3
 
         internal static AST Create(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<AST>() != null);
+            Debug.Assert(ctx != null);
 
             switch ((Z3_ast_kind)Native.Z3_get_ast_kind(ctx.nCtx, obj))
             {

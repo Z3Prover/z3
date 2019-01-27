@@ -43,11 +43,11 @@ protected:
 public:
     struct_factory(ast_manager & m, family_id fid, proto_model & md);
 
-    virtual ~struct_factory();
+    ~struct_factory() override;
 
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
-    virtual void register_value(expr * array_value);
+    void register_value(expr * array_value) override;
 };
 
 #endif /* STRUCT_FACTORY_H_ */

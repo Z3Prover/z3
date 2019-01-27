@@ -179,7 +179,7 @@ namespace smt {
             m_orig_model = mdl;
             for (unsigned i = 0; i < m_var2decl.size(); ++i) {
                 expr_ref tmp(m);
-                m_assignment[i] = mdl->eval(m_var2decl[i], tmp) && m.is_true(tmp);
+                m_assignment[i] = mdl->is_true(m_var2decl[i]);
             }
         }
 
@@ -343,10 +343,7 @@ namespace smt {
             for (unsigned i = 0; i < m_clauses.size(); ++i) {
                 if (!eval(m_clauses[i])) {
                     m_hard_false.insert(i);
-                    expr_ref tmp(m);
-                    if (!m_orig_model->eval(m_orig_clauses[i].get(), tmp)) {
-                        return;
-                    }
+                    expr_ref tmp = (*m_orig_model)(m_orig_clauses[i].get());
                     IF_VERBOSE(0,                               
                                verbose_stream() << "original evaluation: " << tmp << "\n";
                                verbose_stream() << mk_pp(m_orig_clauses[i].get(), m) << "\n";
@@ -406,10 +403,8 @@ namespace smt {
                 }
                 int new_break_count = flip(~lit);
                 if (-break_count != new_break_count) {
-                    verbose_stream() << lit << "\n";
-                    IF_VERBOSE(0, display(verbose_stream(), cls););
-                    display(verbose_stream());
-                    exit(0);
+                    IF_VERBOSE(0, display(verbose_stream() << lit << "\n", cls);
+                               display(verbose_stream()));
                 }
                 // VERIFY(-break_count == flip(~lit));
             }            
@@ -521,14 +516,13 @@ namespace smt {
 
         literal mk_aux_literal(expr* f) {           
             unsigned var;
-            expr_ref tmp(m);
             if (!m_decl2var.find(f, var)) {
                 var = m_hard_occ.size();
                 SASSERT(m_var2decl.size() == var);
                 SASSERT(m_soft_occ.size() == var);
                 m_hard_occ.push_back(unsigned_vector());
                 m_soft_occ.push_back(unsigned_vector());
-                m_assignment.push_back(m_orig_model->eval(f, tmp) && m.is_true(tmp));
+                m_assignment.push_back(m_orig_model->is_true(f));
                 m_decl2var.insert(f, var);
                 m_var2decl.push_back(f);
             }

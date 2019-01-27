@@ -22,7 +22,7 @@ Notes:
 
 #include "smt/smt_theory.h"
 #include "smt/smt_clause.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 
 namespace smt {
     class theory_wmaxsat : public theory {
@@ -32,7 +32,7 @@ namespace smt {
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };        
-        filter_model_converter&     m_mc;
+        generic_model_converter&     m_mc;
         mutable unsynch_mpz_manager m_mpz;
         app_ref_vector           m_vars;        // Auxiliary variables per soft clause
         expr_ref_vector          m_fmls;        // Formulas per soft clause
@@ -56,8 +56,8 @@ namespace smt {
         svector<bool>            m_assigned, m_enabled;
         stats                    m_stats;
     public:
-        theory_wmaxsat(ast_manager& m, filter_model_converter& mc);
-        virtual ~theory_wmaxsat();
+        theory_wmaxsat(ast_manager& m, generic_model_converter& mc);
+        ~theory_wmaxsat() override;
         void get_assignment(svector<bool>& result);
         expr* assert_weighted(expr* fml, rational const& w);
         void  disable_var(expr* var);
@@ -76,43 +76,43 @@ namespace smt {
                 old.push_back(value);
             }
             
-            virtual ~numeral_trail() {
+            ~numeral_trail() override {
             }
             
-            virtual void undo(context & ctx) {
+            void undo(context & ctx) override {
                 m_value = m_old_values.back();
                 m_old_values.shrink(m_old_values.size() - 1);
             }
         };
 
-        virtual void init_search_eh();
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual final_check_status final_check_eh();
-        virtual bool use_diseqs() const { 
+        void init_search_eh() override;
+        void assign_eh(bool_var v, bool is_true) override;
+        final_check_status final_check_eh() override;
+        bool use_diseqs() const override {
             return false;
         }
-        virtual bool build_models() const { 
+        bool build_models() const override {
             return false;
         }
         void reset_local();
-        virtual void reset_eh();
-        virtual theory * mk_fresh(context * new_ctx) { return 0; }
-        virtual bool internalize_atom(app * atom, bool gate_ctx) { return false; }
-        virtual bool internalize_term(app * term) { return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2) { }
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) { }
-        virtual void display(std::ostream& out) const {}
-        virtual void restart_eh();
+        void reset_eh() override;
+        theory * mk_fresh(context * new_ctx) override { return nullptr; }
+        bool internalize_atom(app * atom, bool gate_ctx) override { return false; }
+        bool internalize_term(app * term) override { return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override { }
+        void new_diseq_eh(theory_var v1, theory_var v2) override { }
+        void display(std::ostream& out) const override {}
+        void restart_eh() override;
 
-        virtual void collect_statistics(::statistics & st) const {
+        void collect_statistics(::statistics & st) const override {
             st.update("wmaxsat num blocks", m_stats.m_num_blocks);
             st.update("wmaxsat num props", m_stats.m_num_propagations);
         }
-        virtual bool can_propagate() {
+        bool can_propagate() override {
             return m_propagate || m_can_propagate;
         }
 
-        virtual void propagate();
+        void propagate() override;
 
         bool is_optimal() const;
         expr_ref mk_block();

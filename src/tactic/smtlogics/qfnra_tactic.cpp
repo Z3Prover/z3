@@ -28,7 +28,7 @@ static tactic * mk_qfnra_sat_solver(ast_manager& m, params_ref const& p, unsigne
     nra2sat_p.set_uint("nla2bv_max_bv_size", p.get_uint("nla2bv_max_bv_size", bv_size));   
     
     return and_then(mk_nla2bv_tactic(m, nra2sat_p),
-                    mk_smt_tactic(),
+                    mk_smt_tactic(m),
                     mk_fail_if_undecided_tactic());
 }
 
@@ -47,7 +47,7 @@ tactic * mk_qfnra_tactic(ast_manager & m, params_ref const& p) {
                     or_else(try_for(mk_qfnra_nlsat_tactic(m, p0), 5000),
                             try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
                             mk_qfnra_sat_solver(m, p, 4),
-                            and_then(try_for(mk_smt_tactic(), 5000), mk_fail_if_undecided_tactic()),
+                            and_then(try_for(mk_smt_tactic(m), 5000), mk_fail_if_undecided_tactic()),
                             mk_qfnra_sat_solver(m, p, 6),
                             mk_qfnra_nlsat_tactic(m, p2)));
 }

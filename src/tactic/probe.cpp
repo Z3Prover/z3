@@ -27,7 +27,7 @@ Revision History:
 
 class memory_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024));
     }
 };
@@ -38,21 +38,21 @@ probe * mk_memory_probe() {
 
 class depth_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(g.depth());
     }
 };
 
 class size_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(g.size());
     }
 };
 
 class num_exprs_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(g.num_exprs());
     }
 };
@@ -79,7 +79,7 @@ public:
         p->inc_ref();
     }
 
-    ~unary_probe() {
+    ~unary_probe() override {
         m_p->dec_ref();
     }
 
@@ -99,7 +99,7 @@ public:
         p2->inc_ref();
     }
 
-    ~bin_probe() {
+    ~bin_probe() override {
         m_p1->dec_ref();
         m_p2->dec_ref();
     }
@@ -108,7 +108,7 @@ public:
 class not_probe : public unary_probe {
 public:
     not_probe(probe * p):unary_probe(p) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(!m_p->operator()(g).is_true());
     }
 };
@@ -116,7 +116,7 @@ public:
 class and_probe : public bin_probe {
 public:
     and_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() && m_p2->operator()(g).is_true());
     }
 };
@@ -124,7 +124,7 @@ public:
 class or_probe : public bin_probe {
 public:
     or_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).is_true() || m_p2->operator()(g).is_true());
     }
 };
@@ -132,7 +132,7 @@ public:
 class eq_probe : public bin_probe {
 public:
     eq_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() == m_p2->operator()(g).get_value());
     }
 };
@@ -140,7 +140,7 @@ public:
 class le_probe : public bin_probe {
 public:
     le_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() <= m_p2->operator()(g).get_value());
     }
 };
@@ -148,7 +148,7 @@ public:
 class add_probe : public bin_probe {
 public:
     add_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() + m_p2->operator()(g).get_value());
     }
 };
@@ -156,7 +156,7 @@ public:
 class sub_probe : public bin_probe {
 public:
     sub_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() - m_p2->operator()(g).get_value());
     }
 };
@@ -164,7 +164,7 @@ public:
 class mul_probe : public bin_probe {
 public:
     mul_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() * m_p2->operator()(g).get_value());
     }
 };
@@ -172,7 +172,7 @@ public:
 class div_probe : public bin_probe {
 public:
     div_probe(probe * p1, probe * p2):bin_probe(p1, p2) {}
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_p1->operator()(g).get_value() / m_p2->operator()(g).get_value());
     }
 };
@@ -182,7 +182,7 @@ class const_probe : public probe {
 public:
     const_probe(double v):m_val(v) {}
 
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return result(m_val);
     }
 };
@@ -303,7 +303,7 @@ struct is_non_qfbv_predicate {
 
 class is_propositional_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_propositional_predicate>(g);
     }
 };
@@ -311,7 +311,7 @@ public:
 
 class is_qfbv_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qfbv_predicate>(g);
     }
 };
@@ -353,7 +353,7 @@ struct is_non_qfaufbv_predicate {
 
 class is_qfaufbv_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qfaufbv_predicate>(g);
     }
 };
@@ -391,7 +391,7 @@ struct is_non_qfufbv_predicate {
 
 class is_qfufbv_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return !test<is_non_qfufbv_predicate>(g);
     }
 };
@@ -411,7 +411,7 @@ class num_consts_probe : public probe {
         family_id     m_fid;
         unsigned      m_counter;
         proc(ast_manager & _m, bool b, char const * family):m(_m), m_bool(b), m_counter(0) {
-            if (family != 0)
+            if (family != nullptr)
                 m_fid = m.mk_family_id(family);
             else
                 m_fid = null_family_id;
@@ -442,7 +442,7 @@ public:
     num_consts_probe(bool b, char const * f):
         m_bool(b), m_family(f) {
     }
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         proc p(g.m(), m_bool, m_family);
         unsigned sz = g.size();
         expr_fast_mark1 visited;
@@ -454,11 +454,11 @@ public:
 };
 
 probe * mk_num_consts_probe() {
-    return alloc(num_consts_probe, false, 0);
+    return alloc(num_consts_probe, false, nullptr);
 }
 
 probe * mk_num_bool_consts_probe() {
-    return alloc(num_consts_probe, true, 0);
+    return alloc(num_consts_probe, true, nullptr);
 }
 
 probe * mk_num_arith_consts_probe() {
@@ -471,21 +471,21 @@ probe * mk_num_bv_consts_probe() {
 
 class produce_proofs_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return g.proofs_enabled();
     }
 };
 
 class produce_models_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return g.models_enabled();
     }
 };
 
 class produce_unsat_cores_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         return g.unsat_core_enabled();
     }
 };
@@ -514,7 +514,7 @@ struct has_pattern_probe : public probe {
         }
     };
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         try {
             expr_fast_mark1 visited;
             proc p;
@@ -524,7 +524,7 @@ public:
             }
             return false;
         }
-        catch (found) {
+        catch (const found &) {
             return true;
         }
     }
@@ -544,7 +544,7 @@ struct has_quantifier_probe : public probe {
         void operator()(quantifier * n) { throw found(); }
     };
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         try {
             expr_fast_mark1 visited;
             proc p;
@@ -554,7 +554,7 @@ public:
             }
             return false;
         }
-        catch (found) {
+        catch (const found &) {
             return true;
         }
     }

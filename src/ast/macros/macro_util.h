@@ -64,7 +64,7 @@ private:
     mutable bv_rewriter         m_bv_rw;
     obj_hashtable<func_decl> *  m_forbidden_set;
 
-    bool is_forbidden(func_decl * f) const { return m_forbidden_set != 0 && m_forbidden_set->contains(f); }
+    bool is_forbidden(func_decl * f) const { return m_forbidden_set != nullptr && m_forbidden_set->contains(f); }
     bool poly_contains_head(expr * n, func_decl * f, expr * exception) const;
 
     void collect_arith_macros(expr * n, unsigned num_decls, unsigned max_macros, bool allow_cond_macros,

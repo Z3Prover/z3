@@ -35,12 +35,12 @@ void qi_params::updt_params(params_ref const & _p) {
     m_qi_lazy_threshold = p.qi_lazy_threshold();
     m_qi_cost = p.qi_cost();
     m_qi_max_eager_multipatterns = p.qi_max_multi_patterns();
+    m_qi_quick_checker = static_cast<quick_checker_mode>(p.qi_quick_checker());
 }
 
 #define DISPLAY_PARAM(X) out << #X"=" << X << std::endl;
 
 void qi_params::display(std::ostream & out) const {
-    DISPLAY_PARAM(m_qi_ematching);
     DISPLAY_PARAM(m_qi_cost);
     DISPLAY_PARAM(m_qi_new_gen);
     DISPLAY_PARAM(m_qi_eager_threshold);

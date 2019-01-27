@@ -736,6 +736,12 @@ sig
   (** Create an existential Quantifier. *)
   val mk_exists_const : context -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
+  (** Create a lambda binding. *)
+  val mk_lambda_const : context -> Expr.expr list -> Expr.expr -> quantifier
+
+  (** Create a lambda binding where bound variables are given by symbols and sorts *)
+  val mk_lambda : context -> (Symbol.symbol * Sort.sort) list -> Expr.expr -> quantifier
+
   (** Create a Quantifier. *)
   val mk_quantifier : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
@@ -1152,9 +1158,6 @@ sig
     (** Create a new integer sort. *)
     val mk_sort : context -> Sort.sort
 
-    (** Retrieve the int value. *)
-    val get_int : Expr.expr -> int
-
     (** Get a big_int from an integer numeral *)
     val get_big_int : Expr.expr -> Big_int.big_int
 
@@ -1542,9 +1545,6 @@ sig
 
   (** The size of a bit-vector sort. *)
   val get_size : Sort.sort -> int
-
-  (**  Retrieve the int value. *)
-  val get_int : Expr.expr -> int
 
   (** Returns a string representation of a numeral. *)
   val numeral_to_string : Expr.expr -> string
@@ -2362,7 +2362,7 @@ sig
 
   (** Indicates whether the term is a proof by condensed transitivity of a relation
 
-      Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+      Condensed transitivity proof.
       It combines several symmetry and transitivity proofs.
       Example:
       T1: (R a b)
@@ -2443,27 +2443,17 @@ sig
   (** Indicates whether the term is a proof by rewriting
 
       A proof for rewriting an expression t into an expression s.
-      This proof object is used if the parameter PROOF_MODE is 1.
       This proof object can have n antecedents.
       The antecedents are proofs for equalities used as substitution rules.
-      The object is also used in a few cases if the parameter PROOF_MODE is 2.
-      The cases are:
+      The object is also used in a few cases. The cases are:
       - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
-      - When converting bit-vectors to Booleans (BIT2BOOL=true)
-      - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true) *)
+      - When converting bit-vectors to Booleans (BIT2BOOL=true) *)
   val is_rewrite_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pulling quantifiers out.
 
       A proof for (iff (f (forall (x) q(x)) r) (forall (x) (f (q x) r))). This proof object has no antecedents. *)
   val is_pull_quant : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for pulling quantifiers out.
-
-      A proof for (iff P Q) where Q is in prenex normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object has no antecedents *)
-  val is_pull_quant_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for pushing quantifiers in.
 
@@ -2657,22 +2647,6 @@ sig
       [nnf-neg T1 T2 T3 T4]: (~ (not (iff s_1 s_2))
       (and (or r_1 r_2) (or r_1' r_2'))) *)
   val is_nnf_neg : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-
-      A proof for (~ P Q) where Q is in negation normal form.
-
-      This proof object is only used if the parameter PROOF_MODE is 1.
-
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO. *)
-  val is_nnf_star : Expr.expr -> bool
-
-  (** Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-
-      A proof for (~ P Q) where Q is in conjunctive normal form.
-      This proof object is only used if the parameter PROOF_MODE is 1.
-      This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.           *)
-  val is_cnf_star : Expr.expr -> bool
 
   (** Indicates whether the term is a proof for a Skolemization step
 
@@ -2989,11 +2963,6 @@ sig
 
     (** Retrieves a subgoal from the apply_result. *)
     val get_subgoal : apply_result -> int -> Goal.goal
-
-    (** Convert a model for a subgoal into a model for the original
-        goal [g], that the ApplyResult was obtained from.
-        #return A model for [g] *)
-    val convert_model : apply_result -> int -> Model.model -> Model.model
 
     (** A string representation of the ApplyResult. *)
     val to_string : apply_result -> string
@@ -3444,57 +3413,12 @@ sig
   (** Parse the given string using the SMT-LIB2 parser.
 
       @return A conjunction of assertions in the scope (up to push/pop) at the end of the string. *)
-  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+  val parse_smtlib2_string : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> AST.ASTVector.ast_vector
 
   (** Parse the given file using the SMT-LIB2 parser. *)
-  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> Expr.expr
+  val parse_smtlib2_file : context -> string -> Symbol.symbol list -> Sort.sort list -> Symbol.symbol list -> FuncDecl.func_decl list -> AST.ASTVector.ast_vector
 end
 
-(** Interpolation *)
-module Interpolation :
-sig
-
-  (** Create an AST node marking a formula position for interpolation.
-      The expression must have Boolean sort. *)
-  val mk_interpolant : context -> Expr.expr -> Expr.expr
-
-  (** The interpolation context is suitable for generation of interpolants.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val mk_interpolation_context : (string * string) list -> context
-
-  (** Gets an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolant : context -> Expr.expr -> Expr.expr -> Params.params -> Expr.expr list
-
-  (** Computes an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val compute_interpolant : context -> Expr.expr -> Params.params -> (Z3enums.lbool * Expr.expr list option * Model.model option)
-
-  (** Retrieves an interpolation profile.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val get_interpolation_profile : context -> string
-
-  (** Read an interpolation problem from file.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val read_interpolation_problem : context -> string -> (Expr.expr list * int list * Expr.expr list)
-
-  (** Check the correctness of an interpolant.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val check_interpolant : context -> int -> Expr.expr list -> int list -> Expr.expr list -> int -> Expr.expr list -> unit
-
-  (** Write an interpolation problem to file suitable for reading with
-      Z3_read_interpolation_problem.
-      For more information on interpolation please refer
-      too the C/C++ API, which is well documented. *)
-  val write_interpolation_problem : context -> int -> Expr.expr list -> int list -> string -> int -> Expr.expr list -> unit
-
-end
 
 (** Set a global (or module) parameter, which is shared by all Z3 contexts.
 
@@ -3548,3 +3472,11 @@ val enable_trace : string -> unit
    Remarks: It is a NOOP otherwise.
 *)
 val disable_trace : string -> unit
+
+
+(** Memory management **)
+module Memory :
+sig
+  (** Reset all allocated resources **)
+  val reset : unit -> unit
+end

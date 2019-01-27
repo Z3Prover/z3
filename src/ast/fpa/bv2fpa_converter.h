@@ -64,7 +64,7 @@ public:
         func_interp * new_float_fi;
         func_decl * bv_fd;
         expr_ref result;
-        array_model(ast_manager & m) : new_float_fd(0), new_float_fi(0), bv_fd(0), result(m) {}
+        array_model(ast_manager & m) : new_float_fd(nullptr), new_float_fi(nullptr), bv_fd(nullptr), result(m) {}
     };
 
     array_model convert_array_func_interp(model_core * mc, func_decl * f, func_decl * bv_f);

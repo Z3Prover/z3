@@ -22,7 +22,6 @@ Notes:
 #include "ast/ast.h"
 #include "util/params.h"
 #include "solver/solver.h"
-#include "tactic/filter_model_converter.h"
 #include "util/statistics.h"
 #include "smt/smt_context.h"
 #include "smt/smt_theory.h"
@@ -57,31 +56,43 @@ namespace opt {
     // 
     class maxsmt_solver_base : public maxsmt_solver {
     protected:
+        struct soft { 
+            expr_ref  s; 
+            rational  weight; 
+            lbool     value;
+            void set_value(bool t) { value = t?l_true:l_undef; }
+            void set_value(lbool t) { value = t; }
+            bool is_true() const { return value == l_true; }
+            soft(expr_ref const& s, rational const& w, bool t): s(s), weight(w), value(t?l_true:l_undef) {}
+            soft(soft const& other):s(other.s), weight(other.weight), value(other.value) {}
+            soft& operator=(soft const& other) { s = other.s; weight = other.weight; value = other.value; return *this; }            
+        };
         ast_manager&     m;
-        maxsat_context&  m_c;
-        const expr_ref_vector  m_soft;
-        vector<rational> m_weights;
+        maxsat_context&  m_c;        
+        vector<soft>     m_soft;
         expr_ref_vector  m_assertions;
         expr_ref_vector  m_trail;
         rational         m_lower;
         rational         m_upper;
         model_ref        m_model;
         svector<symbol>  m_labels;
-        svector<bool>    m_assignment;       // truth assignment to soft constraints
+        //const expr_ref_vector  m_soft;
+        //vector<rational> m_weights;
+        //svector<bool>    m_assignment;       // truth assignment to soft constraints
         params_ref       m_params;           // config
 
     public:
         maxsmt_solver_base(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft); 
 
-        virtual ~maxsmt_solver_base() {}        
-        virtual rational get_lower() const { return m_lower; }
-        virtual rational get_upper() const { return m_upper; }
-        virtual bool get_assignment(unsigned index) const { return m_assignment[index]; }
-        virtual void collect_statistics(statistics& st) const { }
-        virtual void get_model(model_ref& mdl, svector<symbol>& labels) { mdl = m_model.get(); labels = m_labels;}
+        ~maxsmt_solver_base() override {}
+        rational get_lower() const override { return m_lower; }
+        rational get_upper() const override { return m_upper; }
+        bool get_assignment(unsigned index) const override { return m_soft[index].is_true(); }
+        void collect_statistics(statistics& st) const override { }
+        void get_model(model_ref& mdl, svector<symbol>& labels) override { mdl = m_model.get(); labels = m_labels;}
         virtual void commit_assignment();
         void set_model() { s().get_model(m_model); s().get_labels(m_labels); }
-        virtual void updt_params(params_ref& p);
+        void updt_params(params_ref& p) override;
         solver& s();
         bool init();
         void set_mus(bool f);
@@ -147,10 +158,53 @@ namespace opt {
         bool get_assignment(unsigned index) const;
         void display_answer(std::ostream& out) const;        
         void collect_statistics(statistics& st) const;
+        void model_updated(model* mdl);
     private:
         bool is_maxsat_problem(weights_t& ws) const;        
         void verify_assignment();
         solver& s();
+    };
+
+    /**
+       \brief Standalone MaxSMT solver.
+
+       It takes as input a solver object and provides a MaxSAT solver routine.
+
+       It assumes the solver state is satisfiable and therefore there is a model
+       associated with the constraints asserted to the solver. A model of the 
+       solver state must be supplied as a last argument.
+
+       It assumes that the caller manages scope on the solver such that
+       the solver can be left in a stronger or inconsistent state upon return.
+       Callers should therefore use this feature under a push/pop.
+    */
+    class maxsmt_wrapper {
+        params_ref  m_params;
+        ref<solver> m_solver;
+        model_ref   m_model;
+    public:
+        maxsmt_wrapper(params_ref & p, solver* s, model* m): 
+            m_params(p), 
+            m_solver(s),
+            m_model(m) {}
+        
+        lbool operator()(expr_ref_vector& soft) {
+            vector<std::pair<expr*, rational>> _soft;
+            for (expr* e : soft) _soft.push_back(std::make_pair(e, rational::one()));
+            lbool r = (*this)(_soft);
+            soft.reset();
+            for (auto const& p : _soft) soft.push_back(p.first);
+            return r;
+        }
+
+        /**
+           \brief takes a vector of weighted soft constraints.
+           Returns a modified list of soft constraints that are 
+           satisfied in the maximal satisfying assignment.
+        */
+        lbool operator()(vector<std::pair<expr*,rational>> & soft);
+
+        model_ref get_model() { return m_model; }
     };
 
 };

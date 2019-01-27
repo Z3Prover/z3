@@ -41,7 +41,7 @@ static void tst1() {
         v1.pop_back();
     }
     ENSURE(v1.empty());
-    ENSURE(v1.size() == 0);
+    ENSURE(v1.empty());
     unsigned i = 1000000000;
     while (true) {
         std::cout << "resize " << i << "\n";

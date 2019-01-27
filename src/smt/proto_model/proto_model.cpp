@@ -18,12 +18,14 @@ Revision History:
 --*/
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "ast/rewriter/var_subst.h"
 #include "ast/well_sorted.h"
 #include "ast/used_symbols.h"
+#include "ast/for_each_expr.h"
+#include "ast/rewriter/var_subst.h"
 #include "model/model_params.hpp"
 #include "model/model_v2_pp.h"
 #include "smt/proto_model/proto_model.h"
+
 
 proto_model::proto_model(ast_manager & m, params_ref const & p):
     model_core(m),
@@ -53,11 +55,11 @@ void proto_model::register_aux_decl(func_decl * d) {
 */
 void proto_model::reregister_decl(func_decl * f, func_interp * new_fi, func_decl * f_aux) {
     func_interp * fi = get_func_interp(f);
-    if (fi == 0) {
+    if (fi == nullptr) {
         register_decl(f, new_fi);
     }
     else {
-        if (f_aux != 0) {
+        if (f_aux != nullptr) {
             register_decl(f_aux, fi);
             m_aux_decls.insert(f_aux);
         }
@@ -75,7 +77,7 @@ expr * proto_model::mk_some_interp_for(func_decl * d) {
         register_decl(d, r);
     }
     else {
-        func_interp * new_fi = alloc(func_interp, m_manager, d->get_arity());
+        func_interp * new_fi = alloc(func_interp, m, d->get_arity());
         new_fi->set_else(r);
         register_decl(d, new_fi);
     }
@@ -86,6 +88,7 @@ expr * proto_model::mk_some_interp_for(func_decl * d) {
 bool proto_model::eval(expr * e, expr_ref & result, bool model_completion) {
     m_eval.set_model_completion(model_completion);
     m_eval.set_expand_array_equalities(false);
+    TRACE("model_evaluator", model_v2_pp(tout, *this, true););
     try {
         m_eval(e, result);
         return true;
@@ -120,10 +123,10 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
     if (fi->is_partial())
         return;
     expr * fi_else = fi->get_else();
-    TRACE("model_bug", tout << "cleaning up:\n" << mk_pp(fi_else, m_manager) << "\n";);
+    TRACE("model_bug", tout << "cleaning up:\n" << mk_pp(fi_else, m) << "\n";);
 
     obj_map<expr, expr*> cache;
-    expr_ref_vector trail(m_manager);
+    expr_ref_vector trail(m);
     ptr_buffer<expr, 128> todo;
     ptr_buffer<expr> args;
     todo.push_back(fi_else);
@@ -135,7 +138,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
             todo.pop_back();
             func_decl * a_decl = to_app(a)->get_decl();
             expr * ai = get_const_interp(a_decl);
-            if (ai == 0) {
+            if (ai == nullptr) {
                 ai = get_some_value(a_decl->get_range());
                 register_decl(a_decl, ai);
             }
@@ -148,7 +151,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
                 bool visited = true;
                 args.reset();
                 for (expr* t_arg : *t) {
-                    expr * arg = 0;
+                    expr * arg = nullptr;
                     if (!cache.find(t_arg, arg)) {
                         visited = false;
                         todo.push_back(t_arg);
@@ -165,7 +168,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
                     TRACE("model_bug", tout << f->get_name() << "\n";);
                     found_aux_fs.insert(f);
                 }
-                expr_ref new_t(m_manager);
+                expr_ref new_t(m);
                 new_t = m_rewrite.mk_app(f, args.size(), args.c_ptr());
                 if (t != new_t.get())
                     trail.push_back(new_t);
@@ -235,7 +238,7 @@ value_factory * proto_model::get_factory(family_id fid) {
 }
 
 void proto_model::freeze_universe(sort * s) {
-    SASSERT(m_manager.is_uninterp(s));
+    SASSERT(m.is_uninterp(s));
     m_user_sort_factory->freeze_universe(s);
 }
 
@@ -270,11 +273,11 @@ sort * proto_model::get_uninterpreted_sort(unsigned idx) const {
    in the model.
 */
 bool proto_model::is_finite(sort * s) const {
-    return m_manager.is_uninterp(s) && m_user_sort_factory->is_finite(s);
+    return m.is_uninterp(s) && m_user_sort_factory->is_finite(s);
 }
 
 expr * proto_model::get_some_value(sort * s) {
-    if (m_manager.is_uninterp(s)) {
+    if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_some_value(s);
     }
     else {
@@ -288,7 +291,7 @@ expr * proto_model::get_some_value(sort * s) {
 }
 
 bool proto_model::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-    if (m_manager.is_uninterp(s)) {
+    if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_some_values(s, v1, v2);
     }
     else {
@@ -302,7 +305,7 @@ bool proto_model::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
 }
 
 expr * proto_model::get_fresh_value(sort * s) {
-    if (m_manager.is_uninterp(s)) {
+    if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_fresh_value(s);
     }
     else {
@@ -318,8 +321,8 @@ expr * proto_model::get_fresh_value(sort * s) {
 }
 
 void proto_model::register_value(expr * n) {
-    sort * s = m_manager.get_sort(n);
-    if (m_manager.is_uninterp(s)) {
+    sort * s = m.get_sort(n);
+    if (m.is_uninterp(s)) {
         m_user_sort_factory->register_value(n);
     }
     else {
@@ -342,11 +345,17 @@ void proto_model::compress() {
    \brief Complete the interpretation fi of f if it is partial.
    If f does not have an interpretation in the given model, then this is a noop.
 */
-void proto_model::complete_partial_func(func_decl * f) {
+void proto_model::complete_partial_func(func_decl * f, bool use_fresh) {
     func_interp * fi = get_func_interp(f);
     if (fi && fi->is_partial()) {
-        expr * else_value = fi->get_max_occ_result();
-        if (else_value == 0)
+        expr * else_value;
+        if (use_fresh) {
+            else_value = get_fresh_value(f->get_range());
+        }
+        else {
+            else_value = fi->get_max_occ_result();
+        }
+        if (else_value == nullptr)
             else_value = get_some_value(f->get_range());
         fi->set_else(else_value);
     }
@@ -355,28 +364,28 @@ void proto_model::complete_partial_func(func_decl * f) {
 /**
    \brief Set the (else) field of function interpretations...
 */
-void proto_model::complete_partial_funcs() {
+void proto_model::complete_partial_funcs(bool use_fresh) {
     if (m_model_partial)
         return;
 
     // m_func_decls may be "expanded" when we invoke get_some_value.
     // So, we must not use iterators to traverse it.
-    for (unsigned i = 0; i < m_func_decls.size(); i++) {
-        complete_partial_func(m_func_decls[i]);
+    for (unsigned i = 0; i < m_func_decls.size(); ++i) {
+        complete_partial_func(m_func_decls.get(i), use_fresh);
     }
 }
 
 model * proto_model::mk_model() {
     TRACE("proto_model", model_v2_pp(tout << "mk_model\n", *this););
-    model * m = alloc(model, m_manager);
+    model * mdl = alloc(model, m);
 
     for (auto const& kv : m_interp) {
-        m->register_decl(kv.m_key, kv.m_value);
+        mdl->register_decl(kv.m_key, kv.m_value);
     }
 
     for (auto const& kv : m_finterp) {
-        m->register_decl(kv.m_key, kv.m_value);
-        m_manager.dec_ref(kv.m_key);
+        mdl->register_decl(kv.m_key, kv.m_value);
+        m.dec_ref(kv.m_key);
     }
 
     m_finterp.reset(); // m took the ownership of the func_interp's
@@ -384,10 +393,11 @@ model * proto_model::mk_model() {
     unsigned sz = get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < sz; i++) {
         sort * s = get_uninterpreted_sort(i);
-        TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m_manager) << "\n";);
+        TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
         ptr_vector<expr> const& buf = get_universe(s);
-        m->register_usort(s, buf.size(), buf.c_ptr());
+        mdl->register_usort(s, buf.size(), buf.c_ptr());
     }
 
-    return m;
+    return mdl;
 }
+

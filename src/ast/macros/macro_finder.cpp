@@ -23,7 +23,7 @@ Revision History:
 #include "ast/ast_ll_pp.h"
 
 bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     TRACE("macro_finder", tout << "processing: " << mk_pp(n, m) << "\n";);
     expr * body        = to_quantifier(n)->get_expr();
@@ -46,7 +46,7 @@ bool macro_finder::is_macro(expr * n, app_ref & head, expr_ref & def) {
    For case 2 & 3, the new quantifiers are stored in new_exprs and new_prs.
 */
 bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, expr_ref_vector & new_exprs, proof_ref_vector & new_prs, expr_dependency_ref_vector & new_deps) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
@@ -71,7 +71,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, e
 
     quantifier_ref new_q(m);
     new_q = m.update_quantifier(to_quantifier(n), new_body);
-    proof * new_pr      = 0;
+    proof * new_pr      = nullptr;
     if (m.proofs_enabled()) {
         proof * rw  = m.mk_rewrite(n, new_q);
         new_pr      = m.mk_modus_ponens(pr, rw);
@@ -117,7 +117,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, expr_dependency * dep, e
 }
 
 bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& new_fmls) {
-    if (!is_quantifier(n) || !to_quantifier(n)->is_forall())
+    if (!is_forall(n))
         return false;
     expr * body        = to_quantifier(n)->get_expr();
     unsigned num_decls = to_quantifier(n)->get_num_decls();
@@ -142,7 +142,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
 
     quantifier_ref new_q(m); 
     new_q = m.update_quantifier(to_quantifier(n), new_body);
-    proof * new_pr      = 0;
+    proof * new_pr      = nullptr;
     if (m.proofs_enabled()) {
         proof * rw  = m.mk_rewrite(n, new_q);
         new_pr      = m.mk_modus_ponens(pr, rw);
@@ -163,7 +163,7 @@ bool macro_finder::is_arith_macro(expr * n, proof * pr, vector<justified_expr>& 
     quantifier * q1 = m.update_quantifier(new_q, body1);
     expr * patterns[1] = { m.mk_pattern(k_app) };
     quantifier * q2 = m.update_quantifier(new_q, 1, patterns, body2);
-    proof* pr1 = 0, *pr2 = 0;
+    proof* pr1 = nullptr, *pr2 = nullptr;
     if (m.proofs_enabled()) {
         // new_pr  : new_q
         // rw  : [rewrite] new_q ~ q1 & q2
@@ -233,7 +233,7 @@ static void pseudo_predicate_macro2macro(ast_manager & m, app * head, app * t, e
     app * body_1  = m.mk_eq(head, ite); 
     app * body_2  = m.mk_not(m.mk_eq(k_app, t));
     quantifier * q1 = m.update_quantifier(q, body_1);
-    proof * pr1 = 0, *pr2 = 0;
+    proof * pr1 = nullptr, *pr2 = nullptr;
     expr * pats[1] = { m.mk_pattern(k_app) };
     quantifier * q2 = m.update_quantifier(q, 1, pats, body_2); // erase patterns
     if (m.proofs_enabled()) {
@@ -268,8 +268,8 @@ bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * con
     bool found_new_macro = false;
     for (unsigned i = 0; i < num; i++) {
         expr * n       = exprs[i];
-        proof * pr     = m.proofs_enabled() ? prs[i] : 0;
-        expr_dependency * depi = deps != 0 ? deps[i] : 0;
+        proof * pr     = m.proofs_enabled() ? prs[i] : nullptr;
+        expr_dependency * depi = deps != nullptr ? deps[i] : nullptr;
         expr_ref new_n(m), def(m);
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
@@ -292,7 +292,7 @@ bool macro_finder::expand_macros(unsigned num, expr * const * exprs, proof * con
             new_exprs.push_back(new_n);
             if (m.proofs_enabled())
                 new_prs.push_back(new_pr);
-            if (deps != 0)
+            if (deps != nullptr)
                 new_deps.push_back(new_dep);
         }
     }
@@ -333,11 +333,11 @@ bool macro_finder::expand_macros(unsigned num, justified_expr const * fmls, vect
     bool found_new_macro = false;
     for (unsigned i = 0; i < num; i++) {
         expr * n       = fmls[i].get_fml();
-        proof * pr     = m.proofs_enabled() ? fmls[i].get_proof() : 0;
+        proof * pr     = m.proofs_enabled() ? fmls[i].get_proof() : nullptr;
         expr_ref new_n(m), def(m);
         proof_ref new_pr(m);
         expr_dependency_ref new_dep(m);
-        m_macro_manager.expand_macros(n, pr, 0, new_n, new_pr, new_dep);
+        m_macro_manager.expand_macros(n, pr, nullptr, new_n, new_pr, new_dep);
         app_ref head(m), t(m);
         if (is_macro(new_n, head, def) && m_macro_manager.insert(head->get_decl(), to_quantifier(new_n.get()), new_pr)) {
             TRACE("macro_finder_found", tout << "found new macro: " << head->get_decl()->get_name() << "\n" << new_n << "\n";);

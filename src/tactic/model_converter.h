@@ -15,51 +15,96 @@ Author:
 
 Notes:
 
+    A model converter, mc, can be used to convert a model for one 
+    of a generated subgoal into a model for an initial goal or solver state.
+    For a goal or solver state that is decided, a model converter can be
+    a simple wrapper around a model.
+
+    Logically, given a formula F and subgoal formula F_s a model converter mc
+    for F_s relative to F has the property:
+
+        m |= F_s  iff mc(m) |= F     for every model m
+
+    For the evaluator associated with models, m, we expect
+
+        eval(m)(F_s) <=> eval(mc(m))(F)
+
+    This property holds for both eval, that decides on a fixed value
+    for constants that have no interpretation in m and for 'peval' 
+    (partial eval) that returns just the constants that are unfixed.
+    (in the model evaluator one can control this behavior using a 
+    configuration flag)
+
+    and more generally over the eval method have:
+
+        G => F_s   iff peval(mc(e))(G) => F   for every formula G
+
+    
+    where e is the empty model (a model that does not evaluate any
+
+    When a model converter supports application to a formula it satisfies
+    the following property:
+
+       mc(G) & F_s is SAT  iff G & F is SAT
+
+    For a model converter that is a sequence of definitions and removals
+    of functions we can obtain mc(G) by adding back or expanding definitions
+    that are required to interpret G fully in the context of F_s.
+
 --*/
 #ifndef MODEL_CONVERTER_H_
 #define MODEL_CONVERTER_H_
 
+#include "util/ref.h"
+#include "ast/ast_pp_util.h"
 #include "model/model.h"
 #include "tactic/converter.h"
-#include "util/ref.h"
 
 class labels_vec : public svector<symbol> {};
+class smt2_pp_environment; 
 
 class model_converter : public converter {
+protected:
+    smt2_pp_environment* m_env;
+    void display_add(std::ostream& out, ast_manager& m, func_decl* f, expr* e) const;
+    void display_del(std::ostream& out, func_decl* f) const;
+    void display_add(std::ostream& out, ast_manager& m);
+    
 public:
-    virtual void operator()(model_ref & m) {}  // TODO: delete
 
-    virtual void operator()(model_ref & m, unsigned goal_idx) {
-        // TODO: make it virtual after the transition to goal/tactic/tactical is complete
-        SASSERT(goal_idx == 0);
-        operator()(m);
-    }
+    model_converter(): m_env(nullptr) {}
 
-    virtual void operator()(labels_vec & r, unsigned goal_idx) {}
+    virtual void operator()(model_ref & m) = 0;
+
+    virtual void operator()(labels_vec & r) {}
     
     virtual model_converter * translate(ast_translation & translator) = 0;
+    
+    virtual void set_env(ast_pp_util* visitor);
+
+    /**
+       \brief we are adding a formula to the context of the model converter.
+       The operator has as side effect of adding definitions as assertions to the
+       formula and removing these definitions from the model converter.
+     */
+    virtual void operator()(expr_ref& formula) { UNREACHABLE(); }
+
+    virtual void get_units(obj_map<expr, bool>& fmls) { UNREACHABLE(); }
 };
 
 typedef ref<model_converter> model_converter_ref;
+typedef sref_vector<model_converter> model_converter_ref_vector;
+typedef sref_buffer<model_converter> model_converter_ref_buffer;
 
 model_converter * concat(model_converter * mc1, model_converter * mc2);
 
-/**
-   \brief \c mc1 is the model converter for a sequence of subgoals of size \c num.
-   Given an i in [0, num), mc2s[i] is the model converter for subgoal i,
-   and num_subgoals[i] is the number of subgoals of subgoals[i].
-*/
-model_converter * concat(model_converter * mc1, unsigned num, model_converter * const * mc2s, unsigned * num_subgoals);
-
 model_converter * model2model_converter(model * m);
 
-model_converter * model_and_labels2model_converter(model * m, buffer<symbol> &r);
+model_converter * model_and_labels2model_converter(model * m, labels_vec const &r);
 
 void model_converter2model(ast_manager & mng, model_converter * mc, model_ref & m);
 
-void apply(model_converter_ref & mc, model_ref & m, unsigned gidx);
+void apply(model_converter_ref & mc, model_ref & m);
 
-typedef sref_vector<model_converter> model_converter_ref_vector;
-typedef sref_buffer<model_converter> model_converter_ref_buffer;
 
 #endif

@@ -26,7 +26,7 @@ Notes:
 #include "util/trace.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "tactic/arith/pb2bv_model_converter.h"
 #include "tactic/arith/pb2bv_tactic.h"
 #include "ast/ast_pp.h"
@@ -216,7 +216,7 @@ private:
             }
 
             bool get_subst(expr * s, expr * & t, proof * & t_pr) { 
-                t_pr = 0;
+                t_pr = nullptr;
                 if (owner.is_constraint_core(s)) {
                     owner.convert(to_app(s), m_saved_res, true, false);
                     t = m_saved_res;
@@ -328,12 +328,12 @@ private:
             func_decl * fd = x->get_decl();
             obj_map<func_decl, expr*> & const2lit = sign ? m_not_const2bit : m_const2bit;
 
-            expr * r = 0;
+            expr * r = nullptr;
             const2lit.find(fd, r);
-            if (r != 0)
+            if (r != nullptr)
                 return r;
 
-            r = m.mk_fresh_const(0, m.mk_bool_sort());
+            r = m.mk_fresh_const(nullptr, m.mk_bool_sort());
             expr * not_r = m.mk_not(r);
             m_const2bit.insert(fd, r);
             m_not_const2bit.insert(fd, not_r);
@@ -490,7 +490,7 @@ private:
             for (unsigned j = 0; j < i; j++)
                 m_clause.push_back(monomial(numeral(1), m_p[j].m_lit));
         
-            app * new_var = m.mk_fresh_const(0, m_arith_util.mk_int());
+            app * new_var = m.mk_fresh_const(nullptr, m_arith_util.mk_int());
             m_temporary_ints.push_back(new_var);
         
             m_clause.push_back(monomial(numeral(1), lit(new_var,  true)));        
@@ -886,16 +886,13 @@ private:
         }
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+                        goal_ref_buffer & result) {
             TRACE("pb2bv", g->display(tout););
             SASSERT(g->is_well_sorted());
             fail_if_proof_generation("pb2bv", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled();
-            mc = 0; pc = 0; core = 0; result.reset();
+            result.reset();
             tactic_report report("pb2bv", *g);
             m_bm.reset(); m_rw.reset(); m_new_deps.reset();
 
@@ -946,20 +943,20 @@ private:
             }
 
             for (unsigned idx = 0; idx < size; idx++)
-                g->update(idx, new_exprs[idx].get(), 0, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
+                g->update(idx, new_exprs[idx].get(), nullptr, (m_produce_unsat_cores) ? new_deps[idx].get() : g->dep(idx));
 
             if (m_produce_models) {
-                filter_model_converter * mc1 = alloc(filter_model_converter, m);
-                obj_map<func_decl, expr*>::iterator it  = m_const2bit.begin();
-                obj_map<func_decl, expr*>::iterator end = m_const2bit.end();
-                for (; it != end; ++it)
-                    mc1->insert(to_app(it->m_value)->get_decl());
+                model_converter_ref mc;
+                generic_model_converter * mc1 = alloc(generic_model_converter, m, "pb2bv");
+                for (auto const& kv : m_const2bit) 
+                    mc1->hide(kv.m_value);
                 // store temp int constants in the filter
                 unsigned num_temps = m_temporary_ints.size();
                 for (unsigned i = 0; i < num_temps; i++)
-                    mc1->insert(to_app(m_temporary_ints.get(i))->get_decl());
+                    mc1->hide(m_temporary_ints.get(i));
                 pb2bv_model_converter * mc2 = alloc(pb2bv_model_converter, m, m_const2bit, m_bm);
-                mc = concat(mc1, mc2);                
+                mc = concat(mc1, mc2); 
+                g->add(mc.get());
             }
 
             g->inc_depth();
@@ -971,7 +968,7 @@ private:
         void throw_tactic(expr* e) {
             std::stringstream strm;
             strm << "goal is in a fragment unsupported by pb2bv. Offending expression: " << mk_pp(e, m);
-            throw tactic_exception(strm.str().c_str());
+            throw tactic_exception(strm.str());
         }
     };
 
@@ -983,32 +980,29 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(pb2bv_tactic, m, m_params);
     }
 
-    virtual ~pb2bv_tactic() {
+    ~pb2bv_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {  
+    void collect_param_descrs(param_descrs & r) override {
         m_imp->collect_param_descrs(r);
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         imp * d = alloc(imp, m, m_params);
         std::swap(d, m_imp);        
@@ -1023,7 +1017,7 @@ tactic * mk_pb2bv_tactic(ast_manager & m, params_ref const & p) {
 }
 
 struct is_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         try {
             ast_manager & m = g.m();
             bound_manager bm(m);
@@ -1040,7 +1034,7 @@ struct is_pb_probe : public probe {
             
             return true;
         }
-        catch (pb2bv_tactic::non_pb) {
+        catch (const pb2bv_tactic::non_pb &) {
             return false;
         }
     }

@@ -46,40 +46,40 @@ namespace datalog {
 
         table_plugin & get_table_plugin() { return m_table_plugin; }
 
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
         
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
         virtual relation_base * mk_full_relation(const relation_signature & s, func_decl* p, family_id kind);
         relation_base * mk_from_table(const relation_signature & s, table_base * t);
 
     protected:
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
-            unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t, 
-            const unsigned * permutation);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t,
-            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols);
-        virtual relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t, 
-            const relation_base & src, unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * src_cols);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 
-            const relation_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
-        virtual relation_transformer_fn * mk_select_equal_and_project_fn(const relation_base & t, 
-            const relation_element & value, unsigned col);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
+            unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_transformer_fn * mk_permutation_rename_fn(const relation_base & t,
+            const unsigned * permutation) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_transformer_fn * mk_filter_interpreted_and_project_fn(const relation_base & t,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) override;
+        relation_intersection_filter_fn * mk_filter_by_intersection_fn(const relation_base & t,
+            const relation_base & src, unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * src_cols) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
+            const relation_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
+        relation_transformer_fn * mk_select_equal_and_project_fn(const relation_base & t,
+            const relation_element & value, unsigned col) override;
     };
 
     class table_relation : public relation_base {
@@ -107,24 +107,24 @@ namespace datalog {
         table_base & get_table() { return *m_table; }
         const table_base & get_table() const { return *m_table; }
 
-        virtual bool empty() const { return m_table->empty(); }
+        bool empty() const override { return m_table->empty(); }
 
         void add_table_fact(const table_fact & f);
 
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual relation_base * clone() const;
-        virtual relation_base * complement(func_decl* p) const;
-        virtual void to_formula(expr_ref& fml) const { get_table().to_formula(get_signature(), fml); }
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        relation_base * clone() const override;
+        relation_base * complement(func_decl* p) const override;
+        void to_formula(expr_ref& fml) const override { get_table().to_formula(get_signature(), fml); }
 
-        virtual void display(std::ostream & out) const {
+        void display(std::ostream & out) const override {
             get_table().display(out);
         }
-        virtual void display_tuples(func_decl & pred, std::ostream & out) const;
+        void display_tuples(func_decl & pred, std::ostream & out) const override;
 
-        virtual unsigned get_size_estimate_rows() const { return m_table->get_size_estimate_rows(); }
-        virtual unsigned get_size_estimate_bytes() const { return m_table->get_size_estimate_bytes(); }
-        virtual bool knows_exact_size() const { return m_table->knows_exact_size(); }
+        unsigned get_size_estimate_rows() const override { return m_table->get_size_estimate_rows(); }
+        unsigned get_size_estimate_bytes() const override { return m_table->get_size_estimate_bytes(); }
+        bool knows_exact_size() const override { return m_table->knows_exact_size(); }
     };
 
 };

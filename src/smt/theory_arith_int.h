@@ -50,15 +50,15 @@ namespace smt {
                 bound * l               = lower(v);
                 bound * u               = upper(v);
                 const inf_numeral & val = get_value(v);
-                if (l != 0 && u != 0) {
+                if (l != nullptr && u != nullptr) {
                     if (val != l->get_value() && val != u->get_value())
                         set_value(v, l->get_value());
                 }
-                else if (l != 0) {
+                else if (l != nullptr) {
                     if (val != l->get_value())
                         set_value(v, l->get_value());
                 }
-                else if (u != 0) {
+                else if (u != nullptr) {
                     if (val != u->get_value())
                         set_value(v, u->get_value());
                 }
@@ -200,10 +200,12 @@ namespace smt {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
         m_stats.m_branches++;
-        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
-              display_var(tout, v););
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
+        TRACE("arith_int", tout << "branching v" << v << " = " << get_value(v) << "\n";
+              display_var(tout, v);
+              tout << "k = " << k << ", _k = "<< _k << std::endl;
+              );
         expr_ref bound(get_manager());
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
@@ -245,12 +247,12 @@ namespace smt {
             numeral const_coeff(0);
 
             bound* l = lower(b), *u = upper(b);
-            if (l != 0 && get_value(b) - inf_numeral(1) < l->get_value()) {
+            if (l != nullptr && get_value(b) - inf_numeral(1) < l->get_value()) {
                 SASSERT(l->get_value() <= get_value(b));
                 is_tight = true;
                 const_coeff = l->get_value().get_rational();
             }
-            else if (u != 0 && get_value(b) + inf_numeral(1) > u->get_value()) {
+            else if (u != nullptr && get_value(b) + inf_numeral(1) > u->get_value()) {
                 SASSERT(get_value(b) <= u->get_value());
                 is_tight = true;
                 const_coeff = u->get_value().get_rational();
@@ -394,7 +396,9 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead() && it->m_var != b && is_free(it->m_var)) {
                 theory_var v  = it->m_var;
-                expr * bound  = m_util.mk_ge(get_enode(v)->get_owner(), m_util.mk_numeral(rational::zero(), is_int(v)));
+                expr* e = get_enode(v)->get_owner();
+                bool _is_int = m_util.is_int(e);
+                expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
                 context & ctx = get_context();
                 ctx.internalize(bound, true);
                 ctx.mark_as_relevant(bound);
@@ -472,7 +476,7 @@ namespace smt {
                                              bounds.num_params(), bounds.params("gomory-cut")) {
         }
         // Remark: the assignment must be propagated back to arith
-        virtual theory_id get_from_theory() const { return null_theory_id; } 
+        theory_id get_from_theory() const override { return null_theory_id; }
     };
 
     /**
@@ -1074,7 +1078,7 @@ namespace smt {
             derived_bound * new_bound = alloc(derived_bound, v, inf_numeral(k), lower ? B_LOWER : B_UPPER);
             t.m_tmp_lit_set.reset();
             t.m_tmp_eq_set.reset();
-            if (old_bound != 0) {
+            if (old_bound != nullptr) {
                 t.accumulate_justification(*old_bound, *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
             }
             unsigned_vector::const_iterator it  = js.begin();
@@ -1174,8 +1178,8 @@ namespace smt {
                 c2 = rational(c);
                 TRACE("euclidean_solver_new", tout << "new fixed: " << c2 << "\n";);
                 propagated = true;
-                mk_lower(v, c2, 0, m_js);
-                mk_upper(v, c2, 0, m_js);
+                mk_lower(v, c2, nullptr, m_js);
+                mk_upper(v, c2, nullptr, m_js);
             }
             else {
                 TRACE("euclidean_solver", tout << "inequality can be tightned, since all coefficients are multiple of: " << g << "\n";);
@@ -1187,7 +1191,7 @@ namespace smt {
                 bound * l = t.lower(v);
                 bound * u = t.upper(v);
                 c2 = rational(c);
-                if (l != 0) {
+                if (l != nullptr) {
                     rational l_old = l->get_value().get_rational().to_rational();
                     rational l_new = g*ceil((l_old - c2)/g) + c2;
                     TRACE("euclidean_solver_new", tout << "new lower: " << l_new << " old: " << l_old << "\n";
@@ -1197,7 +1201,7 @@ namespace smt {
                         mk_lower(v, l_new, l, m_js);
                     }
                 }
-                if (u != 0) {
+                if (u != nullptr) {
                     rational u_old  = u->get_value().get_rational().to_rational();
                     rational u_new  = g*floor((u_old - c2)/g) + c2;
                     TRACE("euclidean_solver_new", tout << "new upper: " << u_new << " old: " << u_old << "\n";);
@@ -1223,7 +1227,7 @@ namespace smt {
                     continue; // skip equations...
                 if (!t.is_int(v))
                     continue; // skip non integer definitions...
-                if (t.lower(v) == 0 && t.upper(v) == 0)
+                if (t.lower(v) == nullptr && t.upper(v) == nullptr)
                     continue; // there is nothing to be tightned
                 if (tight_bounds(v))
                     propagated = true;
@@ -1333,7 +1337,7 @@ namespace smt {
                       }
                   }
               });
-
+        m_stats.m_patches++;
         patch_int_infeasible_vars();
         fix_non_base_vars();
         
@@ -1366,6 +1370,7 @@ namespace smt {
         
         theory_var int_var = find_infeasible_int_base_var();
         if (int_var == null_theory_var) {
+            m_stats.m_patches_succ++;
             TRACE("arith_int_incomp", tout << "FC_DONE 2...\n"; display(tout););
             return m_liberal_final_check || !m_changed_assignment ? FC_DONE : FC_CONTINUE;
         }
@@ -1383,6 +1388,7 @@ namespace smt {
 
         m_branch_cut_counter++;
         // TODO: add giveup code
+        TRACE("gomory_cut", tout << m_branch_cut_counter << ", " << m_params.m_arith_branch_cut_ratio << std::endl;);
         if (m_branch_cut_counter % m_params.m_arith_branch_cut_ratio == 0) {
             TRACE("opt_verbose", display(tout););
             move_non_base_vars_to_bounds();
@@ -1397,7 +1403,7 @@ namespace smt {
                 SASSERT(is_base(int_var));
                 row const & r = m_rows[get_var_row(int_var)];
                 if (!mk_gomory_cut(r)) {
-                    // silent failure
+                    TRACE("gomory_cut", tout << "silent failure\n";);
                 }
                 return FC_CONTINUE;
             }

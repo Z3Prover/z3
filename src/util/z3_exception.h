@@ -33,18 +33,18 @@ class z3_error : public z3_exception {
     unsigned m_error_code;
 public:
     z3_error(unsigned error_code);
-    virtual char const * msg() const;
-    virtual unsigned error_code() const;
+    char const * msg() const override;
+    unsigned error_code() const override;
 };
 
 class default_exception : public z3_exception {
     std::string m_msg;
 public:
     struct fmt {};
-    default_exception(std::string const& msg);
+    default_exception(std::string && msg) : m_msg(std::move(msg)) {}
     default_exception(fmt, char const* msg, ...);
-    virtual ~default_exception() {}
-    virtual char const * msg() const;
+    ~default_exception() override {}
+    char const * msg() const override;
 };
 
 #endif

@@ -23,15 +23,12 @@ struct arith_bounds_tactic : public tactic {
     ast_manager& get_manager() { return m; }
 
 
-    virtual void operator()(/* in */  goal_ref const & in, 
-                            /* out */ goal_ref_buffer & result, 
-                            /* out */ model_converter_ref & mc, 
-                            /* out */ proof_converter_ref & pc,
-                            /* out */ expr_dependency_ref & core) {        
+    void operator()(/* in */  goal_ref const & in, 
+                    /* out */ goal_ref_buffer & result) override {        
         bounds_arith_subsumption(in, result);
     }
     
-    virtual tactic* translate(ast_manager & mgr) {
+    tactic* translate(ast_manager & mgr) override {
         return alloc(arith_bounds_tactic, mgr);
     }
     
@@ -50,7 +47,7 @@ struct arith_bounds_tactic : public tactic {
     
     void mk_proof(proof_ref& pr, goal_ref const& s, unsigned i, unsigned j) {
         if (s->proofs_enabled()) {
-            proof* th_lemma = m.mk_th_lemma(a.get_family_id(), m.mk_implies(s->form(i), s->form(j)), 0, 0);
+            proof* th_lemma = m.mk_th_lemma(a.get_family_id(), m.mk_implies(s->form(i), s->form(j)), 0, nullptr);
             pr = m.mk_modus_ponens(s->pr(i), th_lemma);
         }        
     }
@@ -146,7 +143,7 @@ struct arith_bounds_tactic : public tactic {
         TRACE("arith_subsumption", s->display(tout); );
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
 };
 

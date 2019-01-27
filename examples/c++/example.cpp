@@ -115,7 +115,6 @@ void prove_example1() {
 */
 void prove_example2() {
     std::cout << "prove_example1\n";
-    
     context c;
     expr x      = c.int_const("x");
     expr y      = c.int_const("y");
@@ -139,6 +138,7 @@ void prove_example2() {
     s.reset();
     s.add(!conjecture2);
     std::cout << "conjecture 2:\n" << conjecture2 << "\n";
+
     if (s.check() == unsat) {
         std::cout << "proved" << "\n";
     }
@@ -470,7 +470,7 @@ void unsat_core_example2() {
     // The solver s already contains p1 => F
     // To disable F, we add (not p1) as an additional assumption
     qs.push_back(!p1);
-    std::cout << s.check((unsigned)qs.size(), &qs[0]) << "\n";
+    std::cout << s.check(static_cast<unsigned>(qs.size()), &qs[0]) << "\n";
     expr_vector core2 = s.unsat_core();
     std::cout << core2 << "\n";
     std::cout << "size: " << core2.size() << "\n";
@@ -707,7 +707,7 @@ void tactic_example7() {
     std::cout << s.check() << "\n";
     model m = s.get_model();
     std::cout << "model for subgoal:\n" << m << "\n";
-    std::cout << "model for original goal:\n" << r.convert_model(m) << "\n";
+    std::cout << "model for original goal:\n" << subgoal.convert_model(m) << "\n";
 }
 
 void tactic_example8() {
@@ -835,6 +835,17 @@ void tst_visit() {
     visit(f);
 }
 
+void tst_numeral() {
+    context c;
+    expr x = c.real_val("1/3");
+    double d = 0;
+    if (!x.is_numeral(d)) {
+        std::cout << x << " is not recognized as a numeral\n";
+        return;
+    }
+    std::cout << x << " is " << d << "\n";
+}
+
 void incremental_example1() {
     std::cout << "incremental example1\n";
     context c;
@@ -918,6 +929,19 @@ void enum_sort_example() {
     apply_result result_of_elimination = qe.apply(g);
     goal result_goal = result_of_elimination[0];
     std::cout << "2: " << result_goal.as_expr() << std::endl;
+}
+
+void tuple_example() {
+    std::cout << "tuple example\n";
+    context ctx;
+    const char * names[] = { "first", "second" };
+    sort sorts[2] = { ctx.int_sort(), ctx.bool_sort() };
+    func_decl_vector projs(ctx);
+    func_decl pair = ctx.tuple_sort("pair", 2, names, sorts, projs);
+    sorts[1] = pair.range();
+    func_decl pair2 = ctx.tuple_sort("pair2", 2, names, sorts, projs);
+    
+    std::cout << pair2 << "\n";
 }
 
 void expr_vector_example() {
@@ -1136,12 +1160,50 @@ static void parse_example() {
     func_decl_vector decls(c);
     sort B = c.bool_sort();
     decls.push_back(c.function("a", 0, 0, B));
-    expr a = c.parse_string("(assert a)", sorts, decls);
+    expr_vector a = c.parse_string("(assert a)", sorts, decls);
     std::cout << a << "\n";
 
     // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
 
+void mk_model_example() {
+    context c;
+
+    // construct empty model
+    model m(c);
+
+    // create constants "a", "b" and get their func_decl
+    expr a = c.int_const("a");
+    expr b = c.int_const("b");
+    func_decl a_decl = a.decl();
+    func_decl b_decl = b.decl();
+
+    // create numerals to be used in model
+    expr zero_numeral = c.int_val(0);
+    expr one_numeral = c.int_val(1);
+
+    // add assignment to model
+    m.add_const_interp(a_decl, zero_numeral);
+    m.add_const_interp(b_decl, one_numeral);
+
+    // evaluate a + b < 2 in the model
+    std::cout << m.eval(a + b < 2)<< std::endl;
+}
+
+void recfun_example() {
+    std::cout << "recfun example\n";
+    context c;    
+    expr x = c.int_const("x");
+    expr y = c.int_const("y");
+    expr b = c.bool_const("b");
+    sort I = c.int_sort();
+    sort B = c.bool_sort();    
+    func_decl f = recfun("f", I, B, I);
+    expr_vector args(c);
+    args.push_back(x); args.push_back(b);
+    c.recdef(f, args, ite(b, x, f(x + 1, !b)));
+    prove(f(x,c.bool_val(false)) > x);
+}
 
 int main() {
 
@@ -1175,10 +1237,12 @@ int main() {
         tactic_example9(); std::cout << "\n";
         tactic_qe(); std::cout << "\n";
         tst_visit(); std::cout << "\n";
+        tst_numeral(); std::cout << "\n";
         incremental_example1(); std::cout << "\n";
         incremental_example2(); std::cout << "\n";
         incremental_example3(); std::cout << "\n";
         enum_sort_example(); std::cout << "\n";
+        tuple_example(); std::cout << "\n";
         expr_vector_example(); std::cout << "\n";
         exists_expr_vector_example(); std::cout << "\n";
         substitute_example(); std::cout << "\n";
@@ -1188,6 +1252,8 @@ int main() {
         sudoku_example(); std::cout << "\n";
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
+        mk_model_example(); std::cout << "\n";
+        recfun_example(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

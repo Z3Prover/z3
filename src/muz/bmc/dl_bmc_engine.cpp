@@ -17,23 +17,23 @@ Revision History:
 
 --*/
 
+#include "ast/datatype_decl_plugin.h"
+#include "ast/dl_decl_plugin.h"
+#include "ast/ast_smt_pp.h"
+#include "ast/well_sorted.h"
+#include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/scoped_proof.h"
+#include "smt/smt_solver.h"
+#include "tactic/fd_solver/fd_solver.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/bmc/dl_bmc_engine.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "smt/smt_kernel.h"
-#include "ast/datatype_decl_plugin.h"
-#include "ast/dl_decl_plugin.h"
-#include "ast/rewriter/bool_rewriter.h"
 #include "model/model_smt2_pp.h"
-#include "ast/ast_smt_pp.h"
-#include "ast/well_sorted.h"
-#include "ast/rewriter/rewriter_def.h"
 #include "muz/transforms/dl_transforms.h"
 #include "muz/transforms/dl_mk_rule_inliner.h"
-#include "ast/scoped_proof.h"
-
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -53,7 +53,7 @@ namespace datalog {
             m_bit_width = 4;
             lbool res = l_false;
             while (res == l_false) {
-                b.m_solver.push();
+                b.m_solver->push();
                 IF_VERBOSE(1, verbose_stream() << "bit_width: " << m_bit_width << "\n";);
                 compile();
                 b.checkpoint();
@@ -61,12 +61,12 @@ namespace datalog {
                 expr* T = m.mk_const(symbol("T"), mk_index_sort());
                 expr_ref fml(m.mk_app(q, T), m);
                 b.assert_expr(fml);
-                res = b.m_solver.check();
+                res = b.m_solver->check_sat(0, nullptr);
 
                 if (res == l_true) {
                     res = get_model();
                 }
-                b.m_solver.pop(1);
+                b.m_solver->pop(1);
                 ++m_bit_width;
             }
             return res;
@@ -108,20 +108,20 @@ namespace datalog {
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr(), trm);
+                        trm = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
                         conjs.push_back(m.mk_eq(trm, mk_q_arg(p, k, true)));
                     }
                     for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr(), trm);
+                            trm = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
                             conjs.push_back(m.mk_eq(trm, mk_q_arg(q, k, false)));
                         }
                         func_decl_ref qr = mk_q_func_decl(q);
                         conjs.push_back(m.mk_app(qr, m_bv.mk_bv_sub(var, mk_q_one())));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        vs(r.get_tail(j), sub.size(), sub.c_ptr(), trm);
+                        trm = vs(r.get_tail(j), sub.size(), sub.c_ptr());
                         conjs.push_back(trm);
                     }
                     if (r.get_uninterpreted_tail_size() > 0) {
@@ -141,10 +141,10 @@ namespace datalog {
         }
 
         void setup() {
-            b.m_fparams.m_relevancy_lvl = 2;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = true;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            p.set_bool("smt.mbqi", true);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -228,10 +228,9 @@ namespace datalog {
 
         expr_ref eval_q(model_ref& model, func_decl* f, unsigned i) {
             func_decl_ref fn = mk_q_func_decl(f);
-            expr_ref t(m), result(m);
+            expr_ref t(m);
             t = m.mk_app(mk_q_func_decl(f).get(), mk_q_num(i));
-            model->eval(t, result);
-            return result;
+            return (*model)(t);
         }
 
         expr_ref eval_q(model_ref& model, expr* t, unsigned i) {
@@ -239,9 +238,8 @@ namespace datalog {
             var_subst vs(m, false);
             num = mk_q_num(i);
             expr* nums[1] = { num };
-            vs(t, 1, nums, tmp);
-            model->eval(tmp, result);
-            return result;
+            tmp = vs(t, 1, nums);
+            return (*model)(tmp);
         }
 
         lbool get_model() {
@@ -254,11 +252,11 @@ namespace datalog {
             rational num;
             unsigned level, bv_size;
 
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             func_decl* pred = b.m_query_pred;
             dl_decl_util util(m);
             T = m.mk_const(symbol("T"), mk_index_sort());
-            md->eval(T, vl);
+            vl = (*md)(T);
             VERIFY (m_bv.is_numeral(vl, num, bv_size));
             SASSERT(num.is_unsigned());
             level = num.get_unsigned();
@@ -270,7 +268,7 @@ namespace datalog {
                 TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
                 expr_ref_vector sub(m);
                 rule_vector const& rls = b.m_rules.get_predicate_rules(pred);
-                rule* r = 0;
+                rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
                     rule_i = m.mk_app(mk_q_rule(pred, i), mk_q_num(level).get());
@@ -470,10 +468,9 @@ namespace datalog {
         }
 
         void setup() {
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            // b.m_fparams.m_mbqi = true;
-            b.m_fparams.m_relevancy_lvl = 2;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -484,12 +481,12 @@ namespace datalog {
             q_at_level = m.mk_implies(q, p);
             b.assert_expr(q_at_level);
             expr* qr = q.get();
-            return b.m_solver.check(1, &qr);
+            return b.m_solver->check_sat(1, &qr);
         }
 
         proof_ref get_proof(model_ref& md, func_decl* pred, app* prop, unsigned level) {
             if (m.canceled()) {
-                return proof_ref(0, m);
+                return proof_ref(nullptr, m);
             }
             TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
             rule_manager& rm = b.m_ctx.get_rule_manager();
@@ -500,13 +497,12 @@ namespace datalog {
 
             // find the rule that was triggered by evaluating the arguments to prop.
             rule_vector const& rls = b.m_rules.get_predicate_rules(pred);
-            rule* r = 0;
+            rule* r = nullptr;
             for (unsigned i = 0; i < rls.size(); ++i) {
                 func_decl_ref rule_i = mk_level_rule(pred, i, level);
                 TRACE("bmc", rls[i]->display(b.m_ctx, tout << "Checking rule " << mk_pp(rule_i, m) << " "););
                 prop_r = m.mk_app(rule_i, prop->get_num_args(), prop->get_args());
-                md->eval(prop_r, prop_v);
-                if (m.is_true(prop_v)) {
+                if (md->is_true(prop_r)) {
                     r = rls[i];
                     break;
                 }
@@ -527,8 +523,7 @@ namespace datalog {
                 return pr;
             }
             for (unsigned j = 0; j < sub.size(); ++j) {
-                md->eval(sub[j].get(), tmp);
-                sub[j] = tmp;
+                sub[j] = (*md)(sub[j].get());
             }
 
             svector<std::pair<unsigned, unsigned> > positions;
@@ -539,7 +534,7 @@ namespace datalog {
             for (unsigned j = 0; j < sz; ++j) {
                 func_decl* head_j = r->get_decl(j);
                 app* body_j = r->get_tail(j);
-                vs(body_j, sub.size(), sub.c_ptr(), prop_body);
+                prop_body = vs(body_j, sub.size(), sub.c_ptr());
                 prs.push_back(get_proof(md, head_j, to_app(prop_body), level-1));
                 positions.push_back(std::make_pair(j+1,0));
                 substs.push_back(expr_ref_vector(m));
@@ -552,7 +547,7 @@ namespace datalog {
             scoped_proof _sp(m);
             expr_ref level_query = compile_query(b.m_query_pred, level);
             model_ref md;
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
             proof_ref pr(m);
             pr = get_proof(md, b.m_query_pred, to_app(level_query), level);
@@ -606,18 +601,16 @@ namespace datalog {
                     binding.push_back(m.mk_app(f, args.size(), args.c_ptr()));
                 }
                 else {
-                    binding.push_back(0);
+                    binding.push_back(nullptr);
                 }
             }
             return binding;
         }
 
         expr_ref skolemize_vars(rule& r, expr_ref_vector const& args, ptr_vector<sort> const& vars, expr* e) {
-            expr_ref        result(m);
             expr_ref_vector binding = mk_skolem_binding(r, vars, args);
             var_subst vs(m, false);
-            vs(e, binding.size(), binding.c_ptr(), result);
-            return result;
+            return vs(e, binding.size(), binding.c_ptr());
         }
 
         func_decl_ref mk_body_func(rule& r, ptr_vector<sort> const& args, unsigned index, sort* s) {
@@ -642,7 +635,7 @@ namespace datalog {
                     names.push_back(symbol(i));
                 }
                 else {
-                    binding.push_back(0);
+                    binding.push_back(nullptr);
                 }
             }
             sorts.reverse();
@@ -650,8 +643,8 @@ namespace datalog {
                 return expr_ref(e, m);
             }
             var_subst vs(m, false);
-            vs(e, binding.size(), binding.c_ptr(), tmp);
-            vs(pat, binding.size(), binding.c_ptr(), head);
+            tmp = vs(e, binding.size(), binding.c_ptr());
+            head = vs(pat, binding.size(), binding.c_ptr());
             patterns.push_back(m.mk_pattern(to_app(head)));
             symbol qid, skid;
             return expr_ref(m.mk_forall(sorts.size(), sorts.c_ptr(), names.c_ptr(), tmp, 1, qid, skid, 1, patterns.c_ptr()), m);
@@ -686,7 +679,7 @@ namespace datalog {
                 }
                 else {
                     expr * const * no_pats = &new_body;
-                    result = n.m.update_quantifier(old_q, 0, 0, 1, no_pats, new_body);
+                    result = n.m.update_quantifier(old_q, 0, nullptr, 1, no_pats, new_body);
                 }
                 return true;
             }
@@ -761,11 +754,10 @@ namespace datalog {
             m_pred2sort.reset();
             m_pinned.reset();
             m_sort2pred.reset();
-            b.m_fparams.m_relevancy_lvl = 0;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = false;
-            b.m_fparams.m_relevancy_lvl = 2;
+            params_ref p;
+            p.set_uint("smt.relevancy", 2ul);
+            p.set_bool("smt.mbqi", false);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -896,7 +888,7 @@ namespace datalog {
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr(), tmp);
+                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
                         expr_ref arg = mk_arg(p, k, path_var, trace_arg);
                         conjs.push_back(m.mk_eq(tmp, arg));
                     }
@@ -910,7 +902,7 @@ namespace datalog {
                         }
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr(), tmp);
+                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
                             expr_ref arg = mk_arg(q, k, path_arg, vars[j].get());
                             conjs.push_back(m.mk_eq(tmp, arg));
                         }
@@ -918,7 +910,7 @@ namespace datalog {
                         conjs.push_back(m.mk_app(q_pred, vars[j].get(), path_arg));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        vs(r.get_tail(j), sub.size(), sub.c_ptr(), tmp);
+                        tmp = vs(r.get_tail(j), sub.size(), sub.c_ptr());
                         conjs.push_back(tmp);
                     }
                     bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
@@ -986,7 +978,7 @@ namespace datalog {
             sort_ref_vector new_sorts(m);
             family_id dfid = m.mk_family_id("datatype");
             datatype_decl_plugin* dtp = static_cast<datatype_decl_plugin*>(m.get_plugin(dfid));
-            VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
+            VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, nullptr, new_sorts));
 
             it  = b.m_rules.begin_grouped_rules();
             for (unsigned i = 0; it != end; ++it, ++i) {
@@ -994,7 +986,7 @@ namespace datalog {
                 m_sort2pred.insert(new_sorts[i].get(), it->m_key);
                 m_pinned.push_back(new_sorts[i].get());
             }
-            if (new_sorts.size() > 0) {
+            if (!new_sorts.empty()) {
                 TRACE("bmc", dtu.display_datatype(new_sorts[0].get(), tout););
             }
             del_datatype_decls(dts.size(), dts.c_ptr());
@@ -1012,7 +1004,7 @@ namespace datalog {
                     unsigned sz = r->get_uninterpreted_tail_size();
                     max_arity = std::max(sz, max_arity);
                 }
-                cnstrs.push_back(mk_constructor_decl(symbol("Z#"), symbol("Z#?"), 0, 0));
+                cnstrs.push_back(mk_constructor_decl(symbol("Z#"), symbol("Z#?"), 0, nullptr));
 
                 for (unsigned i = 0; i + 1 < max_arity; ++i) {
                     std::stringstream _name;
@@ -1028,7 +1020,7 @@ namespace datalog {
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
                 }
                 dts.push_back(mk_datatype_decl(dtu, symbol("Path"), 0, nullptr, cnstrs.size(), cnstrs.c_ptr()));
-                VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, 0, new_sorts));
+                VERIFY (dtp->mk_datatypes(dts.size(), dts.c_ptr(), 0, nullptr, new_sorts));
                 m_path_sort = new_sorts[0].get();
             }
         }
@@ -1052,7 +1044,7 @@ namespace datalog {
                     expr_ref fml(m), head(m), tmp(m);
                     app_ref path1(m);
 
-                    var_subst vs(m, false);
+                    // var_subst vs(m, false);
                     mk_subst(*rules[i], path, trace, sub);
                     rm.to_formula(*rules[i], fml);
                     prs.push_back(rules[i]->get_proof());
@@ -1062,8 +1054,7 @@ namespace datalog {
                         return pr;
                     }
                     for (unsigned j = 0; j < sub.size(); ++j) {
-                        md->eval(sub[j].get(), tmp);
-                        sub[j] = tmp;
+                        sub[j] = (*md)(sub.get(j));
                     }
                     rule_ref rl(b.m_ctx.get_rule_manager());
                     rl = rules[i];
@@ -1090,7 +1081,7 @@ namespace datalog {
                 }
             }
             UNREACHABLE();
-            return proof_ref(0, m);
+            return proof_ref(nullptr, m);
         }
 
         // instantiation of algebraic data-types takes care of the rest.
@@ -1103,12 +1094,12 @@ namespace datalog {
             fml = m.mk_app(q, trace.get(), path.get());
             b.assert_expr(fml);
             while (true) {
-                lbool is_sat = b.m_solver.check();
+                lbool is_sat = b.m_solver->check_sat(0, nullptr);
                 model_ref md;
                 if (is_sat == l_false) {
                     return is_sat;
                 }
-                b.m_solver.get_model(md);
+                b.m_solver->get_model(md);
                 mk_answer(md, trace, path);
                 return l_true;
             }
@@ -1116,15 +1107,15 @@ namespace datalog {
 
         bool check_model(model_ref& md, expr* trace) {
             expr_ref trace_val(m), eq(m);
-            md->eval(trace, trace_val);
+            trace_val = (*md)(trace);
             eq = m.mk_eq(trace, trace_val);
-            b.m_solver.push();
-            b.m_solver.assert_expr(eq);
-            lbool is_sat = b.m_solver.check();
+            b.m_solver->push();
+            b.m_solver->assert_expr(eq);
+            lbool is_sat = b.m_solver->check_sat(0, nullptr);
             if (is_sat != l_false) {
-                b.m_solver.get_model(md);
+                b.m_solver->get_model(md);
             }
-            b.m_solver.pop(1);
+            b.m_solver->pop(1);
             if (is_sat == l_false) {
                 IF_VERBOSE(1, verbose_stream() << "infeasible trace " << mk_pp(trace_val, m) << "\n";);
                 eq = m.mk_not(eq);
@@ -1135,11 +1126,11 @@ namespace datalog {
 
         void mk_answer(model_ref& md, expr_ref& trace, expr_ref& path) {
             IF_VERBOSE(2, model_smt2_pp(verbose_stream(), m, *md, 0););
-            md->eval(trace, trace);
-            md->eval(path, path);
+            trace = (*md)(trace);
+            path = (*md)(path);
             IF_VERBOSE(2, verbose_stream() << mk_pp(trace, m) << "\n";
-                       for (unsigned i = 0; i < b.m_solver.size(); ++i) {
-                           verbose_stream() << mk_pp(b.m_solver.get_formula(i), m) << "\n";
+                       for (unsigned i = 0; i < b.m_solver->get_num_assertions(); ++i) {
+                           verbose_stream() << mk_pp(b.m_solver->get_assertion(i), m) << "\n";
                        });
             scoped_proof _sp(m);
             proof_ref pr(m);
@@ -1190,7 +1181,7 @@ namespace datalog {
             model_ref md;
             proof_ref pr(m);
             rule_unifier unifier(b.m_ctx);
-            b.m_solver.get_model(md);
+            b.m_solver->get_model(md);
             func_decl* pred = b.m_query_pred;
             SASSERT(m.is_true(md->get_const_interp(to_app(level_query)->get_decl())));
 
@@ -1201,7 +1192,7 @@ namespace datalog {
                 TRACE("bmc", tout << "Predicate: " << pred->get_name() << "\n";);
                 expr_ref_vector sub(m);
                 rule_vector const& rls = b.m_rules.get_predicate_rules(pred);
-                rule* r = 0;
+                rule* r = nullptr;
                 unsigned i = 0;
                 for (; i < rls.size(); ++i) {
                     expr_ref rule_i = mk_level_rule(pred, i, level);
@@ -1290,11 +1281,10 @@ namespace datalog {
 
 
         void setup() {
-            b.m_fparams.m_relevancy_lvl = 0;
-            b.m_fparams.m_model = true;
-            b.m_fparams.m_model_compact = true;
-            b.m_fparams.m_mbqi = false;
-            // m_fparams.m_auto_config = false;
+            params_ref p;
+            p.set_uint("smt.relevancy", 0ul);
+            p.set_bool("smt.mbqi", false);
+            b.m_solver->updt_params(p);
             b.m_rule_trace.reset();
         }
 
@@ -1302,7 +1292,7 @@ namespace datalog {
         lbool check(unsigned level) {
             expr_ref level_query = mk_level_predicate(b.m_query_pred, level);
             expr* q = level_query.get();
-            return b.m_solver.check(1, &q);
+            return b.m_solver->check_sat(1, &q);
         }
 
         expr_ref mk_level_predicate(func_decl* p, unsigned level) {
@@ -1404,20 +1394,20 @@ namespace datalog {
                     // apply substitution to body.
                     var_subst vs(m, false);
                     for (unsigned k = 0; k < p->get_arity(); ++k) {
-                        vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr(), tmp);
+                        tmp = vs(r.get_head()->get_arg(k), sub.size(), sub.c_ptr());
                         conjs.push_back(m.mk_eq(tmp, mk_level_arg(p, k, level)));
                     }
                     for (unsigned j = 0; j < r.get_uninterpreted_tail_size(); ++j) {
                         SASSERT(level > 0);
                         func_decl* q = r.get_decl(j);
                         for (unsigned k = 0; k < q->get_arity(); ++k) {
-                            vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr(), tmp);
+                            tmp = vs(r.get_tail(j)->get_arg(k), sub.size(), sub.c_ptr());
                             conjs.push_back(m.mk_eq(tmp, mk_level_arg(q, k, level-1)));
                         }
                         conjs.push_back(mk_level_predicate(q, level-1));
                     }
                     for (unsigned j = r.get_uninterpreted_tail_size(); j < r.get_tail_size(); ++j) {
-                        vs(r.get_tail(j), sub.size(), sub.c_ptr(), tmp);
+                        tmp = vs(r.get_tail(j), sub.size(), sub.c_ptr());
                         conjs.push_back(tmp);
                     }
                     bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
@@ -1435,7 +1425,7 @@ namespace datalog {
         engine_base(ctx.get_manager(), "bmc"),
         m_ctx(ctx),
         m(ctx.get_manager()),
-        m_solver(m, m_fparams),
+        m_solver(nullptr),
         m_rules(ctx),
         m_query_pred(m),
         m_answer(m),
@@ -1445,8 +1435,8 @@ namespace datalog {
     bmc::~bmc() {}
 
     lbool bmc::query(expr* query) {
-        m_solver.reset();
-        m_answer = 0;
+        m_solver = nullptr;
+        m_answer = nullptr;
         m_ctx.ensure_opened();
         m_rules.reset();
         datalog::rule_manager& rule_manager = m_ctx.get_rule_manager();
@@ -1478,6 +1468,7 @@ namespace datalog {
 
         IF_VERBOSE(2, m_ctx.display_rules(verbose_stream()););
 
+        params_ref p;
         if (m_rules.get_num_rules() == 0) {
             return l_false;
         }
@@ -1485,18 +1476,25 @@ namespace datalog {
             return l_false;
         }
 
-
         if (is_linear()) {
             if (m_ctx.get_engine() == QBMC_ENGINE) {
+                m_solver = mk_smt_solver(m, p, symbol::null);
                 qlinear ql(*this);
                 return ql.check();
             }
             else {
+                if (m_rules.is_finite_domain()) {
+                    m_solver = mk_fd_solver(m, p);
+                }
+                else {
+                    m_solver = mk_smt_solver(m, p, symbol::null);
+                }
                 linear lin(*this);
                 return lin.check();
             }
         }
         else {
+            m_solver = mk_smt_solver(m, p, symbol::null);
             IF_VERBOSE(0, verbose_stream() << "WARNING: non-linear BMC is highly inefficient\n";);
             nonlinear nl(*this);
             return nl.check();
@@ -1505,7 +1503,7 @@ namespace datalog {
 
     void bmc::assert_expr(expr* e) {
         TRACE("bmc", tout << mk_pp(e, m) << "\n";);
-        m_solver.assert_expr(e);
+        m_solver->assert_expr(e);
     }
 
     bool bmc::is_linear() const {
@@ -1532,11 +1530,11 @@ namespace datalog {
     }
 
     void bmc::collect_statistics(statistics& st) const {
-        m_solver.collect_statistics(st);
+        m_solver->collect_statistics(st);
     }
 
     void bmc::reset_statistics() {
-        m_solver.reset_statistics();
+        // m_solver->reset_statistics();
     }
 
     expr_ref bmc::get_answer() {

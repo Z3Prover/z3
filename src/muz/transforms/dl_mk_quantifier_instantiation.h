@@ -61,9 +61,9 @@ namespace datalog {
     public:
         mk_quantifier_instantiation(context & ctx, unsigned priority);
 
-        virtual ~mk_quantifier_instantiation();
+        ~mk_quantifier_instantiation() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
     };
 
 

@@ -9,7 +9,8 @@ Abstract: Pretty-printer for proofs in Graphviz format
 #include "ast/ast_pp_dot.h"
 
 // string escaping for DOT
-std::string escape_dot(std::string const & s) {
+std::string escape_dot(const std::string &s)
+{
     std::string res;
     res.reserve(s.size()); // preallocate
     for (auto c : s) {

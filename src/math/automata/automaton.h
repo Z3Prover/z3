@@ -43,7 +43,7 @@ public:
         unsigned m_src;
         unsigned m_dst;        
     public:
-        move(M& m, unsigned s, unsigned d, T* t = 0): m(m), m_t(t), m_src(s), m_dst(d) {
+        move(M& m, unsigned s, unsigned d, T* t = nullptr): m(m), m_t(t), m_src(s), m_dst(d) {
             if (t) m.inc_ref(t);
         }
         ~move() {
@@ -69,7 +69,7 @@ public:
         unsigned src() const { return m_src; }
         T* t() const { return m_t; }
 
-        bool is_epsilon() const { return m_t == 0; }
+        bool is_epsilon() const { return m_t == nullptr; }
     };
     typedef vector<move> moves;
 private:
@@ -407,7 +407,7 @@ public:
                             mvs1.push_back(move(m, mv1.src(), dst1, t));
                         }
                         for (move const& mv1 : mvs1) {
-                            remove(mv1.src(), dst, 0);
+                            remove(mv1.src(), dst, nullptr);
                             add(mv1);
                         }
                         remove(dst, dst1, t);    
@@ -428,10 +428,21 @@ public:
                             add(mv);
                         }
                     }
+                    else if (1 == out_degree(src) && (is_final_state(src) || !is_final_state(dst))) {
+                        moves const& mvs = m_delta[dst];
+                        moves mvs1;
+                        for (move const& mv : mvs) {
+                            mvs1.push_back(move(m, src, mv.dst(), mv.t()));
+                        }
+                        for (move const& mv : mvs1) {
+                            add(mv);
+                        }
+                    }
                     else {
+                        TRACE("seq", tout << "epsilon not removed " << out_degree(src) << " " << is_final_state(src) << " " << is_final_state(dst) << "\n";);
                         continue;
                     }                    
-                    remove(src, dst, 0);
+                    remove(src, dst, nullptr);
                     --j;
                 }
             }
@@ -600,13 +611,14 @@ private:
         }
     }
 
+#if 0
     void remove_dead_states() {
         unsigned_vector remap;
         for (unsigned i = 0; i < m_delta.size(); ++i) {
             
         }
     }    
-
+#endif
 
     void add(move const& mv) {
         if (!is_duplicate_cheap(mv)) {

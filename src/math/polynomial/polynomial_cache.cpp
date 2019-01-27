@@ -47,7 +47,7 @@ namespace polynomial {
             m_x(x),
             m_hash(h),
             m_result_sz(0),
-            m_result(0) {
+            m_result(nullptr) {
         }
         
         struct hash_proc { unsigned operator()(psc_chain_entry const * entry) const { return entry->m_hash; } };
@@ -69,7 +69,7 @@ namespace polynomial {
             m_p(p),
             m_hash(h),
             m_result_sz(0),
-            m_result(0) {
+            m_result(nullptr) {
         }
         
         struct hash_proc { unsigned operator()(factor_entry const * entry) const { return entry->m_hash; } };

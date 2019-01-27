@@ -157,8 +157,8 @@ interval::interval(v_dependency_manager & m):
     m_upper(true),
     m_lower_open(true),
     m_upper_open(true),
-    m_lower_dep(0),
-    m_upper_dep(0) {
+    m_lower_dep(nullptr),
+    m_upper_dep(nullptr) {
 }
 
 /**
@@ -215,12 +215,12 @@ interval::interval(v_dependency_manager & m, rational const & val, bool open, bo
         m_lower_dep  = d;
         m_upper      = ext_numeral(true);
         m_upper_open = true;
-        m_upper_dep  = 0;
+        m_upper_dep  = nullptr;
     }
     else {
         m_lower      = ext_numeral(false);
         m_lower_open = true;
-        m_lower_dep  = 0;
+        m_lower_dep  = nullptr;
         m_upper      = ext_numeral(val);
         m_upper_open = open;
         m_upper_dep  = d;
@@ -252,8 +252,8 @@ interval & interval::operator+=(interval const & other) {
     m_upper      += other.m_upper;
     m_lower_open |= other.m_lower_open;
     m_upper_open |= other.m_upper_open;
-    m_lower_dep   = m_lower.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, other.m_lower_dep);
-    m_upper_dep   = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_upper_dep, other.m_upper_dep);
+    m_lower_dep   = m_lower.is_infinite() ? nullptr : m_manager.mk_join(m_lower_dep, other.m_lower_dep);
+    m_upper_dep   = m_upper.is_infinite() ? nullptr : m_manager.mk_join(m_upper_dep, other.m_upper_dep);
     return *this;
 }
 
@@ -283,7 +283,7 @@ v_dependency * interval::join_opt(v_dependency * d1, v_dependency * d2, v_depend
         return join(d1, d2);
     if (opt2 == d1 || opt2 == d2)
         return join(d1, d2);
-    if (opt1 == 0 || opt2 == 0)
+    if (opt1 == nullptr || opt2 == nullptr)
         return join(d1, d2);
     // TODO: more opts...
     return join(d1, d2, opt1);
@@ -331,8 +331,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = a_o || c_o; SASSERT(a.is_neg() && c.is_neg());
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(b_d, d_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join_opt(a_d, c_d, b_d, d_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(b_d, d_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join_opt(a_d, c_d, b_d, d_d);
         }
         else if (other.is_M()) {
             // a <= x <= b <= 0,  y <= d, d > 0 --> a*d <= x*y (uses the fact that b is not positive)
@@ -344,8 +344,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = a_o || c_o;
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(a_d, d_d, b_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(a_d, c_d, b_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(a_d, d_d, b_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(a_d, c_d, b_d);
         }
         else {
             // a <= x <= b <= 0, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that x is neg (b is not positive) or y is pos (c is not negative))
@@ -359,8 +359,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = (is_N0_old || other.is_P0()) ? false : (b_o || c_o);
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join_opt(a_d, d_d, b_d, c_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(b_d, c_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join_opt(a_d, d_d, b_d, c_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(b_d, c_d);
         }
     }
     else if (is_M()) {
@@ -374,8 +374,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = a_o || c_o; SASSERT(a.is_neg() && c.is_neg());
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(b_d, c_d, d_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(a_d, c_d, d_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(b_d, c_d, d_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(a_d, c_d, d_d);
         }
         else if (other.is_M()) {
             TRACE("interval_bug", tout << "(M, M)\n";);
@@ -404,8 +404,8 @@ interval & interval::operator*=(interval const & other) {
                 m_upper       = bd;
                 m_upper_open  = bd_o;
             }
-            m_lower_dep = m_lower.is_infinite() ? 0 : join(a_d, b_d, c_d, d_d);
-            m_upper_dep = m_upper.is_infinite() ? 0 : join(a_d, b_d, c_d, d_d);
+            m_lower_dep = m_lower.is_infinite() ? nullptr : join(a_d, b_d, c_d, d_d);
+            m_upper_dep = m_upper.is_infinite() ? nullptr : join(a_d, b_d, c_d, d_d);
         }
         else {
             // a < 0, a <= x, 0 <= c <= y <= d --> a*d <= x*y (uses the fact that c is not negative)
@@ -418,8 +418,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = b_o || d_o; SASSERT(b.is_pos() && d.is_pos());
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(a_d, d_d, c_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(b_d, d_d, c_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(a_d, d_d, c_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(b_d, d_d, c_d);
         }
     }
     else {
@@ -435,8 +435,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = (is_P0_old || other.is_N0()) ? false : a_o || d_o;
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join_opt(b_d, c_d, a_d, d_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(a_d, d_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join_opt(b_d, c_d, a_d, d_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(a_d, d_d);
         }
         else if (other.is_M()) {
             // 0 <= a <= x <= b,  c <= y --> b*c <= x*y (uses the fact that a is not negative)
@@ -448,8 +448,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = b_o || d_o;
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(b_d, c_d, a_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join(b_d, d_d, a_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(b_d, c_d, a_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join(b_d, d_d, a_d);
         }
         else {
             // 0 <= a <= x, 0 <= c <= y --> a*c <= x*y
@@ -462,8 +462,8 @@ interval & interval::operator*=(interval const & other) {
             m_upper_open = b_o || d_o; SASSERT(b.is_pos() && d.is_pos());
             m_lower      = new_lower;
             m_upper      = new_upper;
-            m_lower_dep  = m_lower.is_infinite() ? 0 : join(a_d, c_d);
-            m_upper_dep  = m_upper.is_infinite() ? 0 : join_opt(b_d, d_d, a_d, c_d);
+            m_lower_dep  = m_lower.is_infinite() ? nullptr : join(a_d, c_d);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : join_opt(b_d, d_d, a_d, c_d);
         }
     }
     TRACE("interval_bug", tout << "operator*= result: " << *this << "\n";);
@@ -561,15 +561,24 @@ interval & interval::operator/=(interval const & other) {
         TRACE("interval", other.display_with_dependencies(tout););
         if (other.m_lower.is_pos() || (other.m_lower.is_zero() && other.m_lower_open)) {
             // other.lower > 0
+            //     x in ([0, 0] / [other.lo, other.up]), for other.lo > 0
+            // <=>
+            //     x >= 0: because y*x >= 0 & y > 0
+            //     x <= 0: because y*x <= 0 & y > 0
             m_lower_dep  = join(m_lower_dep, other.m_lower_dep);
             m_upper_dep  = join(m_upper_dep, other.m_lower_dep);
         }
         else {
             // assertion must hold since !other.contains_zero()
-            SASSERT(other.m_upper.is_neg() || (other.m_upper.is_zero() && other.m_upper_open));
+            SASSERT(other.m_upper.is_neg() || (other.m_upper.is_zero() && other.m_upper_open));            
             // other.upper < 0
-            m_lower_dep  = join(m_lower_dep, other.m_upper_dep);
-            m_upper_dep  = join(m_upper_dep, other.m_upper_dep);
+            //     x in ([0, 0] / [other.lo, other.up]), for up < 0
+            // <=>
+            //     x >= 0: because y*x <= 0 & y < 0
+            //     x <= 0: because y*x >= 0 & y < 0
+            v_dependency* lower_dep = m_lower_dep;
+            m_lower_dep  = join(m_upper_dep, other.m_upper_dep);
+            m_upper_dep  = join(lower_dep, other.m_upper_dep);
         }
         return *this;
     }
@@ -590,7 +599,7 @@ void interval::expt(unsigned n) {
             // 0 < a <= x <= b --> x^n <= b^n (use lower and upper bound -- need the fact that x is positive)
             m_lower.expt(n);
             m_upper.expt(n);
-            m_upper_dep = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, m_upper_dep);
+            m_upper_dep = m_upper.is_infinite() ? nullptr : m_manager.mk_join(m_lower_dep, m_upper_dep);
         }
         else if (m_upper.is_neg()) {
             // [l, u]^n = [u^n, l^n] if u < 0
@@ -601,7 +610,7 @@ void interval::expt(unsigned n) {
             std::swap(m_lower_dep, m_upper_dep);
             m_lower.expt(n);
             m_upper.expt(n);
-            m_upper_dep = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, m_upper_dep);
+            m_upper_dep = m_upper.is_infinite() ? nullptr : m_manager.mk_join(m_lower_dep, m_upper_dep);
         }
         else {
             // [l, u]^n = [0, max{l^n, u^n}] otherwise
@@ -614,10 +623,10 @@ void interval::expt(unsigned n) {
                 m_upper      = m_lower;
                 m_upper_open = m_lower_open;
             }
-            m_upper_dep  = m_upper.is_infinite() ? 0 : m_manager.mk_join(m_lower_dep, m_upper_dep);
+            m_upper_dep  = m_upper.is_infinite() ? nullptr : m_manager.mk_join(m_lower_dep, m_upper_dep);
             m_lower      = ext_numeral(0);
             m_lower_open = false;
-            m_lower_dep  = 0;
+            m_lower_dep  = nullptr;
         }
     }
     else {

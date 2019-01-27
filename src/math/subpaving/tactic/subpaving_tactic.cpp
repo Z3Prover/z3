@@ -40,9 +40,9 @@ class subpaving_tactic : public tactic {
         
         ast_manager & m() const { return m_inv.get_manager(); }
         
-        virtual void operator()(std::ostream & out, subpaving::var x) const { 
-            expr * t = m_inv.get(x, 0);
-            if (t != 0)
+        void operator()(std::ostream & out, subpaving::var x) const override {
+            expr * t = m_inv.get(x, nullptr);
+            if (t != nullptr)
                 out << mk_ismt2_pp(t, m());
             else
                 out << "k!" << x;
@@ -160,7 +160,7 @@ class subpaving_tactic : public tactic {
         }
 
         void process_clause(expr * c) {
-            expr * const * args = 0;
+            expr * const * args = nullptr;
             unsigned sz;
             if (m().is_or(c)) {
                 args = to_app(c)->get_args();
@@ -183,7 +183,7 @@ class subpaving_tactic : public tactic {
                     process_clause(g.form(i));
                 }
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed to internalize goal into subpaving module");
             }
         }
@@ -195,7 +195,7 @@ class subpaving_tactic : public tactic {
             try {
                 (*m_ctx)();
             }
-            catch (subpaving::exception) {
+            catch (const subpaving::exception &) {
                 throw tactic_exception("failed building subpaving tree...");
             }
             if (m_display) {
@@ -216,44 +216,38 @@ public:
         m_params(p) {
     }
 
-    virtual ~subpaving_tactic() {
+    ~subpaving_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(subpaving_tactic, m, m_params);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {        
+    void collect_param_descrs(param_descrs & r) override {
         m_imp->collect_param_descrs(r);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
     }
 
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         try {
             m_imp->process(*in);
             m_imp->collect_statistics(m_stats);
             result.reset();
             result.push_back(in.get());
-            mc   = 0;
-            pc   = 0;
-            core = 0;
         }
         catch (z3_exception & ex) {
             // convert all Z3 exceptions into tactic exceptions
@@ -261,7 +255,7 @@ public:
         }
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         dealloc(m_imp);
         m_imp = alloc(imp, m, m_params);

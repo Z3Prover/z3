@@ -56,72 +56,72 @@ namespace datalog {
     public:
         rel_context(context& ctx);
 
-        virtual ~rel_context();
+        ~rel_context() override;
 
-        virtual relation_manager & get_rmanager();
-        virtual const relation_manager & get_rmanager() const;
+        relation_manager & get_rmanager() override;
+        const relation_manager & get_rmanager() const override;
         ast_manager& get_manager() const { return m; }
         context&     get_context() const { return m_context; }
-        virtual relation_base & get_relation(func_decl * pred); 
-        virtual relation_base * try_get_relation(func_decl * pred) const; 
-        virtual bool is_empty_relation(func_decl* pred) const;
-        virtual expr_ref try_get_formula(func_decl * pred) const;
-        virtual expr_ref get_answer() { return m_answer; }
+        relation_base & get_relation(func_decl * pred) override;
+        relation_base * try_get_relation(func_decl * pred) const override;
+        bool is_empty_relation(func_decl* pred) const override;
+        expr_ref try_get_formula(func_decl * pred) const override;
+        expr_ref get_answer() override { return m_answer; }
 
-        virtual bool output_profile() const;
+        bool output_profile() const override;
 
-        virtual lbool query(expr* q);
-        virtual lbool query(unsigned num_rels, func_decl * const* rels);
+        lbool query(expr* q) override;
+        lbool query(unsigned num_rels, func_decl * const* rels) override;
 
-        virtual void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
-                                          symbol const * relation_names);
+        void set_predicate_representation(func_decl * pred, unsigned relation_name_cnt, 
+                                          symbol const * relation_names) override;
         
-        virtual void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred);
+        void inherit_predicate_kind(func_decl* new_pred, func_decl* orig_pred) override;
 
-        virtual void collect_statistics(statistics& st) const;
+        void collect_statistics(statistics& st) const override;
 
-        virtual void updt_params();
+        void updt_params() override;
 
         /**
            \brief Restrict the set of used predicates to \c res.
 
-           The function deallocates unsused relations, it does not deal with rules.
+           The function deallocates unused relations, it does not deal with rules.
          */
-        virtual void restrict_predicates(func_decl_set const& predicates);
+        void restrict_predicates(func_decl_set const& predicates) override;
 
-        virtual void transform_rules();
+        void transform_rules() override;
 
-        virtual bool try_get_size(func_decl* pred, unsigned& rel_size) const;
+        bool try_get_size(func_decl* pred, unsigned& rel_size) const override;
         /**
            \brief query result if it contains fact.
          */
-        virtual bool result_contains_fact(relation_fact const& f);
+        bool result_contains_fact(relation_fact const& f) override;
 
-        virtual void collect_non_empty_predicates(func_decl_set& ps) {
+        void collect_non_empty_predicates(func_decl_set& ps) override {
             return get_rmanager().collect_non_empty_predicates(ps);
         }
 
         /** \brief add facts to relation
         */
-        virtual void add_fact(func_decl* pred, relation_fact const& fact);
-        virtual void add_fact(func_decl* pred, table_fact const& fact);
+        void add_fact(func_decl* pred, relation_fact const& fact) override;
+        void add_fact(func_decl* pred, table_fact const& fact) override;
 
         /** \brief check if facts were added to relation
         */
-        virtual bool has_facts(func_decl * pred) const;
+        bool has_facts(func_decl * pred) const override;
         
         /**
            \brief Store the relation \c rel under the predicate \c pred. The \c context object
            takes over the ownership of the relation object.
         */
-        virtual void store_relation(func_decl * pred, relation_base * rel);
+        void store_relation(func_decl * pred, relation_base * rel) override;
 
-        virtual void display_output_facts(rule_set const& rules, std::ostream & out) const;
-        virtual void display_facts(std::ostream & out) const;
+        void display_output_facts(rule_set const& rules, std::ostream & out) const override;
+        void display_facts(std::ostream & out) const override;
 
-        virtual void display_profile(std::ostream& out);
+        void display_profile(std::ostream& out) override;
 
-        virtual lbool saturate();
+        lbool saturate() override;
 
     };
 };

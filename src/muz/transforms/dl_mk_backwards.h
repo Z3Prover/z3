@@ -28,8 +28,8 @@ namespace datalog {
         context&     m_ctx;
     public:
         mk_backwards(context & ctx, unsigned priority = 33000);
-        ~mk_backwards();        
-        rule_set * operator()(rule_set const & source);
+        ~mk_backwards() override;
+        rule_set * operator()(rule_set const & source) override;
     };
 
 };

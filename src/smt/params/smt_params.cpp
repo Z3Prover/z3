@@ -39,6 +39,7 @@ void smt_params::updt_local_params(params_ref const & _p) {
     m_timeout = p.timeout();
     m_rlimit  = p.rlimit();
     m_max_conflicts = p.max_conflicts();
+    m_restart_max   = p.restart_max();
     m_core_validate = p.core_validate();
     m_logic = _p.get_sym("logic", m_logic);
     m_string_solver = p.string_solver();
@@ -62,6 +63,7 @@ void smt_params::updt_params(params_ref const & p) {
     theory_bv_params::updt_params(p);
     theory_pb_params::updt_params(p);
     // theory_array_params::updt_params(p);
+    theory_datatype_params::updt_params(p);
     updt_local_params(p);
 }
 

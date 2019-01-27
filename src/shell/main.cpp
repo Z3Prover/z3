@@ -26,22 +26,23 @@ Revision History:
 #include "shell/smtlib_frontend.h"
 #include "shell/z3_log_frontend.h"
 #include "util/warning.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"
 #include "util/timeout.h"
 #include "util/z3_exception.h"
 #include "util/error_codes.h"
+#include "util/file_path.h"
 #include "util/gparams.h"
 #include "util/env_params.h"
 #include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
-typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_Z3_LOG, IN_MPS } input_kind;
+typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
 
 std::string         g_aux_input_file;
-char const *        g_input_file          = 0;
+char const *        g_input_file          = nullptr;
 bool                g_standard_input      = false;
 input_kind          g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
@@ -59,7 +60,7 @@ void error(const char * msg) {
 void display_usage() {
     std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
     std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
     std::cout << "64";
 #else
     std::cout << "32";
@@ -71,10 +72,12 @@ void display_usage() {
     std::cout << "]. (C) Copyright 2006-2016 Microsoft Corp.\n";
     std::cout << "Usage: z3 [options] [-file:]file\n";
     std::cout << "\nInput format:\n";
-    std::cout << "  -smt        use parser for SMT input format.\n";
     std::cout << "  -smt2       use parser for SMT 2 input format.\n";
     std::cout << "  -dl         use parser for Datalog input format.\n";
     std::cout << "  -dimacs     use parser for DIMACS input format.\n";
+    std::cout << "  -wcnf       use parser for Weighted CNF DIMACS input format.\n";
+    std::cout << "  -opb        use parser for PB optimization input format.\n";
+    std::cout << "  -lp         use parser for a modest subset of CPLEX LP input format.\n";
     std::cout << "  -log        use parser for Z3 log input format.\n";
     std::cout << "  -in         read formula from standard input.\n";
     std::cout << "\nMiscellaneous:\n";
@@ -88,7 +91,7 @@ void display_usage() {
     std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
-    // timeout and memout are now available on Linux and OSX too.
+    // timeout and memout are now available on Linux and macOS too.
     std::cout << "  -T:timeout  set the timeout (in seconds).\n";
     std::cout << "  -t:timeout  set the soft timeout (in milli seconds). It only kills the current query.\n";
     std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
@@ -113,7 +116,7 @@ void display_usage() {
    
 void parse_cmd_line_args(int argc, char ** argv) {
     int i = 1;
-    char * eq_pos = 0;
+    char * eq_pos = nullptr;
     while (i < argc) {
         char * arg = argv[i];    
 
@@ -145,7 +148,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             // allow names such as --help
             if (*opt_name == '-')
                 opt_name++;
-            char * opt_arg  = 0;
+            char * opt_arg  = nullptr;
             char * colon    = strchr(arg, ':');
             if (colon) {
                 opt_arg = colon + 1;
@@ -158,7 +161,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             if (strcmp(opt_name, "version") == 0) {
                 std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
                 std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
                 std::cout << "64";
 #else
                 std::cout << "32";
@@ -185,14 +188,18 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "wcnf") == 0) {
                 g_input_kind = IN_WCNF;
             }
-            else if (strcmp(opt_name, "bpo") == 0) {
+            else if (strcmp(opt_name, "pbo") == 0) {
                 g_input_kind = IN_OPB;
+            }
+            else if (strcmp(opt_name, "lp") == 0) {
+                g_input_kind = IN_LP;
             }
             else if (strcmp(opt_name, "log") == 0) {
                 g_input_kind = IN_Z3_LOG;
             }
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
+                gparams::set("stats", "true");
             }
             else if (strcmp(opt_name, "ist") == 0) {
                 g_display_istatistics = true; 
@@ -200,7 +207,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "v") == 0) {
                 if (!opt_arg)
                     error("option argument (-v:level) is missing.");
-                long lvl = strtol(opt_arg, 0, 10);
+                long lvl = strtol(opt_arg, nullptr, 10);
                 set_verbosity_level(lvl);
             }
             else if (strcmp(opt_name, "file") == 0) {
@@ -209,7 +216,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
                     error("option argument (-T:timeout) is missing.");
-                long tm = strtol(opt_arg, 0, 10);
+                long tm = strtol(opt_arg, nullptr, 10);
                 set_timeout(tm * 1000);
             }
             else if (strcmp(opt_name, "t") == 0) {
@@ -289,7 +296,13 @@ void parse_cmd_line_args(int argc, char ** argv) {
 
 
 int STD_CALL main(int argc, char ** argv) {
-    try{
+#ifdef DUMP_ARGS
+     std::cout << "args are: ";
+     for (int i = 0; i < argc; i++)
+         std::cout << argv[i] <<" ";
+     std::cout << std::endl;
+#endif
+     try{
         unsigned return_value = 0;
         memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
@@ -319,6 +332,9 @@ int STD_CALL main(int argc, char ** argv) {
                 else if (strcmp(ext, "opb") == 0) {
                     g_input_kind = IN_OPB;
                 }
+                else if (strcmp(ext, "lp") == 0) {
+                    g_input_kind = IN_LP;
+                }
                 else if (strcmp(ext, "log") == 0) {
                     g_input_kind = IN_Z3_LOG;
                 }
@@ -340,10 +356,13 @@ int STD_CALL main(int argc, char ** argv) {
             return_value = read_dimacs(g_input_file);
             break;
         case IN_WCNF:
-            return_value = parse_opt(g_input_file, true);
+            return_value = parse_opt(g_input_file, wcnf_t);
             break;
         case IN_OPB:
-            return_value = parse_opt(g_input_file, false);
+            return_value = parse_opt(g_input_file, opb_t);
+            break;
+        case IN_LP:
+            return_value = parse_opt(g_input_file, lp_t);
             break;
         case IN_DATALOG:
             read_datalog(g_input_file);

@@ -70,7 +70,7 @@ namespace smt {
             m_lra(false),
             m_non_utvpi_exprs(false),
             m_test(m),
-            m_factory(0) {
+            m_factory(nullptr) {
     }            
 
     template<typename Ext>
@@ -106,7 +106,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_utvpi<Ext>::mk_var(expr* n) {
         context & ctx = get_context();
-        enode* e = 0;
+        enode* e = nullptr;
         th_var v = null_theory_var;
         m_lia |= a.is_int(n);
         m_lra |= a.is_real(n);
@@ -239,7 +239,7 @@ namespace smt {
             ctx.mk_justification(
                 ext_theory_conflict_justification(
                     get_id(), ctx.get_region(), 
-                    lits.size(), lits.c_ptr(), 0, 0, params.size(), params.c_ptr())));        
+                    lits.size(), lits.c_ptr(), 0, nullptr, params.size(), params.c_ptr())));
 
         m_nc_functor.reset();
     }
@@ -618,7 +618,7 @@ namespace smt {
         
         th_var v1 = null_theory_var, v2 = null_theory_var;
         bool   pos1 = true, pos2 = true;
-        if (terms.size() >= 1) {
+        if (!terms.empty()) {
             v1 = terms[0].first;
             pos1 = terms[0].second.is_one();
             SASSERT(v1 != null_theory_var);

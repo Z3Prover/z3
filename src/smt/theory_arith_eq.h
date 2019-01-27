@@ -117,7 +117,7 @@ namespace smt {
         for (; it != end; ++it) {
             if (!it->is_dead()) {
                 theory_var v = it->m_var;
-                if (lower(v) != 0 && upper(v) != 0)
+                if (lower(v) != nullptr && upper(v) != nullptr)
                     continue;
                 bad++;
                 if (bad > 2) {

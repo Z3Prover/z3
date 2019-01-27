@@ -46,7 +46,7 @@ namespace datalog {
             args.push_back(f[i]);
         }
         if (!fn.get()) {
-           fn = m.mk_func_decl(fid, k, 0, 0, args.size(), args.c_ptr());
+           fn = m.mk_func_decl(fid, k, 0, nullptr, args.size(), args.c_ptr());
         }        
         if (destructive) {
             get_plugin().reduce_assign(fn, args.size(), args.c_ptr(), 1, args.c_ptr());
@@ -63,7 +63,7 @@ namespace datalog {
         expr_ref res(m);
         if (!m_is_empty_fn.get()) {
             family_id fid = get_plugin().get_family_id();
-            const_cast<func_decl_ref&>(m_is_empty_fn) = m.mk_func_decl(fid, OP_RA_IS_EMPTY, 0, 0, 1, &r);
+            const_cast<func_decl_ref&>(m_is_empty_fn) = m.mk_func_decl(fid, OP_RA_IS_EMPTY, 0, nullptr, 1, &r);
         }
         get_plugin().reduce(m_is_empty_fn, 1, &r, res);
         return m.is_true(res);
@@ -86,7 +86,7 @@ namespace datalog {
         expr* rel = m_rel.get();
         expr_ref res(m.mk_fresh_const("T", m.get_sort(rel)), m);
         expr* rel_out = res.get();
-        func_decl_ref fn(m.mk_func_decl(fid, OP_RA_CLONE,0,0, 1, &rel), m);
+        func_decl_ref fn(m.mk_func_decl(fid, OP_RA_CLONE,0,nullptr, 1, &rel), m);
         get_plugin().reduce_assign(fn, 1, &rel, 1, &rel_out);
         return alloc(external_relation, get_plugin(), get_signature(), res);
     }
@@ -96,7 +96,7 @@ namespace datalog {
         family_id fid = get_plugin().get_family_id();
         expr_ref res(m);
         expr* rel = m_rel;
-        func_decl_ref fn(m.mk_func_decl(fid, OP_RA_COMPLEMENT,0,0, 1, &rel), m);
+        func_decl_ref fn(m.mk_func_decl(fid, OP_RA_COMPLEMENT,0,nullptr, 1, &rel), m);
         get_plugin().reduce(fn, 1, &rel, res);
         return alloc(external_relation, get_plugin(), get_signature(), res);
     }
@@ -140,8 +140,8 @@ namespace datalog {
         family_id fid = get_family_id();
         expr_ref e(m.mk_fresh_const("T", r_sort), m);
         expr* args[1] = { e.get() };
-        func_decl_ref empty_decl(m.mk_func_decl(fid, OP_RA_EMPTY, 1, &param, 0, (sort*const*)0), m);
-        reduce_assign(empty_decl, 0, 0, 1, args);
+        func_decl_ref empty_decl(m.mk_func_decl(fid, OP_RA_EMPTY, 1, &param, 0, (sort*const*)nullptr), m);
+        reduce_assign(empty_decl, 0, nullptr, 1, args);
         return alloc(external_relation, *this, s, e);
     }
     
@@ -195,7 +195,7 @@ namespace datalog {
             m_join_fn = m.mk_func_decl(fid, OP_RA_JOIN, params.size(), params.c_ptr(), 2, domain);
         }
 
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             expr_ref res(m_plugin.get_ast_manager());
             m_args[0] = get(r1).get_relation();
             m_args[1] = get(r2).get_relation();
@@ -207,7 +207,7 @@ namespace datalog {
     relation_join_fn * external_relation_plugin::mk_join_fn(const relation_base & r1, const relation_base & r2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if (!check_kind(r1) || !check_kind(r2)) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, *this, r1.get_signature(), r2.get_signature() , col_cnt, cols1, cols2);
     }
@@ -231,7 +231,7 @@ namespace datalog {
             m_project_fn = m.mk_func_decl(fid, OP_RA_PROJECT, params.size(), params.c_ptr(), 1, &relation_sort);
         }
 
-        virtual relation_base * operator()(const relation_base & r) {
+        relation_base * operator()(const relation_base & r) override {
             expr_ref res(m_plugin.get_ast_manager());
             expr* rel = get(r).get_relation();
             m_plugin.reduce(m_project_fn, 1, &rel, res); 
@@ -265,7 +265,7 @@ namespace datalog {
             m_rename_fn = m.mk_func_decl(fid, OP_RA_RENAME, params.size(), params.c_ptr(), 1, &relation_sort);
         }
 
-        virtual relation_base * operator()(const relation_base & r) {
+        relation_base * operator()(const relation_base & r) override {
             expr* rel = get(r).get_relation();
             expr_ref res(m_plugin.get_ast_manager());
             m_args[0] = rel;
@@ -277,7 +277,7 @@ namespace datalog {
     relation_transformer_fn * external_relation_plugin::mk_rename_fn(const relation_base & r, 
             unsigned cycle_len, const unsigned * permutation_cycle) {
         if(!check_kind(r)) {
-            return 0;
+            return nullptr;
         }
         return alloc(rename_fn, *this, get(r).get_sort(), r.get_signature(), cycle_len, permutation_cycle);
     }
@@ -295,10 +295,10 @@ namespace datalog {
             m_union_fn(p.get_ast_manager()) {            
             ast_manager& m = p.get_ast_manager();
             sort* domain[2] = { relation_sort, relation_sort };
-            m_union_fn = m.mk_func_decl(p.get_family_id(), k, 0, 0, 2, domain);
+            m_union_fn = m.mk_func_decl(p.get_family_id(), k, 0, nullptr, 2, domain);
         }
 
-        virtual void operator()(relation_base & r, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & r, const relation_base & src, relation_base * delta) override {
             ast_manager& m = m_plugin.get_ast_manager();
             expr_ref_vector res(m);
             m_args[0] = get(r).get_relation();
@@ -316,7 +316,7 @@ namespace datalog {
     relation_union_fn * external_relation_plugin::mk_union_fn(const relation_base & tgt, const relation_base & src,
         const relation_base * delta) {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn, *this, OP_RA_UNION, get(src).get_sort());
     }
@@ -324,7 +324,7 @@ namespace datalog {
     relation_union_fn * external_relation_plugin::mk_widen_fn(const relation_base & tgt, const relation_base & src,
         const relation_base * delta) {
         if (!check_kind(tgt) || !check_kind(src) || (delta && !check_kind(*delta))) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn, *this, OP_RA_WIDEN, get(src).get_sort());
     }
@@ -342,7 +342,7 @@ namespace datalog {
             SASSERT(p.get_ast_manager().is_bool(condition));
         }
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             SASSERT(m_plugin.check_kind(r));
             expr* arg = get(r).get_relation();
             m_plugin.reduce_assign(m_filter_fn, 1, &arg, 1, &arg);
@@ -351,7 +351,7 @@ namespace datalog {
 
     relation_mutator_fn * external_relation_plugin::mk_filter_interpreted_fn(const relation_base & r, app * condition) {
         if(!check_kind(r)) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_interpreted_fn, *this, get(r).get_sort(), condition);
     }
@@ -359,7 +359,7 @@ namespace datalog {
     relation_mutator_fn * external_relation_plugin::mk_filter_equal_fn(const relation_base & r, 
         const relation_element & value, unsigned col) {
         if(!check_kind(r)) {
-            return 0;
+            return nullptr;
         }
         ast_manager& m = get_ast_manager();
         app_ref condition(m);
@@ -396,7 +396,7 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(relation_base & r) {
+        void operator()(relation_base & r) override {
             expr* r0 = get(r).get_relation();
             for (unsigned i = 0; i < m_filter_fn.size(); ++i) {
                 m_plugin.reduce_assign(m_filter_fn[i].get(), 1, &r0, 1, &r0);                  
@@ -407,7 +407,7 @@ namespace datalog {
     relation_mutator_fn * external_relation_plugin::mk_filter_identical_fn(const relation_base & r, 
         unsigned col_cnt, const unsigned * identical_cols) {
         if (!check_kind(r)) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_identical_fn, *this, get(r).get_sort(), col_cnt, identical_cols);
     }
@@ -436,7 +436,7 @@ namespace datalog {
             m_negated_filter_fn = m.mk_func_decl(fid, OP_RA_NEGATION_FILTER, params.size(), params.c_ptr(), 2, domain);            
         }
 
-        void operator()(relation_base & t, const relation_base & negated_obj) {
+        void operator()(relation_base & t, const relation_base & negated_obj) override {
             m_args[0] = get(t).get_relation();
             m_args[1] = get(negated_obj).get_relation();
             m_plugin.reduce_assign(m_negated_filter_fn.get(), 2, m_args, 1, m_args);                       
@@ -447,7 +447,7 @@ namespace datalog {
             const relation_base & negated_obj, unsigned joined_col_cnt, 
             const unsigned * t_cols, const unsigned * negated_cols) {
         if (!check_kind(t) || !check_kind(negated_obj)) {
-            return 0;
+            return nullptr;
         }
         return alloc(negation_filter_fn, *this, t, negated_obj, joined_col_cnt, t_cols, negated_cols);
     }

@@ -67,7 +67,7 @@ namespace datalog {
     }
 
     relation_base * sieve_relation::complement(func_decl* p) const {
-        //this is not precisely a complement, because we still treat the ignored collumns as
+        //this is not precisely a complement, because we still treat the ignored columns as
         //full, but it should give reasonable results inside the product relation
         relation_base * new_inner = get_inner().complement(p);
         return get_plugin().mk_from_inner(get_signature(), m_inner_cols.c_ptr(), new_inner);
@@ -85,7 +85,7 @@ namespace datalog {
             s.push_back(m.mk_var(idx, sig[i]));
         }
         get_inner().to_formula(tmp);
-        get_plugin().get_context().get_var_subst()(tmp, sz, s.c_ptr(), fml);
+        fml = get_plugin().get_context().get_var_subst()(tmp, sz, s.c_ptr());
     }
 
 
@@ -226,7 +226,7 @@ namespace datalog {
 
     relation_base * sieve_relation_plugin::mk_empty(const relation_signature & s) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
 #if 0
         svector<bool> inner_cols(s.size());
         extract_inner_columns(s, inner_cols.c_ptr());
@@ -278,8 +278,8 @@ namespace datalog {
                 m_inner_join_fun(inner_join_fun) {
             bool r1_sieved = r1.get_plugin().is_sieve_relation();
             bool r2_sieved = r2.get_plugin().is_sieve_relation();
-            const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : 0;
-            const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : 0;
+            const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : nullptr;
+            const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : nullptr;
             if(r1_sieved) {
                 m_result_inner_cols.append(sr1->m_inner_cols);
             }
@@ -294,12 +294,12 @@ namespace datalog {
             }
         }
 
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             bool r1_sieved = r1.get_plugin().is_sieve_relation();
             bool r2_sieved = r2.get_plugin().is_sieve_relation();
             SASSERT(r1_sieved || r2_sieved);
-            const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : 0;
-            const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : 0;
+            const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : nullptr;
+            const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : nullptr;
             const relation_base & inner1 = r1_sieved ? sr1->get_inner() : r1;
             const relation_base & inner2 = r2_sieved ? sr2->get_inner() : r2;
 
@@ -313,12 +313,12 @@ namespace datalog {
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if( &r1.get_plugin()!=this && &r2.get_plugin()!=this ) {
             //we create just operations that involve the current plugin
-            return 0;
+            return nullptr;
         }
         bool r1_sieved = r1.get_plugin().is_sieve_relation();
         bool r2_sieved = r2.get_plugin().is_sieve_relation();
-        const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : 0;
-        const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : 0;
+        const sieve_relation * sr1 = r1_sieved ? static_cast<const sieve_relation *>(&r1) : nullptr;
+        const sieve_relation * sr2 = r2_sieved ? static_cast<const sieve_relation *>(&r2) : nullptr;
         const relation_base & inner1 = r1_sieved ? sr1->get_inner() : r1;
         const relation_base & inner2 = r2_sieved ? sr2->get_inner() : r2;
 
@@ -340,7 +340,7 @@ namespace datalog {
 
         relation_join_fn * inner_join_fun = get_manager().mk_join_fn(inner1, inner2, inner_cols1, inner_cols2, false);
         if(!inner_join_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, *this, r1, r2, col_cnt, cols1, cols2, inner_join_fun);
     }
@@ -357,7 +357,7 @@ namespace datalog {
             get_result_signature() = result_sig;
         }
 
-        virtual relation_base * operator()(const relation_base & r0) {
+        relation_base * operator()(const relation_base & r0) override {
             SASSERT(r0.get_plugin().is_sieve_relation());
             const sieve_relation & r = static_cast<const sieve_relation &>(r0);
             sieve_relation_plugin & plugin = r.get_plugin();
@@ -371,7 +371,7 @@ namespace datalog {
     relation_transformer_fn * sieve_relation_plugin::mk_project_fn(const relation_base & r0, unsigned col_cnt, 
             const unsigned * removed_cols) {
         if(&r0.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
         unsigned_vector inner_removed_cols;
@@ -398,7 +398,7 @@ namespace datalog {
         }
         
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.c_ptr());
     }
@@ -406,7 +406,7 @@ namespace datalog {
     relation_transformer_fn * sieve_relation_plugin::mk_rename_fn(const relation_base & r0, 
             unsigned cycle_len, const unsigned * permutation_cycle) {
         if(&r0.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
 
@@ -428,7 +428,7 @@ namespace datalog {
         relation_transformer_fn * inner_fun = 
             get_manager().mk_permutation_rename_fn(r.get_inner(), inner_permutation);
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(transformer_fn, inner_fun, result_sig, result_inner_cols.c_ptr());
     }
@@ -439,13 +439,13 @@ namespace datalog {
     public:
         union_fn(relation_union_fn * union_fun) : m_union_fun(union_fun) {}
 
-        virtual void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) {
+        void operator()(relation_base & tgt, const relation_base & src, relation_base * delta) override {
             bool tgt_sieved = tgt.get_plugin().is_sieve_relation();
             bool src_sieved = src.get_plugin().is_sieve_relation();
             bool delta_sieved = delta && delta->get_plugin().is_sieve_relation();
-            sieve_relation * stgt = tgt_sieved ? static_cast<sieve_relation *>(&tgt) : 0;
-            const sieve_relation * ssrc = src_sieved ? static_cast<const sieve_relation *>(&src) : 0;
-            sieve_relation * sdelta = delta_sieved ? static_cast<sieve_relation *>(delta) : 0;
+            sieve_relation * stgt = tgt_sieved ? static_cast<sieve_relation *>(&tgt) : nullptr;
+            const sieve_relation * ssrc = src_sieved ? static_cast<const sieve_relation *>(&src) : nullptr;
+            sieve_relation * sdelta = delta_sieved ? static_cast<sieve_relation *>(delta) : nullptr;
             relation_base & itgt = tgt_sieved ? stgt->get_inner() : tgt;
             const relation_base & isrc = src_sieved ? ssrc->get_inner() : src;
             relation_base * idelta = delta_sieved ? &sdelta->get_inner() : delta;
@@ -458,15 +458,15 @@ namespace datalog {
             const relation_base * delta) {
         if(&tgt.get_plugin()!=this && &src.get_plugin()!=this && (delta && &delta->get_plugin()!=this)) {
             //we create the operation only if it involves this plugin
-            return 0;
+            return nullptr;
         }
 
         bool tgt_sieved = tgt.get_plugin().is_sieve_relation();
         bool src_sieved = src.get_plugin().is_sieve_relation();
         bool delta_sieved = delta && delta->get_plugin().is_sieve_relation();
-        const sieve_relation * stgt = tgt_sieved ? static_cast<const sieve_relation *>(&tgt) : 0;
-        const sieve_relation * ssrc = src_sieved ? static_cast<const sieve_relation *>(&src) : 0;
-        const sieve_relation * sdelta = delta_sieved ? static_cast<const sieve_relation *>(delta) : 0;
+        const sieve_relation * stgt = tgt_sieved ? static_cast<const sieve_relation *>(&tgt) : nullptr;
+        const sieve_relation * ssrc = src_sieved ? static_cast<const sieve_relation *>(&src) : nullptr;
+        const sieve_relation * sdelta = delta_sieved ? static_cast<const sieve_relation *>(delta) : nullptr;
         const relation_base & itgt = tgt_sieved ? stgt->get_inner() : tgt;
         const relation_base & isrc = src_sieved ? ssrc->get_inner() : src;
         const relation_base * idelta = delta_sieved ? &sdelta->get_inner() : delta;
@@ -476,7 +476,7 @@ namespace datalog {
         if( tgt_sieved && src_sieved && (!delta || delta_sieved) ) {
             if( !vectors_equal(stgt->m_inner_cols, ssrc->m_inner_cols)
                 || (delta && !vectors_equal(stgt->m_inner_cols, sdelta->m_inner_cols)) ) {
-                return 0;
+                return nullptr;
             }
         }
         else {
@@ -485,13 +485,13 @@ namespace datalog {
                   || (sdelta && !sdelta->no_sieved_columns()) ) {
                 //We have an unsieved relation and then some relation with some sieved columns,
                 //which means there is an misalignment.
-                return 0;
+                return nullptr;
             }
         }
 
         relation_union_fn * union_fun = get_manager().mk_union_fn(itgt, isrc, idelta);
         if(!union_fun) {
-            return 0;
+            return nullptr;
         }
 
         return alloc(union_fn, union_fun);
@@ -504,7 +504,7 @@ namespace datalog {
         filter_fn(relation_mutator_fn * inner_fun) 
             : m_inner_fun(inner_fun) {}
 
-        virtual void operator()(relation_base & r0) {
+        void operator()(relation_base & r0) override {
             SASSERT(r0.get_plugin().is_sieve_relation());
             sieve_relation & r = static_cast<sieve_relation &>(r0);
 
@@ -515,7 +515,7 @@ namespace datalog {
     relation_mutator_fn * sieve_relation_plugin::mk_filter_identical_fn(const relation_base & r0, 
             unsigned col_cnt, const unsigned * identical_cols) {
         if(&r0.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
         unsigned_vector inner_icols;
@@ -534,7 +534,7 @@ namespace datalog {
 
         relation_mutator_fn * inner_fun = get_manager().mk_filter_identical_fn(r.get_inner(), inner_icols);
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_fn, inner_fun);
     }
@@ -542,7 +542,7 @@ namespace datalog {
     relation_mutator_fn * sieve_relation_plugin::mk_filter_equal_fn(const relation_base & r0, 
             const relation_element & value, unsigned col) {
         if(&r0.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
         if(!r.is_inner_col(col)) {
@@ -553,7 +553,7 @@ namespace datalog {
 
         relation_mutator_fn * inner_fun = get_manager().mk_filter_equal_fn(r.get_inner(), value, inner_col);
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_fn, inner_fun);
     }
@@ -561,7 +561,7 @@ namespace datalog {
     relation_mutator_fn * sieve_relation_plugin::mk_filter_interpreted_fn(const relation_base & rb, 
             app * condition) {
         if(&rb.get_plugin()!=this) {
-            return 0;
+            return nullptr;
         }
         ast_manager & m = get_ast_manager();
         const sieve_relation & r = static_cast<const sieve_relation &>(rb);
@@ -584,12 +584,11 @@ namespace datalog {
             }
             subst_vect[subst_ofs-i] = m.mk_var(r.m_sig2inner[i], sig[i]);
         }
-        expr_ref inner_cond(m);
-        get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.c_ptr(), inner_cond);
+        expr_ref inner_cond = get_context().get_var_subst()(condition, subst_vect.size(), subst_vect.c_ptr());
 
         relation_mutator_fn * inner_fun = get_manager().mk_filter_interpreted_fn(r.get_inner(), to_app(inner_cond));
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(filter_fn, inner_fun);
     }
@@ -600,12 +599,12 @@ namespace datalog {
         negation_filter_fn(relation_intersection_filter_fn * inner_fun)
             : m_inner_fun(inner_fun) {}
 
-        virtual void operator()(relation_base & r, const relation_base & neg) {
+        void operator()(relation_base & r, const relation_base & neg) override {
             bool r_sieved = r.get_plugin().is_sieve_relation();
             bool neg_sieved = neg.get_plugin().is_sieve_relation();
             SASSERT(r_sieved || neg_sieved);
-            sieve_relation * sr = r_sieved ? static_cast<sieve_relation *>(&r) : 0;
-            const sieve_relation * sneg = neg_sieved ? static_cast<const sieve_relation *>(&neg) : 0;
+            sieve_relation * sr = r_sieved ? static_cast<sieve_relation *>(&r) : nullptr;
+            const sieve_relation * sneg = neg_sieved ? static_cast<const sieve_relation *>(&neg) : nullptr;
             relation_base & inner_r = r_sieved ? sr->get_inner() : r;
             const relation_base & inner_neg = neg_sieved ? sneg->get_inner() : neg;
 
@@ -618,13 +617,13 @@ namespace datalog {
             const unsigned * neg_cols) {
         if(&r.get_plugin()!=this && &neg.get_plugin()!=this) {
             //we create just operations that involve the current plugin
-            return 0;
+            return nullptr;
         }
         bool r_sieved = r.get_plugin().is_sieve_relation();
         bool neg_sieved = neg.get_plugin().is_sieve_relation();
         SASSERT(r_sieved || neg_sieved);
-        const sieve_relation * sr = r_sieved ? static_cast<const sieve_relation *>(&r) : 0;
-        const sieve_relation * sneg = neg_sieved ? static_cast<const sieve_relation *>(&neg) : 0;
+        const sieve_relation * sr = r_sieved ? static_cast<const sieve_relation *>(&r) : nullptr;
+        const sieve_relation * sneg = neg_sieved ? static_cast<const sieve_relation *>(&neg) : nullptr;
         const relation_base & inner_r = r_sieved ? sr->get_inner() : r;
         const relation_base & inner_neg = neg_sieved ? sneg->get_inner() : neg;
 
@@ -657,7 +656,7 @@ namespace datalog {
         relation_intersection_filter_fn * inner_fun = 
             get_manager().mk_filter_by_negation_fn(inner_r, inner_neg, ir_cols, ineg_cols);
         if(!inner_fun) {
-            return 0;
+            return nullptr;
         }
         return alloc(negation_filter_fn, inner_fun);
     }

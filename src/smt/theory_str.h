@@ -20,14 +20,17 @@
 #include "util/trail.h"
 #include "util/union_find.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/hashtable.h"
 #include "ast/ast_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq_decl_plugin.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_str_params.h"
 #include "smt/proto_model/value_factory.h"
 #include "smt/smt_model_generator.h"
+#include "smt/smt_arith_value.h"
 #include<set>
 #include<stack>
 #include<vector>
@@ -36,6 +39,7 @@
 namespace smt {
 
 typedef hashtable<symbol, symbol_hash_proc, symbol_eq_proc> symbol_set;
+typedef int_hashtable<int_hash, default_eq<int> > integer_set;
 
 class str_value_factory : public value_factory {
     seq_util u;
@@ -46,16 +50,16 @@ public:
     str_value_factory(ast_manager & m, family_id fid) :
         value_factory(m, fid),
         u(m), delim("!"), m_next(0) {}
-    virtual ~str_value_factory() {}
-    virtual expr * get_some_value(sort * s) {
+    ~str_value_factory() override {}
+    expr * get_some_value(sort * s) override {
         return u.str.mk_string(symbol("some value"));
     }
-    virtual bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override {
         v1 = u.str.mk_string(symbol("value 1"));
         v2 = u.str.mk_string(symbol("value 2"));
         return true;
     }
-    virtual expr * get_fresh_value(sort * s) {
+    expr * get_fresh_value(sort * s) override {
         if (u.is_string(s)) {
             while (true) {
                 std::ostringstream strm;
@@ -66,36 +70,19 @@ public:
                 return u.str.mk_string(sym);
             }
         }
-        sort* seq = 0;
+        sort* seq = nullptr;
         if (u.is_re(s, seq)) {
             expr* v0 = get_fresh_value(seq);
             return u.re.mk_to_re(v0);
         }
         TRACE("t_str", tout << "unexpected sort in get_fresh_value(): " << mk_pp(s, m_manager) << std::endl;);
-        UNREACHABLE(); return NULL;
+        UNREACHABLE(); return nullptr;
     }
-    virtual void register_value(expr * n) { /* Ignore */ }
+    void register_value(expr * n) override { /* Ignore */ }
 };
 
-// rather than modify obj_pair_map I inherit from it and add my own helper methods
-class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {
-public:
-    expr * operator[](std::pair<expr*, expr*> key) const {
-        expr * value;
-        bool found = this->find(key.first, key.second, value);
-        if (found) {
-            return value;
-        } else {
-            TRACE("t_str", tout << "WARNING: lookup miss in contain_pair_bool_map!" << std::endl;);
-            return NULL;
-        }
-    }
-
-    bool contains(std::pair<expr*, expr*> key) const {
-        expr * unused;
-        return this->find(key.first, key.second, unused);
-    }
-};
+// NSB: added operator[] and contains to obj_pair_hashtable
+class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*> {};
 
 template<typename Ctx>
 class binary_search_trail : public trail<Ctx> {
@@ -104,8 +91,8 @@ class binary_search_trail : public trail<Ctx> {
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
-    virtual ~binary_search_trail() {}
-    virtual void undo(Ctx & ctx) {
+    ~binary_search_trail() override {}
+    void undo(Ctx & ctx) override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
             if (!target[entry].empty()) {
@@ -165,11 +152,75 @@ public:
     bool matches(zstring input);
 };
 
+class regex_automaton_under_assumptions {
+protected:
+    expr * re_term;
+    eautomaton * aut;
+    bool polarity;
+
+    bool assume_lower_bound;
+    rational lower_bound;
+
+    bool assume_upper_bound;
+    rational upper_bound;
+public:
+    regex_automaton_under_assumptions() :
+        re_term(nullptr), aut(nullptr), polarity(false),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    regex_automaton_under_assumptions(expr * re_term, eautomaton * aut, bool polarity) :
+        re_term(re_term), aut(aut), polarity(polarity),
+        assume_lower_bound(false), assume_upper_bound(false) {}
+
+    void set_lower_bound(rational & lb) {
+        lower_bound = lb;
+        assume_lower_bound = true;
+    }
+    void unset_lower_bound() {
+        assume_lower_bound = false;
+    }
+
+    void set_upper_bound(rational & ub) {
+        upper_bound = ub;
+        assume_upper_bound = true;
+    }
+    void unset_upper_bound() {
+        assume_upper_bound = false;
+    }
+
+    bool get_lower_bound(rational & lb) const {
+        if (assume_lower_bound) {
+            lb = lower_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    bool get_upper_bound(rational & ub) const {
+        if (assume_upper_bound) {
+            ub = upper_bound;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    eautomaton * get_automaton() const { return aut; }
+    expr * get_regex_term() const { return re_term; }
+    bool get_polarity() const { return polarity; }
+
+    virtual ~regex_automaton_under_assumptions() {
+        // don't free str_in_re or aut;
+        // they are managed separately
+    }
+};
+
 class theory_str : public theory {
     struct T_cut
     {
         int level;
-        std::map<expr*, int> vars;
+        obj_map<expr, int> vars;
 
         T_cut() {
             level = -100;
@@ -267,6 +318,8 @@ protected:
 
     str_value_factory * m_factory;
 
+    re2automaton m_mk_aut;
+
     // Unique identifier appended to unused variables to ensure that model construction
     // does not introduce equalities when they weren't enforced.
     unsigned m_unused_id;
@@ -279,9 +332,14 @@ protected:
     ptr_vector<enode> m_concat_axiom_todo;
     ptr_vector<enode> m_string_constant_length_todo;
     ptr_vector<enode> m_concat_eval_todo;
+    expr_ref_vector m_delayed_assertions_todo;
 
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
     ptr_vector<enode> m_library_aware_axiom_todo;
+
+    // list of axioms that are re-asserted every time the scope is popped
+    expr_ref_vector m_persisted_axioms;
+    expr_ref_vector m_persisted_axiom_todo;
 
     // hashtable of all exprs for which we've already set up term-specific axioms --
     // this prevents infinite recursive descent with respect to axioms that
@@ -292,8 +350,8 @@ protected:
     int tmpXorVarCount;
     int tmpLenTestVarCount;
     int tmpValTestVarCount;
-    std::map<std::pair<expr*, expr*>, std::map<int, expr*> > varForBreakConcat;
-
+    // obj_pair_map<expr, expr, std::map<int, expr*> > varForBreakConcat;
+    std::map<std::pair<expr*,expr*>, std::map<int, expr*> > varForBreakConcat;
     bool avoidLoopCut;
     bool loopDetected;
     obj_map<expr, std::stack<T_cut*> > cut_var_map;
@@ -303,7 +361,7 @@ protected:
     obj_hashtable<expr> variable_set;
     obj_hashtable<expr> internal_variable_set;
     obj_hashtable<expr> regex_variable_set;
-    std::map<int, std::set<expr*> > internal_variable_scope_levels;
+    std::map<int, obj_hashtable<expr> > internal_variable_scope_levels;
 
     obj_hashtable<expr> internal_lenTest_vars;
     obj_hashtable<expr> internal_valTest_vars;
@@ -312,30 +370,55 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    std::map<expr*, ptr_vector<expr> > fvar_lenTester_map;
+    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
-    std::map<expr*, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
-    std::map<expr*, expr*> valueTester_fvar_map;
 
-    std::map<expr*, int_vector> val_range_map;
+    obj_map<expr, std::map<int, svector<std::pair<int, expr*> > > > fvar_valueTester_map;
+
+    obj_map<expr, expr*> valueTester_fvar_map;
+
+    obj_map<expr, int_vector> val_range_map;
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
-    std::map<expr*, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
-    std::map<expr*, expr*> unroll_var_map;
-    std::map<std::pair<expr*, expr*>, expr*> concat_eq_unroll_ast_map;
+    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+    obj_map<expr, expr*> unroll_var_map;
+    obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
     expr_ref_vector contains_map;
 
     theory_str_contain_pair_bool_map_t contain_pair_bool_map;
-    //obj_map<expr, obj_pair_set<expr, expr> > contain_pair_idx_map;
-    std::map<expr*, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
+    obj_map<expr, std::set<std::pair<expr*, expr*> > > contain_pair_idx_map;
 
+    // TBD: do a curried map for determinism.
     std::map<std::pair<expr*, zstring>, expr*> regex_in_bool_map;
-    std::map<expr*, std::set<zstring> > regex_in_var_reg_str_map;
+    obj_map<expr, std::set<zstring> > regex_in_var_reg_str_map;
 
-    std::map<expr*, nfa> regex_nfa_cache; // Regex term --> NFA
+    // regex automata
+    scoped_ptr_vector<eautomaton> m_automata;
+    ptr_vector<eautomaton> regex_automata;
+    obj_hashtable<expr> regex_terms;
+    obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
+    obj_map<expr, svector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
+    obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
+    obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
+    obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
+    obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
+    obj_map<expr, ptr_vector<expr> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
+
+    // keep track of the last lower/upper bound we saw for each string term
+    // so we don't perform duplicate work
+    obj_map<expr, rational> regex_last_lower_bound;
+    obj_map<expr, rational> regex_last_upper_bound;
+
+    // each counter maps a (str.in.re) expression to an integer.
+    // use helper functions regex_inc_counter() and regex_get_counter() to access
+    obj_map<expr, unsigned> regex_length_attempt_count;
+    obj_map<expr, unsigned> regex_fail_count;
+    obj_map<expr, unsigned> regex_intersection_fail_count;
+
+    obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
     svector<char> char_set;
     std::map<char, int>  charSetLookupTable;
@@ -447,20 +530,39 @@ protected:
     void instantiate_axiom_suffixof(enode * e);
     void instantiate_axiom_Contains(enode * e);
     void instantiate_axiom_Indexof(enode * e);
-    void instantiate_axiom_Indexof2(enode * e);
+    void instantiate_axiom_Indexof_extended(enode * e);
     void instantiate_axiom_LastIndexof(enode * e);
     void instantiate_axiom_Substr(enode * e);
     void instantiate_axiom_Replace(enode * e);
     void instantiate_axiom_str_to_int(enode * e);
     void instantiate_axiom_int_to_str(enode * e);
 
+    void add_persisted_axiom(expr * a);
+
     expr * mk_RegexIn(expr * str, expr * regexp);
     void instantiate_axiom_RegexIn(enode * e);
     app * mk_unroll(expr * n, expr * bound);
-
     void process_unroll_eq_const_str(expr * unrollFunc, expr * constStr);
     void unroll_str2reg_constStr(expr * unrollFunc, expr * eqConstStr);
     void process_concat_eq_unroll(expr * concat, expr * unroll);
+
+    // regex automata and length-aware regex
+    void solve_regex_automata();
+    unsigned estimate_regex_complexity(expr * re);
+    unsigned estimate_regex_complexity_under_complement(expr * re);
+    unsigned estimate_automata_intersection_difficulty(eautomaton * aut1, eautomaton * aut2);
+    bool check_regex_length_linearity(expr * re);
+    bool check_regex_length_linearity_helper(expr * re, bool already_star);
+    expr_ref infer_all_regex_lengths(expr * lenVar, expr * re, expr_ref_vector & freeVariables);
+    void check_subterm_lengths(expr * re, integer_set & lens);
+    void find_automaton_initial_bounds(expr * str_in_re, eautomaton * aut);
+    bool refine_automaton_lower_bound(eautomaton * aut, rational current_lower_bound, rational & refined_lower_bound);
+    bool refine_automaton_upper_bound(eautomaton * aut, rational current_upper_bound, rational & refined_upper_bound);
+    expr_ref generate_regex_path_constraints(expr * stringTerm, eautomaton * aut, rational lenVal, expr_ref & characterConstraints);
+    void aut_path_add_next(u_map<expr*>& next, expr_ref_vector& trail, unsigned idx, expr* cond);
+    expr_ref aut_path_rewrite_constraint(expr * cond, expr * ch_var);
+    void regex_inc_counter(obj_map<expr, unsigned> & counter_map, expr * key);
+    unsigned regex_get_counter(obj_map<expr, unsigned> & counter_map, expr * key);
 
     void set_up_axioms(expr * ex);
     void handle_equality(expr * lhs, expr * rhs);
@@ -480,6 +582,8 @@ protected:
     bool can_concat_eq_str(expr * concat, zstring& str);
     bool can_concat_eq_concat(expr * concat1, expr * concat2);
     bool check_concat_len_in_eqc(expr * concat);
+    void check_eqc_empty_string(expr * lhs, expr * rhs);
+    void check_eqc_concat_concat(std::set<expr*> & eqc_concat_lhs, std::set<expr*> & eqc_concat_rhs);
     bool check_length_consistency(expr * n1, expr * n2);
     bool check_length_const_string(expr * n1, expr * constStr);
     bool check_length_eq_var_concat(expr * n1, expr * n2);
@@ -495,10 +599,11 @@ protected:
             std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr *> & varConstMap,
             std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap);
     expr * dealias_node(expr * node, std::map<expr*, expr*> & varAliasMap, std::map<expr*, expr*> & concatAliasMap);
-    void get_grounded_concats(expr* node, std::map<expr*, expr*> & varAliasMap,
-            std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
-            std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
-            std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
+    void get_grounded_concats(unsigned depth,
+                              expr* node, std::map<expr*, expr*> & varAliasMap,
+                              std::map<expr*, expr*> & concatAliasMap, std::map<expr*, expr*> & varConstMap,
+                              std::map<expr*, expr*> & concatConstMap, std::map<expr*, std::map<expr*, int> > & varEqConcatMap,
+                              std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void print_grounded_concat(expr * node, std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     void check_subsequence(expr* str, expr* strDeAlias, expr* subStr, expr* subStrDeAlias, expr* boolVar,
             std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
@@ -549,6 +654,7 @@ protected:
             std::map<expr*, std::map<expr*, int> > & concat_eq_concat_map,
             std::map<expr*, std::set<expr*> > & unrollGroupMap);
 
+    bool term_appears_as_subterm(expr * needle, expr * haystack);
     void classify_ast_by_type(expr * node, std::map<expr*, int> & varMap,
             std::map<expr*, int> & concatMap, std::map<expr*, int> & unrollMap);
     void classify_ast_by_type_in_positive_context(std::map<expr*, int> & varMap,
@@ -616,10 +722,10 @@ protected:
 
 public:
     theory_str(ast_manager & m, theory_str_params const & params);
-    virtual ~theory_str();
+    ~theory_str() override;
 
-    virtual char const * get_name() const { return "seq"; }
-    virtual void display(std::ostream & out) const;
+    char const * get_name() const override { return "seq"; }
+    void display(std::ostream & out) const override;
 
     bool overlapping_variables_detected() const { return loopDetected; }
 
@@ -628,33 +734,34 @@ public:
     void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) { }
     void unmerge_eh(theory_var v1, theory_var v2) {}
 protected:
-    virtual bool internalize_atom(app * atom, bool gate_ctx);
-    virtual bool internalize_term(app * term);
+    bool internalize_atom(app * atom, bool gate_ctx) override;
+    bool internalize_term(app * term) override;
     virtual enode* ensure_enode(expr* e);
-    virtual theory_var mk_var(enode * n);
+    theory_var mk_var(enode * n) override;
 
-    virtual void new_eq_eh(theory_var, theory_var);
-    virtual void new_diseq_eh(theory_var, theory_var);
+    void new_eq_eh(theory_var, theory_var) override;
+    void new_diseq_eh(theory_var, theory_var) override;
 
-    virtual theory* mk_fresh(context*) { return alloc(theory_str, get_manager(), m_params); }
-    virtual void init_search_eh();
-    virtual void add_theory_assumptions(expr_ref_vector & assumptions);
-    virtual lbool validate_unsat_core(expr_ref_vector & unsat_core);
-    virtual void relevant_eh(app * n);
-    virtual void assign_eh(bool_var v, bool is_true);
-    virtual void push_scope_eh();
-    virtual void pop_scope_eh(unsigned num_scopes);
-    virtual void reset_eh();
+    theory* mk_fresh(context*) override { return alloc(theory_str, get_manager(), m_params); }
+    void init(context * ctx) override;
+    void init_search_eh() override;
+    void add_theory_assumptions(expr_ref_vector & assumptions) override;
+    lbool validate_unsat_core(expr_ref_vector & unsat_core) override;
+    void relevant_eh(app * n) override;
+    void assign_eh(bool_var v, bool is_true) override;
+    void push_scope_eh() override;
+    void pop_scope_eh(unsigned num_scopes) override;
+    void reset_eh() override;
 
-    virtual bool can_propagate();
-    virtual void propagate();
+    bool can_propagate() override;
+    void propagate() override;
 
-    virtual final_check_status final_check_eh();
+    final_check_status final_check_eh() override;
     virtual void attach_new_th_var(enode * n);
 
-    virtual void init_model(model_generator & m);
-    virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-    virtual void finalize_model(model_generator & mg);
+    void init_model(model_generator & m) override;
+    model_value_proc * mk_value(enode * n, model_generator & mg) override;
+    void finalize_model(model_generator & mg) override;
 };
 
 };

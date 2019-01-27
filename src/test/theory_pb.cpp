@@ -11,7 +11,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "smt/theory_pb.h"
 #include "ast/rewriter/th_rewriter.h"
 
-unsigned populate_literals(unsigned k, smt::literal_vector& lits) {
+static unsigned populate_literals(unsigned k, smt::literal_vector& lits) {
     ENSURE(k < (1u << lits.size()));
     unsigned t = 0;
     for (unsigned i = 0; i < lits.size(); ++i) {
@@ -36,7 +36,6 @@ class pb_fuzzer {
 public:
     pb_fuzzer(ast_manager& m): m(m), rand(0), ctx(m, params), vars(m) {
         params.m_model = true;
-        params.m_pb_enable_simplex = true;
         unsigned N = 3;
         for (unsigned i = 0; i < N; ++i) {
             std::stringstream strm;
@@ -48,7 +47,6 @@ public:
 
     void fuzz() {
         enable_trace("pb");
-        enable_trace("simplex");
         unsigned nr = 0;
         for (unsigned i = 0; i < 100000; ++i) {
             fuzz_round(nr, 2);
@@ -84,6 +82,7 @@ private:
         }
         std::cout << "(assert " << fml << ")\n";
         ctx.assert_expr(fml);
+        std::cout << ";asserted\n";
     }
 
     
@@ -138,17 +137,14 @@ void tst_theory_pb() {
             unsigned k = populate_literals(i, lits);        
             std::cout << "k:" << k << " " << N << "\n";
             std::cout.flush();
-            TRACE("pb", tout << "k " << k << ": ";
-                  for (unsigned j = 0; j < lits.size(); ++j) {
-                      tout << lits[j] << " ";
-                  }
-                  tout << "\n";);
+            TRACE("pb", tout << "k " << k << ": " << lits << "\n";);
+
             {
                 smt::context ctx(m, params);
                 ctx.push();
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k+1, lits.size(), lits.c_ptr());
                 if (l != smt::false_literal) {
-                    ctx.assign(l, 0, false);
+                    ctx.assign(l, nullptr, false);
                     TRACE("pb", tout << "assign: " << l << "\n";
                           ctx.display(tout););
                     VERIFY(l_false == ctx.check());
@@ -160,7 +156,7 @@ void tst_theory_pb() {
                 ctx.push();
                 smt::literal l = smt::theory_pb::assert_ge(ctx, k, lits.size(), lits.c_ptr());
                 ENSURE(l != smt::false_literal);
-                ctx.assign(l, 0, false);
+                ctx.assign(l, nullptr, false);
                 TRACE("pb", ctx.display(tout););
                 VERIFY(l_true == ctx.check());
                 ctx.pop(1);

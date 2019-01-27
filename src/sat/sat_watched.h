@@ -33,7 +33,7 @@ namespace sat {
 
        For binary clauses: we use a bit to store whether the binary clause was learned or not.
        
-       Remark: there is not Clause object for binary clauses.
+       Remark: there are no clause objects for binary clauses.
     */
     class watched {
     public:
@@ -41,7 +41,7 @@ namespace sat {
             BINARY = 0, TERNARY, CLAUSE, EXT_CONSTRAINT
         };
     private:
-        unsigned m_val1;
+        size_t   m_val1;
         unsigned m_val2; 
     public:
         watched(literal l, bool learned):
@@ -64,6 +64,8 @@ namespace sat {
             SASSERT(get_literal2() == l2);
         }
 
+        unsigned val2() const { return m_val2; }
+
         watched(literal blocked_lit, clause_offset cls_off):
             m_val1(cls_off), 
             m_val2(static_cast<unsigned>(CLAUSE) + (blocked_lit.to_uint() << 2)) {
@@ -72,7 +74,7 @@ namespace sat {
             SASSERT(get_clause_offset() == cls_off);
         }
 
-        watched(ext_constraint_idx cnstr_idx):
+        explicit watched(ext_constraint_idx cnstr_idx):
             m_val1(cnstr_idx),
             m_val2(static_cast<unsigned>(EXT_CONSTRAINT)) {
             SASSERT(is_ext_constraint());
@@ -82,18 +84,21 @@ namespace sat {
         kind get_kind() const { return static_cast<kind>(m_val2 & 3); }
        
         bool is_binary_clause() const { return get_kind() == BINARY; }
-        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(m_val1); }
+        literal get_literal() const { SASSERT(is_binary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         void set_literal(literal l) { SASSERT(is_binary_clause()); m_val1 = l.to_uint(); }
-        bool is_learned() const { SASSERT(is_binary_clause()); return (m_val2 >> 2) == 1; }
-        bool is_binary_non_learned_clause() const { return m_val2 == 0; }
-        void mark_not_learned() { SASSERT(is_learned()); m_val2 = static_cast<unsigned>(BINARY); SASSERT(!is_learned()); }
-        
+        bool is_learned() const { SASSERT(is_binary_clause()); return ((m_val2 >> 2) & 1) == 1; }
+
+        bool is_binary_learned_clause() const { return is_binary_clause() && is_learned(); }
+        bool is_binary_non_learned_clause() const { return is_binary_clause() && !is_learned(); }
+
+        void set_learned(bool l) { if (l) m_val2 |= 4u; else m_val2 &= ~4u; SASSERT(is_learned() == l); }
+                
         bool is_ternary_clause() const { return get_kind() == TERNARY; }
-        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(m_val1); }
+        literal get_literal1() const { SASSERT(is_ternary_clause()); return to_literal(static_cast<unsigned>(m_val1)); }
         literal get_literal2() const { SASSERT(is_ternary_clause()); return to_literal(m_val2 >> 2); }
 
         bool is_clause() const { return get_kind() == CLAUSE; }
-        clause_offset get_clause_offset() const { SASSERT(is_clause()); return m_val1; }
+        clause_offset get_clause_offset() const { SASSERT(is_clause()); return static_cast<clause_offset>(m_val1); }
         literal get_blocked_literal() const { SASSERT(is_clause()); return to_literal(m_val2 >> 2); }
         void set_clause_offset(clause_offset c) { SASSERT(is_clause()); m_val1 = c; }
         void set_blocked_literal(literal l) { SASSERT(is_clause()); m_val2 = static_cast<unsigned>(CLAUSE) + (l.to_uint() << 2); }
@@ -103,7 +108,7 @@ namespace sat {
         }
 
         bool is_ext_constraint() const { return get_kind() == EXT_CONSTRAINT; }
-        ext_constraint_idx get_ext_constraint_idx() const { SASSERT(is_ext_constraint()); return m_val2; }
+        ext_constraint_idx get_ext_constraint_idx() const { SASSERT(is_ext_constraint()); return m_val1; }
         
         bool operator==(watched const & w) const { return m_val1 == w.m_val1 && m_val2 == w.m_val2; }
         bool operator!=(watched const & w) const { return !operator==(w); }
@@ -126,11 +131,16 @@ namespace sat {
 
     typedef vector<watched> watch_list;
 
+    watched* find_binary_watch(watch_list & wlist, literal l);
+    watched const* find_binary_watch(watch_list const & wlist, literal l);
     bool erase_clause_watch(watch_list & wlist, clause_offset c);
-    inline void erase_ternary_watch(watch_list & wlist, literal l1, literal l2) { wlist.erase(watched(l1, l2)); }
+    void erase_ternary_watch(watch_list & wlist, literal l1, literal l2);
+    void set_ternary_learned(watch_list& wlist, literal l1, literal l2, bool learned);
 
     class clause_allocator;
-    void display(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
+    std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist);
+
+    void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist);
 };
 
 #endif

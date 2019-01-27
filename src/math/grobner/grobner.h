@@ -220,25 +220,25 @@ public:
        \brief Assert the given equality.
        This method assumes eq is simplified.
     */
-    void assert_eq(expr * eq, v_dependency * ex = 0);
+    void assert_eq(expr * eq, v_dependency * ex = nullptr);
 
     /**
        \brief Assert the equality monomials[0] + ... + monomials[num_monomials - 1] = 0.
        This method assumes the monomials were simplified.
     */
-    void assert_eq_0(unsigned num_monomials, expr * const * monomials, v_dependency * ex = 0);
+    void assert_eq_0(unsigned num_monomials, expr * const * monomials, v_dependency * ex = nullptr);
 
     /**
        \brief Assert the equality monomials[0] + ... + monomials[num_monomials - 1] = 0.
        This method assumes the monomials were simplified.
     */
-    void assert_eq_0(unsigned num_monomials, monomial * const * monomials, v_dependency * ex = 0);
+    void assert_eq_0(unsigned num_monomials, monomial * const * monomials, v_dependency * ex = nullptr);
 
     /**
        \brief Assert the equality coeffs[0] * monomials[0] + ... + coeffs[num_monomials-1] * monomials[num_monomials - 1] = 0.
        This method assumes the monomials were simplified.
     */
-    void assert_eq_0(unsigned num_monomials, rational const * coeffs, expr * const * monomials, v_dependency * ex = 0);
+    void assert_eq_0(unsigned num_monomials, rational const * coeffs, expr * const * monomials, v_dependency * ex = nullptr);
 
     /**
        \brief Assert the monomial tautology (quote (x_1 * ... * x_n)) - x_1 * ... * x_n = 0
@@ -263,7 +263,7 @@ public:
     /**
        \brief Return true if an inconsistency was detected.
     */
-    bool inconsistent() const { return m_unsat != 0; }
+    bool inconsistent() const { return m_unsat != nullptr; }
 
     /**
        \brief Simplify the given expression using the equalities asserted 

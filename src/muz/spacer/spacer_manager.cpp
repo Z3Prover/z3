@@ -30,6 +30,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "tactic/model_converter.h"
 
+#include "smt/smt_solver.h"
 namespace spacer {
 
 class collect_decls_proc {
@@ -113,7 +114,7 @@ void inductive_property::to_model(model_ref& md) const
         }
     }
     TRACE("spacer", model_smt2_pp(tout, m, *md, 0););
-    apply(const_cast<model_converter_ref&>(m_mc), md, 0);
+    apply(const_cast<model_converter_ref&>(m_mc), md);
 }
 
 expr_ref inductive_property::to_expr() const
@@ -168,165 +169,28 @@ void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::
     }
 }
 
-std::vector<std::string> manager::get_state_suffixes()
-{
-    std::vector<std::string> res;
-    res.push_back("_n");
-    return res;
-}
-
-manager::manager(unsigned max_num_contexts, ast_manager& manager) :
-    m(manager),
-    m_brwr(m),
-    m_mux(m, get_state_suffixes()),
-    m_background(m.mk_true(), m),
-    m_contexts(m, max_num_contexts),
-    m_contexts2(m, max_num_contexts),
-    m_contexts3(m, max_num_contexts),
-    m_next_unique_num(0)
-{
-}
 
 
-void manager::add_new_state(func_decl * s)
-{
-    SASSERT(s->get_arity() == 0); //we currently don't support non-constant states
-    decl_vector vect;
+manager::manager(ast_manager& manager) : m(manager), m_mux(m) {}
 
-    SASSERT(o_index(0) == 1); //we assume this in the number of retrieved symbols
-    m_mux.create_tuple(s, s->get_arity(), s->get_domain(), s->get_range(), 2, vect);
-    m_o0_preds.push_back(vect[o_index(0)]);
-}
-
-func_decl * manager::get_o_pred(func_decl* s, unsigned idx)
-{
-    func_decl * res = m_mux.try_get_by_prefix(s, o_index(idx));
-    if (res) { return res; }
-    add_new_state(s);
-    res = m_mux.try_get_by_prefix(s, o_index(idx));
+func_decl * manager::get_o_pred(func_decl* s, unsigned idx) {
+    func_decl * res = m_mux.find_by_decl(s, o_index(idx));
+    if (!res) {
+        m_mux.register_decl(s);
+        res = m_mux.find_by_decl(s, o_index(idx));
+    }
     SASSERT(res);
     return res;
 }
 
-func_decl * manager::get_n_pred(func_decl* s)
-{
-    func_decl * res = m_mux.try_get_by_prefix(s, n_index());
-    if (res) { return res; }
-    add_new_state(s);
-    res = m_mux.try_get_by_prefix(s, n_index());
+func_decl * manager::get_n_pred(func_decl* s) {
+    func_decl * res = m_mux.find_by_decl(s, n_index());
+    if (!res) {
+        m_mux.register_decl(s);
+        res = m_mux.find_by_decl(s, n_index());
+    }
     SASSERT(res);
     return res;
-}
-
-void manager::mk_model_into_cube(const expr_ref_vector & mdl, expr_ref & res)
-{
-    m_brwr.mk_and(mdl.size(), mdl.c_ptr(), res);
-}
-
-void manager::mk_core_into_cube(const expr_ref_vector & core, expr_ref & res)
-{
-    m_brwr.mk_and(core.size(), core.c_ptr(), res);
-}
-
-void manager::mk_cube_into_lemma(expr * cube, expr_ref & res)
-{
-    m_brwr.mk_not(cube, res);
-}
-
-void manager::mk_lemma_into_cube(expr * lemma, expr_ref & res)
-{
-    m_brwr.mk_not(lemma, res);
-}
-
-expr_ref manager::mk_and(unsigned sz, expr* const* exprs)
-{
-    expr_ref result(m);
-    m_brwr.mk_and(sz, exprs, result);
-    return result;
-}
-
-expr_ref manager::mk_or(unsigned sz, expr* const* exprs)
-{
-    expr_ref result(m);
-    m_brwr.mk_or(sz, exprs, result);
-    return result;
-}
-
-expr_ref manager::mk_not_and(expr_ref_vector const& conjs)
-{
-    expr_ref result(m), e(m);
-    expr_ref_vector es(conjs);
-    flatten_and(es);
-    for (unsigned i = 0; i < es.size(); ++i) {
-        m_brwr.mk_not(es[i].get(), e);
-        es[i] = e;
-    }
-    m_brwr.mk_or(es.size(), es.c_ptr(), result);
-    return result;
-}
-
-void manager::get_or(expr* e, expr_ref_vector& result)
-{
-    result.push_back(e);
-    for (unsigned i = 0; i < result.size();) {
-        e = result[i].get();
-        if (m.is_or(e)) {
-            result.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-            result[i] = result.back();
-            result.pop_back();
-        } else {
-            ++i;
-        }
-    }
-}
-
-bool manager::try_get_state_and_value_from_atom(expr * atom0, app *& state, app_ref& value)
-{
-    if (!is_app(atom0)) {
-        return false;
-    }
-    app * atom = to_app(atom0);
-    expr * arg1;
-    expr * arg2;
-    app * candidate_state;
-    app_ref candidate_value(m);
-    if (m.is_not(atom, arg1)) {
-        if (!is_app(arg1)) {
-            return false;
-        }
-        candidate_state = to_app(arg1);
-        candidate_value = m.mk_false();
-    } else if (m.is_eq(atom, arg1, arg2)) {
-        if (!is_app(arg1) || !is_app(arg2)) {
-            return false;
-        }
-        if (!m_mux.is_muxed(to_app(arg1)->get_decl())) {
-            std::swap(arg1, arg2);
-        }
-        candidate_state = to_app(arg1);
-        candidate_value = to_app(arg2);
-    } else {
-        candidate_state = atom;
-        candidate_value = m.mk_true();
-    }
-    if (!m_mux.is_muxed(candidate_state->get_decl())) {
-        return false;
-    }
-    state = candidate_state;
-    value = candidate_value;
-    return true;
-}
-
-bool manager::try_get_state_decl_from_atom(expr * atom, func_decl *& state)
-{
-    app_ref dummy_value_holder(m);
-    app * s;
-    if (try_get_state_and_value_from_atom(atom, s, dummy_value_holder)) {
-        state = s->get_decl();
-        return true;
-    } else {
-        return false;
-    }
 }
 
 /**
@@ -340,22 +204,27 @@ app* mk_zk_const(ast_manager &m, unsigned idx, sort *s) {
 
 namespace find_zk_const_ns {
 struct proc {
+    int m_max;
     app_ref_vector &m_out;
-    proc (app_ref_vector &out) : m_out(out) {}
+    proc (app_ref_vector &out) : m_max(-1), m_out(out) {}
     void operator() (var const * n) const {}
-    void operator() (app *n) const {
-        if (is_uninterp_const(n) &&
-            n->get_decl()->get_name().str().compare (0, 3, "sk!") == 0) {
-            m_out.push_back (n);
+    void operator() (app *n) {
+        int idx;
+        if (is_zk_const(n, idx)) {
+            m_out.push_back(n);
+            if (idx > m_max) {
+                m_max = idx;
+            }
         }
     }
     void operator() (quantifier const *n) const {}
 };
 }
 
-void find_zk_const(expr *e, app_ref_vector &res) {
+int find_zk_const(expr *e, app_ref_vector &res) {
     find_zk_const_ns::proc p(res);
     for_each_expr (p, e);
+    return p.m_max;
 }
 
 namespace has_zk_const_ns {
@@ -363,8 +232,8 @@ struct found {};
 struct proc {
     void operator() (var const *n) const {}
     void operator() (app const *n) const {
-        if (is_uninterp_const(n) &&
-            n->get_decl()->get_name().str().compare(0, 3, "sk!") == 0) {
+        int idx;
+        if (is_zk_const(n, idx)) {
             throw found();
         }
     }
@@ -378,10 +247,32 @@ bool has_zk_const(expr *e){
     try {
         for_each_expr(p, e);
     }
-    catch (has_zk_const_ns::found) {
+    catch (const has_zk_const_ns::found &) {
         return true;
     }
     return false;
+}
+
+bool is_zk_const (const app *a, int &n) {
+    if (!is_uninterp_const(a)) return false;
+
+    const symbol &name = a->get_decl()->get_name();
+    if (name.str().compare (0, 3, "sk!") != 0) {
+        return false;
+    }
+
+    n = std::stoi(name.str().substr(3));
+    return true;
+}
+bool sk_lt_proc::operator()(const app *a1, const app *a2) {
+    if (a1 == a2) return false;
+    int n1, n2;
+    bool z1, z2;
+    z1 = is_zk_const(a1, n1);
+    z2 = is_zk_const(a2, n2);
+    if (z1 && z2) return n1 < n2;
+    if (z1 != z2) return z1;
+    return ast_lt_proc()(a1, a2);
 }
 
 }

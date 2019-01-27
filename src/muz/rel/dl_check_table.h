@@ -53,34 +53,34 @@ namespace datalog {
             m_checker(*manager.get_table_plugin(checker)),
             m_tocheck(*manager.get_table_plugin(tocheck)), m_count(0) {}
 
-        virtual table_base * mk_empty(const table_signature & s);
+        table_base * mk_empty(const table_signature & s) override;
 
-        virtual table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
-            const unsigned * removed_cols);
-        virtual table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src, 
-            const table_base * delta);
-        virtual table_transformer_fn * mk_project_fn(const table_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual table_transformer_fn * mk_select_equal_and_project_fn(const table_base & t, 
-            const table_element & value, unsigned col);
-        virtual table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
-            const unsigned * permutation_cycle);
-        virtual table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual table_mutator_fn * mk_filter_equal_fn(const table_base & t, const table_element & value, 
-            unsigned col);
-        virtual table_mutator_fn * mk_filter_interpreted_fn(const table_base & t, app * condition);
-        virtual table_transformer_fn * mk_filter_interpreted_and_project_fn(const table_base & t,
-            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols);
-        virtual table_intersection_filter_fn * mk_filter_by_negation_fn(
-            const table_base & t, 
-            const table_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
+        table_join_fn * mk_join_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        table_join_fn * mk_join_project_fn(const table_base & t1, const table_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt,
+            const unsigned * removed_cols) override;
+        table_union_fn * mk_union_fn(const table_base & tgt, const table_base & src,
+            const table_base * delta) override;
+        table_transformer_fn * mk_project_fn(const table_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        table_transformer_fn * mk_select_equal_and_project_fn(const table_base & t,
+            const table_element & value, unsigned col) override;
+        table_transformer_fn * mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        table_mutator_fn * mk_filter_identical_fn(const table_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        table_mutator_fn * mk_filter_equal_fn(const table_base & t, const table_element & value,
+            unsigned col) override;
+        table_mutator_fn * mk_filter_interpreted_fn(const table_base & t, app * condition) override;
+        table_transformer_fn * mk_filter_interpreted_and_project_fn(const table_base & t,
+            app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) override;
+        table_intersection_filter_fn * mk_filter_by_negation_fn(
+            const table_base & t,
+            const table_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
 
-        virtual bool can_handle_signature(table_signature const& s);
+        bool can_handle_signature(table_signature const& s) override;
 
     private:
         static check_table& get(table_base& r);
@@ -106,7 +106,7 @@ namespace datalog {
         check_table(check_table_plugin & p, const table_signature & sig);
         check_table(check_table_plugin & p, const table_signature & sig, table_base* tocheck, table_base* checker);
 
-        virtual ~check_table();
+        ~check_table() override;
 
         bool well_formed() const;
 
@@ -116,18 +116,18 @@ namespace datalog {
             return static_cast<check_table_plugin &>(table_base::get_plugin()); 
         }
 
-        virtual bool empty() const;
-        virtual void add_fact(const table_fact & f);
-        virtual void remove_fact(const table_element*  fact);
-        virtual bool contains_fact(const table_fact & f) const;       
-        virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
-        virtual table_base * clone() const;
+        bool empty() const override;
+        void add_fact(const table_fact & f) override;
+        void remove_fact(const table_element*  fact) override;
+        bool contains_fact(const table_fact & f) const override;
+        table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const override;
+        table_base * clone() const override;
 
-        virtual iterator begin() const { SASSERT(well_formed()); return m_tocheck->begin(); }
-        virtual iterator end() const { return m_tocheck->end(); }
+        iterator begin() const override { SASSERT(well_formed()); return m_tocheck->begin(); }
+        iterator end() const override { return m_tocheck->end(); }
 
-        virtual unsigned get_size_estimate_rows() const { return m_tocheck->get_size_estimate_rows(); }
-        virtual unsigned get_size_estimate_bytes() const { return m_tocheck->get_size_estimate_bytes(); }
+        unsigned get_size_estimate_rows() const override { return m_tocheck->get_size_estimate_rows(); }
+        unsigned get_size_estimate_bytes() const override { return m_tocheck->get_size_estimate_bytes(); }
     };
 
  };

@@ -13,6 +13,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 
 
+#if 0
 static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char const* option) {
 
     //    enable_trace("bit2int");
@@ -48,6 +49,7 @@ static void test_qe(ast_manager& m, lbool expected_outcome, expr* fml, char cons
         //exit(-1);
     }
 }
+#endif
 
 static void test_formula(lbool expected_outcome, char const* fml) {
     ast_manager m;

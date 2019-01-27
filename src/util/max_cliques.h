@@ -128,7 +128,12 @@ public:
                 turn = !turn;
             }
             if (clique.size() > 1) {
-                cliques.push_back(clique);
+                if (clique.size() == 2 && clique[0] == negate(clique[1])) {
+                    // no op
+                }
+                else {
+                    cliques.push_back(clique);
+                }
             }
         }
     }

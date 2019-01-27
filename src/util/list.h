@@ -28,7 +28,7 @@ class list {
     list * m_tail;
 
 public:
-    list(T const & h, list * t = 0):
+    list(T const & h, list * t = nullptr):
         m_head(h),
         m_tail(t) {
     }
@@ -68,12 +68,12 @@ unsigned length(list<T> * l) {
 }
 
 /**
-   \brief Non destructive apppend operation.  The new nodes are allocated
+   \brief Non destructive append operation.  The new nodes are allocated
    using the given region allocator.
 */
 template<typename T>
 list<T> * append(region & r, list<T> * l1, list<T> * l2) {
-    if (l2 == 0) {
+    if (l2 == nullptr) {
         return l1;
     }
     ptr_buffer<list<T> > buffer;

@@ -28,8 +28,8 @@ class hwf {
     friend class hwf_manager;
     double value;
     hwf & operator=(hwf const & other) { UNREACHABLE(); return *this; }
-    uint64 get_raw() const {
-      uint64 n;
+    uint64_t get_raw() const {
+      uint64_t n;
       SASSERT(sizeof(n) == sizeof(value));
       memcpy(&n, &value, sizeof(value));
       return n;
@@ -60,7 +60,7 @@ public:
     void set(hwf & o, mpf_rounding_mode rm, mpq const & value);
     void set(hwf & o, mpf_rounding_mode rm, char const * value);
     void set(hwf & o, mpf_rounding_mode rm, mpq const & significand, mpz const & exponent);
-    void set(hwf & o, bool sign, uint64 significand, int exponent);
+    void set(hwf & o, bool sign, uint64_t significand, int exponent);
     void set(hwf & o, hwf const & x);
     
     // auxiliary methods to make the interface compatible with mpf
@@ -128,7 +128,7 @@ public:
         return (x.get_raw() & 0x8000000000000000ull) != 0; 
     }
 
-    uint64 sig(hwf const & x) const {
+    uint64_t sig(hwf const & x) const {
         return x.get_raw() & 0x000FFFFFFFFFFFFFull;
     }
 

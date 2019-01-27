@@ -21,25 +21,37 @@ Revision History:
 #include<signal.h>
 #include "util/timeout.h"
 #include "util/rlimit.h"
-#include "sat/dimacs.h"
-#include "sat/sat_solver.h"
 #include "util/gparams.h"
+#include "sat/dimacs.h"
+#include "sat/sat_params.hpp"
+#include "sat/sat_solver.h"
+#include "sat/ba_solver.h"
+#include "sat/tactic/goal2sat.h"
+#include "ast/reg_decl_plugins.h"
+#include "tactic/tactic.h"
+#include "tactic/fd_solver/fd_solver.h"
+
 
 extern bool          g_display_statistics;
-static sat::solver * g_solver = 0;
+static sat::solver * g_solver = nullptr;
 static clock_t       g_start_time;
+static tactic_ref    g_tac;
+static statistics    g_st;
 
 static void display_statistics() {
     clock_t end_time = clock();
+    if (g_tac && g_display_statistics) {
+        g_tac->collect_statistics(g_st);
+    }
     if (g_solver && g_display_statistics) {
         std::cout.flush();
         std::cerr.flush();
         
-        statistics st;
-        g_solver->collect_statistics(st);
-        st.update("total time", ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
-        st.display_smt2(std::cout);
+        g_solver->collect_statistics(g_st);
+        g_st.update("total time", ((static_cast<double>(end_time) - static_cast<double>(g_start_time)) / CLOCKS_PER_SEC));
+        g_st.display_smt2(std::cout);
     }
+    g_display_statistics = false;
 }
 
 static void on_timeout() {
@@ -126,15 +138,99 @@ static void track_clauses(sat::solver const& src,
     }
 }
 
+void verify_solution(char const * file_name) {
+    params_ref p = gparams::get_module("sat");
+    p.set_bool("produce_models", true);
+    reslimit limit;
+    sat::solver solver(p, limit);
+    std::ifstream in(file_name);
+    if (in.bad() || in.fail()) {
+        std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
+        exit(ERR_OPEN_FILE);
+    }
+    parse_dimacs(in, std::cerr, solver);
+    
+    sat::model const & m = g_solver->get_model();
+    for (unsigned i = 1; i < m.size(); i++) {
+        sat::literal lit(i, false);
+        switch (m[i]) {
+        case l_false: lit.neg(); break;
+        case l_undef: break;
+        case l_true: break;
+        }
+        solver.mk_clause(1, &lit);
+    }
+    lbool r = solver.check();
+    switch (r) {
+    case l_false: 
+        std::cout << "model checking failed\n";
+        break;
+    case l_true:
+        std::cout << "model validated\n";
+        break;
+    default:
+        std::cout << "inconclusive model\n";
+        break;
+    }
+}
+
+lbool solve_parallel(sat::solver& s) {
+    params_ref p = gparams::get_module("sat");
+    ast_manager m;
+    reg_decl_plugins(m);    
+    sat2goal s2g;
+    ref<sat2goal::mc> mc;
+    atom2bool_var a2b(m);
+    for (unsigned v = 0; v < s.num_vars(); ++v) {
+        a2b.insert(m.mk_const(symbol(v), m.mk_bool_sort()), v);
+    }
+    goal_ref g = alloc(goal, m);         
+    s2g(s, a2b, p, *g, mc);
+
+    g_tac = mk_parallel_qffd_tactic(m, p);
+    std::string reason_unknown;
+    model_ref md;
+    labels_vec labels;
+    proof_ref pr(m);
+    expr_dependency_ref core(m);
+    lbool r = check_sat(*g_tac, g, md, labels, pr, core, reason_unknown);
+    switch (r) {
+    case l_true:
+        if (gparams::get_ref().get_bool("model_validate", false)) {
+            // populate the SAT solver with the model obtained from parallel execution.
+            for (auto const& kv : a2b) {
+                sat::literal lit;
+                bool is_true = m.is_true((*md)(kv.m_key));
+                lit = sat::literal(kv.m_value, !is_true);
+                s.mk_clause(1, &lit);
+            }
+            // VERIFY(l_true == s.check());
+        }
+        break;
+    case l_false:
+        break;
+    default:
+        break;
+    }
+    display_statistics();
+    g_display_statistics = false;    
+    g_tac = nullptr;
+    return r;
+}
 
 unsigned read_dimacs(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
     signal(SIGINT, on_ctrl_c);
     params_ref p = gparams::get_module("sat");
+    params_ref par = gparams::get_module("parallel");
     p.set_bool("produce_models", true);
+    sat_params sp(p);
     reslimit limit;
-    sat::solver solver(p, limit, 0);
+    sat::solver solver(p, limit);
+    if (sp.xor_solver()) {
+        solver.set_extension(alloc(sat::ba_solver));
+    }
     g_solver = &solver;
 
     if (file_name) {
@@ -143,21 +239,24 @@ unsigned read_dimacs(char const * file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        parse_dimacs(in, std::cerr, solver);
     }
     else {
-        parse_dimacs(std::cin, solver);
+        parse_dimacs(std::cin, std::cerr, solver);
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit, 0);
+    sat::solver solver2(p, limit);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;
         track_clauses(solver, solver2, assumptions, tracking_clauses);
         r = g_solver->check(assumptions.size(), assumptions.c_ptr());
+    }
+    else if (par.get_bool("enable", false)) {
+        r = solve_parallel(solver);
     }
     else {
         r = g_solver->check();
@@ -165,6 +264,7 @@ unsigned read_dimacs(char const * file_name) {
     switch (r) {
     case l_true: 
         std::cout << "sat\n"; 
+        if (file_name && gparams::get_ref().get_bool("model_validate", false)) verify_solution(file_name);
         display_model(*g_solver);
         break;
     case l_undef: 
@@ -177,7 +277,6 @@ unsigned read_dimacs(char const * file_name) {
         }
         break;
     }
-    if (g_display_statistics)
-        display_statistics();
+    display_statistics();
     return 0;
 }

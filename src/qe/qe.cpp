@@ -130,8 +130,7 @@ namespace qe {
                     visited.mark(e, true);
                 }            
             }
-            for (unsigned i = 0; i < conjs.size(); ++i) {
-                expr* e = conjs[i].get();
+            for (expr* e : conjs) {
                 bool cv = contains_var.is_marked(e);
                 bool cu = contains_uf.is_marked(e);
                 if (cv && cu) {
@@ -362,7 +361,7 @@ namespace qe {
             }
             app* ite;
             if (find_ite(fml, ite)) {
-                expr* cond = 0, *th = 0, *el = 0;
+                expr* cond = nullptr, *th = nullptr, *el = nullptr;
                 VERIFY(m.is_ite(ite, cond, th, el));
                 expr_ref tmp1(fml, m), tmp2(fml, m);
                 m_replace->apply_substitution(ite, th, tmp1);
@@ -449,7 +448,7 @@ namespace qe {
         }
 
         expr* lookup(expr* e, bool p) {
-            expr* r = 0;
+            expr* r = nullptr;
             if (p && m_pos.find(e, r)) {
                 return r;
             }
@@ -458,7 +457,7 @@ namespace qe {
             }
             m_todo.push_back(e);
             m_pols.push_back(p);
-            return 0;
+            return nullptr;
         }
 
         void insert(expr* e, bool p, expr* r) {
@@ -615,7 +614,7 @@ namespace qe {
                 else if (m.is_ite(a)) {
                     nnf_ite(a, p);
                 }
-                else if (m.is_iff(a) || (m.is_eq(a) && m.is_bool(a->get_arg(0)))) {
+                else if (m.is_iff(a)) {
                     nnf_iff(a, p);
                 }
                 else if (m.is_xor(a)) {
@@ -688,7 +687,7 @@ namespace qe {
 
         bool visit(app* e) {
             bool all_visit = true;            
-            expr* f = 0;
+            expr* f = nullptr;
             expr_ref tmp(m);
             if (!m_is_relevant(e)) {
                 m_cache.insert(e, e);               
@@ -971,7 +970,7 @@ namespace qe {
 
         app* var() const { SASSERT(has_var()); return m_var; }
 
-        bool has_var() const { return 0 != m_var.get(); }
+        bool has_var() const { return nullptr != m_var.get(); }
 
         search_tree* parent() const { return m_parent; }
 
@@ -989,11 +988,11 @@ namespace qe {
                 todo.pop_back();
                 if (st->m_children.empty() && st->fml() && 
                     st->m_vars.empty() && !st->has_var()) {
+                    TRACE("qe", st->display(tout << "appending leaf\n");); 
                     result.push_back(st->fml());
                 }
-                for (unsigned i = 0; i < st->m_children.size(); ++i) {
-                    todo.push_back(st->m_children[i]);
-                }
+                for (auto * ch : st->m_children)
+                    todo.push_back(ch);
             }
         }
 
@@ -1020,15 +1019,13 @@ namespace qe {
 
         void reset() {
             TRACE("qe",tout << "resetting\n";);
-            for (unsigned i = 0; i < m_children.size(); ++i) {
-                dealloc(m_children[i]);
-            }
+            for (auto* ch : m_children) dealloc(ch);
             m_pos.reset();
             m_neg.reset();
             m_children.reset();
             m_vars.reset();
             m_branch_index.reset();
-            m_var = 0;
+            m_var = nullptr;
             m_def.reset();
             m_num_branches = rational::zero();
             m_pure = true;
@@ -1046,9 +1043,10 @@ namespace qe {
         }
 
         unsigned num_free_vars() const { return m_vars.size(); }
-        app* const* free_vars() const { return m_vars.c_ptr(); }
+        // app* const* free_vars() const { return m_vars.c_ptr(); }
+        app_ref_vector const& free_vars() const { return m_vars; }
         app*        free_var(unsigned i) const { return m_vars[i]; }
-        void        reset_free_vars() { m_vars.reset(); }
+        void        reset_free_vars() { TRACE("qe", tout << m_vars << "\n";); m_vars.reset(); }
 
         atom_set const& pos_atoms() const { return m_pos; }   
         atom_set const& neg_atoms() const { return m_neg; }    
@@ -1119,7 +1117,7 @@ namespace qe {
             st->init(fml);
             st->m_vars.append(m_vars.size(), m_vars.c_ptr());
             SASSERT(invariant());
-            TRACE("qe", tout << mk_pp(m_fml, m) << " child: " << mk_pp(fml, m) << "\n";);
+            TRACE("qe", display_node(tout); st->display_node(tout););
             return st;
         }
 
@@ -1133,7 +1131,7 @@ namespace qe {
             m_branch_index.insert(branch_id, index);
             st->m_vars.append(m_vars.size(), m_vars.c_ptr());
             SASSERT(invariant());
-            //TRACE("qe", tout << mk_pp(m_fml, m) << " child: " << mk_pp(st->fml(), m) << "\n";);
+            TRACE("qe", display_node(tout); st->display_node(tout););
             return st;
         }
 
@@ -1141,27 +1139,29 @@ namespace qe {
             display(out, "");
         }
 
-        void display(std::ostream& out, char const* indent) const {
-
-            out << indent << "node\n";
+        void display_node(std::ostream& out, char const* indent = "") const {
+            out << indent << "node " << std::hex << this << std::dec << "\n";
             if (m_var) {
-                out << indent << " var:  " << mk_ismt2_pp(m_var.get(), m) << "\n";
+                out << indent << " var:  " << m_var << "\n";
             }
-            for (unsigned i = 0; i < m_vars.size(); ++i) {
-                out << indent << " free: " << mk_ismt2_pp(m_vars[i], m) << "\n";
+            for (app* v : m_vars) {
+                out << indent << " free: " << mk_pp(v, m) << "\n";            
             }
             if (m_fml) {
-                out << indent << " fml:  " << mk_ismt2_pp(m_fml.get(), m) << "\n";
+                out << indent << " fml:  " << m_fml << "\n";
             }
             for (unsigned i = 0; i < m_def.size(); ++i) {
                 out << indent << " def:  " << m_def.var(i)->get_name() << " = " << mk_ismt2_pp(m_def.def(i), m) << "\n";
             }
             out << indent << " branches: " << m_num_branches << "\n";
+        }
 
+        void display(std::ostream& out, char const* indent) const {
+            display_node(out, indent);
             std::string new_indent(indent);
             new_indent += " ";
-            for (unsigned i = 0; i < m_children.size(); ++i) {
-                m_children[i]->display(out, new_indent.c_str());
+            for (auto * ch : m_children) {
+                ch->display(out, new_indent.c_str());
             }
         }
 
@@ -1214,6 +1214,7 @@ namespace qe {
                 out << "(push)\n";
                 pp.display_smt2(out, fml);                
                 out << "(pop)\n\n";      
+#if 0
                 DEBUG_CODE(
                     smt_params params;
                     params.m_simplify_bit2int = true;
@@ -1227,7 +1228,8 @@ namespace qe {
                         std::cout << "; Validation failed:\n";
                         std::cout << mk_pp(fml, m) << "\n";
                     }
-);
+                           );
+#endif
 
             }
             for (unsigned i = 0; i < m_children.size(); ++i) {
@@ -1369,11 +1371,11 @@ namespace qe {
             m_trail(m), 
             m_fml(m),
             m_subfml(m),
-            m_root(0, m, m.mk_true()),
-            m_current(0),
+            m_root(nullptr, m, m.mk_true()),
+            m_current(nullptr),
             m_new_vars(m),
             m_get_first(false),
-            m_defs(0),
+            m_defs(nullptr),
             m_nnf(m, get_is_relevant(), get_mk_atom())
         {
             params_ref params;
@@ -1381,7 +1383,7 @@ namespace qe {
             m_rewriter.updt_params(params);
         }
 
-        virtual ~quant_elim_plugin() {        
+        ~quant_elim_plugin() override {
             reset();
         }
         
@@ -1396,8 +1398,8 @@ namespace qe {
             m_var2branch.reset();
             m_root.reset();
             m_new_vars.reset();
-            m_fml = 0;
-            m_defs = 0;
+            m_fml = nullptr;
+            m_defs = nullptr;
             m_nnf.reset();
         }
 
@@ -1486,9 +1488,7 @@ namespace qe {
                   tout << "subformula: " << mk_ismt2_pp(m_subfml, m) << "\n";
                   m_root.display(tout); 
                   m_root.display_validate(tout); 
-                  for (unsigned i = 0; i < m_free_vars.size(); ++i) tout << mk_ismt2_pp(m_free_vars[i].get(), m) << " ";
-                  tout << "\n";
-                  );
+                  tout << "free: " << m_free_vars << "\n";);
 
             free_vars.append(m_free_vars);
             if (!m_free_vars.empty() || m_solver.inconsistent()) {
@@ -1501,7 +1501,7 @@ namespace qe {
             }
             reset();
             m_solver.pop(1);
-            f = 0;
+            f = nullptr;
         }
 
         void collect_statistics(statistics& st) {
@@ -1536,24 +1536,24 @@ namespace qe {
             pop(*model_eval);                    
         } 
 
-        ast_manager& get_manager() { return m; }
+        ast_manager& get_manager() override { return m; }
 
-        atom_set const& pos_atoms() const { return m_current->pos_atoms(); }
+        atom_set const& pos_atoms() const override { return m_current->pos_atoms(); }
 
-        atom_set const& neg_atoms() const { return m_current->neg_atoms(); }
+        atom_set const& neg_atoms() const override { return m_current->neg_atoms(); }
 
-        unsigned get_num_vars() const { return m_current->num_free_vars(); }
+        unsigned get_num_vars() const override { return m_current->num_free_vars(); }
 
-        app* get_var(unsigned idx) const { return m_current->free_var(idx); } 
+        app* get_var(unsigned idx) const override { return m_current->free_var(idx); }
 
-        app* const* get_vars() const { return m_current->free_vars(); }
+        app_ref_vector const& get_vars() const override { return m_current->free_vars(); }
 
-        contains_app& contains(unsigned idx) { return contains(get_var(idx)); }              
+        contains_app& contains(unsigned idx) override { return contains(get_var(idx)); }
 
         //
         // The variable at idx is eliminated (without branching).
         // 
-        void elim_var(unsigned idx, expr* _fml, expr* def) {
+        void elim_var(unsigned idx, expr* _fml, expr* def) override {
             app* x = get_var(idx);
             expr_ref fml(_fml, m);
             TRACE("qe", tout << mk_pp(x,m) << " " << mk_pp(def, m) << "\n";);
@@ -1564,14 +1564,14 @@ namespace qe {
             normalize(*m_current);
         }
         
-        void add_var(app* x) {
+        void add_var(app* x) override {
             m_new_vars.push_back(x);
             if (m_var2branch.contains(x)) {
                 return;
             }
             contains_app* ca = alloc(contains_app, m, x);
             m_var2contains.insert(x, ca);
-            app* bv = 0;            
+            app* bv = nullptr;
             if (m.is_bool(x) || m_bv.is_bv(x)) {
                 bv = x;
             }
@@ -1583,7 +1583,7 @@ namespace qe {
             m_var2branch.insert(x, bv);
         }
 
-        virtual void add_constraint(bool use_current_val, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) {
+        void add_constraint(bool use_current_val, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
             search_tree* node = m_current;           
             if (!use_current_val) {
                 node = m_current->parent();
@@ -1598,12 +1598,12 @@ namespace qe {
             add_literal(l3);
             expr_ref fml(m);
             fml = m.mk_or(m_literals.size(), m_literals.c_ptr());
-            TRACE("qe", tout << mk_ismt2_pp(fml, m) << "\n";);
+            TRACE("qe", tout << fml << "\n";);
             m_solver.assert_expr(fml);
         }            
 
-        void blast_or(app* var, expr_ref& fml) {
-            m_qe.eliminate_exists(1, &var, fml, m_free_vars, false, 0);
+        void blast_or(app* var, expr_ref& fml) override {
+            m_qe.eliminate_exists(1, &var, fml, m_free_vars, false, nullptr);
         }
 
         lbool eliminate_exists(unsigned num_vars, app* const* vars, expr_ref& fml, bool get_first, guarded_defs* defs) {
@@ -1613,7 +1613,7 @@ namespace qe {
     private:
 
         void add_literal(expr* l) {
-            if (l != 0) {
+            if (l != nullptr) {
                 m_literals.push_back(l);
             }
         }
@@ -1654,9 +1654,7 @@ namespace qe {
         }
 
         app* get_branch_id(app* x) {
-            app* result = 0;
-            VERIFY (m_var2branch.find(x, result));
-            return result;
+            return m_var2branch[x];
         }
 
         bool extract_partition(ptr_vector<app>& vars) {
@@ -1707,11 +1705,11 @@ namespace qe {
                     return NEED_PROPAGATION;
                 }
                 m_current = m_current->child(branch);
-                if (m_current->fml() == 0) {
+                if (m_current->fml() == nullptr) {
                     SASSERT(!m_current->has_var());
                     if (apply) {
                         expr_ref def(m);
-                        plugin(x).subst(contains(x), branch, fml, m_defs?&def:0); 
+                        plugin(x).subst(contains(x), branch, fml, m_defs?&def:nullptr);
                         SASSERT(!contains(x)(fml));
                         m_current->consume_vars(m_new_vars);
                         m_current->init(fml);
@@ -1912,6 +1910,7 @@ namespace qe {
             }
 
             m_current->set_var(x, k);
+            TRACE("qe", tout << mk_pp(x, m) << " := " << k << "\n";);
             if (m_bv.is_bv(x)) {                
                 return;
             }
@@ -1952,7 +1951,7 @@ namespace qe {
                 vars.reset();
                 closed = closed && (r != l_undef);
             }        
-            TRACE("qe", tout << mk_pp(fml, m) << "\n";);
+            TRACE("qe", tout << fml << " free: " << m_current->free_vars() << "\n";);
             m_current->add_child(fml)->reset_free_vars();
             block_assignment(); 
         }
@@ -1961,9 +1960,7 @@ namespace qe {
         // variable queueing.
 
         contains_app& contains(app* x) {
-            contains_app* result = 0;
-            VERIFY(m_var2contains.find(x, result));
-            return *result;
+            return *m_var2contains[x];
         }
 
         bool find_min_weight(app*& x, rational& num_branches) {
@@ -2003,6 +2000,7 @@ namespace qe {
             bool solved = true;
             while (solved) {
                 expr_ref fml(m_current->fml(), m);
+                TRACE("qe", tout << fml << "\n";);
                 conj_enum conjs(m, fml);
                 solved = false;
                 for (unsigned i = 0; !solved && i < m_plugins.size(); ++i) {
@@ -2037,7 +2035,7 @@ namespace qe {
           {
           }
 
-        virtual ~quant_elim_new() {
+        ~quant_elim_new() override {
             reset();
         }
         
@@ -2054,17 +2052,17 @@ namespace qe {
         }
 
 
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             for (unsigned i = 0; i < m_plugins.size(); ++i) {
                 m_plugins[i]->collect_statistics(st);
             }
         }
 
-        void updt_params(params_ref const& p) {
+        void updt_params(params_ref const& p) override {
             m_eliminate_variables_as_block = p.get_bool("eliminate_variables_as_block", m_eliminate_variables_as_block);
         }
         
-        void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) {
+        void eliminate(bool is_forall, unsigned num_vars, app* const* vars, expr_ref& fml) override {
               if (is_forall) {
                   eliminate_forall_bind(num_vars, vars, fml);
               }
@@ -2094,14 +2092,14 @@ namespace qe {
             }
         }
 
-        virtual void set_assumption(expr* fml) {
+        void set_assumption(expr* fml) override {
             m_assumption = fml;
         }
         
 
-        virtual lbool eliminate_exists(
+        lbool eliminate_exists(
             unsigned num_vars, app* const* vars, expr_ref& fml, 
-            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) {
+            app_ref_vector& free_vars, bool get_first, guarded_defs* defs) override {
             if (get_first) {
                 return eliminate_block(num_vars, vars, fml, free_vars, get_first, defs);
             }
@@ -2199,7 +2197,7 @@ namespace qe {
         void eliminate_exists_bind(unsigned num_vars, app* const* vars, expr_ref& fml) {
             checkpoint();
             app_ref_vector free_vars(m);
-            eliminate_exists(num_vars, vars, fml, free_vars, false, 0);
+            eliminate_exists(num_vars, vars, fml, free_vars, false, nullptr);
             bind_variables(free_vars.size(), free_vars.c_ptr(), fml);
         }
 
@@ -2221,7 +2219,7 @@ namespace qe {
         m_fparams(fp),
         m_params(p),
         m_trail(m),
-        m_qe(0),
+        m_qe(nullptr),
         m_assumption(m.mk_true())
     {
     }
@@ -2271,8 +2269,7 @@ namespace qe {
                 bound.push_back(m.mk_fresh_const("bound", fv[i]));
             }
             var_subst subst(m);
-            subst(fml, bound.size(), bound.c_ptr(), tmp);
-            fml = tmp;
+            fml = subst(fml, bound.size(), bound.c_ptr());
         }
     }
 
@@ -2293,7 +2290,7 @@ namespace qe {
         }
         expr* const* exprs = (expr* const*)(vars.c_ptr());
         var_subst subst(m);
-        subst(new_body, vars.size(), exprs, tmp);
+        tmp = subst(new_body, vars.size(), exprs);
         inv_var_shifter shift(m);
         shift(tmp, vars.size(), new_body);        
     }
@@ -2304,7 +2301,7 @@ namespace qe {
 
         m_trail.push_back(result);
         todo.push_back(result);
-        expr* e = 0, *r = 0;
+        expr* e = nullptr, *r = nullptr;
 
         while (!todo.empty()) {
             e = todo.back();
@@ -2339,13 +2336,18 @@ namespace qe {
             case AST_QUANTIFIER: {
                 app_ref_vector vars(m);
                 quantifier* q = to_quantifier(e);
-                bool is_fa = q->is_forall();
-                tmp = q->get_expr();
-                extract_vars(q, tmp, vars);
-                elim(tmp);
-                init_qe();
-                m_qe->set_assumption(m_assumption);
-                m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                if (is_lambda(q)) {
+                    tmp = e;
+                }
+                else {
+                    bool is_fa = is_forall(q);
+                    tmp = q->get_expr();
+                    extract_vars(q, tmp, vars);
+                    elim(tmp);
+                    init_qe();
+                    m_qe->set_assumption(m_assumption);
+                    m_qe->eliminate(is_fa, vars.size(), vars.c_ptr(), tmp);
+                }
                 m_trail.push_back(tmp);
                 m_visited.insert(e, tmp);
                 todo.pop_back();
@@ -2474,8 +2476,8 @@ namespace qe {
     public:
         simplify_solver_context(ast_manager& m):
             m(m), 
-            m_vars(0), 
-            m_fml(0) 
+            m_vars(nullptr),
+            m_fml(nullptr)
         {
             add_plugin(mk_bool_plugin(*this));
             add_plugin(mk_arith_plugin(*this, false, m_fparams));
@@ -2485,7 +2487,7 @@ namespace qe {
             m_fparams.updt_params(p);
         }
 
-        virtual ~simplify_solver_context() { reset(); }    
+        ~simplify_solver_context() override { reset(); }
         
 
         void solve(expr_ref& fml, app_ref_vector& vars) {
@@ -2504,16 +2506,16 @@ namespace qe {
             while (solved);
         }
 
-        virtual ast_manager& get_manager() { return m; }
+        ast_manager& get_manager() override { return m; }
 
-        virtual atom_set const& pos_atoms() const { return m_pos; }
-        virtual atom_set const& neg_atoms() const { return m_neg; }
+        atom_set const& pos_atoms() const override { return m_pos; }
+        atom_set const& neg_atoms() const override { return m_neg; }
 
         // Access current set of variables to solve
-        virtual unsigned    get_num_vars() const { return m_vars->size(); }
-        virtual app*        get_var(unsigned idx) const { return (*m_vars)[idx].get(); }
-        virtual app*const*  get_vars() const { return m_vars->c_ptr(); }
-        virtual bool        is_var(expr* e, unsigned& idx) const { 
+        unsigned    get_num_vars() const override { return m_vars->size(); }
+        app*        get_var(unsigned idx) const override { return (*m_vars)[idx].get(); }
+        app_ref_vector const&  get_vars() const override { return *m_vars; }
+        bool        is_var(expr* e, unsigned& idx) const override {
             for (unsigned i = 0; i < m_vars->size(); ++i) {
                 if ((*m_vars)[i].get() == e) { 
                     idx = i; 
@@ -2523,12 +2525,12 @@ namespace qe {
             return false;
         }
 
-        virtual contains_app& contains(unsigned idx) {
+        contains_app& contains(unsigned idx) override {
             return *m_contains[idx];
         }
 
         // callback to replace variable at index 'idx' with definition 'def' and updated formula 'fml'
-        virtual void elim_var(unsigned idx, expr* fml, expr* def) {
+        void elim_var(unsigned idx, expr* fml, expr* def) override {
             TRACE("qe", tout << mk_pp(m_vars->get(idx), m) << " " << mk_pp(fml, m) << "\n";);
             *m_fml = fml;
             m_vars->set(idx, m_vars->get(m_vars->size()-1));
@@ -2539,16 +2541,17 @@ namespace qe {
         }
 
         // callback to add new variable to branch.
-        virtual void add_var(app* x) {
+        void add_var(app* x) override {
+            TRACE("qe", tout << "add var: " << mk_pp(x, m) << "\n";);
             m_vars->push_back(x);
         }
 
         // callback to add constraints in branch.
-        virtual void add_constraint(bool use_var, expr* l1 = 0, expr* l2 = 0, expr* l3 = 0) {
+        void add_constraint(bool use_var, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
             UNREACHABLE();
         }
         // eliminate finite domain variable 'var' from fml.
-        virtual void blast_or(app* var, expr_ref& fml) {
+        void blast_or(app* var, expr_ref& fml) override {
             UNREACHABLE();
         }
 
@@ -2594,6 +2597,9 @@ namespace qe {
             ) 
         {
             
+            if (is_lambda(old_q)) {
+                return false;
+            }
             // bool is_forall = old_q->is_forall();
             app_ref_vector vars(m);
             TRACE("qe", tout << "simplifying" << mk_pp(new_body, m) << "\n";);
@@ -2601,12 +2607,12 @@ namespace qe {
             extract_vars(old_q, result, vars);
             TRACE("qe", tout << "variables extracted" << mk_pp(result, m) << "\n";);
 
-            if (old_q->is_forall()) {
+            if (is_forall(old_q)) {
                 result = mk_not(m, result);
             }
             m_ctx.solve(result, vars);
-            if (old_q->is_forall()) {
-                expr* e = 0;
+            if (is_forall(old_q)) {
+                expr* e = nullptr;
                 result = m.is_not(result, e)?e:mk_not(m, result);
             }       
             var_shifter shift(m);
@@ -2620,9 +2626,9 @@ namespace qe {
                 names.push_back(vars[i]->get_decl()->get_name());
             }
             if (!vars.empty()) {
-                result = m.mk_quantifier(old_q->is_forall(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
+                result = m.mk_quantifier(old_q->get_kind(), vars.size(), sorts.c_ptr(), names.c_ptr(), result, 1);
             }            
-            result_pr = 0;        
+            result_pr = nullptr;
             return true;
         }
 

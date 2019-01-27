@@ -42,7 +42,7 @@ namespace smt {
             m_n2(n2) {
         }
         
-        virtual void undo(context & ctx) {
+        void undo(context & ctx) override {
             m_already_processed.erase(m_n1, m_n2);
             TRACE("arith_eq_adapter_profile", tout << "del #" << m_n1->get_owner_id() << " #" << m_n2->get_owner_id() << "\n";);
         }
@@ -67,9 +67,9 @@ namespace smt {
             m_ge(ge) {
         }
 
-        virtual ~arith_eq_relevancy_eh() {}
+        ~arith_eq_relevancy_eh() override {}
 
-        virtual void operator()(relevancy_propagator & rp) {
+        void operator()(relevancy_propagator & rp) override {
             if (!rp.is_relevant(m_n1))
                 return;
             if (!rp.is_relevant(m_n2))
@@ -154,8 +154,8 @@ namespace smt {
         // Requires that the theory arithmetic internalizer accept non simplified terms of the form t1 - t2 
         // if t1 and t2 already have slacks (theory variables) associated with them.
         // It also accepts terms with repeated variables (Issue #429).
-        app * le = 0;
-        app * ge = 0;
+        app * le = nullptr;
+        app * ge = nullptr;
         if (m_util.is_numeral(t1))
             std::swap(t1, t2);
         if (m_util.is_numeral(t2)) {

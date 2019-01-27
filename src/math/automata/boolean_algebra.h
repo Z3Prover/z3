@@ -39,7 +39,7 @@ public:
 template<class T>
 class boolean_algebra : public positive_boolean_algebra<T> {
 public:
-    virtual ~boolean_algebra() {}
+    ~boolean_algebra() override {}
     virtual T mk_not(T x) = 0;
 };
 

@@ -25,8 +25,8 @@ void tst_expr_arith(unsigned num_files) {
     er.initialize_arith(20);
 
     family_id fid = m.mk_family_id("arith");
-    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, 0);
-    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, 0);
+    sort* int_ty  = m.mk_sort(fid, INT_SORT, 0, nullptr);
+    sort* real_ty = m.mk_sort(fid, REAL_SORT, 0, nullptr);
 
     er.initialize_array(3, int_ty, int_ty);
     er.initialize_array(3, int_ty, real_ty);

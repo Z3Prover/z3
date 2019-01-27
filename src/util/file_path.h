@@ -21,12 +21,12 @@ Revision History:
 #include <cstring>
 
 inline char const * get_extension(char const * file_name) {
-    if (file_name == 0)
-        return 0;
-    char const * last_dot = 0;
+    if (file_name == nullptr)
+        return nullptr;
+    char const * last_dot = nullptr;
     for (;;) {
         char const * tmp = strchr(file_name, '.');
-        if (tmp == 0) {
+        if (tmp == nullptr) {
             return last_dot;
         }
         last_dot  = tmp + 1;

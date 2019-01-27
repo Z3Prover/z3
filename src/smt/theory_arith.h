@@ -31,6 +31,7 @@ Revision History:
 #include "smt/params/theory_arith_params.h"
 #include "smt/arith_eq_adapter.h"
 #include "smt/proto_model/numeral_factory.h"
+#include "smt/smt_context.h"
 #include "util/obj_pair_hashtable.h"
 #include "smt/old_interval.h"
 #include "math/grobner/grobner.h"
@@ -41,7 +42,7 @@ Revision History:
 namespace smt {
     
     struct theory_arith_stats {
-        unsigned m_conflicts, m_add_rows, m_pivots, m_diseq_cs, m_gomory_cuts, m_branches, m_gcd_tests;
+        unsigned m_conflicts, m_add_rows, m_pivots, m_diseq_cs, m_gomory_cuts, m_branches, m_gcd_tests, m_patches, m_patches_succ;
         unsigned m_assert_lower, m_assert_upper, m_assert_diseq, m_core2th_eqs, m_core2th_diseqs;
         unsigned m_th2core_eqs, m_th2core_diseqs, m_bound_props, m_offset_eqs, m_fixed_eqs, m_offline_eqs;
         unsigned m_max_min; 
@@ -155,9 +156,9 @@ namespace smt {
             row_entry & operator[](unsigned idx) { return m_entries[idx]; }
             row_entry const & operator[](unsigned idx) const { return m_entries[idx]; }
             typename vector<row_entry>::iterator begin_entries() { return m_entries.begin(); }
-            const typename vector<row_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
+            typename vector<row_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename vector<row_entry>::iterator end_entries() { return m_entries.end(); }
-            const typename vector<row_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename vector<row_entry>::const_iterator end_entries() const { return m_entries.end(); }
             row_entry & add_row_entry(int & pos_idx);
             void del_row_entry(unsigned idx);
             void compress(vector<column> & cols); 
@@ -194,9 +195,9 @@ namespace smt {
             col_entry & operator[](unsigned idx) { return m_entries[idx]; }
             col_entry const & operator[](unsigned idx) const { return m_entries[idx]; }
             typename svector<col_entry>::iterator begin_entries() { return m_entries.begin(); }
-            const typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
+            typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename svector<col_entry>::iterator end_entries() { return m_entries.end(); }
-            const typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
             col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
         };
@@ -306,16 +307,16 @@ namespace smt {
         public:
             atom(bool_var bv, theory_var v, inf_numeral const & k, atom_kind kind);
             atom_kind get_atom_kind() const { return static_cast<atom_kind>(m_atom_kind); }
-            virtual ~atom() {}
+            ~atom() override {}
             inline inf_numeral const & get_k() const { return m_k; }
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_is_true; }
             void assign_eh(bool is_true, inf_numeral const & epsilon);
-            virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) { 
+            bool has_justification() const override { return true; }
+            void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override {
                 a.push_lit(literal(get_bool_var(), !m_is_true), coeff, proofs_enabled); 
             }
-            virtual void display(theory_arith const& th, std::ostream& out) const;
+            void display(theory_arith const& th, std::ostream& out) const override;
         };
 
         class eq_bound : public bound { 
@@ -328,13 +329,13 @@ namespace smt {
                 m_rhs(rhs) {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
             }
-            virtual ~eq_bound() {}
-            virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
+            ~eq_bound() override {}
+            bool has_justification() const override { return true; }
+            void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
                 a.push_eq(enode_pair(m_lhs, m_rhs), coeff, proofs_enabled); 
             }
-            virtual void display(theory_arith const& th, std::ostream& out) const;
+            void display(theory_arith const& th, std::ostream& out) const override;
         };
 
         class derived_bound : public bound {
@@ -344,14 +345,14 @@ namespace smt {
             friend class theory_arith;
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
-            virtual ~derived_bound() {}
+            ~derived_bound() override {}
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
-            virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled); 
+            bool has_justification() const override { return true; }
+            void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override;
             virtual void push_lit(literal l, numeral const&) { m_lits.push_back(l); }
             virtual void push_eq(enode_pair const& p, numeral const&) { m_eqs.push_back(p); }
-            virtual void display(theory_arith const& th, std::ostream& out) const;
+            void display(theory_arith const& th, std::ostream& out) const override;
             
         };
     
@@ -361,12 +362,12 @@ namespace smt {
             friend class theory_arith;
         public:
             justified_derived_bound(theory_var v, inf_numeral const & val, bound_kind k):derived_bound(v, val, k) {}
-            virtual ~justified_derived_bound() {}
-            virtual bool has_justification() const { return true; }
-            virtual void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled);
-            virtual void push_lit(literal l, numeral const& coeff);               
+            ~justified_derived_bound() override {}
+            bool has_justification() const override { return true; }
+            void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override;
+            void push_lit(literal l, numeral const& coeff) override;
 
-            virtual void push_eq(enode_pair const& p, numeral const& coeff);
+            void push_eq(enode_pair const& p, numeral const& coeff) override;
         };
    
         typedef int_hashtable<int_hash, default_eq<int> > literal_idx_set;
@@ -510,7 +511,7 @@ namespace smt {
         typedef int_hashtable<var_value_hash, var_value_eq> var_value_table;
         var_value_table             m_var_value_table;
 
-        virtual theory_var mk_var(enode * n);
+        theory_var mk_var(enode * n) override;
 
         void found_unsupported_op(app * n);
         void found_underspecified_op(app * n);
@@ -540,9 +541,9 @@ namespace smt {
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }
-        bool is_base(theory_var v) const { return get_var_kind(v) == BASE; }
-        bool is_quasi_base(theory_var v) const { return get_var_kind(v) == QUASI_BASE; }
-        bool is_non_base(theory_var v) const { return get_var_kind(v) == NON_BASE; }
+        bool is_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == BASE; }
+        bool is_quasi_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == QUASI_BASE; }
+        bool is_non_base(theory_var v) const { return v != null_theory_var && get_var_kind(v) == NON_BASE; }
         void set_var_kind(theory_var v, var_kind k) { m_data[v].m_kind = k; }
         unsigned get_var_row(theory_var v) const { SASSERT(!is_non_base(v)); return m_data[v].m_row_id; }
         void set_var_row(theory_var v, unsigned r_id) { m_data[v].m_row_id = r_id; }
@@ -561,16 +562,16 @@ namespace smt {
         bound * upper(theory_var v) const { return m_bounds[1][v]; }
         inf_numeral const & lower_bound(theory_var v) const { SASSERT(lower(v) != 0); return lower(v)->get_value(); }
         inf_numeral const & upper_bound(theory_var v) const { SASSERT(upper(v) != 0); return upper(v)->get_value(); }
-        bool below_lower(theory_var v) const { bound * l = lower(v); return l != 0 && get_value(v) < l->get_value(); }
-        bool above_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) > u->get_value(); }
-        bool below_upper(theory_var v) const { bound * u = upper(v); return u == 0 || get_value(v) < u->get_value(); }
-        bool above_lower(theory_var v) const { bound * l = lower(v); return l == 0 || get_value(v) > l->get_value(); }
+        bool below_lower(theory_var v) const { bound * l = lower(v); return l != nullptr && get_value(v) < l->get_value(); }
+        bool above_upper(theory_var v) const { bound * u = upper(v); return u != nullptr && get_value(v) > u->get_value(); }
+        bool below_upper(theory_var v) const { bound * u = upper(v); return u == nullptr || get_value(v) < u->get_value(); }
+        bool above_lower(theory_var v) const { bound * l = lower(v); return l == nullptr || get_value(v) > l->get_value(); }
         bool at_bound(theory_var v) const;
-        bool at_lower(theory_var v) const { bound * l = lower(v); return l != 0 && get_value(v) == l->get_value(); }
-        bool at_upper(theory_var v) const { bound * u = upper(v); return u != 0 && get_value(v) == u->get_value(); }
-        bool is_free(theory_var v) const { return lower(v) == 0 && upper(v) == 0; }
-        bool is_non_free(theory_var v) const { return lower(v) != 0 || upper(v) != 0; }
-        bool is_bounded(theory_var v) const { return lower(v) != 0 && upper(v) != 0; }
+        bool at_lower(theory_var v) const { bound * l = lower(v); return l != nullptr && get_value(v) == l->get_value(); }
+        bool at_upper(theory_var v) const { bound * u = upper(v); return u != nullptr && get_value(v) == u->get_value(); }
+        bool is_free(theory_var v) const { return lower(v) == nullptr && upper(v) == nullptr; }
+        bool is_non_free(theory_var v) const { return lower(v) != nullptr || upper(v) != nullptr; }
+        bool is_bounded(theory_var v) const { return lower(v) != nullptr && upper(v) != nullptr; }
         bool is_free(expr * n) const { 
             SASSERT(get_context().e_internalized(n) && get_context().get_enode(n)->get_th_var(get_id()) != null_theory_var);
             return is_free(get_context().get_enode(n)->get_th_var(get_id())); 
@@ -635,24 +636,24 @@ namespace smt {
         struct compare_atoms {
             bool operator()(atom* a1, atom* a2) const { return a1->get_k() < a2->get_k(); }
         };
-        virtual bool default_internalizer() const { return false; }
-        virtual bool internalize_atom(app * n, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void internalize_eq_eh(app * atom, bool_var v);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
+        bool default_internalizer() const override { return false; }
+        bool internalize_atom(app * n, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void internalize_eq_eh(app * atom, bool_var v) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
         
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual bool use_diseqs() const;
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
+        void assign_eh(bool_var v, bool is_true) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        bool use_diseqs() const override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
 
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
 
-        virtual void relevant_eh(app * n);
+        void relevant_eh(app * n) override;
         
-        virtual void restart_eh();
-        virtual void init_search_eh();
+        void restart_eh() override;
+        void init_search_eh() override;
         /**
            \brief True if the assignment may be changed during final
            check.  assume_eqs, check_int_feasibility,
@@ -669,18 +670,18 @@ namespace smt {
         */
         bool    m_liberal_final_check; 
         final_check_status final_check_core();
-        virtual final_check_status final_check_eh();
+        final_check_status final_check_eh() override;
         
-        virtual bool can_propagate();
-        virtual void propagate();
+        bool can_propagate() override;
+        void propagate() override;
         bool propagate_core();
         void failed();
 
         
-        virtual void flush_eh();
-        virtual void reset_eh();
+        void flush_eh() override;
+        void reset_eh() override;
         
-        virtual bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const;
+        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
 
         // -----------------------------------
         //
@@ -867,7 +868,7 @@ namespace smt {
         void propagate_cheap_eq(unsigned rid);
         void propagate_eq_to_core(theory_var x, theory_var y, antecedents& antecedents);
 
-        virtual bool is_shared(theory_var v) const;
+        bool is_shared(theory_var v) const override;
 
         // -----------------------------------
         //
@@ -909,7 +910,7 @@ namespace smt {
         /**
            \brief See comment in theory::mk_eq_atom
         */
-        virtual app * mk_eq_atom(expr * lhs, expr * rhs) { return m_util.mk_eq(lhs, rhs); }
+        app * mk_eq_atom(expr * lhs, expr * rhs) override { return m_util.mk_eq(lhs, rhs); }
 
         // -----------------------------------
         //
@@ -1039,13 +1040,13 @@ namespace smt {
         // -----------------------------------
     public:
         theory_arith(ast_manager & m, theory_arith_params & params);
-        virtual ~theory_arith();
+        ~theory_arith() override;
         
-        virtual theory * mk_fresh(context * new_ctx);
+        theory * mk_fresh(context * new_ctx) override;
 
-        virtual void setup();
+        void setup() override;
 
-        virtual char const * get_name() const { return "arithmetic"; }
+        char const * get_name() const override { return "arithmetic"; }
 
         // -----------------------------------
         //
@@ -1058,18 +1059,20 @@ namespace smt {
         void compute_epsilon();
         void refine_epsilon();
 
-        virtual void init_model(model_generator & m);
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        void init_model(model_generator & m) override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
         // -----------------------------------
         //
         // Model checker
         //
         // -----------------------------------
-        virtual bool get_value(enode * n, expr_ref & r);
+        bool get_value(enode * n, expr_ref & r) override;
 
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);
+        bool get_lower(enode* n, rational& r, bool &is_strict);
+        bool get_upper(enode* n, rational& r, bool &is_strict);
         bool to_expr(inf_numeral const& val, bool is_int, expr_ref& r);
 
 
@@ -1078,10 +1081,10 @@ namespace smt {
         // Optimization
         //
         // -----------------------------------
-        virtual inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared);
-        virtual inf_eps_rational<inf_rational> value(theory_var v);
-        virtual theory_var add_objective(app* term);
-        expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_numeral const& val);
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_numeral const& val);
+        inf_eps_rational<inf_rational> maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        inf_eps_rational<inf_rational> value(theory_var v) override;
+        theory_var add_objective(app* term) override;
         void enable_record_conflict(expr* bound);
         void record_conflict(unsigned num_lits, literal const * lits, 
                           unsigned num_eqs, enode_pair const * eqs,
@@ -1102,8 +1105,8 @@ namespace smt {
         //
         // -----------------------------------
     public:
-        virtual void collect_statistics(::statistics & st) const;
-        virtual void display(std::ostream & out) const;
+        void collect_statistics(::statistics & st) const override;
+        void display(std::ostream & out) const override;
     protected:
         void display_row(std::ostream & out, unsigned r_id, bool compact = true) const;
         void display_row(std::ostream & out, row const & r, bool compact = true) const;

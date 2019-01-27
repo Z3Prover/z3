@@ -43,13 +43,9 @@ namespace smt {
     }
 
     bool context::check_clauses(clause_vector const & v) const {
-        clause_vector::const_iterator it  = v.begin();
-        clause_vector::const_iterator end = v.end();
-        for (; it != end; ++it) {
-            clause * cls = *it;
+        for (clause* cls : v) 
             if (!cls->deleted())
                 check_clause(cls);
-        }
         return true;
     }
 
@@ -92,10 +88,7 @@ namespace smt {
 
     bool context::check_lit_occs(literal l) const {
         clause_set const & v = m_lit_occs[l.index()];
-        clause_set::iterator it  = v.begin();
-        clause_set::iterator end = v.end();
-        for (; it != end; ++it) {
-            clause * cls = *it;
+        for (clause * cls : v) {
             unsigned num = cls->get_num_literals();
             unsigned i   = 0;
             for (; i < num; i++)
@@ -138,10 +131,8 @@ namespace smt {
     }
 
     bool context::check_enodes() const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            check_enode(*it);
+        for (enode* n : m_enodes) {
+            check_enode(n);
         }
         return true;
     }
@@ -157,11 +148,9 @@ namespace smt {
     }
 
     bool context::check_missing_clause_propagation(clause_vector const & v) const {
-        clause_vector::const_iterator it  = v.begin();
-        clause_vector::const_iterator end = v.end();
-        for (; it != end; ++it) {
-            CTRACE("missing_propagation", is_unit_clause(*it), display_clause_detail(tout, *it); tout << "\n";);
-            SASSERT(!is_unit_clause(*it));
+        for (clause * cls : v) {
+            CTRACE("missing_propagation", is_unit_clause(cls), display_clause_detail(tout, cls); tout << "\n";);
+            SASSERT(!is_unit_clause(cls));
         }
         return true;
     }
@@ -188,10 +177,7 @@ namespace smt {
     }
     
     bool context::check_missing_eq_propagation() const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode* n : m_enodes) {
             SASSERT(!n->is_true_eq() || get_assignment(n) == l_true);
             if (n->is_eq() && get_assignment(n) == l_true) {
                 SASSERT(n->is_true_eq());
@@ -201,13 +187,8 @@ namespace smt {
     }
 
     bool context::check_missing_congruence() const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
-            ptr_vector<enode>::const_iterator it2 = m_enodes.begin();
-            for (; it2 != end; ++it2) {
-                enode * n2 = *it2;
+        for (enode* n : m_enodes) {
+            for (enode* n2 : m_enodes) {
                 if (n->get_root() != n2->get_root()) {
                     if (n->is_true_eq() && n2->is_true_eq())
                         continue;
@@ -222,10 +203,7 @@ namespace smt {
     }
 
     bool context::check_missing_bool_enode_propagation() const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode* n : m_enodes) {
             if (m_manager.is_bool(n->get_owner()) && get_assignment(n) == l_undef) {
                 enode * first = n;
                 do {
@@ -286,10 +264,7 @@ namespace smt {
        For all a, b.  root(a) == root(b) ==> get_assignment(a) == get_assignment(b)
     */
     bool context::check_eqc_bool_assignment() const {
-        ptr_vector<enode>::const_iterator it  = m_enodes.begin();
-        ptr_vector<enode>::const_iterator end = m_enodes.end();
-        for (; it != end; ++it) {
-            enode * e = *it;
+        for (enode* e : m_enodes) {
             if (m_manager.is_bool(e->get_owner())) {
                 enode * r = e->get_root();
                 CTRACE("eqc_bool", get_assignment(e) != get_assignment(r), 
@@ -328,7 +303,7 @@ namespace smt {
         for (bool_var v = 0; v < num; v++) {
             if (has_enode(v)) {
                 enode * n = bool_var2enode(v);
-                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false) {
+                if (n->is_eq() && is_relevant(n) && get_assignment(v) == l_false && !m_manager.is_iff(n->get_owner())) {
                     TRACE("check_th_diseq_propagation", tout << "checking: #" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m_manager) << "\n";);
                     enode * lhs = n->get_arg(0)->get_root();
                     enode * rhs = n->get_arg(1)->get_root();
@@ -343,24 +318,24 @@ namespace smt {
                         TRACE("check_th_diseq_propagation", tout << "checking theory: " << m_manager.get_family_name(th_id) << "\n";);
                         // if the theory doesn't use diseqs, then the diseqs are not propagated.
                         if (th->use_diseqs() && rhs->get_th_var(th_id) != null_theory_var) {
+                            bool found = false;
                             // lhs and rhs are attached to theory th_id
-                            svector<new_th_eq>::const_iterator it  = m_propagated_th_diseqs.begin();
-                            svector<new_th_eq>::const_iterator end = m_propagated_th_diseqs.end();
-                            for (; it != end; ++it) {
-                                if (it->m_th_id == th_id) {
-                                    enode * lhs_prime = th->get_enode(it->m_lhs)->get_root();
-                                    enode * rhs_prime = th->get_enode(it->m_rhs)->get_root();
+                            for (new_th_eq const& eq : m_propagated_th_diseqs) {
+                                if (eq.m_th_id == th_id) {
+                                    enode * lhs_prime = th->get_enode(eq.m_lhs)->get_root();
+                                    enode * rhs_prime = th->get_enode(eq.m_rhs)->get_root();
                                     TRACE("check_th_diseq_propagation", 
-                                          tout << m_manager.get_family_name(it->m_th_id) << "\n";);
+                                          tout << m_manager.get_family_name(eq.m_th_id) << "\n";);
 
                                     if ((lhs == lhs_prime && rhs == rhs_prime) ||
                                         (rhs == lhs_prime && lhs == rhs_prime)) {
                                         TRACE("check_th_diseq_propagation", tout << "ok v" << v << " " << get_assignment(v) << "\n";);
+                                        found = true;
                                         break;
                                     }
                                 }
                             }
-                            if (it == end) {
+                            if (!found) {
                             // missed theory diseq propagation
                                 display(std::cout);
                                 std::cout << "checking theory: " << m_manager.get_family_name(th_id) << "\n";
@@ -369,8 +344,7 @@ namespace smt {
                                 std::cout << "lhs: #" << lhs->get_owner_id() << ", rhs: #" << rhs->get_owner_id() << "\n";
                                 std::cout << mk_bounded_pp(lhs->get_owner(), m_manager) << " " << mk_bounded_pp(rhs->get_owner(), m_manager) << "\n";
                             }
-                        
-                            SASSERT(it != end);
+                            VERIFY(found);
                         }
                         l = l->get_next();
                     }
@@ -381,11 +355,9 @@ namespace smt {
     }
 
     bool context::check_missing_diseq_conflict() const {
-        svector<enode_pair>::const_iterator it  = m_diseq_vector.begin();
-        svector<enode_pair>::const_iterator end = m_diseq_vector.end();        
-        for (; it != end; ++it) {
-            enode * n1 = it->first;
-            enode * n2 = it->second;
+        for (enode_pair const& p :  m_diseq_vector) {
+            enode * n1 = p.first;
+            enode * n2 = p.second;
             if (n1->get_root() == n2->get_root()) {
                 TRACE("diseq_bug", 
                       tout << "n1: #" << n1->get_owner_id() << ", n2: #" << n2->get_owner_id() <<
@@ -420,10 +392,7 @@ namespace smt {
             return true;
         }
         ast_manager& m = m_manager;
-        literal_vector::const_iterator it  = m_assigned_literals.begin();
-        literal_vector::const_iterator end = m_assigned_literals.end();
-        for (; it != end; ++it) {
-            literal lit = *it;
+        for (literal lit : m_assigned_literals) {
             if (!is_relevant(lit)) {
                 continue;
             }
@@ -435,7 +404,7 @@ namespace smt {
             if (is_quantifier(n) && m.is_rec_fun_def(to_quantifier(n))) {
                 continue;
             }
-            switch (get_assignment(*it)) {
+            switch (get_assignment(lit)) {
             case l_undef:
                 break;
             case l_true:

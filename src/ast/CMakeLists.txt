@@ -14,8 +14,10 @@ z3_add_component(ast
     ast_translation.cpp
     ast_util.cpp
     bv_decl_plugin.cpp
+    csp_decl_plugin.cpp
     datatype_decl_plugin.cpp
     decl_collector.cpp
+    display_dimacs.cpp
     dl_decl_plugin.cpp
     expr2polynomial.cpp
     expr2var.cpp
@@ -24,7 +26,6 @@ z3_add_component(ast
     expr_map.cpp
     expr_stat.cpp
     expr_substitution.cpp
-    factor_equivs.cpp
     for_each_ast.cpp
     for_each_expr.cpp
     format.cpp
@@ -36,6 +37,7 @@ z3_add_component(ast
     occurs.cpp
     pb_decl_plugin.cpp
     pp.cpp
+    recfun_decl_plugin.cpp
     reg_decl_plugins.cpp
     seq_decl_plugin.cpp
     shared_occs.cpp

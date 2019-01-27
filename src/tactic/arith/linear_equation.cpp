@@ -174,7 +174,7 @@ linear_equation * linear_equation_manager::mk(unsigned sz, mpz * as, var * xs, b
         }
         sz = j;
         if (sz <= 1)
-            return 0;
+            return nullptr;
     }
     else {
         DEBUG_CODE({
@@ -265,7 +265,7 @@ linear_equation * linear_equation_manager::mk(mpz const & b1, linear_equation co
     m.del(new_a);
     SASSERT(m_int_buffer.size() == m_var_buffer.size());
     if (m_int_buffer.empty())
-        return 0;
+        return nullptr;
     return mk_core(m_int_buffer.size(), m_int_buffer.c_ptr(), m_var_buffer.c_ptr());
 }
 

@@ -85,7 +85,7 @@ namespace datalog {
 
         sieve_relation_plugin(relation_manager & manager);
 
-        virtual void initialize(family_id fid);
+        void initialize(family_id fid) override;
 
         family_id get_relation_kind(const relation_signature & sig, const bool * inner_columns, 
             family_id inner_kind);
@@ -95,20 +95,20 @@ namespace datalog {
             return get_relation_kind(sig, inner_columns.c_ptr(), inner_kind);
         }
 
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
         
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
         sieve_relation * mk_empty(const sieve_relation & original);
-        virtual relation_base * mk_empty(const relation_base & original);
-        virtual relation_base * mk_empty(const relation_signature & s, family_id kind);
+        relation_base * mk_empty(const relation_base & original) override;
+        relation_base * mk_empty(const relation_signature & s, family_id kind) override;
         sieve_relation * mk_empty(const relation_signature & s, relation_plugin & inner_plugin);
 
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
         sieve_relation * full(func_decl* p, const relation_signature & s, relation_plugin & inner_plugin);
 
         sieve_relation * mk_from_inner(const relation_signature & s, const bool * inner_columns, 
             relation_base * inner_rel);
-        sieve_relation * mk_from_inner(const relation_signature & s, const svector<bool> inner_columns, 
+        sieve_relation * mk_from_inner(const relation_signature & s, const svector<bool> & inner_columns, 
                 relation_base * inner_rel) {
             SASSERT(inner_columns.size()==s.size());
             return mk_from_inner(s, inner_columns.c_ptr(), inner_rel);
@@ -116,22 +116,22 @@ namespace datalog {
 
     protected:
 
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 
-            const relation_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
+            const relation_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
     };
 
 
@@ -170,24 +170,24 @@ namespace datalog {
             SASSERT(is_inner_col(idx));
             return m_sig2inner[idx];
         }
-        bool no_sieved_columns() const { return m_ignored_cols.size()==0; }
+        bool no_sieved_columns() const { return m_ignored_cols.empty(); }
         bool no_inner_columns() const { return m_ignored_cols.size()==get_signature().size(); }
 
         relation_base & get_inner() { return *m_inner; }
         const relation_base & get_inner() const { return *m_inner; }
 
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual sieve_relation * clone() const;
-        virtual relation_base * complement(func_decl*p) const;
-        virtual void to_formula(expr_ref& fml) const;
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        sieve_relation * clone() const override;
+        relation_base * complement(func_decl*p) const override;
+        void to_formula(expr_ref& fml) const override;
 
-        virtual bool empty() const { return get_inner().empty(); }
-        virtual void reset() { get_inner().reset(); }
-        virtual unsigned get_size_estimate_rows() const { return get_inner().get_size_estimate_rows(); }
-        virtual unsigned get_size_estimate_bytes() const { return get_inner().get_size_estimate_bytes(); }
+        bool empty() const override { return get_inner().empty(); }
+        void reset() override { get_inner().reset(); }
+        unsigned get_size_estimate_rows() const override { return get_inner().get_size_estimate_rows(); }
+        unsigned get_size_estimate_bytes() const override { return get_inner().get_size_estimate_bytes(); }
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
     };
 
 

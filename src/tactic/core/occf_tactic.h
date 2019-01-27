@@ -9,7 +9,7 @@ Abstract:
 
     Put clauses in the assertion set in
     OOC (one constraint per clause) form.
-    Constraints occuring in formulas that
+    Constraints occurring in formulas that
     are not clauses are ignored.
     The formula can be put into CNF by
     using mk_sat_preprocessor strategy.

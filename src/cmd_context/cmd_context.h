@@ -23,20 +23,23 @@ Notes:
 
 #include<sstream>
 #include<vector>
-#include "ast/ast.h"
-#include "ast/ast_printer.h"
-#include "cmd_context/pdecl.h"
-#include "util/dictionary.h"
-#include "solver/solver.h"
-#include "ast/datatype_decl_plugin.h"
 #include "util/stopwatch.h"
 #include "util/cmd_context_types.h"
 #include "util/event_handler.h"
 #include "util/sexpr.h"
+#include "util/dictionary.h"
+#include "util/scoped_ptr_vector.h"
+#include "ast/ast.h"
+#include "ast/ast_printer.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "tactic/generic_model_converter.h"
+#include "solver/solver.h"
+#include "solver/progress_callback.h"
+#include "cmd_context/pdecl.h"
 #include "cmd_context/tactic_manager.h"
 #include "cmd_context/check_logic.h"
-#include "solver/progress_callback.h"
-#include "util/scoped_ptr_vector.h"
 #include "cmd_context/context_params.h"
 
 
@@ -45,7 +48,7 @@ class func_decls {
     bool signatures_collide(func_decl* f, func_decl* g) const;
     bool signatures_collide(unsigned n, sort*const* domain, sort* range, func_decl* g) const;
 public:
-    func_decls():m_decls(0) {}
+    func_decls():m_decls(nullptr) {}
     func_decls(ast_manager & m, func_decl * f);
     void finalize(ast_manager & m);
     bool contains(func_decl * f) const;
@@ -54,7 +57,7 @@ public:
     void erase(ast_manager & m, func_decl * f);
     bool more_than_one() const;
     bool clash(func_decl * f) const;
-    bool empty() const { return m_decls == 0; }
+    bool empty() const { return m_decls == nullptr; }
     func_decl * first() const;
     func_decl * find(unsigned arity, sort * const * domain, sort * range) const;
     func_decl * find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const;
@@ -76,7 +79,7 @@ struct macro_decl {
 class macro_decls {
     vector<macro_decl>* m_decls;
 public:
-    macro_decls() { m_decls = 0; }
+    macro_decls() { m_decls = nullptr; }
     void finalize(ast_manager& m);
     bool insert(ast_manager& m, unsigned arity, sort *const* domain, expr* body);
     expr* find(unsigned arity, sort *const* domain) const;
@@ -112,10 +115,10 @@ class ast_object_ref : public object_ref {
     ast * m_ast;
 public:
     ast_object_ref(cmd_context & ctx, ast * a);
-    virtual void finalize(cmd_context & ctx);
+    void finalize(cmd_context & ctx) override;
     ast * get_ast() const { return m_ast; }
     static char const * cls_kind() { return "AST"; }
-    virtual char const * kind() const { return cls_kind(); }
+    char const * kind() const override { return cls_kind(); }
 };
 
 class stream_ref {
@@ -125,7 +128,7 @@ class stream_ref {
     std::ostream * m_stream;
     bool           m_owner;
 public:
-    stream_ref(std::string n, std::ostream & d):m_default_name(n), m_default(d), m_name(n), m_stream(&d), m_owner(false) {}
+    stream_ref(const std::string& n, std::ostream & d):m_default_name(n), m_default(d), m_name(n), m_stream(&d), m_owner(false) {}
     ~stream_ref() { reset(); }
     void set(char const * name);
     void set(std::ostream& strm);
@@ -138,8 +141,8 @@ struct builtin_decl {
     family_id      m_fid;
     decl_kind      m_decl;
     builtin_decl * m_next;
-    builtin_decl():m_fid(null_family_id), m_decl(0), m_next(0) {}
-    builtin_decl(family_id fid, decl_kind k, builtin_decl * n = 0):m_fid(fid), m_decl(k), m_next(n) {}
+    builtin_decl():m_fid(null_family_id), m_decl(0), m_next(nullptr) {}
+    builtin_decl(family_id fid, decl_kind k, builtin_decl * n = nullptr):m_fid(fid), m_decl(k), m_next(n) {}
 };
 
 class opt_wrapper : public check_sat_result {
@@ -147,8 +150,8 @@ public:
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
-    virtual lbool optimize() = 0;
-    virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+    virtual lbool optimize(expr_ref_vector const& asms) = 0;
+    virtual void set_hard_constraints(expr_ref_vector const & hard) = 0;
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
@@ -194,10 +197,10 @@ protected:
 
     static std::ostringstream    g_error_stream;
 
+    generic_model_converter_ref  m_mc0;
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
-    bool                         m_rec_fun_declared;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;
@@ -250,8 +253,8 @@ protected:
         datatype_util             m_dt_util;
     public:
         dt_eh(cmd_context & owner);
-        virtual ~dt_eh();
-        virtual void operator()(sort * dt, pdecl* pd);
+        ~dt_eh() override;
+        void operator()(sort * dt, pdecl* pd) override;
     };
 
     friend class dt_eh;
@@ -289,6 +292,7 @@ protected:
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
+    bool logic_has_recfun() const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
@@ -304,10 +308,11 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
+    recfun::decl::plugin& get_recfun_plugin();
 
 public:
-    cmd_context(bool main_ctx = true, ast_manager * m = 0, symbol const & l = symbol::null);
-    ~cmd_context();
+    cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);
+    ~cmd_context() override;
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
@@ -323,6 +328,7 @@ public:
     void set_numeral_as_real(bool f) { m_numeral_as_real = f; }
     void set_interactive_mode(bool flag) { m_interactive_mode = flag; }
     void set_ignore_check(bool flag) { m_ignore_check = flag; }
+    bool ignore_check() const { return m_ignore_check; }
     void set_exit_on_error(bool flag) { m_exit_on_error = flag; }
     bool exit_on_error() const { return m_exit_on_error; }
     bool interactive_mode() const { return m_interactive_mode; }
@@ -352,9 +358,9 @@ public:
     status get_status() const { return m_status; }
     std::string reason_unknown() const;
 
-    bool has_manager() const { return m_manager != 0; }
+    bool has_manager() const { return m_manager != nullptr; }
     ast_manager & m() const { const_cast<cmd_context*>(this)->init_manager(); return *m_manager; }
-    virtual ast_manager & get_ast_manager() { return m(); }
+    ast_manager & get_ast_manager() override { return m(); }
     pdecl_manager & pm() const { if (!m_pmanager) const_cast<cmd_context*>(this)->init_manager(); return *m_pmanager; }
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
@@ -363,7 +369,7 @@ public:
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
-    void complete_model();
+    void complete_model(model_ref& mdl) const;
     void validate_model();
     void display_model(model_ref& mdl);
 
@@ -381,10 +387,14 @@ public:
     void insert(probe_info * p) { tactic_manager::insert(p); }
     void insert_user_tactic(symbol const & s, sexpr * d);
     void insert_aux_pdecl(pdecl * p);
+    void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
+    void model_del(func_decl* f);
     void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
+    void insert_rec_fun_as_axiom(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;
+    recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
     psort_decl * find_psort_decl(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
@@ -406,9 +416,10 @@ public:
     void reset_user_tactics();
     void set_regular_stream(char const * name) { m_regular.set(name); }
     void set_regular_stream(std::ostream& out) { m_regular.set(out); }
+    void set_diagnostic_stream(std::ostream& out) { m_diagnostic.set(out); }
     void set_diagnostic_stream(char const * name);
-    virtual std::ostream & regular_stream() { return *m_regular; }
-    virtual std::ostream & diagnostic_stream() { return *m_diagnostic; }
+    std::ostream & regular_stream() override { return *m_regular; }
+    std::ostream & diagnostic_stream() override { return *m_diagnostic; }
     char const * get_regular_stream_name() const { return m_regular.name(); }
     char const * get_diagnostic_stream_name() const { return m_diagnostic.name(); }
     typedef dictionary<cmd*>::iterator cmd_iterator;
@@ -440,15 +451,14 @@ public:
 
     dictionary<macro_decls> const & get_macros() const { return m_macros; }
 
-    bool is_model_available() const;
+    model_converter* get_model_converter() { return m_mc0.get(); }
+
+    bool is_model_available(model_ref& md) const;
 
     double get_seconds() const { return m_watch.get_seconds(); }
 
-    ptr_vector<expr>::const_iterator begin_assertions() const { return m_assertions.begin(); }
-    ptr_vector<expr>::const_iterator end_assertions() const { return m_assertions.end(); }
-
-    ptr_vector<expr>::const_iterator begin_assertion_names() const { return m_assertion_names.begin(); }
-    ptr_vector<expr>::const_iterator end_assertion_names() const { return m_assertion_names.end(); }
+    ptr_vector<expr> const& assertions() const { return m_assertions; }
+    ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
 
     /**
        \brief Hack: consume assertions if there are no scopes.
@@ -462,14 +472,14 @@ public:
     }
 
     format_ns::format * pp(sort * s) const;
-    virtual void pp(sort * s, format_ns::format_ref & r) const { r = pp(s); }
-    virtual void pp(func_decl * f, format_ns::format_ref & r) const;
-    virtual void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const;
-    virtual void pp(expr * n, format_ns::format_ref & r) const;
-    virtual void display(std::ostream & out, sort * s, unsigned indent = 0) const;
-    virtual void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const;
-    virtual void display(std::ostream & out, expr * n, unsigned indent = 0) const;
-    virtual void display(std::ostream & out, func_decl * f, unsigned indent = 0) const;
+    void pp(sort * s, format_ns::format_ref & r) const override { r = pp(s); }
+    void pp(func_decl * f, format_ns::format_ref & r) const override;
+    void pp(expr * n, unsigned num_vars, char const * var_prefix, format_ns::format_ref & r, sbuffer<symbol> & var_names) const override;
+    void pp(expr * n, format_ns::format_ref & r) const override;
+    void display(std::ostream & out, sort * s, unsigned indent = 0) const override;
+    void display(std::ostream & out, expr * n, unsigned indent, unsigned num_vars, char const * var_prefix, sbuffer<symbol> & var_names) const override;
+    void display(std::ostream & out, expr * n, unsigned indent = 0) const override;
+    void display(std::ostream & out, func_decl * f, unsigned indent = 0) const override;
 
     // dump assertions in out using the pretty printer.
     void dump_assertions(std::ostream & out) const;
@@ -478,10 +488,30 @@ public:
     void display_smt2_benchmark(std::ostream & out, unsigned num, expr * const * assertions, symbol const & logic = symbol::null) const;
 
 
-    virtual void slow_progress_sample();
-    virtual void fast_progress_sample();
+    void slow_progress_sample() override;
+    void fast_progress_sample() override;
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
+
+
+class th_solver : public expr_solver {
+    cmd_context& m_ctx;
+    params_ref   m_params;
+    ref<solver> m_solver;
+public:
+    th_solver(cmd_context& ctx): m_ctx(ctx) {}
+    
+    lbool check_sat(expr* e) override {
+        if (!m_solver) {
+            m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
+        }
+        m_solver->push();
+        m_solver->assert_expr(e);
+        lbool r = m_solver->check_sat(0,nullptr);
+        m_solver->pop(1);
+        return r;
+    }
+};
 
 #endif

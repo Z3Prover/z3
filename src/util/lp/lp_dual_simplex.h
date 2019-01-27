@@ -28,12 +28,12 @@ template <typename T, typename X>
 class lp_dual_simplex: public lp_solver<T, X> {
     lp_dual_core_solver<T, X> * m_core_solver;
     vector<T> m_b_copy;
-    vector<T> m_low_bounds; // We don't have a convention here that all low bounds are zeros. At least it does not hold for the first stage solver
+    vector<T> m_lower_bounds; // We don't have a convention here that all low bounds are zeros. At least it does not hold for the first stage solver
     vector<column_type> m_column_types_of_core_solver;
     vector<column_type> m_column_types_of_logicals;
     vector<bool>  m_can_enter_basis;
 public:
-    ~lp_dual_simplex() {
+    ~lp_dual_simplex() override {
         if (m_core_solver != nullptr) {
             delete m_core_solver;
         }
@@ -84,12 +84,12 @@ public:
 
     void copy_m_b_aside_and_set_it_to_zeros();
 
-    void find_maximal_solution();
+    void find_maximal_solution() override;
 
-    virtual T get_column_value(unsigned column) const {
+    T get_column_value(unsigned column) const override {
         return this->get_column_value_with_core_solver(column, m_core_solver);
     }
 
-    T get_current_cost() const;
+    T get_current_cost() const override;
 };
 }

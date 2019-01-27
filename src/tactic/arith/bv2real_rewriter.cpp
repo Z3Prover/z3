@@ -89,7 +89,7 @@ bool bv2real_util::contains_bv2real(expr* e) const {
     try {
         for_each_expr(p, e);
     }
-    catch (contains_bv2real_proc::found) {
+    catch (const contains_bv2real_proc::found &) {
         return true;
     }
     return false;

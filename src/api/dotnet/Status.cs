@@ -17,6 +17,7 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 
 namespace Microsoft.Z3

@@ -75,42 +75,42 @@ namespace smt {
             m_queue(1024, bool_var_act_lt(ctx.get_activity_vector())) {
         }
             
-        virtual void activity_increased_eh(bool_var v) {
+        void activity_increased_eh(bool_var v) override {
             if (m_queue.contains(v))
                 m_queue.decreased(v);
         }
 
-        virtual void mk_var_eh(bool_var v) {
+        void mk_var_eh(bool_var v) override {
             m_queue.reserve(v+1);
             SASSERT(!m_queue.contains(v));
             m_queue.insert(v);
         }
 
-        virtual void del_var_eh(bool_var v) {
+        void del_var_eh(bool_var v) override {
             if (m_queue.contains(v))
                 m_queue.erase(v);
         }
 
-        virtual void unassign_var_eh(bool_var v) {
+        void unassign_var_eh(bool_var v) override {
             if (!m_queue.contains(v))
                 m_queue.insert(v);
         }
 
-        virtual void relevant_eh(expr * n) {}
+        void relevant_eh(expr * n) override {}
 
-        virtual void init_search_eh() {}
+        void init_search_eh() override {}
 
-        virtual void end_search_eh() {}
+        void end_search_eh() override {}
 
-        virtual void reset() {
+        void reset() override {
             m_queue.reset();
         }
 
-        virtual void push_scope() {}
+        void push_scope() override {}
 
-        virtual void pop_scope(unsigned num_scopes) {}
+        void pop_scope(unsigned num_scopes) override {}
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             phase = l_undef;
             
             if (m_context.get_random_value() < static_cast<int>(m_params.m_random_var_freq * random_gen::max_value())) {
@@ -129,7 +129,7 @@ namespace smt {
             next = null_bool_var;
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             bool first = true;
             for (unsigned v : m_queue) {
                 if (m_context.get_assignment(v) == l_undef) {
@@ -144,7 +144,7 @@ namespace smt {
                 out << "\n";            
         }
 
-        virtual ~act_case_split_queue() {};
+        ~act_case_split_queue() override {};
     };
 
     /**
@@ -159,7 +159,7 @@ namespace smt {
             m_delayed_queue(1024, bool_var_act_lt(ctx.get_activity_vector())) {
         }
 
-        virtual void activity_increased_eh(bool_var v) {
+        void activity_increased_eh(bool_var v) override {
             act_case_split_queue::activity_increased_eh(v);
             if (m_queue.contains(v))
                 m_queue.decreased(v);
@@ -167,7 +167,7 @@ namespace smt {
                 m_delayed_queue.decreased(v);
         }
 
-        virtual void mk_var_eh(bool_var v) {
+        void mk_var_eh(bool_var v) override {
             m_queue.reserve(v+1);
             m_delayed_queue.reserve(v+1);
             SASSERT(!m_delayed_queue.contains(v));
@@ -178,28 +178,28 @@ namespace smt {
                 m_queue.insert(v);
         }
 
-        virtual void del_var_eh(bool_var v) {
+        void del_var_eh(bool_var v) override {
             act_case_split_queue::del_var_eh(v);
             if (m_delayed_queue.contains(v))
                 m_delayed_queue.erase(v);
         }
 
-        virtual void relevant_eh(expr * n) {}
+        void relevant_eh(expr * n) override {}
 
-        virtual void init_search_eh() {}
+        void init_search_eh() override {}
 
-        virtual void end_search_eh() {}
+        void end_search_eh() override {}
 
-        virtual void reset() {
+        void reset() override {
             act_case_split_queue::reset();
             m_delayed_queue.reset();
         }
 
-        virtual void push_scope() {}
+        void push_scope() override {}
 
-        virtual void pop_scope(unsigned num_scopes) {}
+        void pop_scope(unsigned num_scopes) override {}
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             act_case_split_queue::next_case_split(next, phase);
             if (next != null_bool_var)
                 return;
@@ -229,7 +229,7 @@ namespace smt {
             m_cache_domain(ctx.get_manager()) {
         }
             
-        virtual void mk_var_eh(bool_var v) {
+        void mk_var_eh(bool_var v) override {
             expr * n = m_context.bool_var2expr(v);
             double act;
             if (m_cache.find(n, act))
@@ -237,7 +237,7 @@ namespace smt {
             act_case_split_queue::mk_var_eh(v);
         }
         
-        virtual void del_var_eh(bool_var v) {
+        void del_var_eh(bool_var v) override {
             if (m_context.is_searching()) {
                 double act = m_context.get_activity(v);
                 if (act > 0.0) {
@@ -249,14 +249,14 @@ namespace smt {
             act_case_split_queue::del_var_eh(v);
         }
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_cache.reset();
             m_cache_domain.reset();
         }
 
-        virtual void end_search_eh() {}
+        void end_search_eh() override {}
 
-        virtual void reset() {
+        void reset() override {
             init_search_eh();
         }
     };
@@ -281,7 +281,7 @@ namespace smt {
             }
         }
         if (order == 1) {
-            if (undef_children.size() == 0) {
+            if (undef_children.empty()) {
                 // a bug?
             } else if (undef_children.size() == 1) {
                 undef_child = undef_children[0];
@@ -322,15 +322,15 @@ namespace smt {
             m_head2(0) {
         }
         
-        virtual void activity_increased_eh(bool_var v) {}
+        void activity_increased_eh(bool_var v) override {}
 
-        virtual void mk_var_eh(bool_var v) {}
+        void mk_var_eh(bool_var v) override {}
 
-        virtual void del_var_eh(bool_var v) {}
+        void del_var_eh(bool_var v) override {}
 
-        virtual void unassign_var_eh(bool_var v) {}
+        void unassign_var_eh(bool_var v) override {}
 
-        virtual void relevant_eh(expr * n) {
+        void relevant_eh(expr * n) override {
             if (!m_manager.is_bool(n))
                 return;
             bool is_or     = m_manager.is_or(n);
@@ -361,15 +361,15 @@ namespace smt {
                 m_queue2.push_back(n);
         }
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
         }
 
-        virtual void end_search_eh() {
+        void end_search_eh() override {
             m_bs_num_bool_vars = UINT_MAX;
         }
 
-        virtual void reset() {
+        void reset() override {
             m_queue.reset();
             m_head = 0;
             m_queue2.reset();
@@ -377,7 +377,7 @@ namespace smt {
             m_scopes.reset();
         }
 
-        virtual void push_scope() {
+        void push_scope() override {
             m_scopes.push_back(scope());
             scope & s = m_scopes.back();
             s.m_queue_trail  = m_queue.size();
@@ -387,7 +387,7 @@ namespace smt {
             TRACE("case_split", tout << "head: " << m_head << "\n";);
         }
 
-        virtual void pop_scope(unsigned num_scopes) {
+        void pop_scope(unsigned num_scopes) override {
             SASSERT(num_scopes <= m_scopes.size());
             unsigned new_lvl    = m_scopes.size() - num_scopes;
             scope & s           = m_scopes[new_lvl];
@@ -419,7 +419,7 @@ namespace smt {
                     val  = l_true;
                 }
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                    expr * undef_child = 0;
+                    expr * undef_child = nullptr;
                     if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                         if (m_manager.has_trace_stream()) {
                             m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
@@ -443,7 +443,7 @@ namespace smt {
             next = null_bool_var;
         }
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             next_case_split_core(m_queue, m_head, next, phase);
             if (next == null_bool_var)
                 next_case_split_core(m_queue2, m_head2, next, phase);
@@ -471,7 +471,7 @@ namespace smt {
             out << "\n";
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             if (m_queue.empty() && m_queue2.empty())
                 return;
             out << "case-splits:\n";
@@ -507,9 +507,9 @@ namespace smt {
             m_delayed_queue(1024, bool_var_act_lt(ctx.get_activity_vector())) {
         }
 
-        virtual void activity_increased_eh(bool_var v) {}
+        void activity_increased_eh(bool_var v) override {}
 
-        virtual void mk_var_eh(bool_var v) {
+        void mk_var_eh(bool_var v) override {
             if (m_context.is_searching()) {
                 SASSERT(v >= m_bs_num_bool_vars);
                 m_delayed_queue.reserve(v+1);
@@ -517,19 +517,19 @@ namespace smt {
             }
         }
 
-        virtual void del_var_eh(bool_var v) {
+        void del_var_eh(bool_var v) override {
             if (v >= m_bs_num_bool_vars && m_delayed_queue.contains(v))
                 m_delayed_queue.erase(v);
         }
 
-        virtual void unassign_var_eh(bool_var v) {
+        void unassign_var_eh(bool_var v) override {
             if (v < m_bs_num_bool_vars)
                 return;
             if (!m_delayed_queue.contains(v))
                 m_delayed_queue.insert(v);
         }
 
-        virtual void relevant_eh(expr * n) {
+        void relevant_eh(expr * n) override {
             if (!m_manager.is_bool(n))
                 return;
             bool is_or     = m_manager.is_or(n);
@@ -558,22 +558,22 @@ namespace smt {
                 m_queue.push_back(n);
         }
         
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
         }
 
-        virtual void end_search_eh() {
+        void end_search_eh() override {
             m_bs_num_bool_vars = UINT_MAX;
         }
 
-        virtual void reset() {
+        void reset() override {
             m_queue.reset();
             m_head = 0;
             m_delayed_queue.reset();
             m_scopes.reset();
         }
 
-        virtual void push_scope() {
+        void push_scope() override {
             m_scopes.push_back(scope());
             scope & s = m_scopes.back();
             s.m_queue_trail  = m_queue.size();
@@ -581,7 +581,7 @@ namespace smt {
             TRACE("case_split", tout << "head: " << m_head << "\n";);
         }
 
-        virtual void pop_scope(unsigned num_scopes) {
+        void pop_scope(unsigned num_scopes) override {
             SASSERT(num_scopes <= m_scopes.size());
             unsigned new_lvl    = m_scopes.size() - num_scopes;
             scope & s           = m_scopes[new_lvl];
@@ -611,7 +611,7 @@ namespace smt {
                     val  = l_true;
                 }
                 if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                    expr * undef_child = 0;
+                    expr * undef_child = nullptr;
                     if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                         TRACE("case_split", tout << "found AND/OR candidate: #" << curr->get_id() << " #" << undef_child->get_id() << "\n";);
                         literal l = m_context.get_literal(undef_child);
@@ -632,7 +632,7 @@ namespace smt {
             next = null_bool_var;
         }
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             if (m_context.get_random_value() < static_cast<int>(0.02 * random_gen::max_value())) {
                 next = m_context.get_random_value() % m_context.get_num_b_internalized(); 
                 TRACE("random_split", tout << "next: " << next << " get_assignment(next): " << m_context.get_assignment(next) << "\n";);
@@ -664,7 +664,7 @@ namespace smt {
             out << "\n";
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             if (m_queue.empty())
                 return;
             out << "case-splits:\n";
@@ -747,19 +747,19 @@ namespace smt {
             m_head(0),
             m_bs_num_bool_vars(UINT_MAX),
             m_priority_queue2(0, generation_lt(*this)),
-            m_current_goal(0) {
+            m_current_goal(nullptr) {
             set_global_generation();
         }
         
-        virtual void activity_increased_eh(bool_var v) {}
+        void activity_increased_eh(bool_var v) override {}
 
-        virtual void mk_var_eh(bool_var v) {}
+        void mk_var_eh(bool_var v) override {}
 
-        virtual void del_var_eh(bool_var v) {}
+        void del_var_eh(bool_var v) override {}
 
-        virtual void unassign_var_eh(bool_var v) {}
+        void unassign_var_eh(bool_var v) override {}
 
-        virtual void relevant_eh(expr * n) {
+        void relevant_eh(expr * n) override {
             if (get_generation(n) == 0 && m_current_generation != 0)
                 set_generation_rec(n, m_current_generation);
 
@@ -793,21 +793,21 @@ namespace smt {
                 add_to_queue2(n);
         }
 
-        virtual void internalize_instance_eh(expr * e, unsigned gen)
+        void internalize_instance_eh(expr * e, unsigned gen) override
         {
             //lower_generation(e, gen);
         }
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_bs_num_bool_vars = m_context.get_num_bool_vars();
             set_global_generation();
         }
 
-        virtual void end_search_eh() {
+        void end_search_eh() override {
             m_bs_num_bool_vars = UINT_MAX;
         }
 
-        virtual void reset() {
+        void reset() override {
             m_queue.reset();
             m_head = 0;
             m_queue2.reset();
@@ -816,7 +816,7 @@ namespace smt {
             set_global_generation();
         }
 
-        virtual void push_scope() {
+        void push_scope() override {
             m_scopes.push_back(scope());
             scope & s = m_scopes.back();
             s.m_queue_trail  = m_queue.size();
@@ -827,7 +827,7 @@ namespace smt {
             TRACE("case_split", tout << "head: " << m_head << "\n";);
         }
 
-        virtual void pop_scope(unsigned num_scopes) {
+        void pop_scope(unsigned num_scopes) override {
             SASSERT(num_scopes <= m_scopes.size());
             unsigned new_lvl     = m_scopes.size() - num_scopes;
             scope & s            = m_scopes[new_lvl];
@@ -875,7 +875,7 @@ namespace smt {
                 val  = l_true;
             }
             if ((is_or && val == l_true) || (is_and && val == l_false)) {
-                expr * undef_child = 0;
+                expr * undef_child = nullptr;
                 if (!has_child_assigned_to(m_context, to_app(curr), val, undef_child, m_params.m_rel_case_split_order)) {
                     if (m_manager.has_trace_stream()) {
                         m_manager.trace_stream() << "[decide-and-or] #" << curr->get_id() << " #" << undef_child->get_id() << "\n";
@@ -898,7 +898,7 @@ namespace smt {
             next = null_bool_var;
         }
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             phase = l_undef;
             next = null_bool_var;
 
@@ -943,7 +943,7 @@ namespace smt {
             out << "\n";
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             if (m_queue.empty() && m_queue2.empty())
                 return;
             out << "case-splits:\n";
@@ -951,7 +951,7 @@ namespace smt {
             //display_core(out, m_queue2, m_head2, 2);
         }
 
-        virtual void assign_lit_eh(literal l) {
+        void assign_lit_eh(literal l) override {
             // if (m_current_generation > stop_gen)
             //    m_current_generation--;
 
@@ -1128,41 +1128,41 @@ namespace smt {
             m_queue(1024, theory_aware_act_lt(ctx.get_activity_vector(), m_theory_var_priority)) {
         }
 
-        virtual void activity_increased_eh(bool_var v) {
+        void activity_increased_eh(bool_var v) override {
             if (m_queue.contains(v))
                 m_queue.decreased(v);
         }
 
-        virtual void mk_var_eh(bool_var v) {
+        void mk_var_eh(bool_var v) override {
             m_queue.reserve(v+1);
             m_queue.insert(v);
         }
 
-        virtual void del_var_eh(bool_var v) {
+        void del_var_eh(bool_var v) override {
             if (m_queue.contains(v))
                 m_queue.erase(v);
         }
 
-        virtual void unassign_var_eh(bool_var v) {
+        void unassign_var_eh(bool_var v) override {
             if (!m_queue.contains(v))
                 m_queue.insert(v);
         }
 
-        virtual void relevant_eh(expr * n) {}
+        void relevant_eh(expr * n) override {}
 
-        virtual void init_search_eh() {}
+        void init_search_eh() override {}
 
-        virtual void end_search_eh() {}
+        void end_search_eh() override {}
 
-        virtual void reset() {
+        void reset() override {
             m_queue.reset();
         }
 
-        virtual void push_scope() {}
+        void push_scope() override {}
 
-        virtual void pop_scope(unsigned num_scopes) {}
+        void pop_scope(unsigned num_scopes) override {}
 
-        virtual void next_case_split(bool_var & next, lbool & phase) {
+        void next_case_split(bool_var & next, lbool & phase) override {
             int threshold = static_cast<int>(m_params.m_random_var_freq * random_gen::max_value());
             SASSERT(threshold >= 0);
             if (m_context.get_random_value() < threshold) {
@@ -1187,7 +1187,7 @@ namespace smt {
             }
         }
 
-        virtual void add_theory_aware_branching_info(bool_var v, double priority, lbool phase) {
+        void add_theory_aware_branching_info(bool_var v, double priority, lbool phase) override {
             TRACE("theory_aware_branching", tout << "Add theory-aware branching information for l#" << v << ": priority=" << priority << std::endl;);
             m_theory_vars.insert(v);
             m_theory_var_phase.insert(v, phase);
@@ -1203,7 +1203,7 @@ namespace smt {
             // m_theory_queue.insert(v);
         }
 
-        virtual void display(std::ostream & out) {
+        void display(std::ostream & out) override {
             bool first = true;
             bool_var_act_queue::const_iterator it  = m_queue.begin();
             bool_var_act_queue::const_iterator end = m_queue.end();
@@ -1222,7 +1222,7 @@ namespace smt {
 
         }
 
-        virtual ~theory_aware_branching_queue() {};
+        ~theory_aware_branching_queue() override {};
     };
 
 

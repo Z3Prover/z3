@@ -36,6 +36,7 @@ class bv1_blaster_tactic : public tactic {
         ast_manager &                      m_manager;
         bv_util                            m_util;
         obj_map<func_decl, expr*>          m_const2bits;
+        ptr_vector<func_decl>              m_newbits;
         expr_ref_vector                    m_saved;
         expr_ref                           m_bit1;
         expr_ref                           m_bit0;
@@ -106,7 +107,8 @@ class bv1_blaster_tactic : public tactic {
             sort * b = butil().mk_sort(1);
             ptr_buffer<expr> bits;
             for (unsigned i = 0; i < bv_size; i++) {
-                bits.push_back(m().mk_fresh_const(0, b));
+                bits.push_back(m().mk_fresh_const(nullptr, b));
+                m_newbits.push_back(to_app(bits.back())->get_decl());
             }
             r = butil().mk_concat(bits.size(), bits.c_ptr());
             m_saved.push_back(r);
@@ -253,7 +255,7 @@ class bv1_blaster_tactic : public tactic {
         }
         
         br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-            result_pr = 0;
+            result_pr = nullptr;
             if (num == 0 && f->get_family_id() == null_family_id && butil().is_bv_sort(f->get_range())) {
                 mk_const(f, result);
                 return BR_DONE;
@@ -369,7 +371,7 @@ class bv1_blaster_tactic : public tactic {
                     for_each_expr_core<visitor, expr_fast_mark1, false, true>(proc, visited, f);
                 }
             }
-            catch (not_target) {
+            catch (const not_target &) {
                 return false;
             }
             return true;
@@ -379,11 +381,7 @@ class bv1_blaster_tactic : public tactic {
         
         
         void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
-            mc = 0; pc = 0; core = 0;
+                        goal_ref_buffer & result) {
             
             if (!is_target(*g))
                 throw tactic_exception("bv1 blaster cannot be applied to goal");
@@ -409,7 +407,7 @@ class bv1_blaster_tactic : public tactic {
             }
             
             if (g->models_enabled())
-                mc = mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits);
+                g->add(mk_bv1_blaster_model_converter(m(), m_rw.cfg().m_const2bits, m_rw.cfg().m_newbits));
             g->inc_depth();
             result.push_back(g.get());
             m_rw.cfg().cleanup();
@@ -426,20 +424,20 @@ public:
         m_imp = alloc(imp, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(bv1_blaster_tactic, m, m_params);
     }
 
-    virtual ~bv1_blaster_tactic() {
+    ~bv1_blaster_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->m_rw.cfg().updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
     }
@@ -454,15 +452,12 @@ public:
        It also does not support quantifiers.
        Return a model_converter that converts any model for the updated set into a model for the old set.
     */
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(g, result, mc, pc, core);
+    void operator()(goal_ref const & g, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(g, result);
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         imp * d = alloc(imp, m_imp->m(), m_params);
         std::swap(d, m_imp);        
         dealloc(d);
@@ -480,7 +475,7 @@ tactic * mk_bv1_blaster_tactic(ast_manager & m, params_ref const & p) {
 
 class is_qfbv_eq_probe : public probe {
 public:
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bv1_blaster_tactic t(g.m());
         return t.is_target(g);
 

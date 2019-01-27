@@ -16,12 +16,12 @@ Author:
 Notes:
     
 --*/
+using System.Diagnostics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -32,7 +32,7 @@ namespace Microsoft.Z3
     {
         #region Internal
         /// <summary> Constructor for BoolExpr </summary>
-        internal BoolExpr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal BoolExpr(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
         #endregion
 
         #region Operators

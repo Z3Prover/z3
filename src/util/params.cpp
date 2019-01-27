@@ -24,7 +24,7 @@ Notes:
 params_ref params_ref::g_empty_params_ref;
 
 std::string norm_param_name(char const * n) {
-    if (n == 0)
+    if (n == nullptr)
         return "_";
     if (*n == ':')
         n++;
@@ -62,9 +62,9 @@ struct param_descrs::imp {
 
         info():
             m_kind(CPK_INVALID), 
-            m_descr(0), 
-            m_default(0),
-            m_module(0) {
+            m_descr(nullptr),
+            m_default(nullptr),
+            m_module(nullptr) {
         }
     };
 
@@ -130,21 +130,21 @@ struct param_descrs::imp {
         info i;
         if (m_info.find(name, i)) 
             return i.m_module;
-        return 0;
+        return nullptr;
     }
 
     char const * get_descr(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_descr;
-        return 0;
+        return nullptr;
     }
 
     char const * get_default(symbol const & name) const {
         info i;
         if (m_info.find(name, i))
             return i.m_default;
-        return 0;
+        return nullptr;
     }
 
     unsigned size() const {
@@ -161,19 +161,15 @@ struct param_descrs::imp {
 
     void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
         svector<symbol> names;
-        dictionary<info>::iterator it  = m_info.begin();
-        dictionary<info>::iterator end = m_info.end();
-        for (; it != end; ++it) {
-            names.push_back(it->m_key);
+        for (auto const& kv : m_info) {
+            names.push_back(kv.m_key);
         }
         std::sort(names.begin(), names.end(), lt());
-        svector<symbol>::iterator it2  = names.begin();
-        svector<symbol>::iterator end2 = names.end();
-        for (; it2 != end2; ++it2) {
+        for (symbol const& name : names) {
             for (unsigned i = 0; i < indent; i++) out << " ";
             if (smt2_style)
                 out << ':';
-            char const * s = it2->bare_str();
+            char const * s = name.bare_str();
             unsigned n = static_cast<unsigned>(strlen(s));
             for (unsigned i = 0; i < n; i++) {
                 if (smt2_style && s[i] == '_')
@@ -186,22 +182,20 @@ struct param_descrs::imp {
                     out << s[i];
             }
             info d;
-            m_info.find(*it2, d);
+            m_info.find(name, d);
             SASSERT(d.m_descr);
             out << " (" << d.m_kind << ")";
             if (include_descr)
                 out << " " << d.m_descr;
-            if (d.m_default != 0)
+            if (d.m_default != nullptr)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
     }
 
     void copy(param_descrs & other) {
-        dictionary<info>::iterator it  = other.m_imp->m_info.begin();
-        dictionary<info>::iterator end = other.m_imp->m_info.end();
-        for (; it != end; ++it) {
-            insert(it->m_key, it->m_value.m_kind, it->m_value.m_descr, it->m_value.m_default, it->m_value.m_module);
+        for (auto const& kv : other.m_imp->m_info) {
+            insert(kv.m_key, kv.m_value.m_kind, kv.m_value.m_descr, kv.m_value.m_default, kv.m_value.m_module);
         }
     }
 
@@ -304,8 +298,13 @@ void insert_produce_proofs(param_descrs & r) {
 }
 
 void insert_timeout(param_descrs & r) {
-    r.insert("timeout", CPK_UINT, "(default: infty) timeout in milliseconds.");
+    r.insert("timeout", CPK_UINT, "(default: infty) timeout in milliseconds.", "4294967295");
 }
+
+void insert_rlimit(param_descrs & r) {
+    r.insert("rlimit", CPK_UINT, "default resource limit used for solvers. Unrestricted when set to 0.", "0");
+}
+
 
 class params {
     friend class params_ref;
@@ -323,7 +322,6 @@ class params {
     typedef std::pair<symbol, value> entry;
     svector<entry> m_entries;
     unsigned       m_ref_count;
-    
     void del_value(entry & e);
     void del_values();
 
@@ -334,7 +332,10 @@ public:
     }
 
     void inc_ref() { m_ref_count++; }
-    void dec_ref() { SASSERT(m_ref_count > 0); m_ref_count--; if (m_ref_count == 0) dealloc(this); }
+    void dec_ref() { 
+        SASSERT(m_ref_count > 0); 
+        if (--m_ref_count == 0) dealloc(this); 
+    }
 
     bool empty() const { return m_entries.empty(); }
     bool contains(symbol const & k) const;
@@ -344,25 +345,22 @@ public:
     void reset(symbol const & k);
     void reset(char const * k);
 
-
-    void validate(param_descrs const & p) {
-        svector<params::entry>::iterator it  = m_entries.begin();  
-        svector<params::entry>::iterator end = m_entries.end();
+    void validate(param_descrs const & p) {        
         symbol suffix, prefix;
-        for (; it != end; ++it) {                                
-            param_kind expected = p.get_kind_in_module(it->first);
+        for (params::entry& e : m_entries) {
+            param_kind expected = p.get_kind_in_module(e.first);
             if (expected == CPK_INVALID) {
                 std::stringstream strm;
-                strm << "unknown parameter '" << it->first.str() << "'\n";    
+                strm << "unknown parameter '" << e.first.str() << "'\n";    
                 strm << "Legal parameters are:\n";
                 p.display(strm, 2, false, false);
                 throw default_exception(strm.str());
             }
-            if (it->second.m_kind != expected && 
-                !(it->second.m_kind == CPK_UINT && expected == CPK_NUMERAL)) {
+            if (e.second.m_kind != expected && 
+                !(e.second.m_kind == CPK_UINT && expected == CPK_NUMERAL)) {
                 std::stringstream strm;
-                strm << "Parameter " << it->first.str() << " was given argument of type ";
-                strm << it->second.m_kind << ", expected " << expected;                
+                strm << "Parameter " << e.first.str() << " was given argument of type ";
+                strm << e.second.m_kind << ", expected " << expected;                
                 throw default_exception(strm.str());
             }
         }
@@ -404,28 +402,26 @@ public:
 
     void display(std::ostream & out) const {
         out << "(params";
-        svector<params::entry>::const_iterator it  = m_entries.begin();  
-        svector<params::entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            out << " " << it->first;            
-            switch (it->second.m_kind) {
+        for (params::entry const& e : m_entries) {
+            out << " " << e.first;            
+            switch (e.second.m_kind) {
             case CPK_BOOL:
-                out << " " << (it->second.m_bool_value?"true":"false");
+                out << " " << (e.second.m_bool_value?"true":"false");
                 break;
             case CPK_UINT:
-                out << " " <<it->second.m_uint_value;
+                out << " " <<e.second.m_uint_value;
                 break;
             case CPK_DOUBLE:
-                out << " " << it->second.m_double_value;
+                out << " " << e.second.m_double_value;
                 break;
             case CPK_NUMERAL:
-                out << " " << *(it->second.m_rat_value);
+                out << " " << *(e.second.m_rat_value);
                 break;
             case CPK_SYMBOL:
-                out << " " << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                out << " " << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
                 break;
             case CPK_STRING:
-                out << " " << it->second.m_str_value;
+                out << " " << e.second.m_str_value;
                 break;
             default:
                 UNREACHABLE();
@@ -436,31 +432,29 @@ public:
     }
 
     void display_smt2(std::ostream & out, char const* module, param_descrs& descrs) const {
-        svector<params::entry>::const_iterator it  = m_entries.begin();  
-        svector<params::entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {
-            if (!descrs.contains(it->first)) continue;
+        for (params::entry const& e : m_entries) {
+            if (!descrs.contains(e.first)) continue;
             out << "(set-option :";
             out << module << ".";        
-            out << it->first;
-            switch (it->second.m_kind) {
+            out << e.first;
+            switch (e.second.m_kind) {
             case CPK_BOOL:
-                out << " " << (it->second.m_bool_value?"true":"false");
+                out << " " << (e.second.m_bool_value?"true":"false");
                 break;
             case CPK_UINT:
-                out << " " <<it->second.m_uint_value;
+                out << " " <<e.second.m_uint_value;
                 break;
             case CPK_DOUBLE:
-                out << " " << it->second.m_double_value;
+                out << " " << e.second.m_double_value;
                 break;
             case CPK_NUMERAL:
-                out << " " << *(it->second.m_rat_value);
+                out << " " << *(e.second.m_rat_value);
                 break;
             case CPK_SYMBOL:
-                out << " " << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                out << " " << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
                 break;
             case CPK_STRING:
-                out << " " << it->second.m_str_value;
+                out << " " << e.second.m_str_value;
                 break;
             default:
                 UNREACHABLE();
@@ -471,29 +465,27 @@ public:
     }
 
     void display(std::ostream & out, symbol const & k) const {
-        svector<params::entry>::const_iterator it  = m_entries.begin();  
-        svector<params::entry>::const_iterator end = m_entries.end();
-        for (; it != end; ++it) {                                
-            if (it->first != k)
+        for (params::entry const& e : m_entries) {
+            if (e.first != k)
                 continue;
-            switch (it->second.m_kind) {
+            switch (e.second.m_kind) {
             case CPK_BOOL:
-                out << (it->second.m_bool_value?"true":"false");
+                out << (e.second.m_bool_value?"true":"false");
                 return;
             case CPK_UINT:
-                out << it->second.m_uint_value;
+                out << e.second.m_uint_value;
                 return;
             case CPK_DOUBLE:
-                out << it->second.m_double_value;
+                out << e.second.m_double_value;
                 return;
             case CPK_NUMERAL:
-                out << *(it->second.m_rat_value);
+                out << *(e.second.m_rat_value);
                 return;
             case CPK_SYMBOL:
-                out << symbol::mk_symbol_from_c_ptr(it->second.m_sym_value);
+                out << symbol::mk_symbol_from_c_ptr(e.second.m_sym_value);
                 return;
             case CPK_STRING:
-                out << it->second.m_str_value;
+                out << e.second.m_str_value;
                 return;
             default:
                 out << "internal";
@@ -510,7 +502,7 @@ params_ref::~params_ref() {
 }
 
 params_ref::params_ref(params_ref const & p):
-    m_params(0) {
+    m_params(nullptr) {
     operator=(p);
 }
 
@@ -554,7 +546,7 @@ params_ref & params_ref::operator=(params_ref const & p) {
 }
 
 void params_ref::copy(params_ref const & src) {
-    if (m_params == 0)
+    if (m_params == nullptr)
         operator=(src);
     else {
         init();
@@ -563,29 +555,27 @@ void params_ref::copy(params_ref const & src) {
 }
 
 void params_ref::copy_core(params const * src) {
-    if (src == 0)
+    if (src == nullptr)
         return;
-    svector<params::entry>::const_iterator it  = src->m_entries.begin();  
-    svector<params::entry>::const_iterator end = src->m_entries.end();    
-    for (; it != end; ++it) {
-        switch (it->second.m_kind) {
+    for (auto const& p : src->m_entries) {
+        switch (p.second.m_kind) {
         case CPK_BOOL:
-            m_params->set_bool(it->first, it->second.m_bool_value);
+            m_params->set_bool(p.first, p.second.m_bool_value);
             break;
         case CPK_UINT:
-            m_params->set_uint(it->first, it->second.m_uint_value);
+            m_params->set_uint(p.first, p.second.m_uint_value);
             break;
         case CPK_DOUBLE:
-            m_params->set_double(it->first, it->second.m_double_value);
+            m_params->set_double(p.first, p.second.m_double_value);
             break;
         case CPK_NUMERAL:
-            m_params->set_rat(it->first, *(it->second.m_rat_value));
+            m_params->set_rat(p.first, *(p.second.m_rat_value));
             break;
         case CPK_SYMBOL:
-            m_params->set_sym(it->first, symbol::mk_symbol_from_c_ptr(it->second.m_sym_value));
+            m_params->set_sym(p.first, symbol::mk_symbol_from_c_ptr(p.second.m_sym_value));
             break;
         case CPK_STRING:
-            m_params->set_str(it->first, it->second.m_str_value);
+            m_params->set_str(p.first, p.second.m_str_value);
             break;
         default:
             UNREACHABLE();
@@ -786,6 +776,7 @@ void params::del_values() {
     TRAVERSE_CONST_ENTRIES(if (it->first == k) return true;);   \
     return false;                                               \
 }
+
 
 bool params::contains(symbol const & k) const {
     CONTAINS(k);

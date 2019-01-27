@@ -164,10 +164,10 @@ void mpfx_manager::set(mpfx & n, unsigned v) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, int64 v) {
+void mpfx_manager::set(mpfx & n, int64_t v) {
     if (m_int_part_sz == 1) {
-        if (v < -static_cast<int64>(static_cast<uint64>(UINT_MAX)) || 
-            v > static_cast<int64>(static_cast<uint64>(UINT_MAX)))
+        if (v < -static_cast<int64_t>(static_cast<uint64_t>(UINT_MAX)) ||
+            v > static_cast<int64_t>(static_cast<uint64_t>(UINT_MAX)))
             throw overflow_exception();
     }
     if (v == 0) {
@@ -175,11 +175,11 @@ void mpfx_manager::set(mpfx & n, int64 v) {
     }
     else {
         if (v < 0) {
-            set(n, static_cast<uint64>(-v));
+            set(n, static_cast<uint64_t>(-v));
             n.m_sign = 1;
         }
         else {
-            set(n, static_cast<uint64>(v));
+            set(n, static_cast<uint64_t>(v));
         }
     }
     SASSERT(is_int(n));
@@ -187,9 +187,9 @@ void mpfx_manager::set(mpfx & n, int64 v) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, uint64 v) {
+void mpfx_manager::set(mpfx & n, uint64_t v) {
     if (m_int_part_sz == 1) {
-        if (v > static_cast<uint64>(UINT_MAX))
+        if (v > static_cast<uint64_t>(UINT_MAX))
             throw overflow_exception();
     }
 
@@ -200,8 +200,8 @@ void mpfx_manager::set(mpfx & n, uint64 v) {
         allocate_if_needed(n);
         n.m_sign              = 0;
         unsigned * w          = words(n);
-        uint64 * _vp          = &v;
-        unsigned * _v         = 0;
+        uint64_t * _vp        = &v;
+        unsigned * _v         = nullptr;
         memcpy(&_v, &_vp, sizeof(unsigned*));
         for (unsigned i = 0; i < m_total_sz; i++) 
             w[i] = 0;
@@ -226,7 +226,7 @@ void mpfx_manager::set(mpfx & n, int num, unsigned den) {
     SASSERT(check(n));
 }
 
-void mpfx_manager::set(mpfx & n, int64 num, uint64 den) {
+void mpfx_manager::set(mpfx & n, int64_t num, uint64_t den) {
     scoped_mpfx a(*this), b(*this);
     set(a, num);
     set(b, den);
@@ -272,9 +272,11 @@ void mpfx_manager::set(mpfx & n, unsynch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::set(mpfx & n, synch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v);
 }
+#endif
 
 template<bool SYNCH>
 void mpfx_manager::set_core(mpfx & n, mpq_manager<SYNCH> & m, mpq const & v) {
@@ -309,9 +311,11 @@ void mpfx_manager::set(mpfx & n, unsynch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::set(mpfx & n, synch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v);
 }
+#endif
 
 bool mpfx_manager::eq(mpfx const & a, mpfx const & b) const {
     if (is_zero(a) && is_zero(b))
@@ -677,27 +681,27 @@ bool mpfx_manager::is_power_of_two(mpfx const & a) const {
     return is_power_of_two(a, k);
 }
 
-int64 mpfx_manager::get_int64(mpfx const & n) const {
+int64_t mpfx_manager::get_int64(mpfx const & n) const {
     SASSERT(is_int64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    uint64 r = 0;
-    memcpy(&r, w, sizeof(uint64));
+    uint64_t r = 0;
+    memcpy(&r, w, sizeof(uint64_t));
     if (r == 0x8000000000000000ull) {
         SASSERT(is_neg(n));
         return INT64_MIN;
     }
     else {
-        return is_neg(n) ? -static_cast<int64>(r) : r;
+        return is_neg(n) ? -static_cast<int64_t>(r) : r;
     }
 }
 
-uint64 mpfx_manager::get_uint64(mpfx const & n) const {
+uint64_t mpfx_manager::get_uint64(mpfx const & n) const {
     SASSERT(is_uint64(n));
     unsigned * w = words(n);
     w += m_frac_part_sz;
-    uint64 r = 0;
-    memcpy(&r, w, sizeof(uint64));
+    uint64_t r = 0;
+    memcpy(&r, w, sizeof(uint64_t));
     return r;
 }
 
@@ -705,7 +709,7 @@ template<bool SYNCH>
 void mpfx_manager::to_mpz_core(mpfx const & n, mpz_manager<SYNCH> & m, mpz & t) {
     SASSERT(is_int(n));
     unsigned * w = words(n);
-    m.set(t, m_int_part_sz, w+m_frac_part_sz);
+    m.set_digits(t, m_int_part_sz, w+m_frac_part_sz);
     if (is_neg(n))
         m.neg(t);
 }
@@ -714,9 +718,11 @@ void mpfx_manager::to_mpz(mpfx const & n, unsynch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::to_mpz(mpfx const & n, synch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpfx_manager::to_mpq_core(mpfx const & n, mpq_manager<SYNCH> & m, mpq & t) {
@@ -738,9 +744,11 @@ void mpfx_manager::to_mpq(mpfx const & n, unsynch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::to_mpq(mpfx const & n, synch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
+#endif
 
 void mpfx_manager::display_raw(std::ostream & out, mpfx const & n) const {
     if (is_neg(n))

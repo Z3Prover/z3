@@ -6,6 +6,7 @@ z3_add_component(sat_tactic
   COMPONENT_DEPENDENCIES
     sat
     tactic
+    solver
   TACTIC_HEADERS
     sat_tactic.h
 )

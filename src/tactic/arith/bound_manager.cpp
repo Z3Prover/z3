@@ -28,6 +28,19 @@ bound_manager::~bound_manager() {
     reset();
 }
 
+bound_manager* bound_manager::translate(ast_manager& dst_m) {
+    bound_manager* result = alloc(bound_manager, dst_m);
+    ast_translation tr(m(), dst_m);
+    expr_dependency_translation edtr(tr);
+    for (auto& kv : m_lowers) result->m_lowers.insert(tr(kv.m_key), kv.m_value);
+    for (auto& kv : m_uppers) result->m_uppers.insert(tr(kv.m_key), kv.m_value);
+    for (auto& kv : m_lower_deps) result->m_lower_deps.insert(tr(kv.m_key), edtr(kv.m_value));
+    for (auto& kv : m_upper_deps) result->m_upper_deps.insert(tr(kv.m_key), edtr(kv.m_value));
+    for (expr* e : m_bounded_vars) result->m_bounded_vars.push_back(tr(e));
+    return result;
+}
+
+
 static decl_kind swap_decl(decl_kind k) {
     switch (k) {
     case OP_LE: return OP_GE;
@@ -201,22 +214,22 @@ bool bound_manager::is_disjunctive_bound(expr * f, expr_dependency * d) {
     if (!m().is_or(f)) return false;
     unsigned sz = to_app(f)->get_num_args();
     if (sz == 0) return false;
-    expr * x, * y, * v = 0;
+    expr * x, * y, * v = nullptr;
     bool is_int;
     for (unsigned i = 0; i < sz; ++i) {
         expr * e = to_app(f)->get_arg(i);
         if (!m().is_eq(e, x, y)) return false;
         if (is_uninterp_const(x) && 
             is_numeral(y, n, is_int) && is_int && 
-            (x == v || v == 0)) {
-            if (v == 0) { v = x; lo = hi = n; }
+            (x == v || v == nullptr)) {
+            if (v == nullptr) { v = x; lo = hi = n; }
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }
         else if (is_uninterp_const(y) && 
                  is_numeral(x, n, is_int) && is_int && 
-                 (y == v || v == 0)) {
-            if (v == 0) { v = y; lo = hi = n; }
+                 (y == v || v == nullptr)) {
+            if (v == nullptr) { v = y; lo = hi = n; }
             if (n < lo) lo = n;
             if (n > hi) hi = n;
         }

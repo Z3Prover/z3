@@ -22,7 +22,7 @@ Revision History:
 #define QE_QSAT_H__
 
 #include "tactic/tactic.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "qe/qe_mbp.h"
 
 namespace qe {
@@ -72,7 +72,7 @@ namespace qe {
         obj_map<expr, app*>     m_asm2pred;    // maintain map from assumptions to predicates
         obj_map<expr, expr*>    m_pred2asm;    // predicates |-> assumptions
         expr_ref_vector         m_trail;
-        filter_model_converter_ref m_fmc;
+        generic_model_converter_ref m_fmc;
         ptr_vector<expr>        todo;
         obj_map<expr, max_level>      m_elevel;
         obj_map<func_decl, max_level> m_flevel;
@@ -91,7 +91,7 @@ namespace qe {
     public:
         
         pred_abs(ast_manager& m);
-        filter_model_converter* fmc();
+        generic_model_converter* fmc();
         void reset();
         max_level compute_level(app* e);
         void push();

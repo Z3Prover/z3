@@ -51,7 +51,7 @@ namespace rpolynomial {
     private:
         imp * m_imp;
     public:
-        manager(numeral_manager & m, small_object_allocator * a = 0);
+        manager(numeral_manager & m, small_object_allocator * a = nullptr);
         ~manager();
 
         numeral_manager & m() const;

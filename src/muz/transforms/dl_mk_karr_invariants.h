@@ -65,9 +65,9 @@ namespace datalog {
     public:
         mk_karr_invariants(context & ctx, unsigned priority);
 
-        virtual ~mk_karr_invariants();
+        ~mk_karr_invariants() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
     };
 

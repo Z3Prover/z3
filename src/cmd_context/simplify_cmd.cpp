@@ -24,41 +24,22 @@ Notes:
 #include "util/scoped_timer.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
-#include "ast/rewriter/seq_rewriter.h"
 #include<iomanip>
 
 class simplify_cmd : public parametric_cmd {
 
-    class th_solver : public expr_solver {
-        cmd_context& m_ctx;
-        params_ref   m_params;
-        ref<solver> m_solver;
-    public:
-        th_solver(cmd_context& ctx): m_ctx(ctx) {}
-        
-        virtual lbool check_sat(expr* e) {
-            if (!m_solver) {
-                m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
-            }
-            m_solver->push();
-            m_solver->assert_expr(e);
-            lbool r = m_solver->check_sat(0,0);
-            m_solver->pop(1);
-            return r;
-        }
-    };
 
     expr *                   m_target;
 public:
     simplify_cmd(char const * name = "simplify"):parametric_cmd(name) {}
 
-    virtual char const * get_usage() const { return "<term> (<keyword> <value>)*"; }
+    char const * get_usage() const override { return "<term> (<keyword> <value>)*"; }
 
-    virtual char const * get_main_descr() const { 
+    char const * get_main_descr() const override {
         return "simplify the given term using builtin theory simplification rules.";
     }
     
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         th_rewriter::get_param_descrs(p);
         insert_timeout(p);
         p.insert("print", CPK_BOOL, "(default: true)  print the simplified term.");
@@ -66,25 +47,25 @@ public:
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
     }
     
-    virtual ~simplify_cmd() {
+    ~simplify_cmd() override {
     }
     
-    virtual void prepare(cmd_context & ctx) { 
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_target   = 0; 
+        m_target   = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_target == 0) return CPK_EXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_target == nullptr) return CPK_EXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
     
-    virtual void set_next_arg(cmd_context & ctx, expr * arg) {
+    void set_next_arg(cmd_context & ctx, expr * arg) override {
         m_target = arg;
     }
     
-    virtual void execute(cmd_context & ctx) {
-        if (m_target == 0)
+    void execute(cmd_context & ctx) override {
+        if (m_target == nullptr)
             throw cmd_exception("invalid simplify command, argument expected");
         expr_ref r(ctx.m());
         proof_ref pr(ctx.m());

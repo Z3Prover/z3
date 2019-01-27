@@ -27,7 +27,7 @@ void mk_bits(ast_manager & m, char const * prefix, unsigned sz, expr_ref_vector 
     for (unsigned i = 0; i < sz; ++i) {
         char buffer[128];
 #ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "%s%d.smt", prefix, i);
+        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "%s%d.smt", prefix, i);
 #else
         sprintf(buffer, "%s%d.smt", prefix, i);
 #endif

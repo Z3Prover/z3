@@ -23,14 +23,16 @@ Notes:
 #define TACTIC2SOLVER_H_
 
 #include "util/params.h"
+
 class ast_manager;
 class tactic;
-class tactic_factory;
 class solver;
 class solver_factory;
 
+typedef tactic* (*tactic_factory)(ast_manager&, const params_ref&);
+
 solver * mk_tactic2solver(ast_manager & m, 
-                          tactic * t = 0, 
+                          tactic * t = nullptr,
                           params_ref const & p = params_ref(), 
                           bool produce_proofs = false, 
                           bool produce_models = true, 
@@ -39,6 +41,6 @@ solver * mk_tactic2solver(ast_manager & m,
 
 
 solver_factory * mk_tactic2solver_factory(tactic * t);
-solver_factory * mk_tactic_factory2solver_factory(tactic_factory * f);
+solver_factory * mk_tactic_factory2solver_factory(tactic_factory f);
 
 #endif

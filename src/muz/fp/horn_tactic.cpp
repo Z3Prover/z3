@@ -25,9 +25,9 @@ Revision History:
 #include "ast/rewriter/expr_replacer.h"
 #include "muz/base/dl_rule_transformer.h"
 #include "muz/transforms/dl_mk_slice.h"
-#include "tactic/filter_model_converter.h"
+#include "tactic/generic_model_converter.h"
 #include "muz/transforms/dl_transforms.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include "ast/ast_util.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -65,13 +65,13 @@ class horn_tactic : public tactic {
 
         void normalize(expr_ref& f) {
             bool is_positive = true;
-            expr* e = 0;
+            expr* e = nullptr;
             while (true) {
                 if (is_forall(f) && is_positive) {
                     f = to_quantifier(f)->get_expr();
                 }
                 else if (is_exists(f) && !is_positive) {
-                    f = to_quantifier(f)->get_expr();                    
+                    f = to_quantifier(f)->get_expr();
                 }
                 else if (m.is_not(f, e)) {
                     is_positive = !is_positive;
@@ -84,7 +84,7 @@ class horn_tactic : public tactic {
             if (!is_positive) {
                 f = m.mk_not(f);
             }
-            
+
         }
 
         bool is_predicate(expr* a) {
@@ -141,10 +141,10 @@ class horn_tactic : public tactic {
             ast_mark mark;
             expr_ref_vector args(m), body(m);
             expr_ref head(m);
-            expr* a = 0, *a1 = 0;
+            expr* a = nullptr, *a1 = nullptr;
             flatten_or(tmp, args);
             for (unsigned i = 0; i < args.size(); ++i) {
-                a = args[i].get(); 
+                a = args[i].get();
                 check_predicate(mark, a);
                 if (m.is_not(a, a1)) {
                     body.push_back(a1);
@@ -176,17 +176,13 @@ class horn_tactic : public tactic {
             return expr_ref(m.mk_implies(body, head), m);
         }
 
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g,
+                        goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
             tactic_report report("horn", *g);
             bool produce_proofs = g->proofs_enabled();
 
-            if (produce_proofs) {                
+            if (produce_proofs) {
                 if (!m_ctx.generate_proof_trace()) {
                     params_ref params = m_ctx.get_params().p;
                     params.set_bool("generate_proof_trace", true);
@@ -212,10 +208,10 @@ class horn_tactic : public tactic {
                 case IS_QUERY:
                     queries.push_back(f);
                     break;
-                default: 
+                default:
                     msg << "formula is not in Horn fragment: " << mk_pp(g->form(i), m) << "\n";
                     TRACE("horn", tout << msg.str(););
-                    throw tactic_exception(msg.str().c_str());
+                    throw tactic_exception(msg.str());
                 }
             }
 
@@ -229,24 +225,28 @@ class horn_tactic : public tactic {
                 }
                 queries.reset();
                 queries.push_back(q);
-                filter_model_converter* mc1 = alloc(filter_model_converter, m);
-                mc1->insert(to_app(q)->get_decl());
-                mc = mc1;
+                generic_model_converter* mc1 = alloc(generic_model_converter, m, "horn");
+                mc1->hide(q);
+                g->add(mc1);
             }
             SASSERT(queries.size() == 1);
             q = queries[0].get();
+            proof_converter_ref pc = g->pc();
+            model_converter_ref mc;
             if (m_is_simplify) {
                 simplify(q, g, result, mc, pc);
             }
             else {
                 verify(q, g, result, mc, pc);
             }
+            g->set(pc.get());
+            g->set(mc.get());
         }
 
-        void verify(expr* q, 
+        void verify(expr* q,
                     goal_ref const& g,
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc) {
 
             lbool is_reachable = l_undef;
@@ -270,14 +270,14 @@ class horn_tactic : public tactic {
                 if (produce_proofs) {
                     proof_ref proof = m_ctx.get_proof();
                     pc = proof2proof_converter(m, proof);
-                    g->assert_expr(m.mk_false(), proof, 0);
+                    g->assert_expr(m.mk_false(), proof, nullptr);
                 }
                 else {
                     g->assert_expr(m.mk_false());
                 }
-                break;    
+                break;
             }
-            case l_false: {                
+            case l_false: {
                 // goal is sat
                 g->reset();
                 if (produce_models) {
@@ -290,11 +290,11 @@ class horn_tactic : public tactic {
                         mc = mc2;
                     }
                 }
-                break;    
+                break;
             }
-            case l_undef: 
+            case l_undef:
                 // subgoal is unchanged.
-                break;    
+                break;
             }
             TRACE("horn", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -314,20 +314,20 @@ class horn_tactic : public tactic {
             }
         }
 
-        void simplify(expr* q, 
+        void simplify(expr* q,
                     goal_ref const& g,
-                    goal_ref_buffer & result, 
-                    model_converter_ref & mc, 
+                    goal_ref_buffer & result,
+                    model_converter_ref & mc,
                     proof_converter_ref & pc) {
 
-            expr_ref fml(m);            
+            expr_ref fml(m);
 
 
             func_decl* query_pred = to_app(q)->get_decl();
             m_ctx.set_output_predicate(query_pred);
             m_ctx.get_rules(); // flush adding rules.
             apply_default_transformation(m_ctx);
-            
+
             if (m_ctx.xform_slice()) {
                 datalog::rule_transformer transformer(m_ctx);
                 datalog::mk_slice* slice = alloc(datalog::mk_slice, m_ctx);
@@ -351,7 +351,7 @@ class horn_tactic : public tactic {
                 g->assert_expr(fml);
             }
         }
-        
+
     };
 
     bool       m_is_simplify;
@@ -365,50 +365,47 @@ public:
         m_imp = alloc(imp, t, m, p);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(horn_tactic, m_is_simplify, m, m_params);
     }
-        
-    virtual ~horn_tactic() {
+
+    ~horn_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-   
-    virtual void collect_param_descrs(param_descrs & r) {
+
+    void collect_param_descrs(param_descrs & r) override {
         m_imp->collect_param_descrs(r);
     }
-    
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+
+    void operator()(goal_ref const & in,
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
     }
-    
-    virtual void collect_statistics(statistics & st) const {
+
+    void collect_statistics(statistics & st) const override {
         m_imp->collect_statistics(st);
         st.copy(m_stats);
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_stats.reset();
         m_imp->reset_statistics();
     }
-    
-    virtual void cleanup() {
+
+    void cleanup() override {
         ast_manager & m = m_imp->m;
         m_imp->collect_statistics(m_stats);
         dealloc(m_imp);
         m_imp = alloc(imp, m_is_simplify, m, m_params);
-        
+
     }
-    
+
 
 };
 
@@ -419,4 +416,3 @@ tactic * mk_horn_tactic(ast_manager & m, params_ref const & p) {
 tactic * mk_horn_simplify_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(horn_tactic, true, m, p));
 }
-

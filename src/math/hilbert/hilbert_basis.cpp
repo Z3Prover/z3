@@ -174,8 +174,8 @@ class hilbert_basis::value_index2 {
     struct checker : public ht::check_value {
         hilbert_basis* hb;
         offset_t  m_value;
-        checker(): hb(0) {}
-        virtual bool operator()(unsigned const& v) {            
+        checker(): hb(nullptr) {}
+        bool operator()(unsigned const& v) override {
             if (m_value.m_offset != v) { //  && hb->is_subsumed(m_value, offset_t(v))) {
                 return true;
             }
@@ -278,7 +278,7 @@ public:
             m_zero.insert(idx, vs);
         }
         else {
-            value_index* map = 0;
+            value_index* map = nullptr;
             if (!m_neg.find(vs.weight(), map)) {
                 map = alloc(value_index, hb);
                 map->reset(m_num_ineqs);

@@ -20,9 +20,9 @@ Revision History:
 #include "ast/expr_abstract.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_context.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
-#include "ast/factor_equivs.h"
+#include "ast/rewriter/factor_equivs.h"
 
 namespace datalog {
 

@@ -52,7 +52,7 @@ ufbv_rewriter::~ufbv_rewriter() {
 bool ufbv_rewriter::is_demodulator(expr * e, expr_ref & large, expr_ref & small) const {
     if (e->get_kind() == AST_QUANTIFIER) {
         quantifier * q = to_quantifier(e);
-        if (q->is_forall()) {
+        if (is_forall(q)) {
             expr * qe = q->get_expr();
             if ((m_manager.is_eq(qe) || m_manager.is_iff(qe))) {
                 app * eq = to_app(q->get_expr());
@@ -196,14 +196,14 @@ int ufbv_rewriter::is_smaller(expr * e1, expr * e2) const {
 class max_var_id_proc {
     unsigned    m_max_var_id;
 public:
-    max_var_id_proc(void):m_max_var_id(0) {}
+    max_var_id_proc():m_max_var_id(0) {}
     void operator()(var * n) {
         if(n->get_idx() > m_max_var_id)
             m_max_var_id = n->get_idx();
     }
     void operator()(quantifier * n) {}
     void operator()(app * n) {}
-    unsigned get_max(void) { return m_max_var_id; }
+    unsigned get_max() { return m_max_var_id; }
 };
 
 unsigned ufbv_rewriter::max_var_id(expr * e)
@@ -253,7 +253,7 @@ void ufbv_rewriter::remove_fwd_idx(func_decl * f, quantifier * demodulator) {
     }
 }
 
-bool ufbv_rewriter::check_fwd_idx_consistency(void) {
+bool ufbv_rewriter::check_fwd_idx_consistency() {
     for (fwd_idx_map::iterator it = m_fwd_idx.begin(); it != m_fwd_idx.end() ; it++ ) {
         quantifier_set * set = it->m_value;
         SASSERT(set);
@@ -322,8 +322,27 @@ bool ufbv_rewriter::rewrite_visit_children(app * a) {
     while (j > 0) {
         expr * e = a->get_arg(--j);
         if (!m_rewrite_cache.contains(e) || !m_rewrite_cache.get(e).second) {
-            m_rewrite_todo.push_back(e);
-            res = false;
+            bool recursive = false;
+            unsigned sz = m_rewrite_todo.size();
+            expr * v = e;
+            if (m_rewrite_cache.contains(e)) {
+                expr_bool_pair const & ebp = m_rewrite_cache.get(e);
+                if (ebp.second)
+                    v = ebp.first;
+            }
+            for (unsigned i = sz; i > 0; i--) {
+                if (m_rewrite_todo[i - 1] == v) {
+                    recursive = true;
+                    TRACE("demodulator", tout << "Detected demodulator cycle: " <<
+                        mk_pp(a, m_manager) << " --> " << mk_pp(v, m_manager) << std::endl;);
+                    m_rewrite_cache.insert(e, expr_bool_pair(v, true));
+                    break;
+                }
+            }
+            if (!recursive) {
+                m_rewrite_todo.push_back(e);
+                res = false;
+            }
         }
     }
     return res;
@@ -347,7 +366,8 @@ expr * ufbv_rewriter::rewrite(expr * n) {
     while (!m_rewrite_todo.empty()) {
         TRACE("demodulator_stack", tout << "STACK: " << std::endl;
               for ( unsigned i = 0; i<m_rewrite_todo.size(); i++)
-                  tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] << std::endl;
+                  tout << std::dec << i << ": " << std::hex << (size_t)m_rewrite_todo[i] <<
+                  " = " << mk_pp(m_rewrite_todo[i], m_manager) << std::endl;
               );
 
         expr * e = m_rewrite_todo.back();
@@ -419,8 +439,7 @@ expr * ufbv_rewriter::rewrite(expr * n) {
                 quantifier_ref q(m_manager);
                 q = m_manager.update_quantifier(to_quantifier(actual), new_body);
                 m_new_exprs.push_back(q);
-                expr_ref new_q(m_manager);
-                elim_unused_vars(m_manager, q, params_ref(), new_q);
+                expr_ref new_q = elim_unused_vars(m_manager, q, params_ref());
                 m_new_exprs.push_back(new_q);
                 rewrite_cache(e, new_q, true);
                 m_rewrite_todo.pop_back();
@@ -851,7 +870,7 @@ bool ufbv_rewriter::match_subst::match_args(app * lhs, expr * const * args) {
                 m_cache.insert(p);
                 continue;
             }
-            catch (match_args_aux_proc::no_match) {
+            catch (const match_args_aux_proc::no_match &) {
                 return false;
             }
         }

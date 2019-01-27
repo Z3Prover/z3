@@ -1,4 +1,3 @@
-
 /*++
 Copyright (c) 2015 Microsoft Corporation
 
@@ -10,7 +9,6 @@ Copyright (c) 2015 Microsoft Corporation
 #include "ast/reg_decl_plugins.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "model/model.h"
-#include "muz/pdr/pdr_util.h"
 #include "parsers/smt2/smt2parser.h"
 
 
@@ -27,8 +25,8 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
-    result = *ctx.begin_assertions();
+    ENSURE(!ctx.assertions().empty());
+    result = ctx.assertions().get(0);
     return result;
 }
 
@@ -53,13 +51,9 @@ void tst_arith_rewriter() {
     expr_ref fml = parse_fml(m, example1);
     rw(fml);
     std::cout << mk_pp(fml, m) << "\n";
-    pdr::normalize_arithmetic(fml);
-    std::cout << mk_pp(fml, m) << "\n";
 
 
     fml = parse_fml(m, example2);
     rw(fml);
-    std::cout << mk_pp(fml, m) << "\n";
-    pdr::normalize_arithmetic(fml);
     std::cout << mk_pp(fml, m) << "\n";
 }

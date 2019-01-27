@@ -80,7 +80,7 @@ class old_interval {
 public:
     explicit old_interval(v_dependency_manager & m);  
     explicit old_interval(v_dependency_manager & m, rational const & lower, bool l_open, v_dependency * l_dep, rational const & upper, bool u_open, v_dependency * u_dep);
-    explicit old_interval(v_dependency_manager & m, rational const & val, v_dependency * l_dep = 0, v_dependency * u_dep = 0);
+    explicit old_interval(v_dependency_manager & m, rational const & val, v_dependency * l_dep = nullptr, v_dependency * u_dep = nullptr);
     explicit old_interval(v_dependency_manager & m, rational const & val, bool open, bool lower, v_dependency * d);
     explicit old_interval(v_dependency_manager & m, ext_numeral const& lower, bool l_open, v_dependency * l_dep, ext_numeral const & upper, bool u_open, v_dependency * u_dep);
     old_interval(old_interval const & other);

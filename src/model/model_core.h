@@ -27,7 +27,7 @@ class model_core {
 protected:
     typedef obj_map<func_decl, expr *>       decl2expr;
     typedef obj_map<func_decl, func_interp*> decl2finterp;
-    ast_manager &                 m_manager;
+    ast_manager &                 m;
     unsigned                      m_ref_count;
     decl2expr                     m_interp;      //!< interpretation for uninterpreted constants
     decl2finterp                  m_finterp;     //!< interpretation for uninterpreted functions
@@ -36,18 +36,26 @@ protected:
     ptr_vector<func_decl>         m_func_decls;  
     
 public:
-    model_core(ast_manager & m):m_manager(m), m_ref_count(0) { }
+    model_core(ast_manager & m):m(m), m_ref_count(0) { }
     virtual ~model_core();
 
-    ast_manager & get_manager() const { return m_manager; }
+    ast_manager & get_manager() const { return m; }
 
     unsigned get_num_decls() const { return m_decls.size(); }
     func_decl * get_decl(unsigned i) const { return m_decls[i]; }
     bool has_interpretation(func_decl * d) const { return m_interp.contains(d) || m_finterp.contains(d); }
-    expr * get_const_interp(func_decl * d) const { expr * v; return m_interp.find(d, v) ? v : 0; }
-    func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : 0; }
+    expr * get_const_interp(func_decl * d) const { expr * v; return m_interp.find(d, v) ? v : nullptr; }
+    func_interp * get_func_interp(func_decl * d) const { func_interp * fi; return m_finterp.find(d, fi) ? fi : nullptr; }
 
     bool eval(func_decl * f, expr_ref & r) const;
+    bool is_true_decl(func_decl *f) const {
+        expr_ref r(m);
+        return eval(f, r) && m.is_true(r);
+    }
+    bool is_false_decl(func_decl *f) const {
+        expr_ref r(m);
+        return eval(f, r) && m.is_false(r);
+    }
 
     unsigned get_num_constants() const { return m_const_decls.size(); }
     unsigned get_num_functions() const { return m_func_decls.size(); }
@@ -64,6 +72,11 @@ public:
 
     virtual expr * get_some_value(sort * s) = 0;
 
+    expr * get_some_const_interp(func_decl * d) { 
+        expr * r = get_const_interp(d); 
+        if (r) return r; 
+        return get_some_value(d->get_range()); 
+    }
     //
     // Reference counting
     //
@@ -76,5 +89,8 @@ public:
     }
 
 };
+
+std::ostream& operator<<(std::ostream& out, model_core const& m);
+
 
 #endif

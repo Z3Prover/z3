@@ -93,11 +93,11 @@ namespace datalog {
             compiler & m_parent;
             rule * m_current;
         public:
-            instruction_observer(compiler & parent) : m_parent(parent), m_current(0) {}
+            instruction_observer(compiler & parent) : m_parent(parent), m_current(nullptr) {}
 
             void start_rule(rule * r) { SASSERT(!m_current); m_current=r; }
-            void finish_rule() { m_current = 0; }
-            virtual void notify(instruction * i) {
+            void finish_rule() { m_current = nullptr; }
+            void notify(instruction * i) override {
                 if(m_current) {
                     i->set_accounting_parent_object(m_parent.m_context, m_current);
                 }
@@ -148,7 +148,7 @@ namespace datalog {
         void make_join(reg_idx t1, reg_idx t2, const variable_intersection & vars, reg_idx & result, 
             bool reuse_t1, instruction_block & acc);
         void make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
-            const unsigned min_col, instruction_block & acc);
+            unsigned min_col, instruction_block & acc);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
             const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
         void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,

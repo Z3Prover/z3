@@ -187,8 +187,8 @@ void act_cache::insert(expr * k, expr * v) {
 */
 expr * act_cache::find(expr * k) {
     map::key_value * entry = m_table.find_core(k);
-    if (entry == 0)
-        return 0;
+    if (entry == nullptr)
+        return nullptr;
     if (GET_TAG(entry->m_value) == 0) {
         entry->m_value = TAG(expr*, entry->m_value, 1);
         SASSERT(GET_TAG(entry->m_value) == 1);

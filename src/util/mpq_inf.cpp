@@ -39,5 +39,7 @@ std::string mpq_inf_manager<SYNCH>::to_string(mpq_inf const & a) {
 }
 
 
+#ifndef _NO_OMP_
 template class mpq_inf_manager<true>;
+#endif
 template class mpq_inf_manager<false>;

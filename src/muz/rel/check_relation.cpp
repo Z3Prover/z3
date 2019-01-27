@@ -59,9 +59,7 @@ namespace datalog {
         for (unsigned i = 0; i < sig.size(); ++i) {
             vars.push_back(m.mk_const(symbol(i), sig[i]));
         }
-        expr_ref result(m);
-        sub(fml, vars.size(), vars.c_ptr(), result);
-        return result;
+        return sub(fml, vars.size(), vars.c_ptr());
     }
 
     void check_relation::add_fact(const relation_fact & f) {
@@ -150,7 +148,7 @@ namespace datalog {
     check_relation_plugin::check_relation_plugin(relation_manager& rm):
         relation_plugin(check_relation_plugin::get_name(), rm),
         m(rm.get_context().get_manager()),
-        m_base(0) {
+        m_base(nullptr) {
     }
     check_relation_plugin::~check_relation_plugin() {
     }
@@ -158,7 +156,7 @@ namespace datalog {
         return dynamic_cast<check_relation&>(r);
     }
     check_relation* check_relation_plugin::get(relation_base* r) {
-        return r?dynamic_cast<check_relation*>(r):0;
+        return r?dynamic_cast<check_relation*>(r):nullptr;
     }
     check_relation const & check_relation_plugin::get(relation_base const& r) {
         return dynamic_cast<check_relation const&>(r);        
@@ -192,8 +190,8 @@ namespace datalog {
                  const unsigned * cols1, const unsigned * cols2)
             : convenient_join_fn(o1_sig, o2_sig, col_cnt, cols1, cols2), m_join(j) 
         {}
-        virtual ~join_fn() {}
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        ~join_fn() override {}
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
             check_relation_plugin& p = t1.get_plugin();
@@ -207,7 +205,7 @@ namespace datalog {
         const relation_base & t1, const relation_base & t2,
         unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {        
         relation_join_fn* j = m_base->mk_join_fn(get(t1).rb(), get(t2).rb(), col_cnt, cols1, cols2);
-        return j?alloc(join_fn, j, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2):0;        
+        return j?alloc(join_fn, j, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2):nullptr;
     }
 
     class check_relation_plugin::join_project_fn : public convenient_relation_join_project_fn {
@@ -221,8 +219,8 @@ namespace datalog {
             : convenient_join_project_fn(o1_sig, o2_sig, col_cnt, cols1, cols2,
                                          removed_col_cnt, removed_cols), m_join(j) 
         {}
-        virtual ~join_project_fn() {}
-        virtual relation_base * operator()(const relation_base & r1, const relation_base & r2) {
+        ~join_project_fn() override {}
+        relation_base * operator()(const relation_base & r1, const relation_base & r2) override {
             check_relation const& t1 = get(r1);
             check_relation const& t2 = get(r2);
             check_relation_plugin& p = t1.get_plugin();
@@ -239,7 +237,7 @@ namespace datalog {
         relation_join_fn* j = m_base->mk_join_project_fn(get(t1).rb(), get(t2).rb(), col_cnt, cols1, cols2,
                                                         removed_col_cnt, removed_cols);
         return j?alloc(join_project_fn, j, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2,
-                       removed_col_cnt, removed_cols):0;        
+                       removed_col_cnt, removed_cols):nullptr;
     }
 
     void check_relation_plugin::verify_filter_project(
@@ -292,7 +290,7 @@ namespace datalog {
             }
         }
         var_subst sub(m, false);
-        sub(fml, vars.size(), vars.c_ptr(), fml1);
+        fml1 = sub(fml, vars.size(), vars.c_ptr());
         bound.reverse();        
         fml1 = m.mk_exists(bound.size(), bound.c_ptr(), names.c_ptr(), fml1);
         return fml1;        
@@ -333,7 +331,7 @@ namespace datalog {
         for (unsigned i = 0; i < sig2.size(); ++i) {
             vars.push_back(m.mk_var(i + sig1.size(), sig2[i]));
         }
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
         fml1 = m.mk_and(fml1, fml2);
         for (unsigned i = 0; i < cols1.size(); ++i) {
             unsigned v1 = cols1[i];
@@ -372,14 +370,14 @@ namespace datalog {
         expr_ref fml1(m), fml2(m);
         src.to_formula(fml1);
         dst.to_formula(fml2);
-        subst(fml1, sub.size(), sub.c_ptr(), fml1);
+        fml1 = subst(fml1, sub.size(), sub.c_ptr());
         expr_ref_vector vars(m);
         for (unsigned i = 0; i < sig2.size(); ++i) {
             vars.push_back(m.mk_const(symbol(i), sig2[i]));            
         }
 
-        subst(fml1, vars.size(), vars.c_ptr(), fml1);
-        subst(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = subst(fml1, vars.size(), vars.c_ptr());
+        fml2 = subst(fml2, vars.size(), vars.c_ptr());
         
         check_equiv("permutation", fml1, fml2);
     }
@@ -405,8 +403,8 @@ namespace datalog {
             strm << "x" << i;
             vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
         }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = sub(fml1, vars.size(), vars.c_ptr());
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
         check_equiv("filter", fml1, fml2);
     }
 
@@ -453,8 +451,8 @@ namespace datalog {
             strm << "x" << i;
             vars.push_back(m.mk_const(symbol(strm.str().c_str()), sig[i]));            
         }
-        sub(fml1, vars.size(), vars.c_ptr(), fml1);
-        sub(fml2, vars.size(), vars.c_ptr(), fml2);
+        fml1 = sub(fml1, vars.size(), vars.c_ptr());
+        fml2 = sub(fml2, vars.size(), vars.c_ptr());
 
         check_equiv("union", fml1, fml2);
 
@@ -466,13 +464,13 @@ namespace datalog {
             // dst \ dst0 == delta & dst & \ dst0
             expr_ref fml4(m), fml5(m);
             fml4 = m.mk_and(fml2, m.mk_not(dst0));
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            sub(d, vars.size(), vars.c_ptr(), d);
+            fml4 = sub(fml4, vars.size(), vars.c_ptr());
+            d = sub(d, vars.size(), vars.c_ptr());
             check_contains("union_delta low", d, fml4);
             //
             // delta >= delta0 
             //
-            sub(delta0, vars.size(), vars.c_ptr(), d0);
+            d0 = sub(delta0, vars.size(), vars.c_ptr());
             check_contains("union delta0", d, d0);
 
             //
@@ -480,8 +478,8 @@ namespace datalog {
             //
             fml4 = m.mk_or(fml2, delta0);
             fml5 = m.mk_or(d, dst0);
-            sub(fml4, vars.size(), vars.c_ptr(), fml4);
-            sub(fml5, vars.size(), vars.c_ptr(), fml5);
+            fml4 = sub(fml4, vars.size(), vars.c_ptr());
+            fml5 = sub(fml5, vars.size(), vars.c_ptr());
             check_equiv("union no overflow", fml4, fml5);
         }
     }
@@ -491,7 +489,7 @@ namespace datalog {
     public:
         union_fn(relation_union_fn* m): m_union(m) {}
 
-        virtual void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) {
+        void operator()(relation_base & _r, const relation_base & _src, relation_base * _delta) override {
             TRACE("doc", _r.display(tout << "dst:\n"); _src.display(tout  << "src:\n"););
             check_relation& r = get(_r);
             check_relation const& src = get(_src);
@@ -499,8 +497,8 @@ namespace datalog {
             expr_ref fml0 = r.m_fml;
             expr_ref delta0(r.m_fml.get_manager());
             if (d) d->to_formula(delta0);
-            (*m_union)(r.rb(), src.rb(), d?(&d->rb()):0);
-            r.get_plugin().verify_union(fml0, src.rb(), r.rb(), delta0, d?(&d->rb()):0);
+            (*m_union)(r.rb(), src.rb(), d?(&d->rb()):nullptr);
+            r.get_plugin().verify_union(fml0, src.rb(), r.rb(), delta0, d?(&d->rb()):nullptr);
             r.rb().to_formula(r.m_fml);
             if (d) d->rb().to_formula(d->m_fml);
         }
@@ -508,16 +506,16 @@ namespace datalog {
     relation_union_fn * check_relation_plugin::mk_union_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
-        relation_base const* d1 = delta?(&(get(*delta).rb())):0;
+        relation_base const* d1 = delta?(&(get(*delta).rb())):nullptr;
         relation_union_fn* u = m_base->mk_union_fn(get(tgt).rb(), get(src).rb(), d1);
-        return u?alloc(union_fn, u):0;
+        return u?alloc(union_fn, u):nullptr;
     }
     relation_union_fn * check_relation_plugin::mk_widen_fn(
         const relation_base & tgt, const relation_base & src, 
         const relation_base * delta) {
-        relation_base const* d1 = delta?(&(get(*delta).rb())):0;
+        relation_base const* d1 = delta?(&(get(*delta).rb())):nullptr;
         relation_union_fn* u = m_base->mk_widen_fn(get(tgt).rb(), get(src).rb(), d1);
-        return u?alloc(union_fn, u):0;
+        return u?alloc(union_fn, u):nullptr;
     }
 
     class check_relation_plugin::filter_identical_fn : public relation_mutator_fn {        
@@ -529,9 +527,9 @@ namespace datalog {
               m_filter(f) {
         }
 
-        virtual ~filter_identical_fn() {}
+        ~filter_identical_fn() override {}
         
-        virtual void operator()(relation_base & _r) {
+        void operator()(relation_base & _r) override {
             check_relation& r = get(_r);
             check_relation_plugin& p = r.get_plugin();            
             ast_manager& m = p.m;
@@ -553,7 +551,7 @@ namespace datalog {
     relation_mutator_fn * check_relation_plugin::mk_filter_identical_fn(
         const relation_base & t, unsigned col_cnt, const unsigned * identical_cols) {
         relation_mutator_fn* r = m_base->mk_filter_identical_fn(get(t).rb(), col_cnt, identical_cols);
-        return r?alloc(filter_identical_fn, r, col_cnt, identical_cols):0;
+        return r?alloc(filter_identical_fn, r, col_cnt, identical_cols):nullptr;
     }
 
     class check_relation_plugin::filter_interpreted_fn : public relation_mutator_fn {
@@ -565,9 +563,9 @@ namespace datalog {
             m_condition(condition) {
         }
 
-        virtual ~filter_interpreted_fn() {}
+        ~filter_interpreted_fn() override {}
         
-        virtual void operator()(relation_base & tb) {            
+        void operator()(relation_base & tb) override {
             check_relation& r = get(tb);
             check_relation_plugin& p = r.get_plugin();            
             expr_ref fml = r.m_fml;
@@ -579,7 +577,7 @@ namespace datalog {
     relation_mutator_fn * check_relation_plugin::mk_filter_interpreted_fn(const relation_base & t, app * condition) {
         relation_mutator_fn* r = m_base->mk_filter_interpreted_fn(get(t).rb(), condition);
         app_ref cond(condition, m);
-        return r?alloc(filter_interpreted_fn, r, cond):0;
+        return r?alloc(filter_interpreted_fn, r, cond):nullptr;
     }
 
     class check_relation_plugin::project_fn : public convenient_relation_project_fn {
@@ -592,9 +590,9 @@ namespace datalog {
               m_project(p) {
         }
 
-        virtual ~project_fn() {}
+        ~project_fn() override {}
 
-        virtual relation_base * operator()(const relation_base & tb) {
+        relation_base * operator()(const relation_base & tb) override {
             check_relation const& t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             relation_base* r = (*m_project)(t.rb());
@@ -608,7 +606,7 @@ namespace datalog {
         const relation_base & t, unsigned col_cnt, 
         const unsigned * removed_cols) {
         relation_transformer_fn* p = m_base->mk_project_fn(get(t).rb(), col_cnt, removed_cols);
-        return p?alloc(project_fn, p, t, col_cnt, removed_cols):0;
+        return p?alloc(project_fn, p, t, col_cnt, removed_cols):nullptr;
     }
 
     class check_relation_plugin::rename_fn : public convenient_relation_rename_fn {
@@ -620,9 +618,9 @@ namespace datalog {
               m_permute(permute) {
         }
 
-        virtual ~rename_fn() {}
+        ~rename_fn() override {}
 
-        virtual relation_base * operator()(const relation_base & _t) {
+        relation_base * operator()(const relation_base & _t) override {
             check_relation const& t = get(_t);
             check_relation_plugin& p = t.get_plugin();            
             relation_signature const& sig = get_result_signature();
@@ -635,7 +633,7 @@ namespace datalog {
         const relation_base & r, 
         unsigned cycle_len, const unsigned * permutation_cycle) {
         relation_transformer_fn* p = m_base->mk_rename_fn(get(r).rb(), cycle_len, permutation_cycle);
-        return p?alloc(rename_fn, p, r, cycle_len, permutation_cycle):0;
+        return p?alloc(rename_fn, p, r, cycle_len, permutation_cycle):nullptr;
     }
 
     class check_relation_plugin::filter_equal_fn : public relation_mutator_fn {
@@ -649,8 +647,8 @@ namespace datalog {
             m_val(val),
             m_col(col)
         {}
-        virtual ~filter_equal_fn() { }        
-        virtual void operator()(relation_base & tb) {
+        ~filter_equal_fn() override { }
+        void operator()(relation_base & tb) override {
             check_relation & t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             (*m_filter)(t.rb());
@@ -663,7 +661,7 @@ namespace datalog {
     relation_mutator_fn * check_relation_plugin::mk_filter_equal_fn(
         const relation_base & t, const relation_element & value, unsigned col) {
         relation_mutator_fn* r = m_base->mk_filter_equal_fn(get(t).rb(), value, col);
-        return r?alloc(filter_equal_fn, r, t, value, col):0;
+        return r?alloc(filter_equal_fn, r, t, value, col):nullptr;
     }
 
 
@@ -682,7 +680,7 @@ namespace datalog {
             SASSERT(joined_col_cnt > 0);
         }
         
-        virtual void operator()(relation_base& tb, const relation_base& negb) {
+        void operator()(relation_base& tb, const relation_base& negb) override {
             check_relation& t = get(tb);
             check_relation const& n = get(negb);
             check_relation_plugin& p = t.get_plugin();
@@ -700,7 +698,7 @@ namespace datalog {
         const relation_base& neg, unsigned joined_col_cnt, const unsigned *t_cols,
         const unsigned *negated_cols) {
         relation_intersection_filter_fn* f = m_base->mk_filter_by_negation_fn(get(t).rb(), get(neg).rb(), joined_col_cnt, t_cols, negated_cols);
-        return f?alloc(negation_filter_fn, f, joined_col_cnt, t_cols, negated_cols):0;
+        return f?alloc(negation_filter_fn, f, joined_col_cnt, t_cols, negated_cols):nullptr;
     }
 
     /*
@@ -763,9 +761,9 @@ namespace datalog {
             m_xform(xform)
         {}
         
-        virtual ~filter_proj_fn() {}
+        ~filter_proj_fn() override {}
 
-        virtual relation_base* operator()(const relation_base & tb) {
+        relation_base* operator()(const relation_base & tb) override {
             check_relation const & t = get(tb);
             check_relation_plugin& p = t.get_plugin();
             relation_base* r = (*m_xform)(t.rb());
@@ -779,7 +777,7 @@ namespace datalog {
         unsigned removed_col_cnt, const unsigned * removed_cols) {
         relation_transformer_fn* r = m_base->mk_filter_interpreted_and_project_fn(get(t).rb(), condition, removed_col_cnt, removed_cols);
         app_ref cond(condition, m);
-        return r?alloc(filter_proj_fn, r, t, cond, removed_col_cnt, removed_cols):0;
+        return r?alloc(filter_proj_fn, r, t, cond, removed_col_cnt, removed_cols):nullptr;
     }
 
 

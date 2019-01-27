@@ -31,17 +31,17 @@ void tst_horn_subsume_model_converter() {
     mc->insert(p, m.mk_app(q, a.mk_numeral(rational(1), true), a.mk_numeral(rational(2), true)));
 
     model_converter_ref mcr = mc.get();
-    apply(mcr, mr, 0);
+    apply(mcr, mr);
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
     mr = alloc(model, m);
     mc->insert(p, m.mk_app(q, a.mk_numeral(rational(3), true), a.mk_numeral(rational(5), true)));
-    apply(mcr, mr, 0);
+    apply(mcr, mr);
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
     mr = alloc(model, m);
     mc->insert(p, m.mk_app(r, m.mk_var(0,a.mk_int()), m.mk_var(1, a.mk_int())));
-    apply(mcr, mr, 0);
+    apply(mcr, mr);
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
     mr = alloc(model, m);
@@ -52,7 +52,7 @@ void tst_horn_subsume_model_converter() {
     body1 = m.mk_app(q, m.mk_var(1, a.mk_int()), m.mk_var(2, a.mk_int()));
     VERIFY(mc->mk_horn(head1, body1, pred, body2));
     mc->insert(pred, body2); 
-    apply(mcr, mr, 0);
+    apply(mcr, mr);
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
     mr = alloc(model, m);
@@ -60,7 +60,7 @@ void tst_horn_subsume_model_converter() {
     body1 = m.mk_app(q, m.mk_var(1, a.mk_int()), m.mk_var(0, a.mk_int()));
     VERIFY(mc->mk_horn(head1, body1, pred, body2));
     mc->insert(pred, body2); 
-    apply(mcr, mr, 0);
+    apply(mcr, mr);
     model_smt2_pp(std::cout, m, *mr.get(), 0);
 
 

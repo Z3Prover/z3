@@ -17,15 +17,16 @@ Notes:
 
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
+using System.Linq;
+
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Expressions are terms.
     /// </summary>
-    [ContractVerification(true)]
     public class Expr : AST
     {
         /// <summary>
@@ -35,7 +36,6 @@ namespace Microsoft.Z3
         /// <seealso cref="Context.SimplifyHelp"/>
         public Expr Simplify(Params p = null)
         {
-            Contract.Ensures(Contract.Result<Expr>() != null);
 
             if (p == null)
                 return Expr.Create(Context, Native.Z3_simplify(Context.nCtx, NativeObject));
@@ -50,7 +50,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 return new FuncDecl(Context, Native.Z3_get_app_decl(Context.nCtx, NativeObject));
             }
         }
@@ -79,7 +78,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Expr[]>() != null);
 
                 uint n = NumArgs;
                 Expr[] res = new Expr[n];
@@ -90,13 +88,21 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// The i'th argument of the expression.
+        /// </summary>
+        public Expr Arg(uint i)
+        {
+            return Expr.Create(Context, Native.Z3_get_app_arg(Context.nCtx, NativeObject, i));
+        }
+
+        /// <summary>
         /// Update the arguments of the expression using the arguments <paramref name="args"/>
         /// The number of new arguments should coincide with the current number of arguments.
         /// </summary>
         public void Update(Expr[] args)
         {
-            Contract.Requires(args != null);
-            Contract.Requires(Contract.ForAll(args, a => a != null));
+            Debug.Assert(args != null);
+            Debug.Assert(args.All(a => a != null));
 
             Context.CheckContextMatch<Expr>(args);
             if (IsApp && args.Length != NumArgs)
@@ -114,11 +120,10 @@ namespace Microsoft.Z3
         /// </remarks>
         public Expr Substitute(Expr[] from, Expr[] to)
         {
-            Contract.Requires(from != null);
-            Contract.Requires(to != null);
-            Contract.Requires(Contract.ForAll(from, f => f != null));
-            Contract.Requires(Contract.ForAll(to, t => t != null));
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
+            Debug.Assert(from.All(f => f != null));
+            Debug.Assert(to.All(t => t != null));
 
             Context.CheckContextMatch<Expr>(from);
             Context.CheckContextMatch<Expr>(to);
@@ -133,9 +138,8 @@ namespace Microsoft.Z3
         /// <seealso cref="Substitute(Expr[],Expr[])"/>
         public Expr Substitute(Expr from, Expr to)
         {
-            Contract.Requires(from != null);
-            Contract.Requires(to != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(from != null);
+            Debug.Assert(to != null);
 
             return Substitute(new Expr[] { from }, new Expr[] { to });
         }
@@ -148,9 +152,8 @@ namespace Microsoft.Z3
         /// </remarks>
         public Expr SubstituteVars(Expr[] to)
         {
-            Contract.Requires(to != null);
-            Contract.Requires(Contract.ForAll(to, t => t != null));
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(to != null);
+            Debug.Assert(to.All(t => t != null));
 
             Context.CheckContextMatch<Expr>(to);
             return Expr.Create(Context, Native.Z3_substitute_vars(Context.nCtx, NativeObject, (uint)to.Length, Expr.ArrayToNative(to)));
@@ -198,7 +201,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Sort>() != null);
                 return Sort.Create(Context, Native.Z3_get_sort(Context.nCtx, NativeObject));
             }
         }
@@ -239,7 +241,7 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsAlgebraicNumber
         {
-            get { return Native.Z3_is_algebraic_number(Context.nCtx, NativeObject) != 0; }
+            get { return 0 != Native.Z3_is_algebraic_number(Context.nCtx, NativeObject); }
         }
         #endregion
 
@@ -315,14 +317,41 @@ namespace Microsoft.Z3
         /// </summary>
         public bool IsImplies { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_IMPLIES; } }
 
-        #endregion
-
-        #region Interpolation
         /// <summary>
-        /// Indicates whether the term is marked for interpolation.
+        /// Indicates whether the term is at-most
         /// </summary>
-        /// <remarks></remarks>
-        public bool IsInterpolant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_INTERP; } }
+        public bool IsAtMost { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PB_AT_MOST; } }
+
+        /// <summary>
+        /// Retrieve bound of at-most
+        /// </summary>
+        public uint AtMostBound { get { Debug.Assert(IsAtMost); return (uint)FuncDecl.Parameters[0].Int; } }
+
+        /// <summary>
+        /// Indicates whether the term is at-least
+        /// </summary>
+        public bool IsAtLeast { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PB_AT_LEAST; } }
+
+        /// <summary>
+        /// Retrieve bound of at-least
+        /// </summary>
+        public uint AtLeastBound { get { Debug.Assert(IsAtLeast); return (uint)FuncDecl.Parameters[0].Int; } }
+
+        /// <summary>
+        /// Indicates whether the term is pbeq
+        /// </summary>
+        public bool IsPbEq { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PB_EQ; } }
+
+        /// <summary>
+        /// Indicates whether the term is pble
+        /// </summary>
+        public bool IsPbLe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PB_LE; } }
+
+        /// <summary>
+        /// Indicates whether the term is pbge
+        /// </summary>
+        public bool IsPbGe { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PB_GE; } }        
+
         #endregion
 
         #region Arithmetic Terms
@@ -797,7 +826,7 @@ namespace Microsoft.Z3
         /// Check whether expression is a string constant.
         /// </summary>
         /// <returns>a Boolean</returns>
-        public bool IsString  { get { return IsApp && 0 != Native.Z3_is_string(Context.nCtx, NativeObject); } }
+        public bool IsString  { get { return IsApp && Native.Z3_is_string(Context.nCtx, NativeObject) != 0; } }
 
         /// <summary>
         /// Retrieve string corresponding to string constant.
@@ -806,7 +835,7 @@ namespace Microsoft.Z3
         public string String { get { return Native.Z3_get_string(Context.nCtx, NativeObject); } }
 
         /// <summary>
-        /// Check whether expression is a concatentation.
+        /// Check whether expression is a concatenation.
         /// </summary>
         /// <returns>a Boolean</returns>
         public bool IsConcat { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_SEQ_CONCAT; } }
@@ -932,7 +961,7 @@ namespace Microsoft.Z3
         /// Indicates whether the term is a proof by condensed transitivity of a relation
         /// </summary>
         /// <remarks>
-        /// Condensed transitivity proof. This proof object is only used if the parameter PROOF_MODE is 1.
+        /// Condensed transitivity proof. 
         /// It combines several symmetry and transitivity proofs.
         /// Example:
         /// T1: (R a b)
@@ -1035,14 +1064,11 @@ namespace Microsoft.Z3
         /// </summary>
         /// <remarks>
         /// A proof for rewriting an expression t into an expression s.
-        /// This proof object is used if the parameter PROOF_MODE is 1.
         /// This proof object can have n antecedents.
         /// The antecedents are proofs for equalities used as substitution rules.
-        /// The object is also used in a few cases if the parameter PROOF_MODE is 2.
-        /// The cases are:
+        /// The object is used in a few cases:
         /// - When applying contextual simplification (CONTEXT_SIMPLIFIER=true)
         /// - When converting bit-vectors to Booleans (BIT2BOOL=true)
-        /// - When pulling ite expression up (PULL_CHEAP_ITE_TREES=true)
         /// </remarks>
         public bool IsProofRewriteStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_REWRITE_STAR; } }
 
@@ -1054,15 +1080,6 @@ namespace Microsoft.Z3
         /// </remarks>
         public bool IsProofPullQuant { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT; } }
 
-        /// <summary>
-        /// Indicates whether the term is a proof for pulling quantifiers out.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (iff P Q) where Q is in prenex normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object has no antecedents
-        /// </remarks>
-        public bool IsProofPullQuantStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_PULL_QUANT_STAR; } }
 
         /// <summary>
         /// Indicates whether the term is a proof for pushing quantifiers in.
@@ -1305,28 +1322,6 @@ namespace Microsoft.Z3
         public bool IsProofNNFNeg { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_NEG; } }
 
         /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) here Q is in negation normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in negation normal form.
-        ///
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        ///
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofNNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_NNF_STAR; } }
-
-        /// <summary>
-        /// Indicates whether the term is a proof for (~ P Q) where Q is in conjunctive normal form.
-        /// </summary>
-        /// <remarks>
-        /// A proof for (~ P Q) where Q is in conjunctive normal form.
-        /// This proof object is only used if the parameter PROOF_MODE is 1.
-        /// This proof object may have n antecedents. Each antecedent is a PR_DEF_INTRO.
-        /// </remarks>
-        public bool IsProofCNFStar { get { return IsApp && FuncDecl.DeclKind == Z3_decl_kind.Z3_OP_PR_CNF_STAR; } }
-
-        /// <summary>
         /// Indicates whether the term is a proof for a Skolemization step
         /// </summary>
         /// <remarks>
@@ -1500,7 +1495,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                return (Native.Z3_is_app(Context.nCtx, NativeObject) != 0 &&
+                return (Native.Z3_is_app(Context.nCtx, NativeObject)  != 0 &&
                         Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_sort(Context.nCtx, NativeObject)) == (uint)Z3_sort_kind.Z3_FINITE_DOMAIN_SORT);
             }
         }
@@ -1814,8 +1809,6 @@ namespace Microsoft.Z3
                 if (!IsVar)
                     throw new Z3Exception("Term is not a bound variable.");
 
-                Contract.EndContractBlock();
-
                 return Native.Z3_get_index_value(Context.nCtx, NativeObject);
             }
         }
@@ -1825,10 +1818,9 @@ namespace Microsoft.Z3
         /// <summary>
         /// Constructor for Expr
         /// </summary>
-        internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Contract.Requires(ctx != null); }
+        internal protected Expr(Context ctx, IntPtr obj) : base(ctx, obj) { Debug.Assert(ctx != null); }
 
 #if DEBUG
-        [Pure]
         internal override void CheckNativeObject(IntPtr obj)
         {
             if (Native.Z3_is_app(Context.nCtx, obj) == 0 &&
@@ -1839,12 +1831,10 @@ namespace Microsoft.Z3
         }
 #endif
 
-        [Pure]
         internal static Expr Create(Context ctx, FuncDecl f, params Expr[] arguments)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(f != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(f != null);
 
             IntPtr obj = Native.Z3_mk_app(ctx.nCtx, f.NativeObject,
                                           AST.ArrayLength(arguments),
@@ -1852,11 +1842,9 @@ namespace Microsoft.Z3
             return Create(ctx, obj);
         }
 
-        [Pure]
         new internal static Expr Create(Context ctx, IntPtr obj)
         {
-            Contract.Requires(ctx != null);
-            Contract.Ensures(Contract.Result<Expr>() != null);
+            Debug.Assert(ctx != null);
 
             Z3_ast_kind k = (Z3_ast_kind)Native.Z3_get_ast_kind(ctx.nCtx, obj);
             if (k == Z3_ast_kind.Z3_QUANTIFIER_AST)
@@ -1864,11 +1852,12 @@ namespace Microsoft.Z3
             IntPtr s = Native.Z3_get_sort(ctx.nCtx, obj);
             Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(ctx.nCtx, s);
 
-            if (Native.Z3_is_algebraic_number(ctx.nCtx, obj) != 0) // is this a numeral ast?
+            if (0 != Native.Z3_is_algebraic_number(ctx.nCtx, obj)) // is this a numeral ast?
                 return new AlgebraicNum(ctx, obj);
 
             if (Native.Z3_is_numeral_ast(ctx.nCtx, obj) != 0)
             {
+
                 switch (sk)
                 {
                     case Z3_sort_kind.Z3_INT_SORT: return new IntNum(ctx, obj);

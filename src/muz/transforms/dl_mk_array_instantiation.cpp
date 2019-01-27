@@ -23,7 +23,7 @@ Revision History:
 #include "muz/base/dl_context.h"
 #include "ast/rewriter/expr_safe_replace.h"
 #include "ast/expr_abstract.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -253,7 +253,7 @@ namespace datalog {
         all_selects.push_back(rewrite_select(array, select_ops[i]));
       }
     }
-    if(all_selects.size()==0)
+    if(all_selects.empty())
     {
       expr_ref_vector dummy_args(m);
       dummy_args.push_back(array);
@@ -300,7 +300,7 @@ namespace datalog {
     expr_ref_vector res(m);
 
     svector<unsigned> chosen(arg_correspondance.size(), 0u);
-    while(1)
+    while(true)
     {
       expr_ref_vector new_args(m);
       for(unsigned i=0;i<chosen.size();i++)

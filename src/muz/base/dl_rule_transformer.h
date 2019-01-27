@@ -87,7 +87,7 @@ namespace datalog {
            (higher priority plugins will be applied first).
         */
         plugin(unsigned priority, bool can_destratify_negation = false) : m_priority(priority), 
-            m_can_destratify_negation(can_destratify_negation), m_transformer(0) {}
+            m_can_destratify_negation(can_destratify_negation), m_transformer(nullptr) {}
 
     public:
         virtual ~plugin() {}

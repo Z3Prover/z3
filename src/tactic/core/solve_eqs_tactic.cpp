@@ -16,17 +16,20 @@ Author:
 Revision History:
 
 --*/
-#include "tactic/tactical.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/extension_model_converter.h"
-#include "ast/occurs.h"
 #include "util/cooperate.h"
-#include "tactic/goal_shared_occs.h"
+#include "ast/occurs.h"
+#include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/pb_decl_plugin.h"
+#include "tactic/goal_shared_occs.h"
+#include "tactic/tactical.h"
+#include "tactic/generic_model_converter.h"
+#include "tactic/tactic_params.hpp"
 
 class solve_eqs_tactic : public tactic {
     struct imp {
-        typedef extension_model_converter gmc;
+        typedef generic_model_converter gmc;
         
         ast_manager &                 m_manager;
         expr_replacer *               m_r;
@@ -38,6 +41,7 @@ class solve_eqs_tactic : public tactic {
         bool                          m_theory_solver;
         bool                          m_ite_solver;
         unsigned                      m_max_occs;
+        bool                          m_context_solve;
         scoped_ptr<expr_substitution> m_subst;
         scoped_ptr<expr_substitution> m_norm_subst;
         expr_sparse_mark              m_candidate_vars;
@@ -53,12 +57,12 @@ class solve_eqs_tactic : public tactic {
         imp(ast_manager & m, params_ref const & p, expr_replacer * r, bool owner):
             m_manager(m),
             m_r(r),
-            m_r_owner(r == 0 || owner),
+            m_r_owner(r == nullptr || owner),
             m_a_util(m),
             m_num_steps(0),
             m_num_eliminated_vars(0) {
             updt_params(p);
-            if (m_r == 0)
+            if (m_r == nullptr)
                 m_r       = mk_default_expr_replacer(m);
         }
         
@@ -70,9 +74,11 @@ class solve_eqs_tactic : public tactic {
         ast_manager & m() const { return m_manager; }
         
         void updt_params(params_ref const & p) {
-            m_ite_solver     = p.get_bool("ite_solver", true);
-            m_theory_solver  = p.get_bool("theory_solver", true);
-            m_max_occs       = p.get_uint("solve_eqs_max_occs", UINT_MAX);
+            tactic_params tp(p);
+            m_ite_solver     = p.get_bool("ite_solver", tp.solve_eqs_ite_solver());
+            m_theory_solver  = p.get_bool("theory_solver", tp.solve_eqs_theory_solver());
+            m_max_occs       = p.get_uint("solve_eqs_max_occs", tp.solve_eqs_max_occs());
+            m_context_solve  = p.get_bool("context_solve", tp.solve_eqs_context_solve());
         }
                 
         void checkpoint() {
@@ -98,7 +104,7 @@ class solve_eqs_tactic : public tactic {
             if (is_uninterp_const(lhs) && !m_candidate_vars.is_marked(lhs) && !occurs(lhs, rhs) && check_occs(lhs)) {
                 var = to_app(lhs); 
                 def = rhs;
-                pr  = 0;
+                pr  = nullptr;
                 return true;
             }
             else {
@@ -263,8 +269,8 @@ class solve_eqs_tactic : public tactic {
         bool solve_arith_core(app * lhs, expr * rhs, expr * eq, app_ref & var, expr_ref & def, proof_ref & pr) {
             SASSERT(m_a_util.is_add(lhs));
             bool is_int  = m_a_util.is_int(lhs);
-            expr * a; 
-            expr * v;
+            expr * a = nullptr; 
+            expr * v = nullptr;
             rational a_val;
             unsigned num = lhs->get_num_args();
             unsigned i;
@@ -333,7 +339,7 @@ class solve_eqs_tactic : public tactic {
         }
         
         bool solve(expr * f, app_ref & var, expr_ref & def, proof_ref & pr) {
-            expr* arg1 = 0, *arg2 = 0;
+            expr* arg1 = nullptr, *arg2 = nullptr;
             if (m().is_eq(f, arg1, arg2)) {
                 if (trivial_solve(arg1, arg2, var, def, pr))
                     return true;
@@ -343,10 +349,7 @@ class solve_eqs_tactic : public tactic {
                 }
                 return false;
             }
-            
-            if (m().is_iff(f))
-                return trivial_solve(to_app(f)->get_arg(0), to_app(f)->get_arg(1), var, def, pr);
-            
+                        
 #if 0
             if (not_bool_eq(f, var, def, pr))
                 return true;
@@ -386,6 +389,20 @@ class solve_eqs_tactic : public tactic {
             
             return false;
         }
+
+        void insert_solution(goal const& g, unsigned idx, expr* f, app* var, expr* def, proof* pr) {
+            m_vars.push_back(var);
+            m_candidates.push_back(f);
+            m_candidate_set.mark(f);
+            m_candidate_vars.mark(var);
+            if (m_produce_proofs) {
+                if (!pr)
+                    pr = g.pr(idx);
+                else
+                    pr = m().mk_modus_ponens(g.pr(idx), pr);
+            }
+            m_subst->insert(var, def, pr, g.dep(idx));
+        }
         
         /**
            \brief Start collecting candidates
@@ -393,7 +410,7 @@ class solve_eqs_tactic : public tactic {
         void collect(goal const & g) {
             m_subst->reset();
             m_norm_subst->reset();
-            m_r->set_substitution(0);
+            m_r->set_substitution(nullptr);
             m_candidate_vars.reset();
             m_candidate_set.reset();
             m_candidates.reset();
@@ -410,17 +427,7 @@ class solve_eqs_tactic : public tactic {
                 checkpoint();
                 expr * f = g.form(idx);
                 if (solve(f, var, def, pr)) {
-                    m_vars.push_back(var);
-                    m_candidates.push_back(f);
-                    m_candidate_set.mark(f);
-                    m_candidate_vars.mark(var);
-                    if (m_produce_proofs) {
-                        if (pr == 0)
-                            pr = g.pr(idx);
-                        else
-                            pr = m().mk_modus_ponens(g.pr(idx), pr);
-                    }
-                    m_subst->insert(var, def, pr, g.dep(idx));
+                    insert_solution(g, idx, f, var, def, pr);
                 }
                 m_num_steps++;
             }
@@ -431,6 +438,163 @@ class solve_eqs_tactic : public tactic {
                       tout << mk_ismt2_pp(v, m()) << " ";
                   }
                   tout << "\n";);
+        }
+
+        struct nnf_context {
+            bool m_is_and;
+            expr_ref_vector m_args;
+            unsigned m_index;
+            nnf_context(bool is_and, expr_ref_vector const& args, unsigned idx):
+                m_is_and(is_and),
+                m_args(args),
+                m_index(idx)
+            {}
+        };
+
+        bool is_compatible(goal const& g, unsigned idx, vector<nnf_context> const & path, expr* v, expr* eq) {
+            return is_goal_compatible(g, idx, v, eq) && is_path_compatible(path, v, eq);
+        }
+
+        bool is_goal_compatible(goal const& g, unsigned idx, expr* v, expr* eq) {
+            bool all_e = false;
+            for (unsigned j = 0; j < g.size(); ++j) {              
+                if (j != idx && !check_eq_compat(g.form(j), v, eq, all_e)) {
+                    TRACE("solve_eqs", tout << "occurs goal " << mk_pp(eq, m()) << "\n";);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // 
+        // all_e := all disjunctions contain eq
+        //
+        // or, all_e -> skip if all disjunctions contain eq
+        // or, all_e -> fail if some disjunction contains v but not eq
+        // or, all_e -> all_e := false if some disjunction does not contain v
+        // and, all_e -> all_e
+        //
+
+        bool is_path_compatible(vector<nnf_context> const & path, expr* v, expr* eq) {
+            bool all_e = true;
+            for (unsigned i = path.size(); i-- > 0; ) {
+                auto const& p = path[i];
+                auto const& args = p.m_args;
+                if (p.m_is_and && !all_e) {
+                    for (unsigned j = 0; j < args.size(); ++j) {
+                        if (j != p.m_index && occurs(v, args[j])) {
+                            TRACE("solve_eqs", tout << "occurs and " << mk_pp(eq, m()) << " " << mk_pp(args[j], m()) << "\n";);
+                            return false;
+                        }
+                    }
+                }
+                else if (!p.m_is_and) {
+                    for (unsigned j = 0; j < args.size(); ++j) {
+                        if (j != p.m_index) {
+                            if (occurs(v, args[j])) {
+                                if (!check_eq_compat(args[j], v, eq, all_e)) {
+                                    TRACE("solve_eqs", tout << "occurs or " << mk_pp(eq, m()) << " " << mk_pp(args[j], m()) << "\n";);
+                                    return false;
+                                }
+                            }
+                            else {
+                                all_e = false;
+                            }
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
+        bool check_eq_compat(expr* f, expr* v, expr* eq, bool& all) {
+            expr_ref_vector args(m());
+            expr* f1 = nullptr;
+            if (!occurs(v, f)) {
+                all = false;
+                return true;
+            }
+            if (m().is_not(f, f1) && m().is_or(f1)) {
+                flatten_and(f, args);
+                for (expr* arg : args) {
+                    if (arg == eq) {
+                        return true;
+                    }
+                }                
+            }
+            else if (m().is_or(f)) {
+                flatten_or(f, args);
+            }
+            else {
+                return false;
+            }
+
+            for (expr* arg : args) {
+                if (!check_eq_compat(arg, v, eq, all)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        void hoist_nnf(goal const& g, expr* f, vector<nnf_context> & path, unsigned idx, unsigned depth) {
+            if (depth > 4) {
+                return;
+            }
+            app_ref var(m());
+            expr_ref def(m());
+            proof_ref pr(m());
+            expr_ref_vector args(m());
+            expr* f1 = nullptr;
+
+            if (m().is_not(f, f1) && m().is_or(f1)) {
+                flatten_and(f, args);
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    expr* arg = args.get(i), *lhs = nullptr, *rhs = nullptr;
+                    if (m().is_eq(arg, lhs, rhs)) { 
+                        if (trivial_solve1(lhs, rhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
+                            insert_solution(g, idx, arg, var, def, pr);
+                        }
+                        else if (trivial_solve1(rhs, lhs, var, def, pr) && is_compatible(g, idx, path, var, arg)) {
+                            insert_solution(g, idx, arg, var, def, pr);
+                        }
+                        else {
+                            IF_VERBOSE(10000, 
+                                       verbose_stream() << "eq not solved " << mk_pp(arg, m()) << "\n";
+                                       verbose_stream() << is_uninterp_const(lhs) << " " << !m_candidate_vars.is_marked(lhs) << " " 
+                                       << !occurs(lhs, rhs) << " " << check_occs(lhs) << "\n";);
+                        }
+                    }
+                    else {
+                        path.push_back(nnf_context(true, args, i));
+                        hoist_nnf(g, arg, path, idx, depth + 1);
+                        path.pop_back();
+                    }                             
+                }
+            }
+            else if (m().is_or(f)) {
+                flatten_or(f, args);
+                //std::cout << "hoist or " << args.size() << "\n";
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    path.push_back(nnf_context(false, args, i));
+                    hoist_nnf(g, args.get(i), path, idx, depth + 1);
+                    path.pop_back();
+                }
+            }
+            else {
+                // std::cout << "no hoist " << mk_pp(f, m()) << "\n";
+            }
+        }
+
+        bool collect_hoist(goal const& g) {
+            bool change = false;
+            unsigned size = g.size();
+            vector<nnf_context> path;
+            for (unsigned idx = 0; idx < size; idx++) {
+                checkpoint();
+                hoist_nnf(g, g.form(idx), path, idx, 0);
+            }
+            return change;
         }
         
         void sort_vars() {
@@ -499,7 +663,7 @@ class solve_eqs_tactic : public tactic {
                                         
                                         // Must save t and its definition.
                                         // See comment in the beginning of the function
-                                        expr * def = 0;
+                                        expr * def = nullptr;
                                         proof * pr;
                                         expr_dependency * dep;
                                         m_subst->find(to_app(t), def, pr, dep);
@@ -513,7 +677,7 @@ class solve_eqs_tactic : public tactic {
                                     else {
                                         visiting.mark(t);
                                         fr.second = 1;
-                                        expr * def = 0;
+                                        expr * def = nullptr;
                                         proof * pr;
                                         expr_dependency * dep;
                                         m_subst->find(to_app(t), def, pr, dep);
@@ -566,6 +730,10 @@ class solve_eqs_tactic : public tactic {
                 ++idx;
             }
             
+            IF_VERBOSE(10000, 
+                       verbose_stream() << "ordered vars: ";
+                       for (app* v : m_ordered_vars) verbose_stream() << mk_pp(v, m()) << " ";
+                       verbose_stream() << "\n";);
             TRACE("solve_eqs", 
                   tout << "ordered vars:\n";
                   for (app* v : m_ordered_vars) {
@@ -583,13 +751,11 @@ class solve_eqs_tactic : public tactic {
             expr_ref new_def(m());
             proof_ref new_pr(m());
             expr_dependency_ref new_dep(m());
-            unsigned size = m_ordered_vars.size();
-            for (unsigned idx = 0; idx < size; idx++) {
+            for (app * v : m_ordered_vars) {
                 checkpoint();
-                expr * v   = m_ordered_vars[idx];
-                expr * def = 0;
-                proof * pr = 0;
-                expr_dependency * dep = 0;
+                expr * def = nullptr;
+                proof * pr = nullptr;
+                expr_dependency * dep = nullptr;
                 m_subst->find(v, def, pr, dep);
                 SASSERT(def != 0);
                 m_r->operator()(def, new_def, new_pr, new_dep);
@@ -605,8 +771,7 @@ class solve_eqs_tactic : public tactic {
             m_subst->reset();
             TRACE("solve_eqs", 
                   tout << "after normalizing variables\n";
-                  for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                      expr * v = m_ordered_vars[i];
+                  for (expr * v : m_ordered_vars) {
                       expr * def = 0;
                       proof * pr = 0;
                       expr_dependency * dep = 0;
@@ -615,16 +780,15 @@ class solve_eqs_tactic : public tactic {
                   });
 #if 0
             DEBUG_CODE({
-                for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                    expr * v = m_ordered_vars[i];
-                    expr * def = 0;
-                    proof * pr = 0;
-                    expr_dependency * dep = 0;
-                    m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def != 0);
-                    CASSERT("solve_eqs_bug", !occurs(v, def));
-                }
-            });
+                    for (expr * v : m_ordered_vars) {
+                        expr * def = 0;
+                        proof * pr = 0;
+                        expr_dependency * dep = 0;
+                        m_norm_subst->find(v, def, pr, dep);
+                        SASSERT(def != 0);
+                        CASSERT("solve_eqs_bug", !occurs(v, def));
+                    }
+                });
 #endif
         }
 
@@ -642,15 +806,16 @@ class solve_eqs_tactic : public tactic {
                 TRACE("gaussian_leak", tout << "processing:\n" << mk_ismt2_pp(f, m()) << "\n";);
                 if (m_candidate_set.is_marked(f)) {
                     // f may be deleted after the following update.
-                    // so, we must remove remove the mark before doing the update
+                    // so, we must remove the mark before doing the update
                     m_candidate_set.mark(f, false);
                     SASSERT(!m_candidate_set.is_marked(f));
-                    g.update(idx, m().mk_true(), m().mk_true_proof(), 0);
+                    g.update(idx, m().mk_true(), m().mk_true_proof(), nullptr);
                     m_num_steps ++;
                     continue;
                 }
 
                 m_r->operator()(f, new_f, new_pr, new_dep);
+
                 TRACE("solve_eqs_subst", tout << mk_ismt2_pp(f, m()) << "\n--->\n" << mk_ismt2_pp(new_f, m()) << "\n";);
                 m_num_steps += m_r->get_num_steps() + 1;
                 if (m_produce_proofs)
@@ -668,12 +833,11 @@ class solve_eqs_tactic : public tactic {
                   g.display(tout););
 #if 0
             DEBUG_CODE({
-                for (unsigned i = 0; i < m_ordered_vars.size(); i++) {
-                    expr * v = m_ordered_vars[i];
-                    for (unsigned j = 0; j < g.size(); j++) {
-                        CASSERT("solve_eqs_bug", !occurs(v, g.form(j)));
-                    }
-                }});
+                    for (expr* v : m_ordered_vars) {
+                        for (unsigned j = 0; j < g.size(); j++) {
+                            CASSERT("solve_eqs_bug", !occurs(v, g.form(j)));
+                        }
+                    }});
 #endif
         }
 
@@ -681,15 +845,15 @@ class solve_eqs_tactic : public tactic {
             IF_VERBOSE(100, if (!m_ordered_vars.empty()) verbose_stream() << "num. eliminated vars: " << m_ordered_vars.size() << "\n";);
             m_num_eliminated_vars += m_ordered_vars.size();
             if (m_produce_models) {
-                if (mc.get() == 0)
-                    mc = alloc(gmc, m());
+                if (!mc.get())
+                    mc = alloc(gmc, m(), "solve-eqs");
                 for (app* v : m_ordered_vars) {
-                    expr * def = 0;
+                    expr * def = nullptr;
                     proof * pr;
-                    expr_dependency * dep;
+                    expr_dependency * dep = nullptr;
                     m_norm_subst->find(v, def, pr, dep);
-                    SASSERT(def != 0);
-                    static_cast<gmc*>(mc.get())->insert(v->get_decl(), def);
+                    SASSERT(def);
+                    static_cast<gmc*>(mc.get())->add(v, def);
                 }
             }
         }
@@ -742,13 +906,9 @@ class solve_eqs_tactic : public tactic {
             return m_num_eliminated_vars;
         }
         
-        void operator()(goal_ref const & g, 
-                        goal_ref_buffer & result, 
-                        model_converter_ref & mc, 
-                        proof_converter_ref & pc,
-                        expr_dependency_ref & core) {
+        void operator()(goal_ref const & g, goal_ref_buffer & result) {
             SASSERT(g->is_well_sorted());
-            mc = 0; pc = 0; core = 0;
+            model_converter_ref mc;
             tactic_report report("solve_eqs", *g);
             m_produce_models = g->models_enabled();
             m_produce_proofs = g->proofs_enabled();
@@ -760,6 +920,9 @@ class solve_eqs_tactic : public tactic {
                 while (true) {
                     collect_num_occs(*g);
                     collect(*g);
+                    if (m_context_solve) {
+                        collect_hoist(*g);
+                    }
                     if (m_subst->empty()) 
                         break;
                     sort_vars();
@@ -768,7 +931,6 @@ class solve_eqs_tactic : public tactic {
                     normalize();
                     substitute(*(g.get()));
                     if (g->inconsistent()) {
-                        mc   = 0;
                         break;
                     }
                     save_elim_vars(mc);
@@ -776,6 +938,7 @@ class solve_eqs_tactic : public tactic {
                 }
             }
             g->inc_depth();
+            g->add(mc.get());
             result.push_back(g.get());
             TRACE("solve_eqs", g->display(tout););
             SASSERT(g->is_well_sorted());
@@ -790,40 +953,38 @@ public:
         m_imp = alloc(imp, m, p, r, owner);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(solve_eqs_tactic, m, m_params, mk_expr_simp_replacer(m, m_params), true);
     }
         
-    virtual ~solve_eqs_tactic() {
+    ~solve_eqs_tactic() override {
         dealloc(m_imp);
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_params = p;
         m_imp->updt_params(p);
     }
 
-    virtual void collect_param_descrs(param_descrs & r) {
+    void collect_param_descrs(param_descrs & r) override {        
         r.insert("solve_eqs_max_occs", CPK_UINT, "(default: infty) maximum number of occurrences for considering a variable for gaussian eliminations.");
         r.insert("theory_solver", CPK_BOOL, "(default: true) use theory solvers.");
         r.insert("ite_solver", CPK_BOOL, "(default: true) use if-then-else solver.");
+        r.insert("context_solve", CPK_BOOL, "(default: false) solve equalities under disjunctions.");
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        (*m_imp)(in, result, mc, pc, core);
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
+        (*m_imp)(in, result);
         report_tactic_progress(":num-elim-vars", m_imp->get_num_eliminated_vars());
     }
     
-    virtual void cleanup() {
+    void cleanup() override {
         unsigned num_elim_vars = m_imp->m_num_eliminated_vars;
         ast_manager & m = m_imp->m();
         expr_replacer * r = m_imp->m_r;
         if (r)
-            r->set_substitution(0);
+            r->set_substitution(nullptr);
         bool owner = m_imp->m_r_owner;
         m_imp->m_r_owner  = false; // stole replacer
 
@@ -833,20 +994,19 @@ public:
         dealloc(d);
     }
 
-    virtual void collect_statistics(statistics & st) const {
+    void collect_statistics(statistics & st) const override {
         st.update("eliminated vars", m_imp->get_num_eliminated_vars());
     }
 
-    virtual void reset_statistics() {
+    void reset_statistics() override {
         m_imp->m_num_eliminated_vars = 0;
     }
     
 };
 
 tactic * mk_solve_eqs_tactic(ast_manager & m, params_ref const & p, expr_replacer * r) {
-    if (r == 0)
+    if (r == nullptr)
         return clean(alloc(solve_eqs_tactic, m, p, mk_expr_simp_replacer(m, p), true));
     else
         return clean(alloc(solve_eqs_tactic, m, p, r, false));
 }
-

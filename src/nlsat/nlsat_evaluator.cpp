@@ -377,7 +377,7 @@ namespace nlsat {
         }
 
         /**
-           \brief Return the sign of the polynomial in the current interpration.
+           \brief Return the sign of the polynomial in the current interpretation.
            
            \pre All variables of p are assigned in the current interpretation.
         */
@@ -469,7 +469,7 @@ namespace nlsat {
             }
         }
 
-        // Evalute the sign of p1^e1*...*pn^en (of atom a) in cell c of table t. 
+        // Evaluate the sign of p1^e1*...*pn^en (of atom a) in cell c of table t.
         int sign_at(ineq_atom * a, sign_table const & t, unsigned c) const {
             int sign = 1;
             unsigned num_ps = a->size();
@@ -556,7 +556,7 @@ namespace nlsat {
                                 result = m_ism.mk(true, true, dummy, true, true, dummy, jst); 
                             }
                             else {
-                                // save -oo as begining of infeasible interval
+                                // save -oo as beginning of infeasible interval
                                 prev_open    = true;
                                 prev_inf     = true;
                                 prev_root_id = UINT_MAX;

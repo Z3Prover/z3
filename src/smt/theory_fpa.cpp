@@ -32,13 +32,13 @@ namespace smt {
     public:
         fpa2bv_conversion_trail_elem(ast_manager & m, obj_map<expr, expr*> & map, expr * e) :
             m(m), m_map(map), key(e, m) { }
-        virtual ~fpa2bv_conversion_trail_elem() { }
-        virtual void undo(theory_fpa & th) {
+        ~fpa2bv_conversion_trail_elem() override { }
+        void undo(theory_fpa & th) override {
             expr * val = m_map.find(key);
             m_map.remove(key);
             m.dec_ref(key);
             m.dec_ref(val);
-            key = 0;
+            key = nullptr;
         }
     };
 
@@ -208,7 +208,7 @@ namespace smt {
               for (unsigned i = 0; i < values.size(); i++)
               tout << "value[" << i << "] = " << mk_ismt2_pp(values[i], m) << std::endl;);
 
-        app * result = 0;
+        app * result = nullptr;
         unsigned bv_sz;
 
         rational val(0);
@@ -256,7 +256,7 @@ namespace smt {
             }
 
             func_decl_ref wrap_fd(m);
-            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, 0, 1, &es, bv_srt);
+            wrap_fd = m.mk_func_decl(get_family_id(), OP_FPA_BVWRAP, 0, nullptr, 1, &es, bv_srt);
             res = m.mk_app(wrap_fd, e);
         }
 
@@ -705,7 +705,7 @@ namespace smt {
         m_trail_stack.pop_scope(m_trail_stack.get_num_scopes());
         if (m_factory) {
             dealloc(m_factory);
-            m_factory = 0;
+            m_factory = nullptr;
         }
         ast_manager & m = get_manager();
         dec_ref_map_key_values(m, m_conversions);
@@ -743,7 +743,7 @@ namespace smt {
             return alloc(expr_wrapper_proc, owner);
         }
 
-        model_value_proc * res = 0;
+        model_value_proc * res = nullptr;
 
         app_ref wrapped(m);
         wrapped = wrap(owner);
@@ -843,14 +843,12 @@ namespace smt {
         context & ctx = get_context();
 
         bool first = true;
-        ptr_vector<enode>::const_iterator it = ctx.begin_enodes();
-        ptr_vector<enode>::const_iterator end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(get_family_id());
+        for (enode* n : ctx.enodes()) {
+            theory_var v = n->get_th_var(get_family_id());
             if (v != -1) {
                 if (first) out << "fpa theory variables:" << std::endl;
                 out << v << " -> " <<
-                    mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                    mk_ismt2_pp(n->get_owner(), m) << std::endl;
                 first = false;
             }
         }
@@ -858,30 +856,24 @@ namespace smt {
         if (first) return;
 
         out << "bv theory variables:" << std::endl;
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(m_bv_util.get_family_id());
+        for (enode * n : ctx.enodes()) {
+            theory_var v = n->get_th_var(m_bv_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_owner(), m) << std::endl;
         }
 
         out << "arith theory variables:" << std::endl;
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; it++) {
-            theory_var v = (*it)->get_th_var(m_arith_util.get_family_id());
+        for (enode* n : ctx.enodes()) {
+            theory_var v = n->get_th_var(m_arith_util.get_family_id());
             if (v != -1) out << v << " -> " <<
-                mk_ismt2_pp((*it)->get_owner(), m) << std::endl;
+                mk_ismt2_pp(n->get_owner(), m) << std::endl;
         }
 
         out << "equivalence classes:\n";
-        it = ctx.begin_enodes();
-        end = ctx.end_enodes();
-        for (; it != end; ++it) {
-            expr * n = (*it)->get_owner();
-            expr * r = (*it)->get_root()->get_owner();
-            out << r->get_id() << " --> " << mk_ismt2_pp(n, m) << std::endl;
+        for (enode * n : ctx.enodes()) {
+            expr * e = n->get_owner();
+            expr * r = n->get_root()->get_owner();
+            out << r->get_id() << " --> " << mk_ismt2_pp(e, m) << std::endl;
         }
     }
 };

@@ -32,7 +32,7 @@ namespace smt {
         n->m_owner            = owner;
         n->m_root             = n;
         n->m_next             = n;
-        n->m_cg               = 0;
+        n->m_cg               = nullptr;
         n->m_class_size       = 1;
         n->m_generation       = generation;
         n->m_func_decl_id     = UINT_MAX;
@@ -47,6 +47,7 @@ namespace smt {
         n->m_cgc_enabled      = cgc_enabled;
         n->m_iscope_lvl       = iscope_lvl;
         n->m_lbl_hash         = -1;
+        n->m_proof_is_logged = false;
         unsigned num_args     = n->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
             enode * arg  = app2enode[owner->get_arg(i)->get_id()];
@@ -130,11 +131,11 @@ namespace smt {
         if (m_th_var_list.get_th_var() == null_theory_var) {
             m_th_var_list.set_th_var(v);
             m_th_var_list.set_th_id(id);
-            m_th_var_list.set_next(0);
+            m_th_var_list.set_next(nullptr);
         }
         else {
             theory_var_list * l = &m_th_var_list;
-            while (l->get_next() != 0) {
+            while (l->get_next() != nullptr) {
                 SASSERT(l->get_th_id() != id);
                 l = l->get_next();
             }
@@ -172,11 +173,11 @@ namespace smt {
         SASSERT(get_th_var(id) != null_theory_var);
         if (m_th_var_list.get_th_id() == id) {
             theory_var_list * next = m_th_var_list.get_next();
-            if (next == 0) {
+            if (next == nullptr) {
                 // most common case
                 m_th_var_list.set_th_var(null_theory_var);
                 m_th_var_list.set_th_id(null_theory_id);
-                m_th_var_list.set_next(0);
+                m_th_var_list.set_next(nullptr);
             }
             else {
                 m_th_var_list = *next;
@@ -405,7 +406,7 @@ namespace smt {
     tmp_enode::tmp_enode():
         m_app(0),
         m_capacity(0),
-        m_enode_data(0) {
+        m_enode_data(nullptr) {
         SASSERT(m_app.get_app()->get_decl() == 0);
         set_capacity(5);
     }

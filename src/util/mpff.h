@@ -58,9 +58,14 @@ class mpz;
 class mpq;
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
+#ifndef _NO_OMP_
 typedef mpz_manager<true>  synch_mpz_manager;
-typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<true>  synch_mpq_manager;
+#else
+typedef mpz_manager<false>  synch_mpz_manager;
+typedef mpq_manager<false>  synch_mpq_manager;
+#endif
+typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<false> unsynch_mpq_manager;
 
 class mpff_manager {
@@ -92,7 +97,7 @@ class mpff_manager {
     // 
     // Remarks:
     //
-    // - All values of type int, unsigned, int64 and uint64 can be precisely represented as mpff numerals.
+    // - All values of type int, unsigned, int64_t and uint64_t can be precisely represented as mpff numerals.
     //
     // - Hardware float and double values (corresponding to rationals) can also be precisely represented as mpff numerals.
     //   That is, NaN, +oo and -oo are not supported by this module.
@@ -141,14 +146,14 @@ class mpff_manager {
     // copy (and shift by m_precision_bits) n to buffer idx 
     void to_buffer_shifting(unsigned idx, mpff const & n) const;
 
-    void inc_significand(unsigned * s, int64 & exp);
+    void inc_significand(unsigned * s, int64_t & exp);
     void inc_significand(mpff & a);
     void dec_significand(mpff & a);
     bool min_significand(mpff const & a) const;
     void set_min_significand(mpff & a);
     void set_max_significand(mpff & a);
-    void set_big_exponent(mpff & a, int64 e);
-    void set_exponent(mpff & a, int64 e) {
+    void set_big_exponent(mpff & a, int64_t e);
+    void set_exponent(mpff & a, int64_t e) {
         if (e > INT_MAX || e < INT_MIN) 
             set_big_exponent(a, e);
         else
@@ -178,15 +183,15 @@ public:
     static bool field() { return true; }
 
     class exception : public z3_exception {
-        virtual char const * msg() const { return "multi-precision floating point (mpff) exception"; }
+        char const * msg() const override { return "multi-precision floating point (mpff) exception"; }
     };
     
     class overflow_exception : public exception {
-        virtual char const * msg() const { return "multi-precision floating point (mpff) overflow"; }
+        char const * msg() const override { return "multi-precision floating point (mpff) overflow"; }
     };
 
     class div0_exception : public exception {
-        virtual char const * msg() const { return "multi-precision floating point (mpff) division by zero"; }
+        char const * msg() const override { return "multi-precision floating point (mpff) division by zero"; }
     };
     
     mpff_manager(unsigned prec = 2, unsigned initial_capacity = 1024);
@@ -213,7 +218,9 @@ public:
        \brief Return the significand as a mpz numeral.
     */
     void significand(mpff const & n, unsynch_mpz_manager & m, mpz & r);
+#ifndef _NO_OMP_
     void significand(mpff const & n, synch_mpz_manager & m, mpz & r);
+#endif
 
     /**
        \brief Return true if n is negative
@@ -286,12 +293,12 @@ public:
     bool is_plus_epsilon(mpff const & a) const;
 
     /**
-       \brief Return true if \c a is an integer and fits in an int64 machine integer.
+       \brief Return true if \c a is an integer and fits in an int64_t machine integer.
     */
     bool is_int64(mpff const & a) const;
 
     /**
-       \brief Return true if \c a is a non-negative integer and fits in an int64 machine integer.
+       \brief Return true if \c a is a non-negative integer and fits in an int64_t machine integer.
     */
     bool is_uint64(mpff const & a) const;
     
@@ -372,15 +379,17 @@ public:
     
     void set(mpff & n, int v);
     void set(mpff & n, unsigned v);
-    void set(mpff & n, int64 v);
-    void set(mpff & n, uint64 v);
+    void set(mpff & n, int64_t v);
+    void set(mpff & n, uint64_t v);
     void set(mpff & n, int num, unsigned den);
-    void set(mpff & n, int64 num, uint64 den);
+    void set(mpff & n, int64_t num, uint64_t den);
     void set(mpff & n, mpff const & v);
     void set(mpff & n, unsynch_mpz_manager & m, mpz const & v);
-    void set(mpff & n, synch_mpz_manager & m, mpz const & v); 
     void set(mpff & n, unsynch_mpq_manager & m, mpq const & v);
+#ifndef _NO_OMP_
     void set(mpff & n, synch_mpq_manager & m, mpq const & v);
+    void set(mpff & n, synch_mpz_manager & m, mpz const & v);
+#endif
     void set_plus_epsilon(mpff & n);
     void set_minus_epsilon(mpff & n);
     void set_max(mpff & n);
@@ -420,6 +429,7 @@ public:
     */
     void to_mpz(mpff const & n, unsynch_mpz_manager & m, mpz & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpz numeral.
        
@@ -428,6 +438,7 @@ public:
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t);
+#endif
 
     /**
        \brief Convert n into a mpq numeral.
@@ -436,26 +447,28 @@ public:
     */
     void to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpq numeral.
 
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t);
-    
+#endif
+
     /**
        \brief Return n as an int64.
 
        \pre is_int64(n)
     */
-    int64 get_int64(mpff const & n) const;
+    int64_t get_int64(mpff const & n) const;
 
     /**
        \brief Return n as an uint64.
 
        \pre is_uint64(n)
     */
-    uint64 get_uint64(mpff const & n) const;
+    uint64_t get_uint64(mpff const & n) const;
 
     /**
        \brief Return the biggest k s.t. 2^k <= a.

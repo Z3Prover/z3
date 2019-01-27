@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "ast/ast_pp.h"
-#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
 #include "smt/smt_quantifier_stat.h"
@@ -26,6 +26,7 @@ Revision History:
 #include "smt/smt_quick_checker.h"
 #include "smt/mam.h"
 #include "smt/qi_queue.h"
+#include "util/obj_hashtable.h"
 
 namespace smt {
 
@@ -104,46 +105,178 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
+        /**
+           \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
+           equivalence class are in the log and up-to-date.
+        */
+        void log_justification_to_root(std::ostream & out, enode *en, obj_hashtable<enode> &visited) {
+            enode* root = en->get_root();
+            for (enode *it = en; it != root && !visited.contains(it); it = it->get_trans_justification().m_target) {
+
+                visited.insert(it);
+
+                if (!it->m_proof_is_logged) {
+                    log_single_justification(out, it, visited);
+                    it->m_proof_is_logged = true;
+                } 
+                else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+
+                    // When the justification of an argument changes m_proof_is_logged 
+                    // is not reset => We need to check if the proofs of all arguments are logged.
+                    const unsigned num_args = it->get_num_args();
+                    enode *target = it->get_trans_justification().m_target;
+
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_justification_to_root(out, it->get_arg(i), visited);
+                        log_justification_to_root(out, target->get_arg(i), visited);
+                    }
+                    SASSERT(it->m_proof_is_logged);
+                }
+            }
+            if (!root->m_proof_is_logged) {
+                out << "[eq-expl] #" << root->get_owner_id() << " root\n";
+                root->m_proof_is_logged = true;
+            }
+        }
+
+        /**
+          \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
+          equalities needed by the step (e.g. argument equalities for congruence steps).
+        */
+        void log_single_justification(std::ostream & out, enode *en, obj_hashtable<enode> &visited) {
+            smt::literal lit;
+            unsigned num_args;
+            enode *target = en->get_trans_justification().m_target;
+            theory_id th_id;
+
+            switch (en->get_trans_justification().m_justification.get_kind()) {
+            case smt::eq_justification::kind::EQUATION:
+                lit = en->get_trans_justification().m_justification.get_literal();
+                out << "[eq-expl] #" << en->get_owner_id() << " lit #" << m_context.bool_var2expr(lit.var())->get_id() << " ; #" << target->get_owner_id() << "\n";
+                break;
+            case smt::eq_justification::kind::AXIOM:
+                out << "[eq-expl] #" << en->get_owner_id() << " ax ; #" << target->get_owner_id() << "\n";
+                break;
+            case smt::eq_justification::kind::CONGRUENCE:
+                if (!en->get_trans_justification().m_justification.used_commutativity()) {
+                    num_args = en->get_num_args();
+
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        log_justification_to_root(out, en->get_arg(i), visited);
+                        log_justification_to_root(out, target->get_arg(i), visited);
+                    }
+
+                    out << "[eq-expl] #" << en->get_owner_id() << " cg";
+                    for (unsigned i = 0; i < num_args; ++i) {
+                        out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
+                    }
+                    out << " ; #" << target->get_owner_id() << "\n";
+
+                    break;
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " nyi ; #" << target->get_owner_id() << "\n";
+                    break;
+                }
+            case smt::eq_justification::kind::JUSTIFICATION:
+                th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
+                if (th_id != null_theory_id) {
+                    symbol const theory = m().get_family_name(th_id);
+                    out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
+                } else {
+                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+                }
+                break;
+            default:
+                out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+                break;
+            }
+        }
+
+        void log_add_instance(
+            fingerprint* f,
+            quantifier * q, app * pat,
+            unsigned num_bindings,
+            enode * const * bindings,
+            vector<std::tuple<enode *, enode *>> & used_enodes) {
+
+            std::ostream & out = trace_stream();
+            
+            obj_hashtable<enode> visited;
+            
+            // In the term produced by the quantifier instantiation the root of 
+            // the equivalence class of the terms bound to the quantified variables
+            // is used. We need to make sure that all of these equalities appear in the log.
+            for (unsigned i = 0; i < num_bindings; ++i) {
+                log_justification_to_root(out, bindings[i], visited);
+            }
+            
+            for (auto n : used_enodes) {
+                enode *orig = std::get<0>(n);
+                enode *substituted = std::get<1>(n);
+                if (orig != nullptr) {
+                    log_justification_to_root(out, orig, visited);
+                    log_justification_to_root(out, substituted, visited);
+                }
+            }
+            
+            // At this point all relevant equalities for the match are logged.
+            out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id() << " #" << pat->get_id();
+            for (unsigned i = 0; i < num_bindings; i++) {
+                // I don't want to use mk_pp because it creates expressions for pretty printing.
+                // This nasty side-effect may change the behavior of Z3.
+                out << " #" << bindings[i]->get_owner_id();
+            }
+            out << " ;";
+            for (auto n : used_enodes) {
+                enode *orig = std::get<0>(n);
+                enode *substituted = std::get<1>(n);
+                if (orig == nullptr)
+                    out << " #" << substituted->get_owner_id();
+                else {
+                    out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                }
+            }
+            out << "\n";
+        }
+
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
+                          expr* def,
                           unsigned max_generation,
                           unsigned min_top_generation,
                           unsigned max_top_generation,
-                          ptr_vector<enode> & used_enodes) {
+                          vector<std::tuple<enode *, enode *>> & used_enodes) {
             max_generation = std::max(max_generation, get_generation(q));
             if (m_num_instances > m_params.m_qi_max_instances) {
                 return false;
             }
             get_stat(q)->update_max_generation(max_generation);
-            fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings);
+            fingerprint * f = m_context.add_fingerprint(q, q->get_id(), num_bindings, bindings, def);
             if (f) {
                 if (has_trace_stream()) {
-                    std::ostream & out = trace_stream();
-                    out << "[new-match] " << static_cast<void*>(f) << " #" << q->get_id();
-                    for (unsigned i = 0; i < num_bindings; i++) {
-                        // I don't want to use mk_pp because it creates expressions for pretty printing.
-                        // This nasty side-effect may change the behavior of Z3.
-                        out << " #" << bindings[i]->get_owner_id();
-                    }
-                    out << " ;";
-                    for (enode* n : used_enodes) 
-                        out << " #" << n->get_owner_id();
-                    out << "\n";
+                    log_add_instance(f, q, pat, num_bindings, bindings, used_enodes);
                 }
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
             }
-            TRACE("quantifier",
-                  tout << mk_pp(q, m()) << " ";
+            static unsigned count = 0;
+            CTRACE("quantifier", f != nullptr, 
+                   tout << (count++) << " " << q->get_id() << "\n";
+                   if (q->get_id() == 28 || true) {
+                       tout << mk_ll_pp(q, m()) << "\n";
+                   }
+                   );
+
+            CTRACE("quantifier_", f != nullptr, 
+                  tout << expr_ref(q, m()) << " ";
                   for (unsigned i = 0; i < num_bindings; ++i) {
-                      tout << mk_pp(bindings[i]->get_owner(), m()) << " ";
+                      tout << expr_ref(bindings[i]->get_owner(), m()) << " ";
                   }
                   tout << "\n";
-                  tout << "inserted: " << (f != 0) << "\n";
                   );
 
-            return f != 0;
+            return f != nullptr;
         }
 
         void init_search_eh() {
@@ -222,7 +355,7 @@ namespace smt {
 
         final_check_status final_check_eh(bool full) {
             if (full) {
-                IF_VERBOSE(100, verbose_stream() << "(smt.final-check \"quantifiers\")\n";);
+                IF_VERBOSE(100, if (!m_quantifiers.empty()) verbose_stream() << "(smt.final-check \"quantifiers\")\n";);
                 final_check_status result  = m_qi_queue.final_check_eh() ? FC_DONE : FC_CONTINUE;
                 final_check_status presult = m_plugin->final_check_eh(full);
                 if (presult != FC_DONE)
@@ -291,16 +424,17 @@ namespace smt {
     bool quantifier_manager::add_instance(quantifier * q, app * pat,
                                           unsigned num_bindings,
                                           enode * const * bindings,
+                                          expr* def,
                                           unsigned max_generation,
                                           unsigned min_top_generation,
                                           unsigned max_top_generation,
-                                          ptr_vector<enode> & used_enodes) {
-        return m_imp->add_instance(q, pat, num_bindings, bindings, max_generation, min_top_generation, max_generation, used_enodes);
+                                          vector<std::tuple<enode *, enode *>> & used_enodes) {
+        return m_imp->add_instance(q, pat, num_bindings, bindings, def, max_generation, min_top_generation, max_generation, used_enodes);
     }
 
-    bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, unsigned generation) {
-        ptr_vector<enode> tmp;
-        return add_instance(q, 0, num_bindings, bindings, generation, generation, generation, tmp);
+    bool quantifier_manager::add_instance(quantifier * q, unsigned num_bindings, enode * const * bindings, expr* def, unsigned generation) {
+        vector<std::tuple<enode *, enode *>> tmp;
+        return add_instance(q, nullptr, num_bindings, bindings, def, generation, generation, generation, tmp);
     }
 
     void quantifier_manager::init_search_eh() {
@@ -408,17 +542,17 @@ namespace smt {
         bool                        m_active;
     public:
         default_qm_plugin():
-            m_qm(0),
-            m_context(0),
+            m_qm(nullptr),
+            m_context(nullptr),
             m_new_enode_qhead(0),
             m_lazy_matching_idx(0),
             m_active(false) {
         }
 
-        virtual ~default_qm_plugin() {
+        ~default_qm_plugin() override {
         }
 
-        virtual void set_manager(quantifier_manager & qm) {
+        void set_manager(quantifier_manager & qm) override {
             SASSERT(m_qm == 0);
             m_qm            = &qm;
             m_context       = &(qm.get_context());
@@ -434,11 +568,11 @@ namespace smt {
             m_model_checker->set_qm(qm);
         }
 
-        virtual quantifier_manager_plugin * mk_fresh() { return alloc(default_qm_plugin); }
+        quantifier_manager_plugin * mk_fresh() override { return alloc(default_qm_plugin); }
 
-        virtual bool model_based() const { return m_fparams->m_mbqi; }
+        bool model_based() const override { return m_fparams->m_mbqi; }
 
-        virtual bool mbqi_enabled(quantifier *q) const {
+        bool mbqi_enabled(quantifier *q) const override {
             if (!m_fparams->m_mbqi_id) return true;
             const symbol &s = q->get_qid();
             size_t len = strlen(m_fparams->m_mbqi_id);
@@ -450,16 +584,16 @@ namespace smt {
         /* Quantifier id's must begin with the prefix specified by parameter
            mbqi.id to be instantiated with MBQI. The default value is the
            empty string, so all quantifiers are instantiated. */
-        virtual void add(quantifier * q) {
+        void add(quantifier * q) override {
             if (m_fparams->m_mbqi && mbqi_enabled(q)) {
                 m_active = true;
                 m_model_finder->register_quantifier(q);
             }
         }
 
-        virtual void del(quantifier * q) { }
+        void del(quantifier * q) override { }
 
-        virtual void push() {
+        void push() override {
             m_mam->push_scope();
             m_lazy_mam->push_scope();
             if (m_fparams->m_mbqi) {
@@ -467,7 +601,7 @@ namespace smt {
             }
         }
 
-        virtual void pop(unsigned num_scopes) {
+        void pop(unsigned num_scopes) override {
             m_mam->pop_scope(num_scopes);
             m_lazy_mam->pop_scope(num_scopes);
             if (m_fparams->m_mbqi) {
@@ -475,7 +609,7 @@ namespace smt {
             }
         }
 
-        virtual void init_search_eh() {
+        void init_search_eh() override {
             m_lazy_matching_idx = 0;
             if (m_fparams->m_mbqi) {
                 m_model_finder->init_search_eh();
@@ -483,7 +617,7 @@ namespace smt {
             }
         }
 
-        virtual void assign_eh(quantifier * q) {
+        void assign_eh(quantifier * q) override {
             m_active = true;
             ast_manager& m = m_context->get_manager();
             if (!m_fparams->m_ematching) {
@@ -519,7 +653,7 @@ namespace smt {
                     m_lazy_mam->add_pattern(q, mp);
                 }
                 else {
-                    TRACE("quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m) << "\n";);
+                    TRACE("quantifier", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
                     m_mam->add_pattern(q, mp);
                 }
                 if (!unary)
@@ -531,23 +665,23 @@ namespace smt {
             return m_fparams->m_ematching && !m_qm->empty();
         }
 
-        virtual void add_eq_eh(enode * e1, enode * e2) {
+        void add_eq_eh(enode * e1, enode * e2) override {
             if (use_ematching())
                 m_mam->add_eq_eh(e1, e2);
         }
 
-        virtual void relevant_eh(enode * e) {
+        void relevant_eh(enode * e) override {
             if (use_ematching()) {
                 m_mam->relevant_eh(e, false);
                 m_lazy_mam->relevant_eh(e, true);
             }
         }
 
-        virtual bool can_propagate() const {
+        bool can_propagate() const override {
             return m_mam->has_work();
         }
 
-        virtual void restart_eh() {
+        void restart_eh() override {
             if (m_fparams->m_mbqi) {
                 m_model_finder->restart_eh();
                 m_model_checker->restart_eh();
@@ -555,17 +689,17 @@ namespace smt {
             TRACE("mam_stats", m_mam->display(tout););
         }
 
-        virtual bool is_shared(enode * n) const {
+        bool is_shared(enode * n) const override {
             return m_active && (m_mam->is_shared(n) || m_lazy_mam->is_shared(n));
         }
 
-        virtual void adjust_model(proto_model * m) {
+        void adjust_model(proto_model * m) override {
             if (m_fparams->m_mbqi) {
                 m_model_finder->fix_model(m);
             }
         }
 
-        virtual void propagate() {
+        void propagate() override {
             m_mam->match();
             if (!m_context->relevancy() && use_ematching()) {
                 ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
@@ -585,8 +719,8 @@ namespace smt {
             }
         }
 
-        virtual quantifier_manager::check_model_result
-        check_model(proto_model * m, obj_map<enode, app *> const & root2value) {
+        quantifier_manager::check_model_result
+        check_model(proto_model * m, obj_map<enode, app *> const & root2value) override {
             if (m_fparams->m_mbqi) {
                 IF_VERBOSE(10, verbose_stream() << "(smt.mbqi)\n";);
                 if (m_model_checker->check(m, root2value)) {
@@ -599,7 +733,7 @@ namespace smt {
             return quantifier_manager::UNKNOWN;
         }
 
-        virtual final_check_status final_check_eh(bool full) {
+        final_check_status final_check_eh(bool full) override {
             if (!full) {
                 if (m_fparams->m_qi_lazy_instantiation)
                     return final_check_quant();

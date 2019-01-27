@@ -18,7 +18,7 @@ Revision History:
 
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/base/dl_context.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -30,21 +30,21 @@ namespace datalog {
     public:
         scale_model_converter(ast_manager& m): m(m), m_trail(m), a(m) {}
 
-        virtual ~scale_model_converter() {}
+        ~scale_model_converter() override {}
 
         void add_new2old(func_decl* new_f, func_decl* old_f) {
             m_trail.push_back(old_f);
             m_trail.push_back(new_f);
             m_new2old.insert(new_f, old_f);
         }
-       
-        virtual void operator()(model_ref& md) {
+
+        void get_units(obj_map<expr, bool>& units) override { units.reset(); }
+
+        void operator()(model_ref& md) override {
             model_ref old_model = alloc(model, m);
-            obj_map<func_decl, func_decl*>::iterator it  = m_new2old.begin();
-            obj_map<func_decl, func_decl*>::iterator end = m_new2old.end();
-            for (; it != end; ++it) {
-                func_decl* old_p = it->m_value;
-                func_decl* new_p = it->m_key;
+            for (auto const& kv : m_new2old) {
+                func_decl* old_p = kv.m_value;
+                func_decl* new_p = kv.m_key;
                 func_interp* old_fi = alloc(func_interp, m, old_p->get_arity());
 
                 if (new_p->get_arity() == 0) {
@@ -69,12 +69,12 @@ namespace datalog {
                     // Hedge that we don't have to handle the general case for models produced
                     // by Horn clause solvers.
                     SASSERT(!new_fi->is_partial() && new_fi->num_entries() == 0);
-                    vs(new_fi->get_else(), subst.size(), subst.c_ptr(), tmp);
+                    tmp = vs(new_fi->get_else(), subst.size(), subst.c_ptr());
                     old_fi->set_else(tmp);
                     old_model->register_decl(old_p, old_fi);
                 }
             }
-    
+
             // register values that have not been scaled.
             unsigned sz = md->get_num_constants();
             for (unsigned i = 0; i < sz; ++i) {
@@ -95,10 +95,13 @@ namespace datalog {
             //TRACE("dl", model_smt2_pp(tout, m, *md, 0); );
         }
 
-        virtual model_converter * translate(ast_translation & translator) {
+        model_converter * translate(ast_translation & translator) override {
             UNREACHABLE();
-            return 0;
+            return nullptr;
         }
+
+        void display(std::ostream& out) override { out << "(scale-model-converter)\n"; }
+
     };
 
 
@@ -108,15 +111,15 @@ namespace datalog {
         m_ctx(ctx),
         a(m),
         m_trail(m),
-        m_eqs(m) {        
+        m_eqs(m) {
     }
 
-    mk_scale::~mk_scale() { 
+    mk_scale::~mk_scale() {
     }
-        
+
     rule_set * mk_scale::operator()(rule_set const & source) {
         if (!m_ctx.scale()) {
-            return 0;
+            return nullptr;
         }
         rule_manager& rm = source.get_rule_manager();
         rule_set * result = alloc(rule_set, m_ctx);
@@ -132,7 +135,7 @@ namespace datalog {
         }
         m_mc = smc.get();
 
-        for (unsigned i = 0; i < sz; ++i) {            
+        for (unsigned i = 0; i < sz; ++i) {
             rule & r = *source.get_rule(i);
             unsigned utsz = r.get_uninterpreted_tail_size();
             unsigned tsz  = r.get_tail_size();
@@ -154,10 +157,10 @@ namespace datalog {
             tail.push_back(a.mk_gt(m.mk_var(num_vars, a.mk_real()), a.mk_numeral(rational(0), false)));
             neg.resize(tail.size(), false);
             new_rule = rm.mk(new_pred, tail.size(), tail.c_ptr(), neg.c_ptr(), r.name(), true);
-            result->add_rule(new_rule);                
+            result->add_rule(new_rule);
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
-            }            
+            }
         }
         TRACE("dl", result->display(tout););
         if (m_mc) {
@@ -224,7 +227,7 @@ namespace datalog {
             a.is_lt(e)  || a.is_gt(e)) {
             expr_ref_vector args(m);
             for (unsigned i = 0; i < ap->get_num_args(); ++i) {
-                args.push_back(linearize(sigma_idx, ap->get_arg(i)));                
+                args.push_back(linearize(sigma_idx, ap->get_arg(i)));
             }
             result = m.mk_app(ap->get_decl(), args.size(), args.c_ptr());
         }

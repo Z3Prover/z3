@@ -139,7 +139,7 @@ namespace datalog {
             return;
         }
         expr* arg = pat->get_arg(i);
-        ptr_vector<expr>* terms = 0;
+        ptr_vector<expr>* terms = nullptr;
     
         if (m_funs.find(to_app(arg)->get_decl(), terms)) {
             for (unsigned k = 0; k < terms->size(); ++k) {
@@ -156,8 +156,7 @@ namespace datalog {
                 SASSERT(m_binding[i]);
             });
         m_binding.reverse();
-        expr_ref res(m);
-        instantiate(m, q, m_binding.c_ptr(), res);
+        expr_ref res = instantiate(m, q, m_binding.c_ptr());
         m_binding.reverse();
         m_cnst2var(res);
         conjs.push_back(res);
@@ -180,12 +179,12 @@ namespace datalog {
             }
             m_terms[n] = e;
             visited.mark(e);
-            if (m.is_eq(e, e1, e2) || m.is_iff(e, e1, e2)) {
+            if (m.is_eq(e, e1, e2)) {
                 m_uf.merge(e1->get_id(), e2->get_id());
             }
             if (is_app(e)) {
                 app* ap = to_app(e);
-                ptr_vector<expr>* terms = 0;
+                ptr_vector<expr>* terms = nullptr;
                 if (!m_funs.find(ap->get_decl(), terms)) {
                     terms = alloc(ptr_vector<expr>);
                     m_funs.insert(ap->get_decl(), terms);
@@ -222,10 +221,7 @@ namespace datalog {
         for (unsigned i = 0; i < qs.size(); ++i) {
             instantiate_quantifier(qs[i].get(), conjs);
         }
-        obj_map<func_decl, ptr_vector<expr>*>::iterator it = m_funs.begin(), end = m_funs.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
-        }
+        for (auto & kv : m_funs) dealloc(kv.m_value);
         m_funs.reset();
 
         fml = m.mk_and(conjs.size(), conjs.c_ptr());
@@ -250,7 +246,7 @@ namespace datalog {
         
     rule_set * mk_quantifier_instantiation::operator()(rule_set const & source) {
         if (!m_ctx.instantiate_quantifiers()) {
-            return 0;
+            return nullptr;
         }
         bool has_quantifiers = false;
         unsigned sz = source.get_num_rules();
@@ -259,11 +255,11 @@ namespace datalog {
             rule& r = *source.get_rule(i);
             has_quantifiers = has_quantifiers || rm.has_quantifiers(r);   
             if (r.has_negation()) {
-                return 0;
+                return nullptr;
             }
         }
         if (!has_quantifiers) {
-            return 0;
+            return nullptr;
         }
 
         expr_ref_vector conjs(m);
@@ -284,14 +280,14 @@ namespace datalog {
             }
         }
 
-        // model convertion: identity function.
+        // model conversion: identity function.
 
         if (instantiated) {
             result->inherit_predicates(source);
         }
         else {
             dealloc(result);
-            result = 0;
+            result = nullptr;
         }
         return result;
     }

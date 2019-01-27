@@ -19,6 +19,7 @@ Revision History:
 
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
 pb_decl_plugin::pb_decl_plugin():
     m_at_most_sym("at-most"),
@@ -54,7 +55,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
         }
         func_decl_info info(m_family_id, k, 1, parameters);
         return m.mk_func_decl(sym, arity, domain, m.mk_bool_sort(), info);
-    }
+    }      
     case OP_PB_GE:
     case OP_PB_LE: 
     case OP_PB_EQ: {
@@ -86,12 +87,12 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
 void pb_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
-    if (logic == symbol::null || logic == "QF_FD" || logic == "ALL") {
+    if (logic == symbol::null || logic == "QF_FD" || logic == "ALL" || logic == "HORN") {
         op_names.push_back(builtin_name(m_at_most_sym.bare_str(), OP_AT_MOST_K));
         op_names.push_back(builtin_name(m_at_least_sym.bare_str(), OP_AT_LEAST_K));
         op_names.push_back(builtin_name(m_pble_sym.bare_str(), OP_PB_LE));
@@ -128,8 +129,14 @@ app * pb_util::mk_le(unsigned num_args, rational const * coeffs, expr * const * 
     normalize(num_args, coeffs, k);
     m_params.reset();
     m_params.push_back(parameter(floor(m_k)));
+    bool all_ones = true;
     for (unsigned i = 0; i < num_args; ++i) {
+        all_ones &= m_coeffs[i].is_one();
         m_params.push_back(parameter(m_coeffs[i]));
+    }
+    if (all_ones && k.is_unsigned()) {
+        m_params[0] = parameter(floor(m_k).get_unsigned());
+        return m.mk_app(m_fid, OP_AT_MOST_K, 1, m_params.c_ptr(), num_args, args, m.mk_bool_sort());
     }
     return m.mk_app(m_fid, OP_PB_LE, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
@@ -138,8 +145,14 @@ app * pb_util::mk_ge(unsigned num_args, rational const * coeffs, expr * const * 
     normalize(num_args, coeffs, k);
     m_params.reset();
     m_params.push_back(parameter(ceil(m_k)));
+    bool all_ones = true;
     for (unsigned i = 0; i < num_args; ++i) {
+        all_ones &= m_coeffs[i].is_one();
         m_params.push_back(parameter(m_coeffs[i]));
+    }
+    if (all_ones && k.is_unsigned()) {
+        m_params[0] = parameter(ceil(m_k).get_unsigned());
+        return m.mk_app(m_fid, OP_AT_LEAST_K, 1, m_params.c_ptr(), num_args, args, m.mk_bool_sort());
     }
     return m.mk_app(m_fid, OP_PB_GE, m_params.size(), m_params.c_ptr(), num_args, args, m.mk_bool_sort());
 }
@@ -148,6 +161,9 @@ app * pb_util::mk_eq(unsigned num_args, rational const * coeffs, expr * const * 
     normalize(num_args, coeffs, k);
     if (!m_k.is_int()) {
         return m.mk_false();
+    }
+    if (num_args == 0) {
+        return m_k.is_zero() ? m.mk_true() : m.mk_false();
     }
     m_params.reset();
     m_params.push_back(parameter(m_k));
@@ -299,6 +315,6 @@ bool pb_util::has_unit_coefficients(func_decl* f) const {
 
 app* pb_util::mk_fresh_bool() {
     symbol name = m.mk_fresh_var_name("pb");
-    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, 0);
-    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)0, m.mk_bool_sort(), info));
+    func_decl_info info(m_fid, OP_PB_AUX_BOOL, 0, nullptr);
+    return m.mk_const(m.mk_func_decl(name, 0, (sort *const*)nullptr, m.mk_bool_sort(), info));
 }

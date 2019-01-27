@@ -66,9 +66,9 @@ namespace nlsat {
         void reset() { m_assigned.reset(); }
         bool is_assigned(var x) const { return m_assigned.get(x, false); }
         anum const & value(var x) const { return m_values[x]; }
-        virtual anum_manager & m() const { return am(); }
-        virtual bool contains(var x) const { return is_assigned(x); }
-        virtual anum const & operator()(var x) const { SASSERT(is_assigned(x)); return value(x); }
+        anum_manager & m() const override { return am(); }
+        bool contains(var x) const override { return is_assigned(x); }
+        anum const & operator()(var x) const override { SASSERT(is_assigned(x)); return value(x); }
         void swap(var x, var y) {
             SASSERT(x < m_values.size() && y < m_values.size());
             std::swap(m_assigned[x], m_assigned[y]);
@@ -95,9 +95,9 @@ namespace nlsat {
         var                m_y;
     public:
         undef_var_assignment(assignment const & a, var y):m_assignment(a), m_y(y) {}
-        virtual anum_manager & m() const { return m_assignment.am(); }
-        virtual bool contains(var x) const { return x != m_y && m_assignment.is_assigned(x); }
-        virtual anum const & operator()(var x) const { return m_assignment.value(x); }
+        anum_manager & m() const override { return m_assignment.am(); }
+        bool contains(var x) const override { return x != m_y && m_assignment.is_assigned(x); }
+        anum const & operator()(var x) const override { return m_assignment.value(x); }
     };
 };
 

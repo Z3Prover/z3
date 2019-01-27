@@ -55,19 +55,19 @@ namespace smt {
         th_trail_stack                  m_trail_stack;
         unsigned                        m_final_check_idx;
 
-        virtual void init(context * ctx);
-        virtual theory_var mk_var(enode * n);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term);
-        virtual void apply_sort_cnstr(enode * n, sort * s);
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
-        virtual void relevant_eh(app * n);
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual void init_search_eh() { m_final_check_idx = 0; }
+        void init(context * ctx) override;
+        theory_var mk_var(enode * n) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override;
+        void apply_sort_cnstr(enode * n, sort * s) override;
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
+        void relevant_eh(app * n) override;
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        void init_search_eh() override { m_final_check_idx = 0; }
 
         virtual void set_prop_upward(theory_var v);
         virtual void set_prop_upward(enode* n);
@@ -96,15 +96,15 @@ namespace smt {
         static void display_ids(std::ostream & out, unsigned n, enode * const * v);
     public:
         theory_array(ast_manager & m, theory_array_params & params);
-        virtual ~theory_array();
+        ~theory_array() override;
 
-        virtual theory * mk_fresh(context * new_ctx) { return alloc(theory_array, new_ctx->get_manager(), new_ctx->get_fparams()); }
+        theory * mk_fresh(context * new_ctx) override { return alloc(theory_array, new_ctx->get_manager(), new_ctx->get_fparams()); }
 
-        virtual char const * get_name() const { return "array"; }
+        char const * get_name() const override { return "array"; }
 
         virtual void display_var(std::ostream & out, theory_var v) const;
-        virtual void display(std::ostream & out) const;
-        virtual void collect_statistics(::statistics & st) const;
+        void display(std::ostream & out) const override;
+        void collect_statistics(::statistics & st) const override;
         th_trail_stack & get_trail_stack() { return m_trail_stack; }
         virtual void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}

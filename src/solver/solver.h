@@ -24,6 +24,7 @@ Notes:
 #include "util/params.h"
 
 class solver;
+class model_converter;
 
 class solver_factory {
 public:
@@ -43,9 +44,12 @@ public:
      - results based on check_sat_result API
 */
 class solver : public check_sat_result {
-    params_ref m_params;
+    params_ref  m_params;
+    bool        m_enforce_model_conversion;
+    symbol      m_cancel_backup_file;
 public:
-    virtual ~solver() {}
+    solver(): m_enforce_model_conversion(false) {}
+    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.
@@ -55,18 +59,34 @@ public:
     /**
        \brief Update the solver internal settings. 
     */
-    virtual void updt_params(params_ref const & p) { m_params.copy(p); }
+    virtual void updt_params(params_ref const & p);
+
+    /**
+       \brief reset parameters.
+    */
+    virtual void reset_params(params_ref const& p);
 
     /**
        \brief Retrieve set of parameters set on solver.
      */
-    virtual params_ref const& get_params() { return m_params; }
+    virtual params_ref const& get_params() const { return m_params; }
 
     /**
        \brief Store in \c r a description of the configuration
        parameters available in this solver.
     */
-    virtual void collect_param_descrs(param_descrs & r) {}
+    virtual void collect_param_descrs(param_descrs & r);
+
+    /**
+       \brief Push a parameter state. It is restored upon pop.
+       Only a single scope of push is supported.
+    */
+    virtual void push_params() {}
+
+    /**
+       \brief Pop a parameter state. \sa push_params.
+    */
+    virtual void pop_params() {}
     
     /**
        \brief Enable/Disable model generation for this solver object.
@@ -79,14 +99,16 @@ public:
     /**
        \brief Add a new formula to the assertion stack.
     */
-    virtual void assert_expr(expr * t) = 0;
+    void assert_expr(expr* f);
+
+    virtual void assert_expr_core(expr * t) = 0;
 
     void assert_expr(expr_ref_vector const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     void assert_expr(ptr_vector<expr> const& ts) { 
-        for (unsigned i = 0; i < ts.size(); ++i) assert_expr(ts[i]); 
+        for (expr* e : ts) assert_expr(e);
     }
 
     /**
@@ -94,7 +116,10 @@ public:
        The propositional variable \c a is used to track the use of \c t in a proof
        of unsatisfiability.
     */
-    virtual void assert_expr(expr * t, expr * a) = 0;
+
+    void assert_expr(expr * t, expr* a);
+
+    virtual void assert_expr_core2(expr * t, expr * a) = 0;
 
     /**
        \brief Create a backtracking point.
@@ -116,12 +141,25 @@ public:
        
        If it is unsatisfiable, and unsat-core generation is enabled. Then, the unsat-core is a subset of these assumptions.
     */
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
+
+    lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
 
     lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.c_ptr()); }
     
     lbool check_sat(app_ref_vector const& asms) { return check_sat(asms.size(), (expr* const*)asms.c_ptr()); }
 
+    lbool check_sat() { return check_sat(0, nullptr); }
+
+    /**
+       \brief Check satisfiability modulo a cube and a clause.
+
+       The cube corresponds to auxiliary assumptions. The clause as an auxiliary disjunction that is also
+       assumed for the check.
+    */
+    virtual lbool check_sat_cc(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) {
+        if (clauses.empty()) return check_sat(cube.size(), cube.c_ptr());
+        NOT_IMPLEMENTED_YET();
+    }
 
     /**
        \brief Set a progress callback procedure that is invoked by this solver during check_sat.
@@ -144,6 +182,8 @@ public:
     \brief Retrieves assertions as a vector.
     */
     void get_assertions(expr_ref_vector& fmls) const;
+
+    expr_ref_vector get_assertions() const;
 
     /**
     \brief The number of tracked assumptions (see assert_expr(t, a)).
@@ -179,9 +219,33 @@ public:
     virtual lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores);
 
     /**
+       \brief extract a lookahead candidates for branching.
+    */
+
+    virtual expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) = 0;
+
+    /**
        \brief Display the content of this solver.
     */
     virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
+
+    /**
+       \brief Display the content of this solver in DIMACS format
+    */
+    std::ostream& display_dimacs(std::ostream & out) const;
+
+    /**
+       \brief expose model converter when solver produces partially reduced set of assertions.
+     */
+
+    virtual model_converter_ref get_model_converter() const { return m_mc0; }
+
+    /**
+       \brief extract units from solver.
+    */
+    expr_ref_vector get_units(ast_manager& m);
+
+    expr_ref_vector get_non_units(ast_manager& m);
 
     class scoped_push {
         solver& s;
@@ -191,13 +255,24 @@ public:
         ~scoped_push() { if (!m_nopop) s.pop(1); }
         void disable_pop() { m_nopop = true; }
     };
+
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
  
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
 
+    void dump_state(unsigned sz, expr* const* assumptions);
+
     bool is_literal(ast_manager& m, expr* e);
 
+
 };
+
+typedef ref<solver> solver_ref;
+
+inline std::ostream& operator<<(std::ostream& out, solver const& s) {
+    return s.display(out);
+}
 
 #endif

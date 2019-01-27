@@ -26,8 +26,8 @@ struct Z3_solver_ref : public api::object {
     ref<solver>                m_solver;
     params_ref                 m_params;
     symbol                     m_logic;
-    Z3_solver_ref(api::context& c, solver_factory * f): api::object(c), m_solver_factory(f), m_solver(0), m_logic(symbol::null) {}
-    virtual ~Z3_solver_ref() {}
+    Z3_solver_ref(api::context& c, solver_factory * f): api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null) {}
+    ~Z3_solver_ref() override {}
 };
 
 inline Z3_solver_ref * to_solver(Z3_solver s) { return reinterpret_cast<Z3_solver_ref *>(s); }

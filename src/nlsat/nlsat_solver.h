@@ -108,7 +108,7 @@ namespace nlsat {
         /**
            \brief Create a new clause.
         */
-        void mk_clause(unsigned num_lits, literal * lits, assumption a = 0);
+        void mk_clause(unsigned num_lits, literal * lits, assumption a = nullptr);
 
         // -----------------------
         //
@@ -225,21 +225,21 @@ namespace nlsat {
         /**
            \brief Display solver's state.
         */
-        void display(std::ostream & out) const;
+        std::ostream& display(std::ostream & out) const;
 
         /**
            \brief Display literal
         */
-        void display(std::ostream & out, literal l) const;
+        std::ostream& display(std::ostream & out, literal l) const;
 
-        void display(std::ostream & out, unsigned n, literal const* ls) const;
+        std::ostream& display(std::ostream & out, unsigned n, literal const* ls) const;
 
-        void display(std::ostream & out, atom const& a) const;
+        std::ostream& display(std::ostream & out, atom const& a) const;
 
         /**
            \brief Display variable
         */
-        void display(std::ostream & out, var x) const;
+        std::ostream& display(std::ostream & out, var x) const;
         
         display_var_proc const & display_proc() const;
     };

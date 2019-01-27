@@ -53,8 +53,10 @@ class check_pred {
     ast_mark        m_pred_holds;
     ast_mark        m_visited;
     expr_ref_vector m_refs;
+    bool            m_check_quantifiers;
 public:        
-    check_pred(i_expr_pred& p, ast_manager& m) : m_pred(p), m_refs(m) {}
+    check_pred(i_expr_pred& p, ast_manager& m, bool check_quantifiers = true) : 
+        m_pred(p), m_refs(m), m_check_quantifiers(check_quantifiers) {}
         
     bool operator()(expr* e);
 
@@ -73,7 +75,7 @@ class contains_app {
         app* m_x;
     public:
         pred(app* x) : m_x(x) {}
-        virtual bool operator()(expr* e) {
+        bool operator()(expr* e) override {
             return m_x == e;
         }
     };
@@ -115,7 +117,7 @@ public:
     
     void reset() { m_map.reset(); }
     
-    void visit(var* e) { m_map.insert(e, e, 0); }
+    void visit(var* e) { m_map.insert(e, e, nullptr); }
     
     void visit(quantifier* e);
     

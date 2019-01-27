@@ -53,25 +53,25 @@ namespace datalog {
 
     public:
         interval_relation_plugin(relation_manager& m);
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
         static symbol get_name() { return symbol("interval_relation"); }
-        virtual relation_base * mk_empty(const relation_signature & s);
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
+        relation_base * mk_empty(const relation_signature & s) override;
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
 
         static bool is_empty(unsigned idx, interval const& i);
         static bool is_infinite(interval const& i);
@@ -97,39 +97,39 @@ namespace datalog {
     public:
         interval_relation(interval_relation_plugin& p, relation_signature const& s, bool is_empty);
 
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual interval_relation * clone() const;
-        virtual interval_relation * complement(func_decl*) const;
-        virtual void to_formula(expr_ref& fml) const;
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        interval_relation * clone() const override;
+        interval_relation * complement(func_decl*) const override;
+        void to_formula(expr_ref& fml) const override;
         interval_relation_plugin& get_plugin() const; 
 
         void filter_interpreted(app* cond);
-        virtual bool is_precise() const { return false; }
+        bool is_precise() const override { return false; }
 
     private:
 
-        virtual interval mk_intersect(interval const& t1, interval const& t2, bool& is_empty) const { 
+        interval mk_intersect(interval const& t1, interval const& t2, bool& is_empty) const override {
             return get_plugin().meet(t1, t2, is_empty); 
         }
 
-        virtual interval mk_unite(interval const& t1, interval const& t2) const { return get_plugin().unite(t1,t2); }
+        interval mk_unite(interval const& t1, interval const& t2) const override { return get_plugin().unite(t1,t2); }
 
-        virtual interval mk_widen(interval const& t1, interval const& t2) const { return get_plugin().widen(t1,t2); }
+        interval mk_widen(interval const& t1, interval const& t2) const override { return get_plugin().widen(t1,t2); }
 
-        virtual bool is_subset_of(interval const& t1, interval const& t2) const { NOT_IMPLEMENTED_YET(); return false; }
+        bool is_subset_of(interval const& t1, interval const& t2) const override { NOT_IMPLEMENTED_YET(); return false; }
 
-        virtual bool is_full(interval const& t) const { 
+        bool is_full(interval const& t) const override {
             return interval_relation_plugin::is_infinite(t);
         }
 
-        virtual bool is_empty(unsigned idx, interval const& t) const {
+        bool is_empty(unsigned idx, interval const& t) const override {
             return interval_relation_plugin::is_empty(idx, t);
         }
 
-        virtual void mk_rename_elem(interval& i, unsigned col_cnt, unsigned const* cycle);
+        void mk_rename_elem(interval& i, unsigned col_cnt, unsigned const* cycle) override;
 
-        virtual void display_index(unsigned idx, interval const & i, std::ostream& out) const;
+        void display_index(unsigned idx, interval const & i, std::ostream& out) const override;
 
         void mk_intersect(unsigned idx, interval const& i);
 

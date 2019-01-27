@@ -68,7 +68,7 @@ namespace datalog {
         
     rule_set * mk_magic_symbolic::operator()(rule_set const & source) {
         if (!m_ctx.magic()) {
-            return 0;
+            return nullptr;
         }
         context& ctx = source.get_context();
         rule_manager& rm = source.get_rule_manager();
@@ -98,7 +98,7 @@ namespace datalog {
             result->add_rule(new_rule);                
             if (source.is_output_predicate(r.get_decl())) {
                 result->set_output_predicate(new_rule->get_decl());
-                new_rule = rm.mk(mk_query(r.get_head()), 0, 0, 0, r.name(), true);
+                new_rule = rm.mk(mk_query(r.get_head()), 0, nullptr, nullptr, r.name(), true);
                 result->add_rule(new_rule);
             }
 

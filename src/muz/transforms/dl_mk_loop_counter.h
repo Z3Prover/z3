@@ -36,9 +36,9 @@ namespace datalog {
         app_ref del_arg(app* fn);        
     public:
         mk_loop_counter(context & ctx, unsigned priority = 33000);
-        ~mk_loop_counter();
+        ~mk_loop_counter() override;
         
-        rule_set * operator()(rule_set const & source);
+        rule_set * operator()(rule_set const & source) override;
 
         func_decl* get_old(func_decl* f) const { return m_new2old.find(f); }
 

@@ -36,7 +36,7 @@ Notes:
 #include "tactic/arith/probe_arith.h"
 
 struct quasi_pb_probe : public probe {
-    virtual result operator()(goal const & g) {
+    result operator()(goal const & g) override {
         bool found_non_01 = false;
         bound_manager bm(g.m());
         bm(g);
@@ -58,20 +58,21 @@ probe * mk_is_quasi_pb_probe() {
 }
 
 // Create SMT solver that does not use cuts
-static tactic * mk_no_cut_smt_tactic(unsigned rs) {
+static tactic * mk_no_cut_smt_tactic(ast_manager& m, unsigned rs) {
     params_ref solver_p;
+    solver_p.set_sym(symbol("smt.logic"), symbol("QF_LIA")); // force smt_setup to use the new solver
     solver_p.set_uint("arith.branch_cut_ratio", 10000000);
     solver_p.set_uint("random_seed", rs);
-    return annotate_tactic("no-cut-smt-tactic", using_params(mk_smt_tactic_using(false), solver_p));
+    return annotate_tactic("no-cut-smt-tactic", using_params(mk_smt_tactic_using(m, false), solver_p));
 }
 
 // Create SMT solver that does not use cuts
-static tactic * mk_no_cut_no_relevancy_smt_tactic(unsigned rs) {
+static tactic * mk_no_cut_no_relevancy_smt_tactic(ast_manager& m, unsigned rs) {
     params_ref solver_p;
     solver_p.set_uint("arith.branch_cut_ratio", 10000000);
     solver_p.set_uint("random_seed", rs);
     solver_p.set_uint("relevancy", 0);
-    return annotate_tactic("no-cut-relevancy-tactic", using_params(mk_smt_tactic_using(false), solver_p));
+    return annotate_tactic("no-cut-relevancy-tactic", using_params(mk_smt_tactic_using(m, false), solver_p));
 }
 
 static tactic * mk_bv2sat_tactic(ast_manager & m) {
@@ -89,7 +90,7 @@ static tactic * mk_bv2sat_tactic(ast_manager & m) {
                                  mk_max_bv_sharing_tactic(m),
                                  mk_bit_blaster_tactic(m),
                                  mk_aig_tactic(),
-                                 mk_sat_tactic(m)),
+                                 mk_sat_tactic(m, solver_p)),
                         solver_p);
 }
 
@@ -154,10 +155,10 @@ static tactic * mk_ilp_model_finder_tactic(ast_manager & m) {
                  fail_if(mk_produce_unsat_cores_probe()),
                  mk_propagate_ineqs_tactic(m),
                  or_else(// try_for(mk_mip_tactic(m), 5000),
-                     try_for(mk_no_cut_smt_tactic(100), 2000),
+                     try_for(mk_no_cut_smt_tactic(m, 100), 2000),
                      and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p1),
                               try_for(mk_lia2sat_tactic(m), 5000)),
-                     try_for(mk_no_cut_smt_tactic(200), 5000),
+                     try_for(mk_no_cut_smt_tactic(m, 200), 5000),
                      and_then(using_params(mk_add_bounds_tactic(m), add_bounds_p2),
                               try_for(mk_lia2sat_tactic(m), 10000))
                      // , mk_mip_tactic(m)
@@ -169,9 +170,9 @@ static tactic * mk_bounded_tactic(ast_manager & m) {
     return annotate_tactic(
         "bounded-tactic",
         and_then(fail_if(mk_is_unbounded_probe()),
-                 or_else(try_for(mk_no_cut_smt_tactic(100), 5000),
-                         try_for(mk_no_cut_no_relevancy_smt_tactic(200), 5000),
-                         try_for(mk_no_cut_smt_tactic(300), 15000)
+                 or_else(try_for(mk_no_cut_smt_tactic(m, 100), 5000),
+                         try_for(mk_no_cut_no_relevancy_smt_tactic(m, 200), 5000),
+                         try_for(mk_no_cut_smt_tactic(m, 300), 15000)
                          ),
                  mk_fail_if_undecided_tactic()));
 }
@@ -209,10 +210,7 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
     params_ref quasi_pb_p;
     quasi_pb_p.set_uint("lia2pb_max_bits", 64);
     
-    params_ref no_cut_p;
-    no_cut_p.set_uint("arith.branch_cut_ratio", 10000000);
-    
-    
+
     tactic * st = using_params(and_then(preamble_st,
                                         or_else(mk_ilp_model_finder_tactic(m),
                                                 mk_pb_tactic(m),
@@ -220,8 +218,9 @@ tactic * mk_qflia_tactic(ast_manager & m, params_ref const & p) {
                                                          using_params(mk_lia2sat_tactic(m), quasi_pb_p),
                                                          mk_fail_if_undecided_tactic()),
                                                 mk_bounded_tactic(m),
-                                                mk_smt_tactic())),
+                                                mk_smt_tactic(m))),
                                main_p);
+
     
     st->updt_params(p);
     return st;

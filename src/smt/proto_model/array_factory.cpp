@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "smt/proto_model/array_factory.h"
 #include "ast/array_decl_plugin.h"
-#include "smt/proto_model/proto_model.h"
-#include "model/func_interp.h"
 #include "ast/ast_pp.h"
+#include "model/func_interp.h"
+#include "smt/proto_model/array_factory.h"
+#include "smt/proto_model/proto_model.h"
 
 func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     ptr_buffer<sort> domain;
@@ -62,14 +62,18 @@ void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
 
 expr * array_factory::get_some_value(sort * s) {
     TRACE("array_factory", tout << mk_pp(s, m_manager) << "\n";);
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
     func_interp * fi;
     expr * val = mk_array_interp(s, fi);
+#if 0
     ptr_buffer<expr> args;
     get_some_args_for(s, args);
     fi->insert_entry(args.c_ptr(), m_model.get_some_value(get_array_range(s)));
+#else
+    fi->set_else(m_model.get_some_value(get_array_range(s)));
+#endif
     return val;
 }
 
@@ -99,8 +103,8 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
 }
 
 bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
-    value_set * set = 0;
-    if (!m_sort2value_set.find(s, set) || set->size() == 0) {
+    value_set * set = nullptr;
+    if (!m_sort2value_set.find(s, set) || set->empty()) {
         if (!mk_two_diff_values_for(s))
             return false;
     }
@@ -111,7 +115,7 @@ bool array_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     if (set->size() == 1) {
         v1 = *(set->begin());
         v2 = get_fresh_value(s);
-        return v2.get() != 0;
+        return v2.get() != nullptr;
     }
     else {
         SASSERT(set->size() >= 2);
@@ -139,13 +143,17 @@ expr * array_factory::get_fresh_value(sort * s) {
     }
     sort * range    = get_array_range(s);
     expr * range_val = m_model.get_fresh_value(range);
-    if (range_val != 0) {
+    if (range_val != nullptr) {
         // easy case
         func_interp * fi;
         expr * val = mk_array_interp(s, fi);
+#if 0
         ptr_buffer<expr> args;
         get_some_args_for(s, args);
         fi->insert_entry(args.c_ptr(), range_val);
+#else
+        fi->set_else(range_val);
+#endif
         return val;
     }
     else {
@@ -170,7 +178,7 @@ expr * array_factory::get_fresh_value(sort * s) {
                 if (!found) {
                     expr * arg1 = m_model.get_fresh_value(d);
                     expr * arg2 = m_model.get_fresh_value(d);
-                    if (arg1 != 0 && arg2 != 0) {
+                    if (arg1 != nullptr && arg2 != nullptr) {
                         found = true;
                         args1.push_back(arg1);
                         args2.push_back(arg2);
@@ -201,6 +209,6 @@ expr * array_factory::get_fresh_value(sort * s) {
     
     // failed to create a fresh array value
     TRACE("array_factory_bug", tout << "failed to build fresh array value\n";);
-    return 0;
+    return nullptr;
 }
 

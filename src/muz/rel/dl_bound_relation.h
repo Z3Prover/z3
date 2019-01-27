@@ -47,29 +47,29 @@ namespace datalog {
         bool_rewriter m_bsimp;
     public:
         bound_relation_plugin(relation_manager& m);
-        virtual bool can_handle_signature(const relation_signature & s);
+        bool can_handle_signature(const relation_signature & s) override;
         static symbol get_name() { return symbol("bound_relation"); }
-        virtual relation_base * mk_empty(const relation_signature & s);
-        virtual relation_base * mk_full(func_decl* p, const relation_signature & s);
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        
-        virtual relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
-                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
-                    unsigned removed_col_cnt, const unsigned * removed_cols) { return 0; }
+        relation_base * mk_empty(const relation_signature & s) override;
+        relation_base * mk_full(func_decl* p, const relation_signature & s) override;
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+
+        relation_join_fn * mk_join_project_fn(const relation_base & t1, const relation_base & t2,
+                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2,
+                    unsigned removed_col_cnt, const unsigned * removed_cols) override { return nullptr; }
 
 
 #if 0
@@ -123,12 +123,12 @@ namespace datalog {
         bound_relation(bound_relation_plugin& p, relation_signature const& s, bool is_empty);
         bound_relation& operator=(bound_relation const& other);
 
-        virtual bool empty() const { return m_empty; }
-        virtual void add_fact(const relation_fact & f);
-        virtual bool contains_fact(const relation_fact & f) const;
-        virtual bound_relation * clone() const;
-        virtual bound_relation * complement(func_decl* p) const;
-        virtual void to_formula(expr_ref& fml) const;
+        bool empty() const override { return m_empty; }
+        void add_fact(const relation_fact & f) override;
+        bool contains_fact(const relation_fact & f) const override;
+        bound_relation * clone() const override;
+        bound_relation * complement(func_decl* p) const override;
+        void to_formula(expr_ref& fml) const override;
         bound_relation_plugin& get_plugin() const; 
 
         void mk_union_i(interval_relation const& src, bound_relation* delta, bool is_widen);
@@ -141,28 +141,28 @@ namespace datalog {
 
         bool is_lt(unsigned i, unsigned j) const;
 
-        virtual bool is_precise() const { return false; }
+        bool is_precise() const override { return false; }
 
     private:
         typedef uint_set2 T;
-        virtual T mk_intersect(T const& t1, T const& t2, bool& is_empty) const;
+        T mk_intersect(T const& t1, T const& t2, bool& is_empty) const override;
 
-        virtual T mk_widen(T const& t1, T const& t2) const;
+        T mk_widen(T const& t1, T const& t2) const override;
 
-        virtual T mk_unite(T const& t1, T const& t2) const;
+        T mk_unite(T const& t1, T const& t2) const override;
 
-        virtual T mk_eq(union_find<> const& old_eqs, union_find<> const& new_eqs, T const& t) const;
+        T mk_eq(union_find<> const& old_eqs, union_find<> const& new_eqs, T const& t) const override;
 
-        virtual void mk_rename_elem(T& i, unsigned col_cnt, unsigned const* cycle);
+        void mk_rename_elem(T& i, unsigned col_cnt, unsigned const* cycle) override;
 
 
-        virtual bool is_subset_of(T const& t1, T const& t2) const;
+        bool is_subset_of(T const& t1, T const& t2) const override;
 
-        virtual bool is_full(T const& t) const;
+        bool is_full(T const& t) const override;
 
-        virtual bool is_empty(unsigned idx, T const& t) const;
+        bool is_empty(unsigned idx, T const& t) const override;
 
-        virtual void display_index(unsigned idx, T const& t, std::ostream& out) const;
+        void display_index(unsigned idx, T const& t, std::ostream& out) const override;
 
         void normalize(T const& src, T& dst) const;
 

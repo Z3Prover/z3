@@ -83,7 +83,7 @@ class reduce_hypotheses {
     // map from unit literals to their hypotheses-free derivations
     obj_map<expr, proof*> m_units;
 
-    // -- all hypotheses in the the proof
+    // -- all hypotheses in the proof
     obj_hashtable<expr> m_hyps;
 
     // marks hypothetical proofs
@@ -143,7 +143,7 @@ class reduce_hypotheses {
 
     void reduce(proof* pf, proof_ref &out)
     {
-        proof *res = NULL;
+        proof *res = nullptr;
 
         m_todo.reset();
         m_todo.push_back(pf);
@@ -192,7 +192,7 @@ class reduce_hypotheses {
                 res = mk_lemma_core(args.get(0), m.get_fact(p));
                 compute_mark1(res);
             } else if (m.is_unit_resolution(p)) {
-                // unit: reduce untis; reduce the first premise; rebuild unit resolution
+                // unit: reduce units; reduce the first premise; rebuild unit resolution
                 res = mk_unit_resolution_core(args.size(), args.c_ptr());
                 compute_mark1(res);
             } else  {
@@ -238,7 +238,7 @@ class reduce_hypotheses {
         { args.push_back(fact); }
 
 
-        if (args.size() == 0) { return pf; }
+        if (args.empty()) { return pf; }
         else if (args.size() == 1) {
             lemma = args.get(0);
         } else {
@@ -340,7 +340,7 @@ void reduce_hypotheses(proof_ref &pr) {
 class reduce_hypotheses0 {
     typedef obj_hashtable<expr> expr_set;
     ast_manager&          m;
-    // reference for any expression created by the tranformation
+    // reference for any expression created by the transformation
     expr_ref_vector       m_refs;
     // currently computed result
     obj_map<proof,proof*> m_cache;
@@ -352,7 +352,7 @@ class reduce_hypotheses0 {
     unsigned_vector       m_limits;
     // map from proofs to active hypotheses
     obj_map<proof, expr_set*> m_hypmap;
-    // refernce train for hypotheses sets
+    // reference train for hypotheses sets
     ptr_vector<expr_set>  m_hyprefs;
     ptr_vector<expr>      m_literals;
     
@@ -392,7 +392,7 @@ class reduce_hypotheses0 {
     }
     
     void add_hypotheses(proof* p) {
-        expr_set* hyps = 0;
+        expr_set* hyps = nullptr;
         bool inherited = false;
         if (p->get_decl_kind() == PR_HYPOTHESIS) {
             hyps = alloc(expr_set);
@@ -492,7 +492,7 @@ public:
             // replace result by m_units[m.get_fact (p)] if defined
             // AG: This is the main step. Replace a hypothesis by a derivation of its consequence
             if (!m_units.find(m.get_fact(p), result)) {
-                // restore ther result back to p
+                // restore the result back to p
                 result = p.get();
             }
             // compute hypothesis of the result
@@ -509,7 +509,7 @@ public:
             // eliminate hypothesis recursively in the proof of the lemma
             elim(tmp);
             expr_set* hyps = m_hypmap.find(tmp);
-            expr_set* new_hyps = 0;
+            expr_set* new_hyps = nullptr;
             // XXX if the proof is correct, the hypotheses of the tmp
             // XXX should be exactly those of the consequence of the lemma
             // XXX but if this code actually eliminates hypotheses, the set might be a subset
@@ -567,7 +567,7 @@ public:
             }
             if (new_hyps && new_hyps->empty()) {
                 dealloc(new_hyps);
-                new_hyps = 0;
+                new_hyps = nullptr;
             }
             m_hypmap.insert(result, new_hyps);
             // might push 0 into m_hyprefs. No reason for that
@@ -822,7 +822,7 @@ bool proof_utils::is_closed(ast_manager& m, proof* p) {
 
 static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>& cache, proof_ref& pr) {
     ast_manager& m = pr.get_manager();
-    proof* pr2 = 0;
+    proof* pr2 = nullptr;
     proof_ref_vector parents(m);
     proof_ref prNew(pr); 
     if (cache.find(pr, pr2)) {
@@ -975,9 +975,7 @@ private:
 
     void compose(expr_ref_vector& sub, expr_ref_vector const& s0) {
         for (unsigned i = 0; i < sub.size(); ++i) {
-            expr_ref e(m);
-            var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr(), e);
-            sub[i] = e;            
+            sub[i] = var_subst(m, false)(sub[i].get(), s0.size(), s0.c_ptr());
         }
     }
 
@@ -995,7 +993,7 @@ private:
                   tout << sub.size() << "\n";);
             return;
         }
-        var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr(), fml);
+        fml = var_subst(m, false)(q->get_expr(), sub.size(), sub.c_ptr());
     }
 
 };

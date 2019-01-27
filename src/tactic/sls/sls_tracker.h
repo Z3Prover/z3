@@ -40,7 +40,7 @@ class sls_tracker {
     mpz                   m_zero, m_one, m_two;
         
     struct value_score { 
-    value_score() : m(0), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
+    value_score() : m(nullptr), value(unsynch_mpz_manager::mk_z(0)), score(0.0), score_prune(0.0), has_pos_occ(0), has_neg_occ(0), distance(0), touched(1) {};
         value_score(value_score && other) :
             m(other.m),
             value(std::move(other.value)),
@@ -1003,7 +1003,7 @@ public:
     }
 
     ptr_vector<func_decl> & get_unsat_constants_walksat(expr * e) {
-            if (!e || m_temp_constants.size())
+            if (!e || !m_temp_constants.empty())
                 return m_temp_constants;
             ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
             unsigned sz = this_decls.size();
@@ -1038,7 +1038,7 @@ public:
             if (m_mpz_manager.neq(get_value(as[0]), m_one))
                 return as[0];
             else
-                return 0;
+                return nullptr;
         }
         m_temp_constants.reset();
 
@@ -1061,7 +1061,7 @@ public:
                 }
             }
             if (pos == static_cast<unsigned>(-1))
-                return 0;
+                return nullptr;
 
             m_touched++;
             m_scores.find(as[pos]).touched++;
@@ -1082,7 +1082,7 @@ public:
             for (unsigned i = 0; i < sz; i++)
                 if (m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;    
             if (pos == static_cast<unsigned>(-1))
-                return 0;
+                return nullptr;
         }
         
         m_last_pos = pos;
@@ -1092,7 +1092,7 @@ public:
     expr * get_new_unsat_assertion(ptr_vector<expr> const & as) {
         unsigned sz = as.size();
         if (sz == 1)
-            return 0;
+            return nullptr;
         m_temp_constants.reset();
         
         unsigned cnt_unsat = 0, pos = -1;
@@ -1100,7 +1100,7 @@ public:
             if ((i != m_last_pos) && m_mpz_manager.neq(get_value(as[i]), m_one) && (get_random_uint(16) % ++cnt_unsat == 0)) pos = i;
 
         if (pos == static_cast<unsigned>(-1))
-            return 0;
+            return nullptr;
         return as[pos];
     }
 };

@@ -74,7 +74,7 @@ public:
     typedef T * iterator;
     typedef const T * const_iterator;
 
-    array():m_data(0) {}
+    array():m_data(nullptr) {}
 
     /**
        \brief Store the array in the given chunk of memory (mem).
@@ -123,7 +123,7 @@ public:
             if (CallDestructors)
                 destroy_elements();
             a.deallocate(space(size()), raw_ptr());
-            m_data = 0;
+            m_data = nullptr;
         }
     }
 
@@ -148,13 +148,13 @@ public:
     }
 
     unsigned size() const { 
-        if (m_data == 0) {
+        if (m_data == nullptr) {
             return 0;  
         }
         return static_cast<unsigned>(reinterpret_cast<size_t *>(m_data)[SIZE_IDX]); 
     }
     
-    bool empty() const { return m_data == 0; }
+    bool empty() const { return m_data == nullptr; }
 
     T & operator[](unsigned idx) { 
         SASSERT(idx < size()); 

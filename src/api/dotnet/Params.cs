@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// A Params objects represents a configuration in the form of Symbol/value pairs.
     /// </summary>
-    [ContractVerification(true)]
     public class Params : Z3Object
     {
         /// <summary>
@@ -33,9 +32,9 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(Symbol name, bool value)
         {
-            Contract.Requires(name != null);
+            Debug.Assert(name != null);
 
-            Native.Z3_params_set_bool(Context.nCtx, NativeObject, name.NativeObject, (value) ? 1 : 0);
+            Native.Z3_params_set_bool(Context.nCtx, NativeObject, name.NativeObject, (byte)(value ? 1 : 0));
             return this;
         }
 
@@ -44,7 +43,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(Symbol name, uint value)
         {
-            Contract.Requires(name != null);
+            Debug.Assert(name != null);
 
             Native.Z3_params_set_uint(Context.nCtx, NativeObject, name.NativeObject, value);
             return this;
@@ -55,7 +54,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(Symbol name, double value)
         {
-            Contract.Requires(name != null);            
+            Debug.Assert(name != null);            
 
             Native.Z3_params_set_double(Context.nCtx, NativeObject, name.NativeObject, value);
             return this;
@@ -66,7 +65,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(Symbol name, string value)
         {
-            Contract.Requires(value != null);
+            Debug.Assert(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, Context.MkSymbol(value).NativeObject);
             return this;
@@ -77,8 +76,8 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(Symbol name, Symbol value)
         {
-            Contract.Requires(name != null);
-            Contract.Requires(value != null);
+            Debug.Assert(name != null);
+            Debug.Assert(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, name.NativeObject, value.NativeObject);
             return this;
@@ -90,8 +89,8 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(string name, bool value)
         {
-            Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (value) ? 1 : 0);
-            return this;
+            Native.Z3_params_set_bool(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, (byte)(value ? 1 : 0));
+	    return this;
         }
 
         /// <summary>
@@ -100,7 +99,7 @@ namespace Microsoft.Z3
         public Params Add(string name, uint value)
         {
             Native.Z3_params_set_uint(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value);
-            return this;
+	    return this;
         }
 
         /// <summary>
@@ -117,7 +116,7 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(string name, Symbol value)
         {
-            Contract.Requires(value != null);
+            Debug.Assert(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, value.NativeObject);
             return this;
@@ -128,8 +127,8 @@ namespace Microsoft.Z3
         /// </summary>
         public Params Add(string name, string value)
         {
-            Contract.Requires(name != null);
-            Contract.Requires(value != null);
+            Debug.Assert(name != null);
+            Debug.Assert(value != null);
 
             Native.Z3_params_set_symbol(Context.nCtx, NativeObject, Context.MkSymbol(name).NativeObject, Context.MkSymbol(value).NativeObject);
             return this;
@@ -147,7 +146,7 @@ namespace Microsoft.Z3
         internal Params(Context ctx)
             : base(ctx, Native.Z3_mk_params(ctx.nCtx))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

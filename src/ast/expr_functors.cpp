@@ -69,7 +69,11 @@ void check_pred::visit(expr* e) {
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(e);
             expr* arg = q->get_expr();
-            if (m_visited.is_marked(arg)) {
+            if (!m_check_quantifiers) {
+                todo.pop_back();
+                m_visited.mark(e, true);
+            }
+            else if (m_visited.is_marked(arg)) {
                 todo.pop_back();
                 if (m_pred_holds.is_marked(arg)) {
                     m_pred_holds.mark(e, true);
@@ -121,22 +125,22 @@ void map_proc::reconstruct(app* a) {
     }
     if (is_new) {
         expr* b = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
-        m_map.insert(a, b, 0);
+        m_map.insert(a, b, nullptr);
     }
     else {
-        m_map.insert(a, a, 0);
+        m_map.insert(a, a, nullptr);
     }    
 }
 
 void map_proc::visit(quantifier* e) {
     expr_ref q(m);
     q = m.update_quantifier(e, get_expr(e->get_expr()));
-    m_map.insert(e, q, 0);
+    m_map.insert(e, q, nullptr);
 }
 
 expr* map_proc::get_expr(expr* e) {
-    expr* result = 0;
-    proof* p = 0;
+    expr* result = nullptr;
+    proof* p = nullptr;
     m_map.get(e, result, p);
     return result;
 }

@@ -96,7 +96,7 @@ protected:
 public:
     poly_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         Config(m),
-        m_curr_sort(0),
+        m_curr_sort(nullptr),
         m_sort_sums(false) {
         updt_params(p);
         SASSERT(!m_som || m_flat); // som of monomials form requires flattening to be enabled.

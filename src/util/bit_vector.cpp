@@ -16,7 +16,7 @@ Author:
 Revision History:
 
 --*/
-#include<limits.h>
+#include<climits>
 #include "util/bit_vector.h"
 #include "util/trace.h"
 

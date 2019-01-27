@@ -25,8 +25,7 @@ static expr_ref parse_fml(ast_manager& m, char const* str) {
            << "(assert " << str << ")\n";
     std::istringstream is(buffer.str());
     VERIFY(parse_smt2_commands(ctx, is));
-    ENSURE(ctx.begin_assertions() != ctx.end_assertions());
-    result = *ctx.begin_assertions();
+    result = ctx.assertions().get(0);
     return result;
 }
 
@@ -172,7 +171,7 @@ static expr_ref mk_mul(arith_util& arith, unsigned num_args, expr* const* args) 
 
 static void nf(expr_ref& term) {
     ast_manager& m = term.get_manager();
-    expr *e1 = 0, *e2 = 0;
+    expr *e1 = nullptr, *e2 = nullptr;
 
     th_rewriter rw(m);
     arith_util arith(m);

@@ -27,23 +27,23 @@ namespace qe {
         {
         }
 
-        virtual ~array_plugin() {}
+        ~array_plugin() override {}
 
         
-        virtual void assign(contains_app& x, expr* fml, rational const& vl) {
+        void assign(contains_app& x, expr* fml, rational const& vl) override {
             UNREACHABLE();
         }
         
-        virtual bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) {
+        bool get_num_branches( contains_app& x, expr* fml, rational& num_branches) override {
             return false;
         }
         
-        virtual void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) {
+        void subst(contains_app& x, rational const& vl, expr_ref& fml, expr_ref* def) override {
             UNREACHABLE();
         }
         
 
-        virtual bool solve(conj_enum& conjs, expr* fml) {
+        bool solve(conj_enum& conjs, expr* fml) override {
 
             conj_enum::iterator it = conjs.begin(), end = conjs.end();
             for (; it != end; ++it) {
@@ -65,7 +65,7 @@ namespace qe {
             return false;
         }
 
-        virtual bool is_uninterpreted(app* f) {
+        bool is_uninterpreted(app* f) override {
             return true;
         }
 

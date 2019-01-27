@@ -95,12 +95,12 @@ void dl_query_test(ast_manager & m, smt_params & fparams, params_ref& params,
             f_b.reset();
             f_q.reset();
             for(unsigned col=0; col<sig_b.size(); col++) {
-                uint64 sort_sz;
+                uint64_t sort_sz;
                 if(!decl_util.try_get_size(sig_q[col], sort_sz)) {
                     warning_msg("cannot get sort size");
                     return;
                 }
-                uint64 num = ran()%sort_sz;
+                uint64_t num = ran()%sort_sz;
                 app * el_b = decl_util.mk_numeral(num, sig_b[col]);
                 f_b.push_back(el_b);
                 app * el_q = decl_util.mk_numeral(num, sig_q[col]);
@@ -167,7 +167,7 @@ void dl_query_test_wpa(smt_params & fparams, params_ref& params) {
     ENSURE(v_pred);
     sort * var_sort = v_pred->get_domain(0);
 
-    uint64 var_sz;
+    uint64_t var_sz;
     TRUSTME( ctx.try_get_sort_constant_count(var_sort, var_sz) );
 
     for(unsigned attempt=0; attempt<attempts; attempt++) {

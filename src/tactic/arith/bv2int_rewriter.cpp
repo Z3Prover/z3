@@ -38,7 +38,7 @@ void bv2int_rewriter_ctx::collect_power2(goal const& s) {
         expr* f = s.form(j);
         if (!m.is_or(f)) continue;
         unsigned sz = to_app(f)->get_num_args();
-        expr* x, *y, *v = 0;
+        expr* x, *y, *v = nullptr;
         rational n;
         vector<rational> bounds;
         bool is_int, ok = true;
@@ -50,12 +50,12 @@ void bv2int_rewriter_ctx::collect_power2(goal const& s) {
                 break;
             }
             if (arith.is_numeral(y, n, is_int) && is_int &&
-                (x == v || v == 0)) {
+                (x == v || v == nullptr)) {
                 v = x;
                 bounds.push_back(n);
             }
             else if (arith.is_numeral(x, n, is_int) && is_int &&
-                     (y == v || v == 0)) {
+                     (y == v || v == nullptr)) {
                 v = y;
                 bounds.push_back(n);
             }

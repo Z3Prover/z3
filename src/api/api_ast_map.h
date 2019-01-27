@@ -25,7 +25,7 @@ struct Z3_ast_map_ref : public api::object {
     ast_manager &            m;
     obj_map<ast, ast*> m_map;
     Z3_ast_map_ref(api::context& c, ast_manager & _m): api::object(c), m(_m) {}
-    virtual ~Z3_ast_map_ref();
+    ~Z3_ast_map_ref() override;
 };
 
 inline Z3_ast_map_ref * to_ast_map(Z3_ast_map v) { return reinterpret_cast<Z3_ast_map_ref *>(v); }

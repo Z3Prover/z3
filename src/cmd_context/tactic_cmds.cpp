@@ -32,14 +32,6 @@ Notes:
 #include "cmd_context/cmd_context_to_goal.h"
 #include "cmd_context/echo_tactic.h"
 
-tactic_cmd::~tactic_cmd() {
-    dealloc(m_factory);
-}
-
-tactic * tactic_cmd::mk(ast_manager & m) {
-    return (*m_factory)(m, params_ref());
-}
-
 probe_info::probe_info(symbol const & n, char const * d, probe * p):
     m_name(n),
     m_descr(d),
@@ -55,20 +47,20 @@ class declare_tactic_cmd : public cmd {
 public:
     declare_tactic_cmd():
         cmd("declare-tactic"),
-        m_decl(0) {
+        m_decl(nullptr) {
     }
 
-    virtual char const * get_usage() const { return "<symbol> <tactic>"; }
-    virtual char const * get_descr(cmd_context & ctx) const { return "declare a new tactic, use (help-tactic) for the tactic language syntax."; }
-    virtual unsigned get_arity() const { return 2; }
-    virtual void prepare(cmd_context & ctx) { m_name = symbol::null; m_decl = 0; }
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
+    char const * get_usage() const override { return "<symbol> <tactic>"; }
+    char const * get_descr(cmd_context & ctx) const override { return "declare a new tactic, use (help-tactic) for the tactic language syntax."; }
+    unsigned get_arity() const override { return 2; }
+    void prepare(cmd_context & ctx) override { m_name = symbol::null; m_decl = nullptr; }
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
         if (m_name == symbol::null) return CPK_SYMBOL;
         return CPK_SEXPR;
     }
-    virtual void set_next_arg(cmd_context & ctx, symbol const & s) { m_name = s; }
-    virtual void set_next_arg(cmd_context & ctx, sexpr * n) { m_decl = n; }
-    virtual void execute(cmd_context & ctx) {
+    void set_next_arg(cmd_context & ctx, symbol const & s) override { m_name = s; }
+    void set_next_arg(cmd_context & ctx, sexpr * n) override { m_decl = n; }
+    void execute(cmd_context & ctx) override {
         tactic_ref t = sexpr2tactic(ctx, m_decl); // make sure the tactic is well formed.
         ctx.insert_user_tactic(m_name, m_decl);
     }
@@ -93,7 +85,7 @@ ATOMIC_CMD(get_user_tactics_cmd, "get-user-tactics", "display tactics defined us
 void help_tactic(cmd_context & ctx) {
     std::ostringstream buf;
     buf << "combinators:\n";
-    buf << "- (and-then <tactic>+) executes the given tactics sequencially.\n";
+    buf << "- (and-then <tactic>+) executes the given tactics sequentially.\n";
     buf << "- (or-else <tactic>+) tries the given tactics in sequence until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-or <tactic>+) executes the given tactics in parallel until one of them succeeds (i.e., the first that doesn't fail).\n";
     buf << "- (par-then <tactic1> <tactic2>) executes tactic1 and then tactic2 to every subgoal produced by tactic1. All subgoals are processed in parallel.\n";
@@ -133,23 +125,23 @@ public:
         parametric_cmd(name) {
     }
 
-    virtual char const * get_usage() const { return "<tactic> (<keyword> <value>)*"; }
+    char const * get_usage() const override { return "<tactic> (<keyword> <value>)*"; }
 
-    virtual void prepare(cmd_context & ctx) {
+    void prepare(cmd_context & ctx) override {
         parametric_cmd::prepare(ctx);
-        m_tactic = 0;
+        m_tactic = nullptr;
     }
 
-    virtual cmd_arg_kind next_arg_kind(cmd_context & ctx) const {
-        if (m_tactic == 0) return CPK_SEXPR;
+    cmd_arg_kind next_arg_kind(cmd_context & ctx) const override {
+        if (m_tactic == nullptr) return CPK_SEXPR;
         return parametric_cmd::next_arg_kind(ctx);
     }
 
-    virtual void set_next_arg(cmd_context & ctx, sexpr * arg) {
+    void set_next_arg(cmd_context & ctx, sexpr * arg) override {
         m_tactic = arg;
     }
 
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         insert_timeout(p);
         insert_max_memory(p);
         p.insert("print_statistics", CPK_BOOL, "(default: false) print statistics.");
@@ -172,7 +164,7 @@ public:
   check_sat_tactic_result(ast_manager & m) : simple_check_sat_result(m) {
   }
 
-  virtual void get_labels(svector<symbol> & r) {
+  void get_labels(svector<symbol> & r) override {
     r.append(labels);
   }
 
@@ -187,25 +179,27 @@ public:
         exec_given_tactic_cmd("check-sat-using") {
     }
 
-    virtual char const * get_main_descr() const { return "check if the current context is satisfiable using the given tactic, use (help-tactic) for the tactic language syntax."; }
+    char const * get_main_descr() const override { return "check if the current context is satisfiable using the given tactic, use (help-tactic) for the tactic language syntax."; }
 
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         exec_given_tactic_cmd::init_pdescrs(ctx, p);
         p.insert("print_unsat_core", CPK_BOOL, "(default: false) print unsatisfiable core.");
         p.insert("print_proof", CPK_BOOL, "(default: false) print proof.");
         p.insert("print_model", CPK_BOOL, "(default: false) print model.");
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         if (!m_tactic) {
             throw cmd_exception("check-sat-using needs a tactic argument");
         }
+        if (ctx.ignore_check())
+            return;
         params_ref p = ctx.params().merge_default_params(ps());
         tactic_ref tref = using_params(sexpr2tactic(ctx, m_tactic), p);
         tref->set_logic(ctx.get_logic());
         ast_manager & m = ctx.m();
         unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
-        unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
+        unsigned rlimit  =   p.get_uint("rlimit", ctx.params().rlimit());
         labels_vec labels;
         goal_ref g = alloc(goal, m, ctx.produce_proofs(), ctx.produce_models(), ctx.produce_unsat_cores());
         assert_exprs_from(ctx, *g);
@@ -230,7 +224,7 @@ public:
                     ctx.display_sat_result(r);
                     result->set_status(r);
                     if (r == l_undef) {
-                        if (reason_unknown != "") {
+                        if (!reason_unknown.empty()) {
                             result->m_unknown = reason_unknown;
                             // ctx.diagnostic_stream() << "\"" << escaped(reason_unknown.c_str(), true) << "\"" << std::endl;
                         }
@@ -295,9 +289,9 @@ public:
         exec_given_tactic_cmd("apply") {
     }
 
-    virtual char const * get_main_descr() const { return "apply the given tactic to the current context, and print the resultant set of goals."; }
+    char const * get_main_descr() const override { return "apply the given tactic to the current context, and print the resultant set of goals."; }
 
-    virtual void init_pdescrs(cmd_context & ctx, param_descrs & p) {
+    void init_pdescrs(cmd_context & ctx, param_descrs & p) override {
         p.insert("print", CPK_BOOL, "(default: true) print resultant goals.");
 #ifndef _EXTERNAL_RELEASE
         p.insert("print_proof", CPK_BOOL, "(default: false) print proof associated with each assertion.");
@@ -308,7 +302,7 @@ public:
         exec_given_tactic_cmd::init_pdescrs(ctx, p);
     }
 
-    virtual void execute(cmd_context & ctx) {
+    void execute(cmd_context & ctx) override {
         if (!m_tactic) {
             throw cmd_exception("apply needs a tactic argument");
         }
@@ -321,12 +315,9 @@ public:
             assert_exprs_from(ctx, *g);
 
             unsigned timeout   = p.get_uint("timeout", ctx.params().m_timeout);
-            unsigned rlimit  =   p.get_uint("rlimit", ctx.params().m_rlimit);
+            unsigned rlimit  =   p.get_uint("rlimit", ctx.params().rlimit());
 
             goal_ref_buffer     result_goals;
-            model_converter_ref mc;
-            proof_converter_ref pc;
-            expr_dependency_ref core(m);
 
             std::string reason_unknown;
             bool failed = false;
@@ -337,7 +328,7 @@ public:
                 scoped_timer timer(timeout, &eh);
                 cmd_context::scoped_watch sw(ctx);
                 try {
-                    exec(t, g, result_goals, mc, pc, core);
+                    exec(t, g, result_goals);
                 }
                 catch (tactic_exception & ex) {
                     ctx.regular_stream() << "(error \"tactic failed: " << ex.msg() << "\")" << std::endl;
@@ -396,8 +387,8 @@ public:
                 }
             }
 
-            if (!failed && mc && p.get_bool("print_model_converter", false))
-                mc->display(ctx.regular_stream());
+            if (!failed && g->mc() && p.get_bool("print_model_converter", false))
+                g->mc()->display(ctx.regular_stream());
 
             if (p.get_bool("print_statistics", false))
                 display_statistics(ctx, tref.get());
@@ -597,9 +588,9 @@ static tactic * mk_echo(cmd_context & ctx, sexpr * n) {
         if (curr->is_string())
             t = mk_echo_tactic(ctx, curr->get_string().c_str(), last);
         else
-            t = mk_probe_value_tactic(ctx, 0, sexpr2probe(ctx, curr), last);
+            t = mk_probe_value_tactic(ctx, nullptr, sexpr2probe(ctx, curr), last);
         tactic * new_res;
-        if (res.get() == 0)
+        if (res.get() == nullptr)
             new_res = t;
         else
             new_res = and_then(res.get(), t);
@@ -608,7 +599,7 @@ static tactic * mk_echo(cmd_context & ctx, sexpr * n) {
         res = new_res;
     }
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 static tactic * mk_fail_if_branching(cmd_context & ctx, sexpr * n) {
@@ -665,10 +656,10 @@ static tactic * mk_skip_if_failed(cmd_context & ctx, sexpr * n) {
 tactic * sexpr2tactic(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
         tactic_cmd * cmd = ctx.find_tactic_cmd(n->get_symbol());
-        if (cmd != 0)
+        if (cmd != nullptr)
             return cmd->mk(ctx.m());
         sexpr * decl = ctx.find_user_tactic(n->get_symbol());
-        if (decl != 0)
+        if (decl != nullptr)
             return sexpr2tactic(ctx, decl);
         throw cmd_exception("invalid tactic, unknown tactic ", n->get_symbol(), n->get_line(), n->get_pos());
     }
@@ -778,7 +769,7 @@ MK_NARY_PROBE(mk_mul);
 probe * sexpr2probe(cmd_context & ctx, sexpr * n) {
     if (n->is_symbol()) {
         probe_info * pinfo = ctx.find_probe(n->get_symbol());
-        if (pinfo != 0)
+        if (pinfo != nullptr)
             return pinfo->get();
         throw cmd_exception("invalid probe, unknown builtin probe ", n->get_symbol(), n->get_line(), n->get_pos());
     }

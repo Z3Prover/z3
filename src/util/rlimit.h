@@ -24,9 +24,9 @@ Revision History:
 class reslimit {
     volatile unsigned   m_cancel;
     bool            m_suspend;
-    uint64          m_count;
-    uint64          m_limit;
-    svector<uint64> m_limits;
+    uint64_t        m_count;
+    uint64_t        m_limit;
+    svector<uint64_t> m_limits;
     ptr_vector<reslimit> m_children;
 
     void set_cancel(unsigned f);
@@ -41,7 +41,7 @@ public:
 
     bool inc();
     bool inc(unsigned offset);
-    uint64 count() const;
+    uint64_t count() const;
 
 
     bool get_cancel_flag() const { return m_cancel > 0 && !m_suspend; }
@@ -65,12 +65,14 @@ public:
 
 class scoped_suspend_rlimit {
     reslimit & m_limit;
+    bool       m_suspend;
 public:
     scoped_suspend_rlimit(reslimit& r): m_limit(r) {
+        m_suspend = r.m_suspend;
         r.m_suspend = true;
     }
     ~scoped_suspend_rlimit() {
-        m_limit.m_suspend = false;
+        m_limit.m_suspend = m_suspend;
     }
 };
 

@@ -128,7 +128,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    cost_recorder::cost_recorder() : m_obj(0) {
+    cost_recorder::cost_recorder() : m_obj(nullptr) {
         m_stopwatch = alloc(stopwatch);
         m_stopwatch->start();
     }
@@ -141,7 +141,7 @@ namespace datalog {
     }
 
     void cost_recorder::start(accounted_object * obj) {
-        uint64 curr_time = static_cast<uint64>(m_stopwatch->get_current_seconds()*1000);
+        uint64_t curr_time = static_cast<uint64_t>(m_stopwatch->get_current_seconds()*1000);
         if(m_obj) {
             costs::time_type time_delta = static_cast<costs::time_type>(curr_time-m_last_time);
             costs & c = m_obj->get_current_costs();
@@ -149,7 +149,7 @@ namespace datalog {
             c.milliseconds+=time_delta;
             m_obj->m_being_recorded = false;
         }
-        m_running = obj!=0;
+        m_running = obj!=nullptr;
         m_obj = obj;
         m_last_time = curr_time;
         if(obj) {

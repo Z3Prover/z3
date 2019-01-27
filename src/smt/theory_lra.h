@@ -29,69 +29,72 @@ namespace smt {
 
     public:
         theory_lra(ast_manager& m, theory_arith_params& ap);
-        virtual ~theory_lra();
-        virtual theory* mk_fresh(context* new_ctx);
-        virtual char const* get_name() const { return "lra"; }
+        ~theory_lra() override;
+        theory* mk_fresh(context* new_ctx) override;
+        char const* get_name() const override { return "arithmetic"; }
         
-        virtual void init(context * ctx);
+        void init(context * ctx) override;
 
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
+        bool internalize_atom(app * atom, bool gate_ctx) override;
                                                      
-        virtual bool internalize_term(app * term);
+        bool internalize_term(app * term) override;
 
-        virtual void internalize_eq_eh(app * atom, bool_var v);
+        void internalize_eq_eh(app * atom, bool_var v) override;
 
-        virtual void assign_eh(bool_var v, bool is_true);
+        void assign_eh(bool_var v, bool is_true) override;
 
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
+        void new_eq_eh(theory_var v1, theory_var v2) override;
 
-        virtual bool use_diseqs() const;
+        bool use_diseqs() const override;
 
-        virtual void new_diseq_eh(theory_var v1, theory_var v2);
+        void new_diseq_eh(theory_var v1, theory_var v2) override;
 
-        virtual void push_scope_eh();
+        void push_scope_eh() override;
 
-        virtual void pop_scope_eh(unsigned num_scopes);
+        void pop_scope_eh(unsigned num_scopes) override;
 
-        virtual void restart_eh();
+        void restart_eh() override;
 
-        virtual void relevant_eh(app* e);
+        void relevant_eh(app* e) override;
 
-        virtual void init_search_eh();
+        void init_search_eh() override;
 
-        virtual final_check_status final_check_eh();
+        final_check_status final_check_eh() override;
 
-        virtual bool is_shared(theory_var v) const;
+        bool is_shared(theory_var v) const override;
     
-        virtual bool can_propagate();
+        bool can_propagate() override;
         
-        virtual void propagate();
+        void propagate() override;
         
-        virtual justification * why_is_diseq(theory_var v1, theory_var v2);
+        justification * why_is_diseq(theory_var v1, theory_var v2) override;
 
         // virtual void flush_eh();
 
-        virtual void reset_eh();
+        void reset_eh() override;
 
-        virtual void init_model(model_generator & m);
+        void init_model(model_generator & m) override;
         
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
 
-        virtual bool get_value(enode* n, expr_ref& r);
+        bool get_value(enode* n, expr_ref& r) override;
+        bool get_value(enode* n, rational& r);
+        bool get_lower(enode* n, expr_ref& r);
+        bool get_upper(enode* n, expr_ref& r);
+        bool get_lower(enode* n, rational& r, bool& is_strict);
+        bool get_upper(enode* n, rational& r, bool& is_strict);
 
-        virtual bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const;
+        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
                 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
         
-        virtual void collect_statistics(::statistics & st) const;
+        void collect_statistics(::statistics & st) const override;
 
         // optimization
-        virtual inf_eps value(theory_var);
-        virtual inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared); 
-        virtual theory_var add_objective(app* term);
-        virtual expr_ref mk_ge(filter_model_converter& fm, theory_var v, inf_rational const& val);
-
-
+        expr_ref mk_ge(generic_model_converter& fm, theory_var v, inf_rational const& val);
+        inf_eps value(theory_var) override;
+        inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) override;
+        theory_var add_objective(app* term) override;
     };
 
 }

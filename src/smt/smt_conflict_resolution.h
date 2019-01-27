@@ -96,7 +96,7 @@ namespace smt {
             };
             tp_elem(literal l):m_kind(LITERAL), m_lidx(l.index()) {}
             tp_elem(enode * lhs, enode * rhs):m_kind(EQUALITY), m_lhs(lhs), m_rhs(rhs) {}
-            tp_elem(justification * js):m_kind(JUSTIFICATION), m_js(js) {}
+        tp_elem(justification * js):m_kind(JUSTIFICATION), m_js(js) { SASSERT(js);}
         };
 
         svector<tp_elem>               m_todo_pr;

@@ -41,20 +41,20 @@ namespace datalog {
     public:
         scoped_rel(T* t) : m_t(t) {}
         ~scoped_rel() { if (m_t) { universal_delete(m_t); } }
-        scoped_rel() : m_t(0) {}
+        scoped_rel() : m_t(nullptr) {}
         scoped_rel& operator=(T* t) { if (m_t && t != m_t) { universal_delete(m_t); } m_t = t;  return *this; }
         T* operator->() { return m_t; }
         const T* operator->() const { return m_t; }
         T& operator*() { return *m_t; }
         const T& operator*() const { return *m_t; }
-        operator bool() const { return m_t!=0; }
+        operator bool() const { return m_t!=nullptr; }
         T* get() const { return m_t; }
         /**
            \brief Remove object from \c scoped_rel without deleting it.
         */
         T* release() {
             T* res = m_t;
-            m_t = 0;
+            m_t = nullptr;
             return res;
         }
     };
@@ -202,7 +202,7 @@ namespace datalog {
             virtual void operator()(base_object & tgt, const base_object & src, base_object * delta) = 0;
 
             void operator()(base_object & tgt, const base_object & src) {
-                (*this)(tgt, src, static_cast<base_object *>(0));
+                (*this)(tgt, src, static_cast<base_object *>(nullptr));
             }
         };
 
@@ -220,7 +220,7 @@ namespace datalog {
         */
         class mutator_fn : public base_fn {
         public:
-            virtual ~mutator_fn() {}
+            ~mutator_fn() override {}
 
             virtual void operator()(base_object & t) = 0;
 
@@ -295,7 +295,7 @@ namespace datalog {
                Precondition: &orig.get_plugin()==this
             */
             virtual base_object * mk_empty(const signature & s, family_id kind) {
-                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overriden
+                SASSERT(kind==get_kind()); //if plugin uses multiple kinds, this function needs to be overridden
                 return mk_empty(s);
             }
 
@@ -335,55 +335,55 @@ namespace datalog {
 
 
             virtual join_fn * mk_join_fn(const base_object & t1, const base_object & t2,
-                unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return 0; }
+                unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return nullptr; }
 
             virtual transformer_fn * mk_project_fn(const base_object & t, unsigned col_cnt, 
-                const unsigned * removed_cols) { return 0; }
+                const unsigned * removed_cols) { return nullptr; }
 
             virtual join_fn * mk_join_project_fn(const base_object & t1, const base_object & t2,
                     unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
-                    unsigned removed_col_cnt, const unsigned * removed_cols) { return 0; }
+                    unsigned removed_col_cnt, const unsigned * removed_cols) { return nullptr; }
 
             virtual transformer_fn * mk_rename_fn(const base_object & t, unsigned permutation_cycle_len, 
-                const unsigned * permutation_cycle) { return 0; }
+                const unsigned * permutation_cycle) { return nullptr; }
 
             virtual transformer_fn * mk_permutation_rename_fn(const base_object & t,
-                const unsigned * permutation) { return 0; }
+                const unsigned * permutation) { return nullptr; }
 
         public:
             virtual union_fn * mk_union_fn(const base_object & tgt, const base_object & src, 
-                const base_object * delta) { return 0; }
+                const base_object * delta) { return nullptr; }
         protected:
 
             virtual union_fn * mk_widen_fn(const base_object & tgt, const base_object & src, 
-                const base_object * delta) { return 0; }
+                const base_object * delta) { return nullptr; }
 
             virtual mutator_fn * mk_filter_identical_fn(const base_object & t, unsigned col_cnt, 
-                const unsigned * identical_cols) { return 0; }
+                const unsigned * identical_cols) { return nullptr; }
 
             virtual mutator_fn * mk_filter_equal_fn(const base_object & t, const element & value, 
-                unsigned col) { return 0; }
+                unsigned col) { return nullptr; }
 
             virtual mutator_fn * mk_filter_interpreted_fn(const base_object & t, app * condition)
-            { return 0; }
+            { return nullptr; }
 
             virtual transformer_fn * mk_filter_interpreted_and_project_fn(const base_object & t,
                 app * condition, unsigned removed_col_cnt, const unsigned * removed_cols)
-            { return 0; }
+            { return nullptr; }
 
             virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t, 
-                    const element & value, unsigned col) { return 0; }
+                    const element & value, unsigned col) { return nullptr; }
 
             virtual intersection_filter_fn * mk_filter_by_intersection_fn(const base_object & t, 
                 const base_object & src, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * src_cols) 
-            { return 0; }
+            { return nullptr; }
 
 
             virtual intersection_filter_fn * mk_filter_by_negation_fn(const base_object & t, 
                 const base_object & negated_obj, unsigned joined_col_cnt, 
                 const unsigned * t_cols, const unsigned * negated_cols) 
-            { return 0; }
+            { return nullptr; }
 
             virtual intersection_join_filter_fn * mk_filter_by_negated_join_fn(
                 const base_object & t, 
@@ -393,7 +393,7 @@ namespace datalog {
                 unsigned_vector const& src_cols,
                 unsigned_vector const& src1_cols,
                 unsigned_vector const& src2_cols) 
-            { return 0; }
+            { return nullptr; }
 
         };
 
@@ -629,19 +629,19 @@ namespace datalog {
 
         class identity_transformer_fn : public transformer_fn {
         public:
-            virtual base_object * operator()(const base_object & t) {
+            base_object * operator()(const base_object & t) override {
                 return t.clone();
             }
         };
 
         class identity_mutator_fn : public mutator_fn {
         public:
-            virtual void operator()(base_object & t) {};
+            void operator()(base_object & t) override {};
         };
 
         class identity_intersection_filter_fn : public intersection_filter_fn {
         public:
-            virtual void operator()(base_object & t, const base_object & neg) {};
+            void operator()(base_object & t, const base_object & neg) override {};
         };
 
         class default_permutation_rename_fn : public transformer_fn {
@@ -655,11 +655,11 @@ namespace datalog {
                 : m_permutation(o.get_signature().size(), permutation),
                 m_renamers_initialized(false) {}
 
-            ~default_permutation_rename_fn() {
+            ~default_permutation_rename_fn() override {
                 dealloc_ptr_vector_content(m_renamers);
             }
 
-            base_object * operator()(const base_object & o) {
+            base_object * operator()(const base_object & o) override {
                 const base_object * res = &o;
                 scoped_rel<base_object> res_scoped;
                 if(m_renamers_initialized) {
@@ -803,11 +803,11 @@ namespace datalog {
     protected:
         relation_base(relation_plugin & plugin, const relation_signature & s) 
             : base_ancestor(plugin, s) {}
-        virtual ~relation_base() {}
+        ~relation_base() override {}
     public:
         virtual relation_base * complement(func_decl* p) const = 0;
 
-        virtual void reset();
+        void reset() override;
 
         virtual void display_tuples(func_decl & pred, std::ostream & out) const {
             out << "Tuples in " << pred.get_name() << ": \n";
@@ -832,7 +832,7 @@ namespace datalog {
     class table_plugin;
     class table_base;
 
-    typedef uint64 table_sort;
+    typedef uint64_t table_sort;
     typedef svector<table_sort> table_signature_base0;
     typedef uint64_hash table_sort_hash;
 
@@ -1022,21 +1022,21 @@ namespace datalog {
         table_plugin(symbol const& n, relation_manager & manager) : plugin_object(n, manager) {}
     public:
 
-        virtual bool can_handle_signature(const table_signature & s) { return s.functional_columns()==0; }
+        bool can_handle_signature(const table_signature & s) override { return s.functional_columns()==0; }
 
     protected:
         /**
            If the returned value is non-zero, the returned object must take ownership of \c mapper.
            Otherwise \c mapper must remain unmodified.
         */
-        virtual table_mutator_fn * mk_map_fn(const table_base & t, table_row_mutator_fn * mapper) { return 0; }
+        virtual table_mutator_fn * mk_map_fn(const table_base & t, table_row_mutator_fn * mapper) { return nullptr; }
 
         /**
            If the returned value is non-zero, the returned object must take ownership of \c reducer.
            Otherwise \c reducer must remain unmodified.
         */
         virtual table_transformer_fn * mk_project_with_reduce_fn(const table_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols, table_row_pair_reduce_fn * reducer) { return 0; }
+            const unsigned * removed_cols, table_row_pair_reduce_fn * reducer) { return nullptr; }
 
     };
 
@@ -1044,17 +1044,17 @@ namespace datalog {
     protected:
         table_base(table_plugin & plugin, const table_signature & s) 
             : base_ancestor(plugin, s) {}
-        virtual ~table_base() {}
+        ~table_base() override {}
     public:
-        virtual table_base * clone() const;
-        virtual table_base * complement(func_decl* p, const table_element * func_columns = 0) const;
-        virtual bool empty() const;
+        table_base * clone() const override;
+        virtual table_base * complement(func_decl* p, const table_element * func_columns = nullptr) const;
+        bool empty() const override;
 
         /**
            \brief Return true if table contains fact that corresponds to \c f in all non-functional
            columns.
          */
-        virtual bool contains_fact(const table_fact & f) const;
+        bool contains_fact(const table_fact & f) const override;
 
         /**
            \brief If \c f (i.e. its non-functional part) is not present in the table, 
@@ -1082,11 +1082,11 @@ namespace datalog {
         virtual void remove_fact(table_element const* fact) = 0;
         virtual void remove_facts(unsigned fact_cnt, const table_fact * facts);
         virtual void remove_facts(unsigned fact_cnt, const table_element * facts);
-        virtual void reset();
+        void reset() override;
 
         class row_interface;
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
 
         /**
            \brief Convert table to a formula that encodes the table.
@@ -1120,10 +1120,7 @@ namespace datalog {
             virtual bool operator==(const iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator
@@ -1153,10 +1150,7 @@ namespace datalog {
             virtual bool operator==(const row_iterator_core & it) {
                 //we worry about the equality operator only because of checking 
                 //the equality with the end() iterator
-                if(is_finished() && it.is_finished()) {
-                    return true;
-                }
-                return false;
+                return is_finished() && it.is_finished();
             }
         private:
             //private and undefined copy constructor and assignment operator
@@ -1245,9 +1239,9 @@ namespace datalog {
         public:
             caching_row_interface(const table_base & parent) : row_interface(parent) {}
 
-            virtual void get_fact(table_fact & result) const = 0;
+            void get_fact(table_fact & result) const override = 0;
 
-            virtual table_element operator[](unsigned col) const { 
+            table_element operator[](unsigned col) const override {
                 ensure_populated();
                 return m_current[col];
             }

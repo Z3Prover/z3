@@ -272,7 +272,6 @@ try:
     cleanup_API(doc_path('../src/api/z3_rcf.h'), temp_path('z3_rcf.h'))
     cleanup_API(doc_path('../src/api/z3_fixedpoint.h'), temp_path('z3_fixedpoint.h'))
     cleanup_API(doc_path('../src/api/z3_optimization.h'), temp_path('z3_optimization.h'))
-    cleanup_API(doc_path('../src/api/z3_interp.h'), temp_path('z3_interp.h'))
     cleanup_API(doc_path('../src/api/z3_fpa.h'), temp_path('z3_fpa.h'))
 
     print("Removed annotations from z3_api.h.")

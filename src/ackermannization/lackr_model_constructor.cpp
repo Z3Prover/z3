@@ -34,7 +34,7 @@ struct lackr_model_constructor::imp {
             , m_conflicts(conflicts)
             , m_b_rw(m)
             , m_bv_rw(m)
-            , m_evaluator(NULL)
+            , m_evaluator(nullptr)
             , m_empty_model(m)
             , m_ackr_helper(m)
         {}
@@ -121,7 +121,7 @@ struct lackr_model_constructor::imp {
 
         void add_entry(app* term, expr* value,
             obj_map<func_decl, func_interp*>& interpretations) {
-            func_interp* fi = 0;
+            func_interp* fi = nullptr;
             func_decl * const declaration = term->get_decl();
             const unsigned sz = declaration->get_arity();
             SASSERT(sz == term->get_num_args());
@@ -169,7 +169,7 @@ struct lackr_model_constructor::imp {
         // Stops upon the first failure.
         // Returns true if and only if all congruence checks succeeded.
         bool _check_stack() {
-            if (m_evaluator == NULL) m_evaluator = alloc(model_evaluator, m_empty_model);
+            if (m_evaluator == nullptr) m_evaluator = alloc(model_evaluator, m_empty_model);
             expr *  curr;
             while (!m_stack.empty()) {
                 curr = m_stack.back();
@@ -276,7 +276,7 @@ struct lackr_model_constructor::imp {
             SASSERT(a->get_num_args() == 0);
             func_decl * const fd = a->get_decl();
             expr * val = m_abstr_model->get_const_interp(fd);
-            if (val == 0) { // TODO: avoid model completetion?
+            if (val == nullptr) { // TODO: avoid model completion?
                 sort * s = fd->get_range();
                 val = m_abstr_model->get_some_value(s);
             }
@@ -295,7 +295,7 @@ struct lackr_model_constructor::imp {
             expr_ref value(m_m);
             value = m_abstr_model->get_const_interp(ac->get_decl());
             // get ackermann constant's interpretation
-            if (value.get() == 0) { // TODO: avoid model completion?
+            if (value.get() == nullptr) { // TODO: avoid model completion?
                 sort * s = a_fd->get_range();
                 value = m_abstr_model->get_some_value(s);
             }
@@ -362,7 +362,7 @@ struct lackr_model_constructor::imp {
 };
 
 lackr_model_constructor::lackr_model_constructor(ast_manager& m, ackr_info_ref info)
-    : m_imp(0)
+    : m_imp(nullptr)
     , m_m(m)
     , m_state(UNKNOWN)
     , m_info(info)
@@ -377,7 +377,7 @@ bool lackr_model_constructor::check(model_ref& abstr_model) {
     m_conflicts.reset();
     if (m_imp) {
         dealloc(m_imp);
-        m_imp = 0;
+        m_imp = nullptr;
     }
     m_imp = alloc(lackr_model_constructor::imp, m_m, m_info, abstr_model, m_conflicts);
     const bool rv = m_imp->check();

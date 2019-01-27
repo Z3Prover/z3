@@ -71,7 +71,7 @@ protected:
     void reduce1_app(app * a);
 
     expr * get_cached(expr * n) const;
-    bool is_cached(expr * n) const {  return get_cached(n) != 0; }
+    bool is_cached(expr * n) const {  return get_cached(n) != nullptr; }
     void cache_result(expr * n, expr * r);
     void reset_cache() { m_cache.reset(); }
     void flush_cache() { m_cache.cleanup(); }

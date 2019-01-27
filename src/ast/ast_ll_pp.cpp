@@ -242,7 +242,7 @@ public:
 
     void operator()(quantifier * n) {
         display_def_header(n);
-        m_out << "(" << (n->is_forall() ? "forall" : "exists") << " ";
+        m_out << "(" << (n->get_kind() == forall_k ? "forall" : (n->get_kind() == exists_k ? "exists" : "lambda")) << " ";
         unsigned num_decls = n->get_num_decls();
         m_out << "(vars ";
         for (unsigned i = 0; i < num_decls; i++) {
@@ -319,11 +319,11 @@ void ast_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited,
 }
 
 void ast_def_ll_pp(std::ostream & out, ast_manager & m, ast * n, ast_mark & visited, bool only_exprs, bool compact) {
-    ll_printer p(out, m, 0, only_exprs, compact);
+    ll_printer p(out, m, nullptr, only_exprs, compact);
     p.pp(n, visited);
 }
 
 void ast_ll_bounded_pp(std::ostream & out, ast_manager & m, ast * n, unsigned depth) {
-    ll_printer p(out, m, 0, false, true);
+    ll_printer p(out, m, nullptr, false, true);
     p.display_bounded(n, depth);
 }

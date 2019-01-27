@@ -37,7 +37,7 @@ class params_ref {
     void init();
     void copy_core(params const * p);
 public:
-    params_ref():m_params(0) {}
+    params_ref():m_params(nullptr) {}
     params_ref(params_ref const & p);
     ~params_ref();
     
@@ -115,8 +115,8 @@ public:
     param_descrs();
     ~param_descrs();
     void copy(param_descrs & other);
-    void insert(char const * name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
-    void insert(symbol const & name, param_kind k, char const * descr, char const * def = 0, char const* module = 0);
+    void insert(char const * name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
+    void insert(symbol const & name, param_kind k, char const * descr, char const * def = nullptr, char const* module = nullptr);
     bool contains(char const * name) const;
     bool contains(symbol const & name) const;
     void erase(char const * name);
@@ -139,5 +139,6 @@ void insert_max_steps(param_descrs & r);
 void insert_produce_models(param_descrs & r);
 void insert_produce_proofs(param_descrs & r);
 void insert_timeout(param_descrs & r);
+void insert_rlimit(param_descrs & r);
 
 #endif

@@ -148,7 +148,7 @@ namespace smt {
         vector<numeral>      m_potentials;   // nodes + 1 |-> initial: +/- 1  
                                              // Duals of flows which are convenient to compute dual solutions 
                                              // become solutions to Dual simplex.
-        vector<numeral>      m_flows;        // edges + nodes |-> assignemnt Basic feasible flows
+        vector<numeral>      m_flows;        // edges + nodes |-> assignment Basic feasible flows
         svector<edge_state>  m_states;
         unsigned             m_step;
         edge_id              m_enter_id;

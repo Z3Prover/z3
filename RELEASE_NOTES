@@ -1,5 +1,105 @@
 RELEASE NOTES
 
+Version 4.8.4
+=============
+
+- Notes
+  - fixes bugs
+  - a substantial update to how the seq theory solver handles regular
+    expressions. Other performance improvements to the seq solver.
+  - Managed .NET DLLs include dotnet standard 1.4 on supported platforms.
+  - Windows Managed DLLs are strong signed in the released binaries.
+
+Version 4.8.3
+=============
+- New features
+  - Native handling of recursive function definitions, thanks to Simon Cruanes
+  - PB rounding based option for conflict resolution when reasoning about PB constraints.
+  - Access to numeral constants as a double from the native API.
+
+- Notes
+  - fixes several bugs discovered since the 4.8.1 release.
+
+Version 4.8.2
+=============
+- Post-Release. 
+
+Version 4.8.1
+=============
+- Release. Bug-fix for 4.8.0
+
+Version 4.8.0
+=============
+
+- New requirements:
+  - A breaking change to the API is that parsers for SMT-LIB2 formulas return a vector of 
+    formulas as opposed to a conjunction of formulas. The vector of formulas correspond to 
+    the set of "assert" instructions in the SMT-LIB input.
+
+- New features
+   - A parallel mode is available for select theories, including QF_BV. 
+     By setting parallel.enable=true Z3 will spawn a number of worker threads proportional to the 
+     number of available CPU cores to apply cube and conquer solving on the goal.
+   - The SAT solver by default handle cardinality and PB constraints using a custom plugin 
+     that operates directly on cardinality and PB constraints.
+   - A "cube" interface is exposed over the solver API. 
+   - Model conversion is first class over the textual API, such that subgoals created from running a 
+     solver can be passed in text files and a model for the original formula can be recreated from the result.
+   - This has also led to changes in how models are tracked over tactic subgoals. The API for 
+     extracting models from apply_result have been replaced.
+   - An optional mode handles xor constraints using a custom xor propagator. 
+     It is off by default and its value not demonstrated.
+   - The SAT solver includes new inprocessing techniques that are available during simplification.
+     It performs asymmetric tautology elimination by default, and one can turn on more powerful inprocessing techniques 
+     (known as ACCE, ABCE, CCE). Asymmetric branching also uses features introduced in Lingeling by exploiting binary implication graphs.
+     Use sat.acce=true to enable the full repertoire of inprocessing methods. By default, clauses that are "eliminated" by acce are tagged
+     as lemmas (redundant) and are garbage collected if their glue level is high.
+   - Substantial overhaul of the spacer horn clause engine.
+   - Added basic features to support Lambda bindings.
+   - Added model compression to eliminate local function definitions in models when
+     inlining them does not incur substantial overhead. The old behavior, where models are left
+     uncompressed can be replayed by setting the top-level parameter model_compress=false.
+   - Integration of a new solver for linear integer arithmetic and mixed linear integer arithmetic by Lev Nachmanson.
+     It incorporates several improvements to QF_LIA solving based on
+     . using a better LP engine, which is already the foundation for QF_LRA
+     . including cuts based on Hermite Normal Form (thanks to approaches described 
+       in "cuts from proofs" and "cutting the mix").
+     . extracting integer solutions from LP solutions by tightening bounds selectively.
+       We use a generalization of Bromberger and Weidenbach that allows avoiding selected
+       bounds tighthenings (https://easychair.org/publications/paper/qGfG).
+     It solves significantly more problems in the QF_LIA category and may at this point also 
+     be the best solver for your problem as well.
+     The new solver is enabled only for select SMT-LIB logics. These include QF_LIA, QF_IDL, and QF_UFLIA.
+     Other theories (still) use the legacy solver for arithmetic. You can enable the new solver by setting
+     the parameter smt.arith.solver=6 to give it a spin.
+
+
+- Removed features:
+  - interpolation API
+  - duality engine for constrained Horn clauses.
+  - pdr engine for constrained Horn clauses. The engine's functionality has been 
+    folded into spacer as one of optional strategies.
+  - long deprecated API functions have been removed from z3_api.h
+  
+  
+
+Version 4.7.1
+=============
+
+- New requirements:
+  - uses stdbool and stdint as part of z3.
+
+- New features:
+  - none
+
+- Removed features:
+  - none
+
+- Notes:
+   This is a minor release prior to a set of planned major updates.
+   It uses minor version 7 to indicate that the use of stdbool and
+   stdint are breaking changes to consumers of the C-based API.
+
 Version 4.6.0
 =============
 
@@ -246,7 +346,7 @@ First source code release (October 2, 2012)
 
 - Added support for numbers in scientific notation at Z3_ast Z3_mk_numeral(__in Z3_context c, __in Z3_string numeral, __in Z3_sort ty).
 
-- New builtin symbols in the arithmetic theory: pi, euler, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh. The first two are constants, and the others are unary functions. These symbols are not available if the a SMT 2.0 logic is specified (e.g., QF_LRA, QF_NRA, QF_LIA, etc) because these symbols are not defined in these logics. That is, the new symbols are only available if the logic is not specified.
+- New builtin symbols in the arithmetic theory: pi, euler, sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh. The first two are constants, and the others are unary functions. These symbols are not available if a SMT 2.0 logic is specified (e.g., QF_LRA, QF_NRA, QF_LIA, etc) because these symbols are not defined in these logics. That is, the new symbols are only available if the logic is not specified.
 
 Version 4.1
 ===========
@@ -427,11 +527,11 @@ Version 3.0
 
 - New Bitvector (QF_BV) solver. The new solver is only available when using the new SMT2 front-end.
 
-- Major performace improvements. 
+- Major performance improvements.
 
 - New preprocessing stack.
 
-- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the the SMT2 front-end.
+- Performance improvements for linear and nonlinear arithmetic. The improvements are only available when using the SMT2 front-end.
 
 - Added API for parsing SMT2 files.
 
@@ -772,7 +872,7 @@ This release also introduces some new preprocessing features:
 
 - More efficient destructive equality resolution DER=true.
         
-- DISTRIBUTE_FORALL=true (distributes universal quatifiers over conjunctions, this transformation may affect pattern inference). 
+- DISTRIBUTE_FORALL=true (distributes universal quantifiers over conjunctions, this transformation may affect pattern inference).
 
 - Rewriter that uses universally quantified equations PRE_DEMODULATOR=true (yes, the option name is not good, we will change it in a future release).
 
@@ -842,7 +942,7 @@ This release introduces the following features:
 
 It fixes the following bugs:
 
-- Incorrect simplification of map over store in the extendted array theory. Reported by Catalin Hritcu.
+- Incorrect simplification of map over store in the extended array theory. Reported by Catalin Hritcu.
 
 - Incomplete handling of equality propagation with constant arrays. Reported by Catalin Hritcu.
 
@@ -886,7 +986,7 @@ Version 2.0
   proof object.
 
 - Proof Objects.
-  The #Z3_check_assumptions retuns a proof object if 
+  The #Z3_check_assumptions returns a proof object if
   the configuration flag PROOF_MODE is set to 1 or 2.
 
 - Partial support for non-linear arithmetic. 
@@ -899,4 +999,4 @@ Version 2.0
   The theory of well-founded recursive data-types is supported
   over the binary APIs. It supports ground satisfiability checking
   for tuples, enumeration types (scalars), 
-  lists and mututally recursive data-types.
+  lists and mutually recursive data-types.

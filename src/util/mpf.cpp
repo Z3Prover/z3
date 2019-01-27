@@ -115,11 +115,11 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, double value) {
     // double === mpf(11, 53)
     static_assert(sizeof(double) == 8, "doubles are 8 bytes");
 
-    uint64 raw;
+    uint64_t raw;
     memcpy(&raw, &value, sizeof(double));
     bool sign = (raw >> 63) != 0;
-    int64 e =  ((raw & 0x7FF0000000000000ull) >> 52) - 1023;
-    uint64 s = raw & 0x000FFFFFFFFFFFFFull;
+    int64_t e =  ((raw & 0x7FF0000000000000ull) >> 52) - 1023;
+    uint64_t s = raw & 0x000FFFFFFFFFFFFFull;
 
     TRACE("mpf_dbg", tout << "set: " << value << " is: raw=" << raw << " (double)" <<
                           " sign=" << sign << " s=" << s << " e=" << e << std::endl;);
@@ -300,7 +300,7 @@ void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, mpf_rounding_mode
     TRACE("mpf_dbg", tout << "set: res = " << to_string(o) << std::endl;);
 }
 
-void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64 significand) {
+void mpf_manager::set(mpf & o, unsigned ebits, unsigned sbits, bool sign, mpf_exp_t exponent, uint64_t significand) {
     // Assumption: this represents (sign * -1) * (significand/2^sbits) * 2^exponent.
     o.ebits = ebits;
     o.sbits = sbits;
@@ -952,7 +952,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
     scoped_mpz lower(m), upper(m);
     scoped_mpz mid(m), product(m), diff(m);
     // we have lower <= a.significand <= upper and we need 1.[52+3 bits] in the bounds.
-    // since we comapre upper*upper to a.significand further down, we need a.significand
+    // since we compare upper*upper to a.significand further down, we need a.significand
     // to be of twice the size.
     m.set(lower, 1);
     m.mul2k(lower, sbits+2-1);
@@ -978,7 +978,7 @@ void my_mpz_sqrt(unsynch_mpz_manager & m, unsigned sbits, bool odd_exp, mpz & in
             }
             else {
                 STRACE("mpf_dbg", tout << "choosing upper" << std::endl;);
-                m.set(o, upper); // chosing upper is like a sticky bit here.
+                m.set(o, upper); // choosing upper is like a sticky bit here.
             }
             break;
         }
@@ -1194,7 +1194,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
     m_mpz_manager.set(z, t.significand());
     mpf_exp_t e = (mpf_exp_t)t.exponent() - t.sbits() + 1;
     if (e < 0) {
-        bool last = false, round = false, sticky = m_mpz_manager.is_odd(z);
+        bool last = m_mpz_manager.is_odd(z), round = false, sticky = false;
         for (; e != 0; e++) {
             m_mpz_manager.machine_div2k(z, 1);
             sticky |= round;
@@ -1204,7 +1204,7 @@ void mpf_manager::to_sbv_mpq(mpf_rounding_mode rm, const mpf & x, scoped_mpq & o
         bool inc = false;
         switch (rm) {
         case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-        case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break; // CMW: Check!
+        case MPF_ROUND_NEAREST_TAWAY: inc = round; break;
         case MPF_ROUND_TOWARD_POSITIVE: inc = (!x.sign && (round || sticky)); break;
         case MPF_ROUND_TOWARD_NEGATIVE: inc = (x.sign && (round || sticky)); break;
         case MPF_ROUND_TOWARD_ZERO: inc = false; break;
@@ -1711,8 +1711,8 @@ void mpf_manager::to_rational(mpf const & x, unsynch_mpq_manager & qm, mpq & o) 
 
 double mpf_manager::to_double(mpf const & x) {
     SASSERT(x.ebits <= 11 && x.sbits <= 53);
-    uint64 raw = 0;
-    int64 sig = 0, exp = 0;
+    uint64_t raw = 0;
+    int64_t sig = 0, exp = 0;
 
     sig = m_mpz_manager.get_uint64(x.significand);
     sig <<= 53 - x.sbits;
@@ -1741,7 +1741,7 @@ float mpf_manager::to_float(mpf const & x) {
     unsigned int raw = 0;
     unsigned int sig = 0, exp = 0;
 
-    uint64 q = m_mpz_manager.get_uint64(x.significand);
+    uint64_t q = m_mpz_manager.get_uint64(x.significand);
     SASSERT(q < 4294967296ull);
     sig = q & 0x00000000FFFFFFFF;
     sig <<= 24 - x.sbits;
@@ -1751,7 +1751,7 @@ float mpf_manager::to_float(mpf const & x) {
     else if (has_bot_exp(x))
         exp = -127;
     else {
-        int64 q = x.exponent;
+        int64_t q = x.exponent;
         SASSERT(q < 4294967296ll);
         exp = q & 0x00000000FFFFFFFF;
     }
@@ -2045,7 +2045,7 @@ void mpf_manager::round(mpf_rounding_mode rm, mpf & o) {
     bool inc = false;
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN: inc = round && (last || sticky); break;
-    case MPF_ROUND_NEAREST_TAWAY: inc = round && (!last || sticky); break;
+    case MPF_ROUND_NEAREST_TAWAY: inc = round; break;
     case MPF_ROUND_TOWARD_POSITIVE: inc = (!o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_NEGATIVE: inc = (o.sign && (round || sticky)); break;
     case MPF_ROUND_TOWARD_ZERO: inc = false; break;

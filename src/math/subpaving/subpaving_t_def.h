@@ -36,7 +36,7 @@ public:
         context_t<C>::node_selector(ctx) {
     }
 
-    virtual node * operator()(node * front, node * back) {
+    node * operator()(node * front, node * back) override {
         return back;
     }
 };
@@ -80,7 +80,7 @@ public:
     }
 
     // Return the next variable to branch.
-    virtual var operator()(typename context_t<C>::node * n) {
+    var operator()(typename context_t<C>::node * n) override {
         typename context_t<C>::numeral_manager & nm = this->ctx()->nm();
         SASSERT(this->ctx()->num_vars() > 0);
         var x = this->ctx()->splitting_var(n);
@@ -93,7 +93,7 @@ public:
             if (!m_only_non_def || !this->ctx()->is_definition(x)) {
                 bound * lower = n->lower(x);
                 bound * upper = n->upper(x);
-                if (lower == 0 || upper == 0 || !nm.eq(lower->value(), upper->value())) {
+                if (lower == nullptr || upper == nullptr || !nm.eq(lower->value(), upper->value())) {
                     return x;
                 }
             }
@@ -197,7 +197,7 @@ public:
         SASSERT(m_delta < INT_MAX);
     }
 
-    virtual void operator()(node * n, var x) {
+    void operator()(node * n, var x) override {
         SASSERT(!n->inconsistent());
         numeral_manager & nm = this->ctx()->nm();
         node * left   = this->mk_node(n);
@@ -205,11 +205,11 @@ public:
         bound * lower = n->lower(x);
         bound * upper = n->upper(x);
         _scoped_numeral<numeral_manager> mid(nm);
-        if (lower == 0 && upper == 0) {
+        if (lower == nullptr && upper == nullptr) {
             nm.set(mid, 0);
             // mid == 0
         }
-        else if (lower == 0) {
+        else if (lower == nullptr) {
             _scoped_numeral<numeral_manager> delta(nm);
             SASSERT(upper != 0);
             nm.set(delta, static_cast<int>(m_delta));
@@ -218,7 +218,7 @@ public:
             nm.sub(mid, delta, mid);
             // mid == upper - delta
         }
-        else if (upper == 0) {
+        else if (upper == nullptr) {
             _scoped_numeral<numeral_manager> delta(nm);
             SASSERT(lower != 0);
             nm.set(delta, static_cast<int>(m_delta));
@@ -248,7 +248,7 @@ public:
 
 
 /**
-   \brief Auxiliary static method used to diplay a bound specified by (x, k, lower, open).
+   \brief Auxiliary static method used to display a bound specified by (x, k, lower, open).
 */
 template<typename C>
 void context_t<C>::display(std::ostream & out, numeral_manager & nm, display_var_proc const & proc, var x, numeral & k, bool lower, bool open) {
@@ -294,17 +294,17 @@ context_t<C>::node::node(context_t & s, unsigned id):
     m_depth           = 0;
     unsigned num_vars = s.num_vars();
     m_conflict        = null_var;
-    m_trail           = 0;
-    m_parent          = 0;
-    m_first_child     = 0;
-    m_next_sibling    = 0;
-    m_prev            = 0;
-    m_next            = 0;
+    m_trail           = nullptr;
+    m_parent          = nullptr;
+    m_first_child     = nullptr;
+    m_next_sibling    = nullptr;
+    m_prev            = nullptr;
+    m_next            = nullptr;
     bm().mk(m_lowers);
     bm().mk(m_uppers);
     for (unsigned i = 0; i < num_vars; i++) {
-        bm().push_back(m_lowers, 0);
-        bm().push_back(m_uppers, 0);
+        bm().push_back(m_lowers, nullptr);
+        bm().push_back(m_uppers, nullptr);
     }
 }
 
@@ -318,10 +318,10 @@ context_t<C>::node::node(node * parent, unsigned id):
     m_conflict       = parent->m_conflict;
     m_trail          = parent->m_trail;
     m_parent         = parent;
-    m_first_child    = 0;
+    m_first_child    = nullptr;
     m_next_sibling   = parent->m_first_child;
-    m_prev           = 0;
-    m_next           = 0;
+    m_prev           = nullptr;
+    m_next           = nullptr;
     parent->m_first_child = this;
 }
 
@@ -350,7 +350,7 @@ var context_t<C>::splitting_var(node * n) const {
     if (n == m_root)
         return null_var;
     bound * b = n->trail_stack();
-    while (b != 0) {
+    while (b != nullptr) {
         if (b->jst().is_axiom())
             return b->x();
         b = b->prev();
@@ -416,16 +416,16 @@ template<typename C>
 context_t<C>::context_t(reslimit& lim, C const & c, params_ref const & p, small_object_allocator * a):
     m_limit(lim),
     m_c(c),
-    m_own_allocator(a == 0),
-    m_allocator(a == 0 ? alloc(small_object_allocator, "subpaving") : a),
+    m_own_allocator(a == nullptr),
+    m_allocator(a == nullptr ? alloc(small_object_allocator, "subpaving") : a),
     m_bm(*this, *m_allocator),
     m_im(lim, interval_config(m_c.m())),
     m_num_buffer(nm()) {
     m_arith_failed  = false;
     m_timestamp     = 0;
-    m_root          = 0;
-    m_leaf_head     = 0;
-    m_leaf_tail     = 0;
+    m_root          = nullptr;
+    m_leaf_head     = nullptr;
+    m_leaf_tail     = nullptr;
     m_conflict      = null_var;
     m_qhead         = 0;
     m_display_proc  = &m_default_display_proc;
@@ -638,14 +638,14 @@ void context_t<C>::display_bounds(std::ostream & out, node * n) const {
     for (unsigned x = 0; x < num; x++) {
         bound * l = n->lower(x);
         bound * u = n->upper(x);
-        if (l != 0) {
+        if (l != nullptr) {
             display(out, l);
             out << " ";
         }
-        if (u != 0) {
+        if (u != nullptr) {
             display(out, u);
         }
-        if (l != 0 || u != 0)
+        if (l != nullptr || u != nullptr)
             out << "\n";
     }
 }
@@ -878,7 +878,7 @@ template<typename C>
 typename context_t<C>::node * context_t<C>::mk_node(node * parent) {
     void * mem = allocator().allocate(sizeof(node));
     node * r;
-    if (parent == 0)
+    if (parent == nullptr)
         r = new (mem) node(*this, m_node_id_gen.mk());
     else
         r = new (mem) node(parent, m_node_id_gen.mk());
@@ -910,7 +910,7 @@ void context_t<C>::del_node(node * n) {
     node * p = n->parent();
     bound * b = n->trail_stack();
     bound * b_old;
-    if (p != 0) {
+    if (p != nullptr) {
         node * c = p->first_child();
         if (c == n) {
             // n is the first child
@@ -928,7 +928,7 @@ void context_t<C>::del_node(node * n) {
         b_old = p->trail_stack();
     }
     else {
-        b_old = 0;
+        b_old = nullptr;
     }
     while (b != b_old) {
         bound * old = b;
@@ -944,18 +944,18 @@ void context_t<C>::del_node(node * n) {
 template<typename C>
 void context_t<C>::del_nodes() {
     ptr_buffer<node> todo;
-    if (m_root == 0)
+    if (m_root == nullptr)
         return;
     todo.push_back(m_root);
     while (!todo.empty()) {
         node * n = todo.back();
         node * c = n->first_child();
-        if (c == 0) {
+        if (c == nullptr) {
             del_node(n);
             todo.pop_back();
         }
         else {
-            while (c != 0) {
+            while (c != nullptr) {
                 todo.push_back(c);
                 c = c->next_sibling();
             }
@@ -969,7 +969,7 @@ void context_t<C>::push_front(node * n) {
     SASSERT(n->next() == 0);
     SASSERT(n->prev() == 0);
     n->set_next(m_leaf_head);
-    if (m_leaf_head != 0) {
+    if (m_leaf_head != nullptr) {
         SASSERT(m_leaf_head->prev() == 0);
         m_leaf_head->set_prev(n);
     }
@@ -986,7 +986,7 @@ void context_t<C>::push_back(node * n) {
     SASSERT(n->next() == 0);
     SASSERT(n->prev() == 0);
     n->set_prev(m_leaf_tail);
-    if (m_leaf_tail != 0) {
+    if (m_leaf_tail != nullptr) {
         SASSERT(m_leaf_tail->next() == 0);
         m_leaf_tail->set_next(n);
     }
@@ -1001,14 +1001,14 @@ template<typename C>
 void context_t<C>::reset_leaf_dlist() {
     // Remove all nodes from the lead doubly linked list
     node * n = m_leaf_head;
-    while (n != 0) {
+    while (n != nullptr) {
         node * next = n->next();
-        n->set_next(0);
-        n->set_prev(0);
+        n->set_next(nullptr);
+        n->set_prev(nullptr);
         n = next;
     }
-    m_leaf_head = 0;
-    m_leaf_tail = 0;
+    m_leaf_head = nullptr;
+    m_leaf_tail = nullptr;
 }
 
 template<typename C>
@@ -1016,18 +1016,18 @@ void context_t<C>::rebuild_leaf_dlist(node * n) {
     reset_leaf_dlist();
     // Reinsert all leaves in the leaf dlist.
     ptr_buffer<node, 1024> todo;
-    if (m_root != 0)
+    if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {
         node * n = todo.back();
         todo.pop_back();
         node * c = n->first_child();
-        if (c == 0) {
+        if (c == nullptr) {
             if (!n->inconsistent())
                 push_front(n);
         }
         else  {
-            while (c != 0) {
+            while (c != nullptr) {
                 SASSERT(c->parent() == n);
                 todo.push_back(c);
                 c = c->next_sibling();
@@ -1043,19 +1043,19 @@ void context_t<C>::remove_from_leaf_dlist(node * n) {
     SASSERT(prev == 0 || prev != next);
     SASSERT(next == 0 || prev != next);
     SASSERT(prev != n); SASSERT(next != n);
-    if (prev != 0) {
+    if (prev != nullptr) {
         SASSERT(m_leaf_head != n);
         prev->set_next(next);
-        n->set_prev(0);
+        n->set_prev(nullptr);
     }
     else if (m_leaf_head == n) {
         m_leaf_head = next;
     }
 
-    if (next != 0) {
+    if (next != nullptr) {
         SASSERT(m_leaf_tail != n);
         next->set_prev(prev);
-        n->set_next(0);
+        n->set_next(nullptr);
     }
     else if (m_leaf_tail == n) {
         m_leaf_tail = prev;
@@ -1067,18 +1067,18 @@ template<typename C>
 void context_t<C>::collect_leaves(ptr_vector<node> & leaves) const {
     // Copy all leaves to the given vector.
     ptr_buffer<node, 1024> todo;
-    if (m_root != 0)
+    if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {
         node * n = todo.back();
         todo.pop_back();
         node * c = n->first_child();
-        if (c == 0) {
+        if (c == nullptr) {
             if (!n->inconsistent())
                 leaves.push_back(n);
         }
         else  {
-            while (c != 0) {
+            while (c != nullptr) {
                 SASSERT(c->parent() == n);
                 todo.push_back(c);
                 c = c->next_sibling();
@@ -1115,7 +1115,7 @@ void context_t<C>::del_definitions() {
     unsigned sz = num_vars();
     for (unsigned i = 0; i < sz; i++) {
         definition * d = m_defs[i];
-        if (d == 0)
+        if (d == nullptr)
             continue;
         switch (d->get_kind()) {
         case constraint::MONOMIAL:
@@ -1219,24 +1219,24 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
                 return true;
             }
             // If m_epsilon is zero, then bound is relevant only if it improves existing bound.
-            if (m_zero_epsilon && curr_lower != 0 && (nm().lt(k, curr_lower->value()) || ((curr_lower->is_open() || !open) && nm().eq(k, curr_lower->value())))) {
+            if (m_zero_epsilon && curr_lower != nullptr && (nm().lt(k, curr_lower->value()) || ((curr_lower->is_open() || !open) && nm().eq(k, curr_lower->value())))) {
                 // new lower bound does not improve existing bound
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
                 return false;
             }
-            if (curr_upper == 0 && nm().lt(m_max_bound, k)) {
+            if (curr_upper == nullptr && nm().lt(m_max_bound, k)) {
                 // new lower bound exceeds the :max-bound threshold
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because exceeds :max-bound threshold.\n";);
                 return false;
             }
-            if (!m_zero_epsilon && curr_lower != 0) {
+            if (!m_zero_epsilon && curr_lower != nullptr) {
                 // check if:
                 // new-lower > lower + m_epsilon * max(min(upper - lower, |lower|), 1)
                 numeral & min       = m_tmp1;
                 numeral & abs_lower = m_tmp2;
                 nm().set(abs_lower, curr_lower->value());
                 nm().abs(abs_lower);
-                if (curr_upper != 0) {
+                if (curr_upper != nullptr) {
                     nm().sub(curr_upper->value(), curr_lower->value(), min);
                     if (nm().lt(abs_lower, min))
                         nm().set(min, abs_lower);
@@ -1269,24 +1269,24 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
                 return true;
             }
             // If m_epsilon is zero, then bound is relevant only if it improves existing bound.
-            if (m_zero_epsilon && curr_upper != 0 && (nm().lt(curr_upper->value(), k) || ((curr_upper->is_open() || !open) && nm().eq(k, curr_upper->value())))) {
+            if (m_zero_epsilon && curr_upper != nullptr && (nm().lt(curr_upper->value(), k) || ((curr_upper->is_open() || !open) && nm().eq(k, curr_upper->value())))) {
                 // new upper bound does not improve existing bound
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because does not improve existing bound.\n";);
                 return false;
             }
-            if (curr_lower == 0 && nm().lt(k, m_minus_max_bound)) {
+            if (curr_lower == nullptr && nm().lt(k, m_minus_max_bound)) {
                 // new upper bound exceeds the -:max-bound threshold
                 TRACE("subpaving_relevant_bound", tout << "irrelevant because exceeds -:max-bound threshold.\n";);
                 return false;
             }
-            if (!m_zero_epsilon && curr_upper != 0) {
+            if (!m_zero_epsilon && curr_upper != nullptr) {
                 // check if:
                 // new-upper < upper - m_epsilon * max(min(upper - lower, |upper|), 1)
                 numeral & min       = m_tmp1;
                 numeral & abs_upper = m_tmp2;
                 nm().set(abs_upper, curr_upper->value());
                 nm().abs(abs_upper);
-                if (curr_lower != 0) {
+                if (curr_lower != nullptr) {
                     nm().sub(curr_upper->value(), curr_lower->value(), min);
                     if (nm().lt(abs_upper, min))
                         nm().set(min, abs_upper);
@@ -1310,7 +1310,7 @@ bool context_t<C>::relevant_new_bound(var x, numeral const & k, bool lower, bool
         TRACE("subpaving_relevant_bound", tout << "new bound is relevant\n";);
         return true;
     }
-    catch (typename C::exception) {
+    catch (const typename C::exception &) {
         // arithmetic module failed.
         set_arith_failed();
         return false;
@@ -1323,14 +1323,14 @@ bool context_t<C>::is_zero(var x, node * n) const {
     // Return true if lower(x) == upper(x) == 0 at n
     bound * l = n->lower(x);
     bound * u = n->upper(x);
-    return l != 0 && u != 0 && nm().is_zero(l->value()) && nm().is_zero(u->value()) && !l->is_open() && !u->is_open();
+    return l != nullptr && u != nullptr && nm().is_zero(l->value()) && nm().is_zero(u->value()) && !l->is_open() && !u->is_open();
 }
 
 template<typename C>
 bool context_t<C>::is_upper_zero(var x, node * n) const {
     // Return true if upper(x) is zero at node n
     bound * u = n->upper(x);
-    return u != 0 && nm().is_zero(u->value()) && !u->is_open();
+    return u != nullptr && nm().is_zero(u->value()) && !u->is_open();
 }
 
 template<typename C>
@@ -1338,7 +1338,7 @@ bool context_t<C>::conflicting_bounds(var x, node * n) const {
     // Return true if upper(x) < lower(x) at node n
     bound * l = n->lower(x);
     bound * u = n->upper(x);
-    return l != 0 && u != 0 && (nm().lt(u->value(), l->value()) || ((l->is_open() || u->is_open()) && nm().eq(u->value(), l->value())));
+    return l != nullptr && u != nullptr && (nm().lt(u->value(), l->value()) || ((l->is_open() || u->is_open()) && nm().eq(u->value(), l->value())));
 }
 
 /**
@@ -1351,20 +1351,20 @@ lbool context_t<C>::value(ineq * t, node * n) {
     var x = t->x();
     bound * u = n->upper(x);
     bound * l = n->lower(x);
-    if (u == 0 && l == 0)
+    if (u == nullptr && l == nullptr)
         return l_undef;
     else if (t->is_lower()) {
-        if (u != 0 && (nm().lt(u->value(), t->value()) || ((u->is_open() || t->is_open()) && nm().eq(u->value(), t->value()))))
+        if (u != nullptr && (nm().lt(u->value(), t->value()) || ((u->is_open() || t->is_open()) && nm().eq(u->value(), t->value()))))
             return l_false;
-        else if (l != 0 && (nm().gt(l->value(), t->value()) || ((l->is_open() || !t->is_open()) && nm().eq(l->value(), t->value()))))
+        else if (l != nullptr && (nm().gt(l->value(), t->value()) || ((l->is_open() || !t->is_open()) && nm().eq(l->value(), t->value()))))
             return l_true;
         else
             return l_undef;
     }
     else {
-        if (l != 0 && (nm().gt(l->value(), t->value()) || ((l->is_open() || t->is_open()) && nm().eq(l->value(), t->value()))))
+        if (l != nullptr && (nm().gt(l->value(), t->value()) || ((l->is_open() || t->is_open()) && nm().eq(l->value(), t->value()))))
             return l_false;
-        else if (u != 0 && (nm().lt(u->value(), t->value()) || ((u->is_open() || !t->is_open()) && nm().eq(u->value(), t->value()))))
+        else if (u != nullptr && (nm().lt(u->value(), t->value()) || ((u->is_open() || !t->is_open()) && nm().eq(u->value(), t->value()))))
             return l_true;
         else
             return l_undef;
@@ -1722,7 +1722,7 @@ void context_t<C>::propagate(node * n, bound * b) {
                 }
             }
         }
-        catch (typename C::exception) {
+        catch (const typename C::exception &) {
             // arithmetic module failed, ignore constraint
             set_arith_failed();
         }
@@ -1804,17 +1804,17 @@ void context_t<C>::init() {
 
 template<typename C>
 void context_t<C>::operator()() {
-    if (m_root == 0)
+    if (m_root == nullptr)
         init();
     TRACE("subpaving_stats", statistics st; collect_statistics(st); tout << "statistics:\n"; st.display_smt2(tout););
     TRACE("subpaving_main", display_params(tout););
-    while (m_leaf_head != 0) {
+    while (m_leaf_head != nullptr) {
         checkpoint();
         SASSERT(m_queue.empty());
         if (m_num_nodes > m_max_nodes)
             break;
         node * n = (*m_node_selector)(m_leaf_head, m_leaf_tail);
-        if (n == 0)
+        if (n == nullptr)
             break;
         TRACE("subpaving_main", tout << "selected node: #" << n->id() << ", depth: " << n->depth() << "\n";);
         remove_from_leaf_dlist(n);
@@ -1892,7 +1892,7 @@ void context_t<C>::collect_statistics(statistics & st) const {
 template<typename C>
 bool context_t<C>::is_bound_of(bound * b, node * n) const {
     bound * c = n->trail_stack();
-    while (c != 0) {
+    while (c != nullptr) {
         if (c == b)
             return true;
         if (c->timestamp() <= b->timestamp())
@@ -1905,7 +1905,7 @@ bool context_t<C>::is_bound_of(bound * b, node * n) const {
 template<typename C>
 bool context_t<C>::check_leaf_dlist() const {
     node * n = m_leaf_head;
-    while (n != 0) {
+    while (n != nullptr) {
         node * next = n->next();
         SASSERT(next != 0 || m_leaf_tail  == n);
         SASSERT(next == 0 || next->prev() == n);
@@ -1917,13 +1917,13 @@ bool context_t<C>::check_leaf_dlist() const {
 template<typename C>
 bool context_t<C>::check_tree() const {
     ptr_buffer<node> todo;
-    if (m_root != 0)
+    if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {
         node * n = todo.back();
         todo.pop_back();
         node * c = n->first_child();
-        while (c != 0) {
+        while (c != nullptr) {
             SASSERT(c->parent() == n);
             todo.push_back(c);
             c = c->next_sibling();

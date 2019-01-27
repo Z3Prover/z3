@@ -41,7 +41,7 @@ static stopwatch g_overall_time;
 static stopwatch g_piece_timer;
 static unsigned t_parsing = 0;
 
-static datalog::context * g_ctx = 0;
+static datalog::context * g_ctx = nullptr;
 static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
@@ -212,7 +212,7 @@ unsigned read_datalog(char const * file) {
             if (early_termination) {
                 IF_VERBOSE(1, verbose_stream() << "restarting saturation\n";);
                 
-                uint64 new_timeout = static_cast<uint64>(timeout)*ctx.initial_restart_timeout(); 
+                uint64_t new_timeout = static_cast<uint64_t>(timeout)*ctx.initial_restart_timeout();
                 if(new_timeout>UINT_MAX) {
                     timeout=UINT_MAX;
                 }
@@ -246,7 +246,7 @@ unsigned read_datalog(char const * file) {
             false);
 
     }
-    catch (out_of_memory_error) {
+    catch (const out_of_memory_error &) {
         std::cout << "\n\nOUT OF MEMORY!\n\n";        
         display_statistics(
             std::cout,
@@ -257,7 +257,7 @@ unsigned read_datalog(char const * file) {
             true);
         return ERR_MEMOUT;
     }
-    register_on_timeout_proc(0);
+    register_on_timeout_proc(nullptr);
     return 0;
 }
 

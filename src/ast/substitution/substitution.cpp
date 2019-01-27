@@ -79,13 +79,13 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
 
     // It is incorrect to cache results between different calls if we are applying a substitution
     // modulo a substitution s -> t.
-    if (m_state == INSERT || s != expr_offset(0,0))
+    if (m_state == INSERT || s != expr_offset(nullptr,0))
         reset_cache();
 
     m_state = APPLY;
 
     unsigned         j;
-    expr *           e = 0;
+    expr *           e = nullptr;
     unsigned         off;
     expr_offset      n1;
     bool             visited;
@@ -146,7 +146,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 bool has_new_args = false;
                 for (unsigned i = 0; i < num_args; i++) {
                     expr * arg     = to_app(e)->get_arg(i);
-                    expr * new_arg = 0;
+                    expr * new_arg = nullptr;
                     
                     VERIFY(m_apply_cache.find(expr_offset(arg, off), new_arg));
                     new_args.push_back(new_arg);
@@ -185,10 +185,10 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             }
             expr_offset body(q->get_expr(), off);
             expr_ref s1_ref(m_manager), t1_ref(m_manager);
-            if (s.get_expr() != 0) {
+            if (s.get_expr() != nullptr) {
                 var_sh(s.get_expr(), num_vars, s1_ref);
             }
-            if (t.get_expr() != 0) {
+            if (t.get_expr() != nullptr) {
                 var_sh(t.get_expr(), num_vars, t1_ref);
             }
             expr_offset s1(s1_ref, s.get_offset());
@@ -196,16 +196,16 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
             expr_ref_vector pats(m_manager), no_pats(m_manager);
             for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
                 subst.apply(num_actual_offsets, deltas, expr_offset(q->get_pattern(i), off), s1, t1, er);
-                pats.push_back(er);
+                pats.push_back(std::move(er));
             }
             for (unsigned i = 0; i < q->get_num_no_patterns(); ++i) {
                 subst.apply(num_actual_offsets, deltas, expr_offset(q->get_no_pattern(i), off), s1, t1, er);
-                no_pats.push_back(er);
+                no_pats.push_back(std::move(er));
             }
             subst.apply(num_actual_offsets, deltas, body, s1, t1, er);
             er = m_manager.update_quantifier(q, pats.size(), pats.c_ptr(), no_pats.size(), no_pats.c_ptr(), er);
             m_todo.pop_back();
-            m_new_exprs.push_back(er);
+            m_new_exprs.push_back(std::move(er));
             m_apply_cache.insert(n, er);            
             break;
         }            
@@ -218,7 +218,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
     m_new_exprs.push_back(e);
     result = e;
     
-    if (s != expr_offset(0,0))
+    if (s != expr_offset(nullptr,0))
         reset_cache();
     
     TRACE("subst_bug", tout << "END substitution::apply\nresult:\n" << mk_pp(e, m_manager) << "\nref_count: " << e->get_ref_count() << "\n";);

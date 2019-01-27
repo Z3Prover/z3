@@ -143,7 +143,77 @@ namespace datatype {
             }
             return r;
         }
-        size* size::mk_power(size* a1, size* a2) { return alloc(power, a1, a2); }
+
+        size* size::mk_power(size* a1, size* a2) { 
+            return alloc(power, a1, a2); 
+        }
+
+        
+        sort_size plus::eval(obj_map<sort, sort_size> const& S) {
+            rational r(0);
+            ptr_vector<size> todo;
+            todo.push_back(m_arg1);
+            todo.push_back(m_arg2);
+            while (!todo.empty()) {
+                size* s = todo.back();
+                todo.pop_back();
+                plus* p = dynamic_cast<plus*>(s);
+                if (p) {
+                    todo.push_back(p->m_arg1);
+                    todo.push_back(p->m_arg2);
+                }
+                else {
+                    sort_size sz = s->eval(S);                        
+                    if (sz.is_infinite()) return sz;
+                    if (sz.is_very_big()) return sz;
+                    r += rational(sz.size(), rational::ui64());
+                }
+            }
+            return sort_size(r);
+        }
+
+        size* plus::subst(obj_map<sort,size*>& S) { 
+            return mk_plus(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        sort_size times::eval(obj_map<sort, sort_size> const& S) {
+            sort_size s1 = m_arg1->eval(S);
+            sort_size s2 = m_arg2->eval(S);
+            if (s1.is_infinite()) return s1;
+            if (s2.is_infinite()) return s2;
+            if (s1.is_very_big()) return s1;
+            if (s2.is_very_big()) return s2;
+            rational r = rational(s1.size(), rational::ui64()) * rational(s2.size(), rational::ui64());
+            return sort_size(r);
+        }
+
+        size* times::subst(obj_map<sort,size*>& S) { 
+            return mk_times(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        sort_size power::eval(obj_map<sort, sort_size> const& S) {
+            sort_size s1 = m_arg1->eval(S);
+            sort_size s2 = m_arg2->eval(S);
+            // s1^s2
+            if (s1.is_infinite()) return s1;
+            if (s2.is_infinite()) return s2;
+            if (s1.is_very_big()) return s1;
+            if (s2.is_very_big()) return s2;
+            if (s1.size() == 1) return s1;
+            if (s2.size() == 1) return s1;
+            if (s1.size() > (2 << 20) || s2.size() > 10) return sort_size::mk_very_big();
+            rational r = ::power(rational(s1.size(), rational::ui64()), static_cast<unsigned>(s2.size()));
+            return sort_size(r);
+        }
+
+        size* power::subst(obj_map<sort,size*>& S) { 
+            return mk_power(m_arg1->subst(S), m_arg2->subst(S)); 
+        }
+
+        size* sparam::subst(obj_map<sort, size*>& S) { 
+            return S[m_param]; 
+        }
+
     }
 
     namespace decl {
@@ -157,13 +227,13 @@ namespace datatype {
                 dealloc(kv.m_value);
             }
             m_defs.reset();
-            m_util = 0; // force deletion
+            m_util = nullptr; // force deletion
         }
 
         util & plugin::u() const {
             SASSERT(m_manager);
             SASSERT(m_family_id != null_family_id);
-            if (m_util.get() == 0) {
+            if (m_util.get() == nullptr) {
                 m_util = alloc(util, *m_manager);
             }
             return *(m_util.get());
@@ -215,7 +285,7 @@ namespace datatype {
                                 
                 sort* s = m_manager->mk_sort(name.get_symbol(),
                                              sort_info(m_family_id, k, num_parameters, parameters, true));
-                def* d = 0;
+                def* d = nullptr;
                 if (m_defs.find(s->get_name(), d) && d->sort_size()) {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
@@ -231,9 +301,9 @@ namespace datatype {
                 }
                 return s;
             }
-            catch (invalid_datatype) {
+            catch (const invalid_datatype &) {
                 m_manager->raise_exception("invalid datatype");
-                return 0;
+                return nullptr;
             }
         }
 
@@ -245,35 +315,35 @@ namespace datatype {
             
             if (num_parameters != 1 || !parameters[0].is_ast()) {
                 m.raise_exception("invalid parameters for datatype field update");
-                return 0;
+                return nullptr;
             }
             if (arity != 2) {
                 m.raise_exception("invalid number of arguments for datatype field update");
-                return 0;
+                return nullptr;
             }
-            func_decl* acc = 0;
+            func_decl* acc = nullptr;
             if (is_func_decl(parameters[0].get_ast())) {
                 acc = to_func_decl(parameters[0].get_ast());
             }
             if (acc && !u().is_accessor(acc)) {
-                acc = 0;
+                acc = nullptr;
             }
             if (!acc) {
                 m.raise_exception("datatype field update requires a datatype accessor as the second argument");
-                return 0;
+                return nullptr;
             }
             sort* dom = acc->get_domain(0);
             sort* rng = acc->get_range();
             if (dom != domain[0]) {
                 m.raise_exception("first argument to field update should be a data-type");
-                return 0;
+                return nullptr;
             }
             if (rng != domain[1]) {
                 std::ostringstream buffer;
                 buffer << "second argument to field update should be " << mk_ismt2_pp(rng, m) 
                        << " instead of " << mk_ismt2_pp(domain[1], m);
                 m.raise_exception(buffer.str().c_str());
-                return 0;
+                return nullptr;
             }
             range = domain[0];
             func_decl_info info(m_family_id, k, num_parameters, parameters);
@@ -345,7 +415,7 @@ namespace datatype {
                 return mk_update_field(num_parameters, parameters, arity, domain, range);
             default:
                 m_manager->raise_exception("invalid datatype operator kind");
-                return 0;
+                return nullptr;
             }
         }
 
@@ -386,10 +456,11 @@ namespace datatype {
         bool plugin::mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts) {
             begin_def_block();
             for (unsigned i = 0; i < num_datatypes; ++i) {
-                def* d = 0;
+                def* d = nullptr;
                 TRACE("datatype", tout << "declaring " << datatypes[i]->name() << "\n";);
                 if (m_defs.find(datatypes[i]->name(), d)) {
                     TRACE("datatype", tout << "delete previous version for " << datatypes[i]->name() << "\n";);
+                    u().reset();
                     dealloc(d);
                 }
                 m_defs.insert(datatypes[i]->name(), datatypes[i]);
@@ -404,7 +475,7 @@ namespace datatype {
         }
 
         void plugin::remove(symbol const& s) {
-            def* d = 0;
+            def* d = nullptr;
             if (m_defs.find(s, d)) dealloc(d);
             m_defs.remove(s);
         }
@@ -583,13 +654,14 @@ namespace datatype {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
             unsigned n = get_datatype_num_parameter_sorts(s);
+            def & d = get_def(s->get_name());
+            SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();
-                S.insert(ps, sz); 
-            }
-            def & d = get_def(s->get_name());
+                sz->inc_ref();                
+                S.insert(d.params().get(i), sz); 
+            }            
             sz = d.sort_size()->subst(S);
             for (auto & kv : S) {
                 kv.m_value->dec_ref();
@@ -666,7 +738,7 @@ namespace datatype {
                 continue;
             }
 
-            ptr_vector<param_size::size> s_add;        
+            ptr_vector<param_size::size> s_add;      
             for (constructor const* c : d) {
                 ptr_vector<param_size::size> s_mul;
                 for (accessor const* a : *c) {
@@ -681,7 +753,7 @@ namespace datatype {
 
     /**
        \brief Return true if the inductive datatype is well-founded.
-       Pre-condition: The given argument constains the parameters of an inductive datatype.
+       Pre-condition: The given argument constrains the parameters of an inductive datatype.
     */
     bool util::is_well_founded(unsigned num_types, sort* const* sorts) {
         buffer<bool> well_founded(num_types, false);
@@ -691,6 +763,7 @@ namespace datatype {
         }
         unsigned num_well_founded = 0, id = 0;
         bool changed;
+        ptr_vector<sort> subsorts;
         do {
             changed = false;
             for (unsigned tid = 0; tid < num_types; tid++) {
@@ -700,23 +773,25 @@ namespace datatype {
                 sort* s = sorts[tid];
                 def const& d = get_def(s);
                 for (constructor const* c : d) {
-                    bool found_nonwf = false;
                     for (accessor const* a : *c) {
-                        if (sort2id.find(a->range(), id) && !well_founded[id]) {
-                            found_nonwf = true;
-                            break;
+                        subsorts.reset();
+                        get_subsorts(a->range(), subsorts);
+                        for (sort* srt : subsorts) {
+                            if (sort2id.find(srt, id) && !well_founded[id]) {
+                                goto next_constructor;
+                            }
                         }
                     }
-                    if (!found_nonwf) {
-                        changed = true;
-                        well_founded[tid] = true;
-                        num_well_founded++;
-                        break;
-                    }
+                    changed = true;
+                    well_founded[tid] = true;
+                    num_well_founded++;
+                    break;
+                next_constructor:
+                    ;
                 }
             }
         } 
-        while(changed && num_well_founded < num_types);
+        while (changed && num_well_founded < num_types);
         return num_well_founded == num_types;
     }
 
@@ -726,8 +801,7 @@ namespace datatype {
 
     void util::get_subsorts(sort* s, ptr_vector<sort>& sorts) const {
         sorts.push_back(s);
-        for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-            parameter const& p = s->get_parameter(i);
+        for (parameter const& p : s->parameters()) {
             if (p.is_ast() && is_sort(p.get_ast())) {
                 get_subsorts(to_sort(p.get_ast()), sorts);
             }
@@ -750,7 +824,7 @@ namespace datatype {
 
     ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
-        ptr_vector<func_decl> * r = 0;
+        ptr_vector<func_decl> * r = nullptr;
         if (m_datatype2constructors.find(ty, r))
             return r;
         r = alloc(ptr_vector<func_decl>);
@@ -768,7 +842,7 @@ namespace datatype {
 
     ptr_vector<func_decl> const * util::get_constructor_accessors(func_decl * con) {
         SASSERT(is_constructor(con));
-        ptr_vector<func_decl> * res = 0;
+        ptr_vector<func_decl> * res = nullptr;
         if (m_constructor2accessors.find(con, res)) {
             return res;
         }
@@ -791,9 +865,17 @@ namespace datatype {
         return res;
     }
 
+
+    func_decl * util::get_constructor_is(func_decl * con) {
+        SASSERT(is_constructor(con));
+        sort * datatype = con->get_range();
+        parameter ps[1] = { parameter(con)};
+        return m.mk_func_decl(m_family_id, OP_DT_IS, 1, ps, 1, &datatype);
+    }
+
     func_decl * util::get_constructor_recognizer(func_decl * con) {
         SASSERT(is_constructor(con));
-        func_decl * d = 0;
+        func_decl * d = nullptr;
         if (m_constructor2recognizer.find(con, d))
             return d;
         sort * datatype = con->get_range();
@@ -811,6 +893,10 @@ namespace datatype {
         m_asts.push_back(d);
         m_constructor2recognizer.insert(con, d);
         return d;
+    }
+
+    app* util::mk_is(func_decl * c, expr *f) {
+        return m.mk_app(get_constructor_is(c), 1, &f);
     }
 
     func_decl * util::get_recognizer_constructor(func_decl * recognizer) const {
@@ -848,7 +934,7 @@ namespace datatype {
 
     func_decl * util::get_accessor_constructor(func_decl * accessor) { 
         SASSERT(is_accessor(accessor));
-        func_decl * r = 0;
+        func_decl * r = nullptr;
         if (m_accessor2constructor.find(accessor, r))
             return r;
         sort * datatype = accessor->get_domain(0);
@@ -892,10 +978,10 @@ namespace datatype {
     */
     func_decl * util::get_non_rec_constructor(sort * ty) {
         SASSERT(is_datatype(ty));
-        func_decl * r = 0;
+        func_decl * r = nullptr;
         if (m_datatype2nonrec_constructor.find(ty, r))
             return r;
-        r = 0;
+        r = nullptr;
         ptr_vector<sort> forbidden_set;
         forbidden_set.push_back(ty);
         TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
@@ -962,14 +1048,14 @@ namespace datatype {
                 func_decl * nested_c = get_non_rec_constructor_core(T_i, forbidden_set);
                 SASSERT(forbidden_set.back() == T_i);
                 forbidden_set.pop_back();
-                if (nested_c == 0)
+                if (nested_c == nullptr)
                     break;
                 TRACE("util_bug", tout << "nested_c: " << nested_c->get_name() << "\n";);
             }
             if (i == num_args)
                 return c;
         }
-        return 0;
+        return nullptr;
     }
 
     unsigned util::get_constructor_idx(func_decl * f) const {
@@ -1040,15 +1126,11 @@ namespace datatype {
             sort* s = todo.back();
             todo.pop_back();
             out << s->get_name() << " =\n";
-
             ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
-            for (unsigned i = 0; i < cnstrs.size(); ++i) {
-                func_decl* cns = cnstrs[i];
-                func_decl* rec = get_constructor_recognizer(cns);
-                out << "  " << cns->get_name() << " :: " << rec->get_name() << " :: ";
+            for (func_decl * cns : cnstrs) {
+                out << "  " << cns->get_name() << " :: ";
                 ptr_vector<func_decl> const & accs = *get_constructor_accessors(cns);
-                for (unsigned j = 0; j < accs.size(); ++j) {
-                    func_decl* acc = accs[j];
+                for (func_decl* acc : accs) {
                     sort* s1 = acc->get_range();
                     out << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
                     if (is_datatype(s1) && are_siblings(s1, s0) && !mark.is_marked(s1)) {

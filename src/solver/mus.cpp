@@ -50,12 +50,12 @@ struct mus::imp {
     }
 
     bool is_literal(expr* lit) const {
-        expr* l;
+        expr* l;		
         return is_uninterp_const(lit) || (m.is_not(lit, l) && is_uninterp_const(l));
     }
     
     unsigned add_soft(expr* lit) {
-        SASSERT(is_literal(lit));
+        //SASSERT(is_literal(lit));
         unsigned idx = m_lit2expr.size();
         m_expr2lit.insert(lit, idx);
         m_lit2expr.push_back(lit);
@@ -64,7 +64,6 @@ struct mus::imp {
     }
 
     void add_assumption(expr* lit) {
-        SASSERT(is_literal(lit));
         m_assumptions.push_back(lit);
     }
 
@@ -78,17 +77,9 @@ struct mus::imp {
         return get_mus1(mus);
     }
 
-    lbool get_mus(ptr_vector<expr>& mus) {
-        mus.reset();
-        expr_ref_vector result(m);
-        lbool r = get_mus(result);
-        mus.append(result.size(), result.c_ptr());
-        return r;
-    }    
-
     lbool get_mus1(expr_ref_vector& mus) {
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
-        ptr_vector<expr> core_exprs;
+        expr_ref_vector core_exprs(m);
         TRACE("mus", m_solver.display(tout););
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
@@ -116,12 +107,12 @@ struct mus::imp {
                 if (!core_exprs.contains(not_lit)) {
                     // unknown := core_exprs \ mus
                     unknown.reset();
-                    for (unsigned i = 0; i < core_exprs.size(); ++i) {
-                        if (!mus.contains(core_exprs[i])) {
-                            unknown.push_back(core_exprs[i]);
+                    for (expr* c : core_exprs) {
+                        if (!mus.contains(c)) {
+                            unknown.push_back(c);
                         }
                     }
-                    TRACE("mus", display_vec(tout << "core exprs:", core_exprs);
+                    TRACE("mus", tout << "core exprs:" << core_exprs << "\n";
                         display_vec(tout << "core:", unknown);
                         display_vec(tout << "mus:", mus);
                     );
@@ -136,7 +127,7 @@ struct mus::imp {
 
     // use correction sets
     lbool get_mus2(expr_ref_vector& mus) {
-        expr* lit = 0;
+        expr* lit = nullptr;
         lbool is_sat;
         ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         while (!unknown.empty()) { 
@@ -163,7 +154,7 @@ struct mus::imp {
         expr_ref_vector  nmcs(m);
         expr_set core, min_core, nmcs_set;
         bool min_core_valid = false;
-        expr* min_lit = 0;
+        expr* min_lit = nullptr;
         while (!unknown.empty()) {
             expr* lit = unknown.back();
             unknown.pop_back();
@@ -226,13 +217,12 @@ struct mus::imp {
         }
 
         expr_set mss_set;
-        for (unsigned i = 0; i < mss.size(); ++i) {
-            mss_set.insert(mss[i]);
+        for (expr* e : mss) {
+            mss_set.insert(e);
         }
-        expr_set::iterator it = min_core.begin(), end = min_core.end();
-        for (; it != end; ++it) {
-            if (mss_set.contains(*it) && min_lit != *it) {
-                unknown.push_back(*it);
+        for (expr * e : min_core) {
+            if (mss_set.contains(e) && min_lit != e) {
+                unknown.push_back(e);
             }
         }
         core_literal = min_lit;
@@ -242,11 +232,11 @@ struct mus::imp {
 
     void get_core(expr_set& core) {
         core.reset();
-        ptr_vector<expr> core_exprs;
+        expr_ref_vector core_exprs(m);
         m_solver.get_unsat_core(core_exprs);
-        for (unsigned i = 0; i < core_exprs.size(); ++i) {
-            if (m_expr2lit.contains(core_exprs[i])) {
-                core.insert(core_exprs[i]);
+        for (expr* c : core_exprs) {
+            if (m_expr2lit.contains(c)) {
+                core.insert(c);
             }
         }
     }
@@ -341,8 +331,7 @@ struct mus::imp {
         m_solver.get_model(mdl);
         rational w;
         for (unsigned i = 0; i < m_soft.size(); ++i) {
-            mdl->eval(m_soft[i].get(), tmp);
-            if (!m.is_true(tmp)) {
+            if (!mdl->is_true(m_soft.get(i))) {
                 w += m_weights[i];
             }
         }
@@ -375,9 +364,6 @@ void mus::add_assumption(expr* lit) {
     return m_imp->add_assumption(lit);
 }
 
-lbool mus::get_mus(ptr_vector<expr>& mus) {
-    return m_imp->get_mus(mus);
-}
 
 lbool mus::get_mus(expr_ref_vector& mus) {
     return m_imp->get_mus(mus);

@@ -67,35 +67,35 @@ extern "C" {
         LOG_Z3_stats_get_key(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return "";
         }
         return to_stats_ref(s).get_key(idx);
         Z3_CATCH_RETURN("");
     }
 
-    Z3_bool Z3_API Z3_stats_is_uint(Z3_context c, Z3_stats s, unsigned idx) {
+    bool Z3_API Z3_stats_is_uint(Z3_context c, Z3_stats s, unsigned idx) {
         Z3_TRY;
         LOG_Z3_stats_is_uint(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
-            return Z3_FALSE;
+            SET_ERROR_CODE(Z3_IOB, nullptr);
+            return false;
         }
         return to_stats_ref(s).is_uint(idx);
         Z3_CATCH_RETURN(0);
     }
 
-    Z3_bool Z3_API Z3_stats_is_double(Z3_context c, Z3_stats s, unsigned idx) {
+    bool Z3_API Z3_stats_is_double(Z3_context c, Z3_stats s, unsigned idx) {
         Z3_TRY;
         LOG_Z3_stats_is_double(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
-            return Z3_FALSE;
+            SET_ERROR_CODE(Z3_IOB, nullptr);
+            return false;
         }
         return !to_stats_ref(s).is_uint(idx);
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
     
     unsigned Z3_API Z3_stats_get_uint_value(Z3_context c, Z3_stats s, unsigned idx) {
@@ -103,11 +103,11 @@ extern "C" {
         LOG_Z3_stats_get_uint_value(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return 0;
         }
         if (!to_stats_ref(s).is_uint(idx)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         return to_stats_ref(s).get_uint_value(idx);
@@ -119,18 +119,18 @@ extern "C" {
         LOG_Z3_stats_get_double_value(c, s, idx);
         RESET_ERROR_CODE();
         if (idx >= to_stats_ref(s).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return 0.0;
         }
         if (to_stats_ref(s).is_uint(idx)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0.0;
         }
         return to_stats_ref(s).get_double_value(idx);
         Z3_CATCH_RETURN(0.0);
     }
 
-    __uint64 Z3_API Z3_get_estimated_alloc_size(void) {
+    uint64_t Z3_API Z3_get_estimated_alloc_size(void) {
         return memory::get_allocation_size();
     }
 

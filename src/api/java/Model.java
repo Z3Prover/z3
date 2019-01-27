@@ -91,11 +91,11 @@ public class Model extends Z3Object {
                     return null;
                 else
                 {
-                    if (!Native.isAsArray(getContext().nCtx(), n))
-                        throw new Z3Exception(
-                                "Argument was not an array constant");
-                    long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
-                    return getFuncInterp(new FuncDecl(getContext(), fd));
+                    if (Native.isAsArray(getContext().nCtx(), n)) {
+                      long fd = Native.getAsArrayFuncDecl(getContext().nCtx(), n);
+                      return getFuncInterp(new FuncDecl(getContext(), fd));
+                    }
+		    return null;
                 }
             } else
             {

@@ -30,9 +30,9 @@ solver_na2as::solver_na2as(ast_manager & m):
 
 solver_na2as::~solver_na2as() {}
 
-void solver_na2as::assert_expr(expr * t, expr * a) {
-    if (a == 0) {
-        assert_expr(t);
+void solver_na2as::assert_expr_core2(expr * t, expr * a) {
+    if (a == nullptr) {
+        assert_expr_core(t);
     }
     else {
         SASSERT(is_uninterp_const(a));
@@ -41,7 +41,7 @@ void solver_na2as::assert_expr(expr * t, expr * a) {
         m_assumptions.push_back(a);
         expr_ref new_t(m);
         new_t = m.mk_implies(a, t);
-        assert_expr(new_t);
+        assert_expr_core(new_t);
     }
 }
 
@@ -61,10 +61,16 @@ struct append_assumptions {
     }
 };
 
-lbool solver_na2as::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+lbool solver_na2as::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
     append_assumptions app(m_assumptions, num_assumptions, assumptions);
     TRACE("solver_na2as", display(tout););
-    return check_sat_core(m_assumptions.size(), m_assumptions.c_ptr());
+    return check_sat_core2(m_assumptions.size(), m_assumptions.c_ptr());
+}
+
+lbool solver_na2as::check_sat_cc(const expr_ref_vector &assumptions, vector<expr_ref_vector> const &clauses) {
+    if (clauses.empty()) return check_sat(assumptions.size(), assumptions.c_ptr());
+    append_assumptions app(m_assumptions, assumptions.size(), assumptions.c_ptr());
+    return check_sat_cc_core(m_assumptions, clauses);
 }
 
 lbool solver_na2as::get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) {
@@ -84,9 +90,9 @@ void solver_na2as::push() {
 
 void solver_na2as::pop(unsigned n) {
     if (n > 0) {
-        pop_core(n);
         unsigned lvl = m_scopes.size();
-        SASSERT(n <= lvl);
+        n = std::min(lvl, n);
+        pop_core(n);
         unsigned new_lvl = lvl - n;
         restore_assumptions(m_scopes[new_lvl]);
         m_scopes.shrink(new_lvl);

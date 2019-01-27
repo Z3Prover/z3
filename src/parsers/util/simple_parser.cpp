@@ -87,7 +87,7 @@ expr * simple_parser::parse_expr(scanner & s) {
         }
         throw parser_error();
     case scanner::RIGHT_PAREN:
-        return 0;
+        return nullptr;
     case scanner::ID_TOKEN:
         if (m_builtin.find(s.get_id(), op)) {
             expr * r = m_manager.mk_const(op.m_family_id, op.m_kind);
@@ -118,12 +118,12 @@ bool simple_parser::parse(std::istream & in, expr_ref & result) {
         if (!result)
             throw parser_error();
     }
-    catch (parser_error) {
+    catch (const parser_error &) {
         warning_msg("parser error");
         return false;
     } 
     m_exprs.reset();
-    return result.get() != 0;
+    return result.get() != nullptr;
 }
 
 bool simple_parser::parse_string(char const * str, expr_ref & result) {
@@ -133,7 +133,7 @@ bool simple_parser::parse_string(char const * str, expr_ref & result) {
 }
  
 bool simple_parser::parse_file(char const * file, expr_ref & result) {
-    if (file != 0) {
+    if (file != nullptr) {
         std::ifstream stream(file);
         if (!stream) {
             warning_msg("ERROR: could not open file '%s'.", file);

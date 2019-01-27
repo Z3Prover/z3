@@ -27,10 +27,10 @@ static void tst1() {
     list<int> * l2 = new (r) list<int>(20, l1);
     list<int> * l3 = new (r) list<int>(30);
     list<int> * l4 = new (r) list<int>(40, l3);
-    ENSURE(append(r, l1, static_cast<list<int> *>(0)) == l1);
-    ENSURE(append(r, l2, static_cast<list<int> *>(0)) == l2);
-    ENSURE(append(r, static_cast<list<int> *>(0), l2) == l2);
-    ENSURE(append(r, static_cast<list<int> *>(0), static_cast<list<int> *>(0)) == 0);
+    ENSURE(append(r, l1, static_cast<list<int> *>(nullptr)) == l1);
+    ENSURE(append(r, l2, static_cast<list<int> *>(nullptr)) == l2);
+    ENSURE(append(r, static_cast<list<int> *>(nullptr), l2) == l2);
+    ENSURE(append(r, static_cast<list<int> *>(nullptr), static_cast<list<int> *>(nullptr)) == nullptr);
     TRACE("list", display(tout, l2->begin(), l2->end()); tout << "\n";);
     list<int> * l5 = append(r, l4, l2);
     TRACE("list", display(tout, l5->begin(), l5->end()); tout << "\n";);

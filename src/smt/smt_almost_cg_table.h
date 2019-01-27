@@ -57,7 +57,7 @@ namespace smt {
         table   m_table;
 
     public:
-        almost_cg_table(enode * r1 = 0, enode * r2 = 0);
+        almost_cg_table(enode * r1 = nullptr, enode * r2 = nullptr);
         void reset(enode * r1, enode * r2) { m_r1 = r1->get_root(); m_r2 = r2->get_root(); reset(); }
         void reset();
         void insert(enode *);

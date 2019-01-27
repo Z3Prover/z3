@@ -54,30 +54,30 @@ namespace datalog {
     public:
         external_relation_plugin(external_relation_context& ctx, relation_manager & m);
 
-        virtual bool can_handle_signature(const relation_signature & s) { return true; }
+        bool can_handle_signature(const relation_signature & s) override { return true; }
 
         static symbol get_name() { return symbol("external_relation"); }
 
-        virtual relation_base * mk_empty(const relation_signature & s);
+        relation_base * mk_empty(const relation_signature & s) override;
 
-        virtual relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
-            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2);
-        virtual relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * removed_cols);
-        virtual relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len, 
-            const unsigned * permutation_cycle);
-        virtual relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src, 
-            const relation_base * delta);
-        virtual relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt, 
-            const unsigned * identical_cols);
-        virtual relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value, 
-            unsigned col);
-        virtual relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition);
-        virtual relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t, 
-            const relation_base & negated_obj, unsigned joined_col_cnt, 
-            const unsigned * t_cols, const unsigned * negated_cols);
+        relation_join_fn * mk_join_fn(const relation_base & t1, const relation_base & t2,
+            unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) override;
+        relation_transformer_fn * mk_project_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * removed_cols) override;
+        relation_transformer_fn * mk_rename_fn(const relation_base & t, unsigned permutation_cycle_len,
+            const unsigned * permutation_cycle) override;
+        relation_union_fn * mk_union_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_union_fn * mk_widen_fn(const relation_base & tgt, const relation_base & src,
+            const relation_base * delta) override;
+        relation_mutator_fn * mk_filter_identical_fn(const relation_base & t, unsigned col_cnt,
+            const unsigned * identical_cols) override;
+        relation_mutator_fn * mk_filter_equal_fn(const relation_base & t, const relation_element & value,
+            unsigned col) override;
+        relation_mutator_fn * mk_filter_interpreted_fn(const relation_base & t, app * condition) override;
+        relation_intersection_filter_fn * mk_filter_by_negation_fn(const relation_base & t,
+            const relation_base & negated_obj, unsigned joined_col_cnt,
+            const unsigned * t_cols, const unsigned * negated_cols) override;
 
     private:
 
@@ -123,28 +123,28 @@ namespace datalog {
         void mk_accessor(decl_kind k, func_decl_ref& fn, const relation_fact& f, bool destructive, expr_ref& res) const;
 
         external_relation(external_relation_plugin & p, const relation_signature & s, expr* r);
-        virtual ~external_relation();
+        ~external_relation() override;
 
     public:
         external_relation_plugin & get_plugin() const;
 
-        virtual bool empty() const;
+        bool empty() const override;
 
-        virtual void add_fact(const relation_fact & f);
+        void add_fact(const relation_fact & f) override;
 
-        virtual bool contains_fact(const relation_fact & f) const;
+        bool contains_fact(const relation_fact & f) const override;
 
-        virtual external_relation * clone() const;
+        external_relation * clone() const override;
 
-        virtual external_relation * complement(func_decl*) const;
+        external_relation * complement(func_decl*) const override;
 
-        virtual void display(std::ostream & out) const;
+        void display(std::ostream & out) const override;
 
-        virtual void display_tuples(func_decl & pred, std::ostream & out) const;
+        void display_tuples(func_decl & pred, std::ostream & out) const override;
 
         expr*  get_relation() const { return m_rel.get(); }
 
-        virtual void to_formula(expr_ref& fml) const { fml = get_relation(); }
+        void to_formula(expr_ref& fml) const override { fml = get_relation(); }
     
     };
 

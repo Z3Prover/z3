@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include<sstream>
-#include<cstring>
+#include <sstream>
+#include <cstring>
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -26,6 +26,9 @@ Revision History:
 #include "util/string_buffer.h"
 #include "ast/ast_util.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "ast/ast_translation.h"
+
 
 // -----------------------------------
 //
@@ -360,13 +363,14 @@ app::app(func_decl * decl, unsigned num_args, expr * const * args):
 //
 // -----------------------------------
 
-quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body,
+quantifier::quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* s,
                        int weight, symbol const & qid, symbol const & skid, unsigned num_patterns, expr * const * patterns,
                        unsigned num_no_patterns, expr * const * no_patterns):
     expr(AST_QUANTIFIER),
-    m_forall(forall),
+    m_kind(k),
     m_num_decls(num_decls),
     m_expr(body),
+    m_sort(s),
     m_depth(::get_depth(body) + 1),
     m_weight(weight),
     m_has_unused_vars(true),
@@ -385,6 +389,25 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
         memcpy(const_cast<expr **>(get_no_patterns()), no_patterns, sizeof(expr *) * num_no_patterns);
 }
 
+quantifier::quantifier(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body, sort* s):
+    expr(AST_QUANTIFIER),
+    m_kind(lambda_k),
+    m_num_decls(num_decls),
+    m_expr(body),
+    m_sort(s),
+    m_depth(::get_depth(body) + 1),
+    m_weight(0),
+    m_has_unused_vars(true),
+    m_has_labels(::has_labels(body)),
+    m_qid(symbol()),
+    m_skid(symbol()),
+    m_num_patterns(0),
+    m_num_no_patterns(0) {
+    memcpy(const_cast<sort **>(get_decl_sorts()), decl_sorts, sizeof(sort *) * num_decls);
+    memcpy(const_cast<symbol*>(get_decl_names()), decl_names, sizeof(symbol) * num_decls);   
+}
+
+
 // -----------------------------------
 //
 // Auxiliary functions
@@ -392,21 +415,16 @@ quantifier::quantifier(bool forall, unsigned num_decls, sort * const * decl_sort
 // -----------------------------------
 
 sort * get_sort(expr const * n) {
-    while (true) {
-        switch(n->get_kind()) {
-        case AST_APP:
-            return to_app(n)->get_decl()->get_range();
-        case AST_VAR:
-            return to_var(n)->get_sort();
-        case AST_QUANTIFIER:
-            // The sort of the quantifier is the sort of the nested expression.
-            // This code assumes the given expression is well-sorted.
-            n = to_quantifier(n)->get_expr();
-            break;
-        default:
-            UNREACHABLE();
-            return 0;
-        }
+    switch(n->get_kind()) {
+    case AST_APP:
+        return to_app(n)->get_decl()->get_range();
+    case AST_VAR:
+        return to_var(n)->get_sort();
+    case AST_QUANTIFIER:
+        return to_quantifier(n)->get_sort();
+    default:
+        UNREACHABLE();
+        return nullptr;
     }
 }
 
@@ -434,18 +452,18 @@ bool compare_nodes(ast const * n1, ast const * n2) {
     }
     switch (n1->get_kind()) {
     case AST_SORT:
-        if ((to_sort(n1)->get_info() == 0) != (to_sort(n2)->get_info() == 0)) {
+        if ((to_sort(n1)->get_info() == nullptr) != (to_sort(n2)->get_info() == nullptr)) {
             return false;
         }
-        if (to_sort(n1)->get_info() != 0 && !(*to_sort(n1)->get_info() == *to_sort(n2)->get_info())) {
+        if (to_sort(n1)->get_info() != nullptr && !(*to_sort(n1)->get_info() == *to_sort(n2)->get_info())) {
             return false;
         }
         return to_sort(n1)->get_name()  == to_sort(n2)->get_name();
     case AST_FUNC_DECL:
-        if ((to_func_decl(n1)->get_info() == 0) != (to_func_decl(n2)->get_info() == 0)) {
+        if ((to_func_decl(n1)->get_info() == nullptr) != (to_func_decl(n2)->get_info() == nullptr)) {
             return false;
         }
-        if (to_func_decl(n1)->get_info() != 0 && !(*to_func_decl(n1)->get_info() == *to_func_decl(n2)->get_info())) {
+        if (to_func_decl(n1)->get_info() != nullptr && !(*to_func_decl(n1)->get_info() == *to_func_decl(n2)->get_info())) {
             return false;
         }
         return
@@ -466,7 +484,7 @@ bool compare_nodes(ast const * n1, ast const * n2) {
             to_var(n1)->get_sort() == to_var(n2)->get_sort();
     case AST_QUANTIFIER:
         return
-            to_quantifier(n1)->is_forall()           == to_quantifier(n2)->is_forall() &&
+            to_quantifier(n1)->get_kind()            == to_quantifier(n2)->get_kind() &&
             to_quantifier(n1)->get_num_decls()       == to_quantifier(n2)->get_num_decls() &&
             compare_arrays(to_quantifier(n1)->get_decl_sorts(),
                            to_quantifier(n2)->get_decl_sorts(),
@@ -549,13 +567,13 @@ unsigned get_node_hash(ast const * n) {
 
     switch (n->get_kind()) {
     case AST_SORT:
-        if (to_sort(n)->get_info() == 0)
+        if (to_sort(n)->get_info() == nullptr)
             return to_sort(n)->get_name().hash();
         else
             return combine_hash(to_sort(n)->get_name().hash(), to_sort(n)->get_info()->hash());
     case AST_FUNC_DECL:
         return ast_array_hash(to_func_decl(n)->get_domain(), to_func_decl(n)->get_arity(),
-                              to_func_decl(n)->get_info() == 0 ?
+                              to_func_decl(n)->get_info() == nullptr ?
                               to_func_decl(n)->get_name().hash() : combine_hash(to_func_decl(n)->get_name().hash(), to_func_decl(n)->get_info()->hash()));
     case AST_APP:
         return ast_array_hash(to_app(n)->get_args(),
@@ -566,7 +584,7 @@ unsigned get_node_hash(ast const * n) {
     case AST_QUANTIFIER:
         a = ast_array_hash(to_quantifier(n)->get_decl_sorts(),
                            to_quantifier(n)->get_num_decls(),
-                           to_quantifier(n)->is_forall() ? 31 : 19);
+                           to_quantifier(n)->get_kind() == forall_k ? 31 : 19);
         b = to_quantifier(n)->get_num_patterns();
         c = to_quantifier(n)->get_expr()->hash();
         mix(a,b,c);
@@ -577,8 +595,7 @@ unsigned get_node_hash(ast const * n) {
     return 0;
 }
 
-void ast_table::erase(ast * n) {
-    // Customized erase method
+void ast_table::push_erase(ast * n) {
     // It uses two important properties:
     // 1. n is known to be in the table.
     // 2. operator== can be used instead of compare_nodes (big savings)
@@ -586,35 +603,58 @@ void ast_table::erase(ast * n) {
     unsigned h    = n->hash();
     unsigned idx  = h & mask;
     cell * c      = m_table + idx;
-    SASSERT(!c->is_free());
-    cell * prev = 0;
+    cell * prev = nullptr;
     while (true) {
+        SASSERT(!c->is_free());
+        cell * next = c->m_next;
         if (c->m_data == n) {
             m_size--;
-            if (prev == 0) {
-                cell * next = c->m_next;
-                if (next == 0) {
+            if (prev == nullptr) {
+                if (next == nullptr) {
                     m_used_slots--;
+                    push_recycle_cell(c);
                     c->mark_free();
                     SASSERT(c->is_free());
                 }
                 else {
                     *c = *next;
-                    recycle_cell(next);
+                    next->m_data = n;
+                    push_recycle_cell(next);
                 }
             }
             else {
-                prev->m_next = c->m_next;
-                recycle_cell(c);
+                prev->m_next = next;
+                push_recycle_cell(c);
             }
             return;
         }
         CHS_CODE(m_collisions++;);
         prev = c;
-        c = c->m_next;
+        c = next;
         SASSERT(c);
     }
 }
+
+ast* ast_table::pop_erase() {
+    cell* c = m_tofree_cell;
+    if (c == nullptr) {
+        return nullptr;
+    }
+    if (c->is_free()) {
+        // cell was marked free, should not be recycled.
+        c->unmark_free();
+        m_tofree_cell = c->m_next;
+        c->mark_free();
+    }
+    else {
+        // cell should be recycled with m_free_cell
+        m_tofree_cell = c->m_next;
+        recycle_cell(c);
+    }        
+    return c->m_data;
+}
+
+
 
 // -----------------------------------
 //
@@ -638,49 +678,46 @@ func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, para
 // -----------------------------------
 
 basic_decl_plugin::basic_decl_plugin():
-    m_bool_sort(0),
-    m_true_decl(0),
-    m_false_decl(0),
-    m_and_decl(0),
-    m_or_decl(0),
-    m_iff_decl(0),
-    m_xor_decl(0),
-    m_not_decl(0),
-    m_interp_decl(0),
-    m_implies_decl(0),
+    m_bool_sort(nullptr),
+    m_true_decl(nullptr),
+    m_false_decl(nullptr),
+    m_and_decl(nullptr),
+    m_or_decl(nullptr),
+    m_xor_decl(nullptr),
+    m_not_decl(nullptr),
+    m_implies_decl(nullptr),
 
-    m_proof_sort(0),
-    m_undef_decl(0),
-    m_true_pr_decl(0),
-    m_asserted_decl(0),
-    m_goal_decl(0),
-    m_modus_ponens_decl(0),
-    m_reflexivity_decl(0),
-    m_symmetry_decl(0),
-    m_transitivity_decl(0),
-    m_quant_intro_decl(0),
-    m_and_elim_decl(0),
-    m_not_or_elim_decl(0),
-    m_rewrite_decl(0),
-    m_pull_quant_decl(0),
-    m_pull_quant_star_decl(0),
-    m_push_quant_decl(0),
-    m_elim_unused_vars_decl(0),
-    m_der_decl(0),
-    m_quant_inst_decl(0),
+    m_proof_sort(nullptr),
+    m_undef_decl(nullptr),
+    m_true_pr_decl(nullptr),
+    m_asserted_decl(nullptr),
+    m_goal_decl(nullptr),
+    m_modus_ponens_decl(nullptr),
+    m_reflexivity_decl(nullptr),
+    m_symmetry_decl(nullptr),
+    m_transitivity_decl(nullptr),
+    m_quant_intro_decl(nullptr),
+    m_and_elim_decl(nullptr),
+    m_not_or_elim_decl(nullptr),
+    m_rewrite_decl(nullptr),
+    m_pull_quant_decl(nullptr),
+    m_push_quant_decl(nullptr),
+    m_elim_unused_vars_decl(nullptr),
+    m_der_decl(nullptr),
+    m_quant_inst_decl(nullptr),
 
-    m_hypothesis_decl(0),
-    m_iff_true_decl(0),
-    m_iff_false_decl(0),
-    m_commutativity_decl(0),
-    m_def_axiom_decl(0),
-    m_lemma_decl(0),
+    m_hypothesis_decl(nullptr),
+    m_iff_true_decl(nullptr),
+    m_iff_false_decl(nullptr),
+    m_commutativity_decl(nullptr),
+    m_def_axiom_decl(nullptr),
+    m_lemma_decl(nullptr),
 
-    m_def_intro_decl(0),
-    m_iff_oeq_decl(0),
-    m_skolemize_decl(0),
-    m_mp_oeq_decl(0),
-    m_hyper_res_decl0(0) {
+    m_def_intro_decl(nullptr),
+    m_iff_oeq_decl(nullptr),
+    m_skolemize_decl(nullptr),
+    m_mp_oeq_decl(nullptr),
+    m_hyper_res_decl0(nullptr) {
 }
 
 bool basic_decl_plugin::check_proof_sorts(basic_op_kind k, unsigned arity, sort * const * domain) const {
@@ -692,7 +729,8 @@ bool basic_decl_plugin::check_proof_sorts(basic_op_kind k, unsigned arity, sort 
         for (unsigned i = 0; i < arity - 1; i++)
             if (domain[i] != m_proof_sort)
                 return false;
-        return domain[arity-1] == m_bool_sort || domain[arity-1] == m_proof_sort;
+#define is_array(_x_) true
+        return domain[arity-1] == m_bool_sort || domain[arity-1] == m_proof_sort || is_array(domain[arity-1]);
     }
 }
 
@@ -707,7 +745,8 @@ bool basic_decl_plugin::check_proof_args(basic_op_kind k, unsigned num_args, exp
                 return false;
         return
             m_manager->get_sort(args[num_args - 1]) == m_bool_sort ||
-            m_manager->get_sort(args[num_args - 1]) == m_proof_sort;
+            m_manager->get_sort(args[num_args - 1]) == m_proof_sort || 
+            is_lambda(args[num_args-1]);
     }
 }
 
@@ -790,7 +829,7 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_param
     }
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -821,13 +860,13 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_TRANSITIVITY_STAR:            return mk_proof_decl("trans*", k, num_parents, m_transitivity_star_decls);
     case PR_MONOTONICITY:                 return mk_proof_decl("monotonicity", k, num_parents, m_monotonicity_decls);
     case PR_QUANT_INTRO:                  return mk_proof_decl("quant-intro", k, 1, m_quant_intro_decl);
+    case PR_BIND:                         UNREACHABLE();
     case PR_DISTRIBUTIVITY:               return mk_proof_decl("distributivity", k, num_parents, m_distributivity_decls);
     case PR_AND_ELIM:                     return mk_proof_decl("and-elim", k, 1, m_and_elim_decl);
     case PR_NOT_OR_ELIM:                  return mk_proof_decl("not-or-elim", k, 1, m_not_or_elim_decl);
     case PR_REWRITE:                      return mk_proof_decl("rewrite", k, 0, m_rewrite_decl);
     case PR_REWRITE_STAR:                 return mk_proof_decl("rewrite*", k, num_parents, m_rewrite_star_decls);
     case PR_PULL_QUANT:                   return mk_proof_decl("pull-quant", k, 0, m_pull_quant_decl);
-    case PR_PULL_QUANT_STAR:              return mk_proof_decl("pull-quant*", k, 0, m_pull_quant_star_decl);
     case PR_PUSH_QUANT:                   return mk_proof_decl("push-quant", k, 0, m_push_quant_decl);
     case PR_ELIM_UNUSED_VARS:             return mk_proof_decl("elim-unused", k, 0, m_elim_unused_vars_decl);
     case PR_DER:                          return mk_proof_decl("der", k, 0, m_der_decl);
@@ -844,15 +883,13 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_IFF_OEQ:                      return mk_proof_decl("iff~", k, 1, m_iff_oeq_decl);
     case PR_NNF_POS:                      return mk_proof_decl("nnf-pos", k, num_parents, m_nnf_pos_decls);
     case PR_NNF_NEG:                      return mk_proof_decl("nnf-neg", k, num_parents, m_nnf_neg_decls);
-    case PR_NNF_STAR:                     return mk_proof_decl("nnf*", k, num_parents, m_nnf_star_decls);
-    case PR_CNF_STAR:                     return mk_proof_decl("cnf*", k, num_parents, m_cnf_star_decls);
     case PR_SKOLEMIZE:                    return mk_proof_decl("sk", k, 0, m_skolemize_decl);
     case PR_MODUS_PONENS_OEQ:             return mk_proof_decl("mp~", k, 2, m_mp_oeq_decl);
     case PR_TH_LEMMA:                     return mk_proof_decl("th-lemma", k, num_parents, m_th_lemma_decls);
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -866,10 +903,8 @@ void basic_decl_plugin::set_manager(ast_manager * m, family_id id) {
     m_false_decl   = mk_bool_op_decl("false", OP_FALSE);
     m_and_decl     = mk_bool_op_decl("and", OP_AND, 2, true, true, true, true);
     m_or_decl      = mk_bool_op_decl("or", OP_OR, 2, true, true, true, true);
-    m_iff_decl     = mk_bool_op_decl("iff", OP_IFF, 2, false, true, false, false, true);
     m_xor_decl     = mk_bool_op_decl("xor", OP_XOR, 2, true, true);
     m_not_decl     = mk_bool_op_decl("not", OP_NOT, 1);
-    m_interp_decl  = mk_bool_op_decl("interp", OP_INTERP, 1);
     m_implies_decl = mk_implies_decl();
 
     m_proof_sort = m->mk_sort(symbol("Proof"), sort_info(id, PROOF_SORT));
@@ -894,19 +929,17 @@ void basic_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol co
     op_names.push_back(builtin_name("or", OP_OR));
     op_names.push_back(builtin_name("xor", OP_XOR));
     op_names.push_back(builtin_name("not", OP_NOT));
-    op_names.push_back(builtin_name("interp", OP_INTERP));
     op_names.push_back(builtin_name("=>", OP_IMPLIES));
     if (logic == symbol::null) {
         // user friendly aliases
         op_names.push_back(builtin_name("implies", OP_IMPLIES));
-        op_names.push_back(builtin_name("iff", OP_IFF));
+        op_names.push_back(builtin_name("iff", OP_EQ));
         op_names.push_back(builtin_name("if_then_else", OP_ITE));
         op_names.push_back(builtin_name("if", OP_ITE));
         op_names.push_back(builtin_name("&&", OP_AND));
         op_names.push_back(builtin_name("||", OP_OR));
         op_names.push_back(builtin_name("equals", OP_EQ));
-        op_names.push_back(builtin_name("equiv", OP_IFF));
-        op_names.push_back(builtin_name("@@", OP_INTERP));
+        op_names.push_back(builtin_name("equiv", OP_EQ));
     }
 }
 
@@ -927,8 +960,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_and_decl);
     DEC_REF(m_or_decl);
     DEC_REF(m_not_decl);
-    DEC_REF(m_interp_decl);
-    DEC_REF(m_iff_decl);
     DEC_REF(m_xor_decl);
     DEC_REF(m_implies_decl);
     DEC_ARRAY_REF(m_eq_decls);
@@ -949,7 +980,6 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_not_or_elim_decl);
     DEC_REF(m_rewrite_decl);
     DEC_REF(m_pull_quant_decl);
-    DEC_REF(m_pull_quant_star_decl);
     DEC_REF(m_push_quant_decl);
     DEC_REF(m_elim_unused_vars_decl);
     DEC_REF(m_der_decl);
@@ -975,8 +1005,6 @@ void basic_decl_plugin::finalize() {
     DEC_ARRAY_REF(m_apply_def_decls);
     DEC_ARRAY_REF(m_nnf_pos_decls);
     DEC_ARRAY_REF(m_nnf_neg_decls);
-    DEC_ARRAY_REF(m_nnf_star_decls);
-    DEC_ARRAY_REF(m_cnf_star_decls);
 
     DEC_ARRAY_REF(m_th_lemma_decls);
     DEC_REF(m_hyper_res_decl0);
@@ -1051,7 +1079,7 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     }
     std::ostringstream buffer;
     buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
-    throw ast_exception(buffer.str().c_str());
+    throw ast_exception(buffer.str());
 }
 
 
@@ -1063,14 +1091,16 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_INTERP:  return m_interp_decl;
-    case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
-    case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : 0;
+    case OP_ITE:     return arity == 3 ? mk_ite_decl(join(domain[1], domain[2])) : nullptr;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : 0;
-    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : 0;
+    case OP_EQ:      return arity >= 2 ? mk_eq_decl_core("=", OP_EQ, join(arity, domain), m_eq_decls) : nullptr;
+    case OP_OEQ:     return arity >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(arity, domain), m_oeq_decls) : nullptr;
+    case PR_BIND: {
+        func_decl_info info(m_family_id, PR_BIND);
+        return m_manager->mk_func_decl(symbol("proof-bind"), arity, domain, m_proof_sort, info);
+    }
     case OP_DISTINCT: {
         func_decl_info info(m_family_id, OP_DISTINCT);
         info.set_pairwise();
@@ -1078,7 +1108,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             if (domain[i] != domain[0]) {
                 std::ostringstream buffer;
                 buffer << "Sort mismatch between first argument and argument " << (i+1);
-                throw ast_exception(buffer.str().c_str());
+                throw ast_exception(buffer.str());
             }
         }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
@@ -1106,16 +1136,19 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     case OP_AND:     return m_and_decl;
     case OP_OR:      return m_or_decl;
     case OP_NOT:     return m_not_decl;
-    case OP_INTERP:  return m_interp_decl;
-    case OP_IFF:     return m_iff_decl;
     case OP_IMPLIES: return m_implies_decl;
     case OP_XOR:     return m_xor_decl;
-    case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): 0;
+    case OP_ITE:     return num_args == 3 ? mk_ite_decl(join(m_manager->get_sort(args[1]), m_manager->get_sort(args[2]))): nullptr;
         // eq and oeq must have at least two arguments, they can have more since they are chainable
-    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(num_args, args), m_eq_decls) : 0;
-    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : 0;
+    case OP_EQ:      return num_args >= 2 ? mk_eq_decl_core("=", OP_EQ, join(num_args, args), m_eq_decls) : nullptr;
+    case OP_OEQ:     return num_args >= 2 ? mk_eq_decl_core("~", OP_OEQ, join(num_args, args), m_oeq_decls) : nullptr;
     case OP_DISTINCT:
         return decl_plugin::mk_func_decl(k, num_parameters, parameters, num_args, args, range);
+    case PR_BIND: {
+        ptr_buffer<sort> sorts;
+        for (unsigned i = 0; i < num_args; ++i) sorts.push_back(m_manager->get_sort(args[i]));
+        return mk_func_decl(k, num_parameters, parameters, num_args, sorts.c_ptr(), range);
+    }
     default:
         break;
     }
@@ -1134,7 +1167,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 expr * basic_decl_plugin::get_some_value(sort * s) {
     if (s == m_bool_sort)
         return m_manager->mk_false();
-    return 0;
+    return nullptr;
 }
 
 bool basic_recognizers::is_ite(expr const * n, expr * & t1, expr * & t2, expr * & t3) const {
@@ -1168,7 +1201,7 @@ void label_decl_plugin::set_manager(ast_manager * m, family_id id) {
 
 sort * label_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -1176,12 +1209,12 @@ func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (k == OP_LABEL) {
         if (arity != 1 || num_parameters < 2 || !parameters[0].is_int() || !parameters[1].is_symbol() || !m_manager->is_bool(domain[0])) {
             m_manager->raise_exception("invalid label declaration");
-            return 0;
+            return nullptr;
         }
         for (unsigned i = 2; i < num_parameters; i++) {
             if (!parameters[i].is_symbol()) {
                 m_manager->raise_exception("invalid label declaration");
-                return 0;
+                return nullptr;
             }
         }
         return m_manager->mk_func_decl(parameters[0].get_int() ? m_lblpos : m_lblneg, arity, domain, domain[0],
@@ -1191,15 +1224,15 @@ func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         SASSERT(k == OP_LABEL_LIT);
         if (arity != 0) {
             m_manager->raise_exception("invalid label literal declaration");
-            return 0;
+            return nullptr;
         }
         for (unsigned i = 0; i < num_parameters; i++) {
             if (!parameters[i].is_symbol()) {
                 m_manager->raise_exception("invalid label literal declaration");
-                return 0;
+                return nullptr;
             }
         }
-        return m_manager->mk_func_decl(m_lbllit, 0, static_cast<sort * const *>(0), m_manager->mk_bool_sort(),
+        return m_manager->mk_func_decl(m_lbllit, 0, static_cast<sort * const *>(nullptr), m_manager->mk_bool_sort(),
                                        func_decl_info(m_family_id, OP_LABEL_LIT, num_parameters, parameters));
     }
 }
@@ -1212,7 +1245,7 @@ func_decl * label_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 
 sort * pattern_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 func_decl * pattern_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -1230,16 +1263,15 @@ func_decl * pattern_decl_plugin::mk_func_decl(decl_kind k, unsigned num_paramete
 
 sort * model_value_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) {
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 func_decl * model_value_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                                   unsigned arity, sort * const * domain, sort * range) {
     SASSERT(k == OP_MODEL_VALUE);
     if (arity != 0 || num_parameters != 2 || !parameters[0].is_int() || !parameters[1].is_ast() || !is_sort(parameters[1].get_ast())) {
-        UNREACHABLE();
         m_manager->raise_exception("invalid model value");
-        return 0;
+        return nullptr;
     }
     int idx  = parameters[0].get_int();
     sort * s = to_sort(parameters[1].get_ast());
@@ -1247,7 +1279,7 @@ func_decl * model_value_decl_plugin::mk_func_decl(decl_kind k, unsigned num_para
     buffer << s->get_name().bare_str() << "!val!" << idx;
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     info.m_private_parameters = true;
-    return m_manager->mk_func_decl(symbol(buffer.c_str()), 0, static_cast<sort * const *>(0), s, info);
+    return m_manager->mk_func_decl(symbol(buffer.c_str()), 0, static_cast<sort * const *>(nullptr), s, info);
 }
 
 bool model_value_decl_plugin::is_value(app* n) const {
@@ -1274,7 +1306,7 @@ sort * user_sort_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter
 func_decl * user_sort_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                            unsigned arity, sort * const * domain, sort * range) {
     UNREACHABLE();
-    return 0;
+    return nullptr;
 }
 
 decl_kind user_sort_plugin::register_name(symbol s) {
@@ -1307,9 +1339,10 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     m_expr_dependency_manager(*this, m_alloc),
     m_expr_dependency_array_manager(*this, m_alloc),
     m_proof_mode(m),
-    m_trace_stream(0),
+    m_trace_stream(nullptr),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_lambda_def(":lambda-def") {
 
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
@@ -1319,7 +1352,7 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     else
-        m_format_manager = 0;
+        m_format_manager = nullptr;
     init();
 }
 
@@ -1331,12 +1364,13 @@ ast_manager::ast_manager(proof_gen_mode m, std::fstream * trace_stream, bool is_
     m_proof_mode(m),
     m_trace_stream(trace_stream),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_lambda_def(":lambda-def") {
 
     if (!is_format_manager)
         m_format_manager = alloc(ast_manager, PGM_DISABLED, trace_stream, true);
     else
-        m_format_manager = 0;
+        m_format_manager = nullptr;
     init();
 }
 
@@ -1348,12 +1382,19 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
     m_trace_stream(src.m_trace_stream),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_lambda_def(":lambda-def") {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
     copy_families_plugins(src);
+    update_fresh_id(src);
 }
+
+void ast_manager::update_fresh_id(ast_manager const& m) {
+    m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
+}
+
 
 void ast_manager::init() {
     m_int_real_coercions = true;
@@ -1361,7 +1402,7 @@ void ast_manager::init() {
     m_fresh_id = 0;
     m_expr_id_gen.reset(0);
     m_decl_id_gen.reset(c_first_decl_id);
-    m_some_value_proc = 0;
+    m_some_value_proc = nullptr;
     m_basic_family_id          = mk_family_id("basic");
     m_label_family_id          = mk_family_id("label");
     m_pattern_family_id        = mk_family_id("pattern");
@@ -1385,6 +1426,7 @@ void ast_manager::init() {
     m_false = mk_const(m_basic_family_id, OP_FALSE);
     inc_ref(m_false);
 }
+
 
 template<typename T>
 static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
@@ -1427,14 +1469,14 @@ ast_manager::~ast_manager() {
             switch (n->get_kind()) {
             case AST_SORT: {
                 sort_info* info = to_sort(n)->get_info();
-                if (info != 0) {
+                if (info != nullptr) {
                     mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
                 }
                 break;
             }
             case AST_FUNC_DECL: {
                 func_decl_info* info = to_func_decl(n)->get_info();
-                if (info != 0) {
+                if (info != nullptr) {
                     mark_array_ref(mark, info->get_num_parameters(), info->get_parameters());
                 }
                 mark_array_ref(mark, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
@@ -1476,14 +1518,14 @@ ast_manager::~ast_manager() {
             delete_node(a);
         }
     }
-    if (m_format_manager != 0)
+    if (m_format_manager != nullptr)
         dealloc(m_format_manager);
     if (m_trace_stream_owner) {
         std::fstream & tmp = * m_trace_stream;
         tmp << "[eof]\n";
         tmp.close();
         dealloc(m_trace_stream);
-        m_trace_stream = 0;
+        m_trace_stream = nullptr;
     }
 }
 
@@ -1513,7 +1555,7 @@ void ast_manager::compress_ids() {
         else
             n->m_id = m_expr_id_gen.mk();
         asts.push_back(n);
-    }
+    }    
     m_ast_table.finalize();
     for (ast* a : asts) 
         m_ast_table.insert(a);
@@ -1523,7 +1565,20 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
-#include "ast/ast_translation.h"
+void ast_manager::raise_exception(std::string const&  msg) {
+    throw ast_exception(msg.c_str());
+}
+
+
+std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
+    switch (p.get_kind()) {
+    case parameter::PARAM_AST:
+        return out << mk_pp(p.get_ast(), *this);
+    default:
+        return p.display(out);
+    }
+    return out;
+}
 
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
@@ -1532,32 +1587,39 @@ void ast_manager::copy_families_plugins(ast_manager const & from) {
               tout << "fid: " << fid << " fidname: " << get_family_name(fid) << "\n";
           });
     ast_translation trans(const_cast<ast_manager&>(from), *this, false);
+    // Inheriting plugins can create new family ids. Since new family ids are
+    // assigned in the order that they are created, this can result in differing
+    // family ids. To avoid this, we first assign all family ids and only then inherit plugins.
     for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
-      SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
-      SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
-      symbol fid_name   = from.get_family_name(fid);
-      TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
-            << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
-            if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
-      if (!m_family_manager.has_family(fid)) {
-          family_id new_fid = mk_family_id(fid_name);
-          (void)new_fid;
-          TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
-      }
-      TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
-      SASSERT(fid == get_family_id(fid_name));
-      if (from.has_plugin(fid) && !has_plugin(fid)) {
-          decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
-          register_plugin(fid, new_p);
-          SASSERT(new_p->get_family_id() == fid);
-          SASSERT(has_plugin(fid));
-      }
-      if (from.has_plugin(fid)) {
-          get_plugin(fid)->inherit(from.get_plugin(fid), trans);
-      }
-      SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
-      SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
-      SASSERT(!from.has_plugin(fid) || has_plugin(fid));
+        symbol fid_name   = from.get_family_name(fid);
+        if (!m_family_manager.has_family(fid)) {
+            family_id new_fid = mk_family_id(fid_name);
+            (void)new_fid;
+            TRACE("copy_families_plugins", tout << "new target fid created: " << new_fid << " fid_name: " << fid_name << "\n";);
+        }
+    }
+    for (family_id fid = 0; from.m_family_manager.has_family(fid); fid++) {
+        SASSERT(from.is_builtin_family_id(fid) == is_builtin_family_id(fid));
+        SASSERT(!from.is_builtin_family_id(fid) || m_family_manager.has_family(fid));
+        symbol fid_name   = from.get_family_name(fid);
+        (void)fid_name;
+        TRACE("copy_families_plugins", tout << "copying: " << fid_name << ", src fid: " << fid
+              << ", target has_family: " << m_family_manager.has_family(fid) << "\n";
+              if (m_family_manager.has_family(fid)) tout << get_family_id(fid_name) << "\n";);
+        TRACE("copy_families_plugins", tout << "target fid: " << get_family_id(fid_name) << "\n";);
+        SASSERT(fid == get_family_id(fid_name));
+        if (from.has_plugin(fid) && !has_plugin(fid)) {
+            decl_plugin * new_p = from.get_plugin(fid)->mk_fresh();
+            register_plugin(fid, new_p);
+            SASSERT(new_p->get_family_id() == fid);
+            SASSERT(has_plugin(fid));
+        }
+        if (from.has_plugin(fid)) {
+            get_plugin(fid)->inherit(from.get_plugin(fid), trans);
+        }
+        SASSERT(from.m_family_manager.has_family(fid) == m_family_manager.has_family(fid));
+        SASSERT(from.get_family_id(fid_name) == get_family_id(fid_name));
+        SASSERT(!from.has_plugin(fid) || has_plugin(fid));
     }
 }
 
@@ -1587,7 +1649,7 @@ decl_plugin * ast_manager::get_plugin(family_id fid) const {
 
 
 bool ast_manager::is_value(expr* e) const {
-    decl_plugin const * p = 0;
+    decl_plugin const * p = nullptr;
     if (is_app(e)) {
         p = get_plugin(to_app(e)->get_family_id());
         return p && p->is_value(to_app(e));
@@ -1596,7 +1658,7 @@ bool ast_manager::is_value(expr* e) const {
 }
 
 bool ast_manager::is_unique_value(expr* e) const {
-    decl_plugin const * p = 0;
+    decl_plugin const * p = nullptr;
     if (is_app(e)) {
         p = get_plugin(to_app(e)->get_family_id());
         return p && p->is_unique_value(to_app(e));
@@ -1631,6 +1693,12 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     }
     return false;
 }
+
+func_decl* ast_manager::get_rec_fun_decl(quantifier* q) const {
+    SASSERT(is_rec_fun_def(q)); 
+    return to_app(to_app(q->get_pattern(0))->get_arg(0))->get_decl(); 
+}
+
 
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
@@ -1678,9 +1746,9 @@ ast * ast_manager::register_node_core(ast * n) {
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
             std::ostringstream buffer;
-            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str().c_str() << "'"
-                   << " and domain, but different range type is not permitted";
-            throw ast_exception(buffer.str().c_str());
+            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str()
+                   << "' and domain, but different range type is not permitted";
+            throw ast_exception(buffer.str());
         }
         deallocate_node(n, ::get_node_size(n));
         return r;
@@ -1692,19 +1760,20 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
+    
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
     // increment reference counters
     switch (n->get_kind()) {
     case AST_SORT:
-        if (to_sort(n)->m_info != 0) {
+        if (to_sort(n)->m_info != nullptr) {
             to_sort(n)->m_info = alloc(sort_info, *(to_sort(n)->get_info()));
             to_sort(n)->m_info->init_eh(*this);
         }
         break;
     case AST_FUNC_DECL:
-        if (to_func_decl(n)->m_info != 0) {
+        if (to_func_decl(n)->m_info != nullptr) {
             to_func_decl(n)->m_info = alloc(func_decl_info, *(to_func_decl(n)->get_info()));
             to_func_decl(n)->m_info->init_eh(*this);
         }
@@ -1769,6 +1838,7 @@ ast * ast_manager::register_node_core(ast * n) {
     case AST_QUANTIFIER:
         inc_array_ref(to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
         inc_ref(to_quantifier(n)->get_expr());
+        inc_ref(to_quantifier(n)->get_sort());
         inc_array_ref(to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
         inc_array_ref(to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
         break;
@@ -1780,21 +1850,17 @@ ast * ast_manager::register_node_core(ast * n) {
 
 void ast_manager::delete_node(ast * n) {
     TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
-    ptr_buffer<ast> worklist;
-    worklist.push_back(n);
 
-    while (!worklist.empty()) {
-        n = worklist.back();
-        worklist.pop_back();
+    SASSERT(m_ast_table.contains(n));
+    m_ast_table.push_erase(n);
+
+    while ((n = m_ast_table.pop_erase())) {
 
         TRACE("ast", tout << "Deleting object " << n->m_id << " " << n << "\n";);
         CTRACE("del_quantifier", is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
         TRACE("mk_var_bug", tout << "del_ast: " << n->m_id << "\n";);
         TRACE("ast_delete_node", tout << mk_bounded_pp(n, *this) << "\n";);
 
-        SASSERT(m_ast_table.contains(n));
-        m_ast_table.erase(n);
-        SASSERT(!m_ast_table.contains(n));
         SASSERT(!m_debug_ref_count || !m_debug_free_indices.contains(n->m_id));
 
 #ifdef RECYCLE_FREE_AST_INDICES
@@ -1807,34 +1873,41 @@ void ast_manager::delete_node(ast * n) {
 #endif
         switch (n->get_kind()) {
         case AST_SORT:
-            if (to_sort(n)->m_info != 0 && !m_debug_ref_count) {
+            if (to_sort(n)->m_info != nullptr && !m_debug_ref_count) {
                 sort_info * info = to_sort(n)->get_info();
                 info->del_eh(*this);
                 dealloc(info);
             }
             break;
-        case AST_FUNC_DECL:
-            if (to_func_decl(n)->m_info != 0 && !m_debug_ref_count) {
-                func_decl_info * info = to_func_decl(n)->get_info();
+        case AST_FUNC_DECL: {
+            func_decl* f = to_func_decl(n);
+            if (f->m_info != nullptr && !m_debug_ref_count) {
+                func_decl_info * info = f->get_info();
                 info->del_eh(*this);
                 dealloc(info);
             }
-            dec_array_ref(worklist, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
-            dec_ref(worklist, to_func_decl(n)->get_range());
+            push_dec_array_ref(f->get_arity(), f->get_domain());
+            push_dec_ref(f->get_range());
             break;
-        case AST_APP:
-            dec_ref(worklist, to_app(n)->get_decl());
-            dec_array_ref(worklist, to_app(n)->get_num_args(), to_app(n)->get_args());
+        }
+        case AST_APP: {
+            app* a = to_app(n);
+            push_dec_ref(a->get_decl());
+            push_dec_array_ref(a->get_num_args(), a->get_args());
             break;
+        }
         case AST_VAR:
-            dec_ref(worklist, to_var(n)->get_sort());
+            push_dec_ref(to_var(n)->get_sort());
             break;
-        case AST_QUANTIFIER:
-            dec_array_ref(worklist, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
-            dec_ref(worklist, to_quantifier(n)->get_expr());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+        case AST_QUANTIFIER: {
+            quantifier* q = to_quantifier(n);
+            push_dec_array_ref(q->get_num_decls(), q->get_decl_sorts());
+            push_dec_ref(q->get_expr());
+            push_dec_ref(q->get_sort());
+            push_dec_array_ref(q->get_num_patterns(), q->get_patterns());
+            push_dec_array_ref(q->get_num_no_patterns(), q->get_no_patterns());
             break;
+        }
         default:
             break;
         }
@@ -1849,7 +1922,7 @@ sort * ast_manager::mk_sort(family_id fid, decl_kind k, unsigned num_parameters,
     decl_plugin * p = get_plugin(fid);
     if (p)
         return p->mk_sort(k, num_parameters, parameters);
-    return 0;
+    return nullptr;
 }
 
 func_decl * ast_manager::mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -1857,7 +1930,7 @@ func_decl * ast_manager::mk_func_decl(family_id fid, decl_kind k, unsigned num_p
     decl_plugin * p = get_plugin(fid);
     if (p)
         return p->mk_func_decl(k, num_parameters, parameters, arity, domain, range);
-    return 0;
+    return nullptr;
 }
 
 func_decl * ast_manager::mk_func_decl(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
@@ -1865,33 +1938,33 @@ func_decl * ast_manager::mk_func_decl(family_id fid, decl_kind k, unsigned num_p
     decl_plugin * p = get_plugin(fid);
     if (p)
         return p->mk_func_decl(k, num_parameters, parameters, num_args, args, range);
-    return 0;
+    return nullptr;
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, unsigned num_parameters, parameter const * parameters,
                           unsigned num_args, expr * const * args, sort * range) {
     func_decl * decl = mk_func_decl(fid, k, num_parameters, parameters, num_args, args, range);
-    if (decl != 0)
+    if (decl != nullptr)
         return mk_app(decl, num_args, args);
-    return 0;
+    return nullptr;
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, unsigned num_args, expr * const * args) {
-    return mk_app(fid, k, 0, 0, num_args, args);
+    return mk_app(fid, k, 0, nullptr, num_args, args);
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg) {
-    return mk_app(fid, k, 0, 0, 1, &arg);
+    return mk_app(fid, k, 0, nullptr, 1, &arg);
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2) {
     expr * args[2] = { arg1, arg2 };
-    return mk_app(fid, k, 0, 0, 2, args);
+    return mk_app(fid, k, 0, nullptr, 2, args);
 }
 
 app * ast_manager::mk_app(family_id fid, decl_kind k, expr * arg1, expr * arg2, expr * arg3) {
     expr * args[3] = { arg1, arg2, arg3 };
-    return mk_app(fid, k, 0, 0, 3, args);
+    return mk_app(fid, k, 0, nullptr, 3, args);
 }
 
 sort * ast_manager::mk_sort(symbol const & name, sort_info * info) {
@@ -1909,8 +1982,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
     vector<parameter> ps;
     bool change = false;
     sort_ref_vector sorts(*this);
-    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-        parameter const& p = s->get_parameter(i);
+    for (parameter const& p : s->parameters()) {
         if (p.is_ast()) {
             SASSERT(is_sort(p.get_ast()));
             change = true;
@@ -1967,7 +2039,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -1983,7 +2055,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -2062,11 +2134,10 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
 }
 
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
-    app * r = 0;
-    app * new_node = 0;
+    app * r = nullptr;
+    app * new_node = nullptr;
     unsigned sz = app::get_obj_size(num_args);
     void * mem = allocate_node(sz);
-
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
@@ -2145,7 +2216,7 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
                    << " for function " << mk_pp(f,*this)
                    << " supplied sort is "
                    << mk_pp(actual_sort, *this);
-            throw ast_exception(buffer.str().c_str());
+            throw ast_exception(buffer.str());
         }
     }
 }
@@ -2169,9 +2240,9 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
                << ") passed to function " << mk_pp(decl, *this);
-        throw ast_exception(buffer.str().c_str());
+        throw ast_exception(buffer.str());
     }
-    app * r = 0;
+    app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
         r = mk_true();
     }
@@ -2200,7 +2271,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
             r = mk_and(new_args.size(), new_args.c_ptr());
         }
     }
-    if (r == 0) {
+    if (r == nullptr) {
         r = mk_app_core(decl, num_args, args);
     }
     SASSERT(r != 0);
@@ -2221,9 +2292,10 @@ func_decl * ast_manager::mk_fresh_func_decl(symbol const & prefix, symbol const 
     }
     else {
         string_buffer<64> buffer;
-        buffer << prefix;
         if (prefix == symbol::null)
             buffer << "sk";
+        else
+            buffer << prefix;
         buffer << "!";
         if (suffix != symbol::null)
             buffer << suffix << "!";
@@ -2254,7 +2326,12 @@ var * ast_manager::mk_var(unsigned idx, sort * s) {
     unsigned sz     = var::get_obj_size();
     void * mem      = allocate_node(sz);
     var * new_node  = new (mem) var(idx, s);
-    return register_node(new_node);
+    var * r         = register_node(new_node);
+
+    if (m_trace_stream && r == new_node) {
+        *m_trace_stream << "[mk-var] #" << r->get_id() << "\n";
+    }
+    return r;
 }
 
 app * ast_manager::mk_label(bool pos, unsigned num_names, symbol const * names, expr * n) {
@@ -2287,7 +2364,7 @@ app * ast_manager::mk_label_lit(unsigned num_names, symbol const * names) {
     buffer<parameter> p;
     for (unsigned i = 0; i < num_names; i++)
         p.push_back(parameter(names[i]));
-    return mk_app(m_label_family_id, OP_LABEL_LIT, p.size(), p.c_ptr(), 0, 0);
+    return mk_app(m_label_family_id, OP_LABEL_LIT, p.size(), p.c_ptr(), 0, nullptr);
 }
 
 app * ast_manager::mk_label_lit(symbol const & name) {
@@ -2299,8 +2376,8 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
         return false;
     }
     func_decl const * decl = to_app(n)->get_decl();
-    for (unsigned i = 0; i < decl->get_num_parameters(); i++)
-        names.push_back(decl->get_parameter(i).get_symbol());
+    for (parameter const& p : decl->parameters()) 
+        names.push_back(p.get_symbol());
     return true;
 }
 
@@ -2309,7 +2386,7 @@ app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
             for (unsigned i = 0; i < num_exprs; ++i) {
                 SASSERT(is_app(exprs[i]));
             }});
-    return mk_app(m_pattern_family_id, OP_PATTERN, 0, 0, num_exprs, (expr*const*)exprs);
+    return mk_app(m_pattern_family_id, OP_PATTERN, 0, nullptr, num_exprs, (expr*const*)exprs);
 }
 
 bool ast_manager::is_pattern(expr const * n) const {
@@ -2339,8 +2416,17 @@ bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
     return true;
 }
 
+static void trace_quant(std::ostream& strm, quantifier* q) {
+    strm << (is_lambda(q) ? "[mk-lambda]" : "[mk-quant]")
+         << " #" << q->get_id() << " " << q->get_qid();
+    for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
+        strm << " #" << q->get_pattern(i)->get_id();
+    }
+    strm << " #" << q->get_expr()->get_id() << "\n";
+}
 
-quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
+
+quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
                                         unsigned num_patterns, expr * const * patterns,
                                         unsigned num_no_patterns, expr * const * no_patterns) {
@@ -2355,22 +2441,42 @@ quantifier * ast_manager::mk_quantifier(bool forall, unsigned num_decls, sort * 
             }});
     unsigned sz               = quantifier::get_obj_size(num_decls, num_patterns, num_no_patterns);
     void * mem                = allocate_node(sz);
-    quantifier * new_node = new (mem) quantifier(forall, num_decls, decl_sorts, decl_names, body,
+
+    sort* s = nullptr;
+    if (k == lambda_k) {
+        array_util autil(*this);
+        s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+    }
+    else {
+        s = mk_bool_sort();
+    }
+
+    quantifier * new_node = new (mem) quantifier(k, num_decls, decl_sorts, decl_names, body, s,
                                                  weight, qid, skid, num_patterns, patterns,
                                                  num_no_patterns, no_patterns);
     quantifier * r = register_node(new_node);
 
     if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-quant] #" << r->get_id() << " " << qid;
-        for (unsigned i = 0; i < num_patterns; ++i) {
-            *m_trace_stream << " #" << patterns[i]->get_id();
-        }
-        *m_trace_stream << " #" << body->get_id() << "\n";
-
+        trace_quant(*m_trace_stream, r);
     }
 
     return r;
 }
+
+quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names, expr * body) {
+    SASSERT(body);
+    unsigned sz               = quantifier::get_obj_size(num_decls, 0, 0);
+    void * mem                = allocate_node(sz);
+    array_util autil(*this);
+    sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
+    quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
+    quantifier * r = register_node(new_node);
+    if (m_trace_stream && r == new_node) {
+        trace_quant(*m_trace_stream, r);
+    }
+    return r;
+}
+
 
 // Return true if the patterns of q are the given ones.
 static bool same_patterns(quantifier * q, unsigned num_patterns, expr * const * patterns) {
@@ -2395,7 +2501,7 @@ static bool same_no_patterns(quantifier * q, unsigned num_no_patterns, expr * co
 quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_patterns, expr * const * patterns, expr * body) {
     if (q->get_expr() == body && same_patterns(q, num_patterns, patterns))
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2406,13 +2512,13 @@ quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_pattern
                          num_patterns,
                          patterns,
                          num_patterns == 0 ? q->get_num_no_patterns() : 0,
-                         num_patterns == 0 ? q->get_no_patterns() : 0);
+                         num_patterns == 0 ? q->get_no_patterns() : nullptr);
 }
 
 quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_patterns, expr * const * patterns, unsigned num_no_patterns, expr * const * no_patterns, expr * body) {
     if (q->get_expr() == body && same_patterns(q, num_patterns, patterns) && same_no_patterns(q, num_no_patterns, no_patterns))
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2429,7 +2535,7 @@ quantifier * ast_manager::update_quantifier(quantifier * q, unsigned num_pattern
 quantifier * ast_manager::update_quantifier(quantifier * q, expr * body) {
     if (q->get_expr() == body)
         return q;
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2447,7 +2553,7 @@ quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
     if (q->get_weight() == w)
         return q;
     TRACE("update_quantifier_weight", tout << "#" << q->get_id() << " " << q->get_weight() << " -> " << w << "\n";);
-    return mk_quantifier(q->is_forall(),
+    return mk_quantifier(q->get_kind(),
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2461,10 +2567,10 @@ quantifier * ast_manager::update_quantifier_weight(quantifier * q, int w) {
                          q->get_no_patterns());
 }
 
-quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, expr * body) {
-    if (q->get_expr() == body && q->is_forall() == is_forall)
+quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, expr * body) {    
+    if (q->get_expr() == body && q->get_kind() == k)
         return q;
-    return mk_quantifier(is_forall,
+    return mk_quantifier(k,
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2478,10 +2584,10 @@ quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, expr
                          q->get_no_patterns());
 }
 
-quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, unsigned num_patterns, expr * const * patterns, expr * body) {
-    if (q->get_expr() == body && q->is_forall() == is_forall && same_patterns(q, num_patterns, patterns))
+quantifier * ast_manager::update_quantifier(quantifier * q, quantifier_kind k, unsigned num_patterns, expr * const * patterns, expr * body) {
+    if (q->get_expr() == body && q->get_kind() == k && same_patterns(q, num_patterns, patterns))
         return q;
-    return mk_quantifier(is_forall,
+    return mk_quantifier(k,
                          q->get_num_decls(),
                          q->get_decl_sorts(),
                          q->get_decl_names(),
@@ -2492,7 +2598,7 @@ quantifier * ast_manager::update_quantifier(quantifier * q, bool is_forall, unsi
                          num_patterns,
                          patterns,
                          num_patterns == 0 ? q->get_num_no_patterns() : 0,
-                         num_patterns == 0 ? q->get_no_patterns() : 0);
+                         num_patterns == 0 ? q->get_no_patterns() : nullptr);
 }
 
 app * ast_manager::mk_distinct(unsigned num_args, expr * const * args) {
@@ -2524,14 +2630,14 @@ app * ast_manager::mk_distinct_expanded(unsigned num_args, expr * const * args) 
 // -----------------------------------
 
 expr_dependency * ast_manager::mk_leaf(expr * t) {
-    if (t == 0)
-        return 0;
+    if (t == nullptr)
+        return nullptr;
     else
         return m_expr_dependency_manager.mk_leaf(t);
 }
 
 expr_dependency * ast_manager::mk_join(unsigned n, expr * const * ts) {
-    expr_dependency * d = 0;
+    expr_dependency * d = nullptr;
     for (unsigned i = 0; i < n; i++)
         d = mk_join(d, mk_leaf(ts[i]));
     return d;
@@ -2550,7 +2656,7 @@ void ast_manager::linearize(expr_dependency * d, ptr_vector<expr> & ts) {
 
 app * ast_manager::mk_model_value(unsigned idx, sort * s) {
     parameter p[2] = { parameter(idx), parameter(s) };
-    return mk_app(m_model_value_family_id, OP_MODEL_VALUE, 2, p, 0, static_cast<expr * const *>(0));
+    return mk_app(m_model_value_family_id, OP_MODEL_VALUE, 2, p, 0, static_cast<expr * const *>(nullptr));
 }
 
 expr * ast_manager::get_some_value(sort * s, some_value_proc * p) {
@@ -2559,17 +2665,17 @@ expr * ast_manager::get_some_value(sort * s, some_value_proc * p) {
 }
 
 expr * ast_manager::get_some_value(sort * s) {
-    expr * v = 0;
+    expr * v = nullptr;
     if (m_some_value_proc)
         v = (*m_some_value_proc)(s);
-    if (v != 0)
+    if (v != nullptr)
         return v;
     family_id fid = s->get_family_id();
     if (fid != null_family_id) {
         decl_plugin * p = get_plugin(fid);
-        if (p != 0) {
+        if (p != nullptr) {
             v = p->get_some_value(s);
-            if (v != 0)
+            if (v != nullptr)
                 return v;
         }
     }
@@ -2582,7 +2688,7 @@ bool ast_manager::is_fully_interp(sort * s) const {
     family_id fid = s->get_family_id();
     SASSERT(fid != null_family_id);
     decl_plugin * p = get_plugin(fid);
-    if (p != 0)
+    if (p != nullptr)
         return p->is_fully_interp(s);
     return false;
 }
@@ -2633,10 +2739,10 @@ proof * ast_manager::mk_modus_ponens(proof * p1, proof * p2) {
     if (!p1 || !p2) return nullptr;
     SASSERT(has_fact(p1));
     SASSERT(has_fact(p2));
-    CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_iff(get_fact(p2)) || is_oeq(get_fact(p2))),
+    CTRACE("mk_modus_ponens", !(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2))),
            tout << mk_ll_pp(p1, *this) << "\n";
            tout << mk_ll_pp(p2, *this) << "\n";);
-    SASSERT(is_implies(get_fact(p2)) || is_iff(get_fact(p2)) || is_oeq(get_fact(p2)));
+    SASSERT(is_implies(get_fact(p2)) || is_eq(get_fact(p2)) || is_oeq(get_fact(p2)));
     CTRACE("mk_modus_ponens", to_app(get_fact(p2))->get_arg(0) != get_fact(p1),
            tout << mk_pp(get_fact(p1), *this) << "\n" << mk_pp(get_fact(p2), *this) << "\n";);
     SASSERT(to_app(get_fact(p2))->get_arg(0) == get_fact(p1));
@@ -2714,8 +2820,6 @@ proof * ast_manager::mk_transitivity(proof * p1, proof * p2) {
            tout << mk_pp(to_app(get_fact(p1))->get_decl(), *this) << "\n";
            tout << mk_pp(to_app(get_fact(p2))->get_decl(), *this) << "\n";);
     SASSERT(to_app(get_fact(p1))->get_decl() == to_app(get_fact(p2))->get_decl() ||
-            ((is_iff(get_fact(p1)) || is_eq(get_fact(p1))) &&
-             (is_iff(get_fact(p2)) || is_eq(get_fact(p2)))) ||
             ( (is_eq(get_fact(p1)) || is_oeq(get_fact(p1))) &&
               (is_eq(get_fact(p2)) || is_oeq(get_fact(p2)))));
     CTRACE("mk_transitivity", to_app(get_fact(p1))->get_arg(1) != to_app(get_fact(p2))->get_arg(0),
@@ -2780,21 +2884,27 @@ proof * ast_manager::mk_congruence(app * f1, app * f2, unsigned num_proofs, proo
     SASSERT(get_sort(f1) == get_sort(f2));
     sort * s    = get_sort(f1);
     sort * d[2] = { s, s };
-    return mk_monotonicity(mk_func_decl(m_basic_family_id, get_eq_op(f1), 0, 0, 2, d), f1, f2, num_proofs, proofs);
+    return mk_monotonicity(mk_func_decl(m_basic_family_id, get_eq_op(f1), 0, nullptr, 2, d), f1, f2, num_proofs, proofs);
 }
 
 proof * ast_manager::mk_oeq_congruence(app * f1, app * f2, unsigned num_proofs, proof * const * proofs) {
     SASSERT(get_sort(f1) == get_sort(f2));
     sort * s    = get_sort(f1);
     sort * d[2] = { s, s };
-    return mk_monotonicity(mk_func_decl(m_basic_family_id, OP_OEQ, 0, 0, 2, d), f1, f2, num_proofs, proofs);
+    return mk_monotonicity(mk_func_decl(m_basic_family_id, OP_OEQ, 0, nullptr, 2, d), f1, f2, num_proofs, proofs);
+}
+
+
+proof * ast_manager::mk_bind_proof(quantifier * q, proof * p) {
+    expr* b = mk_lambda(q->get_num_decls(), q->get_decl_sorts(), q->get_decl_names(), p);
+    return mk_app(m_basic_family_id, PR_BIND, b);
 }
 
 proof * ast_manager::mk_quant_intro(quantifier * q1, quantifier * q2, proof * p) {
     if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
-    SASSERT(is_iff(get_fact(p)));
+    SASSERT(is_eq(get_fact(p)) || is_lambda(get_fact(p)));
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_iff(q1, q2));
 }
 
@@ -2802,7 +2912,7 @@ proof * ast_manager::mk_oeq_quant_intro(quantifier * q1, quantifier * q2, proof 
     if (!p) return nullptr;
     SASSERT(q1->get_num_decls() == q2->get_num_decls());
     SASSERT(has_fact(p));
-    SASSERT(is_oeq(get_fact(p)));
+    SASSERT(is_oeq(get_fact(p)) || is_lambda(get_fact(p)));
     return mk_app(m_basic_family_id, PR_QUANT_INTRO, p, mk_oeq(q1, q2));
 }
 
@@ -2835,12 +2945,6 @@ proof * ast_manager::mk_pull_quant(expr * e, quantifier * q) {
     if (proofs_disabled())
         return nullptr;
     return mk_app(m_basic_family_id, PR_PULL_QUANT, mk_iff(e, q));
-}
-
-proof * ast_manager::mk_pull_quant_star(expr * e, quantifier * q) {
-    if (proofs_disabled())
-        return nullptr;
-    return mk_app(m_basic_family_id, PR_PULL_QUANT_STAR, mk_iff(e, q));
 }
 
 proof * ast_manager::mk_push_quant(quantifier * q, expr * e) {
@@ -2877,8 +2981,8 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
         not_q_or_i = to_app(e)->get_arg(0);
         func_decl* d = to_app(e)->get_decl();
         SASSERT(binding.empty());
-        for (unsigned i = 0; i < d->get_num_parameters(); ++i) {
-            binding.push_back(to_expr(d->get_parameter(i).get_ast()));
+        for (parameter const& p : d->parameters()) {
+            binding.push_back(to_expr(p.get_ast()));
         }
         return true;
     }
@@ -2887,8 +2991,7 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
 
 bool ast_manager::is_rewrite(expr const* e, expr*& r1, expr*& r2) const {
     if (is_rewrite(e)) {
-        VERIFY (is_eq(to_app(e)->get_arg(0), r1, r2) ||
-                is_iff(to_app(e)->get_arg(0), r1, r2));
+        VERIFY (is_eq(to_app(e)->get_arg(0), r1, r2));
         return true;
     }
     else {
@@ -2916,7 +3019,7 @@ proof * ast_manager::mk_unit_resolution(unsigned num_proofs, proof * const * pro
         fact = mk_false();
     }
     else {
-        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_pp(f1, *this) << " " << mk_pp(f2, *this) << "\n";);
+        CTRACE("mk_unit_resolution_bug", !is_or(f1), tout << mk_ll_pp(f1, *this) << "\n" << mk_ll_pp(f2, *this) << "\n";);
         SASSERT(is_or(f1));
         ptr_buffer<expr> new_lits;
         app const * cls   = to_app(f1);
@@ -3047,7 +3150,7 @@ proof * ast_manager::mk_iff_oeq(proof * p) {
     if (!p) return p;
 
     SASSERT(has_fact(p));
-    SASSERT(is_iff(get_fact(p)) || is_oeq(get_fact(p)));
+    SASSERT(is_eq(get_fact(p)) || is_oeq(get_fact(p)));
     if (is_oeq(get_fact(p)))
         return p;
 
@@ -3087,30 +3190,12 @@ proof * ast_manager::mk_nnf_neg(expr * s, expr * t, unsigned num_proofs, proof *
     return mk_app(m_basic_family_id, PR_NNF_NEG, args.size(), args.c_ptr());
 }
 
-proof * ast_manager::mk_nnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_NNF_STAR, args.size(), args.c_ptr());
-}
-
 proof * ast_manager::mk_skolemization(expr * q, expr * e) {
     if (proofs_disabled())
         return nullptr;
     SASSERT(is_bool(q));
     SASSERT(is_bool(e));
     return mk_app(m_basic_family_id, PR_SKOLEMIZE, mk_oeq(q, e));
-}
-
-proof * ast_manager::mk_cnf_star(expr * s, expr * t, unsigned num_proofs, proof * const * proofs) {
-    if (proofs_disabled())
-        return nullptr;
-    ptr_buffer<expr> args;
-    args.append(num_proofs, (expr**) proofs);
-    args.push_back(mk_oeq(s, t));
-    return mk_app(m_basic_family_id, PR_CNF_STAR, args.size(), args.c_ptr());
 }
 
 proof * ast_manager::mk_and_elim(proof * p, unsigned i) {

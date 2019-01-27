@@ -95,7 +95,7 @@ inline vector<std::string> string_split(const std::string &source, const char *d
     return results;
 }
 
-inline vector<std::string> split_and_trim(std::string line) {
+inline vector<std::string> split_and_trim(const std::string &line) {
     auto split = string_split(line, " \t", false);
     vector<std::string> ret;
     for (auto s : split) {
@@ -127,9 +127,9 @@ class mps_reader {
         std::string m_name;
         bound * m_bound;
         unsigned m_index;
-        column(std::string name, unsigned index): m_name(name),
-                                                  m_bound(nullptr),
-                                                  m_index(index) {
+        column(const std::string &name, unsigned index): m_name(name),
+                                                         m_bound(nullptr),
+                                                         m_index(index) {
         }
     };
 
@@ -140,7 +140,7 @@ class mps_reader {
         unsigned m_index;
         T m_right_side;
         T m_range;
-        row(row_type type, std::string name, unsigned index) :
+        row(row_type type, const std::string &name, unsigned index) :
             m_type(type),
             m_name(name),
             m_index(index),
@@ -175,15 +175,15 @@ class mps_reader {
             if (m_line[i] == ' ')
                 break;
         }
-        SASSERT(m_line.size() >= offset);
-        SASSERT(m_line.size() >> i);
-        SASSERT(i >= offset);
+        lp_assert(m_line.size() >= offset);
+        lp_assert(m_line.size() >> i);
+        lp_assert(i >= offset);
         return m_line.substr(offset, i - offset);
     }
 
     void set_boundary_for_column(unsigned col, bound * b, lp_solver<T, X> * solver){
         if (b == nullptr) {
-            solver->set_low_bound(col, numeric_traits<T>::zero());
+            solver->set_lower_bound(col, numeric_traits<T>::zero());
             return;
         }
 
@@ -191,7 +191,7 @@ class mps_reader {
             return;
         }
         if (b->m_low_is_set) {
-            solver->set_low_bound(col, b->m_low);
+            solver->set_lower_bound(col, b->m_low);
         }
         if (b->m_upper_is_set) {
             solver->set_upper_bound(col, b->m_upper);
@@ -220,7 +220,7 @@ class mps_reader {
                 *m_message_stream << "cannot read from file" << std::endl;
             }
             m_line_number++;
-            if (m_line.size() != 0 && m_line[0] != '*' && !all_white_space())
+            if (!m_line.empty() && m_line[0] != '*' && !all_white_space())
                 break;
         }
     }
@@ -254,7 +254,7 @@ class mps_reader {
         } while (m_is_OK);
     }
 
-    void read_column_by_columns(std::string column_name, std::string column_data) {
+    void read_column_by_columns(const std::string & column_name, std::string column_data) {
          // uph, let us try to work with columns
         if (column_data.size() >= 22) {
             std::string ss = column_data.substr(0, 8);
@@ -283,7 +283,7 @@ class mps_reader {
         }
     }
 
-    void read_column(std::string column_name, std::string column_data){
+    void read_column(const std::string & column_name, const std::string & column_data){
         auto tokens = split_and_trim(column_data);
         for (unsigned i = 0; i < tokens.size() - 1; i+= 2) {
             auto row_name = tokens[i];
@@ -303,7 +303,6 @@ class mps_reader {
         do {
             read_line();
             if (m_line.find("RHS") == 0) {
-                //  cout << "found RHS" << std::endl;
                 break;
             }
             if (m_line.size() < 22) {
@@ -421,7 +420,7 @@ class mps_reader {
     }
 
 
-    void read_bound_by_columns(std::string colstr) {
+    void read_bound_by_columns(const std::string & colstr) {
         if (colstr.size() < 14) {
             (*m_message_stream) << "line is too short" << std::endl;
             (*m_message_stream) << m_line << std::endl;
@@ -512,10 +511,10 @@ class mps_reader {
 
     void create_or_update_bound() {
         const unsigned name_offset = 14;
-        SASSERT(m_line.size() >= 14);
+        lp_assert(m_line.size() >= 14);
         vector<std::string> bound_string = split_and_trim(m_line.substr(name_offset, m_line.size()));
 
-        if (bound_string.size() == 0) {
+        if (bound_string.empty()) {
             set_m_ok_to_false();
             (*m_message_stream) << "error at line " << m_line_number << std::endl;
             throw m_line;
@@ -618,7 +617,7 @@ class mps_reader {
         }
 
         for (auto s : row_with_range->m_row_columns) {
-            SASSERT(m_columns.find(s.first) != m_columns.end());
+            lp_assert(m_columns.find(s.first) != m_columns.end());
             other_bound_range_row->m_row_columns[s.first] = s.second;
         }
     }
@@ -694,7 +693,7 @@ class mps_reader {
         if (row->m_name != m_cost_row_name) {
             solver->add_constraint(get_relation_from_row(row->m_type), row->m_right_side, row->m_index);
             for (auto s : row->m_row_columns) {
-                SASSERT(m_columns.find(s.first) != m_columns.end());
+                lp_assert(m_columns.find(s.first) != m_columns.end());
                 solver->set_row_column_coefficient(row->m_index, m_columns[s.first]->m_index, s.second);
             }
         } else {
@@ -729,7 +728,7 @@ class mps_reader {
     void set_solver_cost(row * row, lp_solver<T, X> *solver) {
         for (auto s : row->m_row_columns) {
             std::string name = s.first;
-            SASSERT(m_columns.find(name) != m_columns.end());
+            lp_assert(m_columns.find(name) != m_columns.end());
             mps_reader::column * col = m_columns[name];
             solver->set_cost_for_column(col->m_index, s.second);
         }
@@ -738,7 +737,7 @@ class mps_reader {
 public:
 
     void set_message_stream(std::ostream * o) {
-        SASSERT(o != nullptr);
+        lp_assert(o != nullptr);
         m_message_stream = o;
     }
     vector<std::string> column_names() {
@@ -763,7 +762,7 @@ public:
         }
     }
 
-    mps_reader(std::string file_name):
+    mps_reader(const std::string & file_name):
         m_is_OK(true),
         m_file_name(file_name), 
         m_file_stream(file_name),
@@ -825,7 +824,7 @@ public:
             auto kind = get_lar_relation_from_row(row->m_type);
             vector<std::pair<mpq, var_index>> ls;
             for (auto s : row->m_row_columns) {
-                var_index i = solver->add_var(get_var_index(s.first));
+                var_index i = solver->add_var(get_var_index(s.first), false);
                 ls.push_back(std::make_pair(s.second, i));
             }
             solver->add_constraint(ls, kind, row->m_right_side);
@@ -843,20 +842,20 @@ public:
 
     void create_low_constraint_for_var(column* col, bound * b, lar_solver *solver) {
         vector<std::pair<mpq, var_index>> ls;
-        var_index i = solver->add_var(col->m_index);
+        var_index i = solver->add_var(col->m_index, false);
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, GE, b->m_low);
     }
 
     void create_upper_constraint_for_var(column* col, bound * b, lar_solver *solver) {
-        var_index i = solver->add_var(col->m_index);
+        var_index i = solver->add_var(col->m_index, false);
         vector<std::pair<mpq, var_index>> ls;
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, LE, b->m_upper);
     }
 
     void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
-        var_index i = solver->add_var(col->m_index);
+        var_index i = solver->add_var(col->m_index, false);
         vector<std::pair<mpq, var_index>> ls;
         ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
         solver->add_constraint(ls, EQ, b->m_fixed_value);
@@ -865,7 +864,7 @@ public:
     void fill_lar_solver_on_columns(lar_solver * solver) {
         for (auto s : m_columns) {
             mps_reader::column * col = s.second;
-            solver->add_var(col->m_index);
+            solver->add_var(col->m_index, false);
             auto b = col->m_bound;
             if (b == nullptr) return;
 

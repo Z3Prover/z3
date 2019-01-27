@@ -4,10 +4,11 @@ Abstract: Pretty-printer for proofs in Graphviz format
 
 --*/
 
-#pragma once
+#ifndef _AST_PP_DOT_
+#define _AST_PP_DOT_
 
 #include <iostream>
-#include "ast_pp.h"
+#include "ast/ast_pp.h"
 
 class ast_pp_dot {
     ast_manager &       m_manager;
@@ -21,4 +22,8 @@ class ast_pp_dot {
     ast_manager & get_manager() const { return m_manager; }
 };
 
+std::string escape_dot(std::string const & s);
+
 std::ostream &operator<<(std::ostream &out, const ast_pp_dot & p);
+
+#endif /* AST_PP_DOT */

@@ -92,6 +92,7 @@ namespace smt2 {
         token read_symbol();
         token read_quoted_symbol();
         void read_comment();
+        void read_multiline_comment();
         token read_number();
         token read_signed_number();
         token read_string();

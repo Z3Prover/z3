@@ -206,7 +206,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
     numeral c(1);
     unsigned num_coeffs = 0;
     unsigned num_add    = 0;
-    expr *  var         = 0;
+    expr *  var         = nullptr;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
         if (is_numeral(arg, a)) {
@@ -290,13 +290,13 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
 
     if (!m_som || num_add == 0) {
         ptr_buffer<expr> new_args;
-        expr * prev = 0;
+        expr * prev = nullptr;
         bool ordered = true;
         for (unsigned i = 0; i < num_args; i++) {
             expr * curr = args[i];
             if (is_numeral(curr))
                 continue;
-            if (prev != 0 && lt(curr, prev))
+            if (prev != nullptr && lt(curr, prev))
                 ordered = false;
             new_args.push_back(curr);
             prev = curr;
@@ -431,7 +431,8 @@ struct poly_rewriter<Config>::hoist_cmul_lt {
     hoist_cmul_lt(poly_rewriter<Config> & r):m_r(r) {}
 
     bool operator()(expr * t1, expr * t2) const {
-        expr * pp1, * pp2;
+        expr * pp1 = nullptr;
+        expr * pp2 = nullptr;
         numeral c1, c2;
         bool is_mul1 = m_r.is_mul(t1, c1, pp1);
         bool is_mul2 = m_r.is_mul(t2, c2, pp2);
@@ -532,7 +533,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
     expr_fast_mark1 visited;  // visited.is_marked(power_product) if the power_product occurs in args
     expr_fast_mark2 multiple; // multiple.is_marked(power_product) if power_product occurs more than once
     bool     has_multiple = false;
-    expr *   prev = 0;
+    expr *   prev = nullptr;
     bool     ordered  = true;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = args[i];
@@ -543,7 +544,7 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
             ordered = !m_sort_sums || i == 0;
         }
         else if (m_sort_sums && ordered) {
-            if (prev != 0 && lt(arg, prev)) 
+            if (prev != nullptr && lt(arg, prev))
                 ordered = false;
             prev = arg;        
         }
@@ -874,8 +875,8 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     const bool insert_c_rhs =  c_at_rhs && (new_rhs_monomials.size() == 1 || !c.is_zero());
     const unsigned lhs_offset = insert_c_lhs ? 0 : 1;
     const unsigned rhs_offset = insert_c_rhs ? 0 : 1;
-    new_rhs_monomials[0] = insert_c_rhs ? mk_numeral(c) : NULL;
-    new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : NULL;
+    new_rhs_monomials[0] = insert_c_rhs ? mk_numeral(c) : nullptr;
+    new_lhs_monomials[0] = insert_c_lhs ? mk_numeral(c) : nullptr;
     lhs_result = mk_add_app(new_lhs_monomials.size() - lhs_offset, new_lhs_monomials.c_ptr() + lhs_offset);
     rhs_result = mk_add_app(new_rhs_monomials.size() - rhs_offset, new_rhs_monomials.c_ptr() + rhs_offset);
     TRACE("mk_le_bug", tout << lhs_result << " " << rhs_result << "\n";);
@@ -994,7 +995,7 @@ bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, 
         return false;
     
     ptr_buffer<expr> args;
-    v = 0;
+    v = nullptr;
     expr * curr = to_app(n);
     bool stop = false;
     inv = false;
@@ -1013,12 +1014,12 @@ bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, 
             args.push_back(arg);
         }
         else if (is_var(arg)) {
-            if (v != 0)
+            if (v != nullptr)
                 return false; // already found variable
             v = to_var(arg);
         }
         else if (is_times_minus_one(arg, neg_arg) && is_var(neg_arg)) {
-            if (v != 0)
+            if (v != nullptr)
                 return false; // already found variable
             v = to_var(neg_arg);
             inv = true;
@@ -1027,7 +1028,7 @@ bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, 
             return false; // non ground term.
         }
     }
-    if (v == 0)
+    if (v == nullptr)
         return false; // did not find variable
     SASSERT(!args.empty());
     mk_add(args.size(), args.c_ptr(), t);

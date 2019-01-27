@@ -127,7 +127,7 @@ namespace datalog {
             }
         }
         if (!has_new_rule) {
-            return 0;
+            return nullptr;
         }
         else {
             result->inherit_predicates(src);

@@ -80,7 +80,7 @@ class expr_pattern_match {
         }
 
         void operator()(var* v) {
-            var* b = 0;
+            var* b = nullptr;
             if (m_bound.find(v, b)) {
                 m_memoize.insert(v, b);
             }
@@ -99,7 +99,7 @@ class expr_pattern_match {
                 decl = to_app(m_regs[r])->get_decl();
             }
             for (unsigned i = 0; i < num_args; ++i) {
-                expr* arg = 0;
+                expr* arg = nullptr;
                 if (m_memoize.find(n->get_arg(i), arg)) {
                     SASSERT(arg);
                     args.push_back(arg);

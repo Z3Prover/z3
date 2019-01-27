@@ -18,14 +18,14 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics.Contracts;
+using System.Diagnostics;
+using System.Linq;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Object for managing fixedpoints
     /// </summary>
-    [ContractVerification(true)]
     public class Fixedpoint : Z3Object
     {
 
@@ -36,7 +36,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<string>() != null);
                 return Native.Z3_fixedpoint_get_help(Context.nCtx, NativeObject);
             }
         }
@@ -48,7 +47,7 @@ namespace Microsoft.Z3
         {
             set
             {
-                Contract.Requires(value != null);
+                Debug.Assert(value != null);
                 Context.CheckContextMatch(value);
                 Native.Z3_fixedpoint_set_params(Context.nCtx, NativeObject, value.NativeObject);
             }
@@ -68,8 +67,8 @@ namespace Microsoft.Z3
         /// </summary>        
         public void Assert(params BoolExpr[] constraints)
         {
-            Contract.Requires(constraints != null);
-            Contract.Requires(Contract.ForAll(constraints, c => c != null));
+            Debug.Assert(constraints != null);
+            Debug.Assert(constraints.All(c => c != null));
 
             Context.CheckContextMatch<BoolExpr>(constraints);
             foreach (BoolExpr a in constraints)
@@ -91,7 +90,7 @@ namespace Microsoft.Z3
         /// </summary>       
         public void RegisterRelation(FuncDecl f)
         {
-            Contract.Requires(f != null);
+            Debug.Assert(f != null);
 
             Context.CheckContextMatch(f);
             Native.Z3_fixedpoint_register_relation(Context.nCtx, NativeObject, f.NativeObject);
@@ -102,7 +101,7 @@ namespace Microsoft.Z3
         /// </summary>        
         public void AddRule(BoolExpr rule, Symbol name = null)
         {
-            Contract.Requires(rule != null);
+            Debug.Assert(rule != null);
 
             Context.CheckContextMatch(rule);
             Native.Z3_fixedpoint_add_rule(Context.nCtx, NativeObject, rule.NativeObject, AST.GetNativeObject(name));
@@ -113,8 +112,8 @@ namespace Microsoft.Z3
         /// </summary>        
         public void AddFact(FuncDecl pred, params uint[] args)
         {
-            Contract.Requires(pred != null);
-            Contract.Requires(args != null);
+            Debug.Assert(pred != null);
+            Debug.Assert(args != null);
 
             Context.CheckContextMatch(pred);
             Native.Z3_fixedpoint_add_fact(Context.nCtx, NativeObject, pred.NativeObject, (uint)args.Length, args);
@@ -128,7 +127,7 @@ namespace Microsoft.Z3
         /// </summary>        
         public Status Query(BoolExpr query)
         {
-            Contract.Requires(query != null);
+            Debug.Assert(query != null);
 
             Context.CheckContextMatch(query);
             Z3_lbool r = (Z3_lbool)Native.Z3_fixedpoint_query(Context.nCtx, NativeObject, query.NativeObject);
@@ -146,10 +145,10 @@ namespace Microsoft.Z3
         /// The query is satisfiable if there is an instance of some relation that is non-empty.
         /// The query is unsatisfiable if there are no derivations satisfying any of the relations.
         /// </summary>        
-        public Status Query(FuncDecl[] relations)
+        public Status Query(params FuncDecl[] relations)
         {
-            Contract.Requires(relations != null);
-            Contract.Requires(Contract.ForAll(0, relations.Length, i => relations[i] != null));
+            Debug.Assert(relations != null);
+            Debug.Assert(relations.All(rel => rel != null));
 
             Context.CheckContextMatch<FuncDecl>(relations);
             Z3_lbool r = (Z3_lbool)Native.Z3_fixedpoint_query_relations(Context.nCtx, NativeObject,
@@ -187,7 +186,7 @@ namespace Microsoft.Z3
         /// </summary>        
         public void UpdateRule(BoolExpr rule, Symbol name)
         {
-            Contract.Requires(rule != null);
+            Debug.Assert(rule != null);
 
             Context.CheckContextMatch(rule);
             Native.Z3_fixedpoint_update_rule(Context.nCtx, NativeObject, rule.NativeObject, AST.GetNativeObject(name));
@@ -208,7 +207,6 @@ namespace Microsoft.Z3
         /// </summary>                
         public string GetReasonUnknown()
         {
-            Contract.Ensures(Contract.Result<string>() != null);
 
             return Native.Z3_fixedpoint_get_reason_unknown(Context.nCtx, NativeObject);
         }
@@ -252,7 +250,7 @@ namespace Microsoft.Z3
         /// </summary>                
         public void SetPredicateRepresentation(FuncDecl f, Symbol[] kinds)
         {
-            Contract.Requires(f != null);
+            Debug.Assert(f != null);
 
             Native.Z3_fixedpoint_set_predicate_representation(Context.nCtx, NativeObject,
                                f.NativeObject, AST.ArrayLength(kinds), Symbol.ArrayToNative(kinds));
@@ -262,7 +260,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Convert benchmark given as set of axioms, rules and queries to a string.
         /// </summary>                
-        public string ToString(BoolExpr[] queries)
+        public string ToString(params BoolExpr[] queries)
         {
 
             return Native.Z3_fixedpoint_to_string(Context.nCtx, NativeObject,
@@ -276,7 +274,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_rules(Context.nCtx, NativeObject));
                 return av.ToBoolExprArray();
@@ -290,7 +287,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<BoolExpr[]>() != null);
 
                 ASTVector av = new ASTVector(Context, Native.Z3_fixedpoint_get_assertions(Context.nCtx, NativeObject));
                 return av.ToBoolExprArray();
@@ -304,7 +300,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<Statistics>() != null);
 
                 return new Statistics(Context, Native.Z3_fixedpoint_get_statistics(Context.nCtx, NativeObject));
             }
@@ -335,12 +330,12 @@ namespace Microsoft.Z3
         internal Fixedpoint(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal Fixedpoint(Context ctx)
             : base(ctx, Native.Z3_mk_fixedpoint(ctx.nCtx))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

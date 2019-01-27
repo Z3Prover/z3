@@ -17,6 +17,11 @@ Revision History:
 
 --*/
 #include<iostream>
+#include "util/scoped_ctrl_c.h"
+#include "util/cancel_eh.h"
+#include "util/file_path.h"
+#include "util/scoped_timer.h"
+#include "ast/ast_pp.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
@@ -28,8 +33,8 @@ Revision History:
 #include "solver/tactic2solver.h"
 #include "util/scoped_ctrl_c.h"
 #include "util/cancel_eh.h"
-#include "util/file_path.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
@@ -39,6 +44,7 @@ Revision History:
 #include "sat/dimacs.h"
 #include "sat/sat_solver.h"
 #include "sat/tactic/goal2sat.h"
+
 
 extern "C" {
 
@@ -57,7 +63,7 @@ extern "C" {
     }
 
     static void init_solver(Z3_context c, Z3_solver s) {
-        if (to_solver(s)->m_solver.get() == 0)
+        if (to_solver(s)->m_solver.get() == nullptr)
             init_solver_core(c, s);
     }
 
@@ -69,7 +75,7 @@ extern "C" {
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_solver Z3_API Z3_mk_solver(Z3_context c) {
@@ -80,7 +86,7 @@ extern "C" {
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_solver Z3_API Z3_mk_solver_for_logic(Z3_context c, Z3_symbol logic) {
@@ -91,7 +97,7 @@ extern "C" {
             std::ostringstream strm;
             strm << "logic '" << to_symbol(logic) << "' is not recognized";
             throw default_exception(strm.str());
-            RETURN_Z3(0);
+            RETURN_Z3(nullptr);
         }
         else {
             Z3_solver_ref * s = alloc(Z3_solver_ref, *mk_c(c), mk_smt_strategic_solver_factory(to_symbol(logic)));
@@ -99,7 +105,7 @@ extern "C" {
             Z3_solver r = of_solver(s);
             RETURN_Z3(r);
         }
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_solver Z3_API Z3_mk_solver_from_tactic(Z3_context c, Z3_tactic t) {
@@ -110,7 +116,7 @@ extern "C" {
         mk_c(c)->save_object(s);
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_solver Z3_API Z3_solver_translate(Z3_context c, Z3_solver s, Z3_context target) {
@@ -118,34 +124,72 @@ extern "C" {
         LOG_Z3_solver_translate(c, s, target);
         RESET_ERROR_CODE();
         params_ref const& p = to_solver(s)->m_params; 
-        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), 0);
+        Z3_solver_ref * sr = alloc(Z3_solver_ref, *mk_c(target), nullptr);
         init_solver(c, s);
         sr->m_solver = to_solver(s)->m_solver->translate(mk_c(target)->m(), p);
         mk_c(target)->save_object(sr);
         Z3_solver r = of_solver(sr);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
+    void Z3_API Z3_solver_import_model_converter(Z3_context c, Z3_solver src, Z3_solver dst) {
+        Z3_TRY;
+        LOG_Z3_solver_import_model_converter(c, src, dst);
+        model_converter_ref mc = to_solver_ref(src)->get_model_converter();
+        to_solver_ref(dst)->set_model_converter(mc.get());
+        Z3_CATCH;
     }
 
     void solver_from_stream(Z3_context c, Z3_solver s, std::istream& is) {
         scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
         ctx->set_ignore_check(true);
+        std::stringstream errstrm;
+        ctx->set_regular_stream(errstrm);
 
         if (!parse_smt2_commands(*ctx.get(), is)) {
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return;
         }
 
-        bool initialized = to_solver(s)->m_solver.get() != 0;
+        bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            to_solver_ref(s)->assert_expr(*it);
+        for (expr * e : ctx->assertions()) {
+            to_solver_ref(s)->assert_expr(e);
         }
-        // to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+        to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
+    }
+
+    static void solver_from_dimacs_stream(Z3_context c, Z3_solver s, std::istream& is) {
+        init_solver(c, s);
+        ast_manager& m = to_solver_ref(s)->get_manager();
+        std::stringstream err;
+        sat::solver solver(to_solver_ref(s)->get_params(), m.limit());
+        if (!parse_dimacs(is, err, solver)) {
+            SET_ERROR_CODE(Z3_PARSER_ERROR, err.str().c_str());
+            return;
+        }
+        sat2goal s2g;
+        ref<sat2goal::mc> mc;
+        atom2bool_var a2b(m);
+        for (unsigned v = 0; v < solver.num_vars(); ++v) {
+            a2b.insert(m.mk_const(symbol(v), m.mk_bool_sort()), v);
+        }
+        goal g(m);            
+        s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
+        for (unsigned i = 0; i < g.size(); ++i) {
+            to_solver_ref(s)->assert_expr(g.form(i));
+        }
+    }
+
+    // DIMACS files start with "p cnf" and number of variables/clauses.
+    // This is not legal SMT syntax, so use the DIMACS parser.
+    static bool is_dimacs_string(Z3_string c_str) {
+        std::cout << c_str << "\n";
+        return c_str[0] == 'p' && c_str[1] == ' ' && c_str[2] == 'c';
     }
 
     void Z3_API Z3_solver_from_string(Z3_context c, Z3_solver s, Z3_string c_str) {
@@ -153,7 +197,12 @@ extern "C" {
         LOG_Z3_solver_from_string(c, s, c_str);
         std::string str(c_str);
         std::istringstream is(str);
-        solver_from_stream(c, s, is);
+        if (is_dimacs_string(c_str)) {
+            solver_from_dimacs_stream(c, s, is);
+        }
+        else {
+            solver_from_stream(c, s, is);
+        }
         Z3_CATCH;        
     }
 
@@ -162,21 +211,12 @@ extern "C" {
         LOG_Z3_solver_from_file(c, s, file_name);
         char const* ext = get_extension(file_name);
         std::ifstream is(file_name);
+        init_solver(c, s);
         if (!is) {
-            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
         }
-        else if (ext && std::string("dimacs") == ext) {
-            ast_manager& m = to_solver_ref(s)->get_manager();
-            sat::solver solver(to_solver_ref(s)->get_params(), m.limit(), nullptr);
-            parse_dimacs(is, solver);
-            sat2goal s2g;
-            model_converter_ref mc;
-            atom2bool_var a2b(m);
-            goal g(m);            
-            s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
-            for (unsigned i = 0; i < g.size(); ++i) {
-                to_solver_ref(s)->assert_expr(g.form(i));
-            }
+        else if (ext && (std::string("dimacs") == ext || std::string("cnf") == ext)) {
+            solver_from_dimacs_stream(c, s, is);
         }
         else {
             solver_from_stream(c, s, is);
@@ -190,13 +230,13 @@ extern "C" {
         RESET_ERROR_CODE();
         std::ostringstream buffer;
         param_descrs descrs;
-        bool initialized = to_solver(s)->m_solver.get() != 0;
+        bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(descrs);
         context_params::collect_solver_param_descrs(descrs);
         if (!initialized)
-            to_solver(s)->m_solver = 0;
+            to_solver(s)->m_solver = nullptr;
         descrs.display(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
@@ -208,16 +248,16 @@ extern "C" {
         RESET_ERROR_CODE();
         Z3_param_descrs_ref * d = alloc(Z3_param_descrs_ref, *mk_c(c));
         mk_c(c)->save_object(d);
-        bool initialized = to_solver(s)->m_solver.get() != 0;
+        bool initialized = to_solver(s)->m_solver.get() != nullptr;
         if (!initialized)
             init_solver(c, s);
         to_solver_ref(s)->collect_param_descrs(d->m_descrs);
         context_params::collect_solver_param_descrs(d->m_descrs);
         if (!initialized)
-            to_solver(s)->m_solver = 0;
+            to_solver(s)->m_solver = nullptr;
         Z3_param_descrs r = of_param_descrs(d);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     void Z3_API Z3_solver_set_params(Z3_context c, Z3_solver s, Z3_params p) {
@@ -276,7 +316,7 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         if (n > to_solver_ref(s)->get_scope_level()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
         if (n > 0)
@@ -288,7 +328,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
-        to_solver(s)->m_solver = 0;
+        to_solver(s)->m_solver = nullptr;
         Z3_CATCH;
     }
     
@@ -321,6 +361,7 @@ extern "C" {
         to_solver_ref(s)->assert_expr(to_expr(a), to_expr(p));
         Z3_CATCH;
     }
+
     
     Z3_ast_vector Z3_API Z3_solver_get_assertions(Z3_context c, Z3_solver s) {
         Z3_TRY;
@@ -334,13 +375,44 @@ extern "C" {
             v->m_ast_vector.push_back(to_solver_ref(s)->get_assertion(i));
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+
+    Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_units(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector fmls = to_solver_ref(s)->get_units(mk_c(c)->m());
+        for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_non_units(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector fmls = to_solver_ref(s)->get_non_units(mk_c(c)->m());
+        for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
     }
 
     static Z3_lbool _solver_check(Z3_context c, Z3_solver s, unsigned num_assumptions, Z3_ast const assumptions[]) {
         for (unsigned i = 0; i < num_assumptions; i++) {
             if (!is_expr(to_ast(assumptions[i]))) {
-                SET_ERROR_CODE(Z3_INVALID_ARG);
+                SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
                 return Z3_L_UNDEF;
             }
         }
@@ -360,7 +432,9 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
-                mk_c(c)->handle_exception(ex);
+                if (!mk_c(c)->m().canceled()) {
+                    mk_c(c)->handle_exception(ex);
+                }
                 return Z3_L_UNDEF;
             }
         }
@@ -375,7 +449,7 @@ extern "C" {
         LOG_Z3_solver_check(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        return _solver_check(c, s, 0, 0);
+        return _solver_check(c, s, 0, nullptr);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
 
@@ -396,14 +470,17 @@ extern "C" {
         model_ref _m;
         to_solver_ref(s)->get_model(_m);
         if (!_m) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE);
-            RETURN_Z3(0);
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "there is no current model");
+            RETURN_Z3(nullptr);
+        }
+        if (_m) {
+            if (mk_c(c)->params().m_model_compress) _m->compress();
         }
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         m_ref->m_model = _m;
         mk_c(c)->save_object(m_ref);
         RETURN_Z3(of_model(m_ref));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast Z3_API Z3_solver_get_proof(Z3_context c, Z3_solver s) {
@@ -413,12 +490,12 @@ extern "C" {
         init_solver(c, s);
         proof * p = to_solver_ref(s)->get_proof();
         if (!p) {
-            SET_ERROR_CODE(Z3_INVALID_USAGE);
-            RETURN_Z3(0);
+            SET_ERROR_CODE(Z3_INVALID_USAGE, "there is no current proof");
+            RETURN_Z3(nullptr);
         }
         mk_c(c)->save_ast_trail(p);
         RETURN_Z3(of_ast(p));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_context c, Z3_solver s) {
@@ -426,15 +503,15 @@ extern "C" {
         LOG_Z3_solver_get_unsat_core(c, s);
         RESET_ERROR_CODE();
         init_solver(c, s);
-        ptr_vector<expr> core;
+        expr_ref_vector core(mk_c(c)->m());
         to_solver_ref(s)->get_unsat_core(core);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        for (unsigned i = 0; i < core.size(); i++) {
-            v->m_ast_vector.push_back(core[i]);
+        for (expr* e : core) {
+            v->m_ast_vector.push_back(e);
         }
         RETURN_Z3(of_ast_vector(v));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
     
     Z3_string Z3_API Z3_solver_get_reason_unknown(Z3_context c, Z3_solver s) {
@@ -458,7 +535,7 @@ extern "C" {
         mk_c(c)->save_object(st);
         Z3_stats r = of_stats(st);
         RETURN_Z3(r);
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
     Z3_string Z3_API Z3_solver_to_string(Z3_context c, Z3_solver s) {
@@ -468,6 +545,17 @@ extern "C" {
         init_solver(c, s);
         std::ostringstream buffer;
         to_solver_ref(s)->display(buffer);
+        return mk_c(c)->mk_external_string(buffer.str());
+        Z3_CATCH_RETURN("");
+    }
+
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_to_string(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        std::ostringstream buffer;
+        to_solver_ref(s)->display_dimacs(buffer);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }
@@ -502,24 +590,22 @@ extern "C" {
         init_solver(c, s);
         expr_ref_vector _assumptions(m), _consequences(m), _variables(m);
         ast_ref_vector const& __assumptions = to_ast_vector_ref(assumptions);
-        unsigned sz = __assumptions.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (!is_expr(__assumptions[i])) {
+        for (ast* e : __assumptions) {
+            if (!is_expr(e)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "assumption is not an expression");
                 return Z3_L_UNDEF;
             }
-            _assumptions.push_back(to_expr(__assumptions[i]));
+            _assumptions.push_back(to_expr(e));
         }
         ast_ref_vector const& __variables = to_ast_vector_ref(variables);
-        sz = __variables.size();
-        for (unsigned i = 0; i < sz; ++i) {
-            if (!is_expr(__variables[i])) {
+        for (ast* a : __variables) {
+            if (!is_expr(a)) {
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
-                SET_ERROR_CODE(Z3_INVALID_USAGE);
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "variable is not an expression");
                 return Z3_L_UNDEF;
             }
-            _variables.push_back(to_expr(__variables[i]));
+            _variables.push_back(to_expr(a));
         }
         lbool result = l_undef;
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
@@ -544,11 +630,55 @@ extern "C" {
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
-        for (unsigned i = 0; i < _consequences.size(); ++i) {
-            to_ast_vector_ref(consequences).push_back(_consequences[i].get());
+        for (expr* e : _consequences) {
+            to_ast_vector_ref(consequences).push_back(e);
         }
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);        
     }
+
+    Z3_ast_vector Z3_API Z3_solver_cube(Z3_context c, Z3_solver s, Z3_ast_vector vs, unsigned cutoff) {
+        Z3_TRY;
+        LOG_Z3_solver_cube(c, s, vs, cutoff);
+        ast_manager& m = mk_c(c)->m();
+        expr_ref_vector result(m), vars(m);
+        for (ast* a : to_ast_vector_ref(vs)) {
+            if (!is_expr(a)) {
+                SET_ERROR_CODE(Z3_INVALID_USAGE, "cube contains a non-expression");
+            }
+            else {
+                vars.push_back(to_expr(a));
+            }
+        }
+        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        api::context::set_interruptable si(*(mk_c(c)), eh);
+        {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
+            scoped_timer timer(timeout, &eh);
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            try {
+                result.append(to_solver_ref(s)->cube(vars, cutoff));
+            }
+            catch (z3_exception & ex) {
+                mk_c(c)->handle_exception(ex);
+                return nullptr;
+            }
+        }
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (expr* e : result) {
+            v->m_ast_vector.push_back(e);
+        }
+        to_ast_vector_ref(vs).reset();
+        for (expr* a : vars) {
+            to_ast_vector_ref(vs).push_back(a);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
 
 };

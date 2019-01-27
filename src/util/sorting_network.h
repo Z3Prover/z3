@@ -24,6 +24,34 @@ Notes:
 #ifndef SORTING_NETWORK_H_
 #define SORTING_NETWORK_H_
 
+    enum sorting_network_encoding {
+        sorted_at_most,
+        grouped_at_most,
+        bimander_at_most,
+        ordered_at_most,
+        unate_at_most,
+        circuit_at_most
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, sorting_network_encoding enc) {
+        switch (enc) {
+        case grouped_at_most: return out << "grouped";
+        case bimander_at_most: return out << "bimander";
+        case ordered_at_most: return out << "ordered";
+        case sorted_at_most: return out << "sorted";
+        case unate_at_most: return out << "unate";
+        case circuit_at_most: return out << "circuit";
+        }
+        return out << "???";
+    }
+
+    struct sorting_network_config {
+        sorting_network_encoding m_encoding;
+        sorting_network_config() {
+            m_encoding = sorted_at_most;
+        }
+    };
+
     template <typename Ext>
     class sorting_network {
         typedef typename Ext::vector vect;
@@ -88,7 +116,7 @@ Notes:
         }
         
     public:
-        sorting_network(Ext& ext):
+        sorting_network(Ext& ext):         
             m_ext(ext),
             m_current(&m_currentv),
             m_next(&m_nextv)
@@ -119,8 +147,9 @@ Notes:
     // Described in Abio et.al. CP 2013.
     template<class psort_expr>
     class psort_nw {
-        typedef typename psort_expr::literal literal;
-        typedef typename psort_expr::literal_vector literal_vector;
+        typedef typename psort_expr::pliteral literal;
+        typedef typename psort_expr::pliteral_vector literal_vector;
+        sorting_network_config m_cfg;
 
         class vc {
             unsigned v; // number of vertices
@@ -135,11 +164,18 @@ Notes:
             vc operator+(vc const& other) const {
                 return vc(v + other.v, c + other.c);
             }
+            vc operator-(vc const& other) const {
+                return vc(v - other.v, c - other.c);
+            }
             unsigned to_int() const {
                 return lambda*v + c;
             }
             vc operator*(unsigned n) const {
                 return vc(n*v, n*c);
+            }
+
+            std::ostream& pp(std::ostream& out) const {
+                return out << "v: " << v << " c: " << c;
             }
         };
 
@@ -153,12 +189,16 @@ Notes:
         cmp_t        m_t;
 
         // for testing
-        static const bool m_disable_dcard    = false;
-        static const bool m_disable_dsorting = false;
+        static const bool m_disable_dcard    = false; 
+        static const bool m_disable_dsorting = false; 
         static const bool m_disable_dsmerge  = false;
         static const bool m_force_dcard      = false;
         static const bool m_force_dsorting   = false;
         static const bool m_force_dsmerge    = false;
+
+        bool is_power_of2(unsigned n) const {
+            return n != 0 && ((n-1) & n) == 0;
+        }
 
     public:
         struct stats {
@@ -187,6 +227,8 @@ Notes:
 
         psort_nw(psort_expr& c): ctx(c) {}
 
+        sorting_network_config& cfg() { return m_cfg; }
+
         literal ge(bool full, unsigned k, unsigned n, literal const* xs) {
             if (k > n) {
                 return ctx.mk_false();
@@ -196,15 +238,31 @@ Notes:
             }
             SASSERT(0 < k && k <= n);
             literal_vector in, out;
+            if (k == 1) {
+                return mk_or(n, xs);
+            }
             if (dualize(k, n, xs, in)) {
                 return le(full, k, in.size(), in.c_ptr());
             }
             else {
-                SASSERT(2*k <= n);
-                m_t = full?GE_FULL:GE;
-                // scoped_stats _ss(m_stats, k, n);
-                psort_nw<psort_expr>::card(k, n, xs, out);                
-                return out[k-1]; 
+                switch (m_cfg.m_encoding) {
+                case sorted_at_most:
+                case bimander_at_most:
+                case ordered_at_most:
+                case grouped_at_most:
+                    SASSERT(2*k <= n);
+                    m_t = full?GE_FULL:GE;
+                    // scoped_stats _ss(m_stats, k, n);
+                    psort_nw<psort_expr>::card(k, n, xs, out);                
+                    return out[k-1]; 
+                case unate_at_most:
+                    return unate_ge(full, k, n, xs);
+                case circuit_at_most:
+                    return circuit_ge(full, k, n, xs); 
+                default:
+                    UNREACHABLE();
+                    return xs[0];
+                }
             }
         }
         
@@ -220,14 +278,41 @@ Notes:
             else if (k == 1) {
                 literal_vector ors;
                 // scoped_stats _ss(m_stats, k, n);
-                return mk_at_most_1(full, n, xs, ors, false);
+                switch (m_cfg.m_encoding) {
+                case grouped_at_most:
+                case sorted_at_most:
+                case unate_at_most:
+                case circuit_at_most:
+                    return mk_at_most_1(full, n, xs, ors, false);
+                case bimander_at_most:
+                    return mk_at_most_1_bimander(full, n, xs, ors);
+                case ordered_at_most:
+                    return mk_ordered_atmost_1(full, n, xs);
+                    
+                default:
+                    UNREACHABLE();
+                    return xs[0];
+                }
             }
             else {
-                SASSERT(2*k <= n);
-                m_t = full?LE_FULL:LE;
-                // scoped_stats _ss(m_stats, k, n);
-                card(k + 1, n, xs, out);
-                return ctx.mk_not(out[k]); 
+                switch (m_cfg.m_encoding) {
+                case sorted_at_most:
+                case bimander_at_most:
+                case ordered_at_most:
+                case grouped_at_most:
+                    SASSERT(2*k <= n);
+                    m_t = full?LE_FULL:LE;
+                    // scoped_stats _ss(m_stats, k, n);
+                    card(k + 1, n, xs, out);
+                    return mk_not(out[k]);
+                case unate_at_most:
+                    return unate_le(full, k, n, xs); 
+                case circuit_at_most:
+                    return circuit_le(full, k, n, xs); 
+                default:                    
+                    UNREACHABLE();
+                    return xs[0];
+                }
             }
         }
 
@@ -245,16 +330,29 @@ Notes:
                 return mk_exactly_1(full, n, xs);
             }
             else {
-                // scoped_stats _ss(m_stats, k, n);
-                SASSERT(2*k <= n);
-                m_t = EQ;
-                card(k+1, n, xs, out);
-                SASSERT(out.size() >= k+1);
-                if (k == 0) {
-                    return ctx.mk_not(out[k]);
-                }
-                else {
-                    return ctx.mk_min(out[k-1], ctx.mk_not(out[k]));
+                switch (m_cfg.m_encoding) {
+                case sorted_at_most:
+                case bimander_at_most:
+                case grouped_at_most:
+                case ordered_at_most:
+                    // scoped_stats _ss(m_stats, k, n);
+                    SASSERT(2*k <= n);
+                    m_t = EQ;
+                    card(k+1, n, xs, out);
+                    SASSERT(out.size() >= k+1);
+                    if (k == 0) {
+                        return mk_not(out[k]);
+                    }
+                    else {
+                        return mk_min(out[k-1], mk_not(out[k]));
+                    }
+                case unate_at_most:
+                    return unate_eq(k, n, xs);              
+                case circuit_at_most:
+                    return circuit_eq(k, n, xs);        
+                default:                    
+                    UNREACHABLE();
+                    return xs[0];
                 }
             }
         }
@@ -262,49 +360,191 @@ Notes:
         
     private:
 
+        // perform unate addition up to k.
+        literal unate_cmp(cmp_t cmp, unsigned k, unsigned n, literal const* xs) {
+            unsigned last = k;
+            if (cmp == LE || cmp == EQ || cmp == LE_FULL) {
+                last = k + 1;
+            }
+            literal_vector carry;
+            for (unsigned i = 0; i < last; ++i) {
+                carry.push_back(ctx.mk_false());
+            }
+            for (unsigned i = 0; i < n; ++i) {
+                for (unsigned j = last; j-- > 0; ) {
+                    // c'[j] <-> (xs[i] & c[j-1]) | c[j]
+                    literal c0 = j > 0 ? carry[j-1] : ctx.mk_true();
+                    carry[j] = mk_or(mk_and(xs[i], c0), carry[j]);
+                }
+            }
+            switch (cmp) {
+            case LE: 
+            case LE_FULL:
+                return mk_not(carry[k]);
+            case GE: 
+            case GE_FULL:
+                return carry[k-1];
+            case EQ:
+                return mk_and(mk_not(carry[k]), carry[k-1]);
+            default:
+                UNREACHABLE();
+                return xs[0];
+            }
+        }
+
+        literal unate_ge(bool full, unsigned k, unsigned n, literal const* xs) {
+            return unate_cmp(full ? GE_FULL : GE, k, n, xs);
+        }
+
+        literal unate_le(bool full, unsigned k, unsigned n, literal const* xs) {
+            return unate_cmp(full ? LE_FULL : LE, k, n, xs);            
+        }
+
+        literal unate_eq(unsigned k, unsigned n, literal const* xs) {
+            return unate_cmp(EQ, k, n, xs);
+        }
+
+        // circuit encoding
+        void mk_unit_circuit(unsigned k, literal x, literal_vector& out) {
+            out.push_back(x);
+            for (unsigned i = 1; i < k; ++i) out.push_back(ctx.mk_false());
+        }
+
+        literal mk_add_circuit(literal_vector const& x, literal_vector const& y, literal_vector& out) {
+            literal c = ctx.mk_false();
+            SASSERT(x.size() == y.size());
+            for (unsigned i = 0; i < x.size(); ++i) {
+                // out[i] = c + x[i] + y[i]
+                // c' = c&x[i] | c&y[i] | x[i]&y[i];
+                literal_vector ors; 
+                ors.push_back(mk_and(c,    mk_not(x[i]), mk_not(y[i]))); 
+                ors.push_back(mk_and(x[i], mk_not(c),    mk_not(y[i])));
+                ors.push_back(mk_and(y[i], mk_not(c),    mk_not(x[i])));
+                ors.push_back(mk_and(c, x[i], y[i]));
+                literal o = mk_or(4, ors.c_ptr());
+                out.push_back(o);
+                ors[0] = mk_and(c, x[i]); 
+                ors[1] = mk_and(c, y[i]);
+                ors[2] = mk_and(x[i], y[i]);                
+                c = mk_or(3, ors.c_ptr());                
+            }
+            return c;
+        }
+
+        literal circuit_add(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
+            switch (n) {
+            case 0:
+                for (unsigned i = 0; i < k; ++i) {
+                    out.push_back(ctx.mk_false());
+                }
+                return ctx.mk_false();
+            case 1:
+                mk_unit_circuit(k, xs[0], out);
+                return ctx.mk_false();
+            default: {
+                literal_vector o1, o2;
+                unsigned half = n / 2;
+                literal ovfl1 = circuit_add(k, half, xs, o1);
+                literal ovfl2 = circuit_add(k, n - half, xs + half, o2);
+                literal ovfl3 = mk_add_circuit(o1, o2, out);
+                return mk_or(ovfl1, ovfl2, ovfl3);
+            }
+            }
+        }
+
+        literal circuit_cmp(cmp_t cmp, unsigned k, unsigned n, literal const* xs) {
+            literal_vector out, kvec;
+            unsigned num_bits = 0;
+            unsigned k1 = (cmp == LE || cmp == LE_FULL) ? k + 1 : k;
+            unsigned k0 = k1;
+            while (k0 > 0) { ++num_bits; k0 >>= 1; }
+            for (unsigned i = 0; i < num_bits; ++i) {
+                kvec.push_back((0 != (k1 & (1 << i))) ? ctx.mk_true() : ctx.mk_false());
+            }
+            literal ovfl = circuit_add(num_bits, n, xs, out);
+            switch (cmp) {
+            case LE: 
+            case LE_FULL:
+                return mk_not(mk_or(ovfl, mk_ge(out, kvec)));
+            case GE: 
+            case GE_FULL:
+                return mk_or(ovfl, mk_ge(out, kvec));
+            case EQ: {
+                literal_vector eqs;
+                SASSERT(kvec.size() == out.size());
+                for (unsigned i = 0; i < num_bits; ++i) {
+                    eqs.push_back(mk_or(mk_not(kvec[i]), out[i]));
+                    eqs.push_back(mk_or(kvec[i], mk_not(out[i])));
+                }
+                eqs.push_back(mk_not(ovfl));
+                return mk_and(eqs);
+            }                
+            default:
+                UNREACHABLE();
+                return xs[0];
+            }            
+        }
+
+        literal mk_ge(literal_vector const& x, literal_vector const& y) {
+            literal r = ctx.mk_true();
+            literal g = ctx.mk_false();
+            for (unsigned j = x.size(); j-- > 0; ) {
+                g = mk_or(g, mk_and(r, mk_and(x[j], mk_not(y[j]))));
+                r = mk_or(g, mk_and(r, mk_or( x[j], mk_not(y[j]))));
+            }
+            return r;
+        }
+
+        literal circuit_ge(bool full, unsigned k, unsigned n, literal const* xs) {
+            return circuit_cmp(full ? GE_FULL : GE, k, n, xs);
+        }
+
+        literal circuit_le(bool full, unsigned k, unsigned n, literal const* xs) {
+            return circuit_cmp(full ? LE_FULL : LE, k, n, xs);            
+        }
+
+        literal circuit_eq(unsigned k, unsigned n, literal const* xs) {
+            return circuit_cmp(EQ, k, n, xs);
+        }
+       
         void add_implies_or(literal l, unsigned n, literal const* xs) {
             literal_vector lits(n, xs);
-            lits.push_back(ctx.mk_not(l));
+            lits.push_back(mk_not(l));
             add_clause(lits);
         }
 
-        void add_or_implies(literal l, unsigned n, literal const* xs) {
-            for (unsigned j = 0; j < n; ++j) {
-                add_clause(ctx.mk_not(xs[j]), l);
+        literal mk_or(unsigned n, literal const* _ors) {
+            literal_vector ors(n, _ors);
+            unsigned j = 0;
+            for (literal lit : ors) {
+                if (is_true(lit)) return lit;
+                if (!is_false(lit)) ors[j++] = lit;
             }
-        }
-
-        literal mk_or(unsigned n, literal const* ors) {
-            if (n == 1) {
-                return ors[0];
+            ors.shrink(j);
+            switch (j) {
+            case 0:  return ctx.mk_false();
+            case 1:  return ors[0];
+            default: return ctx.mk_max(ors.size(), ors.c_ptr());
             }
-            literal result = fresh();
-            add_implies_or(result, n, ors);
-            add_or_implies(result, n, ors);
-            return result;
         }
 
         literal mk_or(literal l1, literal l2) {
             literal ors[2] = { l1, l2 };
             return mk_or(2, ors);
         }
+        literal mk_or(literal l1, literal l2, literal l3) {
+            literal ors[3] = { l1, l2, l3 };
+            return mk_or(3, ors);
+        }
+
         literal mk_or(literal_vector const& ors) {
             return mk_or(ors.size(), ors.c_ptr());
         }
 
-        void add_implies_and(literal l, literal_vector const& xs) {
-            for (unsigned j = 0; j < xs.size(); ++j) {
-                add_clause(ctx.mk_not(l), xs[j]);
-            }
-        }
-
-        void add_and_implies(literal l, literal_vector const& xs) {
-            literal_vector lits;
-            for (unsigned j = 0; j < xs.size(); ++j) {
-                lits.push_back(ctx.mk_not(xs[j]));
-            }
-            lits.push_back(l);
-            add_clause(lits);
+        literal mk_not(literal lit) {
+            if (is_true(lit)) return ctx.mk_false();
+            if (is_false(lit)) return ctx.mk_true();
+            return ctx.mk_not(lit);
         }
 
         literal mk_and(literal l1, literal l2) {
@@ -313,19 +553,61 @@ Notes:
             return mk_and(xs);
         }
 
-        literal mk_and(literal_vector const& ands) {
-            if (ands.size() == 1) {
-                return ands[0];
+        literal mk_and(literal l1, literal l2, literal l3) {
+            literal_vector xs;
+            xs.push_back(l1); xs.push_back(l2); xs.push_back(l3);
+            return mk_and(xs);
+        }
+
+        bool is_true(literal l) {
+            return l == ctx.mk_true();
+        }
+
+        bool is_false(literal l) {
+            return l == ctx.mk_false();
+        }
+
+        literal mk_and(literal_vector const& _ands) {
+            literal_vector ands(_ands);
+            unsigned j = 0;
+            for (literal lit : ands) {
+                if (is_false(lit)) return lit;
+                if (!is_true(lit)) ands[j++] = lit;
             }
-            literal result = fresh();
-            add_implies_and(result, ands);
-            add_and_implies(result, ands);
-            return result;
+            ands.shrink(j);
+            switch (j) {
+            case 0:
+                return ctx.mk_true();
+            case 1:
+                return ands[0];
+            case 2:
+                return mk_min(ands[0], ands[1]);
+            default: {
+                return ctx.mk_min(ands.size(), ands.c_ptr());
+            }
+            }
         }
 
         literal mk_exactly_1(bool full, unsigned n, literal const* xs) {
+            TRACE("pb", tout << "exactly 1 with " << n << " arguments " << (full?"full":"not full") << "\n";);
             literal_vector ors;
-            literal r1 = mk_at_most_1(full, n, xs, ors, true);
+            literal r1;
+            switch (m_cfg.m_encoding) {
+            case grouped_at_most:
+            case sorted_at_most:
+            case unate_at_most:
+            case circuit_at_most:
+                r1 = mk_at_most_1(full, n, xs, ors, true);
+                break;
+            case bimander_at_most:
+                r1 = mk_at_most_1_bimander(full, n, xs, ors);                
+                break;
+            case ordered_at_most:
+                return mk_ordered_exactly_1(full, n, xs);
+            default:
+                UNREACHABLE();
+                return mk_ordered_exactly_1(full, n, xs);                
+            }
 
             if (full) {
                 r1 = mk_and(r1, mk_or(ors));
@@ -337,15 +619,11 @@ Notes:
         }
 
         literal mk_at_most_1(bool full, unsigned n, literal const* xs, literal_vector& ors, bool use_ors) {
-            TRACE("pb", tout << (full?"full":"partial") << " ";
+            TRACE("pb_verbose", tout << (full?"full":"partial") << " ";
                   for (unsigned i = 0; i < n; ++i) tout << xs[i] << " ";
                   tout << "\n";);
-
-            if (n >= 4 && false) {
-                return mk_at_most_1_bimander(full, n, xs, ors);
-            }
             literal_vector in(n, xs);
-            literal result = fresh();
+            literal result = fresh("at-most-1");
             unsigned inc_size = 4;
             literal_vector ands;
             ands.push_back(result);
@@ -381,13 +659,13 @@ Notes:
             // result => xs[0] + ... + xs[n-1] <= 1
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
-                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
+                    add_clause(mk_not(result), mk_not(xs[i]), mk_not(xs[j]));
                 }
             }            
 
             // xs[0] + ... + xs[n-1] <= 1 => and_x
             if (full) {
-                literal and_i = fresh();
+                literal and_i = fresh("and");
                 for (unsigned i = 0; i < n; ++i) {
                     literal_vector lits;
                     lits.push_back(and_i);
@@ -396,7 +674,7 @@ Notes:
                     }
                     add_clause(lits);
                 }
-                ands.push_back(ctx.mk_not(and_i));
+                ands.push_back(mk_not(and_i));
             }
         }
 
@@ -407,62 +685,114 @@ Notes:
             }
 
             
-#if 0
-            literal result = fresh();
-
-            // result => xs[0] + ... + xs[n-1] <= 1
-            for (unsigned i = 0; i < n; ++i) {
-                for (unsigned j = i + 1; j < n; ++j) {
-                    add_clause(ctx.mk_not(result), ctx.mk_not(xs[i]), ctx.mk_not(xs[j]));
-                }
-            }            
-
-            // xs[0] + ... + xs[n-1] <= 1 => result
-            for (unsigned i = 0; i < n; ++i) {
-                literal_vector lits;
-                lits.push_back(result);
-                for (unsigned j = 0; j < n; ++j) {
-                    if (j != i) lits.push_back(xs[j]);
-                }
-                add_clause(lits);
-            }
-
-            return result;
-#endif
-#if 1
             // r <=> and( or(!xi,!xj))
             // 
             literal_vector ands;
             for (unsigned i = 0; i < n; ++i) {
                 for (unsigned j = i + 1; j < n; ++j) {
-                    ands.push_back(mk_or(ctx.mk_not(xs[i]), ctx.mk_not(xs[j])));
+                    ands.push_back(mk_or(mk_not(xs[i]), mk_not(xs[j])));
                 }                
             }
             return mk_and(ands);
-#else
-            // r <=> or (and !x_{j != i})
-
-            literal_vector ors;
-            for (unsigned i = 0; i < n; ++i) {
-                literal_vector ands;
-                for (unsigned j = 0; j < n; ++j) {
-                    if (j != i) {
-                        ands.push_back(ctx.mk_not(xs[j]));
-                    }
-                }                
-                ors.push_back(mk_and(ands));
-            }
-            return mk_or(ors);
-            
-#endif
         }
 
+        literal mk_ordered_exactly_1(bool full, unsigned n, literal const* xs) {
+            return mk_ordered_1(full, true, n, xs);
+        }
+
+        literal mk_ordered_atmost_1(bool full, unsigned n, literal const* xs) {
+            return mk_ordered_1(full, false, n, xs);
+        }
+
+        literal mk_ordered_1(bool full, bool is_eq, unsigned n, literal const* xs) {
+            if (n <= 1 && !is_eq) {
+                return ctx.mk_true();
+            }
+            if (n == 0) {
+                return ctx.mk_false();
+            }
+            if (n == 1) {
+                return xs[0];
+            }
+
+            SASSERT(n > 1);
+
+            // y0 -> y1
+            // x0 -> y0
+            // x1 -> y1
+            // r, y0 -> ~x1
+            // r, y1 -> ~x2
+            // r -> x3 | y1
+            // r -> ~x3 | ~y1
+
+            // x0,x1,x2, .., x_{n-1}, x_n
+            // y0,y1,y2, .., y_{n-1}
+            // y_i -> y_{i+1}  i = 0, ..., n - 2
+            // x_i -> y_i      i = 0, ..., n - 1
+            // r, y_i -> ~x_{i+1} i = 0, ..., n - 1
+            // exactly 1: 
+            // r -> x_n | y_{n-1}
+            // full (exactly 1):
+            // two_i -> y_i & x_{i+1}
+            // zero -> ~x_n
+            // zero -> ~y_{n-1}
+            // r | zero | two_0 | ... | two_{n-1}
+            // full atmost 1:
+            // r | two | two_0 | ... | two_{n-1}
+            
+            literal r = fresh("ordered");
+            literal_vector ys;
+            for (unsigned i = 0; i + 1 < n; ++i) {
+                ys.push_back(fresh("y"));
+            }
+            for (unsigned i = 0; i + 2 < n; ++i) {
+                add_clause(mk_not(ys[i]), ys[i + 1]);
+            }
+            for (unsigned i = 0; i + 1 < n; ++i) {
+                add_clause(mk_not(xs[i]), ys[i]);
+                add_clause(mk_not(r), mk_not(ys[i]), mk_not(xs[i + 1]));
+            }
+
+            if (is_eq) {
+                add_clause(mk_not(r), ys[n-2], xs[n-1]);
+            }
+            for (unsigned i = 1; i < n - 1; ++i) {
+                add_clause(mk_not(ys[i]), xs[i], ys[i-1]);
+            }
+            
+            add_clause(mk_not(ys[0]), xs[0]);
+            if (full) {
+                literal_vector twos;
+                for (unsigned i = 0; i < n - 1; ++i) {
+                    twos.push_back(fresh("two"));
+                }
+                add_clause(mk_not(twos[0]), ys[0]);
+                add_clause(mk_not(twos[0]), xs[1]);
+                for (unsigned i = 1; i < n - 1; ++i) {
+                    add_clause(mk_not(twos[i]), ys[i], twos[i-1]);
+                    add_clause(mk_not(twos[i]), xs[i + 1], twos[i-1]);
+                }
+                if (is_eq) {
+                    literal zero = fresh("zero");
+                    add_clause(mk_not(zero), mk_not(xs[n-1]));
+                    add_clause(mk_not(zero), mk_not(ys[n-2]));
+                    add_clause(r, zero, twos.back());
+                }
+                else {
+                    add_clause(r, twos.back());
+                }
+            }
+            return r;
+        } 
         
         // 
 
         literal mk_at_most_1_bimander(bool full, unsigned n, literal const* xs, literal_vector& ors) {
+            if (full) {
+                return mk_at_most_1(full, n, xs, ors, true);
+            }
             literal_vector in(n, xs);
-            literal result = fresh();
+            literal result = fresh("bimander");
             unsigned inc_size = 2;
             literal_vector ands;
             for (unsigned i = 0; i < n; i += inc_size) {                    
@@ -477,12 +807,12 @@ Notes:
             }
             literal_vector bits;
             for (unsigned k = 0; k < nbits; ++k) {
-                bits.push_back(fresh());
+                bits.push_back(fresh("bit"));
             }
             for (unsigned i = 0; i < ors.size(); ++i) {
                 for (unsigned k = 0; k < nbits; ++k) {
                     bool bit_set = (i & (static_cast<unsigned>(1 << k))) != 0;
-                    add_clause(ctx.mk_not(result), ctx.mk_not(ors[i]), bit_set ? bits[k] : ctx.mk_not(bits[k]));
+                    add_clause(mk_not(result), mk_not(ors[i]), bit_set ? bits[k] : mk_not(bits[k]));
                 }
             }            
             return result;
@@ -494,7 +824,7 @@ Notes:
         }
 
         std::ostream& pp(std::ostream& out, literal_vector const& lits) {
-            for (unsigned i = 0; i < lits.size(); ++i) ctx.pp(out, lits[i]) << " ";
+            for (literal const& l : lits) ctx.pp(out, l) << " ";
             return out;
         }
 
@@ -511,10 +841,10 @@ Notes:
             }
             k = N - k;
             for (unsigned i = 0; i < N; ++i) {
-                in.push_back(ctx.mk_not(xs[i]));
+                in.push_back(mk_not(xs[i]));
             }
-            TRACE("pb", 
-                  pp(tout << N << ": ", in);                  
+            TRACE("pb_verbose", 
+                  //pp(tout << N << ": ", in);                  
                   tout << " ~ " << k << "\n";);
             return true;
         }
@@ -530,18 +860,20 @@ Notes:
         literal mk_max(literal a, literal b) {
             if (a == b) return a;
             m_stats.m_num_compiled_vars++;
-            return ctx.mk_max(a, b);
+            literal lits[2] = { a, b};
+            return ctx.mk_max(2, lits);
         }
 
         literal mk_min(literal a, literal b) {
             if (a == b) return a;
             m_stats.m_num_compiled_vars++;
-            return ctx.mk_min(a, b);
+            literal lits[2] = { a, b};
+            return ctx.mk_min(2, lits);
         }
 
-        literal fresh() {
+        literal fresh(char const* n) {
             m_stats.m_num_compiled_vars++;
-            return ctx.fresh();
+            return ctx.fresh(n);
         }
         void add_clause(literal l1, literal l2, literal l3) {
             literal lits[3] = { l1, l2, l3 };
@@ -555,27 +887,29 @@ Notes:
             add_clause(lits.size(), lits.c_ptr());
         }
         void add_clause(unsigned n, literal const* ls) {
+            for (unsigned i = 0; i < n; ++i) {
+                if (is_true(ls[i])) return;
+            }
             m_stats.m_num_compiled_clauses++;
             m_stats.m_num_clause_vars += n;
             literal_vector tmp(n, ls);
-            TRACE("pb", for (unsigned i = 0; i < n; ++i) tout << ls[i] << " "; tout << "\n";);
             ctx.mk_clause(n, tmp.c_ptr());
         }
 
         // y1 <= mk_max(x1,x2)
         // y2 <= mk_min(x1,x2)
         void cmp_ge(literal x1, literal x2, literal y1, literal y2) {
-            add_clause(ctx.mk_not(y2), x1);
-            add_clause(ctx.mk_not(y2), x2);
-            add_clause(ctx.mk_not(y1), x1, x2);            
+            add_clause(mk_not(y2), x1);
+            add_clause(mk_not(y2), x2);
+            add_clause(mk_not(y1), x1, x2);            
         }
 
         // mk_max(x1,x2) <= y1
         // mk_min(x1,x2) <= y2
         void cmp_le(literal x1, literal x2, literal y1, literal y2) {
-            add_clause(ctx.mk_not(x1), y1);
-            add_clause(ctx.mk_not(x2), y1);
-            add_clause(ctx.mk_not(x1), ctx.mk_not(x2), y2);
+            add_clause(mk_not(x1), y1);
+            add_clause(mk_not(x2), y1);
+            add_clause(mk_not(x1), mk_not(x2), y2);
         }
 
         void cmp_eq(literal x1, literal x2, literal y1, literal y2) {
@@ -595,23 +929,26 @@ Notes:
         }
 
         void card(unsigned k, unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";);
+            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";);
             if (n <= k) {
                 psort_nw<psort_expr>::sorting(n, xs, out);
             }
             else if (use_dcard(k, n)) {
+                TRACE("pb_verbose", tout << "use dcard\n";);
                 dsorting(k, n, xs, out);
             }
             else {
+                TRACE("pb_verbose", tout << "use merge\n";);
                 literal_vector out1, out2;
-                unsigned l = n/2; // TBD
-                card(k, l, xs, out1);
-                card(k, n-l, xs + l, out2);
+                unsigned half = n/2; // TBD
+                card(k, half, xs, out1);
+                card(k, n-half, xs + half, out2);
                 smerge(k, out1.size(), out1.c_ptr(), out2.size(), out2.c_ptr(), out);
             }
-            TRACE("pb", tout << "card k: " << k << " n: " << n << "\n";
-                  pp(tout << "in:", n, xs) << "\n";
-                  pp(tout << "out:", out) << "\n";);
+            TRACE("pb_verbose", tout << "card k: " << k << " n: " << n << "\n";
+                  //pp(tout << "in:", n, xs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
+                  );
 
         }        
         vc vc_card(unsigned k, unsigned n) {
@@ -637,7 +974,8 @@ Notes:
         void merge(unsigned a, literal const* as, 
                    unsigned b, literal const* bs,                    
                    literal_vector& out) {
-            TRACE("pb", tout << "merge a: " << a << " b: " << b << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             if (a == 1 && b == 1) {
                 literal y1 = mk_max(as[0], bs[0]);
                 literal y2 = mk_min(as[0], bs[0]);
@@ -672,10 +1010,14 @@ Notes:
                       odd_b.size(), odd_b.c_ptr(), out2);
                 interleave(out1, out2, out); 
             }
-            TRACE("pb", tout << "merge a: " << a << " b: " << b << "\n";
-                  pp(tout << "a:", a, as) << "\n";
-                  pp(tout << "b:", b, bs) << "\n";
-                  pp(tout << "out:", out) << "\n";);
+            TRACE("pb_verbose", tout << "merge a: " << a << " b: " << b << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  vc_dsmerge(a, b, a + b).pp(tout << "vc_dsmerge ") << "\n";
+                  vc_smerge_rec(a, b, a + b).pp(tout << "vc_smerge_rec ") << "\n";
+                  //pp(tout << "a:", a, as) << "\n";
+                  //pp(tout << "b:", b, bs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
+                  );
         }
         vc vc_merge(unsigned a, unsigned b) {
             if (a == 1 && b == 1) {
@@ -695,7 +1037,8 @@ Notes:
             return 
                 vc_merge(ceil2(a),  ceil2(b)) +
                 vc_merge(floor2(a), floor2(b)) +
-                vc_interleave(ceil2(a) + ceil2(b), floor2(a) + floor2(b));
+                vc_interleave(ceil2(a) + ceil2(b), floor2(a) + floor2(b)) - 
+                vc(0, 2);
         }
         void split(unsigned n, literal const* ls, literal_vector& even, literal_vector& odd) {
             for (unsigned i = 0; i < n; i += 2) {
@@ -709,7 +1052,8 @@ Notes:
         void interleave(literal_vector const& as, 
                         literal_vector const& bs,
                         literal_vector& out) {
-            TRACE("pb", tout << "interleave: " << as.size() << " " << bs.size() << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             SASSERT(as.size() >= bs.size());
             SASSERT(as.size() <= bs.size() + 2);
             SASSERT(!as.empty());
@@ -729,10 +1073,12 @@ Notes:
                 out.push_back(as[sz+1]);
             }
             SASSERT(out.size() == as.size() + bs.size());
-            TRACE("pb", tout << "interleave: " << as.size() << " " << bs.size() << "\n";
-                  pp(tout << "a: ", as) << "\n";
-                  pp(tout << "b: ", bs) << "\n";
-                  pp(tout << "out: ", out) << "\n";);
+            TRACE("pb_verbose", tout << "interleave: " << as.size() << " " << bs.size() << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  //pp(tout << "a: ", as) << "\n";
+                  //pp(tout << "b: ", bs) << "\n";
+                  //pp(tout << "out: ", out) << "\n";
+                  );
 
         }
         vc vc_interleave(unsigned a, unsigned b) {
@@ -741,7 +1087,7 @@ Notes:
         
     public:
         void sorting(unsigned n, literal const* xs, literal_vector& out) {
-            TRACE("pb", tout << "sorting: " << n << "\n";);
+            TRACE("pb_verbose", tout << "sorting: " << n << "\n";);
             switch(n) {
             case 0: 
                 break;
@@ -753,22 +1099,25 @@ Notes:
                 break;
             default:
                 if (use_dsorting(n)) {
+                    TRACE("pb_verbose", tout << "use dsorting: " << n << "\n";);
                     dsorting(n, n, xs, out);
                 }
                 else {
+                    TRACE("pb_verbose", tout << "use merge: " << n << "\n";);
                     literal_vector out1, out2;
-                    unsigned l = n/2;  // TBD
-                    sorting(l, xs, out1);
-                    sorting(n-l, xs+l, out2);
+                    unsigned half = n/2;  // TBD
+                    sorting(half, xs, out1);
+                    sorting(n-half, xs+half, out2);
                     merge(out1.size(), out1.c_ptr(), 
                           out2.size(), out2.c_ptr(),
                           out);                
                 }
                 break;
             }
-            TRACE("pb", tout << "sorting: " << n << "\n";
-                  pp(tout << "in:", n, xs) << "\n"; 
-                  pp(tout << "out:", out) << "\n";);
+            TRACE("pb_verbose", tout << "sorting: " << n << "\n";
+                  //pp(tout << "in:", n, xs) << "\n"; 
+                  //pp(tout << "out:", out) << "\n";
+                  );
         }
 
     private:
@@ -802,18 +1151,19 @@ Notes:
                     unsigned a, literal const* as,
                     unsigned b, literal const* bs, 
                     literal_vector& out) {
-            TRACE("pb", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             if (a == 1 && b == 1 && c == 1) {
                 literal y = mk_max(as[0], bs[0]);
                 if (m_t != GE) {
                     // x1 <= mk_max(x1,x2)
                     // x2 <= mk_max(x1,x2)
-                    add_clause(ctx.mk_not(as[0]), y);
-                    add_clause(ctx.mk_not(bs[0]), y);
+                    add_clause(mk_not(as[0]), y);
+                    add_clause(mk_not(bs[0]), y);
                 }
                 if (m_t != LE) {
                     // mk_max(x1,x2) <= x1, x2
-                    add_clause(ctx.mk_not(y), as[0], bs[0]);
+                    add_clause(mk_not(y), as[0], bs[0]);
                 }
                 out.push_back(y);
             }
@@ -864,11 +1214,11 @@ Notes:
                     out2.pop_back();
                     y = mk_max(z1, z2);
                     if (m_t != GE) {
-                        add_clause(ctx.mk_not(z1), y);
-                        add_clause(ctx.mk_not(z2), y);
+                        add_clause(mk_not(z1), y);
+                        add_clause(mk_not(z2), y);
                     }
                     if (m_t != LE) {
-                        add_clause(ctx.mk_not(y), z1, z2);
+                        add_clause(mk_not(y), z1, z2);
                     }
                 }
                 interleave(out1, out2, out);                 
@@ -876,10 +1226,11 @@ Notes:
                     out.push_back(y);
                 }
             }
-            TRACE("pb", tout << "smerge: c:" << c << " a:" << a << " b:" << b << "\n";
-                  pp(tout << "a:", a, as) << "\n";
-                  pp(tout << "b:", b, bs) << "\n";
-                  pp(tout << "out:", out) << "\n";
+            TRACE("pb_verbose", tout << "smerge: c:" << c << " a:" << a << " b:" << b << " ";
+                  tout << "num clauses " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  //pp(tout << "a:", a, as) << "\n";
+                  //pp(tout << "b:", b, bs) << "\n";
+                  //pp(tout << "out:", out) << "\n";
                   );
             SASSERT(out.size() == std::min(a + b, c));
         }
@@ -911,7 +1262,7 @@ Notes:
             return 
                 m_force_dsmerge ||
                 (!m_disable_dsmerge && 
-                 a < (1 << 15) && b < (1 << 15) && 
+                 a < 10 && b < 10 && 
                  vc_dsmerge(a, b, a + b) < vc_smerge_rec(a, b, c));
         }
 
@@ -920,23 +1271,24 @@ Notes:
             unsigned a, literal const* as, 
             unsigned b, literal const* bs,                    
             literal_vector& out) {
-            TRACE("pb", tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << "\n";);
+            unsigned nc = m_stats.m_num_compiled_clauses;         
+            (void)nc;   
             SASSERT(a <= c);
             SASSERT(b <= c);
             SASSERT(a + b >= c);
             for (unsigned i = 0; i < c; ++i) {
-                out.push_back(fresh());
+                out.push_back(fresh("dsmerge"));
             }
             if (m_t != GE) {
                 for (unsigned i = 0; i < a; ++i) {
-                    add_clause(ctx.mk_not(as[i]), out[i]);
+                    add_clause(mk_not(as[i]), out[i]);
                 }
                 for (unsigned i = 0; i < b; ++i) {
-                    add_clause(ctx.mk_not(bs[i]), out[i]);
+                    add_clause(mk_not(bs[i]), out[i]);
                 }
                 for (unsigned i = 1; i <= a; ++i) {
                     for (unsigned j = 1; j <= b && i + j <= c; ++j) {
-                        add_clause(ctx.mk_not(as[i-1]),ctx.mk_not(bs[j-1]),out[i+j-1]);
+                        add_clause(mk_not(as[i-1]),mk_not(bs[j-1]),out[i+j-1]);
                     }
                 }
             }
@@ -944,12 +1296,12 @@ Notes:
                 literal_vector ls;
                 for (unsigned k = 0; k < c; ++k) {
                     ls.reset();
-                    ls.push_back(ctx.mk_not(out[k]));
+                    ls.push_back(mk_not(out[k]));
                     if (a <= k) {
-                        add_clause(ctx.mk_not(out[k]), bs[k-a]);
+                        add_clause(mk_not(out[k]), bs[k-a]);
                     }
                     if (b <= k) {
-                        add_clause(ctx.mk_not(out[k]), as[k-b]);
+                        add_clause(mk_not(out[k]), as[k-b]);
                     }
                     for (unsigned i = 0; i < std::min(a,k + 1); ++i) {
                         unsigned j = k - i;
@@ -964,7 +1316,13 @@ Notes:
                     }
                 }
             }
+            TRACE("pb_verbose", tout << "dsmerge: c:" << c << " a:" << a << " b:" << b << " ";
+                  tout << "num clauses: " << m_stats.m_num_compiled_clauses - nc << "\n";
+                  vc_dsmerge(a, b, c).pp(tout << "vc_dsmerge ") << "\n";
+                  vc_smerge_rec(a, b, c).pp(tout << "vc_smerge_rec ") << "\n";
+                  );
         }
+
         vc vc_dsmerge(unsigned a, unsigned b, unsigned c) {
             vc v(c, 0);
             if (m_t != GE) {
@@ -979,11 +1337,12 @@ Notes:
 
         void dsorting(unsigned m, unsigned n, literal const* xs, 
                       literal_vector& out) {
-            TRACE("pb", tout << "dsorting m: " << m << " n: " << n << "\n";);
             SASSERT(m <= n);
             literal_vector lits;
+            unsigned nc = m_stats.m_num_compiled_clauses;
+            (void)nc;
             for (unsigned i = 0; i < m; ++i) {
-                out.push_back(fresh());
+                out.push_back(fresh("dsort"));
             }
             if (m_t != GE) {
                 for (unsigned k = 1; k <= m; ++k) {
@@ -994,12 +1353,16 @@ Notes:
             }
             if (m_t != LE) {                
                 for (unsigned k = 1; k <= m; ++k) {
-                    lits.push_back(ctx.mk_not(out[k-1]));
+                    lits.push_back(mk_not(out[k-1]));
                     add_subset(false, n-k+1, 0, lits, n, xs);
                     lits.pop_back();
                 }
             }
+            TRACE("pb_verbose", 
+                  tout << "dsorting m: " << m << " n: " << n << " ";
+                  tout << "num clauses: " << m_stats.m_num_compiled_clauses - nc << "\n";);
         }
+
         vc vc_dsorting(unsigned m, unsigned n) {
             SASSERT(m <= n && n < 10);            
             vc v(m, 0);
@@ -1014,15 +1377,16 @@ Notes:
 
         void add_subset(bool polarity, unsigned k, unsigned offset, literal_vector& lits, 
                         unsigned n, literal const* xs) {
-            TRACE("pb", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
-                  pp(tout, lits) << "\n";);
+            TRACE("pb_verbose", tout << "k:" << k << " offset: " << offset << " n: " << n << " ";
+                  //pp(tout, lits) << "\n";
+                  );
             SASSERT(k + offset <= n);
             if (k == 0) {
                 add_clause(lits);
                 return;
             }
             for (unsigned i = offset; i < n - k + 1; ++i) {
-                lits.push_back(polarity?ctx.mk_not(xs[i]):xs[i]);
+                lits.push_back(polarity?mk_not(xs[i]):xs[i]);
                 add_subset(polarity, k-1, i+1, lits, n, xs);
                 lits.pop_back();
             }

@@ -37,16 +37,16 @@ class aig_tactic : public tactic {
         
         ~mk_aig_manager() {
             dealloc(m_owner.m_aig_manager);
-            m_owner.m_aig_manager = 0;
+            m_owner.m_aig_manager = nullptr;
         }
     };
 
 public:
-    aig_tactic(params_ref const & p = params_ref()):m_aig_manager(0) { 
+    aig_tactic(params_ref const & p = params_ref()):m_aig_manager(nullptr) {
         updt_params(p); 
     }
     
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         aig_tactic * t = alloc(aig_tactic);
         t->m_max_memory = m_max_memory;
         t->m_aig_gate_encoding = m_aig_gate_encoding;
@@ -54,20 +54,19 @@ public:
         return t;
     }
 
-    virtual void updt_params(params_ref const & p) {
+    void updt_params(params_ref const & p) override {
         m_max_memory        = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_aig_gate_encoding = p.get_bool("aig_default_gate_encoding", true);
         m_aig_per_assertion = p.get_bool("aig_per_assertion", true); 
     }
 
-    virtual void collect_param_descrs(param_descrs & r) { 
+    void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         r.insert("aig_per_assertion", CPK_BOOL, "(default: true) process one assertion at a time.");
     }
 
     void operator()(goal_ref const & g) {
         SASSERT(g->is_well_sorted());
-        tactic_report report("aig", *g);
 
         mk_aig_manager mk(*this, g->m());
         if (m_aig_per_assertion) {
@@ -77,7 +76,7 @@ public:
                 expr_ref new_f(g->m());
                 m_aig_manager->to_formula(r, new_f);
                 expr_dependency * ed = g->dep(i);
-                g->update(i, new_f, 0, ed);
+                g->update(i, new_f, nullptr, ed);
             }
         }
         else {
@@ -90,19 +89,16 @@ public:
         SASSERT(g->is_well_sorted());
     }
     
-    virtual void operator()(goal_ref const & g, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
+    void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         fail_if_proof_generation("aig", g);
-        mc = 0; pc = 0; core = 0;
+        tactic_report report("aig", *g);
         operator()(g);
         g->inc_depth();
+        TRACE("aig", g->display(tout););
         result.push_back(g.get());
     }
 
-    virtual void cleanup() {}
+    void cleanup() override {}
 
 };
 

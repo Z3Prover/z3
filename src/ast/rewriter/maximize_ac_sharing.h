@@ -45,7 +45,7 @@ class maximize_ac_sharing : public default_rewriter_cfg {
         expr *      m_arg1;
         expr *      m_arg2;
 
-        entry(func_decl * d = 0, expr * arg1 = 0, expr * arg2 = 0):m_decl(d), m_arg1(arg1), m_arg2(arg2) {
+        entry(func_decl * d = nullptr, expr * arg1 = nullptr, expr * arg2 = nullptr):m_decl(d), m_arg1(arg1), m_arg2(arg2) {
             SASSERT((d == 0 && arg1 == 0 && arg2 == 0) || (d != 0 && arg1 != 0 && arg2 != 0));
             if (arg1->get_id() > arg2->get_id())
                 std::swap(m_arg1, m_arg2);
@@ -103,8 +103,8 @@ public:
 class maximize_bv_sharing : public maximize_ac_sharing {
     bv_util m_util;
 protected:
-    virtual void init_core();
-    virtual bool is_numeral(expr * n) const;
+    void init_core() override;
+    bool is_numeral(expr * n) const override;
 public:
     maximize_bv_sharing(ast_manager & m);
 };

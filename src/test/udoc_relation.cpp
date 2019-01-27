@@ -89,7 +89,7 @@ class udoc_tester {
         for (unsigned i = 0; i < num_diff; ++i) {
             t = mk_rand_tbv(dm, result->pos());
             if (dm.tbvm().equals(*t, result->pos())) {
-                return 0;
+                return nullptr;
             }
             if (!result->neg().is_empty() &&
                 dm.tbvm().equals(*t, result->neg()[0])) {
@@ -278,7 +278,7 @@ public:
             t1->to_formula(t10);
             expr_ref delta0(m);
             delta->to_formula(delta0);
-            rel_union union_fn = p.mk_union_fn(*t1, *t2, 0);
+            rel_union union_fn = p.mk_union_fn(*t1, *t2, nullptr);
 
             t1->display(std::cout << "t1 before:"); std::cout << "\n";
             (*union_fn)(*t1, *t2, delta);
@@ -840,7 +840,7 @@ public:
     void set_random(udoc_relation& r, unsigned num_vals) {
         unsigned num_bits = r.get_dm().num_tbits();
         udoc_relation* full = mk_full(r.get_signature());
-        rel_union union_fn = p.mk_union_fn(r, r, 0);
+        rel_union union_fn = p.mk_union_fn(r, r, nullptr);
         (*union_fn)(r, *full);
         doc_manager& dm = r.get_dm();
         ENSURE(r.get_udoc().size() == 1);
@@ -905,8 +905,8 @@ public:
 
     void apply_filter(udoc_relation& t, app* cond) {
         udoc_relation* full = mk_full(t.get_signature());
-        rel_union union_fn = p.mk_union_fn(t, *full, 0);
-        (*union_fn)(t, *full, 0);
+        rel_union union_fn = p.mk_union_fn(t, *full, nullptr);
+        (*union_fn)(t, *full, nullptr);
         expr_ref fml0(m);
         t.to_formula(fml0);
         rel_mut fint = p.mk_filter_interpreted_fn(t, cond);

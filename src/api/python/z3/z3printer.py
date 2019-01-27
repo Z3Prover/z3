@@ -36,7 +36,7 @@ _z3_op_to_str = {
     Z3_OP_CONCAT : 'Concat', Z3_OP_EXTRACT : 'Extract', Z3_OP_BV2INT : 'BV2Int',
     Z3_OP_ARRAY_MAP : 'Map', Z3_OP_SELECT : 'Select', Z3_OP_STORE : 'Store', 
     Z3_OP_CONST_ARRAY : 'K', Z3_OP_ARRAY_EXT : 'Ext', 
-    Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe'
+    Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe', Z3_OP_PB_EQ : 'PbEq'
     }
 
 # List of infix operators
@@ -485,7 +485,9 @@ class PP:
             raise StopPPException()
 
     def pp(self, f, indent):
-        if f.is_string():
+        if isinstance(f, str):
+            sef.pp_string(f, indent)
+        elif f.is_string():
             self.pp_string(f, indent)
         elif f.is_indent():
             self.pp(f.child, min(indent + f.indent, self.max_indent))
@@ -846,10 +848,17 @@ class Formatter:
         else:
             return seq1('MultiPattern', [ self.pp_expr(arg, d+1, xs) for arg in a.children() ])
 
+    def pp_is(self, a, d, xs):
+        f  = a.params()[0]
+        return self.pp_fdecl(f, a, d, xs)
+
     def pp_map(self, a, d, xs):
+        f  = z3.get_map_func(a)
+        return self.pp_fdecl(f, a, d, xs)
+
+    def pp_fdecl(self, f, a, d, xs):
         r  = []
         sz = 0
-        f  = z3.get_map_func(a)
         r.append(to_format(f.name()))
         for child in a.children(): 
             r.append(self.pp_expr(child, d+1, xs))
@@ -909,6 +918,8 @@ class Formatter:
                 return self.pp_unary_param(a, d, xs)
             elif k == Z3_OP_EXTRACT:
                 return self.pp_extract(a, d, xs)
+            elif k == Z3_OP_DT_IS:
+                return self.pp_is(a, d, xs)
             elif k == Z3_OP_ARRAY_MAP:
                 return self.pp_map(a, d, xs)
             elif k == Z3_OP_CONST_ARRAY:
@@ -918,6 +929,8 @@ class Formatter:
             elif k == Z3_OP_PB_LE:
                 return self.pp_pbcmp(a, d, f, xs)
             elif k == Z3_OP_PB_GE:
+                return self.pp_pbcmp(a, d, f, xs)
+            elif k == Z3_OP_PB_EQ:
                 return self.pp_pbcmp(a, d, f, xs)
             elif z3.is_pattern(a):
                 return self.pp_pattern(a, d, xs)
@@ -946,8 +959,10 @@ class Formatter:
             ys_pp   = seq3(ys, '[', ']')
         if a.is_forall():
             header = 'ForAll'
-        else:
+        elif a.is_exists():
             header = 'Exists'
+        else:
+            header = 'Lambda'
         return seq1(header, (ys_pp, body_pp))
 
     def pp_expr(self, a, d, xs):
@@ -962,6 +977,14 @@ class Formatter:
             return self.pp_var(a, d, xs)
         else:
             return to_format(self.pp_unknown())
+
+    def pp_decl(self, f):
+        k = f.kind()
+        if k == Z3_OP_DT_IS or k == Z3_OP_ARRAY_MAP:
+           g  = f.params()[0]
+           r = [ to_format(g.name()) ]
+           return seq1(self.pp_name(f), r)
+        return self.pp_name(f)        
 
     def pp_seq_core(self, f, a, d, xs):
         self.visited = self.visited + 1
@@ -1054,7 +1077,7 @@ class Formatter:
         elif z3.is_sort(a):
             return self.pp_sort(a)
         elif z3.is_func_decl(a):
-            return self.pp_name(a)
+            return self.pp_decl(a)
         elif isinstance(a, z3.Goal) or isinstance(a, z3.AstVector):
             return self.pp_seq(a, 0, [])
         elif isinstance(a, z3.Solver):

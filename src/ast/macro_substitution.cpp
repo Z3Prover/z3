@@ -77,7 +77,7 @@ void macro_substitution::cleanup() {
 void macro_substitution::insert(func_decl * f, quantifier * q, proof * pr, expr_dependency * dep) {
     DEBUG_CODE({
         app * body = to_app(q->get_expr());
-        SASSERT(m_manager.is_eq(body) || m_manager.is_iff(body));
+        SASSERT(m_manager.is_eq(body));
         expr * lhs = body->get_arg(0);
         expr * rhs = body->get_arg(1);
         SASSERT(is_app_of(lhs, f) || is_app_of(rhs, f));
@@ -123,20 +123,20 @@ void macro_substitution::insert(func_decl * f, quantifier * q, proof * pr, expr_
  
 void macro_substitution::erase(func_decl * f) {
     if (proofs_enabled()) {
-        proof * pr = 0;
+        proof * pr = nullptr;
         if (m_decl2macro_pr->find(f, pr)) {
             m_manager.dec_ref(pr);
             m_decl2macro_pr->erase(f);
         }
     }
     if (unsat_core_enabled()) {
-        expr_dependency * dep = 0;
+        expr_dependency * dep = nullptr;
         if (m_decl2macro_dep->find(f, dep)) {
             m_manager.dec_ref(dep);
             m_decl2macro_dep->erase(f);
         }
     }
-    quantifier * q = 0;
+    quantifier * q = nullptr;
     if (m_decl2macro.find(f, q)) {
         m_manager.dec_ref(f);
         m_manager.dec_ref(q);
@@ -146,7 +146,7 @@ void macro_substitution::erase(func_decl * f) {
 
 void macro_substitution::get_head_def(quantifier * q, func_decl * f, app * & head, expr * & def) {
     app * body = to_app(q->get_expr());
-    SASSERT(m_manager.is_eq(body) || m_manager.is_iff(body));
+    SASSERT(m_manager.is_eq(body));
     expr * lhs = to_app(body)->get_arg(0);
     expr * rhs = to_app(body)->get_arg(1);
     SASSERT(is_app_of(lhs, f) || is_app_of(rhs, f));

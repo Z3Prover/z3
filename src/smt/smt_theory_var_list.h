@@ -32,10 +32,10 @@ namespace smt {
         theory_var_list():
             m_th_id(null_theory_id),
             m_th_var(null_theory_var), 
-            m_next(0) {
+            m_next(nullptr) {
         }
         
-        theory_var_list(theory_id t, theory_var v, theory_var_list * n = 0):
+        theory_var_list(theory_id t, theory_var v, theory_var_list * n = nullptr):
             m_th_id(t),
             m_th_var(v),
             m_next(n) {

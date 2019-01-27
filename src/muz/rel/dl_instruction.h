@@ -107,7 +107,7 @@ namespace datalog {
         */
         reg_type reg(reg_idx i) const { 
             if (i >= m_registers.size()) {
-                return 0;
+                return nullptr;
             }
             return m_registers[i];
         }
@@ -138,7 +138,7 @@ namespace datalog {
 
         void make_empty(reg_idx i) {
             if (reg(i)) {
-                set_reg(i, 0);
+                set_reg(i, nullptr);
             }
         }
 
@@ -150,7 +150,7 @@ namespace datalog {
             return m_reg_annotation.find(reg, res);
         }
 
-        void set_register_annotation(reg_idx reg, std::string str) {
+        void set_register_annotation(reg_idx reg, const std::string & str) {
             m_reg_annotation.insert(reg, str);
         }
 
@@ -233,7 +233,7 @@ namespace datalog {
 
            Each line must be prepended by \c indentation and ended by a newline character.
         */
-        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, std::string indentation) const {}
+        virtual void display_body_impl(execution_context const & ctx, std::ostream & out, const std::string & indentation) const {}
         void log_verbose(execution_context& ctx);
 
     public:
@@ -249,7 +249,7 @@ namespace datalog {
         void display(execution_context const& ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, const std::string & indentation) const;
 
         static instruction * mk_load(ast_manager & m, func_decl * pred, reg_idx tgt);
         /**
@@ -285,7 +285,7 @@ namespace datalog {
             const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
             const unsigned * removed_cols, reg_idx result);
         static instruction * mk_min(reg_idx source, reg_idx target, const unsigned_vector & group_by_cols,
-            const unsigned min_col);
+            unsigned min_col);
         static instruction * mk_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
             reg_idx tgt);
         static instruction * mk_filter_by_negation(reg_idx tgt, reg_idx neg_rel, unsigned col_cnt,
@@ -326,7 +326,7 @@ namespace datalog {
         instr_seq_type m_data;
         instruction_observer* m_observer;
     public:
-        instruction_block() : m_observer(0) {}
+        instruction_block() : m_observer(nullptr) {}
         ~instruction_block();
         void reset();
 
@@ -359,7 +359,7 @@ namespace datalog {
         void display(execution_context const & ctx, std::ostream & out) const {
             display_indented(ctx, out, "");
         }
-        void display_indented(execution_context const & ctx, std::ostream & out, std::string indentation) const;
+        void display_indented(execution_context const & ctx, std::ostream & out, const std::string & indentation) const;
 
         unsigned num_instructions() const { return m_data.size(); }
     };

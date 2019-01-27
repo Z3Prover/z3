@@ -35,7 +35,8 @@ Revision History:
 #include "muz/transforms/dl_mk_scale.h"
 #include "muz/transforms/dl_mk_array_eq_rewrite.h"
 #include "muz/transforms/dl_mk_array_instantiation.h"
-#include "muz/base/fixedpoint_params.hpp"
+#include "muz/transforms/dl_mk_elim_term_ite.h"
+#include "muz/base/fp_params.hpp"
 
 namespace datalog {
 
@@ -59,7 +60,7 @@ namespace datalog {
         transf.register_plugin(alloc(datalog::mk_quantifier_instantiation, ctx, 37000));
 
         if (ctx.get_params().datalog_subsumption()) {
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 35005));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 35005));
         }
         transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 35000));
         transf.register_plugin(alloc(datalog::mk_coi_filter, ctx, 34990));
@@ -67,20 +68,20 @@ namespace datalog {
 
         //and another round of inlining
         if (ctx.get_params().datalog_subsumption()) {
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34975));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34975));
         }
         transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34970));
         transf.register_plugin(alloc(datalog::mk_coi_filter, ctx, 34960));
         transf.register_plugin(alloc(datalog::mk_interp_tail_simplifier, ctx, 34950));
 
         if (ctx.get_params().datalog_subsumption()) {
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34940));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34930));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34920));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34910));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34900));
-        transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34890));
-        transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34880));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34940));
+            transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34930));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34920));
+            transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34910));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34900));
+            transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34890));
+            transf.register_plugin(alloc(datalog::mk_subsumption_checker, ctx, 34880));
         }
         else {
             transf.register_plugin(alloc(datalog::mk_rule_inliner, ctx, 34930));
@@ -95,6 +96,8 @@ namespace datalog {
         if (ctx.get_params().xform_magic()) {
             transf.register_plugin(alloc(datalog::mk_magic_symbolic, ctx, 36020));
         }
+
+        transf.register_plugin(alloc(datalog::mk_elim_term_ite, ctx, 35010));
         ctx.transform_rules(transf);
     }
 }

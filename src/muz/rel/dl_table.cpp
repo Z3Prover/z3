@@ -43,7 +43,7 @@ namespace datalog {
             : convenient_table_join_fn(t1_sig, t2_sig, col_cnt, cols1, cols2),
             m_joined_col_cnt(col_cnt) {}
 
-        virtual table_base * operator()(const table_base & t1, const table_base & t2) {
+        table_base * operator()(const table_base & t1, const table_base & t2) override {
 
             const hashtable_table & ht1 = static_cast<const hashtable_table &>(t1);
             const hashtable_table & ht2 = static_cast<const hashtable_table &>(t2);
@@ -89,7 +89,7 @@ namespace datalog {
     table_join_fn * hashtable_table_plugin::mk_join_fn(const table_base & t1, const table_base & t2,
             unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) {
         if(t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind()) {
-            return 0;
+            return nullptr;
         }
         return alloc(join_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2);
     }
@@ -105,10 +105,10 @@ namespace datalog {
         public:
             our_row(const our_iterator_core & parent) : row_interface(parent.m_parent), m_parent(parent) {}
 
-            virtual void get_fact(table_fact & result) const {
+            void get_fact(table_fact & result) const override {
                 result = *m_parent.m_inner;
             }
-            virtual table_element operator[](unsigned col) const {
+            table_element operator[](unsigned col) const override {
                 return (*m_parent.m_inner)[col];
             }
 
@@ -121,15 +121,15 @@ namespace datalog {
             m_parent(t), m_inner(finished ? t.m_data.end() : t.m_data.begin()), 
             m_end(t.m_data.end()), m_row_obj(*this) {}
 
-        virtual bool is_finished() const {
+        bool is_finished() const override {
             return m_inner==m_end;
         }
 
-        virtual row_interface & operator*() {
+        row_interface & operator*() override {
             SASSERT(!is_finished());
             return m_row_obj;
         }
-        virtual void operator++() {
+        void operator++() override {
             SASSERT(!is_finished());
             ++m_inner;
         }
@@ -192,7 +192,7 @@ namespace datalog {
             const bv_iterator& m_parent;
         public:
             our_row(const bv_iterator & p) : caching_row_interface(p.m_bv), m_parent(p) {}
-            virtual void get_fact(table_fact& result) const {
+            void get_fact(table_fact& result) const override {
                 if (result.size() < size()) {
                     result.resize(size(), 0);
                 }
@@ -210,15 +210,15 @@ namespace datalog {
             }
         }
 
-        virtual bool is_finished() const {
+        bool is_finished() const override {
             return m_offset == m_bv.m_bv.size();
         }
 
-        virtual row_interface & operator*() {
+        row_interface & operator*() override {
             SASSERT(!is_finished());
             return m_row_obj;
         }
-        virtual void operator++() {
+        void operator++() override {
             SASSERT(!is_finished());
             ++m_offset;
             while (!is_finished() && !m_bv.m_bv.get(m_offset)) {

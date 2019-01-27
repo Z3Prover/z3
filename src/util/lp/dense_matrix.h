@@ -46,7 +46,7 @@ public:
     dense_matrix(unsigned m, unsigned n);
 
     dense_matrix operator*=(matrix<T, X> const & a) {
-        SASSERT(column_count() == a.row_count());
+        lp_assert(column_count() == a.row_count());
         dense_matrix c(row_count(), a.column_count());
         for (unsigned i = 0; i < row_count(); i++) {
             for (unsigned j = 0; j < a.column_count(); j++) {
@@ -79,13 +79,14 @@ public:
 
     void apply_from_left_to_X(vector<X> & w, lp_settings & );
 
-    virtual void set_number_of_rows(unsigned /*m*/) {}
-    virtual void set_number_of_columns(unsigned /*n*/) { }
+    void set_number_of_rows(unsigned /*m*/) override {}
+    void set_number_of_columns(unsigned /*n*/) override {}
+#ifdef Z3DEBUG
+    T get_elem(unsigned i, unsigned j) const override { return m_values[i * m_n + j]; }
+#endif
 
-    T get_elem(unsigned i, unsigned j) const { return m_values[i * m_n + j]; }
-
-    unsigned row_count() const { return m_m; }
-    unsigned column_count() const { return m_n; }
+    unsigned row_count() const override { return m_m; }
+    unsigned column_count() const override { return m_n; }
 
     void set_elem(unsigned i, unsigned j, const T& val) {  m_values[i * m_n + j] = val;  }
 
@@ -99,7 +100,7 @@ public:
     void swap_rows(unsigned a, unsigned b);
 
     void multiply_row_by_constant(unsigned row, T & t);
-
+    
 };
 template <typename T, typename X>
 dense_matrix<T, X> operator* (matrix<T, X> & a, matrix<T, X> & b);

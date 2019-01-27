@@ -61,9 +61,9 @@ public:
     doc* allocate(doc const& src);
     doc* allocate(tbv const& src);
     doc* allocate(tbv * src);
-    doc* allocate(uint64 n);
+    doc* allocate(uint64_t n);
     doc* allocate(rational const& r);
-    doc* allocate(uint64 n, unsigned hi, unsigned lo);
+    doc* allocate(uint64_t n, unsigned hi, unsigned lo);
     doc* allocate(doc const& src, unsigned const* permutation);
     void deallocate(doc* src);        
     void copy(doc& dst, doc const& src);
@@ -373,7 +373,7 @@ class doc_ref {
     doc_manager& dm;
     doc* d;
 public:
-    doc_ref(doc_manager& dm):dm(dm),d(0) {}
+    doc_ref(doc_manager& dm):dm(dm),d(nullptr) {}
     doc_ref(doc_manager& dm, doc* d):dm(dm),d(d) {}
     ~doc_ref() {
         if (d) dm.deallocate(d);
@@ -385,8 +385,8 @@ public:
     }
     doc& operator*() { return *d; }
     doc* operator->() { return d; }
-    doc* detach() { doc* r = d; d = 0; return r; }
-    operator bool() const { return d != 0; }
+    doc* detach() { doc* r = d; d = nullptr; return r; }
+    operator bool() const { return d != nullptr; }
 };
 
 #endif /* DOC_H_ */

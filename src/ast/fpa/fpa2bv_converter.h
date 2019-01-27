@@ -150,7 +150,7 @@ public:
     void mk_max(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
     expr_ref mk_min_max_unspecified(func_decl * f, expr * x, expr * y);
 
-    void reset(void);
+    void reset();
 
     void dbg_decouple(const char * prefix, expr_ref & e);
     expr_ref_vector m_extra_assertions;
@@ -219,6 +219,9 @@ private:
     void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
 
     func_decl * mk_bv_uf(func_decl * f, sort * const * domain, sort * range);
+    expr_ref nan_wrap(expr * n);
+
+    expr_ref extra_quantify(expr * e);
 };
 
 #endif

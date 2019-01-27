@@ -34,7 +34,7 @@ basic_factory::basic_factory(ast_manager & m):
 expr * basic_factory::get_some_value(sort * s) {
     if (m_manager.is_bool(s))
         return m_manager.mk_false();
-    return 0;
+    return nullptr;
 }
 
 bool basic_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
@@ -47,7 +47,7 @@ bool basic_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
 }
     
 expr * basic_factory::get_fresh_value(sort * s) {
-    return 0;
+    return nullptr;
 }
 
 user_sort_factory::user_sort_factory(ast_manager & m): 
@@ -56,7 +56,7 @@ user_sort_factory::user_sort_factory(ast_manager & m):
 
 void user_sort_factory::freeze_universe(sort * s) {
     if (!m_finite.contains(s)) {
-        value_set * set = 0;
+        value_set * set = nullptr;
         m_sort2value_set.find(s, set);
         if (!m_sort2value_set.find(s, set) || set->m_values.empty()) {
             // we cannot freeze an empty universe.
@@ -68,7 +68,7 @@ void user_sort_factory::freeze_universe(sort * s) {
 }
 
 obj_hashtable<expr> const & user_sort_factory::get_known_universe(sort * s) const {
-    value_set * set = 0;
+    value_set * set = nullptr;
     if (m_sort2value_set.find(s, set)) {
         return set->m_values;
     }
@@ -77,7 +77,7 @@ obj_hashtable<expr> const & user_sort_factory::get_known_universe(sort * s) cons
 
 expr * user_sort_factory::get_some_value(sort * s) {
     if (is_finite(s)) {
-        value_set * set = 0;
+        value_set * set = nullptr;
         m_sort2value_set.find(s, set);
         SASSERT(set != 0);
         SASSERT(!set->m_values.empty());
@@ -88,7 +88,7 @@ expr * user_sort_factory::get_some_value(sort * s) {
 
 bool user_sort_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     if (is_finite(s)) {
-        value_set * set = 0;
+        value_set * set = nullptr;
         if (m_sort2value_set.find(s, set) && set->m_values.size() >= 2) {
             obj_hashtable<expr>::iterator it = set->m_values.begin();
             v1 = *it;
@@ -103,7 +103,7 @@ bool user_sort_factory::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) 
 
 expr * user_sort_factory::get_fresh_value(sort * s) {
     if (is_finite(s))
-        return 0;
+        return nullptr;
     return simple_factory<unsigned>::get_fresh_value(s);
 }
 

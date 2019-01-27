@@ -233,7 +233,7 @@ namespace simplex {
                 return it;
             }
         }
-        return 0;
+        return nullptr;
     }
 
     template<typename Ext>

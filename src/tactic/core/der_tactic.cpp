@@ -65,26 +65,22 @@ public:
         m_imp = alloc(imp, m);
     }
 
-    virtual tactic * translate(ast_manager & m) {
+    tactic * translate(ast_manager & m) override {
         return alloc(der_tactic, m);
     }
 
-    virtual ~der_tactic() {
+    ~der_tactic() override {
         dealloc(m_imp);
     }
     
-    virtual void operator()(goal_ref const & in, 
-                            goal_ref_buffer & result, 
-                            model_converter_ref & mc, 
-                            proof_converter_ref & pc,
-                            expr_dependency_ref & core) {
-        mc = 0; pc = 0; core = 0;
+    void operator()(goal_ref const & in, 
+                    goal_ref_buffer & result) override {
         (*m_imp)(*(in.get()));
         in->inc_depth();
         result.push_back(in.get());
     }
 
-    virtual void cleanup() {
+    void cleanup() override {
         ast_manager & m = m_imp->m();
         imp * d = alloc(imp, m);
         std::swap(d, m_imp);        

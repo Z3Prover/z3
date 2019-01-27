@@ -50,7 +50,7 @@ public:
     m_row_start(row_start), m_row(row) {
     }
 
-    bool is_dense() const { return false; }
+    bool is_dense() const override { return false; }
 
     void print(std::ostream & out) {
         print_matrix(*this, out);
@@ -60,30 +60,30 @@ public:
         return m_row_vector.m_data[m_row];
     }
 
-    void apply_from_left(vector<X> & w, lp_settings &);
+    void apply_from_left(vector<X> & w, lp_settings &) override;
 
     void apply_from_left_local_to_T(indexed_vector<T> & w, lp_settings & settings);
     void apply_from_left_local_to_X(indexed_vector<X> & w, lp_settings & settings);
 
-    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) {
+    void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override {
         apply_from_left_local_to_T(w, settings);
     }
 
     void push_back(unsigned row_index, T val ) {
-        SASSERT(row_index != m_row);
+        lp_assert(row_index != m_row);
         m_row_vector.push_back(row_index, val);
     }
 
-    void apply_from_right(vector<T> & w);
-    void apply_from_right(indexed_vector<T> & w);
+    void apply_from_right(vector<T> & w) override;
+    void apply_from_right(indexed_vector<T> & w) override;
 
     void conjugate_by_permutation(permutation_matrix<T, X> & p);
 #ifdef Z3DEBUG
-    T get_elem(unsigned row, unsigned col) const;
-    unsigned row_count() const { return m_dimension; }
-    unsigned column_count() const { return m_dimension; }
-    void set_number_of_rows(unsigned m) { m_dimension = m; }
-    void set_number_of_columns(unsigned n) { m_dimension = n; }
+    T get_elem(unsigned row, unsigned col) const override;
+    unsigned row_count() const override { return m_dimension; }
+    unsigned column_count() const override { return m_dimension; }
+    void set_number_of_rows(unsigned m) override { m_dimension = m; }
+    void set_number_of_columns(unsigned n) override { m_dimension = n; }
 #endif
 }; // end of row_eta_matrix
 }

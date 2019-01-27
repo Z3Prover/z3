@@ -26,7 +26,7 @@ Notes:
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "tactic/arith/nla2bv_tactic.h"
-#include "tactic/arith/elim01_tactic.h"
+#include "tactic/arith/lia2card_tactic.h"
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "tactic/core/cofactor_term_ite_tactic.h"
 #include "nlsat/tactic/qfnra_nlsat_tactic.h"
@@ -73,7 +73,7 @@ static tactic * mk_qfnia_premable(ast_manager & m, params_ref const & p_ref) {
                  using_params(mk_ctx_simplify_tactic(m), ctx_simp_p),
                  using_params(mk_simplify_tactic(m), pull_ite_p),
                  mk_elim_uncnstr_tactic(m),
-                 mk_elim01_tactic(m),
+                 mk_lia2card_tactic(m),
                  skip_if_failed(using_params(mk_cofactor_term_ite_tactic(m), elim_p)));
 }
 
@@ -105,14 +105,17 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
 static tactic * mk_qfnia_smt_solver(ast_manager& m, params_ref const& p) {
     params_ref simp_p = p;
     simp_p.set_bool("som", true); // expand into sums of monomials
-    return and_then(using_params(mk_simplify_tactic(m), simp_p), mk_smt_tactic());
+    return and_then(using_params(mk_simplify_tactic(m), simp_p), mk_smt_tactic(m));
 }
 
 tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
 
-    return and_then(mk_qfnia_premable(m, p),
-                    or_else(mk_qfnia_sat_solver(m, p),
-                            try_for(mk_qfnia_smt_solver(m, p), 2000),
-                            mk_qfnia_nlsat_solver(m, p),
-                            mk_qfnia_smt_solver(m, p)));
+    return and_then(
+        mk_report_verbose_tactic("(qfnia-tactic)", 10),
+        mk_qfnia_premable(m, p),
+        or_else(mk_qfnia_sat_solver(m, p),
+                try_for(mk_qfnia_smt_solver(m, p), 2000),
+                mk_qfnia_nlsat_solver(m, p),
+                mk_qfnia_smt_solver(m, p))
+        );
 }

@@ -278,7 +278,7 @@ static void tst_select_small(mpbq_manager & m, scoped_mpbq const & l, scoped_mpb
     std::cout << "choice: " << r << " as decimal: "; m.display_decimal(std::cout, r); std::cout << std::endl;
 }
 
-static void tst_select_small(mpbq_manager & m, int64 n1, unsigned k1, int64 n2, unsigned k2, bool expected) {
+static void tst_select_small(mpbq_manager & m, int64_t n1, unsigned k1, int64_t n2, unsigned k2, bool expected) {
     scoped_mpbq l(m);
     scoped_mpbq u(m);
     m.set(l, n1, k1);

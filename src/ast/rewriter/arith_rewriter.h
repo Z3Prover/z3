@@ -95,7 +95,10 @@ class arith_rewriter : public poly_rewriter<arith_rewriter_core> {
     expr_ref neg_monomial(expr * e) const;
     expr * mk_sin_value(rational const & k);
     app * mk_sqrt(rational const & k);
-
+    bool divides(expr* d, expr* n, expr_ref& result);
+    expr_ref remove_divisor(expr* arg, expr* num, expr* den); 
+    void flat_mul(expr* e, ptr_buffer<expr>& args); 
+    void remove_divisor(expr* d, ptr_buffer<expr>& args); 
 public:
     arith_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         poly_rewriter<arith_rewriter_core>(m, p) {
@@ -140,6 +143,7 @@ public:
 
     br_status mk_div_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_idiv_core(expr * arg1, expr * arg2, expr_ref & result);
+    br_status mk_idivides(unsigned k, expr * arg, expr_ref & result);
     br_status mk_mod_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_rem_core(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_power_core(expr* arg1, expr* arg2, expr_ref & result);

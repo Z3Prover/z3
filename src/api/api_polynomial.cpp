@@ -26,17 +26,6 @@ Notes:
 #include "util/scoped_timer.h"
 #include "ast/expr2var.h"
 
-namespace api {
-
-    pmanager::pmanager(reslimit& lim):
-        m_pm(lim, m_nm) {
-    }
-
-    pmanager::~pmanager() {
-    }
-
-};
-
 extern "C" {
 
     Z3_ast_vector Z3_API Z3_polynomial_subresultants(Z3_context c, Z3_ast p, Z3_ast q, Z3_ast x) {
@@ -49,8 +38,8 @@ extern "C" {
         default_expr2polynomial converter(mk_c(c)->m(), pm);
         if (!converter.to_polynomial(to_expr(p), _p, d) ||
             !converter.to_polynomial(to_expr(q), _q, d)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            return 0;
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return nullptr;
         }
         Z3_ast_vector_ref* result = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(result);
@@ -74,7 +63,7 @@ extern "C" {
             }
         }
         RETURN_Z3(of_ast_vector(result));
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(nullptr);
     }
 
 };

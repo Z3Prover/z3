@@ -64,7 +64,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         // create a unit permutation of the given length
         void init(unsigned length);
         unsigned get_rev(unsigned i) { return m_rev[i]; }
-        bool is_dense() const { return false; }
+        bool is_dense() const override { return false; }
 #ifdef Z3DEBUG
         permutation_matrix get_inverse() const {
             return permutation_matrix(size(), m_rev);
@@ -76,13 +76,13 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         unsigned operator[](unsigned i) const { return m_permutation[i]; }
 
-        void apply_from_left(vector<X> & w, lp_settings &);
+        void apply_from_left(vector<X> & w, lp_settings &) override;
 
-        void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings);
+        void apply_from_left_to_T(indexed_vector<T> & w, lp_settings & settings) override;
 
-        void apply_from_right(vector<T> & w);
+        void apply_from_right(vector<T> & w) override;
 
-        void apply_from_right(indexed_vector<T> & w);
+        void apply_from_right(indexed_vector<T> & w) override;
         
         template <typename L>
         void copy_aside(vector<L> & t, vector<unsigned> & tmp_index, indexed_vector<L> & w);
@@ -101,7 +101,7 @@ class permutation_matrix : public tail_matrix<T, X> {
         void apply_reverse_from_right_to_X(vector<X> & w);
 
         void set_val(unsigned i, unsigned pi) {
-            SASSERT(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
+            lp_assert(i < size() && pi < size());  m_permutation[i] = pi;  m_rev[pi] = i;  }
 
         void transpose_from_left(unsigned i, unsigned j);
 
@@ -109,13 +109,13 @@ class permutation_matrix : public tail_matrix<T, X> {
 
         void transpose_from_right(unsigned i, unsigned j);
 #ifdef Z3DEBUG
-        T get_elem(unsigned i, unsigned j) const{
+        T get_elem(unsigned i, unsigned j) const override {
             return m_permutation[i] == j? numeric_traits<T>::one() : numeric_traits<T>::zero();
         }
-        unsigned row_count() const{ return size(); }
-        unsigned column_count() const { return size(); }
-        virtual void set_number_of_rows(unsigned /*m*/) { }
-        virtual void set_number_of_columns(unsigned /*n*/) { }
+        unsigned row_count() const override { return size(); }
+        unsigned column_count() const override { return size(); }
+        void set_number_of_rows(unsigned /*m*/) override { }
+        void set_number_of_columns(unsigned /*n*/) override { }
 #endif
         void multiply_by_permutation_from_left(permutation_matrix<T, X> & p);
 
@@ -131,8 +131,6 @@ class permutation_matrix : public tail_matrix<T, X> {
         bool is_identity() const;
 
         unsigned size() const { return static_cast<unsigned>(m_rev.size()); }
-
-        unsigned * values() const { return m_permutation; }
 
         void resize(unsigned size) {
             unsigned old_size = m_permutation.size();

@@ -29,25 +29,23 @@ Revision History:
 #include "smt/smt_kernel.h"
 #include "util/util.h"
 #include "util/vector.h"
-#include "muz/spacer/spacer_manager.h"
-#include "muz/spacer/spacer_smt_context_manager.h"
-#include "muz/spacer/spacer_itp_solver.h"
+#include "solver/solver.h"
+#include "muz/spacer/spacer_iuc_solver.h"
+#include "muz/spacer/spacer_util.h"
 
-struct fixedpoint_params;
+struct fp_params;
 
 namespace spacer {
+typedef ptr_vector<func_decl> decl_vector;
 
 class prop_solver {
 
 private:
     ast_manager&        m;
-    manager&            m_pm;
     symbol              m_name;
-    smt_params*         m_fparams[2];
-    solver*             m_solvers[2];
-    scoped_ptr<itp_solver>  m_contexts[2];
-    itp_solver *            m_ctx;
-    smt_params *            m_ctx_fparams;
+    ref<solver>         m_solvers[2];
+    scoped_ptr<iuc_solver>  m_contexts[2];
+    iuc_solver *            m_ctx;
     decl_vector         m_level_preds;
     app_ref_vector      m_pos_level_atoms;  // atoms used to identify level
     app_ref_vector      m_neg_level_atoms;  //
@@ -63,18 +61,24 @@ private:
     bool                m_use_push_bg;
     unsigned            m_current_level;    // set when m_in_level
 
+    random_gen          m_random;
+
     void assert_level_atoms(unsigned level);
 
     void ensure_level(unsigned lvl);
 
     lbool internal_check_assumptions(expr_ref_vector &hard,
-                                     expr_ref_vector &soft);
+                                     expr_ref_vector &soft,
+                                     vector<expr_ref_vector> const & clause);
 
-    lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft);
+    lbool maxsmt(expr_ref_vector &hard, expr_ref_vector &soft,
+                 vector<expr_ref_vector> const & clauses);
+    lbool mss(expr_ref_vector &hard, expr_ref_vector &soft);
 
 
 public:
-    prop_solver(spacer::manager& pm, fixedpoint_params const& p, symbol const& name);
+    prop_solver(ast_manager &m, solver *solver0, solver* solver1,
+                fp_params const& p, symbol const& name);
 
 
     void set_core(expr_ref_vector* core) { m_core = core; }
@@ -91,13 +95,21 @@ public:
     void assert_expr(expr * form);
     void assert_expr(expr * form, unsigned level);
 
+    void assert_exprs(const expr_ref_vector &fmls) {
+        for (auto *f : fmls) assert_expr(f);
+    }
+    void assert_exprs(const expr_ref_vector &fmls, unsigned level) {
+        for (auto *f : fmls) assert_expr(f, level);
+    }
+
     /**
      * check assumptions with a background formula
      */
     lbool check_assumptions(const expr_ref_vector & hard,
                             expr_ref_vector & soft,
+                            const expr_ref_vector &clause,
                             unsigned num_bg = 0,
-                            expr * const *bg = NULL,
+                            expr * const *bg = nullptr,
                             unsigned solver_id = 0);
 
     void collect_statistics(statistics& st) const;
@@ -136,7 +148,22 @@ public:
         ~scoped_delta_level() {m_delta = false;}
     };
 
+    class scoped_weakness {
+    public:
+        solver *sol;
+        scoped_weakness(prop_solver &ps, unsigned solver_id, unsigned weakness)
+            : sol(nullptr) {
+            sol = ps.m_solvers[solver_id == 0 ? 0 :  0 /* 1 */].get();
+            if (!sol) return;
+            sol->push_params();
 
+            params_ref p;
+            p.set_bool("arith.ignore_int", weakness < 1);
+            p.set_bool("array.weak",  weakness < 2);
+            sol->updt_params(p);
+        }
+        ~scoped_weakness() {if (sol) {sol->pop_params();}}
+    };
 };
 }
 

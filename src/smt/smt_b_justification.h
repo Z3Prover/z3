@@ -91,7 +91,7 @@ namespace smt {
         }
     };
 
-    const b_justification null_b_justification(static_cast<clause*>(0));
+    const b_justification null_b_justification(static_cast<clause*>(nullptr));
 
     inline std::ostream& operator<<(std::ostream& out, b_justification::kind k) {
         switch (k) {

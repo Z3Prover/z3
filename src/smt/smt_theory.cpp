@@ -123,15 +123,15 @@ namespace smt {
         context & ctx = get_context();
         app * eq = ctx.mk_eq_atom(a, b);
         TRACE("mk_var_bug", tout << "mk_eq: " << eq->get_id() << " " << a->get_id() << " " << b->get_id() << "\n";
-              tout << mk_ll_pp(a, get_manager()) << "\n" << mk_ll_pp(b, get_manager()););
+              tout << mk_ll_pp(a, get_manager()) << "\n" << mk_ll_pp(b, get_manager()););		
         ctx.internalize(eq, gate_ctx);
         return ctx.get_literal(eq);
     }
 
     theory::theory(family_id fid):
         m_id(fid),
-        m_context(0),
-        m_manager(0) {
+        m_context(nullptr),
+        m_manager(nullptr) {
     }
 
     theory::~theory() {

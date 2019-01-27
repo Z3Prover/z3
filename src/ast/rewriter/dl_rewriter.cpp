@@ -22,7 +22,7 @@ Revision History:
     br_status dl_rewriter::mk_app_core(
         func_decl * f, unsigned num_args, expr* const* args, expr_ref& result) {
         ast_manager& m = result.get_manager();
-        uint64 v1, v2;
+        uint64_t v1, v2;
         switch(f->get_decl_kind()) {
             case datalog::OP_DL_LT:
                 if (m_util.is_numeral_ext(args[0], v1) &&

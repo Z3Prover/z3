@@ -96,7 +96,7 @@ namespace smt {
                     ++m_stats_calls;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
-                    bool is_eq = l_false == m_solver.check_sat(0,0);
+                    bool is_eq = l_false == m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
                     if (is_eq) {
@@ -123,7 +123,7 @@ namespace smt {
                     m_stats_timer.start();
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(s, t)));
-                    bool is_eq = l_false == m_solver.check_sat(0,0);
+                    bool is_eq = l_false == m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
                     m_stats_timer.stop();
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << (is_eq?"eq":"unrelated") << "\n";);
@@ -155,7 +155,7 @@ namespace smt {
                 m_solver.push();
                 unsigned arity = get_array_arity(srt);
                 expr_ref_vector args(m);
-                args.push_back(0);
+                args.push_back(nullptr);
                 for (unsigned i = 0; i < arity; ++i) {
                     sort* srt_i = get_array_domain(srt, i);
                     expr* idx = m.mk_fresh_const("index", srt_i);
@@ -163,10 +163,10 @@ namespace smt {
                 }
                 for (unsigned i = 0; i < terms.size(); ++i) {
                     args[0] = terms[i].term;
-                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, 0, args.size(), args.c_ptr());
+                    terms[i].term = m.mk_app(m_array_util.get_family_id(), OP_SELECT, 0, nullptr, args.size(), args.c_ptr());
                 }
                 assert_relevant(terms);
-                VERIFY(m_solver.check_sat(0,0) != l_false);
+                VERIFY(m_solver.check_sat(0,nullptr) != l_false);
                 model_ref model1;
                 m_solver.get_model(model1);
                 SASSERT(model1.get());
@@ -199,7 +199,7 @@ namespace smt {
 
             for (unsigned i = 0; i < terms.size(); ++i) {
                 expr* t = terms[i].term;
-                model->eval(t, vl);
+                vl = (*model)(t);
                 TRACE("get_implied_equalities", tout << mk_pp(t, m) << " |-> " << mk_pp(vl, m) << "\n";);
                 reduce_value(model, vl);
                 if (!m.is_value(vl)) {
@@ -215,7 +215,7 @@ namespace smt {
                     expr* s = terms[vec[j]].term;
                     m_solver.push();
                     m_solver.assert_expr(m.mk_not(m.mk_eq(t, s)));
-                    lbool is_sat = m_solver.check_sat(0,0);
+                    lbool is_sat = m_solver.check_sat(0,nullptr);
                     m_solver.pop(1);
                     TRACE("get_implied_equalities", tout << mk_pp(t, m) << " = " << mk_pp(s, m) << " " << is_sat << "\n";);
                     if (is_sat == l_false) {
@@ -284,7 +284,7 @@ namespace smt {
         }
 
         lbool reduce_cond(model_ref& model, expr* e) {
-            expr* e1 = 0, *e2 = 0;
+            expr* e1 = nullptr, *e2 = nullptr;
             if (m.is_eq(e, e1, e2) && m_array_util.is_as_array(e1) && m_array_util.is_as_array(e2)) {
                 if (e1 == e2) {
                     return l_true;
@@ -335,7 +335,7 @@ namespace smt {
 
             m_solver.push();
             assert_relevant(num_terms, terms);
-            lbool is_sat = m_solver.check_sat(0,0);
+            lbool is_sat = m_solver.check_sat(0,nullptr);
             
             if (is_sat != l_false) {      
                 model_ref model;

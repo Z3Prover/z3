@@ -40,6 +40,7 @@ struct theory_array_params {
     bool            m_array_always_prop_upward;
     bool            m_array_lazy_ieq;
     unsigned        m_array_lazy_ieq_delay;
+    bool            m_array_fake_support;       // fake support for all array operations to pretend they are satisfiable.
 
     theory_array_params():
         m_array_canonize_simplify(false),
@@ -52,7 +53,8 @@ struct theory_array_params {
         m_array_cg(false),
         m_array_always_prop_upward(true), // UPWARDs filter is broken... TODO: fix it
         m_array_lazy_ieq(false),
-        m_array_lazy_ieq_delay(10) {
+        m_array_lazy_ieq_delay(10),
+        m_array_fake_support(false) {
     }
 
 

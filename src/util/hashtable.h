@@ -19,16 +19,17 @@ Revision History:
 #ifndef HASHTABLE_H_
 #define HASHTABLE_H_
 #include "util/debug.h"
-#include<ostream>
+#include <ostream>
 #include "util/util.h"
-#include<limits.h>
+#include <climits>
 #include "util/memory_manager.h"
 #include "util/hash.h"
+#include "util/vector.h"
 
 #define DEFAULT_HASHTABLE_INITIAL_CAPACITY 8
 #define SMALL_TABLE_CAPACITY               64
 
-// #define HASHTABLE_STATISTICS
+//  #define HASHTABLE_STATISTICS
 
 #ifdef HASHTABLE_STATISTICS
 #define HS_CODE(CODE) { CODE }
@@ -91,9 +92,9 @@ class ptr_hash_entry {
     T *             m_ptr;
 public:
     typedef T * data;
-    ptr_hash_entry():m_ptr(0) {}
+    ptr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return m_hash; }
-    bool is_free() const { return m_ptr == 0; }
+    bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
     bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
@@ -101,7 +102,7 @@ public:
     void set_data(T * d) { m_ptr = d; }
     void set_hash(unsigned h) { m_hash = h; }
     void mark_as_deleted() { m_ptr = reinterpret_cast<T *>(1); }
-    void mark_as_free() { m_ptr = 0; }
+    void mark_as_free() { m_ptr = nullptr; }
 };
 
 
@@ -114,9 +115,9 @@ class ptr_addr_hash_entry : public ptr_hash_entry<T> {
     T *             m_ptr;
 public:
     typedef T * data;
-    ptr_addr_hash_entry():m_ptr(0) {}
+    ptr_addr_hash_entry():m_ptr(nullptr) {}
     unsigned get_hash() const { return get_ptr_hash(m_ptr); }
-    bool is_free() const { return m_ptr == 0; }
+    bool is_free() const { return m_ptr == nullptr; }
     bool is_deleted() const { return m_ptr == reinterpret_cast<T *>(1); }
     bool is_used() const { return m_ptr != reinterpret_cast<T *>(0) && m_ptr != reinterpret_cast<T *>(1); }
     T * get_data() const { return m_ptr; }
@@ -145,7 +146,7 @@ protected:
 
     void delete_table() {
         dealloc_vect(m_table, m_capacity);
-        m_table = 0;
+        m_table = nullptr;
     }
 
 public:
@@ -375,8 +376,7 @@ public:
     } ((void) 0)
 
     void insert(data && e) {
-        if ((m_size + m_num_deleted) << 2 > (m_capacity * 3)) {
-            // if ((m_size + m_num_deleted) * 2 > (m_capacity)) {
+        if (((m_size + m_num_deleted) << 2) > (m_capacity * 3)) {
             expand_table();
         }
         unsigned hash     = get_hash(e);
@@ -385,7 +385,7 @@ public:
         entry * begin     = m_table + idx;
         entry * end       = m_table + m_capacity;
         entry * curr      = begin;
-        entry * del_entry = 0;
+        entry * del_entry = nullptr;
         for (; curr != end; ++curr) {
             INSERT_LOOP_BODY();
         }
@@ -441,7 +441,7 @@ public:
         entry * begin     = m_table + idx;
         entry * end       = m_table + m_capacity;
         entry * curr      = begin;
-        entry * del_entry = 0;
+        entry * del_entry = nullptr;
         for (; curr != end; ++curr) {
             INSERT_LOOP_CORE_BODY();
         }
@@ -449,7 +449,7 @@ public:
             INSERT_LOOP_CORE_BODY();
         }
         UNREACHABLE();
-        return 0;
+        return false;
     }
 
     bool insert_if_not_there_core(const data & e, entry * & et) {
@@ -488,7 +488,9 @@ public:
         else if (curr->is_free()) {                                             \
             return 0;                                                           \
         }                                                                       \
-        HS_CODE(const_cast<core_hashtable*>(this)->m_st_collision++;);          \
+        else {                                                                  \
+            HS_CODE(const_cast<core_hashtable*>(this)->m_st_collision++;);      \
+        }                                                                       \
     } ((void) 0)
 
     entry * find_core(data const & e) const {
@@ -504,12 +506,12 @@ public:
         for (curr = m_table; curr != begin; ++curr) {
             FIND_LOOP_BODY();
         }
-        return 0;
+        return nullptr;
     }
 
     bool find(data const & k, data & r) const {
         entry * e = find_core(k);
-        if (e != 0) {
+        if (e != nullptr) {
             r = e->get_data();
             return true;
         }
@@ -517,7 +519,7 @@ public:
     }
     
     bool contains(data const & e) const { 
-        return find_core(e) != 0; 
+        return find_core(e) != nullptr;
     }
     
     iterator find(data const & e) const { 
@@ -600,9 +602,8 @@ public:
 
     core_hashtable& operator|=(core_hashtable const& other) {
         if (this == &other) return *this;
-        iterator i = other.begin(), e = other.end();
-        for (; i != e; ++i) {
-            insert(*i);
+        for (const data& d : other) {
+            insert(d);
         }
         return *this;
     }
@@ -610,10 +611,9 @@ public:
     core_hashtable& operator&=(core_hashtable const& other) {
         if (this == &other) return *this;
         core_hashtable copy(*this);
-        iterator i = copy.begin(), e = copy.end();
-        for (; i != e; ++i) {
-            if (!other.contains(*i)) {
-                remove(*i);
+        for (const data& d : copy) {
+            if (!other.contains(d)) {
+                remove(d);
             }
         }
         return *this;
@@ -622,9 +622,8 @@ public:
     core_hashtable& operator=(core_hashtable const& other) {
         if (this == &other) return *this;
         reset();
-        iterator i = other.begin(), e = other.end();
-        for (; i != e; ++i) {
-            insert(*i);
+        for (const data& d : other) {
+            insert(d);
         }
         return *this;
     }
@@ -655,7 +654,33 @@ public:
     unsigned long long get_num_collision() const { return 0; }
 #endif
 
-    
+#define COLL_LOOP_BODY() {                                              \
+    if (curr->is_used()) {                                          \
+        if (curr->get_hash() == hash && equals(curr->get_data(), e)) return; \
+        collisions.push_back(curr->get_data());                         \
+        continue;                                                       \
+    }                                                                   \
+    else if (curr->is_free()) {                                         \
+        continue;                                                       \
+    }                                                                   \
+    collisions.push_back(curr->get_data());                             \
+    } ((void) 0);    
+
+    void get_collisions(data const& e, vector<data>& collisions) {        
+        unsigned hash = get_hash(e);
+        unsigned mask = m_capacity - 1;
+        unsigned idx  = hash & mask;
+        entry * begin = m_table + idx;
+        entry * end   = m_table + m_capacity;
+        entry * curr  = begin;
+        for (; curr != end; ++curr) {
+            COLL_LOOP_BODY();
+        }
+        for (curr = m_table; curr != begin; ++curr) {
+            COLL_LOOP_BODY();
+        }
+
+    }
 };
 
 template<typename T, typename HashProc, typename EqProc>

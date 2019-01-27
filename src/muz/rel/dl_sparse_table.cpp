@@ -93,7 +93,7 @@ namespace datalog {
     //
     // -----------------------------------
 
-    unsigned get_domain_length(uint64 dom_size) {
+    unsigned get_domain_length(uint64_t dom_size) {
         SASSERT(dom_size>0);
 
         unsigned length = 0;
@@ -128,7 +128,7 @@ namespace datalog {
         unsigned sig_sz = sig.size();
         unsigned first_functional = sig_sz-m_functional_col_cnt;
         for (unsigned i=0; i<sig_sz; i++) {
-            uint64 dom_size = sig[i];
+            uint64_t dom_size = sig[i];
             unsigned length = get_domain_length(dom_size);
             SASSERT(length>0);
             SASSERT(length<=64);
@@ -198,7 +198,7 @@ namespace datalog {
               row_interface(t), 
               m_parent(parent) {}
 
-            virtual table_element operator[](unsigned col) const {
+            table_element operator[](unsigned col) const override {
                 return m_parent.m_layout.get(m_parent.m_ptr, col);
             }
 
@@ -218,15 +218,15 @@ namespace datalog {
           m_row_obj(t, *this),
           m_layout(t.m_column_layout) {}
 
-        virtual bool is_finished() const {
+        bool is_finished() const override {
             return m_ptr == m_end;
         }
 
-        virtual row_interface & operator*() {
+        row_interface & operator*() override {
             SASSERT(!is_finished());
             return m_row_obj;
         }
-        virtual void operator++() {
+        void operator++() override {
             SASSERT(!is_finished());
             m_ptr+=m_fact_size;
         }
@@ -257,8 +257,8 @@ namespace datalog {
                \brief Empty result.
             */
             query_result() : m_singleton(false) {
-                m_many.begin = 0;
-                m_many.end = 0;
+                m_many.begin = nullptr;
+                m_many.end = nullptr;
             }
             query_result(offset_iterator begin, offset_iterator end) : m_singleton(false) {
                 m_many.begin = begin;
@@ -312,7 +312,7 @@ namespace datalog {
             m_keys(key_len*sizeof(table_element)), 
             m_first_nonindexed(0) {}
 
-        virtual void update(const sparse_table & t) {
+        void update(const sparse_table & t) override {
             if (m_first_nonindexed == t.m_data.after_last_offset()) {
                 return;
             }
@@ -327,7 +327,7 @@ namespace datalog {
             key_value key;
             key.resize(key_len);
 
-            offset_vector * index_entry = 0;
+            offset_vector * index_entry = nullptr;
             bool key_modified = true;
 
             for (; ofs!=after_last; ofs+=t.m_fact_size) {
@@ -351,7 +351,7 @@ namespace datalog {
             m_first_nonindexed = t.m_data.after_last_offset();
         }
 
-        virtual query_result get_matching_offsets(const key_value & key) const {
+        query_result get_matching_offsets(const key_value & key) const override {
             key_to_reserve(key);
             store_offset ofs;
             if (!m_keys.find_reserve_content(ofs)) {
@@ -406,9 +406,9 @@ namespace datalog {
             m_key_fact.resize(t.get_signature().size());
         }
 
-        virtual ~full_signature_key_indexer() {}
+        ~full_signature_key_indexer() override {}
 
-        virtual query_result get_matching_offsets(const key_value & key) const {
+        query_result get_matching_offsets(const key_value & key) const override {
             unsigned key_len = m_key_cols.size();
             for (unsigned i=0; i<key_len; i++) {
                 m_key_fact[m_permutation[i]] = key[i];
@@ -473,7 +473,7 @@ namespace datalog {
 #endif
         key_spec kspec;
         kspec.append(key_len, key_cols);
-        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, 0);
+        key_index_map::entry * key_map_entry = m_key_indexes.insert_if_not_there2(kspec, nullptr);
         if (!key_map_entry->get_data().m_value) {
             if (full_signature_key_indexer::can_handle(key_len, key_cols, *this)) {
                 key_map_entry->get_data().m_value = alloc(full_signature_key_indexer, key_len, key_cols, *this);
@@ -568,7 +568,7 @@ namespace datalog {
     }
 
     /**
-       In this function we modify the content of table functional columns without reseting indexes.
+       In this function we modify the content of table functional columns without resetting indexes.
        This is ok as long as we do not allow indexing on functional columns.
     */
     void sparse_table::ensure_fact(const table_fact & f) {
@@ -777,9 +777,9 @@ namespace datalog {
         const table_signature & sig = t->get_signature();
         t->reset();
 
-        table_pool::entry * e = m_pool.insert_if_not_there2(sig, 0);
+        table_pool::entry * e = m_pool.insert_if_not_there2(sig, nullptr);
         sp_table_vector * & vect = e->get_data().m_value;
-        if (vect == 0) {
+        if (vect == nullptr) {
             vect = alloc(sp_table_vector);
         }
         IF_VERBOSE(12, verbose_stream() << "Recycle: " << t->get_size_estimate_bytes() << "\n";);
@@ -826,7 +826,7 @@ namespace datalog {
             m_removed_cols.push_back(UINT_MAX);
         }
 
-        virtual table_base * operator()(const table_base & tb1, const table_base & tb2) {
+        table_base * operator()(const table_base & tb1, const table_base & tb2) override {
 
             const sparse_table & t1 = get(tb1);
             const sparse_table & t2 = get(tb2);
@@ -859,9 +859,9 @@ namespace datalog {
         if (t1.get_kind()!=get_kind() || t2.get_kind()!=get_kind() 
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We also don't allow indexes on functional columns (and they are needed for joins)
-            return 0;
+            return nullptr;
         }
-        return mk_join_project_fn(t1, t2, col_cnt, cols1, cols2, 0, static_cast<unsigned*>(0));
+        return mk_join_project_fn(t1, t2, col_cnt, cols1, cols2, 0, static_cast<unsigned*>(nullptr));
     }
 
     table_join_fn * sparse_table_plugin::mk_join_project_fn(const table_base & t1, const table_base & t2,
@@ -874,7 +874,7 @@ namespace datalog {
             || join_involves_functional(sig1, sig2, col_cnt, cols1, cols2)) {
             //We don't allow sparse tables with zero signatures (and project on all columns leads to such)
             //We also don't allow indexes on functional columns.
-            return 0;
+            return nullptr;
         }
         return alloc(join_project_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2,
             removed_col_cnt, removed_cols);
@@ -882,7 +882,7 @@ namespace datalog {
 
     class sparse_table_plugin::union_fn : public table_union_fn {
     public:
-        virtual void operator()(table_base & tgt0, const table_base & src0, table_base * delta0) {
+        void operator()(table_base & tgt0, const table_base & src0, table_base * delta0) override {
             verbose_action  _va("union");
             sparse_table & tgt = get(tgt0);
             const sparse_table & src = get(src0);
@@ -905,7 +905,7 @@ namespace datalog {
             || (delta && delta->get_kind()!=get_kind()) 
             || tgt.get_signature()!=src.get_signature() 
             || (delta && delta->get_signature()!=tgt.get_signature())) {
-            return 0;
+            return nullptr;
         }
         return alloc(union_fn);
     }
@@ -941,7 +941,7 @@ namespace datalog {
                 SASSERT(r_idx == m_removed_col_cnt);
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("project");
             const sparse_table & t = get(tb);
 
@@ -969,7 +969,7 @@ namespace datalog {
     table_transformer_fn * sparse_table_plugin::mk_project_fn(const table_base & t, unsigned col_cnt, 
             const unsigned * removed_cols) {
         if (col_cnt == t.get_signature().size()) {
-            return 0;
+            return nullptr;
         }
         return alloc(project_fn, t.get_signature(), col_cnt, removed_cols);
     }
@@ -985,7 +985,7 @@ namespace datalog {
             m_key.push_back(val);
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("select_equal_and_project");
             const sparse_table & t = get(tb);
 
@@ -1032,7 +1032,7 @@ namespace datalog {
             //column table produces one).
             //We also don't allow indexes on functional columns. And our implementation of
             //select_equal_and_project uses index on \c col.
-            return 0;
+            return nullptr;
         }
         return alloc(select_equal_and_project_fn, t.get_signature(), value, col);
     }
@@ -1072,7 +1072,7 @@ namespace datalog {
                 }
         }
 
-        virtual table_base * operator()(const table_base & tb) {
+        table_base * operator()(const table_base & tb) override {
             verbose_action  _va("rename");
 
             const sparse_table & t = get(tb);
@@ -1113,7 +1113,7 @@ namespace datalog {
     table_transformer_fn * sparse_table_plugin::mk_rename_fn(const table_base & t, unsigned permutation_cycle_len,
             const unsigned * permutation_cycle) {
         if (t.get_kind()!=get_kind()) {
-            return 0;
+            return nullptr;
         }
         return alloc(rename_fn, t.get_signature(), permutation_cycle_len, permutation_cycle);
     }
@@ -1210,13 +1210,13 @@ namespace datalog {
             }
         }
 
-        virtual void operator()(table_base & tgt0, const table_base & neg0) {
+        void operator()(table_base & tgt0, const table_base & neg0) override {
             sparse_table & tgt = get(tgt0);
             const sparse_table & neg = get(neg0);
            
             verbose_action  _va("filter_by_negation");
 
-            if (m_cols1.size() == 0) {
+            if (m_cols1.empty()) {
                 if (!neg.empty()) {
                     tgt.reset();
                 }
@@ -1252,7 +1252,7 @@ namespace datalog {
         if (!check_kind(t) || !check_kind(negated_obj)
             || join_involves_functional(t.get_signature(), negated_obj.get_signature(), joined_col_cnt, 
                 t_cols, negated_cols) ) {
-            return 0;
+            return nullptr;
         }
         return alloc(negation_filter_fn, t, negated_obj, joined_col_cnt, t_cols, negated_cols);
     }
@@ -1310,7 +1310,7 @@ namespace datalog {
             m_s2_cols.append(src2_cols);
         }
 
-        virtual void operator()(table_base & _t, const table_base & _s1, const table_base& _s2) {
+        void operator()(table_base & _t, const table_base & _s1, const table_base& _s2) override {
 
             verbose_action  _va("negated_join");
             sparse_table& t = get(_t);
@@ -1394,7 +1394,7 @@ namespace datalog {
             return alloc(negated_join_fn, src1, t_cols, src_cols, src1_cols, src2_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 

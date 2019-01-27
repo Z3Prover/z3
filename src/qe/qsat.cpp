@@ -44,11 +44,11 @@ namespace qe {
         m(m),
         m_asms(m),
         m_trail(m),
-        m_fmc(alloc(filter_model_converter, m))
+        m_fmc(alloc(generic_model_converter, m, "qsat"))
     {
     }
 
-    filter_model_converter* pred_abs::fmc() { 
+    generic_model_converter* pred_abs::fmc() { 
         return m_fmc.get(); 
     }
 
@@ -282,7 +282,7 @@ namespace qe {
 
     app_ref pred_abs::fresh_bool(char const* name) {
         app_ref r(m.mk_fresh_const(name, m.mk_bool_sort()), m);
-        m_fmc->insert(r->get_decl());
+        m_fmc->hide(r);
         return r;
     }
 
@@ -516,8 +516,8 @@ namespace qe {
             expr_ref val_a(m), val_b(m);
             expr* a = it->m_key;
             expr* b = it->m_value;
-            VERIFY(model.eval(a, val_a));
-            VERIFY(model.eval(b, val_b));
+            val_a = model(a);
+            val_b = model(b);
             if (val_a != val_b) {
                 TRACE("qe", 
                       tout << mk_pp(a, m) << " := " << val_a << "\n";
@@ -549,8 +549,14 @@ namespace qe {
         solver& s() { return *m_solver; }
         solver const& s() const { return *m_solver; }
 
-        void reset() {
+        void init() {
             m_solver = mk_smt_solver(m, m_params, symbol::null);
+        }
+        void reset_statistics() {
+            init();
+        }
+        void clear() {
+            m_solver = nullptr;
         }
         void assert_expr(expr* e) {
             m_solver->assert_expr(e);
@@ -696,7 +702,7 @@ namespace qe {
             m_level -= num_scopes;
         }
         
-        void reset() {
+        void clear() {
             m_st.reset();        
             m_fa.s().collect_statistics(m_st);
             m_ex.s().collect_statistics(m_st);        
@@ -706,10 +712,16 @@ namespace qe {
             m_asms.reset();
             m_pred_abs.reset();
             m_vars.reset();
-            m_model = 0;
-            m_fa.reset();
-            m_ex.reset();        
+            m_model = nullptr;
             m_free_vars.reset();
+            m_fa.clear();
+            m_ex.clear();                    
+        }
+
+        void reset() override {
+            clear();
+            m_fa.init();
+            m_ex.init();                
         }    
         
         /**
@@ -750,9 +762,7 @@ namespace qe {
         }
 
         void filter_vars(app_ref_vector const& vars) {
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                m_pred_abs.fmc()->insert(vars[i]->get_decl());
-            }
+            for (app* v : vars) m_pred_abs.fmc()->hide(v);
         }        
 
         void initialize_levels() {
@@ -956,7 +966,7 @@ namespace qe {
             ptr_vector<expr>    todo;
             trail.push_back(fml);
             todo.push_back(fml);
-            expr* e = 0, *r = 0;
+            expr* e = nullptr, *r = nullptr;
             
             while (!todo.empty()) {
                 check_cancel();
@@ -991,9 +1001,10 @@ namespace qe {
                     break;
                 }
                 case AST_QUANTIFIER: {
+                    SASSERT(!is_lambda(e));
                     app_ref_vector vars(m);
                     quantifier* q = to_quantifier(e);
-                    bool is_fa = q->is_forall();
+                    bool is_fa = ::is_forall(q);
                     tmp = q->get_expr();
                     extract_vars(q, tmp, vars);
                     TRACE("qe", tout << vars << " " << mk_pp(q, m) << " " << tmp << "\n";);
@@ -1062,11 +1073,9 @@ namespace qe {
         }
 
         bool validate_assumptions(model& mdl, expr_ref_vector const& core) {
-            for (unsigned i = 0; i < core.size(); ++i) {
-                expr_ref val(m);
-                VERIFY(mdl.eval(core[i], val));
-                if (!m.is_true(val)) {
-                    TRACE("qe", tout << "component of core is not true: " << mk_pp(core[i], m) << "\n";);
+            for (expr* c : core) {
+                if (!mdl.is_true(c)) {
+                    TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";);
                     return false;
                 }
             }
@@ -1113,14 +1122,10 @@ namespace qe {
         bool validate_model(model& mdl, unsigned sz, expr* const* fmls) {
             expr_ref val(m);
             for (unsigned i = 0; i < sz; ++i) {
-                if (!m_model->eval(fmls[i], val) && !m.canceled()) {
-                    TRACE("qe", tout << "Formula does not evaluate in model: " << mk_pp(fmls[i], m) << "\n";);
+                if (!m_model->is_true(fmls[i]) && !m.canceled()) {
+                    TRACE("qe", tout << "Formula does not evaluate to true in model: " << mk_pp(fmls[i], m) << "\n";);
                     return false;
                 } 
-                if (!m.is_true(val)) {
-                    TRACE("qe", tout << mk_pp(fmls[i], m) << " evaluates to " << val << " in model\n";);                    
-                    return false;
-                }
             }               
             return true;
         }
@@ -1196,38 +1201,32 @@ namespace qe {
             m_mode(mode),
             m_avars(m),
             m_free_vars(m),
-            m_objective(0),
-            m_value(0),
+            m_objective(nullptr),
+            m_value(nullptr),
             m_was_sat(false),
             m_gt(m)
         {
             reset();
         }
         
-        virtual ~qsat() {
-            reset();
+        ~qsat() override {
+            clear();
         }
         
-        void updt_params(params_ref const & p) {
+        void updt_params(params_ref const & p) override {
         }
         
-        void collect_param_descrs(param_descrs & r) {
+        void collect_param_descrs(param_descrs & r) override {
         }
 
         
         void operator()(/* in */  goal_ref const & in, 
-                        /* out */ goal_ref_buffer & result, 
-                        /* out */ model_converter_ref & mc, 
-                        /* out */ proof_converter_ref & pc,
-                        /* out */ expr_dependency_ref & core) {
+                        /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
             ptr_vector<expr> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
-            mc = 0; pc = 0; core = 0;
             in->get_formulas(fmls);
-
-
             fml = mk_and(m, fmls.size(), fmls.c_ptr());
             
             // for now:
@@ -1249,6 +1248,9 @@ namespace qe {
                 fml = push_not(fml);
             }
             hoist(fml);
+            if (!is_ground(fml)) {
+                throw tactic_exception("formula is not hoistable");
+            }
             m_pred_abs.abstract_atoms(fml, defs);
             fml = m_pred_abs.mk_abstract(fml);
             m_ex.assert_expr(mk_and(defs));
@@ -1276,9 +1278,11 @@ namespace qe {
                 in->reset();
                 in->inc_depth();
                 result.push_back(in.get());
-                if (in->models_enabled()) {
+                if (in->models_enabled()) {                    
+                    model_converter_ref mc;
                     mc = model2model_converter(m_model_save.get());
                     mc = concat(m_pred_abs.fmc(), mc.get());
+                    in->add(mc.get());
                 }
                 break;
             case l_undef:
@@ -1287,11 +1291,11 @@ namespace qe {
                 if (s == "ok" || s == "unknown") {
                     s = m_fa.s().reason_unknown();
                 }
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
         }
         
-        void collect_statistics(statistics & st) const {
+        void collect_statistics(statistics & st) const override {
             st.copy(m_st);
             m_fa.s().collect_statistics(st);
             m_ex.s().collect_statistics(st);        
@@ -1300,23 +1304,23 @@ namespace qe {
             m_pred_abs.collect_statistics(st);
         }
         
-        void reset_statistics() {
+        void reset_statistics() override {
             m_stats.reset();
-            m_fa.reset();
-            m_ex.reset();
+            m_fa.reset_statistics();
+            m_ex.reset_statistics();
         }
         
-        void cleanup() {
+        void cleanup() override {
             reset();
         }
         
-        void set_logic(symbol const & l) {
+        void set_logic(symbol const & l) override {
         }
         
-        void set_progress_callback(progress_callback * callback) {
+        void set_progress_callback(progress_callback * callback) override {
         }
         
-        tactic * translate(ast_manager & m) {
+        tactic * translate(ast_manager & m) override {
             return alloc(qsat, m, m_params, m_mode);
         }        
 
@@ -1352,7 +1356,7 @@ namespace qe {
                     s = m_fa.s().reason_unknown();
                 }
 
-                throw tactic_exception(s.c_str()); 
+                throw tactic_exception(std::move(s));
             }        
             return l_true;
         }

@@ -29,7 +29,7 @@ struct expr2polynomial::imp {
     struct frame {
         app *     m_curr;
         unsigned  m_idx;
-        frame():m_curr(0), m_idx(0) {}
+        frame():m_curr(nullptr), m_idx(0) {}
         frame(app * t):m_curr(t), m_idx(0) {}
     };
 
@@ -59,8 +59,8 @@ struct expr2polynomial::imp {
         m_am(am),
         m_autil(am),
         m_pm(pm),
-        m_expr2var(e2v == 0 && !use_var_idxs ? alloc(expr2var, am) : e2v),
-        m_expr2var_owner(e2v == 0 && !use_var_idxs),
+        m_expr2var(e2v == nullptr && !use_var_idxs ? alloc(expr2var, am) : e2v),
+        m_expr2var_owner(e2v == nullptr && !use_var_idxs),
         m_var2expr(am),
         m_cached_domain(am),
         m_cached_polynomials(pm),
@@ -156,7 +156,7 @@ struct expr2polynomial::imp {
                 x = m_wrapper.mk_var(is_int);
                 m_expr2var->insert(t, x);
                 if (x >= m_var2expr.size())
-                    m_var2expr.resize(x+1, 0);
+                    m_var2expr.resize(x+1, nullptr);
                 m_var2expr.set(x, t);
             }
         }
@@ -436,7 +436,7 @@ struct expr2polynomial::imp {
                         margs.push_back(t);
                 }
             }
-            if (margs.size() == 0) {
+            if (margs.empty()) {
                 args.push_back(m_autil.mk_numeral(rational(1), is_int));
             }
             else if (margs.size() == 1) {
@@ -447,7 +447,7 @@ struct expr2polynomial::imp {
             }
         }
 
-        if (args.size() == 0) {
+        if (args.empty()) {
             r = m_autil.mk_numeral(rational(0), is_int);
         }
         else if (args.size() == 1) {
@@ -502,7 +502,7 @@ void expr2polynomial::set_cancel(bool f) {
 }
 
 default_expr2polynomial::default_expr2polynomial(ast_manager & am, polynomial::manager & pm):
-    expr2polynomial(am, pm, 0) {
+    expr2polynomial(am, pm, nullptr) {
 }
 
 default_expr2polynomial::~default_expr2polynomial() {

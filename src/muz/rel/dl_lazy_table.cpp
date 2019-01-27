@@ -50,7 +50,7 @@ namespace datalog {
                 unsigned const* cols1, unsigned const* cols2):
             convenient_table_join_fn(s1, s2, col_cnt, cols1, cols2) {}
                                   
-        virtual table_base* operator()(const table_base& _t1, const table_base& _t2) {
+        table_base* operator()(const table_base& _t1, const table_base& _t2) override {
             lazy_table const& t1 = get(_t1);
             lazy_table const& t2 = get(_t2);
             lazy_table_ref* tr = alloc(lazy_table_join, m_cols1.size(), m_cols1.c_ptr(), m_cols2.c_ptr(), t1, t2, get_result_signature());
@@ -65,7 +65,7 @@ namespace datalog {
             return alloc(join_fn, t1.get_signature(), t2.get_signature(), col_cnt, cols1, cols2);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -75,13 +75,13 @@ namespace datalog {
     class lazy_table_plugin::union_fn : public table_union_fn {
     public:
         void operator()(table_base & _tgt, const table_base & _src, 
-                        table_base * _delta) {
+                        table_base * _delta) override {
             lazy_table& tgt = get(_tgt);
             lazy_table const& src = get(_src);
             lazy_table* delta = get(_delta);  
             table_base const* t_src = src.eval();
             table_base * t_tgt = tgt.eval();
-            table_base * t_delta = delta?delta->eval():0;
+            table_base * t_delta = delta?delta->eval():nullptr;
             verbose_action _t("union");
             table_union_fn* m = tgt.get_lplugin().get_manager().mk_union_fn(*t_tgt, *t_src, t_delta);
             SASSERT(m);
@@ -98,7 +98,7 @@ namespace datalog {
             return alloc(union_fn);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }        
 
@@ -111,7 +111,7 @@ namespace datalog {
             convenient_table_project_fn(orig_sig, cnt, cols)
         {}
 
-        virtual table_base* operator()(table_base const& _t) {
+        table_base* operator()(table_base const& _t) override {
             lazy_table const& t = get(_t);
             return alloc(lazy_table, alloc(lazy_table_project, m_removed_cols.size(), m_removed_cols.c_ptr(), t, get_result_signature()));
         }
@@ -124,7 +124,7 @@ namespace datalog {
             return alloc(project_fn, t.get_signature(), col_cnt, removed_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -137,7 +137,7 @@ namespace datalog {
             convenient_table_rename_fn(orig_sig, cnt, cols)
         {}
 
-        virtual table_base* operator()(table_base const& _t) {
+        table_base* operator()(table_base const& _t) override {
             lazy_table const& t = get(_t);
             return alloc(lazy_table, alloc(lazy_table_rename, m_cycle.size(), m_cycle.c_ptr(), t, get_result_signature()));
         }
@@ -150,7 +150,7 @@ namespace datalog {
             return alloc(rename_fn, t.get_signature(), col_cnt, removed_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -163,7 +163,7 @@ namespace datalog {
     public:
         filter_identical_fn(unsigned cnt, unsigned const* cols): m_cols(cnt, cols) {}
         
-        virtual void operator()(table_base& _t) {
+        void operator()(table_base& _t) override {
             lazy_table& t = get(_t);
             t.set(alloc(lazy_table_filter_identical, m_cols.size(), m_cols.c_ptr(), t));
         }
@@ -175,7 +175,7 @@ namespace datalog {
             return alloc(filter_identical_fn, col_cnt, identical_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -188,7 +188,7 @@ namespace datalog {
     public:
         filter_interpreted_fn(app_ref& p): m_condition(p) {}
 
-        virtual void operator()(table_base& _t) {
+        void operator()(table_base& _t) override {
             lazy_table& t = get(_t);
             t.set(alloc(lazy_table_filter_interpreted, t, m_condition));
         }
@@ -201,7 +201,7 @@ namespace datalog {
             return alloc(filter_interpreted_fn, cond);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
     
@@ -214,7 +214,7 @@ namespace datalog {
     public:
         filter_by_negation_fn(unsigned cnt, unsigned const* cols1, unsigned const* cols2):
             m_cols1(cnt, cols1), m_cols2(cnt, cols2) {}
-        virtual void operator()(table_base & _t, const table_base & _intersected_obj) {
+        void operator()(table_base & _t, const table_base & _intersected_obj) override {
             lazy_table& t = get(_t);
             lazy_table const& it = get(_intersected_obj);
             t.set(alloc(lazy_table_filter_by_negation, t, it, m_cols1, m_cols2));
@@ -229,7 +229,7 @@ namespace datalog {
             return alloc(filter_by_negation_fn, joined_col_cnt, t_cols, negated_cols);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -246,7 +246,7 @@ namespace datalog {
             m_col(col)
         { }
 
-        virtual void operator()(table_base& _t) {
+        void operator()(table_base& _t) override {
             lazy_table& t = get(_t);
             t.set(alloc(lazy_table_filter_equal, m_col, m_value, t));
         }
@@ -258,7 +258,7 @@ namespace datalog {
             return alloc(filter_equal_fn, value, col);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -269,7 +269,7 @@ namespace datalog {
             return alloc(lazy_table_plugin, *sp);
         }
         else {
-            return 0;
+            return nullptr;
         }
     }
 
@@ -397,7 +397,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_identical");
         table_mutator_fn* m = rm().mk_filter_identical_fn(*m_table, m_cols.size(), m_cols.c_ptr());
         SASSERT(m);
@@ -410,7 +410,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_equal");
         table_mutator_fn* m = rm().mk_filter_equal_fn(*m_table, m_value, m_col);
         SASSERT(m);
@@ -423,7 +423,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_src->eval();
         m_src->release_table();
-        m_src = 0;
+        m_src = nullptr;
         verbose_action _t("filter_interpreted");
         table_mutator_fn* m = rm().mk_filter_interpreted_fn(*m_table, m_condition);
         SASSERT(m);
@@ -436,7 +436,7 @@ namespace datalog {
         SASSERT(!m_table);
         m_table = m_tgt->eval();
         m_tgt->release_table();
-        m_tgt = 0;
+        m_tgt = nullptr;
 
         switch(m_src->kind()) {
 

@@ -65,7 +65,7 @@ protected:
                        unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move,
                        mpz const & max_score, expr * objective);
 
-    mpz top_score(void) {
+    mpz top_score() {
         mpz res(0);
         obj_hashtable<expr> const & top_exprs = m_obj_tracker.get_top_exprs();
         for (obj_hashtable<expr>::iterator it = top_exprs.begin();

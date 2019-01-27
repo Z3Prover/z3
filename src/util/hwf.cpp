@@ -45,7 +45,7 @@ Revision History:
 // For SSE2, it is best to use compiler intrinsics because this makes it completely
 // clear to the compiler what instructions should be used. E.g., for sqrt(), the Windows compiler selects
 // the x87 FPU, even when /arch:SSE2 is on.
-// Luckily, these are kind of standardized, at least for Windows/Linux/OSX.
+// Luckily, these are kind of standardized, at least for Windows/Linux/macOS.
 #ifdef __clang__
 #undef USE_INTRINSICS
 #endif
@@ -61,7 +61,7 @@ hwf_manager::hwf_manager() :
     m_mpz_manager(m_mpq_manager)
 {
 #ifdef _WINDOWS
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(_WIN64)
     // Precision control is not supported on x64.
     // See: http://msdn.microsoft.com/en-us/library/e9b52ceh(VS.110).aspx
     // CMW: I think this is okay though, the compiler will chose the right instructions
@@ -75,14 +75,14 @@ hwf_manager::hwf_manager() :
 #endif
 #endif
 #else
-    // OSX/Linux: Nothing.
+    // macOS/Linux: Nothing.
 #endif
 
     // We only set the precision of the FPU here in the constructor. At the moment, there are no
     // other parts of the code that could overwrite this, and Windows takes care of context switches.
 
     // CMW: I'm not sure what happens on CPUs with hyper-threading (since the FPU is shared).
-    // I have yet to discover whether Linux and OSX save the FPU state when switching context.
+    // I have yet to discover whether Linux and macOS save the FPU state when switching context.
     // As long as we stick to using the SSE2 FPU though, there shouldn't be any problems with respect
     // to the precision (not sure about the rounding modes though).
 }
@@ -91,8 +91,8 @@ hwf_manager::~hwf_manager()
 {
 }
 
-uint64 RAW(double X) { uint64 tmp; memcpy(&tmp, &(X), sizeof(uint64)); return tmp; }
-double DBL(uint64 X) { double tmp; memcpy(&tmp, &(X), sizeof(double)); return tmp; }
+uint64_t RAW(double X) { uint64_t tmp; memcpy(&tmp, &(X), sizeof(uint64_t)); return tmp; }
+double DBL(uint64_t X) { double tmp; memcpy(&tmp, &(X), sizeof(double)); return tmp; }
 
 void hwf_manager::set(hwf & o, int value) {
     o.value = (double) value;
@@ -147,7 +147,7 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, mpq const & significand, mp
 
     mpq sig;
     m_mpq_manager.set(sig, significand);
-    int64 exp = m_mpz_manager.get_int64(exponent);
+    int64_t exp = m_mpz_manager.get_int64(exponent);
 
     if (m_mpq_manager.is_zero(significand))
         o.value = 0.0;
@@ -160,17 +160,17 @@ void hwf_manager::set(hwf & o, mpf_rounding_mode rm, mpq const & significand, mp
         }
 
         hwf s; s.value = m_mpq_manager.get_double(sig);
-        uint64 r = (RAW(s.value) & 0x800FFFFFFFFFFFFFull) | ((exp + 1023) << 52);
+        uint64_t r = (RAW(s.value) & 0x800FFFFFFFFFFFFFull) | ((exp + 1023) << 52);
         o.value = DBL(r);
     }
 }
 
-void hwf_manager::set(hwf & o, bool sign, uint64 significand, int exponent) {
+void hwf_manager::set(hwf & o, bool sign, uint64_t significand, int exponent) {
     // Assumption: this represents (sign * -1) * (significand/2^sbits) * 2^exponent.
     SASSERT(significand <= 0x000FFFFFFFFFFFFFull);
     SASSERT(-1022 <= exponent && exponent <= 1023);
-    uint64 raw = (sign?0x8000000000000000ull:0);
-    raw |= (((uint64)exponent) + 1023) << 52;
+    uint64_t raw = (sign?0x8000000000000000ull:0);
+    raw |= (((uint64_t)exponent) + 1023) << 52;
     raw |= significand;
     memcpy(&o.value, &raw, sizeof(double));
 }
@@ -279,7 +279,7 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
   #endif
 #endif
 #else
-    // Linux, OSX
+    // Linux, macOS
     o.value = ::fma(x.value, y.value, z.value);
 #endif
 #endif
@@ -303,7 +303,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // CMW: modf is not the right function here.
     // modf(x.value, &o.value);
 
-    // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
+    // According to the Intel Architecture manual, the x87-instruction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
 #if defined(USE_INTRINSICS) && \
@@ -331,7 +331,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     }
 #endif
 #else
-    // Linux, OSX.
+    // Linux, macOS.
     o.value = nearbyint(x.value);
 #endif
 }
@@ -413,12 +413,12 @@ void hwf_manager::to_rational(hwf const & x, unsynch_mpq_manager & qm, mpq & o) 
     scoped_mpz n(qm), d(qm);
 
     if (is_normal(x))
-        qm.set(n, sig(x) | 0x0010000000000000ull);
+        qm.set(n, (uint64_t)(sig(x) | 0x0010000000000000ull));
     else
         qm.set(n, sig(x));
     if (sgn(x))
         qm.neg(n);
-    qm.set(d, 0x0010000000000000ull);
+    qm.set(d, (uint64_t)0x0010000000000000ull);
     int e = exp(x);
     if (e >= 0)
         qm.mul2k(n, (unsigned)e);
@@ -428,7 +428,7 @@ void hwf_manager::to_rational(hwf const & x, unsynch_mpq_manager & qm, mpq & o) 
 }
 
 bool hwf_manager::is_zero(hwf const & x) {
-    uint64 t = RAW(x.value) & 0x7FFFFFFFFFFFFFFFull;
+    uint64_t t = RAW(x.value) & 0x7FFFFFFFFFFFFFFFull;
     return (t == 0x0ull);
     // CMW: I tried, and these are slower:
     // return (t != 0x0ull) ? false  : true;
@@ -483,12 +483,12 @@ bool hwf_manager::is_ninf(hwf const & x) {
 }
 
 bool hwf_manager::is_normal(hwf const & x) {
-    uint64 t = RAW(x.value) & 0x7FF0000000000000ull;
+    uint64_t t = RAW(x.value) & 0x7FF0000000000000ull;
     return (t != 0x0ull && t != 0x7FF0000000000000ull);
 }
 
 bool hwf_manager::is_denormal(hwf const & x) {
-    uint64 t = RAW(x.value);
+    uint64_t t = RAW(x.value);
     return ((t & 0x7FF0000000000000ull) == 0x0 &&
             (t & 0x000FFFFFFFFFFFFFull) != 0x0);
 }
@@ -498,7 +498,7 @@ bool hwf_manager::is_regular(hwf const & x) {
     // Note that +-0.0 and denormal numbers have exponent==0; these are regular.
     // All normal numbers are also regular. What remains is +-Inf and NaN, they are
     // not regular and they are the only numbers that have exponent 7FF.
-    uint64 e = RAW(x.value) & 0x7FF0000000000000ull; // the exponent
+    uint64_t e = RAW(x.value) & 0x7FF0000000000000ull; // the exponent
     return (e != 0x7FF0000000000000ull);
 }
 
@@ -513,15 +513,15 @@ bool hwf_manager::is_int(hwf const & x) {
         return false;
     else
     {
-        uint64 t = sig(x);
+        uint64_t t = sig(x);
         unsigned shift = 52 - ((unsigned)e);
-        uint64 mask = (0x1ull << shift) - 1;
+        uint64_t mask = (0x1ull << shift) - 1;
         return (t & mask) == 0;
     }
 }
 
 void hwf_manager::mk_nzero(hwf & o) {
-    uint64 raw = 0x8000000000000000ull;
+    uint64_t raw = 0x8000000000000000ull;
     o.value = DBL(raw);
 }
 
@@ -537,27 +537,27 @@ void hwf_manager::mk_zero(bool sign, hwf & o) {
 }
 
 void hwf_manager::mk_nan(hwf & o) {
-    uint64 raw = 0x7FF0000000000001ull;
+    uint64_t raw = 0x7FF0000000000001ull;
     o.value = DBL(raw);
 }
 
 void hwf_manager::mk_inf(bool sign, hwf & o) {
-    uint64 raw = (sign) ? 0xFFF0000000000000ull : 0x7FF0000000000000ull;
+    uint64_t raw = (sign) ? 0xFFF0000000000000ull : 0x7FF0000000000000ull;
     o.value = DBL(raw);
 }
 
 void hwf_manager::mk_pinf(hwf & o) {
-    uint64 raw = 0x7FF0000000000000ull;
+    uint64_t raw = 0x7FF0000000000000ull;
     o.value = DBL(raw);
 }
 
 void hwf_manager::mk_ninf(hwf & o) {
-    uint64 raw = 0xFFF0000000000000ull;
+    uint64_t raw = 0xFFF0000000000000ull;
     o.value = DBL(raw);
 }
 
 #ifdef _WINDOWS
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(_WIN64)
 #ifdef USE_INTRINSICS
 #define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
 #else
@@ -623,7 +623,7 @@ void hwf_manager::set_rounding_mode(mpf_rounding_mode rm)
         UNREACHABLE(); // Note: MPF_ROUND_NEAREST_TAWAY is not supported by the hardware!
     }
 #endif
-#else // OSX/Linux
+#else // macOS/Linux
     switch (rm) {
     case MPF_ROUND_NEAREST_TEVEN:
         SETRM(FE_TONEAREST);

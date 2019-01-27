@@ -30,6 +30,7 @@ Revision History:
 #include "ast/rewriter/expr_safe_replace.h"
 #include "math/simplex/model_based_opt.h"
 #include "model/model_evaluator.h"
+#include "model/model_smt2_pp.h"
 
 namespace qe {
     
@@ -37,9 +38,10 @@ namespace qe {
 
         ast_manager&      m;
         arith_util        a;
+        bool              m_check_purified;  // check that variables are properly pure 
 
         void insert_mul(expr* x, rational const& v, obj_map<expr, rational>& ts) {
-            TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
+            // TRACE("qe", tout << "Adding variable " << mk_pp(x, m) << " " << v << "\n";);
             rational w;
             if (ts.find(x, w)) {
                 ts.insert(x, w + v);
@@ -90,6 +92,8 @@ namespace qe {
                 rational r1, r2;
                 expr_ref val1 = eval(e1); 
                 expr_ref val2 = eval(e2);
+                //TRACE("qe", tout << mk_pp(e1, m) << " " << val1 << "\n";);
+                //TRACE("qe", tout << mk_pp(e2, m) << " " << val2 << "\n";);
                 if (!a.is_numeral(val1, r1)) return false;
                 if (!a.is_numeral(val2, r2)) return false;
                 SASSERT(r1 != r2);
@@ -107,6 +111,7 @@ namespace qe {
                 vector<std::pair<expr*,rational> > nums;
                 for (expr* arg : *alit) {
                     val = eval(arg);
+                    TRACE("qe", tout << mk_pp(arg, m) << " " << val << "\n";);
                     if (!a.is_numeral(val, r)) return false;
                     nums.push_back(std::make_pair(arg, r));
                 }
@@ -126,9 +131,10 @@ namespace qe {
                 map<rational, expr*, rational::hash_proc, rational::eq_proc> values;
                 bool found_eq = false;
                 for (unsigned i = 0; !found_eq && i < to_app(lit)->get_num_args(); ++i) {
-                    expr* arg1 = to_app(lit)->get_arg(i), *arg2 = 0;
+                    expr* arg1 = to_app(lit)->get_arg(i), *arg2 = nullptr;
                     rational r;
                     expr_ref val = eval(arg1);
+                    TRACE("qe", tout << mk_pp(arg1, m) << " " << val << "\n";);
                     if (!a.is_numeral(val, r)) return false;
                     if (values.find(r, arg2)) {
                         ty = opt::t_eq;
@@ -256,7 +262,7 @@ namespace qe {
         };
 
         bool is_arith(expr* e) {
-            return a.is_int(e) || a.is_real(e);
+            return a.is_int_real(e);
         }
 
         rational n_sign(rational const& b) {
@@ -264,7 +270,7 @@ namespace qe {
         }
 
         imp(ast_manager& m): 
-            m(m), a(m) {}
+            m(m), a(m), m_check_purified(true) {}
 
         ~imp() {}
 
@@ -275,7 +281,7 @@ namespace qe {
         bool operator()(model& model, app* v, app_ref_vector& vars, expr_ref_vector& lits) {
             app_ref_vector vs(m);
             vs.push_back(v);
-            (*this)(model, vs, lits);
+            project(model, vs, lits, false);
             return vs.empty();
         }
 
@@ -283,36 +289,42 @@ namespace qe {
         typedef opt::model_based_opt::row row;
         typedef vector<var> vars;
 
-        void operator()(model& model, app_ref_vector& vars, expr_ref_vector& fmls) {
+        expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
+            expr_ref t(index2expr[v.m_id], m);
+            if (!v.m_coeff.is_one()) {
+                t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
+            }
+            return t;
+        }
+
+        vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& fmls, bool compute_def) {
             bool has_arith = false;
-            for (unsigned i = 0; !has_arith && i < vars.size(); ++i) {
-                expr* v = vars[i].get();
+            for (expr* v : vars) {
                 has_arith |= is_arith(v);
             }
             if (!has_arith) {
-                return;
+                return vector<def>();
             }
             model_evaluator eval(model);
+            TRACE("qe", tout << model;);
             // eval.set_model_completion(true);
 
             opt::model_based_opt mbo;
             obj_map<expr, unsigned> tids;
             expr_ref_vector pinned(m);
             unsigned j = 0;
+            TRACE("qe", tout << "vars: " << vars << "\nfmls: " << fmls << "\n";);
             for (unsigned i = 0; i < fmls.size(); ++i) {
-                expr* fml = fmls[i].get();
+                expr * fml = fmls.get(i);
                 if (!linearize(mbo, eval, fml, fmls, tids)) {
-                    if (i != j) {
-                        fmls[j] = fmls[i].get();
-                    }
-                    ++j;
+                    TRACE("qe", tout << "could not linearize: " << mk_pp(fml, m) << "\n";);
+                    fmls[j++] = fml;
                 }
                 else {
-                    TRACE("qe", tout << mk_pp(fml, m) << "\n";);
                     pinned.push_back(fml);
                 }
             }
-            fmls.resize(j);
+            fmls.shrink(j);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -328,52 +340,54 @@ namespace qe {
                 if (is_arith(v) && !tids.contains(v)) {
                     rational r;
                     expr_ref val = eval(v);
-                    a.is_numeral(val, r);
+                    VERIFY(a.is_numeral(val, r));
                     TRACE("qe", tout << mk_pp(v, m) << " " << val << "\n";);
                     tids.insert(v, mbo.add_var(r, a.is_int(v)));
                 }
             }
-            for (expr* fml : fmls) {
-                fmls_mark.mark(fml);
+            if (m_check_purified) {
+                for (expr* fml : fmls) {
+                    mark_rec(fmls_mark, fml);
+                }
+                for (auto& kv : tids) {
+                    expr* e = kv.m_key;
+                    if (!var_mark.is_marked(e)) {
+                        mark_rec(fmls_mark, e);
+                    }
+                }
             }
+
             ptr_vector<expr> index2expr;
             for (auto& kv : tids) {
-                expr* e = kv.m_key;
-                if (!var_mark.is_marked(e)) {
-                    mark_rec(fmls_mark, e);
-                }
-                index2expr.setx(kv.m_value, e, 0);
+                index2expr.setx(kv.m_value, kv.m_key, nullptr);
             }
+
             j = 0;
             unsigned_vector real_vars;
-            for (unsigned i = 0; i < vars.size(); ++i) {
-                app* v = vars[i].get();
+            for (app* v : vars) {
                 if (is_arith(v) && !fmls_mark.is_marked(v)) {
                     real_vars.push_back(tids.find(v));
                 }
                 else {
-                    if (i != j) {
-                        vars[j] = v;
-                    }
-                    ++j;
+                    vars[j++] = v;
                 }
             }
-            vars.resize(j);
+            vars.shrink(j);
+            
             TRACE("qe", tout << "remaining vars: " << vars << "\n"; 
                   for (unsigned v : real_vars) {
                       tout << "v" << v << " " << mk_pp(index2expr[v], m) << "\n";
                   }
                   mbo.display(tout););
-            mbo.project(real_vars.size(), real_vars.c_ptr());
+            vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
             TRACE("qe", mbo.display(tout););
             vector<row> rows;
             mbo.get_live_rows(rows);
             
-            for (unsigned i = 0; i < rows.size(); ++i) {
+            for (row const& r : rows) {
                 expr_ref_vector ts(m);
                 expr_ref t(m), s(m), val(m);
-                row const& r = rows[i];
-                if (r.m_vars.size() == 0) {
+                if (r.m_vars.empty()) {
                     continue;
                 }
                 if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_mod) {
@@ -394,40 +408,68 @@ namespace qe {
                     CTRACE("qe", !m.is_true(val), tout << "Evaluated unit " << t << " to " << val << "\n";);
                     continue;
                 }
-                for (j = 0; j < r.m_vars.size(); ++j) {
-                    var const& v = r.m_vars[j];
+                for (var const& v : r.m_vars) {
                     t = index2expr[v.m_id];
                     if (!v.m_coeff.is_one()) {
                         t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
                     }
                     ts.push_back(t);
                 }
-                s = a.mk_numeral(-r.m_coeff, a.is_int(t));
-                if (ts.size() == 1) {
-                    t = ts[0].get();
-                }
-                else {
-                    t = a.mk_add(ts.size(), ts.c_ptr());
-                }
+                t = mk_add(ts);
+                s = a.mk_numeral(-r.m_coeff, r.m_coeff.is_int() && a.is_int(t));
                 switch (r.m_type) {
                 case opt::t_lt: t = a.mk_lt(t, s); break;
                 case opt::t_le: t = a.mk_le(t, s); break;
                 case opt::t_eq: t = a.mk_eq(t, s); break;
-                case opt::t_mod: {
+                case opt::t_mod: 
                     if (!r.m_coeff.is_zero()) {
                         t = a.mk_sub(t, s);
                     }
                     t = a.mk_eq(a.mk_mod(t, a.mk_numeral(r.m_mod, true)), a.mk_int(0));
                     break;
                 }
-                }
                 fmls.push_back(t);
-                                
                 val = eval(t);
                 CTRACE("qe", !m.is_true(val), tout << "Evaluated " << t << " to " << val << "\n";);
-
             }
+            vector<def> result;
+            if (compute_def) {
+                SASSERT(defs.size() == real_vars.size());
+                for (unsigned i = 0; i < defs.size(); ++i) {
+                    auto const& d = defs[i];
+                    expr* x = index2expr[real_vars[i]];
+                    bool is_int = a.is_int(x);
+                    expr_ref_vector ts(m);
+                    expr_ref t(m);
+                    for (var const& v : d.m_vars) {
+                        ts.push_back(var2expr(index2expr, v));
+                    }
+                    if (!d.m_coeff.is_zero()) 
+                        ts.push_back(a.mk_numeral(d.m_coeff, is_int));
+                    t = mk_add(ts);
+                    if (!d.m_div.is_one() && is_int) {
+                        t = a.mk_idiv(t, a.mk_numeral(d.m_div, is_int));
+                    }
+                    else if (!d.m_div.is_one() && !is_int) {
+                        t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
+                    }
+                    
+                    result.push_back(def(expr_ref(x, m), t));
+                }
+            }
+            return result;
         }        
+
+        expr_ref mk_add(expr_ref_vector const& ts) {
+            switch (ts.size()) {
+            case 0:
+                return expr_ref(a.mk_int(0), m);
+            case 1:
+                return expr_ref(ts.get(0), m);
+            default:
+                return expr_ref(a.mk_add(ts.size(), ts.c_ptr()), m);
+            }
+        }
 
         opt::inf_eps maximize(expr_ref_vector const& fmls0, model& mdl, app* t, expr_ref& ge, expr_ref& gt) {
             SASSERT(a.is_real(t));
@@ -539,7 +581,15 @@ namespace qe {
     }
 
     void arith_project_plugin::operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
-        (*m_imp)(model, vars, lits);
+        m_imp->project(model, vars, lits, false);
+    }
+
+    vector<def> arith_project_plugin::project(model& model, app_ref_vector& vars, expr_ref_vector& lits) {
+        return m_imp->project(model, vars, lits, true);
+    }
+
+    void arith_project_plugin::set_check_purified(bool check_purified) {
+        m_imp->m_check_purified = check_purified;
     }
 
     bool arith_project_plugin::solve(model& model, app_ref_vector& vars, expr_ref_vector& lits) {

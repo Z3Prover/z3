@@ -12,7 +12,6 @@ set(Z3_API_HEADER_FILES_TO_SCAN
   z3_rcf.h
   z3_fixedpoint.h
   z3_optimization.h
-  z3_interp.h
   z3_fpa.h
   z3_spacer.h
 )
@@ -36,10 +35,10 @@ endforeach()
 # raised if you try to declare a component is dependent on another component
 # that has not yet been declared.
 add_subdirectory(util)
-add_subdirectory(util/lp)
 add_subdirectory(math/polynomial)
 add_subdirectory(sat)
 add_subdirectory(nlsat)
+add_subdirectory(util/lp)
 add_subdirectory(math/hilbert)
 add_subdirectory(math/simplex)
 add_subdirectory(math/automata)
@@ -56,14 +55,13 @@ add_subdirectory(parsers/util)
 add_subdirectory(math/grobner)
 add_subdirectory(math/euclid)
 add_subdirectory(tactic/core)
-add_subdirectory(sat/tactic)
-add_subdirectory(tactic/arith)
-add_subdirectory(nlsat/tactic)
 add_subdirectory(math/subpaving/tactic)
 add_subdirectory(tactic/aig)
 add_subdirectory(solver)
+add_subdirectory(sat/tactic)
+add_subdirectory(tactic/arith)
+add_subdirectory(nlsat/tactic)
 add_subdirectory(ackermannization)
-add_subdirectory(interp)
 add_subdirectory(cmd_context)
 add_subdirectory(cmd_context/extra_cmds)
 add_subdirectory(parsers/smt2)
@@ -79,24 +77,21 @@ add_subdirectory(tactic/bv)
 add_subdirectory(smt/tactic)
 add_subdirectory(tactic/sls)
 add_subdirectory(qe)
-add_subdirectory(duality)
 add_subdirectory(muz/base)
 add_subdirectory(muz/dataflow)
 add_subdirectory(muz/transforms)
 add_subdirectory(muz/rel)
-add_subdirectory(muz/pdr)
 add_subdirectory(muz/clp)
 add_subdirectory(muz/tab)
 add_subdirectory(muz/bmc)
 add_subdirectory(muz/ddnf)
-add_subdirectory(muz/duality)
 add_subdirectory(muz/spacer)
 add_subdirectory(muz/fp)
-add_subdirectory(tactic/nlsat_smt)
 add_subdirectory(tactic/ufbv)
 add_subdirectory(sat/sat_solver)
 add_subdirectory(tactic/smtlogics)
 add_subdirectory(tactic/fpa)
+add_subdirectory(tactic/fd_solver)
 add_subdirectory(tactic/portfolio)
 add_subdirectory(opt)
 add_subdirectory(api)
@@ -160,7 +155,6 @@ set (libz3_public_headers
   z3_fpa.h
   z3.h
   c++/z3++.h
-  z3_interp.h
   z3_macros.h
   z3_optimization.h
   z3_polynomial.h
@@ -172,6 +166,8 @@ foreach (header ${libz3_public_headers})
   set_property(TARGET libz3 APPEND PROPERTY
     PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/src/api/${header}")
 endforeach()
+set_property(TARGET libz3 APPEND PROPERTY
+    PUBLIC_HEADER "${CMAKE_CURRENT_BINARY_DIR}/util/z3_version.h")
 
 install(TARGETS libz3
   EXPORT Z3_EXPORTED_TARGETS
