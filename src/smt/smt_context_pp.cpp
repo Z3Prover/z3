@@ -356,9 +356,9 @@ namespace smt {
     }
 
     void context::display_unsat_core(std::ostream & out) const {
-        unsigned sz = m_unsat_core.size();
-        for (unsigned i = 0; i < sz; i++)
-            out << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
+        for (expr* c : m_unsat_core) {
+            out << mk_pp(c, m_manager) << "\n";
+        }
     }
 
     void context::collect_statistics(::statistics & st) const {
@@ -563,13 +563,14 @@ namespace smt {
             }
             out << "\n";
             if (is_app(n)) {
-                for (unsigned i = 0; i < to_app(n)->get_num_args(); i++)
-                    todo.push_back(to_app(n)->get_arg(i));
+                for (expr* arg : *to_app(n)) {
+                    todo.push_back(arg);
+                }
             }
         }
     }
 
-    void context::display(std::ostream& out, b_justification j) const {
+    std::ostream& context::display(std::ostream& out, b_justification j) const {
         switch (j.get_kind()) {
         case b_justification::AXIOM:
             out << "axiom";
@@ -593,7 +594,7 @@ namespace smt {
             UNREACHABLE();
             break;
         }
-        out << "\n";
+        return out << "\n";
     }
 
     void context::trace_assign(literal l, b_justification j, bool decision) const {

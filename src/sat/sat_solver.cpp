@@ -1664,6 +1664,7 @@ namespace sat {
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
+        log_stats();
         m_simplifications++;
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
@@ -1890,75 +1891,81 @@ namespace sat {
             m_config.m_restart_margin * m_slow_glue_avg <= m_fast_glue_avg;
     }
 
+    void solver::log_stats() {
+        m_restart_logs++;
+        
+        std::stringstream strm;
+        strm << "(sat.stats " << std::setw(6) << m_stats.m_conflict << " " 
+             << std::setw(6) << m_stats.m_decision << " "
+             << std::setw(4) << m_stats.m_restart 
+             << mk_stat(*this)
+             << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
+        std::string str(strm.str());
+        svector<size_t> nums;
+        for (size_t i = 0; i < str.size(); ++i) {
+            while (i < str.size() && str[i] != ' ') ++i;
+            while (i < str.size() && str[i] == ' ') ++i;
+            // position of first character after space
+            if (i < str.size()) {
+                nums.push_back(i);
+            }
+        }   
+        bool same = m_last_positions.size() == nums.size();
+        size_t diff = 0;
+        for (unsigned i = 0; i < nums.size() && same; ++i) {
+            if (m_last_positions[i] > nums[i]) diff += m_last_positions[i] - nums[i];
+            if (m_last_positions[i] < nums[i]) diff += nums[i] - m_last_positions[i];
+        }
+        if (m_last_positions.empty() || 
+            m_restart_logs >= 20 + m_last_position_log || 
+            (m_restart_logs >= 6 + m_last_position_log && (!same || diff > 3))) {
+            m_last_position_log = m_restart_logs;
+            //           conflicts          restarts          learned            gc               time
+            //                     decisions         clauses            units          memory
+            int adjust[9] = { -3,      -3,      -3,      -1,      -3,      -2,   -1,     -2,       -1 };
+            char const* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
+            std::stringstream l1, l2;
+            l1 << "(sat.stats ";
+            l2 << "(sat.stats ";
+            size_t p1 = 11, p2 = 11;
+            SASSERT(nums.size() == 9);
+            for (unsigned i = 0; i < 9 && i < nums.size(); ++i) {
+                size_t p = nums[i];
+                if (i & 0x1) {
+                    // odd positions
+                    for (; p2 < p + adjust[i]; ++p2) l2 << " ";
+                    p2 += strlen(tag[i]);
+                    l2 << tag[i];
+                }
+                else {
+                    // even positions
+                    for (; p1 < p + adjust[i]; ++p1) l1 << " ";
+                    p1 += strlen(tag[i]);
+                    l1 << tag[i];
+                }                               
+            }
+            for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
+            for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
+            l1 << ")\n";
+            l2 << ")\n";
+            IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
+            m_last_positions.reset();
+            m_last_positions.append(nums);
+        }
+        IF_VERBOSE(1, verbose_stream() << str);            
+    }
+
     void solver::restart(bool to_base) {
         m_stats.m_restart++;
         m_restarts++;
         if (m_conflicts_since_init >= m_restart_next_out && get_verbosity_level() >= 1) {
-            m_restart_logs++;
             if (0 == m_restart_next_out) {
                 m_restart_next_out = 1;
             }
             else {
                 m_restart_next_out = (3*m_restart_next_out)/2 + 1; 
             }
-
-            std::stringstream strm;
-            strm << "(sat.stats " << std::setw(6) << m_stats.m_conflict << " " 
-                 << std::setw(6) << m_stats.m_decision << " "
-                 << std::setw(4) << m_stats.m_restart 
-                 << mk_stat(*this)
-                 << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
-            std::string str(strm.str());
-            svector<size_t> nums;
-            for (size_t i = 0; i < str.size(); ++i) {
-                while (i < str.size() && str[i] != ' ') ++i;
-                while (i < str.size() && str[i] == ' ') ++i;
-                // position of first character after space
-                if (i < str.size()) {
-                    nums.push_back(i);
-                }
-            }   
-            bool same = m_last_positions.size() == nums.size();
-            size_t diff = 0;
-            for (unsigned i = 0; i < nums.size() && same; ++i) {
-                if (m_last_positions[i] > nums[i]) diff += m_last_positions[i] - nums[i];
-                if (m_last_positions[i] < nums[i]) diff += nums[i] - m_last_positions[i];
-            }
-            if (m_last_positions.empty() || m_restart_logs >= 20 + m_last_position_log || (m_restart_logs >= 6 + m_last_position_log && (!same || diff > 3))) {
-                m_last_position_log = m_restart_logs;
-                //           conflicts          restarts          learned            gc               time
-                //                     decisions         clauses            units          memory
-                int adjust[9] = { -3,      -3,      -3,      -1,      -3,      -2,   -1,     -2,       -1 };
-                char const* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
-                std::stringstream l1, l2;
-                l1 << "(sat.stats ";
-                l2 << "(sat.stats ";
-                size_t p1 = 11, p2 = 11;
-                SASSERT(nums.size() == 9);
-                for (unsigned i = 0; i < 9 && i < nums.size(); ++i) {
-                    size_t p = nums[i];
-                    if (i & 0x1) {
-                        // odd positions
-                        for (; p2 < p + adjust[i]; ++p2) l2 << " ";
-                        p2 += strlen(tag[i]);
-                        l2 << tag[i];
-                    }
-                    else {
-                        // even positions
-                        for (; p1 < p + adjust[i]; ++p1) l1 << " ";
-                        p1 += strlen(tag[i]);
-                        l1 << tag[i];
-                    }                               
-                }
-                for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
-                for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
-                l1 << ")\n";
-                l2 << ")\n";
-                IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
-                m_last_positions.reset();
-                m_last_positions.append(nums);
-            }
-            IF_VERBOSE(1, verbose_stream() << str);            
+            log_stats();
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));

@@ -1372,7 +1372,7 @@ namespace smt {
         }
 
         while (true) {
-            TRACE("unsat_core_bug", tout << consequent << " js.get_kind(): " << js.get_kind() << ", idx: " << idx << "\n";);
+            TRACE("unsat_core_bug", tout << consequent << ", idx: " << idx << " " << js.get_kind() << "\n";);
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
@@ -1417,7 +1417,7 @@ namespace smt {
             }
             while (idx >= 0) {
                 literal l = m_assigned_literals[idx];
-                TRACE("unsat_core_bug", tout << "l: " << l << ", get_assign_level(l): " << m_ctx.get_assign_level(l) << ", is_marked(l): " << m_ctx.is_marked(l.var()) << "\n";);
+                CTRACE("unsat_core_bug", m_ctx.is_marked(l.var()), tout << "l: " << l << ", get_assign_level(l): " << m_ctx.get_assign_level(l) << "\n";);
                 if (m_ctx.get_assign_level(l) < search_lvl)
                     goto end_unsat_core;
                 if (m_ctx.is_marked(l.var()))

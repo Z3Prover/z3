@@ -1924,6 +1924,7 @@ namespace smt {
                 process_antecedent(~js.get_literal(), offset);
                 break;
             case b_justification::AXIOM:
+                bound = 0;
                 break;
             case b_justification::JUSTIFICATION: {
                 justification* j = js.get_justification(); 
@@ -1934,6 +1935,7 @@ namespace smt {
                 }
                 if (pbj == nullptr) {
                     TRACE("pb", tout << "skip justification for " << conseq << "\n";);
+                    bound = 0;
                     // this is possible when conseq is an assumption.
                     // The justification of conseq is itself, 
                     // don't increment the cofficient here because it assumes

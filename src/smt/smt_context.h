@@ -1358,7 +1358,7 @@ namespace smt {
 
         void display_profile(std::ostream & out) const;
 
-        void display(std::ostream& out, b_justification j) const;
+        std::ostream& display(std::ostream& out, b_justification j) const;
 
         // -----------------------------------
         //

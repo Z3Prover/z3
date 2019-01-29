@@ -2905,17 +2905,26 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
         TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
     }
     else if (is_skolem(m_tail, e)) {
-        // e = tail(s, l), len(s) > l => 
-        // len(tail(s, l)) = len(s) - l - 1
+        // e = tail(s, l), len(s) > l => len(tail(s, l)) = len(s) - l - 1
+        // e = tail(s, l), len(s) <= l => len(tail(s, l)) = 0
+
         s = to_app(e)->get_arg(0);
         l = to_app(e)->get_arg(1);
         expr_ref len_s = mk_len(s);
         literal len_s_gt_l = mk_simplified_literal(m_autil.mk_ge(mk_sub(len_s, l), m_autil.mk_int(1)));
-        if (ctx.get_assignment(len_s_gt_l) == l_true) {
+        switch (ctx.get_assignment(len_s_gt_l)) {
+        case l_true:
             len = mk_sub(len_s, mk_sub(l, m_autil.mk_int(1)));
             TRACE("seq", tout << len_s << " " << len << " " << len_s_gt_l << "\n";);
             lits.push_back(len_s_gt_l);
             return true;
+        case l_false:
+            len = m_autil.mk_int(0);
+            TRACE("seq", tout << len_s << " " << len << " " << len_s_gt_l << "\n";);
+            lits.push_back(~len_s_gt_l);
+            return true;
+        default:
+            break;
         }
     }
     else if (m_util.str.is_unit(e)) {
