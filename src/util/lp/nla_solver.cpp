@@ -143,9 +143,9 @@ struct solver::imp {
 
     lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
     
-    lpvar var(const rooted_mon& rm) const {return m_monomials[rm.m_orig.m_i].var(); }
+    lpvar var(const rooted_mon& rm) const {return m_monomials[rm.orig().m_i].var(); }
 
-    rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.m_orig.m_i].var()) * rm.m_orig.m_sign; }
+    rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.orig().m_i].var()) * rm.orig().m_sign; }
 
     rational vvr(const factor& f) const { return vvr(var(f)); }
 
@@ -167,13 +167,13 @@ struct solver::imp {
     // by the flip_sign
     rational flip_sign(const factor& f) const {
         return f.is_var()?
-            rational(1) : m_rm_table.vec()[f.index()].m_orig.sign();
+            rational(1) : m_rm_table.vec()[f.index()].orig().sign();
     }
 
     // the value of the rooted monomias is equal to the value of the variable multiplied
     // by the flip_sign
     rational flip_sign(const rooted_mon& m) const {
-        return m.m_orig.sign();
+        return m.orig().sign();
     }
     
     // returns the monomial index
@@ -276,7 +276,7 @@ struct solver::imp {
         if (f.is_var()) {
             print_var(f.index(), out);
         } else {
-            out << " rm = "; print_rooted_monomial_with_vars(m_rm_table.vec()[f.index()], out);
+            out << " RM = "; print_rooted_monomial_with_vars(m_rm_table.vec()[f.index()], out);
             out << "\n orig mon = "; print_monomial_with_vars(m_monomials[m_rm_table.vec()[f.index()].orig_index()], out);
         }
         return out;
@@ -637,14 +637,15 @@ struct solver::imp {
     }
 
     bool basic_sign_lemma_on_mon(unsigned i){
-        TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m_monomials[i], tout););
         const monomial& m = m_monomials[i];
+        TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m, tout););
+        auto mons_to_explore = equiv_monomials(m,
+                                               [this](lpvar j) {return eq_vars(j);},
+                                               [this](const unsigned_vector& key) {return find_monomial(key);});
         
-        for (unsigned n : equiv_monomials(m, [this](lpvar j) {return eq_vars(j);},
-                                          [this](const unsigned_vector& key) {return find_monomial(key);})
-             ) {
+        for (unsigned n : mons_to_explore) {
             if (n == static_cast<unsigned>(-1) || n == i) continue;
-            if (basic_sign_lemma_on_two_monomials(m_monomials[i], m_monomials[n]))
+            if (basic_sign_lemma_on_two_monomials(m, m_monomials[n]))
                 return true;
         }
         TRACE("nla_solver",);
@@ -654,7 +655,7 @@ struct solver::imp {
     const rooted_mon& mon_to_rooted_mon(const svector<lpvar>& vars) const {
         auto rit = m_rm_table.map().find(vars);
         SASSERT(rit != m_rm_table.map().end());
-        unsigned rm_i = rit->second.m_i;
+        unsigned rm_i = rit->second;
         return m_rm_table.vec()[rm_i];
     }
     
@@ -757,7 +758,7 @@ struct solver::imp {
             return false;
         }
         
-        i = it->second.m_i;
+        i = it->second;
         TRACE("nla_solver",);
         
         SASSERT(lp::vectors_are_equal_(vars, m_rm_table.vec()[i].vars()));
@@ -895,7 +896,7 @@ struct solver::imp {
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
     bool basic_lemma_for_mon_neutral_from_factors_to_monomial(const rooted_mon& rm, const factorization& f) {
-        rational sign = rm.m_orig.m_sign;
+        rational sign = rm.orig().m_sign;
         lpvar not_one = -1;
 
         TRACE("nla_solver", tout << "f = "; print_factorization(f, tout););
@@ -1032,18 +1033,34 @@ struct solver::imp {
         return false;
     }
 
+    void init_rm_to_refine() {
+        std::unordered_set<unsigned> ref;
+        ref.insert(m_to_refine.begin(), m_to_refine.end());
+        m_rm_table.init_to_refine(ref);
+    }
+
+    unsigned random() {return m_lar_solver.settings().random_next();}
+    
     // use basic multiplication properties to create a lemma
     bool basic_lemma() {
         if (basic_sign_lemma())
             return true;
-
-        for (const rooted_mon& r : m_rm_table.vec()) {
-            if (check_monomial(m_monomials[r.orig_index()]))
-                continue;
+        
+        init_rm_to_refine();
+        const auto& rm_ref = m_rm_table.to_refine();
+        unsigned start = random() % rm_ref.size();
+        unsigned i = start;
+        do {
+            const rooted_mon& r = m_rm_table.vec()[rm_ref[i]];
+            SASSERT (!check_monomial(m_monomials[r.orig_index()]));
             if (basic_lemma_for_mon(r)) {
                 return true;
             }
-        }
+            if (++i == m_rm_table.to_refine().size()) {
+                i = 0;
+            }
+        } while(i != start);
+        
         return false;
     }
 
@@ -1273,7 +1290,7 @@ struct solver::imp {
             TRACE("nla_solver_div", tout << "not in rooted";);
             return false;
         }
-        b = factor(it->second.m_i, factor_type::RM);
+        b = factor(it->second, factor_type::RM);
         TRACE("nla_solver_div", tout << "success div:"; print_factor(b, tout););
         return true;
     }
@@ -1421,34 +1438,37 @@ struct solver::imp {
     }
 
     // collect all vars and rooted monomials with the same absolute
-    // value as c and return them as factors 
+    // value as the absolute value af c and return them as factors 
     vector<factor> factors_with_the_same_abs_val(const factor& c) const {
         vector<factor> r;
         std::unordered_set<lpvar> found_vars;
         std::unordered_set<unsigned> found_rm;
         TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout););
         for (lpvar i : m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
+            SASSERT(abs(vvr(i)) == abs(vvr(c)));
             auto it = m_var_to_its_monomial.find(i);
             if (it == m_var_to_its_monomial.end()) {
                 i = m_vars_equivalence.map_to_root(i);
                 if (!contains(found_vars, i)) {
                     found_vars.insert(i);
                     r.push_back(factor(i, factor_type::VAR));
-                    TRACE("nla_solver", tout << "insering var = "; print_var(i, tout););
                 }
             } else {
                 const monomial& m = m_monomials[it->second];
+                SASSERT(m.var() == i);
+                SASSERT(abs(vvr(m)) == abs(vvr(c)));
                 monomial_coeff mc = canonize_monomial(m);
                 TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
                       tout << "mc = "; print_product_with_vars(mc.vars(), tout););
                 
                 auto it = m_rm_table.map().find(mc.vars());
                 SASSERT(it != m_rm_table.map().end());
-                i = it->second.m_i;
+                i = it->second;
+                //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
                 if (!contains(found_rm, i)) {
                     found_rm.insert(i);
                     r.push_back(factor(i, factor_type::RM));
-                    TRACE("nla_solver", tout << "insering factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
+                    TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
                 }
                 
             }
@@ -1461,7 +1481,7 @@ struct solver::imp {
     // ac[k] plays the role of c   
     bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k) {
         auto c = ac[k];
-        TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor(c, tout); );
+        TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor_with_vars(c, tout); );
 
         for (const factor & d : factors_with_the_same_abs_val(c)) {
             TRACE("nla_solver", tout << "d = "; print_factor_with_vars(d, tout); );
@@ -1687,7 +1707,7 @@ struct solver::imp {
         auto bkey = get_sorted_key_with_vars(b);
         SASSERT(akey.size() == bkey.size());
         for (unsigned i = 0; i < akey.size(); i++) {
-            negate_abs_a_le_abs_b(a[i], b[i]);
+            negate_abs_a_le_abs_b(akey[i].second, bkey[i].second);
         }
         assert_abs_val_a_le_abs_var_b(a, b, false);
         explain(a, current_expl());
@@ -2383,16 +2403,16 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
+    lpvar lp_ac = s.add_named_var(ac, true, "ac");
+    lpvar lp_bde = s.add_named_var(bde, true, "bde");
+    lpvar lp_acd = s.add_named_var(acd, true, "acd");
+    lpvar lp_be = s.add_named_var(be, true, "be");
     
     reslimit l;
     params_ref p;
@@ -2412,10 +2432,17 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     vector<lemma> lemma;
     vector<lp::explanation> exp;
 
-
+    
+    s.set_column_value(lp_a, rational(1));
     s.set_column_value(lp_b, rational(1));
-    s.set_column_value(lp_d, rational(1));
+    s.set_column_value(lp_c, rational(1));
     s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_abcde, rational(1));
+    s.set_column_value(lp_ac, rational(1));
+    s.set_column_value(lp_bde, rational(1));
+    s.set_column_value(lp_acd, rational(1));
+    s.set_column_value(lp_be, rational(1));
 
     // set bde to zero
     s.set_column_value(lp_bde, rational(0));
