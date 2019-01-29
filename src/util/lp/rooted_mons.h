@@ -70,7 +70,10 @@ struct rooted_mon_table {
     // such that for every i and every h in m_proper_factors[i] we have m_vector[i] as a proper factor of m_vector[h]
     std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_factors;
     // points to m_vector
-    svector<unsigned>                                                m_to_refine;  
+    svector<unsigned>                                                m_to_refine;
+    // maps the indices of the regular monomials to the rooted monomial indices
+    std::unordered_map<unsigned, index_with_sign>                    m_reg_to_rm;
+    
 
     const svector<unsigned>& to_refine() { return m_to_refine; }
 
@@ -105,6 +108,7 @@ struct rooted_mon_table {
         m_mons_containing_var.clear();
         m_proper_factors.clear();
         m_to_refine.clear();
+        m_reg_to_rm.clear();
     }
     
     const vector<rooted_mon>& vec() const { return m_vector; }
@@ -200,16 +204,24 @@ struct rooted_mon_table {
 
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i_mon) {
         index_with_sign ms(i_mon, mc.coeff());
+        SASSERT(abs(mc.coeff()) == rational(1));
         auto it = map().find(mc.vars());
         if (it == map().end()) {
             TRACE("nla_solver", tout << "size = " << vec().size(););
             map().emplace(mc.vars(), vec().size());
+            m_reg_to_rm.emplace(i_mon, index_with_sign(vec().size(), mc.coeff()));
             vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
         } 
         else {
             vec()[it->second].push_back(ms);
             TRACE("nla_solver", tout << "add ms.m_i = " << ms.m_i;);
+            m_reg_to_rm.emplace(i_mon, index_with_sign(it->second, mc.coeff()));
         }
     }
+
+    const index_with_sign& get_rooted_mon(unsigned i_mon) const {
+        return m_reg_to_rm.find(i_mon)->second;
+    }
+    
 };
 }
