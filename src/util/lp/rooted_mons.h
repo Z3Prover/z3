@@ -30,78 +30,100 @@ struct index_with_sign {
         return m_i == b.m_i && m_sign == b.m_sign;
     }
     unsigned var() const { return m_i; }
+    unsigned index() const { return m_i; }
     const rational& sign() const { return m_sign; }
+    
 };
     
 struct rooted_mon {
     svector<lpvar>   m_vars;
-    index_with_sign  m_orig;
-    rooted_mon(const svector<lpvar>& vars, unsigned i, const rational& sign): m_vars(vars), m_orig(i, sign) {
+    vector<index_with_sign>  m_mons; // canonize_monomial(m_mons[j]) gives m_vector_of_rooted_monomials[m_i]
+
+    rooted_mon(const svector<lpvar>& vars, unsigned i, const rational& sign): m_vars(vars) {
         SASSERT(lp::is_non_decreasing(vars));
+        push_back(index_with_sign(i, sign));
     }
     lpvar operator[](unsigned k) const { return m_vars[k];}
     unsigned size() const { return m_vars.size(); }
-    unsigned orig_index() const { return m_orig.m_i; }
-    const rational& orig_sign() const { return m_orig.m_sign; }
+    unsigned orig_index() const { return m_mons.begin()->m_i; }
+    const rational& orig_sign() const { return m_mons.begin()->m_sign; }
+    const index_with_sign& orig() const { return *m_mons.begin(); }
     const svector<lpvar> & vars() const {return m_vars;}
-};
-
-struct rooted_mon_info {
-    unsigned                 m_i; // index to m_vector_of_rooted_monomials
-    vector<index_with_sign>  m_mons; // canonize_monomial(m_mons[j]) gives m_vector_of_rooted_monomials[m_i]
-    rooted_mon_info(unsigned i, const index_with_sign& ind_s) : m_i(i) {
-        m_mons.push_back(ind_s);
-    }
-
     void push_back(const index_with_sign& ind_s) {
         m_mons.push_back(ind_s);
     }
 };
 
+
 struct rooted_mon_table {
     std::unordered_map<svector<lpvar>,
-                       rooted_mon_info,
-                       hash_svector>                                 m_rooted_monomials_map;
-    vector<rooted_mon>                                               m_vector_of_rooted_monomials;
+                       unsigned, // points to vec()
+                       hash_svector>                                 m_map;
+    vector<rooted_mon>                                               m_vector;
     // for every k 
     // for each i in m_rooted_monomials_containing_var[k]
     // m_vector_of_rooted_monomials[i] contains k
-    std::unordered_map<lpvar, std::unordered_set<unsigned>>          m_rooted_monomials_containing_var;
+    std::unordered_map<lpvar, std::unordered_set<unsigned>>          m_mons_containing_var;
 
     // A map from m_vector_of_rooted_monomials to a set
     // of sets of m_vector_of_rooted_monomials,
-    // such that for every i and every h in m_proper_factors[i]
-    // m_vector_of_rooted_monomials[i] is a proper factor of m_vector_of_rooted_monomials[h]
+    // such that for every i and every h in m_proper_factors[i] we have m_vector[i] as a proper factor of m_vector[h]
     std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_factors;
+    // points to m_vector
+    svector<unsigned>                                                m_to_refine;  
 
-    void clear() {
-        m_rooted_monomials_map.clear();
-        m_vector_of_rooted_monomials.clear();
-        m_rooted_monomials_containing_var.clear();
-        m_proper_factors.clear();
+    const svector<unsigned>& to_refine() { return m_to_refine; }
+
+    bool list_is_consistent(const vector<index_with_sign>& list, const std::unordered_set<unsigned>& to_refine_reg) const {
+        bool t = to_refine_reg.find(list.begin()->index()) == to_refine_reg.end();
+        for (const auto& i_s : list) {
+            bool tt = to_refine_reg.find(i_s.index()) == to_refine_reg.end();
+            if (tt != t) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool list_contains_to_refine_reg(const vector<index_with_sign>& list, const std::unordered_set<unsigned>& to_refine_reg) const {
+        // the call should happen when no sign lemma is found, so the assert below should hold
+        SASSERT(list_is_consistent(list, to_refine_reg));
+        return !(to_refine_reg.find(list.begin()->index()) == to_refine_reg.end());
     }
     
-    const vector<rooted_mon>& vec() const { return m_vector_of_rooted_monomials; }
-    vector<rooted_mon>& vec() { return m_vector_of_rooted_monomials; }
+    void init_to_refine(const std::unordered_set<unsigned>& to_refine_reg) {
+        for (unsigned i = 0; i < vec().size(); i++) {
+            if (list_contains_to_refine_reg(vec()[i].m_mons, to_refine_reg))
+                m_to_refine.push_back(i);
+        }
+        TRACE("nla_solver", tout << "rooted to_refine size = " << m_to_refine.size() << std::endl;);
+    }
+    
+    void clear() {
+        m_map.clear();
+        m_vector.clear();
+        m_mons_containing_var.clear();
+        m_proper_factors.clear();
+        m_to_refine.clear();
+    }
+    
+    const vector<rooted_mon>& vec() const { return m_vector; }
+    vector<rooted_mon>& vec() { return m_vector; }
 
-    const std::unordered_map<svector<lpvar>,
-                             rooted_mon_info,
-                             hash_svector> & map() const {
-        return m_rooted_monomials_map;
+    const std::unordered_map<svector<lpvar>, unsigned, hash_svector> & map() const {
+        return m_map;
     }
 
-    std::unordered_map<svector<lpvar>,
-                             rooted_mon_info,
-                             hash_svector> & map() {
-        return m_rooted_monomials_map;
+    std::unordered_map<svector<lpvar>, unsigned, hash_svector> & map() {
+        return m_map;
     }
 
     const std::unordered_map<lpvar, std::unordered_set<unsigned>>& var_map() const {
-        return m_rooted_monomials_containing_var;
+        return m_mons_containing_var;
     }
 
     std::unordered_map<lpvar, std::unordered_set<unsigned>>&  var_map() {
-        return m_rooted_monomials_containing_var;
+        return m_mons_containing_var;
     }
 
     std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_factors() {
@@ -126,7 +148,7 @@ struct rooted_mon_table {
         }
     }
 
-    // here i is the index of a monomial in m_vector_of_rooted_monomials
+    // here i is the index of a monomial in m_vector
     void find_rooted_monomials_containing_rm(unsigned i_rm) {
         const auto & rm = vec()[i_rm];
     
@@ -181,12 +203,11 @@ struct rooted_mon_table {
         auto it = map().find(mc.vars());
         if (it == map().end()) {
             TRACE("nla_solver", tout << "size = " << vec().size(););
-            rooted_mon_info rmi(vec().size(), ms);
-            map().emplace(mc.vars(), rmi);
+            map().emplace(mc.vars(), vec().size());
             vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
         } 
         else {
-            it->second.push_back(ms);
+            vec()[it->second].push_back(ms);
             TRACE("nla_solver", tout << "add ms.m_i = " << ms.m_i;);
         }
     }
