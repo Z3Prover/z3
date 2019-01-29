@@ -425,6 +425,7 @@ namespace sat {
         unsigned m_last_position_log;
         unsigned m_restart_logs;
         unsigned restart_level(bool to_base);
+        void log_stats();
         bool should_restart() const;
         void set_next_restart();
         bool reached_max_conflicts();
