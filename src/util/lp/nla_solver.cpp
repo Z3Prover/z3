@@ -652,22 +652,6 @@ struct solver::imp {
         return false;
     }
 
-    const rooted_mon& mon_to_rooted_mon(const svector<lpvar>& vars) const {
-        auto rit = m_rm_table.map().find(vars);
-        SASSERT(rit != m_rm_table.map().end());
-        unsigned rm_i = rit->second;
-        return m_rm_table.vec()[rm_i];
-    }
-    
-    
-    const rooted_mon& mon_to_rooted_mon(const monomial& m) const {
-        monomial_coeff mc = canonize_monomial(m);
-        TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
-              tout << "mc = "; print_product_with_vars(mc.vars(), tout););
-
-        return mon_to_rooted_mon(mc.vars());
-    }
-    
     /**
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
@@ -1457,13 +1441,8 @@ struct solver::imp {
                 const monomial& m = m_monomials[it->second];
                 SASSERT(m.var() == i);
                 SASSERT(abs(vvr(m)) == abs(vvr(c)));
-                monomial_coeff mc = canonize_monomial(m);
-                TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout);
-                      tout << "mc = "; print_product_with_vars(mc.vars(), tout););
-                
-                auto it = m_rm_table.map().find(mc.vars());
-                SASSERT(it != m_rm_table.map().end());
-                i = it->second;
+                const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
+                i = i_s.index();
                 //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
                 if (!contains(found_rm, i)) {
                     found_rm.insert(i);
@@ -2436,7 +2415,7 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     s.set_column_value(lp_a, rational(1));
     s.set_column_value(lp_b, rational(1));
     s.set_column_value(lp_c, rational(1));
-    s.set_column_value(lp_e, rational(1));
+    s.set_column_value(lp_d, rational(1));
     s.set_column_value(lp_e, rational(1));
     s.set_column_value(lp_abcde, rational(1));
     s.set_column_value(lp_ac, rational(1));
