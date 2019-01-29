@@ -386,7 +386,7 @@ extern "C" {
         init_solver(c, s);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        expr_ref_vector fmls = to_solver_ref(s)->get_units(mk_c(c)->m());
+        expr_ref_vector fmls = to_solver_ref(s)->get_units();
         for (expr* f : fmls) {
             v->m_ast_vector.push_back(f);
         }
@@ -401,8 +401,42 @@ extern "C" {
         init_solver(c, s);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
-        expr_ref_vector fmls = to_solver_ref(s)->get_non_units(mk_c(c)->m());
+        expr_ref_vector fmls = to_solver_ref(s)->get_non_units();
         for (expr* f : fmls) {
+            v->m_ast_vector.push_back(f);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, unsigned sz, Z3_ast literals[], unsigned levels[]) {
+        Z3_TRY;
+        LOG_Z3_solver_get_levels(c, s, sz, literals, levels);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        ptr_vector<expr> _vars;
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* e = to_expr(literals[i]);
+            mk_c(c)->m().is_not(e, e);
+            _vars.push_back(e);
+        }
+        unsigned_vector _levels(sz);
+        to_solver_ref(s)->get_levels(_vars, _levels);
+        for (unsigned i = 0; i < sz; ++i) {
+            levels[i] = _levels[i];
+        }
+        Z3_CATCH;
+    }
+
+    Z3_ast_vector Z3_API Z3_solver_get_trail(Z3_context c, Z3_solver s) {
+        Z3_TRY;
+        LOG_Z3_solver_get_trail(c, s);
+        RESET_ERROR_CODE();
+        init_solver(c, s);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        expr_ref_vector trail = to_solver_ref(s)->get_trail();
+        for (expr* f : trail) {
             v->m_ast_vector.push_back(f);
         }
         RETURN_Z3(of_ast_vector(v));

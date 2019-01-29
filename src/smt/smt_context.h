@@ -1575,6 +1575,10 @@ namespace smt {
             return m_unsat_core.get(idx);
         }
 
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+
+        expr_ref_vector get_trail();
+
         void get_model(model_ref & m) const;
 
         bool update_model(bool refinalize);

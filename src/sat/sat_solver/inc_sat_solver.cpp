@@ -318,6 +318,29 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        unsigned sz = vars.size();
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            auto bv = m_map.to_bool_var(vars[i]);
+            depth = bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
+        }
+    }
+
+    expr_ref_vector get_trail() override {
+        expr_ref_vector result(m);
+        unsigned sz = m_solver.trail_size();
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        for (unsigned i = 0; i < sz; ++i) {
+            sat::literal lit = m_solver.trail_literal(i);
+            result.push_back(lit2expr[lit.index()].get());
+        }
+        return result;
+    }
+
     proof * get_proof() override {
         UNREACHABLE();
         return nullptr;

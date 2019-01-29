@@ -155,6 +155,12 @@ public:
             if (mc) (*mc)(mdl);
         }
     }
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        m_solver->get_levels(vars, depth);
+    }
+    expr_ref_vector get_trail() override {
+        return m_solver->get_trail();
+    }
     model_converter* external_model_converter() const {
         return concat(mc0(), local_model_converter());
     }

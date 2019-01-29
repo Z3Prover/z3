@@ -146,6 +146,14 @@ namespace smt {
         expr * get_unsat_core_expr(unsigned idx) const {
             return m_kernel.get_unsat_core_expr(idx);
         }
+
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+            m_kernel.get_levels(vars, depth);
+        }
+
+        expr_ref_vector get_trail() {
+            return m_kernel.get_trail();
+        }
         
         failure last_failure() const {
             return m_kernel.get_last_search_failure();
@@ -395,5 +403,14 @@ namespace smt {
     context & kernel::get_context() {
         return m_imp->m_kernel;
     }
+
+    void kernel::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        m_imp->get_levels(vars, depth);
+    }
+
+    expr_ref_vector kernel::get_trail() {
+        return m_imp->get_trail();
+    }
+
 
 };

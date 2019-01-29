@@ -243,9 +243,13 @@ public:
     /**
        \brief extract units from solver.
     */
-    expr_ref_vector get_units(ast_manager& m);
+    expr_ref_vector get_units();
 
-    expr_ref_vector get_non_units(ast_manager& m);
+    expr_ref_vector get_non_units();
+
+    virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
+    
+    virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
     class scoped_push {
         solver& s;

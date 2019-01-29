@@ -4423,6 +4423,22 @@ namespace smt {
             m = const_cast<model*>(m_model.get());
     }
 
+    void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        unsigned sz = vars.size(); 
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* v = vars[i];
+            bool_var bv = m_expr2bool_var.get(v->get_id(), null_bool_var);
+            depth[i] = bv == null_bool_var ? UINT_MAX : get_assign_level(bv);            
+        }
+    }
+
+    expr_ref_vector context::get_trail() {        
+        expr_ref_vector result(get_manager());
+        get_assignments(result);
+        return result;
+    }
+
     void context::get_proto_model(proto_model_ref & m) const {
         m = const_cast<proto_model*>(m_proto_model.get());
     }

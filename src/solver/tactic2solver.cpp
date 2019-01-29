@@ -85,6 +85,14 @@ public:
 
     model_converter_ref get_model_converter() const override { return m_mc; }
 
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        throw default_exception("cannot retrieve depth from solvers created using tactics");
+    }
+
+    expr_ref_vector get_trail() override {
+        throw default_exception("cannot retrieve trail from solvers created using tactcis");
+    }
+
 };
 
 ast_manager& tactic2solver::get_manager() const { return m_assertions.get_manager(); }

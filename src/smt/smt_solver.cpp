@@ -195,6 +195,14 @@ namespace smt {
             return m_context.check(cube, clauses);
         }
 
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+            m_context.get_levels(vars, depth);
+        }
+
+        expr_ref_vector get_trail() override {
+            return m_context.get_trail();
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

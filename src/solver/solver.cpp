@@ -251,7 +251,8 @@ void solver::updt_params(params_ref const & p) {
 }
 
 
-expr_ref_vector solver::get_units(ast_manager& m) {
+expr_ref_vector solver::get_units() {
+    ast_manager& m = get_manager();
     expr_ref_vector fmls(m), result(m), tmp(m);
     get_assertions(fmls);
     obj_map<expr, bool> units;
@@ -284,7 +285,8 @@ expr_ref_vector solver::get_units(ast_manager& m) {
 }
 
 
-expr_ref_vector solver::get_non_units(ast_manager& m) {
+expr_ref_vector solver::get_non_units() {
+    ast_manager& m = get_manager();
     expr_ref_vector result(m), fmls(m);
     get_assertions(fmls);
     family_id bfid = m.get_basic_family_id();
@@ -319,6 +321,7 @@ expr_ref_vector solver::get_non_units(ast_manager& m) {
     }
     return result;
 }
+
 
 lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
     lbool r = l_undef;
