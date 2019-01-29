@@ -24,7 +24,6 @@
 #include "util/lp/vars_equivalence.h"
 #include "util/lp/factorization.h"
 #include "util/lp/rooted_mons.h"
-#include "util/lp/equiv_monomials.h"
 namespace nla {
 
 typedef lp::lconstraint_kind llc;
@@ -639,12 +638,12 @@ struct solver::imp {
     bool basic_sign_lemma_on_mon(unsigned i){
         const monomial& m = m_monomials[i];
         TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m, tout););
-        auto mons_to_explore = equiv_monomials(m,
-                                               [this](lpvar j) {return eq_vars(j);},
-                                               [this](const unsigned_vector& key) {return find_monomial(key);});
+        const index_with_sign&  rm_i_s = m_rm_table.get_rooted_mon(i);
+        const auto& mons_to_explore = m_rm_table.vec()[rm_i_s.index()].m_mons;
         
-        for (unsigned n : mons_to_explore) {
-            if (n == static_cast<unsigned>(-1) || n == i) continue;
+        for (index_with_sign i_s : mons_to_explore) {
+            unsigned n = i_s.index();
+            if (n == i) continue;
             if (basic_sign_lemma_on_two_monomials(m, m_monomials[n]))
                 return true;
         }
