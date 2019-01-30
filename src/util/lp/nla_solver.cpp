@@ -250,6 +250,10 @@ struct solver::imp {
         }
     }
 
+    void explain(lpvar j, lp::explanation& exp) const {
+        m_vars_equivalence.explain(j, exp);
+    }
+
     template <typename T>
     std::ostream& print_product(const T & m, std::ostream& out) const {
         for (unsigned k = 0; k < m.size(); k++) {
@@ -1039,7 +1043,7 @@ struct solver::imp {
             if (basic_lemma_for_mon(r)) {
                 return true;
             }
-            if (++i == m_rm_table.to_refine().size()) {
+            if (++i == rm_ref.size()) {
                 i = 0;
             }
         } while(i != start);
@@ -1311,7 +1315,9 @@ struct solver::imp {
                      const factor& b,
                      int d_sign,
                      const factor& d,
-                     llc ab_cmp) {
+                     llc ab_cmp,
+                     bool model_based
+                     ) {
         add_empty_lemma_and_explanation();
         mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE, current_lemma());
         negate_factor_equality(c, d);
@@ -1319,10 +1325,12 @@ struct solver::imp {
         mk_ineq(flip_sign(ac), var(ac), -flip_sign(bd), var(bd), ab_cmp, current_lemma());
         explain(ac, current_expl());
         explain(a, current_expl());
-        explain(c, current_expl());
         explain(bd, current_expl());
         explain(b, current_expl());
-        explain(d, current_expl()); // todo: double check that these explanations are enough!
+        if (!model_based) { // this will explain c == d
+            explain(c, current_expl());
+            explain(d, current_expl()); // todo: double check that these explanations are enough, too much!?
+        }
         TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }
 
@@ -1356,7 +1364,8 @@ struct solver::imp {
                                               const factor& c,
                                               const rooted_mon& bd,
                                               const factor& b,
-                                              const factor& d) {
+                                              const factor& d,
+                                              bool model_based) {
         SASSERT(abs(vvr(c)) == abs(vvr(d)));
         auto cv = vvr(c); auto dv = vvr(d);
         int c_sign, d_sign;
@@ -1383,12 +1392,12 @@ struct solver::imp {
         
         if (av < bv){
             if(!(acv < bdv)) {
-                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT);
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT, model_based);
                 return true;
             }
         } else if (av > bv){
             if(!(acv > bdv)) {
-                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::GT);
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::GT, model_based);
                 return true;
             }
         }
@@ -1402,7 +1411,9 @@ struct solver::imp {
                                   const factorization& ac_f,
                                   unsigned k,
                                   const rooted_mon& rm_bd,
-                                  const factor& d) {
+                                  const factor& d,
+                                  bool model_based
+                                  ) {
         TRACE("nla_solver",   tout << "rm_ac = ";
               print_rooted_monomial(rm_ac, tout);
               tout << "\nrm_bd = ";
@@ -1417,75 +1428,86 @@ struct solver::imp {
             return false;
         }
 
-        return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d);
+        return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d, model_based);
     }
 
+    void maybe_add_a_factor(lpvar i,
+                            const factor& c,
+                            std::unordered_set<lpvar>& found_vars,
+                            std::unordered_set<unsigned>& found_rm,
+                            vector<factor> & r) const {
+        SASSERT(abs(vvr(i)) == abs(vvr(c)));
+        auto it = m_var_to_its_monomial.find(i);
+        if (it == m_var_to_its_monomial.end()) {
+            i = m_vars_equivalence.map_to_root(i);
+            if (!contains(found_vars, i)) {
+                found_vars.insert(i);
+                r.push_back(factor(i, factor_type::VAR));
+            }
+        } else {
+            SASSERT(m_monomials[it->second].var() == i && abs(vvr(m_monomials[it->second])) == abs(vvr(c)));
+            const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
+            unsigned rm_i = i_s.index();
+            //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
+            if (!contains(found_rm, rm_i)) {
+                found_rm.insert(rm_i);
+                r.push_back(factor(rm_i, factor_type::RM));
+                TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(rm_i, factor_type::RM), tout); );
+            }
+        }
+    }
+    
     // collect all vars and rooted monomials with the same absolute
     // value as the absolute value af c and return them as factors 
-    vector<factor> factors_with_the_same_abs_val(const factor& c) const {
+    vector<factor> factors_with_the_same_abs_val(const factor& c, bool model_based) const {
         vector<factor> r;
         std::unordered_set<lpvar> found_vars;
         std::unordered_set<unsigned> found_rm;
         TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout););
-        for (lpvar i : m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
-            SASSERT(abs(vvr(i)) == abs(vvr(c)));
-            auto it = m_var_to_its_monomial.find(i);
-            if (it == m_var_to_its_monomial.end()) {
-                i = m_vars_equivalence.map_to_root(i);
-                if (!contains(found_vars, i)) {
-                    found_vars.insert(i);
-                    r.push_back(factor(i, factor_type::VAR));
-                }
-            } else {
-                const monomial& m = m_monomials[it->second];
-                SASSERT(m.var() == i);
-                SASSERT(abs(vvr(m)) == abs(vvr(c)));
-                const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
-                i = i_s.index();
-                //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
-                if (!contains(found_rm, i)) {
-                    found_rm.insert(i);
-                    r.push_back(factor(i, factor_type::RM));
-                    TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
-                }
-                
-            }
+        for (lpvar i :  m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
+            maybe_add_a_factor(i, c, found_vars, found_rm, r);
         }
         return r;
+    }
+
+    bool order_lemma_on_ad(const rooted_mon& rm, const factorization& ac, unsigned k, bool model_based, const factor & d) {
+        TRACE("nla_solver", tout << "d = "; print_factor_with_vars(d, tout); );
+        SASSERT(abs(vvr(d)) == abs(vvr(ac[k])));
+        if (d.is_var()) {
+            TRACE("nla_solver", tout << "var(d) = " << var(d););
+            for (unsigned rm_bd : m_rm_table.var_map()[d.index()]) {
+                TRACE("nla_solver", );
+                if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d, model_based)) {
+                    return true;
+                }
+            }
+        } else {
+            for (unsigned rm_b : m_rm_table.proper_factors()[d.index()]) {
+                if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_b], d, model_based)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
     
     // a > b && c > 0 => ac > bc
     // ac is a factorization of rm.vars()
     // ac[k] plays the role of c   
-    bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k) {
+    bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k, bool model_based) {
         auto c = ac[k];
         TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor_with_vars(c, tout); );
 
-        for (const factor & d : factors_with_the_same_abs_val(c)) {
-            TRACE("nla_solver", tout << "d = "; print_factor_with_vars(d, tout); );
-            SASSERT(abs(vvr(d)) == abs(vvr(c)));
-            if (d.is_var()) {
-                TRACE("nla_solver", tout << "var(d) = " << var(d););
-                for (unsigned rm_bd : m_rm_table.var_map()[d.index()]) {
-                    TRACE("nla_solver", );
-                    if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d)) {
-                        return true;
-                    }
-                }
-            } else {
-                for (unsigned rm_b : m_rm_table.proper_factors()[d.index()]) {
-                    if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_b], d)) {
-                        return true;
-                    }
-                }
-            }
+        for (const factor & d : factors_with_the_same_abs_val(c, model_based)) {
+            if (order_lemma_on_ad(rm, ac, k, model_based, d))
+                return true;
         }
         return false;
     }
 
     // a > b && c == d => ac > bd
     // ac is a factorization of rm.vars()
-    bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac) {
+    bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac, bool model_based) {
         SASSERT(ac.size() == 2);
         CTRACE("nla_solver",
                rm.vars().size() == 4,
@@ -1496,7 +1518,7 @@ struct solver::imp {
             if (v.is_zero())
                 continue;
 
-            if (order_lemma_on_factor(rm, ac, k)) { 
+            if (order_lemma_on_factor(rm, ac, k, model_based)) { 
                 return true;
             }
         }
@@ -1504,29 +1526,33 @@ struct solver::imp {
     }
 
     // a > b && c > 0 => ac > bc
-    bool order_lemma_on_monomial(const rooted_mon& rm) {
+    bool order_lemma_on_monomial(const rooted_mon& rm, bool model_based) {
         TRACE("nla_solver",
               tout << "rm = "; print_product(rm, tout);
               tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
               );
         for (auto ac : factorization_factory_imp(rm.vars(), *this)) {
-            if (ac.size() != 2)
-                continue;
-            if (order_lemma_on_factorization(rm, ac))
+            if (ac.size() == 2 && order_lemma_on_factorization(rm, ac, model_based))
                 return true;
         }
         return false;
     }
     
-    bool order_lemma() {
+    bool order_lemma(bool model_based) {
         TRACE("nla_solver", );
-        for (const auto& rm : m_rm_table.vec()) {
-            if (check_monomial(m_monomials[rm.orig_index()]))
-                continue;
-            if (order_lemma_on_monomial(rm)) {
+
+        const auto& rm_ref = m_rm_table.to_refine();
+        unsigned start = random() % rm_ref.size();
+        unsigned i = start;
+        do {
+            const rooted_mon& rm = m_rm_table.vec()[rm_ref[i]];
+            if (order_lemma_on_monomial(rm, model_based)) {
                 return true;
             } 
-        }
+            if (++i == rm_ref.size()) {
+                i = 0;
+            }
+        } while(i != start);
         return false;
     }
 
@@ -1866,8 +1892,8 @@ struct solver::imp {
         get_tang_points(a, b, below, val, xy);
         TRACE("nla_solver", tout << "sign = " << sign << ", tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
         generate_two_tang_lines(bf, xy, sign, j);
-        generate_tang_plane(a.x, a.y, var(bf.m_x), var(bf.m_y), below, j, sign);
-        generate_tang_plane(b.x, b.y, var(bf.m_x), var(bf.m_y), below, j, sign);
+        generate_tang_plane(a.x, a.y, bf.m_x, bf.m_y, below, j, sign);
+        generate_tang_plane(b.x, b.y, bf.m_x, bf.m_y, below, j, sign);
         generate_explanations_of_tang_lemma(rm, bf);
     }
 
@@ -1904,15 +1930,15 @@ struct solver::imp {
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
         add_empty_lemma_and_explanation();
-        mk_ineq(var(bf.m_x), llc::NE, xy.x, m_lemma_vec->back());
-        mk_ineq(sign, j, - xy.x, var(bf.m_y), llc::EQ, m_lemma_vec->back());
+        mk_ineq(bf.m_x, llc::NE, xy.x, m_lemma_vec->back());
+        mk_ineq(sign, j, - xy.x, bf.m_y, llc::EQ, m_lemma_vec->back());
         TRACE("nla_solver", print_lemma(m_lemma_vec->back(), tout););
         add_empty_lemma_and_explanation();
-        mk_ineq(var(bf.m_y), llc::NE, xy.y, m_lemma_vec->back());
-        mk_ineq(sign, j, - xy.y, var(bf.m_x), llc::EQ, m_lemma_vec->back());
+        mk_ineq(bf.m_y, llc::NE, xy.y, m_lemma_vec->back());
+        mk_ineq(sign, j, - xy.y, bf.m_x, llc::EQ, m_lemma_vec->back());
         TRACE("nla_solver", print_lemma(m_lemma_vec->back(), tout););
     }
-     // Get two planes tangent to surface z = xy, one at point a,  and another at point b.
+    // Get two planes tangent to surface z = xy, one at point a,  and another at point b.
     // One can show that these planes still create a cut.
     void get_initial_tang_points(point &a, point &b, const point& xy,
                                  bool below) const {
@@ -1958,7 +1984,7 @@ struct solver::imp {
                               const rational & correct_val,                             
                               const rational & val,
                               bool below) const {
-            SASSERT(correct_val ==  xy.x * xy.y);
+        SASSERT(correct_val ==  xy.x * xy.y);
         if (below && val > correct_val) return false;
         rational sign = below? rational(1) : rational(-1);
         rational px = tang_plane(plane, xy);
@@ -2003,7 +2029,7 @@ struct solver::imp {
                     ret = l_false;
                 }
             } else if (search_level == 1) {
-                if (order_lemma()) {
+                if (order_lemma(false) /* || order_lemma(true)*/) {
                     ret = l_false;
                 }
             } else { // search_level == 3
