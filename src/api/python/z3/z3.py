@@ -6727,6 +6727,19 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_non_units(self.ctx.ref(), self.solver), self.ctx)
 
+    def trail_levels(self):
+        """Return trail and decision levels of the solver state after a check() call. 
+        """
+        trail = self.trail()
+        levels = (ctypes.c_uint * len(trail))
+        Z3_solver_get_levels(self.ctx.ref(), self.solver, trail.vector, len(trail), levels)
+        return trail, levels
+
+    def trail(self):
+        """Return trail of the solver state after a check() call. 
+        """
+        return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
+
     def statistics(self):
         """Return statistics for the last `check()`.
 

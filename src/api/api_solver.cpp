@@ -409,14 +409,18 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, unsigned sz, Z3_ast literals[], unsigned levels[]) {
+    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz, unsigned levels[]) {
         Z3_TRY;
-        LOG_Z3_solver_get_levels(c, s, sz, literals, levels);
+        LOG_Z3_solver_get_levels(c, s, literals, sz, levels);
         RESET_ERROR_CODE();
         init_solver(c, s);
+        if (sz != Z3_ast_vector_size(c, literals)) {
+            SET_ERROR_CODE(Z3_IOB, nullptr);
+            return;
+        }
         ptr_vector<expr> _vars;
         for (unsigned i = 0; i < sz; ++i) {
-            expr* e = to_expr(literals[i]);
+            expr* e = to_expr(Z3_ast_vector_get(c, literals, i));
             mk_c(c)->m().is_not(e, e);
             _vars.push_back(e);
         }

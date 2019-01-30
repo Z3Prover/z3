@@ -2233,6 +2233,17 @@ namespace z3 {
         expr_vector assertions() const { Z3_ast_vector r = Z3_solver_get_assertions(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
         expr_vector non_units() const { Z3_ast_vector r = Z3_solver_get_non_units(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
         expr_vector units() const { Z3_ast_vector r = Z3_solver_get_units(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
+        expr_vector trail() const { Z3_ast_vector r = Z3_solver_get_trail(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
+        expr_vector trail(array<unsigned>& levels) const { 
+            Z3_ast_vector r = Z3_solver_get_trail(ctx(), m_solver); 
+            check_error(); 
+            expr_vector result(ctx(), r);
+            unsigned sz = result.size();
+            levels = array<unsigned>(sz); 
+            Z3_solver_get_levels(ctx(), m_solver, r, sz, levels.c_ptr());
+            check_error(); 
+            return result; 
+        }
         expr proof() const { Z3_ast r = Z3_solver_get_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, solver const & s);
 

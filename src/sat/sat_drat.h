@@ -46,6 +46,7 @@ namespace sat {
         typedef svector<unsigned> watch;
         solver& s;
         std::ostream*           m_out;
+        std::ostream*           m_bout;
         ptr_vector<clause>      m_proof;
         svector<status>         m_status;
         literal_vector          m_units;
@@ -55,6 +56,7 @@ namespace sat {
         bool                    m_check_unsat, m_check_sat, m_check;
 
         void dump(unsigned n, literal const* c, status st);
+        void bdump(unsigned n, literal const* c, status st);
         void append(literal l, status st);
         void append(literal l1, literal l2, status st);
         void append(clause& c, status st);

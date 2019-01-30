@@ -6232,9 +6232,9 @@ extern "C" {
        \brief retrieve the decision depth of Boolean literals (variables or their negations).
        Assumes a check-sat call and no other calls (to extract models) have been invoked.
        
-       def_API('Z3_solver_get_levels', VOID, (_in(CONTEXT), _in(SOLVER), _in(UINT), _in_array(2, AST), _in_array(2, UINT)))
+       def_API('Z3_solver_get_levels', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT), _in_array(3, UINT)))
     */
-    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, unsigned sz, Z3_ast literals[], unsigned levels[]);
+    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
 
     /**

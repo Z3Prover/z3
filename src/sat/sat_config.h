@@ -156,6 +156,7 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
         bool               m_drat;
+        bool               m_drat_binary;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;

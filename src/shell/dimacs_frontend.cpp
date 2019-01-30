@@ -248,7 +248,11 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit);
+    params_ref p2;
+    p2.copy(p);
+    p2.set_sym("drat.file", symbol::null);
+    
+    sat::solver solver2(p2, limit);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;

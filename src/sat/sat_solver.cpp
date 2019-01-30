@@ -337,7 +337,6 @@ namespace sat {
         
         switch (num_lits) {
         case 0:
-            if (m_config.m_drat) m_drat.add();
             set_conflict(justification());
             return nullptr;
         case 1:
@@ -2290,6 +2289,7 @@ namespace sat {
         unsigned new_sz = j;
         switch (new_sz) {
         case 0:
+            if (m_config.m_drat) m_drat.add();
             set_conflict(justification());
             return false;
         case 1:
