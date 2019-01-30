@@ -184,6 +184,7 @@ namespace sat {
     bool cleaner::operator()(bool force) {
         CASSERT("cleaner_bug", s.check_invariant());
         unsigned trail_sz = s.m_trail.size();
+
         s.propagate(false); // make sure that everything was propagated.
         TRACE("sat_cleaner_bug", s.display(tout); s.display_watches(tout););
         if (s.m_inconsistent)

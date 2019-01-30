@@ -104,7 +104,7 @@ namespace sat {
                     s.m_drat.add(l, lit, true);
                     s.m_drat.add(~l, lit, true);
                 }
-                s.assign_scoped(l);
+                s.assign_scoped(lit);
                 m_num_assigned++;
             }
         }

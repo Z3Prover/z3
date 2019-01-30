@@ -248,8 +248,8 @@ namespace sat {
             cleanup_watches();
             move_clauses(s.m_learned, true);
             move_clauses(s.m_clauses, false);
-            cleanup_clauses(s.m_learned, true, vars_eliminated,  m_learned_in_use_lists);
-            cleanup_clauses(s.m_clauses, false, vars_eliminated, true);
+            cleanup_clauses(s.m_learned, true, vars_eliminated);
+            cleanup_clauses(s.m_clauses, false, vars_eliminated);
         }
 
         CASSERT("sat_solver", s.check_invariant());
@@ -305,7 +305,7 @@ namespace sat {
         cs.set_end(it2);
     }
 
-    void simplifier::cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists) {
+    void simplifier::cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated) {
         TRACE("sat", tout << "cleanup_clauses\n";);
         clause_vector::iterator it  = cs.begin();
         clause_vector::iterator it2 = it;
@@ -332,7 +332,7 @@ namespace sat {
             }
 
             unsigned sz0 = c.size();
-            if (cleanup_clause(c, in_use_lists)) {
+            if (cleanup_clause(c)) {
                 s.del_clause(c);
                 continue;
             }
@@ -584,7 +584,7 @@ namespace sat {
 
        Return true if the clause is satisfied
     */
-    bool simplifier::cleanup_clause(clause & c, bool in_use_list) {
+    bool simplifier::cleanup_clause(clause & c) {
         bool r = false;
         unsigned sz = c.size();
         unsigned j  = 0;
@@ -599,11 +599,6 @@ namespace sat {
                 break;
             case l_false:
                 m_need_cleanup = true;
-                if (in_use_list && !c.frozen()) {
-                    // Remark: if in_use_list is false, then the given clause was not added to the use lists.
-                    // Remark: frozen clauses are not added to the use lists.
-                    m_use_list.get(l).erase_not_removed(c);
-                }
                 break;
             case l_true:
                 r = true;
@@ -691,7 +686,7 @@ namespace sat {
         occurs.erase_not_removed(c);
         m_sub_counter -= occurs.size()/2;
         unsigned sz0 = c.size();
-        if (cleanup_clause(c, true /* clause is in the use lists */)) {
+        if (cleanup_clause(c)) {
             // clause was satisfied
             TRACE("elim_lit", tout << "clause was satisfied\n";);
             remove_clause(c);
@@ -883,7 +878,7 @@ namespace sat {
             TRACE("subsumption", tout << "next: " << c << "\n";);
             if (s.m_trail.size() > m_last_sub_trail_sz) {
                 unsigned sz0 = c.size();
-                if (cleanup_clause(c, true /* clause is in the use_lists */)) {
+                if (cleanup_clause(c)) {
                     remove_clause(c);
                     continue;
                 }

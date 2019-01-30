@@ -45,8 +45,10 @@ namespace sat {
         while (m_head < m_vars.size()) {
             bool_var v = m_vars[m_head];
             unsigned idx = literal(v, false).index();
-            if (s.m_assignment[idx] == l_undef)
+            if (s.m_assignment[idx] == l_undef) {
+                // IF_VERBOSE(0, verbose_stream() << "pop " << v << "\n");
                 return v;            
+            }
             ++m_head;
         }
         for (bool_var v : m_vars) {
@@ -54,17 +56,21 @@ namespace sat {
                 IF_VERBOSE(0, verbose_stream() << "unassigned: " << v << "\n");
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "#vars: " << m_vars.size() << "\n");
         IF_VERBOSE(0, verbose_stream() << "(sat.unit-walk sat)\n");
         return null_bool_var;
     }
 
     void unit_walk::var_priority::set_vars(solver& s) {
         m_vars.reset();
+        s.pop_to_base_level();
+
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
-            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
+            if (!s.was_eliminated(v) && s.value(v) == l_undef) {
                 add(v);
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "num vars " << m_vars.size() << "\n";);
     }
 
     bool_var unit_walk::var_priority::next(solver& s) {

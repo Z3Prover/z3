@@ -3038,8 +3038,9 @@ namespace sat {
     */
     bool solver::minimize_lemma(unsigned glue) {
         if (m_lemma.size() >= 30 || glue >= 6) {
-            return false;
+            // return false; 
         }
+
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         updt_lemma_lvl_set();
@@ -3054,10 +3055,7 @@ namespace sat {
                 m_unmark.push_back(l.var());
             }
             else {
-                if (j != i) {
-                    m_lemma[j] = m_lemma[i];
-                }
-                j++;
+                m_lemma[j++] = m_lemma[i];
             }
         }
 
