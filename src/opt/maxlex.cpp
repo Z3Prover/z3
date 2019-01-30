@@ -127,7 +127,7 @@ namespace opt {
             }
             model_ref mdl;
             s().get_model(mdl);
-            update_assignment(mdl);           
+            if (mdl) update_assignment(mdl);           
         }
 
         lbool maxlex1() {
