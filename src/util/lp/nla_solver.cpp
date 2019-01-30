@@ -351,10 +351,12 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_explanation(std::ostream& out, lp::explanation& exp) const {
+    std::ostream& print_explanation(lp::explanation& exp, std::ostream& out) const {
+        out << "expl = ";
         for (auto &p : exp) {
             m_lar_solver.print_constraint(p.second, out);
         }
+        out << "\n";
         return out;
     }
 
@@ -949,8 +951,12 @@ struct solver::imp {
         return false;
     }
 
+    // none of the factors is zero -> |fc[factor_index]| <= |rm|
     void generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index) {
-        TRACE("nla_solver", tout << "rm = "; print_rooted_monomial_with_vars(rm, tout););
+        TRACE("nla_solver", tout << "factor_index = " << factor_index << ", rm = ";
+              print_rooted_monomial_with_vars(rm, tout);
+              tout << "fc = "; print_factorization(fc, tout);
+              tout << "orig mon = "; print_monomial(m_monomials[rm.orig_index()], tout););
         add_empty_lemma_and_explanation();
         int fi = 0;
         for (factor f : fc) {
@@ -969,9 +975,10 @@ struct solver::imp {
                 mk_ineq(sj, j, llc::LT, current_lemma());
                 mk_ineq(sm, mon_var, -sj, j, llc::GE, current_lemma());
             }
-            explain(f, current_expl());
         }
-        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+        explain(fc, current_expl());
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout); print_explanation(current_expl(), tout););
     }   
 
     // x != 0 or y = 0 => |xy| >= |y|
