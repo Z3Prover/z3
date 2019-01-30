@@ -324,7 +324,7 @@ public:
         depth.resize(sz);
         for (unsigned i = 0; i < sz; ++i) {
             auto bv = m_map.to_bool_var(vars[i]);
-            depth = bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
+            depth[i] = bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
         }
     }
 

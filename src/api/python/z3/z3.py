@@ -6731,7 +6731,7 @@ class Solver(Z3PPObject):
         """Return trail and decision levels of the solver state after a check() call. 
         """
         trail = self.trail()
-        levels = (ctypes.c_uint * len(trail))
+        levels = (ctypes.c_uint * len(trail))()
         Z3_solver_get_levels(self.ctx.ref(), self.solver, trail.vector, len(trail), levels)
         return trail, levels
 
