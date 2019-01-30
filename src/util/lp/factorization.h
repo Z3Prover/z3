@@ -34,7 +34,7 @@ class factor {
     factor_type  m_type;
 public:
     factor() {}
-    factor(unsigned j) : factor(j, factor_type::VAR) {}
+    explicit factor(unsigned j) : factor(j, factor_type::VAR) {}
     factor(unsigned i, factor_type t) : m_index(i), m_type(t) {}
     unsigned index() const {return m_index;}
     unsigned& index() {return m_index;}
