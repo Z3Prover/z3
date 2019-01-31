@@ -681,6 +681,13 @@ struct solver::imp {
             m_lar_solver.get_upper_bound(j) == lp::zero_of_type<lp::impq>() &&
             m_lar_solver.get_lower_bound(j) == lp::zero_of_type<lp::impq>();
     }
+
+    bool var_is_fixed(lpvar j) const {
+        return 
+            m_lar_solver.column_has_upper_bound(j) &&
+            m_lar_solver.column_has_lower_bound(j) &&
+            m_lar_solver.get_upper_bound(j) == m_lar_solver.get_lower_bound(j);
+    }
     
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const {
         m_lar_solver.print_term(in.m_term, out);
@@ -772,7 +779,7 @@ struct solver::imp {
     
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
-    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f, bool derived) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT(vvr(rm).is_zero());
         for (auto j : f) {
@@ -804,13 +811,24 @@ struct solver::imp {
         print_factorization(f, out << "fact: ") << "\n";
     }
 
+    void explain_fixed_var(unsigned j) {
+        SASSERT(var_is_fixed(j));
+        current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
+        current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
+    }
     // x = 0 or y = 0 -> xy = 0
-    bool basic_lemma_for_mon_non_zero(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_non_zero(const rooted_mon& rm, const factorization& f, bool derived) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT (!vvr(rm).is_zero());
         int zero_j = -1;
         for (auto j : f) {
-            if (vvr(j).is_zero()) {
+            if (derived) {
+                if (var_is_fixed_to_zero(var(j))) {
+                    zero_j = var(j);
+                    break;
+                }
+            }
+            else if (vvr(j).is_zero()) {
                 zero_j = var(j);
                 break;
             }
@@ -820,11 +838,16 @@ struct solver::imp {
             return false;
         } 
         add_empty_lemma_and_explanation();
-        mk_ineq(zero_j, llc::NE, current_lemma());
+        if (derived) {
+            explain_fixed_var(zero_j);
+        }
+        else { 
+            mk_ineq(zero_j, llc::NE, current_lemma());
+        }
         mk_ineq(var(rm), llc::EQ, current_lemma());
 
         explain(rm, current_expl());
-        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+        TRACE("nla_solver", print_lemma_and_expl(tout););
         return true;
     }
 
@@ -934,7 +957,7 @@ struct solver::imp {
         return true;
     }
     
-    bool basic_lemma_for_mon_neutral(const rooted_mon& rm, const factorization& factorization) {
+    bool basic_lemma_for_mon_neutral(const rooted_mon& rm, const factorization& factorization, bool derived) {
         return
             basic_lemma_for_mon_neutral_monomial_to_factor(rm, factorization) || 
             basic_lemma_for_mon_neutral_from_factors_to_monomial(rm, factorization);
@@ -1003,15 +1026,16 @@ struct solver::imp {
         return false;
     }
 
-    // use basic multiplication properties to create a lemma
-    // for the given monomial
-    bool basic_lemma_for_mon(const rooted_mon& rm) {
+    // Use basic multiplication properties to create a lemma
+    // for the given monomial.
+    // "derived" means derived from constraints - the alternative is model based
+    bool basic_lemma_for_mon(const rooted_mon& rm, bool derived) {
         if (vvr(rm).is_zero()) {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero(rm, factorization) ||
-                    basic_lemma_for_mon_neutral(rm, factorization)) {
+                if (basic_lemma_for_mon_zero(rm, factorization, derived) ||
+                    basic_lemma_for_mon_neutral(rm, factorization, derived)) {
                     explain(factorization, current_expl());
                     return true;
                 }
@@ -1020,8 +1044,8 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_non_zero(rm, factorization) ||
-                    basic_lemma_for_mon_neutral(rm, factorization) ||
+                if (basic_lemma_for_mon_non_zero(rm, factorization, derived) ||
+                    basic_lemma_for_mon_neutral(rm, factorization, derived) ||
                     proportion_lemma(rm, factorization)) {
                     explain(factorization, current_expl());
                     return true;
@@ -1040,7 +1064,7 @@ struct solver::imp {
     unsigned random() {return m_lar_solver.settings().random_next();}
     
     // use basic multiplication properties to create a lemma
-    bool basic_lemma() {
+    bool basic_lemma(bool derived) {
         if (basic_sign_lemma())
             return true;
         
@@ -1051,7 +1075,7 @@ struct solver::imp {
         do {
             const rooted_mon& r = m_rm_table.vec()[rm_ref[i]];
             SASSERT (!check_monomial(m_monomials[r.orig_index()]));
-            if (basic_lemma_for_mon(r)) {
+            if (basic_lemma_for_mon(r, derived)) {
                 return true;
             }
             if (++i == rm_ref.size()) {
@@ -2029,6 +2053,33 @@ struct solver::imp {
         push_tang_points(a, b, xy, below, correct_val, val);
         TRACE("nla_solver", tout << "pushed a = "; print_point(a, tout); tout << "\npushed b = "; print_point(b, tout); tout << std::endl;);
     }
+
+
+    
+    
+    
+    lbool inner_check(bool derived) {
+        lbool ret = l_undef;
+        for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
+            TRACE("nla_solver", tout << "search_level = " << search_level << "\n";);
+            if (search_level == 0) {
+                if (basic_lemma(derived)) {
+                    ret = l_false;
+                }
+            } else if (search_level == 1) {
+                if (order_lemma(derived))  {
+                    ret = l_false;
+                }
+            } else { // search_level == 3
+                if (monotonicity_lemma() || tangent_lemma()) {
+                    ret = l_false;
+                }
+            }
+        }
+        return ret;
+    }
+    
+    
     
     lbool check(vector<lp::explanation> & expl_vec, vector<lemma>& l_vec) {
         TRACE("nla_solver", tout << "check of nla";);
@@ -2044,24 +2095,10 @@ struct solver::imp {
             return l_true;
         }
         init_search();
-        lbool ret = l_undef;
-        for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
-            TRACE("nla_solver", tout << "search_level = " << search_level << "\n";);
-            if (search_level == 0) {
-                if (basic_lemma()) {
-                    ret = l_false;
-                }
-            } else if (search_level == 1) {
-                if (order_lemma(false) /* || order_lemma(true)*/) {
-                    ret = l_false;
-                }
-            } else { // search_level == 3
-                if (monotonicity_lemma() || tangent_lemma()) {
-                    ret = l_false;
-                }
-            }
-        }
-        
+        lbool ret = inner_check(true);
+        if (ret == l_undef)
+            ret = inner_check(false);
+            
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || no_lemmas_hold());
