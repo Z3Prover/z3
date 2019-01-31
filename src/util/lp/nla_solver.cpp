@@ -628,6 +628,10 @@ struct solver::imp {
     }
 
     unsigned_vector eq_vars(lpvar j) const {
+        TRACE("nla_solver_eq", tout << "j = "; print_var(j, tout); tout << "eqs = ";
+              for(auto jj : m_vars_equivalence.eq_vars(j)) {
+                  print_var(jj, tout);
+              });
         return m_vars_equivalence.eq_vars(j);
     }
     
@@ -1338,9 +1342,14 @@ struct solver::imp {
             explain(c, current_expl());
             explain(d, current_expl()); // todo: double check that these explanations are enough, too much!?
         }
-        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+        TRACE("nla_solver", print_lemma_and_expl(tout););
     }
 
+    void print_lemma_and_expl(std::ostream& out) {
+        print_lemma(current_lemma(), out);
+        print_explanation(current_expl(), out);
+    }
+    
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
         if (c.is_zero() || d.is_zero())
             return false;
@@ -1471,11 +1480,18 @@ struct solver::imp {
         std::unordered_set<lpvar> found_vars;
         std::unordered_set<unsigned> found_rm;
         TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout););
-        for (lpvar i :  m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
-            maybe_add_a_factor(i, c, found_vars, found_rm, r);
+        if (model_based) {
+            for (lpvar i :  m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
+                maybe_add_a_factor(i, c, found_vars, found_rm, r);
+            }
+        } else {
+            for (lpvar i : eq_vars(var(c))) {
+                maybe_add_a_factor(i, c, found_vars, found_rm, r);
+            }
         }
         return r;
     }
+
 
     bool order_lemma_on_ad(const rooted_mon& rm, const factorization& ac, unsigned k, bool model_based, const factor & d) {
         TRACE("nla_solver", tout << "d = "; print_factor_with_vars(d, tout); );
@@ -2898,7 +2914,7 @@ void solver::test_tangent_lemma_equiv() {
     lpvar kj = s.add_term(t.coeffs_as_vector());
     s.add_var_bound(kj, llc::LE, rational(0)); 
     s.add_var_bound(kj, llc::GE, rational(0));
-
+    s.set_column_value(lp_a, - s.get_column_value(lp_k));
     reslimit l;
     params_ref p;
     solver nla(s, l, p);
