@@ -113,7 +113,7 @@ namespace sat {
         if (m_search_mode == lookahead_mode::searching) {
             m_assumptions.push_back(l1);
             m_assumptions.push_back(l2);
-            m_drat.add(m_assumptions);
+            m_s.m_drat.add(m_assumptions);
             m_assumptions.pop_back();
             m_assumptions.pop_back();
         }
@@ -1032,7 +1032,7 @@ namespace sat {
         for (unsigned i = 0; i < trail_sz; ++i) {
             literal l = m_s.m_trail[i];
             if (!m_s.was_eliminated(l.var())) {
-                if (m_s.m_config.m_drat) m_drat.add(l, false);
+                if (m_s.m_config.m_drat) m_s.m_drat.add(l, false);
                 assign(l);
             }
         }
@@ -1065,7 +1065,7 @@ namespace sat {
             case 3: add_ternary(c[0],c[1],c[2]); break;
             default: if (!learned) add_clause(c); break;
             }
-            if (m_s.m_config.m_drat) m_drat.add(c, false);
+            // if (m_s.m_config.m_drat) m_s.m_drat.add(c, false);
         }
     }
 
@@ -1927,7 +1927,7 @@ namespace sat {
     void lookahead::validate_assign(literal l) {
         if (m_s.m_config.m_drat && m_search_mode == lookahead_mode::searching) {
             m_assumptions.push_back(l);
-            m_drat.add(m_assumptions);
+            m_s.m_drat.add(m_assumptions);
             m_assumptions.pop_back();
         }
     }

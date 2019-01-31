@@ -43,6 +43,8 @@ namespace sat {
     }
 
     drat::~drat() {
+        if (m_out) m_out->flush();
+        if (m_bout) m_bout->flush();
         dealloc(m_out);
         dealloc(m_bout);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
@@ -83,8 +85,8 @@ namespace sat {
     void drat::bdump(unsigned n, literal const* c, status st) {
         unsigned char ch = 0;
         switch (st) {
-        case status::asserted: UNREACHABLE(); return;
-        case status::external: UNREACHABLE(); return; // requires extension to drat format.
+        case status::asserted: return;
+        case status::external: return; 
         case status::learned: ch = 'a'; break;
         case status::deleted: ch = 'd'; break;
         default: UNREACHABLE(); break;
@@ -104,7 +106,7 @@ namespace sat {
             while (v);
         }
         ch = 0;
-        (*m_bout) << 0;
+        (*m_bout) << ch;
     }
 
     bool drat::is_cleaned(clause& c) const {
@@ -615,8 +617,7 @@ namespace sat {
         literal ls[2] = {l1, l2};
         if (m_out) dump(2, ls, status::deleted);
         if (m_bout) bdump(2, ls, status::deleted);
-        if (m_check) 
-            append(l1, l2, status::deleted);
+        if (m_check) append(l1, l2, status::deleted);
     }
 
     void drat::del(clause& c) {
