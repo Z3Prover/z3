@@ -76,24 +76,54 @@ namespace sat {
             return;
         }
 
+#if 0
+            if (st == status::deleted) (*m_out) << "d ";
+            for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
+            (*m_out) << "0\n";
+	    return;
+#endif
+
         char buffer[10000];
+        char digits[20];     // enough for storing unsigned
+        char* lastd = digits + sizeof(digits);
+        
         int len = 0;
         if (st == status::deleted) {
             buffer[0] = 'd';
             buffer[1] = ' ';
             len = 2;
         }
-        for (unsigned i = 0; i < n && len >= 0; ++i) {
+        for (unsigned i = 0; i < n && len < sizeof(buffer); ++i) {
             literal lit = c[i];
-            int _lit = lit.var();
-            if (lit.sign()) _lit = -_lit;
-            len += snprintf(buffer + len, sizeof(buffer) - len, "%d ", _lit);
+            unsigned v = lit.var();            
+            if (lit.sign()) buffer[len++] = '-';
+            char* d = lastd;
+            while (v > 0) {                
+                d--;
+                *d = (v % 10) + '0';
+                v /= 10;
+                SASSERT(d > digits);
+            }
+            if (len + lastd - d < sizeof(buffer)) {
+                memcpy(buffer + len, d, lastd - d);
+                len += static_cast<unsigned>(lastd - d);
+            }
+            else {
+                len = sizeof(buffer) + 1;
+            }
+            if (len < sizeof(buffer)) {
+                buffer[len++] = ' ';
+            }
         }
         
-        if (len >= 0) {
-            len += snprintf(buffer + len, sizeof(buffer) - len, "0\n");
+        if (len < sizeof(buffer) + 2) {
+            buffer[len++] = '0';
+            buffer[len++] = '\n';
         }
-        if (len >= 0) {
+	else {
+            len = sizeof(buffer) + 1;
+	}
+        if (len <= sizeof(buffer)) {
             m_out->write(buffer, len);
         }
         else {

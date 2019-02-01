@@ -92,7 +92,7 @@ namespace sat {
         m_binary[(~l2).index()].push_back(l1);
         m_binary_trail.push_back((~l1).index());
         ++m_stats.m_add_binary;
-        if (m_s.m_config.m_drat) validate_binary(l1, l2);
+        if (m_s.m_config.m_drat && m_search_mode == lookahead_mode::searching) validate_binary(l1, l2);
     }
 
     void lookahead::del_binary(unsigned idx) {
@@ -110,13 +110,11 @@ namespace sat {
 
 
     void lookahead::validate_binary(literal l1, literal l2) {
-        if (m_search_mode == lookahead_mode::searching) {
-            m_assumptions.push_back(l1);
-            m_assumptions.push_back(l2);
-            m_s.m_drat.add(m_assumptions);
-            m_assumptions.pop_back();
-            m_assumptions.pop_back();
-        }
+        m_assumptions.push_back(l1);
+        m_assumptions.push_back(l2);
+        m_s.m_drat.add(m_assumptions);
+        m_assumptions.pop_back();
+        m_assumptions.pop_back();
     }
 
     void lookahead::inc_bstamp() {
@@ -1701,7 +1699,6 @@ namespace sat {
                 if (is_fixed_at(lit, c_fixed_truth) || is_true_at(lit, level)) continue;
                 bool unsat = false;
                 if (is_false_at(lit, level)) {
-                    if (lit.sign() && lit.var() == 34523) std::cout << "false at " << lit << "\n";
                     unsat = true;
                 }
                 else {
@@ -1709,9 +1706,7 @@ namespace sat {
                     reset_lookahead_reward(lit);
                     unsigned num_units = push_lookahead1(lit, level);
                     update_lookahead_reward(lit, level);
-                    if (lit.sign() && lit.var() == 34523) std::cout << "num units.1 " << num_units << " " << inconsistent() << "\n";
                     num_units += do_double(lit, dl_lvl);
-                    if (lit.sign() && lit.var() == 34523) std::cout << "num units.2 " << num_units << "\n";
                     if (dl_lvl > level) {
                         base = dl_lvl;
                         //SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
@@ -1849,13 +1844,15 @@ namespace sat {
         unsigned num_iterations = 0;
         while (change && num_iterations < m_config.m_dl_max_iterations && !inconsistent()) {
             num_iterations++;
-            for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
-                literal lit = m_lookahead[i].m_lit;
+            for (auto const& lh : m_lookahead) {
+                if (inconsistent()) break;
+	        
+                literal lit = lh.m_lit;
                 if (lit == last_changed) {
                     SASSERT(change == false);
                     break;
                 }
-                unsigned level = base + m_lookahead[i].m_offset;
+                unsigned level = base + lh.m_offset;
                 if (level + m_lookahead.size() >= dl_truth) {
                     change = false;
                     break;
@@ -1873,6 +1870,7 @@ namespace sat {
                     ++m_stats.m_double_lookahead_propagations;
                     SASSERT(m_level == dl_truth);
                     lookahead_backtrack();
+		    if (m_s.m_config.m_drat) validate_binary(~l, ~lit);
                     assign(~lit);
                     propagate();
                     change = true;
