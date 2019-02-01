@@ -188,7 +188,6 @@ extern "C" {
     // DIMACS files start with "p cnf" and number of variables/clauses.
     // This is not legal SMT syntax, so use the DIMACS parser.
     static bool is_dimacs_string(Z3_string c_str) {
-        std::cout << c_str << "\n";
         return c_str[0] == 'p' && c_str[1] == ' ' && c_str[2] == 'c';
     }
 

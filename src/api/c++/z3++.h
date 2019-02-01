@@ -388,7 +388,7 @@ namespace z3 {
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
         ~array() { delete[] m_array; }
-        void resize(unsigned sz) { delete[] m_array; m_array = new T[sz]; }
+        void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
