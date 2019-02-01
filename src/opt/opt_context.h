@@ -115,20 +115,23 @@ namespace opt {
             arith_util   m_arith;
             bv_util      m_bv;
             unsigned_vector  m_hard_lim;
+            unsigned_vector  m_asms_lim;
             unsigned_vector  m_objectives_lim;
             unsigned_vector  m_objectives_term_trail;
             unsigned_vector  m_objectives_term_trail_lim;
             map_id           m_indices;
 
         public:
-            expr_ref_vector  m_hard;
+            expr_ref_vector   m_hard;
+            expr_ref_vector   m_asms;
             vector<objective> m_objectives;
 
             scoped_state(ast_manager& m):
                 m(m),
                 m_arith(m),
                 m_bv(m),
-                m_hard(m)
+                m_hard(m),
+                m_asms(m)
             {}
             void push();
             void pop();
@@ -180,6 +183,7 @@ namespace opt {
         unsigned add_soft_constraint(expr* f, rational const& w, symbol const& id);
         unsigned add_objective(app* t, bool is_max);
         void add_hard_constraint(expr* f);
+        void add_hard_constraint(expr* f, expr* t);
         
         void get_hard_constraints(expr_ref_vector& hard);
         expr_ref get_objective(unsigned i);

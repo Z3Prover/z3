@@ -48,6 +48,7 @@ Notes:
 namespace opt {
 
     void context::scoped_state::push() {
+        m_asms_lim.push_back(m_asms.size());
         m_hard_lim.push_back(m_hard.size());
         m_objectives_lim.push_back(m_objectives.size());        
         m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
@@ -55,6 +56,7 @@ namespace opt {
 
     void context::scoped_state::pop() {
         m_hard.resize(m_hard_lim.back());
+        m_asms.resize(m_asms_lim.back());
         unsigned k = m_objectives_term_trail_lim.back();
         while (m_objectives_term_trail.size() > k) {
             unsigned idx = m_objectives_term_trail.back();
@@ -73,6 +75,7 @@ namespace opt {
         }
         m_objectives_lim.pop_back();            
         m_hard_lim.pop_back();   
+        m_asms_lim.pop_back();
     }
     
     void context::scoped_state::add(expr* hard) {
@@ -188,6 +191,12 @@ namespace opt {
         clear_state();
     }
 
+    void context::add_hard_constraint(expr* f, expr* t) {
+        m_scoped_state.m_asms.push_back(t);
+        m_scoped_state.add(m.mk_implies(t, f));
+        clear_state();
+    }
+
     void context::get_hard_constraints(expr_ref_vector& hard) {
         hard.append(m_scoped_state.m_hard);
     }
@@ -253,7 +262,7 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
-    lbool context::optimize(expr_ref_vector const& asms) {
+    lbool context::optimize(expr_ref_vector const& _asms) {
         if (m_pareto) {
             return execute_pareto();
         }
@@ -263,6 +272,8 @@ namespace opt {
         clear_state();
         init_solver(); 
         import_scoped_state(); 
+        expr_ref_vector asms(_asms);
+        asms.append(m_scoped_state.m_asms);
         normalize(asms);
         if (m_hard_constraints.size() == 1 && m.is_false(m_hard_constraints.get(0))) {
             return l_false;

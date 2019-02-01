@@ -1701,6 +1701,7 @@ namespace sat {
                 if (is_fixed_at(lit, c_fixed_truth) || is_true_at(lit, level)) continue;
                 bool unsat = false;
                 if (is_false_at(lit, level)) {
+                    if (lit.sign() && lit.var() == 34523) std::cout << "false at " << lit << "\n";
                     unsat = true;
                 }
                 else {
@@ -1708,7 +1709,9 @@ namespace sat {
                     reset_lookahead_reward(lit);
                     unsigned num_units = push_lookahead1(lit, level);
                     update_lookahead_reward(lit, level);
+                    if (lit.sign() && lit.var() == 34523) std::cout << "num units.1 " << num_units << " " << inconsistent() << "\n";
                     num_units += do_double(lit, dl_lvl);
+                    if (lit.sign() && lit.var() == 34523) std::cout << "num units.2 " << num_units << "\n";
                     if (dl_lvl > level) {
                         base = dl_lvl;
                         //SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);

@@ -72,14 +72,36 @@ namespace sat {
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
-        switch (st) {
-        case status::asserted: return;
-        case status::external: return; // requires extension to drat format.
-        case status::learned: break;
-        case status::deleted: (*m_out) << "d "; break;
+        if (st == status::asserted || st == status::external) {
+            return;
         }
-        for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
-        (*m_out) << "0\n";
+
+        char buffer[10000];
+        int len = 0;
+        if (st == status::deleted) {
+            buffer[0] = 'd';
+            buffer[1] = ' ';
+            len = 2;
+        }
+        for (unsigned i = 0; i < n && len >= 0; ++i) {
+            literal lit = c[i];
+            int _lit = lit.var();
+            if (lit.sign()) _lit = -_lit;
+            len += snprintf(buffer + len, sizeof(buffer) - len, "%d ", _lit);
+        }
+        
+        if (len >= 0) {
+            len += snprintf(buffer + len, sizeof(buffer) - len, "0\n");
+        }
+        if (len >= 0) {
+            m_out->write(buffer, len);
+        }
+        else {
+            if (st == status::deleted) (*m_out) << "d ";
+            for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
+            (*m_out) << "0\n";
+        }
+        
     }
 
     void drat::bdump(unsigned n, literal const* c, status st) {
