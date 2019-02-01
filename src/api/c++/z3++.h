@@ -2646,6 +2646,11 @@ namespace z3 {
             strm << weight;
             return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0));
         }
+        void add(expr const& e, expr const& t) {
+            assert(e.is_bool());
+            Z3_optimize_assert_and_track(ctx(), m_opt, e, t);
+        }
+
         handle add(expr const& e, char const* weight) {
             assert(e.is_bool());
             return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, weight, 0));

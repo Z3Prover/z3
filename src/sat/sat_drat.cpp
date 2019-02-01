@@ -76,13 +76,6 @@ namespace sat {
             return;
         }
 
-#if 0
-            if (st == status::deleted) (*m_out) << "d ";
-            for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
-            (*m_out) << "0\n";
-	    return;
-#endif
-
         char buffer[10000];
         char digits[20];     // enough for storing unsigned
         char* lastd = digits + sizeof(digits);
@@ -93,7 +86,7 @@ namespace sat {
             buffer[1] = ' ';
             len = 2;
         }
-        for (unsigned i = 0; i < n && len < sizeof(buffer); ++i) {
+        for (unsigned i = 0; i < n; ++i) {
             literal lit = c[i];
             unsigned v = lit.var();            
             if (lit.sign()) buffer[len++] = '-';
@@ -104,34 +97,18 @@ namespace sat {
                 v /= 10;
                 SASSERT(d > digits);
             }
-            if (len + lastd - d < sizeof(buffer)) {
-                memcpy(buffer + len, d, lastd - d);
-                len += static_cast<unsigned>(lastd - d);
+	    SASSERT(len + lastd - d < sizeof(buffer));
+	    memcpy(buffer + len, d, lastd - d);
+	    len += static_cast<unsigned>(lastd - d);            
+	    buffer[len++] = ' ';
+	    if (len + 50 > sizeof(buffer)) {
+	        m_out->write(buffer, len);
+	        len = 0;
             }
-            else {
-                len = sizeof(buffer) + 1;
-            }
-            if (len < sizeof(buffer)) {
-                buffer[len++] = ' ';
-            }
-        }
-        
-        if (len < sizeof(buffer) + 2) {
-            buffer[len++] = '0';
-            buffer[len++] = '\n';
-        }
-	else {
-            len = sizeof(buffer) + 1;
-	}
-        if (len <= sizeof(buffer)) {
-            m_out->write(buffer, len);
-        }
-        else {
-            if (st == status::deleted) (*m_out) << "d ";
-            for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
-            (*m_out) << "0\n";
-        }
-        
+        }        
+	buffer[len++] = '0';
+	buffer[len++] = '\n';
+	m_out->write(buffer, len);               
     }
 
     void drat::bdump(unsigned n, literal const* c, status st) {
