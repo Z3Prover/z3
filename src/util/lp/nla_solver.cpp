@@ -26,6 +26,15 @@
 #include "util/lp/rooted_mons.h"
 namespace nla {
 
+template <typename A, typename B>
+bool try_insert(const A& elem, B& collection) {
+    auto it = collection.find(elem);
+    if (it != collection.end())
+        return false;
+    collection.insert(elem);
+    return true;
+}
+
 typedef lp::lconstraint_kind llc;
 struct point {
     rational x;
@@ -46,6 +55,21 @@ point operator+(const point& a, const point& b) {
 point operator-(const point& a, const point& b) {
     return point(a.x - b.x, a.y - b.y);
 } 
+
+void divide_by_common_factor(unsigned_vector& a, unsigned_vector& b) {
+    SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
+    unsigned i = 0, j = 0;
+    while (i < a.size() && j < b.size()){
+        if (a[i] == b[j]) {
+            a.erase(a.begin() + i);
+            b.erase(b.begin() + j);
+        } else if (a[i] < b[j]) {
+            i++;
+        } else {
+            j++;
+        }
+    }
+}
 
 struct solver::imp {
     struct bfc {
@@ -88,11 +112,6 @@ struct solver::imp {
         return it->second;
     }
     
-    const unsigned_vector& abs_eq_vars(lpvar j) const {
-        rational v = abs(vvr(j));
-        return m_vars_equivalence.get_vars_with_the_same_abs_val(v);
-    }
-
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         :
         m_vars_equivalence([this](unsigned h){return vvr(h);}),
@@ -563,6 +582,51 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(current_lemma(), tout););
     }
 
+    // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
+    // but it is not the case in the model
+    // abs_vars_key is formed by m_vars_equivalence.get_abs_root_for_var(k), where
+    // k runs over m. 
+    void generate_sign_lemma_model_based(const monomial& m, const monomial& n, const rational& sign) {
+        add_empty_lemma_and_explanation();
+        TRACE("nla_solver",
+              );
+        unsigned_vector mvars(m.vars());
+        unsigned_vector nvars(n.vars());
+        divide_by_common_factor(mvars, nvars);
+        TRACE("nla_solver",
+              tout << "m = "; print_monomial_with_vars(m, tout);
+              tout << "n = "; print_monomial_with_vars(n, tout);              
+              tout << "mvars = "; print_product(mvars, tout);
+              tout << "\nnvars = "; print_product(nvars, tout);
+              );
+        std::unordered_map<unsigned, unsigned_vector> map;
+        const unsigned_vector key = get_abs_key(mvars);
+
+        // create and fill the map from "abs root vars" to lists,
+        // all elementl of map[j] have the same abs vvr() as vvr(j)
+        for (lpvar j : key) {
+            map[j] = unsigned_vector();
+        }
+        
+        for (unsigned j : mvars) {
+            unsigned k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
+            map.find(k)->second.push_back(j);
+        } 
+
+        for (unsigned j : nvars) {
+            unsigned k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
+            auto it = map.find(k);
+            lpvar jj = it->second.back();
+            rational s = vvr(jj) == vvr(j)? rational(1) : rational(-1);
+            // todo : check that each pair is processed only once
+            mk_ineq(j, -s, jj, llc::NE, current_lemma());
+            it->second.pop_back();
+        } 
+
+        mk_ineq(m.var(), -sign, n.var(), llc::EQ, current_lemma());        
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+    }
+
     lemma& current_lemma() {return m_lemma_vec->back();}
     lp::explanation& current_expl() {return m_expl_vec->back();}
 
@@ -645,11 +709,74 @@ struct solver::imp {
         return false;
     }
 
-    bool basic_sign_lemma_on_mon(unsigned i){
+    void init_abs_val_table() {
+        // register only those that a factors in a monomial
+        for (auto & p : m_monomials_containing_var) {
+            TRACE("nla_solver", tout << "p.first = " << p.first << std::endl;);
+            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
+        }
+    }
+
+    template <typename T>
+    unsigned_vector get_abs_key(const T& m) const {
+        unsigned_vector r;
+        for (unsigned j : m) {
+            r.push_back(m_vars_equivalence.get_abs_root_for_var(abs(vvr(j))));
+        }
+        std::sort(r.begin(), r.end());
+        return r;
+    }
+    
+    // bool basic_sign_lemma_on_mon_model_based(unsigned i_mon, std::unordered_map<unsigned_vector, unsigned, hash_svector>& key_mons) {
+    //     const monomial& m = m_monomials[i_mon];
+    //     unsigned_vector abs_key = get_abs_key(m);
+    // }
+
+    std::unordered_map<unsigned_vector, unsigned, hash_svector> create_relevant_abs_keys() {
+        std::unordered_map<unsigned_vector, unsigned, hash_svector> r;
+        for (unsigned i : m_to_refine) {
+            unsigned_vector key = get_abs_key(m_monomials[i]);
+            if (contains(r, key))
+                continue;
+            r[key] = i;
+        }
+        return r;
+    }
+
+    bool basic_sign_lemma_on_two_mons_model_based(const monomial& m, const monomial& n) {
+        TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); );
+        rational sign;
+        if (sign_contradiction(m, n, sign)) {
+            generate_sign_lemma_model_based(m, n, sign);
+            return true;
+        }
+        return false;
+    }
+    bool basic_sign_lemma_model_based() {
+        init_abs_val_table();        
+        std::unordered_map<unsigned_vector, unsigned, hash_svector> key_mons =
+            create_relevant_abs_keys();
+        for (unsigned i = 0; i < m_monomials.size(); i++) {
+            unsigned_vector key = get_abs_key(m_monomials[i]);
+            auto it = key_mons.find(key);            
+            if (it == key_mons.end() || it->second == i)
+                continue;
+            if (basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]))
+                return true;
+        }
+        return false;
+    }
+
+    
+    bool basic_sign_lemma_on_mon(unsigned i, std::unordered_set<unsigned> & explored){
         const monomial& m = m_monomials[i];
         TRACE("nla_solver", tout << "i = " << i << ", mon = "; print_monomial_with_vars(m, tout););
         const index_with_sign&  rm_i_s = m_rm_table.get_rooted_mon(i);
-        const auto& mons_to_explore = m_rm_table.vec()[rm_i_s.index()].m_mons;
+        unsigned k = rm_i_s.index();
+        if (!try_insert(k, explored))
+            return false;
+
+        const auto& mons_to_explore = m_rm_table.vec()[k].m_mons;
         
         for (index_with_sign i_s : mons_to_explore) {
             unsigned n = i_s.index();
@@ -665,10 +792,13 @@ struct solver::imp {
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
-    bool basic_sign_lemma() {
-        TRACE("nla_solver", tout << "m_to_refine.size = " << m_to_refine.size(););
+    bool basic_sign_lemma(bool derived) {
+        if (!derived)
+            return basic_sign_lemma_model_based();
+
+        std::unordered_set<unsigned> explored;
         for (unsigned i : m_to_refine){
-            if (basic_sign_lemma_on_mon(i))
+            if (basic_sign_lemma_on_mon(i, explored))
                 return true;
         }
         return false;
@@ -1046,7 +1176,7 @@ struct solver::imp {
                     continue;
                 if (basic_lemma_for_mon_non_zero(rm, factorization, derived) ||
                     basic_lemma_for_mon_neutral(rm, factorization, derived) ||
-                    proportion_lemma(rm, factorization)) {
+                    (!derived && proportion_lemma(rm, factorization))) {
                     explain(factorization, current_expl());
                     return true;
                 }
@@ -1065,7 +1195,7 @@ struct solver::imp {
     
     // use basic multiplication properties to create a lemma
     bool basic_lemma(bool derived) {
-        if (basic_sign_lemma())
+        if (basic_sign_lemma(derived))
             return true;
         
         init_rm_to_refine();
@@ -1151,34 +1281,11 @@ struct solver::imp {
         m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
     }
 
-    bool abs_values_table_is_ok_for_var(lpvar j) const {
-        for (lpvar k : m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(j))) {
-            if (abs(vvr(j)) != abs(vvr(k))) {
-                TRACE("nla_solver", tout << "j = "; print_var(j, tout);
-                      tout << "\nk = "; print_var(k, tout););
-                return false;
-            }
-        }
-        return true;
-    }
-
-    bool abs_values_table_is_ok() const {
-        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
-            if (!abs_values_table_is_ok_for_var(j)) {
-                return false;
-            }
-        }
-        return true;
-    }
-    
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
         SASSERT(m_vars_equivalence.empty());
         collect_equivs();
         m_vars_equivalence.create_tree();
-        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
-            m_vars_equivalence.register_var(j, vvr(j));
-        }
         TRACE("nla_solver", tout << "number of equivs = " << m_vars_equivalence.size(););
         
         SASSERT((m_lar_solver.settings().random_next() % 100) || tables_are_ok());
@@ -1217,11 +1324,7 @@ struct solver::imp {
     }
     
     bool tables_are_ok() const {
-        return abs_values_table_is_ok()
-            &&
-            vars_table_is_ok()
-            &&
-            rm_table_is_ok();
+        return vars_table_is_ok() && rm_table_is_ok();
     }
     
     bool var_is_a_root(lpvar j) const { return m_vars_equivalence.is_root(j); }
@@ -1351,7 +1454,7 @@ struct solver::imp {
                      int d_sign,
                      const factor& d,
                      llc ab_cmp,
-                     bool model_based
+                     bool derived
                      ) {
         add_empty_lemma_and_explanation();
         mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE, current_lemma());
@@ -1362,7 +1465,7 @@ struct solver::imp {
         explain(a, current_expl());
         explain(bd, current_expl());
         explain(b, current_expl());
-        if (!model_based) { // this will explain c == d
+        if (derived) { // this will explain c == d
             explain(c, current_expl());
             explain(d, current_expl()); // todo: double check that these explanations are enough, too much!?
         }
@@ -1405,7 +1508,7 @@ struct solver::imp {
                                               const rooted_mon& bd,
                                               const factor& b,
                                               const factor& d,
-                                              bool model_based) {
+                                              bool derived) {
         SASSERT(abs(vvr(c)) == abs(vvr(d)));
         auto cv = vvr(c); auto dv = vvr(d);
         int c_sign, d_sign;
@@ -1432,12 +1535,12 @@ struct solver::imp {
         
         if (av < bv){
             if(!(acv < bdv)) {
-                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT, model_based);
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT, derived);
                 return true;
             }
         } else if (av > bv){
             if(!(acv > bdv)) {
-                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::GT, model_based);
+                generate_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::GT, derived);
                 return true;
             }
         }
@@ -1452,7 +1555,7 @@ struct solver::imp {
                                   unsigned k,
                                   const rooted_mon& rm_bd,
                                   const factor& d,
-                                  bool model_based
+                                  bool derived
                                   ) {
         TRACE("nla_solver",   tout << "rm_ac = ";
               print_rooted_monomial(rm_ac, tout);
@@ -1468,7 +1571,7 @@ struct solver::imp {
             return false;
         }
 
-        return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d, model_based);
+        return order_lemma_on_ac_and_bd_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b, d, derived);
     }
 
     void maybe_add_a_factor(lpvar i,
@@ -1480,8 +1583,7 @@ struct solver::imp {
         auto it = m_var_to_its_monomial.find(i);
         if (it == m_var_to_its_monomial.end()) {
             i = m_vars_equivalence.map_to_root(i);
-            if (!contains(found_vars, i)) {
-                found_vars.insert(i);
+            if (try_insert(i, found_vars)) {
                 r.push_back(factor(i, factor_type::VAR));
             }
         } else {
@@ -1489,8 +1591,7 @@ struct solver::imp {
             const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
             unsigned rm_i = i_s.index();
             //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
-            if (!contains(found_rm, rm_i)) {
-                found_rm.insert(rm_i);
+            if (try_insert(rm_i, found_rm)) {
                 r.push_back(factor(rm_i, factor_type::RM));
                 TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(rm_i, factor_type::RM), tout); );
             }
@@ -1499,12 +1600,12 @@ struct solver::imp {
     
     // collect all vars and rooted monomials with the same absolute
     // value as the absolute value af c and return them as factors 
-    vector<factor> factors_with_the_same_abs_val(const factor& c, bool model_based) const {
+    vector<factor> factors_with_the_same_abs_val(const factor& c, bool derived) const {
         vector<factor> r;
         std::unordered_set<lpvar> found_vars;
         std::unordered_set<unsigned> found_rm;
         TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout););
-        if (model_based) {
+        if (!derived) {
             for (lpvar i :  m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
                 maybe_add_a_factor(i, c, found_vars, found_rm, r);
             }
@@ -1517,20 +1618,20 @@ struct solver::imp {
     }
 
 
-    bool order_lemma_on_ad(const rooted_mon& rm, const factorization& ac, unsigned k, bool model_based, const factor & d) {
+    bool order_lemma_on_ad(const rooted_mon& rm, const factorization& ac, unsigned k, bool derived, const factor & d) {
         TRACE("nla_solver", tout << "d = "; print_factor_with_vars(d, tout); );
         SASSERT(abs(vvr(d)) == abs(vvr(ac[k])));
         if (d.is_var()) {
             TRACE("nla_solver", tout << "var(d) = " << var(d););
             for (unsigned rm_bd : m_rm_table.var_map()[d.index()]) {
                 TRACE("nla_solver", );
-                if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d, model_based)) {
+                if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d, derived)) {
                     return true;
                 }
             }
         } else {
             for (unsigned rm_b : m_rm_table.proper_factors()[d.index()]) {
-                if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_b], d, model_based)) {
+                if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_b], d, derived)) {
                     return true;
                 }
             }
@@ -1541,12 +1642,12 @@ struct solver::imp {
     // a > b && c > 0 => ac > bc
     // ac is a factorization of rm.vars()
     // ac[k] plays the role of c   
-    bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k, bool model_based) {
+    bool order_lemma_on_factor(const rooted_mon& rm, const factorization& ac, unsigned k, bool derived) {
         auto c = ac[k];
         TRACE("nla_solver", tout << "k = " << k << ", c = "; print_factor_with_vars(c, tout); );
 
-        for (const factor & d : factors_with_the_same_abs_val(c, model_based)) {
-            if (order_lemma_on_ad(rm, ac, k, model_based, d))
+        for (const factor & d : factors_with_the_same_abs_val(c, derived)) {
+            if (order_lemma_on_ad(rm, ac, k, derived, d))
                 return true;
         }
         return false;
@@ -1554,7 +1655,7 @@ struct solver::imp {
 
     // a > b && c == d => ac > bd
     // ac is a factorization of rm.vars()
-    bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac, bool model_based) {
+    bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac, bool derived) {
         SASSERT(ac.size() == 2);
         CTRACE("nla_solver",
                rm.vars().size() == 4,
@@ -1565,7 +1666,7 @@ struct solver::imp {
             if (v.is_zero())
                 continue;
 
-            if (order_lemma_on_factor(rm, ac, k, model_based)) { 
+            if (order_lemma_on_factor(rm, ac, k, derived)) { 
                 return true;
             }
         }
@@ -1573,19 +1674,19 @@ struct solver::imp {
     }
 
     // a > b && c > 0 => ac > bc
-    bool order_lemma_on_monomial(const rooted_mon& rm, bool model_based) {
+    bool order_lemma_on_monomial(const rooted_mon& rm, bool derived) {
         TRACE("nla_solver",
               tout << "rm = "; print_product(rm, tout);
               tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
               );
         for (auto ac : factorization_factory_imp(rm.vars(), *this)) {
-            if (ac.size() == 2 && order_lemma_on_factorization(rm, ac, model_based))
+            if (ac.size() == 2 && order_lemma_on_factorization(rm, ac, derived))
                 return true;
         }
         return false;
     }
     
-    bool order_lemma(bool model_based) {
+    bool order_lemma(bool derived) {
         TRACE("nla_solver", );
 
         const auto& rm_ref = m_rm_table.to_refine();
@@ -1593,7 +1694,7 @@ struct solver::imp {
         unsigned i = start;
         do {
             const rooted_mon& rm = m_rm_table.vec()[rm_ref[i]];
-            if (order_lemma_on_monomial(rm, model_based)) {
+            if (order_lemma_on_monomial(rm, derived)) {
                 return true;
             } 
             if (++i == rm_ref.size()) {
@@ -1748,6 +1849,7 @@ struct solver::imp {
         assert_abs_val_a_le_abs_var_b(a, b, true);
         explain(a, current_expl());
         explain(b, current_expl());
+        TRACE("nla_solver", print_lemma_and_expl(tout););
     }
 
     // not a strict version
@@ -1763,6 +1865,7 @@ struct solver::imp {
         assert_abs_val_a_le_abs_var_b(a, b, false);
         explain(a, current_expl());
         explain(b, current_expl());
+        TRACE("nla_solver", print_lemma_and_expl(tout););
     }
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
@@ -2070,8 +2173,8 @@ struct solver::imp {
                 if (order_lemma(derived))  {
                     ret = l_false;
                 }
-            } else { // search_level == 3
-                if (monotonicity_lemma() || tangent_lemma()) {
+            } else { // search_level == 2
+                if (!derived && (monotonicity_lemma() || tangent_lemma())) {
                     ret = l_false;
                 }
             }
@@ -2098,7 +2201,8 @@ struct solver::imp {
         lbool ret = inner_check(true);
         if (ret == l_undef)
             ret = inner_check(false);
-            
+
+        TRACE("nla_solver", tout << "ret = " << ret;);
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || no_lemmas_hold());
@@ -2396,6 +2500,7 @@ void solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
 
 void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     std::cout << "test_basic_lemma_for_mon_zero_from_factors_to_monomial\n";
+    enable_trace("nla_solver");
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
@@ -2442,7 +2547,7 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     s.set_column_value(lp_be, rational(1));
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
-    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma_and_expl(std::cout);
     SASSERT(lemma.size() == 1 && lemma[0].size() == 2);
     ineq i0(llc::NE, lp::lar_term(), rational(0));
     i0.m_term.add_var(lp_b);
@@ -2615,13 +2720,13 @@ void solver::test_basic_sign_lemma() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         bde = 7, acd = 8;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_bde = s.add_named_var(bde, true, "bde");
+    lpvar lp_acd = s.add_named_var(acd, true, "acd");
     
     reslimit l;
     params_ref p;
@@ -2668,7 +2773,7 @@ void solver::test_basic_sign_lemma() {
     t.add_var(lp_acd);
     ineq q(llc::EQ, t, rational(0));
    
-    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma_and_expl(std::cout);
     SASSERT(q == lemma[0].back());
     ineq i0(llc::EQ, lp::lar_term(), rational(0));
     i0.m_term.add_var(lp_bde);

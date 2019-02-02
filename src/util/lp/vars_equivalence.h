@@ -254,7 +254,12 @@ struct vars_equivalence {
             explain(j, exp);
     }
 
-    void register_var(unsigned j, const rational& val) {
+    unsigned get_abs_root_for_var(const rational & v) const {
+        SASSERT(!v.is_neg());
+        return *(m_vars_by_abs_values.find(v)->second.begin());
+    }
+
+    void register_var_with_abs_val(unsigned j, const rational& val) {
         TRACE("nla_vars_eq", tout << "j = " << j;);
         rational v = abs(val);
         auto it = m_vars_by_abs_values.find(v);
