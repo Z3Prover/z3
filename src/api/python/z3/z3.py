@@ -7344,7 +7344,6 @@ class Optimize(Z3PPObject):
         >>> x = Int('x')
         >>> p3 = Bool('p3')
         >>> s = Optimize()
-        >>> s.set(unsat_core=True)
         >>> s.assert_and_track(x > 0,  'p1')
         >>> s.assert_and_track(x != 1, 'p2')
         >>> s.assert_and_track(x < 0,  p3)

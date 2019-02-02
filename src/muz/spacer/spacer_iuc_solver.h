@@ -123,7 +123,7 @@ public:
     void assert_expr_core2(expr *t, expr *a) override   { NOT_IMPLEMENTED_YET(); }
     expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override { m_solver.get_levels(vars, depth); }
-    expr_ref_vector get_trail() { return m_solver.get_trail(); }
+    expr_ref_vector get_trail() override { return m_solver.get_trail(); }
 
     void push() override;
     void pop(unsigned n) override;
