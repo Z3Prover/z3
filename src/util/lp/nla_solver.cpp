@@ -710,9 +710,13 @@ struct solver::imp {
     }
 
     void init_abs_val_table() {
-        // register only those that a factors in a monomial
-        for (unsigned j = 0; j < m_lar_solver.number_of_vars(); j++) {
-            m_vars_equivalence.register_var_with_abs_val(j, vvr(j));
+        // register those vars that a factors in a monomial
+        for (auto & p : m_monomials_containing_var) {
+            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
+        }
+        // register monomial vars too
+        for (auto & p : m_var_to_its_monomial) {
+            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
         }
     }
 
