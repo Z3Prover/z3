@@ -711,9 +711,8 @@ struct solver::imp {
 
     void init_abs_val_table() {
         // register only those that a factors in a monomial
-        for (auto & p : m_monomials_containing_var) {
-            TRACE("nla_solver", tout << "p.first = " << p.first << std::endl;);
-            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
+        for (unsigned j = 0; j < m_lar_solver.number_of_vars(); j++) {
+            m_vars_equivalence.register_var_with_abs_val(j, vvr(j));
         }
     }
 
@@ -727,11 +726,6 @@ struct solver::imp {
         return r;
     }
     
-    // bool basic_sign_lemma_on_mon_model_based(unsigned i_mon, std::unordered_map<unsigned_vector, unsigned, hash_svector>& key_mons) {
-    //     const monomial& m = m_monomials[i_mon];
-    //     unsigned_vector abs_key = get_abs_key(m);
-    // }
-
     std::unordered_map<unsigned_vector, unsigned, hash_svector> create_relevant_abs_keys() {
         std::unordered_map<unsigned_vector, unsigned, hash_svector> r;
         for (unsigned i : m_to_refine) {
@@ -1657,10 +1651,8 @@ struct solver::imp {
     // ac is a factorization of rm.vars()
     bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac, bool derived) {
         SASSERT(ac.size() == 2);
-        CTRACE("nla_solver",
-               rm.vars().size() == 4,
-               tout << "rm = "; print_rooted_monomial(rm, tout);
-               tout << ", factorization = "; print_factorization(ac, tout););
+        TRACE("nla_solver", tout << "rm = "; print_rooted_monomial(rm, tout);
+              tout << ", factorization = "; print_factorization(ac, tout););
         for (unsigned k = 0; k < ac.size(); k++) {
             const rational & v = vvr(ac[k]);
             if (v.is_zero())
