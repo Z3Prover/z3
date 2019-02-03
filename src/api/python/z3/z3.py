@@ -4490,11 +4490,15 @@ def K(dom, v):
     return ArrayRef(Z3_mk_const_array(ctx.ref(), dom.ast, v.as_ast()), ctx)
 
 def Ext(a, b):
-    """Return extensionality index for arrays.
+    """Return extensionality index for one-dimensional arrays.
+    >> a, b = Consts('a b', SetSort(IntSort()))
+    >> Ext(a, b)
+    Ext(a, b)
     """
+    ctx = a.ctx
     if __debug__:
-        _z3_assert(is_array(a) and is_array(b))
-    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
+        _z3_assert(is_array(a) and is_array(b), "arguments must be arrays")
+    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
