@@ -2517,7 +2517,7 @@ namespace upolynomial {
     // Keep expanding the Sturm sequence starting at seq
     void manager::sturm_seq_core(upolynomial_sequence & seq) {
         scoped_numeral_vector r(m());
-        while (true) {
+        while (m_limit.inc()) {
             unsigned sz = seq.size();
             srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
             if (is_zero(r))
