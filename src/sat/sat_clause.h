@@ -68,6 +68,7 @@ namespace sat {
         bool is_learned() const { return m_learned; }
         void set_learned(bool l) { SASSERT(is_learned() != l); m_learned = l; }
         void shrink(unsigned num_lits);
+        void restore(unsigned num_lits);
         bool strengthened() const { return m_strengthened; }
         void mark_strengthened() { m_strengthened = true; update_approx(); }
         void unmark_strengthened() { m_strengthened = false; }

@@ -119,7 +119,15 @@ public:
         }
     }
 
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        m_base->get_levels(vars, depth);
+    }
+
+    expr_ref_vector get_trail() override {
+        return m_base->get_trail();
+    }
+
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();
         scoped_watch _t_(m_pool.m_check_watch);

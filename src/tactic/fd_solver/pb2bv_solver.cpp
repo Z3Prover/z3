@@ -75,9 +75,9 @@ public:
         m_rewriter.pop(n);
     }
 
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         flush_assertions();
-        return m_solver->check_sat(num_assumptions, assumptions);
+        return m_solver->check_sat_core(num_assumptions, assumptions);
     }
 
     void updt_params(params_ref const & p) override { solver::updt_params(p); m_rewriter.updt_params(p); m_solver->updt_params(p);  }
@@ -96,6 +96,13 @@ public:
             if (mc) (*mc)(mdl);
         }
     } 
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        m_solver->get_levels(vars, depth);
+    }
+
+    expr_ref_vector get_trail() override {
+        return m_solver->get_trail();
+    }
 
     model_converter* external_model_converter() const{
         return concat(mc0(), local_model_converter());

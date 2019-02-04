@@ -3,7 +3,7 @@ Copyright (c) 2011 Microsoft Corporation
 
 Module Name:
 
-    solver.h
+    solver.cpp
 
 Abstract:
 
@@ -21,25 +21,25 @@ Notes:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_pp_util.h"
+#include "ast/display_dimacs.h"
 #include "tactic/model_converter.h"
 #include "solver/solver.h"
+#include "solver/solver_params.hpp"
 #include "model/model_evaluator.h"
 
 
 unsigned solver::get_num_assertions() const {
-    NOT_IMPLEMENTED_YET();
+    UNREACHABLE();
     return 0;
 }
 
 expr * solver::get_assertion(unsigned idx) const {
-    NOT_IMPLEMENTED_YET();
+    UNREACHABLE();
     return nullptr;
 }
 
 std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assumptions) const {
     expr_ref_vector fmls(get_manager());
-    stopwatch sw;
-    sw.start();
     get_assertions(fmls);    
     ast_pp_util visitor(get_manager());
     model_converter_ref mc = get_model_converter();
@@ -55,6 +55,12 @@ std::ostream& solver::display(std::ostream & out, unsigned n, expr* const* assum
         mc->set_env(nullptr);
     }
     return out;
+}
+
+std::ostream& solver::display_dimacs(std::ostream& out) const {
+    expr_ref_vector fmls(get_manager());
+    get_assertions(fmls);    
+    return ::display_dimacs(out, fmls);
 }
 
 void solver::get_assertions(expr_ref_vector& fmls) const {
@@ -217,22 +223,36 @@ void solver::assert_expr(expr* f, expr* t) {
     assert_expr_core2(fml, a);    
 }
 
+static void insert_ctrl_c(param_descrs & r) {
+    r.insert("ctrl_c", CPK_BOOL, "enable interrupts from ctrl-c", "false");
+}
+
+
 void solver::collect_param_descrs(param_descrs & r) {
     r.insert("solver.enforce_model_conversion", CPK_BOOL, "(default: false) enforce model conversion when asserting formulas");
+    insert_timeout(r);
+    insert_rlimit(r);
+    insert_max_memory(r);
+    insert_ctrl_c(r);
 }
 
 void solver::reset_params(params_ref const & p) {
     m_params = p;
-    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
+    solver_params sp(m_params);
+    m_enforce_model_conversion = sp.enforce_model_conversion();
+    m_cancel_backup_file = sp.cancel_backup_file();
 }
 
 void solver::updt_params(params_ref const & p) {
     m_params.copy(p);
-    m_enforce_model_conversion = m_params.get_bool("solver.enforce_model_conversion", false);
+    solver_params sp(m_params);
+    m_enforce_model_conversion = sp.enforce_model_conversion();
+    m_cancel_backup_file = sp.cancel_backup_file();
 }
 
 
-expr_ref_vector solver::get_units(ast_manager& m) {
+expr_ref_vector solver::get_units() {
+    ast_manager& m = get_manager();
     expr_ref_vector fmls(m), result(m), tmp(m);
     get_assertions(fmls);
     obj_map<expr, bool> units;
@@ -265,7 +285,8 @@ expr_ref_vector solver::get_units(ast_manager& m) {
 }
 
 
-expr_ref_vector solver::get_non_units(ast_manager& m) {
+expr_ref_vector solver::get_non_units() {
+    ast_manager& m = get_manager();
     expr_ref_vector result(m), fmls(m);
     get_assertions(fmls);
     family_id bfid = m.get_basic_family_id();
@@ -299,4 +320,33 @@ expr_ref_vector solver::get_non_units(ast_manager& m) {
         }
     }
     return result;
+}
+
+
+lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
+    lbool r = l_undef;
+    try {
+        r = check_sat_core(num_assumptions, assumptions);
+    }
+    catch (...) {
+        if (get_manager().canceled()) {
+            dump_state(num_assumptions, assumptions);
+        }
+        throw;
+    }
+    if (r == l_undef && get_manager().canceled()) {
+        dump_state(num_assumptions, assumptions);        
+    }
+    return r;
+}
+
+void solver::dump_state(unsigned sz, expr* const* assumptions) {
+    if ((symbol::null != m_cancel_backup_file) &&
+        !m_cancel_backup_file.is_numerical() && 
+        m_cancel_backup_file.c_ptr() &&
+        m_cancel_backup_file.bare_str()[0]) {
+        std::string file = m_cancel_backup_file.str();
+        std::ofstream ous(file);
+        display(ous, sz, assumptions);
+    }
 }

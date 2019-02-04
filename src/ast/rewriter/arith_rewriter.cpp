@@ -861,7 +861,8 @@ bool arith_rewriter::divides(expr* num, expr* den, expr_ref& result) {
         if (m_util.is_numeral(arg, num_r)) num_e = arg; 
     } 
     for (expr* arg : args2) { 
-        if (mark.is_marked(arg)) { 
+        // dont remove divisor on (div (* -1 x) (* -1 y)) because rewriting would diverge. 
+        if (mark.is_marked(arg) && (!m_util.is_numeral(arg, num_r) || !num_r.is_minus_one())) { 
             result = remove_divisor(arg, num, den); 
             return true; 
         } 
@@ -900,7 +901,14 @@ expr_ref arith_rewriter::remove_divisor(expr* arg, expr* num, expr* den) {
     expr_ref zero(m_util.mk_int(0), m()); 
     num = args1.empty() ? m_util.mk_int(1) : m_util.mk_mul(args1.size(), args1.c_ptr()); 
     den = args2.empty() ? m_util.mk_int(1) : m_util.mk_mul(args2.size(), args2.c_ptr()); 
-    return expr_ref(m().mk_ite(m().mk_eq(zero, arg), m_util.mk_idiv(zero, zero), m_util.mk_idiv(num, den)), m()); 
+    expr_ref d(m_util.mk_idiv(num, den), m());
+    expr_ref nd(m_util.mk_idiv(m_util.mk_uminus(num), m_util.mk_uminus(den)), m());
+    return expr_ref(m().mk_ite(m().mk_eq(zero, arg), 
+                               m_util.mk_idiv(zero, zero), 
+                               m().mk_ite(m_util.mk_ge(arg, zero), 
+                                          d,
+                                          nd)),
+                    m());
 } 
  
 void arith_rewriter::flat_mul(expr* e, ptr_buffer<expr>& args) { 

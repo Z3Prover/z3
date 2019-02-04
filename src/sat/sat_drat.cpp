@@ -27,18 +27,26 @@ namespace sat {
     drat::drat(solver& s):
         s(s),
         m_out(nullptr),
+        m_bout(nullptr),
         m_inconsistent(false),
         m_check_unsat(false),
         m_check_sat(false),
         m_check(false)
     {
         if (s.m_config.m_drat && s.m_config.m_drat_file != symbol()) {
-            m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str());
+            auto mode = s.m_config.m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
+            m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str(), mode);
+            if (s.m_config.m_drat_binary) {
+                std::swap(m_out, m_bout);
+            }
         }
     }
 
     drat::~drat() {
+        if (m_out) m_out->flush();
+        if (m_bout) m_bout->flush();
         dealloc(m_out);
+        dealloc(m_bout);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
             if (c && (c->size() == 2 || m_status[i] == status::deleted || m_status[i] == status::external)) {
@@ -64,14 +72,70 @@ namespace sat {
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
+        if (st == status::asserted || st == status::external) {
+            return;
+        }
+
+        char buffer[10000];
+        char digits[20];     // enough for storing unsigned
+        char* lastd = digits + sizeof(digits);
+        
+        int len = 0;
+        if (st == status::deleted) {
+            buffer[0] = 'd';
+            buffer[1] = ' ';
+            len = 2;
+        }
+        for (unsigned i = 0; i < n; ++i) {
+            literal lit = c[i];
+            unsigned v = lit.var();            
+            if (lit.sign()) buffer[len++] = '-';
+            char* d = lastd;
+            while (v > 0) {                
+                d--;
+                *d = (v % 10) + '0';
+                v /= 10;
+                SASSERT(d > digits);
+            }
+	    SASSERT(len + lastd - d < sizeof(buffer));
+	    memcpy(buffer + len, d, lastd - d);
+	    len += static_cast<unsigned>(lastd - d);            
+	    buffer[len++] = ' ';
+	    if (len + 50 > sizeof(buffer)) {
+	        m_out->write(buffer, len);
+	        len = 0;
+            }
+        }        
+	buffer[len++] = '0';
+	buffer[len++] = '\n';
+	m_out->write(buffer, len);               
+    }
+
+    void drat::bdump(unsigned n, literal const* c, status st) {
+        unsigned char ch = 0;
         switch (st) {
         case status::asserted: return;
-        case status::external: return; // requires extension to drat format.
-        case status::learned: break;
-        case status::deleted: (*m_out) << "d "; break;
+        case status::external: return; 
+        case status::learned: ch = 'a'; break;
+        case status::deleted: ch = 'd'; break;
+        default: UNREACHABLE(); break;
         }
-        for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
-        (*m_out) << "0\n";
+        (*m_bout) << ch;
+
+        for (unsigned i = 0; i < n; ++i) {
+            literal lit = c[i];
+            unsigned v = 2 * lit.var() + (lit.sign() ? 1 : 0);
+            do {
+                ch = static_cast<unsigned char>(v & ((1 << 7) - 1));
+                v >>= 7;
+                if (v) ch |= (1 << 7);
+                //std::cout << std::hex << ((unsigned char)ch) << std::dec << " ";
+                (*m_bout) << ch;
+            }
+            while (v);
+        }
+        ch = 0;
+        (*m_bout) << ch;
     }
 
     bool drat::is_cleaned(clause& c) const {
@@ -143,7 +207,7 @@ namespace sat {
         IF_VERBOSE(20, trace(verbose_stream(), n, c.begin(), st););
 
         if (st == status::learned) {
-            verify(n, c.begin());
+            verify(c);
         }
 
         m_status.push_back(st);
@@ -212,13 +276,64 @@ namespace sat {
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {            
             assign_propagate(~c[i]);
         }
+        if (!m_inconsistent) {
+            DEBUG_CODE(validate_propagation(););
+        }
         DEBUG_CODE(
-            if (!m_inconsistent) {
-                validate_propagation();
-            }
             for (literal u : m_units) {
                 SASSERT(m_assignment[u.var()] != l_undef);
             });
+
+#if 0
+        if (!m_inconsistent) {
+            literal_vector lits(n, c);
+            IF_VERBOSE(0, verbose_stream() << "not drup " << lits << "\n");
+            for (unsigned v = 0; v < m_assignment.size(); ++v) {
+                lbool val = m_assignment[v];
+                if (val != l_undef) {
+                    IF_VERBOSE(0, verbose_stream() << literal(v, false) << " |-> " << val << "\n");
+                }
+            }
+            for (clause* cp : s.m_clauses) {
+                clause& cl = *cp;
+                bool found = false;
+                for (literal l : cl) {
+                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
+                }
+            }
+            for (clause* cp : s.m_learned) {
+                clause& cl = *cp;
+                bool found = false;
+                for (literal l : cl) {
+                    if (m_assignment[l.var()] != (l.sign() ? l_true : l_false)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Clause is false under assignment: " << cl << "\n");
+                }
+            }
+            svector<sat::solver::bin_clause> bin;
+            s.collect_bin_clauses(bin, true);
+            for (auto & b : bin) {
+                bool found = false;
+                if (m_assignment[b.first.var()] != (b.first.sign() ? l_true : l_false)) found = true;
+                if (m_assignment[b.second.var()] != (b.second.sign() ? l_true : l_false)) found = true;
+                if (!found) {
+                    IF_VERBOSE(0, verbose_stream() << "Bin clause is false under assignment: " << b.first << " " << b.second << "\n");
+                }
+            }
+            IF_VERBOSE(0, s.display(verbose_stream()));
+            exit(0);
+        }
+#endif
 
         for (unsigned i = num_units; i < m_units.size(); ++i) {
             m_assignment[m_units[i].var()] = l_undef;
@@ -227,6 +342,7 @@ namespace sat {
         bool ok = m_inconsistent;
         IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
         m_inconsistent = false;
+
         return ok;
     }
 
@@ -281,8 +397,18 @@ namespace sat {
     }
 
     void drat::verify(unsigned n, literal const* c) {
-        if (m_check_unsat && !is_drup(n, c) && !is_drat(n, c)) {
-            std::cout << "Verification failed\n";
+        if (!m_check_unsat) {
+            return;
+        }
+        for (unsigned i = 0; i < n; ++i) { 
+            declare(c[i]);
+        } 
+        if (!is_drup(n, c) && !is_drat(n, c)) {
+            literal_vector lits(n, c);
+            std::cout << "Verification of " << lits << " failed\n";
+            s.display(std::cout);
+            SASSERT(false);
+            exit(0);
             UNREACHABLE();
             //display(std::cout);
             TRACE("sat", 
@@ -291,6 +417,36 @@ namespace sat {
                   s.display(tout););
             UNREACHABLE();
         }
+    }
+
+    bool drat::contains(unsigned n, literal const* lits) {
+        if (!m_check) return true;
+        for (unsigned i = m_proof.size(); i-- > 0; ) {
+            clause& c = *m_proof[i];
+            status st = m_status[i];
+            if (match(n, lits, c)) {
+                return st != status::deleted;
+            }
+        }
+        return false;
+    }
+
+    bool drat::match(unsigned n, literal const* lits, clause const& c) const {
+        if (n == c.size()) {
+            for (unsigned i = 0; i < n; ++i) {
+                literal lit1 = lits[i];
+                bool found = false;
+                for (literal lit2 : c) {
+                    if (lit1 == lit2) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) return false;
+            }
+            return true;
+        }
+        return false;
     }
 
     void drat::display(std::ostream& out) const {
@@ -422,6 +578,7 @@ namespace sat {
 
     void drat::add() {
         if (m_out) (*m_out) << "0\n";
+        if (m_bout) bdump(0, nullptr, learned);
         if (m_check_unsat) {
             SASSERT(m_inconsistent);
         }
@@ -431,6 +588,7 @@ namespace sat {
         declare(l);
         status st = get_status(learned);
         if (m_out) dump(1, &l, st);
+        if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
     }
     void drat::add(literal l1, literal l2, bool learned) {
@@ -440,6 +598,7 @@ namespace sat {
         literal ls[2] = {l1, l2};
         status st = get_status(learned);
         if (m_out) dump(2, ls, st);
+        if (m_bout) bdump(2, ls, st);
         if (m_check) append(l1, l2, st);
     }
     void drat::add(clause& c, bool learned) {
@@ -447,6 +606,7 @@ namespace sat {
         for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         status st = get_status(learned);
         if (m_out) dump(c.size(), c.begin(), st);
+        if (m_bout) bdump(c.size(), c.begin(), st);
         if (m_check_unsat) append(c, get_status(learned));
     }
     void drat::add(literal_vector const& lits, svector<premise> const& premises) {
@@ -465,6 +625,7 @@ namespace sat {
     void drat::add(literal_vector const& c) {
         for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         if (m_out) dump(c.size(), c.begin(), status::learned);
+        if (m_bout) bdump(c.size(), c.begin(), status::learned);
         if (m_check) {
             switch (c.size()) {
             case 0: add(); break;
@@ -481,25 +642,39 @@ namespace sat {
 
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);
+        if (m_bout) bdump(1, &l, status::deleted);
         if (m_check_unsat) append(l, status::deleted);
     }
     void drat::del(literal l1, literal l2) {
         literal ls[2] = {l1, l2};
         if (m_out) dump(2, ls, status::deleted);
-        if (m_check) 
-            append(l1, l2, status::deleted);
+        if (m_bout) bdump(2, ls, status::deleted);
+        if (m_check) append(l1, l2, status::deleted);
     }
+
     void drat::del(clause& c) {
+
+#if 0
+        // check_duplicates:
+        for (literal lit : c) {
+            VERIFY(!m_seen[lit.index()]);
+            m_seen[lit.index()] = true;
+        }
+        for (literal lit : c) {
+            m_seen[lit.index()] = false;
+        }
+#endif
+
         TRACE("sat", tout << "del: " << c << "\n";);
         if (m_out) dump(c.size(), c.begin(), status::deleted);
+        if (m_bout) bdump(c.size(), c.begin(), status::deleted);
         if (m_check) {
             clause* c1 = s.alloc_clause(c.size(), c.begin(), c.is_learned()); 
             append(*c1, status::deleted);
         }
     }
     
-    void drat::check_model(model const& m) {
-        std::cout << "check model on " << m_proof.size() << "\n";
+    void drat::check_model(model const& m) {        
     }
 
 }

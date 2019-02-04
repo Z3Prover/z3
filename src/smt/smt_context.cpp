@@ -1774,7 +1774,7 @@ namespace smt {
 
     void context::set_conflict(const b_justification & js, literal not_l) {
         if (!inconsistent()) {
-            TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout << " ", js); );
+            TRACE("set_conflict", display_literal_verbose(tout << m_scope_lvl << " ", not_l); display(tout << " ", js); );
             m_conflict = js;
             m_not_l    = not_l;
         }
@@ -3244,8 +3244,13 @@ namespace smt {
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
+                if (l == true_literal)
+                    continue;
+                if (l == false_literal) {
+                    set_conflict(b_justification::mk_axiom());
+                    break;
+                }
                 m_literal2assumption.insert(l.index(), orig_assumption);
-                // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
                 TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m_manager) << "\n";);
@@ -3918,6 +3923,7 @@ namespace smt {
                 conflict_lvl > m_search_lvl + 1 &&
                 !m_manager.proofs_enabled() &&
                 m_units_to_reassert.size() < m_fparams.m_delay_units_threshold;
+
             if (delay_forced_restart) {
                 new_lvl = conflict_lvl - 1;
             }
@@ -4415,6 +4421,22 @@ namespace smt {
             m = nullptr;
         else
             m = const_cast<model*>(m_model.get());
+    }
+
+    void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        unsigned sz = vars.size(); 
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* v = vars[i];
+            bool_var bv = m_expr2bool_var.get(v->get_id(), null_bool_var);
+            depth[i] = bv == null_bool_var ? UINT_MAX : get_assign_level(bv);            
+        }
+    }
+
+    expr_ref_vector context::get_trail() {        
+        expr_ref_vector result(get_manager());
+        get_assignments(result);
+        return result;
     }
 
     void context::get_proto_model(proto_model_ref & m) const {

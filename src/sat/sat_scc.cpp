@@ -244,15 +244,15 @@ namespace sat {
     }
 
     void scc::reduce_tr() {
-        unsigned quota = 0, num_reduced = 0;
-        while ((num_reduced = reduce_tr(false)) > quota) { quota = std::max(100u, num_reduced / 2); }
-        quota = 0;
-        while ((num_reduced = reduce_tr(true))  > quota) { quota = std::max(100u, num_reduced / 2); }
+        unsigned quota = 0, num_reduced = 0, count = 0;
+        while ((num_reduced = reduce_tr(false)) > quota && count++ < 10) { quota = std::max(100u, num_reduced / 2); }
+        quota = 0; count = 0;
+        while ((num_reduced = reduce_tr(true))  > quota && count++ < 10) { quota = std::max(100u, num_reduced / 2); }
     }
 
     void scc::collect_statistics(statistics & st) const {
-        st.update("sat elim bool vars scc", m_num_elim);
-        st.update("sat elim binary", m_num_elim_bin);
+        st.update("sat scc elim vars", m_num_elim);
+        st.update("sat scc elim binary", m_num_elim_bin);
     }
     
     void scc::reset_statistics() {

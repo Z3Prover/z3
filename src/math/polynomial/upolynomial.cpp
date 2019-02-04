@@ -524,11 +524,11 @@ namespace upolynomial {
         set(sz1, p1, buffer);
         if (sz1 <= 1)
             return;
+		
         numeral const & b_n = p2[sz2-1];
         SASSERT(!m().is_zero(b_n));
         scoped_numeral a_m(m());
-        while (true) {
-            checkpoint();
+        while (m_limit.inc()) {			
             TRACE("rem_bug", tout << "rem loop, p2:\n"; display(tout, sz2, p2); tout << "\nbuffer:\n"; display(tout, buffer); tout << "\n";);
             sz1 = buffer.size();
             if (sz1 < sz2) {
@@ -2517,7 +2517,7 @@ namespace upolynomial {
     // Keep expanding the Sturm sequence starting at seq
     void manager::sturm_seq_core(upolynomial_sequence & seq) {
         scoped_numeral_vector r(m());
-        while (true) {
+        while (m_limit.inc()) {
             unsigned sz = seq.size();
             srem(seq.size(sz-2), seq.coeffs(sz-2), seq.size(sz-1), seq.coeffs(sz-1), r);
             if (is_zero(r))

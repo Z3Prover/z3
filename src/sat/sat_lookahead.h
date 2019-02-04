@@ -200,7 +200,6 @@ namespace sat {
         double                 m_delta_decrease;
         double                 m_delta_fraction;
 
-        drat                   m_drat;
         literal_vector         m_assumptions;
 
         literal_vector         m_trail;         // trail of units
@@ -565,7 +564,6 @@ namespace sat {
         lookahead(solver& s) : 
             m_s(s),
             m_num_vars(s.num_vars()),
-            m_drat(s),
             m_num_tc1(0),
             m_level(2),
             m_last_prefix_length(0),

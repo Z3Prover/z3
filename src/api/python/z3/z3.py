@@ -4490,11 +4490,15 @@ def K(dom, v):
     return ArrayRef(Z3_mk_const_array(ctx.ref(), dom.ast, v.as_ast()), ctx)
 
 def Ext(a, b):
-    """Return extensionality index for arrays.
+    """Return extensionality index for one-dimensional arrays.
+    >> a, b = Consts('a b', SetSort(IntSort()))
+    >> Ext(a, b)
+    Ext(a, b)
     """
+    ctx = a.ctx
     if __debug__:
-        _z3_assert(is_array(a) and is_array(b))
-    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
+        _z3_assert(is_array(a) and is_array(b), "arguments must be arrays")
+    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
@@ -5340,7 +5344,7 @@ class Goal(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def simplify(self, *arguments, **keywords):
@@ -5528,7 +5532,7 @@ class AstVector(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def __repr__(self):
@@ -5872,7 +5876,7 @@ class FuncInterp(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def as_list(self):
@@ -6168,7 +6172,7 @@ class ModelRef(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
 def Model(ctx = None):
@@ -6727,6 +6731,19 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_non_units(self.ctx.ref(), self.solver), self.ctx)
 
+    def trail_levels(self):
+        """Return trail and decision levels of the solver state after a check() call. 
+        """
+        trail = self.trail()
+        levels = (ctypes.c_uint * len(trail))()
+        Z3_solver_get_levels(self.ctx.ref(), self.solver, trail.vector, len(trail), levels)
+        return trail, levels
+
+    def trail(self):
+        """Return trail of the solver state after a check() call. 
+        """
+        return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
+
     def statistics(self):
         """Return statistics for the last `check()`.
 
@@ -6786,7 +6803,7 @@ class Solver(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def sexpr(self):
@@ -6799,6 +6816,10 @@ class Solver(Z3PPObject):
         >>> r = s.sexpr()
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
+
+    def dimacs(self):
+        """Return a textual representation of the solver in DIMACS format."""
+        return Z3_solver_to_dimacs_string(self.ctx.ref(), self.solver)
 
     def to_smt2(self):
         """return SMTLIB2 formatted benchmark for solver's assertions"""
@@ -7318,6 +7339,35 @@ class Optimize(Z3PPObject):
     def __iadd__(self, fml):
         self.add(fml)
         return self
+
+    def assert_and_track(self, a, p):
+        """Assert constraint `a` and track it in the unsat core using the Boolean constant `p`.
+
+        If `p` is a string, it will be automatically converted into a Boolean constant.
+
+        >>> x = Int('x')
+        >>> p3 = Bool('p3')
+        >>> s = Optimize()
+        >>> s.assert_and_track(x > 0,  'p1')
+        >>> s.assert_and_track(x != 1, 'p2')
+        >>> s.assert_and_track(x < 0,  p3)
+        >>> print(s.check())
+        unsat
+        >>> c = s.unsat_core()
+        >>> len(c)
+        2
+        >>> Bool('p1') in c
+        True
+        >>> Bool('p2') in c
+        False
+        >>> p3 in c
+        True
+        """
+        if isinstance(p, str):
+            p = Bool(p, self.ctx)
+        _z3_assert(isinstance(a, BoolRef), "Boolean expression expected")
+        _z3_assert(isinstance(p, BoolRef) and is_const(p), "Boolean expression expected")
+        Z3_optimize_assert_and_track(self.ctx.ref(), self.optimize, a.as_ast(), p.as_ast())
 
     def add_soft(self, arg, weight = "1", id = None):
         """Add soft constraint with optional weight and optional identifier.

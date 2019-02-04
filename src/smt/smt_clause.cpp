@@ -19,6 +19,7 @@ Revision History:
 #include "smt/smt_clause.h"
 #include "smt/smt_justification.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/ast_pp.h"
 
 namespace smt {
     /**
@@ -96,22 +97,33 @@ namespace smt {
         }
     }
 
-    void clause::display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
+    std::ostream& clause::display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         out << "(clause";
         for (unsigned i = 0; i < m_num_literals; i++) {
             out << " ";
             m_lits[i].display(out, m, bool_var2expr_map);
         }
-        out << ")";
+        return out << ")";
     }
 
-    void clause::display_compact(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
+    std::ostream& clause::display_compact(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
         out << "(clause";
         for (unsigned i = 0; i < m_num_literals; i++) {
             out << " ";
             m_lits[i].display_compact(out, bool_var2expr_map);
         }
-        out << ")";
+        return out << ")";
+    }
+
+    std::ostream& clause::display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const {
+        expr_ref_vector args(m);
+        for (unsigned i = 0; i < m_num_literals; i++) {
+            literal lit = m_lits[i];
+            args.push_back(bool_var2expr_map[lit.var()]);
+            if (lit.sign()) args[args.size()-1] = m.mk_not(args.back());
+        }
+        expr_ref disj(m.mk_or(args.size(), args.c_ptr()), m);
+        return out << disj;
     }
 
 };

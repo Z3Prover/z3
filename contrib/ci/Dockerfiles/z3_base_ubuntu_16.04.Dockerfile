@@ -2,10 +2,12 @@ FROM ubuntu:16.04
 
 RUN apt-get update && \
     apt-get -y --no-install-recommends install \
+        apt-transport-https \
         binutils \
         clang \
         clang-3.9 \
         cmake \
+        curl \
         doxygen \
         default-jdk \
         gcc-multilib \
@@ -20,13 +22,17 @@ RUN apt-get update && \
         libomp-dev \
         llvm-3.9 \
         make \
-        mono-devel \
         ninja-build \
         python3 \
         python3-setuptools \
         python2.7 \
         python-setuptools \
         sudo
+
+RUN curl -SL https://packages.microsoft.com/config/ubuntu/16.04/packages-microsoft-prod.deb --output packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb && \
+    apt-get update && \
+    apt-get -y --no-install-recommends install dotnet-sdk-2.1
 
 # Create `user` user for container with password `user`.  and give it
 # password-less sudo access

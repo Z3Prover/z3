@@ -1054,7 +1054,7 @@ namespace sat {
 
     uint64_t ba_solver::get_coeff(literal lit) const {
         int64_t c1 = get_coeff(lit.var());
-        SASSERT(c1 < 0 == lit.sign());
+        SASSERT((c1 < 0) == lit.sign());
         int64_t c = std::abs(c1);
         m_overflow |= (c != c1);
         return static_cast<uint64_t>(c);
@@ -2959,9 +2959,8 @@ namespace sat {
     }
 
     void ba_solver::simplify() {        
-        VERIFY(s().at_base_lvl());
+        if (!s().at_base_lvl()) s().pop_to_base_level();
         unsigned trail_sz, count = 0;
-
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;

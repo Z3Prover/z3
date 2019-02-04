@@ -236,7 +236,7 @@ namespace sat {
         void defrag_clauses();
         bool should_defrag();
         bool memory_pressure();
-        void del_clause(clause & c, bool enable_drat = true);
+        void del_clause(clause & c);
         clause * mk_clause_core(unsigned num_lits, literal * lits, bool learned);
         clause * mk_clause_core(literal_vector const& lits) { return mk_clause_core(lits.size(), lits.c_ptr()); }
         clause * mk_clause_core(unsigned num_lits, literal * lits) { return mk_clause_core(num_lits, lits, false); }
@@ -304,6 +304,7 @@ namespace sat {
         unsigned lvl(bool_var v) const { return m_justification[v].level(); }
         unsigned lvl(literal l) const { return m_justification[l.var()].level(); }
         unsigned init_trail_size() const { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
+        unsigned trail_size() const { return m_trail.size(); }
         literal  trail_literal(unsigned i) const { return m_trail[i]; }
         literal  scope_literal(unsigned n) const { return m_trail[m_scopes[n].m_trail_lim]; }
         void assign(literal l, justification j) {
@@ -428,7 +429,11 @@ namespace sat {
         void mk_model();
         bool check_model(model const & m) const;
         void restart(bool to_base);
+        svector<size_t> m_last_positions;
+        unsigned m_last_position_log;
+        unsigned m_restart_logs;
         unsigned restart_level(bool to_base);
+        void log_stats();
         bool should_restart() const;
         void set_next_restart();
         bool reached_max_conflicts();

@@ -79,6 +79,16 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_optimize_assert_and_track(Z3_context c, Z3_optimize o, Z3_ast a, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_optimize_assert_and_track(c, o, a, t);
+        RESET_ERROR_CODE();
+        CHECK_FORMULA(a,);        
+        CHECK_FORMULA(t,);        
+        to_optimize_ptr(o)->add_hard_constraint(to_expr(a), to_expr(t));
+        Z3_CATCH;
+    }
+
     unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id) {
         Z3_TRY;
         LOG_Z3_optimize_assert_soft(c, o, a, weight, id);

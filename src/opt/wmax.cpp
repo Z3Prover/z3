@@ -75,11 +75,9 @@ namespace opt {
             trace_bounds("wmax");
             
             TRACE("opt", 
-                  s().display(tout); tout << "\n";
+                  s().display(tout)<< "\n";
                   tout << "lower: " << m_lower << " upper: " << m_upper << "\n";);
             while (!m.canceled() && m_lower < m_upper) {
-                //mk_assumptions(asms);
-                //is_sat = s().preferred_sat(asms, cores);
                 is_sat = s().check_sat(0, nullptr);
                 if (m.canceled()) {
                     is_sat = l_undef;
@@ -124,7 +122,7 @@ namespace opt {
         }
 
         void update_assignment() {
-            for (soft& s : m_soft) s.is_true = is_true(s.s);
+            for (soft& s : m_soft) s.set_value(is_true(s.s));
         }
 
         struct compare_asm {

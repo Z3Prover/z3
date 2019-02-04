@@ -220,6 +220,16 @@ namespace smt {
         expr* next_decision();
 
         /**
+           \brief retrieve depth of variables from decision stack.
+        */
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+
+        /**
+           \brief retrieve trail of assignment stack.
+        */
+        expr_ref_vector get_trail();
+
+        /**
            \brief (For debubbing purposes) Prints the state of the kernel
         */
         void display(std::ostream & out) const;

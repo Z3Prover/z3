@@ -88,12 +88,10 @@ namespace sat {
             CTRACE("sat_cleaner_frozen", c.frozen(), tout << c << "\n";);
             unsigned sz = c.size();
             unsigned i = 0, j = 0;
-            bool sat = false;
             m_cleanup_counter += sz;
             for (; i < sz; i++) {
                 switch (s.value(c[i])) {
                 case l_true:
-                    sat = true;
                     goto end_loop;
                 case l_false:
                     m_elim_literals++;
@@ -108,9 +106,9 @@ namespace sat {
             }
         end_loop:
             CTRACE("sat_cleaner_frozen", c.frozen(),
-                   tout << "sat: " << sat << ", new_size: " << j << "\n";
+                   tout << "sat: " << (i < sz) << ", new_size: " << j << "\n";
                    tout << mk_lits_pp(j, c.begin()) << "\n";);
-            if (sat) {
+            if (i < sz) {
                 m_elim_clauses++;
                 s.del_clause(c);
             }
@@ -119,34 +117,35 @@ namespace sat {
                 CTRACE("sat_cleaner_bug", new_sz < 2, tout << "new_sz: " << new_sz << "\n";
                        if (c.size() > 0) tout << "unit: " << c[0] << "\n";
                        s.display_watches(tout););
-                if (new_sz == 0) {
+                switch (new_sz) {
+                case 0:
                     s.set_conflict(justification(0));
                     s.del_clause(c);
-                }
-                else if (new_sz == 1) {
+                    break;
+                case 1:
                     s.assign_unit(c[0]);
                     s.del_clause(c);
-                }
-                else {
+                    break;
+                case 2:
                     SASSERT(s.value(c[0]) == l_undef && s.value(c[1]) == l_undef);
-                    if (new_sz == 2) {
-                        TRACE("cleanup_bug", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
-                        s.mk_bin_clause(c[0], c[1], c.is_learned());
-                        s.del_clause(c);
+                    TRACE("cleanup_bug", tout << "clause became binary: " << c[0] << " " << c[1] << "\n";);
+                    s.mk_bin_clause(c[0], c[1], c.is_learned());
+                    s.del_clause(c);
+                    break;
+                default:
+                    c.shrink(new_sz);
+                    *it2 = *it;
+                    it2++;
+                    if (!c.frozen()) {                            
+                        s.attach_clause(c);
                     }
-                    else {
+                    if (s.m_config.m_drat && new_sz < sz) {
+                        s.m_drat.add(c, true);
+                        c.restore(sz);
+                        s.m_drat.del(c);
                         c.shrink(new_sz);
-                        *it2 = *it;
-                        it2++;
-                        if (!c.frozen()) {                            
-                            s.attach_clause(c);
-                        }
-                        if (s.m_config.m_drat) {
-                            // for optimization, could also report deletion 
-                            // of previous version of clause.
-                            s.m_drat.add(c, true);
-                        }
                     }
+                    break;
                 }
             }
         }

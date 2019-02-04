@@ -1361,7 +1361,7 @@ namespace smt {
 
         void display_profile(std::ostream & out) const;
 
-        void display(std::ostream& out, b_justification j) const;
+        std::ostream& display(std::ostream& out, b_justification j) const;
 
         // -----------------------------------
         //
@@ -1577,6 +1577,10 @@ namespace smt {
         expr * get_unsat_core_expr(unsigned idx) const {
             return m_unsat_core.get(idx);
         }
+
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+
+        expr_ref_vector get_trail();
 
         void get_model(model_ref & m) const;
 

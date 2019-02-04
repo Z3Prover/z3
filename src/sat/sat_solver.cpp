@@ -118,6 +118,11 @@ namespace sat {
         m_qhead = 0;
         m_trail.reset();
         m_scopes.reset();
+
+        if (src.inconsistent()) {
+            set_conflict(justification(0));
+            return;
+        }
         
         // create new vars
         for (bool_var v = num_vars(); v < src.num_vars(); v++) {
@@ -293,14 +298,14 @@ namespace sat {
         return mk_clause(3, ls, learned);
     }
 
-    void solver::del_clause(clause& c, bool enable_drat) {
+    void solver::del_clause(clause& c) {
         if (!c.is_learned()) {
             m_stats.m_non_learned_generation++;
         } 
         if (c.frozen()) {
             --m_num_frozen;
         }
-        if (enable_drat && m_config.m_drat && !m_drat.is_cleaned(c)) {
+        if (!c.was_removed() && m_config.m_drat && !m_drat.is_cleaned(c)) {
             m_drat.del(c);
         }
         dealloc_clause(&c);        
@@ -311,17 +316,23 @@ namespace sat {
     clause * solver::mk_clause_core(unsigned num_lits, literal * lits, bool learned) {
         TRACE("sat", tout << "mk_clause: " << mk_lits_pp(num_lits, lits) << (learned?" learned":" aux") << "\n";);
         if (!learned) {
+            unsigned old_sz = num_lits;
             bool keep = simplify_clause(num_lits, lits);
             TRACE("sat_mk_clause", tout << "mk_clause (after simp), keep: " << keep << "\n" << mk_lits_pp(num_lits, lits) << "\n";);
             if (!keep) {
                 return nullptr; // clause is equivalent to true.
+            }
+            // if an input clause is simplified, then log the simplified version as learned
+            if (!learned && old_sz > num_lits && m_config.m_drat) {
+                m_lemma.reset();
+                m_lemma.append(num_lits, lits);
+                m_drat.add(m_lemma);
             }
             ++m_stats.m_non_learned_generation;
         }
         
         switch (num_lits) {
         case 0:
-            if (m_config.m_drat) m_drat.add();
             set_conflict(justification(0));
             return nullptr;
         case 1:
@@ -339,11 +350,11 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
-        if (find_binary_watch(get_wlist(~l1), ~l2)) {
+        if (find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (find_binary_watch(get_wlist(~l2), ~l1)) {
+        if (find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
@@ -714,7 +725,7 @@ namespace sat {
                 if (curr != prev) {
                     prev = curr;
                     if (i != j)
-                        lits[j] = lits[i];
+                        std::swap(lits[j], lits[i]);
                     j++;
                 }
                 break;
@@ -1659,6 +1670,8 @@ namespace sat {
         m_gc_threshold            = m_config.m_gc_initial;
         m_defrag_threshold        = 2;
         m_restarts                = 0;
+        m_last_position_log       = 0;
+        m_restart_logs            = 0;
         m_simplifications         = 0;
         m_conflicts_since_init    = 0;
         m_next_simplify           = m_config.m_simplify_delay;
@@ -1683,6 +1696,7 @@ namespace sat {
         if (m_conflicts_since_init < m_next_simplify) {
             return;
         }
+        log_stats();
         m_simplifications++;
         IF_VERBOSE(2, verbose_stream() << "(sat.simplify :simplifications " << m_simplifications << ")\n";);
 
@@ -1914,24 +1928,81 @@ namespace sat {
             m_config.m_restart_margin * m_slow_glue_avg <= m_fast_glue_avg;
     }
 
+    void solver::log_stats() {
+        m_restart_logs++;
+        
+        std::stringstream strm;
+        strm << "(sat.stats " << std::setw(6) << m_stats.m_conflict << " " 
+             << std::setw(6) << m_stats.m_decision << " "
+             << std::setw(4) << m_stats.m_restart 
+             << mk_stat(*this)
+             << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";
+        std::string str(strm.str());
+        svector<size_t> nums;
+        for (size_t i = 0; i < str.size(); ++i) {
+            while (i < str.size() && str[i] != ' ') ++i;
+            while (i < str.size() && str[i] == ' ') ++i;
+            // position of first character after space
+            if (i < str.size()) {
+                nums.push_back(i);
+            }
+        }   
+        bool same = m_last_positions.size() == nums.size();
+        size_t diff = 0;
+        for (unsigned i = 0; i < nums.size() && same; ++i) {
+            if (m_last_positions[i] > nums[i]) diff += m_last_positions[i] - nums[i];
+            if (m_last_positions[i] < nums[i]) diff += nums[i] - m_last_positions[i];
+        }
+        if (m_last_positions.empty() || 
+            m_restart_logs >= 20 + m_last_position_log || 
+            (m_restart_logs >= 6 + m_last_position_log && (!same || diff > 3))) {
+            m_last_position_log = m_restart_logs;
+            //           conflicts          restarts          learned            gc               time
+            //                     decisions         clauses            units          memory
+            int adjust[9] = { -3,      -3,      -3,      -1,      -3,      -2,   -1,     -2,       -1 };
+            char const* tag[9]  = { ":conflicts ", ":decisions ", ":restarts ", ":clauses/bin ", ":learned/bin ", ":units ", ":gc ", ":memory ", ":time" };
+            std::stringstream l1, l2;
+            l1 << "(sat.stats ";
+            l2 << "(sat.stats ";
+            size_t p1 = 11, p2 = 11;
+            SASSERT(nums.size() == 9);
+            for (unsigned i = 0; i < 9 && i < nums.size(); ++i) {
+                size_t p = nums[i];
+                if (i & 0x1) {
+                    // odd positions
+                    for (; p2 < p + adjust[i]; ++p2) l2 << " ";
+                    p2 += strlen(tag[i]);
+                    l2 << tag[i];
+                }
+                else {
+                    // even positions
+                    for (; p1 < p + adjust[i]; ++p1) l1 << " ";
+                    p1 += strlen(tag[i]);
+                    l1 << tag[i];
+                }                               
+            }
+            for (; p1 + 2 < str.size(); ++p1) l1 << " ";            
+            for (; p2 + 2 < str.size(); ++p2) l2 << " ";            
+            l1 << ")\n";
+            l2 << ")\n";
+            IF_VERBOSE(1, verbose_stream() << l1.str() << l2.str());
+            m_last_positions.reset();
+            m_last_positions.append(nums);
+        }
+        IF_VERBOSE(1, verbose_stream() << str);            
+    }
+
     void solver::restart(bool to_base) {
         m_stats.m_restart++;
         m_restarts++;
-        if (m_conflicts_since_init >= m_restart_next_out) {
+        if (m_conflicts_since_init >= m_restart_next_out && get_verbosity_level() >= 1) {
             if (0 == m_restart_next_out) {
                 m_restart_next_out = 1;
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats :conflicts   :restarts     :learned/bin      :gc           :time)\n");
-                IF_VERBOSE(1, verbose_stream() << "(sat.stats      :decisions   :clauses/bin        :units    :memory         )\n");
             }
-            m_restart_next_out = (3*m_restart_next_out)/2 + 1;
-            
-            IF_VERBOSE(1,
-                       verbose_stream() << "(sat.stats " 
-                       << std::setw(6) << m_stats.m_conflict << " " 
-                       << std::setw(6) << m_stats.m_decision << " "
-                       << std::setw(4) << m_stats.m_restart 
-                       << mk_stat(*this)
-                       << " " << std::setw(6) << std::setprecision(2) << m_stopwatch.get_current_seconds() << ")\n";);
+            else {
+                m_restart_next_out = (3*m_restart_next_out)/2 + 1; 
+            }
+            log_stats();
         }
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));
@@ -3708,6 +3779,7 @@ namespace sat {
         return out;
     }
 
+
     unsigned solver::num_clauses() const {
         unsigned num_cls = m_trail.size(); // units;
         unsigned l_idx = 0;
@@ -4102,7 +4174,7 @@ namespace sat {
                 m_reason_unknown = "sat.max.conflicts";
                 IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-conflicts = " << m_conflicts_since_init << "\")\n";);
             }
-            return true;
+            return !inconsistent();
         }
         return false;
     }

@@ -6213,6 +6213,13 @@ extern "C" {
     */
     Z3_ast_vector Z3_API Z3_solver_get_units(Z3_context c, Z3_solver s);
 
+    /**
+       \brief Return the trail modulo model conversion, in order of decision level
+       The decision level can be retrieved using \c Z3_solver_get_level based on the trail.
+
+       def_API('Z3_solver_get_trail', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_ast_vector Z3_API Z3_solver_get_trail(Z3_context c, Z3_solver s);
 
     /**
        \brief Return the set of non units in the solver state.
@@ -6220,6 +6227,15 @@ extern "C" {
        def_API('Z3_solver_get_non_units', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_ast_vector Z3_API Z3_solver_get_non_units(Z3_context c, Z3_solver s);
+
+    /**
+       \brief retrieve the decision depth of Boolean literals (variables or their negations).
+       Assumes a check-sat call and no other calls (to extract models) have been invoked.
+       
+       def_API('Z3_solver_get_levels', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST_VECTOR), _in(UINT), _in_array(3, UINT)))
+    */
+    void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
+
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
@@ -6367,6 +6383,14 @@ extern "C" {
        def_API('Z3_solver_to_string', STRING, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_string Z3_API Z3_solver_to_string(Z3_context c, Z3_solver s);
+
+    /**
+       \brief Convert a solver into a DIMACS formatted string.
+       \sa Z3_goal_to_diamcs_string for requirements.
+
+       def_API('Z3_solver_to_dimacs_string', STRING, (_in(CONTEXT), _in(SOLVER)))
+    */
+    Z3_string Z3_API Z3_solver_to_dimacs_string(Z3_context c, Z3_solver s);
 
     /*@}*/
 

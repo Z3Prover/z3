@@ -388,6 +388,7 @@ namespace z3 {
         template<typename T2>
         array(ast_vector_tpl<T2> const & v);
         ~array() { delete[] m_array; }
+        void resize(unsigned sz) { delete[] m_array; m_size = sz; m_array = new T[sz]; }
         unsigned size() const { return m_size; }
         T & operator[](int i) { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
         T const & operator[](int i) const { assert(0 <= i); assert(static_cast<unsigned>(i) < m_size); return m_array[i]; }
@@ -518,6 +519,12 @@ namespace z3 {
         sort(context & c, Z3_ast a):ast(c, a) {}
         sort(sort const & s):ast(s) {}
         operator Z3_sort() const { return reinterpret_cast<Z3_sort>(m_ast); }
+
+        /**
+           \brief retrieve unique identifier for func_decl.
+         */
+        unsigned id() const { unsigned r = Z3_get_sort_id(ctx(), *this); check_error(); return r; }
+
         /**
            \brief Return true if this sort and \c s are equal.
         */
@@ -614,6 +621,11 @@ namespace z3 {
         func_decl(func_decl const & s):ast(s) {}
         operator Z3_func_decl() const { return reinterpret_cast<Z3_func_decl>(m_ast); }
         func_decl & operator=(func_decl const & s) { return static_cast<func_decl&>(ast::operator=(s)); }
+
+        /**
+           \brief retrieve unique identifier for func_decl.
+         */
+        unsigned id() const { unsigned r = Z3_get_func_decl_id(ctx(), *this); check_error(); return r; }
 
         unsigned arity() const { return Z3_get_arity(ctx(), *this); }
         sort domain(unsigned i) const { assert(i < arity()); Z3_sort r = Z3_get_domain(ctx(), *this, i); check_error(); return sort(ctx(), r); }
@@ -770,6 +782,11 @@ namespace z3 {
             assert(is_numeral() || is_algebraic());
             return std::string(Z3_get_numeral_decimal_string(ctx(), m_ast, precision));
         }
+
+        /**
+           \brief retrieve unique identifier for expression.
+         */
+        unsigned id() const { unsigned r = Z3_get_ast_id(ctx(), m_ast); check_error(); return r; }
 
         /**
            \brief Return int value of numeral, throw if result cannot fit in
@@ -2217,6 +2234,17 @@ namespace z3 {
         expr_vector assertions() const { Z3_ast_vector r = Z3_solver_get_assertions(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
         expr_vector non_units() const { Z3_ast_vector r = Z3_solver_get_non_units(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
         expr_vector units() const { Z3_ast_vector r = Z3_solver_get_units(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
+        expr_vector trail() const { Z3_ast_vector r = Z3_solver_get_trail(ctx(), m_solver); check_error(); return expr_vector(ctx(), r); }
+        expr_vector trail(array<unsigned>& levels) const { 
+            Z3_ast_vector r = Z3_solver_get_trail(ctx(), m_solver); 
+            check_error(); 
+            expr_vector result(ctx(), r);
+            unsigned sz = result.size();
+            levels.resize(sz);
+            Z3_solver_get_levels(ctx(), m_solver, r, sz, levels.ptr());
+            check_error(); 
+            return result; 
+        }
         expr proof() const { Z3_ast r = Z3_solver_get_proof(ctx(), m_solver); check_error(); return expr(ctx(), r); }
         friend std::ostream & operator<<(std::ostream & out, solver const & s);
 
@@ -2239,6 +2267,8 @@ namespace z3 {
                                    fmls,
                                    fml));
         }
+
+        std::string dimacs() const { return std::string(Z3_solver_to_dimacs_string(ctx(), m_solver)); }
 
         param_descrs get_param_descrs() { return param_descrs(ctx(), Z3_solver_get_param_descrs(ctx(), m_solver)); }
 
@@ -2616,6 +2646,11 @@ namespace z3 {
             strm << weight;
             return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, strm.str().c_str(), 0));
         }
+        void add(expr const& e, expr const& t) {
+            assert(e.is_bool());
+            Z3_optimize_assert_and_track(ctx(), m_opt, e, t);
+        }
+
         handle add(expr const& e, char const* weight) {
             assert(e.is_bool());
             return handle(Z3_optimize_assert_soft(ctx(), m_opt, e, weight, 0));

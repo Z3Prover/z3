@@ -561,7 +561,9 @@ namespace algebraic_numbers {
         };
 
         void sort_roots(numeral_vector & r) {
-            std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+            if (m_limit.inc()) {
+                std::sort(r.begin(), r.end(), lt_proc(m_wrapper));
+            }
         }
 
         void isolate_roots(scoped_upoly const & up, numeral_vector & roots) {
@@ -1750,8 +1752,7 @@ namespace algebraic_numbers {
                 // then they MUST BE DIFFERENT.
                 // Thus, if we keep refining the interval of a and b,
                 // eventually they will not overlap
-                while (true) {
-                    checkpoint();
+                while (m_limit.inc()) {
                     refine(a);
                     refine(b);
                     m_compare_refine++;
@@ -1763,6 +1764,9 @@ namespace algebraic_numbers {
                     COMPARE_INTERVAL();
                 }
             }
+
+			if (!m_limit.inc())
+				return 0;
 
             // make sure that intervals of a and b have the same magnitude
             int a_m      = magnitude(a_lower, a_upper);
@@ -1810,6 +1814,7 @@ namespace algebraic_numbers {
            //       V == 0 -->  a = b
            //       if (V < 0) == (p_b(b_lower) < 0) then b > a else b < a
            //
+
            m_compare_sturm++;
            upolynomial::scoped_upolynomial_sequence seq(upm());
            upm().sturm_tarski_seq(cell_a->m_p_sz, cell_a->m_p, cell_b->m_p_sz, cell_b->m_p, seq);

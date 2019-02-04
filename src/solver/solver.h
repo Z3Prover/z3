@@ -44,8 +44,9 @@ public:
      - results based on check_sat_result API
 */
 class solver : public check_sat_result {
-    params_ref m_params;
-    bool       m_enforce_model_conversion;
+    params_ref  m_params;
+    bool        m_enforce_model_conversion;
+    symbol      m_cancel_backup_file;
 public:
     solver(): m_enforce_model_conversion(false) {}
     ~solver() override {}
@@ -140,7 +141,8 @@ public:
        
        If it is unsatisfiable, and unsat-core generation is enabled. Then, the unsat-core is a subset of these assumptions.
     */
-    virtual lbool check_sat(unsigned num_assumptions, expr * const * assumptions) = 0;
+
+    lbool check_sat(unsigned num_assumptions, expr * const * assumptions);
 
     lbool check_sat(expr_ref_vector const& asms) { return check_sat(asms.size(), asms.c_ptr()); }
     
@@ -228,6 +230,11 @@ public:
     virtual std::ostream& display(std::ostream & out, unsigned n = 0, expr* const* assumptions = nullptr) const;
 
     /**
+       \brief Display the content of this solver in DIMACS format
+    */
+    std::ostream& display_dimacs(std::ostream & out) const;
+
+    /**
        \brief expose model converter when solver produces partially reduced set of assertions.
      */
 
@@ -236,9 +243,13 @@ public:
     /**
        \brief extract units from solver.
     */
-    expr_ref_vector get_units(ast_manager& m);
+    expr_ref_vector get_units();
 
-    expr_ref_vector get_non_units(ast_manager& m);
+    expr_ref_vector get_non_units();
+
+    virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
+    
+    virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 
     class scoped_push {
         solver& s;
@@ -249,13 +260,16 @@ public:
         void disable_pop() { m_nopop = true; }
     };
 
+    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
  
 protected:
 
     virtual lbool get_consequences_core(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences);
 
+    void dump_state(unsigned sz, expr* const* assumptions);
 
     bool is_literal(ast_manager& m, expr* e);
+
 
 };
 
