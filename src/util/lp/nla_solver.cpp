@@ -386,6 +386,20 @@ struct solver::imp {
         if (t.is_empty() && rs.is_zero() &&
             (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE))
             return; // otherwise we get something like 0 < 0, which is always false and can be removed from the lemma
+        switch(cmp){
+        case llc::NE:
+            if (t.size() == 1) {
+                const auto & p = t.coeffs().begin();
+                auto r = rs/p->second;
+                j = p->first;
+                if (vvr(j) == r && var_is_fixed_to_val(j, r)) {
+                    explain_fixed_var(j); // instead of adding the inequality
+                    return;
+                }
+            }
+        default:
+            break;
+        }
         l.push_back(ineq(cmp, t, rs));
     }
 
@@ -809,6 +823,12 @@ struct solver::imp {
             m_lar_solver.get_upper_bound(j) == lp::zero_of_type<lp::impq>() &&
             m_lar_solver.get_lower_bound(j) == lp::zero_of_type<lp::impq>();
     }
+    bool var_is_fixed_to_val(lpvar j, const rational& v) const {
+        return 
+            m_lar_solver.column_has_upper_bound(j) &&
+            m_lar_solver.column_has_lower_bound(j) &&
+            m_lar_solver.get_upper_bound(j) == v && m_lar_solver.get_lower_bound(j) == v;
+    }
 
     bool var_is_fixed(lpvar j) const {
         return 
@@ -907,7 +927,7 @@ struct solver::imp {
     
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
-    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f, bool derived) {
+    bool basic_lemma_for_mon_zero_model_based(const rooted_mon& rm, const factorization& f, bool derived) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT(vvr(rm).is_zero());
         for (auto j : f) {
@@ -915,9 +935,9 @@ struct solver::imp {
                 return false;
             }
         }
-
-        add_empty_lemma_and_explanation();
         
+        add_empty_lemma_and_explanation();
+        if (derived) 
         mk_ineq(var(rm), llc::NE, current_lemma());
         for (auto j : f) {
             mk_ineq(var(j), llc::EQ, current_lemma());
@@ -926,6 +946,21 @@ struct solver::imp {
         explain(rm, current_expl());
         TRACE("nla_solver", print_lemma(current_lemma(), tout););
 
+        return true;
+    }
+
+    // here we use the fact
+    // xy = 0 -> x = 0 or y = 0, for derived case is handled by mk_ineq
+    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
+        SASSERT(vvr(rm).is_zero());
+        add_empty_lemma_and_explanation();
+        explain_fixed_var(var(rm));
+        for (auto j : f) {
+            mk_ineq(var(j), llc::EQ, current_lemma());
+        }
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
         return true;
     }
 
@@ -945,18 +980,12 @@ struct solver::imp {
         current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
     }
     // x = 0 or y = 0 -> xy = 0
-    bool basic_lemma_for_mon_non_zero(const rooted_mon& rm, const factorization& f, bool derived) {
+    bool basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT (!vvr(rm).is_zero());
         int zero_j = -1;
         for (auto j : f) {
-            if (derived) {
-                if (var_is_fixed_to_zero(var(j))) {
-                    zero_j = var(j);
-                    break;
-                }
-            }
-            else if (vvr(j).is_zero()) {
+            if (vvr(j).is_zero()) {
                 zero_j = var(j);
                 break;
             }
@@ -966,12 +995,31 @@ struct solver::imp {
             return false;
         } 
         add_empty_lemma_and_explanation();
-        if (derived) {
-            explain_fixed_var(zero_j);
+        mk_ineq(zero_j, llc::NE, current_lemma());
+        mk_ineq(var(rm), llc::EQ, current_lemma());
+
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma_and_expl(tout););
+        return true;
+    }
+
+    // x = 0 or y = 0 -> xy = 0
+    bool basic_lemma_for_mon_non_zero_derived(const rooted_mon& rm, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
+        SASSERT (!vvr(rm).is_zero());
+        int zero_j = -1;
+        for (auto j : f) {
+            if (var_is_fixed_to_zero(var(j))) {
+                zero_j = var(j);
+                break;
+            }
         }
-        else { 
-            mk_ineq(zero_j, llc::NE, current_lemma());
-        }
+
+        if (zero_j == -1) {
+            return false;
+        } 
+        add_empty_lemma_and_explanation();
+        explain_fixed_var(zero_j);
         mk_ineq(var(rm), llc::EQ, current_lemma());
 
         explain(rm, current_expl());
@@ -981,7 +1029,66 @@ struct solver::imp {
 
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-    bool basic_lemma_for_mon_neutral_monomial_to_factor(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const rooted_mon& rm, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
+
+        lpvar mon_var = m_monomials[rm.orig_index()].var();
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
+        
+        const auto & mv = vvr(mon_var);
+        const auto  abs_mv = abs(mv);
+        
+        if (abs_mv == rational::zero()) {
+            return false;
+        }
+        lpvar jl = -1;
+        for (auto j : f ) {
+            if (abs(vvr(j)) == abs_mv) {
+                jl = var(j);
+                break;
+            }
+        }
+        if (jl == static_cast<lpvar>(-1))
+            return false;
+        lpvar not_one_j = -1;
+        for (auto j : f ) {
+            if (var(j) == jl) {
+                continue;
+            }
+            if (abs(vvr(j)) != rational(1)) {
+                not_one_j = var(j);
+                break;
+            }
+        }
+
+        if (not_one_j == static_cast<lpvar>(-1)) {
+            return false;
+        } 
+
+        add_empty_lemma_and_explanation();
+        // mon_var = 0
+        mk_ineq(mon_var, llc::EQ, current_lemma());
+        
+        // negate abs(jl) == abs()
+        if (vvr(jl) == - vvr(mon_var))
+            mk_ineq(jl, mon_var, llc::NE, current_lemma());   
+        else  // jl == mon_var
+            mk_ineq(jl, -rational(1), mon_var, llc::NE, current_lemma());   
+
+        // not_one_j = 1
+        mk_ineq(not_one_j, llc::EQ,  rational(1), current_lemma());   
+        
+        // not_one_j = -1
+        mk_ineq(not_one_j, llc::EQ, -rational(1), current_lemma());
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout); );
+        return true;
+    }
+
+    // use the fact that
+    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
+    bool basic_lemma_for_mon_neutral_monomial_to_factor_derived(const rooted_mon& rm, const factorization& f) {
+        return false;
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
 
         lpvar mon_var = m_monomials[rm.orig_index()].var();
@@ -1039,7 +1146,55 @@ struct solver::imp {
 
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-    bool basic_lemma_for_mon_neutral_from_factors_to_monomial(const rooted_mon& rm, const factorization& f) {
+    bool basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const rooted_mon& rm, const factorization& f) {
+        rational sign = rm.orig().m_sign;
+        lpvar not_one = -1;
+
+        TRACE("nla_solver", tout << "f = "; print_factorization(f, tout););
+        for (auto j : f){
+            TRACE("nla_solver", tout << "j = "; print_factor_with_vars(j, tout););
+            auto v = vvr(j);
+            if (v == rational(1)) {
+                continue;
+            }
+
+            if (v == -rational(1)) { 
+                sign = - sign;
+                continue;
+            } 
+
+            if (not_one == static_cast<lpvar>(-1)) {
+                not_one = var(j);
+                continue;
+            }
+
+            // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
+            return false;
+        }
+
+        add_empty_lemma_and_explanation();
+        explain(rm, current_expl());
+
+        for (auto j : f){
+            lpvar var_j = var(j);
+            if (not_one == var_j) continue;
+            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : flip_sign(j) * vvr(j), current_lemma());   
+        }
+
+        if (not_one == static_cast<lpvar>(-1)) {
+            mk_ineq(m_monomials[rm.orig_index()].var(), llc::EQ, sign, current_lemma());
+        } else {
+            mk_ineq(m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ, current_lemma());
+        }
+        TRACE("nla_solver",
+              tout << "rm = "; print_rooted_monomial_with_vars(rm, tout);
+              print_lemma(current_lemma(), tout););
+        return true;
+    }
+    // use the fact
+    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
+    bool basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(const rooted_mon& rm, const factorization& f) {
+        return false;
         rational sign = rm.orig().m_sign;
         lpvar not_one = -1;
 
@@ -1085,10 +1240,17 @@ struct solver::imp {
         return true;
     }
     
-    bool basic_lemma_for_mon_neutral(const rooted_mon& rm, const factorization& factorization, bool derived) {
+    bool basic_lemma_for_mon_neutral_model_based(const rooted_mon& rm, const factorization& factorization) {
         return
-            basic_lemma_for_mon_neutral_monomial_to_factor(rm, factorization) || 
-            basic_lemma_for_mon_neutral_from_factors_to_monomial(rm, factorization);
+            basic_lemma_for_mon_neutral_monomial_to_factor_model_based(rm, factorization) || 
+            basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(rm, factorization);
+        return false;
+    }
+
+    bool basic_lemma_for_mon_neutral_derived(const rooted_mon& rm, const factorization& factorization) {
+        return
+            basic_lemma_for_mon_neutral_monomial_to_factor_derived(rm, factorization) || 
+            basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(rm, factorization);
         return false;
     }
 
@@ -1137,7 +1299,25 @@ struct solver::imp {
     }   
 
     // x != 0 or y = 0 => |xy| >= |y|
-    bool proportion_lemma(const rooted_mon& rm, const factorization& factorization) {
+    bool proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
+        rational rmv = abs(vvr(rm));
+        if (rmv.is_zero()) {
+            SASSERT(has_zero_factor(factorization));
+            return false;
+        }
+        int factor_index = 0;
+        for (factor f : factorization) {
+            if (abs(vvr(f)) > rmv) {
+                generate_pl(rm, factorization, factor_index);
+                return true;
+            }
+            factor_index++;
+        }
+        return false;
+    }
+    // x != 0 or y = 0 => |xy| >= |y|
+    bool proportion_lemma_derived(const rooted_mon& rm, const factorization& factorization) {
+        return false;
         rational rmv = abs(vvr(rm));
         if (rmv.is_zero()) {
             SASSERT(has_zero_factor(factorization));
@@ -1154,16 +1334,13 @@ struct solver::imp {
         return false;
     }
 
-    // Use basic multiplication properties to create a lemma
-    // for the given monomial.
-    // "derived" means derived from constraints - the alternative is model based
-    bool basic_lemma_for_mon(const rooted_mon& rm, bool derived) {
+    bool basic_lemma_for_mon_model_based(const rooted_mon& rm) {
         if (vvr(rm).is_zero()) {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero(rm, factorization, derived) ||
-                    basic_lemma_for_mon_neutral(rm, factorization, derived)) {
+                if (basic_lemma_for_mon_zero(rm, factorization) ||
+                    basic_lemma_for_mon_neutral_model_based(rm, factorization)) {
                     explain(factorization, current_expl());
                     return true;
                 }
@@ -1172,15 +1349,48 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_non_zero(rm, factorization, derived) ||
-                    basic_lemma_for_mon_neutral(rm, factorization, derived) ||
-                    (!derived && proportion_lemma(rm, factorization))) {
+                if (basic_lemma_for_mon_non_zero_model_based(rm, factorization) ||
+                    basic_lemma_for_mon_neutral_model_based(rm, factorization) ||
+                    proportion_lemma_model_based(rm, factorization)) {
                     explain(factorization, current_expl());
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    bool basic_lemma_for_mon_derived(const rooted_mon& rm) {
+        if (var_is_fixed_to_zero(var(rm))) {
+            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+                if (factorization.is_empty())
+                    continue;
+                if (basic_lemma_for_mon_zero(rm, factorization) ||
+                    basic_lemma_for_mon_neutral_derived(rm, factorization)) {
+                    explain(factorization, current_expl());
+                    return true;
+                }
+            }
+        } else {
+            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+                if (factorization.is_empty())
+                    continue;
+                if (basic_lemma_for_mon_non_zero_derived(rm, factorization) ||
+                    basic_lemma_for_mon_neutral_derived(rm, factorization) ||
+                    proportion_lemma_derived(rm, factorization)) {
+                    explain(factorization, current_expl());
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Use basic multiplication properties to create a lemma
+    // for the given monomial.
+    // "derived" means derived from constraints - the alternative is model based
+    bool basic_lemma_for_mon(const rooted_mon& rm, bool derived) {
+        return derived? basic_lemma_for_mon_derived(rm) : basic_lemma_for_mon_model_based(rm);
     }
 
     void init_rm_to_refine() {
@@ -1654,6 +1864,8 @@ struct solver::imp {
     // a > b && c == d => ac > bd
     // ac is a factorization of rm.vars()
     bool order_lemma_on_factorization(const rooted_mon& rm, const factorization& ac, bool derived) {
+        if (derived) // todo - implement
+            return false;
         SASSERT(ac.size() == 2);
         TRACE("nla_solver", tout << "rm = "; print_rooted_monomial(rm, tout);
               tout << ", factorization = "; print_factorization(ac, tout););
@@ -2500,16 +2712,16 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
+    lpvar lp_ac = s.add_named_var(ac, true, "ac");
+    lpvar lp_bde = s.add_named_var(bde, true, "bde");
+    lpvar lp_acd = s.add_named_var(acd, true, "acd");
+    lpvar lp_be = s.add_named_var(be, true, "be");
     
     reslimit l;
     params_ref p;
@@ -2642,6 +2854,7 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
 
 void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_monomial_to_factors\n";
+    enable_trace("nla_solver");
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
