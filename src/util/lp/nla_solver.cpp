@@ -2858,16 +2858,16 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
+    lpvar lp_ac = s.add_named_var(ac, true, "ac");
+    lpvar lp_bde = s.add_named_var(bde, true, "bde");
+    lpvar lp_acd = s.add_named_var(acd, true, "acd");
+    lpvar lp_be = s.add_named_var(be, true, "be");
     
     reslimit l;
     params_ref p;
@@ -2903,13 +2903,15 @@ void solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     s.set_column_value(lp_bde, rational(2));
     s.set_column_value(lp_b, - rational(2));
     // we have bde = -b, therefore d = +-1 and e = +-1
+    s.set_column_value(lp_d,  rational(3));
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
+
     
-    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma_and_expl(std::cout);
     ineq i0(llc::EQ, lp::lar_term(), rational(1));
-    i0.m_term.add_var(lp_b);
+    i0.m_term.add_var(lp_d);
     ineq i1(llc::EQ, lp::lar_term(), -rational(1));
-    i1.m_term.add_var(lp_b);
+    i1.m_term.add_var(lp_d);
     bool found0 = false;
     bool found1 = false;
 
