@@ -2806,63 +2806,46 @@ void solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial() {
 
 void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     std::cout << "test_basic_lemma_for_mon_zero_from_monomial_to_factors\n";
+    enable_trace("nla_solver");
     lp::lar_solver s;
-    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
-        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
+    unsigned a = 0, c = 2, d = 3, acd = 8;
     lpvar lp_a = s.add_named_var(a, true, "a");
-    lpvar lp_b = s.add_named_var(b, true, "b");
     lpvar lp_c = s.add_named_var(c, true, "c");
     lpvar lp_d = s.add_named_var(d, true, "d");
-    lpvar lp_e = s.add_named_var(e, true, "e");
-    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
-    lpvar lp_ac = s.add_named_var(ac, true, "ac");
-    lpvar lp_bde = s.add_named_var(bde, true, "bde");
     lpvar lp_acd = s.add_named_var(acd, true, "acd");
-    lpvar lp_be = s.add_named_var(be, true, "be");
     
     reslimit l;
     params_ref p;
     solver nla(s, l, p);
+
+    // create monomial acd
+    unsigned_vector vec;
+    vec.clear();
+    vec.push_back(lp_a);
+    vec.push_back(lp_c);
+    vec.push_back(lp_d);
+    nla.add_monomial(lp_acd, vec.size(), vec.begin());
     
-    create_abcde(nla,
-                 lp_a,
-                 lp_b,
-                 lp_c,
-                 lp_d,
-                 lp_e,
-                 lp_abcde,
-                 lp_ac,
-                 lp_bde,
-                 lp_acd,
-                 lp_be);
     vector<lemma> lemma;
     vector<lp::explanation> exp;
 
     
     s.set_column_value(lp_a, rational(1));
-    s.set_column_value(lp_b, rational(1));
     s.set_column_value(lp_c, rational(1));
     s.set_column_value(lp_d, rational(1));
-    s.set_column_value(lp_e, rational(1));
-    s.set_column_value(lp_abcde, rational(1));
-    s.set_column_value(lp_ac, rational(1));
-    s.set_column_value(lp_bde, rational(1));
-    s.set_column_value(lp_acd, rational(1));
-    s.set_column_value(lp_be, rational(1));
+    s.set_column_value(lp_acd, rational(0));
 
-    // set bde to zero
-    s.set_column_value(lp_bde, rational(0));
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
     nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
 
     ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    i0.m_term.add_var(lp_b);
+    i0.m_term.add_var(lp_a);
     ineq i1(llc::EQ, lp::lar_term(), rational(0));
-    i1.m_term.add_var(lp_d);
+    i1.m_term.add_var(lp_c);
     ineq i2(llc::EQ, lp::lar_term(), rational(0));
-    i2.m_term.add_var(lp_e);
+    i2.m_term.add_var(lp_d);
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
