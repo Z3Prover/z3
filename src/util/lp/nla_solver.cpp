@@ -371,11 +371,11 @@ struct solver::imp {
     }
 
     std::ostream& print_explanation(lp::explanation& exp, std::ostream& out) const {
-        out << "expl = ";
+        out << "expl: ";
         for (auto &p : exp) {
             m_lar_solver.print_constraint(p.second, out);
+            out << "      ";
         }
-        out << "\n";
         return out;
     }
 
@@ -950,12 +950,27 @@ struct solver::imp {
     }
 
     // here we use the fact
-    // xy = 0 -> x = 0 or y = 0, for derived case is handled by mk_ineq
-    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
+    // xy = 0 -> x = 0 or y = 0
+    bool basic_lemma_for_mon_zero_derived(const rooted_mon& rm, const factorization& f) {
+        TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
+        add_empty_lemma_and_explanation();
+        explain_fixed_var(var(rm));
+        std::unordered_set<lpvar> processed;
+        for (auto j : f) {
+            if (try_insert(var(j), processed))
+                mk_ineq(var(j), llc::EQ, current_lemma());
+        }
+        explain(rm, current_expl());
+        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+        return true;
+    }
+
+    // here we use the fact xy = 0 -> x = 0 or y = 0
+    bool basic_lemma_for_mon_zero_model_based(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT(vvr(rm).is_zero());
         add_empty_lemma_and_explanation();
-        explain_fixed_var(var(rm));
+        mk_ineq(var(rm), llc::NE, current_lemma());        
         for (auto j : f) {
             mk_ineq(var(j), llc::EQ, current_lemma());
         }
@@ -974,7 +989,15 @@ struct solver::imp {
         print_factorization(f, out << "fact: ") << "\n";
     }
 
-    void explain_fixed_var(unsigned j) {
+    void explain_var_separated_from_zero(lpvar j) {
+        SASSERT(var_is_separated_from_zero(j));
+        if (m_lar_solver.column_has_upper_bound(j) && (m_lar_solver.get_upper_bound(j)< lp::zero_of_type<lp::impq>())) 
+            current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
+        else 
+            current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
+    }
+
+    void explain_fixed_var(lpvar j) {
         SASSERT(var_is_fixed(j));
         current_expl().add(m_lar_solver.get_column_upper_bound_witness(j));
         current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
@@ -1003,10 +1026,17 @@ struct solver::imp {
         return true;
     }
 
+    bool var_is_separated_from_zero(lpvar j) const {
+        return (m_lar_solver.column_has_upper_bound(j) && m_lar_solver.get_upper_bound(j) < lp::zero_of_type<lp::impq>())
+            || 
+            (m_lar_solver.column_has_lower_bound(j) && m_lar_solver.get_lower_bound(j) > lp::zero_of_type<lp::impq>());
+    }
+    
     // x = 0 or y = 0 -> xy = 0
     bool basic_lemma_for_mon_non_zero_derived(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
-        SASSERT (!vvr(rm).is_zero());
+        if (!var_is_separated_from_zero(var(rm)))
+            return false; 
         int zero_j = -1;
         for (auto j : f) {
             if (var_is_fixed_to_zero(var(j))) {
@@ -1020,8 +1050,7 @@ struct solver::imp {
         } 
         add_empty_lemma_and_explanation();
         explain_fixed_var(zero_j);
-        mk_ineq(var(rm), llc::EQ, current_lemma());
-
+        explain_var_separated_from_zero(var(rm));
         explain(rm, current_expl());
         TRACE("nla_solver", print_lemma_and_expl(tout););
         return true;
@@ -1339,7 +1368,7 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero(rm, factorization) ||
+                if (basic_lemma_for_mon_zero_model_based(rm, factorization) ||
                     basic_lemma_for_mon_neutral_model_based(rm, factorization)) {
                     explain(factorization, current_expl());
                     return true;
@@ -1365,7 +1394,7 @@ struct solver::imp {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
                 if (factorization.is_empty())
                     continue;
-                if (basic_lemma_for_mon_zero(rm, factorization) ||
+                if (basic_lemma_for_mon_zero_derived(rm, factorization) ||
                     basic_lemma_for_mon_neutral_derived(rm, factorization)) {
                     explain(factorization, current_expl());
                     return true;
@@ -2419,7 +2448,7 @@ struct solver::imp {
 
     bool no_lemmas_hold() const {
         for (auto & l : * m_lemma_vec) {
-            if (lemma_holds(l))
+            if ((!l.empty()) && lemma_holds(l))
                 return false;
         }
         return true;
