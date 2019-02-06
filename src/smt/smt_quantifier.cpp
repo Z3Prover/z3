@@ -260,13 +260,6 @@ namespace smt {
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
             }
-            static unsigned count = 0;
-            CTRACE("quantifier", f != nullptr, 
-                   tout << (count++) << " " << q->get_id() << "\n";
-                   if (q->get_id() == 28 || true) {
-                       tout << mk_ll_pp(q, m()) << "\n";
-                   }
-                   );
 
             CTRACE("quantifier_", f != nullptr, 
                   tout << expr_ref(q, m()) << " ";
