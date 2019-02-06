@@ -376,6 +376,7 @@ struct solver::imp {
             m_lar_solver.print_constraint(p.second, out);
             out << "      ";
         }
+        out << "\n";
         return out;
     }
 
@@ -2857,7 +2858,7 @@ void solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
 
     SASSERT(nla.m_imp->test_check(lemma, exp) == l_false);
     
-    nla.m_imp->print_lemma(lemma.back(), std::cout << "expl & lemma: ");
+    nla.m_imp->print_lemma_and_expl(std::cout);
 
     ineq i0(llc::EQ, lp::lar_term(), rational(0));
     i0.m_term.add_var(lp_a);
