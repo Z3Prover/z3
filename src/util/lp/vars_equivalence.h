@@ -195,7 +195,12 @@ struct vars_equivalence {
         SASSERT(e.m_i == j || e.m_j == j);
         return e.m_i == j? e.m_j : e.m_i;
     }
-    
+
+    bool vars_are_equiv(lpvar a, lpvar b) const {
+        return map_to_root(a) == map_to_root(b);
+    }
+
+
     // Finds the root var which is equivalent to j.
     // The sign is flipped if needed
     lpvar map_to_root(lpvar j, rational& sign) const {

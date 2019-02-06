@@ -1114,10 +1114,25 @@ struct solver::imp {
         return true;
     }
 
+    bool vars_are_equiv(lpvar a, lpvar b) const {
+        SASSERT(abs(vvr(a)) == abs(vvr(b)));
+        return m_vars_equivalence.vars_are_equiv(a, b) ||
+            (var_is_fixed(a) && var_is_fixed(b));
+    }
+
+    void explain_equiv_vars(lpvar a, lpvar b) {
+        SASSERT(abs(vvr(a)) == abs(vvr(b)));
+        if (m_vars_equivalence.vars_are_equiv(a, b)) {
+            explain(a, current_expl());
+            explain(b, current_expl());
+        } else {
+            explain_fixed_var(a);
+            explain_fixed_var(b);
+        }
+    }
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
     bool basic_lemma_for_mon_neutral_monomial_to_factor_derived(const rooted_mon& rm, const factorization& f) {
-        return false;
         TRACE("nla_solver", trace_print_monomial_and_factorization(rm, f, tout););
 
         lpvar mon_var = m_monomials[rm.orig_index()].var();
@@ -1129,15 +1144,19 @@ struct solver::imp {
         if (abs_mv == rational::zero()) {
             return false;
         }
+        bool mon_var_is_sep_from_zero = var_is_separated_from_zero(mon_var);
         lpvar jl = -1;
-        for (auto j : f ) {
-            if (abs(vvr(j)) == abs_mv) {
-                jl = var(j);
+        for (auto fc : f ) {
+            lpvar j = var(fc);
+            if (abs(vvr(j)) == abs_mv && vars_are_equiv(j, mon_var) &&
+                (mon_var_is_sep_from_zero || var_is_separated_from_zero(j))) {
+                jl = j;
                 break;
             }
         }
         if (jl == static_cast<lpvar>(-1))
             return false;
+        
         lpvar not_one_j = -1;
         for (auto j : f ) {
             if (var(j) == jl) {
@@ -1155,21 +1174,20 @@ struct solver::imp {
 
         add_empty_lemma_and_explanation();
         // mon_var = 0
-        mk_ineq(mon_var, llc::EQ, current_lemma());
-        
-        // negate abs(jl) == abs()
-        if (vvr(jl) == - vvr(mon_var))
-            mk_ineq(jl, mon_var, llc::NE, current_lemma());   
-        else  // jl == mon_var
-            mk_ineq(jl, -rational(1), mon_var, llc::NE, current_lemma());   
+        if (mon_var_is_sep_from_zero)
+            explain_var_separated_from_zero(mon_var);
+        else
+            explain_var_separated_from_zero(jl);
 
+        explain_equiv_vars(mon_var, jl);
+        
         // not_one_j = 1
         mk_ineq(not_one_j, llc::EQ,  rational(1), current_lemma());   
         
         // not_one_j = -1
         mk_ineq(not_one_j, llc::EQ, -rational(1), current_lemma());
         explain(rm, current_expl());
-        TRACE("nla_solver", print_lemma(current_lemma(), tout); );
+        TRACE("nla_solver", print_lemma_and_expl(tout); );
         return true;
     }
 
@@ -1499,7 +1517,7 @@ struct solver::imp {
             return;
         bool seen_minus = false;
         bool seen_plus = false;
-        lpvar i = -1, j;
+        lpvar i = -1, j = -1;
         for(const auto & p : *t) {
             const auto & c = p.coeff();
             if (c == 1) {
@@ -1514,6 +1532,7 @@ struct solver::imp {
             else
                 j = p.var();
         }
+        SASSERT(j != static_cast<unsigned>(-1));
         rational sign((seen_minus && seen_plus)? 1 : -1);
         m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
     }
