@@ -22,6 +22,9 @@ Revision History:
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
+#include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/rewriter_def.h"
+#include "ast/rewriter/hoist_rewriter.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/tactical.h"
 #include "tactic/generic_model_converter.h"
@@ -574,27 +577,36 @@ class solve_eqs_tactic : public tactic {
             }
             else if (m().is_or(f)) {
                 flatten_or(f, args);
-                //std::cout << "hoist or " << args.size() << "\n";
                 for (unsigned i = 0; i < args.size(); ++i) {
                     path.push_back(nnf_context(false, args, i));
                     hoist_nnf(g, args.get(i), path, idx, depth + 1);
                     path.pop_back();
                 }
             }
-            else {
-                // std::cout << "no hoist " << mk_pp(f, m()) << "\n";
-            }
         }
 
-        bool collect_hoist(goal const& g) {
-            bool change = false;
+        void collect_hoist(goal const& g) {
             unsigned size = g.size();
             vector<nnf_context> path;
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
                 hoist_nnf(g, g.form(idx), path, idx, 0);
             }
-            return change;
+        }
+
+        void distribute_and_or(goal & g) {
+            unsigned size = g.size();
+            hoist_rewriter_star rw(m());
+            th_rewriter thrw(m());
+            expr_ref tmp(m()), tmp2(m());
+            for (unsigned idx = 0; idx < size; idx++) {
+                checkpoint();
+                expr* f = g.form(idx);
+                thrw(f, tmp);
+                rw(tmp, tmp2);
+                g.update(idx, tmp2);
+            }
+            
         }
         
         void sort_vars() {
@@ -918,6 +930,9 @@ class solve_eqs_tactic : public tactic {
                 m_subst      = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 m_norm_subst = alloc(expr_substitution, m(), m_produce_unsat_cores, m_produce_proofs);
                 while (true) {
+                    if (m_context_solve) {
+                        distribute_and_or(*(g.get()));
+                    }
                     collect_num_occs(*g);
                     collect(*g);
                     if (m_context_solve) {
