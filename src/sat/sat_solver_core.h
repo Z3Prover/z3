@@ -32,7 +32,7 @@ namespace sat {
         ~solver_core() {}
 
         virtual void pop_to_base_level() {}
-        virtual bool  at_base_lvl() const { return true; }
+        virtual bool at_base_lvl() const { return true; }
 
         // retrieve model if solver return sat
         virtual model const & get_model() const = 0;
