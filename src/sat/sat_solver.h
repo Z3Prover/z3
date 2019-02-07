@@ -190,7 +190,7 @@ namespace sat {
         friend class scoped_detach;
     public:
         solver(params_ref const & p, reslimit& l);
-        ~solver();
+        ~solver() override;
 
         // -----------------------
         //

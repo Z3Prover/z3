@@ -29,7 +29,7 @@ namespace sat {
         reslimit&               m_rlimit;
     public:
         solver_core(reslimit& l) : m_rlimit(l) {}
-        ~solver_core() {}
+        virtual ~solver_core() {}
 
         virtual void pop_to_base_level() {}
         virtual bool at_base_lvl() const { return true; }
