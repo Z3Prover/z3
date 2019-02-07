@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 
+#define WATCH_DISEQ 1
 
 namespace smt {
 
@@ -629,7 +630,7 @@ namespace smt {
             num *= numeral(2);
         }
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
-		th_rewriter rw(m);
+        th_rewriter rw(m);
         rw(sum);
         literal l(mk_eq(n, sum, false));
         TRACE("bv", 
@@ -1159,21 +1160,48 @@ namespace smt {
         literal_vector::const_iterator end1 = bits1.end();
         literal_vector const & bits2        = m_bits[v2];
         literal_vector::const_iterator it2  = bits2.begin();
+#if WATCH_DISEQ
+        bool_var watch_var = null_bool_var;
+#endif
         for (; it1 != end1; ++it1, ++it2) {
             if (*it1 == ~(*it2))
                 return; 
-            lbool v1 = ctx.get_assignment(*it1);
-            lbool v2 = ctx.get_assignment(*it2);
-            if (v1 != l_undef && v2 != l_undef && v1 != v2) {
+            lbool val1 = ctx.get_assignment(*it1);
+            lbool val2 = ctx.get_assignment(*it2);
+            if (val1 != l_undef && val2 != l_undef && val1 != val2) {
                 return;
             }
+#if WATCH_DISEQ
+            if (watch_var != null_bool_var) {
+                // skip
+            }
+            else if (val1 == l_undef) {
+                watch_var = it1->var();
+                m_diseq_watch.reserve(watch_var+1);
+                m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
+                m_diseq_watch_trail.push_back(watch_var);
+            }
+            else if (val2 == l_undef) {
+                watch_var = it2->var();
+                m_diseq_watch.reserve(watch_var+1);
+                m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
+                m_diseq_watch_trail.push_back(watch_var);
+            }     
+#endif       
         }
 
-        unsigned h = hash_u_u(v1, v2);
-        unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
-        if ((act & 0xFF) == 0xFF) {
-            //m_replay_diseq.push_back(std::make_pair(v1, v2));
+#if WATCH_DISEQ
+        if (watch_var != null_bool_var) {
+            unsigned h = hash_u_u(v1, v2);
+            unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
+            if ((act & 0x1) == 0x1) {
+                return;
+                //m_replay_diseq.push_back(std::make_pair(v1, v2));
+            }
+            m_diseq_watch[watch_var].pop_back();
+            m_diseq_watch_trail.pop_back();
         }
+#endif
 
         literal_vector & lits = m_tmp_literals;
         lits.reset();
@@ -1214,6 +1242,17 @@ namespace smt {
             }
             TRACE("bv", tout << "prop queue size: " << m_prop_queue.size() << "\n";);
             propagate_bits();
+
+#if WATCH_DISEQ
+            if (!get_context().inconsistent() && m_diseq_watch.size() > static_cast<unsigned>(v)) {
+                unsigned sz = m_diseq_watch[v].size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    auto const & p = m_diseq_watch[v][i];
+                    expand_diseq(p.first, p.second);
+                }
+                m_diseq_watch[v].reset();
+            }
+#endif
         }
     }
     
@@ -1353,6 +1392,9 @@ namespace smt {
     void theory_bv::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();
+#if WATCH_DISEQ
+        m_diseq_watch_lim.push_back(m_diseq_watch_trail.size());
+#endif
     }
     
     void theory_bv::pop_scope_eh(unsigned num_scopes) {
@@ -1362,6 +1404,16 @@ namespace smt {
         m_bits.shrink(num_old_vars);
         m_wpos.shrink(num_old_vars);
         m_zero_one_bits.shrink(num_old_vars);
+#if WATCH_DISEQ
+        unsigned old_trail_sz = m_diseq_watch_lim[m_diseq_watch_lim.size()-num_scopes];
+        for (unsigned i = m_diseq_watch_trail.size(); i-- > old_trail_sz;) {
+            if (!m_diseq_watch[m_diseq_watch_trail[i]].empty()) {
+                m_diseq_watch[m_diseq_watch_trail[i]].pop_back();
+            }
+        }
+        m_diseq_watch_trail.shrink(old_trail_sz);
+        m_diseq_watch_lim.shrink(m_diseq_watch_lim.size()-num_scopes);
+#endif
         theory::pop_scope_eh(num_scopes);
     }
 
