@@ -594,7 +594,7 @@ struct solver::imp {
         mk_ineq(m.var(), -sign, n.var(), llc::EQ, current_lemma());
         explain(m, current_expl());
         explain(n, current_expl());        
-        TRACE("nla_solver", print_lemma(current_lemma(), tout););
+        TRACE("nla_solver", print_lemma_and_expl(tout););
     }
 
     // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
@@ -603,8 +603,16 @@ struct solver::imp {
     // k runs over m. 
     void generate_sign_lemma_model_based(const monomial& m, const monomial& n, const rational& sign) {
         add_empty_lemma_and_explanation();
-        TRACE("nla_solver",
-              );
+        if (sign.is_zero()) {
+            // either m or n has to be equal zero, but it is not the case
+            SASSERT(!vvr(m).is_zero() || !vvr(n).is_zero());
+            if (!vvr(m).is_zero())
+                generate_zero_lemma(m);
+            if (!vvr(n).is_zero())
+                generate_zero_lemma(n);
+            TRACE("nla_solver", print_lemma_and_expl(tout););
+            return;
+        }
         unsigned_vector mvars(m.vars());
         unsigned_vector nvars(n.vars());
         divide_by_common_factor(mvars, nvars);
@@ -612,7 +620,7 @@ struct solver::imp {
               tout << "m = "; print_monomial_with_vars(m, tout);
               tout << "n = "; print_monomial_with_vars(n, tout);              
               tout << "mvars = "; print_product(mvars, tout);
-              tout << "\nnvars = "; print_product(nvars, tout);
+              tout << "\nnvars = "; print_product(nvars, tout); tout << "\n";
               );
         std::unordered_map<unsigned, unsigned_vector> map;
         const unsigned_vector key = get_abs_key(mvars);
@@ -624,12 +632,12 @@ struct solver::imp {
         }
         
         for (unsigned j : mvars) {
-            unsigned k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
+            lpvar k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
             map.find(k)->second.push_back(j);
         } 
 
         for (unsigned j : nvars) {
-            unsigned k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
+            lpvar k = m_vars_equivalence.get_abs_root_for_var(abs(vvr(j)));
             auto it = map.find(k);
             lpvar jj = it->second.back();
             rational s = vvr(jj) == vvr(j)? rational(1) : rational(-1);
@@ -700,7 +708,9 @@ struct solver::imp {
         }
         return rational(sign);
     }
-    
+
+    // Monomials m and n vars have the same absolute values,
+    // the function tests that the abs values of m.var() and n.var() are the same
     bool sign_contradiction(const monomial& m, const monomial& n, rational & sign) const {
         sign = rat_sign(m) * rat_sign(n);
         return  vvr(m) != sign * vvr(n) ;
@@ -735,6 +745,7 @@ struct solver::imp {
         }
     }
 
+    // replaces each var with its abs root and sorts the return vector
     template <typename T>
     unsigned_vector get_abs_key(const T& m) const {
         unsigned_vector r;
@@ -744,7 +755,9 @@ struct solver::imp {
         std::sort(r.begin(), r.end());
         return r;
     }
-    
+
+    // For each monomial m = m_monomials[i], where i is in m_to_refine,
+    // try adding the pair (get_abs_key(m), i) to map
     std::unordered_map<unsigned_vector, unsigned, hash_svector> create_relevant_abs_keys() {
         std::unordered_map<unsigned_vector, unsigned, hash_svector> r;
         for (unsigned i : m_to_refine) {
@@ -2250,9 +2263,11 @@ struct solver::imp {
     }
     
     bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
+        // todo : random        
         for (const auto& rm : m_rm_table.vec()) {
             if (check_monomial(m_monomials[rm.orig_index()]))
                 continue;
+            rm_found = &rm;
             if (find_bfc_on_monomial(rm, bf)) {
                 j = m_monomials[rm.orig_index()].var();
                 sign = rm.orig_sign();
@@ -2265,13 +2280,51 @@ struct solver::imp {
         }
         return false;
     }
+
+    bool generate_simple_tangent_lemma(const rooted_mon* rm) {
+        add_empty_lemma_and_explanation();
+        unsigned i_mon = rm->orig_index();
+        const monomial & m = m_monomials[i_mon];
+        const rational v = product_value(m);
+        const rational& mv = vvr(m);
+        SASSERT(mv != v);
+        SASSERT(!mv.is_zero() && !v.is_zero());
+        rational sign = rational(rat_sign(mv));
+        SASSERT(sign == rat_sign(v));
+        bool gt = abs(mv) > abs(v);
+        if (gt) {
+            for (lpvar j : m) {
+                const rational & jv = vvr(j);
+                rational js = rational(rat_sign(jv));
+                mk_ineq(js, j, llc::LT, current_lemma());
+                mk_ineq(js, j, llc::GT, jv, current_lemma());
+            }
+            mk_ineq(sign, i_mon, llc::LT, current_lemma());
+            mk_ineq(sign, i_mon, llc::LE, v, current_lemma());
+        } else {
+            for (lpvar j : m) {
+                const rational & jv = vvr(j);
+                rational js = rational(rat_sign(jv));
+                mk_ineq(js, j, llc::LT, current_lemma());
+                mk_ineq(js, j, llc::LT, jv, current_lemma());
+            }
+            mk_ineq(sign, m.var(), llc::LT, current_lemma());
+            mk_ineq(sign, m.var(), llc::GE, v, current_lemma());
+        }
+        TRACE("nla_solver", print_lemma_and_expl(tout););
+        return true;
+    }
     
     bool tangent_lemma() {
         bfc bf;
         lpvar j;
         rational sign;
-        const rooted_mon* rm;
+        const rooted_mon* rm = nullptr;
+        
         if (!find_bfc_to_refine(bf, j, sign, rm)) {
+            if (rm != nullptr)
+                return generate_simple_tangent_lemma(rm);
+            TRACE("nla_solver", tout << "cannot find a bfc to refine\n"; );
             return false;
         }
         tangent_lemma_bf(bf, j, sign, *rm);

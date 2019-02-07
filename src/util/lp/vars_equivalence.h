@@ -259,9 +259,11 @@ struct vars_equivalence {
             explain(j, exp);
     }
 
-    unsigned get_abs_root_for_var(const rational & v) const {
+    lpvar get_abs_root_for_var(const rational & v) const {
         SASSERT(!v.is_neg());
-        return *(m_vars_by_abs_values.find(v)->second.begin());
+        lpvar j = *(m_vars_by_abs_values.find(v)->second.begin());
+        SASSERT(abs(m_vvr(j)) == v);
+        return j;
     }
 
     void register_var_with_abs_val(unsigned j, const rational& val) {
