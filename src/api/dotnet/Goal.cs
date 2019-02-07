@@ -144,7 +144,7 @@ namespace Microsoft.Z3
                 uint n = Size;
                 BoolExpr[] res = new BoolExpr[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = new BoolExpr(Context, Native.Z3_goal_formula(Context.nCtx, NativeObject, i));
+                    res[i] = (BoolExpr)Expr.Create(Context, Native.Z3_goal_formula(Context.nCtx, NativeObject, i));
                 return res;
             }
         }
