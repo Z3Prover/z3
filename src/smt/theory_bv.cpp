@@ -24,7 +24,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 
-#define WATCH_DISEQ 1
+#define WATCH_DISEQ 0
 
 namespace smt {
 
@@ -1160,9 +1160,6 @@ namespace smt {
         literal_vector::const_iterator end1 = bits1.end();
         literal_vector const & bits2        = m_bits[v2];
         literal_vector::const_iterator it2  = bits2.begin();
-#if WATCH_DISEQ
-        bool_var watch_var = null_bool_var;
-#endif
         for (; it1 != end1; ++it1, ++it2) {
             if (*it1 == ~(*it2))
                 return; 
@@ -1171,35 +1168,34 @@ namespace smt {
             if (val1 != l_undef && val2 != l_undef && val1 != val2) {
                 return;
             }
-#if WATCH_DISEQ
-            if (watch_var != null_bool_var) {
-                // skip
-            }
-            else if (val1 == l_undef) {
-                watch_var = it1->var();
-                m_diseq_watch.reserve(watch_var+1);
-                m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
-                m_diseq_watch_trail.push_back(watch_var);
-            }
-            else if (val2 == l_undef) {
-                watch_var = it2->var();
-                m_diseq_watch.reserve(watch_var+1);
-                m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
-                m_diseq_watch_trail.push_back(watch_var);
-            }     
-#endif       
         }
 
 #if WATCH_DISEQ
-        if (watch_var != null_bool_var) {
-            unsigned h = hash_u_u(v1, v2);
-            unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
-            if ((act & 0x1) == 0x1) {
-                return;
-                //m_replay_diseq.push_back(std::make_pair(v1, v2));
+        bool_var watch_var = null_bool_var;
+        it1 = bits1.begin();
+        it2 = bits2.begin();
+        unsigned h = hash_u_u(v1, v2);
+        unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
+
+        for (; it1 != end1 && ((act & 0x3) != 0x3); ++it1, ++it2) {
+            lbool val1 = ctx.get_assignment(*it1);
+            lbool val2 = ctx.get_assignment(*it2);
+        
+            if (val1 == l_undef) {
+                watch_var = it1->var();
             }
-            m_diseq_watch[watch_var].pop_back();
-            m_diseq_watch_trail.pop_back();
+            else if (val2 == l_undef) {
+                watch_var = it2->var();
+            }
+            else {
+                continue;
+            }
+
+            m_diseq_watch.reserve(watch_var+1);
+            m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
+            m_diseq_watch_trail.push_back(watch_var);
+            return;
+            //m_replay_diseq.push_back(std::make_pair(v1, v2));            
         }
 #endif
 
