@@ -442,16 +442,21 @@ namespace smt {
     };
 
     void theory_bv::add_fixed_eq(theory_var v1, theory_var v2) {
-        ++m_stats.m_num_eq_dynamic;
         if (v1 > v2) {
             std::swap(v1, v2);
         }
-        unsigned sz = get_bv_size(v1);
+
+        unsigned act = m_eq_activity[hash_u_u(v1, v2) & 0xFF]++;
+        if (act < 255) {
+            return;
+        }
+        ++m_stats.m_num_eq_dynamic;
         ast_manager& m = get_manager();
         context & ctx = get_context();
         app* o1 = get_enode(v1)->get_owner();
         app* o2 = get_enode(v2)->get_owner();
         literal oeq = mk_eq(o1, o2, true);
+        unsigned sz = get_bv_size(v1);
         TRACE("bv", 
               tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << " " 
               << ctx.get_scope_level() << "\n";);
@@ -1146,12 +1151,9 @@ namespace smt {
         SASSERT(get_bv_size(v1) == get_bv_size(v2));
         context & ctx         = get_context();
         ast_manager & m       = get_manager();
-#ifdef _TRACE
-        unsigned num_bool_vars = ctx.get_num_bool_vars();
-#endif 
-        literal_vector & lits = m_tmp_literals;
-        lits.reset();
-        lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
+        if (v1 > v2) {
+            std::swap(v1, v2);
+        }
         literal_vector const & bits1        = m_bits[v1];
         literal_vector::const_iterator it1  = bits1.begin();
         literal_vector::const_iterator end1 = bits1.end();
@@ -1159,8 +1161,23 @@ namespace smt {
         literal_vector::const_iterator it2  = bits2.begin();
         for (; it1 != end1; ++it1, ++it2) {
             if (*it1 == ~(*it2))
-                return; // static diseq
+                return; 
+            lbool v1 = ctx.get_assignment(*it1);
+            lbool v2 = ctx.get_assignment(*it2);
+            if (v1 != l_undef && v2 != l_undef && v1 != v2) {
+                return;
+            }
         }
+
+        unsigned h = hash_u_u(v1, v2);
+        unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
+        if ((act & 0xFF) == 0xFF) {
+            //m_replay_diseq.push_back(std::make_pair(v1, v2));
+        }
+
+        literal_vector & lits = m_tmp_literals;
+        lits.reset();
+        lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
         it1 = bits1.begin();
         it2 = bits2.begin();
         for (; it1 != end1; ++it1, ++it2) {
@@ -1174,14 +1191,6 @@ namespace smt {
         }
         m_stats.m_num_diseq_dynamic++;
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-        TRACE_CODE({
-            static unsigned num = 0;
-            static unsigned new_bool_vars = 0;
-            new_bool_vars += (ctx.get_num_bool_vars() - num_bool_vars);
-            if (num % 1000 == 0)
-                TRACE("expand_diseq", tout << "num: " << num << " " << new_bool_vars << "\n";);
-            num++;
-        });
     }
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
@@ -1395,6 +1404,8 @@ namespace smt {
         m_trail_stack(*this),
         m_find(*this),
         m_approximates_large_bvs(false) {
+        memset(m_eq_activity, 0, sizeof(m_eq_activity));
+        memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
     }
 
     theory_bv::~theory_bv() {
@@ -1515,6 +1526,17 @@ namespace smt {
         RESET_MERGET_AUX();
         DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); });
         return true;
+    }
+
+    void theory_bv::propagate() {
+        unsigned sz = m_replay_diseq.size();
+        if (sz > 0) {
+            for (unsigned i = 0; i < sz; ++i) {
+                auto const& p = m_replay_diseq[i];
+                expand_diseq(p.first, p.second);
+            }
+            m_replay_diseq.reset();
+        }
     }
 
     class bit_eq_justification : public justification {
