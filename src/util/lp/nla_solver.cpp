@@ -2281,6 +2281,19 @@ struct solver::imp {
         return false;
     }
 
+    void generate_simple_sign_lemma(const rational& sign, const monomial& m) {
+        SASSERT(sign == rat_sign(product_value(m)));
+        for (lpvar j : m) {
+            if (vvr(j).is_pos()) {
+                mk_ineq(j, llc::LE, current_lemma());
+            } else {
+                SASSERT(vvr(j).is_neg());
+                mk_ineq(j, llc::GE, current_lemma());
+            }
+        }
+        mk_ineq(m.var(), (sign.is_pos()? llc::GT : llc ::LT), current_lemma());
+    }
+
     bool generate_simple_tangent_lemma(const rooted_mon* rm) {
         add_empty_lemma_and_explanation();
         unsigned i_mon = rm->orig_index();
@@ -2290,7 +2303,10 @@ struct solver::imp {
         SASSERT(mv != v);
         SASSERT(!mv.is_zero() && !v.is_zero());
         rational sign = rational(rat_sign(mv));
-        SASSERT(sign == rat_sign(v));
+        if (sign != rat_sign(v)) {
+            generate_simple_sign_lemma(sign, m);
+            return true;
+        }
         bool gt = abs(mv) > abs(v);
         if (gt) {
             for (lpvar j : m) {
