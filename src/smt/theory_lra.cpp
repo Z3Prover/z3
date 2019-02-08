@@ -987,7 +987,7 @@ public:
             return true;
         }
         else {
-            TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+			TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_not_handled(atom);
             return true;
         }
@@ -1766,6 +1766,12 @@ public:
             lower_bound = !lower_bound;
             for (auto& kv : coeffs) kv.m_value.neg();
         }
+
+		for (auto const& kv : coeffs) {
+			theory_var w = kv.m_key;
+			expr* o = get_enode(w)->get_owner();
+			is_int &= a.is_int(o);
+		}
 
         app_ref atom(m);
         app_ref t = coeffs2app(coeffs, rational::zero(), is_int);
