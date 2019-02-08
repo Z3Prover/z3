@@ -75,9 +75,23 @@ bool bit_blaster_tpl<Cfg>::is_minus_one(unsigned sz, expr * const * bits) const 
 static void _num2bits(ast_manager & m, rational const & v, unsigned sz, expr_ref_vector & out_bits) {
     SASSERT(v.is_nonneg());
     rational aux = v;
-    rational two(2);
+    rational two(2), base32(1ull << 32ull, rational::ui64());
     for (unsigned i = 0; i < sz; i++) {
-        if ((aux % two).is_zero())
+        if (i + 32 < sz) {
+            unsigned u = (aux % base32).get_unsigned();
+            for (unsigned j = 0; j < 32; ++j) {
+                if (0 != (u & (1 << j))) {
+                    out_bits.push_back(m.mk_true());
+                }
+                else {
+                    out_bits.push_back(m.mk_false());
+                }
+            }
+            aux = div(aux, base32);
+            i += 31;
+            continue;
+        }
+        else if ((aux % two).is_zero())
             out_bits.push_back(m.mk_false());
         else
             out_bits.push_back(m.mk_true());

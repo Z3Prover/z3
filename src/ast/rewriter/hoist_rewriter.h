@@ -27,7 +27,7 @@ Notes:
 
 class hoist_rewriter {
     ast_manager &  m_manager;
-    expr_ref_vector                 m_args;
+    expr_ref_vector                 m_args1, m_args2;
     obj_hashtable<expr>             m_preds1, m_preds2;
     basic_union_find                m_uf1, m_uf2, m_uf0;
     ptr_vector<expr>                m_es;
@@ -39,7 +39,7 @@ class hoist_rewriter {
 
     br_status mk_or(unsigned num_args, expr * const * args, expr_ref & result);
 
-    bool is_and(expr* e);
+    bool is_and(expr* e, expr_ref_vector* args);
 
     bool is_var(expr* e) { return m_expr2var.contains(e); }
     expr* mk_expr(unsigned v) { return m_var2expr[v]; }

@@ -25,16 +25,16 @@ Notes:
 
 
 hoist_rewriter::hoist_rewriter(ast_manager & m, params_ref const & p):
-    m_manager(m), m_args(m) { 
+    m_manager(m), m_args1(m), m_args2(m) { 
     updt_params(p); 
 }
 
-br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref & result) {
+br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref & result) {
     if (num_args < 2) {
         return BR_FAILED;
     }
     for (unsigned i = 0; i < num_args; ++i) {
-        if (!is_and(args[i])) {
+        if (!is_and(es[i], nullptr)) {
             return BR_FAILED;
         }
     }
@@ -48,9 +48,10 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref
     m_var2expr.reset();
     basic_union_find* uf[2] = { &m_uf1, &m_uf2 };
     obj_hashtable<expr>* preds[2] = { &m_preds1, &m_preds2 };
-    VERIFY(is_and(args[0]));
+    expr_ref_vector* args[2] = { &m_args1, &m_args2 };
+    VERIFY(is_and(es[0], args[turn]));
     expr* e1, *e2;
-    for (expr* e : m_args) {
+    for (expr* e : *(args[turn])) {
         if (m().is_eq(e, e1, e2)) {            
             (*uf)[turn].merge(mk_var(e1), mk_var(e2));
         }
@@ -69,8 +70,9 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref
         (*preds)[turn].reset();
         reset(m_uf0);
         unsigned v1 = 0, v2 = 0;
-        VERIFY(is_and(args[j]));
-        for (expr* e : m_args) {
+        VERIFY(is_and(es[j], args[turn]));
+
+        for (expr* e : *args[turn]) {
             if (m().is_eq(e, e1, e2)) {
                 m_es.push_back(e1);                
                 m_uf0.merge(mk_var(e1), mk_var(e2));
@@ -79,6 +81,7 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref
                 (*preds)[turn].insert(e);
             }
         }
+
         if ((*preds)[turn].empty() && m_es.empty()) {
             return BR_FAILED;
         }
@@ -109,12 +112,21 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref
         for (auto const& p : m_eqs) {
             (*uf)[turn].merge(mk_var(p.first), mk_var(p.second));
         }
+        if ((*preds)[turn].empty() && m_eqs.empty()) {
+            return BR_FAILED;
+        }
     }
     // p & eqs & (or fmls)
     expr_ref_vector fmls(m()), ors(m());
     expr_safe_replace subst(m());
     for (expr * p : (*preds)[turn]) {
-        subst.insert(p, m().mk_true());
+        expr* q = nullptr;
+        if (m().is_not(p, q)) {
+            subst.insert(q, m().mk_false());
+        }
+        else {
+            subst.insert(p, m().mk_true());
+        }
         fmls.push_back(p);
     }
     for (auto const& p : m_eqs) {
@@ -124,11 +136,17 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * args, expr_ref
 
     for (unsigned i = 0; i < num_args; ++i) {
         expr_ref tmp(m());
-        subst(args[i], tmp);
+        subst(es[i], tmp);
         ors.push_back(tmp);
     }
     fmls.push_back(m().mk_or(ors.size(), ors.c_ptr()));
     result = m().mk_and(fmls.size(), fmls.c_ptr());
+    TRACE("hoist", 
+          for (unsigned i = 0; i < num_args; ++i) {
+              tout << mk_pp(es[i], m()) << "\n";
+          }
+          tout << "=>\n";
+          tout << result << "\n";);
     return BR_DONE;
 }
 
@@ -154,15 +172,20 @@ br_status hoist_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     }
 }
 
-bool hoist_rewriter::is_and(expr * e) {
-    m_args.reset();
+bool hoist_rewriter::is_and(expr * e, expr_ref_vector* args) {
     if (m().is_and(e)) {
-        m_args.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        if (args) {
+            args->reset();
+            args->append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        }
         return true;
     }
     if (m().is_not(e, e) && m().is_or(e)) {
-        for (expr* arg : *to_app(e)) {
-            m_args.push_back(::mk_not(m(), arg));
+        if (args) {
+            args->reset();
+            for (expr* arg : *to_app(e)) {
+                args->push_back(::mk_not(m(), arg));
+            }
         }
         return true;
     }
