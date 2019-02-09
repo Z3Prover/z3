@@ -40,6 +40,7 @@ Revision History:
 struct evaluator_cfg : public default_rewriter_cfg {
     ast_manager &                   m;
     model_core &                    m_model;
+    params_ref                      m_params;
     bool_rewriter                   m_b_rw;
     arith_rewriter                  m_a_rw;
     bv_rewriter                     m_bv_rw;
@@ -59,6 +60,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m(m),
         m_model(md),
+        m_params(p),
         m_b_rw(m),
         // We must allow customers to set parameters for arithmetic rewriter/evaluator.
         // In particular, the maximum degree of algebraic numbers that will be evaluated.
@@ -200,6 +202,26 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_REWRITE1;
             }
         }
+        if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f)) {
+            func_decl* g = nullptr;
+            VERIFY(m_ar.is_as_array(f, g));
+            expr* def = nullptr;
+            quantifier* q = nullptr;
+            proof* def_pr = nullptr;
+            if (get_macro(g, def, q, def_pr)) {
+                sort_ref_vector vars(m);
+                svector<symbol> var_names;
+                for (unsigned i = 0; i < g->get_arity(); ++i) {
+                    var_names.push_back(symbol(i));
+                    vars.push_back(g->get_domain(g->get_arity() - i - 1));
+                }
+                result = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), def);
+                model_evaluator ev(m_model, m_params);
+                result = ev(result);
+                return BR_DONE;
+            }
+        }
+
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
     }
@@ -222,7 +244,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
     }
 
-    bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
+    bool get_macro(func_decl * f, expr * & def, quantifier * & , proof * &) {
 
 #define TRACE_MACRO TRACE("model_evaluator", tout << "get_macro for " << f->get_name() << " (model completion: " << m_model_completion << ")\n";);
 

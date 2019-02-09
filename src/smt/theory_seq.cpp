@@ -2873,9 +2873,9 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
             ctx.get_assignment(i_lt_len_s) == l_true) {
             len = m_autil.mk_int(1);
             lits.append(2, _lits);
+            TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
             return true;
         }
-        TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
     }
     else if (is_pre(e, s, i)) {
         expr_ref zero(m_autil.mk_int(0), m);
@@ -2887,9 +2887,9 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
             ctx.get_assignment(i_lt_len_s) == l_true) {
             len = i;
             lits.append(2, _lits);
+            TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
             return true;
         }
-        TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
     }
     else if (is_post(e, s, l)) {
         expr_ref zero(m_autil.mk_int(0), m);
@@ -2900,9 +2900,9 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
             ctx.get_assignment(l_le_len_s) == l_true) {
             len = l;
             lits.append(2, _lits);
+            TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
             return true;
         }
-        TRACE("seq", ctx.display_literals_verbose(tout, 2, _lits); tout << "\n";);
     }
     else if (is_skolem(m_tail, e)) {
         // e = tail(s, l), len(s) > l => len(tail(s, l)) = len(s) - l - 1
@@ -4942,6 +4942,7 @@ void theory_seq::add_extract_suffix_axiom(expr* e, expr* s, expr* i) {
 
 */
 void theory_seq::add_at_axiom(expr* e) {
+    TRACE("seq", tout << "at-axiom: " << mk_pp(e, m) << "\n";);
     expr* s = nullptr, *i = nullptr;
     VERIFY(m_util.str.is_at(e, s, i));
     expr_ref zero(m_autil.mk_int(0), m);
@@ -5082,8 +5083,35 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:\n", lits) << "\n";);
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
+
+#if 0
+    static unsigned level = 0;
+    if (level == 0) {
+        level++;
+        disable_trace("seq");
+        kernel k(m, ctx.get_fparams());
+        expr_ref tmp(m);
+        for (literal lit: lits) {
+            ctx.literal2expr(~lit, tmp);
+            k.assert_expr(tmp);
+        }
+        lbool r = k.check();        
+        enable_trace("seq");
+        if (r == l_true) {
+            k.display(std::cout); std::cout << "\n";
+            TRACE("seq", k.display(tout << "sat\n"); tout << "\n";);
+        }
+        level--;
+    }
+#endif
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
+
+#if 0
+void theory_seq::dump_axiom(literal_vector const& lits) {
+    display_lemma_as_smt_problem(std::cout << "; lemma\n", lits.size(), lits.c_ptr());
+}
+#endif
 
 expr_ref theory_seq::coalesce_chars(expr* const& e) {
     context& ctx = get_context();
