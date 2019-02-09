@@ -5083,35 +5083,9 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:\n", lits) << "\n";);
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
-
-#if 0
-    static unsigned level = 0;
-    if (level == 0) {
-        level++;
-        disable_trace("seq");
-        kernel k(m, ctx.get_fparams());
-        expr_ref tmp(m);
-        for (literal lit: lits) {
-            ctx.literal2expr(~lit, tmp);
-            k.assert_expr(tmp);
-        }
-        lbool r = k.check();        
-        enable_trace("seq");
-        if (r == l_true) {
-            k.display(std::cout); std::cout << "\n";
-            TRACE("seq", k.display(tout << "sat\n"); tout << "\n";);
-        }
-        level--;
-    }
-#endif
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
 }
 
-#if 0
-void theory_seq::dump_axiom(literal_vector const& lits) {
-    display_lemma_as_smt_problem(std::cout << "; lemma\n", lits.size(), lits.c_ptr());
-}
-#endif
 
 expr_ref theory_seq::coalesce_chars(expr* const& e) {
     context& ctx = get_context();
