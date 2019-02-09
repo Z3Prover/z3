@@ -1033,7 +1033,7 @@ namespace sat {
         }
 
         void insert(literal l) {
-            VERIFY(process_var(l.var()));
+            SASSERT(process_var(l.var()));
             m_queue.insert(l);
         }
 
@@ -1076,6 +1076,7 @@ namespace sat {
         }
 
         void insert_queue() {
+            m_queue.reset();
             unsigned num_vars = s.s.num_vars();
             for (bool_var v = 0; v < num_vars; v++) {
                 if (process_var(v)) {

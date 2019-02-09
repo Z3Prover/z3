@@ -130,8 +130,7 @@ public class Goal extends Z3Object {
         int n = size();
         BoolExpr[] res = new BoolExpr[n];
         for (int i = 0; i < n; i++)
-            res[i] = new BoolExpr(getContext(), Native.goalFormula(getContext()
-                    .nCtx(), getNativeObject(), i));
+            res[i] = (BoolExpr) Expr.create(getContext(), Native.goalFormula(getContext().nCtx(), getNativeObject(), i));
         return res;
     }
 

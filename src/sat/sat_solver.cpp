@@ -32,7 +32,7 @@ Revision History:
 namespace sat {
 
     solver::solver(params_ref const & p, reslimit& l):
-        m_rlimit(l),
+        solver_core(l),
         m_checkpoint_enabled(true),
         m_config(p),
         m_par(nullptr),
@@ -3489,7 +3489,7 @@ namespace sat {
 
     bool_var solver::max_var(bool learned, bool_var v) {
         m_user_bin_clauses.reset();
-        collect_bin_clauses(m_user_bin_clauses, learned);
+        collect_bin_clauses(m_user_bin_clauses, learned, false);
         for (unsigned i = 0; i < m_user_bin_clauses.size(); ++i) {
             literal l1 = m_user_bin_clauses[i].first;
             literal l2 = m_user_bin_clauses[i].second;
@@ -3990,7 +3990,7 @@ namespace sat {
         max_cliques<neg_literal> mc;
         m_user_bin_clauses.reset();
         m_binary_clause_graph.reset();
-        collect_bin_clauses(m_user_bin_clauses, true);
+        collect_bin_clauses(m_user_bin_clauses, true, false);
         hashtable<literal_pair, pair_hash<literal_hash, literal_hash>, default_eq<literal_pair> > seen_bc;
         for (auto const& b : m_user_bin_clauses) {
             literal l1 = b.first;
