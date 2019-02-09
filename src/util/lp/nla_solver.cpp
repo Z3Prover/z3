@@ -2292,6 +2292,7 @@ struct solver::imp {
             }
         }
         mk_ineq(m.var(), (sign.is_pos()? llc::GT : llc ::LT), current_lemma());
+		TRACE("nla_solver", print_lemma_and_expl(tout););
     }
 
     bool generate_simple_tangent_lemma(const rooted_mon* rm) {
