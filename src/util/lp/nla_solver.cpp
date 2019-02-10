@@ -2312,7 +2312,7 @@ struct solver::imp {
             }
         }
         mk_ineq(m.var(), (sign.is_pos()? llc::GT : llc ::LT), current_lemma());
-		TRACE("nla_solver", print_lemma_and_expl(tout););
+        TRACE("nla_solver", print_lemma_and_expl(tout););
     }
 
     bool generate_simple_tangent_lemma(const rooted_mon* rm) {
@@ -2325,7 +2325,7 @@ struct solver::imp {
         SASSERT(!mv.is_zero() && !v.is_zero());
         rational sign = rational(rat_sign(mv));
         if (sign != rat_sign(v)) {
-            generate_simple_sign_lemma(sign, m);
+            generate_simple_sign_lemma(-sign, m);
             return true;
         }
         bool gt = abs(mv) > abs(v);
