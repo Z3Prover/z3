@@ -202,7 +202,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_REWRITE1;
             }
         }
-        if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f)) {
+#if 0
+        if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f) && m_model_completion) {
             func_decl* g = nullptr;
             VERIFY(m_ar.is_as_array(f, g));
             expr* def = nullptr;
@@ -221,6 +222,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
         }
+#endif
 
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;

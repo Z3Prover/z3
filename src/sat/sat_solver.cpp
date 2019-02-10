@@ -1721,7 +1721,6 @@ namespace sat {
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
 
-
         if (m_par) m_par->set_phase(*this);
 
 #if 0
@@ -1962,7 +1961,7 @@ namespace sat {
                 m_restart_next_out = 1;
             }
             else {
-                m_restart_next_out = (3*m_restart_next_out)/2 + 1; 
+                m_restart_next_out = std::min(m_conflicts_since_init + 50000, (3*m_restart_next_out)/2 + 1); 
             }
             log_stats();
         }

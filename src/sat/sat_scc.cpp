@@ -56,11 +56,10 @@ namespace sat {
         ~report() {
             m_watch.stop();
             unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(2, 
                        verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
                        if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
-                       verbose_stream() << mk_stat(m_scc.m_solver)
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << m_watch << ")\n";);
         }
     };
 

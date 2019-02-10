@@ -167,7 +167,6 @@ namespace sat{
             if (simp.cleanup_clause(c)) 
                 return;
             
-            if (v0 == 39063) IF_VERBOSE(0, verbose_stream() << "bdd: " << c << "\n");
             switch (c.size()) {
             case 0:
                 s.set_conflict(justification());
