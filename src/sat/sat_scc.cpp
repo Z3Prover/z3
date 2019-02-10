@@ -47,20 +47,23 @@ namespace sat {
         stopwatch m_watch;
         unsigned  m_num_elim;
         unsigned  m_num_elim_bin;
+        unsigned  m_trail_size;
         report(scc & c):
             m_scc(c),
             m_num_elim(c.m_num_elim),
-            m_num_elim_bin(c.m_num_elim_bin) {
+            m_num_elim_bin(c.m_num_elim_bin),
+            m_trail_size(c.m_solver.init_trail_size()) {
             m_watch.start();
         }
         ~report() {
             m_watch.stop();
             unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
-            IF_VERBOSE(SAT_VB_LVL, 
+            unsigned num_units = m_scc.m_solver.init_trail_size() - m_trail_size;
+            IF_VERBOSE(2, 
                        verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
                        if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
-                       verbose_stream() << mk_stat(m_scc.m_solver)
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       if (num_units > 0) verbose_stream() << " :units " << num_units;
+                       verbose_stream() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
         }
     };
 

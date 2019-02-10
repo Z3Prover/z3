@@ -185,12 +185,15 @@ namespace sat {
 
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL,
-                       verbose_stream() << " (sat-probing :probing-assigned "
-                       << (m_probing.m_num_assigned - m_num_assigned)
-                       << " :cost " << m_probing.m_counter;
+            unsigned units = (m_probing.m_num_assigned - m_num_assigned);
+            IF_VERBOSE(2,
+                       verbose_stream() << " (sat-probing";
+                       if (units > 0) verbose_stream() << " :probing-assigned " << units;
+                       verbose_stream() << " :cost " << m_probing.m_counter;
                        if (m_probing.m_stopped_at != 0) verbose_stream() << " :stopped-at " << m_probing.m_stopped_at;
-                       verbose_stream() << mem_stat() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << mem_stat();
+                       verbose_stream() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+
         }
     };
 

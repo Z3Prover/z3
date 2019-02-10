@@ -790,6 +790,7 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) m_drat.add(l, m_searching);
             j = justification(0); // erase justification for level 0
+            IF_VERBOSE(1, verbose_stream() << "unit " << l << " " << at_base_lvl() << "\n");
         }
         else {
             VERIFY(!at_base_lvl());
@@ -2407,7 +2408,7 @@ namespace sat {
 
         if (unique_max) {
             m_unique_max_since_restart++; // does not update glue
-            IF_VERBOSE(3, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
+            IF_VERBOSE(1, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             return true;
         }

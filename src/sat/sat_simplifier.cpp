@@ -1165,7 +1165,6 @@ namespace sat {
             if (m_intersection.empty() && !first) {
                 m_tautology.shrink(tsz);
             }
-            // if (first) IF_VERBOSE(0, verbose_stream() << "taut: " << m_tautology << "\n";);
             return first;
         }
 
@@ -1223,8 +1222,6 @@ namespace sat {
            RI literals.
          */
         void minimize_covered_clause(unsigned idx) {
-            // IF_VERBOSE(0, verbose_stream() << "minimize: " << m_covered_clause 
-            // << " @ " << idx << "\n" << "tautology: " << m_tautology << "\n";);
             literal _blocked = m_covered_clause[idx];
             for (literal l : m_tautology) VERIFY(s.is_marked(l));
             for (literal l : m_covered_clause) s.unmark_visited(l);
@@ -1234,14 +1231,6 @@ namespace sat {
                 literal lit = m_covered_clause[i];
                 if (m_covered_antecedent[i] == clause_ante()) s.mark_visited(lit);
                 if (s.is_marked(lit)) idx = i; 
-            }
-            if (false && _blocked.var() == 8074) {
-                IF_VERBOSE(0, verbose_stream() << "covered: " << m_covered_clause << "\n";
-                           verbose_stream() << "tautology: " << m_tautology << "\n";
-                           verbose_stream() << "index: " << idx << "\n";
-                           for (unsigned i = idx; i > 0; --i) {
-                               m_covered_antecedent[i].display(verbose_stream(), m_covered_clause[i]);
-                           });
             }
             for (unsigned i = idx; i > 0; --i) {
                 literal lit = m_covered_clause[i];
@@ -1286,10 +1275,6 @@ namespace sat {
             // unsigned sz0 = m_covered_clause.size();
             m_covered_clause.resize(j);
             VERIFY(j >= m_clause.size());
-            if (false && _blocked.var() == 16774) {
-                IF_VERBOSE(0, verbose_stream() << "covered: " << m_covered_clause << "\n");
-            }
-            // IF_VERBOSE(0, verbose_stream() << "reduced from size " << sz0 << " to " << m_covered_clause << "\n" << m_clause << "\n";);
         }
 
         /*
@@ -1386,7 +1371,6 @@ namespace sat {
         }
 
         bool above_threshold(unsigned sz0) const {
-            // if (sz0 * 400 < m_covered_clause.size()) IF_VERBOSE(0, verbose_stream() << "above threshold " << sz0 << " " << m_covered_clause.size() << "\n";);
             return sz0 * 400 < m_covered_clause.size();
         }
 
@@ -1609,15 +1593,6 @@ namespace sat {
         }
 
         void block_covered_clause(clause& c, literal l, model_converter::kind k) {
-            if (false) {
-                IF_VERBOSE(0, verbose_stream() << "blocked: " << l << " @ " << c << " :covered " << m_covered_clause << "\n";
-                           s.m_use_list.display(verbose_stream() << "use  " << l << ":", l);
-                           s.m_use_list.display(verbose_stream() << "use  " << ~l << ":", ~l);
-                           s.s.display_watch_list(verbose_stream() <<  ~l << ": ", s.get_wlist(l)) << "\n";
-                           s.s.display_watch_list(verbose_stream() <<   l << ": ", s.get_wlist(~l)) << "\n";
-                           );
-                
-            }
             TRACE("blocked_clause", tout << "new blocked clause: " << c << "\n";);
             SASSERT(!s.is_external(l));
             model_converter::entry& new_entry = m_mc.mk(k, l.var());
@@ -1876,36 +1851,7 @@ namespace sat {
     }
 
     void simplifier::add_non_learned_binary_clause(literal l1, literal l2) {
-#if 0
-        if ((l1.var() == 2039 || l2.var() == 2039) &&
-            (l1.var() == 27042 || l2.var() == 27042)) { 
-            IF_VERBOSE(1, verbose_stream() << "add_bin: " << l1 << " " << l2 << "\n");
-        }
-#endif
-#if 0
-        watched* w;
-        watch_list & wlist1 = get_wlist(~l1);
-        watch_list & wlist2 = get_wlist(~l2);
-        w = find_binary_watch(wlist1, l2);
-        if (w) {
-            if (w->is_learned())
-                w->set_learned(false);
-        }
-        else {
-            wlist1.push_back(watched(l2, false));
-        }
-
-        w = find_binary_watch(wlist2, l1);
-        if (w) {
-            if (w->is_learned())
-                w->set_learned(false);
-        }
-        else {
-            wlist2.push_back(watched(l1, false));
-        }
-#else
         s.mk_bin_clause(l1, l2, false);
-#endif
     }
 
     /**
@@ -2028,13 +1974,6 @@ namespace sat {
 
         m_elim_counter -= num_pos * num_neg + before_lits;
 
-        if (false) {
-            literal l(v, false);
-            IF_VERBOSE(0, 
-                       verbose_stream() << "elim: " << l << "\n";
-                       s.display_watch_list(verbose_stream() <<  ~l << ": ", get_wlist(l)) << "\n";
-                       s.display_watch_list(verbose_stream() <<   l << ": ", get_wlist(~l)) << "\n";);
-        }
         // eliminate variable
         ++s.m_stats.m_elim_var_res;
         VERIFY(!is_external(v));
