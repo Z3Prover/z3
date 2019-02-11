@@ -47,7 +47,18 @@ struct ineq {
 
 };
 
-typedef vector<ineq> lemma;
+class lemma {
+    vector<ineq>     m_ineqs;
+    lp::explanation  m_expl;
+public:
+    void push_back(const ineq& i) { m_ineqs.push_back(i);}
+    size_t size() const { return m_ineqs.size() + m_expl.size(); }
+    const vector<ineq>& ineqs() const { return m_ineqs; }
+    vector<ineq>& ineqs() { return m_ineqs; }
+    lp::explanation& expl() { return m_expl; }
+    const lp::explanation& expl() const { return m_expl; }
+};
+
 typedef vector<monomial> polynomial;
 // nonlinear integer incremental linear solver
 class solver {
@@ -62,7 +73,7 @@ public:
     void push();
     void pop(unsigned scopes);
     bool need_check();
-    lbool check(vector<lp::explanation>&, vector<lemma>&);
+    lbool check(vector<lemma>&);
     static void test_factorization();
     static void test_basic_sign_lemma();
     static void test_basic_lemma_for_mon_zero_from_monomial_to_factors();
