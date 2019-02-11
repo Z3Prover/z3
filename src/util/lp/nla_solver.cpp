@@ -378,24 +378,31 @@ struct solver::imp {
         out << "\n";
         return out;
     }
-    void mk_ineq(const lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
+
+    bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
+        // check that we have something like 0 < 0, which is always false and can be safely
+        // removed from the lemma        
         if (t.is_empty() && rs.is_zero() &&
-            (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE))
-            return; // otherwise we get something like 0 < 0, which is always false and can be removed from the lemma
-        switch(cmp){
-        case llc::NE:
-            if (t.size() == 1) {
-                const auto & p = t.coeffs().begin();
-                auto r = rs/p->second;
-                lpvar j = p->first;
-                if (vvr(j) == r && var_is_fixed_to_val(j, r)) {
-                    explain_fixed_var(j); // instead of adding the inequality
-                    return;
-                }
-            }
-        default:
-            break;
-        }
+            (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE)) return true;
+        /*
+        lp::explanation exp;
+        bool r;
+        switch(negate(cmp)) {
+        case llc::LE:
+            
+        case llc::LT: return llc::GE;
+        case llc::GE: return llc::LT;
+        case llc::GT: return llc::LE;
+        case llc::EQ: return llc::NE;
+        case llc::NE: return llc::EQ;
+        }*/
+        return false;
+    }
+    
+    void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
+        if (explain_ineq(t, cmp, rs))
+            return;
+        m_lar_solver.subs_term_columns(t);
         l.push_back(ineq(cmp, t, rs));
     }
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs, lemma& l) {
@@ -437,10 +444,10 @@ struct solver::imp {
 
     llc negate(llc cmp) {
         switch(cmp) {
-        case llc::LE: return llc::GE;
-        case llc::LT: return llc::GT;
-        case llc::GE: return llc::LE;
-        case llc::GT: return llc::LT;
+        case llc::LE: return llc::GT;
+        case llc::LT: return llc::GE;
+        case llc::GE: return llc::LT;
+        case llc::GT: return llc::LE;
         case llc::EQ: return llc::NE;
         case llc::NE: return llc::EQ;
         default: SASSERT(false);
@@ -459,15 +466,6 @@ struct solver::imp {
         return cmp;
     }
     
-    bool explain(const rational& a, lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
-        cmp = negate(cmp);
-        if (a == rational(1))
-            return explain(j, cmp, rs, exp);
-        if (a == -rational(1))
-            return explain(j, apply_minus(cmp), -rs, exp);
-        return false;
-    }
-
     bool explain(lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
         unsigned lc, uc; // indices for the lower and upper bounds
         m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
