@@ -1172,7 +1172,6 @@ namespace sat {
         SASSERT(!m_local_search);
         m_local_search = alloc(local_search);
         local_search& srch = *m_local_search;
-        srch.config().set_config(m_config);
         srch.import(*this, false);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, nullptr);
@@ -1197,9 +1196,8 @@ namespace sat {
         int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk;
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
-            l->config().set_config(m_config);
-            l->config().set_random_seed(m_config.m_random_seed + i);
             l->import(*this, false);
+            l->config().set_random_seed(m_config.m_random_seed + i);
             ls.push_back(l);
         }
 
