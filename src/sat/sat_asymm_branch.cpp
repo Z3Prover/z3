@@ -44,26 +44,32 @@ namespace sat {
         unsigned       m_elim_literals;
         unsigned       m_elim_learned_literals;
         unsigned       m_tr;
+        unsigned       m_units;
         report(asymm_branch & a):
             m_asymm_branch(a),
             m_elim_literals(a.m_elim_literals),
-            m_elim_learned_literals(a.m_elim_learned_literals),
-            m_tr(a.m_tr) {
+            m_elim_learned_literals(a.m_elim_learned_literals),            
+            m_tr(a.m_tr),
+            m_units(a.s.init_trail_size()) {
             m_watch.start();
         }
         
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(SAT_VB_LVL, 
+            IF_VERBOSE(2,
                        unsigned num_learned = (m_asymm_branch.m_elim_learned_literals - m_elim_learned_literals);
                        unsigned num_total = (m_asymm_branch.m_elim_literals - m_elim_literals);
-                       verbose_stream() 
-                       << " (sat-asymm-branch :elim-literals " << (num_total - num_learned) 
-                       << " :elim-learned-literals " << num_learned
-                       << " :hte " << (m_asymm_branch.m_tr - m_tr)
-                       << " :cost " << m_asymm_branch.m_counter
-                       << mem_stat()
-                       << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       unsigned num_units = (m_asymm_branch.s.init_trail_size() - m_units);
+                       unsigned elim_lits = (num_total - num_learned);
+                       unsigned tr = (m_asymm_branch.m_tr - m_tr);
+                       verbose_stream() << " (sat-asymm-branch";
+                       if (elim_lits > 0)   verbose_stream() << " :elim-literals " << elim_lits; 
+                       if (num_learned > 0) verbose_stream() << " :elim-learned-literals " << num_learned;
+                       if (num_units > 0)   verbose_stream() << " :units " << num_units;
+                       if (tr > 0)          verbose_stream() << " :hte " << tr;
+                       verbose_stream() << " :cost " << m_asymm_branch.m_counter;
+                       verbose_stream() << mem_stat();
+                       verbose_stream() << m_watch << ")\n";);
         }
     };
 
@@ -84,11 +90,11 @@ namespace sat {
             if (s.m_inconsistent)
                 break;
             unsigned num_elim = m_elim_literals + m_tr - elim;
-            IF_VERBOSE(2, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
+            IF_VERBOSE(4, verbose_stream() << "(sat-asymm-branch-step :elim " << num_elim << ")\n";);
             if (num_elim == 0)
                 break;
         }        
-        IF_VERBOSE(2, if (m_elim_learned_literals > eliml0) 
+        IF_VERBOSE(4, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim0;
     }
@@ -98,7 +104,7 @@ namespace sat {
         unsigned elim = m_elim_literals;
         process(nullptr, s.m_clauses);
         s.propagate(false); 
-        IF_VERBOSE(2, if (m_elim_learned_literals > eliml0) 
+        IF_VERBOSE(4, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
         return m_elim_literals > elim;
     }
@@ -417,7 +423,7 @@ namespace sat {
 
         switch (new_sz) {
         case 0:
-            s.set_conflict(justification(0));
+            s.set_conflict();
             return false;
         case 1:
             TRACE("asymm_branch", tout << "produced unit clause: " << c[0] << "\n";);

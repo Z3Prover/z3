@@ -176,7 +176,7 @@ namespace sat {
     struct probing::report {
         probing    & m_probing;
         stopwatch    m_watch;
-        unsigned     m_num_assigned;
+        unsigned     m_num_assigned;        
         report(probing & p):
             m_probing(p),
             m_num_assigned(p.m_num_assigned) {
@@ -191,9 +191,7 @@ namespace sat {
                        if (units > 0) verbose_stream() << " :probing-assigned " << units;
                        verbose_stream() << " :cost " << m_probing.m_counter;
                        if (m_probing.m_stopped_at != 0) verbose_stream() << " :stopped-at " << m_probing.m_stopped_at;
-                       verbose_stream() << mem_stat();
-                       verbose_stream() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
-
+                       verbose_stream() << mem_stat() << m_watch << ")\n";);
         }
     };
 

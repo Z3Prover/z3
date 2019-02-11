@@ -74,7 +74,7 @@ namespace sat {
         void unmark_strengthened() { m_strengthened = false; }
         void elim(literal l);
         bool was_removed() const { return m_removed; }
-        void set_removed(bool f);
+        void set_removed(bool f) { m_removed = f; }
         var_approx_set approx() const { return m_approx; }
         void update_approx();
         bool check_approx() const; // for debugging

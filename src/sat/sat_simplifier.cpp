@@ -335,7 +335,7 @@ namespace sat {
             unsigned sz = c.size();
             switch(sz) {
             case 0:
-                s.set_conflict(justification(0));
+                s.set_conflict();
                 for (; it != end; ++it, ++it2) {
                     *it2 = *it;                  
                 }
@@ -697,7 +697,7 @@ namespace sat {
         switch (sz) {
         case 0:
             TRACE("elim_lit", tout << "clause is empty\n";);
-            s.set_conflict(justification(0));
+            s.set_conflict();
             break;
         case 1:
             TRACE("elim_lit", tout << "clause became unit: " << c[0] << "\n";);
@@ -894,7 +894,7 @@ namespace sat {
                 unsigned sz = c.size();
                 switch (sz) {
                 case 0:
-                    s.set_conflict(justification(0));
+                    s.set_conflict();
                     return;
                 case 1:
                     c.restore(sz0);
@@ -1994,7 +1994,7 @@ namespace sat {
                 }
                 switch (m_new_cls.size()) {
                 case 0:
-                    s.set_conflict(justification(0));
+                    s.set_conflict();
                     break;
                 case 1:
                     propagate_unit(m_new_cls[0]);

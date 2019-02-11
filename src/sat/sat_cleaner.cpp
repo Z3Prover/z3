@@ -119,7 +119,7 @@ namespace sat {
                        s.display_watches(tout););
                 switch (new_sz) {
                 case 0:
-                    s.set_conflict(justification(0));
+                    s.set_conflict();
                     s.del_clause(c);
                     break;
                 case 1:
@@ -165,12 +165,11 @@ namespace sat {
         }
         ~report() {
             m_watch.stop();
-            IF_VERBOSE(2, 
+            IF_VERBOSE(2,
                        verbose_stream() << " (sat-cleaner";
                        verbose_stream() << " :elim-literals " << (m_cleaner.m_elim_literals - m_elim_literals);
                        verbose_stream() << " :elim-clauses " << (m_cleaner.m_elim_clauses - m_elim_clauses);
-                       verbose_stream() << " :cost " << m_cleaner.m_cleanup_counter;
-                       verbose_stream() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << " :cost " << m_cleaner.m_cleanup_counter << m_watch << ")\n";);
         }
     };
 

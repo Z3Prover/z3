@@ -63,7 +63,7 @@ namespace sat {
                        verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
                        if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
                        if (num_units > 0) verbose_stream() << " :units " << num_units;
-                       verbose_stream() << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds() << ")\n";);
+                       verbose_stream() << m_watch << ")\n";);
         }
     };
 
@@ -181,7 +181,7 @@ namespace sat {
                             l2_idx = s[j];
                             j--;
                             if (to_literal(l2_idx) == ~l) {
-                                m_solver.set_conflict(justification(0));
+                                m_solver.set_conflict();
                                 return 0;
                             }
                             if (m_solver.is_external(to_literal(l2_idx).var())) {

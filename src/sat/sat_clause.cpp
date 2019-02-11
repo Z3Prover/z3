@@ -52,10 +52,6 @@ namespace sat {
         m_approx = approx(m_size, m_lits);
     }
 
-    void clause::set_removed(bool f) { 
-        m_removed = f; 
-    }
-
     bool clause::check_approx() const {
         var_approx_set curr = m_approx;
         (void)curr;

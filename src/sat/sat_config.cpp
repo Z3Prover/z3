@@ -130,9 +130,9 @@ namespace sat {
         }
 
         // These parameters are not exposed
-        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
+        m_next_simplify1  = _p.get_uint("next_simplify", 90000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
-        m_simplify_max    = _p.get_uint("simplify_max", 500000);
+        m_simplify_max    = _p.get_uint("simplify_max", 1000000);
         // --------------------------------
         m_simplify_delay  = p.simplify_delay();
 

@@ -179,7 +179,7 @@ namespace sat {
 
             switch (j) {
             case 0:
-                m_solver.set_conflict(justification(0));
+                m_solver.set_conflict();
                 for (; it != end; ++it) {
                     *it2 = *it;
                     it2++;

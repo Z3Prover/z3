@@ -322,6 +322,7 @@ namespace sat {
         void assign_core(literal l, justification jst);
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
+        void set_conflict() { set_conflict(justification(0)); }
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return cls_allocator().get_offset(&c); }
         void checkpoint() {
@@ -534,8 +535,8 @@ namespace sat {
         bool implied_by_marked(literal lit);
         void reset_unmark(unsigned old_size);
         void updt_lemma_lvl_set();
-        bool minimize_lemma(unsigned glue);
-        bool minimize_lemma_binres(unsigned glue);
+        bool minimize_lemma();
+        bool minimize_lemma_binres();
         void reset_lemma_var_marks();
         void dyn_sub_res();
 

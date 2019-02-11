@@ -393,14 +393,14 @@ namespace sat {
             }
             else {
                 m_stats.m_bin_propagate++;
-                TRACE("sat", tout << "propagate " << l1 << " <- " << ~l2 << "\n";);
+                //TRACE("sat", tout << "propagate " << l1 << " <- " << ~l2 << "\n";);
                 assign(l1, justification(lvl(l2), l2));
             }
             return true;
         }
         else if (value(l1) == l_false) {
             m_stats.m_bin_propagate++;
-            TRACE("sat", tout << "propagate " << l2 << " <- " << ~l1 << "\n";);
+            //TRACE("sat", tout << "propagate " << l2 << " <- " << ~l1 << "\n";);
             assign(l2, justification(lvl(l1), l1) );
             return true;
         }
@@ -776,7 +776,6 @@ namespace sat {
     // -----------------------
 
     void solver::set_conflict(justification c, literal not_l) {
-        TRACE("sat", tout << not_l << " " << c << "\n";);
         if (m_inconsistent)
             return;
         m_inconsistent = true;
@@ -790,7 +789,6 @@ namespace sat {
         if (j.level() == 0) {
             if (m_config.m_drat) m_drat.add(l, m_searching);
             j = justification(0); // erase justification for level 0
-            IF_VERBOSE(1, verbose_stream() << "unit " << l << " " << at_base_lvl() << "\n");
         }
         else {
             VERIFY(!at_base_lvl());
@@ -1746,8 +1744,6 @@ namespace sat {
             lh.collect_statistics(m_aux_stats);
         }
 
-        TRACE("sat", display(tout << "consistent: " << (!inconsistent()) << "\n"););
-
         reinit_assumptions();
 
         if (m_next_simplify == 0) {
@@ -1758,7 +1754,6 @@ namespace sat {
             if (m_next_simplify > m_conflicts_since_init + m_config.m_simplify_max)
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
-
 
         if (m_par) m_par->set_phase(*this);
 
@@ -2001,7 +1996,7 @@ namespace sat {
                 m_restart_next_out = 1;
             }
             else {
-                m_restart_next_out = (3*m_restart_next_out)/2 + 1; 
+                m_restart_next_out = std::min(m_conflicts_since_init + 50000, (3*m_restart_next_out)/2 + 1); 
             }
             log_stats();
         }
@@ -2541,8 +2536,8 @@ namespace sat {
         bool minimized = false;
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
         if (m_config.m_minimize_lemmas) {
-            // minimized = minimize_lemma_binres(glue);
-            minimized = minimize_lemma(glue);
+            // minimized = minimize_lemma_binres();
+            minimized = minimize_lemma();
             reset_lemma_var_marks();
             if (m_config.m_dyn_sub_res)
                 dyn_sub_res();
@@ -2588,7 +2583,6 @@ namespace sat {
             ++m_stats.m_backtracks;
             pop_reinit(m_scope_lvl - backtrack_lvl + 1);
         }
-        TRACE("sat", tout << "consistent " << (!m_inconsistent) << "\n";);
         // unsound: m_asymm_branch.minimize(m_scc, m_lemma);
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
@@ -3071,10 +3065,7 @@ namespace sat {
     /**
        \brief Minimize lemma using binary resolution
     */
-    bool solver::minimize_lemma_binres(unsigned glue) {
-        if (m_lemma.size() >= 30 || glue >= 6) {
-            return false;
-        }
+    bool solver::minimize_lemma_binres() {
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         unsigned sz   = m_lemma.size();
@@ -3108,10 +3099,7 @@ namespace sat {
        literals that are implied by other literals in m_lemma and/or literals
        assigned at level 0.
     */
-    bool solver::minimize_lemma(unsigned glue) {
-        if (m_lemma.size() >= 30 || glue >= 6) {
-            return false;
-        }
+    bool solver::minimize_lemma() {
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         updt_lemma_lvl_set();
@@ -3122,7 +3110,6 @@ namespace sat {
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
-                TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
             }
             else {
