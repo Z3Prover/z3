@@ -47,18 +47,22 @@ namespace sat {
         stopwatch m_watch;
         unsigned  m_num_elim;
         unsigned  m_num_elim_bin;
+        unsigned  m_trail_size;
         report(scc & c):
             m_scc(c),
             m_num_elim(c.m_num_elim),
-            m_num_elim_bin(c.m_num_elim_bin) {
+            m_num_elim_bin(c.m_num_elim_bin),
+            m_trail_size(c.m_solver.init_trail_size()) {
             m_watch.start();
         }
         ~report() {
             m_watch.stop();
             unsigned elim_bin = m_scc.m_num_elim_bin - m_num_elim_bin;
+            unsigned num_units = m_scc.m_solver.init_trail_size() - m_trail_size;
             IF_VERBOSE(2, 
                        verbose_stream() << " (sat-scc :elim-vars " << (m_scc.m_num_elim - m_num_elim);
                        if (elim_bin > 0) verbose_stream() << " :elim-bin " << elim_bin;
+                       if (num_units > 0) verbose_stream() << " :units " << num_units;
                        verbose_stream() << m_watch << ")\n";);
         }
     };
@@ -177,7 +181,7 @@ namespace sat {
                             l2_idx = s[j];
                             j--;
                             if (to_literal(l2_idx) == ~l) {
-                                m_solver.set_conflict(justification());
+                                m_solver.set_conflict();
                                 return 0;
                             }
                             if (m_solver.is_external(to_literal(l2_idx).var())) {

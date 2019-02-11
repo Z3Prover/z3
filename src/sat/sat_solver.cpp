@@ -2356,7 +2356,7 @@ namespace sat {
         }
 
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict);
-        TRACE("sat", tout << "conflict detected at level " << m_conflict_lvl << " for ";
+        TRACE("sat_verbose", tout << "conflict detected at level " << m_conflict_lvl << " for ";
               if (m_not_l == literal()) tout << "null literal\n";
               else tout << m_not_l << "\n";);
 
@@ -2970,7 +2970,6 @@ namespace sat {
         for (; i < sz; i++) {
             literal l = m_lemma[i];
             if (implied_by_marked(l)) {
-                TRACE("sat", tout << "drop: " << l << "\n";);
                 m_unmark.push_back(l.var());
             }
             else {
@@ -3720,7 +3719,7 @@ namespace sat {
     }
 
     std::ostream& solver::display_watch_list(std::ostream& out, watch_list const& wl) const {
-        return sat::display_watch_list(out, cls_allocator(), wl);
+        return sat::display_watch_list(out, cls_allocator(), wl, m_ext.get());
     }
 
     void solver::display_assignment(std::ostream & out) const {

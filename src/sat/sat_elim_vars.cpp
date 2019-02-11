@@ -169,7 +169,7 @@ namespace sat{
             
             switch (c.size()) {
             case 0:
-                s.set_conflict(justification());
+                s.set_conflict();
                 break;
             case 1: 
                 simp.propagate_unit(c[0]);

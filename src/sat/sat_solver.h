@@ -314,8 +314,11 @@ namespace sat {
             }
         }
         void assign_core(literal l, unsigned lvl, justification jst);
+        void assign_unit(literal l) { assign(l, justification()); }
+        void assign_scoped(literal l) { assign(l, justification()); }
         void set_conflict(justification c, literal not_l);
         void set_conflict(justification c) { set_conflict(c, null_literal); }
+        void set_conflict() { set_conflict(justification()); }
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return cls_allocator().get_offset(&c); }
         void checkpoint() {

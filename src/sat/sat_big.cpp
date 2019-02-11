@@ -199,7 +199,7 @@ namespace sat {
                         s.add_ate(~u, v);
                         if (find_binary_watch(wlist, ~v)) {
                             IF_VERBOSE(10, verbose_stream() << "binary: " << ~u << "\n");
-                            s.assign(~u, justification());
+                            s.assign_unit(~u);
                         }
                         // could turn non-learned non-binary tautology into learned binary.
                         s.get_wlist(~v).erase(watched(~u, w.is_learned()));

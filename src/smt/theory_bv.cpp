@@ -448,7 +448,7 @@ namespace smt {
         }
 
         unsigned act = m_eq_activity[hash_u_u(v1, v2) & 0xFF]++;
-        if (act < 255) {
+        if ((act & 0xFF) != 0xFF) {
             return;
         }
         ++m_stats.m_num_eq_dynamic;

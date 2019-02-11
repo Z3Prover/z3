@@ -53,7 +53,7 @@ namespace sat {
                     literal l2 = it->get_literal();
                     literal r2 = norm(roots, l2);
                     if (r1 == r2) {
-                        m_solver.assign(r1, justification());
+                        m_solver.assign_unit(r1);
                         if (m_solver.inconsistent())
                             return;
                         // consume unit
@@ -179,7 +179,7 @@ namespace sat {
 
             switch (j) {
             case 0:
-                m_solver.set_conflict(justification());
+                m_solver.set_conflict();
                 for (; it != end; ++it) {
                     *it2 = *it;
                     it2++;
@@ -187,7 +187,7 @@ namespace sat {
                 cs.set_end(it2);
                 return;                
             case 1:
-                m_solver.assign(c[0], justification());
+                m_solver.assign_unit(c[0]);
                 drat_delete_clause();
                 c.set_removed(true);
                 m_solver.del_clause(c);

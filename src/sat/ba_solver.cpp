@@ -4140,6 +4140,10 @@ namespace sat {
         return out << index2constraint(idx);
     }
 
+    std::ostream& ba_solver::display_constraint(std::ostream& out, ext_constraint_idx idx) const {
+        return out << index2constraint(idx);
+    }
+
     void ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
         switch (c.tag()) {
         case card_t: display(out, c.to_card(), values); break;

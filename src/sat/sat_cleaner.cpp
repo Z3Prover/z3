@@ -119,11 +119,11 @@ namespace sat {
                        s.display_watches(tout););
                 switch (new_sz) {
                 case 0:
-                    s.set_conflict(justification());
+                    s.set_conflict();
                     s.del_clause(c);
                     break;
                 case 1:
-                    s.assign(c[0], justification());
+                    s.assign_unit(c[0]);
                     s.del_clause(c);
                     break;
                 case 2:
