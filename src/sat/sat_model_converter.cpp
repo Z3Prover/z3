@@ -264,7 +264,7 @@ namespace sat {
     }
 
     void model_converter::insert(entry & e, literal_vector const& c) {
-        SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
+        SASSERT(e.var() == null_bool_var || c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);
