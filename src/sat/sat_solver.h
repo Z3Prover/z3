@@ -210,7 +210,7 @@ namespace sat {
            
            \pre the model converter of src and this must be empty
         */
-        void copy(solver const & src);
+        void copy(solver const & src, bool copy_learned = false);
         
         // -----------------------
         //

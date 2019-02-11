@@ -60,7 +60,7 @@ struct goal2sat::imp {
     sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
-    sat::bool_var               m_true;
+    sat::literal                m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
@@ -81,13 +81,14 @@ struct goal2sat::imp {
         m_default_external(default_external),
         m_is_lemma(false) {
         updt_params(p);
-        m_true = sat::null_bool_var;
+        m_true = sat::null_literal;
     }
         
     void updt_params(params_ref const & p) {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
+        if (m_xor_solver) ensure_extension();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -117,11 +118,11 @@ struct goal2sat::imp {
         m_solver.add_clause(num, lits, m_is_lemma);
     }
 
-    sat::bool_var mk_true() {
-        if (m_true == sat::null_bool_var) {
+    sat::literal mk_true() {
+        if (m_true == sat::null_literal) {
             // create fake variable to represent true;
-            m_true = m_solver.add_var(false);
-            mk_clause(sat::literal(m_true, false)); // v is true
+            m_true = sat::literal(m_solver.add_var(false), false);
+            mk_clause(m_true); // v is true
         }
         return m_true;
     }
@@ -132,10 +133,10 @@ struct goal2sat::imp {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
-                l = sat::literal(mk_true(), sign);
+                l = sign ? ~mk_true() : mk_true();
             }
             else if (m.is_false(t)) {
-                l = sat::literal(mk_true(), !sign);
+                l = sign ? mk_true() : ~mk_true();
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);

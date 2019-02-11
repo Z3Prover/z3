@@ -95,7 +95,7 @@ namespace sat {
         if (ext) ext->set_solver(this);
     }
 
-    void solver::copy(solver const & src) {
+    void solver::copy(solver const & src, bool copy_learned) {
         pop_to_base_level();
         del_clauses(m_clauses);
         del_clauses(m_learned);
@@ -192,7 +192,7 @@ namespace sat {
             // copy high quality lemmas
             unsigned num_learned = 0;
             for (clause* c : src.m_learned) {
-                if (c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8)) {
+                if (copy_learned || c->glue() <= 2 || (c->size() <= 40 && c->glue() <= 8)) {
                     buffer.reset();
                     for (literal l : *c) buffer.push_back(l);
                     clause* c1 = mk_clause_core(buffer.size(), buffer.c_ptr(), true);
