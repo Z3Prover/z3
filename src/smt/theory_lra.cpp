@@ -2153,7 +2153,7 @@ public:
 
     void false_case_of_check_nla() {
         literal_vector core;
-        for (auto const& ineq : m_lemma) {
+        for (auto const& ineq : m_lemma.ineqs()) {
             bool is_lower = true, pos = true, is_eq = false;
             switch (ineq.m_cmp) {
             case lp::LE: is_lower = false; pos = false;  break;
@@ -2181,14 +2181,12 @@ public:
         set_conflict_or_lemma(core, false);
     }
     
-    lbool check_aftermath_nla(lbool r, const vector<nla::lemma>& l,
-        const vector<lp::explanation>& e) {
+    lbool check_aftermath_nla(lbool r, const vector<nla::lemma>& lv) {
         switch (r) {
         case l_false: {
-            SASSERT(l.size() == e.size());
-            for(unsigned i = 0; i < l.size(); i++) {
-                m_lemma = l[i];
-                m_explanation = e[i];
+            for(const nla::lemma & l : lv) {
+                m_lemma = l; //todo avoit the copy
+                m_explanation = l.expl();
                 false_case_of_check_nla();
             }
             break;
@@ -2217,9 +2215,8 @@ public:
             m_explanation.clear();
             return check_aftermath_nra(m_nra->check(m_explanation));
         }
-        vector<nla::lemma> l;
-        vector<lp::explanation> e;
-        return check_aftermath_nla(m_nla->check(e, l), l, e);
+        vector<nla::lemma> lv;
+        return check_aftermath_nla(m_nla->check(lv), lv);
     }
 
     /**

@@ -41,5 +41,6 @@ public:
     void add(unsigned j) { push_justification(j); }
     
     bool empty() const {  return m_explanation.empty();  }
+    size_t size() const { return m_explanation.size(); }
 };
 }
