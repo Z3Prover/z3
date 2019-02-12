@@ -210,6 +210,11 @@ unsigned lar_solver::adjust_column_index_to_term_index(unsigned j) const {
     unsigned ext_var_or_term = m_var_register.local_to_external(j);
     return ext_var_or_term < m_terms_start_index ? j : ext_var_or_term;
 }
+
+unsigned lar_solver::map_term_index_to_column_index(unsigned j) const {
+    SASSERT(is_term(j));
+    return m_var_register.external_to_local(j);
+}
     
 void lar_solver::propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset) {
     lp_assert(false); // not implemented
