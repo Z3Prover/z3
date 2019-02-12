@@ -142,8 +142,20 @@ struct solver::imp {
         return ret;
     }
 
+    lp::lar_term subs_terms_to_columns(const lp::lar_term& t) const {
+        lp::lar_term r;
+        for (const auto& p : t) {
+            lpvar j = p.var();
+            if (m_lar_solver.is_term(j))
+                j = m_lar_solver.map_term_index_to_column_index(j);
+            r.add_coeff_var(p.coeff(), j);
+        }
+        return r;
+    } 
+    
     bool ineq_holds(const ineq& n) const {
-        return compare_holds(value(n.term()), n.cmp(), n.rs());
+        lp::lar_term t = subs_terms_to_columns(n.term());
+        return compare_holds(value(t), n.cmp(), n.rs());
     }
 
     bool an_ineq_holds(const lemma& l) const {
