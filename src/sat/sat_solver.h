@@ -221,10 +221,10 @@ namespace sat {
         bool_var add_var(bool ext) override { return mk_var(ext, true); }
 
         bool_var mk_var(bool ext = false, bool dvar = true);
-        void mk_clause(literal_vector const& lits, bool learned = false) { mk_clause(lits.size(), lits.c_ptr(), learned); }
-        void mk_clause(unsigned num_lits, literal * lits, bool learned = false);
-        void mk_clause(literal l1, literal l2, bool learned = false);
-        void mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
+        clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
+        clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
+        clause* mk_clause(literal l1, literal l2, bool learned = false);
+        clause* mk_clause(literal l1, literal l2, literal l3, bool learned = false);        
 
         random_gen& rand() { return m_rand; }
 
