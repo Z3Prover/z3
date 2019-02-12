@@ -266,6 +266,8 @@ public:
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
 
+    unsigned map_term_index_to_column_index(unsigned j) const;
+    
     var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
 
     unsigned number_of_vars() const { return m_var_register.size(); }
