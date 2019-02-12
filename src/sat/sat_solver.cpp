@@ -120,7 +120,7 @@ namespace sat {
         m_scopes.reset();
 
         if (src.inconsistent()) {
-            set_conflict(justification(0));
+            set_conflict();
             return;
         }
         
@@ -333,7 +333,7 @@ namespace sat {
         
         switch (num_lits) {
         case 0:
-            set_conflict(justification(0));
+            set_conflict();
             return nullptr;
         case 1:
             assign_unit(lits[0]);
@@ -1069,7 +1069,7 @@ namespace sat {
             m_cuber = nullptr;
             if (is_first) {
                 pop_to_base_level();
-                set_conflict(justification(0));
+                set_conflict();
             }
             break;
         case l_true: {
@@ -1496,13 +1496,12 @@ namespace sat {
     lbool solver::propagate_and_backjump_step(bool& done) {
         done = true;
         propagate(true);
-        if (!inconsistent())
-            return l_true;
+        if (!inconsistent()) {
+            return should_restart() ? l_undef : l_true; 
+        }
         if (!resolve_conflict())
             return l_false;
         if (reached_max_conflicts()) 
-            return l_undef;
-        if (should_restart()) 
             return l_undef;
         if (at_base_lvl()) {
             cleanup(false); // cleaner may propagate frozen clauses
@@ -2000,6 +1999,7 @@ namespace sat {
             }
             log_stats();
         }
+        TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         IF_VERBOSE(30, display_status(verbose_stream()););
         pop_reinit(restart_level(to_base));
         set_next_restart();
@@ -2324,7 +2324,8 @@ namespace sat {
         unsigned new_sz = j;
         switch (new_sz) {
         case 0:
-            set_conflict(justification(0));
+            if (m_config.m_drat) m_drat.add();
+            set_conflict();
             return false;
         case 1:
             assign_unit(c[0]);
@@ -2334,9 +2335,13 @@ namespace sat {
             return false;
         default:
             if (new_sz != sz) {
-                if (m_config.m_drat) m_drat.del(c);
                 c.shrink(new_sz);
-                if (m_config.m_drat) m_drat.add(c, true);
+                if (m_config.m_drat) {
+                    m_drat.add(c, true);
+                    c.restore(sz);
+                    m_drat.del(c);
+                    c.shrink(new_sz);
+                }
             }
             attach_clause(c);
             return true;
@@ -2381,7 +2386,6 @@ namespace sat {
 
     bool solver::resolve_conflict_core() {
         m_conflicts_since_init++;
-
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
         m_stats.m_conflict++;
@@ -2403,7 +2407,7 @@ namespace sat {
 
         if (unique_max) {
             m_unique_max_since_restart++; // does not update glue
-            IF_VERBOSE(1, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
+            IF_VERBOSE(5, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             return true;
         }
@@ -2432,11 +2436,12 @@ namespace sat {
         // save space for first uip
         m_lemma.push_back(null_literal);
 
-        TRACE("sat_conflict_detail", display(tout << "resolve: " << m_not_l << " " 
-                                             << " js: " << js 
-                                             << " idx: " << idx 
-                                             << " trail: " << m_trail.size() 
-                                             << " @" << m_conflict_lvl << "\n"););
+        TRACE("sat_conflict_detail", 
+              tout << "resolve: " << m_not_l << " " 
+              << " js: " << js 
+              << " idx: " << idx 
+              << " trail: " << m_trail.size() 
+              << " @" << m_conflict_lvl << "\n";);
 
         unsigned num_marks = 0;
         literal consequent = null_literal;
@@ -2446,7 +2451,6 @@ namespace sat {
             consequent = ~m_not_l;
         }
 
-        TRACE("sat_conflict_detail", display(tout););
 
         do {
             TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << " @" << (consequent==null_literal?m_conflict_lvl:lvl(consequent)) << "\n";
@@ -2501,13 +2505,6 @@ namespace sat {
                     }
                     SASSERT(lvl(c_var) < m_conflict_lvl);
                 }
-                if (idx == 0) {
-                    enable_trace("sat_conflict_detail");
-                    TRACE("sat_conflict_detail", tout << "conflict detected at level " << m_conflict_lvl << " for " << m_not_l << "\n" << m_conflict << "\n";);
-                    TRACE("sat_conflict_detail", display(tout););
-                    TRACE("sat_conflict_detail", display_justification(tout, m_conflict););
-                    exit(0);
-                }
                 SASSERT(idx > 0);
                 idx--;
             }
@@ -2533,11 +2530,8 @@ namespace sat {
             return;
         }
         
-        bool minimized = false;
-        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
         if (m_config.m_minimize_lemmas) {
-            // minimized = minimize_lemma_binres();
-            minimized = minimize_lemma();
+            minimize_lemma();
             reset_lemma_var_marks();
             if (m_config.m_dyn_sub_res)
                 dyn_sub_res();
@@ -2559,15 +2553,14 @@ namespace sat {
             backtrack_lvl = backjump_lvl;
             for (unsigned i = m_lemma.size(); i-- > 1;) {
                 if (lvl(m_lemma[i]) == backjump_lvl) {
+                    TRACE("sat", tout << "swap " << m_lemma[0] << "@" << lvl(m_lemma[0]) << m_lemma[1] << "@" << backjump_lvl << "\n";);
                     std::swap(m_lemma[i], m_lemma[0]);
                     break;
                 }
             }
         }
         
-        if (minimized) {
-            glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());
-        }
+        unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());        
         m_fast_glue_avg.update(glue);
         m_slow_glue_avg.update(glue);
     
@@ -2591,7 +2584,7 @@ namespace sat {
         if (m_par && lemma) {
             m_par->share_clause(*this, *lemma);
         }
-        TRACE("sat_conflict_detail", display(tout << "consistent " << (!m_inconsistent) << " scopes: " << m_scope_lvl << " backtrack: " << backtrack_lvl << " backjump: " << backjump_lvl << "\n"););
+        TRACE("sat_conflict_detail", tout << "consistent " << (!m_inconsistent) << " scopes: " << scope_lvl() << " backtrack: " << backtrack_lvl << " backjump: " << backjump_lvl << "\n";);
         decay_activity();
         updt_phase_counters();
     }
