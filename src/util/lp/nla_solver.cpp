@@ -379,27 +379,124 @@ struct solver::imp {
         return out;
     }
 
+    bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
+        rational b(0); // the bound
+        for (const auto& p : t) {
+            rational pb;
+            if (explain_coeff_upper_bound(p, pb, e)) {
+                    b += pb;
+            } else {
+                e.clear();
+                return false;
+            }
+        }
+        if (b > rs ) {
+            e.clear();
+            return false;
+        }
+        return true;
+    }
+    bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const {
+        rational b(0); // the bound
+        for (const auto& p : t) {
+            rational pb;
+            if (explain_coeff_lower_bound(p, pb, e)) {
+                    b += pb;
+            } else {
+                e.clear();
+                return false;
+            }
+        }
+        if (b < rs ) {
+            e.clear();
+            return false;
+        }
+        return true;
+    }
+
+    bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
+        const rational& a = p.coeff();
+        SASSERT(!a.is_zero());
+        unsigned c; // the index for the lower or the upper bound
+        if (a.is_pos()) {
+            unsigned c = m_lar_solver.get_column_lower_bound_witness(p.var());
+            if (c + 1 == 0)
+                return false;
+            bound = a * m_lar_solver.get_lower_bound(p.var()).x;
+            e.add(c);
+            return true;
+        }
+         // a.is_neg()
+        c = m_lar_solver.get_column_upper_bound_witness(p.var());
+        if (c + 1 == 0)
+            return false;
+        bound = a * m_lar_solver.get_upper_bound(p.var()).x;
+        e.add(c);
+        return true;
+    }
+
+    bool explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const {
+        const rational& a = p.coeff();
+        SASSERT(!a.is_zero());
+        unsigned c; // the index for the lower or the upper bound
+        if (a.is_neg()) {
+            unsigned c = m_lar_solver.get_column_lower_bound_witness(p.var());
+            if (c + 1 == 0)
+                return false;
+            bound = a * m_lar_solver.get_lower_bound(p.var()).x;
+            e.add(c);
+            return true;
+        }
+         // a.is_pos()
+        c = m_lar_solver.get_column_upper_bound_witness(p.var());
+        if (c + 1 == 0)
+            return false;
+        bound = a * m_lar_solver.get_upper_bound(p.var()).x;
+        e.add(c);
+        return true;
+    }
+    
+    // return true iff the negation of the ineq can be derived from the constraints
     bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
         // check that we have something like 0 < 0, which is always false and can be safely
         // removed from the lemma        
         if (t.is_empty() && rs.is_zero() &&
             (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE)) return true;
-        /*
         lp::explanation exp;
         bool r;
         switch(negate(cmp)) {
         case llc::LE:
-            
-        case llc::LT: return llc::GE;
-        case llc::GE: return llc::LT;
-        case llc::GT: return llc::LE;
-        case llc::EQ: return llc::NE;
-        case llc::NE: return llc::EQ;
-        }*/
+            r = explain_upper_bound(t, rs, exp);
+            break;
+        case llc::LT:
+            r = explain_upper_bound(t, rs - rational(1), exp);
+            break;
+        case llc::GE: 
+            r = explain_lower_bound(t, rs, exp);
+            break;
+        case llc::GT:
+            r = explain_lower_bound(t, rs + rational(1), exp);
+            break;
+
+        case llc::EQ:
+            r = explain_lower_bound(t, rs, exp) && explain_upper_bound(t, rs, exp);
+            break;
+        case llc::NE:
+            r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);
+            break;
+        default:
+            SASSERT(false);
+            r = false;
+        }
+        if (r) {
+            current_expl().add(exp);
+            return true;
+        }
         return false;
     }
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
+        TRACE("nla_solver", m_lar_solver.print_term(t, tout << "t = "););
         if (explain_ineq(t, cmp, rs))
             return;
         m_lar_solver.subs_term_columns(t);
@@ -466,61 +563,61 @@ struct solver::imp {
         return cmp;
     }
     
-    bool explain(lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
-        unsigned lc, uc; // indices for the lower and upper bounds
-        m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-        switch(cmp) {
-        case llc::LE: {
-            if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
-                return false;
-            exp.add(uc);
-            return true;
-        }
-        case llc::LT: {
-            if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) >= rs) 
-                return false;
-            exp.add(uc);
-            return true;
-        }
-        case llc::GE: {
-            if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs) 
-                return false;
-            exp.add(lc);
-            return true;
-        }
-        case llc::GT:  {
-            if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) <= rs) 
-                return false;
-            exp.add(lc);
-            return true;
-        }
-        case llc::EQ: 
-            {
-                if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs
-                    ||
-                    uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
-                    return false;
-                exp.add(lc);
-                exp.add(uc);
-                return true;
-            }
-        case llc::NE: {
-            if (uc + 1 && m_lar_solver.column_upper_bound(j) < rs) {
-                exp.add(uc);
-                return true;
-            }
-            if (lc + 1 && m_lar_solver.column_lower_bound(j) > rs) {
-                exp.add(lc);
-                return true;
-            }
-            return false;
-        };
-        default:
-            SASSERT(false); 
-        };
-        SASSERT(false); 
-        return false;
-    }
+    // bool explain(lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
+    //     unsigned lc, uc; // indices for the lower and upper bounds
+    //     m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+    //     switch(cmp) {
+    //     case llc::LE: {
+    //         if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
+    //             return false;
+    //         exp.add(uc);
+    //         return true;
+    //     }
+    //     case llc::LT: {
+    //         if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) >= rs) 
+    //             return false;
+    //         exp.add(uc);
+    //         return true;
+    //     }
+    //     case llc::GE: {
+    //         if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs) 
+    //             return false;
+    //         exp.add(lc);
+    //         return true;
+    //     }
+    //     case llc::GT:  {
+    //         if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) <= rs) 
+    //             return false;
+    //         exp.add(lc);
+    //         return true;
+    //     }
+    //     case llc::EQ: 
+    //         {
+    //             if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs
+    //                 ||
+    //                 uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
+    //                 return false;
+    //             exp.add(lc);
+    //             exp.add(uc);
+    //             return true;
+    //         }
+    //     case llc::NE: {
+    //         if (uc + 1 && m_lar_solver.column_upper_bound(j) < rs) {
+    //             exp.add(uc);
+    //             return true;
+    //         }
+    //         if (lc + 1 && m_lar_solver.column_lower_bound(j) > rs) {
+    //             exp.add(lc);
+    //             return true;
+    //         }
+    //         return false;
+    //     };
+    //     default:
+    //         SASSERT(false); 
+    //     };
+    //     SASSERT(false); 
+    //     return false;
+    // }
     
     void mk_ineq(const rational& a, lpvar j, llc cmp, lemma& l) {
         mk_ineq(a, j, cmp, rational::zero(), l);
@@ -2413,7 +2510,7 @@ struct solver::imp {
         else {
             mk_ineq(j, llc::LE, a, l);
         }
-        TRACE("nla_solver", print_ineq(l.ineqs().back(), tout););
+        TRACE("nla_solver", print_lemma(tout););
     }
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
