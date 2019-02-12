@@ -33,6 +33,8 @@ struct lar_term {
     }
     
     void add_coeff_var(const mpq& c, unsigned j) {
+        if (c.is_zero())
+            return;
         auto it = m_coeffs.find(j);
         if (it == m_coeffs.end()) {
             m_coeffs.emplace(j, c);
