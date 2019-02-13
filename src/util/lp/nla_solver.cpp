@@ -509,8 +509,10 @@ struct solver::imp {
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
         TRACE("nla_solver", m_lar_solver.print_term(t, tout << "t = "););
-        if (explain_ineq(t, cmp, rs))
+        if (explain_ineq(t, cmp, rs)) {
+            TRACE("nla_solver", tout << "explained\n";);
             return;
+        }
         m_lar_solver.subs_term_columns(t);
         l.push_back(ineq(cmp, t, rs));
     }
@@ -994,7 +996,7 @@ struct solver::imp {
         for (unsigned i = 0; i < l.ineqs().size(); i++) {
             auto & in = l.ineqs()[i]; 
             print_ineq(in, out);
-            if (i + 1 < l.size()) out << " or ";
+            if (i + 1 < l.ineqs().size()) out << " or ";
             for (const auto & p: in.m_term)
                 vars.insert(p.var());
         }
@@ -2644,9 +2646,9 @@ struct solver::imp {
             return l_true;
         }
         init_search();
-        lbool ret = inner_check(true);
-        if (ret == l_undef)
-            ret = inner_check(false);
+        lbool ret = inner_check(false);
+        // if (ret == l_undef)
+        //     ret = inner_check(false);
 
         TRACE("nla_solver", tout << "ret = " << ret;);
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
