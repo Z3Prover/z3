@@ -391,10 +391,15 @@ private:
         log_branches(status);
     }
 
-    void report_sat(solver_state& s) {
+    void report_sat(solver_state& s, solver* conquer) {
         close_branch(s, l_true);
         model_ref mdl;
-        s.get_solver().get_model(mdl);
+        if (conquer) {
+            conquer->get_model(mdl);
+        }
+        else {
+            s.get_solver().get_model(mdl);
+        }
         if (mdl) {
             std::lock_guard<std::mutex> lock(m_mutex);
             if (&s.m() != &m_manager) {
@@ -440,7 +445,9 @@ private:
         cube.append(s.split_cubes(1));
         SASSERT(cube.size() <= 1);
         IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :split-cube " << cube.size() << ")\n";);
-        if (!s.cubes().empty()) m_queue.add_task(s.clone());
+        if (!s.cubes().empty()) {
+            m_queue.add_task(s.clone());
+        }
         if (!cube.empty()) {
             s.assert_cube(cube.get(0).cube());
             vars.reset();
@@ -448,12 +455,12 @@ private:
         }
 
     simplify_again:
-        s.inc_depth(1);
+        s.inc_depth(cube.size());
         // simplify
         if (canceled(s)) return;
         switch (s.simplify()) {
         case l_undef: break;
-        case l_true:  report_sat(s); return;
+        case l_true:  report_sat(s, nullptr); return;
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
@@ -490,7 +497,7 @@ private:
                 cutoff = c.size();
                 backtrack(*conquer.get(), c, (num_backtracks++) % m_backtrack_frequency == 0);
                 if (cutoff != c.size()) {
-                    IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :backtrack " << cutoff << " -> " << c.size() << ")\n");
+                    IF_VERBOSE(2, verbose_stream() << "(tactic.parallel :backtrack " << cutoff << " -> " << c.size() << ")\n");
                     cutoff = c.size();
                 }
                 inc_unsat(s);
@@ -498,7 +505,8 @@ private:
                 break;
 
             case l_true:
-                report_sat(s);
+                report_sat(s, conquer.get());
+                
                 if (conquer) {
                     collect_statistics(*conquer.get());
                 }

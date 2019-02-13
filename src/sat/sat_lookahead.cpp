@@ -1714,13 +1714,11 @@ namespace sat {
                     num_units += do_double(lit, dl_lvl);
                     if (dl_lvl > level) {
                         base = dl_lvl;
-                        //SASSERT(get_level(m_trail.back()) == base + m_lookahead[i].m_offset);
                         SASSERT(get_level(m_trail.back()) == base);
                     }
                     unsat = inconsistent();
                     pop_lookahead1(lit, num_units);
                 }
-                // VERIFY(!missed_propagation());
                 if (unsat) {
                     TRACE("sat", tout << "backtracking and setting " << ~lit << "\n";);
                     lookahead_backtrack();
@@ -1812,7 +1810,7 @@ namespace sat {
 
     unsigned lookahead::do_double(literal l, unsigned& base) {
         unsigned num_units = 0;
-        if (!inconsistent() && dl_enabled(l)) {
+        if (!inconsistent() && dl_enabled(l) && get_config().m_lookahead_double) {
             if (get_lookahead_reward(l) > m_delta_trigger) {
                 if (dl_no_overflow(base)) {
                     ++m_stats.m_double_lookahead_rounds;
