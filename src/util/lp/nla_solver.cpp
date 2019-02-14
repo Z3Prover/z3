@@ -396,7 +396,7 @@ struct solver::imp {
         for (const auto& p : t) {
             rational pb;
             if (explain_coeff_upper_bound(p, pb, e)) {
-                    b += pb;
+                b += pb;
             } else {
                 e.clear();
                 return false;
@@ -413,7 +413,7 @@ struct solver::imp {
         for (const auto& p : t) {
             rational pb;
             if (explain_coeff_lower_bound(p, pb, e)) {
-                    b += pb;
+                b += pb;
             } else {
                 e.clear();
                 return false;
@@ -438,7 +438,7 @@ struct solver::imp {
             e.add(c);
             return true;
         }
-         // a.is_neg()
+        // a.is_neg()
         c = m_lar_solver.get_column_upper_bound_witness(p.var());
         if (c + 1 == 0)
             return false;
@@ -459,7 +459,7 @@ struct solver::imp {
             e.add(c);
             return true;
         }
-         // a.is_pos()
+        // a.is_pos()
         c = m_lar_solver.get_column_upper_bound_witness(p.var());
         if (c + 1 == 0)
             return false;
@@ -495,6 +495,7 @@ struct solver::imp {
             break;
         case llc::NE:
             r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);
+            CTRACE("nla_solver", r, tout << "ineq:"; print_ineq(ineq(cmp, t, rs), tout); print_explanation(exp, tout << ", "););
             break;
         default:
             SASSERT(false);
@@ -510,7 +511,6 @@ struct solver::imp {
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
         TRACE("nla_solver", m_lar_solver.print_term(t, tout << "t = "););
         if (explain_ineq(t, cmp, rs)) {
-            TRACE("nla_solver", tout << "explained\n";);
             return;
         }
         m_lar_solver.subs_term_columns(t);
@@ -710,6 +710,7 @@ struct solver::imp {
     // abs_vars_key is formed by m_vars_equivalence.get_abs_root_for_var(k), where
     // k runs over m. 
     void generate_sign_lemma_model_based(const monomial& m, const monomial& n, const rational& sign) {
+        TRACE("nla_solver",);
         add_empty_lemma();
         if (sign.is_zero()) {
             // either m or n has to be equal zero, but it is not the case
@@ -776,29 +777,50 @@ struct solver::imp {
         return sign;
     }
 
-    void generate_zero_lemma(const monomial& m) {
-        unsigned zero_j = -1;
-        for (unsigned j : m.vars()){
-            if (vvr(j).is_zero()){
-                zero_j = j;
-                break;
-            }
-        }
-        SASSERT(zero_j + 1);
-        mk_ineq(zero_j, llc::NE, m_lemma_vec->back());
-        mk_ineq(m.var(), llc::EQ, m_lemma_vec->back());
+    void negate_strict_sign(lpvar j) {
+        SASSERT(!vvr(j).is_zero());
+        mk_ineq(j, (rat_sign(vvr(j)) == 1? llc::LE : llc::GE), current_lemma());
     }
     
-    // we know here that the value one of the vars of each monomial is zero
-    // so the value of each monomial has to be zero
-    bool sign_lemma_for_zero_on_list(const unsigned_vector& mon_list) {
-        for (unsigned i : mon_list) {
-            if (!vvr(m_monomials[i]).is_zero()) {
-                generate_zero_lemma(m_monomials[i]);
-                return true;
+    void generate_strict_case_zero_lemma(const monomial& m, unsigned zero_j, int sign_of_zj) {
+        // we know all the signs
+        for (unsigned j : m){
+            if (j == zero_j) {
+                mk_ineq(j, (sign_of_zj == 1? llc::GT : llc::LT), current_lemma());
+            }
+            else {
+                negate_strict_sign(j);
             }
         }
-        return false;
+        negate_strict_sign(m.var());
+    }
+
+    void generate_zero_lemma(const monomial& m) {
+        SASSERT(!vvr(m).is_zero());
+        int sign = rat_sign(vvr(m));
+        unsigned zero_j = -1;
+        for (unsigned j : m){
+            const rational & v = vvr(j);
+            if (v.is_zero()){
+                if (zero_j + 1 == 0) {
+                    zero_j = j;
+                } else {
+                    sign = 0;
+                    break;
+                }
+            } else {
+                sign *= rat_sign(v);
+            }
+        }
+        TRACE("nla_solver", tout << "sign = " << sign << "\n";);
+        
+        SASSERT(zero_j + 1);
+        if (sign == 0) {
+            mk_ineq(zero_j, llc::NE, current_lemma());
+            mk_ineq(m.var(), llc::EQ, current_lemma());
+        } else {
+            generate_strict_case_zero_lemma(m, zero_j, sign);
+        }
     }
 
     rational rat_sign(const monomial& m) const {
@@ -967,19 +989,14 @@ struct solver::imp {
     }
 
     std::ostream & print_var(lpvar j, std::ostream & out) const {
-        bool is_monomial = false;
         out << "[" << j << "] = ";
-        for (const monomial & m : m_monomials) {
-            if (j == m.var()) {
-                is_monomial = true;
-                print_monomial(m, out);
-                out << " = " << vvr(j);;
-                break;
-            }
+        auto it = m_var_to_its_monomial.find(j);
+        if (it != m_var_to_its_monomial.end()) {
+            print_monomial(m_monomials[it->second], out);
+            out << " = " << vvr(j);;
         }
-        if (!is_monomial)
-            out << m_lar_solver.get_variable_name(j) << " = " << vvr(j);
-        out <<";";
+        
+        m_lar_solver.print_column_info(j, out) <<";";
         return out;
     }
 
@@ -1060,7 +1077,7 @@ struct solver::imp {
         
         add_empty_lemma();
         if (derived) 
-        mk_ineq(var(rm), llc::NE, current_lemma());
+            mk_ineq(var(rm), llc::NE, current_lemma());
         for (auto j : f) {
             mk_ineq(var(j), llc::EQ, current_lemma());
         }
@@ -1585,7 +1602,11 @@ struct solver::imp {
         m_rm_table.init_to_refine(ref);
     }
 
-    unsigned random() {return m_lar_solver.settings().random_next();}
+    lp::lp_settings& settings() {
+        return m_lar_solver.settings();
+    }
+    
+    unsigned random() {return settings().random_next();}
     
     // use basic multiplication properties to create a lemma
     bool basic_lemma(bool derived) {
@@ -1683,7 +1704,7 @@ struct solver::imp {
         m_vars_equivalence.create_tree();
         TRACE("nla_solver", tout << "number of equivs = " << m_vars_equivalence.size(););
         
-        SASSERT((m_lar_solver.settings().random_next() % 100) || tables_are_ok());
+        SASSERT((settings().random_next() % 100) || tables_are_ok());
     }
 
     bool vars_table_is_ok() const {
@@ -1755,6 +1776,27 @@ struct solver::imp {
         }
         out << "\n}";
     }
+
+    void print_monomial_stats(const monomial& m, std::ostream& out) {
+        if (m.size() == 2) return;
+        monomial_coeff mc = canonize_monomial(m);
+        for(unsigned i = 0; i < mc.vars().size(); i++){
+            if (abs(vvr(mc.vars()[i])) == rational(1)) {
+                auto vv = mc.vars();
+                vv.erase(vv.begin()+i);
+                auto it = m_rm_table.map().find(vv);
+                if (it == m_rm_table.map().end()) {
+                    out << "nf length" << vv.size() << "\n"; ;
+                }
+            }
+        }
+    }
+    
+    void print_stats(std::ostream& out) {
+        // for (const auto& m : m_monomials) 
+        //     print_monomial_stats(m, out);
+        m_rm_table.print_stats(out);
+    }
         
     void register_monomials_in_tables() {
         for (unsigned i = 0; i < m_monomials.size(); i++) 
@@ -1762,6 +1804,7 @@ struct solver::imp {
 
         m_rm_table.fill_rooted_monomials_containing_var();
         m_rm_table.fill_proper_factors();
+        TRACE("nla_solver", print_stats(tout););
     }
 
     void clear() {
@@ -1866,9 +1909,42 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }
 
+    std::unordered_set<lpvar> collect_vars(  const lemma& l) {
+        std::unordered_set<lpvar> vars;
+        for (const auto& i : current_lemma().ineqs()) {
+            for (const auto& p : i.term()) {
+                lpvar j = p.var();
+                vars.insert(j);
+                auto it = m_var_to_its_monomial.find(j);
+                if (it != m_var_to_its_monomial.end()) {
+                    for (lpvar k : m_monomials[it->second])
+                        vars.insert(k);
+                }
+            }
+        }
+        for (const auto& p : current_expl()) {
+            const auto& c = m_lar_solver.get_constraint(p.second);
+            for (const auto& r : c.coeffs()) {
+                lpvar j = r.second;
+                vars.insert(j);
+                auto it = m_var_to_its_monomial.find(j);
+                if (it != m_var_to_its_monomial.end()) {
+                    for (lpvar k : m_monomials[it->second])
+                        vars.insert(k);
+                }
+            }
+        }
+        return vars;
+    }
+
     void print_lemma(std::ostream& out) {
         print_ineqs(current_lemma(), out);
         print_explanation(current_expl(), out);
+        std::unordered_set<lpvar> vars = collect_vars(current_lemma());
+        
+        for (lpvar j : vars) {
+            print_var(j, out);
+        }
     }
     
     bool get_cd_signs_for_ol(const rational& c, const rational& d, int& c_sign, int & d_sign) const {
@@ -2147,8 +2223,8 @@ struct solver::imp {
 
     
     bool uniform_le(const std::vector<rational>& a,
-                      const std::vector<rational>& b,
-                      unsigned & strict_i) const {
+                    const std::vector<rational>& b,
+                    unsigned & strict_i) const {
         SASSERT(a.size() == b.size());
         strict_i = -1;
         bool z_b = false;
@@ -2176,11 +2252,11 @@ struct solver::imp {
         }
         std::sort(r.begin(), r.end(), [](const std::pair<rational, lpvar>& a,
                                          const std::pair<rational, lpvar>& b) {
-                                          return
-                                              a.first < b.first ||
-                                              (a.first == b.first &&
-                                               a.second < b.second);
-                                      });
+                      return
+                          a.first < b.first ||
+                                    (a.first == b.first &&
+                                     a.second < b.second);
+                  });
         return r;
     } 
 
@@ -2503,7 +2579,7 @@ struct solver::imp {
     
     void generate_tang_plane(const rational & a, const rational& b, lpvar jx, lpvar jy, bool below, lpvar j, const rational& j_sign) {
         add_empty_lemma();
-        lemma& l = m_lemma_vec->back();
+        lemma& l = current_lemma();
         negate_relation(jx, a, l);
         negate_relation(jy, b, l);
         // If "below" holds then ay + bx - ab < xy, otherwise ay + bx - ab > xy,
@@ -2634,7 +2710,8 @@ struct solver::imp {
     
     
     lbool check(vector<lemma>& l_vec) {
-        TRACE("nla_solver", tout << "check of nla";);
+        settings().st().m_nla_calls++;
+        TRACE("nla_solver", tout << "calls = " << settings().st().m_nla_calls << "\n";);
         m_lemma_vec =  &l_vec;
         if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
             TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << lp_status_to_string(m_lar_solver.get_status()) << "\n";);
@@ -2646,13 +2723,13 @@ struct solver::imp {
             return l_true;
         }
         init_search();
-        lbool ret = inner_check(false);
-        // if (ret == l_undef)
-        //     ret = inner_check(false);
+        lbool ret = inner_check(true);
+        if (ret == l_undef)
+            ret = inner_check(false);
 
-        TRACE("nla_solver", tout << "ret = " << ret;);
+        TRACE("nla_solver_c", tout << "ret = " << ret;);
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
-        CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
+        CTRACE("nla_solver_c", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || no_lemmas_hold());
         return ret;
     }

@@ -73,7 +73,19 @@ struct rooted_mon_table {
     svector<unsigned>                                                m_to_refine;
     // maps the indices of the regular monomials to the rooted monomial indices
     std::unordered_map<unsigned, index_with_sign>                    m_reg_to_rm;
-    
+
+    void print_stats(std::ostream& out) const {
+        static double ratio = 1;
+        double s = 0;
+        for (const auto& p : m_map) {
+            s += m_vector[p.second].m_mons.size();
+        }
+        double r = s /m_map.size();
+        if (r > ratio) {
+            ratio = r;
+            out << "rooted mons "  << m_map.size() << ", ratio = " << r << "\n";
+        }
+    }
 
     const svector<unsigned>& to_refine() { return m_to_refine; }
 

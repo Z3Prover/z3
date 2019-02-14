@@ -157,7 +157,7 @@ typedef nla::variable_map_type variable_map_type;
             auto& pm = m_nlsat->pm();
             auto k = c.m_kind;
             auto rhs = c.m_right_side;
-            auto lhs = c.get_left_side_coefficients();
+            auto lhs = c.coeffs();
             auto sz = lhs.size();
             svector<polynomial::var> vars;
             rational den = denominator(rhs);
