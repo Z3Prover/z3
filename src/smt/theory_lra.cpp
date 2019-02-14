@@ -1961,7 +1961,7 @@ public:
         expr_ref fml(m);
         expr_ref_vector ts(m);
         rational rhs = c.m_right_side;
-        for (auto cv : c.get_left_side_coefficients()) {
+        for (auto cv : c.coeffs()) {
             ts.push_back(multerm(cv.first, var2expr(cv.second)));
         }
         switch (c.m_kind) {

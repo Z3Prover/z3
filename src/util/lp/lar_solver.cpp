@@ -1058,7 +1058,7 @@ bool lar_solver::the_relations_are_of_same_type(const vector<std::pair<mpq, unsi
 }
 
 void lar_solver::register_in_map(std::unordered_map<var_index, mpq> & coeffs, const lar_base_constraint & cn, const mpq & a) {
-    for (auto & it : cn.get_left_side_coefficients()) {
+    for (auto & it : cn.coeffs()) {
         unsigned j = it.second;
         auto p = coeffs.find(j);
         if (p == coeffs.end())
@@ -1323,7 +1323,7 @@ std::ostream& lar_solver::print_terms(std::ostream& out) const  {
 }
 
 std::ostream& lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const {
-    print_linear_combination_of_column_indices(c->get_left_side_coefficients(), out);
+    print_linear_combination_of_column_indices(c->coeffs(), out);
     mpq free_coeff = c->get_free_coeff_of_left_side();
     if (!is_zero(free_coeff))
         out << " + " << free_coeff;
@@ -1362,7 +1362,7 @@ std::ostream& lar_solver::print_term_as_indices(lar_term const& term, std::ostre
 
 mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const {
     mpq ret = cns.get_free_coeff_of_left_side();
-    for (auto & it : cns.get_left_side_coefficients()) {
+    for (auto & it : cns.coeffs()) {
         var_index j = it.second;
         auto vi = var_map.find(j);
         lp_assert(vi != var_map.end());
