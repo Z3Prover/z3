@@ -202,6 +202,7 @@ namespace sat {
         void init_slack();
         void init_scores();
         void init_goodvars();        
+        void pick_flip_lookahead();
         void pick_flip_walksat();
         void flip_walksat(bool_var v);
         bool propagate(literal lit);

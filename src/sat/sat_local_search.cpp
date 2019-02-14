@@ -591,18 +591,40 @@ namespace sat {
         m_unsat_stack.push_back(c);
     }
 
+    void local_search::pick_flip_lookahead() {
+        unsigned num_unsat = m_unsat_stack.size();
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % num_unsat]];
+        literal best = null_literal;
+        unsigned best_make = UINT_MAX;
+        for (literal lit : c.m_literals) {
+            if (!is_unit(lit) && is_true(lit)) {
+                flip_walksat(lit.var());
+                if (propagate(~lit) && best_make > m_unsat_stack.size()) {
+                    best = lit;
+                    best_make = m_unsat_stack.size();
+                }
+                flip_walksat(lit.var());
+                propagate(lit);
+            }
+        }
+        if (best != null_literal) {
+            flip_walksat(best.var());
+            propagate(~best);
+        }        
+        else {
+            std::cout << "no best\n";
+        }
+    }
+
     void local_search::pick_flip_walksat() {
     reflip:
         bool_var best_var = null_bool_var;
         unsigned n = 1;
         bool_var v = null_bool_var;
         unsigned num_unsat = m_unsat_stack.size();
-        constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
-        // VERIFY(c.m_k < constraint_value(c));
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % num_unsat]];
         unsigned reflipped = 0;
         bool is_core = m_unsat_stack.size() <= 10;
-        // TBD: dynamic noise strategy 
-        //if (m_rand() % 100 < 98) {
         if (m_rand() % 10000 <= m_noise) {
             // take this branch with 98% probability.
             // find the first one, to fast break the rest    

@@ -56,6 +56,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool                            m_cache;
     bool                            m_array_equalities;
     bool                            m_array_as_stores;
+    obj_map<func_decl, expr*>       m_def_cache;
+    expr_ref_vector                 m_pinned;
 
     evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m(m),
@@ -72,7 +74,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_f_rw(m),
         m_seq_rw(m),
-        m_ar(m) {
+        m_ar(m),
+        m_pinned(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
         m_a_rw.set_flat(flat);
@@ -202,23 +205,29 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_REWRITE1;
             }
         }
-#if 0
+#if 1
         if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f) && m_model_completion) {
             func_decl* g = nullptr;
             VERIFY(m_ar.is_as_array(f, g));
             expr* def = nullptr;
             quantifier* q = nullptr;
             proof* def_pr = nullptr;
+            if (m_def_cache.find(g, def)) {
+                result = def;
+                return BR_DONE;
+            }
             if (get_macro(g, def, q, def_pr)) {
                 sort_ref_vector vars(m);
                 svector<symbol> var_names;
                 for (unsigned i = 0; i < g->get_arity(); ++i) {
                     var_names.push_back(symbol(i));
-                    vars.push_back(g->get_domain(g->get_arity() - i - 1));
+                    vars.push_back(g->get_domain(i));
                 }
                 result = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), def);
                 model_evaluator ev(m_model, m_params);
                 result = ev(result);
+                m_pinned.push_back(result);
+                m_def_cache.insert(g, result);
                 return BR_DONE;
             }
         }

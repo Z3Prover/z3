@@ -277,6 +277,13 @@ model::func_decl_set* model::collect_deps(top_sort& ts, func_interp * fi) {
     fi->compress();
     expr* e = fi->get_else();
     if (e) for_each_expr(collector, e);
+    unsigned num_args = fi->get_arity();
+    for (func_entry* fe : *fi) {
+        for (unsigned i = 0; i < num_args; ++i) {
+            for_each_expr(collector, fe->get_arg(i));
+        }
+        for_each_expr(collector, fe->get_result());
+    }
     return s;
 }
 

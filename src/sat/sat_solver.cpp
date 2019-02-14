@@ -2001,6 +2001,7 @@ namespace sat {
         }
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         IF_VERBOSE(30, display_status(verbose_stream()););
+        TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
         set_next_restart();
     }

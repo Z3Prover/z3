@@ -46,6 +46,10 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         std::cout << "Objective function format error. They have different lengths.\n";
         return false;
     }
+<<<<<<< HEAD
+=======
+
+>>>>>>> 5cdfa7cd1cf5e5209213421238ab916eb03d0585
     
     // read the constraints, one at a time
     int k;

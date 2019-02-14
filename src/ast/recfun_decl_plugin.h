@@ -56,7 +56,7 @@ namespace recfun {
         friend class def;
         func_decl_ref       m_pred; //<! predicate used for this case
         expr_ref_vector     m_guards; //<! conjunction that is equivalent to this case
-        expr_ref            m_rhs; //<! if guard is true, `f(t1…tn) = rhs` holds
+        expr_ref            m_rhs; //<! if guard is true, `f(t1...tn) = rhs` holds
         def *               m_def; //<! definition this is a part of
         bool                m_immediate; //<! does `rhs` contain no defined_fun/case_pred?
 

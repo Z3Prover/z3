@@ -76,7 +76,6 @@ namespace sat {
     unit_walk::unit_walk(solver& s):
         s(s) {
         m_max_conflicts = 10000;
-        m_sticky_phase = s.get_config().m_phase_sticky;
         m_flips = 0;
     }                        
 
@@ -96,60 +95,64 @@ namespace sat {
         init_runs();
         init_propagation();
         init_phase();
-        while (true) {
-            if (!s.rlimit().inc()) {
-                log_status();
-                return l_undef;
-            }
-            bool_var v = pqueue().next(s);
-            if (v == null_bool_var) {
-                log_status();
-                return l_true;
-            }
-            literal lit(v, !m_phase[v]);
-            ++s.m_stats.m_decision;
-            m_decisions.push_back(lit);
-            // IF_VERBOSE(0, verbose_stream() << "push " << lit << " " << m_decisions.size() << "\n");
-            pqueue().push();
-            assign(lit);
-            propagate();
-            while (inconsistent() && !m_decisions.empty()) {
-                update_max_trail();
-                ++s.m_stats.m_conflict;
-                pop();
-                pqueue().pop();
-                propagate();
-            }
-            if (inconsistent()) {
-                log_status();
-                return l_false;
-            }
-            bool do_reinit = s.m_stats.m_conflict >= m_max_conflicts;
-            if (do_reinit || pqueue().depth() > m_decisions.size()) { //  || pqueue().depth() <= 10
-                switch (update_priority()) {
-                case l_true: return l_true;
-                case l_false: break; // TBD
-                default: break;
-                }
-            }
-            if (do_reinit) {
-                refresh_solver();
-            }
+        lbool st = l_undef;
+        while (s.rlimit().inc() && st == l_undef) {
+            if (inconsistent() && !m_decisions.empty()) do_pop();
+            else if (inconsistent()) st = l_false; 
+            else if (should_backjump()) st = do_backjump();
+            else st = decide();
         }
+        log_status();
+        return st;
+    }
+
+    void unit_walk::do_pop() {
+        update_max_trail();
+        ++s.m_stats.m_conflict;
+        pop();
+        propagate();
+    }
+
+    lbool unit_walk::decide() {
+        bool_var v = pqueue().next(s);
+        if (v == null_bool_var) {
+            return l_true;
+        }
+        literal lit(v, !m_phase[v]);
+        ++s.m_stats.m_decision;
+        m_decisions.push_back(lit);
+        pqueue().push();
+        assign(lit);
+        propagate();
+        return l_undef;
+    }
+
+    bool unit_walk::should_backjump() {
+        return 
+            s.m_stats.m_conflict >= m_max_conflicts && m_decisions.size() > 20;
+    } 
+
+    lbool unit_walk::do_backjump() {
+        unsigned backjump_level = m_decisions.size(); // - (m_decisions.size()/20);
+        switch (update_priority(backjump_level)) {
+        case l_true: return l_true;
+        case l_false: break; // TBD
+        default: break;
+        }
+        refresh_solver();
+        return l_undef;
     }
 
     void unit_walk::pop() {
         SASSERT (!m_decisions.empty());
         literal dlit = m_decisions.back();
         pop_decision();
-        m_inconsistent = false;
         assign(~dlit);
     }
 
     void unit_walk::pop_decision() {
         SASSERT (!m_decisions.empty());
         literal dlit = m_decisions.back();
-        // IF_VERBOSE(0, verbose_stream() << "pop " << dlit << " " << m_decisions.size() << "\n");
         literal lit;
         do {
             SASSERT(!m_trail.empty());
@@ -161,6 +164,8 @@ namespace sat {
         while (lit != dlit);
         m_qhead = m_trail.size();
         m_decisions.pop_back();
+        pqueue().pop();
+        m_inconsistent = false;
     }
 
     void unit_walk::init_runs() {
@@ -178,120 +183,100 @@ namespace sat {
         }
         m_ls.import(s, true);
         m_rand.set_seed(s.rand()());
-        update_priority();
+        update_priority(0);
     }
 
-    lbool unit_walk::update_priority() {
-        unsigned prefix_length = 0;
-        if (pqueue().depth() > m_decisions.size()) {
-            while (pqueue().depth() > m_decisions.size()) {
-                pqueue().dec_depth();
-            }
-            prefix_length = m_trail.size();
-            SASSERT(pqueue().depth() == m_decisions.size());
-        }
-        else if (pqueue().depth() == m_decisions.size()) {
-            prefix_length = m_trail.size();
-        }
-        else {
-            literal last = m_decisions[pqueue().depth()];
-            while (m_trail[prefix_length++] != last) {}
-            pqueue().inc_depth();
-        }
-        log_status();
-        IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << pqueue().depth() << ")\n");
+    lbool unit_walk::do_local_search(unsigned num_rounds) {
+        unsigned prefix_length = (0*m_trail.size())/10;
         for (unsigned v = 0; v < s.num_vars(); ++v) {
             m_ls.set_bias(v, m_phase_tf[v] >= 50 ? l_true : l_false);
         }
         for (literal lit : m_trail) {
             m_ls.set_bias(lit.var(), lit.sign() ? l_false : l_true);
         }
-        m_ls.rlimit().push(std::max(1u, pqueue().depth()));
-        lbool is_sat = m_ls.check(0, m_trail.c_ptr(), nullptr);
+        m_ls.rlimit().push(num_rounds);
+        lbool is_sat = m_ls.check(prefix_length, m_trail.c_ptr(), nullptr);
         m_ls.rlimit().pop();
-
-        TRACE("sat", tout << "result of running bounded local search " << is_sat << "\n";);
-        IF_VERBOSE(0, verbose_stream() << "result of running local search " << is_sat << "\n";);
-        if (is_sat != l_undef) {
-            restart();
-        }
-        if (is_sat == l_true) {
-            for (unsigned v = 0; v < s.num_vars(); ++v) {
-                s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
-            } 
-        }
-        
-        struct compare_break {
-            local_search& ls;
-            compare_break(local_search& ls): ls(ls) {}
-            int operator()(bool_var v, bool_var w) const {
-                double diff = ls.break_count(v) - ls.break_count(w);
-                return diff > 0;
-            }
-        };
-        compare_break cb(m_ls);
-        std::sort(pqueue().begin(), pqueue().end(), cb);
-        pqueue().rewind();
-        // assert variables are sorted from highest to lowest value.
-        
-        for (bool_var v : pqueue()) {
-            if (m_ls.cur_solution(v))                 
-                m_phase_tf[v].update(100);
-            else
-                m_phase_tf[v].update(0);
-        }
-        init_phase();
-
-        // restart
-        bool_var v = pqueue().peek(s);
-        if (is_sat == l_undef && v != null_bool_var && false) {
-            unsigned num_levels = 0;
-            while (m_decisions.size() > 0 && num_levels <= 50) {
-                bool_var w = m_decisions.back().var();
-                if (num_levels >= 15 && m_ls.break_count(w) >= m_ls.break_count(v)) {
-                    break;
-                }
-                ++num_levels;
-                pop_decision();
-                if (pqueue().depth() > m_decisions.size()) {
-                    pqueue().pop();                
-                }                
-            }
-            IF_VERBOSE(0, verbose_stream() << "backtrack levels " << num_levels << "\n");
-        }
         return is_sat;
     }
 
-    void unit_walk::init_phase() {
-        if (m_sticky_phase) {
-            for (bool_var v : pqueue()) {
-                if (s.m_phase[v] == POS_PHASE) {
-                    m_phase[v] = true;
-                }
-                else if (s.m_phase[v] == NEG_PHASE) {
-                    m_phase[v] = false;
-                }
-                else {
-                    m_phase[v] = m_rand(100) <= m_phase_tf[v];
-                }
-            }
+    lbool unit_walk::update_priority(unsigned level) {
+
+        while (m_decisions.size() > level) {
+            pop_decision();
         }
-        else {
-            for (bool_var v : pqueue()) 
-                m_phase[v] = (m_rand(2) == 0); 
+        IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk :update-priority " << m_decisions.size() << "\n");
+
+        unsigned num_rounds = 50;
+        log_status();
+
+        lbool is_sat = do_local_search(num_rounds);
+        switch (is_sat) {
+        case l_true:
+            for (unsigned v = 0; v < s.num_vars(); ++v) {
+                s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
+            } 
+            return l_true;
+        case l_false:
+            if (m_decisions.empty()) {
+                return l_false;
+            }
+            else {
+                pop();
+                return l_undef;
+            }
+        default:
+            update_pqueue();
+            return l_undef;
+        }        
+    }
+
+    /**
+     * \brief Reshuffle variables in the priority queue using the break counts from local search.
+     */
+    struct compare_break {
+        local_search& ls;
+        compare_break(local_search& ls): ls(ls) {}
+        int operator()(bool_var v, bool_var w) const {
+            double diff = ls.break_count(v) - ls.break_count(w);
+            return diff > 0;
+        }
+    };
+
+    void unit_walk::update_pqueue() {
+        compare_break cb(m_ls);
+        std::sort(pqueue().begin(), pqueue().end(), cb);        
+        for (bool_var v : pqueue()) {
+            m_phase_tf[v].update(m_ls.cur_solution(v) ? 100 : 0);
+            m_phase[v] = m_ls.cur_solution(v);
+        }
+        pqueue().rewind();
+    }
+
+    void unit_walk::init_phase() {
+        for (bool_var v : pqueue()) {
+            if (s.m_phase[v] == POS_PHASE) {
+                m_phase[v] = true;
+            }
+            else if (s.m_phase[v] == NEG_PHASE) {
+                m_phase[v] = false;
+            }
+            else {
+                m_phase[v] = m_rand(100) < m_phase_tf[v];
+            }
         }
     }
 
     void unit_walk::refresh_solver() {
         m_max_conflicts += m_conflict_offset ;
-        m_conflict_offset += 100; // 00;
+        m_conflict_offset += 10000;
         if (s.m_par && s.m_par->copy_solver(s)) {
             IF_VERBOSE(1, verbose_stream() << "(sat.unit-walk fresh copy)\n";);
             if (s.get_extension()) s.get_extension()->set_unit_walk(this);
             init_runs();
             init_phase();
         }
-        if (should_restart()) {
+        if (false && should_restart()) {
             restart();
         }
     }
@@ -308,11 +293,9 @@ namespace sat {
     }
 
     void unit_walk::restart() {
-        IF_VERBOSE(1, verbose_stream() << "restart\n");
         while (!m_decisions.empty()) {
             pop_decision();
         }
-        pqueue().reset();
     }
 
     void unit_walk::update_max_trail() {
@@ -483,8 +466,6 @@ namespace sat {
 
     void unit_walk::assign(literal lit) {
         VERIFY(value(lit) == l_undef);
-        //VERIFY(!m_trail.contains(lit));
-        //VERIFY(!m_trail.contains(~lit));
         s.m_assignment[lit.index()] = l_true;
         s.m_assignment[(~lit).index()] = l_false;
         m_trail.push_back(lit);
@@ -494,15 +475,13 @@ namespace sat {
         if (m_phase[lit.var()] == lit.sign()) {
             ++m_flips;
             flip_phase(lit);
+            m_phase_tf[lit.var()].update(m_phase[lit.var()] ? 100 : 0);        
         }
     }
 
     void unit_walk::flip_phase(literal l) {
         bool_var v = l.var();
         m_phase[v] = !m_phase[v]; 
-        if (m_sticky_phase) {
-            if (m_phase[v]) m_phase_tf[v].update(100); else m_phase_tf[v].update(0);
-        }
     }
 
     void unit_walk::log_status() {
