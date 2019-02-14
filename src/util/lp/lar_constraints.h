@@ -48,7 +48,7 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
 struct lar_base_constraint {
     lconstraint_kind m_kind;
     mpq m_right_side;
-    virtual vector<std::pair<mpq, var_index>> get_left_side_coefficients() const = 0;
+    virtual vector<std::pair<mpq, var_index>> coeffs() const = 0;
     lar_base_constraint() {}
     lar_base_constraint(lconstraint_kind kind, const mpq& right_side) :m_kind(kind), m_right_side(right_side) {}
 
@@ -59,7 +59,7 @@ struct lar_base_constraint {
 
 struct lar_var_constraint: public lar_base_constraint {
     unsigned m_j;
-    vector<std::pair<mpq, var_index>> get_left_side_coefficients() const override {
+    vector<std::pair<mpq, var_index>> coeffs() const override {
         vector<std::pair<mpq, var_index>> ret;
         ret.push_back(std::make_pair(one_of_type<mpq>(), m_j));
         return ret;
@@ -71,7 +71,7 @@ struct lar_var_constraint: public lar_base_constraint {
 
 struct lar_term_constraint: public lar_base_constraint {
     const lar_term * m_term;
-    vector<std::pair<mpq, var_index>> get_left_side_coefficients() const override {
+    vector<std::pair<mpq, var_index>> coeffs() const override {
         return m_term->coeffs_as_vector();
     }
     unsigned size() const override { return m_term->size();}
@@ -95,6 +95,6 @@ public:
         return static_cast<unsigned>(m_coeffs.size());
     }
 
-    vector<std::pair<mpq, var_index>> get_left_side_coefficients() const override { return m_coeffs; }
+    vector<std::pair<mpq, var_index>> coeffs() const override { return m_coeffs; }
 };
 }

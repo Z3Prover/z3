@@ -598,6 +598,10 @@ public:
         }
     }
 
+    std::ostream& print_column_info(unsigned j, std::ostream& out) const {
+        return m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+    }
+    
     bool has_int_var() const;
     bool has_inf_int() const {
         for (unsigned j = 0; j < column_count(); j++) {
