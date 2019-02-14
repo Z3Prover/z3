@@ -90,6 +90,7 @@ namespace sat {
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();
+        m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
         if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;

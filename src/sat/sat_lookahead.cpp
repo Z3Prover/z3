@@ -1812,7 +1812,7 @@ namespace sat {
 
     unsigned lookahead::do_double(literal l, unsigned& base) {
         unsigned num_units = 0;
-        if (!inconsistent() && dl_enabled(l)) {
+        if (!inconsistent() && dl_enabled(l) && get_config().m_lookahead_double) {
             if (get_lookahead_reward(l) > m_delta_trigger) {
                 if (dl_no_overflow(base)) {
                     ++m_stats.m_double_lookahead_rounds;
@@ -2013,6 +2013,7 @@ namespace sat {
     }
 
     bool lookahead::backtrack(literal_vector& trail, svector<bool> & is_decision) {
+        m_cube_state.m_backtracks++;
         while (inconsistent()) {
             if (trail.empty()) return false;
             if (is_decision.back()) {
@@ -2033,6 +2034,7 @@ namespace sat {
     void lookahead::update_cube_statistics(statistics& st) {
         st.update("lh cube cutoffs", m_cube_state.m_cutoffs);
         st.update("lh cube conflicts", m_cube_state.m_conflicts);        
+        st.update("lh cube backtracks", m_cube_state.m_backtracks);        
     }
 
     double lookahead::psat_heur() {

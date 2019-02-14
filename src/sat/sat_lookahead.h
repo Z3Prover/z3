@@ -181,6 +181,7 @@ namespace sat {
             double         m_psat_threshold;
             unsigned       m_conflicts;
             unsigned       m_cutoffs;
+            unsigned       m_backtracks;
             cube_state() { reset(); }
             void reset() { 
                 m_first = true;
@@ -190,7 +191,7 @@ namespace sat {
                 m_psat_threshold = dbl_max;
                 reset_stats();
             }
-            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }
+            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; m_backtracks = 0;}
             void inc_conflict() { ++m_conflicts; }
             void inc_cutoff() { ++m_cutoffs; }
         };
