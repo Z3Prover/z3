@@ -108,6 +108,7 @@ struct stats {
     unsigned m_patches_success;
     unsigned m_hnf_cutter_calls;
     unsigned m_hnf_cuts;
+    unsigned m_nla_calls;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
