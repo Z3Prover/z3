@@ -241,7 +241,6 @@ protected:
 
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
-    scoped_ptr<solver_factory>   m_interpolating_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
     ref<opt_wrapper>             m_opt;
@@ -316,7 +315,6 @@ public:
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
-    solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
     opt_wrapper*  get_opt();
     void          set_opt(opt_wrapper* o);
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
