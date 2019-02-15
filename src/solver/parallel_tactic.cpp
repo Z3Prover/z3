@@ -391,10 +391,15 @@ private:
         log_branches(status);
     }
 
-    void report_sat(solver_state& s) {
+    void report_sat(solver_state& s, solver* conquer) {
         close_branch(s, l_true);
         model_ref mdl;
-        s.get_solver().get_model(mdl);
+        if (conquer) {
+            conquer->get_model(mdl);
+        }
+        else {
+            s.get_solver().get_model(mdl);
+        }
         if (mdl) {
             std::lock_guard<std::mutex> lock(m_mutex);
             if (&s.m() != &m_manager) {
@@ -453,7 +458,7 @@ private:
         if (canceled(s)) return;
         switch (s.simplify()) {
         case l_undef: break;
-        case l_true:  report_sat(s); return;
+        case l_true:  report_sat(s, nullptr); return;
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
@@ -498,7 +503,7 @@ private:
                 break;
 
             case l_true:
-                report_sat(s);
+                report_sat(s, conquer.get());
                 if (conquer) {
                     collect_statistics(*conquer.get());
                 }
