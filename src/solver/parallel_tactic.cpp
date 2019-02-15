@@ -506,7 +506,6 @@ private:
 
             case l_true:
                 report_sat(s, conquer.get());
-                
                 if (conquer) {
                     collect_statistics(*conquer.get());
                 }
