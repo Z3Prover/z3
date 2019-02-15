@@ -38,10 +38,10 @@ namespace smt {
             unsigned m_resource_id;   // id of resource
             time_t   m_capacity;      // amount of resource to use
             unsigned m_loadpct;       // assuming loadpct
-            time_t   m_end;           // must run before
+            time_t   m_finite_capacity_end;   
             properties m_properties;
             job_resource(unsigned r, time_t cap, unsigned loadpct, time_t end, properties const& ps):
-                m_resource_id(r), m_capacity(cap), m_loadpct(loadpct), m_end(end), m_properties(ps) {}
+                m_resource_id(r), m_capacity(cap), m_loadpct(loadpct), m_finite_capacity_end(end), m_properties(ps) {}
         };
 
         struct job_time {
@@ -89,10 +89,9 @@ namespace smt {
         struct res_info {
             unsigned_vector       m_jobs;      // jobs allocated to run on resource
             vector<res_available> m_available; // time intervals where resource is available
-            time_t                m_end;       // can't run after
             enode*                m_resource;
             enode*                m_makespan;
-            res_info(): m_end(std::numeric_limits<time_t>::max()), m_resource(nullptr), m_makespan(nullptr) {}
+            res_info(): m_resource(nullptr), m_makespan(nullptr) {}
         };
         
         ast_manager&     m;
@@ -152,6 +151,9 @@ namespace smt {
 
         theory * mk_fresh(context * new_ctx) override; 
 
+        res_info& ensure_resource(unsigned r);
+        job_info& ensure_job(unsigned j);
+
     public:
         // set up job/resource global constraints
         void set_preemptable(unsigned j, bool is_preemptable);
@@ -189,6 +191,7 @@ namespace smt {
         time_t capacity_used(unsigned j, unsigned r, time_t start, time_t end);        // capacity used between start and end
 
         job_resource const& get_job_resource(unsigned j, unsigned r) const;
+        bool job_has_resource(unsigned j, unsigned r) const;
 
         // propagation
         void propagate_end_time(unsigned j, unsigned r);
