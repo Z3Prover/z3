@@ -1619,6 +1619,12 @@ namespace sat {
         return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
+    void solver::set_activity(bool_var v, unsigned act) {
+        unsigned old_act = m_activity[v];
+        m_activity[v] = act; 
+        m_case_split_queue.activity_changed_eh(v, act > old_act);
+    }
+
     bool solver::is_assumption(bool_var v) const {
         return is_assumption(literal(v, false)) || is_assumption(literal(v, true));
     }

@@ -6236,6 +6236,12 @@ extern "C" {
     */
     void Z3_API Z3_solver_get_levels(Z3_context c, Z3_solver s, Z3_ast_vector literals, unsigned sz,  unsigned levels[]);
 
+    /**
+       \brief set activity score associated with literal.
+
+       def_API('Z3_solver_set_activity', VOID, (_in(CONTEXT), _in(SOLVER), _in(AST), _in(DOUBLE)))
+     */
+    void Z3_API Z3_solver_set_activity(Z3_context c, Z3_solver s, Z3_ast l, double activity);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

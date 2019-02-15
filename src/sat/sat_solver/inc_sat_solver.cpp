@@ -341,6 +341,15 @@ public:
         return result;
     }
 
+    void set_activity(expr* var, double activity) override {
+        m.is_not(var, var);
+        sat::bool_var v = m_map.to_bool_var(var);
+        if (v == sat::null_bool_var) {
+            throw default_exception("literal does not correspond to a Boolean variable");
+        }
+        m_solver.set_activity(v, activity);
+    }
+
     proof * get_proof() override {
         UNREACHABLE();
         return nullptr;

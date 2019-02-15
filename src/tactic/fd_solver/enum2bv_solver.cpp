@@ -186,6 +186,10 @@ public:
         return m_solver->get_trail();
     }
 
+    void set_activity(expr* var, double activity) override {
+        m_solver->set_activity(var, activity);
+    }
+
     unsigned get_num_assertions() const override {
         return m_solver->get_num_assertions();
     }
