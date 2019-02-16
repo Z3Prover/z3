@@ -217,13 +217,18 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_DONE;
             }
             if (get_macro(g, def, q, def_pr)) {
-                sort_ref_vector vars(m);
+                sort_ref_vector sorts(m);
+                expr_ref_vector vars(m);
                 svector<symbol> var_names;
-                for (unsigned i = 0; i < g->get_arity(); ++i) {
-                    var_names.push_back(symbol(i));
-                    vars.push_back(g->get_domain(i));
+                unsigned sz = g->get_arity();
+                for (unsigned i = 0; i < sz; ++i) {
+                    var_names.push_back(symbol(sz - i - 1));
+                    vars.push_back(m.mk_var(sz - i - 1, g->get_domain(i)));
+                    sorts.push_back(g->get_domain(i));
                 }
-                result = m.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), def);
+                var_subst subst(m, false);
+                result = subst(def, sorts.size(), vars.c_ptr());
+                result = m.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), result);
                 model_evaluator ev(m_model, m_params);
                 result = ev(result);
                 m_pinned.push_back(result);
