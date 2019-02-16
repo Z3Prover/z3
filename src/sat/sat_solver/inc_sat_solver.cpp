@@ -345,9 +345,10 @@ public:
         m.is_not(var, var);
         sat::bool_var v = m_map.to_bool_var(var);
         if (v == sat::null_bool_var) {
-            throw default_exception("literal does not correspond to a Boolean variable");
+            v = m_solver.add_var(true);
+            m_map.insert(var, v);
         }
-        m_solver.set_activity(v, activity);
+        m_solver.set_activity(v, static_cast<unsigned>(activity));
     }
 
     proof * get_proof() override {

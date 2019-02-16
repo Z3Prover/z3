@@ -1656,6 +1656,7 @@ namespace sat {
         m_min_core.reset();
         m_simplifier.init_search();
         TRACE("sat", display(tout););
+
     }
 
     /**
