@@ -19,7 +19,7 @@ Revision History:
 #pragma once
 namespace lp  {
 class ext_var_info {
-    unsigned m_external_j; // the internal index
+    unsigned m_external_j;
     bool m_is_integer;
     std::string m_name;
 public:
@@ -37,9 +37,9 @@ public:
 class var_register {
     svector<ext_var_info> m_local_to_external;
     std::unordered_map<unsigned, unsigned> m_external_to_local;
+    unsigned m_local_offset;
 public:
-
-    
+    var_register(unsigned offset) : m_local_offset(offset) {}
     
     unsigned add_var(unsigned user_var) {
         return add_var(user_var, true);
@@ -60,7 +60,7 @@ public:
         }
 
         m_local_to_external.push_back(ext_var_info(user_var, is_int));
-        return m_external_to_local[user_var] = size() - 1;
+        return m_external_to_local[user_var] = size() - 1 + m_local_offset;
     }
 
     svector<unsigned> vars() const {
@@ -72,7 +72,8 @@ public:
     }
     
     unsigned local_to_external(unsigned local_var) const {
-        return m_local_to_external[local_var].external_j();
+        SASSERT(local_var >= m_local_offset);
+        return m_local_to_external[local_var - m_local_offset].external_j();
     }
     unsigned size() const {
         return m_local_to_external.size();
@@ -95,24 +96,30 @@ public:
 
     bool external_is_used(unsigned ext_j, unsigned & local_j ) const {
         auto it = m_external_to_local.find(ext_j);
-        if ( it == m_external_to_local.end())
+        if ( it == m_external_to_local.end()) {
+            local_j = -1;
             return false;
+        }
         local_j = it->second;
         return true;
     }
 
     bool external_is_used(unsigned ext_j, unsigned & local_j, bool & is_int ) const {
         auto it = m_external_to_local.find(ext_j);
-        if ( it == m_external_to_local.end())
+        if ( it == m_external_to_local.end()){
+            local_j = -1;
             return false;
+        }
         local_j = it->second;
-        is_int = m_local_to_external[local_j].is_integer();
+        SASSERT(local_j >= m_local_offset);
+        is_int = m_local_to_external[local_j - m_local_offset].is_integer();
         return true;
     }
 
     
     bool local_is_int(unsigned j) const {
-        return m_local_to_external[j].is_integer();
+        SASSERT(j >= m_local_offset);
+        return m_local_to_external[j - m_local_offset].is_integer();
     }
 
     void shrink(unsigned shrunk_size) {
