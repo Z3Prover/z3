@@ -69,7 +69,6 @@ br_status hoist_rewriter::mk_or(unsigned num_args, expr * const * es, expr_ref &
         turn = !turn;
         (*preds)[turn].reset();
         reset(m_uf0);
-        unsigned v1 = 0, v2 = 0;
         VERIFY(is_and(es[j], args[turn]));
 
         for (expr* e : *args[turn]) {
@@ -196,6 +195,7 @@ bool hoist_rewriter::is_and(expr * e, expr_ref_vector* args) {
 void hoist_rewriter::reset(basic_union_find& uf) {
     uf.reset();
     for (expr* e : m_var2expr) {
+        (void)e;
         uf.mk_var();
     }
 }
