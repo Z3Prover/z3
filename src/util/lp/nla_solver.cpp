@@ -260,6 +260,7 @@ struct solver::imp {
     // return true iff the monomial value is equal to the product of the values of the factors
     bool check_monomial(const monomial& m) const {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
+        TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout););
         return product_value(m) == m_lar_solver.get_column_value_rational(m.var());
     }
     
@@ -1664,7 +1665,7 @@ struct solver::imp {
             unsigned ti = i + s.terms_start_index();
             if (!s.term_is_used_as_row(ti))
                 continue;
-            lpvar j = s.external2local(ti);
+            lpvar j = s.external_to_local(ti);
             if (var_is_fixed_to_zero(j)) {
                 TRACE("nla_solver", tout << "term = "; s.print_term(*s.terms()[i], tout););
                 add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
@@ -3347,7 +3348,7 @@ void solver::test_order_lemma_params(bool var_equiv, int sign) {
         lp::lar_term t;
         t.add_var(lp_k);
         t.add_coeff_var(-rational(1), lp_j);
-        lpvar kj = s.add_term(t.coeffs_as_vector());
+        lpvar kj = s.add_term(t.coeffs_as_vector(), -1);
         s.add_var_bound(kj, llc::LE, rational(0));
         s.add_var_bound(kj, llc::GE, rational(0));
     }
@@ -3548,7 +3549,7 @@ void solver::test_tangent_lemma_equiv() {
     lp::lar_term t;
     t.add_var(lp_k);
     t.add_var(lp_a);
-    lpvar kj = s.add_term(t.coeffs_as_vector());
+    lpvar kj = s.add_term(t.coeffs_as_vector(), -1);
     s.add_var_bound(kj, llc::LE, rational(0)); 
     s.add_var_bound(kj, llc::GE, rational(0));
     s.set_column_value(lp_a, - s.get_column_value(lp_k));
