@@ -91,7 +91,15 @@ class lar_solver : public column_namer {
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
+    stacked_value<int>                                  m_infeasible_column; // such can be found at the initialization step
+public:
+    lar_core_solver                                     m_mpq_lar_core_solver;
+private:
+    int_solver *                                        m_int_solver;
+public:
+    const var_index                                     m_terms_start_index;
     var_register                                        m_var_register;
+    var_register                                        m_term_register;
     stacked_vector<ul_pair>                             m_columns_to_ul_pairs;
     vector<lar_base_constraint*>                        m_constraints;
     stacked_value<unsigned>                             m_constraint_count;
@@ -99,17 +107,10 @@ class lar_solver : public column_namer {
     int_set                                             m_columns_with_changed_bound;
     int_set                                             m_rows_with_changed_bounds;
     int_set                                             m_basic_columns_with_changed_cost;
-    stacked_value<int>                                  m_infeasible_column; // such can be found at the initialization step
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
-    const var_index                                     m_terms_start_index;
     indexed_vector<mpq>                                 m_column_buffer;
-public:
-    lar_core_solver                                     m_mpq_lar_core_solver;
-private:
-    int_solver *                                        m_int_solver;
-    
-public :
+
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
     lar_term const& term(unsigned i) const { return *m_terms[i]; }
@@ -179,7 +180,7 @@ public:
     // terms
     bool all_vars_are_registered(const vector<std::pair<mpq, var_index>> & coeffs);
 
-    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs);
+    var_index add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i);
 
     var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
 
@@ -268,15 +269,21 @@ public:
 
     unsigned map_term_index_to_column_index(unsigned j) const;
     
-    var_index local2external(var_index idx) const { return m_var_register.local_to_external(idx); }
+    var_index local_to_external(var_index idx) const { return is_term(idx)?
+            m_term_register.local_to_external(idx) : m_var_register.local_to_external(idx); }
 
     unsigned number_of_vars() const { return m_var_register.size(); }
     
-    var_index external2local(unsigned j) const {
+    var_index external_to_local(unsigned j) const {
         var_index local_j;
-        lp_assert(m_var_register.external_is_used(j, local_j));
-        m_var_register.external_is_used(j, local_j);
-        return local_j;
+        if (
+            m_var_register.external_is_used(j, local_j) ||
+            m_term_register.external_is_used(j, local_j))
+            {
+                return local_j;
+            }
+        else
+            return -1;
     }
 
     bool column_has_upper_bound(unsigned j) const {
@@ -606,6 +613,7 @@ public:
     }
     
     bool has_int_var() const;
+
     bool has_inf_int() const {
         for (unsigned j = 0; j < column_count(); j++) {
             if (column_is_int(j) && ! column_value_is_int(j))

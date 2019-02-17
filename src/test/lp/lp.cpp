@@ -2690,7 +2690,7 @@ void test_term() {
     term_ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
     term_ls.push_back(std::pair<mpq, var_index>(mpq(1), y));
     term_ls.push_back(std::make_pair(mpq(3), one));
-    var_index z = solver.add_term(term_ls);
+    var_index z = solver.add_term(term_ls, -1);
 
     vector<std::pair<mpq, var_index>> ls;
     ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
@@ -2760,7 +2760,6 @@ void test_bound_propagation_one_small_sample1() {
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
-    
     ls.add_term(coeffs);
     coeffs.pop_back();
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
@@ -3506,12 +3505,12 @@ void test_maximize_term() {
     vector<std::pair<mpq, var_index>> term_ls;
     term_ls.push_back(std::pair<mpq, var_index>(mpq(1), x));
     term_ls.push_back(std::pair<mpq, var_index>(mpq(-1), y));
-    unsigned term_x_min_y = solver.add_term(term_ls);
+    unsigned term_x_min_y = solver.add_term(term_ls, -1);
     term_ls.clear();
     term_ls.push_back(std::pair<mpq, var_index>(mpq(2), x));
     term_ls.push_back(std::pair<mpq, var_index>(mpq(2), y));
     
-    unsigned term_2x_pl_2y = solver.add_term(term_ls);
+    unsigned term_2x_pl_2y = solver.add_term(term_ls, -1);
     solver.add_var_bound(term_x_min_y,  LE, zero_of_type<mpq>());
     solver.add_var_bound(term_2x_pl_2y, LE, mpq(5));
     solver.find_feasible_solution();
