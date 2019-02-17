@@ -245,6 +245,7 @@ namespace opt {
 
         // every time probing whether to include soft_i, 
         // include suffix that is known to be assignable to T
+        // 
         lbool maxlexN() {
             unsigned sz = m_soft.size();
             for (unsigned i = 0; i < sz; ++i) {
@@ -297,7 +298,7 @@ namespace opt {
         
         lbool operator()() override {
             init();            
-            return maxlexN();
+            return maxlex1();
         }
 
 
