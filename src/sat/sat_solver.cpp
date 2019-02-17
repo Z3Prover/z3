@@ -877,7 +877,7 @@ namespace sat {
             if (m_inconsistent) return false;
             l = m_trail[m_qhead];
             unsigned curr_level = lvl(l);
-            TRACE("sat_propagate", tout << "propagating: " << l << " " << m_justification[l.var()] << "\n";);
+            TRACE("sat_propagate", tout << "propagating: " << l << " " << m_justification[l.var()] << "\n"; );
             m_qhead++;
             not_l = ~l;
             SASSERT(value(l) == l_true);
@@ -1118,6 +1118,7 @@ namespace sat {
         if (m_mc.empty() && gparams::get_ref().get_bool("model_validate", false)) {
             m_clone = alloc(solver, m_params, m_rlimit);
             m_clone->copy(*this);
+            m_clone->set_extension(nullptr);
         }
         try {
             init_search();

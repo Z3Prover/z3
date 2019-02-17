@@ -84,9 +84,12 @@ namespace sat {
         }
         case ba_solver::pb_t: {
             ba_solver::pb const& p = cnstr.to_pb();
+            bool first = true;
             for (ba_solver::wliteral wl : p) {
+                if (!first) out << "+ ";
                 if (wl.first != 1) out << wl.first << " * ";
                 out << wl.second << " ";
+                first = false;
             }
             out << " >= " << p.k();
             break;
@@ -775,7 +778,6 @@ namespace sat {
             unwatch_literal(p[i].second, p);          
         }  
         p.set_num_watch(0);
-
         DEBUG_CODE(for (wliteral wl : p) VERIFY(!is_watched(wl.second, p)););
     }
 
@@ -886,6 +888,7 @@ namespace sat {
         for (wliteral wl : p) {
             literal l = wl.second;
             unsigned w = wl.first;
+            if (i > 0) out << "+ ";
             if (i++ == p.num_watch()) out << " | ";
             if (w > 1) out << w << " * ";
             out << l;
@@ -2067,6 +2070,7 @@ namespace sat {
       \brief return true to keep watching literal.
     */
     bool ba_solver::propagate(literal l, ext_constraint_idx idx) {
+        TRACE("ba", tout << l << "\n";);
         SASSERT(value(l) == l_true);
         constraint& c = index2constraint(idx);
         if (c.lit() != null_literal && l.var() == c.lit().var()) {
@@ -2485,6 +2489,7 @@ namespace sat {
     }
 
     void ba_solver::remove_constraint(constraint& c, char const* reason) {
+        TRACE("ba", tout << "remove " << c << " " << reason << "\n";);
         IF_VERBOSE(21, display(verbose_stream() << "remove " << reason << " ", c, true););
         nullify_tracking_literal(c);
         clear_watch(c);
@@ -3009,13 +3014,13 @@ namespace sat {
      * -> negate: ~lit == ~C
      */
     void ba_solver::update_pure() {
-        // return;
+        //return;
         for (constraint* cp : m_constraints) {
             literal lit = cp->lit();
             if (lit != null_literal && 
                 !cp->is_pure() &&
                 value(lit) == l_undef && 
-                get_wlist(~lit).size() == 1 &&                 
+                get_wlist(~lit).size() == 1 &&              
                 m_clause_use_list.get(lit).empty()) {
                 clear_watch(*cp);
                 cp->negate();
@@ -5285,6 +5290,9 @@ namespace sat {
     bool ba_solver::check_model(model const& m) const {
         bool ok = true;
         for (constraint const* c : m_constraints) {
+            if (c->was_removed()) {
+                continue;
+            }
             if (c->is_pure() && c->lit() != null_literal && m[c->lit().var()] == (c->lit().sign() ? l_true : l_false)) {
                 continue;
             }
