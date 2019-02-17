@@ -26,7 +26,6 @@ Revision History:
 
 namespace lp  {
 class hnf_cutter {
-    var_register               m_var_register;
     general_matrix             m_A;
     vector<const lar_term*>    m_terms;
     vector<bool>               m_terms_upper;
@@ -35,12 +34,14 @@ class hnf_cutter {
     lp_settings &              m_settings;
     mpq                        m_abs_max;
     bool                       m_overflow;
+    var_register               m_var_register;
 public:
 
     const mpq & abs_max() const { return m_abs_max; }
     
     hnf_cutter(lp_settings & settings) : m_settings(settings),
-                                         m_abs_max(zero_of_type<mpq>()) {}
+                                         m_abs_max(zero_of_type<mpq>()),
+                                         m_var_register(0) {}
 
     unsigned terms_count() const {
         return m_terms.size();

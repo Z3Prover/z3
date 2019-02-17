@@ -29,9 +29,11 @@ void clear() {lp_assert(false); // not implemented
 
 lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_infeasible_column(-1),
-                           m_terms_start_index(1000000),
                            m_mpq_lar_core_solver(m_settings, *this),
-                           m_int_solver(nullptr)
+                           m_int_solver(nullptr),
+                           m_terms_start_index(1000000),
+                           m_var_register(0),
+                           m_term_register(m_terms_start_index)
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
@@ -388,6 +390,7 @@ void lar_solver::pop(unsigned k) {
 #endif
         delete m_terms[i];
     }
+    m_term_register.shrink(m_term_count);
     m_terms.resize(m_term_count);
     m_simplex_strategy.pop(k);
     m_settings.simplex_strategy() = m_simplex_strategy;
@@ -1632,7 +1635,7 @@ void lar_solver::register_new_ext_var_index(unsigned ext_v, bool is_int) {
 }
 
 bool lar_solver::external_is_used(unsigned v) const {
-    return m_var_register.external_is_used(v);
+    return m_var_register.external_is_used(v) || m_term_register.external_is_used(v);
 }
 
 void lar_solver::add_non_basic_var_to_core_fields(unsigned ext_j, bool is_int) {
@@ -1741,12 +1744,14 @@ bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>
     return true;
 }
 
-var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs) {
+var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i) {
+    m_term_register.add_var(ext_i);
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
         return add_term_undecided(coeffs);
 
     push_and_register_term(new lar_term(coeffs));
+    SASSERT(m_term_register.size() == m_terms.size());
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
     if (use_tableau() && !coeffs.empty()) {
@@ -1757,6 +1762,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs)
     lp_assert(m_var_register.size() == A_r().column_count());
     return ret;
 }
+
 
 void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index) {
     TRACE("dump_terms", print_term(*term, tout) << std::endl;);
@@ -1838,7 +1844,7 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
 constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm) {
     vector<std::pair<mpq, var_index>> left_side;
     substitute_terms_in_linear_expression(left_side_with_terms, left_side);
-    unsigned term_index = add_term(left_side);
+    unsigned term_index = add_term(left_side, -1);
     constraint_index ci = m_constraints.size();
     add_var_bound_on_constraint_for_term(term_index, kind_par, right_side_parm, ci);
     return ci;
