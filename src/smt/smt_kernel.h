@@ -230,6 +230,11 @@ namespace smt {
         expr_ref_vector get_trail();
 
         /**
+           \brief set activity of literal
+        */
+        void set_activity(expr* lit, double activity);
+
+        /**
            \brief (For debubbing purposes) Prints the state of the kernel
         */
         void display(std::ostream & out) const;

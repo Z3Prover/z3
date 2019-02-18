@@ -74,11 +74,6 @@ namespace opt {
             }
         }
 
-        void set_value(soft& soft, lbool v) {
-            soft.set_value(v);
-            assert_value(soft);
-        }
-
         void update_assignment(model_ref & mdl) {
             bool first_undef = true, second_undef = false;
             for (auto & soft : m_soft) {
@@ -95,7 +90,9 @@ namespace opt {
                         soft.set_value(v);
                     }
                     else {
-                        set_value(soft, v); // also update constraints
+                        SASSERT(v == l_true);
+                        soft.set_value(v);
+                        assert_value(soft);
                     }
                 }
             }
@@ -130,121 +127,9 @@ namespace opt {
             if (mdl) update_assignment(mdl);           
         }
 
-        lbool maxlex1() {
-            for (auto & soft : m_soft) {
-                if (soft.value == l_true) {
-                    continue;
-                }
-                SASSERT(soft.value == l_undef);
-                expr* a = soft.s;                
-                lbool is_sat = s().check_sat(1, &a);
-                switch (is_sat) {
-                case l_false: 
-                    set_value(soft, l_false);
-                    update_bounds();
-                    break;
-                case l_true:
-                    update_assignment();
-                    SASSERT(soft.value == l_true);
-                    break;
-                case l_undef:
-                    return l_undef;
-                }
-            }
-            return l_true;
-        }
-
-        // try two literals per round.
-        // doesn't seem to make a difference based on sample test.
-        lbool maxlex2() {
-            unsigned sz = m_soft.size();
-            for (unsigned i = 0; i < sz; ++i) {
-                auto& soft = m_soft[i];
-                if (soft.value != l_undef) {
-                    continue;
-                }
-                SASSERT(soft.value == l_undef);
-                if (i + 1 == sz) {
-                    expr* a = soft.s;                
-                    lbool is_sat = s().check_sat(1, &a);
-                    switch (is_sat) {
-                    case l_false: 
-                        set_value(soft, l_false);
-                        update_bounds();
-                        break;
-                    case l_true:
-                        update_assignment();
-                        SASSERT(soft.value == l_true);
-                        break;
-                    case l_undef:
-                        return l_undef;
-                    }
-                }                
-                else {
-                    auto& soft2 = m_soft[i+1];
-                    expr_ref_vector core(m);
-                    expr* a = soft.s;
-                    expr* b = soft2.s;
-                    expr* asms[2] = { a, b };
-                    lbool is_sat = s().check_sat(2, asms);
-                    switch (is_sat) {
-                    case l_true:
-                        update_assignment();
-                        SASSERT(soft.value == l_true);
-                        SASSERT(soft2.value == l_true);
-                        break;
-                    case l_false:
-                        s().get_unsat_core(core);
-                        if (core.contains(b)) {
-                            expr_ref not_b(mk_not(m, b), m);
-                            asms[1] = not_b;
-                            switch (s().check_sat(2, asms)) {
-                            case l_true:
-                                // a, b is unsat, a, not b is sat.
-                                set_value(soft2, l_false);
-                                update_assignment();
-                                SASSERT(soft.value == l_true);
-                                SASSERT(soft2.value == l_false);
-                                break;
-                            case l_false:
-                                // a, b is unsat, a, not b is unsat -> a is unsat
-                                // b is unsat, a, not b is unsat -> not a, not b
-                                set_value(soft, l_false);
-                                // core1 = { b }
-                                // core2 = { a, not b }
-                                if (!core.contains(a)) {
-                                    set_value(soft2, l_false);
-                                }
-                                else {
-                                    // core1 = { a, b}
-                                    // core2 = { not_b }
-                                    core.reset();
-                                    s().get_unsat_core(core);
-                                    if (!core.contains(a)) {
-                                        set_value(soft2, l_true);
-                                    }
-                                }
-                                update_bounds();
-                                break;
-                            case l_undef:
-                                return l_undef;
-                            }
-                        }
-                        else {
-                            set_value(soft, l_false);
-                            update_bounds();
-                        }
-                        break;
-                    case l_undef:
-                        return l_undef;
-                    }
-                }
-            }
-            return l_true;
-        }
-
-        // every time probing whether to include soft_i, 
-        // include suffix that is known to be assignable to T
+        //
+        // include soft constraints that are known to be assignable to true after failed literal.
+        // 
         lbool maxlexN() {
             unsigned sz = m_soft.size();
             for (unsigned i = 0; i < sz; ++i) {
@@ -254,12 +139,6 @@ namespace opt {
                 }
                 expr_ref_vector asms(m);
                 asms.push_back(soft.s);
-                for (unsigned j = i + 1; j < sz; ++j) {
-                    auto& soft2 = m_soft[j];
-                    if (soft2.value == l_true) {
-                        asms.push_back(soft2.s);                    
-                    }
-                }
                 lbool is_sat = s().check_sat(asms);
                 switch (is_sat) {
                 case l_true:
@@ -267,7 +146,8 @@ namespace opt {
                     SASSERT(soft.value == l_true);
                     break;
                 case l_false:
-                    set_value(soft, l_false);
+                    soft.set_value(l_false);
+                    assert_value(soft);
                     for (unsigned j = i + 1; j < sz; ++j) {
                         auto& soft2 = m_soft[j];
                         if (soft2.value != l_true) {

@@ -412,8 +412,17 @@ namespace smt {
             return m_activity[v];
         }
 
-        void set_activity(bool_var v, double & act) {
+        void set_activity(bool_var v, double const & act) {
             m_activity[v] = act;
+        }
+
+        void activity_changed(bool_var v, bool increased) {
+            if (increased) {
+                m_case_split_queue->activity_increased_eh(v);
+            }
+            else {
+                m_case_split_queue->activity_decreased_eh(v);
+            }
         }
 
         bool is_assumption(bool_var v) const {

@@ -341,6 +341,16 @@ public:
         return result;
     }
 
+    void set_activity(expr* var, double activity) override {
+        m.is_not(var, var);
+        sat::bool_var v = m_map.to_bool_var(var);
+        if (v == sat::null_bool_var) {
+            v = m_solver.add_var(true);
+            m_map.insert(var, v);
+        }
+        m_solver.set_activity(v, static_cast<unsigned>(activity));
+    }
+
     proof * get_proof() override {
         UNREACHABLE();
         return nullptr;

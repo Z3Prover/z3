@@ -99,6 +99,7 @@ namespace sat {
         while (s.rlimit().inc() && st == l_undef) {
             if (inconsistent() && !m_decisions.empty()) do_pop();
             else if (inconsistent()) st = l_false; 
+            else if (should_restart()) restart();
             else if (should_backjump()) st = do_backjump();
             else st = decide();
         }
@@ -276,9 +277,6 @@ namespace sat {
             init_runs();
             init_phase();
         }
-        if (false && should_restart()) {
-            restart();
-        }
     }
 
     bool unit_walk::should_restart() {
@@ -287,9 +285,7 @@ namespace sat {
             ++m_luby_index;
             return true;
         }
-        else {
-            return false;
-        }
+        return false;        
     }
 
     void unit_walk::restart() {
@@ -328,9 +324,9 @@ namespace sat {
     }
 
     void unit_walk::propagate() {
-        while (m_qhead < m_trail.size() && !inconsistent()) 
-            propagate(choose_literal());            
-        // IF_VERBOSE(1, verbose_stream() << m_trail.size() << " " << inconsistent() << "\n";);
+        while (m_qhead < m_trail.size() && !inconsistent()) {
+            propagate(m_trail[m_qhead++]);         
+        }
     }
 
     std::ostream& unit_walk::display(std::ostream& out) const {
@@ -493,10 +489,6 @@ namespace sat {
                    << " :propagations " << s.m_stats.m_propagate
                    << " :conflicts " << s.m_stats.m_conflict 
                    << ")\n";);        
-    }
-
-    literal unit_walk::choose_literal() {
-        return m_trail[m_qhead++];
     }
 
     void unit_walk::set_conflict(literal l1, literal l2) {

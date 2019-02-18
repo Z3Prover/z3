@@ -389,6 +389,7 @@ namespace sat {
         char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;
         bool is_assumption(bool_var v) const;
+        void set_activity(bool_var v, unsigned act);
 
         lbool  cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level);
 

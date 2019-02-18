@@ -1654,6 +1654,12 @@ namespace sat {
         return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
+    void solver::set_activity(bool_var v, unsigned act) {
+        unsigned old_act = m_activity[v];
+        m_activity[v] = act; 
+        m_case_split_queue.activity_changed_eh(v, act > old_act);
+    }
+
     bool solver::is_assumption(bool_var v) const {
         return is_assumption(literal(v, false)) || is_assumption(literal(v, true));
     }
@@ -1686,6 +1692,7 @@ namespace sat {
         m_min_core.reset();
         m_simplifier.init_search();
         TRACE("sat", display(tout););
+
     }
 
     /**
@@ -1823,11 +1830,11 @@ namespace sat {
         m_mc(m_model);
         
         if (!check_clauses(m_model)) {
-            IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
+            IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
             IF_VERBOSE(10, m_mc.display(verbose_stream()));
             //IF_VERBOSE(0, display_units(verbose_stream()));
             //IF_VERBOSE(0, display(verbose_stream()));
-            IF_VERBOSE(0, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+            IF_VERBOSE(1, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
 
             throw solver_exception("check model failed");
         }
@@ -1837,11 +1844,11 @@ namespace sat {
         if (m_clone) {
             IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model)) {
-                IF_VERBOSE(0, display(verbose_stream()));
-                // IF_VERBOSE(0, display_watches(verbose_stream()));
-                IF_VERBOSE(0, m_mc.display(verbose_stream()));
-                // IF_VERBOSE(0, display_units(verbose_stream()));
-                // IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
+                //IF_VERBOSE(0, display(verbose_stream()));
+                //IF_VERBOSE(0, display_watches(verbose_stream()));
+                IF_VERBOSE(1, m_mc.display(verbose_stream()));
+                IF_VERBOSE(1, display_units(verbose_stream()));
+                //IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
                 throw solver_exception("check model failed (for cloned solver)");
             }
         }
@@ -1852,7 +1859,7 @@ namespace sat {
         for (clause const* cp : m_clauses) {
             clause const & c = *cp;
             if (!c.satisfied_by(m)) {
-                IF_VERBOSE(0, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
                 TRACE("sat", tout << "failed: " << c << "\n";
                       tout << "assumptions: " << m_assumptions << "\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1860,7 +1867,7 @@ namespace sat {
                       m_mc.display(tout);
                       );
                 for (literal l : c) {
-                    if (was_eliminated(l.var())) IF_VERBOSE(0, verbose_stream() << "eliminated: " << l << "\n";);
+                    if (was_eliminated(l.var())) IF_VERBOSE(1, verbose_stream() << "eliminated: " << l << "\n";);
                 }
                 ok = false;
             }
@@ -1876,8 +1883,8 @@ namespace sat {
                     if (l.index() > l2.index()) 
                         continue;
                     if (value_at(l2, m) != l_true) {
-                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " := " << value_at(l, m) << " " << l2 <<  " := " << value_at(l2, m) << "\n");
-                        IF_VERBOSE(0, verbose_stream() << "elim l1: " << was_eliminated(l.var()) << " elim l2: " << was_eliminated(l2) << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "failed binary: " << l << " := " << value_at(l, m) << " " << l2 <<  " := " << value_at(l2, m) << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "elim l1: " << was_eliminated(l.var()) << " elim l2: " << was_eliminated(l2) << "\n");
                         TRACE("sat", m_mc.display(tout << "failed binary: " << l << " " << l2 << "\n"););
                         ok = false;
                     }
@@ -1888,7 +1895,7 @@ namespace sat {
         for (literal l : m_assumptions) {
             if (value_at(l, m) != l_true) {
                 VERIFY(is_external(l.var()));
-                IF_VERBOSE(0, verbose_stream() << "assumption: " << l << " does not model check " << value_at(l, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "assumption: " << l << " does not model check " << value_at(l, m) << "\n";);
                 TRACE("sat",
                       tout << l << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1909,8 +1916,8 @@ namespace sat {
         if (ok && !m_mc.check_model(m)) {
             ok = false;
             TRACE("sat", tout << "model: " << m << "\n"; m_mc.display(tout););
+            IF_VERBOSE(0, verbose_stream() << "model check failed\n");
         }
-        IF_VERBOSE(1, verbose_stream() << "model check " << (ok?"OK":"failed") << "\n";);
         return ok;
     }
 

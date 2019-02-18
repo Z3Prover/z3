@@ -203,6 +203,10 @@ namespace smt {
             return m_context.get_trail();
         }
 
+        void set_activity(expr* lit, double activity) override {
+            m_context.set_activity(lit, activity);
+        }
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

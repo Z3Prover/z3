@@ -91,7 +91,6 @@ namespace sat {
         void flip_phase(literal l); 
         void propagate();
         void propagate(literal lit);
-        literal choose_literal();
         void set_conflict(literal l1, literal l2);
         void set_conflict(literal l1, literal l2, literal l3);
         void set_conflict(clause const& c);
