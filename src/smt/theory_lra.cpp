@@ -215,9 +215,6 @@ class theory_lra::imp {
        
     typedef vector<std::pair<rational, lpvar>> var_coeffs;
 
-    // svector<lpvar> m_theory_var2var_index;   // translate from theory variables to lar vars
-    // svector<theory_var>      m_var_index2theory_var;   // reverse map from lp_solver variables to theory variables  
-    // svector<theory_var>      m_term_index2theory_var;   // reverse map from lp_solver variables to theory variables  
     var_coeffs               m_left_side;              // constraint left side
     mutable std::unordered_map<lpvar, rational> m_variable_values; // current model
     lpvar m_one_var;
