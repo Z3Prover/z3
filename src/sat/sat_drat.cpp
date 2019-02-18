@@ -120,22 +120,27 @@ namespace sat {
         case status::deleted: ch = 'd'; break;
         default: UNREACHABLE(); break;
         }
-        (*m_bout) << ch;
+        char buffer[10000];
+        int len = 0;
+        buffer[len++] = ch;
 
         for (unsigned i = 0; i < n; ++i) {
             literal lit = c[i];
             unsigned v = 2 * lit.var() + (lit.sign() ? 1 : 0);
             do {
-                ch = static_cast<unsigned char>(v & ((1 << 7) - 1));
+                ch = static_cast<unsigned char>(v & 255);
                 v >>= 7;
-                if (v) ch |= (1 << 7);
-                //std::cout << std::hex << ((unsigned char)ch) << std::dec << " ";
-                (*m_bout) << ch;
+                if (v) ch |= 128;
+                buffer[len++] = ch;
+                if (len == sizeof(buffer)) {
+                    m_bout->write(buffer, len);
+                    len = 0;
+                }
             }
             while (v);
         }
-        ch = 0;
-        (*m_bout) << ch;
+        buffer[len++] = 0;
+        m_bout->write(buffer, len);
     }
 
     bool drat::is_cleaned(clause& c) const {

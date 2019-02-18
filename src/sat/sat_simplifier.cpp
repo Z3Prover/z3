@@ -1222,7 +1222,6 @@ namespace sat {
            RI literals.
          */
         void minimize_covered_clause(unsigned idx) {
-            literal _blocked = m_covered_clause[idx];
             for (literal l : m_tautology) VERIFY(s.is_marked(l));
             for (literal l : m_covered_clause) s.unmark_visited(l);
             for (literal l : m_tautology) s.mark_visited(l);
