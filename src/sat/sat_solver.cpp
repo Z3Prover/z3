@@ -1788,7 +1788,10 @@ namespace sat {
 
         // m_mc.set_solver(nullptr);
         m_mc(m_model);
-        
+
+        if (!gparams::get_ref().get_bool("model_validate", false)) {
+            return;
+        }
         if (!check_clauses(m_model)) {
             IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
             IF_VERBOSE(10, m_mc.display(verbose_stream()));
