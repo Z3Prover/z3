@@ -1779,41 +1779,30 @@ namespace sat {
         }
 #endif
 
-        IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
-        if (!check_clauses(m_model)) {
-            throw solver_exception("check model failed");
+        if (m_clone) {
+            IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
+            if (!check_clauses(m_model)) {
+                throw solver_exception("check model failed");
+            }
         }
         
-        if (m_config.m_drat) m_drat.check_model(m_model);
+        if (m_config.m_drat) {
+            m_drat.check_model(m_model);
+        }
 
-        // m_mc.set_solver(nullptr);
         m_mc(m_model);
 
-        if (!gparams::get_ref().get_bool("model_validate", false)) {
-            return;
-        }
-        if (!check_clauses(m_model)) {
+        if (m_clone && !check_clauses(m_model)) {
             IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
             IF_VERBOSE(10, m_mc.display(verbose_stream()));
-            //IF_VERBOSE(0, display_units(verbose_stream()));
-            //IF_VERBOSE(0, display(verbose_stream()));
-            IF_VERBOSE(1, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
-
+            IF_VERBOSE(10, display_model(verbose_stream()));
             throw solver_exception("check model failed");
         }
 
-        TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
-
-        if (m_clone) {
-            IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
-            if (!m_clone->check_model(m_model)) {
-                //IF_VERBOSE(0, display(verbose_stream()));
-                //IF_VERBOSE(0, display_watches(verbose_stream()));
-                IF_VERBOSE(1, m_mc.display(verbose_stream()));
-                IF_VERBOSE(1, display_units(verbose_stream()));
-                //IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
-                throw solver_exception("check model failed (for cloned solver)");
-            }
+        if (m_clone && !m_clone->check_model(m_model)) {
+            IF_VERBOSE(1, m_mc.display(verbose_stream()));
+            IF_VERBOSE(1, display_units(verbose_stream()));
+            throw solver_exception("check model failed (for cloned solver)");
         }
     }
 
@@ -3545,6 +3534,14 @@ namespace sat {
         }
         return true;
     }
+
+    std::ostream& solver::display_model(std::ostream& out) const {
+        unsigned num = num_vars();
+        for (bool_var v = 0; v < num; v++) {
+            out << v << ": " << m_model[v] << "\n";
+        }
+        return out;
+}
 
     void solver::display_binary(std::ostream & out) const {
         unsigned sz = m_watches.size();
