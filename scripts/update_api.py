@@ -1704,6 +1704,7 @@ def write_exe_c_preamble(exe_c):
 def write_core_py_post(core_py):
   core_py.write("""
 # Clean up
+del _lib
 del _default_dirs
 del _all_dirs
 del _ext
