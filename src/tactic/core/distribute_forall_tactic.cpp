@@ -49,8 +49,7 @@ class distribute_forall_tactic : public tactic {
                     expr * not_arg = m.mk_not(arg);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, not_arg);
-                    expr_ref new_q = elim_unused_vars(m, tmp_q, params_ref());
-                    new_args.push_back(new_q);
+                    new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
@@ -68,8 +67,7 @@ class distribute_forall_tactic : public tactic {
                     expr * arg     = to_app(new_body)->get_arg(i);
                     quantifier_ref tmp_q(m);
                     tmp_q = m.update_quantifier(old_q, arg);
-                    expr_ref new_q = elim_unused_vars(m, tmp_q, params_ref());
-                    new_args.push_back(new_q);
+                    new_args.push_back(elim_unused_vars(m, tmp_q, params_ref()));
                 }
                 result = m.mk_and(new_args.size(), new_args.c_ptr());
                 return true;
