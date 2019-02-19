@@ -92,7 +92,7 @@ class elim_small_bv_tactic : public tactic {
 
             TRACE("elim_small_bv", tout << "substitution: " << std::endl;
                                     for (unsigned k = 0; k < substitution.size(); k++) {
-                                        expr * se = substitution[k].get();
+                                        expr * se = substitution[k];
                                         tout << k << " = ";
                                         if (se == 0) tout << "0";
                                         else tout << mk_ismt2_pp(se, m);
