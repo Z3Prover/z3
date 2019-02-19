@@ -37,7 +37,6 @@ class elim_small_bv_tactic : public tactic {
         bv_util                     m_util;
         th_rewriter                 m_simp;
         ref<generic_model_converter> m_mc;
-        goal *                      m_goal;
         unsigned                    m_max_bits;
         unsigned long long          m_max_steps;
         unsigned long long          m_max_memory; // in bytes
@@ -53,7 +52,6 @@ class elim_small_bv_tactic : public tactic {
             m_bindings(_m),
             m_num_eliminated(0) {
             updt_params(p);
-            m_goal = nullptr;
             m_max_steps = UINT_MAX;
         }
 
@@ -76,7 +74,7 @@ class elim_small_bv_tactic : public tactic {
             TRACE("elim_small_bv", tout << "replace idx " << idx << " with " << mk_ismt2_pp(replacement, m) <<
                 " in " << mk_ismt2_pp(e, m) << std::endl;);
             expr_ref res(m);
-            expr_ref_vector substitution(m);
+            ptr_vector<expr> substitution;
 
             substitution.resize(num_decls, nullptr);
             substitution[num_decls - idx - 1] = replacement;
@@ -152,9 +150,7 @@ class elim_small_bv_tactic : public tactic {
                     expr_ref_vector new_bodies(m);
                     for (unsigned j = 0; j < bv_sz && !max_steps_exceeded(num_steps); j ++) {
                         expr_ref n(m_util.mk_numeral(j, bv_sz), m);
-                        expr_ref nb(m);
-                        nb = replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n);
-                        new_bodies.push_back(nb);
+                        new_bodies.push_back(replace_var(uv, num_decls, max_var_idx_p1, i, s, body, n));
                         num_steps++;
                     }
 
@@ -250,7 +246,6 @@ public:
         fail_if_unsat_core_generation("elim-small-bv", g);
         m_rw.cfg().m_produce_models = g->models_enabled();
 
-        m_rw.m_cfg.m_goal = g.get();
         expr_ref   new_curr(m);
         proof_ref  new_pr(m);
         unsigned   size = g->size();
