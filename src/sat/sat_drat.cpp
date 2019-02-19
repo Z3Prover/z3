@@ -173,7 +173,13 @@ namespace sat {
         if (st == status::deleted) {
             return;
         }
-        assign_propagate(l);
+        if (m_check_unsat) {
+            assign_propagate(l);
+        }
+
+        clause* c = s.alloc_clause(1, &l, st == status::learned);
+        m_proof.push_back(c);
+        m_status.push_back(st);
     }
 
     void drat::append(literal l1, literal l2, status st) {
@@ -190,6 +196,7 @@ namespace sat {
             clause* c = s.alloc_clause(2, lits, st == status::learned);
             m_proof.push_back(c);
             m_status.push_back(st);
+            if (!m_check_unsat) return;
             unsigned idx = m_watched_clauses.size();
             m_watched_clauses.push_back(watched_clause(c, l1, l2));
             m_watches[(~l1).index()].push_back(idx);
@@ -362,7 +369,7 @@ namespace sat {
     void drat::validate_propagation() const {
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             status st = m_status[i];
-            if (m_proof[i] && st != status::deleted) {
+            if (m_proof[i] && m_proof[i]->size() > 1 && st != status::deleted) {
                 clause& c = *m_proof[i];
                 unsigned num_undef = 0, num_true = 0;
                 for (unsigned j = 0; j < c.size(); ++j) {
@@ -385,7 +392,7 @@ namespace sat {
         SASSERT(lits.size() == n);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             status st = m_status[i];
-            if (m_proof[i] && (st == status::asserted || st == status::external)) {
+            if (m_proof[i] && m_proof[i]->size() > 1 && (st == status::asserted || st == status::external)) {
                 clause& c = *m_proof[i];
                 unsigned j = 0;
                 for (; j < c.size() && c[j] != ~l; ++j) {}
@@ -583,7 +590,7 @@ namespace sat {
 
     void drat::add() {
         if (m_out) (*m_out) << "0\n";
-        if (m_bout) bdump(0, nullptr, learned);
+        if (m_bout) bdump(0, nullptr, status::learned);
         if (m_check_unsat) {
             SASSERT(m_inconsistent);
         }

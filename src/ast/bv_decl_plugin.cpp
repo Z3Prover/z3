@@ -548,11 +548,15 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case OP_ROTATE_LEFT:
         if (arity != 1)
             m_manager->raise_exception("rotate left expects one argument");
+        if (num_parameters != 1 || !parameters[0].is_int()) 
+            m_manager->raise_exception("rotate left expects one integer parameter");
         return m_manager->mk_func_decl(m_rotate_left_sym, arity, domain, domain[0],
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_ROTATE_RIGHT:
         if (arity != 1)
             m_manager->raise_exception("rotate right expects one argument");
+        if (num_parameters != 1 || !parameters[0].is_int()) 
+            m_manager->raise_exception("rotate right expects one integer parameter");
         return m_manager->mk_func_decl(m_rotate_right_sym, arity, domain, domain[0],
                                        func_decl_info(m_family_id, k, num_parameters, parameters));
     case OP_REPEAT:
