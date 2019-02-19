@@ -327,7 +327,6 @@ class nla2bv_tactic : public tactic {
             }
             void operator()(app* n) { 
                 if (a.is_int(n) && is_uninterp_const(n)) {
-                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
                     m_vars.push_back(n);
                 }
                 else if (a.is_real(n) && is_uninterp_const(n)) {
@@ -371,7 +370,7 @@ class nla2bv_tactic : public tactic {
                 add_var(fe_var.vars()[i]);
             }
             if (!fe_var.is_supported()) return not_supported;
-            if (!fe_var.vars().empty()) return is_bool;
+            if (fe_var.vars().empty()) return is_bool;
             return has_num;
         }
         
