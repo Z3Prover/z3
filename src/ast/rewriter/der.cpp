@@ -374,13 +374,11 @@ void der::apply_substitution(quantifier * q, expr_ref & r) {
     expr_ref_buffer  new_patterns(m_manager);
     expr_ref_buffer  new_no_patterns(m_manager);
     for (unsigned j = 0; j < q->get_num_patterns(); j++) {
-        expr_ref new_pat = m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
-        new_patterns.push_back(new_pat);
+        new_patterns.push_back(m_subst(q->get_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
     }
 
     for (unsigned j = 0; j < q->get_num_no_patterns(); j++) {
-        expr_ref new_nopat = m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr());
-        new_no_patterns.push_back(new_nopat);
+        new_no_patterns.push_back(m_subst(q->get_no_pattern(j), m_subst_map.size(), m_subst_map.c_ptr()));
     }
 
     r = m_manager.update_quantifier(q, new_patterns.size(), new_patterns.c_ptr(),
