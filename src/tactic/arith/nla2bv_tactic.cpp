@@ -318,10 +318,12 @@ class nla2bv_tactic : public tactic {
             ast_manager& m;
             pb_util    pb;
             ptr_vector<app> m_vars;
+            bool            m_no_arith;
             bool m_in_supported_fragment;
         public:
-            get_uninterp_proc(imp& s): m_imp(s), a(s.m_arith), m(a.get_manager()), pb(m), m_in_supported_fragment(true) {}
+            get_uninterp_proc(imp& s): m_imp(s), a(s.m_arith), m(a.get_manager()), pb(m), m_no_arith(true), m_in_supported_fragment(true) {}
             ptr_vector<app> const& vars() { return m_vars; }
+            bool no_arith() const { return m_no_arith; }
             void operator()(var * n) { 
                 m_in_supported_fragment = false; 
             }
@@ -338,18 +340,20 @@ class nla2bv_tactic : public tactic {
                 else if (m.is_bool(n) && n->get_decl()->get_family_id() == pb.get_family_id()) {
                     
                 }
-                else if (!(a.is_mul(n) ||
-                           a.is_add(n) ||
-                           a.is_sub(n) ||
-                           a.is_le(n) ||
-                           a.is_lt(n) ||
-                           a.is_ge(n) ||
-                           a.is_gt(n) ||
-                           a.is_numeral(n) ||
-                           a.is_uminus(n) ||
-                           m_imp.m_bv2real.is_pos_le(n) ||
-                           m_imp.m_bv2real.is_pos_lt(n) ||
-                           n->get_family_id() == a.get_manager().get_basic_family_id())) {
+                else if (a.is_mul(n) ||
+                         a.is_add(n) ||
+                         a.is_sub(n) ||
+                         a.is_le(n) ||
+                         a.is_lt(n) ||
+                         a.is_ge(n) ||
+                         a.is_gt(n) ||
+                         a.is_numeral(n) ||
+                         a.is_uminus(n) ||
+                         m_imp.m_bv2real.is_pos_le(n) ||
+                         m_imp.m_bv2real.is_pos_lt(n)) {
+                    m_no_arith = false;
+                }
+                else if (n->get_family_id() != m.get_basic_family_id()) {
                     TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
                     m_in_supported_fragment = false;
                 }
@@ -370,7 +374,7 @@ class nla2bv_tactic : public tactic {
                 add_var(fe_var.vars()[i]);
             }
             if (!fe_var.is_supported()) return not_supported;
-            if (fe_var.vars().empty()) return is_bool;
+            if (fe_var.vars().empty() && fe_var.no_arith()) return is_bool;
             return has_num;
         }
         

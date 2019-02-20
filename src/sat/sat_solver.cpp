@@ -1157,6 +1157,7 @@ namespace sat {
         }
         catch (const abort_solver &) {
             m_reason_unknown = "sat.giveup";
+            IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort giveup\")\n";);
             return l_undef;
         }
     }

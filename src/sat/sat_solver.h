@@ -328,6 +328,7 @@ namespace sat {
             if (!m_rlimit.inc()) {
                 m_mc.reset();
                 m_model_is_current = false;
+                TRACE("sat", tout << "canceled\n";);
                 throw solver_exception(Z3_CANCELED_MSG);
             }
             ++m_num_checkpoints;
@@ -384,7 +385,7 @@ namespace sat {
         model_converter const & get_model_converter() const { return m_mc; }
         void flush(model_converter& mc) override { mc.flush(m_mc); }
         void set_model(model const& mdl);
-        char const* get_reason_unknown() const { return m_reason_unknown.c_str(); }
+        char const* get_reason_unknown() const override { return m_reason_unknown.c_str(); }
         bool check_clauses(model const& m) const;
         bool is_assumption(bool_var v) const;
         void set_activity(bool_var v, unsigned act);

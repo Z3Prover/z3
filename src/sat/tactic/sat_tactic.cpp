@@ -65,6 +65,7 @@ class sat_tactic : public tactic {
             TRACE("sat_dimacs", m_solver->display_dimacs(tout););
             dep2assumptions(dep2asm, assumptions);
             lbool r = m_solver->check(assumptions.size(), assumptions.c_ptr());
+            TRACE("sat", tout << "result of checking: " << r << " " << m_solver->get_reason_unknown() << "\n";);
             if (r == l_false) {
                 expr_dependency * lcore = nullptr;
                 if (produce_core) {
@@ -197,6 +198,10 @@ public:
         catch (sat::solver_exception & ex) {
             proc.m_solver->collect_statistics(m_stats);
             throw tactic_exception(ex.msg());
+        }
+        catch (z3_exception& ex) {
+            TRACE("sat", tout << ex.msg() << "\n";);            
+            throw;
         }
         TRACE("sat_stats", m_stats.display_smt2(tout););
     }
