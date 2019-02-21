@@ -368,8 +368,8 @@ namespace smt {
         if (m_canonize_cache.find(n, r))
             return r;
         bool has_arg_enodes = true;
-        ptr_buffer<expr>  new_args;
-        ptr_buffer<enode> new_arg_enodes;
+        buffer<expr*>  new_args;
+        buffer<enode*> new_arg_enodes;
         unsigned num_args = to_app(n)->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg = canonize(to_app(n)->get_arg(i));

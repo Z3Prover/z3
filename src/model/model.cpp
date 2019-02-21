@@ -338,7 +338,7 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
     if (fi->get_else() == nullptr) return false;
     expr* e = fi->get_else();
     obj_hashtable<expr> subs;
-    ptr_buffer<expr> todo;
+    buffer<expr*> todo;
     todo.push_back(e);
     while (!todo.empty()) {
         if (fi->num_entries() + subs.size() > 8) return false;
@@ -366,8 +366,8 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
 
     obj_map<expr, expr*> cache;
     expr_ref_vector trail(m);
-    ptr_buffer<expr, 128> todo;
-    ptr_buffer<expr> args;
+    buffer<expr*, 128> todo;
+    buffer<expr*> args;
     todo.push_back(e);
     array_util autil(m);
     func_interp* fi = nullptr;

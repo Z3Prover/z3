@@ -190,7 +190,7 @@ public:
             app_ref newp(m);
             if (!dirty) { newp = p; }
             else if (m.is_unit_resolution(p)) {
-                ptr_buffer<proof> parents;
+                buffer<proof*> parents;
                 for (unsigned i = 0, sz = args.size() - 1; i < sz; ++i) {
                     app *arg = to_app(args.get(i));
                     if (!m.is_true(m.get_fact(arg)))

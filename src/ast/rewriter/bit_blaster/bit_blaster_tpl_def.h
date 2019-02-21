@@ -349,8 +349,8 @@ void bit_blaster_tpl<Cfg>::mk_umul_no_overflow(unsigned sz, expr * const * a_bit
     SASSERT(sz > 0);
     expr_ref zero(m());
     zero = m().mk_false();
-    ptr_buffer<expr,128> ext_a_bits;
-    ptr_buffer<expr,128> ext_b_bits;
+    buffer<expr*, 128> ext_a_bits;
+    buffer<expr*, 128> ext_b_bits;
     ext_a_bits.append(sz, a_bits);
     ext_b_bits.append(sz, b_bits);
     ext_a_bits.push_back(zero);
@@ -388,8 +388,8 @@ void bit_blaster_tpl<Cfg>::mk_smul_no_overflow_core(unsigned sz, expr * const * 
     SASSERT(sz > 0);
     expr_ref zero(m());
     zero = m().mk_false();
-    ptr_buffer<expr,128> ext_a_bits;
-    ptr_buffer<expr,128> ext_b_bits;
+    buffer<expr*, 128> ext_a_bits;
+    buffer<expr*, 128> ext_b_bits;
     ext_a_bits.append(sz, a_bits);
     ext_b_bits.append(sz, b_bits);
     ext_a_bits.push_back(a_bits[sz-1]);
@@ -1207,16 +1207,16 @@ bool bit_blaster_tpl<Cfg>::mk_const_case_multiplier(unsigned sz, expr * const * 
         return false;
     }
     SASSERT(out_bits.empty());
-    ptr_buffer<expr, 128> na_bits;
+    buffer<expr*, 128> na_bits;
     na_bits.append(sz, a_bits);
-    ptr_buffer<expr, 128> nb_bits;
+    buffer<expr*, 128> nb_bits;
     nb_bits.append(sz, b_bits);
     mk_const_case_multiplier(true, 0, sz, na_bits, nb_bits, out_bits); 
     return false;
 }
  
 template<typename Cfg>
-void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, ptr_buffer<expr, 128>& a_bits, ptr_buffer<expr, 128>& b_bits, expr_ref_vector & out_bits) {
+void bit_blaster_tpl<Cfg>::mk_const_case_multiplier(bool is_a, unsigned i, unsigned sz, buffer<expr*, 128>& a_bits, buffer<expr*, 128>& b_bits, expr_ref_vector & out_bits) {
     while (is_a && i < sz && is_bool_const(a_bits[i])) ++i;
     if (is_a && i == sz) { is_a = false; i = 0; }
     while (!is_a && i < sz && is_bool_const(b_bits[i])) ++i;

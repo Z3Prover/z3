@@ -118,7 +118,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
         return false;
     }
     unsigned num_vars = q->get_num_decls();
-    ptr_buffer<expr> atoms;
+    buffer<expr*> atoms;
     if (m.is_or(n))
         atoms.append(to_app(n)->get_num_args(), to_app(n)->get_args());
     else
@@ -136,7 +136,7 @@ bool elim_bounds_cfg::reduce_quantifier(quantifier * q,
     obj_hashtable<var> lowers;
     obj_hashtable<var> uppers;
     obj_hashtable<var> candidate_set;
-    ptr_buffer<var>    candidates;
+    buffer<var*>    candidates;
 #define ADD_CANDIDATE(V) if (!lowers.contains(V) && !uppers.contains(V)) { candidate_set.insert(V); candidates.push_back(V); }
     for (expr * a : atoms) {
         var * lower = nullptr;

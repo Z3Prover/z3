@@ -359,7 +359,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     }
 
     void blast_bv_term(expr * t, expr_ref & result, proof_ref & result_pr) {
-        ptr_buffer<expr> bits;
+        buffer<expr*> bits;
         unsigned bv_size = butil().get_bv_size(t);
         for (unsigned i = 0; i < bv_size; i++) {
             parameter p(i);
@@ -557,8 +557,8 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
     bool pre_visit(expr * t) {
         if (m_blast_quant && is_quantifier(t)) {
             quantifier * q = to_quantifier(t);
-            ptr_buffer<expr> new_bindings;
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_bindings;
+            buffer<expr*> new_args;
             unsigned i = q->get_num_decls();
             unsigned j = 0;
             while (i > 0) {
@@ -635,7 +635,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
         unsigned num_decls = old_q->get_num_decls();
         unsigned old_sz    = curr_sz - num_decls;
         string_buffer<> name_buffer;
-        ptr_buffer<sort> new_decl_sorts;
+        buffer<sort*> new_decl_sorts;
         buffer<symbol>  new_decl_names;
         for (unsigned i = 0; i < num_decls; i++) {
             symbol const & n = old_q->get_decl_name(i);

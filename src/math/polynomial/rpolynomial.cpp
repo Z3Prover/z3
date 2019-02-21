@@ -99,7 +99,7 @@ namespace rpolynomial {
 
         void del_poly(polynomial * p) {
             SASSERT(p != 0);
-            ptr_buffer<polynomial> todo;
+            buffer<polynomial*> todo;
             todo.push_back(p);
             while (!todo.empty()) {
                 p = todo.back();
@@ -312,7 +312,7 @@ namespace rpolynomial {
                 m_manager.set(one, 1);
                 return mk_const(one);
             }
-            ptr_buffer<poly_or_num> new_args;
+            buffer<poly_or_num*> new_args;
             for (unsigned i = 0; i < k; i++)
                 new_args.push_back(0);
             numeral * new_arg = mk_numeral();
@@ -357,7 +357,7 @@ namespace rpolynomial {
                 polynomial * _p = to_poly(p);
                 unsigned sz = _p->size();
                 SASSERT(sz > 1);
-                ptr_buffer<poly_or_num> new_args;
+                buffer<poly_or_num*> new_args;
                 for (unsigned i = 0; i < sz; i++) {
                     new_args.push_back(mul_core(c, _p->arg(i)));
                 }
@@ -397,7 +397,7 @@ namespace rpolynomial {
                 polynomial * _p = to_poly(p);
                 unsigned sz = _p->size();
                 SASSERT(sz > 1);
-                ptr_buffer<poly_or_num> new_args;
+                buffer<poly_or_num*> new_args;
                 new_args.push_back(add_core(c, _p->arg(0)));
                 for (unsigned i = 1; i < sz; i++)
                     new_args.push_back(_p->arg(1));
@@ -417,7 +417,7 @@ namespace rpolynomial {
             SASSERT(p1->max_var() < p2->max_var());
 
             unsigned sz = p2->size();
-            ptr_buffer<poly_or_num> new_args;
+            buffer<poly_or_num*> new_args;
             poly_or_num * pn0 = p2->arg(0);
             if (pn0 == 0) {
                 new_args.push_back(to_poly_or_num(const_cast<polynomial*>(p1)));
@@ -462,7 +462,7 @@ namespace rpolynomial {
             unsigned sz1 = p1->size();
             unsigned sz2 = p2->size();
             unsigned msz = std::min(sz1, sz2);
-            ptr_buffer<poly_or_num> new_args;
+            buffer<poly_or_num*> new_args;
             for (unsigned i = 0; i < msz; i++) {
                 poly_or_num * pn1 = p1->arg(i);
                 poly_or_num * pn2 = p2->arg(i);
@@ -520,16 +520,16 @@ namespace rpolynomial {
         friend class resetter_mul_buffer;
         class resetter_mul_buffer {
             imp &                   m_owner;
-            ptr_buffer<poly_or_num> m_buffer;
+            buffer<poly_or_num*> m_buffer;
         public:
-            resetter_mul_buffer(imp & o, ptr_buffer<poly_or_num> & b):m_owner(o), m_buffer(b) {}
+            resetter_mul_buffer(imp & o, buffer<poly_or_num*> & b):m_owner(o), m_buffer(b) {}
             ~resetter_mul_buffer() {
                 m_owner.dec_ref_args(m_buffer.size(), m_buffer.c_ptr());
                 m_buffer.reset();
             }
         };
         
-        void acc_mul_xk(ptr_buffer<poly_or_num> & mul_buffer, unsigned k, polynomial * p) {
+        void acc_mul_xk(buffer<poly_or_num*> & mul_buffer, unsigned k, polynomial * p) {
             if (mul_buffer[k] == 0) {
                 mul_buffer[k] = to_poly_or_num(p);
                 inc_ref(p);
@@ -552,7 +552,7 @@ namespace rpolynomial {
             }
         }
 
-        void acc_mul_xk(ptr_buffer<poly_or_num> & mul_buffer, unsigned k, numeral & a) {
+        void acc_mul_xk(buffer<poly_or_num*> & mul_buffer, unsigned k, numeral & a) {
             if (mul_buffer.get(k) == 0) { 
                 numeral * new_arg = mk_numeral();
                 m_manager.swap(*new_arg, a);
@@ -607,7 +607,7 @@ namespace rpolynomial {
             if (degree(p1) < degree(p2))
                 std::swap(p1, p2);
             unsigned sz = degree(p1) * degree(p2) + 1;
-            ptr_buffer<poly_or_num> mul_buffer;
+            buffer<poly_or_num*> mul_buffer;
             resetter_mul_buffer resetter(*this, mul_buffer);
             mul_buffer.resize(sz);
             unsigned sz1 = p1->size();

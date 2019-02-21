@@ -630,7 +630,7 @@ namespace qe {
                 return;
             }
             unsigned sz = to_app(p)->get_num_args();
-            ptr_buffer<expr> args;
+            buffer<expr*> args;
             for (unsigned i = 0; i < sz; ++i) {
                 args.push_back(to_app(p)->get_arg(i));
             }

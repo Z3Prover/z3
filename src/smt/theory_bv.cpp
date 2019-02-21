@@ -381,7 +381,7 @@ namespace smt {
             }
         }
         
-        void get_proof(conflict_resolution & cr, literal l, ptr_buffer<proof> & prs, bool & visited) {
+        void get_proof(conflict_resolution & cr, literal l, buffer<proof*> & prs, bool & visited) {
             if (l.var() == true_bool_var)
                 return;
             proof * pr = nullptr;
@@ -406,7 +406,7 @@ namespace smt {
         }
         
         proof * mk_proof(conflict_resolution & cr) override {
-            ptr_buffer<proof> prs;
+            buffer<proof*> prs;
             context & ctx                       = cr.get_context();
             bool visited                        = true;
             literal_vector const & bits1        = m_th.m_bits[m_var1];
@@ -1626,7 +1626,7 @@ namespace smt {
 
         proof * mk_proof(conflict_resolution & cr) override {
             bool visited = true;
-            ptr_buffer<proof> prs;
+            buffer<proof*> prs;
             proof * pr = cr.get_proof(m_v1, m_v2);
             if (pr)
                 prs.push_back(pr);

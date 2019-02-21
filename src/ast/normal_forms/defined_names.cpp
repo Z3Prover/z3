@@ -104,8 +104,8 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
     used_vars uv;
     uv(e);
     unsigned num_vars = uv.get_max_found_var_idx_plus_1();
-    ptr_buffer<expr> new_args;
-    ptr_buffer<sort> domain;
+    buffer<expr*> new_args;
+    buffer<sort*> domain;
     for (unsigned i = 0; i < num_vars; i++) {
         sort * s = uv.get(i);
         if (s) {

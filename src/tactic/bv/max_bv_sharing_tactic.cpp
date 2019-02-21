@@ -104,7 +104,7 @@ class max_bv_sharing_tactic : public tactic {
                 return BR_FAILED;
             }
 
-            ptr_buffer<expr, 128> _args;
+            buffer<expr*, 128> _args;
             bool first = false;
             expr * num = nullptr;
             for (unsigned i = 0; i < num_args; i++) {

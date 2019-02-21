@@ -24,7 +24,7 @@ Revision History:
 #include "smt/proto_model/proto_model.h"
 
 func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
-    ptr_buffer<sort> domain;
+    buffer<sort*> domain;
     sort * range = get_array_range(s);
     unsigned arity = get_array_arity(s);
     for (unsigned i = 0; i < arity; i++) {
@@ -51,7 +51,7 @@ expr * array_factory::mk_array_interp(sort * s, func_interp * & fi) {
     return val;
 }
 
-void array_factory::get_some_args_for(sort * s, ptr_buffer<expr> & args) {
+void array_factory::get_some_args_for(sort * s, buffer<expr*> & args) {
     unsigned arity = get_array_arity(s);
     for (unsigned i = 0; i < arity; i++) {
         sort * d = get_array_domain(s, i);
@@ -68,7 +68,7 @@ expr * array_factory::get_some_value(sort * s) {
     func_interp * fi;
     expr * val = mk_array_interp(s, fi);
 #if 0
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     get_some_args_for(s, args);
     fi->insert_entry(args.c_ptr(), m_model.get_some_value(get_array_range(s)));
 #else
@@ -87,7 +87,7 @@ bool array_factory::mk_two_diff_values_for(sort * s) {
     sort * range = get_array_range(s);
     if (!m_model.get_some_values(range, r1, r2))
         return false; // failed... the range is probably unit.
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     get_some_args_for(s, args);
     func_interp * fi1;
     func_interp * fi2;
@@ -148,7 +148,7 @@ expr * array_factory::get_fresh_value(sort * s) {
         func_interp * fi;
         expr * val = mk_array_interp(s, fi);
 #if 0
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         get_some_args_for(s, args);
         fi->insert_entry(args.c_ptr(), range_val);
 #else
@@ -169,8 +169,8 @@ expr * array_factory::get_fresh_value(sort * s) {
             // A' does not have an entry for i1 or i2, So A'[i1] == A'[i2] == A'.m_else.
             // Thus, A[i1] == A[i2] which is a contradiction since v1 != v2 and A[i1] = v1 and A[i2] = v2. 
             TRACE("array_factory_bug", tout << "v1: " << mk_pp(v1, m_manager) << " v2: " << mk_pp(v2, m_manager) << "\n";);
-            ptr_buffer<expr> args1;
-            ptr_buffer<expr> args2;
+            buffer<expr*> args1;
+            buffer<expr*> args2;
             bool found = false;
             unsigned arity = get_array_arity(s);
             for (unsigned i = 0; i < arity; i++) {

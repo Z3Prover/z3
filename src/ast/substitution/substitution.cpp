@@ -90,7 +90,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
     expr_offset      n1;
     bool             visited;
     unsigned         num_args;
-    ptr_buffer<expr> new_args;
+    buffer<expr*> new_args;
 
     m_todo.push_back(n);
     while (!m_todo.empty()) {

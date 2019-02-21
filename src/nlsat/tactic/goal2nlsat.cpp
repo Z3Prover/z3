@@ -95,7 +95,7 @@ struct goal2nlsat::imp {
 
     nlsat::bool_var factor_atom(polynomial::polynomial * p, nlsat::atom::kind k) {
         buffer<bool> is_even;
-        ptr_buffer<polynomial::polynomial> ps;
+        buffer<polynomial::polynomial*> ps;
         polynomial::factors fs(m_pm);
         m_pm.factor(p, fs, m_fparams);
         TRACE("goal2nlsat_bug", tout << "factors:\n" << fs << "\n";); 

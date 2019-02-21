@@ -1622,8 +1622,8 @@ namespace qe {
             if (m.is_and(fml) || m.is_or(fml)) {
                 app* a = to_app(fml);
                 unsigned num_args = a->get_num_args();
-                ptr_buffer<expr> r_args;
-                ptr_buffer<expr> i_args;
+                buffer<expr*> r_args;
+                buffer<expr*> i_args;
                 for (unsigned i = 0; i < num_args; ++i) {
                     expr* arg = a->get_arg(i);
                     if (is_relevant(arg)) {

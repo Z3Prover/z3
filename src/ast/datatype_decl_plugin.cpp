@@ -526,7 +526,7 @@ namespace datatype {
             m_defs.remove(s);
         }
 
-        bool plugin::is_value_visit(expr * arg, ptr_buffer<app> & todo) const {
+        bool plugin::is_value_visit(expr * arg, buffer<app*> & todo) const {
             if (!is_app(arg))
                 return false;
             family_id fid = to_app(arg)->get_family_id();
@@ -551,7 +551,7 @@ namespace datatype {
                 return true;
             // REMARK: if the following check is too expensive, we should
             // cache the values in the decl::plugin.
-            ptr_buffer<app> todo;
+            buffer<app*> todo;
             // potentially expensive check for common sub-expressions.
             for (expr* arg : *e) {
                 if (!is_value_visit(arg, todo)) {
@@ -583,7 +583,7 @@ namespace datatype {
         expr * plugin::get_some_value(sort * s) {
             SASSERT(u().is_datatype(s));
             func_decl * c = u().get_non_rec_constructor(s);
-            ptr_buffer<expr> args;
+            buffer<expr*> args;
             for (unsigned i = 0; i < c->get_arity(); i++) {
                 args.push_back(m_manager->get_some_value(c->get_domain(i)));
             }
@@ -1141,7 +1141,7 @@ namespace datatype {
 
     void util::get_defs(sort* s0, ptr_vector<def>& defs) {
         vector<symbol> mark;
-        ptr_buffer<sort> todo;
+        buffer<sort*> todo;
         todo.push_back(s0);
         mark.push_back(s0->get_name());
         while (!todo.empty()) {
@@ -1163,7 +1163,7 @@ namespace datatype {
 
     void util::display_datatype(sort *s0, std::ostream& out) {
         ast_mark mark;
-        ptr_buffer<sort> todo;
+        buffer<sort*> todo;
         SASSERT(is_datatype(s0));
         out << s0->get_name() << " where\n";
         todo.push_back(s0);

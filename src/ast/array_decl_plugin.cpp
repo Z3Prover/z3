@@ -247,7 +247,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
         m_manager->raise_exception(strm.str());
         return nullptr;
     }
-    ptr_buffer<sort> new_domain; // we need this because of coercions.
+    buffer<sort*> new_domain; // we need this because of coercions.
     new_domain.push_back(s);
     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
         if (!parameters[i].is_ast() || 
@@ -288,7 +288,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         UNREACHABLE();
         return nullptr;
     }
-    ptr_buffer<sort> new_domain; // we need this because of coercions.
+    buffer<sort*> new_domain; // we need this because of coercions.
     new_domain.push_back(s);
     for (unsigned i = 0; i < num_parameters; ++i) {
         if (!parameters[i].is_ast() || !is_sort(parameters[i].get_ast())) {
@@ -603,7 +603,7 @@ array_util::array_util(ast_manager& m):
 }
 
 bool array_util::is_as_array_tree(expr * n) {
-    ptr_buffer<expr, 32> todo;
+    buffer<expr*, 32> todo;
     todo.push_back(n);
     while (!todo.empty()) {
         expr * curr = todo.back();

@@ -273,7 +273,7 @@ struct macro_manager::macro_expander_cfg : public default_rewriter_cfg {
             mm.get_head_def(q, d, head, def);
             unsigned num = n->get_num_args();
             SASSERT(head && def);
-            ptr_buffer<expr> subst_args;
+            buffer<expr*> subst_args;
             subst_args.resize(num, 0);
             for (unsigned i = 0; i < num; i++) {
                 var * v = to_var(head->get_arg(i));

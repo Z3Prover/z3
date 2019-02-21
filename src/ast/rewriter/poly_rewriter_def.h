@@ -86,7 +86,7 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
             rational k_prev;
             expr * prev = get_power_body(args[0], k_prev);
             rational k;
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_args;
 #define PUSH_POWER() {                                                                          \
                 if (k_prev.is_one()) {                                                          \
                     new_args.push_back(prev);                                                   \
@@ -151,9 +151,9 @@ br_status poly_rewriter<Config>::mk_flat_mul_core(unsigned num_args, expr * cons
         }
         if (i < num_args) {
             // input has nested monomials. 
-            ptr_buffer<expr> flat_args;
+            buffer<expr*> flat_args;
             // we need the todo buffer to handle: (* (* c (* x_1 ... x_n)) (* d (* y_1 ... y_n)))
-            ptr_buffer<expr> todo;
+            buffer<expr*> todo;
             flat_args.append(i, args);
             for (unsigned j = i; j < num_args; j++) {
                 if (is_mul(args[j])) {
@@ -275,7 +275,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         else {
             SASSERT(is_add(var));
             // (* c_1 ... c_n (+ t_1 ... t_m)) --> (+ (* c_1*...*c_n t_1) ... (* c_1*...*c_n t_m))
-            ptr_buffer<expr> new_add_args;
+            buffer<expr*> new_add_args;
             unsigned num = to_app(var)->get_num_args();
             for (unsigned i = 0; i < num; i++) {
                 new_add_args.push_back(mk_mul_app(c, to_app(var)->get_arg(i)));
@@ -289,7 +289,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
     SASSERT(num_coeffs <= num_args - 2);
 
     if (!m_som || num_add == 0) {
-        ptr_buffer<expr> new_args;
+        buffer<expr*> new_args;
         expr * prev = nullptr;
         bool ordered = true;
         for (unsigned i = 0; i < num_args; i++) {
@@ -347,7 +347,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         }
     }
     expr_ref_buffer sum(m()); // must be ref_buffer because we may throw an exception
-    ptr_buffer<expr> m_args;
+    buffer<expr*> m_args;
     TRACE("som", tout << "starting som...\n";);
     do {
         TRACE("som", for (unsigned i = 0; i < it.size(); i++) tout << it[i] << " ";
@@ -376,7 +376,7 @@ br_status poly_rewriter<Config>::mk_flat_add_core(unsigned num_args, expr * cons
     }
     if (i < num_args) {
         // has nested ADDs
-        ptr_buffer<expr> flat_args;
+        buffer<expr*> flat_args;
         flat_args.append(i, args);
         for (; i < num_args; i++) {
             expr * arg = args[i];
@@ -455,7 +455,7 @@ void poly_rewriter<Config>::hoist_cmul(expr_ref_buffer & args) {
     unsigned sz = args.size();
     std::sort(args.c_ptr(), args.c_ptr() + sz, hoist_cmul_lt(*this));
     numeral c, c_prime;
-    ptr_buffer<expr> pps;
+    buffer<expr*> pps;
     expr * pp, * pp_prime;
     unsigned j = 0;
     unsigned i = 0;
@@ -800,7 +800,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
     }
 
 
-    ptr_buffer<expr> new_lhs_monomials;
+    buffer<expr*> new_lhs_monomials;
     new_lhs_monomials.push_back(0); // save space for coefficient if needed
     // copy power products with non zero coefficients to new_lhs_monomials
     visited.reset();
@@ -823,7 +823,7 @@ br_status poly_rewriter<Config>::cancel_monomials(expr * lhs, expr * rhs, bool m
         }
     }
     
-    ptr_buffer<expr> new_rhs_monomials;
+    buffer<expr*> new_rhs_monomials;
     new_rhs_monomials.push_back(0); // save space for coefficient if needed
     for (unsigned i = 0; i < rhs_sz; i++) {
         expr * arg = rhs_monomials[i];
@@ -904,7 +904,7 @@ bool poly_rewriter<Config>::hoist_multiplication(expr_ref& som) {
     if (!m_hoist_mul) {
         return false;
     }
-    ptr_buffer<expr> adds, muls;
+    buffer<expr*> adds, muls;
     TO_BUFFER(is_add, adds, som);
     buffer<bool> valid(adds.size(), true);
     obj_map<expr, unsigned> mul_map;
@@ -945,7 +945,7 @@ bool poly_rewriter<Config>::hoist_multiplication(expr_ref& som) {
 
 template<typename Config>
 expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
-    ptr_buffer<expr> m1, m2;
+    buffer<expr*> m1, m2;
     TO_BUFFER(is_mul, m1, x);
     TO_BUFFER(is_mul, m2, y);
     unsigned k = 0;
@@ -994,7 +994,7 @@ bool poly_rewriter<Config>::is_var_plus_ground(expr * n, bool & inv, var * & v, 
     if (!is_add(n) || is_ground(n))
         return false;
     
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     v = nullptr;
     expr * curr = to_app(n);
     bool stop = false;

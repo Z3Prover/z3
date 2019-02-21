@@ -167,7 +167,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_app(c, d, num_args, args);
         RESET_ERROR_CODE();
-        ptr_buffer<expr> arg_list;
+        buffer<expr*> arg_list;
         for (unsigned i = 0; i < num_args; ++i) {
             arg_list.push_back(to_expr(args[i]));
         }

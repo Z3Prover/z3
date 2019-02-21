@@ -20,7 +20,7 @@ Revision History:
 #include "ast/num_occurs.h"
 
 void num_occurs::process(expr * t, expr_fast_mark1 & visited) {
-    ptr_buffer<expr, 128> stack;
+    buffer<expr*, 128> stack;
     
 #define VISIT(ARG) {                                                                                    \
         if (!m_ignore_ref_count1 || ARG->get_ref_count() > 1) {                                         \

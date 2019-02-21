@@ -33,7 +33,7 @@ struct pull_quant::imp {
         }
 
         bool pull_quant1_core(func_decl * d, unsigned num_children, expr * const * children, expr_ref & result) {
-            ptr_buffer<sort>  var_sorts;
+            buffer<sort*>  var_sorts;
             buffer<symbol>    var_names;
             symbol            qid;
             int               w = INT_MAX;
@@ -177,7 +177,7 @@ struct pull_quant::imp {
             SASSERT(is_forall(q));
             SASSERT(is_forall(new_expr));
             quantifier * nested_q = to_quantifier(new_expr);
-            ptr_buffer<sort> var_sorts;
+            buffer<sort*> var_sorts;
             buffer<symbol>   var_names;
             var_sorts.append(q->get_num_decls(), const_cast<sort**>(q->get_decl_sorts()));
             var_sorts.append(nested_q->get_num_decls(), const_cast<sort**>(nested_q->get_decl_sorts()));
@@ -220,7 +220,7 @@ struct pull_quant::imp {
             if (is_app(n)) {
                 expr_ref_buffer   new_args(m);
                 expr_ref          new_arg(m);
-                ptr_buffer<proof> proofs;
+                buffer<proof*> proofs;
                 for (expr * arg : *to_app(n)) {
                     pull_quant1(arg , new_arg);
                     new_args.push_back(new_arg);

@@ -1139,7 +1139,7 @@ namespace smt {
                     // USE CONTINUE
                     unsigned oreg           = m_tree->m_num_regs;
                     m_tree->m_num_regs     += num_args;
-                    ptr_buffer<enode>       joints;
+                    buffer<enode*>       joints;
                     bool has_depth1_joint   = false; // VAR_TAG or GROUND_TERM_TAG
                     for (unsigned j = 0; j < num_args; j++) {
                         expr * curr = p->get_arg(j);
@@ -3748,7 +3748,7 @@ namespace smt {
         }
 
         void collect_ground_exprs(quantifier * qa, app * mp) {
-            ptr_buffer<app> todo;
+            buffer<app*> todo;
             unsigned num_patterns = mp->get_num_args();
             for (unsigned i = 0; i < num_patterns; i++) {
                 app * pat = to_app(mp->get_arg(i));

@@ -121,7 +121,7 @@ namespace smt {
     }
 
     enode * checker::get_enode_eq_to_core(app * n) {
-        ptr_buffer<enode> buffer;
+        buffer<enode*> buffer;
         unsigned num = n->get_num_args();
         for (unsigned i = 0; i < num; i++) {
             enode * arg = get_enode_eq_to(n->get_arg(i));

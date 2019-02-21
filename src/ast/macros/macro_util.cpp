@@ -255,7 +255,7 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
         return false;
 
     inv = false;
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     expr * h = nullptr;
     unsigned lhs_num_args;
     expr * const * lhs_args;
@@ -406,8 +406,8 @@ void macro_util::quasi_macro_head_to_macro_head(app * qhead, unsigned & num_decl
     unsigned num_args = qhead->get_num_args();
     buffer<bool> found_vars;
     found_vars.resize(num_decls, false);
-    ptr_buffer<expr> new_args;
-    ptr_buffer<expr> new_conds;
+    buffer<expr*> new_args;
+    buffer<expr*> new_conds;
     unsigned next_var_idx = num_decls;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = qhead->get_arg(i);
@@ -500,7 +500,7 @@ void macro_util::normalize_expr(app * head, unsigned num_decls, expr * t, expr_r
 //
 // -----------------------------
 
-bool is_hint_head(expr * n, ptr_buffer<var> & vars) {
+bool is_hint_head(expr * n, buffer<var*> & vars) {
     if (!is_app(n))
         return false;
     if (to_app(n)->get_decl()->is_associative() || to_app(n)->get_family_id() != null_family_id)
@@ -517,11 +517,11 @@ bool is_hint_head(expr * n, ptr_buffer<var> & vars) {
 /**
    \brief Returns true if the variables in n is a subset of \c vars.
 */
-bool vars_of_is_subset(expr * n, ptr_buffer<var> const & vars) {
+bool vars_of_is_subset(expr * n, buffer<var*> const & vars) {
     if (is_ground(n))
         return true;
     obj_hashtable<expr> visited;
-    ptr_buffer<expr> todo;
+    buffer<expr*> todo;
     todo.push_back(n);
     while (!todo.empty()) {
         expr * curr = todo.back();
@@ -556,7 +556,7 @@ bool vars_of_is_subset(expr * n, ptr_buffer<var> const & vars) {
    and all variables occurring in rhs are direct arguments of lhs.
 */
 bool is_hint_atom(expr * lhs, expr * rhs) {
-    ptr_buffer<var> vars;
+    buffer<var*> vars;
     if (!is_hint_head(lhs, vars))
         return false;
     return !occurs(to_app(lhs)->get_decl(), rhs) && vars_of_is_subset(rhs, vars);
@@ -564,7 +564,7 @@ bool is_hint_atom(expr * lhs, expr * rhs) {
 
 void hint_to_macro_head(ast_manager & m, app * head, unsigned & num_decls, app_ref & new_head) {
     unsigned num_args = head->get_num_args();
-    ptr_buffer<expr> new_args;
+    buffer<expr*> new_args;
     buffer<bool> found_vars;
     found_vars.resize(num_decls, false);
     unsigned next_var_idx = num_decls;
@@ -597,7 +597,7 @@ bool macro_util::is_poly_hint(expr * n, app * head, expr * exception) {
     TRACE("macro_util", tout << "is_poly_hint n:\n" << mk_pp(n, m_manager) << "\nhead:\n" << mk_pp(head, m_manager) << "\nexception:\n";
           if (exception) tout << mk_pp(exception, m_manager); else tout << "<null>";
           tout << "\n";);
-    ptr_buffer<var> vars;
+    buffer<var*> vars;
     if (!is_hint_head(head, vars)) {
         TRACE("macro_util", tout << "failed because head is not hint head\n";);
         return false;
@@ -731,7 +731,7 @@ void macro_util::get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_con
     bool_rewriter(m_manager).mk_and(neg_other_lits.size(), neg_other_lits.c_ptr(), extra_cond);
 }
 
-void macro_util::collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args) {
+void macro_util::collect_poly_args(expr * n, expr * exception, buffer<expr*> & args) {
     args.clear();
     unsigned num_args;
     expr * const * _args;
@@ -760,7 +760,7 @@ void macro_util::add_arith_macro_candidate(app * head, unsigned num_decls, expr 
 void macro_util::collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * atom, unsigned num_decls, bool is_ineq, macro_candidates & r) {
     if (!is_add(lhs) && m_manager.is_eq(atom)) // this case is a simple macro.
         return;
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     unsigned lhs_num_args;
     expr * const * lhs_args;
     if (is_add(lhs)) {

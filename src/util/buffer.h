@@ -17,6 +17,3 @@ Author:
 
 template<typename T, unsigned INITIAL_SIZE=16>
 using buffer = buffvec<T, unsigned, INITIAL_SIZE>;
-
-template<typename T, unsigned INITIAL_SIZE=16>
-using ptr_buffer = buffvec<T*, unsigned, INITIAL_SIZE>;

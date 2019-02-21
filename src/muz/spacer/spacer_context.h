@@ -297,7 +297,7 @@ class pred_transformer {
     class pob_manager {
         // a buffer that contains space for one pob and allocates more
         // space if needed
-        typedef ptr_buffer<pob, 1> pob_buffer;
+        typedef buffer<pob*, 1> pob_buffer;
         // Type for the map from post-conditions to pobs. The common
         // case is that each post-condition corresponds to a single
         // pob. Other cases are handled by expanding the buffer
@@ -947,7 +947,7 @@ class context {
     lbool                m_last_result;
     unsigned             m_inductive_lvl;
     unsigned             m_expanded_lvl;
-    ptr_buffer<lemma_generalizer>  m_lemma_generalizers;
+    buffer<lemma_generalizer*>  m_lemma_generalizers;
     stats                m_stats;
     model_converter_ref  m_mc;
     proof_converter_ref  m_pc;

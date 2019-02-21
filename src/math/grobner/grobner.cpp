@@ -225,7 +225,7 @@ bool grobner::update_order(equation * eq) {
 }
 
 void grobner::update_order(equation_set & s, bool processed) {
-    ptr_buffer<equation> to_remove;
+    buffer<equation*> to_remove;
     equation_set::iterator it  = s.begin();
     equation_set::iterator end = s.end();
     for (;it != end; ++it) {
@@ -237,8 +237,8 @@ void grobner::update_order(equation_set & s, bool processed) {
             }
         }
     }
-    ptr_buffer<equation>::iterator it2  = to_remove.begin();
-    ptr_buffer<equation>::iterator end2 = to_remove.end();
+    buffer<equation*>::iterator it2  = to_remove.begin();
+    buffer<equation*>::iterator end2 = to_remove.end();
     for (; it2 != end2; ++it2)
         s.erase(*it2);
 }
@@ -372,7 +372,7 @@ void grobner::assert_eq_0(unsigned num_monomials, expr * const * monomials, v_de
     MK_EQ(one);
 }
 
-void grobner::extract_monomials(expr * lhs, ptr_buffer<expr> & monomials) {
+void grobner::extract_monomials(expr * lhs, buffer<expr*> & monomials) {
     while (m_util.is_add(lhs)) {
         SASSERT(!m_util.is_add(to_app(lhs)->get_arg(0)));
         monomials.push_back(to_app(lhs)->get_arg(0));
@@ -386,7 +386,7 @@ void grobner::assert_eq(expr * eq, v_dependency * ex) {
     expr * lhs = to_app(eq)->get_arg(0);
     expr * rhs = to_app(eq)->get_arg(1);
     SASSERT(m_util.is_numeral(rhs));
-    ptr_buffer<expr> monomials;
+    buffer<expr*> monomials;
     extract_monomials(lhs, monomials);
     rational c;
     bool is_int = false;
@@ -733,7 +733,7 @@ bool grobner::is_better_choice(equation * eq1, equation * eq2) {
 */
 grobner::equation * grobner::pick_next() {
     equation * r = nullptr;
-    ptr_buffer<equation> to_delete;
+    buffer<equation*> to_delete;
     equation_set::iterator it  = m_to_process.begin();
     equation_set::iterator end = m_to_process.end();
     for (; it != end; ++it) {
@@ -743,8 +743,8 @@ grobner::equation * grobner::pick_next() {
         else if (is_better_choice(curr, r))
             r = curr;
     }
-    ptr_buffer<equation>::const_iterator it1  = to_delete.begin();
-    ptr_buffer<equation>::const_iterator end1 = to_delete.end();
+    buffer<equation*>::const_iterator it1  = to_delete.begin();
+    buffer<equation*>::const_iterator end1 = to_delete.end();
     for (; it1 != end1; ++it1)
         del_equation(*it1);
     if (r)
@@ -757,9 +757,9 @@ grobner::equation * grobner::pick_next() {
    \brief Use the given equation to simplify processed terms.
 */
 bool grobner::simplify_processed(equation * eq) {
-    ptr_buffer<equation> to_insert;
-    ptr_buffer<equation> to_remove;
-    ptr_buffer<equation> to_delete;
+    buffer<equation*> to_insert;
+    buffer<equation*> to_remove;
+    buffer<equation*> to_delete;
     equation_set::iterator it  = m_processed.begin();
     equation_set::iterator end = m_processed.end();
     for (; it != end && !m_manager.canceled(); ++it) {
@@ -790,8 +790,8 @@ bool grobner::simplify_processed(equation * eq) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
     }
-    ptr_buffer<equation>::const_iterator it1  = to_insert.begin();
-    ptr_buffer<equation>::const_iterator end1 = to_insert.end();
+    buffer<equation*>::const_iterator it1  = to_insert.begin();
+    buffer<equation*>::const_iterator end1 = to_insert.end();
     for (; it1 != end1; ++it1)
         m_processed.insert(*it1);
     it1  = to_remove.begin();
@@ -811,9 +811,9 @@ bool grobner::simplify_processed(equation * eq) {
 void grobner::simplify_to_process(equation * eq) {
     equation_set::iterator it  = m_to_process.begin();
     equation_set::iterator end = m_to_process.end();
-    ptr_buffer<equation> to_insert;
-    ptr_buffer<equation> to_remove;
-    ptr_buffer<equation> to_delete;
+    buffer<equation*> to_insert;
+    buffer<equation*> to_remove;
+    buffer<equation*> to_delete;
     for (; it != end; ++it) {
         equation * curr     = *it;
         equation * new_curr = simplify(eq, curr);
@@ -826,8 +826,8 @@ void grobner::simplify_to_process(equation * eq) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
     }
-    ptr_buffer<equation>::const_iterator it1  = to_insert.begin();
-    ptr_buffer<equation>::const_iterator end1 = to_insert.end();
+    buffer<equation*>::const_iterator it1  = to_insert.begin();
+    buffer<equation*>::const_iterator end1 = to_insert.end();
     for (; it1 != end1; ++it1)
         m_to_process.insert(*it1);
     it1  = to_remove.begin();

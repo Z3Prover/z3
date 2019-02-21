@@ -97,7 +97,7 @@ namespace smt {
         SASSERT(is_store(n));
         context & ctx     = get_context();
         ast_manager & m   = get_manager();
-        ptr_buffer<expr> sel_args;
+        buffer<expr*> sel_args;
         unsigned num_args = n->get_num_args();
         SASSERT(num_args >= 3);
         sel_args.push_back(n);
@@ -140,7 +140,7 @@ namespace smt {
         SASSERT(is_select(select));
         SASSERT(store->get_num_args() == 1 + select->get_num_args());
                 
-        ptr_buffer<expr> sel1_args, sel2_args;
+        buffer<expr*> sel1_args, sel2_args;
         context & ctx      = get_context();
         ast_manager & m    = get_manager();
         enode *         a  = store->get_arg(0);
@@ -417,7 +417,7 @@ namespace smt {
     void theory_array_base::collect_shared_vars(buffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
-        ptr_buffer<enode> to_unmark;
+        buffer<enode*> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
             enode * n = get_enode(i);
@@ -439,7 +439,7 @@ namespace smt {
     void theory_array_base::collect_shared_vars(buffer<theory_var> & result) {
         TRACE("array_shared", tout << "collecting shared vars...\n";);
         context & ctx = get_context();
-        ptr_buffer<enode> to_unmark;
+        buffer<enode*> to_unmark;
         unsigned num_vars = get_num_vars();
         for (unsigned i = 0; i < num_vars; i++) {
         enode * n = get_enode(i);
@@ -884,7 +884,7 @@ namespace smt {
                 idx = 1;
             }
             
-            ptr_buffer<expr> args;
+            buffer<expr*> args;
             for (unsigned i = 0; i < m_num_entries; i++) {
                 args.clear();
                 // copy indices
@@ -946,7 +946,7 @@ namespace smt {
         select_set * sel_set = nullptr;
         m_selects.find(n->get_root(), sel_set);
         if (sel_set != nullptr) {
-            ptr_buffer<enode> args;
+            buffer<enode*> args;
             select_set::iterator it  = sel_set->begin();
             select_set::iterator end = sel_set->end();
             for (; it != end; ++it) {

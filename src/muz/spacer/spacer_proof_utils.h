@@ -98,8 +98,8 @@ private:
     proof* reduce_core(proof* pf);
 
     proof* mk_lemma_core(proof *pf, expr *fact);
-    proof* mk_unit_resolution_core(proof* ures, ptr_buffer<proof>& args);
-    proof* mk_proof_core(proof* old, ptr_buffer<proof>& args);
+    proof* mk_unit_resolution_core(proof* ures, buffer<proof*>& args);
+    proof* mk_proof_core(proof* old, buffer<proof*>& args);
 };
 }
 #endif

@@ -84,7 +84,7 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
         return result;
     }
 
-    ptr_buffer<sort>  used_decl_sorts;
+    buffer<sort*>  used_decl_sorts;
     buffer<symbol>    used_decl_names;
     for (unsigned i = 0; i < num_decls; ++i) {
         if (m_used.contains(num_decls - i - 1)) {

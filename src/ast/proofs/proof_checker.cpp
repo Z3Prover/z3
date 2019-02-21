@@ -1064,7 +1064,7 @@ bool proof_checker::match_negated(expr const* a, expr* b) const {
 }
 
 void proof_checker::get_ors(expr* e, expr_ref_vector& ors) {
-    ptr_buffer<expr> buffer;
+    buffer<expr*> buffer;
     if (m.is_or(e)) {
         app* a = to_app(e);
         ors.append(a->get_num_args(), a->get_args());
@@ -1127,8 +1127,8 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
         UNREACHABLE();
     }
 
-    ptr_buffer<expr> hyps;
-    ptr_buffer<expr> todo;
+    buffer<expr*> hyps;
+    buffer<expr*> todo;
     expr_mark mark;
     todo.push_back(h);
     expr* a = nullptr, *b = nullptr;
@@ -1236,7 +1236,7 @@ void proof_checker::dump_proof(proof const* pr) {
     SASSERT(m.has_fact(pr));
     expr * consequent = m.get_fact(pr);
     unsigned num      = m.get_num_parents(pr);
-    ptr_buffer<expr> antecedents;
+    buffer<expr*> antecedents;
     for (unsigned i = 0; i < num; i++) {
         proof * a = m.get_parent(pr, i);
         SASSERT(m.has_fact(a));

@@ -2770,7 +2770,7 @@ namespace smt2 {
             }
         }
 
-        void parse_func_decl_refs(ptr_buffer<func_decl> & flist) {
+        void parse_func_decl_refs(buffer<func_decl*> & flist) {
             check_lparen_next("invalid list of function declaration references, '(' expected");
             while (!curr_is_rparen()) {
                 flist.push_back(parse_func_decl_ref());
@@ -2858,7 +2858,7 @@ namespace smt2 {
                 return;
             }
             case CPK_FUNC_DECL_LIST: {
-                ptr_buffer<func_decl> flist;
+                buffer<func_decl*> flist;
                 parse_func_decl_refs(flist);
                 m_curr_cmd->set_next_arg(m_ctx, flist.size(), flist.c_ptr());
                 return;

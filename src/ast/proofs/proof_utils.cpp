@@ -147,7 +147,7 @@ class reduce_hypotheses {
 
         m_todo.clear();
         m_todo.push_back(pf);
-        ptr_buffer<proof> args;
+        buffer<proof*> args;
         bool dirty = false;
 
         while (!m_todo.empty()) {
@@ -225,7 +225,7 @@ class reduce_hypotheses {
 
     proof *mk_lemma_core(proof *pf, expr *fact)
     {
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         expr_ref lemma(m);
 
         if (m.is_or(fact)) {
@@ -255,18 +255,18 @@ class reduce_hypotheses {
     proof *mk_unit_resolution_core(unsigned num_args, proof* const *args)
     {
 
-        ptr_buffer<proof> pf_args;
+        buffer<proof*> pf_args;
         pf_args.push_back(args [0]);
 
         app *cls_fact = to_app(m.get_fact(args[0]));
-        ptr_buffer<expr> cls;
+        buffer<expr*> cls;
         if (m.is_or(cls_fact)) {
             for (unsigned i = 0, sz = cls_fact->get_num_args(); i < sz; ++i)
             { cls.push_back(cls_fact->get_arg(i)); }
         } else { cls.push_back(cls_fact); }
 
         // construct new resovent
-        ptr_buffer<expr> new_fact_cls;
+        buffer<expr*> new_fact_cls;
         bool found;
         // XXX quadratic
         for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
@@ -690,7 +690,7 @@ public:
             break;
         }                
         default: {
-            ptr_buffer<expr> args;
+            buffer<expr*> args;
             bool change = false;
             bool found_false = false;
             for (unsigned i = 0; i < m.get_num_parents(p); ++i) {

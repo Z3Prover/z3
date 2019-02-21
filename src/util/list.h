@@ -76,14 +76,14 @@ list<T> * append(region & r, list<T> * l1, list<T> * l2) {
     if (l2 == nullptr) {
         return l1;
     }
-    ptr_buffer<list<T> > buffer;
+    buffer<list<T>*> buffer;
     while (l1) {
         buffer.push_back(l1);
         l1 = l1->tail();
     }
     list<T> * result = l2;
-    typename ptr_buffer<list<T> >::const_iterator it    = buffer.end();
-    typename ptr_buffer<list<T> >::const_iterator begin = buffer.begin();
+    typename buffer<list<T>*>::const_iterator it    = buffer.end();
+    typename buffer<list<T>*>::const_iterator begin = buffer.begin();
     while (it != begin) {
         --it;
         list<T> * curr = *it;

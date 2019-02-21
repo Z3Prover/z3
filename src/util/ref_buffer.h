@@ -33,7 +33,7 @@ Revision History:
 template<typename T, typename Ref, unsigned INITIAL_SIZE=16>
 class ref_buffer_core : public Ref {
 protected:
-    ptr_buffer<T, INITIAL_SIZE> m_buffer;
+    buffer<T*, INITIAL_SIZE> m_buffer;
 
     void inc_ref(T * o) { Ref::inc_ref(o); }
     void dec_ref(T * o) { Ref::dec_ref(o); }

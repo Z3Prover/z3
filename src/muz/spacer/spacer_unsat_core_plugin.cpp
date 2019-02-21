@@ -54,7 +54,7 @@ namespace spacer {
     void unsat_core_plugin_lemma::add_lowest_split_to_core(proof* step) const {
         SASSERT(m_ctx.is_b_open(step));
 
-        ptr_buffer<proof> todo;
+        buffer<proof*> todo;
         todo.push_back(step);
 
         while (!todo.empty()) {
@@ -535,7 +535,7 @@ namespace spacer {
     {
         bool is_sink = true;
 
-        ptr_buffer<proof> todo_subproof;
+        buffer<proof*> todo_subproof;
 
         for (proof* premise : m.get_parents(step)) {
             if (m_ctx.is_b(premise)) {

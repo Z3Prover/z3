@@ -943,7 +943,7 @@ void context_t<C>::del_node(node * n) {
 
 template<typename C>
 void context_t<C>::del_nodes() {
-    ptr_buffer<node> todo;
+    buffer<node*> todo;
     if (m_root == nullptr)
         return;
     todo.push_back(m_root);
@@ -1015,7 +1015,7 @@ template<typename C>
 void context_t<C>::rebuild_leaf_dlist(node * n) {
     reset_leaf_dlist();
     // Reinsert all leaves in the leaf dlist.
-    ptr_buffer<node, 1024> todo;
+    buffer<node*, 1024> todo;
     if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {
@@ -1066,7 +1066,7 @@ void context_t<C>::remove_from_leaf_dlist(node * n) {
 template<typename C>
 void context_t<C>::collect_leaves(ptr_vector<node> & leaves) const {
     // Copy all leaves to the given vector.
-    ptr_buffer<node, 1024> todo;
+    buffer<node*, 1024> todo;
     if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {
@@ -1916,7 +1916,7 @@ bool context_t<C>::check_leaf_dlist() const {
 
 template<typename C>
 bool context_t<C>::check_tree() const {
-    ptr_buffer<node> todo;
+    buffer<node*> todo;
     if (m_root != nullptr)
         todo.push_back(m_root);
     while (!todo.empty()) {

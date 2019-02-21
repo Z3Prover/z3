@@ -2163,7 +2163,7 @@ namespace smt {
        \brief See cache_generation(unsigned new_scope_lvl)
     */
     void context::cache_generation(expr * n, unsigned new_scope_lvl) {
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(n);
         while (!todo.empty()) {
             expr * n = todo.back();

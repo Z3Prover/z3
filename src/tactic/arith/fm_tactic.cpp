@@ -883,7 +883,7 @@ class fm_tactic : public tactic {
             }
             else {
                 bool int_cnstr = all_int(c);
-                ptr_buffer<expr> ms;
+                buffer<expr*> ms;
                 for (unsigned i = 0; i < c.m_num_vars; i++) {
                     expr * x = m_var2expr.get(c.m_xs[i]);
                     if (!int_cnstr && is_int(c.m_xs[i]))
@@ -914,7 +914,7 @@ class fm_tactic : public tactic {
                     return m.mk_false();
             }
             
-            ptr_buffer<expr> lits;
+            buffer<expr*> lits;
             for (unsigned i = 0; i < c.m_num_lits; i++) {
                 literal l = c.m_lits[i];
                 if (sign(l))

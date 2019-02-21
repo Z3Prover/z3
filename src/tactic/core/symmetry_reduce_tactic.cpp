@@ -51,7 +51,7 @@ public:
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
         if ((f->is_associative() && f->is_commutative()) ||
             m_manager.is_distinct(f)) {
-            ptr_buffer<expr> buffer;
+            buffer<expr*> buffer;
             buffer.append(num_args, args);
             std::sort(buffer.begin(), buffer.end(), ast_lt_proc());
             bool change = false;

@@ -521,7 +521,7 @@ namespace nlsat {
             SASSERT(k == atom::LT || k == atom::GT || k == atom::EQ);
             int sign = 1;
             polynomial_ref p(m_pm);
-            ptr_buffer<poly> uniq_ps;
+            buffer<poly*> uniq_ps;
             var max = null_var;
             for (unsigned i = 0; i < sz; i++) {
                 p = m_pm.flip_sign_if_lm_neg(ps[i]);

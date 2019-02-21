@@ -758,7 +758,7 @@ namespace datalog {
     }
 
     app* dl_decl_util::mk_rule(symbol const& name, unsigned num_args, expr* const* args) {
-        ptr_buffer<sort> sorts;
+        buffer<sort*> sorts;
         for (unsigned i = 0; i < num_args; ++i) {
             sorts.push_back(m.get_sort(args[i]));
         }

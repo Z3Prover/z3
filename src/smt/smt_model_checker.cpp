@@ -121,7 +121,7 @@ namespace smt {
      */
     void model_checker::restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe) {
         SASSERT(!universe.empty());
-        ptr_buffer<expr> eqs;
+        buffer<expr*> eqs;
         for (expr * e : universe) {
             eqs.push_back(m.mk_eq(sk, e));
         }
@@ -141,7 +141,7 @@ namespace smt {
             return;
         }
         TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
-        ptr_buffer<expr> subst_args;
+        buffer<expr*> subst_args;
         unsigned num_decls = q->get_num_decls();
         subst_args.resize(num_decls, 0);
         sks.resize(num_decls, nullptr);
@@ -558,7 +558,7 @@ namespace smt {
 
     void model_checker::assert_new_instances() {
         TRACE("model_checker_bug_detail", tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
-        ptr_buffer<enode> bindings;
+        buffer<enode*> bindings;
         vector<std::tuple<enode *, enode *>> dummy;
         for (instance const& inst : m_new_instances) {
             quantifier * q  = inst.m_q;

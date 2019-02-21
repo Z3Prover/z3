@@ -218,7 +218,7 @@ func_decl * func_decls::find(unsigned arity, sort * const * domain, sort * range
 func_decl * func_decls::find(ast_manager & m, unsigned num_args, expr * const * args, sort * range) const {
     if (!more_than_one())
         first();
-    ptr_buffer<sort> sorts;
+    buffer<sort*> sorts;
     for (unsigned i = 0; i < num_args; i++)
         sorts.push_back(m.get_sort(args[i]));
     return find(num_args, sorts.c_ptr(), range);

@@ -127,8 +127,8 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
 
     obj_map<expr, expr*> cache;
     expr_ref_vector trail(m);
-    ptr_buffer<expr, 128> todo;
-    ptr_buffer<expr> args;
+    buffer<expr*, 128> todo;
+    buffer<expr*> args;
     todo.push_back(fi_else);
 
     expr * a;

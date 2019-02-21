@@ -79,7 +79,7 @@ class bv1_blaster_tactic : public tactic {
             return num_steps > m_max_steps;
         }
         
-        typedef ptr_buffer<expr, 128> bit_buffer;
+        typedef buffer<expr*, 128> bit_buffer;
 
         void get_bits(expr * arg, bit_buffer & bits) {
             SASSERT(butil().is_concat(arg) || butil().get_bv_size(arg) == 1);
@@ -105,7 +105,7 @@ class bv1_blaster_tactic : public tactic {
                 return;
             }
             sort * b = butil().mk_sort(1);
-            ptr_buffer<expr> bits;
+            buffer<expr*> bits;
             for (unsigned i = 0; i < bv_size; i++) {
                 bits.push_back(m().mk_fresh_const(nullptr, b));
                 m_newbits.push_back(to_app(bits.back())->get_decl());
@@ -232,7 +232,7 @@ class bv1_blaster_tactic : public tactic {
                 reduce_bin_xor(result, args[i], result);
             }
 #else
-            ptr_buffer<bit_buffer> args_bits;
+            buffer<bit_buffer*> args_bits;
             for (unsigned i = 0; i < num_args; i++) {
                 bit_buffer * buff_i = alloc(bit_buffer);
                 get_bits(args[i], *buff_i);
@@ -241,7 +241,7 @@ class bv1_blaster_tactic : public tactic {
             bit_buffer new_bits;
             unsigned sz = butil().get_bv_size(args[0]);
             for (unsigned i = 0; i < sz; i++) {
-                ptr_buffer<expr> eqs;
+                buffer<expr*> eqs;
                 for (unsigned j = 0; j < num_args; j++) {
                     bit_buffer * buff_j = args_bits[j];
                     eqs.push_back(m().mk_eq(buff_j->get(i), m_bit1));

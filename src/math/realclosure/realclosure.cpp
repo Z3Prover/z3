@@ -459,7 +459,7 @@ namespace realclosure {
 
         struct scoped_sign_conditions {
             imp &                                                   m_imp;
-            ptr_buffer<sign_condition, REALCLOSURE_INI_BUFFER_SIZE> m_scs;
+            buffer<sign_condition*, REALCLOSURE_INI_BUFFER_SIZE> m_scs;
 
             scoped_sign_conditions(imp & m):m_imp(m) {}
             ~scoped_sign_conditions() {
@@ -786,7 +786,7 @@ namespace realclosure {
         }
 
         void del_sign_conditions(unsigned sz, sign_condition * const * to_delete) {
-            ptr_buffer<sign_condition> all_to_delete;
+            buffer<sign_condition*> all_to_delete;
             for (unsigned i = 0; i < sz; i++) {
                 sign_condition * sc = to_delete[i];
                 while (sc && sc->m_mark == false) {
@@ -2428,7 +2428,7 @@ namespace realclosure {
             }
             SASSERT(i < n);
             SASSERT(!is_zero(p[i]));
-            ptr_buffer<value> nz_p;
+            buffer<value*> nz_p;
             for (; i < n; i++)
                 nz_p.push_back(p[i].m_value);
             nz_isolate_roots(nz_p.size(), nz_p.c_ptr(), roots);

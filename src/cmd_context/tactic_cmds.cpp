@@ -362,7 +362,7 @@ public:
                     // easy case
                     goal * fg = result_goals[0];
                     unsigned sz = fg->size();
-                    ptr_buffer<expr> assertions;
+                    buffer<expr*> assertions;
                     for (unsigned i = 0; i < sz; i++) {
                         assertions.push_back(fg->form(i));
                     }

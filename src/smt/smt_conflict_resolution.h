@@ -155,7 +155,7 @@ namespace smt {
         void mk_proof(literal l, b_justification js);
         bool visit_trans_proof(enode * lhs, enode * rhs);
         bool visit_eq_justications(enode * lhs, enode * rhs);
-        void mk_proof(enode * lhs, enode * rhs, ptr_buffer<proof> & result);
+        void mk_proof(enode * lhs, enode * rhs, buffer<proof*> & result);
         void mk_proof(enode * lhs, enode * rhs);
         void init_mk_proof();
         void mk_conflict_proof(b_justification conflict, literal not_l);

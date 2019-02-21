@@ -415,7 +415,7 @@ void goal::display(std::ostream & out) const {
 }
 
 void goal::display_as_and(std::ostream & out) const {
-    ptr_buffer<expr> args;
+    buffer<expr*> args;
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++)
         args.push_back(form(i));

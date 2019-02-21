@@ -81,7 +81,7 @@ private:
     bool rest_contains_decl(func_decl * f, expr * except_lit);
     // Store in extra_cond (and (not l_1) ... (not l_n)) where l_i's are the literals of m_curr_clause that are different from except_lit.
     void get_rest_clause_as_cond(expr * except_lit, expr_ref & extra_cond);
-    void collect_poly_args(expr * n, expr * exception, ptr_buffer<expr> & args);
+    void collect_poly_args(expr * n, expr * exception, buffer<expr*> & args);
     void add_arith_macro_candidate(app * head, unsigned num_decls, expr * def, expr * atom, bool ineq, bool hint, macro_candidates & r);
     void collect_arith_macro_candidates(expr * lhs, expr * rhs, expr * atom, unsigned num_decls, bool ineq, macro_candidates & r);
     void collect_arith_macro_candidates(expr * atom, unsigned num_decls, macro_candidates & r);

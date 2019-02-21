@@ -316,7 +316,7 @@ namespace qe {
     term* term_graph::internalize_term(expr *t) {
         term* res = get_term(t);
         if (res) return res;
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(t);
         while (!todo.empty()) {
             t = todo.back();
@@ -751,7 +751,7 @@ namespace qe {
                     }
                 }
                 else if (m.is_distinct(lit)) {
-                    ptr_buffer<expr> diff;
+                    buffer<expr*> diff;
                     for (expr* arg : *to_app(lit)) {
                         if (find_app(arg, p1)) {
                             diff.push_back(p1);
@@ -830,7 +830,7 @@ namespace qe {
                         }
                     }
                     if (roots.size() > 1) {
-                        ptr_buffer<expr> args;
+                        buffer<expr*> args;
                         for (expr* r : roots) {
                             args.push_back(r);
                         }
@@ -935,7 +935,7 @@ namespace qe {
             // some literals are forced to be true/false) and based on
             // unique_values (e.g., (x=1 & y=1) does not require
             // (x!=y) to be added
-            ptr_buffer<expr> reps;
+            buffer<expr*> reps;
             for (auto &kv : val2rep) {
                 expr *rep = kv.m_value;
                 if (!m.is_unique_value(rep))

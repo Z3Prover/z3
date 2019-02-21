@@ -57,7 +57,7 @@ static void mk_map(V const & v, M & m) {
 }
 
 template<typename M>
-static void get_keys(M const & m, ptr_buffer<char> & keys) {
+static void get_keys(M const & m, buffer<char*> & keys) {
     typename M::iterator it  = m.begin();
     typename M::iterator end = m.end();
     for (; it != end; ++it) {
@@ -86,7 +86,7 @@ struct str_lt {
 typedef map<char const *, unsigned, str_hash_proc, str_eq_proc> key2val;
 typedef map<char const *, double, str_hash_proc, str_eq_proc> key2dval;
 
-unsigned get_max_len(ptr_buffer<char> & keys) {
+unsigned get_max_len(buffer<char*> & keys) {
     unsigned max = 0;
     for (unsigned i = 0; i < static_cast<unsigned>(keys.size()); i++) {
         char * k = keys[i];
@@ -105,7 +105,7 @@ void statistics::display_smt2(std::ostream & out) const {
     key2dval m_d;                                       \
     mk_map(m_stats, m_u);                               \
     mk_map(m_d_stats, m_d);                             \
-    ptr_buffer<char> keys;                              \
+    buffer<char*> keys;                              \
     get_keys(m_u, keys);                                \
     get_keys(m_d, keys);                                \
     std::sort(keys.begin(), keys.end(), str_lt());      \

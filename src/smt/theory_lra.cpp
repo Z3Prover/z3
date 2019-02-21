@@ -538,7 +538,7 @@ class theory_lra::imp {
         rational r1;
         v = mk_var(t);
         vector<lp::var_index> vars;
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(t);
         while (!todo.empty()) {
             expr* n = todo.back();

@@ -24,8 +24,8 @@ Revision History:
 #include "util/buffer.h"
 
 template<typename T, unsigned INITIAL_SIZE=16, typename D = delete_proc<T> >
-class ptr_scoped_buffer : private ptr_buffer<T, INITIAL_SIZE> {
-    using buffer_type = ptr_buffer<T, INITIAL_SIZE>;
+class ptr_scoped_buffer : private buffer<T*, INITIAL_SIZE> {
+    using buffer_type = buffer<T*, INITIAL_SIZE>;
 
     D m_deallocator;
     void deallocate_all() { 
@@ -33,23 +33,23 @@ class ptr_scoped_buffer : private ptr_buffer<T, INITIAL_SIZE> {
             m_deallocator(pointer);
     }
 public:
-    typedef typename ptr_buffer<T, INITIAL_SIZE>::const_iterator const_iterator;
-    ptr_scoped_buffer(D const & m = D()):ptr_buffer<T, INITIAL_SIZE>(), m_deallocator(m) {}
+    typedef typename buffer<T*, INITIAL_SIZE>::const_iterator const_iterator;
+    ptr_scoped_buffer(D const & m = D()):buffer<T*, INITIAL_SIZE>(), m_deallocator(m) {}
     ~ptr_scoped_buffer() { deallocate_all(); }
-    void reset() { deallocate_all(); ptr_buffer<T, INITIAL_SIZE>::clear(); }
-    void finalize() { deallocate_all(); ptr_buffer<T, INITIAL_SIZE>::finalize(); }
+    void reset() { deallocate_all(); buffer<T*, INITIAL_SIZE>::clear(); }
+    void finalize() { deallocate_all(); buffer<T*, INITIAL_SIZE>::finalize(); }
     /** \brief Release ownership of the pointers stored in the buffer */
-    void release() { ptr_buffer<T, INITIAL_SIZE>::clear(); }
-    unsigned size() const { return ptr_buffer<T, INITIAL_SIZE>::size(); }
-    bool empty() const { return ptr_buffer<T, INITIAL_SIZE>::empty(); }
-    const_iterator begin() const { return ptr_buffer<T, INITIAL_SIZE>::begin(); }
-    const_iterator end() const { return ptr_buffer<T, INITIAL_SIZE>::end(); }
-    void push_back(T * elem) { return ptr_buffer<T, INITIAL_SIZE>::push_back(elem); }
-    T * back() const { return ptr_buffer<T, INITIAL_SIZE>::back(); }
-    void pop_back() { m_deallocator(back()); ptr_buffer<T, INITIAL_SIZE>::pop_back(); }
+    void release() { buffer<T*, INITIAL_SIZE>::clear(); }
+    unsigned size() const { return buffer<T*, INITIAL_SIZE>::size(); }
+    bool empty() const { return buffer<T*, INITIAL_SIZE>::empty(); }
+    const_iterator begin() const { return buffer<T*, INITIAL_SIZE>::begin(); }
+    const_iterator end() const { return buffer<T*, INITIAL_SIZE>::end(); }
+    void push_back(T * elem) { return buffer<T*, INITIAL_SIZE>::push_back(elem); }
+    T * back() const { return buffer<T*, INITIAL_SIZE>::back(); }
+    void pop_back() { m_deallocator(back()); buffer<T*, INITIAL_SIZE>::pop_back(); }
     T * get(unsigned idx) const { return static_cast<buffer_type const&>(*this)[idx]; }
     void set(unsigned idx, T * e) { T * old_e = get(idx); if (e != old_e) m_deallocator(old_e); static_cast<buffer_type&>(*this)[idx] = e; }
-    void append(unsigned n, T * const * elems) { ptr_buffer<T, INITIAL_SIZE>::append(n, elems); }
+    void append(unsigned n, T * const * elems) { buffer<T*, INITIAL_SIZE>::append(n, elems); }
 };
 
 #endif

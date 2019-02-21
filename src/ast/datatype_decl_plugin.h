@@ -255,7 +255,7 @@ namespace datatype {
             util & u() const;
 
         private:
-            bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
+            bool is_value_visit(expr * arg, buffer<app*> & todo) const;
         
             func_decl * mk_update_field(
                 unsigned num_parameters, parameter const * parameters, 

@@ -1256,7 +1256,7 @@ namespace smt {
     expr * theory_arith<Ext>::p2expr(buffer<coeff_expr> & p) {
         SASSERT(!p.empty());
         TRACE("p2expr_bug", display_coeff_exprs(tout, p););
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         for (coeff_expr const& ce : p) {
             rational const & c = ce.first;
             expr * var         = ce.second;
@@ -1442,7 +1442,7 @@ namespace smt {
         }
         SASSERT(is_pure_monomial(m));
         unsigned idx = 0;
-        ptr_buffer<expr> new_args;
+        buffer<expr*> new_args;
         for (expr * arg : *to_app(m)) {
             if (arg == var) {
                 if (idx < d)
@@ -1775,7 +1775,7 @@ namespace smt {
     */
     template<typename Ext>
     grobner::monomial * theory_arith<Ext>::mk_gb_monomial(rational const & _coeff, expr * m, grobner & gb, v_dependency * & dep, var_set & already_found) {
-        ptr_buffer<expr> vars;
+        buffer<expr*> vars;
         rational coeff = _coeff;
         rational r;
 #undef PROC_VAR
@@ -1828,7 +1828,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::add_row_to_gb(row const & r, grobner & gb) {
         TRACE("non_linear", tout << "adding row to gb\n"; display_row(tout, r););
-        ptr_buffer<grobner::monomial> monomials;
+        buffer<grobner::monomial*> monomials;
         v_dependency * dep = nullptr;
         m_tmp_var_set.reset();
         typename vector<row_entry>::const_iterator it  = r.begin_entries();
@@ -1854,7 +1854,7 @@ namespace smt {
     */
     template<typename Ext>
     void theory_arith<Ext>::add_monomial_def_to_gb(theory_var v, grobner & gb) {
-        ptr_buffer<grobner::monomial> monomials;
+        buffer<grobner::monomial*> monomials;
         v_dependency * dep = nullptr;
         m_tmp_var_set.reset();
         expr * m = var2expr(v);
@@ -2094,7 +2094,7 @@ namespace smt {
         }
         buffer<bool> deleted;
         deleted.resize(num, false);
-        ptr_buffer<grobner::monomial> monomials;
+        buffer<grobner::monomial*> monomials;
         // try to eliminate monomials that form perfect squares of the form (M1 - M2)^2
         for (unsigned i = 0; i < num; i++) {
             grobner::monomial const * m1 = eq->get_monomial(i);
@@ -2165,7 +2165,7 @@ namespace smt {
     template<typename Ext>
     expr * theory_arith<Ext>::monomial2expr(grobner::monomial const * m, bool is_int) {
         unsigned num_vars = m->get_degree();
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         if (!m->get_coeff().is_one())
             args.push_back(m_util.mk_numeral(m->get_coeff(), is_int));
         for (unsigned j = 0; j < num_vars; j++)
@@ -2189,7 +2189,7 @@ namespace smt {
                 is_int = m_util.is_int(m->get_var(0));
         }
         rational k;
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         for (unsigned i = 0; i < num_monomials; i++) {
             grobner::monomial const * m = eq->get_monomial(i);
             if (m->get_degree() == 0)

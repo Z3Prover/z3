@@ -559,7 +559,7 @@ void lemma::mk_expr_core() {
             expr_abstract(m, 0,
                           zks.size(), (expr* const*)zks.c_ptr(), m_body,
                           m_body);
-            ptr_buffer<sort> sorts;
+            buffer<sort*> sorts;
             vector<symbol> names;
             for (unsigned i=0, sz=zks.size(); i < sz; ++i) {
                 sorts.push_back(get_sort(zks.get(i)));

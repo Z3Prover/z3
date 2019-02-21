@@ -88,7 +88,7 @@ namespace smt {
 
     proof * unit_resolution_justification::mk_proof(conflict_resolution & cr) {
         SASSERT(m_antecedent);
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         proof * pr   = cr.get_proof(m_antecedent);
         bool visited = pr != nullptr;
         prs.push_back(pr);
@@ -125,7 +125,7 @@ namespace smt {
     proof * eq_conflict_justification::mk_proof(conflict_resolution & cr) {
         ast_manager & m = cr.get_manager();
         bool visited = true;
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
 
         if (m_node1 != m_node1->get_root()) {
             proof * pr = cr.get_proof(m_node1, m_node1->get_root());
@@ -262,7 +262,7 @@ namespace smt {
             cr.mark_literal(m_literals[i]);
     }
 
-    bool simple_justification::antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result) {
+    bool simple_justification::antecedent2proof(conflict_resolution & cr, buffer<proof*> & result) {
         bool visited = true;
         for (unsigned i = 0; i < m_num_literals; i++) {
             proof * pr = cr.get_proof(m_literals[i]);
@@ -290,7 +290,7 @@ namespace smt {
     }
 
     proof * theory_propagation_justification::mk_proof(conflict_resolution & cr) {
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         context & ctx = cr.get_context();
@@ -301,7 +301,7 @@ namespace smt {
     }
 
     proof * theory_conflict_justification::mk_proof(conflict_resolution & cr) {
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();
@@ -329,7 +329,7 @@ namespace smt {
         }
     }
 
-    bool ext_simple_justification::antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result) {
+    bool ext_simple_justification::antecedent2proof(conflict_resolution & cr, buffer<proof*> & result) {
         bool visited = simple_justification::antecedent2proof(cr, result);
         for (unsigned i = 0; i < m_num_eqs; i++) {
             enode_pair const & p = m_eqs[i];
@@ -343,7 +343,7 @@ namespace smt {
     }
 
     proof * ext_theory_propagation_justification::mk_proof(conflict_resolution & cr) {
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         context & ctx = cr.get_context();
@@ -354,7 +354,7 @@ namespace smt {
     }
     
     proof * ext_theory_conflict_justification::mk_proof(conflict_resolution & cr) {
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();
@@ -362,7 +362,7 @@ namespace smt {
     }
 
     proof * ext_theory_eq_propagation_justification::mk_proof(conflict_resolution & cr) {
-        ptr_buffer<proof> prs;
+        buffer<proof*> prs;
         if (!antecedent2proof(cr, prs))
             return nullptr;
         ast_manager & m = cr.get_manager();

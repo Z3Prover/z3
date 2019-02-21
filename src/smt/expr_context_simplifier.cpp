@@ -361,7 +361,7 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
     while (!todo.empty()) {
 
         r = nullptr;
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
         n = names.back();
@@ -623,7 +623,7 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
     while (!todo.empty()) {
 
         r = nullptr;
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         expr* e = todo.back();
         unsigned pos = parent_ids.back();
         n = names.back();

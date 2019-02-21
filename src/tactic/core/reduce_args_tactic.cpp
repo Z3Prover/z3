@@ -233,7 +233,7 @@ struct reduce_args_tactic::imp {
         }
         
         // Remove all cases where the simplification is not applicable.
-        ptr_buffer<func_decl> bad_decls;
+        buffer<func_decl*> bad_decls;
         obj_map<func_decl, bit_vector>::iterator it  = decl2args.begin();
         obj_map<func_decl, bit_vector>::iterator end = decl2args.end();
         for (; it != end; it++) {
@@ -246,8 +246,8 @@ struct reduce_args_tactic::imp {
                 bad_decls.push_back(it->m_key);
         }
     
-        ptr_buffer<func_decl>::iterator it2  = bad_decls.begin();
-        ptr_buffer<func_decl>::iterator end2 = bad_decls.end();
+        buffer<func_decl*>::iterator it2  = bad_decls.begin();
+        buffer<func_decl*>::iterator end2 = bad_decls.end();
         for (; it2 != end2; ++it2)
             decl2args.erase(*it2);
 
@@ -359,7 +359,7 @@ struct reduce_args_tactic::imp {
             func_decl *& new_f = map->insert_if_not_there2(tmp, nullptr)->get_data().m_value;
             if (!new_f) {
                 // create fresh symbol
-                ptr_buffer<sort> domain;
+                buffer<sort*> domain;
                 unsigned arity = f->get_arity();
                 for (unsigned i = 0; i < arity; ++i) {
                     if (!bv.get(i))
@@ -370,7 +370,7 @@ struct reduce_args_tactic::imp {
                 m.inc_ref(new_f);
             }
 
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_args;
             for (unsigned i = 0; i < num; i++) {
                 if (!bv.get(i))
                     new_args.push_back(args[i]);
@@ -390,9 +390,9 @@ struct reduce_args_tactic::imp {
     };
 
     model_converter * mk_mc(obj_map<func_decl, bit_vector> & decl2args, decl2arg2func_map & decl2arg2funcs) {
-        ptr_buffer<expr> new_args;
+        buffer<expr*> new_args;
         var_ref_vector   new_vars(m_manager);
-        ptr_buffer<expr> new_eqs;
+        buffer<expr*> new_eqs;
         generic_model_converter * f_mc    = alloc(generic_model_converter, m_manager, "reduce_args");
         for (auto const& kv : decl2arg2funcs) {
             func_decl * f  = kv.m_key;

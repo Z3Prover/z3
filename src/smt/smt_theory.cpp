@@ -85,7 +85,7 @@ namespace smt {
         else if (n->get_family_id() == get_family_id()) {
             out << "(" << d->get_name();
             display_parameters(out, d->get_num_parameters(), d->get_parameters());
-            ptr_buffer<app> todo;
+            buffer<app*> todo;
             todo.push_back(n);
             while (!todo.empty()) {
                 n = todo.back();

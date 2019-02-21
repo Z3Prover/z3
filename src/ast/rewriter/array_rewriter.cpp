@@ -107,7 +107,7 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
             //
             // store(store(a,i,v),i,w) --> store(a,i,w)
             // 
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_args;
             new_args.push_back(to_app(args[0])->get_arg(0));
             new_args.append(num_args-1, args+1);
             SASSERT(new_args.size() == num_args);
@@ -121,7 +121,7 @@ br_status array_rewriter::mk_store_core(unsigned num_args, expr * const * args, 
             // if i, j are different, lt(i,j)
             // 
             if (lex_lt(num_args-2, args+1, to_app(args[0])->get_args() + 1)) {
-                ptr_buffer<expr> new_args;
+                buffer<expr*> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
                 new_args.append(num_args-1, args+1);
                 expr * nested_store = m().mk_app(get_fid(), OP_STORE, num_args, new_args.c_ptr());
@@ -171,7 +171,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             return BR_DONE;
         case l_false: {
             // select(store(a, I, v), J) --> select(a, J) if I != J
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_args;
             new_args.push_back(to_app(args[0])->get_arg(0));
             new_args.append(num_args-1, args+1);
             result = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.c_ptr());
@@ -180,12 +180,12 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         default:
             if (m_expand_select_store) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
-                ptr_buffer<expr> new_args;
+                buffer<expr*> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
                 new_args.append(num_args-1, args+1);
                 expr * sel_a_j = m().mk_app(get_fid(), OP_SELECT, num_args, new_args.c_ptr());
                 expr * v       = to_app(args[0])->get_arg(num_args);
-                ptr_buffer<expr> eqs;
+                buffer<expr*> eqs;
                 unsigned num_indices = num_args-1;
                 for (unsigned i = 0; i < num_indices; i++) {
                     eqs.push_back(m().mk_eq(to_app(args[0])->get_arg(i+1), args[i+1]));
@@ -269,8 +269,8 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
     // map_f (store a_1 j v_1) ... (store a_n j v_n) --> (store (map_f a_1 ... a_n) j (f v_1 ... v_n))
     //
     if (same_store) {
-        ptr_buffer<expr> arrays;
-        ptr_buffer<expr> values;
+        buffer<expr*> arrays;
+        buffer<expr*> values;
         for (unsigned i = 0; i < num_args; i++) {
             expr* a = args[i];
             if (m_util.is_const(a)) {
@@ -283,7 +283,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             }
         }
         if (store_expr) {
-            ptr_buffer<expr> new_args;
+            buffer<expr*> new_args;
             new_args.push_back(m_util.mk_map(f, arrays.size(), arrays.c_ptr()));
             new_args.append(num_indices, to_app(args[0])->get_args() + 1);
             new_args.push_back(m().mk_app(f, values.size(), values.c_ptr()));

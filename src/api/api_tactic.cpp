@@ -130,7 +130,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_tactic_par_or(c, num, ts);
         RESET_ERROR_CODE();
-        ptr_buffer<tactic> _ts;
+        buffer<tactic*> _ts;
         for (unsigned i = 0; i < num; i++) {
             _ts.push_back(to_tactic_ref(ts[i]));
         }

@@ -592,7 +592,7 @@ namespace smt {
                \brief Collect the interpretations of n->get_exceptions()
                and the interpretations of the m_else of nodes in n->get_avoid_set()
             */
-            void collect_exceptions_values(node * n, ptr_buffer<expr> & r) {
+            void collect_exceptions_values(node * n, buffer<expr*> & r) {
                 ptr_vector<expr> const & exceptions   = n->get_exceptions();
                 ptr_vector<node> const & avoid_set    = n->get_avoid_set();
 
@@ -619,7 +619,7 @@ namespace smt {
 
                Return 0 if such t does not exist.
             */
-            expr * pick_instance_diff_exceptions(node * n, ptr_buffer<expr> const & ex_vals) {
+            expr * pick_instance_diff_exceptions(node * n, buffer<expr*> const & ex_vals) {
                 instantiation_set const *           s = n->get_instantiation_set();
                 obj_map<expr, unsigned> const & elems = s->get_elems();
 
@@ -721,7 +721,7 @@ namespace smt {
                 obj_map<expr, unsigned> const & elems = s->get_elems();
                 if (elems.empty()) return;
                 if (!exceptions.empty() || !avoid_set.empty()) {
-                    ptr_buffer<expr> ex_vals;
+                    buffer<expr*> ex_vals;
                     collect_exceptions_values(n, ex_vals);
                     expr * e = pick_instance_diff_exceptions(n, ex_vals);
                     if (e != nullptr) {
@@ -785,7 +785,7 @@ namespace smt {
                 }
             }
 
-            void get_instantiation_set_values(node * n, ptr_buffer<expr> & values) {
+            void get_instantiation_set_values(node * n, buffer<expr*> & values) {
                 instantiation_set const * s           = n->get_instantiation_set();
                 obj_hashtable<expr> already_found;
                 obj_map<expr, unsigned> const & elems = s->get_elems();
@@ -836,7 +836,7 @@ namespace smt {
                 }
             };
 
-            void sort_values(node * n, ptr_buffer<expr> & values) {
+            void sort_values(node * n, buffer<expr*> & values) {
                 sort * s = n->get_sort();
                 if (m_arith.is_int(s) || m_arith.is_real(s)) {
                     std::sort(values.begin(), values.end(), numeral_lt<arith_util>(m_arith));
@@ -851,7 +851,7 @@ namespace smt {
 
             void mk_mono_proj(node * n) {
                 add_mono_exceptions(n);
-                ptr_buffer<expr> values;
+                buffer<expr*> values;
                 get_instantiation_set_values(n, values);
                 if (values.empty()) return;
                 sort_values(n, values);
@@ -884,7 +884,7 @@ namespace smt {
             void mk_simple_proj(node * n) {
                 TRACE("model_finder", n->display(tout, m););
                 set_projection_else(n);
-                ptr_buffer<expr> values;
+                buffer<expr*> values;
                 get_instantiation_set_values(n, values);
                 sort * s        = n->get_sort();
                 func_decl *   p = m.mk_fresh_func_decl(1, &s, s);
@@ -1343,7 +1343,7 @@ namespace smt {
 
            Store in arrays, all enodes that match the pattern
         */
-        void get_auf_arrays(app * auf_arr, context * ctx, ptr_buffer<enode> & arrays) {
+        void get_auf_arrays(app * auf_arr, context * ctx, buffer<enode*> & arrays) {
             if (is_ground(auf_arr)) {
                 if (ctx->e_internalized(auf_arr)) {
                     enode * e = ctx->get_enode(auf_arr);
@@ -1354,7 +1354,7 @@ namespace smt {
             }
             else {
                 app * nested_array = to_app(auf_arr->get_arg(0));
-                ptr_buffer<enode> nested_arrays;
+                buffer<enode*> nested_arrays;
                 get_auf_arrays(nested_array, ctx, nested_arrays);
                 for (enode * curr : nested_arrays) {
                     enode_vector::iterator it2  = curr->begin_parents();
@@ -1407,7 +1407,7 @@ namespace smt {
             }
 
             void process_auf(quantifier * q, auf_solver & s, context * ctx) override {
-                ptr_buffer<enode> arrays;
+                buffer<enode*> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
                 TRACE("select_var",
                       tout << "enodes matching: "; display(tout); tout << "\n";
@@ -1427,7 +1427,7 @@ namespace smt {
             }
 
             void populate_inst_sets(quantifier * q, auf_solver & s, context * ctx) override {
-                ptr_buffer<enode> arrays;
+                buffer<enode*> arrays;
                 get_auf_arrays(get_array(), ctx, arrays);
                 for (enode * curr : arrays) {
                     app * ground_array = curr->get_owner();
@@ -3087,7 +3087,7 @@ namespace smt {
 
             void process(func_decl * f, ptr_vector<quantifier> const & qs, obj_hashtable<quantifier> & removed) {
                 expr_ref fi_else(m);
-                ptr_buffer<quantifier> to_remove;
+                buffer<quantifier*> to_remove;
                 for (quantifier * q : qs) {
                     if (removed.contains(q))
                         continue;
@@ -3404,7 +3404,7 @@ namespace smt {
             obj_map<expr, expr *> const & inv = s->get_inv_map();
             if (inv.empty())
                 continue; // nothing to do
-            ptr_buffer<expr> eqs;
+            buffer<expr*> eqs;
             for (auto const& kv : inv) {
                 expr * val = kv.m_key;
                 eqs.push_back(m.mk_eq(sk, val));

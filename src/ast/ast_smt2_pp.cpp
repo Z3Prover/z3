@@ -104,7 +104,7 @@ format * smt2_pp_environment::pp_as(format * fname, sort * s) {
 format * smt2_pp_environment::pp_fdecl_params(format * fname, func_decl * f) {
     SASSERT(is_indexed_fdecl(f));
     unsigned num = f->get_num_parameters();
-    ptr_buffer<format> fs;
+    buffer<format*> fs;
     fs.push_back(fname);
     for (unsigned i = 0; i < num; i++) {
         SASSERT(f->get_parameter(i).is_int() ||
@@ -141,10 +141,10 @@ format * smt2_pp_environment::pp_signature(format * f_name, func_decl * f) {
     if (is_indexed_fdecl(f)) {
         f_name = pp_fdecl_params(f_name, f);
     }
-    ptr_buffer<format> f_domain;
+    buffer<format*> f_domain;
     for (unsigned i = 0; i < f->get_arity(); i++)
         f_domain.push_back(pp_sort(f->get_domain(i)));
-    ptr_buffer<format> args;
+    buffer<format*> args;
     args.push_back(f_name);
     args.push_back(mk_seq5(get_manager(), f_domain.begin(), f_domain.end(), f2f()));
     args.push_back(pp_sort(f->get_range()));
@@ -405,13 +405,13 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
         return mk_string(m, "Real");
     if (get_bvutil().is_bv_sort(s)) {
         unsigned sz = get_bvutil().get_bv_size(s);
-        ptr_buffer<format> fs;
+        buffer<format*> fs;
         fs.push_back(mk_string(m, "BitVec"));
         fs.push_back(mk_unsigned(m, sz));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), "_");
     }
     if (get_arutil().is_array(s)) {
-        ptr_buffer<format> fs;
+        buffer<format*> fs;
         unsigned sz = get_array_arity(s);
         for (unsigned i = 0; i < sz; i++) {
             fs.push_back(pp_sort(get_array_domain(s, i)));
@@ -422,21 +422,21 @@ format_ns::format * smt2_pp_environment::pp_sort(sort * s) {
     if (get_futil().is_float(s)) {
         unsigned ebits = get_futil().get_ebits(s);
         unsigned sbits = get_futil().get_sbits(s);
-        ptr_buffer<format> fs;
+        buffer<format*> fs;
         fs.push_back(mk_string(m, "FloatingPoint"));
         fs.push_back(mk_unsigned(m, ebits));
         fs.push_back(mk_unsigned(m, sbits));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), "_");
     }
     if ((get_sutil().is_seq(s) || get_sutil().is_re(s)) && !get_sutil().is_string(s)) {
-        ptr_buffer<format> fs;
+        buffer<format*> fs;
         fs.push_back(pp_sort(to_sort(s->get_parameter(0).get_ast())));
         return mk_seq1(m, fs.begin(), fs.end(), f2f(), get_sutil().is_seq(s)?"Seq":"RegEx");
     }
     if (get_dtutil().is_datatype(s)) {
         unsigned sz = get_dtutil().get_datatype_num_parameter_sorts(s);
         if (sz > 0) {
-            ptr_buffer<format> fs;            
+            buffer<format*> fs;            
             for (unsigned i = 0; i < sz; i++) {
                 fs.push_back(pp_sort(get_dtutil().get_datatype_parameter_sort(s, i)));
             }
@@ -610,7 +610,7 @@ class smt2_printer {
     format * pp_labels(bool is_pos, buffer<symbol> const & names, format * f) {
         if (names.empty())
             return f;
-        ptr_buffer<format> buf;
+        buffer<format*> buf;
         buf.push_back(f);
         for (symbol const& n : names) 
             buf.push_back(pp_simple_attribute(is_pos ? ":lblpos " : ":lblneg ", n));
@@ -814,7 +814,7 @@ class smt2_printer {
             lvl_decls.push_back(mk_seq1<format**, f2f>(m(), f_def, f_def+1, f2f(), f_name.str().c_str()));
         }
         TRACE("pp_let", tout << "decls.size(): " << decls.size() << "\n";);
-        ptr_buffer<format> buf;
+        buffer<format*> buf;
         unsigned num_op = 0;
         vector<ptr_vector<format> >::iterator it  = decls.begin();
         vector<ptr_vector<format> >::iterator end = decls.end();
@@ -912,7 +912,7 @@ class smt2_printer {
     }
 
     format * pp_var_args(unsigned num_decls, sort* const* srts) {
-        ptr_buffer<format> buf;
+        buffer<format*> buf;
         SASSERT(num_decls <= m_var_names.size());
         symbol * it = m_var_names.end() - num_decls;
         for (unsigned i = 0; i < num_decls; i++, it++) {
@@ -960,7 +960,7 @@ class smt2_printer {
 #define MIN_WEIGHT 1
         if (q->has_patterns() || q->get_weight() > MIN_WEIGHT ||
             q->get_skid() != symbol::null || (q->get_qid() != symbol::null && !q->get_qid().is_numerical())) {
-            ptr_buffer<format> buf;
+            buffer<format*> buf;
             buf.push_back(f_body);
             if (q->get_num_patterns() > 0) {
                 format ** it  = m_format_stack.c_ptr() + fr.m_spos;
@@ -1139,7 +1139,7 @@ public:
         format * fname = m_env.pp_fdecl_name(f, len);
         format * args[3];
         args[0] = fname;
-        ptr_buffer<format> buf;
+        buffer<format*> buf;
         for (unsigned i = 0; i < arity; i++) {
             buf.push_back(m_env.pp_sort(f->get_domain(i)));
         }

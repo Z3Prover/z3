@@ -539,7 +539,7 @@ namespace smt {
     }
 
     void context::display_subexprs_info(std::ostream & out, expr * n) const {
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(n);
         while (!todo.empty()) {
             expr * n = todo.back();

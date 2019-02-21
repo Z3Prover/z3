@@ -74,8 +74,8 @@ namespace smt {
             ast_manager & m   = cr.get_manager();
             context & ctx     = cr.get_context();
             unsigned num_args = m_app1->get_num_args();
-            ptr_buffer<proof> prs;
-            ptr_buffer<expr>  lits;
+            buffer<proof*> prs;
+            buffer<expr*>  lits;
             for (unsigned i = 0; i < num_args; i++) {
                 expr * arg1   = m_app1->get_arg(i);
                 expr * arg2   = m_app2->get_arg(i);

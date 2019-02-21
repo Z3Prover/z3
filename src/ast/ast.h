@@ -2411,7 +2411,7 @@ public:
 
 template<unsigned IDX>
 class ast_fast_mark {
-    ptr_buffer<ast> m_to_unmark;
+    buffer<ast*> m_to_unmark;
 public:
     ast_fast_mark() {}
     ~ast_fast_mark() {

@@ -749,7 +749,7 @@ namespace smt {
         }
         
         proof* mk_proof(smt::conflict_resolution& cr) override {
-            ptr_buffer<proof> prs;
+            buffer<proof*> prs;
             ast_manager& m = cr.get_context().get_manager(); 
             expr_ref fact(m);
             cr.get_context().literal2expr(m_lit, fact);

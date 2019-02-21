@@ -145,7 +145,7 @@ protected:
 
     void init_equation(equation * eq, v_dependency * d);
 
-    void extract_monomials(expr * lhs, ptr_buffer<expr> & monomials);
+    void extract_monomials(expr * lhs, buffer<expr*> & monomials);
 
     void merge_monomials(ptr_vector<monomial> & monomials);
 

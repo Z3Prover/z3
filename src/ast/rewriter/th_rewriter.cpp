@@ -266,7 +266,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     bool is_ite_value_tree(expr * t) {
         if (!m().is_ite(t))
             return false;
-        ptr_buffer<app> todo;
+        buffer<app*> todo;
         todo.push_back(to_app(t));
         while (!todo.empty()) {
             app * ite = todo.back();
@@ -473,7 +473,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         if (!new_t2)
             new_t2 = m_a_util.mk_numeral(rational::zero(), is_int);
         // mk common part
-        ptr_buffer<expr> args;
+        buffer<expr*> args;
         for (unsigned i = 0; i < num1; i++) {
             expr * arg = ms1[i];
             if (arg == new_t1.get())
@@ -638,7 +638,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
 
             quantifier * nested_q = to_quantifier(new_body);
 
-            ptr_buffer<sort> sorts;
+            buffer<sort*> sorts;
             buffer<symbol>   names;
             sorts.append(old_q->get_num_decls(), old_q->get_decl_sorts());
             names.append(old_q->get_num_decls(), old_q->get_decl_names());
@@ -670,8 +670,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             return true;
         }
         else {
-            ptr_buffer<expr> new_patterns_buf;
-            ptr_buffer<expr> new_no_patterns_buf;
+            buffer<expr*> new_patterns_buf;
+            buffer<expr*> new_no_patterns_buf;
 
             new_patterns_buf.append(old_q->get_num_patterns(), new_patterns);
             new_no_patterns_buf.append(old_q->get_num_no_patterns(), new_no_patterns);

@@ -689,7 +689,7 @@ bool arith_recognizers::is_irrational_algebraic_numeral(expr const * n) const {
 bool arith_recognizers::is_int_expr(expr const *e) const {
     if (is_int(e)) return true;
     if (is_uninterp(e)) return false;
-    ptr_buffer<const expr> todo;
+    buffer<expr const*> todo;
     todo.push_back(e);
     rational r;
     unsigned i = 0;

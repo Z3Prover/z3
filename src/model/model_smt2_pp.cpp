@@ -51,7 +51,7 @@ static unsigned pp_symbol(std::ostream & out, symbol const & s) {
 
 static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
     ast_manager & m = ctx.get_ast_manager();
-    ptr_buffer<format> f_conds;
+    buffer<format*> f_conds;
     unsigned num = md.get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < num; i++) {
         sort * s = md.get_uninterpreted_sort(i);
@@ -149,7 +149,7 @@ static void pp_consts(std::ostream & out, ast_printer_context & ctx, model_core 
     }
 }
 
-void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl> & result) {
+void sort_fun_decls(ast_manager & m, model_core const & md, buffer<func_decl*> & result) {
     func_decl_set         visited;
     ptr_vector<func_decl> todo;
     unsigned sz = md.get_num_functions();
@@ -188,11 +188,11 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
     ast_manager & m = ctx.get_ast_manager();
     recfun::util recfun_util(m);
     buffer<symbol>     var_names;
-    ptr_buffer<format> f_var_names;
-    ptr_buffer<format> f_arg_decls;
-    ptr_buffer<format> f_entries;
-    ptr_buffer<format> f_entry_conds;
-    ptr_buffer<func_decl> func_decls;
+    buffer<format*> f_var_names;
+    buffer<format*> f_arg_decls;
+    buffer<format*> f_entries;
+    buffer<format*> f_entry_conds;
+    buffer<func_decl*> func_decls;
     sort_fun_decls(m, md, func_decls);
     for (unsigned i = 0; i < func_decls.size(); i++) {
         func_decl * f     = func_decls[i]; 

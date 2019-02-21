@@ -69,7 +69,7 @@ inline void substitution_tree::erase_reg_from_todo(unsigned ridx) {
      #3 -> (f #5); #4 -> b; #5 -> (g #6); #6 -> a
 */
 void substitution_tree::linearize(vector<subst> & result) {
-    ptr_buffer<expr> new_args;
+    buffer<expr*> new_args;
     for (unsigned i = 0; i < m_todo.size(); i++) {
         unsigned ireg_idx = m_todo[i];
         expr * n          = get_reg_value(ireg_idx);
@@ -535,7 +535,7 @@ void substitution_tree::erase(app * e) {
 }
 
 void substitution_tree::delete_node(node * n) {
-    ptr_buffer<node> todo;
+    buffer<node*> todo;
     SASSERT(todo.empty());
     todo.push_back(n);
     while (!todo.empty()) {

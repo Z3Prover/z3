@@ -140,7 +140,7 @@ void anti_unifier::operator()(expr *e1, expr *e2, expr_ref &res,
         else {
             expr *tmp;
             unsigned todo_sz = m_todo.size();
-            ptr_buffer<expr> kids;
+            buffer<expr*> kids;
             for (unsigned i = 0; i < num_arg1; ++i) {
                 expr *arg1 = n1->get_arg(i);
                 expr *arg2 = n2->get_arg(i);
@@ -358,7 +358,7 @@ struct mk_num_pat_rewriter : public default_rewriter_cfg {
 
     // -- stack of expressions being processed to have access to expressions
     // -- before rewriting
-    ptr_buffer<expr> m_stack;
+    buffer<expr*> m_stack;
 
     mk_num_pat_rewriter (ast_manager &manager, app_ref_vector& subs) :
         m(manager), m_arith(m), m_pinned(m), m_subs(subs) {}

@@ -2977,7 +2977,7 @@ namespace polynomial {
 
             skeleton(imp & _pm, polynomial * p, var x):pm(_pm), m_x(x) {
                 m_max_powers = 0;
-                ptr_buffer<monomial, 128> ms;
+                buffer<monomial*, 128> ms;
                 unsigned sz = p->size();
                 for (unsigned i = 0; i < sz; i++) {
                     ms.push_back(p->m(i));
@@ -3137,7 +3137,7 @@ namespace polynomial {
                 scoped_numeral_vector           cs(m);
                 scoped_numeral_vector           new_as(m);
                 scoped_numeral_vector           as(m);
-                ptr_buffer<monomial,128>        mons;
+                buffer<monomial*, 128>        mons;
                 scoped_numeral                  aux(m);
                 linear_eq_solver<mpzzp_manager> solver(m);
                 unsigned sz = m_skeleton->num_entries();
@@ -7434,7 +7434,7 @@ namespace polynomial {
 
 polynomial::polynomial * convert(polynomial::manager & sm, polynomial::polynomial * p, polynomial::manager & tm,
                                  polynomial::var x, unsigned max_d) {
-    ptr_buffer<polynomial::monomial, 128> ms;
+    buffer<polynomial::monomial*, 128> ms;
     polynomial::numeral_manager & nm = tm.m();
     _scoped_numeral_buffer<polynomial::numeral_manager, 128> as(nm);
     unsigned sz = sm.size(p);

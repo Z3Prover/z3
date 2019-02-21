@@ -216,7 +216,7 @@ namespace smt {
         unsigned        m_num_literals;
         literal *       m_literals;
         
-        bool antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result);
+        bool antecedent2proof(conflict_resolution & cr, buffer<proof*> & result);
 
     public:
         simple_justification(region & r, unsigned num_lits, literal const * lits);
@@ -298,7 +298,7 @@ namespace smt {
         unsigned        m_num_eqs;
         enode_pair *    m_eqs;
         
-        bool antecedent2proof(conflict_resolution & cr, ptr_buffer<proof> & result);
+        bool antecedent2proof(conflict_resolution & cr, buffer<proof*> & result);
 
     public:
         ext_simple_justification(region & r, unsigned num_lits, literal const * lits, 

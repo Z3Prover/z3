@@ -61,7 +61,7 @@ void get_expr_stat(expr * n, expr_stat & r) {
 
 unsigned get_symbol_count(expr * n) {
     unsigned r = 0;
-    ptr_buffer<expr> todo;
+    buffer<expr*> todo;
     todo.push_back(n);
     while (!todo.empty()) {
         n = todo.back();

@@ -1125,7 +1125,7 @@ struct sat2goal::imp {
 
     void assert_pb(ref<mc>& mc, goal& r, sat::ba_solver::pb const& p) {
         pb_util pb(m);
-        ptr_buffer<expr> lits;
+        buffer<expr*> lits;
         vector<rational> coeffs;
         for (auto const& wl : p) {
             lits.push_back(lit2expr(mc, wl.second));
@@ -1142,7 +1142,7 @@ struct sat2goal::imp {
 
     void assert_card(ref<mc>& mc, goal& r, sat::ba_solver::card const& c) {
         pb_util pb(m);
-        ptr_buffer<expr> lits;
+        buffer<expr*> lits;
         for (sat::literal l : c) {
             lits.push_back(lit2expr(mc, l));
         }
@@ -1155,7 +1155,7 @@ struct sat2goal::imp {
     }
 
     void assert_xor(ref<mc>& mc, goal & r, sat::ba_solver::xr const& x) {
-        ptr_buffer<expr> lits;
+        buffer<expr*> lits;
         for (sat::literal l : x) {
             lits.push_back(lit2expr(mc, l));
         }
@@ -1168,7 +1168,7 @@ struct sat2goal::imp {
     }
 
     void assert_clauses(ref<mc>& mc, sat::solver_core const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
-        ptr_buffer<expr> lits;
+        buffer<expr*> lits;
         unsigned small_lbd = 3; // s.get_config().m_gc_small_lbd;
         for (sat::clause* cp : clauses) {
             checkpoint();

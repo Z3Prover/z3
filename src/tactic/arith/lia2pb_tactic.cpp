@@ -228,7 +228,7 @@ class lia2pb_tactic : public tactic {
             unsigned num_converted = 0;
             expr_substitution subst(m, m_produce_unsat_cores, false);
             rational u;
-            ptr_buffer<expr> def_args;
+            buffer<expr*> def_args;
             for (expr * x : m_bm) {
                 if (is_target_core(x, u) && u > rational(1)) {
                     num_converted++;

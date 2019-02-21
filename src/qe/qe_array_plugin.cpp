@@ -166,7 +166,7 @@ namespace qe {
 
                 unsigned num_args = args[0].size();
                 B = m.mk_fresh_const("B", m.get_sort(A));
-                ptr_buffer<expr> args2;
+                buffer<expr*> args2;
                 args2.push_back(B);
                 for (unsigned i = 0; i < num_args; ++i) {
                     args2.push_back(args[0][i]);

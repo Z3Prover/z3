@@ -84,7 +84,7 @@ class skolemizer {
         uv(q);
         SASSERT(is_well_sorted(m, q));
         unsigned sz = uv.get_max_found_var_idx_plus_1();
-        ptr_buffer<sort> sorts;
+        buffer<sort*> sorts;
         expr_ref_vector args(m);
         for (unsigned i = 0; i < sz; i++) {
             sort * s = uv.get(i);
@@ -790,7 +790,7 @@ struct nnf::imp {
             expr * new_expr     = m_result_stack.back();
             proof * new_expr_pr = proofs_enabled() ? m_result_pr_stack.back() : nullptr;
 
-            ptr_buffer<expr> new_patterns;
+            buffer<expr*> new_patterns;
 
             if (is_forall(q) == fr.m_pol) {
                 // collect non sk_hack patterns

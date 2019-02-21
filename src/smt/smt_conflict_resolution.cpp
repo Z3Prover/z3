@@ -831,7 +831,7 @@ namespace smt {
                 enode * c1_2 = n1->get_arg(1);
                 enode * c2_1 = n2->get_arg(0);
                 enode * c2_2 = n2->get_arg(1);
-                ptr_buffer<proof> prs;
+                buffer<proof*> prs;
                 if (c1_1 != c2_2) {
                     proof * pr = get_proof(c1_1, c2_2);
                     prs.push_back(pr);
@@ -865,7 +865,7 @@ namespace smt {
             }
             else {
                 bool visited = true;
-                ptr_buffer<proof> prs;
+                buffer<proof*> prs;
                 for (unsigned i = 0; i < num_args; i++) {
                     enode * c1 = n1->get_arg(i);
                     enode * c2 = n2->get_arg(i);
@@ -944,7 +944,7 @@ namespace smt {
                 justification * js = cls->get_justification();
                 SASSERT(js);
                 proof * pr         = get_proof(js);
-                ptr_buffer<proof> prs;
+                buffer<proof*> prs;
                 bool visited       = pr != nullptr;
                 TRACE("get_proof_bug", if (pr != 0) tout << js->get_name() << "\n";);
                 CTRACE("get_proof_bug_after", invocation_counter >= DUMP_AFTER_NUM_INVOCATIONS, if (pr != 0) tout << js->get_name() << "\n";);
@@ -1173,7 +1173,7 @@ namespace smt {
        trans proof branch, then build a proof object for each equality
        in the sequence, and insert them into result.
     */
-    void conflict_resolution::mk_proof(enode * lhs, enode * rhs, ptr_buffer<proof> & result) {
+    void conflict_resolution::mk_proof(enode * lhs, enode * rhs, buffer<proof*> & result) {
         SASSERT(lhs->trans_reaches(rhs));
         while (lhs != rhs) {
             eq_justification js = lhs->m_trans.m_justification;
@@ -1189,9 +1189,9 @@ namespace smt {
     void conflict_resolution::mk_proof(enode * lhs, enode * rhs) {
         SASSERT(!m_eq2proof.contains(lhs, rhs));
         enode * c = find_common_ancestor(lhs, rhs);
-        ptr_buffer<proof> prs1;
+        buffer<proof*> prs1;
         mk_proof(lhs, c, prs1);
-        ptr_buffer<proof> prs2;
+        buffer<proof*> prs2;
         mk_proof(rhs, c, prs2);
         while (!prs2.empty()) {
             proof * pr = prs2.back();

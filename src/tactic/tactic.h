@@ -29,7 +29,7 @@ Notes:
 
 class progress_callback;
 
-typedef ptr_buffer<goal> goal_buffer;
+typedef buffer<goal*> goal_buffer;
 
 class tactic {
     unsigned m_ref_count;

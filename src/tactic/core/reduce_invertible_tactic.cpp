@@ -102,7 +102,7 @@ private:
 
     expr_mark        m_inverted;
     void mark_inverted(expr *p) {
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(p);
         while (!todo.empty()) {
             p = todo.back();
@@ -437,7 +437,7 @@ private:
             if (is_lambda(old_q)) return false;
             if (has_quantifiers(new_body)) return false;
             ref_buffer<var, ast_manager> vars(m);
-            ptr_buffer<sort> new_sorts;
+            buffer<sort*> new_sorts;
             unsigned n = old_q->get_num_decls();
             for (unsigned i = 0; i < n; ++i) {
                 sort* srt = old_q->get_decl_sort(i);

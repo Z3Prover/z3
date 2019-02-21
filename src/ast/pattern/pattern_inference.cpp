@@ -206,7 +206,7 @@ void pattern_inference_cfg::collect::save_candidate(expr * n, unsigned delta) {
             return;
         }
 
-        ptr_buffer<expr> buffer;
+        buffer<expr*> buffer;
         bool changed   = false; // false if none of the children is mapped to a node different from itself.
         uint_set free_vars;
         unsigned size  = 1;

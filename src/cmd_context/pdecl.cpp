@@ -505,7 +505,7 @@ bool pconstructor_decl::fix_missing_refs(dictionary<int> const & symbol2idx, sym
 }
 
 constructor_decl * pconstructor_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
-    ptr_buffer<accessor_decl> as;
+    buffer<accessor_decl*> as;
     for (paccessor_decl* a : m_accessors) 
         as.push_back(a->instantiate_decl(m, s));
     return mk_constructor_decl(m_name, m_recogniser_name, as.size(), as.c_ptr());
@@ -565,7 +565,7 @@ bool pdatatype_decl::fix_missing_refs(dictionary<int> const & symbol2idx, symbol
 }
 
 datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, sort * const * s) {
-    ptr_buffer<constructor_decl> cs;
+    buffer<constructor_decl*> cs;
     for (auto c : m_constructors) {
         cs.push_back(c->instantiate_decl(m, s));
     }
@@ -574,7 +574,7 @@ datatype_decl * pdatatype_decl::instantiate_decl(pdecl_manager & m, sort * const
 }
 
 struct datatype_decl_buffer {
-    ptr_buffer<datatype_decl> m_buffer;
+    buffer<datatype_decl*> m_buffer;
     ~datatype_decl_buffer() { del_datatype_decls(m_buffer.size(), m_buffer.c_ptr()); }
 };
 
@@ -781,7 +781,7 @@ struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
             return mk_string(m.m(), m_decl->get_name().str().c_str());
         }
         else {
-            ptr_buffer<format> b;
+            buffer<format*> b;
             for (auto arg : m_args)
                 b.push_back(m.pp(arg));
             return mk_seq1(m.m(), b.begin(), b.end(), f2f(), m_decl->get_name().str().c_str());
@@ -819,7 +819,7 @@ struct pdecl_manager::indexed_sort_info : public pdecl_manager::sort_info {
             return mk_string(m.m(), m_decl->get_name().str().c_str());
         }
         else {
-            ptr_buffer<format> b;
+            buffer<format*> b;
             b.push_back(mk_string(m.m(), m_decl->get_name().str().c_str()));
             for (auto idx : m_indices)
                 b.push_back(mk_unsigned(m.m(), idx));
@@ -1045,7 +1045,7 @@ format * pdecl_manager::pp(sort * s) const {
         }
         if (i == num_params) {
             // all parameters are integer
-            ptr_buffer<format> b;
+            buffer<format*> b;
             b.push_back(mk_string(m(), s->get_name().str().c_str()));
             for (unsigned i = 0; i < num_params; i++)
                 b.push_back(mk_unsigned(m(), s->get_parameter(i).get_int()));

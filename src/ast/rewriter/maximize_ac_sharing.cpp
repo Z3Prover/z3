@@ -34,7 +34,7 @@ br_status maximize_ac_sharing::reduce_app(func_decl * f, unsigned num_args, expr
         return BR_FAILED;
     if (std::find(m_kinds.begin(), m_kinds.end(), k) == m_kinds.end())
         return BR_FAILED;
-    ptr_buffer<expr, 128> _args;
+    buffer<expr*, 128> _args;
     expr * numeral = nullptr;
     if (is_numeral(args[0])) {
         numeral = args[0];

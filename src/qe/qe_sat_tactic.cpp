@@ -150,7 +150,7 @@ namespace qe {
             
             // callback to add constraints in branch.
             void add_constraint(bool use_var, expr* l1 = nullptr, expr* l2 = nullptr, expr* l3 = nullptr) override {
-                ptr_buffer<expr> args;
+                buffer<expr*> args;
                 if (l1) args.push_back(l1);
                 if (l2) args.push_back(l2);
                 if (l3) args.push_back(l3);

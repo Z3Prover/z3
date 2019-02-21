@@ -71,10 +71,10 @@ namespace smt {
        - (f b)
        - (h (+ c d))
     */
-    static void get_foreign_descendants(app * n, family_id fid, ptr_buffer<expr> & descendants) {
+    static void get_foreign_descendants(app * n, family_id fid, buffer<expr*> & descendants) {
         SASSERT(n->get_family_id() == fid);
         SASSERT(fid != null_family_id);
-        ptr_buffer<expr> todo;
+        buffer<expr*> todo;
         todo.push_back(n);
         ast_mark visited;
         while (!todo.empty()) {
@@ -124,10 +124,10 @@ namespace smt {
         theory * th   = m_theories.get_plugin(fid);
         bool def_int  = th == nullptr || th->default_internalizer();
         if (!def_int) {
-            ptr_buffer<expr> descendants;
+            buffer<expr*> descendants;
             get_foreign_descendants(to_app(n), fid, descendants);
-            ptr_buffer<expr>::iterator it  = descendants.begin();
-            ptr_buffer<expr>::iterator end = descendants.end();
+            buffer<expr*>::iterator it  = descendants.begin();
+            buffer<expr*>::iterator end = descendants.end();
             for (; it != end; ++it) {
                 expr * arg = *it;
                 ts_visit_child(arg, false, tcolors, fcolors, todo, visited);
@@ -1472,7 +1472,7 @@ namespace smt {
     }
 
     proof * context::mk_clause_def_axiom(unsigned num_lits, literal * lits, expr * root_gate) {
-        ptr_buffer<expr> new_lits;
+        buffer<expr*> new_lits;
         for (unsigned i = 0; i < num_lits; i++) {
             literal l      = lits[i];
             bool_var v     = l.var();

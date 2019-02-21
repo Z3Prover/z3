@@ -320,7 +320,7 @@ expr * func_interp::get_interp_core() const {
     if (m_else == nullptr)
         return nullptr;
     expr * r = m_else;
-    ptr_buffer<expr> vars;
+    buffer<expr*> vars;
     for (func_entry * curr : m_entries) {
         if (m_else == curr->get_result()) {
             continue;
@@ -330,7 +330,7 @@ expr * func_interp::get_interp_core() const {
                 vars.push_back(m_manager.mk_var(i, m_manager.get_sort(curr->get_arg(i))));
             }
         }
-        ptr_buffer<expr> eqs;
+        buffer<expr*> eqs;
         for (unsigned i = 0; i < m_arity; i++) {
             eqs.push_back(m_manager.mk_eq(vars[i], curr->get_arg(i)));
         }
@@ -365,7 +365,7 @@ func_interp * func_interp::translate(ast_translation & translator) const {
     func_interp * new_fi = alloc(func_interp, translator.to(), m_arity);
 
     for (func_entry * curr : m_entries) {
-        ptr_buffer<expr> new_args;
+        buffer<expr*> new_args;
         for (unsigned i = 0; i < m_arity; i++)
             new_args.push_back(translator(curr->get_arg(i)));
         new_fi->insert_new_entry(new_args.c_ptr(), translator(curr->get_result()));

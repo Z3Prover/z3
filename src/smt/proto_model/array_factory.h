@@ -27,7 +27,7 @@ func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s);
 
 class array_factory : public struct_factory {
     expr * mk_array_interp(sort * s, func_interp * & fi);
-    void get_some_args_for(sort * s, ptr_buffer<expr> & args);
+    void get_some_args_for(sort * s, buffer<expr*> & args);
     bool mk_two_diff_values_for(sort * s);
 public:
     array_factory(ast_manager & m, proto_model & md);

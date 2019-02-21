@@ -305,7 +305,7 @@ class solve_eqs_tactic : public tactic {
                 rhs   = m_a_util.mk_mul(inv_a, rhs);
             }
             
-            ptr_buffer<expr> other_args;
+            buffer<expr*> other_args;
             for (unsigned j = 0; j < num; j++) {
                 if (i != j) {
                     if (inv_a)
@@ -871,7 +871,7 @@ class solve_eqs_tactic : public tactic {
         }
         
         void collect_num_occs(expr * t, expr_fast_mark1 & visited) {
-            ptr_buffer<expr, 128> stack;
+            buffer<expr*, 128> stack;
             
 #define VISIT(ARG) {                                                                                            \
             if (is_uninterp_const(ARG)) {                                                                       \

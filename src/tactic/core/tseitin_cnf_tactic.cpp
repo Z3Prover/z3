@@ -759,7 +759,7 @@ class tseitin_cnf_tactic : public tactic {
                 }
                 SASSERT(offsets.size() == num);
                 buffer<expr**> arg_lits;
-                ptr_buffer<expr> lits;
+                buffer<expr*> lits;
                 expr ** buffer_ptr = expr_buffer.c_ptr();
                 for (unsigned i = 0; i < num; i++) {
                     arg_lits.push_back(buffer_ptr + offsets[i]);

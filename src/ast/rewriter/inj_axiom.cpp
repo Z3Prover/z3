@@ -80,8 +80,8 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     // Building new (optimized) axiom
                     func_decl * decl      = f1->get_decl();
                     unsigned var_idx      = 0;
-                    ptr_buffer<expr> f_args, inv_vars;
-                    ptr_buffer<sort> decls;
+                    buffer<expr*> f_args, inv_vars;
+                    buffer<sort*> decls;
                     buffer<symbol>   names;
                     
                     expr * var            = nullptr;

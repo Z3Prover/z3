@@ -453,7 +453,7 @@ namespace smt {
               tout << mk_bounded_pp(sl->get_owner(), get_manager()) << "\n";);
         unsigned num_args   = select->get_num_args();
         unsigned num_arrays = map->get_num_args();
-        ptr_buffer<expr>       args1, args2;
+        buffer<expr*>       args1, args2;
         vector<ptr_vector<expr> > args2l;
         args1.push_back(map);
         for (unsigned j = 0; j < num_arrays; ++j) {
@@ -508,7 +508,7 @@ namespace smt {
 
         func_decl* f = to_func_decl(map->get_decl()->get_parameter(0).get_ast());
         SASSERT(map->get_num_args() == f->get_arity());
-        ptr_buffer<expr> args2;
+        buffer<expr*> args2;
         for (unsigned i = 0; i < map->get_num_args(); ++i) {
             args2.push_back(mk_default(map->get_arg(i)));
         }
@@ -599,7 +599,7 @@ namespace smt {
         }
 
         m_stats.m_num_select_const_axiom++;   
-        ptr_buffer<expr> sel_args;
+        buffer<expr*> sel_args;
         sel_args.push_back(cnst->get_owner());
         for (unsigned short i = 1; i < num_args; ++i) {
             sel_args.push_back(select->get_owner()->get_arg(i));
@@ -634,7 +634,7 @@ namespace smt {
         }
 
         m_stats.m_num_select_as_array_axiom++;   
-        ptr_buffer<expr> sel_args;
+        buffer<expr*> sel_args;
         sel_args.push_back(arr->get_owner());
         for (unsigned short i = 1; i < num_args; ++i) {
             sel_args.push_back(select->get_owner()->get_arg(i));

@@ -84,7 +84,7 @@ protected:
     template<typename T2>
     T * translate_core(ast_translation & translator) {
         T * t1 = m_c1 ? m_c1->translate(translator) : nullptr;
-        ptr_buffer<T> t2s;
+        buffer<T*> t2s;
         for (T* c : m_c2s)
             t2s.push_back(c ? c->translate(translator) : nullptr);
         return alloc(T2, t1, m_c2s.size(), t2s.c_ptr(), m_szs.c_ptr());

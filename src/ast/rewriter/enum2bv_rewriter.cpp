@@ -150,7 +150,7 @@ struct enum2bv_rewriter::imp {
             return true;
         }
 
-        ptr_buffer<sort> m_sorts;
+        buffer<sort*> m_sorts;
 
         bool reduce_quantifier(
             quantifier * q,

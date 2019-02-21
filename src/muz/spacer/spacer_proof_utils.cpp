@@ -207,7 +207,7 @@ namespace spacer {
         m_pinned.clear();
     }
 
-    static proof_ref  mk_th_lemma(ast_manager &m, ptr_buffer<proof> const &parents,
+    static proof_ref  mk_th_lemma(ast_manager &m, buffer<proof*> const &parents,
                                   unsigned num_params, parameter const *params) {
         buffer<parameter> v;
         for (unsigned i = 1; i < num_params; ++i)
@@ -281,7 +281,7 @@ namespace spacer {
     // convert assign-bounds lemma to a farkas lemma by adding missing coeff
     // assume that missing coeff is for premise at position 0
     static proof_ref mk_fk_from_ab(ast_manager &m,
-                                   ptr_buffer<proof> const &parents,
+                                   buffer<proof*> const &parents,
                                    unsigned num_params,
                                    parameter const *params) {
         SASSERT(num_params == parents.size() + 1 /* one param is missing */);
@@ -368,7 +368,7 @@ namespace spacer {
                 // (c) a lemma.
                 // Furthermore update data-structures
                 app *fact = to_app(m.get_fact(p));
-                ptr_buffer<expr> cls;
+                buffer<expr*> cls;
                 if (m.is_or(fact)) {
                     for (unsigned i = 0, sz = fact->get_num_args(); i < sz; ++i)
                         cls.push_back(fact->get_arg(i));
@@ -377,7 +377,7 @@ namespace spacer {
                     cls.push_back(fact);
 
                 // (a) create hypothesis
-                ptr_buffer<proof> hyps;
+                buffer<proof*> hyps;
                 for (unsigned i = 0, sz = cls.size(); i < sz; ++i) {
                     expr *c;
                     expr_ref hyp_fact(m);
@@ -422,7 +422,7 @@ namespace spacer {
                 // has been transformed
                 bool dirty = false;
 
-                ptr_buffer<expr> args;
+                buffer<expr*> args;
                 for (unsigned i = 0, sz = m.get_num_parents(p); i < sz; ++i) {
                     proof *pp, *tmp;
                     pp = m.get_parent(p, i);
@@ -489,7 +489,7 @@ namespace spacer {
     }
 
     void hypothesis_reducer::compute_hypsets(proof *pr) {
-        ptr_buffer<proof> todo;
+        buffer<proof*> todo;
         todo.push_back(pr);
 
         while (!todo.empty()) {
@@ -604,7 +604,7 @@ namespace spacer {
 
         ptr_vector<proof> todo;
         todo.push_back(pf);
-        ptr_buffer<proof> args;
+        buffer<proof*> args;
         bool dirty = false;
 
         while (true) {
@@ -736,7 +736,7 @@ namespace spacer {
     }
 
     proof* hypothesis_reducer::mk_unit_resolution_core(proof *ures,
-                                                       ptr_buffer<proof>& args) {
+                                                       buffer<proof*>& args) {
         // if any literal is false, we don't need a unit resolution step
         // This can be the case due to some previous transformations
         for (unsigned i = 1, sz = args.size(); i < sz; ++i) {
@@ -751,12 +751,12 @@ namespace spacer {
         app *fact0 = to_app(m.get_fact(arg0));
 
 
-        ptr_buffer<proof> pf_args;
-        ptr_buffer<expr> pf_fact;
+        buffer<proof*> pf_args;
+        buffer<expr*> pf_fact;
         pf_args.push_back(arg0);
 
         // compute literals to be resolved
-        ptr_buffer<expr> lits;
+        buffer<expr*> lits;
 
         // fact0 is a literal whenever the original resolution was a
         // binary resolution to an empty clause
@@ -815,7 +815,7 @@ namespace spacer {
         return res;
     }
 
-    proof* hypothesis_reducer::mk_proof_core(proof* old, ptr_buffer<proof>& args) {
+    proof* hypothesis_reducer::mk_proof_core(proof* old, buffer<proof*>& args) {
         // if any of the literals are false, we don't need a step
         for (unsigned i = 0; i < args.size(); ++i) {
             if (m.is_false(m.get_fact(args[i]))) {

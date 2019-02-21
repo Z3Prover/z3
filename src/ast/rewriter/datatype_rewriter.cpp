@@ -77,7 +77,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
         SASSERT(acc.size() == a->get_num_args());
         unsigned num = acc.size();
-        ptr_buffer<expr> new_args;
+        buffer<expr*> new_args;
         for (unsigned i = 0; i < num; ++i) {
             
             if (f == acc[i]) {
@@ -130,7 +130,7 @@ br_status datatype_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & resul
     //  (= (cons a2 (cons a3 (cons (+ a4 1) (cons (+ a5 c5) (cons a6 nil))))))
     //     (cons b2 (cons b3 (cons b4 (cons b5 (cons b6 nil))))))
 
-    ptr_buffer<expr> eqs;
+    buffer<expr*> eqs;
     unsigned num = to_app(lhs)->get_num_args();
     SASSERT(num == to_app(rhs)->get_num_args());
     for (unsigned i = 0; i < num; ++i) {            

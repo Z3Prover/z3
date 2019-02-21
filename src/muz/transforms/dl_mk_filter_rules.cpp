@@ -115,7 +115,7 @@ namespace datalog {
                 TRACE("mk_filter_rules", tout << "is_candidate: " << mk_pp(tail, m) << "\n";);
                 var_idx_set non_local_vars = rm.collect_rule_vars_ex(r, tail);
                 func_decl * filter_decl = mk_filter_decl(tail, non_local_vars);
-                ptr_buffer<expr> new_args;
+                buffer<expr*> new_args;
                 var_idx_set used_vars;
                 unsigned num_args = tail->get_num_args(); 
                 for (unsigned i = 0; i < num_args; i++) {

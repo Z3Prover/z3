@@ -404,7 +404,7 @@ namespace smt {
                 m_model->register_decl(f, get_value(n));
             }
             else if (num_args > 0 && n->get_cg() == n && include_func_interp(f)) {
-                ptr_buffer<expr> args;
+                buffer<expr*> args;
                 expr * result = get_value(n);
                 SASSERT(result);
                 for (unsigned j = 0; j < num_args; j++) {
