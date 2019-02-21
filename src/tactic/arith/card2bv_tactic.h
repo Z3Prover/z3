@@ -35,7 +35,7 @@ namespace pb {
     class card2bv_rewriter {
     public:
         typedef expr* pliteral;
-        typedef ptr_vector<expr> pliteral_vector;
+        typedef vector<expr*> pliteral_vector;
     private:
         ast_manager& m;
         arith_util   au;

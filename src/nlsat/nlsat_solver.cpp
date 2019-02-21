@@ -65,7 +65,7 @@ namespace nlsat {
         
 
         typedef polynomial::cache cache;
-        typedef ptr_vector<interval_set> interval_set_vector;
+        typedef vector<interval_set*> interval_set_vector;
 
         reslimit&              m_rlimit;
         small_object_allocator m_allocator;
@@ -652,7 +652,7 @@ namespace nlsat {
             del_clause(cls);
         }
 
-        void del_clauses(ptr_vector<clause> & cs) {
+        void del_clauses(vector<clause*> & cs) {
             for (clause* cp : cs) 
                 del_clause(cp);
         }

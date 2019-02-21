@@ -641,7 +641,7 @@ void interval::display(std::ostream & out) const {
 }
 
 void interval::display_with_dependencies(std::ostream & out) const {
-    ptr_vector<void> vs;
+    vector<void*> vs;
     m_manager.linearize(m_lower_dep, vs);
     m_manager.linearize(m_upper_dep, vs);
     out << "[";

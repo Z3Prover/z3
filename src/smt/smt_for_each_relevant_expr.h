@@ -52,7 +52,7 @@ namespace smt {
         ast_manager &       m_manager;
         context &           m_context;
         obj_hashtable<expr> m_cache;
-        ptr_vector<expr>    m_todo;
+        vector<expr*>    m_todo;
         bool                m_first;
 
         void process_app(app * n);

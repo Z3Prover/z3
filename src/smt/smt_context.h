@@ -102,7 +102,7 @@ namespace smt {
         // uninterpreted function.
         expr_ref_vector             m_e_internalized_stack; // stack of the expressions already internalized as enodes.
 
-        ptr_vector<justification>   m_justifications;
+        vector<justification*>   m_justifications;
 
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
@@ -116,9 +116,9 @@ namespace smt {
         enode *                     m_true_enode;
         enode *                     m_false_enode;
         app2enode_t                 m_app2enode;    // app -> enode
-        ptr_vector<enode>           m_enodes;
+        vector<enode*>           m_enodes;
         plugin_manager<theory>      m_theories;     // mapping from theory_id -> theory
-        ptr_vector<theory>          m_theory_set;   // set of theories for fast traversal
+        vector<theory*>          m_theory_set;   // set of theories for fast traversal
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
@@ -149,7 +149,7 @@ namespace smt {
         enode *                     m_is_diseq_tmp; // auxiliary enode used to find congruent equality atoms.
 
         tmp_enode                   m_tmp_enode;
-        ptr_vector<almost_cg_table> m_almost_cg_tables; // temporary field for is_ext_diseq
+        vector<almost_cg_table*> m_almost_cg_tables; // temporary field for is_ext_diseq
 
         // -----------------------------------
         //
@@ -161,7 +161,7 @@ namespace smt {
 #else
         u_map<bool_var>             m_expr2bool_var;
 #endif
-        ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
+        vector<expr*>            m_bool_var2expr;         // bool_var -> expr
         vector<signed char>          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
         vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
@@ -471,13 +471,13 @@ namespace smt {
             return m_theories.get_plugin(th_id);
         }
         
-        ptr_vector<theory> const& theories() const { return m_theories.plugins(); }
+        vector<theory*> const& theories() const { return m_theories.plugins(); }
 
-        ptr_vector<theory>::const_iterator begin_theories() const {
+        vector<theory*>::const_iterator begin_theories() const {
             return m_theories.begin();
         }
 
-        ptr_vector<theory>::const_iterator end_theories() const {
+        vector<theory*>::const_iterator end_theories() const {
             return m_theories.end();
         }
 
@@ -548,13 +548,13 @@ namespace smt {
             return id < m_decl2enodes.size() ? m_decl2enodes[id].end() : nullptr;
         }
 
-        ptr_vector<enode> const& enodes() const { return m_enodes; }
+        vector<enode*> const& enodes() const { return m_enodes; }
 
-        ptr_vector<enode>::const_iterator begin_enodes() const {
+        vector<enode*>::const_iterator begin_enodes() const {
             return m_enodes.begin();
         }
 
-        ptr_vector<enode>::const_iterator end_enodes() const {
+        vector<enode*>::const_iterator end_enodes() const {
             return m_enodes.end();
         }
 
@@ -593,7 +593,7 @@ namespace smt {
         //
         // -----------------------------------
     protected:
-        typedef ptr_vector<trail<context> >   trail_stack;
+        typedef vector<trail<context>*>   trail_stack;
         trail_stack                           m_trail_stack;
 #ifdef Z3DEBUG
         bool                                  m_trail_enabled;
@@ -651,7 +651,7 @@ namespace smt {
 
         void del_clauses(clause_vector & v, unsigned old_size);
 
-        void del_justifications(ptr_vector<justification> & justifications, unsigned old_lim);
+        void del_justifications(vector<justification*> & justifications, unsigned old_lim);
 
         bool is_unit_clause(clause const * c) const;
 
@@ -921,7 +921,7 @@ namespace smt {
     protected:
         lbool              m_last_search_result;
         failure            m_last_search_failure;
-        ptr_vector<theory> m_incomplete_theories; //!< theories that failed to produce a model
+        vector<theory*> m_incomplete_theories; //!< theories that failed to produce a model
         bool               m_searching;
         bool               m_propagating;
         unsigned           m_num_conflicts;
@@ -1319,7 +1319,7 @@ namespace smt {
 
         void display_clause(std::ostream & out, clause const * cls) const;
 
-        void display_clauses(std::ostream & out, ptr_vector<clause> const & v) const;
+        void display_clauses(std::ostream & out, vector<clause*> const & v) const;
 
         void display_binary_clauses(std::ostream & out) const;
 
@@ -1587,7 +1587,7 @@ namespace smt {
             return m_unsat_core.get(idx);
         }
 
-        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth);
+        void get_levels(vector<expr*> const& vars, vector<unsigned>& depth);
 
         expr_ref_vector get_trail();
 
@@ -1607,11 +1607,11 @@ namespace smt {
 
         proof * get_asserted_formula_proof(unsigned idx) const { return m_asserted_formulas.get_formula_proof(idx); }
 
-        void get_asserted_formulas(ptr_vector<expr>& r) const { m_asserted_formulas.get_assertions(r); }
+        void get_asserted_formulas(vector<expr*>& r) const { m_asserted_formulas.get_assertions(r); }
 
         //proof * const * get_asserted_formula_proofs() const { return m_asserted_formulas.get_formula_proofs(); }
 
-        void get_assertions(ptr_vector<expr> & result) { m_asserted_formulas.get_assertions(result); }
+        void get_assertions(vector<expr*> & result) { m_asserted_formulas.get_assertions(result); }
 
         void display(std::ostream & out) const;
 

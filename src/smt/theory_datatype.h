@@ -31,7 +31,7 @@ namespace smt {
         typedef union_find<theory_datatype>  th_union_find;
 
         struct var_data {
-            ptr_vector<enode> m_recognizers; //!< recognizers of this equivalence class that are being watched.
+            vector<enode*> m_recognizers; //!< recognizers of this equivalence class that are being watched.
             enode *           m_constructor; //!< constructor of this equivalence class, 0 if there is no constructor in the eqc.
             var_data():
                 m_constructor(nullptr) {
@@ -48,7 +48,7 @@ namespace smt {
         
         theory_datatype_params &  m_params;
         datatype_util             m_util;
-        ptr_vector<var_data>      m_var_data;
+        vector<var_data*>      m_var_data;
         th_union_find             m_find;
         th_trail_stack            m_trail_stack;
         datatype_factory *        m_factory;
@@ -76,8 +76,8 @@ namespace smt {
         typedef obj_map<enode, enode*> parent_tbl;
         typedef std::pair<stack_op, enode*> stack_entry;
 
-        ptr_vector<enode>     m_to_unmark;
-        ptr_vector<enode>     m_to_unmark2;
+        vector<enode*>     m_to_unmark;
+        vector<enode*>     m_to_unmark2;
         enode_pair_vector     m_used_eqs; // conflict, if any
         parent_tbl            m_parent; // parent explanation for occurs_check
         vector<stack_entry>  m_stack; // stack for DFS for occurs_check

@@ -196,7 +196,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
         m_keypos = m_keys.size();
     }
 
-    void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits, vector<func_decl*> & newbits) {
         for (unsigned i = m_keypos; i < m_keys.size(); ++i) {
             const2bits.insert(m_keys[i].get(), m_values[i].get());
         }
@@ -678,7 +678,7 @@ struct bit_blaster_rewriter::imp : public rewriter_tpl<blaster_rewriter_cfg> {
     void push() { m_cfg.push(); }
     void pop(unsigned s) { m_cfg.pop(s); }
     void start_rewrite() { m_cfg.start_rewrite(); }
-    void end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) { m_cfg.end_rewrite(const2bits, newbits); }
+    void end_rewrite(obj_map<func_decl, expr*>& const2bits, vector<func_decl*> & newbits) { m_cfg.end_rewrite(const2bits, newbits); }
     unsigned get_num_scopes() const { return m_cfg.get_num_scopes(); }
 };
 
@@ -731,6 +731,6 @@ void bit_blaster_rewriter::start_rewrite() {
     m_imp->start_rewrite();
 }
 
-void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits, ptr_vector<func_decl> & newbits) {
+void bit_blaster_rewriter::end_rewrite(obj_map<func_decl, expr*>& const2bits, vector<func_decl*> & newbits) {
     m_imp->end_rewrite(const2bits, newbits);
 }

@@ -85,10 +85,10 @@ namespace qe {
         unsigned m_interpreted:1;
 
         // -- terms that contain this term as a child
-        ptr_vector<term> m_parents;
+        vector<term*> m_parents;
 
         // arguments of term.
-        ptr_vector<term> m_children;
+        vector<term*> m_children;
 
     public:
         term(expr_ref const& v, u_map<term*>& app2term) :
@@ -114,8 +114,8 @@ namespace qe {
         public:
             parents(term const& _t):t(_t) {}
             parents(term const* _t):t(*_t) {}
-            ptr_vector<term>::const_iterator begin() const { return t.m_parents.begin(); }
-            ptr_vector<term>::const_iterator end() const { return t.m_parents.end(); }
+            vector<term*>::const_iterator begin() const { return t.m_parents.begin(); }
+            vector<term*>::const_iterator end() const { return t.m_parents.end(); }
         };
 
         class children {
@@ -123,8 +123,8 @@ namespace qe {
         public:
             children(term const& _t):t(_t) {}
             children(term const* _t):t(*_t) {}
-            ptr_vector<term>::const_iterator begin() const { return t.m_children.begin(); }
-            ptr_vector<term>::const_iterator end() const { return t.m_children.end(); }
+            vector<term*>::const_iterator begin() const { return t.m_children.begin(); }
+            vector<term*>::const_iterator end() const { return t.m_children.end(); }
         };        
 
         // Congruence table hash function is based on
@@ -629,7 +629,7 @@ namespace qe {
             //   (walk disequalities in m_lits and represent
             //   lhs/rhs over decls or excluding decls)
 
-            ptr_vector<term> worklist;
+            vector<term*> worklist;
             for (term * t : m_tg.m_terms) {
                 worklist.push_back(t);
                 t->set_mark(true);
@@ -678,7 +678,7 @@ namespace qe {
         }
 
         void solve_core() {
-            ptr_vector<term> worklist;
+            vector<term*> worklist;
             for (term * t : m_tg.m_terms) {
                 // skip pure terms
                 if (m_term2app.contains(t->get_id())) continue;
@@ -774,8 +774,8 @@ namespace qe {
             TRACE("qe", tout << "literals: " << res << "\n";);            
         }
 
-        vector<ptr_vector<term>> m_decl2terms; // terms that use function f
-        ptr_vector<func_decl>    m_decls;
+        vector<vector<term*>> m_decl2terms; // terms that use function f
+        vector<func_decl*>    m_decls;
         
         void collect_decl2terms() {
             // Collect the projected function symbols.
@@ -804,7 +804,7 @@ namespace qe {
             //
             for (func_decl* d : m_decls) {
                 unsigned id = d->get_decl_id();
-                ptr_vector<term> const& terms = m_decl2terms[id];
+                vector<term*> const& terms = m_decl2terms[id];
                 if (terms.size() <= 1) continue;
                 unsigned arity = d->get_arity();
                 for (unsigned i = 0; i < arity; ++i) {

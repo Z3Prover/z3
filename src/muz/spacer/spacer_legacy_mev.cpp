@@ -84,7 +84,7 @@ void model_evaluator::reset()
 }
 
 
-void model_evaluator::minimize_literals(ptr_vector<expr> const& formulas,
+void model_evaluator::minimize_literals(vector<expr*> const& formulas,
                                         const model_ref& mdl, expr_ref_vector& result)
 {
 
@@ -94,7 +94,7 @@ void model_evaluator::minimize_literals(ptr_vector<expr> const& formulas,
          );
 
     expr_ref tmp(m);
-    ptr_vector<expr> tocollect;
+    vector<expr*> tocollect;
 
     setup_model(mdl);
     collect(formulas, tocollect);
@@ -124,7 +124,7 @@ void model_evaluator::minimize_literals(ptr_vector<expr> const& formulas,
          );
 }
 
-void model_evaluator::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect)
+void model_evaluator::process_formula(app* e, vector<expr*>& todo, vector<expr*>& tocollect)
 {
     SASSERT(m.is_bool(e));
     SASSERT(is_true(e) || is_false(e));
@@ -218,9 +218,9 @@ void model_evaluator::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector
     }
 }
 
-void model_evaluator::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect)
+void model_evaluator::collect(vector<expr*> const& formulas, vector<expr*>& tocollect)
 {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.append(formulas);
     m_visited.reset();
 
@@ -696,9 +696,9 @@ void model_evaluator::eval_basic(app* e)
     }
 }
 
-void model_evaluator::eval_fmls(ptr_vector<expr> const& formulas)
+void model_evaluator::eval_fmls(vector<expr*> const& formulas)
 {
-    ptr_vector<expr> todo(formulas);
+    vector<expr*> todo(formulas);
 
     while (!todo.empty()) {
         expr * curr_e = todo.back();
@@ -739,7 +739,7 @@ void model_evaluator::eval_fmls(ptr_vector<expr> const& formulas)
     }
 }
 
-bool model_evaluator::check_model(ptr_vector<expr> const& formulas)
+bool model_evaluator::check_model(vector<expr*> const& formulas)
 {
     eval_fmls(formulas);
     bool has_x = false;
@@ -767,7 +767,7 @@ expr_ref model_evaluator::eval_heavy(const model_ref& model, expr* fml)
     expr_ref result(model->get_manager());
 
     setup_model(model);
-    ptr_vector<expr> fmls;
+    vector<expr*> fmls;
     fmls.push_back(fml);
     eval_fmls(fmls);
     if (is_false(fml)) {

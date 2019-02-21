@@ -48,7 +48,7 @@ namespace smt {
     // #define SPARSE_MAP
 
 #ifndef SPARSE_MAP
-    typedef ptr_vector<enode> app2enode_t;    // app -> enode
+    typedef vector<enode*> app2enode_t;    // app -> enode
 #else
     class app2enode_t : public u_map<enode *> {
     public:

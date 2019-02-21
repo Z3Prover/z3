@@ -112,7 +112,7 @@ void bvsls_opt_engine::setup_opt_tracker(expr_ref const & objective, bool _max)
 
     m_obj_e = obj.get();
     m_obj_bv_sz = m_bv_util.get_bv_size(m_obj_e);
-    ptr_vector<expr> objs;
+    vector<expr*> objs;
     objs.push_back(m_obj_e);
     m_obj_tracker.initialize(objs);    
 }
@@ -125,7 +125,7 @@ expr_ref bvsls_opt_engine::maximize()
 
     mpz score, old_score, max_score, new_value;
     unsigned new_const = (unsigned)-1, new_bit = 0;
-    ptr_vector<func_decl> consts = m_obj_tracker.get_constants();
+    vector<func_decl*> consts = m_obj_tracker.get_constants();
     move_type move;
     m_mpz_manager.set(score, top_score());
     m_mpz_manager.set(max_score, m_powers(m_obj_bv_sz)); m_mpz_manager.dec(max_score);
@@ -237,7 +237,7 @@ bool bvsls_opt_engine::what_if(
 }
 
 mpz bvsls_opt_engine::find_best_move(
-    ptr_vector<func_decl> & to_evaluate,
+    vector<func_decl*> & to_evaluate,
     mpz & score,
     unsigned & best_const,
     mpz & best_value,
@@ -333,7 +333,7 @@ mpz bvsls_opt_engine::find_best_move(
 }
 
 bool bvsls_opt_engine::randomize_wrt_hard() {
-    ptr_vector<func_decl> consts = m_obj_tracker.get_constants();
+    vector<func_decl*> consts = m_obj_tracker.get_constants();
     unsigned csz = consts.size();
     unsigned retry_count = csz;
 

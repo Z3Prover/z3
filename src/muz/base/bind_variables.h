@@ -31,10 +31,10 @@ class bind_variables {
     obj_map<expr, expr*>   m_cache;
     var2bound              m_var2bound;
     expr_ref_vector        m_pinned;
-    ptr_vector<sort>       m_bound;
+    vector<sort*>       m_bound;
     vector<symbol>        m_names;
-    ptr_vector<expr>       m_todo;
-    ptr_vector<expr>       m_args;
+    vector<expr*>       m_todo;
+    vector<expr*>       m_args;
 
     
 

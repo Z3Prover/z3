@@ -734,8 +734,8 @@ namespace smt {
         if (!get_context().is_relevant(r)) {
             return;
         }
-        ptr_vector<enode>::const_iterator it  = r->begin_parents();
-        ptr_vector<enode>::const_iterator end = r->end_parents();
+        vector<enode*>::const_iterator it  = r->begin_parents();
+        vector<enode*>::const_iterator end = r->end_parents();
         for (; it != end; ++it) {
             enode * parent = *it;
             if (get_context().is_relevant(parent) &&
@@ -862,7 +862,7 @@ namespace smt {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
         
-        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+        app * mk_value(model_generator & mg, vector<expr*> & values) override {
             // values must have size = m_num_entries * (m_dim + 1) + ((m_else || m_unspecified_else) ? 0 : 1) 
             // an array value is a lookup table + else_value
             // each entry has m_dim indexes that map to a value.

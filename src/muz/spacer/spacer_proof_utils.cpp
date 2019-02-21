@@ -576,7 +576,7 @@ namespace spacer {
 */
     bool hypothesis_reducer::is_ancestor(proof *p, proof *q) {
         if (p == q) return true;
-        ptr_vector<proof> todo;
+        vector<proof*> todo;
         todo.push_back(q);
 
         expr_mark visited;
@@ -602,7 +602,7 @@ namespace spacer {
 
         proof *res = nullptr;
 
-        ptr_vector<proof> todo;
+        vector<proof*> todo;
         todo.push_back(pf);
         buffer<proof*> args;
         bool dirty = false;

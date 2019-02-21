@@ -34,9 +34,9 @@ class sat_allocator {
     };
     char const *              m_id;
     size_t                    m_alloc_size;
-    ptr_vector<chunk>         m_chunks;
+    vector<chunk*>         m_chunks;
     void *                    m_chunk_ptr;
-    ptr_vector<void>          m_free[NUM_FREE];
+    vector<void*>          m_free[NUM_FREE];
 
     unsigned align_size(size_t sz) const {
         return  free_slot_id(sz) << PTR_ALIGNMENT;

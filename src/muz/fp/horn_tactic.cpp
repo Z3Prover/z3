@@ -98,7 +98,7 @@ class horn_tactic : public tactic {
         }
 
         void check_predicate(ast_mark& mark, expr* a) {
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             todo.push_back(a);
             while (!todo.empty()) {
                 a = todo.back();

@@ -391,7 +391,7 @@ namespace smt {
     public:
         maxsat(solver& s) : m(s.m()), m_solver(s) {}
 
-        lbool operator()(ptr_vector<expr>& soft_cnstrs) {
+        lbool operator()(vector<expr*>& soft_cnstrs) {
             return l_undef;
         }
 
@@ -401,7 +401,7 @@ namespace smt {
         union_find_default_ctx             m_df;
         union_find<union_find_default_ctx> m_uf;
         obj_map<expr,unsigned>             m_term2idx;
-        ptr_vector<expr>                   m_idx2term;
+        vector<expr*>                   m_idx2term;
         
     public:
         term_equivs(): m_uf(m_df) {}

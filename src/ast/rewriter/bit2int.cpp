@@ -183,7 +183,7 @@ bool bit2int::mk_mul(expr* e1, expr* e2, expr_ref& result) {
 }
 
 bool bit2int::is_bv_poly(expr* n, expr_ref& pos, expr_ref& neg) {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     expr_ref tmp(m_manager);
     numeral k;
     bool is_int;

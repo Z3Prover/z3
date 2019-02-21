@@ -25,7 +25,7 @@ Revision History:
 template<typename T, typename Visitor, bool IgnorePatterns=false>
 class recurse_expr : public Visitor {
     obj_map<expr, T>         m_cache;
-    ptr_vector<expr>         m_todo;
+    vector<expr*>         m_todo;
     vector<T>                m_results1;
     vector<T>                m_results2;
 

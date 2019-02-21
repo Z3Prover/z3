@@ -41,7 +41,7 @@ inline tbit neg(tbit t) {
 class tbv_manager {
     friend class tbv;
     fixed_bit_vector_manager m;
-    ptr_vector<tbv> allocated_tbvs;
+    vector<tbv*> allocated_tbvs;
 public:
     tbv_manager(unsigned n): m(2*n) {}
     ~tbv_manager();
@@ -69,7 +69,7 @@ public:
     tbv& fillX(tbv& bv) const;
     bool set_and(tbv& dst,  tbv const& src) const;
     tbv& set_or(tbv& dst,  tbv const& src) const;
-    void complement(tbv const& src, ptr_vector<tbv>& result);
+    void complement(tbv const& src, vector<tbv*>& result);
     bool equals(tbv const& a, tbv const& b) const;
     unsigned hash(tbv const& src) const;
     bool contains(tbv const& a, tbv const& b) const;

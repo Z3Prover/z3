@@ -26,14 +26,14 @@ namespace smt {
 
     class theory_array_full : public theory_array {
         struct var_data_full {
-            ptr_vector<enode>  m_maps;
-            ptr_vector<enode>  m_consts;
-            ptr_vector<enode>  m_as_arrays;
-            ptr_vector<enode>  m_parent_maps;
+            vector<enode*>  m_maps;
+            vector<enode*>  m_consts;
+            vector<enode*>  m_as_arrays;
+            vector<enode*>  m_parent_maps;
             var_data_full() {}
         };
 
-        ptr_vector<var_data_full> m_var_data_full;
+        vector<var_data_full*> m_var_data_full;
 
         ast2ast_trailmap<sort,app> m_sort2epsilon;
         obj_pair_map<expr,expr,bool> m_eqs;

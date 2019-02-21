@@ -322,7 +322,7 @@ namespace datalog {
             virtual void notify(instruction * i) {}
         };
     private:
-        typedef ptr_vector<instruction> instr_seq_type;
+        typedef vector<instruction*> instr_seq_type;
         instr_seq_type m_data;
         instruction_observer* m_observer;
     public:

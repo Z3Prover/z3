@@ -229,7 +229,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
 
     expr* c, *th, *el;
     if (m_expand_select_ite && m().is_ite(args[0], c, th, el)) {
-        ptr_vector<expr> args1, args2;
+        vector<expr*> args1, args2;
         args1.push_back(th);
         args1.append(num_args-1, args + 1);
         args2.push_back(el);
@@ -293,7 +293,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             expr_ref value(m().mk_app(f, values.size(), values.c_ptr()), m());
             sort* s0 = m().get_sort(args[0]);
             unsigned sz = get_array_arity(s0);
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
             for (unsigned i = 0; i < sz; ++i) domain.push_back(get_array_domain(s0, i));
             sort_ref s(m_util.mk_array_sort(sz, domain.c_ptr(), m().get_sort(value)), m());
             result = m_util.mk_const_array(s, value);
@@ -431,7 +431,7 @@ bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector
         e = q->get_expr();
         unsigned num_idxs = q->get_num_decls();
         expr* e1, *e2, *e3;
-        ptr_vector<expr> eqs;
+        vector<expr*> eqs;
         while (!is_ground(e) && m().is_ite(e, e1, e2, e3) && is_ground(e2)) {
             args.clear();
             args.resize(num_idxs, nullptr);

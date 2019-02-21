@@ -68,7 +68,7 @@ namespace smt {
                 return m_relation.m_graph.enable_edge(edge);
             }
         };
-        typedef ptr_vector<atom> atoms;
+        typedef vector<atom*> atoms;
 
         struct scope {
             unsigned m_asserted_atoms_lim;

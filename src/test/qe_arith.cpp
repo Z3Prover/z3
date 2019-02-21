@@ -254,7 +254,7 @@ static void test2(char const *ex) {
 
     expr_ref pr1(m), pr2(m), fml2(m);
     expr_ref_vector bound(m);
-    ptr_vector<sort> sorts;
+    vector<sort*> sorts;
     vector<symbol> names;
     for (unsigned i = 0; i < vars.size(); ++i) {
         bound.push_back(vars[i].get());

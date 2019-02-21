@@ -365,7 +365,7 @@ bool theory_seq::branch_binary_variable(eq const& e) {
     if (is_complex(e)) {
         return false;
     }
-    ptr_vector<expr> xs, ys;
+    vector<expr*> xs, ys;
     expr_ref x(m), y(m);
     bool is_binary = is_binary_eq(e.ls(), e.rs(), x, xs, ys, y);
     if (!is_binary) {
@@ -934,8 +934,8 @@ void theory_seq::len_offset(expr* e, rational val) {
 void theory_seq::prop_arith_to_len_offset() {
     context & ctx = get_context();
     obj_hashtable<enode> const_set;
-    ptr_vector<enode>::const_iterator it  = ctx.begin_enodes();
-    ptr_vector<enode>::const_iterator end = ctx.end_enodes();
+    vector<enode*>::const_iterator it  = ctx.begin_enodes();
+    vector<enode*>::const_iterator end = ctx.end_enodes();
     for (; it != end; ++it) {
         enode * root = (*it)->get_root();
         rational val;
@@ -2534,7 +2534,7 @@ bool theory_seq::propagate_max_length(expr* l, expr* r, dependency* deps) {
     return false;
 }
 
-bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, ptr_vector<expr>& xs, ptr_vector<expr>& ys, expr_ref& y) {
+bool theory_seq::is_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, vector<expr*>& xs, vector<expr*>& ys, expr_ref& y) {
     if (ls.size() > 1 && is_var(ls[0]) &&
         rs.size() > 1 && is_var(rs.back())) {
         xs.clear();
@@ -2792,7 +2792,7 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
 
 bool theory_seq::solve_binary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
     context& ctx = get_context();
-    ptr_vector<expr> xs, ys;
+    vector<expr*> xs, ys;
     expr_ref x(m), y(m);
     bool is_binary = is_binary_eq(ls, rs, x, xs, ys, y);
     if (!is_binary) {
@@ -3215,7 +3215,7 @@ theory_seq::cell* theory_seq::mk_cell(cell* p, expr* e, dependency* d) {
     return c;
 }
 
-void theory_seq::unfold(cell* c, ptr_vector<cell>& cons) {
+void theory_seq::unfold(cell* c, vector<cell*>& cons) {
     dependency* dep = nullptr;
     expr* a, *e1, *e2;
     if (m_rep.find1(c->m_expr, a, dep)) {
@@ -3264,7 +3264,7 @@ bool theory_seq::explain_eq(expr* e1, expr* e2, dependency*& dep) {
         return true;
     }
     expr* a1, *a2;
-    ptr_vector<cell> v1, v2;
+    vector<cell*> v1, v2;
     unsigned cells_sz = m_all_cells.size();
     cell* c1 = mk_cell(nullptr, e1, nullptr);
     cell* c2 = mk_cell(nullptr, e2, nullptr);
@@ -3830,7 +3830,7 @@ class theory_seq::seq_value_proc : public model_value_proc {
     theory_seq&                     th;
     sort*                           m_sort;
     vector<model_value_dependency> m_dependencies;
-    ptr_vector<expr>                m_strings;
+    vector<expr*>                m_strings;
     vector<source_t>               m_source;
 public:
     seq_value_proc(theory_seq& th, sort* s): th(th), m_sort(s) {
@@ -3858,7 +3858,7 @@ public:
         }
     }
 
-    app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+    app * mk_value(model_generator & mg, vector<expr*> & values) override {
         SASSERT(values.size() == m_dependencies.size());
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;
@@ -3953,7 +3953,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     TRACE("seq", tout << mk_pp(n->get_owner(), m) << "\n";);
     e = get_ite_value(e);    
     if (m_util.is_seq(e)) {
-        ptr_vector<expr> concats;
+        vector<expr*> concats;
         get_ite_concat(e, concats);
         sort* srt = m.get_sort(e);
         seq_value_proc* sv = alloc(seq_value_proc, *this, srt);
@@ -4807,7 +4807,7 @@ bool theory_seq::get_length(expr* e, rational& val) const {
     rational val1;
     expr_ref len(m), len_val(m);
     expr* e1 = nullptr, *e2 = nullptr;
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.push_back(e);
     val.reset();
     zstring s;
@@ -5848,7 +5848,7 @@ bool theory_seq::canonizes(bool sign, expr* e) {
 }
 
 
-void theory_seq::get_ite_concat(expr* e, ptr_vector<expr>& concats) {
+void theory_seq::get_ite_concat(expr* e, vector<expr*>& concats) {
     expr* e1 = nullptr, *e2 = nullptr;
     while (true) {
         e = m_rep.find(e);

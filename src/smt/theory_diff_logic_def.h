@@ -1355,7 +1355,7 @@ expr_ref theory_diff_logic<Ext>::mk_ge(generic_model_converter& fm, theory_var v
     context & ctx = get_context();
     model_ref mdl;
     ctx.get_model(mdl);
-    ptr_vector<expr> formulas(ctx.get_num_asserted_formulas(), ctx.get_asserted_formulas());
+    vector<expr*> formulas(ctx.get_num_asserted_formulas(), ctx.get_asserted_formulas());
     ast_manager& m = get_manager();
     model_implicant impl_extractor(m);
     expr_ref_vector implicants = impl_extractor.minimize_literals(formulas, mdl);

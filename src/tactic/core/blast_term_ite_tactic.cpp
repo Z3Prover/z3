@@ -80,7 +80,7 @@ class blast_term_ite_tactic : public tactic {
                 if (!m.is_bool(args[i]) && m.is_ite(args[i], c, t, e)) {
                     TRACE("blast_term_ite", result = m.mk_app(f, num_args, args); tout << result << "\n";);
                     expr_ref e1(m), e2(m);
-                    ptr_vector<expr> args1(num_args, args);
+                    vector<expr*> args1(num_args, args);
                     args1[i] = t;
                     e1 = m.mk_app(f, num_args, args1.c_ptr());
                     if (m.are_equal(t, e)) {

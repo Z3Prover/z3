@@ -113,7 +113,7 @@ public:
     lia_rewriter                     m_rw;
     params_ref                       m_params;
     pb_util                          m_pb;
-    mutable ptr_vector<expr>*        m_todo;
+    mutable vector<expr*>*        m_todo;
     bounds_map                       m_bounds;
     bool                             m_compile_equality;
     unsigned                         m_max_ub;
@@ -124,7 +124,7 @@ public:
         a(m),
         m_rw(*this),
         m_pb(m),
-        m_todo(alloc(ptr_vector<expr>)),
+        m_todo(alloc(vector<expr*>)),
         m_compile_equality(true) {
         m_max_ub = 100;
     }
@@ -362,7 +362,7 @@ public:
     }
         
     void cleanup() override {        
-        ptr_vector<expr>* todo = alloc(ptr_vector<expr>);
+        vector<expr*>* todo = alloc(vector<expr*>);
         std::swap(m_todo, todo);        
         dealloc(todo);
         m_bounds.reset();

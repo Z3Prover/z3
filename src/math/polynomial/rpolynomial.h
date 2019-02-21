@@ -38,7 +38,7 @@ namespace rpolynomial {
     class manager;
     typedef obj_ref<polynomial, manager>     polynomial_ref;
     typedef ref_vector<polynomial, manager>  polynomial_ref_vector;
-    typedef ptr_vector<polynomial>           polynomial_vector;
+    typedef vector<polynomial*>           polynomial_vector;
     
     class manager {
     public:

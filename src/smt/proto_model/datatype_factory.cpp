@@ -31,7 +31,7 @@ expr * datatype_factory::get_some_value(sort * s) {
     if (m_sort2value_set.find(s, set) && !set->empty())
         return *(set->begin());
     func_decl * c = m_util.get_non_rec_constructor(s);
-    ptr_vector<expr> args;
+    vector<expr*> args;
     unsigned num  = c->get_arity();
     for (unsigned i = 0; i < num; i++) {
         args.push_back(m_model.get_some_value(c->get_domain(i)));
@@ -88,7 +88,7 @@ expr * datatype_factory::get_almost_fresh_value(sort * s) {
     // Traverse constructors, and try to invoke get_fresh_value of one of the arguments (if the argument is not a sibling datatype of s).
     // If the argumet is a sibling datatype of s, then
     // use get_last_fresh_value.
-    ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+    vector<func_decl*> const & constructors = *m_util.get_datatype_constructors(s);
     for (func_decl * constructor : constructors) {
         expr_ref_vector args(m_manager);
         bool found_fresh_arg = false;
@@ -151,7 +151,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
     // Traverse constructors, and try to invoke get_fresh_value of one of the 
     // arguments (if the argument is not a sibling datatype of s).
     // Two datatypes are siblings if they were defined together in the same mutually recursive definition.
-    ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+    vector<func_decl*> const & constructors = *m_util.get_datatype_constructors(s);
     for (func_decl * constructor : constructors) {
         expr_ref_vector args(m_manager);
         bool found_fresh_arg = false;
@@ -189,7 +189,7 @@ expr * datatype_factory::get_fresh_value(sort * s) {
         while(true) {
             ++num_iterations;
             TRACE("datatype", tout << mk_pp(get_last_fresh_value(s), m_manager) << "\n";);
-            ptr_vector<func_decl> const & constructors = *m_util.get_datatype_constructors(s);
+            vector<func_decl*> const & constructors = *m_util.get_datatype_constructors(s);
             for (func_decl * constructor : constructors) {
                 expr_ref_vector args(m_manager);
                 bool found_sibling   = false;

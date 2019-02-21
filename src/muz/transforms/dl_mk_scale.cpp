@@ -128,7 +128,7 @@ namespace datalog {
         app_ref_vector tail(m);
         app_ref head(m);
         vector<bool> neg;
-        ptr_vector<sort> vars;
+        vector<sort*> vars;
         ref<scale_model_converter> smc;
         if (m_ctx.get_model_converter()) {
             smc = alloc(scale_model_converter, m);
@@ -173,7 +173,7 @@ namespace datalog {
 
     app_ref mk_scale::mk_pred(unsigned sigma_idx, app* q) {
         func_decl* f = q->get_decl();
-        ptr_vector<sort> domain(f->get_arity(), f->get_domain());
+        vector<sort*> domain(f->get_arity(), f->get_domain());
         domain.push_back(a.mk_real());
         func_decl_ref g(m);
         g = m.mk_func_decl(f->get_name(), f->get_arity() + 1, domain.c_ptr(), f->get_range());

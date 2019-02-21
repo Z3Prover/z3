@@ -88,7 +88,7 @@ namespace datalog {
        rule_manager* src_manager;
 
        //Rule context
-       obj_map<expr, ptr_vector<expr> > selects;
+       obj_map<expr, vector<expr*> > selects;
        expr_equiv_class eq_classes;
        unsigned cnt;//Index for new variables
        obj_map<expr, var*> done_selects;

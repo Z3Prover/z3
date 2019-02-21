@@ -46,11 +46,11 @@ class model_evaluator {
     void assign_value(expr* e, expr* v);
 
     /// extracts an implicant of the conjunction of formulas
-    void collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect);
+    void collect(vector<expr*> const& formulas, vector<expr*>& tocollect);
 
     /// one-round of extracting an implicant of e. The implicant
     /// literals are stored in tocollect. The worklist is stored in todo
-    void process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect);
+    void process_formula(app* e, vector<expr*>& todo, vector<expr*>& tocollect);
     void eval_arith(app* e);
     void eval_basic(app* e);
     void eval_eq(app* e, expr* arg1, expr* arg2);
@@ -81,11 +81,11 @@ class model_evaluator {
 
     /// evaluates all sub-formulas and terms of the input in the current model.
     /// Caches the result
-    void eval_fmls(ptr_vector<expr> const & formulas);
+    void eval_fmls(vector<expr*> const & formulas);
 
     /// calls eval_fmls(). Then checks whether all formulas are
     /// TRUE. Returns false if at lest one formula is unknown (X)
-    bool check_model(ptr_vector<expr> const & formulas);
+    bool check_model(vector<expr*> const & formulas);
 
     bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores,
                                    expr_ref& else_case);
@@ -101,7 +101,7 @@ public:
 
        \pre model satisfies formulas
     */
-    void minimize_literals(ptr_vector<expr> const & formulas, const model_ref& mdl,
+    void minimize_literals(vector<expr*> const & formulas, const model_ref& mdl,
                            expr_ref_vector& result);
 
     expr_ref eval_heavy(const model_ref& mdl, expr* fml);

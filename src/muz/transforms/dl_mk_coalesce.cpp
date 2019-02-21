@@ -60,7 +60,7 @@ namespace datalog {
         obj_map<expr, unsigned> indices;
         bool_rewriter bwr(m);
         rule_ref r(const_cast<rule*>(&rl), rm);
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         expr_ref_vector revsub(m), conjs(m);
         rl.get_vars(m, sorts);
         revsub.resize(sorts.size());  
@@ -112,7 +112,7 @@ namespace datalog {
         app_ref pred(m), head(m);
         expr_ref fml1(m), fml2(m), fml(m);
         app_ref_vector tail(m);
-        ptr_vector<sort> sorts1, sorts2;
+        vector<sort*> sorts1, sorts2;
         expr_ref_vector conjs1(m), conjs(m);
         rule_ref res(rm);
         bool_rewriter bwr(m);

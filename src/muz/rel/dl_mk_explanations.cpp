@@ -52,7 +52,7 @@ namespace datalog {
 
         func_decl_ref m_union_decl;
 
-        vector<ptr_vector<explanation_relation> > m_pool;
+        vector<vector<explanation_relation*> > m_pool;
 
 
         app * mk_union(app * a1, app * a2) {
@@ -464,7 +464,7 @@ namespace datalog {
             }
 
             unsigned sz = r.get_signature().size();
-            ptr_vector<expr> subst_arg;
+            vector<expr*> subst_arg;
             subst_arg.resize(sz);
             unsigned ofs = sz-1;
             for (unsigned i=0; i<sz; i++) {

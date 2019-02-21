@@ -271,7 +271,7 @@ namespace datalog {
         relation_signature const& sig, 
         expr* fml, vector<unsigned> const& removed_cols) {
         expr_ref fml1(m);
-        ptr_vector<sort> bound;
+        vector<sort*> bound;
         vector<symbol> names;
         expr_ref_vector vars(m);
         unsigned rm_cnt = removed_cols.size();
@@ -734,7 +734,7 @@ namespace datalog {
             eqs.push_back(m.mk_eq(v1, v2));
         }
         negf = mk_and(m, eqs.size(), eqs.c_ptr());
-        ptr_vector<sort> rev_sig2(sig2.size(), sig2.c_ptr());
+        vector<sort*> rev_sig2(sig2.size(), sig2.c_ptr());
         rev_sig2.reverse();
         vector<symbol> names;
         for (unsigned i = 0; i < sig2.size(); ++i) {

@@ -50,13 +50,13 @@ protected:
     bool                       m_proof_gen; 
     bool                       m_cancel_check;
     typedef act_cache          cache;
-    ptr_vector<cache>          m_cache_stack;
+    vector<cache*>          m_cache_stack;
     cache *                    m_cache; // current cache.
     vector<frame>             m_frame_stack;
     expr_ref_vector            m_result_stack;
 
     // proof generation goodness ----
-    ptr_vector<cache>          m_cache_pr_stack; 
+    vector<cache*>          m_cache_pr_stack; 
     cache *                    m_cache_pr;
     proof_ref_vector           m_result_pr_stack;
     // --------------------------
@@ -216,7 +216,7 @@ protected:
     };
     Config &                   m_cfg;
     unsigned                   m_num_steps;
-    ptr_vector<expr>           m_bindings;
+    vector<expr*>           m_bindings;
     var_shifter                m_shifter;
     inv_var_shifter            m_inv_shifter;
     expr_ref                   m_r;

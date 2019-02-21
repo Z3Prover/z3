@@ -24,7 +24,7 @@
 #include "model/model_smt2_pp.h"
 
 lackr::lackr(ast_manager& m, const params_ref& p, lackr_stats& st,
-             const ptr_vector<expr>& formulas, solver * uffree_solver)
+             const vector<expr*>& formulas, solver * uffree_solver)
     : m_m(m)
     , m_p(p)
     , m_formulas(formulas)
@@ -245,7 +245,7 @@ lbool lackr::lazy() {
 // Collect all uninterpreted terms, skipping 0-arity.
 //
 bool lackr::collect_terms() {
-    ptr_vector<expr> stack = m_formulas;
+    vector<expr*> stack = m_formulas;
     expr *           curr;
     expr_mark        visited;
 

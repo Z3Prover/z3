@@ -427,7 +427,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::display_deps(std::ostream & out, v_dependency* dep) {
-        ptr_vector<void> bounds;
+        vector<void*> bounds;
         m_dep_manager.linearize(dep, bounds);
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();

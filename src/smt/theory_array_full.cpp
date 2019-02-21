@@ -165,7 +165,7 @@ namespace smt {
         if (m_params.m_array_always_prop_upward || lambda_equiv_class_size >= 1) {
             set_prop_upward(v, d);
         }
-        ptr_vector<enode> & consts = m_var_data_full[v]->m_consts;
+        vector<enode*> & consts = m_var_data_full[v]->m_consts;
         m_trail_stack.push(push_back_trail<theory_array, enode *>(consts));
         consts.push_back(cnst);
         instantiate_default_const_axiom(cnst);
@@ -181,7 +181,7 @@ namespace smt {
         if (m_params.m_array_always_prop_upward || lambda_equiv_class_size >= 1) {
             set_prop_upward(v, d);
         }
-        ptr_vector<enode> & as_arrays = m_var_data_full[v]->m_as_arrays;
+        vector<enode*> & as_arrays = m_var_data_full[v]->m_as_arrays;
         m_trail_stack.push(push_back_trail<theory_array, enode *>(as_arrays));
         as_arrays.push_back(arr);
         instantiate_default_as_array_axiom(arr);
@@ -454,10 +454,10 @@ namespace smt {
         unsigned num_args   = select->get_num_args();
         unsigned num_arrays = map->get_num_args();
         buffer<expr*>       args1, args2;
-        vector<ptr_vector<expr> > args2l;
+        vector<vector<expr*> > args2l;
         args1.push_back(map);
         for (unsigned j = 0; j < num_arrays; ++j) {
-            ptr_vector<expr> arg;
+            vector<expr*> arg;
             arg.push_back(map->get_arg(j));
             args2l.push_back(arg);
         }
@@ -553,7 +553,7 @@ namespace smt {
         TRACE("array", tout << mk_bounded_pp(arr->get_owner(), get_manager()) << "\n";);
         expr* def = mk_default(arr->get_owner());
         func_decl * f = array_util(get_manager()).get_as_array_func_decl(arr->get_owner());
-        ptr_vector<expr> args;
+        vector<expr*> args;
         for (unsigned i = 0; i < f->get_arity(); ++i) {
             args.push_back(mk_epsilon(f->get_domain(i)));
         }

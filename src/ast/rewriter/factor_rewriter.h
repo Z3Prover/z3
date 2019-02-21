@@ -30,7 +30,7 @@ class factor_rewriter {
     arith_util                     m_arith;
     powers_t                       m_powers;
     vector<std::pair<expr*,bool> > m_adds;
-    vector<ptr_vector<expr> >      m_muls;
+    vector<vector<expr*> >      m_muls;
     expr_ref_vector                m_factors;
 
 public:
@@ -49,7 +49,7 @@ private:
 
     void mk_adds(expr* arg1, expr* arg2);
     void mk_muls();
-    void mk_expand_muls(ptr_vector<expr>& muls);
+    void mk_expand_muls(vector<expr*>& muls);
     void collect_powers();
     bool extract_factors();
     bool even(unsigned n) const { return 0 == (n & 0x1); }

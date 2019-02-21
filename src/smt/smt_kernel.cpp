@@ -81,7 +81,7 @@ namespace smt {
             return m_kernel.get_num_asserted_formulas();
         }
         
-        void get_formulas(ptr_vector<expr>& fmls) const {
+        void get_formulas(vector<expr*>& fmls) const {
             m_kernel.get_asserted_formulas(fmls);
         }
 
@@ -147,7 +147,7 @@ namespace smt {
             return m_kernel.get_unsat_core_expr(idx);
         }
 
-        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
+        void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) {
             m_kernel.get_levels(vars, depth);
         }
 
@@ -420,7 +420,7 @@ namespace smt {
         return m_imp->m_kernel;
     }
 
-    void kernel::get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
+    void kernel::get_levels(vector<expr*> const& vars, vector<unsigned>& depth) {
         m_imp->get_levels(vars, depth);
     }
 

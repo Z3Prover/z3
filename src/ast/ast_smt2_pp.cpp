@@ -456,10 +456,10 @@ class smt2_printer {
     expr *                                m_root;
 
     typedef obj_map<expr, unsigned>       expr2alias; // expr -> position @ m_aliased_exprs, m_aliased_pps, m_aliased_lvls_names.
-    ptr_vector<expr2alias>                m_expr2alias_stack;
+    vector<expr2alias*>                m_expr2alias_stack;
 
     expr2alias *                          m_expr2alias; // expr -> position @ m_aliased_exprs, m_aliased_pps, m_aliased_lvls_names.
-    ptr_vector<expr>                      m_aliased_exprs;
+    vector<expr*>                      m_aliased_exprs;
     format_ref_vector                     m_aliased_pps;
     vector<std::pair<unsigned, symbol> > m_aliased_lvls_names;
     unsigned                              m_next_alias_idx;
@@ -804,22 +804,22 @@ class smt2_printer {
         TRACE("pp_let", tout << "old_sz: " << old_sz << ", sz: " << sz << "\n";);
         if (old_sz == sz)
             return f;
-        vector<ptr_vector<format> > decls;
+        vector<vector<format*> > decls;
         for (unsigned i = old_sz; i < sz; i++) {
             unsigned lvl    = m_aliased_lvls_names[i].first;
             symbol   f_name = m_aliased_lvls_names[i].second;
             format * f_def[1] = { m_aliased_pps.get(i) };
             decls.expand(lvl+1);
-            ptr_vector<format> & lvl_decls = decls[lvl];
+            vector<format*> & lvl_decls = decls[lvl];
             lvl_decls.push_back(mk_seq1<format**, f2f>(m(), f_def, f_def+1, f2f(), f_name.str().c_str()));
         }
         TRACE("pp_let", tout << "decls.size(): " << decls.size() << "\n";);
         buffer<format*> buf;
         unsigned num_op = 0;
-        vector<ptr_vector<format> >::iterator it  = decls.begin();
-        vector<ptr_vector<format> >::iterator end = decls.end();
+        vector<vector<format*> >::iterator it  = decls.begin();
+        vector<vector<format*> >::iterator end = decls.end();
         for (; it != end; ++it) {
-            ptr_vector<format> & lvl_decls = *it;
+            vector<format*> & lvl_decls = *it;
             if (lvl_decls.empty())
                 continue;
             if (num_op > 0)

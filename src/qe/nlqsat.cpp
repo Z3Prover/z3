@@ -805,7 +805,7 @@ namespace qe {
 
             tactic_report report("nlqsat-tactic", *in);
 
-            ptr_vector<expr> fmls;
+            vector<expr*> fmls;
             expr_ref fml(m);
             in->get_formulas(fmls);
             fml = mk_and(m, fmls.size(), fmls.c_ptr());

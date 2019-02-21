@@ -169,7 +169,7 @@ namespace datalog {
 
         void accumulate(tbv const& t, vector<unsigned>& acc) {
             ddnf_node* n = find(t);
-            ptr_vector<ddnf_node> todo;
+            vector<ddnf_node*> todo;
             todo.push_back(n);
             while (!todo.empty()) {
                 n = todo.back();
@@ -187,7 +187,7 @@ namespace datalog {
 
         ddnf_node* insert(tbv const& t) {
             SASSERT(!m_internalized);
-            ptr_vector<tbv const> new_tbvs;
+            vector<tbv const*> new_tbvs;
             new_tbvs.push_back(&t);
             for (unsigned i = 0; i < new_tbvs.size(); ++i) {
                 tbv const& nt = *new_tbvs[i];
@@ -242,7 +242,7 @@ namespace datalog {
         }    
 
         bool well_formed() {
-            ptr_vector<ddnf_node> todo;
+            vector<ddnf_node*> todo;
             todo.push_back(m_root);
             reset_accumulate();
             while (!todo.empty()) {
@@ -277,7 +277,7 @@ namespace datalog {
         }
     
 
-        void insert(ddnf_node& root, ddnf_node* new_n, ptr_vector<tbv const>& new_intersections) {
+        void insert(ddnf_node& root, ddnf_node* new_n, vector<tbv const*>& new_intersections) {
             tbv const& new_tbv = new_n->get_tbv();
             
             IF_VERBOSE(10, m_tbv.display(verbose_stream() << "root: ", root.get_tbv()); 
@@ -336,7 +336,7 @@ namespace datalog {
             if (m_internalized) {                
                 return;
             }
-            ptr_vector<ddnf_node> todo;
+            vector<ddnf_node*> todo;
             todo.push_back(m_root);
             vector<bool> done(m_noderefs.size(), false);
             while (!todo.empty()) {
@@ -481,7 +481,7 @@ namespace datalog {
         ast_manager&           m;
         rule_manager&          rm;
         bv_util                bv;
-        ptr_vector<expr>       m_todo;
+        vector<expr*>       m_todo;
         ast_mark               m_visited1, m_visited2;
         ddnfs                  m_ddnfs;
         stats                  m_stats;
@@ -679,7 +679,7 @@ namespace datalog {
         lbool execute_rules(rule_set& rules) {
             init_ctx(rules);
 
-            ptr_vector<func_decl> heads;
+            vector<func_decl*> heads;
             rule_set::decl2rules::iterator dit  = rules.begin_grouped_rules();
             rule_set::decl2rules::iterator dend = rules.end_grouped_rules();
             for (; dit != dend; ++dit) {

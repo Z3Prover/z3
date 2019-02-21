@@ -49,7 +49,7 @@ public:
     void operator()(goal_ref const & g, goal_ref_buffer& result) override {
         TRACE("sine", g->display(tout););
         TRACE("sine", tout << g->size(););
-        ptr_vector<expr> new_forms;
+        vector<expr*> new_forms;
         filter_expressions(g, new_forms);
         TRACE("sine", tout << new_forms.size(););
         g->reset();
@@ -75,7 +75,7 @@ private:
     }
 
     void find_constants(expr * e, obj_hashtable<func_decl> &consts) {
-        ptr_vector<expr> stack;
+        vector<expr*> stack;
         stack.push_back(e);
         expr * curr;
         while (!stack.empty()) {
@@ -91,7 +91,7 @@ private:
 
     bool quantifier_matches(quantifier * q,
                             obj_hashtable<func_decl> const & consts,
-                            ptr_vector<func_decl> & next_consts) {
+                            vector<func_decl*> & next_consts) {
         TRACE("sine",
               tout << "size of consts is "; tout << consts.size(); tout << "\n";
               for (func_decl* f : consts) tout << f->get_name() << "\n";);
@@ -99,7 +99,7 @@ private:
         bool matched = false;
         for (unsigned i = 0; i < q->get_num_patterns(); i++) {
             bool p_matched = true;
-            ptr_vector<expr> stack;
+            vector<expr*> stack;
             expr * curr;
 
             // patterns are wrapped with "pattern"
@@ -133,7 +133,7 @@ private:
         return matched;
     }
 
-    void filter_expressions(goal_ref const & g, ptr_vector<expr> & new_exprs) {
+    void filter_expressions(goal_ref const & g, vector<expr*> & new_exprs) {
         obj_map<func_decl, obj_hashtable<expr> > const2exp;
         obj_map<expr, obj_hashtable<func_decl> > exp2const;
         obj_map<func_decl, obj_pair_hashtable<expr, expr> > const2quantifier;
@@ -179,7 +179,7 @@ private:
                 quantifier *q = to_quantifier(curr.first);
                 if (is_forall(q)) {
                     if (q->has_patterns()) {
-                        ptr_vector<func_decl> next_consts;
+                        vector<func_decl*> next_consts;
                         if (quantifier_matches(q, consts, next_consts)) {
                             stack.push_back(work_item(q->get_expr(), curr.second));
                         }
@@ -207,7 +207,7 @@ private:
 
         // ok, now we just need to find the connected component of the last term
         obj_hashtable<expr> visited;
-        ptr_vector<expr> to_visit;
+        vector<expr*> to_visit;
         to_visit.push_back(g->form(g->size() - 1));
         expr * visiting;
 

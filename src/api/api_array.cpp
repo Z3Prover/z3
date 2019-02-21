@@ -84,8 +84,8 @@ extern "C" {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<sort> domain;
-        ptr_vector<expr> args;
+        vector<sort*> domain;
+        vector<expr*> args;
         args.push_back(_a);
         domain.push_back(a_ty);
         for (unsigned i = 0; i < n; ++i) {
@@ -139,8 +139,8 @@ extern "C" {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<sort> domain;
-        ptr_vector<expr> args;
+        vector<sort*> domain;
+        vector<expr*> args;
         args.push_back(_a);
         domain.push_back(a_ty);
         for (unsigned i = 0; i < n; ++i) {
@@ -170,7 +170,7 @@ extern "C" {
         func_decl* _f      = to_func_decl(f);
         expr* const* _args = to_exprs(args);
 
-        ptr_vector<sort> domain;
+        vector<sort*> domain;
         for (unsigned i = 0; i < n; ++i) {
             domain.push_back(m.get_sort(_args[i]));
         }

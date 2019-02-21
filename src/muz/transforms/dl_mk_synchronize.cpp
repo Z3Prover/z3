@@ -51,7 +51,7 @@ namespace datalog {
         return strata[num_of_stratum]->size() > 1;
     }
 
-    item_set_vector mk_synchronize::add_merged_decls(ptr_vector<app> & apps) {
+    item_set_vector mk_synchronize::add_merged_decls(vector<app*> & apps) {
         unsigned sz = apps.size();
         item_set_vector merged_decls;
         merged_decls.resize(sz);
@@ -66,11 +66,11 @@ namespace datalog {
 
     void mk_synchronize::add_new_rel_symbols(unsigned idx,
                                              item_set_vector const & decls,
-                                             ptr_vector<func_decl> & decls_buf,
+                                             vector<func_decl*> & decls_buf,
                                              bool & was_added) {
         if (idx >= decls.size()) {
             string_buffer<> buffer;
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
             for (auto &d : decls_buf) {
                 buffer << d->get_name() << "!!";
                 domain.append(d->get_arity(), d->get_domain());
@@ -97,10 +97,10 @@ namespace datalog {
     }
 
     void mk_synchronize::replace_applications(rule & r, rule_set & rules,
-                                              ptr_vector<app> & apps) {
+                                              vector<app*> & apps) {
         app_ref replacing = product_application(apps);
 
-        ptr_vector<app> new_tail;
+        vector<app*> new_tail;
         vector<bool> new_tail_neg;
         unsigned n = r.get_tail_size() - apps.size() + 1;
         unsigned tail_idx = 0;
@@ -138,7 +138,7 @@ namespace datalog {
                                                        unsigned & var_idx) {
         // AG: shift all variables in a rule so that lowest var index is var_idx?
         // AG: update var_idx in the process?
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         r->get_vars(m, sorts);
         expr_ref_vector revsub(m);
         revsub.resize(sorts.size());
@@ -174,7 +174,7 @@ namespace datalog {
         return result;
     }
 
-    void mk_synchronize::add_rec_tail(vector< ptr_vector<app> > & recursive_calls,
+    void mk_synchronize::add_rec_tail(vector< vector<app*> > & recursive_calls,
                                       app_ref_vector & new_tail,
                                       vector<bool> & new_tail_neg,
                                       unsigned & tail_idx) {
@@ -183,7 +183,7 @@ namespace datalog {
             max_sz= std::max(rc.size(), max_sz);
 
         unsigned n = recursive_calls.size();
-        ptr_vector<app> merged_recursive_calls;
+        vector<app*> merged_recursive_calls;
 
         for (unsigned j = 0; j < max_sz; ++j) {
             merged_recursive_calls.clear();
@@ -224,7 +224,7 @@ namespace datalog {
         }
     }
 
-    app_ref mk_synchronize::product_application(ptr_vector<app> const &apps) {
+    app_ref mk_synchronize::product_application(vector<app*> const &apps) {
         unsigned args_num = 0;
         string_buffer<> buffer;
 
@@ -238,7 +238,7 @@ namespace datalog {
         SASSERT(m_cache.contains(name));
         func_decl * pred = m_cache[name];
 
-        ptr_vector<expr> args;
+        vector<expr*> args;
         args.resize(args_num);
         unsigned idx = 0;
         for (auto *a : apps) {
@@ -261,7 +261,7 @@ namespace datalog {
             buffer << (*it)->name();
         }
 
-        ptr_vector<app> heads;
+        vector<app*> heads;
         heads.resize(n);
         for (unsigned i = 0; i < n; ++i) {
             heads[i] = rules[i]->get_head();
@@ -269,7 +269,7 @@ namespace datalog {
         app_ref product_head = product_application(heads);
         unsigned product_tail_length = 0;
         bool has_recursion = false;
-        vector< ptr_vector<app> > recursive_calls;
+        vector< vector<app*> > recursive_calls;
         recursive_calls.resize(n);
         for (unsigned i = 0; i < n; ++i) {
             rule& rule = *rules[i];
@@ -323,7 +323,7 @@ namespace datalog {
     }
 
     void mk_synchronize::merge_applications(rule & r, rule_set & rules) {
-        ptr_vector<app> non_recursive_preds;
+        vector<app*> non_recursive_preds;
         obj_hashtable<app> apps;
         for (unsigned i = 0; i < r.get_positive_tail_size(); ++i) {
             app* t = r.get_tail(i);
@@ -337,7 +337,7 @@ namespace datalog {
         item_set_vector merged_decls = add_merged_decls(non_recursive_preds);
 
         unsigned n = non_recursive_preds.size();
-        ptr_vector<func_decl> decls_buf;
+        vector<func_decl*> decls_buf;
         decls_buf.resize(n);
         bool was_added = false;
         add_new_rel_symbols(0, merged_decls, decls_buf, was_added);

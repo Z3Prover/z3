@@ -106,7 +106,7 @@ namespace datalog {
         obj_map<rule, rule*> m_rule2slice;              // rule to sliced rule
         obj_map<rule, vector<unsigned>> m_renaming;      // rule to renaming
         obj_map<expr, rule*> m_sliceform2rule;          // sliced formula to rule.
-        ptr_vector<proof>    m_todo;
+        vector<proof*>    m_todo;
         obj_map<proof, proof*> m_new_proof;
         rule_unifier           m_unifier;
 
@@ -196,7 +196,7 @@ namespace datalog {
             if (!all_found) {
                 return true;
             }
-            ptr_vector<proof> premises;
+            vector<proof*> premises;
             
             proof* p0     = to_app(p->get_arg(0));
             proof* p0_new = m_new_proof.find(p0);            
@@ -718,7 +718,7 @@ namespace datalog {
         
     void mk_slice::declare_predicates(rule_set const& src, rule_set& dst) {
         obj_map<func_decl, bit_vector>::iterator it = m_sliceable.begin(), end = m_sliceable.end();
-        ptr_vector<sort> domain;
+        vector<sort*> domain;
         bool has_output = false;
         func_decl* f;
         for (; it != end; ++it) {
@@ -762,7 +762,7 @@ namespace datalog {
         func_decl* qd;
         if (m_predicates.find(p->get_decl(), qd)) {
             bit_vector const& bv = get_predicate_slice(p->get_decl());
-            ptr_vector<expr> args;
+            vector<expr*> args;
             for (unsigned i = 0; i < bv.size(); ++i) {
                 if (!bv.get(i)) {
                     args.push_back(p->get_arg(i));

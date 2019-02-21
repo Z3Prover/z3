@@ -70,7 +70,7 @@ private:
 
     value_manager &         m_vmanager;
     allocator  &            m_allocator;
-    ptr_vector<dependency>  m_todo;
+    vector<dependency*>  m_todo;
 
     void inc_ref(value const & v) {
         if (C::ref_count)
@@ -108,8 +108,8 @@ private:
     }
 
     void unmark_todo() {
-        typename ptr_vector<dependency>::iterator it  = m_todo.begin();
-        typename ptr_vector<dependency>::iterator end = m_todo.end();
+        typename vector<dependency*>::iterator it  = m_todo.begin();
+        typename vector<dependency*>::iterator end = m_todo.end();
         for (; it != end; ++it) {
             (*it)->unmark();
         }

@@ -170,7 +170,7 @@ void asserted_formulas::assert_expr(expr * e) {
     assert_expr(e, m.proofs_enabled() ? m.mk_asserted(e) : nullptr);
 }
 
-void asserted_formulas::get_assertions(ptr_vector<expr> & result) const {
+void asserted_formulas::get_assertions(vector<expr*> & result) const {
     for (justified_expr const& je : m_formulas) result.push_back(je.get_fml());
 }
 
@@ -568,7 +568,7 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
 }
 
 void asserted_formulas::compute_depth(expr* e) {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.push_back(e);
     while (!todo.empty()) {
         e = todo.back();

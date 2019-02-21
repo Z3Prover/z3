@@ -35,7 +35,7 @@ class fix_dl_var_tactic : public tactic {
         ast_manager &          m;
         arith_util &           m_util;
         expr_fast_mark1 *      m_visited;
-        ptr_vector<expr>       m_todo;
+        vector<expr*>       m_todo;
         obj_map<app, unsigned> m_occs;
         obj_map<app, unsigned> m_non_nested_occs;
 

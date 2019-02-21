@@ -126,11 +126,11 @@ namespace datalog {
         return true;
     }
 
-    void product_relation_plugin::get_common_spec(const ptr_vector<const product_relation> & rels, 
+    void product_relation_plugin::get_common_spec(const vector<product_relation const*> & rels, 
             rel_spec & res) {
         vector<rel_spec> specs;
-        ptr_vector<const product_relation>::const_iterator rit = rels.begin();
-        ptr_vector<const product_relation>::const_iterator rend = rels.end();
+        vector<product_relation const*>::const_iterator rit = rels.begin();
+        vector<product_relation const*>::const_iterator rend = rels.end();
         for(; rit!=rend; ++rit) {
             specs.push_back((*rit)->m_spec);
             SASSERT(specs.back().well_formed());
@@ -205,8 +205,8 @@ namespace datalog {
     class product_relation_plugin::join_fn : public convenient_relation_join_fn {
         enum kind_t { T_INPUT, T_FULL};
         product_relation_plugin&     m_plugin;
-        ptr_vector<relation_join_fn> m_joins;
-        ptr_vector<relation_base> m_full;
+        vector<relation_join_fn*> m_joins;
+        vector<relation_base*> m_full;
         vector<unsigned>           m_offset1;
         vector<kind_t>           m_kind1;
         vector<unsigned>           m_offset2;
@@ -451,7 +451,7 @@ namespace datalog {
 
         relation_base * operator()(const relation_base & _r1, const relation_base & _r2) override {
             TRACE("dl", _r1.display(tout); _r2.display(tout););
-            ptr_vector<relation_base> relations;
+            vector<relation_base*> relations;
             unsigned sz = m_joins.size();
             relation_base* result = nullptr;
             for (unsigned i = 0; i < sz; ++i) {
@@ -485,7 +485,7 @@ namespace datalog {
 
     class product_relation_plugin::transform_fn : public relation_transformer_fn {
         relation_signature                  m_sig;
-        ptr_vector<relation_transformer_fn> m_transforms;
+        vector<relation_transformer_fn*> m_transforms;
     public:
         transform_fn(relation_signature s, unsigned num_trans, relation_transformer_fn** trans):
           m_sig(std::move(s)),
@@ -497,7 +497,7 @@ namespace datalog {
             product_relation const& r = get(_r);
             product_relation_plugin& p = r.get_plugin();
             SASSERT(m_transforms.size() == r.size());
-            ptr_vector<relation_base> relations;
+            vector<relation_base*> relations;
             for (unsigned i = 0; i < r.size(); ++i) {
                 relations.push_back((*m_transforms[i])(r[i]));
             }
@@ -511,7 +511,7 @@ namespace datalog {
             unsigned col_cnt, const unsigned * removed_cols) {
         if (is_product_relation(_r)) {
             product_relation const& r = get(_r);
-            ptr_vector<relation_transformer_fn> projs;
+            vector<relation_transformer_fn*> projs;
             for (unsigned i = 0; i < r.size(); ++i) {
                 projs.push_back(get_manager().mk_project_fn(r[i], col_cnt, removed_cols));
             }
@@ -525,7 +525,7 @@ namespace datalog {
     relation_transformer_fn * product_relation_plugin::mk_rename_fn(const relation_base & _r, 
             unsigned cycle_len, const unsigned * permutation_cycle) {
         if(is_product_relation(_r)) {
-            ptr_vector<relation_transformer_fn> trans;
+            vector<relation_transformer_fn*> trans;
             product_relation const& r = get(_r);
             for (unsigned i = 0; i < r.size(); ++i) {                
                 trans.push_back(get_manager().mk_rename_fn(r[i], cycle_len, permutation_cycle));
@@ -544,7 +544,7 @@ namespace datalog {
 
         //m_union[i][j] is union between i-th and j-th relation.
         //It can be zero which means that particular union should be skipped.
-        vector<ptr_vector<relation_union_fn> > m_unions;
+        vector<vector<relation_union_fn*> > m_unions;
 
         void mk_union_fn(unsigned i, unsigned j, relation_base const& r1, relation_base const& r2,
                 const relation_base* delta) {
@@ -566,7 +566,7 @@ namespace datalog {
             for (unsigned i = 0; i < num; ++i) {
                 relation_base& r1 = *tgts[i];
                 relation_base* delta = deltas ? (*deltas)[i] : 0;
-                m_unions.push_back(ptr_vector<relation_union_fn>());  
+                m_unions.push_back(vector<relation_union_fn*>());  
                 for (unsigned j = 0; j < num; ++j) {
                     relation_base& r2 = *srcs[j];
                     mk_union_fn(i, j, r1, r2, delta);
@@ -645,8 +645,8 @@ namespace datalog {
             product_relation* delta = get(_delta);
             SASSERT(tgt.size()==src.size()); //moreover, we want the subrelations of the two relations to be aligned
             unsigned num = tgt.size();
-            ptr_vector<relation_base> side_results;
-            ptr_vector<relation_base> side_deltas;
+            vector<relation_base*> side_results;
+            vector<relation_base*> side_deltas;
 
             for (unsigned i = 0; i < num; ++i) {
                 relation_base& itgt = tgt[i];
@@ -738,7 +738,7 @@ namespace datalog {
     public:
         unaligned_union_fn(product_relation const& tgt, product_relation const& src, 
                 product_relation const* delta, bool is_widen) : m_is_widen(is_widen) {
-            ptr_vector<const product_relation> rels;
+            vector<product_relation const*> rels;
             rels.push_back(&tgt);
             rels.push_back(&src);
             if(delta) {
@@ -829,7 +829,7 @@ namespace datalog {
     }
 
     class product_relation_plugin::mutator_fn : public relation_mutator_fn {
-        ptr_vector<relation_mutator_fn> m_mutators;
+        vector<relation_mutator_fn*> m_mutators;
     public:
         mutator_fn(unsigned sz, relation_mutator_fn** muts):
           m_mutators(sz, muts) {}
@@ -857,7 +857,7 @@ namespace datalog {
         if(is_product_relation(_t)) {
             bool found = false;
             product_relation const& r = get(_t);
-            ptr_vector<relation_mutator_fn> mutators;
+            vector<relation_mutator_fn*> mutators;
             for (unsigned i = 0; i < r.size(); ++i) {
                 relation_mutator_fn* m = get_manager().mk_filter_identical_fn(r[i], col_cnt, identical_cols);
                 mutators.push_back(m);
@@ -874,7 +874,7 @@ namespace datalog {
         const relation_element & value, unsigned col) {
         if(is_product_relation(_t)) {
             product_relation const& r = get(_t);
-            ptr_vector<relation_mutator_fn> mutators;
+            vector<relation_mutator_fn*> mutators;
             bool found = false;
             for (unsigned i = 0; i < r.size(); ++i) {
                 relation_mutator_fn* m = get_manager().mk_filter_equal_fn(r[i], value, col);
@@ -889,7 +889,7 @@ namespace datalog {
     }
 
     class product_relation_plugin::filter_interpreted_fn : public relation_mutator_fn {
-        ptr_vector<relation_mutator_fn> m_mutators;
+        vector<relation_mutator_fn*> m_mutators;
         vector<std::pair<unsigned, unsigned> > m_attach;
     public:
 
@@ -1081,7 +1081,7 @@ namespace datalog {
     }
 
     product_relation * product_relation::clone() const {
-        ptr_vector<relation_base> relations;
+        vector<relation_base*> relations;
         for (unsigned i = 0; i < size(); ++i) {
             relations.push_back((*this)[i].clone());
         }

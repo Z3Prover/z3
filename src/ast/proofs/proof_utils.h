@@ -35,7 +35,7 @@ public:
     proof* next();
 
 private:
-    ptr_vector<proof> m_todo;
+    vector<proof*> m_todo;
     ast_mark          m_visited; // the proof nodes we have already visited
     ast_manager&      m;
 };
@@ -130,7 +130,7 @@ public:
         // for reference counting of new proofs
         app_ref_vector pinned(m);
 
-        ptr_vector<app> todo;
+        vector<app*> todo;
         todo.push_back(pr);
 
         expr_ref not_aux(m);

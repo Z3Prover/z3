@@ -233,7 +233,7 @@ namespace datalog {
     void mk_karr_invariants::get_invariants(rule_set const& src) {
         m_inner_ctx.reset();
         rel_context_base& rctx = *m_inner_ctx.get_rel_context();
-        ptr_vector<func_decl> heads;
+        vector<func_decl*> heads;
         func_decl_set const& predicates = m_ctx.get_predicates();
         for (func_decl_set::iterator fit = predicates.begin(); fit != predicates.end(); ++fit) {
             m_inner_ctx.register_predicate(*fit, false);

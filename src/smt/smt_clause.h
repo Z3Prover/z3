@@ -264,7 +264,7 @@ namespace smt {
         }
     };
 
-    typedef ptr_vector<clause> clause_vector;
+    typedef vector<clause*> clause_vector;
 
     typedef obj_hashtable<clause> clause_set;
 };

@@ -157,7 +157,7 @@ namespace qe {
             // A |-> (store B i t), where B is fresh.
             // 
             unsigned idx = 0;
-            vector<ptr_vector<expr> > args;
+            vector<vector<expr*> > args;
             if (is_select(lhs, idx, rhs, args) && args.size() == 1) {
                 contains_app& contains_A = m_ctx.contains(idx);
                 app* A = contains_A.x();
@@ -221,14 +221,14 @@ namespace qe {
             // store(t, i, v)[j] = u
             //
             unsigned idx = 0;
-            vector<ptr_vector<expr> > args;
+            vector<vector<expr*> > args;
             if (is_store_update(lhs, idx, rhs, args)) {
                 contains_app& contains_A = m_ctx.contains(idx);
                 app* A = contains_A.x();
                 app_ref w(m);
 
                 expr_ref store_t(rhs, m), store_T(rhs, m), select_t(m);
-                ptr_vector<expr> args2;
+                vector<expr*> args2;
                 for (unsigned i = args.size(); i > 0; ) {
                     --i;
                     args2.clear();
@@ -261,7 +261,7 @@ namespace qe {
             return false;
         }
 
-        bool is_array_app_of(app* a, unsigned& idx, expr* t, decl_kind k, vector<ptr_vector<expr> >& args) {
+        bool is_array_app_of(app* a, unsigned& idx, expr* t, decl_kind k, vector<vector<expr*> >& args) {
             if (m_ctx.is_var(a, idx)) {
                 contains_app& contains_v = m_ctx.contains(idx);
                 if (args.empty() || contains_v(t)) {
@@ -279,7 +279,7 @@ namespace qe {
             if (!is_app_of(a, m_fid, k)) {
                 return false;
             }
-            args.push_back(ptr_vector<expr>());
+            args.push_back(vector<expr*>());
             for (unsigned i = 1; i < a->get_num_args(); ++i) {
                 args.back().push_back(a->get_arg(i));
             }
@@ -289,11 +289,11 @@ namespace qe {
             return is_array_app_of(to_app(a->get_arg(0)), idx, t, k, args);
         }
 
-        bool is_store_update(app* a, unsigned& idx, expr* t, vector<ptr_vector<expr> >& args) {
+        bool is_store_update(app* a, unsigned& idx, expr* t, vector<vector<expr*> >& args) {
             return is_array_app_of(a, idx, t, OP_STORE, args);
         }
         
-        bool is_select(app* a, unsigned& idx, expr* t, vector<ptr_vector<expr> >& args) {
+        bool is_select(app* a, unsigned& idx, expr* t, vector<vector<expr*> >& args) {
             return is_array_app_of(a, idx, t, OP_SELECT, args);
         }
     };

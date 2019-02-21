@@ -134,11 +134,11 @@ namespace datalog {
     }
 
     bool dl_decl_plugin::is_rel_sort(sort* r) {
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         return is_rel_sort(r, sorts);
     }
 
-    bool dl_decl_plugin::is_rel_sort(sort* r, ptr_vector<sort>& sorts) {
+    bool dl_decl_plugin::is_rel_sort(sort* r, vector<sort*>& sorts) {
         if (!is_sort_of(r, m_family_id, DL_RELATION_SORT)) {
             m_manager->raise_exception("expected relation sort");
             return false;
@@ -171,7 +171,7 @@ namespace datalog {
         if (!is_store) {
             r = m.mk_bool_sort();
         }
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         if (!is_rel_sort(r, sorts)) {
             return nullptr;
         }
@@ -209,7 +209,7 @@ namespace datalog {
 
     func_decl* dl_decl_plugin::mk_project(unsigned num_params, parameter const* params, sort* r) {
         ast_manager& m = *m_manager;
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         vector<parameter> ps;
         TRACE("dl_decl_plugin", 
                 tout << mk_pp(r, m) << " ";
@@ -265,7 +265,7 @@ namespace datalog {
 
     func_decl * dl_decl_plugin::mk_filter(parameter const& p, sort* r) {
         ast_manager& m = *m_manager;
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         if (!is_rel_sort(r, sorts)) {
             return nullptr;
         }
@@ -279,7 +279,7 @@ namespace datalog {
             m_manager->raise_exception("filter predicate should be of Boolean type");
             return nullptr;
         }
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         todo.push_back(f);
         ast_mark mark;
         while (!todo.empty()) {
@@ -320,7 +320,7 @@ namespace datalog {
     }
 
     func_decl * dl_decl_plugin::mk_rename(unsigned num_params, parameter const* params, sort* r) {
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         if (!is_rel_sort(r, sorts)) {
             return nullptr;
         }
@@ -360,7 +360,7 @@ namespace datalog {
 
     func_decl * dl_decl_plugin::mk_join(unsigned num_params, parameter const* params, sort* r1, sort* r2) {
         vector<parameter> params2;
-        ptr_vector<sort> sorts1, sorts2;
+        vector<sort*> sorts1, sorts2;
         if (!is_rel_sort(r1, sorts1)) {
             return nullptr;
         }
@@ -410,7 +410,7 @@ namespace datalog {
     }
 
     func_decl * dl_decl_plugin::mk_negation_filter(unsigned num_params, parameter const* params, sort* r1, sort* r2) {
-        ptr_vector<sort> sorts1, sorts2;
+        vector<sort*> sorts1, sorts2;
         if (!is_rel_sort(r1, sorts1)) {
             return nullptr;
         }

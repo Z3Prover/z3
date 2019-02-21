@@ -26,13 +26,13 @@ Revision History:
 
 class decl_collector {
     ast_manager &         m_manager;
-    ptr_vector<sort>      m_sorts;
-    ptr_vector<func_decl> m_decls;
+    vector<sort*>      m_sorts;
+    vector<func_decl*> m_decls;
     ast_mark              m_visited;
     family_id             m_basic_fid;
     family_id             m_dt_fid;
     datatype_util         m_dt_util;
-    ptr_vector<ast>       m_todo;
+    vector<ast*>       m_todo;
 
     void visit_sort(sort* n);
     bool is_bool(sort* s);

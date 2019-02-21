@@ -1064,7 +1064,7 @@ void context_t<C>::remove_from_leaf_dlist(node * n) {
 }
 
 template<typename C>
-void context_t<C>::collect_leaves(ptr_vector<node> & leaves) const {
+void context_t<C>::collect_leaves(vector<node*> & leaves) const {
     // Copy all leaves to the given vector.
     buffer<node*, 1024> todo;
     if (m_root != nullptr)
@@ -1096,7 +1096,7 @@ void context_t<C>::del_unit_clauses() {
 }
 
 template<typename C>
-void context_t<C>::del_clauses(ptr_vector<clause> & cs) {
+void context_t<C>::del_clauses(vector<clause*> & cs) {
     unsigned sz = cs.size();
     for (unsigned i = 0; i < sz; i++) {
         del_clause(cs[i]);
@@ -1771,8 +1771,8 @@ void context_t<C>::propagate_all_definitions(node * n) {
 
 template<typename C>
 void context_t<C>::assert_units(node * n) {
-    typename ptr_vector<ineq>::const_iterator it  = m_unit_clauses.begin();
-    typename ptr_vector<ineq>::const_iterator end = m_unit_clauses.end();
+    typename vector<ineq*>::const_iterator it  = m_unit_clauses.begin();
+    typename vector<ineq*>::const_iterator end = m_unit_clauses.end();
     for (; it != end; ++it) {
         checkpoint();
         ineq * a = UNTAG(ineq*, *it);
@@ -1846,10 +1846,10 @@ void context_t<C>::operator()() {
 
 template<typename C>
 void context_t<C>::display_bounds(std::ostream & out) const {
-    ptr_vector<node> leaves;
+    vector<node*> leaves;
     collect_leaves(leaves);
-    typename ptr_vector<node>::const_iterator it  = leaves.begin();
-    typename ptr_vector<node>::const_iterator end = leaves.end();
+    typename vector<node*>::const_iterator it  = leaves.begin();
+    typename vector<node*>::const_iterator end = leaves.end();
     for (bool first = true; it != end; ++it) {
         node * n = *it;
         if (first)

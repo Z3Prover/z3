@@ -174,7 +174,7 @@ class elim_uncnstr_tactic : public tactic {
             if (fid == m_dt_util.get_family_id()) {
                 // In the current implementation, I only handle the case where
                 // the datatype has a recursive constructor.
-                ptr_vector<func_decl> const & constructors = *m_dt_util.get_datatype_constructors(s);
+                vector<func_decl*> const & constructors = *m_dt_util.get_datatype_constructors(s);
                 for (func_decl * constructor : constructors) {
                     unsigned num    = constructor->get_arity();
                     unsigned target = UINT_MAX;
@@ -703,7 +703,7 @@ class elim_uncnstr_tactic : public tactic {
                     app * u;
                     if (!mk_fresh_uncnstr_var_for(f, num, args, u))
                         return u;
-                    ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(c);
+                    vector<func_decl*> const & accs = *m_dt_util.get_constructor_accessors(c);
                     buffer<expr*> new_args;
                     for (unsigned i = 0; i < accs.size(); i++) {
                         if (accs[i] == f) 
@@ -722,7 +722,7 @@ class elim_uncnstr_tactic : public tactic {
                         return u;
                     if (!m_mc)
                         return u;
-                    ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(f);
+                    vector<func_decl*> const & accs = *m_dt_util.get_constructor_accessors(f);
                     for (unsigned i = 0; i < num; i++) {
                         add_def(args[i], m().mk_app(accs[i], u));
                     }

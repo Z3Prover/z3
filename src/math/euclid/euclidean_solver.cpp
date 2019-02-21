@@ -93,7 +93,7 @@ struct euclidean_solver::imp {
         unsigned pos_x(unsigned x_i) const { return pos(m_xs, x_i); }
     };
     
-    typedef ptr_vector<equation>   equations;
+    typedef vector<equation*>   equations;
     typedef vector<unsigned>      occs;
 
     numeral_manager *  m_manager;

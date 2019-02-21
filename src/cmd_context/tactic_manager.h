@@ -25,8 +25,8 @@ class tactic_manager {
 protected:
     dictionary<tactic_cmd*>  m_name2tactic;
     dictionary<probe_info*>  m_name2probe;
-    ptr_vector<tactic_cmd>   m_tactics;
-    ptr_vector<probe_info>   m_probes;
+    vector<tactic_cmd*>   m_tactics;
+    vector<probe_info*>   m_probes;
     void finalize_tactic_cmds();
     void finalize_probes();
 public:
@@ -42,11 +42,11 @@ public:
     tactic_cmd * get_tactic(unsigned i) const { return m_tactics[i]; }
     probe_info * get_probe(unsigned i) const { return m_probes[i]; }
     
-    typedef ptr_vector<tactic_cmd>::const_iterator tactic_cmd_iterator;
+    typedef vector<tactic_cmd*>::const_iterator tactic_cmd_iterator;
     tactic_cmd_iterator begin_tactic_cmds() const { return m_tactics.begin(); }
     tactic_cmd_iterator end_tactic_cmds() const { return m_tactics.end(); }
 
-    typedef ptr_vector<probe_info>::const_iterator probe_iterator;
+    typedef vector<probe_info*>::const_iterator probe_iterator;
     probe_iterator begin_probes() const { return m_probes.begin(); }
     probe_iterator end_probes() const { return m_probes.end(); }
 };

@@ -105,7 +105,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
 
 void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     const datalog::rule &r = fr.rule();
-    ptr_vector<func_decl> preds;
+    vector<func_decl*> preds;
     fr.pt().find_predecessors(r, preds);
 
     if (preds.empty()) return;

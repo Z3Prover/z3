@@ -69,7 +69,7 @@ namespace sat {
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;
-        ptr_vector<solver> m_solvers;
+        vector<solver*> m_solvers;
         
     public:
 

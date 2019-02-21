@@ -100,7 +100,7 @@ namespace smt {
         void erase_bv2a(bool_var bv) { m_bool_var2atom.erase(bv); }
         atom * get_bv2a(bool_var bv) const { atom * a; m_bool_var2atom.find(bv, a); return a; }
 #else
-        typedef ptr_vector<atom> bool_var2atom;
+        typedef vector<atom*> bool_var2atom;
         void insert_bv2a(bool_var bv, atom * a) { m_bool_var2atom.setx(bv, a, 0); }
         void erase_bv2a(bool_var bv) { m_bool_var2atom[bv] = 0; }
         atom * get_bv2a(bool_var bv) const { return m_bool_var2atom.get(bv, 0); }

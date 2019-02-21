@@ -26,7 +26,7 @@ Revision History:
 #include "util/vector.h"
 
 class region {
-    ptr_vector<char> m_chuncks;
+    vector<char*> m_chuncks;
     vector<unsigned>  m_scopes;
 public:
     ~region() {
@@ -40,8 +40,8 @@ public:
     }
 
     void clear() {
-        ptr_vector<char>::iterator it  = m_chuncks.begin();
-        ptr_vector<char>::iterator end = m_chuncks.end();
+        vector<char*>::iterator it  = m_chuncks.begin();
+        vector<char*>::iterator end = m_chuncks.end();
         for (; it != end; ++it) {
             dealloc_svect(*it);
         }
@@ -57,8 +57,8 @@ public:
     void pop_scope() {
         unsigned old_size = m_scopes.back();
         m_scopes.pop_back();
-        ptr_vector<char>::iterator it  = m_chuncks.begin() + old_size;
-        ptr_vector<char>::iterator end = m_chuncks.end();
+        vector<char*>::iterator it  = m_chuncks.begin() + old_size;
+        vector<char*>::iterator end = m_chuncks.end();
         for (; it != end; ++it) {
             dealloc_svect(*it);
         }

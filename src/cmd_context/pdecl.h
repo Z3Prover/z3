@@ -208,7 +208,7 @@ class pconstructor_decl : public pdecl {
     friend class pdatatype_decl;
     symbol                     m_name;
     symbol                     m_recogniser_name;
-    ptr_vector<paccessor_decl> m_accessors;
+    vector<paccessor_decl*> m_accessors;
     pconstructor_decl(unsigned id, unsigned num_params, pdecl_manager & m,
                       symbol const & n, symbol const & r, unsigned num_accessors, paccessor_decl * const * accessors);
     void finalize(pdecl_manager & m) override;
@@ -227,7 +227,7 @@ public:
 class pdatatype_decl : public psort_decl {
     friend class pdecl_manager;
     friend class pdatatypes_decl;
-    ptr_vector<pconstructor_decl> m_constructors;
+    vector<pconstructor_decl*> m_constructors;
     pdatatypes_decl *             m_parent;
     pdatatype_decl(unsigned id, unsigned num_params, pdecl_manager & m, symbol const & n,
                    unsigned num_constructors, pconstructor_decl * const * constructors);
@@ -250,7 +250,7 @@ public:
 class pdatatypes_decl : public pdecl {
     friend class pdecl_manager;
     friend class pdatatype_decl;
-    ptr_vector<pdatatype_decl> m_datatypes;
+    vector<pdatatype_decl*> m_datatypes;
     pdatatypes_decl(unsigned id, unsigned num_params, pdecl_manager & m, unsigned num_datatypes, pdatatype_decl * const * dts);
     void finalize(pdecl_manager & m) override;
     size_t obj_size() const override { return sizeof(pdatatypes_decl); }
@@ -277,7 +277,7 @@ class pdecl_manager {
     id_gen                       m_id_gen;
     obj_map<sort, psort *>       m_sort2psort;
     psort_table                  m_table;
-    ptr_vector<pdecl>            m_to_delete;
+    vector<pdecl*>            m_to_delete;
     pdatatype_decl *             m_list;
     family_id                    m_datatype_fid;
     new_datatype_eh *            m_new_dt_eh;

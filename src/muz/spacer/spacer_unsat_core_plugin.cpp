@@ -312,7 +312,7 @@ namespace spacer {
             });
 
         // 1. construct ordered basis
-        ptr_vector<app> ordered_basis;
+        vector<app*> ordered_basis;
         obj_map<app, unsigned> map;
         unsigned counter = 0;
         for (const auto& linear_combination : m_linear_combinations) {
@@ -375,7 +375,7 @@ namespace spacer {
             });
 
         // 1. construct ordered basis
-        ptr_vector<app> ordered_basis;
+        vector<app*> ordered_basis;
         obj_map<app, unsigned> map;
         unsigned counter = 0;
         for (const auto& linear_combination : m_linear_combinations) {
@@ -502,7 +502,7 @@ namespace spacer {
      */
     void unsat_core_plugin_min_cut::compute_partial_core(proof* step)
     {
-        ptr_vector<proof> todo;
+        vector<proof*> todo;
 
         SASSERT(m_ctx.is_a(step));
         SASSERT(m_ctx.is_b(step));
@@ -531,7 +531,7 @@ namespace spacer {
     }
 
 
-    void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo)
+    void unsat_core_plugin_min_cut::advance_to_lowest_partial_cut(proof* step, vector<proof*>& todo)
     {
         bool is_sink = true;
 

@@ -116,7 +116,7 @@ namespace datalog {
         typedef std::pair<app*, app*> app_pair;
         typedef pair_hash<obj_ptr_hash<app>, obj_ptr_hash<app> > app_pair_hash;
         typedef map<app_pair, pair_info *, app_pair_hash, default_eq<app_pair> > cost_map;
-        typedef map<rule *, ptr_vector<app>, ptr_hash<rule>, ptr_eq<rule> > rule_pred_map;
+        typedef map<rule *, vector<app*>, ptr_hash<rule>, ptr_eq<rule> > rule_pred_map;
         typedef ptr_hashtable<rule, rule_hash_proc, default_eq<rule *> > rule_hashtable;
 
         context &       m_context;
@@ -126,13 +126,13 @@ namespace datalog {
         rule_set &      m_rs_aux_copy; //reference to a rule_set that will allow to ask for stratum levels
 
         cost_map          m_costs;
-        ptr_vector<app>   m_interpreted;
+        vector<app*>   m_interpreted;
         rule_pred_map     m_rules_content;
         rule_ref_vector   m_introduced_rules;
         bool              m_modified_rules;
         
         ast_ref_vector m_pinned;
-        mutable ptr_vector<sort> m_vars;
+        mutable vector<sort*> m_vars;
 
     public:
         join_planner(context & ctx, rule_set & rs_aux_copy)
@@ -297,8 +297,8 @@ namespace datalog {
             counter.count_rule_vars(r, 1);
             TRACE("dl", tout << "counter: "; for (auto const& kv: counter) tout << kv.m_key << ": " << kv.m_value << " "; tout << "\n";);
 
-            ptr_vector<app> & rule_content = 
-                m_rules_content.insert_if_not_there2(r, ptr_vector<app>())->get_data().m_value;
+            vector<app*> & rule_content = 
+                m_rules_content.insert_if_not_there2(r, vector<app*>())->get_data().m_value;
             SASSERT(rule_content.empty());
 
             TRACE("dl", r->display(m_context, tout << "register ");); 
@@ -328,7 +328,7 @@ namespace datalog {
         }
 
         bool extract_argument_info(unsigned var_idx, app * t, expr_ref_vector & args, 
-                                   ptr_vector<sort> & domain) {
+                                   vector<sort*> & domain) {
             for (expr* arg : *t) {
                 var * v = to_var(arg);
                 if (v->get_idx() == var_idx) {
@@ -347,7 +347,7 @@ namespace datalog {
             SASSERT(!inf.m_rules.empty());
             var_idx_set const & output_vars = inf.m_all_nonlocal_vars;
             expr_ref_vector args(m);
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
 
             unsigned arity = output_vars.num_elems();
             for (unsigned var_idx : output_vars) {
@@ -408,7 +408,7 @@ namespace datalog {
         }
 
         void replace_edges(rule * r, const app_ref_vector & removed_tails, 
-                           const app_ref_vector & added_tails0, const ptr_vector<app> & rule_content) {
+                           const app_ref_vector & added_tails0, const vector<app*> & rule_content) {
             SASSERT(removed_tails.size()>=added_tails0.size());
             unsigned len = rule_content.size();
             unsigned original_len = len+removed_tails.size()-added_tails0.size();
@@ -487,7 +487,7 @@ namespace datalog {
         void apply_binary_rule(rule * r, app_pair pair_key, app * t_new) {
             app * t1 = pair_key.first;
             app * t2 = pair_key.second;
-            ptr_vector<app> & rule_content = m_rules_content.find(r);
+            vector<app*> & rule_content = m_rules_content.find(r);
             unsigned len = rule_content.size();
             if (len == 1) {
                 return;
@@ -702,7 +702,7 @@ namespace datalog {
             rule_set * result = alloc(rule_set, m_context);       
             for (auto& kv : m_rules_content) {
                 rule * orig_r = kv.m_key;
-                ptr_vector<app> content = kv.m_value;
+                vector<app*> content = kv.m_value;
                 SASSERT(content.size() <= 2);
                 if (content.size() == orig_r->get_positive_tail_size()) {
                     //rule did not change
@@ -710,7 +710,7 @@ namespace datalog {
                     continue;
                 }
 
-                ptr_vector<app> tail(content);
+                vector<app*> tail(content);
                 vector<bool> negs(tail.size(), false);
                 unsigned or_len = orig_r->get_tail_size();
                 for (unsigned i=orig_r->get_positive_tail_size(); i < or_len; i++) {

@@ -34,7 +34,7 @@ bool check_pred::operator()(expr* e) {
 }        
 
 void check_pred::visit(expr* e) {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.push_back(e);
     while (!todo.empty()) {
         e = todo.back();

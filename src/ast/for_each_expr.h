@@ -105,7 +105,7 @@ void for_each_expr_core(ForEachProc & proc, ExprMark & visited, expr * n) {
 }
 
 template<typename T>
-bool for_each_expr_args(ptr_vector<expr> & stack, expr_mark & visited, unsigned num_args, T * const * args) {
+bool for_each_expr_args(vector<expr*> & stack, expr_mark & visited, unsigned num_args, T * const * args) {
     bool result = true;
     for (unsigned i = 0; i < num_args; i++) {
         T * arg = args[i];

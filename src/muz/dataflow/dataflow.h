@@ -67,7 +67,7 @@ namespace datalog {
                     func_decl *d = cur->get_decl(i);
                     rule_set::decl2rules::obj_map_entry *e = m_body2rules.insert_if_not_there2(d, 0);
                     if (!e->get_data().m_value) {
-                        e->get_data().m_value = alloc(ptr_vector<rule>);
+                        e->get_data().m_value = alloc(vector<rule*>);
                     }
                     e->get_data().m_value->push_back(cur);
                 }
@@ -94,7 +94,7 @@ namespace datalog {
 
         void step_bottom_up() {
             for (func_decl* f : m_todo[m_todo_idx]) {
-                ptr_vector<rule> * rules; 
+                vector<rule*> * rules; 
                 if (!m_body2rules.find(f, rules))
                     continue;
                 for (rule* r : *rules) {
@@ -192,7 +192,7 @@ namespace datalog {
         }
 
         void intersect(const dataflow_engine<Fact>& oth) {
-            ptr_vector<func_decl> to_delete;
+            vector<func_decl*> to_delete;
             for (auto const& kv : m_facts) {
                 
                 if (typename fact_db::entry *entry = oth.m_facts.find_core(kv.m_key)) {

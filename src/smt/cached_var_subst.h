@@ -42,7 +42,7 @@ class cached_var_subst {
     expr_ref_vector  m_refs;
     instances        m_instances;
     region           m_region;
-    ptr_vector<key>  m_new_keys; // mapping from num_bindings -> next key
+    vector<key*>  m_new_keys; // mapping from num_bindings -> next key
 public:
     cached_var_subst(ast_manager & m);
     void operator()(quantifier * qa, unsigned num_bindings, smt::enode * const * bindings, expr_ref & result);

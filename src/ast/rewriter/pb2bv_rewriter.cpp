@@ -44,7 +44,7 @@ struct pb2bv_rewriter::imp {
 
     struct card2bv_rewriter {               
         typedef expr* pliteral;
-        typedef ptr_vector<expr> pliteral_vector;
+        typedef vector<expr*> pliteral_vector;
         psort_nw<card2bv_rewriter> m_sort;
         ast_manager& m;
         imp&         m_imp;
@@ -424,7 +424,7 @@ struct pb2bv_rewriter::imp {
         /**
            \brief Check if 'out mod n >= lim'. 
          */
-        expr_ref mod_ge(ptr_vector<expr> const& out, unsigned n, unsigned lim) {
+        expr_ref mod_ge(vector<expr*> const& out, unsigned n, unsigned lim) {
             TRACE("pb", for (unsigned i = 0; i < out.size(); ++i) tout << mk_pp(out[i], m) << " "; tout << "\n";
                   tout << "n:" << n << " lim: " << lim << "\n";);
             if (lim == n) {
@@ -478,7 +478,7 @@ struct pb2bv_rewriter::imp {
                       for (auto c : coeffs) tout << c << " ";
                       tout << "\n";
                       );
-                ptr_vector<expr> out;
+                vector<expr*> out;
                 m_sort.sorting(carry.size(), carry.c_ptr(), out);
                 
                 expr_ref gt = mod_ge(out, B, d_i + 1);
@@ -551,11 +551,11 @@ struct pb2bv_rewriter::imp {
             expr* const* args = m_args.c_ptr();
 
             // Create sorted entries.
-            vector<ptr_vector<expr>> outs;
+            vector<vector<expr*>> outs;
             vector<rational> coeffs;
             for (unsigned i = 0, seg_size = 0; i < sz; i += seg_size) {
                 seg_size = segment_size(i);
-                ptr_vector<expr> out;
+                vector<expr*> out;
                 m_sort.sorting(seg_size, args + i, out);
                 out.push_back(m.mk_false());
                 outs.push_back(out);
@@ -564,9 +564,9 @@ struct pb2bv_rewriter::imp {
             return mk_seg_le_rec(outs, coeffs, 0, k);
         }
 
-        expr_ref mk_seg_le_rec(vector<ptr_vector<expr>> const& outs, vector<rational> const& coeffs, unsigned i, rational const& k) {
+        expr_ref mk_seg_le_rec(vector<vector<expr*>> const& outs, vector<rational> const& coeffs, unsigned i, rational const& k) {
             rational const& c = coeffs[i];
-            ptr_vector<expr> const& out = outs[i];     
+            vector<expr*> const& out = outs[i];     
             if (k.is_neg()) {
                 return expr_ref(m.mk_false(), m);
             }

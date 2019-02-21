@@ -143,7 +143,7 @@ namespace datalog {
 
     void boogie_proof::pp_proof(std::ostream& out) {
         vector<step> steps;
-        ptr_vector<proof> rules;
+        vector<proof*> rules;
         rules.push_back(m_proof);
         steps.push_back(step());
         obj_map<proof, unsigned> index;
@@ -198,7 +198,7 @@ namespace datalog {
        rule that produces an instance.
      */
     void boogie_proof::get_subst(proof* p, subst& s) {
-        ptr_vector<proof> todo;
+        vector<proof*> todo;
         todo.push_back(p);
         ast_mark visited;
         std::cout << "get_subst\n" << mk_pp(p, m) << "\n";

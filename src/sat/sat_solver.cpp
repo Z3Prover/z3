@@ -552,7 +552,7 @@ namespace sat {
         pop(scope_lvl());
         IF_VERBOSE(2, verbose_stream() << "(sat-defrag)\n");
         clause_allocator& alloc = m_cls_allocator[!m_cls_allocator_idx];
-        ptr_vector<clause> new_clauses, new_learned;
+        vector<clause*> new_clauses, new_learned;
         for (clause* c : m_clauses) c->unmark_used();
         for (clause* c : m_learned) c->unmark_used();
 

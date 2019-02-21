@@ -79,7 +79,7 @@ namespace smt {
         scoped_ptr<quantifier_analyzer>        m_analyzer;
         scoped_ptr<auf_solver>                 m_auf_solver;
         obj_map<quantifier, quantifier_info *> m_q2info;
-        ptr_vector<quantifier>                 m_quantifiers;
+        vector<quantifier*>                 m_quantifiers;
         func_decl_dependencies                 m_dependencies;
         scoped_ptr<simple_macro_solver>        m_sm_solver;
         scoped_ptr<hint_solver>                m_hint_solver;
@@ -95,12 +95,12 @@ namespace smt {
 
         void restore_quantifiers(unsigned old_size);
         quantifier_info * get_quantifier_info(quantifier * q) const;
-        void collect_relevant_quantifiers(ptr_vector<quantifier> & qs) const;
-        void cleanup_quantifier_infos(ptr_vector<quantifier> const & qs);
-        void process_simple_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
-        void process_hint_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
-        void process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m);
-        void process_auf(ptr_vector<quantifier> const & qs, proto_model * m);
+        void collect_relevant_quantifiers(vector<quantifier*> & qs) const;
+        void cleanup_quantifier_infos(vector<quantifier*> const & qs);
+        void process_simple_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m);
+        void process_hint_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m);
+        void process_non_auf_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m);
+        void process_auf(vector<quantifier*> const & qs, proto_model * m);
         instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const;
         void checkpoint();
 

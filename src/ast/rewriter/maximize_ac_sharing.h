@@ -74,7 +74,7 @@ private:
     bool              m_init;
     region            m_region;
     cache             m_cache;
-    ptr_vector<entry> m_entries;
+    vector<entry*> m_entries;
     vector<unsigned>  m_scopes;
     vector<decl_kind>    m_kinds; //!< kinds to be processed
 

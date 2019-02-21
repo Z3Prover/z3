@@ -79,7 +79,7 @@ class hnf::imp {
     expr_ref_vector       m_refs;
     symbol                m_name;
     vector<symbol>       m_names;
-    ptr_vector<sort>      m_sorts;
+    vector<sort*>      m_sorts;
     quantifier_hoister    m_qh;
     obj_map<expr, app*>   m_memoize_disj;
     obj_map<expr, proof*> m_memoize_proof;
@@ -394,7 +394,7 @@ private:
     }
 
     app_ref mk_fresh_head(expr* e) {
-        ptr_vector<sort> sorts1;
+        vector<sort*> sorts1;
         m_free_vars(e);
         expr_ref_vector args(m);
         for (unsigned i = 0; i < m_free_vars.size(); ++i) {

@@ -23,8 +23,8 @@ Revision History:
 
 template<typename Plugin>
 class plugin_manager {
-    ptr_vector<Plugin>   m_fid2plugins;
-    ptr_vector<Plugin>   m_plugins;
+    vector<Plugin*>   m_fid2plugins;
+    vector<Plugin*>   m_plugins;
 public:
     ~plugin_manager() {
         reset();
@@ -58,13 +58,13 @@ public:
         return m_fid2plugins.get(fid, 0);
     }
 
-    ptr_vector<Plugin> const& plugins() const { return m_plugins; }
+    vector<Plugin*> const& plugins() const { return m_plugins; }
 
-    typename ptr_vector<Plugin>::const_iterator begin() const { 
+    typename vector<Plugin*>::const_iterator begin() const { 
         return m_plugins.begin(); 
     }
 
-    typename ptr_vector<Plugin>::const_iterator end() const { 
+    typename vector<Plugin*>::const_iterator end() const { 
         return m_plugins.end(); 
     }
 };

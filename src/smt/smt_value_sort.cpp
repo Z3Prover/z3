@@ -31,7 +31,7 @@ namespace smt {
         datatype_util data(m);
         bv_util bv(m);
         
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         ast_mark mark;
         sorts.push_back(s);
         
@@ -52,7 +52,7 @@ namespace smt {
                 // simple
             }
             else if (data.is_datatype(s)) {
-                ptr_vector<func_decl> const& cs = *data.get_datatype_constructors(s);
+                vector<func_decl*> const& cs = *data.get_datatype_constructors(s);
                 for (unsigned i = 0; i < cs.size(); ++i) {
                     func_decl* f = cs[i];
                     for (unsigned j = 0; j < f->get_arity(); ++j) {

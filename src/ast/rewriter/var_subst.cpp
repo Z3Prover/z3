@@ -183,7 +183,7 @@ expr_ref instantiate(ast_manager & m, quantifier * q, expr * const * exprs) {
     return result;
 }
 
-static void get_free_vars_offset(expr_sparse_mark& mark, ptr_vector<expr>& todo, unsigned offset, expr* e, ptr_vector<sort>& sorts) {
+static void get_free_vars_offset(expr_sparse_mark& mark, vector<expr*>& todo, unsigned offset, expr* e, vector<sort*>& sorts) {
     todo.push_back(e);
     while (!todo.empty()) {
         e = todo.back();
@@ -196,7 +196,7 @@ static void get_free_vars_offset(expr_sparse_mark& mark, ptr_vector<expr>& todo,
         case AST_QUANTIFIER: {
             quantifier* q = to_quantifier(e);
             expr_sparse_mark mark1;
-            ptr_vector<expr> todo1;
+            vector<expr*> todo1;
             get_free_vars_offset(mark1, todo1, offset+q->get_num_decls(), q->get_expr(), sorts);
             break;
         }
@@ -228,13 +228,13 @@ static void get_free_vars_offset(expr_sparse_mark& mark, ptr_vector<expr>& todo,
 }
 
 
-void get_free_vars(expr* e, ptr_vector<sort>& sorts) {
+void get_free_vars(expr* e, vector<sort*>& sorts) {
     expr_sparse_mark mark;
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     get_free_vars_offset(mark, todo, 0, e, sorts);
 }
 
-void get_free_vars(expr_sparse_mark& mark, ptr_vector<expr>& todo, expr* e, ptr_vector<sort>& sorts) {
+void get_free_vars(expr_sparse_mark& mark, vector<expr*>& todo, expr* e, vector<sort*>& sorts) {
     get_free_vars_offset(mark, todo, 0, e, sorts);
 }
 

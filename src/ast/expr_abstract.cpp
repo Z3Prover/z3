@@ -119,7 +119,7 @@ expr_ref mk_quantifier(quantifier_kind k, ast_manager& m, unsigned num_bound, ap
     expr_ref result(m);
     expr_abstract(m, 0, num_bound, (expr* const*)bound, n, result);    
     if (num_bound > 0) {
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         vector<symbol> names;
         for (unsigned i = 0; i < num_bound; ++i) {
             sorts.push_back(m.get_sort(bound[i]));

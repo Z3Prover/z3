@@ -32,7 +32,7 @@ void expr_dominators::compute_post_order() {
     SASSERT(m_post2expr.empty());
     SASSERT(m_expr2post.empty());
     ast_mark mark;
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.push_back(m_root);
     while (!todo.empty()) {
         expr* e = todo.back();
@@ -99,7 +99,7 @@ bool expr_dominators::compute_dominators() {
         SASSERT(m_post2expr.empty() || m_post2expr.back() == e);
         for (unsigned i = 0; i + 1 < m_post2expr.size(); ++i) {
             expr * child = m_post2expr[i];
-            ptr_vector<expr> const& p = m_parents[child];
+            vector<expr*> const& p = m_parents[child];
             expr * new_idom = nullptr, *idom2 = nullptr;
 
             for (expr * pred : p) {
@@ -428,7 +428,7 @@ bool dom_simplify_tactic::is_subexpr(expr * a, expr * b) {
     return r;
 }
 
-ptr_vector<expr> const & dom_simplify_tactic::tree(expr * e) {
+vector<expr*> const & dom_simplify_tactic::tree(expr * e) {
     if (auto p = m_dominators.get_tree().find_core(e))
         return p->get_data().get_value();
     return m_empty;
@@ -514,7 +514,7 @@ void expr_substitution_simplifier::update_substitution(expr* n, proof* pr) {
 }
 
 void expr_substitution_simplifier::compute_depth(expr* e) {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     todo.push_back(e);    
     while (!todo.empty()) {
         e = todo.back();

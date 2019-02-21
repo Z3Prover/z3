@@ -155,7 +155,7 @@ struct ctx_simplify_tactic::imp {
     simplifier*                 m_simp;
     small_object_allocator      m_allocator;
     vector<cache_cell>         m_cache;
-    vector<ptr_vector<expr> >   m_cache_undo;
+    vector<vector<expr*> >   m_cache_undo;
     unsigned                    m_depth;
     unsigned                    m_num_steps;
     goal_num_occurs             m_occs;
@@ -263,9 +263,9 @@ struct ctx_simplify_tactic::imp {
     void restore_cache(unsigned lvl) {
         if (lvl >= m_cache_undo.size())
             return;
-        ptr_vector<expr> & keys = m_cache_undo[lvl];
-        ptr_vector<expr>::iterator it    = keys.end();
-        ptr_vector<expr>::iterator begin = keys.begin();
+        vector<expr*> & keys = m_cache_undo[lvl];
+        vector<expr*>::iterator it    = keys.end();
+        vector<expr*>::iterator begin = keys.begin();
         while (it != begin) {
             --it;
             expr * key        = *it;
@@ -505,7 +505,7 @@ struct ctx_simplify_tactic::imp {
     unsigned expr_size(expr* s) {
         ast_mark visit;
         unsigned sz = 0;
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         todo.push_back(s);
         while (!todo.empty()) {
             s = todo.back();

@@ -53,9 +53,9 @@ class model_implicant {
     void reset();
     void setup_model(model_ref& model);
     void assign_value(expr* e, expr* v);
-    void collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect);
-    void process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect);
-    expr_ref_vector prune_by_cone_of_influence(ptr_vector<expr> const & formulas);
+    void collect(vector<expr*> const& formulas, vector<expr*>& tocollect);
+    void process_formula(app* e, vector<expr*>& todo, vector<expr*>& tocollect);
+    expr_ref_vector prune_by_cone_of_influence(vector<expr*> const & formulas);
     void eval_arith(app* e);
     void eval_basic(app* e);
     void eval_eq(app* e, expr* arg1, expr* arg2);
@@ -79,7 +79,7 @@ class model_implicant {
     inline expr* get_value(expr* x) { return m_values.find(x); }
     inline void set_value(expr* x, expr* v) { set_v(x); m_refs.push_back(v); m_values.insert(x, v); }
     
-    bool check_model(ptr_vector<expr> const & formulas);
+    bool check_model(vector<expr*> const & formulas);
     
     bool extract_array_func_interp(expr* a, vector<expr_ref_vector>& stores, expr_ref& else_case);
     
@@ -95,14 +95,14 @@ public:
        \pre model satisfies formulas
     */
     
-       expr_ref_vector minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl);
+       expr_ref_vector minimize_model(vector<expr*> const & formulas, model_ref& mdl);
     
     /**
        \brief extract literals from model that satisfy formulas.
        
        \pre model satisfies formulas
     */
-    expr_ref_vector minimize_literals(ptr_vector<expr> const & formulas, model_ref& mdl);
+    expr_ref_vector minimize_literals(vector<expr*> const & formulas, model_ref& mdl);
     
     /** 
         for_each_expr visitor.

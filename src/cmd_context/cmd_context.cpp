@@ -909,7 +909,7 @@ void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& b
     eq  = m().mk_eq(lhs, e);
     if (!ids.empty()) {
         if (is_var(e)) {
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
             for (expr* b : binding) domain.push_back(m().get_sort(b));
             insert_macro(f->get_name(), domain.size(), domain.c_ptr(), e);
             return;
@@ -1437,17 +1437,17 @@ void cmd_context::restore_macros(unsigned old_sz) {
 
 void cmd_context::restore_aux_pdecls(unsigned old_sz) {
     SASSERT(old_sz <= m_aux_pdecls.size());
-    ptr_vector<pdecl>::iterator it  = m_aux_pdecls.begin() + old_sz;
-    ptr_vector<pdecl>::iterator end = m_aux_pdecls.end();
+    vector<pdecl*>::iterator it  = m_aux_pdecls.begin() + old_sz;
+    vector<pdecl*>::iterator end = m_aux_pdecls.end();
     for (; it != end; ++it) {
         pm().dec_ref(*it);
     }
     m_aux_pdecls.shrink(old_sz);
 }
 
-static void restore(ast_manager & m, ptr_vector<expr> & c, unsigned old_sz) {
-    ptr_vector<expr>::iterator it  = c.begin() + old_sz;
-    ptr_vector<expr>::iterator end = c.end();
+static void restore(ast_manager & m, vector<expr*> & c, unsigned old_sz) {
+    vector<expr*>::iterator it  = c.begin() + old_sz;
+    vector<expr*>::iterator end = c.end();
     for (; it != end; ++it) {
         m.dec_ref(*it);
     }
@@ -1788,7 +1788,7 @@ void cmd_context::complete_model(model_ref& md) const {
         if (v->is_user_decl()) {
             SASSERT(!v->has_var_params());
             IF_VERBOSE(12, verbose_stream() << "(model.completion " << k << ")\n"; );
-            ptr_vector<sort> param_sorts(v->get_num_params(), m().mk_bool_sort());
+            vector<sort*> param_sorts(v->get_num_params(), m().mk_bool_sort());
             sort * srt = v->instantiate(*m_pmanager, param_sorts.size(), param_sorts.c_ptr());
             if (!md->has_uninterpreted_sort(srt)) {
                 expr * singleton = m().get_some_value(srt);

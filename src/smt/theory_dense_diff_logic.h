@@ -71,8 +71,8 @@ namespace smt {
             numeral const & get_offset() const { return m_offset; }
         };
 
-        typedef ptr_vector<atom> atoms;
-        typedef ptr_vector<atom> bool_var2atom;
+        typedef vector<atom*> atoms;
+        typedef vector<atom*> bool_var2atom;
         
         struct edge {
             theory_var  m_source;

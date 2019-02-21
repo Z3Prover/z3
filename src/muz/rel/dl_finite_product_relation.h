@@ -305,7 +305,7 @@ namespace datalog {
            Even if the function fails and false is returned, some relations may already be modified. They are
            in a valid state, but with different specification.
         */
-        static bool try_unify_specifications(ptr_vector<finite_product_relation> & rels);
+        static bool try_unify_specifications(vector<finite_product_relation*> & rels);
 
         bool try_modify_specification(const bool * table_cols);
 

@@ -220,7 +220,7 @@ namespace qe {
     */
     void pred_abs::abstract_atoms(expr* fml, max_level& level, expr_ref_vector& defs) {
         expr_mark mark;
-        ptr_vector<expr> args;
+        vector<expr*> args;
         app_ref r(m), eq(m);
         app* p;
         unsigned sz0 = todo.size();
@@ -387,7 +387,7 @@ namespace qe {
         expr_ref_vector trail(m);
         expr* p;
         app_ref r(m);
-        ptr_vector<expr> args;
+        vector<expr*> args;
         unsigned sz0 = todo.size();
         todo.append(fmls.size(), (expr*const*)fmls.c_ptr());
         while (sz0 != todo.size()) {
@@ -963,7 +963,7 @@ namespace qe {
             expr_ref tmp(m);
             expr_ref_vector     trail(m);
             obj_map<expr,expr*> visited;
-            ptr_vector<expr>    todo;
+            vector<expr*>    todo;
             trail.push_back(fml);
             todo.push_back(fml);
             expr* e = nullptr, *r = nullptr;
@@ -1223,7 +1223,7 @@ namespace qe {
         void operator()(/* in */  goal_ref const & in, 
                         /* out */ goal_ref_buffer & result) override {
             tactic_report report("qsat-tactic", *in);
-            ptr_vector<expr> fmls;
+            vector<expr*> fmls;
             expr_ref_vector defs(m);
             expr_ref fml(m);
             in->get_formulas(fmls);

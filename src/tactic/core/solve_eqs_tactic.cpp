@@ -49,10 +49,10 @@ class solve_eqs_tactic : public tactic {
         scoped_ptr<expr_substitution> m_norm_subst;
         expr_sparse_mark              m_candidate_vars;
         expr_sparse_mark              m_candidate_set;
-        ptr_vector<expr>              m_candidates;
-        ptr_vector<app>               m_vars;
+        vector<expr*>              m_candidates;
+        vector<app*>               m_vars;
         expr_sparse_mark              m_nonzero;
-        ptr_vector<app>               m_ordered_vars;
+        vector<app*>               m_ordered_vars;
         bool                          m_produce_proofs;
         bool                          m_produce_unsat_cores;
         bool                          m_produce_models;
@@ -237,7 +237,7 @@ class solve_eqs_tactic : public tactic {
                     ok = k == j || (!occurs(var, arg_k) && is_nonzero(arg_k));
                 }
                 if (!ok) continue;
-                ptr_vector<expr> args;
+                vector<expr*> args;
                 for (unsigned k = 0; k < n; ++k) {
                     if (k != j) args.push_back(arg->get_arg(k));
                 }
@@ -255,7 +255,7 @@ class solve_eqs_tactic : public tactic {
             for (unsigned i = 0; i < num; i++) {
                 expr * arg = lhs->get_arg(i);
                 if (is_app(arg) && isolate_var(to_app(arg), var, div, i, lhs, rhs)) {
-                    ptr_vector<expr> args;
+                    vector<expr*> args;
                     for (unsigned k = 0; k < num; ++k) {
                         if (k != i) args.push_back(lhs->get_arg(k));
                     }

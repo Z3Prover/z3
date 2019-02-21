@@ -77,7 +77,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
 
     bool dirty = false;
     expr_ref true_expr(m.mk_true(), m);
-    ptr_vector<expr> processed;
+    vector<expr*> processed;
     expr_ref_vector extra_lits(m);
 
     unsigned weakness = lemma->weakness();
@@ -248,7 +248,7 @@ void lemma_array_eq_generalizer::operator() (lemma_ref &lemma)
     // -- for every pair of constants (A, B), check whether the
     // -- equality (A=B) generalizes a literal in the lemma
 
-    ptr_vector<func_decl> vsymbs;
+    vector<func_decl*> vsymbs;
     for (auto * fdecl : symb) {vsymbs.push_back(fdecl);}
 
     // create all equalities

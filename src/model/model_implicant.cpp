@@ -93,7 +93,7 @@ void model_implicant::reset() {
     m_model = nullptr;
 }
 
-expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formulas, model_ref& mdl) {
+expr_ref_vector model_implicant::minimize_model(vector<expr*> const & formulas, model_ref& mdl) {
     setup_model(mdl);
     
     TRACE("pdr_verbose", 
@@ -116,7 +116,7 @@ expr_ref_vector model_implicant::minimize_model(ptr_vector<expr> const & formula
     return model;
 }
 
-expr_ref_vector model_implicant::minimize_literals(ptr_vector<expr> const& formulas, model_ref& mdl) {
+expr_ref_vector model_implicant::minimize_literals(vector<expr*> const& formulas, model_ref& mdl) {
     
     TRACE("pdr", 
           tout << "formulas:\n";
@@ -125,7 +125,7 @@ expr_ref_vector model_implicant::minimize_literals(ptr_vector<expr> const& formu
     
     expr_ref_vector result(m);
     expr_ref tmp(m);
-    ptr_vector<expr> tocollect;
+    vector<expr*> tocollect;
     
     setup_model(mdl);
     collect(formulas, tocollect);
@@ -159,7 +159,7 @@ expr_ref_vector model_implicant::minimize_literals(ptr_vector<expr> const& formu
     return result;
 }
 
-void model_implicant::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector<expr>& tocollect) {
+void model_implicant::process_formula(app* e, vector<expr*>& todo, vector<expr*>& tocollect) {
     SASSERT(m.is_bool(e));
     SASSERT(is_true(e) || is_false(e));
     unsigned v = is_true(e);
@@ -264,8 +264,8 @@ void model_implicant::process_formula(app* e, ptr_vector<expr>& todo, ptr_vector
     }
 }
     
-void model_implicant::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>& tocollect) {
-    ptr_vector<expr> todo;
+void model_implicant::collect(vector<expr*> const& formulas, vector<expr*>& tocollect) {
+    vector<expr*> todo;
     todo.append(formulas);
     m_visited.reset();
     
@@ -282,8 +282,8 @@ void model_implicant::collect(ptr_vector<expr> const& formulas, ptr_vector<expr>
     m_visited.reset();
 }
 
-expr_ref_vector model_implicant::prune_by_cone_of_influence(ptr_vector<expr> const & formulas) {
-    ptr_vector<expr> tocollect;
+expr_ref_vector model_implicant::prune_by_cone_of_influence(vector<expr*> const & formulas) {
+    vector<expr*> tocollect;
     collect(formulas, tocollect);
     m1.reset();
     m2.reset();
@@ -803,8 +803,8 @@ void model_implicant::eval_basic(app* e) {
     }
 }
     
-bool model_implicant::check_model(ptr_vector<expr> const& formulas) {
-    ptr_vector<expr> todo(formulas);
+bool model_implicant::check_model(vector<expr*> const& formulas) {
+    vector<expr*> todo(formulas);
         
     while (!todo.empty()) {
         expr * curr_e = todo.back();

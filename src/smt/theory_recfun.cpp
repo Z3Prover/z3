@@ -257,7 +257,7 @@ namespace smt {
     expr_ref theory_recfun::apply_args(
         unsigned depth,
         recfun::vars const & vars,
-        ptr_vector<expr> const & args,
+        vector<expr*> const & args,
         expr * e) {
         SASSERT(is_standard_order(vars));
         var_subst subst(m, true);

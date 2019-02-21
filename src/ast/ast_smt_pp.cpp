@@ -163,12 +163,12 @@ symbol smt_renaming::get_symbol(symbol s0, bool is_skolem) {
 class smt_printer {
     std::ostream&    m_out;
     ast_manager&     m_manager;
-    ptr_vector<quantifier>& m_qlists;
+    vector<quantifier*>& m_qlists;
     smt_renaming&    m_renaming;
     unsigned         m_indent;
     unsigned         m_num_var_names;
     char const* const* m_var_names;
-    ptr_vector<expr> m_todo;
+    vector<expr*> m_todo;
     ast_mark         m_mark;
     unsigned         m_num_lets;
     arith_util       m_autil;
@@ -435,7 +435,7 @@ class smt_printer {
 
         }
         else if (m_manager.is_distinct(decl)) {
-            ptr_vector<expr> args(num_args, n->get_args());
+            vector<expr*> args(num_args, n->get_args());
             unsigned         idx = 0;
             m_out << "(and";
             while (true) {
@@ -705,7 +705,7 @@ class smt_printer {
     }
 
 public:
-    smt_printer(std::ostream& out, ast_manager& m, ptr_vector<quantifier>& ql, smt_renaming& rn,
+    smt_printer(std::ostream& out, ast_manager& m, vector<quantifier*>& ql, smt_renaming& rn,
                 symbol logic, bool no_lets, bool simplify_implies, unsigned indent, unsigned num_var_names = 0, char const* const* var_names = nullptr) :
         m_out(out),
         m_manager(m),
@@ -780,7 +780,7 @@ public:
         SASSERT(util.is_datatype(s));
 
         sort_ref_vector ps(m_manager);
-        ptr_vector<datatype::def> defs;
+        vector<datatype::def*> defs;
         util.get_defs(s, defs);
 
         for (datatype::def* d : defs) {
@@ -895,14 +895,14 @@ ast_smt_pp::ast_smt_pp(ast_manager& m):
 {}
 
 void ast_smt_pp::display_expr_smt2(std::ostream& strm, expr* n, unsigned indent, unsigned num_var_names, char const* const* var_names) {
-    ptr_vector<quantifier> ql;
+    vector<quantifier*> ql;
     smt_renaming rn;
     smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     p(n);
 }
 
 void ast_smt_pp::display_ast_smt2(std::ostream& strm, ast* a, unsigned indent, unsigned num_var_names, char const* const* var_names) {
-    ptr_vector<quantifier> ql;
+    vector<quantifier*> ql;
     smt_renaming rn;
     smt_printer p(strm, m_manager, ql, rn, m_logic, false, m_simplify_implies, indent, num_var_names, var_names);
     if (is_expr(a)) {
@@ -919,7 +919,7 @@ void ast_smt_pp::display_ast_smt2(std::ostream& strm, ast* a, unsigned indent, u
 
 
 void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
-    ptr_vector<quantifier> ql;
+    vector<quantifier*> ql;
     ast_manager& m = m_manager;
     decl_collector decls(m);
     smt_renaming rn;

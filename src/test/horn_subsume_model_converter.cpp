@@ -15,7 +15,7 @@ void tst_horn_subsume_model_converter() {
     reg_decl_plugins(m);
     arith_util a(m);
 
-    ptr_vector<sort> ints;
+    vector<sort*> ints;
     ints.push_back(a.mk_int());
     ints.push_back(a.mk_int());
     ints.push_back(a.mk_int());

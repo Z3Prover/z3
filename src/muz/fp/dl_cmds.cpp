@@ -376,7 +376,7 @@ class dl_declare_rel_cmd : public cmd {
     unsigned         m_arg_idx;
     mutable unsigned m_query_arg_idx;
     symbol           m_rel_name;
-    ptr_vector<sort> m_domain;
+    vector<sort*> m_domain;
     vector<symbol>  m_kinds;
 
 

@@ -44,7 +44,7 @@ namespace datalog {
 
     typedef obj_ref<rule, rule_manager> rule_ref;
     typedef ref_vector<rule, rule_manager> rule_ref_vector;
-    typedef ptr_vector<rule> rule_vector;
+    typedef vector<rule*> rule_vector;
 
 
     struct uninterpreted_function_finder_proc {
@@ -199,7 +199,7 @@ namespace datalog {
 
         void accumulate_vars(expr* pred);
 
-        // ptr_vector<sort>& get_var_sorts() { return m_vars; }
+        // vector<sort*>& get_var_sorts() { return m_vars; }
 
         var_idx_set&      get_var_idx() { return m_var_idx; }
 
@@ -365,7 +365,7 @@ namespace datalog {
 
         void norm_vars(rule_manager & rm);
 
-        void get_vars(ast_manager& m, ptr_vector<sort>& sorts) const;
+        void get_vars(ast_manager& m, vector<sort*>& sorts) const;
 
         void display(context & ctx, std::ostream & out) const;
 

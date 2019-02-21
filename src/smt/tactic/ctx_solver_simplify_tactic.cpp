@@ -90,7 +90,7 @@ protected:
         tactic_report report("ctx-solver-simplify", g);
         if (g.inconsistent())
             return;
-        ptr_vector<expr> fmls;
+        vector<expr*> fmls;
         g.get_formulas(fmls);
         fml = mk_and(m, fmls.size(), fmls.c_ptr());
         m_solver.push();
@@ -142,7 +142,7 @@ protected:
 
     void reduce(expr_ref& result){
         SASSERT(m.is_bool(result));
-        ptr_vector<expr> names;
+        vector<expr*> names;
         vector<expr_pos> todo;
         expr_ref_vector fresh_vars(m), trail(m);
         expr_ref res(m), tmp(m);

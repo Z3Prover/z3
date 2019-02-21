@@ -1115,10 +1115,10 @@ protected:
     func_decl * m_xor_decl;
     func_decl * m_not_decl;
     func_decl * m_implies_decl;
-    ptr_vector<func_decl> m_eq_decls;  // cached eqs
-    ptr_vector<func_decl> m_ite_decls; // cached ites
+    vector<func_decl*> m_eq_decls;  // cached eqs
+    vector<func_decl*> m_ite_decls; // cached ites
 
-    ptr_vector<func_decl> m_oeq_decls;  // cached observational eqs
+    vector<func_decl*> m_oeq_decls;  // cached observational eqs
     sort *      m_proof_sort;
     func_decl * m_undef_decl;
     func_decl * m_true_pr_decl;
@@ -1137,11 +1137,11 @@ protected:
     func_decl * m_elim_unused_vars_decl;
     func_decl * m_der_decl;
     func_decl * m_quant_inst_decl;
-    ptr_vector<func_decl> m_monotonicity_decls;
-    ptr_vector<func_decl> m_transitivity_star_decls;
-    ptr_vector<func_decl> m_distributivity_decls;
-    ptr_vector<func_decl> m_assoc_flat_decls;
-    ptr_vector<func_decl> m_rewrite_star_decls;
+    vector<func_decl*> m_monotonicity_decls;
+    vector<func_decl*> m_transitivity_star_decls;
+    vector<func_decl*> m_distributivity_decls;
+    vector<func_decl*> m_assoc_flat_decls;
+    vector<func_decl*> m_rewrite_star_decls;
 
     func_decl * m_hypothesis_decl;
     func_decl * m_iff_true_decl;
@@ -1149,17 +1149,17 @@ protected:
     func_decl * m_commutativity_decl;
     func_decl * m_def_axiom_decl;
     func_decl * m_lemma_decl;
-    ptr_vector<func_decl> m_unit_resolution_decls;
+    vector<func_decl*> m_unit_resolution_decls;
 
     func_decl * m_def_intro_decl;
     func_decl * m_iff_oeq_decl;
     func_decl * m_skolemize_decl;
     func_decl * m_mp_oeq_decl;
-    ptr_vector<func_decl> m_apply_def_decls;
-    ptr_vector<func_decl> m_nnf_pos_decls;
-    ptr_vector<func_decl> m_nnf_neg_decls;
+    vector<func_decl*> m_apply_def_decls;
+    vector<func_decl*> m_nnf_pos_decls;
+    vector<func_decl*> m_nnf_neg_decls;
 
-    ptr_vector<func_decl> m_th_lemma_decls;
+    vector<func_decl*> m_th_lemma_decls;
     func_decl * m_hyper_res_decl0;
 
     static bool is_proof(decl_kind k) { return k > LAST_BASIC_OP; }
@@ -1170,7 +1170,7 @@ protected:
     func_decl * mk_implies_decl();
     func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, func_decl*& fn);
-    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache);
+    func_decl * mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, vector<func_decl*> & cache);
     func_decl * mk_compressed_proof_decl(char const * name, basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parents);
     func_decl * mk_proof_decl(basic_op_kind k, unsigned num_parameters, parameter const* params, unsigned num_parents);
@@ -1180,7 +1180,7 @@ protected:
 
 
     void set_manager(ast_manager * m, family_id id) override;
-    func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache);
+    func_decl * mk_eq_decl_core(char const * name, decl_kind k, sort * s, vector<func_decl*> & cache);
     func_decl * mk_ite_decl(sort * s);
     sort* join(sort* s1, sort* s2);
     sort* join(unsigned n, sort*const* srts);
@@ -1512,7 +1512,7 @@ protected:
     expr_array_manager        m_expr_array_manager;
     expr_dependency_manager   m_expr_dependency_manager;
     expr_dependency_array_manager m_expr_dependency_array_manager;
-    ptr_vector<decl_plugin>   m_plugins;
+    vector<decl_plugin*>   m_plugins;
     proof_gen_mode            m_proof_mode;
     bool                      m_int_real_coercions; // If true, use hack that automatically introduces to_int/to_real when needed.
     family_id                 m_basic_family_id;
@@ -1948,7 +1948,7 @@ public:
 
     bool is_pattern(expr const * n) const;
 
-    bool is_pattern(expr const *n, ptr_vector<expr> &args);
+    bool is_pattern(expr const *n, vector<expr*> &args);
 
 public:
 
@@ -2021,7 +2021,7 @@ public:
     expr_dependency * mk_join(expr_dependency * d1, expr_dependency * d2) { return m_expr_dependency_manager.mk_join(d1, d2); }
     void inc_ref(expr_dependency * d) { if (d) m_expr_dependency_manager.inc_ref(d); }
     void dec_ref(expr_dependency * d) { if (d) m_expr_dependency_manager.dec_ref(d); }
-    void linearize(expr_dependency * d, ptr_vector<expr> & ts);
+    void linearize(expr_dependency * d, vector<expr*> & ts);
     bool contains(expr_dependency * d, expr * t) { return m_expr_dependency_manager.contains(d, t); }
 
 // -----------------------------------
@@ -2205,7 +2205,7 @@ public:
     bool is_rewrite_star(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_REWRITE_STAR); }
     bool is_unit_resolution(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_UNIT_RESOLUTION); }
     bool is_lemma(expr const * e) const { return is_app_of(e, m_basic_family_id, PR_LEMMA); }
-    bool is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<expr>& binding) const;
+    bool is_quant_inst(expr const* e, expr*& not_q_or_i, vector<expr*>& binding) const;
     bool is_rewrite(expr const* e, expr*& r1, expr*& r2) const;
     bool is_hyper_resolve(proof* p) const { return is_app_of(p, m_basic_family_id, PR_HYPER_RESOLVE); }
     bool is_hyper_resolve(proof* p,

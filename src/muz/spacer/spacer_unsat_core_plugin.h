@@ -93,7 +93,7 @@ namespace spacer {
         ast_mark m_visited; // saves for each node i whether the subproof with root i has already been added to the min-cut-problem
         obj_map<proof, unsigned> m_proof_to_node_minus; // maps proof-steps to the corresponding minus-nodes (the ones which are closer to source)
         obj_map<proof, unsigned> m_proof_to_node_plus; // maps proof-steps to the corresponding plus-nodes (the ones which are closer to sink)
-        void advance_to_lowest_partial_cut(proof* step, ptr_vector<proof>& todo);
+        void advance_to_lowest_partial_cut(proof* step, vector<proof*>& todo);
         void add_edge(proof* i, proof* j);
 
         vector<expr*> m_node_to_formula; // maps each node to the corresponding formula in the original proof

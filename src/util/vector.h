@@ -19,9 +19,6 @@ Author:
 template<typename T, typename SZ = unsigned>
 using vector = buffvec<T, SZ, 0>;
 
-template<typename T>
-using ptr_vector = buffvec<T*, unsigned, 0>;
-
 inline std::ostream& operator<<(std::ostream& out, vector<unsigned> const& v) {
     for (unsigned u : v) out << u << " ";
     return out;

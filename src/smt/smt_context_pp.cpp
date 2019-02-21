@@ -163,7 +163,7 @@ namespace smt {
         cls->display_smt2(out, m_manager, m_bool_var2expr.c_ptr());
     }
 
-    void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
+    void context::display_clauses(std::ostream & out, vector<clause*> const & v) const {
         for (clause* cp : v) {
             display_clause(out, cp);
             out << "\n";

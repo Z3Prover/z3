@@ -186,7 +186,7 @@ public:
 class psort_app : public psort {
     friend class pdecl_manager;
     psort_decl *  m_decl;
-    ptr_vector<psort> m_args;
+    vector<psort*> m_args;
 
     psort_app(unsigned id, unsigned num_params, pdecl_manager & m, psort_decl * d, unsigned num_args, psort * const * args):
         psort(id, num_params),
@@ -595,7 +595,7 @@ sort * pdatatype_decl::instantiate(pdecl_manager & m, unsigned n, sort * const *
                     // TBD: search over more than just parents
                     for (pdatatype_decl* p : *m_parent) {
                         if (p->get_name() == rng->get_name()) {
-                            ptr_vector<sort> ps;
+                            vector<sort*> ps;
                             func_decl_ref acc = a->instantiate(params);
                             for (unsigned j = 0; j < util.get_datatype_num_parameter_sorts(rng); ++j) {
                                 ps.push_back(util.get_datatype_parameter_sort(acc->get_range(), j));
@@ -746,7 +746,7 @@ struct pdecl_manager::sort_info {
 };
 
 struct pdecl_manager::app_sort_info : public pdecl_manager::sort_info {
-    ptr_vector<sort> m_args;
+    vector<sort*> m_args;
 
     app_sort_info(pdecl_manager & m, psort_decl * d, unsigned n, sort * const * s):
         sort_info(m, d),

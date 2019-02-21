@@ -33,7 +33,7 @@ Revision History:
 template<typename T, typename Ref>
 class ref_vector_core : public Ref {
 protected:
-    ptr_vector<T> m_nodes;
+    vector<T*> m_nodes;
     
     void inc_ref(T * o) { Ref::inc_ref(o); }
     void dec_ref(T * o) { Ref::dec_ref(o); }
@@ -45,7 +45,7 @@ protected:
 
 public:
     using value_type = T*;
-    using size_type = typename ptr_vector<T>::size_type;
+    using size_type = typename vector<T*>::size_type;
 
     ref_vector_core(Ref const & r = Ref()):Ref(r) {}
 

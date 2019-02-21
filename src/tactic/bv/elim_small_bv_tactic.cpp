@@ -74,7 +74,7 @@ class elim_small_bv_tactic : public tactic {
             TRACE("elim_small_bv", tout << "replace idx " << idx << " with " << mk_ismt2_pp(replacement, m) <<
                 " in " << mk_ismt2_pp(e, m) << std::endl;);
             expr_ref res(m);
-            ptr_vector<expr> substitution;
+            vector<expr*> substitution;
 
             substitution.resize(num_decls, nullptr);
             substitution[num_decls - idx - 1] = replacement;

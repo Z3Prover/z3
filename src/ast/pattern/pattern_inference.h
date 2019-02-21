@@ -39,7 +39,7 @@ Revision History:
 */
 class smaller_pattern {
     ast_manager &    m;
-    ptr_vector<expr> m_bindings;
+    vector<expr*> m_bindings;
 
     typedef std::pair<expr *, expr *> expr_pair;
     typedef obj_pair_hashtable<expr, expr> cache;
@@ -92,9 +92,9 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     expr2info                 m_candidates_info; // candidate -> set of free vars + size
     app_ref_vector            m_candidates;
 
-    ptr_vector<app>           m_tmp1;
-    ptr_vector<app>           m_tmp2;
-    ptr_vector<app>           m_todo;
+    vector<app*>           m_tmp1;
+    vector<app*>           m_tmp2;
+    vector<app*>           m_todo;
 
     // Compare candidates patterns based on their usefulness
     // p1 < p2 if
@@ -142,7 +142,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         unsigned                 m_num_bindings;
         typedef map<entry, info *, obj_hash<entry>, default_eq<entry> > cache;
         cache                    m_cache;
-        ptr_vector<info>         m_info;
+        vector<info*>         m_info;
         vector<entry>           m_todo;
 
         void visit(expr * n, unsigned delta, bool & visited);
@@ -159,16 +159,16 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     
     void add_candidate(app * n, uint_set const & s, unsigned size);
 
-    void filter_looping_patterns(ptr_vector<app> & result);
+    void filter_looping_patterns(vector<app*> & result);
 
-    bool has_preferred_patterns(ptr_vector<app> & candidate_patterns, app_ref_buffer & result);
+    bool has_preferred_patterns(vector<app*> & candidate_patterns, app_ref_buffer & result);
 
-    void filter_bigger_patterns(ptr_vector<app> const & patterns, ptr_vector<app> & result);
+    void filter_bigger_patterns(vector<app*> const & patterns, vector<app*> & result);
 
     class contains_subpattern {
         pattern_inference_cfg & m_owner;
         nat_set              m_already_processed; 
-        ptr_vector<expr>     m_todo;
+        vector<expr*>     m_todo;
         void save(expr * n);
     public:
         contains_subpattern(pattern_inference_cfg & owner):
@@ -181,7 +181,7 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
     bool contains_subpattern(expr * n);
     
     struct pre_pattern {
-        ptr_vector<app>  m_exprs;     // elements of the pattern.
+        vector<app*>  m_exprs;     // elements of the pattern.
         uint_set         m_free_vars; // set of free variables in m_exprs
         unsigned         m_idx;       // idx of the next candidate to process.
         pre_pattern():
@@ -189,15 +189,15 @@ class pattern_inference_cfg :  public default_rewriter_cfg {
         }
     };
 
-    ptr_vector<pre_pattern>      m_pre_patterns;
+    vector<pre_pattern*>      m_pre_patterns;
     expr_pattern_match           m_database;
 
-    void candidates2unary_patterns(ptr_vector<app> const & candidate_patterns,
-                                   ptr_vector<app> & remaining_candidate_patterns,
+    void candidates2unary_patterns(vector<app*> const & candidate_patterns,
+                                   vector<app*> & remaining_candidate_patterns,
                                    app_ref_buffer & result);
     
     void candidates2multi_patterns(unsigned max_num_patterns, 
-                                   ptr_vector<app> const & candidate_patterns, 
+                                   vector<app*> const & candidate_patterns, 
                                    app_ref_buffer & result);
     
     void reset_pre_patterns();

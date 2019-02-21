@@ -227,7 +227,7 @@ namespace datalog {
             info_vector & const_infos) {
         SASSERT(after_last-first>1);
         unsigned const_cnt = const_infos.size();
-        ptr_vector<app> vals;
+        vector<app*> vals;
         rule * r = *(first++);
         collect_orphan_consts(r, const_infos, vals);
         SASSERT(vals.size()==const_cnt);
@@ -264,8 +264,8 @@ namespace datalog {
             info_vector & const_infos) {
         SASSERT(first!=after_last);
         unsigned const_cnt = const_infos.size();
-        ptr_vector<app> vals;
-        ptr_vector<sort> sorts;
+        vector<app*> vals;
+        vector<sort*> sorts;
         rule * r = *(first++);
         collect_orphan_consts(r, const_infos, vals);
         collect_orphan_sorts(r, const_infos, sorts);
@@ -353,7 +353,7 @@ namespace datalog {
 
         //The aux relation contains column for each constant which does not have an earlier constant
         //that it is equal to (i.e. only has no parent)
-        ptr_vector<sort> aux_domain;
+        vector<sort*> aux_domain;
         collect_orphan_sorts(r, const_infos, aux_domain);
 
         func_decl* head_pred = r->get_decl();
@@ -372,7 +372,7 @@ namespace datalog {
         m_context.get_rel_context()->get_rmanager().mark_saturated(aux_pred);
 
         app * new_head = r->get_head();
-        ptr_vector<app> new_tail;
+        vector<app*> new_tail;
         vector<bool> new_negs;
         unsigned tail_sz = r->get_tail_size();
         for (unsigned i=0; i<tail_sz; i++) {
@@ -390,7 +390,7 @@ namespace datalog {
             new_var_idx_base = 0;
         }
 
-        ptr_vector<var> const_vars; //variables at indexes of their corresponding constants
+        vector<var*> const_vars; //variables at indexes of their corresponding constants
         expr_ref_vector aux_vars(m_manager); //variables as arguments for the auxiliary predicate
 
         unsigned aux_column_index = 0;
@@ -398,7 +398,7 @@ namespace datalog {
         for (unsigned i=0; i<const_cnt; ) {
             int tail_idx = const_infos[i].tail_index();
             app * & mod_tail = (tail_idx==-1) ? new_head : new_tail[tail_idx];
-            ptr_vector<expr> mod_args(mod_tail->get_num_args(), mod_tail->get_args());
+            vector<expr*> mod_args(mod_tail->get_num_args(), mod_tail->get_args());
 
             for (; i<const_cnt && const_infos[i].tail_index()==tail_idx; i++) { //here the outer loop counter is modified
                 const_info & inf = const_infos[i];

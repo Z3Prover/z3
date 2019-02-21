@@ -83,7 +83,7 @@ struct model::value_proc : public some_value_proc {
     model & m_model;
     value_proc(model & m):m_model(m) {}
     expr * operator()(sort * s) override {
-        ptr_vector<expr> * u = nullptr;
+        vector<expr*> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
             if (!u->empty())
                 return (*u)[0];
@@ -97,15 +97,15 @@ expr * model::get_some_value(sort * s) {
     return m.get_some_value(s, &p);
 }
 
-ptr_vector<expr> const & model::get_universe(sort * s) const {
-    ptr_vector<expr> * u = nullptr;
+vector<expr*> const & model::get_universe(sort * s) const {
+    vector<expr*> * u = nullptr;
     m_usort2universe.find(s, u);
     SASSERT(u != nullptr);
     return *u;
 }
 
 bool model::has_uninterpreted_sort(sort * s) const {
-    ptr_vector<expr> * u = nullptr;
+    vector<expr*> * u = nullptr;
     m_usort2universe.find(s, u);
     return u != nullptr;
 }
@@ -125,13 +125,13 @@ void model::register_usort(sort * s, unsigned usize, expr * const * universe) {
         // new entry
         m_usorts.push_back(s);
         m.inc_ref(s);
-        ptr_vector<expr> * new_u = alloc(ptr_vector<expr>);
+        vector<expr*> * new_u = alloc(vector<expr*>);
         new_u->append(usize, universe);
         entry->get_data().m_value = new_u;
     }
     else {
         // updating
-        ptr_vector<expr> * u = entry->get_data().m_value;
+        vector<expr*> * u = entry->get_data().m_value;
         SASSERT(u);
         m.dec_array_ref(u->size(), u->c_ptr());
         u->append(usize, universe);
@@ -153,7 +153,7 @@ model * model::translate(ast_translation & translator) const {
 
     // Translate usort interps
     for (auto const& kv : m_usort2universe) {
-        ptr_vector<expr> new_universe;
+        vector<expr*> new_universe;
         for (expr* e : *kv.m_value) 
             new_universe.push_back(translator(e));
         res->register_usort(translator(kv.m_key),
@@ -448,7 +448,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
     return new_t;
 }
 
-void model::remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s) {
+void model::remove_decls(vector<func_decl*> & decls, func_decl_set const & s) {
     unsigned j = 0;
     for (func_decl* f : decls) {
         if (!s.contains(f)) {

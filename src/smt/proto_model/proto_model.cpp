@@ -190,7 +190,7 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
     fi->set_else(a);
 }
 
-void proto_model::remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s) {
+void proto_model::remove_aux_decls_not_in_set(vector<func_decl*> & decls, func_decl_set const & s) {
     unsigned sz = decls.size();
     unsigned i  = 0;
     unsigned j  = 0;
@@ -249,8 +249,8 @@ obj_hashtable<expr> const & proto_model::get_known_universe(sort * s) const {
     return m_user_sort_factory->get_known_universe(s);
 }
 
-ptr_vector<expr> const & proto_model::get_universe(sort * s) const {
-    ptr_vector<expr> & tmp = const_cast<proto_model*>(this)->m_tmp;
+vector<expr*> const & proto_model::get_universe(sort * s) const {
+    vector<expr*> & tmp = const_cast<proto_model*>(this)->m_tmp;
     tmp.clear();
     obj_hashtable<expr> const & u = get_known_universe(s);
     for (expr * e : u) {
@@ -394,7 +394,7 @@ model * proto_model::mk_model() {
     for (unsigned i = 0; i < sz; i++) {
         sort * s = get_uninterpreted_sort(i);
         TRACE("proto_model", tout << "copying uninterpreted sorts...\n" << mk_pp(s, m) << "\n";);
-        ptr_vector<expr> const& buf = get_universe(s);
+        vector<expr*> const& buf = get_universe(s);
         mdl->register_usort(s, buf.size(), buf.c_ptr());
     }
 

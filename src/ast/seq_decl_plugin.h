@@ -140,8 +140,8 @@ class seq_decl_plugin : public decl_plugin {
         }
     };
 
-    ptr_vector<psig> m_sigs;
-    ptr_vector<sort> m_binding;
+    vector<psig*> m_sigs;
+    vector<sort*> m_binding;
     bool             m_init;
     symbol           m_stringc_sym;
     symbol           m_charc_sym;
@@ -154,9 +154,9 @@ class seq_decl_plugin : public decl_plugin {
 
     void match_right_assoc(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
-    bool match(ptr_vector<sort>& binding, sort* s, sort* sP);
+    bool match(vector<sort*>& binding, sort* s, sort* sP);
 
-    sort* apply_binding(ptr_vector<sort> const& binding, sort* s);
+    sort* apply_binding(vector<sort*> const& binding, sort* s);
 
     bool is_sort_param(sort* s, unsigned& idx);
 

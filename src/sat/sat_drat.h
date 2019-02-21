@@ -48,7 +48,7 @@ namespace sat {
         clause_allocator        m_alloc;
         std::ostream*           m_out;
         std::ostream*           m_bout;
-        ptr_vector<clause>      m_proof;
+        vector<clause*>      m_proof;
         vector<status>         m_status;
         literal_vector          m_units;
         vector<watch>           m_watches;

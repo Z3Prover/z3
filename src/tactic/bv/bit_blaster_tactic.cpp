@@ -86,7 +86,7 @@ class bit_blaster_tactic : public tactic {
             
             if (change && g->models_enabled()) {
                 obj_map<func_decl, expr*> const2bits;
-                ptr_vector<func_decl> newbits;
+                vector<func_decl*> newbits;
                 m_rewriter->end_rewrite(const2bits, newbits);
                 g->add(mk_bit_blaster_model_converter(m(), const2bits, newbits));
             }

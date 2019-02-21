@@ -71,7 +71,7 @@ namespace datalog {
         th_rewriter &     m_simp;
         arith_util        a;
         rule_substitution m_rule_subst;
-        ptr_vector<expr> m_todo;
+        vector<expr*> m_todo;
         obj_hashtable<expr> m_leqs;
         app_ref_vector    m_tail;
         expr_ref_vector   m_itail_members;

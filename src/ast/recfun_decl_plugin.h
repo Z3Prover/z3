@@ -73,7 +73,7 @@ namespace recfun {
     public:
         func_decl* get_decl() const { return m_pred; }
 
-        app_ref apply_case_predicate(ptr_vector<expr> const & args) const {
+        app_ref apply_case_predicate(vector<expr*> const & args) const {
             ast_manager& m = m_pred.get_manager();
             return app_ref(m.mk_app(m_pred, args.size(), args.c_ptr()), m);
         }
@@ -239,7 +239,7 @@ namespace recfun {
             return m().mk_app(d.get_decl(), n_args, args);
         }
 
-        app* mk_fun_defined(def const & d, ptr_vector<expr> const & args) {
+        app* mk_fun_defined(def const & d, vector<expr*> const & args) {
             return mk_fun_defined(d, args.size(), args.c_ptr());
         }
 

@@ -820,7 +820,7 @@ namespace smt {
 
             expr_ref concat_length(mk_strlen(concatAst), m);
 
-            ptr_vector<expr> childrenVector;
+            vector<expr*> childrenVector;
             get_nodes_in_concat(concatAst, childrenVector);
             expr_ref_vector items(m);
             for (auto el : childrenVector) {
@@ -849,7 +849,7 @@ namespace smt {
             while(true) {
                 // this can potentially recursively activate itself
                 unsigned start_count = m_basicstr_axiom_todo.size();
-                ptr_vector<enode> axioms_tmp(m_basicstr_axiom_todo);
+                vector<enode*> axioms_tmp(m_basicstr_axiom_todo);
                 for (auto const& el : axioms_tmp) {
                     instantiate_basic_string_axioms(el);
                 }
@@ -890,7 +890,7 @@ namespace smt {
                 // TODO see if any other propagate() worklists need this kind of handling
                 // TODO we really only need to check the new ones on each pass
                 unsigned start_count = m_library_aware_axiom_todo.size();
-                ptr_vector<enode> axioms_tmp(m_library_aware_axiom_todo);
+                vector<enode*> axioms_tmp(m_library_aware_axiom_todo);
                 for (auto const& e : axioms_tmp) {
                     app * a = e->get_owner();
                     if (u.str.is_stoi(a)) {
@@ -1913,7 +1913,7 @@ namespace smt {
         if (m_params.m_RegexAutomata) {
             regex_terms.insert(ex);
             if (!regex_terms_by_string.contains(str)) {
-                regex_terms_by_string.insert(str, ptr_vector<expr>());
+                regex_terms_by_string.insert(str, vector<expr*>());
             }
             regex_terms_by_string[str].push_back(ex);
             // stop setting up axioms here, we do this differently
@@ -2157,7 +2157,7 @@ namespace smt {
         } while (eqcNode != n);
     }
 
-    void theory_str::get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList) {
+    void theory_str::get_nodes_in_concat(expr * node, vector<expr*> & nodeList) {
         app * a_node = to_app(node);
         if (!u.str.is_concat(a_node)) {
             nodeList.push_back(node);
@@ -2517,7 +2517,7 @@ namespace smt {
         ast_manager & m = get_manager();
         context & ctx = get_context();
         std::map<expr*, expr*> resolvedMap;
-        ptr_vector<expr> argVec;
+        vector<expr*> argVec;
         get_nodes_in_concat(node, argVec);
 
         for (unsigned i = 0; i < argVec.size(); ++i) {
@@ -4921,7 +4921,7 @@ namespace smt {
         rational val1;
         expr_ref len(m), len_val(m);
         expr* e1, *e2;
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         todo.push_back(e);
         val.reset();
         while (!todo.empty()) {
@@ -5985,7 +5985,7 @@ namespace smt {
     bool theory_str::can_concat_eq_str(expr * concat, zstring& str) {
         unsigned int strLen = str.length();
         if (u.str.is_concat(to_app(concat))) {
-            ptr_vector<expr> args;
+            vector<expr*> args;
             get_nodes_in_concat(concat, args);
             expr * ml_node = args[0];
             expr * mr_node = args[args.size() - 1];
@@ -6125,7 +6125,7 @@ namespace smt {
         rational strLen(tmp.length());
 
         if (u.str.is_concat(to_app(n1))) {
-            ptr_vector<expr> args;
+            vector<expr*> args;
             expr_ref_vector items(mgr);
 
             get_nodes_in_concat(n1, args);
@@ -6173,8 +6173,8 @@ namespace smt {
         context & ctx = get_context();
         ast_manager & mgr = get_manager();
 
-        ptr_vector<expr> concat1Args;
-        ptr_vector<expr> concat2Args;
+        vector<expr*> concat1Args;
+        vector<expr*> concat2Args;
         get_nodes_in_concat(n1, concat1Args);
         get_nodes_in_concat(n2, concat2Args);
 
@@ -6250,7 +6250,7 @@ namespace smt {
             return true;
         } else {
             rational sumLen(0);
-            ptr_vector<expr> args;
+            vector<expr*> args;
             expr_ref_vector items(mgr);
             get_nodes_in_concat(concat, args);
             for (unsigned int i = 0; i < args.size(); ++i) {
@@ -7323,7 +7323,7 @@ namespace smt {
         // reuse character terms over the same string
         if (string_chars.contains(stringTerm)) {
             // find out whether we have enough characters already
-            ptr_vector<expr> old_chars;
+            vector<expr*> old_chars;
             string_chars.find(stringTerm, old_chars);
             if (old_chars.size() < lenVal.get_unsigned()) {
                 for (unsigned i = old_chars.size(); i < lenVal.get_unsigned(); ++i) {
@@ -7343,7 +7343,7 @@ namespace smt {
                 pathChars_len_constraints.push_back(ctx.mk_eq_atom(mk_strlen(ch), m_autil.mk_numeral(rational::one(), true)));
             }
         } else {
-            ptr_vector<expr> new_chars;
+            vector<expr*> new_chars;
             for (unsigned i = 0; i < lenVal.get_unsigned(); ++i) {
                 std::stringstream ss;
                 ss << "ch" << i;
@@ -7834,7 +7834,7 @@ namespace smt {
 
         expr_ref testvar(mk_str_var("finiteModelTest"), m);
         m_trail.push_back(testvar);
-        ptr_vector<expr> varlist;
+        vector<expr*> varlist;
 
         for (std::map<expr*, int>::iterator it = varMap.begin(); it != varMap.end(); ++it) {
             expr * v = it->first;
@@ -7848,7 +7848,7 @@ namespace smt {
         assert_axiom(testvaraxiom);
 
         finite_model_test_varlists.insert(testvar, varlist);
-        m_trail_stack.push(insert_obj_map<theory_str, expr, ptr_vector<expr> >(finite_model_test_varlists, testvar) );
+        m_trail_stack.push(insert_obj_map<theory_str, expr, vector<expr*> >(finite_model_test_varlists, testvar) );
         return t_yes;
     }
 
@@ -7860,8 +7860,8 @@ namespace smt {
         if (!u.str.is_string(str, s)) return;
         if (s == "yes") {
             TRACE("str", tout << "start finite model test for " << mk_pp(testvar, m) << std::endl;);
-            ptr_vector<expr> & vars = finite_model_test_varlists[testvar];
-            for (ptr_vector<expr>::iterator it = vars.begin(); it != vars.end(); ++it) {
+            vector<expr*> & vars = finite_model_test_varlists[testvar];
+            for (vector<expr*>::iterator it = vars.begin(); it != vars.end(); ++it) {
                 expr * v = *it;
                 bool v_has_eqc = false;
                 get_eqc_value(v, v_has_eqc);
@@ -7946,7 +7946,7 @@ namespace smt {
                         m_trail.push_back(indicator);
 
                         if (!fvar_lenTester_map.contains(v)) {
-                            fvar_lenTester_map.insert(v, ptr_vector<expr>());
+                            fvar_lenTester_map.insert(v, vector<expr*>());
                         }
                         fvar_lenTester_map[v].shrink(0);
                         fvar_lenTester_map[v].push_back(indicator);
@@ -8588,7 +8588,7 @@ namespace smt {
         TRACE_CODE(if (is_trace_enabled("t_str_dump_assign_on_scope_change")) { dump_assignments(); });
 
         // list of expr* to remove from cut_var_map
-        ptr_vector<expr> cutvarmap_removes;
+        vector<expr*> cutvarmap_removes;
 
         obj_map<expr, std::stack<T_cut *> >::iterator varItor = cut_var_map.begin();
         while (varItor != cut_var_map.end()) {
@@ -8606,15 +8606,15 @@ namespace smt {
         }
 
         if (!cutvarmap_removes.empty()) {
-            ptr_vector<expr>::iterator it = cutvarmap_removes.begin();
+            vector<expr*>::iterator it = cutvarmap_removes.begin();
             for (; it != cutvarmap_removes.end(); ++it) {
                 expr * ex = *it;
                 cut_var_map.remove(ex);
             }
         }
 
-        ptr_vector<enode> new_m_basicstr;
-        for (ptr_vector<enode>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
+        vector<enode*> new_m_basicstr;
+        for (vector<enode*>::iterator it = m_basicstr_axiom_todo.begin(); it != m_basicstr_axiom_todo.end(); ++it) {
             enode * e = *it;
             TRACE("str", tout << "consider deleting " << mk_pp(e->get_owner(), get_manager())
                   << ", enode scope level is " << e->get_iscope_lvl()
@@ -9857,11 +9857,11 @@ namespace smt {
                         expr * top_level_length_constraint = nullptr;
                         regex_term_to_length_constraint.find(str_in_re, top_level_length_constraint);
 
-                        ptr_vector<expr> extra_length_vars;
+                        vector<expr*> extra_length_vars;
                         regex_term_to_extra_length_vars.find(str_in_re, extra_length_vars);
 
                         assert_axiom(top_level_length_constraint);
-                        for(ptr_vector<expr>::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
+                        for(vector<expr*>::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
                             expr * v = *it;
                             refresh_theory_var(v);
                             expr_ref len_constraint(m_autil.mk_ge(v, m_autil.mk_numeral(rational::zero(), true)), m);
@@ -9884,7 +9884,7 @@ namespace smt {
                         }
 
                         regex_term_to_length_constraint.insert(str_in_re, top_level_length_constraint);
-                        ptr_vector<expr> vtmp;
+                        vector<expr*> vtmp;
                         for(expr_ref_vector::iterator it = extra_length_vars.begin(); it != extra_length_vars.end(); ++it) {
                             vtmp.push_back(*it);
                         }
@@ -10367,12 +10367,12 @@ namespace smt {
             }
         } // foreach (entry in regex_terms)
 
-        for (obj_map<expr, ptr_vector<expr> >::iterator it = regex_terms_by_string.begin();
+        for (obj_map<expr, vector<expr*> >::iterator it = regex_terms_by_string.begin();
                 it != regex_terms_by_string.end(); ++it) {
             // TODO do we need to check equivalence classes of strings here?
 
             expr * str = it->m_key;
-            ptr_vector<expr> str_in_re_terms = it->m_value;
+            vector<expr*> str_in_re_terms = it->m_value;
 
             vector<regex_automaton_under_assumptions> intersect_constraints;
             // we may find empty intersection before checking every constraint;
@@ -10381,7 +10381,7 @@ namespace smt {
 
             // choose an automaton/assumption for each assigned (str.in.re)
             // that's consistent with the current length information
-            for (ptr_vector<expr>::iterator term_it = str_in_re_terms.begin();
+            for (vector<expr*>::iterator term_it = str_in_re_terms.begin();
                     term_it != str_in_re_terms.end(); ++term_it) {
                 expr * _unused = nullptr;
                 expr * re = nullptr;
@@ -10575,7 +10575,7 @@ namespace smt {
         if (opt_DeferEQCConsistencyCheck) {
             TRACE("str", tout << "performing deferred EQC consistency check" << std::endl;);
             std::set<enode*> eqc_roots;
-            for (ptr_vector<enode>::const_iterator it = ctx.begin_enodes(); it != ctx.end_enodes(); ++it) {
+            for (vector<enode*>::const_iterator it = ctx.begin_enodes(); it != ctx.end_enodes(); ++it) {
                 enode * e = *it;
                 enode * root = e->get_root();
                 eqc_roots.insert(root);
@@ -11555,7 +11555,7 @@ namespace smt {
 
         // handle out-of-scope entries in unroll_tries_map
 
-        ptr_vector<expr> outOfScopeTesters;
+        vector<expr*> outOfScopeTesters;
 
         for (expr * tester : unroll_tries_map[var][unrolls]) {
             bool inScope = internal_unrollTest_vars.contains(tester);
@@ -11894,7 +11894,7 @@ namespace smt {
 
         if (binary_search_len_tester_stack.contains(freeVar) && !binary_search_len_tester_stack[freeVar].empty()) {
             TRACE("str", tout << "checking existing length testers for " << mk_pp(freeVar, m) << std::endl;
-                  for (ptr_vector<expr>::const_iterator it = binary_search_len_tester_stack[freeVar].begin();
+                  for (vector<expr*>::const_iterator it = binary_search_len_tester_stack[freeVar].begin();
                        it != binary_search_len_tester_stack[freeVar].end(); ++it) {
                       expr * tester = *it;
                       tout << mk_pp(tester, m) << ": ";
@@ -12016,7 +12016,7 @@ namespace smt {
         } else {
             // no length testers yet
             TRACE("str", tout << "no length testers for " << mk_pp(freeVar, m) << std::endl;);
-            binary_search_len_tester_stack.insert(freeVar, ptr_vector<expr>());
+            binary_search_len_tester_stack.insert(freeVar, vector<expr*>());
 
             expr * firstTester;
             rational lowerBound(0);
@@ -12111,7 +12111,7 @@ namespace smt {
 
                 // since the map is "effectively empty", we can remove those variables that have left scope...
                 if (!fvar_lenTester_map.contains(freeVar)) {
-                    fvar_lenTester_map.insert(freeVar, ptr_vector<expr>());
+                    fvar_lenTester_map.insert(freeVar, vector<expr*>());
                 }
                 fvar_lenTester_map[freeVar].shrink(0);
                 fvar_lenTester_map[freeVar].push_back(indicator);

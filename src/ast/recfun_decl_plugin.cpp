@@ -230,7 +230,7 @@ namespace recfun {
             // first: unfold expressions, stopping when we meet subterms that are `ite`
             while (b.to_unfold != nullptr) {
 
-                ptr_vector<expr> stack;
+                vector<expr*> stack;
                 stack.push_back(b.to_unfold->e);
                 
                 b.to_unfold = b.to_unfold->next;

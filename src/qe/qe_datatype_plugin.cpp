@@ -193,7 +193,7 @@ namespace qe {
             if (!contains_x(b)) {
                 return false;
             }
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             ast_mark mark;
             todo.push_back(b);
             while (!todo.empty()) {
@@ -262,7 +262,7 @@ namespace qe {
             }
             func_decl* c = a->get_decl();
             func_decl_ref r(m_util.get_constructor_is(c), m);
-            ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c);
+            vector<func_decl*> const & acc = *m_util.get_constructor_accessors(c);
             SASSERT(acc.size() == a->get_num_args());
             //
             // It suffices to solve just the first available equality.
@@ -288,7 +288,7 @@ namespace qe {
             SASSERT(!contains_x(b));
             SASSERT(contains_x(a0));
             app* x = contains_x.x();
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             ast_mark mark;
             todo.push_back(a0);
             while (!todo.empty()) {
@@ -379,7 +379,7 @@ namespace qe {
                 return false;
             }
             func_decl* c = l->get_decl();
-            ptr_vector<func_decl> const& acc = *m_util.get_constructor_accessors(c);
+            vector<func_decl*> const& acc = *m_util.get_constructor_accessors(c);
             func_decl* rec = m_util.get_constructor_is(c);
             expr_ref_vector conj(m);
             conj.push_back(m.mk_app(rec, r));
@@ -416,7 +416,7 @@ namespace qe {
 
 
     class datatype_plugin : public qe_solver_plugin  {
-        typedef std::pair<app*,ptr_vector<app> > subst_clos;
+        typedef std::pair<app*,vector<app*> > subst_clos;
         typedef obj_pair_map<app,  expr, datatype_atoms*> eqs_cache;
         typedef obj_pair_map<app, func_decl, subst_clos*> subst_map;
 
@@ -552,7 +552,7 @@ namespace qe {
             m_subst_cache.insert(x.x(), c, sub);
         }
 
-        void get_recognizers(expr* fml, ptr_vector<app>& recognizers) {
+        void get_recognizers(expr* fml, vector<app*>& recognizers) {
             conj_enum conjs(m, fml);
             conj_enum::iterator it = conjs.begin(), end = conjs.end();
             for (; it != end; ++it) {
@@ -568,7 +568,7 @@ namespace qe {
         }
 
         bool has_recognizer(app* x, expr* fml, func_decl*& r, func_decl*& c) {
-            ptr_vector<app> recognizers;
+            vector<app*> recognizers;
             get_recognizers(fml, recognizers);
             for (unsigned i = 0; i < recognizers.size(); ++i) {
                 app* a = recognizers[i];
@@ -733,7 +733,7 @@ namespace qe {
                 }
                 if (def) {
                     sort* s = m.get_sort(x);
-                    ptr_vector<sort> sorts;
+                    vector<sort*> sorts;
                     sorts.resize(eqs.num_neq_terms(), s);
                     func_decl* diag = m.mk_func_decl(symbol("diag"), sorts.size(), sorts.c_ptr(), s);
                     expr_ref t(m);

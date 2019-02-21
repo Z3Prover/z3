@@ -165,7 +165,7 @@ public:
 
             expr_ref_vector clauses(m);
             expr2expr_map               bool2dep;
-            ptr_vector<expr>            assumptions;
+            vector<expr*>            assumptions;
             ref<generic_model_converter> fmc;
             if (in->unsat_core_enabled()) {
                 extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);

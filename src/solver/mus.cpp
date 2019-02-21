@@ -78,7 +78,7 @@ struct mus::imp {
     }
 
     lbool get_mus1(expr_ref_vector& mus) {
-        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
+        vector<expr*> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         expr_ref_vector core_exprs(m);
         TRACE("mus", m_solver.display(tout););
         while (!unknown.empty()) { 
@@ -129,7 +129,7 @@ struct mus::imp {
     lbool get_mus2(expr_ref_vector& mus) {
         expr* lit = nullptr;
         lbool is_sat;
-        ptr_vector<expr> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
+        vector<expr*> unknown(m_lit2expr.size(), m_lit2expr.c_ptr());
         while (!unknown.empty()) { 
             IF_VERBOSE(12, verbose_stream() << "(mus reducing core: " << unknown.size() << " new core: " << mus.size() << ")\n";);
             {
@@ -149,8 +149,8 @@ struct mus::imp {
     }
 
     // find the next literal to be a member of a core.
-    lbool get_next_mcs(expr_ref_vector& mus, ptr_vector<expr>& unknown, expr*& core_literal) {
-        ptr_vector<expr> mss;
+    lbool get_next_mcs(expr_ref_vector& mus, vector<expr*>& unknown, expr*& core_literal) {
+        vector<expr*> mss;
         expr_ref_vector  nmcs(m);
         expr_set core, min_core, nmcs_set;
         bool min_core_valid = false;
@@ -278,7 +278,7 @@ struct mus::imp {
             m_size(fmls1.size()) {
             fmls1.append(fmls2);
         }
-        scoped_append(imp& imp, expr_ref_vector& fmls1, ptr_vector<expr> const& fmls2):
+        scoped_append(imp& imp, expr_ref_vector& fmls1, vector<expr*> const& fmls2):
             m_fmls(fmls1),
             m_size(fmls1.size()) {
             fmls1.append(fmls2.size(), fmls2.c_ptr());
@@ -308,7 +308,7 @@ struct mus::imp {
     }
 
 
-    void display_vec(std::ostream& out, ptr_vector<expr> const& v) const {
+    void display_vec(std::ostream& out, vector<expr*> const& v) const {
         for (unsigned i = 0; i < v.size(); ++i)
             out << mk_pp(v[i], m) << " ";
         out << "\n";

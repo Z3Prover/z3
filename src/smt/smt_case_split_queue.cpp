@@ -275,7 +275,7 @@ namespace smt {
     };
 
     static bool has_child_assigned_to(context & ctx, app * parent, lbool val, expr * & undef_child, unsigned order) {
-        ptr_vector<expr> undef_children;
+        vector<expr*> undef_children;
         bool found_undef  = false;
         unsigned num_args = parent->get_num_args();
         for (unsigned i = 0; i < num_args; i++) {
@@ -319,10 +319,10 @@ namespace smt {
         context &         m_context;
         smt_params &m_params;  
         ast_manager &     m_manager;
-        ptr_vector<expr>  m_queue;
+        vector<expr*>  m_queue;
         unsigned          m_head;
         int               m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
-        ptr_vector<expr>  m_queue2;
+        vector<expr*>  m_queue2;
         unsigned          m_head2;
         vector<scope>    m_scopes;
     public:
@@ -415,7 +415,7 @@ namespace smt {
             TRACE("case_split", display(tout); tout << "head: " << m_head << "\n";);
         }
         
-        void next_case_split_core(ptr_vector<expr> & queue, unsigned & head, bool_var & next, lbool & phase) {
+        void next_case_split_core(vector<expr*> & queue, unsigned & head, bool_var & next, lbool & phase) {
             phase = l_undef;
             unsigned sz = queue.size();
             for (; head < sz; head++) {
@@ -474,7 +474,7 @@ namespace smt {
             }
         }
 
-        void display_core(std::ostream & out, ptr_vector<expr> & queue, unsigned head, unsigned idx) {
+        void display_core(std::ostream & out, vector<expr*> & queue, unsigned head, unsigned idx) {
             if (queue.empty())
                 return;
             unsigned sz = queue.size();
@@ -507,7 +507,7 @@ namespace smt {
         context &         m_context;
         ast_manager &     m_manager;
         smt_params &m_params;  
-        ptr_vector<expr>  m_queue;
+        vector<expr*>  m_queue;
         unsigned          m_head;
         int               m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
         bool_var_act_queue m_delayed_queue;
@@ -739,7 +739,7 @@ namespace smt {
         context &            m_context;
         smt_params &   m_params;  
         ast_manager &        m_manager;
-        ptr_vector<expr>     m_queue;
+        vector<expr*>     m_queue;
         unsigned             m_head;
         int                  m_bs_num_bool_vars; //!< Number of boolean variable before starting to search.
         vector<queue_entry> m_queue2;
@@ -950,7 +950,7 @@ namespace smt {
             }
         }
 
-        void display_core(std::ostream & out, ptr_vector<expr> & queue, unsigned head, unsigned idx) {
+        void display_core(std::ostream & out, vector<expr*> & queue, unsigned head, unsigned idx) {
             if (queue.empty())
                 return;
             unsigned sz = queue.size();
@@ -1003,7 +1003,7 @@ namespace smt {
         {
             unsigned maxgen = 0;
             unsigned mingen = (unsigned)-1;
-            ptr_vector<expr> stack;
+            vector<expr*> stack;
 
             stack.push_back(e);
             while (!stack.empty()) {
@@ -1061,7 +1061,7 @@ namespace smt {
 
         void lower_generation(expr * e, unsigned gen)
         {
-            ptr_vector<expr> stack;
+            vector<expr*> stack;
 
             stack.push_back(e);
             while (!stack.empty()) {

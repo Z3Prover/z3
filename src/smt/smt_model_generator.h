@@ -146,7 +146,7 @@ namespace smt {
            \brief The array values has size equal to the size of the argument \c result in get_dependencies.
            It contain the values built for the dependencies.
         */
-        virtual app * mk_value(model_generator & m, ptr_vector<expr> & values) = 0;
+        virtual app * mk_value(model_generator & m, vector<expr*> & values) = 0;
         /**
            \brief Return true if it is associated with a fresh value.
         */
@@ -161,7 +161,7 @@ namespace smt {
         app * m_value;
     public:
         expr_wrapper_proc(app * v):m_value(v) {}
-        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return m_value; }
+        app * mk_value(model_generator & m, vector<expr*> & values) override { return m_value; }
     };
 
     class fresh_value_proc : public model_value_proc {
@@ -169,7 +169,7 @@ namespace smt {
     public:
         fresh_value_proc(extra_fresh_value * v):m_value(v) {}
         void get_dependencies(buffer<model_value_dependency> & result) override;
-        app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return to_app(values[0]); }
+        app * mk_value(model_generator & m, vector<expr*> & values) override { return to_app(values[0]); }
         bool is_fresh() const override { return true; }
     };
 
@@ -179,7 +179,7 @@ namespace smt {
     class model_generator {
         ast_manager &                 m_manager;
         context *                     m_context;
-        ptr_vector<extra_fresh_value> m_extra_fresh_values;
+        vector<extra_fresh_value*> m_extra_fresh_values;
         unsigned                      m_fresh_idx;
         obj_map<enode, app *>         m_root2value;
         ast_ref_vector                m_asts;
@@ -188,7 +188,7 @@ namespace smt {
 
         void init_model();
         void mk_bool_model();
-        void mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots,  ptr_vector<model_value_proc> & procs);
+        void mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, vector<enode*> & roots,  vector<model_value_proc*> & procs);
         void mk_values();
         bool include_func_interp(func_decl * f) const;
         void mk_func_interps();
@@ -197,13 +197,13 @@ namespace smt {
         void register_existing_model_values();
         void register_macros();
 
-        bool visit_children(source const & src, ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
+        bool visit_children(source const & src, vector<enode*> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
                             source2color & colors, obj_hashtable<sort> & already_traversed, vector<source> & todo);
 
-        void process_source(source const & src, ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
+        void process_source(source const & src, vector<enode*> const & roots, obj_map<enode, model_value_proc *> const & root2proc, 
                             source2color & colors, obj_hashtable<sort> & already_traversed, vector<source> & todo, vector<source> & sorted_sources);
 
-        void top_sort_sources(ptr_vector<enode> const & roots, obj_map<enode, model_value_proc *> const & root2proc, vector<source> & sorted_sources);
+        void top_sort_sources(vector<enode*> const & roots, obj_map<enode, model_value_proc *> const & root2proc, vector<source> & sorted_sources);
 
     public:
         model_generator(ast_manager & m);

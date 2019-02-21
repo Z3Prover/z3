@@ -25,7 +25,7 @@ void tst_smt_context()
 
     {
         app_ref nc(m.mk_not(c1), m);
-        ptr_vector<expr> assumptions;
+        vector<expr*> assumptions;
         assumptions.push_back(nc.get());
 
         ctx.check(assumptions.size(), assumptions.c_ptr());

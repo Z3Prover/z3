@@ -127,9 +127,9 @@ class der {
     var_subst       m_subst;
     expr_ref_buffer m_new_exprs;
     
-    ptr_vector<expr> m_map;
+    vector<expr*> m_map;
     vector<int>      m_pos2var;
-    ptr_vector<var>  m_inx2var;
+    vector<var*>  m_inx2var;
     vector<unsigned> m_order;
     expr_ref_vector  m_subst_map;
     expr_ref_buffer  m_new_args;

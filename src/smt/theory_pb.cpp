@@ -692,9 +692,9 @@ namespace smt {
 
     void theory_pb::watch_literal(literal lit, ineq* c) {
         init_watch(lit.var());
-        ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        vector<ineq*>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (ineqs == nullptr) {
-            ineqs = alloc(ptr_vector<ineq>);
+            ineqs = alloc(vector<ineq*>);
             m_var_infos[lit.var()].m_lit_watch[lit.sign()] = ineqs;
         }
         DEBUG_CODE(
@@ -706,13 +706,13 @@ namespace smt {
     }
 
     void theory_pb::unwatch_literal(literal lit, ineq* c) {
-        ptr_vector<ineq>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
+        vector<ineq*>* ineqs = m_var_infos[lit.var()].m_lit_watch[lit.sign()];
         if (ineqs) {
             remove(*ineqs, c);        
         }
     }
 
-    void theory_pb::remove(ptr_vector<ineq>& ineqs, ineq* c) {
+    void theory_pb::remove(vector<ineq*>& ineqs, ineq* c) {
         unsigned sz = ineqs.size();
         for (unsigned j = 0; j < sz; ++j) {
             if (ineqs[j] == c) {                        
@@ -872,9 +872,9 @@ namespace smt {
 
     void theory_pb::watch_literal(literal lit, card* c) {
         init_watch(lit.var());
-        ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_cwatch[lit.sign()];
+        vector<card*>* cards = m_var_infos[lit.var()].m_lit_cwatch[lit.sign()];
         if (cards == nullptr) {
-            cards = alloc(ptr_vector<card>);
+            cards = alloc(vector<card*>);
             m_var_infos[lit.var()].m_lit_cwatch[lit.sign()] = cards;
         }
         cards->push_back(c);
@@ -885,13 +885,13 @@ namespace smt {
         if (m_var_infos.size() <= static_cast<unsigned>(lit.var())) {
             return;
         }
-        ptr_vector<card>* cards = m_var_infos[lit.var()].m_lit_cwatch[lit.sign()];
+        vector<card*>* cards = m_var_infos[lit.var()].m_lit_cwatch[lit.sign()];
         if (cards) {
             remove(*cards, c);        
         }
     }
 
-    void theory_pb::remove(ptr_vector<card>& cards, card* c) {
+    void theory_pb::remove(vector<card*>& cards, card* c) {
         for (unsigned j = 0; j < cards.size(); ++j) {
             if (cards[j] == c) {                        
                 std::swap(cards[j], cards[cards.size()-1]);
@@ -998,7 +998,7 @@ namespace smt {
     }
 
     void theory_pb::assign_eh(bool_var v, bool is_true) {
-        ptr_vector<ineq>* ineqs = nullptr;
+        vector<ineq*>* ineqs = nullptr;
         context& ctx = get_context();
         literal nlit(v, is_true);
         init_watch(v);
@@ -1019,9 +1019,9 @@ namespace smt {
             assign_ineq(*c, is_true);
         }
 
-        ptr_vector<card>* cards = m_var_infos[v].m_lit_cwatch[nlit.sign()];
+        vector<card*>* cards = m_var_infos[v].m_lit_cwatch[nlit.sign()];
         if (cards != nullptr  && !cards->empty() && !ctx.inconsistent())  {
-            ptr_vector<card>::iterator it = cards->begin(), it2 = it, end = cards->end();
+            vector<card*>::iterator it = cards->begin(), it2 = it, end = cards->end();
             for (; it != end; ++it) {
                 if (ctx.get_assignment((*it)->lit()) != l_true) {
                     continue;
@@ -2330,7 +2330,7 @@ namespace smt {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
 
-        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+        app * mk_value(model_generator & mg, vector<expr*> & values) override {
             ast_manager& m = mg.get_manager();
             SASSERT(values.size() == m_dependencies.size());
             SASSERT(values.size() == m_app->get_num_args());

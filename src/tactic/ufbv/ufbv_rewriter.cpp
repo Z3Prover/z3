@@ -284,7 +284,7 @@ void ufbv_rewriter::show_fwd_idx(std::ostream & out) {
     }
 }
 
-bool ufbv_rewriter::rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_ref & np) {
+bool ufbv_rewriter::rewrite1(func_decl * f, vector<expr*> & m_new_args, expr_ref & np) {
     fwd_idx_map::iterator it = m_fwd_idx.find_iterator(f);
     if (it != m_fwd_idx.end()) {
         TRACE("demodulator_bug", tout << "trying to rewrite: " << f->get_name() << " args:\n";
@@ -543,7 +543,7 @@ bool ufbv_rewriter::can_rewrite(expr * n, expr * lhs) {
     // this is a quick check, we just traverse d and check if there is an expression in d that is an instance of lhs of n'.
     // we cannot use the trick used for m_processed, since the main loop would not terminate.
 
-    ptr_vector<expr> stack;
+    vector<expr*> stack;
     expr *           curr;
     expr_mark        visited;
 
@@ -599,7 +599,7 @@ bool ufbv_rewriter::can_rewrite(expr * n, expr * lhs) {
 void ufbv_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
     // use m_back_idx to find all demodulators d in m_fwd_idx that contains f {
 
-    //ptr_vector<expr> to_remove;
+    //vector<expr*> to_remove;
 
     back_idx_map::iterator it = m_back_idx.find_iterator(f);
     if (it != m_back_idx.end()) {
@@ -648,7 +648,7 @@ void ufbv_rewriter::reschedule_demodulators(func_decl * f, expr * lhs) {
         }
     }
 
-    //for (ptr_vector<expr>::iterator it = to_remove.begin(); it != to_remove.end(); it++) {
+    //for (vector<expr*>::iterator it = to_remove.begin(); it != to_remove.end(); it++) {
     //    expr * d = *it;
     //    remove_back_idx_proc proc(m_manager, m_back_idx, d);
     //    for_each_expr(proc, d);

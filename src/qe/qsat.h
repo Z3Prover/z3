@@ -73,7 +73,7 @@ namespace qe {
         obj_map<expr, expr*>    m_pred2asm;    // predicates |-> assumptions
         expr_ref_vector         m_trail;
         generic_model_converter_ref m_fmc;
-        ptr_vector<expr>        todo;
+        vector<expr*>        todo;
         obj_map<expr, max_level>      m_elevel;
         obj_map<func_decl, max_level> m_flevel;
 

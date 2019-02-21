@@ -91,7 +91,7 @@ bool smaller_pattern::operator()(unsigned num_bindings, expr * p1, expr * p2) {
 
 
 #ifdef _TRACE
-static void dump_app_vector(std::ostream & out, ptr_vector<app> const & v, ast_manager & m) {
+static void dump_app_vector(std::ostream & out, vector<app*> const & v, ast_manager & m) {
     for (app * e : v) 
         out << mk_pp(e, m) << "\n";
 }
@@ -284,7 +284,7 @@ void pattern_inference_cfg::add_candidate(app * n, uint_set const & free_vars, u
    \brief Copy the non-looping patterns in m_candidates to result when m_params.m_pi_block_loop_patterns = true.
    Otherwise, copy m_candidates to result.
 */
-void pattern_inference_cfg::filter_looping_patterns(ptr_vector<app> & result) {
+void pattern_inference_cfg::filter_looping_patterns(vector<app*> & result) {
     unsigned num = m_candidates.size();
     for (unsigned i1 = 0; i1 < num; i1++) {
         app * n1 = m_candidates.get(i1);
@@ -385,7 +385,7 @@ inline bool pattern_inference_cfg::contains_subpattern(expr * n) {
    Remark: Every pattern p in patterns is also a member of
    m_pattern_map.
 */
-void pattern_inference_cfg::filter_bigger_patterns(ptr_vector<app> const & patterns, ptr_vector<app> & result) {
+void pattern_inference_cfg::filter_bigger_patterns(vector<app*> const & patterns, vector<app*> & result) {
     for (app * curr : patterns) {
         if (!contains_subpattern(curr))
             result.push_back(curr);
@@ -411,8 +411,8 @@ bool pattern_inference_cfg::pattern_weight_lt::operator()(expr * n1, expr * n2) 
    variables, then it is copied to remaining_candidate_patterns.  The
    new patterns are stored in result.
 */
-void pattern_inference_cfg::candidates2unary_patterns(ptr_vector<app> const & candidate_patterns,
-                                                  ptr_vector<app> & remaining_candidate_patterns,
+void pattern_inference_cfg::candidates2unary_patterns(vector<app*> const & candidate_patterns,
+                                                  vector<app*> & remaining_candidate_patterns,
                                                   app_ref_buffer  & result) {
     for (app * candidate : candidate_patterns) {
         expr2info::obj_map_entry * e = m_candidates_info.find_core(candidate);
@@ -433,7 +433,7 @@ void pattern_inference_cfg::candidates2unary_patterns(ptr_vector<app> const & ca
 #define MAX_SPLITS 32
 
 void pattern_inference_cfg::candidates2multi_patterns(unsigned max_num_patterns,
-                                                  ptr_vector<app> const & candidate_patterns,
+                                                  vector<app*> const & candidate_patterns,
                                                   app_ref_buffer & result) {
     SASSERT(!candidate_patterns.empty());
     m_pre_patterns.push_back(alloc(pre_pattern));
@@ -498,7 +498,7 @@ bool pattern_inference_cfg::is_forbidden(app * n) const {
     return false;
 }
 
-bool pattern_inference_cfg::has_preferred_patterns(ptr_vector<app> & candidate_patterns, app_ref_buffer & result) {
+bool pattern_inference_cfg::has_preferred_patterns(vector<app*> & candidate_patterns, app_ref_buffer & result) {
     if (m_preferred.empty())
         return false;
     bool found = false;

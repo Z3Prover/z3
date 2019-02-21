@@ -314,7 +314,7 @@ public:
             m_solver2->get_model(m);
     }
 
-    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
+    void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) override {
         if (m_use_solver1_results)
             m_solver1->get_levels(vars, depth);
         else

@@ -34,15 +34,15 @@ namespace datalog {
     }
 
     mk_filter_rules::~mk_filter_rules() {
-        ptr_vector<filter_key> to_dealloc;
+        vector<filter_key*> to_dealloc;
         filter_cache::iterator it = m_tail2filter.begin();
         filter_cache::iterator end = m_tail2filter.end();
         for(; it!=end; ++it) {
             to_dealloc.push_back(it->m_key);
         }
         m_tail2filter.reset();
-        ptr_vector<filter_key>::iterator dit = to_dealloc.begin();
-        ptr_vector<filter_key>::iterator dend = to_dealloc.end();
+        vector<filter_key*>::iterator dit = to_dealloc.begin();
+        vector<filter_key*>::iterator dend = to_dealloc.end();
         for(; dit!=dend; ++dit) {
             dealloc(*dit);
         }

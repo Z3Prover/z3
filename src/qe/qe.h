@@ -60,7 +60,7 @@ namespace qe {
 
         is_relevant                  m_is_relevant;
         mk_atom_fn                   m_mk_atom;
-        ptr_vector<qe_solver_plugin> m_plugins;      // fid -> plugin
+        vector<qe_solver_plugin*> m_plugins;      // fid -> plugin
 
     public:
         i_solver_context():m_is_relevant(*this), m_mk_atom(*this) {}

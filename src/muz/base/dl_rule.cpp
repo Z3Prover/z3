@@ -265,7 +265,7 @@ namespace datalog {
     func_decl* rule_manager::mk_query(expr* query, rule_set& rules) {
         TRACE("dl", tout << mk_pp(query, m) << "\n";);
 
-        ptr_vector<sort> vars;
+        vector<sort*> vars;
         vector<symbol> names;
         app_ref_vector body(m);
         expr_ref q(m);
@@ -708,7 +708,7 @@ namespace datalog {
 
         collect_rule_vars(r);
         expr_ref_vector subst(m);
-        ptr_vector<sort> qsorts;
+        vector<sort*> qsorts;
         qsorts.resize(q_var_cnt);
 
         unsigned q_idx = 0;
@@ -963,7 +963,7 @@ namespace datalog {
         }
     }
 
-    void rule::get_vars(ast_manager& m, ptr_vector<sort>& sorts) const {
+    void rule::get_vars(ast_manager& m, vector<sort*>& sorts) const {
         sorts.clear();
         used_vars used;
         get_used_vars(used);

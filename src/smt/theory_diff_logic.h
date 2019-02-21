@@ -88,7 +88,7 @@ namespace smt {
             std::ostream& display(theory_diff_logic const& th, std::ostream& out) const;
         };
 
-        typedef ptr_vector<atom> atoms;
+        typedef vector<atom*> atoms;
         typedef u_map<atom*>     bool_var2atom;
               
 
@@ -172,13 +172,13 @@ namespace smt {
         theory_var                     m_zero; // cache the variable representing the zero variable.
         vector<int>                    m_scc_id;                  // Cheap equality propagation
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
-        ptr_vector<eq_prop_info>       m_eq_prop_infos;
+        vector<eq_prop_info*>       m_eq_prop_infos;
 
         app_ref_vector                 m_terms;
         vector<bool>                  m_signs;
 
-        ptr_vector<atom>               m_atoms;
-        ptr_vector<atom>               m_asserted_atoms;   // set of asserted atoms
+        vector<atom*>               m_atoms;
+        vector<atom*>               m_asserted_atoms;   // set of asserted atoms
         unsigned                       m_asserted_qhead;   
         bool_var2atom                  m_bool_var2atom;
         vector<scope>                 m_scopes;

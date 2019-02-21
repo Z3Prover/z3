@@ -378,14 +378,14 @@ namespace realclosure {
         mpbq_config::numeral_manager   m_bqm;
         mpqi_manager                   m_qim;
         mpbqi_manager                  m_bqim;
-        ptr_vector<extension>          m_extensions[3];
+        vector<extension*>          m_extensions[3];
         value *                        m_one;
         mk_pi_interval                 m_mk_pi_interval;
         value *                        m_pi;
         mk_e_interval                  m_mk_e_interval;
         value *                        m_e;
-        ptr_vector<value>              m_to_restore; //!< Set of values v s.t. v->m_old_interval != 0
-        ptr_vector<extension>          m_ex_to_restore;
+        vector<value*>              m_to_restore; //!< Set of values v s.t. v->m_old_interval != 0
+        vector<extension*>          m_ex_to_restore;
 
         // Parameters
         bool                           m_use_prem; //!< use pseudo-remainder when computing sturm sequences
@@ -656,7 +656,7 @@ namespace realclosure {
            \brief Save the current interval (i.e., approximation) of the given value or extension.
         */
         template<typename T>
-        void save_interval(T * v, ptr_vector<T> & to_restore) {
+        void save_interval(T * v, vector<T*> & to_restore) {
             if (v->m_old_interval != nullptr)
                 return; // interval was already saved.
             to_restore.push_back(v);
@@ -691,7 +691,7 @@ namespace realclosure {
            \brief Restore the saved intervals (approximations) of RCF values and extensions
         */
         template<typename T>
-        void restore_saved_intervals(ptr_vector<T> & to_restore) {
+        void restore_saved_intervals(vector<T*> & to_restore) {
             unsigned sz = to_restore.size();
             for (unsigned i = 0; i < sz; i++) {
                 T * v = to_restore[i];
@@ -709,7 +709,7 @@ namespace realclosure {
         }
 
         void cleanup(extension::kind k) {
-            ptr_vector<extension> & exts = m_extensions[k];
+            vector<extension*> & exts = m_extensions[k];
             // keep removing unused slots
             while (!exts.empty() && exts.back() == 0) {
                 exts.pop_back();
@@ -5723,7 +5723,7 @@ namespace realclosure {
 
         struct collect_algebraic_refs {
             vector<char>            m_visited; // Set of visited algebraic extensions.
-            ptr_vector<algebraic>  m_found;   // vector/list of visited algebraic extensions.
+            vector<algebraic*>  m_found;   // vector/list of visited algebraic extensions.
 
             void mark(extension * ext) {
                 if (ext->is_algebraic()) {

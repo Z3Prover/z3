@@ -25,9 +25,9 @@ Notes:
 
 typedef obj_map<expr, expr *> expr2expr_map;
 
-void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, ptr_vector<expr>& assumptions, expr2expr_map& bool2dep, ref<generic_model_converter>& fmc) {
+void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clauses, vector<expr*>& assumptions, expr2expr_map& bool2dep, ref<generic_model_converter>& fmc) {
     expr2expr_map dep2bool;
-    ptr_vector<expr> deps;
+    vector<expr*> deps;
     ast_manager& m = g->m();
     expr_ref_vector clause(m);
     unsigned sz = g->size();
@@ -44,8 +44,8 @@ void extract_clauses_and_dependencies(goal_ref const& g, expr_ref_vector& clause
             deps.clear();
             m.linearize(d, deps);
             SASSERT(!deps.empty()); // d != 0, then deps must not be empty
-            ptr_vector<expr>::iterator it  = deps.begin();
-            ptr_vector<expr>::iterator end = deps.end();
+            vector<expr*>::iterator it  = deps.begin();
+            vector<expr*>::iterator end = deps.end();
             for (; it != end; ++it) {
                 expr * d = *it;
                 if (is_uninterp_const(d) && m.is_bool(d)) {
@@ -105,7 +105,7 @@ public:
                     /* out */ goal_ref_buffer & result) override {
         expr_ref_vector clauses(m);
         expr2expr_map               bool2dep;
-        ptr_vector<expr>            assumptions;
+        vector<expr*>            assumptions;
         ref<generic_model_converter> fmc;
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
         ref<solver> local_solver = m_solver->translate(m, m_params);

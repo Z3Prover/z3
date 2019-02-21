@@ -40,7 +40,7 @@ Revision History:
 
 class recover_01_tactic : public tactic {
     struct imp {
-        typedef obj_map<func_decl, ptr_vector<app> > var2clauses;
+        typedef obj_map<func_decl, vector<app*> > var2clauses;
         
         ast_manager & m;
         var2clauses   m_var2clauses;
@@ -101,7 +101,7 @@ class recover_01_tactic : public tactic {
             }
             
             if (x != nullptr) {
-                var2clauses::obj_map_entry * entry = m_var2clauses.insert_if_not_there2(x, ptr_vector<app>());
+                var2clauses::obj_map_entry * entry = m_var2clauses.insert_if_not_there2(x, vector<app*>());
                 if (entry->get_data().m_value.empty() || entry->get_data().m_value.back()->get_num_args() == cls->get_num_args()) {
                     entry->get_data().m_value.push_back(cls);
                     return true;
@@ -116,9 +116,9 @@ class recover_01_tactic : public tactic {
         goal_ref                    new_goal;
         obj_map<expr, expr *>       bool2int;
         
-        app * find_zero_cls(func_decl * x, ptr_vector<app> & clauses) {
-            ptr_vector<app>::iterator it  = clauses.begin();
-            ptr_vector<app>::iterator end = clauses.end();
+        app * find_zero_cls(func_decl * x, vector<app*> & clauses) {
+            vector<app*>::iterator it  = clauses.begin();
+            vector<app*>::iterator end = clauses.end();
             for (; it != end; ++it) {
                 app * cls = *it;
                 unsigned num = cls->get_num_args();
@@ -217,7 +217,7 @@ class recover_01_tactic : public tactic {
                 def = norm_var;
         }
         
-        bool process(func_decl * x, ptr_vector<app> & clauses) {
+        bool process(func_decl * x, vector<app*> & clauses) {
             unsigned cls_size = clauses.back()->get_num_args();
             unsigned expected_num_clauses = 1 << (cls_size - 1);
             if (clauses.size() < expected_num_clauses) // using < instead of != because we tolerate duplicates
@@ -231,8 +231,8 @@ class recover_01_tactic : public tactic {
             found.resize(expected_num_clauses, false);
             idx2coeff.resize(expected_num_clauses); 
             
-            ptr_vector<app>::iterator it  = clauses.begin();
-            ptr_vector<app>::iterator end = clauses.end();
+            vector<app*>::iterator it  = clauses.begin();
+            vector<app*>::iterator end = clauses.end();
             for (; it != end; ++it) {
                 app * cls = *it;
                 unsigned idx; rational k;

@@ -27,7 +27,7 @@ class reslimit {
     uint64_t        m_count;
     uint64_t        m_limit;
     vector<uint64_t> m_limits;
-    ptr_vector<reslimit> m_children;
+    vector<reslimit*> m_children;
 
     void set_cancel(unsigned f);
     friend class scoped_suspend_rlimit;

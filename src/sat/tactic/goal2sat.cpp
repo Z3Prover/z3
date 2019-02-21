@@ -812,7 +812,7 @@ struct goal2sat::imp {
         collect_boolean_interface(g, m_interface_vars);
         unsigned size = g.size();
         expr_ref f(m), d_new(m);
-        ptr_vector<expr> deps;
+        vector<expr*> deps;
         expr_ref_vector  fmls(m);
         for (unsigned idx = 0; idx < size; idx++) {
             f = g.form(idx);

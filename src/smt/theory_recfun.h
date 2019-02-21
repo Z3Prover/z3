@@ -37,7 +37,7 @@ namespace smt {
         struct case_expansion {
             app *              m_lhs; // the term to expand
             recfun::def *       m_def;
-            ptr_vector<expr>    m_args;
+            vector<expr*>    m_args;
             case_expansion(recfun::util& u, app * n) : 
             m_lhs(n), m_def(nullptr), m_args()  {
                 SASSERT(u.is_defined(n));
@@ -67,13 +67,13 @@ namespace smt {
         struct body_expansion {
             app*                    m_pred;
             recfun::case_def const * m_cdef;
-            ptr_vector<expr>        m_args;
+            vector<expr*>        m_args;
 
             body_expansion(recfun::util& u, app * n) : m_pred(n), m_cdef(nullptr), m_args() {
                 m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
-            body_expansion(app* pred, recfun::case_def const & d, ptr_vector<expr> & args) : 
+            body_expansion(app* pred, recfun::case_def const & d, vector<expr*> & args) : 
                 m_pred(pred), m_cdef(&d), m_args(args) {}
             body_expansion(body_expansion const & from): 
                 m_pred(from.m_pred), m_cdef(from.m_cdef), m_args(from.m_args) {}
@@ -100,8 +100,8 @@ namespace smt {
         vector<unsigned>          m_preds_lim;
         unsigned                 m_max_depth; // for fairness and termination
 
-        ptr_vector<case_expansion> m_q_case_expand;
-        ptr_vector<body_expansion> m_q_body_expand;
+        vector<case_expansion*> m_q_case_expand;
+        vector<body_expansion*> m_q_body_expand;
         vector<literal_vector> m_q_clauses;
 
         recfun::util & u() const { return m_util; }
@@ -112,7 +112,7 @@ namespace smt {
         bool is_case_pred(enode * e) const { return is_case_pred(e->get_owner()); }
 
         void reset_queues();
-        expr_ref apply_args(unsigned depth, recfun::vars const & vars, ptr_vector<expr> const & args, expr * e); //!< substitute variables by args
+        expr_ref apply_args(unsigned depth, recfun::vars const & vars, vector<expr*> const & args, expr * e); //!< substitute variables by args
         void assert_macro_axiom(case_expansion & e);
         void assert_case_axioms(case_expansion & e);
         void assert_body_axiom(body_expansion & e);

@@ -74,7 +74,7 @@ namespace qe {
             app_ref arg(m);
             SASSERT(dt.is_constructor(m_val));
             func_decl* f = m_val->get_decl();
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(f);
+            vector<func_decl*> const& acc = *dt.get_constructor_accessors(f);
             for (unsigned i = 0; i < acc.size(); ++i) {
                 arg = m.mk_fresh_const(acc[i]->get_name().str().c_str(), acc[i]->get_range());
                 vars.push_back(arg);
@@ -152,7 +152,7 @@ namespace qe {
             }
             func_decl* c = a->get_decl();
             func_decl_ref rec(dt.get_constructor_is(c), m);
-            ptr_vector<func_decl> const & acc = *dt.get_constructor_accessors(c);
+            vector<func_decl*> const & acc = *dt.get_constructor_accessors(c);
             SASSERT(acc.size() == a->get_num_args());
             //
             // It suffices to solve just the first available equality.
@@ -181,7 +181,7 @@ namespace qe {
         }
 
 
-        expr* access(func_decl* c, unsigned i, ptr_vector<func_decl> const& acc, expr* e) {
+        expr* access(func_decl* c, unsigned i, vector<func_decl*> const& acc, expr* e) {
             if (is_app_of(e,c)) {
                 return to_app(e)->get_arg(i);
             }
@@ -230,7 +230,7 @@ namespace qe {
                 return false;
             }
             func_decl* c = to_app(l)->get_decl();
-            ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(c);
+            vector<func_decl*> const& acc = *dt.get_constructor_accessors(c);
             if (!is_app_of(r, c)) {
                 lits.push_back(m.mk_app(dt.get_constructor_is(c), r));
             }
@@ -241,7 +241,7 @@ namespace qe {
         }
 
 
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
 
         bool contains_foreign(expr_mark& has_var, expr_mark& visited, expr* e) {
             todo.push_back(e);

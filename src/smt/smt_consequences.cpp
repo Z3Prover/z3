@@ -166,7 +166,7 @@ namespace smt {
 
     unsigned context::delete_unfixed(expr_ref_vector& unfixed) {
         ast_manager& m = m_manager;
-        ptr_vector<expr> to_delete;
+        vector<expr*> to_delete;
         obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
         for (; it != end; ++it) {
             expr* k = it->m_key;
@@ -219,7 +219,7 @@ namespace smt {
     unsigned context::extract_fixed_eqs(expr_ref_vector& conseq) {
         TRACE("context", tout << "extract fixed consequences\n";);
         ast_manager& m = m_manager;
-        ptr_vector<expr> to_delete;
+        vector<expr*> to_delete;
         expr_ref fml(m), eq(m);
         obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
         for (; it != end; ++it) {

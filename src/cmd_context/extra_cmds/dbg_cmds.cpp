@@ -92,7 +92,7 @@ class subst_cmd : public cmd {
     unsigned         m_idx;
     expr *           m_source;
     symbol           m_target;
-    ptr_vector<expr> m_subst;
+    vector<expr*> m_subst;
 public:
     subst_cmd():cmd("dbg-subst") {}
     char const * get_usage() const override { return "<symbol> (<symbol>*) <symbol>"; }
@@ -269,7 +269,7 @@ UNARY_CMD(elim_unused_vars_cmd, "dbg-elim-unused-vars", "<expr>", "eliminate unu
 class instantiate_cmd_core : public cmd {
 protected:
     quantifier *     m_q;
-    ptr_vector<expr> m_args;
+    vector<expr*> m_args;
 public:
     instantiate_cmd_core(char const * name):cmd(name) {}
     char const * get_usage() const override { return "<quantifier> (<symbol>*)"; }
@@ -341,7 +341,7 @@ public:
 
 class mbp_cmd : public cmd {
     expr* m_fml;
-    ptr_vector<expr> m_vars;
+    vector<expr*> m_vars;
 public:
     mbp_cmd():cmd("mbp") {}
     char const * get_usage() const override { return "<expr> (<vars>)"; }
@@ -379,7 +379,7 @@ public:
 class mbi_cmd : public cmd {
     expr* m_a;
     expr* m_b;
-    ptr_vector<func_decl> m_vars;
+    vector<func_decl*> m_vars;
 public:
     mbi_cmd():cmd("mbi") {}
     char const * get_usage() const override { return "<expr> <expr> (vars)"; }
@@ -429,7 +429,7 @@ public:
 class eufi_cmd : public cmd {
     expr* m_a;
     expr* m_b;
-    ptr_vector<func_decl> m_vars;
+    vector<func_decl*> m_vars;
 public:
     eufi_cmd():cmd("eufi") {}
     char const * get_usage() const override { return "<expr> <expr> (vars)"; }
@@ -480,8 +480,8 @@ public:
 
 class euf_project_cmd : public cmd {
     unsigned              m_arg_index;
-    ptr_vector<expr>      m_lits;
-    ptr_vector<func_decl> m_vars;
+    vector<expr*>      m_lits;
+    vector<func_decl*> m_vars;
 public:
     euf_project_cmd():cmd("euf-project") {}
     char const * get_usage() const override { return "(exprs) (vars)"; }

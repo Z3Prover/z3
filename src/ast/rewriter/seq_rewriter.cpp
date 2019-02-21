@@ -1342,7 +1342,7 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
 bool seq_rewriter::is_sequence(expr* e, expr_ref_vector& seq) {
     seq.clear();
     zstring s;
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     expr *e1, *e2;
     todo.push_back(e);
     while (!todo.empty()) {
@@ -2066,7 +2066,7 @@ bool seq_rewriter::reduce_contains(expr* a, expr* b, expr_ref_vector& disj) {
 
 expr* seq_rewriter::concat_non_empty(unsigned n, expr* const* as) {
     SASSERT(n > 0);
-    ptr_vector<expr> bs;
+    vector<expr*> bs;
     for (unsigned i = 0; i < n; ++i) {
         if (m_util.str.is_unit(as[i]) ||
             m_util.str.is_string(as[i])) {
@@ -2269,7 +2269,7 @@ bool seq_rewriter::is_subsequence(unsigned szl, expr* const* l, unsigned szr, ex
     // if we reach here, then every element of l is contained in r in some position.
     // or each non-unit in l is matched by a non-unit in r, and otherwise, the non-units match up.
     bool change = false;
-    ptr_vector<expr> rs;
+    vector<expr*> rs;
     for (unsigned j = 0; j < szr; ++j) {
         if (rpos.contains(j)) {
             rs.push_back(r[j]);

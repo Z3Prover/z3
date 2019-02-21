@@ -106,7 +106,7 @@ namespace datalog {
                 // 2. replace bound variables by constants.
                 expr_ref_vector consts(m), bound(m), _free(m);
                 vector<symbol> names;
-                ptr_vector<sort> bound_sorts;
+                vector<sort*> bound_sorts;
                 for (unsigned i = 0; i < sorts.size(); ++i) {
                     sort* s = sorts[i];
                     consts.push_back(m.mk_fresh_const("C", s));
@@ -300,7 +300,7 @@ namespace datalog {
     }
 
     expr * mk_quantifier_abstraction::mk_select(expr* arg, unsigned num_args, expr* const* args) {
-        ptr_vector<expr> args2;
+        vector<expr*> args2;
         args2.push_back(arg);
         args2.append(num_args, args);
         return a.mk_select(args2.size(), args2.c_ptr());

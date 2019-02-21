@@ -78,8 +78,8 @@ private:
 
     value_manager &  m_vmanager;
     allocator  &     m_allocator;
-    ptr_vector<cell> m_get_values_tmp;
-    ptr_vector<cell> m_reroot_tmp;
+    vector<cell*> m_get_values_tmp;
+    vector<cell*> m_reroot_tmp;
 
     void inc_ref(value const & v) {
         if (C::ref_count)
@@ -205,7 +205,7 @@ private:
     }
 
     unsigned get_values(cell * s, value * & vs) {
-        ptr_vector<cell> & cs = m_get_values_tmp;
+        vector<cell*> & cs = m_get_values_tmp;
         cs.clear();
         cell * r = s;
         while (r->kind() != ROOT) {
@@ -523,7 +523,7 @@ public:
     void reroot(ref & r) {
         if (r.root())
             return;
-        ptr_vector<cell> & cs = m_reroot_tmp;
+        vector<cell*> & cs = m_reroot_tmp;
         cs.clear();
         unsigned r_sz = size(r);
         unsigned trail_split_idx = r_sz / C::factor;

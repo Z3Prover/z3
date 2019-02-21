@@ -60,7 +60,7 @@ class object_allocator : public ResetProc {
        \brief Auxiliary allocator for storing object into chunks of memory.
     */
     class region {
-        ptr_vector<T> m_pages;
+        vector<T*> m_pages;
         unsigned      m_idx;   //!< next position in the current page.
         
         void allocate_new_page() {
@@ -78,8 +78,8 @@ class object_allocator : public ResetProc {
         void call_destructors() {
             if (CallDestructors) {
                 SASSERT(!m_pages.empty());
-                typename ptr_vector<T>::iterator it = m_pages.begin();
-                typename ptr_vector<T>::iterator end = m_pages.end();
+                typename vector<T*>::iterator it = m_pages.begin();
+                typename vector<T*>::iterator end = m_pages.end();
                 end--;
                 call_destructors_for_page(*end, m_idx);
                 for (; it != end; ++it)
@@ -89,8 +89,8 @@ class object_allocator : public ResetProc {
         
         void free_memory() {
             call_destructors();
-            typename ptr_vector<T>::iterator it = m_pages.begin();
-            typename ptr_vector<T>::iterator end = m_pages.end();
+            typename vector<T*>::iterator it = m_pages.begin();
+            typename vector<T*>::iterator end = m_pages.end();
             for (; it != end; ++it)
                 memory::deallocate(*it);
         }
@@ -129,12 +129,12 @@ class object_allocator : public ResetProc {
 #ifdef Z3DEBUG
     bool                   m_concurrent; //!< True when the allocator can be accessed concurrently.
 #endif
-    ptr_vector<region>     m_regions;
-    vector<ptr_vector<T> > m_free_lists;
+    vector<region*>     m_regions;
+    vector<vector<T*> > m_free_lists;
     
     template <bool construct>
     T * allocate_core(unsigned idx) {
-        ptr_vector<T> & free_list = m_free_lists[idx];
+        vector<T*> & free_list = m_free_lists[idx];
         if (!free_list.empty()) {
             T * r = free_list.back();
             free_list.pop_back();

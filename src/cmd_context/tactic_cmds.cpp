@@ -247,7 +247,7 @@ public:
         }
 
         if (ctx.produce_unsat_cores()) {
-            ptr_vector<expr> core_elems;
+            vector<expr*> core_elems;
             m.linearize(core, core_elems);
             result->m_core.append(core_elems.size(), core_elems.c_ptr());
             if (p.get_bool("print_unsat_core", false)) {
@@ -371,7 +371,7 @@ public:
                 else {
                     // create a big OR
                     expr_ref_buffer or_args(m);
-                    ptr_vector<expr> formulas;
+                    vector<expr*> formulas;
                     for (unsigned i = 0; i < num_goals; i++) {
                         formulas.clear();
                         result_goals[i]->get_formulas(formulas);

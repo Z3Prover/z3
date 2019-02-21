@@ -23,7 +23,7 @@ Revision History:
 std::ostream& display_dimacs(std::ostream& out, expr_ref_vector const& fmls) {
     ast_manager& m = fmls.m();
     vector<unsigned> expr2var;
-    ptr_vector<expr> exprs;
+    vector<expr*> exprs;
     unsigned num_vars = 0;
     unsigned num_cls  = fmls.size();
     bool is_from_dimacs = true;

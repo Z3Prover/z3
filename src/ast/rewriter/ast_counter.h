@@ -71,7 +71,7 @@ class var_counter : public counter {
 protected:
     expr_fast_mark1  m_visited;
     expr_free_vars   m_fv;
-    ptr_vector<expr> m_todo;
+    vector<expr*> m_todo;
     vector<unsigned>  m_scopes;
     unsigned get_max_var(bool & has_var);    
 public:

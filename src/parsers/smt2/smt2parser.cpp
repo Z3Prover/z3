@@ -1427,7 +1427,7 @@ namespace smt2 {
         void check_patterns(expr_ref_vector const& patterns, sort* s) {
             if (!dtutil().is_datatype(s)) 
                 throw parser_exception("pattern matching is only supported for algebraic datatypes");
-            ptr_vector<func_decl> const& cons = *dtutil().get_datatype_constructors(s);
+            vector<func_decl*> const& cons = *dtutil().get_datatype_constructors(s);
             for (expr * arg : patterns) if (is_var(arg)) return;
             if (patterns.size() < cons.size()) 
                 throw parser_exception("non-exhaustive pattern match");
@@ -1458,7 +1458,7 @@ namespace smt2 {
                 SASSERT(is_app(pattern));
                 func_decl * f = to_app(pattern)->get_decl();
                 func_decl * r = dtutil().get_constructor_is(f);
-                ptr_vector<func_decl> const * acc = dtutil().get_constructor_accessors(f);
+                vector<func_decl*> const * acc = dtutil().get_constructor_accessors(f);
                 shifter()(t, acc->size(), tsh);
                 for (func_decl* a : *acc) {
                     subst.push_back(m().mk_app(a, tsh));

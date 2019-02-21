@@ -48,7 +48,7 @@ namespace qe {
         struct term_hash { unsigned operator()(term const* t) const; };
         struct term_eq { bool operator()(term const* a, term const* b) const; };
         ast_manager &     m;
-        ptr_vector<term>  m_terms;
+        vector<term*>  m_terms;
         expr_ref_vector    m_lits; // NSB: expr_ref_vector?
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;

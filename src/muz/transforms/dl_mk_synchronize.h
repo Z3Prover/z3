@@ -53,7 +53,7 @@ namespace datalog {
     */
     class mk_synchronize : public rule_transformer::plugin {
     public:
-        typedef ptr_vector<rule_stratifier::item_set> item_set_vector;
+        typedef vector<rule_stratifier::item_set*> item_set_vector;
     private:
         context&        m_ctx;
         ast_manager&    m;
@@ -77,7 +77,7 @@ namespace datalog {
         /// returns true if the top-level predicate of app is recursive
         bool has_recursive_premise(app * app) const;
 
-        item_set_vector add_merged_decls(ptr_vector<app> & apps);
+        item_set_vector add_merged_decls(vector<app*> & apps);
 
         /**
             Compute Cartesian product of decls and create a new
@@ -88,26 +88,26 @@ namespace datalog {
             create new predicates: a!!c, a!!d, b!!c, and b!!d
         */
         void add_new_rel_symbols(unsigned idx, item_set_vector const & decls,
-                                 ptr_vector<func_decl> & buf, bool & was_added);
+                                 vector<func_decl*> & buf, bool & was_added);
 
         /**
            Convert vector of predicate apps into a single app. For example,
            (Foo a) (Bar b) becomes (Foo!!Bar a b)
          */
-        app_ref product_application(ptr_vector<app> const & apps);
+        app_ref product_application(vector<app*> const & apps);
 
         /**
             Replace a given rule by a rule in which conjunction of
             predicates is replaced by a single product predicate
          */
         void replace_applications(rule & r, rule_set & rules,
-                                  ptr_vector<app> & apps);
+                                  vector<app*> & apps);
 
         rule_ref rename_bound_vars_in_rule(rule * r, unsigned & var_idx);
         vector<rule_ref_vector> rename_bound_vars(item_set_vector const & heads,
                                                   rule_set & rules);
 
-        void add_rec_tail(vector< ptr_vector<app> > & recursive_calls,
+        void add_rec_tail(vector< vector<app*> > & recursive_calls,
                           app_ref_vector & new_tail,
                           vector<bool> & new_tail_neg, unsigned & tail_idx);
         void add_non_rec_tail(rule & r, app_ref_vector & new_tail,

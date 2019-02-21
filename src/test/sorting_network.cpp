@@ -149,7 +149,7 @@ struct ast_ext2 {
     expr_ref_vector m_trail;
     ast_ext2(ast_manager& m):m(m), m_clauses(m), m_trail(m) {}
     typedef expr* pliteral;
-    typedef ptr_vector<expr> pliteral_vector;
+    typedef vector<expr*> pliteral_vector;
 
     expr* trail(expr* e) {
         m_trail.push_back(e);

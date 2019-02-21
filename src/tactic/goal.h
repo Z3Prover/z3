@@ -126,7 +126,7 @@ public:
 
     void update(unsigned i, expr * f, proof * pr = nullptr, expr_dependency * dep = nullptr);
 
-    void get_formulas(ptr_vector<expr> & result) const;
+    void get_formulas(vector<expr*> & result) const;
     void get_formulas(expr_ref_vector & result) const;
     
     void elim_true();

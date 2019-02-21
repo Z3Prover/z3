@@ -72,7 +72,7 @@ expr * simple_parser::parse_expr(scanner & s) {
         if (token != scanner::ID_TOKEN)
             throw parser_error();
         if (m_builtin.find(s.get_id(), op)) {
-            ptr_vector<expr> args;
+            vector<expr*> args;
             while (true) {
                 expr * arg = parse_expr(s);
                 if (arg) {

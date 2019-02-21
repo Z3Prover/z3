@@ -74,8 +74,8 @@ namespace datalog {
             ptr_eq<const relation_plugin> > rp2fprp_map;
 
         typedef obj_map<func_decl, relation_base *> relation_map;
-        typedef ptr_vector<table_plugin> table_plugin_vector;
-        typedef ptr_vector<relation_plugin> relation_plugin_vector;
+        typedef vector<table_plugin*> table_plugin_vector;
+        typedef vector<relation_plugin*> relation_plugin_vector;
 
         context & m_context;
         table_plugin_vector m_table_plugins;

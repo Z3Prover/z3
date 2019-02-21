@@ -134,7 +134,7 @@ namespace opt {
         };
 
         void mk_assumptions(expr_ref_vector& asms) {
-            ptr_vector<expr> _asms;
+            vector<expr*> _asms;
             obj_map<expr, rational>::iterator it = m_weights.begin(), end = m_weights.end();
             for (; it != end; ++it) {
                 _asms.push_back(it->m_key);
@@ -207,7 +207,7 @@ namespace opt {
         }
 
 
-        rational remove_negations(smt::theory_wmaxsat& th, expr_ref_vector const& core, ptr_vector<expr>& keys, vector<rational>& weights) {
+        rational remove_negations(smt::theory_wmaxsat& th, expr_ref_vector const& core, vector<expr*>& keys, vector<rational>& weights) {
             rational min_weight(-1);
             for (unsigned i = 0; i < core.size(); ++i) {
                 expr* e = nullptr;
@@ -240,7 +240,7 @@ namespace opt {
         // disable those literals from th
 
         void update_core(smt::theory_wmaxsat& th, expr_ref_vector const& core) {
-            ptr_vector<expr> keys;
+            vector<expr*> keys;
             vector<rational> weights;
             rational min_weight = remove_negations(th, core, keys, weights);            
             max_resolve(th, keys, min_weight);            
@@ -248,7 +248,7 @@ namespace opt {
             // std::cout << core << " " << min_weight << "\n";
         }
 
-        void max_resolve(smt::theory_wmaxsat& th, ptr_vector<expr> const& core, rational const& w) {
+        void max_resolve(smt::theory_wmaxsat& th, vector<expr*> const& core, rational const& w) {
             SASSERT(!core.empty());
             expr_ref fml(m), asum(m);
             app_ref cls(m), d(m), dd(m);

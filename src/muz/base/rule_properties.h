@@ -39,11 +39,11 @@ namespace datalog {
         rule*         m_rule;
         obj_map<quantifier, rule*> m_quantifiers;
         obj_map<func_decl, rule*>  m_uninterp_funs;
-        ptr_vector<rule>           m_interp_pred;
-        ptr_vector<rule>           m_negative_rules;
-        ptr_vector<rule>           m_inf_sort;
+        vector<rule*>           m_interp_pred;
+        vector<rule*>           m_negative_rules;
+        vector<rule*>           m_inf_sort;
 
-        void insert(ptr_vector<rule>& rules, rule* r);
+        void insert(vector<rule*>& rules, rule* r);
     public:
         rule_properties(ast_manager & m, rule_manager& rm, context& ctx, i_expr_pred& is_predicate);
         ~rule_properties();    

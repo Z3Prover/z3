@@ -85,7 +85,7 @@ namespace smt {
         /**
            \brief Return the array of asserted formulas.
         */
-        void get_formulas(ptr_vector<expr>& r) const;
+        void get_formulas(vector<expr*>& r) const;
 
         /**
            \brief return the formula at index idx.
@@ -222,7 +222,7 @@ namespace smt {
         /**
            \brief retrieve depth of variables from decision stack.
         */
-        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth);
+        void get_levels(vector<expr*> const& vars, vector<unsigned>& depth);
 
         /**
            \brief retrieve trail of assignment stack.

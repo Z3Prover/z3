@@ -65,10 +65,10 @@ class expr_pattern_match {
         subst&          m_subst;
         bound&          m_bound;
         obj_map<expr, expr*> m_memoize;
-        ptr_vector<expr>& m_regs;
+        vector<expr*>& m_regs;
         
         
-        inst_proc(ast_manager& m, subst& s, bound& b, ptr_vector<expr>& regs) : 
+        inst_proc(ast_manager& m, subst& s, bound& b, vector<expr*>& regs) : 
             m_manager(m), m_pinned(m), m_subst(s), m_bound(b), m_regs(regs) {}
                 
 
@@ -85,7 +85,7 @@ class expr_pattern_match {
                 
         void operator()(app * n) {  
             unsigned r;
-            ptr_vector<expr> args;
+            vector<expr*> args;
             unsigned num_args     = n->get_num_args();
             func_decl * decl = n->get_decl();
             expr* result;
@@ -111,9 +111,9 @@ class expr_pattern_match {
     quantifier_ref_vector         m_precompiled;
     vector<unsigned>              m_first_instrs;
     vector<instr>                m_instrs;
-    ptr_vector<expr>              m_regs;
-    ptr_vector<var>               m_bound_dom;
-    ptr_vector<var>               m_bound_rng;
+    vector<expr*>              m_regs;
+    vector<var*>               m_bound_dom;
+    vector<var*>               m_bound_rng;
 
  public:
     expr_pattern_match(ast_manager & manager);

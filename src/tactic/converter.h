@@ -78,7 +78,7 @@ template<typename T>
 class concat_star_converter : public T {
 protected:
     ref<T>          m_c1;
-    ptr_vector<T>   m_c2s;
+    vector<T*>   m_c2s;
     vector<unsigned> m_szs;
 
     template<typename T2>

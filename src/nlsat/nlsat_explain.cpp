@@ -264,7 +264,7 @@ namespace nlsat {
         /**
            \brief Add literal p != 0 into m_result.
         */
-        ptr_vector<poly>  m_zero_fs;
+        vector<poly*>  m_zero_fs;
         vector<bool>     m_is_even;
         void add_zero_assumption(polynomial_ref & p) {
             // If p is of the form p1^n1 * ... * pk^nk,

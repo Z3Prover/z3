@@ -86,10 +86,10 @@ class theory_str_contain_pair_bool_map_t : public obj_pair_map<expr, expr, expr*
 
 template<typename Ctx>
 class binary_search_trail : public trail<Ctx> {
-    obj_map<expr, ptr_vector<expr> > & target;
+    obj_map<expr, vector<expr*> > & target;
     expr * entry;
 public:
-    binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
+    binary_search_trail(obj_map<expr, vector<expr*> > & target, expr * entry) :
         target(target), entry(entry) {}
     ~binary_search_trail() override {}
     void undo(Ctx & ctx) override {
@@ -327,15 +327,15 @@ protected:
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 
-    ptr_vector<enode> m_basicstr_axiom_todo;
+    vector<enode*> m_basicstr_axiom_todo;
     vector<std::pair<enode*,enode*> > m_str_eq_todo;
-    ptr_vector<enode> m_concat_axiom_todo;
-    ptr_vector<enode> m_string_constant_length_todo;
-    ptr_vector<enode> m_concat_eval_todo;
+    vector<enode*> m_concat_axiom_todo;
+    vector<enode*> m_string_constant_length_todo;
+    vector<enode*> m_concat_eval_todo;
     expr_ref_vector m_delayed_assertions_todo;
 
     // enode lists for library-aware/high-level string terms (e.g. substr, contains)
-    ptr_vector<enode> m_library_aware_axiom_todo;
+    vector<enode*> m_library_aware_axiom_todo;
 
     // list of axioms that are re-asserted every time the scope is popped
     expr_ref_vector m_persisted_axioms;
@@ -370,7 +370,7 @@ protected:
     obj_hashtable<expr> input_var_in_len;
 
     obj_map<expr, unsigned int> fvar_len_count_map;
-    obj_map<expr, ptr_vector<expr> > fvar_lenTester_map;
+    obj_map<expr, vector<expr*> > fvar_lenTester_map;
     obj_map<expr, expr*> lenTester_fvar_map;
 
 
@@ -382,7 +382,7 @@ protected:
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
-    obj_map<expr, std::map<std::set<expr*>, ptr_vector<expr> > > unroll_tries_map;
+    obj_map<expr, std::map<std::set<expr*>, vector<expr*> > > unroll_tries_map;
     obj_map<expr, expr*> unroll_var_map;
     obj_pair_map<expr, expr, expr*> concat_eq_unroll_ast_map;
 
@@ -397,15 +397,15 @@ protected:
 
     // regex automata
     scoped_ptr_vector<eautomaton> m_automata;
-    ptr_vector<eautomaton> regex_automata;
+    vector<eautomaton*> regex_automata;
     obj_hashtable<expr> regex_terms;
-    obj_map<expr, ptr_vector<expr> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
+    obj_map<expr, vector<expr*> > regex_terms_by_string; // S --> [ (str.in.re S *) ]
     obj_map<expr, vector<regex_automaton_under_assumptions> > regex_automaton_assumptions; // RegEx --> [ aut+assumptions ]
     obj_map<expr, nfa> regex_nfa_cache; // Regex term --> NFA
     obj_hashtable<expr> regex_terms_with_path_constraints; // set of string terms which have had path constraints asserted in the current scope
     obj_hashtable<expr> regex_terms_with_length_constraints; // set of regex terms which had had length constraints asserted in the current scope
     obj_map<expr, expr*> regex_term_to_length_constraint; // (str.in.re S R) -> (length constraint over S wrt. R)
-    obj_map<expr, ptr_vector<expr> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
+    obj_map<expr, vector<expr*> > regex_term_to_extra_length_vars; // extra length vars used in regex_term_to_length_constraint entries
 
     // keep track of the last lower/upper bound we saw for each string term
     // so we don't perform duplicate work
@@ -418,7 +418,7 @@ protected:
     obj_map<expr, unsigned> regex_fail_count;
     obj_map<expr, unsigned> regex_intersection_fail_count;
 
-    obj_map<expr, ptr_vector<expr> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
+    obj_map<expr, vector<expr*> > string_chars; // S --> [S_0, S_1, ...] for character terms S_i
 
     vector<char> char_set;
     std::map<char, int>  charSetLookupTable;
@@ -469,7 +469,7 @@ protected:
     };
     // maps a free string var to a stack of active length testers.
     // can use binary_search_trail to record changes to this object
-    obj_map<expr, ptr_vector<expr> > binary_search_len_tester_stack;
+    obj_map<expr, vector<expr*> > binary_search_len_tester_stack;
     // maps a length tester var to the *active* search window
     obj_map<expr, binary_search_info> binary_search_len_tester_info;
     // maps a free string var to the first length tester to be (re)used
@@ -481,7 +481,7 @@ protected:
 
     // finite model finding data
     // maps a finite model tester var to a list of variables that will be tested
-    obj_map<expr, ptr_vector<expr> > finite_model_test_varlists;
+    obj_map<expr, vector<expr*> > finite_model_test_varlists;
 protected:
     void assert_axiom(expr * e);
     void assert_implication(expr * premise, expr * conclusion);
@@ -609,7 +609,7 @@ protected:
             std::map<expr*, std::map<std::vector<expr*>, std::set<expr*> > > & groundedMap);
     bool is_partial_in_grounded_concat(const std::vector<expr*> & strVec, const std::vector<expr*> & subStrVec);
 
-    void get_nodes_in_concat(expr * node, ptr_vector<expr> & nodeList);
+    void get_nodes_in_concat(expr * node, vector<expr*> & nodeList);
     expr * simplify_concat(expr * node);
 
     void simplify_parent(expr * nn, expr * eq_str);

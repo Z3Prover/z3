@@ -107,7 +107,7 @@ public:
         for (expr* e : ts) assert_expr(e);
     }
 
-    void assert_expr(ptr_vector<expr> const& ts) { 
+    void assert_expr(vector<expr*> const& ts) { 
         for (expr* e : ts) assert_expr(e);
     }
 
@@ -249,7 +249,7 @@ public:
 
     virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
     
-    virtual void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) = 0;
+    virtual void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) = 0;
 
     virtual void set_activity(expr* lit, double activity) = 0;
 

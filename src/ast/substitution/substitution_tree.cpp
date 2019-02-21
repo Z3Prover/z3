@@ -195,8 +195,8 @@ void substitution_tree::reset_compiler() {
     m_used_regs.clear();
     m_next_reg = 1; // register 0 is reserved for input.
     DEBUG_CODE({
-        ptr_vector<expr>::iterator it  = m_registers.begin();
-        ptr_vector<expr>::iterator end = m_registers.end();
+        vector<expr*>::iterator it  = m_registers.begin();
+        vector<expr*>::iterator end = m_registers.end();
         for (; it != end; ++it) {
             SASSERT(*it == 0);
         }
@@ -561,8 +561,8 @@ void substitution_tree::delete_node(node * n) {
 }
 
 void substitution_tree::reset() {
-    ptr_vector<node>::iterator it  = m_roots.begin();
-    ptr_vector<node>::iterator end = m_roots.end();
+    vector<node*>::iterator it  = m_roots.begin();
+    vector<node*>::iterator end = m_roots.end();
     for (; it != end; ++it) {
         if (*it)
             delete_node(*it);
@@ -839,8 +839,8 @@ void substitution_tree::visit(expr * e, st_visitor & st, unsigned in_offset, uns
         }
         else {
             SASSERT(is_var(e));
-            ptr_vector<node>::iterator it  = m_roots.begin();
-            ptr_vector<node>::iterator end = m_roots.end();
+            vector<node*>::iterator it  = m_roots.begin();
+            vector<node*>::iterator end = m_roots.end();
             for (; it != end; ++it) {
                 node * r = *it;
                 if (r != nullptr) {
@@ -868,14 +868,14 @@ void substitution_tree::gen(expr * e, st_visitor & v, unsigned in_offset, unsign
 
 void substitution_tree::display(std::ostream & out) const {
     out << "substitution tree:\n";
-    ptr_vector<node>::const_iterator it  = m_roots.begin();
-    ptr_vector<node>::const_iterator end = m_roots.end();
+    vector<node*>::const_iterator it  = m_roots.begin();
+    vector<node*>::const_iterator end = m_roots.end();
     for (; it != end; ++it)
         if (*it)
             display(out, *it, 0);
     bool found_var = false;
-    ptr_vector<var_ref_vector>::const_iterator it2  = m_vars.begin();
-    ptr_vector<var_ref_vector>::const_iterator end2 = m_vars.end();
+    vector<var_ref_vector*>::const_iterator it2  = m_vars.begin();
+    vector<var_ref_vector*>::const_iterator end2 = m_vars.end();
     for (; it2 != end2; ++it2) {
         var_ref_vector * v = *it2;
         if (v == nullptr)

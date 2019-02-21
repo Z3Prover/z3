@@ -94,7 +94,7 @@ class mbp::impl {
     ast_manager& m;
     params_ref                 m_params;
     th_rewriter m_rw;
-    ptr_vector<project_plugin> m_plugins;
+    vector<project_plugin*> m_plugins;
     expr_mark m_visited;
     expr_mark m_bool_visited;
 
@@ -180,7 +180,7 @@ class mbp::impl {
 
     bool extract_bools(model_evaluator& eval, expr_ref_vector& fmls, expr* fml) {
         TRACE("qe", tout << "extract bools: " << mk_pp(fml, m) << "\n";);
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         expr_safe_replace sub(m);
         m_visited.reset();
         bool found_bool = false;

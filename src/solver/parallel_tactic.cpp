@@ -50,8 +50,8 @@ class parallel_tactic : public tactic {
     class task_queue {
         std::mutex                   m_mutex;
         std::condition_variable      m_cond;
-        ptr_vector<solver_state>     m_tasks;
-        ptr_vector<solver_state>     m_active;
+        vector<solver_state*>     m_tasks;
+        vector<solver_state*>     m_active;
         unsigned                     m_num_waiters;
         volatile bool                m_shutdown;
 
@@ -204,7 +204,7 @@ class parallel_tactic : public tactic {
 
         solver const& get_solver() const { return *m_solver; }
 
-        void set_assumptions(ptr_vector<expr> const& asms) {
+        void set_assumptions(vector<expr*> const& asms) {
             m_assumptions.append(asms.size(), asms.c_ptr());
         }
         
@@ -688,7 +688,7 @@ public:
         solver_state* st = alloc(solver_state, nullptr, s, m_params);
         m_queue.add_task(st);
         expr_ref_vector clauses(m);
-        ptr_vector<expr> assumptions;
+        vector<expr*> assumptions;
         obj_map<expr, expr*> bool2dep;
         ref<generic_model_converter> fmc;
         expr_dependency * lcore = nullptr;

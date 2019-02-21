@@ -28,7 +28,7 @@ namespace spacer {
 class model_node {
     pob_ref                m_pob;            // proof obligation
     model_node*            m_parent;         // parent in the search tree
-    ptr_vector<model_node> m_children;       // children in the search tree
+    vector<model_node*> m_children;       // children in the search tree
     model_node*            m_next;           // next element of an in-place circular queue
     model_node*            m_prev;           // prev element of an in-place circular queue
     unsigned               m_orig_level;     // level at which this search node was created
@@ -44,7 +44,7 @@ public:
     unsigned depth() const { return m_depth; }
     void  increase_level() { m_pob->inc_level(); }
     pob_ref &pob() { return m_pob; }
-    ptr_vector<model_node> const& children() { return m_children; }
+    vector<model_node*> const& children() { return m_children; }
     pred_transformer& pt() const { return m_pob->pt(); }
     model_node* parent() const { return m_parent; }
     // order in children of the parent
@@ -79,7 +79,7 @@ public:
 };
 
 class model_search {
-    typedef ptr_vector<model_node> model_nodes;
+    typedef vector<model_node*> model_nodes;
     bool               m_bfs;
     model_node*        m_root;
     model_node*        m_qhead;

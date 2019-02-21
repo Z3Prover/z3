@@ -123,7 +123,7 @@ typedef optional<inf_rational> opt_inf_rational;
 
 namespace smt {
 
-typedef ptr_vector<lp_api::bound> lp_bounds;
+typedef vector<lp_api::bound*> lp_bounds;
     
 class theory_lra::imp {        
 
@@ -166,7 +166,7 @@ class theory_lra::imp {
         vector<rational>    m_coeffs;
         vector<theory_var>  m_vars;
         rational            m_offset;
-        ptr_vector<expr>    m_terms_to_internalize;
+        vector<expr*>    m_terms_to_internalize;
         internalize_state(ast_manager& m): m_terms(m) {}
         void reset() {
             m_terms.clear();
@@ -176,7 +176,7 @@ class theory_lra::imp {
             m_terms_to_internalize.clear();
         }
     };
-    ptr_vector<internalize_state> m_internalize_states;
+    vector<internalize_state*> m_internalize_states;
     unsigned                      m_internalize_head;
 
     class scoped_internalize_state {
@@ -198,7 +198,7 @@ class theory_lra::imp {
         vector<rational>&    coeffs() { return m_st.m_coeffs; }
         vector<theory_var>&  vars() { return m_st.m_vars; }
         rational&            offset() { return m_st.m_offset; }
-        ptr_vector<expr>&    terms_to_internalize() { return m_st.m_terms_to_internalize; }            
+        vector<expr*>&    terms_to_internalize() { return m_st.m_terms_to_internalize; }            
         void push(expr* e, rational c) { m_st.m_terms.push_back(e); m_st.m_coeffs.push_back(c); }
         void set_back(unsigned i) { 
             if (terms().size() == i + 1) return;
@@ -234,10 +234,10 @@ class theory_lra::imp {
 
     vector<delayed_atom>  m_asserted_atoms;        
     expr*                  m_not_handled;
-    ptr_vector<app>        m_underspecified;
-    ptr_vector<expr>       m_idiv_terms;
+    vector<app*>        m_underspecified;
+    vector<expr*>       m_idiv_terms;
     vector<unsigned>        m_var_trail;
-    vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
+    vector<vector<lp_api::bound*> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
     u_map<lp_api::bound*>      m_bool_var2bound;
@@ -2591,7 +2591,7 @@ public:
                 }
                 else {
                     unsigned w = m_var_index2theory_var[wi];
-                    m_use_list.expand(w + 1, ptr_vector<lp_api::bound>());
+                    m_use_list.expand(w + 1, vector<lp_api::bound*>());
                     m_use_list[w].push_back(b);
                 }
             }

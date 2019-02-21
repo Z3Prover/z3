@@ -164,24 +164,24 @@ namespace nlarith {
 
         void set_enable_linear(bool enable_linear) { m_enable_linear = enable_linear; }
 
-        void extract_non_linear(unsigned sz, app* const* es, ptr_vector<app>& nl_vars) {
+        void extract_non_linear(unsigned sz, app* const* es, vector<app*>& nl_vars) {
             ast_mark visit;
             for (unsigned i = 0; i < sz; ++i) {
                 extract_non_linear(es[i], visit, nl_vars);
             }
         }
 
-        void extract_non_linear(expr* e, ptr_vector<app>& nl_vars) {  
+        void extract_non_linear(expr* e, vector<app*>& nl_vars) {  
             ast_mark visit;
             extract_non_linear(e, visit, nl_vars);
         }
 
-        void extract_non_linear(expr* e, ast_mark& visit, ptr_vector<app>& nl_vars) {  
+        void extract_non_linear(expr* e, ast_mark& visit, vector<app*>& nl_vars) {  
             if (visit.is_marked(e)) {
                 return;
             }
             ast_mark nonlin;
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             todo.push_back(e);
             while(!todo.empty()) {
                 e = todo.back();
@@ -1591,7 +1591,7 @@ namespace nlarith {
         }
 
         void collect_atoms(app* fml, app_ref_vector& atoms) {
-            ptr_vector<app> todo;
+            vector<app*> todo;
             todo.push_back(fml);
             while (!todo.empty()) {
                 fml = todo.back();
@@ -1617,7 +1617,7 @@ namespace nlarith {
               m_cnstr(cnstr, m), m_atoms(m) {}
             ~simple_branch() override {}
             app* get_constraint() override { return m_cnstr.get(); }
-            void get_updates(ptr_vector<app>& atoms, vector<util::atom_update>& updates) override {
+            void get_updates(vector<app*>& atoms, vector<util::atom_update>& updates) override {
                 for (unsigned i = 0; i < m_atoms.size(); ++i) {
                     atoms.push_back(m_atoms[i].get());
                     updates.push_back(m_updates[i]);
@@ -1649,7 +1649,7 @@ namespace nlarith {
                v = 0 & r = 0               remove u = 0, add r = 0
         */    
 
-        void get_sign_branches_eq(util::literal_set& lits, unsigned i, unsigned j, ptr_vector<util::branch>& branches) {
+        void get_sign_branches_eq(util::literal_set& lits, unsigned i, unsigned j, vector<util::branch*>& branches) {
             SASSERT(lits.compare(i) == EQ);
             SASSERT(lits.compare(j) == EQ);
             poly const* u = &lits.get_poly(i); 
@@ -1693,7 +1693,7 @@ namespace nlarith {
                   p_j ranges over predicates 'p_j(x) < 0'
 
         */
-        void get_sign_branches_neq(util::literal_set& lits, ptr_vector<util::branch>& branches) {
+        void get_sign_branches_neq(util::literal_set& lits, vector<util::branch*>& branches) {
             app_ref_vector new_atoms(m());
             app_ref fml(m());
             branches.push_back(mk_inf_branch(lits, true));
@@ -1751,7 +1751,7 @@ namespace nlarith {
             z < x < y:
               z is sup, y is inf
         */
-        void get_sign_branches_eq_neq(util::literal_set& lits, unsigned i, ptr_vector<util::branch>& branches) {
+        void get_sign_branches_eq_neq(util::literal_set& lits, unsigned i, vector<util::branch*>& branches) {
             SASSERT(lits.size() > i);
             SASSERT(lits.compare(i) == EQ);
             poly const& p = lits.get_poly(i);
@@ -1885,7 +1885,7 @@ namespace nlarith {
             3. No equality is true
         */
         void get_sign_branches(util::literal_set& lits, util::eval& eval, 
-                               ptr_vector<util::branch>& branches) {
+                               vector<util::branch*>& branches) {
             m_trail.clear();
             unsigned z1 = UINT_MAX, z2 = UINT_MAX;
             for (unsigned i = 0; i < lits.size(); ++i) {
@@ -1915,7 +1915,7 @@ namespace nlarith {
         bool get_sign_literals(util::atoms const& atoms, util::eval& eval, util::literal_set*& lits) {
             // TBD: use 'eval' to select non-linear literals that are relevant.
             m_trail.clear();
-            ptr_vector<app> nlvars, atms;
+            vector<app*> nlvars, atms;
             util::atoms::iterator it = atoms.begin(), end = atoms.end();
             for (; it != end; ++it) {
                 atms.push_back(*it);
@@ -2008,7 +2008,7 @@ namespace nlarith {
 
     void util::set_enable_linear(bool enable_linear) { m_imp->set_enable_linear(enable_linear); }
 
-    void util::extract_non_linear(expr* e, ptr_vector<app>& nl_vars) {
+    void util::extract_non_linear(expr* e, vector<app*>& nl_vars) {
         m_imp->extract_non_linear(e, nl_vars);
     }
 
@@ -2020,7 +2020,7 @@ namespace nlarith {
         return m_imp->get_sign_literals(atoms, ev, lits);
     }
 
-    void util::get_sign_branches(literal_set& lits, eval& ev, ptr_vector<branch>& branches) {
+    void util::get_sign_branches(literal_set& lits, eval& ev, vector<branch*>& branches) {
         m_imp->get_sign_branches(lits, ev, branches);
     }
 };

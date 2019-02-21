@@ -244,7 +244,7 @@ private:
             unsigned           m_size;
             vector<numeral>    m_sums; 
             expr_ref_vector    m_lits;
-            ptr_vector<expr>   m_cls;
+            vector<expr*>   m_cls;
             polynomial const * m_pol;
             expr_ref_vector    m_result;
         

@@ -32,7 +32,7 @@ unsigned get_num_nodes(ast * n) {
 }
 
 
-bool for_each_parameter(ptr_vector<ast> & stack, ast_mark & visited, unsigned num_args, parameter const * params) {
+bool for_each_parameter(vector<ast*> & stack, ast_mark & visited, unsigned num_args, parameter const * params) {
     bool result = true;
     for (unsigned i = 0; i < num_args; i++) {
         parameter const& p = params[i];

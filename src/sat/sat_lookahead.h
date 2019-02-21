@@ -215,8 +215,8 @@ namespace sat {
         vector<unsigned>         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
         small_object_allocator    m_allocator;
-        vector<ptr_vector<nary>>  m_nary;        // lit |-> vector of nary clauses
-        ptr_vector<nary>          m_nary_clauses; // vector of all nary clauses
+        vector<vector<nary*>>  m_nary;        // lit |-> vector of nary clauses
+        vector<nary*>          m_nary_clauses; // vector of all nary clauses
         vector<unsigned>           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
 
         unsigned               m_num_tc1;

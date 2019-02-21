@@ -236,8 +236,8 @@ namespace smt {
             void set_conflict(theory_pb& th, literal l);
         };
 
-        typedef ptr_vector<card> card_watch;
-        typedef ptr_vector<ineq> ineq_watch;
+        typedef vector<card*> card_watch;
+        typedef vector<ineq*> ineq_watch;
         typedef map<arg_t, bool_var, arg_t::hash, arg_t::eq> arg_map;
 
 
@@ -294,7 +294,7 @@ namespace smt {
         void clear_watch(ineq& c);
         void watch_literal(literal lit, ineq* c);
         void unwatch_literal(literal w, ineq* c);
-        void remove(ptr_vector<ineq>& ineqs, ineq* c);
+        void remove(vector<ineq*>& ineqs, ineq* c);
 
         bool assign_watch_ge(bool_var v, bool is_true, ineq_watch& watch, unsigned index);
         void assign_ineq(ineq& c, bool is_true);
@@ -316,7 +316,7 @@ namespace smt {
         void unwatch_literal(literal w, card* c);
         void add_clause(card& c, literal_vector const& lits);
         void add_assign(card& c, literal l);
-        void remove(ptr_vector<card>& cards, card* c);
+        void remove(vector<card*>& cards, card* c);
         void clear_watch(card& c); 
         bool gc();
         std::ostream& display(std::ostream& out, card const& c, bool values = false) const;

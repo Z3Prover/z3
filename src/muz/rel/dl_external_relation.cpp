@@ -40,7 +40,7 @@ namespace datalog {
     void external_relation::mk_accessor(decl_kind k, func_decl_ref& fn, const relation_fact& f, bool destructive, expr_ref& res) const {
         ast_manager& m = m_rel.get_manager();
         family_id fid = get_plugin().get_family_id();
-        ptr_vector<expr> args;
+        vector<expr*> args;
         args.push_back(m_rel);
         for (unsigned i = 0; i < f.size(); ++i) {
             args.push_back(f[i]);

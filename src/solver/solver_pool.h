@@ -55,7 +55,7 @@ class solver_pool {
 
     void refresh(solver* s);
 
-    ptr_vector<solver> get_base_solvers() const;
+    vector<solver*> get_base_solvers() const;
   
 public:
     solver_pool(solver* base_solver, unsigned num_pools);

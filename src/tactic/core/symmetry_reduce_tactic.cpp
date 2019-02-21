@@ -102,11 +102,11 @@ public:
 template class rewriter_tpl<ac_rewriter_cfg>;
 
 class symmetry_reduce_tactic::imp {
-    typedef ptr_vector<app>     permutation;
+    typedef vector<app*>     permutation;
     typedef vector<permutation> permutations;
-    typedef ptr_vector<app>     term_set;
+    typedef vector<app*>     term_set;
     typedef obj_map<app, unsigned> app_map;
-    typedef u_map<ptr_vector<app> > inv_app_map;
+    typedef u_map<vector<app*> > inv_app_map;
     ast_manager&                m_manager;
     ac_rewriter_star            m_rewriter;
     scoped_ptr<expr_replacer>   m_replace;
@@ -123,7 +123,7 @@ public:
         if (g.inconsistent())
             return;
         tactic_report report("symmetry-reduce", g);
-        vector<ptr_vector<app> > P;    
+        vector<vector<app*> > P;    
         expr_ref fml(m());
         to_formula(g, fml);
         app_map occs;
@@ -160,7 +160,7 @@ public:
 
 private:
     void to_formula(goal const & g, expr_ref& fml) {
-        ptr_vector<expr> conjs;
+        vector<expr*> conjs;
         for (unsigned i = 0; i < g.size(); ++i) {
             conjs.push_back(g.form(i));
         }
@@ -283,7 +283,7 @@ private:
             app* t = it->m_key;
             unsigned n = it->m_value;
             if (is_uninterpreted(t)) {
-                inv_app_map::entry* e = inv_map.insert_if_not_there2(n, ptr_vector<app>());
+                inv_app_map::entry* e = inv_map.insert_if_not_there2(n, vector<app*>());
                 e->get_data().m_value.push_back(t);
             }
         }
@@ -294,7 +294,7 @@ private:
 
     // compute maximal depth of terms.
     void compute_max_depth(expr* e, app_map& depth) {
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         vector<unsigned>  depths;
         unsigned d, d1;
         todo.push_back(e);
@@ -470,7 +470,7 @@ private:
     // select terms that are range restricted by set p.
     void select_terms(expr* fml, term_set const& p, term_set& T) {
         T.clear();
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         todo.push_back(fml);
         app* t = nullptr;
         while (!todo.empty()) {

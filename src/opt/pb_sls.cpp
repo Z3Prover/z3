@@ -112,7 +112,7 @@ namespace smt {
         vector<bool>    m_best_assignment;
         expr_ref_vector  m_trail;
         obj_map<expr, unsigned> m_decl2var; // map declarations to Boolean variables.
-        ptr_vector<expr> m_var2decl;        // reverse map
+        vector<expr*> m_var2decl;        // reverse map
         index_set        m_hard_false;           // list of hard clauses that are false.
         index_set        m_soft_false;           // list of soft clauses that are false.
         unsigned         m_max_flips;            // maximal number of flips

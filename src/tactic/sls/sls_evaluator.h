@@ -35,8 +35,8 @@ class sls_evaluator {
     mpz                   m_zero, m_one, m_two;
     powers              & m_powers;
     expr_ref_buffer       m_temp_exprs;
-    vector<ptr_vector<expr> > m_traversal_stack;
-    vector<ptr_vector<expr> > m_traversal_stack_bool;
+    vector<vector<expr*> > m_traversal_stack;
+    vector<vector<expr*> > m_traversal_stack_bool;
 
 public:
     sls_evaluator(ast_manager & m, bv_util & bvu, sls_tracker & t, unsynch_mpz_manager & mm, powers & p) : 
@@ -539,7 +539,7 @@ public:
 
         SASSERT(cur_depth < m_traversal_stack.size());
         while (cur_depth != static_cast<unsigned>(-1)) {
-            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
+            vector<expr*> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
             for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
                 expr * cur = cur_depth_exprs[i];
@@ -561,7 +561,7 @@ public:
                 m_tracker.set_score_prune(cur, new_score);
 
                 if (m_tracker.has_uplinks(cur)) {
-                    ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                    vector<expr*> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
@@ -590,7 +590,7 @@ public:
 
         SASSERT(cur_depth < m_traversal_stack.size());
         while (cur_depth != static_cast<unsigned>(-1)) {
-            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
+            vector<expr*> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
             for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
                 expr * cur = cur_depth_exprs[i];
@@ -602,7 +602,7 @@ public:
                     m_tracker.adapt_top_sum(cur, new_score, m_tracker.get_score(cur));
                 m_tracker.set_score(cur, new_score);
                 if (m_tracker.has_uplinks(cur)) {
-                    ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                    vector<expr*> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
@@ -667,7 +667,7 @@ public:
         unsigned pot_benefits = 0;
         SASSERT(cur_depth < m_traversal_stack_bool.size());
  
-        ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
+        vector<expr*> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
 
         for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
             expr * cur = cur_depth_exprs[i];
@@ -685,7 +685,7 @@ public:
                 pot_benefits = 1;
 
             if (m_tracker.has_uplinks(cur)) {
-                ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                vector<expr*> & ups = m_tracker.get_uplinks(cur);
                 for (unsigned j = 0; j < ups.size(); j++) {
                     expr * next = ups[j];
                     unsigned next_d = m_tracker.get_distance(next);
@@ -702,7 +702,7 @@ public:
         cur_depth--;
  
         while (cur_depth != static_cast<unsigned>(-1)) {
-            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
+            vector<expr*> & cur_depth_exprs = m_traversal_stack_bool[cur_depth];
             if (pot_benefits)
             {
                 unsigned cur_size = cur_depth_exprs.size();
@@ -715,7 +715,7 @@ public:
                     m_tracker.set_score(cur, new_score);
 
                     if (m_tracker.has_uplinks(cur)) {
-                        ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                        vector<expr*> & ups = m_tracker.get_uplinks(cur);
                         for (unsigned j = 0; j < ups.size(); j++) {
                             expr * next = ups[j];
                             unsigned next_d = m_tracker.get_distance(next);
@@ -743,7 +743,7 @@ public:
         unsigned cur_depth = max_depth;
         SASSERT(cur_depth < m_traversal_stack.size());
         while (cur_depth != static_cast<unsigned>(-1)) {
-            ptr_vector<expr> & cur_depth_exprs = m_traversal_stack[cur_depth];
+            vector<expr*> & cur_depth_exprs = m_traversal_stack[cur_depth];
 
             for (unsigned i = 0; i < cur_depth_exprs.size(); i++) {
                 expr * cur = cur_depth_exprs[i];
@@ -752,7 +752,7 @@ public:
                 m_tracker.set_value(cur, new_value);
                 // Andreas: Should actually always have uplinks ...
                 if (m_tracker.has_uplinks(cur)) {
-                    ptr_vector<expr> & ups = m_tracker.get_uplinks(cur);
+                    vector<expr*> & ups = m_tracker.get_uplinks(cur);
                     for (unsigned j = 0; j < ups.size(); j++) {
                         expr * next = ups[j];
                         unsigned next_d = m_tracker.get_distance(next);
@@ -795,7 +795,7 @@ public:
         return run_update_bool_prune(cur_depth);
     }
 
-    void randomize_local(ptr_vector<func_decl> & unsat_constants) {
+    void randomize_local(vector<func_decl*> & unsat_constants) {
         // Randomize _one_ candidate:
         unsigned r = m_tracker.get_random_uint(16) % unsat_constants.size();
         func_decl * fd = unsat_constants[r];
@@ -815,7 +815,7 @@ public:
         randomize_local(m_tracker.get_constants(e));
     } 
 
-    void randomize_local(ptr_vector<expr> const & as) {
+    void randomize_local(vector<expr*> const & as) {
         randomize_local(m_tracker.get_unsat_constants(as));
     } 
 };

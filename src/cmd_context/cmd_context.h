@@ -66,7 +66,7 @@ public:
 };
 
 struct macro_decl {
-    ptr_vector<sort> m_domain;
+    vector<sort*> m_domain;
     expr*            m_body;
 
     macro_decl(unsigned arity, sort *const* domain, expr* body):
@@ -221,13 +221,13 @@ protected:
     vector<sf_pair>             m_func_decls_stack;
     vector<symbol>              m_psort_decls_stack;
     vector<symbol>              m_macros_stack;
-    ptr_vector<pdecl>            m_psort_inst_stack;
+    vector<pdecl*>            m_psort_inst_stack;
 
     //
-    ptr_vector<pdecl>            m_aux_pdecls;
-    ptr_vector<expr>             m_assertions;
+    vector<pdecl*>            m_aux_pdecls;
+    vector<expr*>             m_assertions;
     std::vector<std::string>     m_assertion_strings;
-    ptr_vector<expr>             m_assertion_names; // named assertions are represented using boolean variables.
+    vector<expr*>             m_assertion_names; // named assertions are represented using boolean variables.
 
     struct scope {
         unsigned m_func_decls_stack_lim;
@@ -452,8 +452,8 @@ public:
 
     double get_seconds() const { return m_watch.get_seconds(); }
 
-    ptr_vector<expr> const& assertions() const { return m_assertions; }
-    ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
+    vector<expr*> const& assertions() const { return m_assertions; }
+    vector<expr*> const& assertion_names() const { return m_assertion_names; }
 
     /**
        \brief Hack: consume assertions if there are no scopes.

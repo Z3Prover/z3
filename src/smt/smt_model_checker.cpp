@@ -213,7 +213,7 @@ namespace smt {
             func_decl * f = nullptr;
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f)) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
-                ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
+                vector<sort*> sorts(f->get_arity(), f->get_domain());
                 vector<symbol> names;
                 for (unsigned i = 0; i < f->get_arity(); ++i) {
                     names.push_back(symbol(i));

@@ -51,7 +51,7 @@ namespace qe {
     
     class conjunctions {
         ast_manager& m;
-        ptr_vector<qe_solver_plugin> m_plugins;      // family_id -> plugin
+        vector<qe_solver_plugin*> m_plugins;      // family_id -> plugin
 
     public:
         conjunctions(ast_manager& m) : m(m) {}
@@ -77,8 +77,8 @@ namespace qe {
             ast_mark visited;
             ast_mark contains_var;
             ast_mark contains_uf;
-            ptr_vector<expr> todo;
-            ptr_vector<expr> conjs_closed, conjs_mixed, conjs_open;
+            vector<expr*> todo;
+            vector<expr*> conjs_closed, conjs_mixed, conjs_open;
             
             flatten_and(fml, conjs);
 
@@ -378,7 +378,7 @@ namespace qe {
     private:
 
         bool find_ite(expr* e, app*& ite) {
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             ast_mark visited;
             todo.push_back(e);
             while(!todo.empty()) {
@@ -415,7 +415,7 @@ namespace qe {
         obj_map<expr, expr*> m_pos, m_neg; // memoize positive/negative sub-formulas
         expr_ref_vector  m_trail;          // trail for generated terms
         expr_ref_vector  m_args; 
-        ptr_vector<expr> m_todo;           // stack of formulas to visit
+        vector<expr*> m_todo;           // stack of formulas to visit
         vector<bool>    m_pols;           // stack of polarities
         bool_rewriter    m_rewriter;
         
@@ -650,9 +650,9 @@ namespace qe {
         i_expr_pred&         m_is_relevant;
         i_nnf_atom&          m_mk_atom;
         obj_map<expr, expr*> m_cache;
-        ptr_vector<expr>     m_todo;          
+        vector<expr*>     m_todo;          
         expr_ref_vector      m_trail;
-        ptr_vector<expr>     m_args;
+        vector<expr*>     m_args;
     public:
         nnf_normalize_literals(ast_manager& m, i_expr_pred& is_relevant, i_nnf_atom& mk_atom): 
             m(m), m_is_relevant(is_relevant), m_mk_atom(mk_atom), m_trail(m) {}
@@ -807,7 +807,7 @@ namespace qe {
     class nnf_collect_atoms {
         ast_manager&         m;
         i_expr_pred&         m_is_relevant;
-        ptr_vector<expr>     m_todo;
+        vector<expr*>     m_todo;
         ast_mark             m_visited;
     public:
         nnf_collect_atoms(ast_manager& m, i_expr_pred& is_relevant):
@@ -912,7 +912,7 @@ namespace qe {
         app_ref                  m_assignment;   // assignment that got us here.
         search_tree*             m_parent;       // parent pointer
         rational                 m_num_branches; // number of possible branches
-        ptr_vector<search_tree>  m_children;     // list of children
+        vector<search_tree*>  m_children;     // list of children
         branch_map               m_branch_index; // branch_id -> child search tree index
         atom_set                 m_pos;
         atom_set                 m_neg;
@@ -981,7 +981,7 @@ namespace qe {
         // extract disjunctions
         void get_leaves(expr_ref_vector& result) {
             SASSERT(is_root());
-            ptr_vector<search_tree> todo;
+            vector<search_tree*> todo;
             todo.push_back(this);
             while (!todo.empty()) {
                 search_tree* st = todo.back();
@@ -1191,7 +1191,7 @@ namespace qe {
                     fml = child.fml();
                     if (fml) {
                         // abstract free variables in children.
-                        ptr_vector<app> child_vars, new_vars;
+                        vector<app*> child_vars, new_vars;
                         child_vars.append(child.m_vars.size(), child.m_vars.c_ptr());
                         if (child.m_var) {
                             child_vars.push_back(child.m_var);
@@ -1344,7 +1344,7 @@ namespace qe {
 
         obj_map<app, app*>           m_var2branch;   // var -> bv-var, identify explored branch.
         obj_map<app, contains_app*>  m_var2contains; // var -> contains_app
-        obj_map<app, ptr_vector<app> > m_children;   // var -> list of dependent children
+        obj_map<app, vector<app*> > m_children;   // var -> list of dependent children
         search_tree                  m_root;
         search_tree*                 m_current;      // current branch
         
@@ -1657,7 +1657,7 @@ namespace qe {
             return m_var2branch[x];
         }
 
-        bool extract_partition(ptr_vector<app>& vars) {
+        bool extract_partition(vector<app*>& vars) {
             if (m_partition.empty()) {
                 return false;
             }
@@ -1736,8 +1736,8 @@ namespace qe {
 
             expr_ref fml_closed(m), fml_open(m), fml_mixed(m);
             unsigned num_vars = m_current->num_free_vars();
-            ptr_vector<contains_app> cont;
-            ptr_vector<app> vars;
+            vector<contains_app*> cont;
+            vector<app*> vars;
             for (unsigned i = 0; i < num_vars; ++i) {
                 cont.push_back(&contains(i));
                 vars.push_back(m_current->free_var(i));
@@ -1944,7 +1944,7 @@ namespace qe {
         //
         void process_partition() {
             expr_ref fml(m_current->fml(), m);
-            ptr_vector<app> vars;
+            vector<app*> vars;
             bool closed = true;
             while (extract_partition(vars)) {
                 lbool r = m_qe.eliminate_exists(vars.size(), vars.c_ptr(), fml, m_free_vars, m_get_first, m_defs);
@@ -2022,7 +2022,7 @@ namespace qe {
         smt_params&             m_fparams;  
         expr_ref                m_assumption;
         bool                    m_produce_models;
-        ptr_vector<quant_elim_plugin> m_plugins;
+        vector<quant_elim_plugin*> m_plugins;
         bool                     m_eliminate_variables_as_block;
 
     public:
@@ -2073,9 +2073,9 @@ namespace qe {
 
         virtual void bind_variables(unsigned num_vars, app* const* vars, expr_ref& fml) {
             if (num_vars > 0) {
-                ptr_vector<sort> sorts;
+                vector<sort*> sorts;
                 vector<symbol> names;
-                ptr_vector<app> free_vars;
+                vector<app*> free_vars;
                 for (unsigned i = 0; i < num_vars; ++i) {
                     contains_app contains_x(m, vars[i]);
                     if (contains_x(fml)) {
@@ -2297,7 +2297,7 @@ namespace qe {
 
     void expr_quant_elim::elim(expr_ref& result) {
         expr_ref tmp(m);
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
 
         m_trail.push_back(result);
         todo.push_back(result);
@@ -2452,7 +2452,7 @@ namespace qe {
         ast_manager& m = fml.get_manager();
         expr_ref tmp(m);
         expr_abstract(m, 0, num_bound, (expr*const*)vars, fml, tmp);
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         vector<symbol> names;
         for (unsigned i = 0; i < num_bound; ++i) {
             sorts.push_back(vars[i]->get_decl()->get_range());
@@ -2470,7 +2470,7 @@ namespace qe {
         smt_params               m_fparams;
         app_ref_vector*          m_vars;
         expr_ref*                m_fml;
-        ptr_vector<contains_app> m_contains;
+        vector<contains_app*> m_contains;
         atom_set                 m_pos;
         atom_set                 m_neg;
     public:
@@ -2619,7 +2619,7 @@ namespace qe {
             shift(result, vars.size(), result);
             expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), result, result);
             TRACE("qe", tout << "abstracted" << mk_pp(result, m) << "\n";);
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             vector<symbol> names;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 sorts.push_back(vars[i]->get_decl()->get_range());

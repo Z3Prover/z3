@@ -411,7 +411,7 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::dependency2new_bound(v_dependency * dep, derived_bound& new_bound) {
-        ptr_vector<void> bounds;
+        vector<void*> bounds;
         m_dep_manager.linearize(dep, bounds);
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();
@@ -2236,7 +2236,7 @@ namespace smt {
         TRACE("non_linear", display(tout););
         bool warn            = false;
         unsigned next_weight = MAX_DEFAULT_WEIGHT + 1; // next weight using during perturbation phase.
-        ptr_vector<grobner::equation> eqs;
+        vector<grobner::equation*> eqs;
 
         while (true) {
             TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););

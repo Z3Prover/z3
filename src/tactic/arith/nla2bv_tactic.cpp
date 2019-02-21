@@ -317,12 +317,12 @@ class nla2bv_tactic : public tactic {
             arith_util& a;
             ast_manager& m;
             pb_util    pb;
-            ptr_vector<app> m_vars;
+            vector<app*> m_vars;
             bool            m_no_arith;
             bool m_in_supported_fragment;
         public:
             get_uninterp_proc(imp& s): m_imp(s), a(s.m_arith), m(a.get_manager()), pb(m), m_no_arith(true), m_in_supported_fragment(true) {}
-            ptr_vector<app> const& vars() { return m_vars; }
+            vector<app*> const& vars() { return m_vars; }
             bool no_arith() const { return m_no_arith; }
             void operator()(var * n) { 
                 m_in_supported_fragment = false; 

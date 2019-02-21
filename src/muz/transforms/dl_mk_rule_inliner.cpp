@@ -144,7 +144,7 @@ namespace datalog {
     expr_ref_vector rule_unifier::get_rule_subst(const rule& r, bool is_tgt) {
         SASSERT(m_ready);
         expr_ref_vector result(m);
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         expr_ref v(m), w(m);
         r.get_vars(m, sorts);
         for (unsigned i = 0; i < sorts.size(); ++i) {

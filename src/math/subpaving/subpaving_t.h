@@ -477,12 +477,12 @@ private:
     scoped_numeral_vector     m_num_buffer;
 
     vector<bool>             m_is_int;
-    ptr_vector<definition>    m_defs;
+    vector<definition*>    m_defs;
     vector<watch_list>        m_wlist;
 
-    ptr_vector<ineq>          m_unit_clauses;
-    ptr_vector<clause>        m_clauses;
-    ptr_vector<clause>        m_lemmas;
+    vector<ineq*>          m_unit_clauses;
+    vector<clause*>        m_clauses;
+    vector<clause*>        m_lemmas;
     
     id_gen                    m_node_id_gen;
 
@@ -493,7 +493,7 @@ private:
     node *                    m_leaf_tail;
 
     var                       m_conflict;
-    ptr_vector<bound>         m_queue;
+    vector<bound*>         m_queue;
     unsigned                  m_qhead;
 
     display_var_proc          m_default_display_proc;
@@ -568,7 +568,7 @@ private:
     void del_nodes();
 
     void del(interval & a);
-    void del_clauses(ptr_vector<clause> & cs);
+    void del_clauses(vector<clause*> & cs);
     void del_unit_clauses();
     void del_clauses();
     void del_monomial(monomial * m);
@@ -819,7 +819,7 @@ public:
     /**
        \brief Store in the given vector all leaves of the paving tree.
     */
-    void collect_leaves(ptr_vector<node> & leaves) const;
+    void collect_leaves(vector<node*> & leaves) const;
     
     /**
        \brief Display constraints asserted in the subpaving.

@@ -50,7 +50,7 @@ namespace datalog {
         class select_equal_and_project_fn;
         class negated_join_fn;
 
-        typedef ptr_vector<sparse_table> sp_table_vector;
+        typedef vector<sparse_table*> sp_table_vector;
         typedef map<table_signature, sp_table_vector *, 
             table_signature::hash, table_signature::eq > table_pool;
 

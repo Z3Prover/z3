@@ -61,7 +61,7 @@ namespace datalog {
         sort * const * parent_domain = pred->get_domain();
         symbol const& parent_name = pred->get_name();
         unsigned arity = parent_arity-1;
-        ptr_vector<sort> domain;
+        vector<sort*> domain;
         for (unsigned i = 0; i < parent_arity; i++) {
             if (i != arg_index) {
                 domain.push_back(parent_domain[i]);
@@ -147,7 +147,7 @@ namespace datalog {
         SASSERT(arg_index < head_arity);
         SASSERT(m_in_progress.contains(ci));
         func_decl * cpred = m_map.find(ci);
-        ptr_vector<expr> cargs;
+        vector<expr*> cargs;
         for (unsigned i=0; i < head_arity; i++) {
             if (i != arg_index) {
                 cargs.push_back(head->get_arg(i));
@@ -195,7 +195,7 @@ namespace datalog {
         TRACE("dl", tout << "retrieving: " << ci.first->get_name() << " " << ci.second << "\n";);
 
         func_decl * dtail_pred = m_map.find(ci);
-        ptr_vector<expr> dtail_args;
+        vector<expr*> dtail_args;
         unsigned orig_dtail_arity = orig_dtail->get_num_args();
         for (unsigned i = 0; i < orig_dtail_arity; i++) {
             if (i != arg_index) {

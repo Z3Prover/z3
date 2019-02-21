@@ -207,7 +207,7 @@ void factor_rewriter::mk_adds(expr* arg1, expr* arg2) {
 void factor_rewriter::mk_muls() {
     m_muls.clear();
     for (unsigned i = 0; i < m_adds.size(); ++i) {
-        m_muls.push_back(ptr_vector<expr>());
+        m_muls.push_back(vector<expr*>());
         m_muls.back().push_back(m_adds[i].first);
         mk_expand_muls(m_muls.back());
         if (m_muls.back().empty()) {
@@ -227,7 +227,7 @@ void factor_rewriter::mk_muls() {
         );
 }
 
-void factor_rewriter::mk_expand_muls(ptr_vector<expr>& muls) {
+void factor_rewriter::mk_expand_muls(vector<expr*>& muls) {
     for (unsigned i = 0; i < muls.size(); ) {
         expr* _e   = muls[i];
         if (!is_app(_e)) {

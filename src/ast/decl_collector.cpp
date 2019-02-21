@@ -29,7 +29,7 @@ void decl_collector::visit_sort(sort * n) {
         m_sorts.push_back(n);
         for (func_decl * cnstr : *m_dt_util.get_datatype_constructors(n)) {
             m_todo.push_back(cnstr);
-            ptr_vector<func_decl> const & cnstr_acc = *m_dt_util.get_constructor_accessors(cnstr);
+            vector<func_decl*> const & cnstr_acc = *m_dt_util.get_constructor_accessors(cnstr);
             unsigned num_cas = cnstr_acc.size();
             for (unsigned j = 0; j < num_cas; j++) {
                 m_todo.push_back(cnstr_acc[j]);

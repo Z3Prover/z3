@@ -35,7 +35,7 @@ class degree_shift_tactic : public tactic {
         obj_map<app, app*>       m_var2var;
         obj_map<app, proof*>     m_var2pr;
         expr_ref_vector          m_pinned;
-        ptr_vector<expr>         m_todo;
+        vector<expr*>         m_todo;
         rational                 m_one;
         bool                     m_produce_models;
         bool                     m_produce_proofs;
@@ -183,7 +183,7 @@ class degree_shift_tactic : public tactic {
 
         void discard_non_candidates() {
             m_pinned.clear();
-            ptr_vector<app> to_delete;
+            vector<app*> to_delete;
             for (auto const& kv : m_var2degree) {
                 if (kv.m_value.is_one())
                     to_delete.push_back(kv.m_key);

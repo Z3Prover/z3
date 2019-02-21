@@ -124,7 +124,7 @@ namespace datalog {
     }
 
     void relation_manager::restrict_predicates(const decl_set & preds) {
-        ptr_vector<func_decl> to_remove;
+        vector<func_decl*> to_remove;
 
         for (auto const& kv : m_relations) {
             func_decl* pred = kv.m_key;
@@ -638,7 +638,7 @@ namespace datalog {
     }
 
     class relation_manager::default_relation_apply_sequential_fn : public relation_mutator_fn {
-        ptr_vector<relation_mutator_fn> m_mutators;
+        vector<relation_mutator_fn*> m_mutators;
     public:
         default_relation_apply_sequential_fn(unsigned n, relation_mutator_fn ** mutators):
             m_mutators(n, mutators) {            

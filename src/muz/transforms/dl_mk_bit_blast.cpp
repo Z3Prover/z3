@@ -194,7 +194,7 @@ namespace datalog {
 
             if (!m_pred2blast.find(f, g)) {
 
-                ptr_vector<sort> domain;
+                vector<sort*> domain;
                 for (unsigned i = 0; i < m_args.size(); ++i) {
                     domain.push_back(m.get_sort(m_args[i].get()));
                 }

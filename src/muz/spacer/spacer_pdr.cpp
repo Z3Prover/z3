@@ -185,14 +185,14 @@ void model_search::backtrack_level(bool uses_level, model_node& n) {
     }
 }
 
-obj_map<expr, ptr_vector<model_node> >& model_search::cache(model_node const& n) {
+obj_map<expr, vector<model_node*> >& model_search::cache(model_node const& n) {
     unsigned l = n.orig_level();
     if (l >= m_cache.size()) m_cache.resize(l + 1);
     return m_cache[l];
 }
 
 void model_search::erase_children(model_node& n, bool backtrack) {
-    ptr_vector<model_node> todo, nodes;
+    vector<model_node*> todo, nodes;
     todo.append(n.children());
     // detach n from queue
     if (n.in_queue()) n.detach(m_qhead);
@@ -309,11 +309,11 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
                                          model &mdl,
                                          pob_ref_buffer &out) {
     pred_transformer &pt = n.pt();
-    ptr_vector<func_decl> preds;
+    vector<func_decl*> preds;
     pt.find_predecessors(r, preds);
     SASSERT(preds.size() > 1);
 
-    ptr_vector<pred_transformer> ppts;
+    vector<pred_transformer*> ppts;
     for (auto *p : preds) ppts.push_back(&get_pred_transformer(p));
 
     mbc::partition_map pmap;

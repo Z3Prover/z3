@@ -3609,10 +3609,10 @@ namespace sat {
         m_constraint_removed = false;
     }
 
-    void ba_solver::cleanup_constraints(ptr_vector<constraint>& cs, bool learned) {
-        ptr_vector<constraint>::iterator it = cs.begin();
-        ptr_vector<constraint>::iterator it2 = it;
-        ptr_vector<constraint>::iterator end = cs.end();
+    void ba_solver::cleanup_constraints(vector<constraint*>& cs, bool learned) {
+        vector<constraint*>::iterator it = cs.begin();
+        vector<constraint*>::iterator it2 = it;
+        vector<constraint*>::iterator end = cs.end();
         for (; it != end; ++it) {
             constraint& c = *(*it);
             if (c.was_removed()) {
@@ -3917,7 +3917,7 @@ namespace sat {
         if (learned) copy_constraints(result, m_learned);
     }
 
-    void ba_solver::copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints) {
+    void ba_solver::copy_constraints(ba_solver* result, vector<constraint*> const& constraints) {
         literal_vector lits;
         vector<wliteral> wlits;
         for (constraint* cp : constraints) {

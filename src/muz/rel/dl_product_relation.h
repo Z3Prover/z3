@@ -103,7 +103,7 @@ namespace datalog {
             const relation_base * delta, bool is_widen);
 
         bool are_aligned(const product_relation& r1, const product_relation& r2);
-        static void get_common_spec(const ptr_vector<const product_relation> & rels, rel_spec & res);
+        static void get_common_spec(const vector<product_relation const*> & rels, rel_spec & res);
     };
 
     
@@ -130,7 +130,7 @@ namespace datalog {
         /**
            There must not be two relations of the same kind
         */
-        ptr_vector<relation_base> m_relations;
+        vector<relation_base*> m_relations;
 
         /**
            Array of kinds of inner relations.

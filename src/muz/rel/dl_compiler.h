@@ -43,7 +43,7 @@ namespace datalog {
         typedef u_map<vector<unsigned>> int2ints;
         typedef obj_map<func_decl, reg_idx> pred2idx;
         typedef vector<unsigned> var_vector;
-        typedef ptr_vector<func_decl> func_decl_vector;
+        typedef vector<func_decl*> func_decl_vector;
 
         enum assembling_column_kind {
             ACK_BOUND_VAR,

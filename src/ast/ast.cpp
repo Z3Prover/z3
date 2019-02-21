@@ -823,7 +823,7 @@ func_decl * basic_decl_plugin::mk_compressed_proof_decl(char const * name, basic
     return d;
 }
 
-func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, ptr_vector<func_decl> & cache) {
+func_decl * basic_decl_plugin::mk_proof_decl(char const * name, basic_op_kind k, unsigned num_parents, vector<func_decl*> & cache) {
     if (num_parents >= cache.size()) {
         cache.resize(num_parents+1);
     }
@@ -1036,7 +1036,7 @@ sort * basic_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, paramete
     return m_proof_sort;
 }
 
-func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, sort * s, ptr_vector<func_decl> & cache) {
+func_decl * basic_decl_plugin::mk_eq_decl_core(char const * name, decl_kind k, sort * s, vector<func_decl*> & cache) {
     unsigned id = s->get_decl_id();
     force_ptr_array_size(cache, id + 1);
     if (cache[id] == 0) {
@@ -1482,7 +1482,7 @@ ast_manager::~ast_manager() {
     m_plugins.clear();
     while (!m_ast_table.empty()) {
         DEBUG_CODE(std::cout << "ast_manager LEAKED: " << m_ast_table.size() << std::endl;);
-        ptr_vector<ast> roots;
+        vector<ast*> roots;
         ast_mark mark;
         for (ast * n : m_ast_table) {
             switch (n->get_kind()) {
@@ -1565,7 +1565,7 @@ void ast_manager::compact_memory() {
 }
 
 void ast_manager::compress_ids() {
-    ptr_vector<ast> asts;
+    vector<ast*> asts;
     m_expr_id_gen.cleanup();
     m_decl_id_gen.cleanup(c_first_decl_id);
     for (ast * n : m_ast_table) {
@@ -2427,7 +2427,7 @@ bool ast_manager::is_pattern(expr const * n) const {
 }
 
 
-bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
+bool ast_manager::is_pattern(expr const * n, vector<expr*> &args) {
     if (!is_app_of(n, m_pattern_family_id, OP_PATTERN)) {
         return false;
     }
@@ -2673,7 +2673,7 @@ expr_dependency * ast_manager::mk_join(unsigned n, expr * const * ts) {
     return d;
 }
 
-void ast_manager::linearize(expr_dependency * d, ptr_vector<expr> & ts) {
+void ast_manager::linearize(expr_dependency * d, vector<expr*> & ts) {
     m_expr_dependency_manager.linearize(d, ts);
     remove_duplicates(ts);
 }
@@ -3006,7 +3006,7 @@ proof * ast_manager::mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* c
     return mk_app(m_basic_family_id, PR_QUANT_INST, num_bind, params.c_ptr(), 1, & not_q_or_i);
 }
 
-bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<expr>& binding) const {
+bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, vector<expr*>& binding) const {
     if (is_quant_inst(e)) {
         not_q_or_i = to_app(e)->get_arg(0);
         func_decl* d = to_app(e)->get_decl();
@@ -3280,7 +3280,7 @@ proof * ast_manager::mk_th_lemma(
 proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premises, expr* concl,
                                      vector<std::pair<unsigned, unsigned> > const& positions,
                                      vector<expr_ref_vector> const& substs) {
-    ptr_vector<expr> fmls;
+    vector<expr*> fmls;
     SASSERT(positions.size() + 1 == substs.size());
     for (unsigned i = 0; i < num_premises; ++i) {
         TRACE("hyper_res", tout << mk_pp(premises[i], *this) << "\n";);
@@ -3302,8 +3302,8 @@ proof* ast_manager::mk_hyper_resolve(unsigned num_premises, proof* const* premis
           for (unsigned i = 0; i < params.size(); ++i) {
               params[i].display(tout); tout << "\n";
           });
-    ptr_vector<sort> sorts;
-    ptr_vector<expr> args;
+    vector<sort*> sorts;
+    vector<expr*> args;
     for (unsigned i = 0; i < num_premises; ++i) {
         sorts.push_back(mk_proof_sort());
         args.push_back(premises[i]);

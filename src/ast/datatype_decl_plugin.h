@@ -80,7 +80,7 @@ namespace datatype {
     class constructor {
         symbol           m_name;
         symbol           m_recognizer;
-        ptr_vector<accessor> m_accessors;
+        vector<accessor*> m_accessors;
         def*             m_def;
     public:
         constructor(symbol n, symbol const& r): m_name(n), m_recognizer(r) {}
@@ -88,11 +88,11 @@ namespace datatype {
         void add(accessor* a) { m_accessors.push_back(a); a->attach(this); }
         symbol const& name() const { return m_name; }
         symbol const& recognizer() const { return m_recognizer; }
-        ptr_vector<accessor> const& accessors() const { return m_accessors; }
-        ptr_vector<accessor>::const_iterator begin() const { return m_accessors.begin(); }
-        ptr_vector<accessor>::const_iterator end() const { return m_accessors.end(); }
-        ptr_vector<accessor>::iterator begin() { return m_accessors.begin(); }
-        ptr_vector<accessor>::iterator end() { return m_accessors.end(); }
+        vector<accessor*> const& accessors() const { return m_accessors; }
+        vector<accessor*>::const_iterator begin() const { return m_accessors.begin(); }
+        vector<accessor*>::const_iterator end() const { return m_accessors.end(); }
+        vector<accessor*>::iterator begin() { return m_accessors.begin(); }
+        vector<accessor*>::iterator end() { return m_accessors.end(); }
         func_decl_ref instantiate(sort_ref_vector const& ps) const;
         func_decl_ref instantiate(sort* dt) const;
         void attach(def* d) { m_def = d; }
@@ -113,8 +113,8 @@ namespace datatype {
             static size* mk_param(sort_ref& p); 
             static size* mk_plus(size* a1, size* a2); 
             static size* mk_times(size* a1, size* a2); 
-            static size* mk_plus(ptr_vector<size>& szs);
-            static size* mk_times(ptr_vector<size>& szs);
+            static size* mk_plus(vector<size*>& szs);
+            static size* mk_times(vector<size*>& szs);
             static size* mk_power(size* a1, size* a2);
             
             virtual size* subst(obj_map<sort, size*>& S) = 0;
@@ -166,7 +166,7 @@ namespace datatype {
         param_size::size*   m_sort_size;
         sort_ref_vector     m_params;
         mutable sort_ref    m_sort;
-        ptr_vector<constructor> m_constructors;
+        vector<constructor*> m_constructors;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
             m(m),
@@ -189,11 +189,11 @@ namespace datatype {
         symbol const& name() const { return m_name; }
         unsigned id() const { return m_class_id; }
         sort_ref instantiate(sort_ref_vector const& ps) const;
-        ptr_vector<constructor> const& constructors() const { return m_constructors; }
-        ptr_vector<constructor>::const_iterator begin() const { return m_constructors.begin(); }
-        ptr_vector<constructor>::const_iterator end() const { return m_constructors.end(); }
-        ptr_vector<constructor>::iterator begin() { return m_constructors.begin(); }
-        ptr_vector<constructor>::iterator end() { return m_constructors.end(); }
+        vector<constructor*> const& constructors() const { return m_constructors; }
+        vector<constructor*>::const_iterator begin() const { return m_constructors.begin(); }
+        vector<constructor*>::const_iterator end() const { return m_constructors.end(); }
+        vector<constructor*>::iterator begin() { return m_constructors.begin(); }
+        vector<constructor*>::iterator end() { return m_constructors.end(); }
         sort_ref_vector const& params() const { return m_params; }
         util& u() const { return m_util; }
         param_size::size* sort_size() { return m_sort_size; }
@@ -291,9 +291,9 @@ namespace datatype {
         mutable decl::plugin* m_plugin;
 
                 
-        obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
+        obj_map<sort, vector<func_decl*> *>      m_datatype2constructors;
         obj_map<sort, func_decl *>                  m_datatype2nonrec_constructor;
-        obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
+        obj_map<func_decl, vector<func_decl*> *> m_constructor2accessors;
         obj_map<func_decl, func_decl *>             m_constructor2recognizer;
         obj_map<func_decl, func_decl *>             m_recognizer2constructor;
         obj_map<func_decl, func_decl *>             m_accessor2constructor;
@@ -301,11 +301,11 @@ namespace datatype {
         obj_map<sort, bool>                         m_is_enum;
         mutable obj_map<sort, bool>                 m_is_fully_interp;
         mutable ast_ref_vector                      m_asts;
-        ptr_vector<ptr_vector<func_decl> >          m_vectors;
+        vector<vector<func_decl*>*>          m_vectors;
         unsigned                                    m_start;
-        mutable ptr_vector<sort>                    m_fully_interp_trail;
+        mutable vector<sort*>                    m_fully_interp_trail;
         
-        func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+        func_decl * get_non_rec_constructor_core(sort * ty, vector<sort*> & forbidden_set);
 
         friend class decl::plugin;
 
@@ -315,7 +315,7 @@ namespace datatype {
         param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
         def& get_def(symbol const& s) { return m_plugin->get_def(s); }
-        void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
+        void get_subsorts(sort* s, vector<sort*>& sorts) const;        
 
     public:
         util(ast_manager & m);
@@ -340,14 +340,14 @@ namespace datatype {
         bool is_accessor(app * f) const { return is_app_of(f, m_family_id, OP_DT_ACCESSOR); }
         bool is_update_field(app * f) const { return is_app_of(f, m_family_id, OP_DT_UPDATE_FIELD); }
         app* mk_is(func_decl * c, expr *f);
-        ptr_vector<func_decl> const * get_datatype_constructors(sort * ty);
+        vector<func_decl*> const * get_datatype_constructors(sort * ty);
         unsigned get_datatype_num_constructors(sort * ty);
         unsigned get_datatype_num_parameter_sorts(sort * ty);
         sort*  get_datatype_parameter_sort(sort * ty, unsigned idx);
         func_decl * get_non_rec_constructor(sort * ty);
         func_decl * get_constructor_recognizer(func_decl * constructor);
         func_decl * get_constructor_is(func_decl * constructor);
-        ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
+        vector<func_decl*> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         family_id get_family_id() const { return m_family_id; }
@@ -362,7 +362,7 @@ namespace datatype {
         unsigned get_constructor_idx(func_decl * f) const;
         unsigned get_recognizer_constructor_idx(func_decl * f) const;
         decl::plugin* get_plugin() { return m_plugin; }
-        void get_defs(sort* s, ptr_vector<def>& defs);
+        void get_defs(sort* s, vector<def*>& defs);
         def const& get_def(sort* s) const;
         sort_ref mk_list_datatype(sort* elem, symbol const& name,
                                   func_decl_ref& cons, func_decl_ref& is_cons, 

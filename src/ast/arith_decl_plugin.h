@@ -140,8 +140,8 @@ protected:
     func_decl * m_neg_root_decl;
     func_decl * m_u_asin_decl;
     func_decl * m_u_acos_decl;
-    ptr_vector<app> m_small_ints;
-    ptr_vector<app> m_small_reals;
+    vector<app*> m_small_ints;
+    vector<app*> m_small_reals;
 
     bool        m_convert_int_numerals_to_real;
 

@@ -75,16 +75,16 @@ namespace eq {
         expr_ref_vector m_new_exprs;
         plugin_manager<qe::solve_plugin> m_solvers;
 
-        ptr_vector<expr> m_map;
+        vector<expr*> m_map;
         vector<int>      m_pos2var;
         vector<int>      m_var2pos;
-        ptr_vector<var>  m_inx2var;
+        vector<var*>  m_inx2var;
         vector<unsigned>  m_order;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
         params_ref       m_params;
 
-        void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, vector<unsigned> & order) {
+        void der_sort_vars(vector<var*> & vars, vector<expr*> & definitions, vector<unsigned> & order) {
             order.clear();
 
             // eliminate self loops, and definitions containing quantifiers.
@@ -207,7 +207,7 @@ namespace eq {
            (not T) is used because this formula is equivalent to (not (iff (VAR 2) (not T))),
            and can be viewed as a disequality.
         */
-        bool is_var_diseq(expr * e, ptr_vector<var>& vs, expr_ref_vector& ts) {
+        bool is_var_diseq(expr * e, vector<var*>& vs, expr_ref_vector& ts) {
             expr* e1;
             if (m.is_not(e, e1)) {
                 return is_var_eq(e, vs, ts);
@@ -223,7 +223,7 @@ namespace eq {
             }
         }
 
-        bool trivial_solve(expr* lhs, expr* rhs, expr* eq, ptr_vector<var>& vs, expr_ref_vector& ts) {
+        bool trivial_solve(expr* lhs, expr* rhs, expr* eq, vector<var*>& vs, expr_ref_vector& ts) {
             if (!is_variable(lhs)) {
                 std::swap(lhs, rhs);
             }
@@ -237,7 +237,7 @@ namespace eq {
         }
 
 
-        bool same_vars(ptr_vector<var> const& vs1, ptr_vector<var> const& vs2) const {
+        bool same_vars(vector<var*> const& vs1, vector<var*> const& vs2) const {
             if (vs1.size() != vs2.size()) {
                 return false;
             }
@@ -253,7 +253,7 @@ namespace eq {
            \brief Return true if e can be viewed as a variable equality.
         */
 
-        bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
+        bool is_var_eq(expr * e, vector<var*>& vs, expr_ref_vector & ts) {
             expr* lhs = nullptr, *rhs = nullptr;
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
@@ -277,7 +277,7 @@ namespace eq {
         }
 
 
-        bool is_var_def(bool check_eq, expr* e, ptr_vector<var>& vs, expr_ref_vector& ts) {
+        bool is_var_def(bool check_eq, expr* e, vector<var*>& vs, expr_ref_vector& ts) {
             if (check_eq) {
                 return is_var_eq(e, vs, ts);
             }
@@ -450,7 +450,7 @@ namespace eq {
             // Find all definitions
             for (unsigned i = 0; i < num_args; i++) {
                 checkpoint();
-                ptr_vector<var> vs;
+                vector<var*> vs;
                 expr_ref_vector ts(m);
                 expr_ref t(m);
                 if (is_var_def(is_exists, args[i], vs, ts)) {
@@ -575,7 +575,7 @@ namespace eq {
             else {
                 func_decl* rec = dt.get_constructor_is(d);
                 conjs.push_back(m.mk_app(rec, r));
-                ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
+                vector<func_decl*> const& acc = *dt.get_constructor_accessors(d);
                 for (unsigned i = 0; i < acc.size(); ++i) {
                     conjs.push_back(m.mk_eq(c->get_arg(i), m.mk_app(acc[i], r)));
                 }
@@ -719,7 +719,7 @@ namespace ar {
         ast_manager&             m;
         array_util               a;
         is_variable_proc*        m_is_variable;
-        ptr_vector<expr>         m_todo;
+        vector<expr*>         m_todo;
         expr_mark                m_visited;
 
         bool is_variable(expr * e) const {
@@ -766,7 +766,7 @@ namespace ar {
                 if (m_visited.is_marked(A)) {
                     return false;
                 }
-                ptr_vector<expr> args;
+                vector<expr*> args;
                 args.push_back(A);
                 args.append(a1->get_num_args()-1, a1->get_args()+1);
                 args.push_back(e2);
@@ -865,7 +865,7 @@ namespace ar {
 // fm_tactic adapted to eliminate designated de-Bruijn indices.
 
 namespace fm {
-    typedef ptr_vector<app> clauses;
+    typedef vector<app*> clauses;
     typedef unsigned        var;
     typedef int             bvar;
     typedef int             literal;
@@ -899,7 +899,7 @@ namespace fm {
         unsigned hash() const { return hash_u(m_id); }
     };
 
-    typedef ptr_vector<constraint> constraints;
+    typedef vector<constraint*> constraints;
 
     class constraint_set {
         vector<unsigned> m_id2pos;
@@ -2023,7 +2023,7 @@ namespace fm {
             return new_cnstr;
         }
 
-        ptr_vector<constraint> new_constraints;
+        vector<constraint*> new_constraints;
 
         bool try_eliminate(var x) {
             constraints & l = m_lowers[x];
@@ -2272,7 +2272,7 @@ public:
         proof_ref pr(m);
         symbol qe_lite("QE");
         expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), fml, tmp);
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         vector<symbol> names;
         for (unsigned i = 0; i < vars.size(); ++i) {
             sorts.push_back(m.get_sort(vars[i].get()));
@@ -2390,7 +2390,7 @@ class qe_lite_tactic : public tactic {
         }
 
         void debug_diff(expr* a, expr* b) {
-            ptr_vector<expr> as, bs;
+            vector<expr*> as, bs;
             as.push_back(a);
             bs.push_back(b);
             expr* a1, *a2, *b1, *b2;

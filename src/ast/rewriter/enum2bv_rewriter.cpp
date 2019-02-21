@@ -130,7 +130,7 @@ struct enum2bv_rewriter::imp {
                     m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));
                 }                
                 expr_ref f_def(m);
-                ptr_vector<func_decl> const& cs = *m_dt.get_datatype_constructors(s);
+                vector<func_decl*> const& cs = *m_dt.get_datatype_constructors(s);
                 f_def = m.mk_const(cs[nc-1]);
                 for (unsigned i = nc - 1; i > 0; ) {
                     --i;

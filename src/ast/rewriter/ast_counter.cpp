@@ -103,7 +103,7 @@ void var_counter::count_vars(const app * pred, int coef) {
 unsigned var_counter::get_max_var(bool& has_var) {
     has_var = false;
     unsigned max_var = 0;
-    ptr_vector<quantifier> qs;
+    vector<quantifier*> qs;
     while (!m_todo.empty()) {
         expr* e = m_todo.back();
         m_todo.pop_back();

@@ -87,8 +87,8 @@ expr_ref instantiate(ast_manager & m, quantifier * q, expr * const * exprs);
 
 class expr_free_vars {
     expr_sparse_mark m_mark;
-    ptr_vector<sort> m_sorts;
-    ptr_vector<expr> m_todo;
+    vector<sort*> m_sorts;
+    vector<expr*> m_todo;
 public:
     void reset();
     void operator()(expr* e);

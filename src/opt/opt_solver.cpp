@@ -208,7 +208,7 @@ namespace opt {
         return m_context.preferred_sat(asms, cores);
     }
 
-    void opt_solver::get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
+    void opt_solver::get_levels(vector<expr*> const& vars, vector<unsigned>& depth) {
         return m_context.get_levels(vars, depth);
     }
 

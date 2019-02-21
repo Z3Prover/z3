@@ -31,7 +31,7 @@ public:
        \brief See collect_macro_candidates.
     */
     class macro_candidates {
-        ptr_vector<func_decl> m_fs;
+        vector<func_decl*> m_fs;
         expr_ref_vector       m_defs;
         expr_ref_vector       m_conds;
         vector<bool>         m_ineq; // true if the macro is based on an inequality instead of equality.

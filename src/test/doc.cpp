@@ -60,7 +60,7 @@ static void tst_doc1(unsigned n) {
     ENSURE(!m.equals(*dXc,*dX));
     ENSURE(m.equals(*dX,*d1));
     VERIFY(m.fold_neg(*dX));
-    ptr_vector<doc> result;
+    vector<doc*> result;
     //    VERIFY(!m.intersect(*d1,*d0, result));    
     //    m.subtract(*d1,*d0, result);
     ENSURE(result.empty());

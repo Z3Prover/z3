@@ -124,7 +124,7 @@ expr_pattern_match::compile(expr* q)
 
     instr instr(BACKTRACK);
     vector<unsigned> regs;
-    ptr_vector<expr> pats;
+    vector<expr*> pats;
     unsigned max_reg = 1;
     subst s;
     pats.push_back(qf->get_expr());

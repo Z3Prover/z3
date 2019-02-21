@@ -168,7 +168,7 @@ public:
             if (m.is_eq(b, u, v) && is_uninterp_const(u) && m_rewriter.bv2enum().find(to_app(u)->get_decl(), f) && bv.is_numeral(v, num, bvsize)) {
                 SASSERT(num.is_unsigned());
                 expr_ref head(m);
-                ptr_vector<func_decl> const& enums = *dt.get_datatype_constructors(f->get_range());
+                vector<func_decl*> const& enums = *dt.get_datatype_constructors(f->get_range());
                 if (enums.size() > num.get_unsigned()) {
                     head = m.mk_eq(m.mk_const(f), m.mk_const(enums[num.get_unsigned()]));
                     consequences[i] = m.mk_implies(a, head);
@@ -178,7 +178,7 @@ public:
         return r;
     }
 
-    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
+    void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) override {
         m_solver->get_levels(vars, depth);
     }
 

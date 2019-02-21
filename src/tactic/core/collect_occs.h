@@ -24,7 +24,7 @@ class collect_occs {
     expr_fast_mark2  m_more_than_once;
     typedef std::pair<expr *, unsigned> frame;
     vector<frame>   m_stack;
-    ptr_vector<app>  m_vars;
+    vector<app*>  m_vars;
     
     bool visit(expr * t);
     void process(expr * t);

@@ -414,7 +414,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
-        ptr_vector<expr> _vars;
+        vector<expr*> _vars;
         for (unsigned i = 0; i < sz; ++i) {
             expr* e = to_expr(Z3_ast_vector_get(c, literals, i));
             mk_c(c)->m().is_not(e, e);

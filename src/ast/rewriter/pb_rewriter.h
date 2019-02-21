@@ -42,7 +42,7 @@ public:
 class pb_rewriter {
     pb_util       m_util;
     vector<rational> m_coeffs;
-    ptr_vector<expr> m_args;
+    vector<expr*> m_args;
 
     void validate_rewrite(func_decl* f, unsigned sz, expr*const* args, expr_ref& fml);
 public:    

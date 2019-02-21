@@ -130,7 +130,7 @@ namespace sat {
     class clause;
     class clause_wrapper;
     class integrity_checker;
-    typedef ptr_vector<clause> clause_vector;
+    typedef vector<clause*> clause_vector;
 
     class solver_exception : public default_exception {
     public:

@@ -108,7 +108,7 @@ class map_proc {
 protected:
     ast_manager&      m;
     expr_map          m_map;
-    ptr_vector<expr>  m_args;        
+    vector<expr*>  m_args;        
 public:        
     map_proc(ast_manager& m):
         m(m),

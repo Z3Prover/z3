@@ -30,7 +30,7 @@ class expr_safe_replace {
     expr_ref_vector m_dst;
     obj_map<expr, expr*> m_subst;
     obj_map<expr,expr*> m_cache;
-    ptr_vector<expr> m_todo, m_args;
+    vector<expr*> m_todo, m_args;
     expr_ref_vector m_refs;
 
 public:

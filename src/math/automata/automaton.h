@@ -122,7 +122,7 @@ public:
     }
 
     // create an automaton that accepts a sequence.
-    automaton(M& m, ptr_vector<T> const& seq):
+    automaton(M& m, vector<T*> const& seq):
         m(m),
         m_init(0) {
         m_delta.resize(seq.size()+1, moves());

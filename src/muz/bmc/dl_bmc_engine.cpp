@@ -149,7 +149,7 @@ namespace datalog {
         }
 
         void mk_qrule_vars(datalog::rule const& r, unsigned rule_id, expr_ref_vector& sub) {
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             r.get_vars(m, sorts);
             // populate substitution of bound variables.
             sub.clear();
@@ -419,7 +419,7 @@ namespace datalog {
                     func_decl_ref rule_i = mk_level_rule(p, i, level);
                     rules.push_back(apply_vars(rule_i));
 
-                    ptr_vector<sort> rule_vars;
+                    vector<sort*> rule_vars;
                     expr_ref_vector args(m), conjs(m);
 
                     r.get_vars(m, rule_vars);
@@ -514,7 +514,7 @@ namespace datalog {
             prs.push_back(r->get_proof());
             unsigned sz = r->get_uninterpreted_tail_size();
 
-            ptr_vector<sort> rule_vars;
+            vector<sort*> rule_vars;
             r->get_vars(m, rule_vars);
             args.append(prop->get_num_args(), prop->get_args());
             expr_ref_vector sub = mk_skolem_binding(*r, rule_vars, args);
@@ -578,7 +578,7 @@ namespace datalog {
         }
 
         // remove variables from dst that are in src.
-        void subtract_vars(ptr_vector<sort>& dst, ptr_vector<sort> const& src) {
+        void subtract_vars(vector<sort*>& dst, vector<sort*> const& src) {
             for (unsigned i = 0; i < dst.size(); ++i) {
                 if (i >= src.size()) {
                     break;
@@ -589,9 +589,9 @@ namespace datalog {
             }
         }
 
-        expr_ref_vector mk_skolem_binding(rule& r, ptr_vector<sort> const& vars, expr_ref_vector const& args) {
+        expr_ref_vector mk_skolem_binding(rule& r, vector<sort*> const& vars, expr_ref_vector const& args) {
             expr_ref_vector binding(m);
-            ptr_vector<sort> arg_sorts;
+            vector<sort*> arg_sorts;
             for (unsigned i = 0; i < args.size(); ++i) {
                 arg_sorts.push_back(m.get_sort(args[i]));
             }
@@ -607,13 +607,13 @@ namespace datalog {
             return binding;
         }
 
-        expr_ref skolemize_vars(rule& r, expr_ref_vector const& args, ptr_vector<sort> const& vars, expr* e) {
+        expr_ref skolemize_vars(rule& r, expr_ref_vector const& args, vector<sort*> const& vars, expr* e) {
             expr_ref_vector binding = mk_skolem_binding(r, vars, args);
             var_subst vs(m, false);
             return vs(e, binding.size(), binding.c_ptr());
         }
 
-        func_decl_ref mk_body_func(rule& r, ptr_vector<sort> const& args, unsigned index, sort* s) {
+        func_decl_ref mk_body_func(rule& r, vector<sort*> const& args, unsigned index, sort* s) {
             std::stringstream _name;
             _name << r.get_decl()->get_name() << "@" << index;
             symbol name(_name.str().c_str());
@@ -622,7 +622,7 @@ namespace datalog {
         }
 
         expr_ref bind_vars(expr* e, expr* pat) {
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             vector<symbol> names;
             expr_ref_vector binding(m), patterns(m);
             expr_ref tmp(m), head(m);
@@ -798,9 +798,9 @@ namespace datalog {
 
         void mk_subst(datalog::rule& r, expr* path, app* trace, expr_ref_vector& sub) {
             datatype_util dtu(m);
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             func_decl* p = r.get_decl();
-            ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
+            vector<func_decl*> const& succs  = *dtu.get_datatype_constructors(m.get_sort(path));
             // populate substitution of bound variables.
             r.get_vars(m, sorts);
             sub.clear();
@@ -863,8 +863,8 @@ namespace datalog {
                 path_var  = m.mk_var(0, m_path_sort);
                 trace_var = m.mk_var(1, pred_sort);
                 // sort* sorts[2] = { pred_sort, m_path_sort };
-                ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(pred_sort);
-                ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
+                vector<func_decl*> const& cnstrs = *dtu.get_datatype_constructors(pred_sort);
+                vector<func_decl*> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
                 SASSERT(cnstrs.size() == rls.size());
                 pred = m.mk_app(mk_predicate(p), trace_var.get(), path_var.get());
                 for (unsigned i = 0; i < rls.size(); ++i) {
@@ -914,7 +914,7 @@ namespace datalog {
                         conjs.push_back(tmp);
                     }
                     bool_rewriter(m).mk_and(conjs.size(), conjs.c_ptr(), rule_body);
-                    ptr_vector<sort> q_sorts;
+                    vector<sort*> q_sorts;
                     vector<symbol> names;
                     for (unsigned i = 0; i < vars.size(); ++i) {
                         q_sorts.push_back(m.get_sort(vars[i].get()));
@@ -940,7 +940,7 @@ namespace datalog {
             rule_set::decl2rules::iterator it  = b.m_rules.begin_grouped_rules();
             rule_set::decl2rules::iterator end = b.m_rules.end_grouped_rules();
             datatype_util dtu(m);
-            ptr_vector<datatype_decl> dts;
+            vector<datatype_decl*> dts;
 
             obj_map<func_decl, unsigned> pred_idx;
             for (unsigned i = 0; it != end; ++it, ++i) {
@@ -951,10 +951,10 @@ namespace datalog {
             for (; it != end; ++it) {
                 rule_vector const& rls = *it->m_value;
                 func_decl* pred = it->m_key;
-                ptr_vector<constructor_decl> cnstrs;
+                vector<constructor_decl*> cnstrs;
                 for (unsigned i = 0; i < rls.size(); ++i) {
                     rule* r = rls[i];
-                    ptr_vector<accessor_decl> accs;
+                    vector<accessor_decl*> accs;
                     for (unsigned j = 0; j < r->get_uninterpreted_tail_size(); ++j) {
                         func_decl* q = r->get_decl(j);
                         unsigned idx = pred_idx.find(q);
@@ -995,7 +995,7 @@ namespace datalog {
             {
                 new_sorts.clear();
                 dts.clear();
-                ptr_vector<constructor_decl> cnstrs;
+                vector<constructor_decl*> cnstrs;
                 unsigned max_arity = 0;
                 rule_set::iterator it  = b.m_rules.begin();
                 rule_set::iterator end = b.m_rules.end();
@@ -1014,7 +1014,7 @@ namespace datalog {
                     symbol is_name(_name.str().c_str());
                     std::stringstream _name2;
                     _name2 << "get_succ#" << i;
-                    ptr_vector<accessor_decl> accs;
+                    vector<accessor_decl*> accs;
                     type_ref tr(0);
                     accs.push_back(mk_accessor_decl(m, name, tr));
                     cnstrs.push_back(mk_constructor_decl(name, is_name, accs.size(), accs.c_ptr()));
@@ -1031,8 +1031,8 @@ namespace datalog {
             sort* trace_sort = m.get_sort(trace);
             func_decl* p = m_sort2pred.find(trace_sort);
             datalog::rule_vector const& rules = b.m_rules.get_predicate_rules(p);
-            ptr_vector<func_decl> const& cnstrs = *dtu.get_datatype_constructors(trace_sort);
-            ptr_vector<func_decl> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
+            vector<func_decl*> const& cnstrs = *dtu.get_datatype_constructors(trace_sort);
+            vector<func_decl*> const& succs  = *dtu.get_datatype_constructors(m_path_sort);
             for (unsigned i = 0; i < cnstrs.size(); ++i) {
                 if (trace->get_decl() == cnstrs[i]) {
                     vector<std::pair<unsigned, unsigned> > positions;
@@ -1329,7 +1329,7 @@ namespace datalog {
         }
 
         void mk_rule_vars(rule& r, unsigned level, unsigned rule_id, expr_ref_vector& sub) {
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             r.get_vars(m, sorts);
             // populate substitution of bound variables.
             sub.clear();

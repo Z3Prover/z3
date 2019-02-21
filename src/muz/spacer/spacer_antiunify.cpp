@@ -38,7 +38,7 @@ struct var_abs_rewriter : public default_rewriter_cfg {
     unsigned m_var_index;
     expr_ref_vector m_pinned;
     obj_map<expr, expr*>& m_substitution;
-    ptr_vector<expr> m_stack;
+    vector<expr*> m_stack;
 
     var_abs_rewriter (ast_manager &manager, obj_map<expr, expr*>& substitution,
                       unsigned k = 0) :
@@ -282,14 +282,14 @@ bool naive_convex_closure::compute_closure(anti_unifier& au, ast_manager& m,
     expr_ref body_with_consts = mk_and(args);
 
     // 3. replace const by var
-    ptr_vector<expr> vars;
+    vector<expr*> vars;
     vars.push_back(const_ref);
 
     expr_ref body(m);
     expr_abstract(m, 0, vars.size(), (expr*const*)vars.c_ptr(), body_with_consts, body);
 
     // 4. introduce quantifier
-    ptr_vector<sort> sorts;
+    vector<sort*> sorts;
     sorts.push_back(util.mk_int());
     vector<symbol> names;
     names.push_back(symbol("scti!0"));

@@ -144,77 +144,77 @@ protected:
     func_decl * m_carry;
     func_decl * m_xor3;
 
-    ptr_vector<sort>   m_bv_sorts;
+    vector<sort*>   m_bv_sorts;
     sort *             m_int_sort;
 
-    ptr_vector<func_decl>  m_bv_neg;
-    ptr_vector<func_decl>  m_bv_add;
-    ptr_vector<func_decl>  m_bv_sub;
-    ptr_vector<func_decl>  m_bv_mul;
-    ptr_vector<func_decl>  m_bv_sdiv;
-    ptr_vector<func_decl>  m_bv_udiv;
-    ptr_vector<func_decl>  m_bv_srem;
-    ptr_vector<func_decl>  m_bv_urem;
-    ptr_vector<func_decl>  m_bv_smod;
+    vector<func_decl*>  m_bv_neg;
+    vector<func_decl*>  m_bv_add;
+    vector<func_decl*>  m_bv_sub;
+    vector<func_decl*>  m_bv_mul;
+    vector<func_decl*>  m_bv_sdiv;
+    vector<func_decl*>  m_bv_udiv;
+    vector<func_decl*>  m_bv_srem;
+    vector<func_decl*>  m_bv_urem;
+    vector<func_decl*>  m_bv_smod;
 
-    ptr_vector<func_decl>  m_bv_sdiv0;
-    ptr_vector<func_decl>  m_bv_udiv0;
-    ptr_vector<func_decl>  m_bv_srem0;
-    ptr_vector<func_decl>  m_bv_urem0;
-    ptr_vector<func_decl>  m_bv_smod0;
+    vector<func_decl*>  m_bv_sdiv0;
+    vector<func_decl*>  m_bv_udiv0;
+    vector<func_decl*>  m_bv_srem0;
+    vector<func_decl*>  m_bv_urem0;
+    vector<func_decl*>  m_bv_smod0;
 
-    ptr_vector<func_decl>  m_bv_sdiv_i;
-    ptr_vector<func_decl>  m_bv_udiv_i;
-    ptr_vector<func_decl>  m_bv_srem_i;
-    ptr_vector<func_decl>  m_bv_urem_i;
-    ptr_vector<func_decl>  m_bv_smod_i;
+    vector<func_decl*>  m_bv_sdiv_i;
+    vector<func_decl*>  m_bv_udiv_i;
+    vector<func_decl*>  m_bv_srem_i;
+    vector<func_decl*>  m_bv_urem_i;
+    vector<func_decl*>  m_bv_smod_i;
 
-    ptr_vector<func_decl>  m_bv_uleq;
-    ptr_vector<func_decl>  m_bv_sleq;
-    ptr_vector<func_decl>  m_bv_ugeq;
-    ptr_vector<func_decl>  m_bv_sgeq;
-    ptr_vector<func_decl>  m_bv_ult;
-    ptr_vector<func_decl>  m_bv_slt;
-    ptr_vector<func_decl>  m_bv_ugt;
-    ptr_vector<func_decl>  m_bv_sgt;
+    vector<func_decl*>  m_bv_uleq;
+    vector<func_decl*>  m_bv_sleq;
+    vector<func_decl*>  m_bv_ugeq;
+    vector<func_decl*>  m_bv_sgeq;
+    vector<func_decl*>  m_bv_ult;
+    vector<func_decl*>  m_bv_slt;
+    vector<func_decl*>  m_bv_ugt;
+    vector<func_decl*>  m_bv_sgt;
 
-    ptr_vector<func_decl>  m_bv_and;
-    ptr_vector<func_decl>  m_bv_or;
-    ptr_vector<func_decl>  m_bv_not;
-    ptr_vector<func_decl>  m_bv_xor;
-    ptr_vector<func_decl>  m_bv_nand;
-    ptr_vector<func_decl>  m_bv_nor;
-    ptr_vector<func_decl>  m_bv_xnor;
+    vector<func_decl*>  m_bv_and;
+    vector<func_decl*>  m_bv_or;
+    vector<func_decl*>  m_bv_not;
+    vector<func_decl*>  m_bv_xor;
+    vector<func_decl*>  m_bv_nand;
+    vector<func_decl*>  m_bv_nor;
+    vector<func_decl*>  m_bv_xnor;
 
-    ptr_vector<func_decl>  m_bv_redor;
-    ptr_vector<func_decl>  m_bv_redand;
-    ptr_vector<func_decl>  m_bv_comp;
+    vector<func_decl*>  m_bv_redor;
+    vector<func_decl*>  m_bv_redand;
+    vector<func_decl*>  m_bv_comp;
 
-    ptr_vector<func_decl>  m_bv_mul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_ovfl;
-    ptr_vector<func_decl>  m_bv_smul_udfl;
+    vector<func_decl*>  m_bv_mul_ovfl;
+    vector<func_decl*>  m_bv_smul_ovfl;
+    vector<func_decl*>  m_bv_smul_udfl;
 
-    ptr_vector<func_decl>  m_bv_shl;
-    ptr_vector<func_decl>  m_bv_lshr;
-    ptr_vector<func_decl>  m_bv_ashr;
-    ptr_vector<func_decl>  m_ext_rotate_left;
-    ptr_vector<func_decl>  m_ext_rotate_right;
+    vector<func_decl*>  m_bv_shl;
+    vector<func_decl*>  m_bv_lshr;
+    vector<func_decl*>  m_bv_ashr;
+    vector<func_decl*>  m_ext_rotate_left;
+    vector<func_decl*>  m_ext_rotate_right;
 
-    ptr_vector<func_decl>  m_bv2int;
-    ptr_vector<func_decl>  m_int2bv;
-    vector<ptr_vector<func_decl> > m_bit2bool;
-    ptr_vector<func_decl>  m_mkbv;
+    vector<func_decl*>  m_bv2int;
+    vector<func_decl*>  m_int2bv;
+    vector<vector<func_decl*> > m_bit2bool;
+    vector<func_decl*>  m_mkbv;
 
     void set_manager(ast_manager * m, family_id id) override;
     void mk_bv_sort(unsigned bv_size);
     sort * get_bv_sort(unsigned bv_size);
     func_decl * mk_func_decl(decl_kind k, unsigned bv_size);
-    func_decl * mk_binary(ptr_vector<func_decl> & decls, decl_kind k,
+    func_decl * mk_binary(vector<func_decl*> & decls, decl_kind k,
                           char const * name, unsigned bv_size, bool ac, bool idempotent = false);
-    func_decl * mk_unary(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
-    func_decl * mk_pred(ptr_vector<func_decl> & decls, decl_kind k,
+    func_decl * mk_unary(vector<func_decl*> & decls, decl_kind k, char const * name, unsigned bv_size);
+    func_decl * mk_pred(vector<func_decl*> & decls, decl_kind k,
                         char const * name, unsigned bv_size);
-    func_decl * mk_reduction(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size);
+    func_decl * mk_reduction(vector<func_decl*> & decls, decl_kind k, char const * name, unsigned bv_size);
     func_decl * mk_comp(unsigned bv_size);
     bool get_bv_size(sort * t, int & result);
     bool get_bv_size(expr * t, int & result);

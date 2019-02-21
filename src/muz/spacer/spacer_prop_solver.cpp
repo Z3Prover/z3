@@ -312,7 +312,7 @@ lbool prop_solver::internal_check_assumptions(expr_ref_vector &hard_atoms,
     /// compute level used in the core
     // XXX this is a poor approximation because the core will get minimized further
     if (result == l_false) {
-        ptr_vector<expr> core;
+        vector<expr*> core;
         m_ctx->get_full_unsat_core(core);
         unsigned core_size = core.size();
         m_uses_level = infty_level();

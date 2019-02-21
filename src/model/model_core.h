@@ -31,9 +31,9 @@ protected:
     unsigned                      m_ref_count;
     decl2expr                     m_interp;      //!< interpretation for uninterpreted constants
     decl2finterp                  m_finterp;     //!< interpretation for uninterpreted functions
-    ptr_vector<func_decl>         m_decls;       //!< domain of m_interp
-    ptr_vector<func_decl>         m_const_decls; 
-    ptr_vector<func_decl>         m_func_decls;  
+    vector<func_decl*>         m_decls;       //!< domain of m_interp
+    vector<func_decl*>         m_const_decls; 
+    vector<func_decl*>         m_func_decls;  
     
 public:
     model_core(ast_manager & m):m(m), m_ref_count(0) { }
@@ -62,7 +62,7 @@ public:
     func_decl * get_constant(unsigned i) const { return m_const_decls[i]; }
     func_decl * get_function(unsigned i) const { return m_func_decls[i]; }
 
-    virtual ptr_vector<expr> const & get_universe(sort * s) const = 0;
+    virtual vector<expr*> const & get_universe(sort * s) const = 0;
     virtual unsigned get_num_uninterpreted_sorts() const = 0;
     virtual sort * get_uninterpreted_sort(unsigned idx) const = 0;
 

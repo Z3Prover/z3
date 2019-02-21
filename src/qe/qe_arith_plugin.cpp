@@ -148,7 +148,7 @@ namespace qe {
         // 
         bool get_coeff(contains_app& contains_x, expr* p, rational& k, expr_ref& rest) {
             app* x = contains_x.x();
-            ptr_vector<expr> restl, todo;
+            vector<expr*> restl, todo;
             todo.push_back(p);
             bool found = false;
             expr* e1, *e2;
@@ -220,7 +220,7 @@ namespace qe {
         // where k is a numeral and rest does not contain numerals.
         //
         void get_const(expr* p, rational& k, expr_ref& rest) {
-            ptr_vector<expr> todo, restl;
+            vector<expr*> todo, restl;
             todo.push_back(p);
             k = numeral(0);
             while(!todo.empty()) {
@@ -479,7 +479,7 @@ namespace qe {
             m_bool_rewriter.mk_and(e1, e2, result);
         }
 
-        void add_and(expr* e, ptr_vector<expr>& conjs) {
+        void add_and(expr* e, vector<expr*>& conjs) {
             if (m.is_and(e)) {
                 conjs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
             }
@@ -489,7 +489,7 @@ namespace qe {
         }
 
         void mk_flat_and(expr* e1, expr* e2, expr_ref& result) {
-            ptr_vector<expr> conjs;
+            vector<expr*> conjs;
             add_and(e1, conjs);
             add_and(e2, conjs);
             m_bool_rewriter.mk_and(conjs.size(), conjs.c_ptr(), result);
@@ -1103,7 +1103,7 @@ namespace qe {
                 values.push_back(numeral(0));
             }
             numeral* vars_ptr = values.c_ptr() + 1;
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             numeral k;
             expr* e1, *e2;
             todo.push_back(p);
@@ -1298,7 +1298,7 @@ namespace qe {
     private:
         bool get_nested_divs(contains_app& contains_x, app* a) {
             ast_manager& m = m_util.get_manager();
-            ptr_vector<expr> todo;
+            vector<expr*> todo;
             todo.push_back(a);
             rational k1, k2;
             expr* e1 = nullptr, *e2 = nullptr;
@@ -1483,7 +1483,7 @@ public:
         expr*    m_result;
         rational m_coeff;
         expr*    m_term;
-        ptr_vector<app> m_vars;
+        vector<app*> m_vars;
 
         branch_formula(): m_fml(nullptr), m_var(nullptr), m_branch(0), m_result(nullptr), m_term(nullptr) {}
         
@@ -2541,7 +2541,7 @@ public:
                 weights = alloc(weight_m);
                 m_weights.insert(fml, weights);
                 m_trail.push_back(fml);
-                ptr_vector<app> nl_vars;
+                vector<app*> nl_vars;
                 m_util.extract_non_linear(to_app(fml), nl_vars);
                 for (unsigned i = 0; i < nl_vars.size(); ++i) {
                     weights->insert(nl_vars[i], 100);                   

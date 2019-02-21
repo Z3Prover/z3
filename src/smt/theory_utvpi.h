@@ -29,7 +29,7 @@ namespace smt {
     class utvpi_tester {
         ast_manager&      m;
         arith_util        a;
-        ptr_vector<expr>  m_todo;
+        vector<expr*>  m_todo;
         ast_mark          m_mark;
         obj_map<expr, rational>           m_coeff_map;
         rational                          m_weight;

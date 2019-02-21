@@ -124,7 +124,7 @@ bool quasi_macros::fully_depends_on(app * a, quantifier * q) const {
 }
 
 bool quasi_macros::depends_on(expr * e, func_decl * f) const {
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     expr_mark visited;
     todo.push_back(e);
     while(!todo.empty()) {

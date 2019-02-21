@@ -263,7 +263,7 @@ void goal::assert_expr(expr * f, expr_dependency * d) {
     assert_expr(f, proofs_enabled() ? m().mk_asserted(f) : nullptr, d);
 }
 
-void goal::get_formulas(ptr_vector<expr> & result) const {
+void goal::get_formulas(vector<expr*> & result) const {
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {
         result.push_back(form(i));
@@ -343,7 +343,7 @@ void goal::display(ast_printer & prn, std::ostream & out) const {
 }
 
 void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) const {
-    ptr_vector<expr> deps;
+    vector<expr*> deps;
     obj_hashtable<expr> to_pp;
     out << "(goal";
     unsigned sz = size();
@@ -376,7 +376,7 @@ void goal::display_with_dependencies(ast_printer & prn, std::ostream & out) cons
 }
 
 void goal::display_with_dependencies(std::ostream & out) const {
-    ptr_vector<expr> deps;
+    vector<expr*> deps;
     out << "(goal";
     unsigned sz = size();
     for (unsigned i = 0; i < sz; i++) {

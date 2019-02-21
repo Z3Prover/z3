@@ -27,7 +27,7 @@ class func_decl_replace {
     ast_manager& m;
     obj_map<func_decl, func_decl*> m_subst;
     obj_map<expr, expr*> m_cache;
-    ptr_vector<expr>     m_todo, m_args;
+    vector<expr*>        m_todo, m_args;
     expr_ref_vector      m_refs;
     func_decl_ref_vector m_funs;
 

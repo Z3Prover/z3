@@ -980,8 +980,8 @@ namespace sat {
         m_ternary.push_back(vector<binary>());
         m_ternary_count.push_back(0);
         m_ternary_count.push_back(0);
-        m_nary.push_back(ptr_vector<nary>());
-        m_nary.push_back(ptr_vector<nary>());
+        m_nary.push_back(vector<nary*>());
+        m_nary.push_back(vector<nary*>());
         m_nary_count.push_back(0);
         m_nary_count.push_back(0);
         m_bstamp.push_back(0);
@@ -1533,7 +1533,7 @@ namespace sat {
     }
 
     void lookahead::remove_clause(literal l, nary& n) {
-        ptr_vector<nary>& pclauses = m_nary[l.index()];
+        vector<nary*>& pclauses = m_nary[l.index()];
         unsigned sz = m_nary_count[l.index()]--;
         for (unsigned i = sz; i > 0; ) {
             --i;
@@ -1557,7 +1557,7 @@ namespace sat {
         // add them back in the same order as they were inserted
         // in this way we can check that the clauses are the same.
         sz = m_nary_count[l.index()];
-        ptr_vector<nary>& pclauses = m_nary[l.index()];
+        vector<nary*>& pclauses = m_nary[l.index()];
         for (unsigned i = sz; i-- > 0; ) {
             for (literal lit : *pclauses[i]) {
                 if (lit != l) {

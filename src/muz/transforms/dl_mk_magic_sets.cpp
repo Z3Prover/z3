@@ -154,7 +154,7 @@ namespace datalog {
         const adornment & adn = ae->get_data().m_value;
 
         unsigned l_arity = l->get_num_args();
-        ptr_vector<expr> bound_args;
+        vector<expr*> bound_args;
         for (unsigned i=0; i<l_arity; i++) {
             if (adn[i]==AD_BOUND) {
                 bound_args.push_back(l->get_arg(i));
@@ -166,7 +166,7 @@ namespace datalog {
         if (mag_pred==nullptr) {
             unsigned mag_arity = bound_args.size();
 
-            ptr_vector<sort> mag_domain;
+            vector<sort*> mag_domain;
             for (unsigned i=0; i<l_arity; i++) {
                 if (adn[i]==AD_BOUND) {
                     mag_domain.push_back(l_pred->get_domain(i));
@@ -186,7 +186,7 @@ namespace datalog {
 
     void mk_magic_sets::create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated, rule_set& result) {
         //TODO: maybe include relevant interpreted predicates from the original rule
-        ptr_vector<app> new_tail;
+        vector<app*> new_tail;
         vector<bool> negations;
         new_tail.push_back(create_magic_literal(head));
         new_tail.append(tail_cnt, tail);
@@ -230,7 +230,7 @@ namespace datalog {
             }
         }
 
-        ptr_vector<app> new_tail;
+        vector<app*> new_tail;
         vector<bool> negations;
         while (new_tail.size()!=processed_tail_len) {
             bool intentional = false;
@@ -290,7 +290,7 @@ namespace datalog {
         unsigned arity = adn_pred->get_arity();
         SASSERT(arity == d.m_pred->get_arity());
 
-        ptr_vector<expr> args;
+        vector<expr*> args;
         for (unsigned i=0; i<arity; i++) {
             args.push_back(m.mk_var(i, adn_pred->get_domain(i)));
         }

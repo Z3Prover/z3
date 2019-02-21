@@ -46,9 +46,9 @@ Revision History:
 class distribute_forall {
     typedef act_cache expr_map;
     ast_manager &             m_manager;
-    ptr_vector<expr>          m_todo;
+    vector<expr*>          m_todo;
     expr_map                  m_cache;
-    ptr_vector<expr>          m_new_args;
+    vector<expr*>          m_new_args;
     // The new expressions are stored in a mapping that increments their reference counter. So, we do not need to store them in
     // m_new_exprs
     // expr_ref_vector  m_new_exprs;

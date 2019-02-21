@@ -131,10 +131,10 @@ void bv_decl_plugin::finalize() {
 
     DEC_REF(m_int2bv);
     DEC_REF(m_bv2int);
-    vector<ptr_vector<func_decl> >::iterator it  = m_bit2bool.begin();
-    vector<ptr_vector<func_decl> >::iterator end = m_bit2bool.end();
+    vector<vector<func_decl*> >::iterator it  = m_bit2bool.begin();
+    vector<vector<func_decl*> >::iterator end = m_bit2bool.end();
     for (; it != end; ++it) {
-        ptr_vector<func_decl> & ds = *it;
+        vector<func_decl*> & ds = *it;
         DEC_REF(ds);
     }
     DEC_REF(m_mkbv);
@@ -178,7 +178,7 @@ sort * bv_decl_plugin::mk_sort(decl_kind k, unsigned num_parameters, parameter c
     return m_bv_sorts[bv_size];
 }
 
-func_decl * bv_decl_plugin::mk_binary(ptr_vector<func_decl> & decls, decl_kind k,
+func_decl * bv_decl_plugin::mk_binary(vector<func_decl*> & decls, decl_kind k,
                                     char const * name, unsigned bv_size, bool ac, bool idempotent) {
     force_ptr_array_size(decls, bv_size + 1);
 
@@ -196,7 +196,7 @@ func_decl * bv_decl_plugin::mk_binary(ptr_vector<func_decl> & decls, decl_kind k
     return decls[bv_size];
 }
 
-func_decl * bv_decl_plugin::mk_unary(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
+func_decl * bv_decl_plugin::mk_unary(vector<func_decl*> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
 
     if (decls[bv_size] == 0) {
@@ -249,7 +249,7 @@ func_decl * bv_decl_plugin::mk_bv2int(unsigned bv_size, unsigned num_parameters,
     return m_bv2int[bv_size];
 }
 
-func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
+func_decl * bv_decl_plugin::mk_pred(vector<func_decl*> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
 
     if (decls[bv_size] == 0) {
@@ -261,7 +261,7 @@ func_decl * bv_decl_plugin::mk_pred(ptr_vector<func_decl> & decls, decl_kind k, 
     return decls[bv_size];
 }
 
-func_decl * bv_decl_plugin::mk_reduction(ptr_vector<func_decl> & decls, decl_kind k, char const * name, unsigned bv_size) {
+func_decl * bv_decl_plugin::mk_reduction(vector<func_decl*> & decls, decl_kind k, char const * name, unsigned bv_size) {
     force_ptr_array_size(decls, bv_size + 1);
 
     if (decls[bv_size] == 0) {
@@ -441,7 +441,7 @@ func_decl * bv_decl_plugin::mk_bit2bool(unsigned bv_size, unsigned num_parameter
     }
     unsigned idx = parameters[0].get_int();
     m_bit2bool.expand(bv_size+1);
-    ptr_vector<func_decl> & v = m_bit2bool[bv_size];
+    vector<func_decl*> & v = m_bit2bool[bv_size];
     v.expand(bv_size, 0);
     if (v[idx] == 0) {
         v[idx] = m_manager->mk_func_decl(m_bit2bool_sym, domain[0], m_manager->mk_bool_sort(),

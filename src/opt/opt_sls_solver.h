@@ -75,7 +75,7 @@ namespace opt {
         virtual void assert_expr(expr * t) {
             m_solver->assert_expr(t);
         }
-        virtual void get_unsat_core(ptr_vector<expr> & r) {
+        virtual void get_unsat_core(vector<expr*> & r) {
             m_solver->get_unsat_core(r);
         }
         virtual void get_model(model_ref & m) {

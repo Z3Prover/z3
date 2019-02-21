@@ -43,7 +43,7 @@ bool horn_subsume_model_converter::mk_horn(
     app* head, expr* body, func_decl_ref& pred, expr_ref& body_res) {
 
     expr_ref_vector conjs(m), subst(m);
-    ptr_vector<sort> sorts2;
+    vector<sort*> sorts2;
     var_subst vs(m, false);
 
     if (!is_uninterp(head)) {

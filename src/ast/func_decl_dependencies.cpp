@@ -83,7 +83,7 @@ class func_decl_dependencies::top_sort {
 
     typedef obj_map<func_decl, color> color_map;
     color_map               m_colors;
-    ptr_vector<func_decl>   m_todo;
+    vector<func_decl*>   m_todo;
 
     func_decl_set * definition(func_decl * f) const {        
         func_decl_set * r = nullptr;

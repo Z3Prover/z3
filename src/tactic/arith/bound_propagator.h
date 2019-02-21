@@ -96,7 +96,7 @@ protected:
         bool is_lower() const { return m_lower != 0; }
     };
 
-    typedef ptr_vector<bound>       var2bound;
+    typedef vector<bound*>       var2bound;
     typedef vector<var>            var_vector;
     typedef vector<constraint>     constraint_vector;
     typedef vector<unsigned>         c_idx_vector;

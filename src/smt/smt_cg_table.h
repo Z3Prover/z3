@@ -118,7 +118,7 @@ namespace smt {
 
         ast_manager &                 m_manager;
         bool                          m_commutativity; //!< true if the last found congruence used commutativity
-        ptr_vector<void>              m_tables;
+        vector<void*>              m_tables;
         obj_map<func_decl, unsigned>  m_func_decl2id;
 
         enum table_kind {

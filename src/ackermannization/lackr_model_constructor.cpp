@@ -80,7 +80,7 @@ struct lackr_model_constructor::imp {
             {
                 for (unsigned i = 0; i < m_abstr_model->get_num_uninterpreted_sorts(); i++) {
                     sort * const s = m_abstr_model->get_uninterpreted_sort(i);
-                    ptr_vector<expr> u = m_abstr_model->get_universe(s);
+                    vector<expr*> u = m_abstr_model->get_universe(s);
                     destination->register_usort(s, u.size(), u.c_ptr());
                 }
             }
@@ -146,7 +146,7 @@ struct lackr_model_constructor::imp {
         typedef obj_map<app, val_info> values2val_t;
         values2val_t     m_values2val;
         app2val_t        m_app2val;
-        ptr_vector<expr> m_stack;
+        vector<expr*> m_stack;
         ackr_helper      m_ackr_helper;
         expr_mark        m_visited;
 

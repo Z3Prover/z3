@@ -36,7 +36,7 @@ class used_symbols : public RENAME_PROC {
 
     symbol_set          m_used;
     obj_hashtable<expr> m_visited;
-    ptr_vector<expr>    m_todo;
+    vector<expr*>    m_todo;
 
     void found(symbol const & s) { m_used.insert(RENAME_PROC::operator()(s)); }
 

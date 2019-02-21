@@ -571,7 +571,7 @@ struct cofactor_elim_term_ite::imp {
         }
         
         void operator()(expr * t, expr_ref & r) {
-            ptr_vector<expr> new_args;
+            vector<expr*> new_args;
             SASSERT(m_frames.empty());
             m_frames.push_back(frame(t, true));
             while (!m_frames.empty()) {

@@ -59,7 +59,7 @@ struct collect_boolean_interface_proc {
     ast_manager &    m;
     expr_fast_mark2  fvisited;
     expr_fast_mark1  tvisited;
-    ptr_vector<expr> todo;
+    vector<expr*> todo;
     visitor          proc;
 
     collect_boolean_interface_proc(ast_manager & _m, obj_hashtable<expr> & r):
@@ -99,7 +99,7 @@ struct collect_boolean_interface_proc {
     template<typename T>
     void operator()(T const & g) {
         unsigned sz = g.size();
-        ptr_vector<expr> deps, all_deps;
+        vector<expr*> deps, all_deps;
         for (unsigned i = 0; i < sz; i++) {
             if (g.dep(i)) {
                 deps.clear();

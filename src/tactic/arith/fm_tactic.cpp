@@ -34,7 +34,7 @@ Revision History:
 #include "tactic/core/simplify_tactic.h"
 
 class fm_tactic : public tactic {
-    typedef ptr_vector<app> clauses;
+    typedef vector<app*> clauses;
     typedef unsigned        var;
     typedef int             bvar;
     typedef int             literal;
@@ -42,7 +42,7 @@ class fm_tactic : public tactic {
 
     struct fm_model_converter : public model_converter {
         ast_manager &         m;
-        ptr_vector<func_decl> m_xs;
+        vector<func_decl*> m_xs;
         vector<clauses>       m_clauses;
 
         enum r_kind {
@@ -314,7 +314,7 @@ class fm_tactic : public tactic {
         unsigned hash() const { return hash_u(m_id); }
     };
     
-    typedef ptr_vector<constraint> constraints;
+    typedef vector<constraint*> constraints;
 
     class constraint_set {
         vector<unsigned> m_id2pos; 
@@ -1448,7 +1448,7 @@ class fm_tactic : public tactic {
             return new_cnstr;
         }
         
-        ptr_vector<constraint> new_constraints;
+        vector<constraint*> new_constraints;
         
         bool try_eliminate(var x) {
             constraints & l = m_lowers[x];

@@ -170,10 +170,10 @@ public:
 
 template<typename Ctx, typename T>
 class set_vector_idx_trail : public trail<Ctx> {
-    ptr_vector<T> & m_vector;
+    vector<T*> & m_vector;
     unsigned                         m_idx;
 public:
-    set_vector_idx_trail(ptr_vector<T> & v, unsigned idx):
+    set_vector_idx_trail(vector<T*> & v, unsigned idx):
         m_vector(v),
         m_idx(idx) {
     }
@@ -317,10 +317,10 @@ public:
 
 
 template<typename Ctx>
-void undo_trail_stack(Ctx & ctx, ptr_vector<trail<Ctx> > & s, unsigned old_size) {
+void undo_trail_stack(Ctx & ctx, vector<trail<Ctx>*> & s, unsigned old_size) {
     SASSERT(old_size <= s.size());
-    typename ptr_vector<trail<Ctx> >::iterator begin = s.begin() + old_size;
-    typename ptr_vector<trail<Ctx> >::iterator it    = s.end();
+    typename vector<trail<Ctx>*>::iterator begin = s.begin() + old_size;
+    typename vector<trail<Ctx>*>::iterator it    = s.end();
     while (it != begin) {
         --it;
         (*it)->undo(ctx);
@@ -331,7 +331,7 @@ void undo_trail_stack(Ctx & ctx, ptr_vector<trail<Ctx> > & s, unsigned old_size)
 template<typename Ctx>
 class trail_stack {
     Ctx &                   m_ctx;
-    ptr_vector<trail<Ctx> > m_trail_stack;
+    vector<trail<Ctx>*> m_trail_stack;
     vector<unsigned>         m_scopes;
     region                  m_region;
 public:

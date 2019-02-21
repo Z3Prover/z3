@@ -174,8 +174,8 @@ void small_object_allocator::consolidate() {
                verbose_stream() << "(allocator-consolidate :wasted-size " << get_wasted_size()
                << " :memory " << std::fixed << std::setprecision(2) << 
                static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024) << ")" << std::endl;);
-    ptr_vector<chunk> chunks;
-    ptr_vector<char> free_objs;
+    vector<chunk*> chunks;
+    vector<char*> free_objs;
     for (unsigned slot_id = 1; slot_id < NUM_SLOTS; slot_id++) {
         if (m_free_list[slot_id] == nullptr)
             continue;

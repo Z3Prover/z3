@@ -28,7 +28,7 @@ namespace smt {
     
     class conflict_resolution;
 
-    typedef ptr_vector<justification> justification_vector;
+    typedef vector<justification*> justification_vector;
 
     /**
        \brief Pseudo-proof objects. They are mainly used to track dependencies.

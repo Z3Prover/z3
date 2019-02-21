@@ -216,7 +216,7 @@ namespace tb {
             return fml;
         }
 
-        void get_free_vars(ptr_vector<sort>& vars) const {
+        void get_free_vars(vector<sort*>& vars) const {
             expr_free_vars fv;
             fv(m_head);
             for (unsigned i = 0; i < m_predicates.size(); ++i) {
@@ -235,7 +235,7 @@ namespace tb {
             else {
                 body = m.mk_implies(body, m_head);
             }
-            ptr_vector<sort> vars;
+            vector<sort*> vars;
             vector<symbol> names;
             get_free_vars(vars);
             mk_fresh_name fresh;
@@ -259,7 +259,7 @@ namespace tb {
             m_predicates.clear();
             m_predicates.append(predicates);
             m_constraint = constraint;
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             get_free_vars(sorts);
             m_num_vars = sorts.size();
             reduce_equalities();
@@ -469,7 +469,7 @@ namespace tb {
             }
         }
 
-        void get_decls(ptr_vector<func_decl>& decls) const {
+        void get_decls(vector<func_decl*>& decls) const {
             map::iterator it  = m_index.begin();
             map::iterator end = m_index.end();
             for (; it != end; ++it) {
@@ -552,7 +552,7 @@ namespace tb {
             expr_ref_vector fmls(m);
             expr_ref_vector vars(m);
             expr_ref fml(m);
-            ptr_vector<sort> sorts;
+            vector<sort*> sorts;
             g.get_free_vars(sorts);
             var_subst vs(m, false);
             for (unsigned i = 0; i < sorts.size(); ++i) {
@@ -930,7 +930,7 @@ namespace tb {
         }
 
         void normalize_scores(rules const& rs) {
-            ptr_vector<func_decl> decls;
+            vector<func_decl*> decls;
             rs.get_decls(decls);
             for (unsigned i = 0; i < decls.size(); ++i) {
                 unsigned nr = rs.get_num_rules(decls[i]);
@@ -1116,7 +1116,7 @@ namespace tb {
 
             // initialize rule.
             result->init(head, predicates, constraint);
-            ptr_vector<sort> vars;
+            vector<sort*> vars;
             result->get_free_vars(vars);
             bool change = false;
             var_ref w(m);
@@ -1160,7 +1160,7 @@ namespace tb {
         }
 
         void extract_subst(unsigned const* delta, clause const& g, unsigned offset) {
-            ptr_vector<sort> vars;
+            vector<sort*> vars;
             var_ref v(m);
             expr_ref tmp(m);
             g.get_free_vars(vars);

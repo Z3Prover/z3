@@ -91,7 +91,7 @@ class reduce_hypotheses {
 
 
     // stack
-    ptr_vector<proof> m_todo;
+    vector<proof*> m_todo;
 
     void reset()
     {
@@ -347,14 +347,14 @@ class reduce_hypotheses0 {
     // map conclusions to closed proofs that derive them
     obj_map<expr, proof*> m_units;
     // currently active units
-    ptr_vector<expr>      m_units_trail;
+    vector<expr*>      m_units_trail;
     // size of m_units_trail at the last push
     vector<unsigned>      m_limits;
     // map from proofs to active hypotheses
     obj_map<proof, expr_set*> m_hypmap;
     // reference train for hypotheses sets
-    ptr_vector<expr_set>  m_hyprefs;
-    ptr_vector<expr>      m_literals;
+    vector<expr_set*>  m_hyprefs;
+    vector<expr*>      m_literals;
     
     void reset() {
         m_refs.clear();
@@ -439,7 +439,7 @@ class reduce_hypotheses0 {
     }
 
     bool contains_hypothesis(proof* p) {
-        ptr_vector<proof> todo;
+        vector<proof*> todo;
         ast_mark visit;
         todo.push_back(p);
         while (!todo.empty()) {
@@ -751,7 +751,7 @@ void proof_utils::reduce_hypotheses(proof_ref& pr) {
 
 class proof_is_closed {
     ast_manager&     m;
-    ptr_vector<expr> m_literals;
+    vector<expr*> m_literals;
     ast_mark         m_visit;
 
     void reset() {
@@ -892,7 +892,7 @@ static void permute_unit_resolution(expr_ref_vector& refs, obj_map<proof,proof*>
                               premises.size(), premises.c_ptr(), num_params-1, params+1);
     }
     else {
-        ptr_vector<expr> args;
+        vector<expr*> args;
         for (unsigned i = 0; i < parents.size(); ++i) {
             args.push_back(parents[i].get());
         }

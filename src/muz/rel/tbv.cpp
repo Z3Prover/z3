@@ -31,8 +31,8 @@ void tbv_manager::debug_alloc() {
 
 tbv_manager::~tbv_manager() {    
     DEBUG_CODE(
-        ptr_vector<tbv>::iterator it = allocated_tbvs.begin();
-        ptr_vector<tbv>::iterator end = allocated_tbvs.end();
+        vector<tbv*>::iterator it = allocated_tbvs.begin();
+        vector<tbv*>::iterator end = allocated_tbvs.end();
         for (; it != end; ++it) {
             std::cout << "dangling: " << (*it) << "\n";
             TRACE("doc", tout << "dangling: " << (*it) << "\n";);
@@ -229,7 +229,7 @@ bool tbv_manager::is_well_formed(tbv const& dst) const {
     return true;
 }
 
-void tbv_manager::complement(tbv const& src, ptr_vector<tbv>& result) {
+void tbv_manager::complement(tbv const& src, vector<tbv*>& result) {
     tbv* r;
     unsigned n = num_tbits();
     for (unsigned i = 0; i < n; ++i) {

@@ -63,7 +63,7 @@ public:
 
 class sexpr_manager {
     small_object_allocator m_allocator;
-    ptr_vector<sexpr>      m_to_delete;
+    vector<sexpr*>      m_to_delete;
     void del(sexpr * n);
 public:
     sexpr_manager();

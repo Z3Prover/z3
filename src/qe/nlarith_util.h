@@ -100,7 +100,7 @@ namespace nlarith {
            
            \requires a ground formula.
         */
-        void extract_non_linear(expr* e, ptr_vector<app>& nl_vars);
+        void extract_non_linear(expr* e, vector<app*>& nl_vars);
 
         /**
            \brief literal sets. Opaque state.
@@ -129,7 +129,7 @@ namespace nlarith {
         public:
             virtual ~branch() {}
             virtual app* get_constraint() = 0;
-            virtual void get_updates(ptr_vector<app>& atoms, vector<atom_update>& updates) = 0;
+            virtual void get_updates(vector<app*>& atoms, vector<atom_update>& updates) = 0;
         };
 
         /**
@@ -140,7 +140,7 @@ namespace nlarith {
         /**
             \brief given selected literals, generate branch conditions.
         */
-        void get_sign_branches(literal_set& lits, eval& eval, ptr_vector<branch>& branches);
+        void get_sign_branches(literal_set& lits, eval& eval, vector<branch*>& branches);
         
         
 

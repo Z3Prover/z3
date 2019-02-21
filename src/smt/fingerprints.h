@@ -65,10 +65,10 @@ namespace smt {
 
         region &                 m_region;
         set                      m_set;
-        ptr_vector<fingerprint>  m_fingerprints;
+        vector<fingerprint*>  m_fingerprints;
         expr_ref_vector          m_defs;
         vector<unsigned>          m_scopes;
-        ptr_vector<enode>        m_tmp;
+        vector<enode*>        m_tmp;
         fingerprint              m_dummy;
 
         fingerprint * mk_dummy(void * data, unsigned data_hash, unsigned num_args, enode * const * args);

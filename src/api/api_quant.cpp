@@ -182,8 +182,8 @@ extern "C" {
         }
 
         vector<symbol>   _names;
-        ptr_vector<sort> _vars;
-        ptr_vector<expr> _args;
+        vector<sort*> _vars;
+        vector<expr*> _args;
         for (unsigned i = 0; i < num_decls; ++i) {
             app* a = to_app(vars[i]);
             _names.push_back(to_app(a)->get_decl()->get_name());
@@ -218,7 +218,7 @@ extern "C" {
         RESET_ERROR_CODE();
         vector<Z3_symbol> names;
         vector<Z3_sort> types;
-        ptr_vector<expr> bound_asts;
+        vector<expr*> bound_asts;
         if (num_patterns > 0 && num_no_patterns > 0) {
             SET_ERROR_CODE(Z3_INVALID_USAGE, nullptr);
             RETURN_Z3(nullptr);

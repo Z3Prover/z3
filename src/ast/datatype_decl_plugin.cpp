@@ -125,7 +125,7 @@ namespace datatype {
         size* size::mk_param(sort_ref& p) { return alloc(sparam, p); }
         size* size::mk_plus(size* a1, size* a2) { return alloc(plus, a1, a2); }
         size* size::mk_times(size* a1, size* a2) { return alloc(times, a1, a2); }
-        size* size::mk_times(ptr_vector<size>& szs) {
+        size* size::mk_times(vector<size*>& szs) {
             if (szs.empty()) return mk_offset(sort_size(1));
             if (szs.size() == 1) return szs[0];
             size* r = szs[0];
@@ -134,7 +134,7 @@ namespace datatype {
             }
             return r;
         }
-        size* size::mk_plus(ptr_vector<size>& szs) {
+        size* size::mk_plus(vector<size*>& szs) {
             if (szs.empty()) return mk_offset(sort_size(0));
             if (szs.size() == 1) return szs[0];
             size* r = szs[0];
@@ -151,7 +151,7 @@ namespace datatype {
         
         sort_size plus::eval(obj_map<sort, sort_size> const& S) {
             rational r(0);
-            ptr_vector<size> todo;
+            vector<size*> todo;
             todo.push_back(m_arg1);
             todo.push_back(m_arg2);
             while (!todo.empty()) {
@@ -242,7 +242,7 @@ namespace datatype {
         void plugin::inherit(decl_plugin* other_p, ast_translation& tr) {
             plugin* p = dynamic_cast<plugin*>(other_p);
             vector<symbol> names;
-            ptr_vector<def> new_defs;            
+            vector<def*> new_defs;            
             SASSERT(p);
             for (auto& kv : p->m_defs) {
                 def* d = kv.m_value;
@@ -642,7 +642,7 @@ namespace datatype {
     */
     bool util::is_recursive_core(sort* s) const {
         obj_map<sort, status> already_found;
-        ptr_vector<sort> todo, subsorts;
+        vector<sort*> todo, subsorts;
         todo.push_back(s);
         status st;
         while (!todo.empty()) {
@@ -717,7 +717,7 @@ namespace datatype {
         array_util autil(m);
         if (autil.is_array(s)) {
             unsigned n = get_array_arity(s);
-            ptr_vector<param_size::size> szs;
+            vector<param_size::size*> szs;
             for (unsigned i = 0; i < n; ++i) {
                 szs.push_back(get_sort_size(params, get_array_domain(s, i)));
             }
@@ -784,9 +784,9 @@ namespace datatype {
                 continue;
             }
 
-            ptr_vector<param_size::size> s_add;      
+            vector<param_size::size*> s_add;      
             for (constructor const* c : d) {
-                ptr_vector<param_size::size> s_mul;
+                vector<param_size::size*> s_mul;
                 for (accessor const* a : *c) {
                     s_mul.push_back(get_sort_size(d.params(), a->range()));
                 }
@@ -809,7 +809,7 @@ namespace datatype {
         }
         unsigned num_well_founded = 0, id = 0;
         bool changed;
-        ptr_vector<sort> subsorts;
+        vector<sort*> subsorts;
         do {
             changed = false;
             for (unsigned tid = 0; tid < num_types; tid++) {
@@ -845,7 +845,7 @@ namespace datatype {
         return m_plugin->get_def(s);
     }
 
-    void util::get_subsorts(sort* s, ptr_vector<sort>& sorts) const {
+    void util::get_subsorts(sort* s, vector<sort*>& sorts) const {
         sorts.push_back(s);
         for (parameter const& p : s->parameters()) {
             if (p.is_ast() && is_sort(p.get_ast())) {
@@ -865,15 +865,15 @@ namespace datatype {
     }
 
     util::~util() {
-        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
+        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<vector<func_decl*> >());
     }
 
-    ptr_vector<func_decl> const * util::get_datatype_constructors(sort * ty) {
+    vector<func_decl*> const * util::get_datatype_constructors(sort * ty) {
         SASSERT(is_datatype(ty));
-        ptr_vector<func_decl> * r = nullptr;
+        vector<func_decl*> * r = nullptr;
         if (m_datatype2constructors.find(ty, r))
             return r;
-        r = alloc(ptr_vector<func_decl>);
+        r = alloc(vector<func_decl*>);
         m_asts.push_back(ty);
         m_vectors.push_back(r);
         m_datatype2constructors.insert(ty, r);
@@ -886,13 +886,13 @@ namespace datatype {
         return r;
     }
 
-    ptr_vector<func_decl> const * util::get_constructor_accessors(func_decl * con) {
+    vector<func_decl*> const * util::get_constructor_accessors(func_decl * con) {
         SASSERT(is_constructor(con));
-        ptr_vector<func_decl> * res = nullptr;
+        vector<func_decl*> * res = nullptr;
         if (m_constructor2accessors.find(con, res)) {
             return res;
         }
-        res = alloc(ptr_vector<func_decl>);
+        res = alloc(vector<func_decl*>);
         m_asts.push_back(con);
         m_vectors.push_back(res);
         m_constructor2accessors.insert(con, res);
@@ -968,7 +968,7 @@ namespace datatype {
         bool r = false;
         if (m_is_enum.find(s, r))
             return r;
-        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        vector<func_decl*> const& cnstrs = *get_datatype_constructors(s);
         r = true;
         for (unsigned i = 0; r && i < cnstrs.size(); ++i) {
             r = cnstrs[i]->get_arity() == 0;
@@ -1010,7 +1010,7 @@ namespace datatype {
         m_accessor2constructor.reset();
         m_is_recursive.reset();
         m_is_enum.reset();
-        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<ptr_vector<func_decl> >());
+        std::for_each(m_vectors.begin(), m_vectors.end(), delete_proc<vector<func_decl*> >());
         m_vectors.clear();
         m_asts.clear();
         ++m_start;
@@ -1028,7 +1028,7 @@ namespace datatype {
         if (m_datatype2nonrec_constructor.find(ty, r))
             return r;
         r = nullptr;
-        ptr_vector<sort> forbidden_set;
+        vector<sort*> forbidden_set;
         forbidden_set.push_back(ty);
         TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
         r = get_non_rec_constructor_core(ty, forbidden_set);
@@ -1045,13 +1045,13 @@ namespace datatype {
        each T_i is not a datatype or it is a datatype t not in forbidden_set,
        and get_non_rec_constructor_core(T_i, forbidden_set union { T_i })
     */
-    func_decl * util::get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set) {
+    func_decl * util::get_non_rec_constructor_core(sort * ty, vector<sort*> & forbidden_set) {
         // We must select a constructor c(T_1, ..., T_n):T such that
         //   1) T_i's are not recursive
         // If there is no such constructor, then we select one that 
         //   2) each type T_i is not recursive or contains a constructor that does not depend on T
 
-        ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
+        vector<func_decl*> const& constructors = *get_datatype_constructors(ty);
         unsigned sz = constructors.size();
         TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
               tout << "forbidden: ";
@@ -1139,7 +1139,7 @@ namespace datatype {
         return d.constructors().size();
     }
 
-    void util::get_defs(sort* s0, ptr_vector<def>& defs) {
+    void util::get_defs(sort* s0, vector<def*>& defs) {
         vector<symbol> mark;
         buffer<sort*> todo;
         todo.push_back(s0);
@@ -1172,10 +1172,10 @@ namespace datatype {
             sort* s = todo.back();
             todo.pop_back();
             out << s->get_name() << " =\n";
-            ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+            vector<func_decl*> const& cnstrs = *get_datatype_constructors(s);
             for (func_decl * cns : cnstrs) {
                 out << "  " << cns->get_name() << " :: ";
-                ptr_vector<func_decl> const & accs = *get_constructor_accessors(cns);
+                vector<func_decl*> const & accs = *get_constructor_accessors(cns);
                 for (func_decl* acc : accs) {
                     sort* s1 = acc->get_range();
                     out << "(" << acc->get_name() << ": " << s1->get_name() << ") "; 
@@ -1213,13 +1213,13 @@ namespace datatype {
             return sort_ref(m);
         }
         sort* s = sorts.get(0);
-        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        vector<func_decl*> const& cnstrs = *get_datatype_constructors(s);
         SASSERT(cnstrs.size() == 2);
         nil = cnstrs[0];
         is_nil = get_constructor_is(cnstrs[0]);
         cons = cnstrs[1];
         is_cons = get_constructor_is(cnstrs[1]);
-        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[1]);
+        vector<func_decl*> const& acc = *get_constructor_accessors(cnstrs[1]);
         SASSERT(acc.size() == 2);
         hd = acc[0];
         tl = acc[1];
@@ -1237,9 +1237,9 @@ namespace datatype {
         VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
         del_datatype_decl(dt);
         sort* s = sorts.get(0);
-        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        vector<func_decl*> const& cnstrs = *get_datatype_constructors(s);
         SASSERT(cnstrs.size() == 1);
-        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        vector<func_decl*> const& acc = *get_constructor_accessors(cnstrs[0]);
         SASSERT(acc.size() == 2);
         fst = acc[0];
         snd = acc[1];
@@ -1248,7 +1248,7 @@ namespace datatype {
     }
 
     sort_ref util::mk_tuple_datatype(vector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs) {
-        ptr_vector<accessor_decl> accd;
+        vector<accessor_decl*> accd;
         for (auto const& e : elems) {
             type_ref t(e.second);
             accd.push_back(mk_accessor_decl(m, e.first, t));
@@ -1259,9 +1259,9 @@ namespace datatype {
         VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
         del_datatype_decl(dt);
         sort* s = sorts.get(0);
-        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        vector<func_decl*> const& cnstrs = *get_datatype_constructors(s);
         SASSERT(cnstrs.size() == 1);
-        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        vector<func_decl*> const& acc = *get_constructor_accessors(cnstrs[0]);
         for (auto* f : acc) accs.push_back(f);
         tup = cnstrs[0];
         return sort_ref(s, m);

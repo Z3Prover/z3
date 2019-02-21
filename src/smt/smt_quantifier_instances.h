@@ -41,8 +41,8 @@ namespace smt {
 
     class quantifier_instances {
         struct instance_lt {
-            ptr_vector<quantifier_instance> const & m_stack;
-            instance_lt(ptr_vector<quantifier_instance> const & s):
+            vector<quantifier_instance*> const & m_stack;
+            instance_lt(vector<quantifier_instance*> const & s):
                 m_stack(s) {
             }
             bool operator()(int i1, int i2) const {
@@ -53,7 +53,7 @@ namespace smt {
         context &                          m_context;
         ast_manager &                      m_manager;
         obj_hashtable<quantifier_instance> m_instances;  //!< Set of instances.
-        ptr_vector<quantifier_instance>    m_stack;      //!< Stack for backtracking.
+        vector<quantifier_instance*>    m_stack;      //!< Stack for backtracking.
         heap<instance_lt>                  m_queue;      //!< Instantiation priority queue.
         vector<unsigned>                    m_scopes;
         

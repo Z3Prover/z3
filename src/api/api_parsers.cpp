@@ -47,7 +47,7 @@ extern "C" {
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         
         vector<symbol> sort_names;
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         for (unsigned i = 0; i < num_sorts; ++i) {
             sorts.push_back(to_sort(_sorts[i]));
             sort_names.push_back(to_symbol(_sort_names[i]));

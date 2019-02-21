@@ -198,7 +198,7 @@ bool proof_checker::check1_basic(proof* p, expr_ref_vector& side_conditions) {
     proof* p0 = nullptr, *p1 = nullptr, *p2 = nullptr;
     proof_ref_vector proofs(m);
     func_decl* f1 = nullptr, *f2 = nullptr;
-    ptr_vector<expr> terms1, terms2, terms;
+    vector<expr*> terms1, terms2, terms;
     sort_ref_vector decls1(m), decls2(m);
 
     if (match_proof(p, proofs)) {
@@ -965,7 +965,7 @@ bool proof_checker::match_binary(expr const* e, func_decl*& d, expr*& t1, expr*&
 }
 
 
-bool proof_checker::match_app(expr const* e, func_decl*& d, ptr_vector<expr>& terms) const {
+bool proof_checker::match_app(expr const* e, func_decl*& d, vector<expr*>& terms) const {
     if (e->get_kind() == AST_APP) {
         d = to_app(e)->get_decl();
         for (expr* arg : *to_app(e)) {
@@ -1001,7 +1001,7 @@ bool proof_checker::match_op(expr const* e, decl_kind k, expr*& t1, expr*& t2) c
     return false;
 }
 
-bool proof_checker::match_op(expr const* e, decl_kind k, ptr_vector<expr>& terms) const {
+bool proof_checker::match_op(expr const* e, decl_kind k, vector<expr*>& terms) const {
     if (e->get_kind() == AST_APP &&
         to_app(e)->get_family_id() == m.get_basic_family_id() &&
         to_app(e)->get_decl_kind() == k) {
@@ -1028,11 +1028,11 @@ bool proof_checker::match_not(expr const* e, expr*& t) const {
     return match_op(e, OP_NOT, t);
 }
 
-bool proof_checker::match_or(expr const* e, ptr_vector<expr>& terms) const {
+bool proof_checker::match_or(expr const* e, vector<expr*>& terms) const {
     return match_op(e, OP_OR, terms);
 }
 
-bool proof_checker::match_and(expr const* e, ptr_vector<expr>& terms) const {
+bool proof_checker::match_and(expr const* e, vector<expr*>& terms) const {
     return match_op(e, OP_AND, terms);
 }
 
@@ -1076,7 +1076,7 @@ void proof_checker::get_ors(expr* e, expr_ref_vector& ors) {
 
 
 void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
-    ptr_vector<proof> stack;
+    vector<proof*> stack;
     expr* h = nullptr, *hyp = nullptr;
 
     stack.push_back(p);
@@ -1101,7 +1101,7 @@ void proof_checker::get_hypotheses(proof* p, expr_ref_vector& ante) {
             continue;
         }
         bool all_found = true;
-        ptr_vector<expr> hyps;
+        vector<expr*> hyps;
         for (unsigned i = 0; i < m.get_num_parents(p); ++i) {
             proof* p_i = m.get_parent(p, i);
             if (m_hypotheses.find(p_i, h)) {

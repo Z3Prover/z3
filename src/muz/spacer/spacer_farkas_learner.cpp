@@ -187,13 +187,13 @@ void farkas_learner::get_lemmas(proof* root, expr_set const& bs, expr_ref_vector
     proof_utils::permute_unit_resolution(pr);
     IF_VERBOSE(3, verbose_stream() << "Reduced proof:\n" << mk_ismt2_pp(pr, m) << "\n";);
 
-    ptr_vector<expr_set> hyprefs;
+    vector<expr_set*> hyprefs;
     obj_map<expr, expr_set*> hypmap;
     obj_hashtable<expr> lemma_set;
     ast_mark b_depend, a_depend, visited, b_closed;
     expr_set* empty_set = alloc(expr_set);
     hyprefs.push_back(empty_set);
-    ptr_vector<proof> todo;
+    vector<proof*> todo;
     TRACE("spacer_verbose", tout << mk_pp(pr, m) << "\n";);
     todo.push_back(pr);
     while (!todo.empty()) {
@@ -394,7 +394,7 @@ void farkas_learner::get_asserted(proof* p0, expr_set const& bs, ast_mark& b_clo
     ast_manager& m = lemmas.get_manager();
     ast_mark visited;
     proof* p = p0;
-    ptr_vector<proof> todo;
+    vector<proof*> todo;
     todo.push_back(p);
 
     while (!todo.empty()) {

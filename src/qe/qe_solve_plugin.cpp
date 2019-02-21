@@ -345,7 +345,7 @@ namespace qe {
                     func_decl* d = l->get_decl();
                     expr_ref_vector conjs(m);
                     conjs.push_back(dt.mk_is(d, rhs));
-                    ptr_vector<func_decl> const& acc = *dt.get_constructor_accessors(d);
+                    vector<func_decl*> const& acc = *dt.get_constructor_accessors(d);
                     for (unsigned i = 0; i < acc.size(); ++i) {
                         conjs.push_back(m.mk_eq(l->get_arg(i), m.mk_app(acc[i], rhs)));
                     }

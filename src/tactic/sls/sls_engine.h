@@ -67,7 +67,7 @@ protected:
     bv_util         m_bv_util;
     sls_tracker     m_tracker;
     sls_evaluator   m_evaluator;
-    ptr_vector<expr> m_assertions;
+    vector<expr*> m_assertions;
 
     unsigned        m_max_restarts;
     unsigned        m_walksat;
@@ -126,13 +126,13 @@ protected:
     double incremental_score(func_decl * fd, const mpz & new_value);
 
     double incremental_score_prune(func_decl * fd, const mpz & new_value);
-    double find_best_move(ptr_vector<func_decl> & to_evaluate, double score,
+    double find_best_move(vector<func_decl*> & to_evaluate, double score,
                           unsigned & best_const, mpz & best_value, unsigned & new_bit, move_type & move);
 
-    double find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double score,
+    double find_best_move_mc(vector<func_decl*> & to_evaluate, double score,
                           unsigned & best_const, mpz & best_value);
 
-    void mk_random_move(ptr_vector<func_decl> & unsat_constants);
+    void mk_random_move(vector<func_decl*> & unsat_constants);
 
     //double get_restart_armin(unsigned cnt_restarts);    
     unsigned check_restart(unsigned curr_value);

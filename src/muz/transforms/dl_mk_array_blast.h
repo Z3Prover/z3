@@ -54,7 +54,7 @@ namespace datalog {
 
         expr* get_select(expr* e) const;
 
-        void get_select_args(expr* e, ptr_vector<expr>& args) const;
+        void get_select_args(expr* e, vector<expr*>& args) const;
 
         bool insert_def(rule const& r, app* e, var* v);
 

@@ -34,7 +34,7 @@ class quasi_macros {
     macro_manager &           m_macro_manager;
     th_rewriter               m_rewriter;
     occurrences_map           m_occurrences;
-    ptr_vector<expr>          m_todo;
+    vector<expr*>          m_todo;
 
     vector<symbol>            m_new_var_names;
     expr_ref_vector           m_new_vars;

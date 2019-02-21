@@ -780,7 +780,7 @@ namespace sat {
         std::sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
 
-        ptr_vector<op_entry> to_delete, to_keep;
+        vector<op_entry*> to_delete, to_keep;
         for (auto* e : m_op_cache) {            
             if (e->m_result != null_bdd) {
                 to_delete.push_back(e);

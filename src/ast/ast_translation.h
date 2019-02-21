@@ -34,8 +34,8 @@ class ast_translation {
     ast_manager &       m_from_manager;
     ast_manager &       m_to_manager;
     vector<frame>      m_frame_stack;
-    ptr_vector<ast>     m_extra_children_stack; // for sort and func_decl, since they have nested AST in their parameters
-    ptr_vector<ast>     m_result_stack; 
+    vector<ast*>     m_extra_children_stack; // for sort and func_decl, since they have nested AST in their parameters
+    vector<ast*>     m_result_stack; 
     obj_map<ast, ast*>  m_cache;
     unsigned            m_loop_count;
     unsigned            m_hit_count;
@@ -116,7 +116,7 @@ inline expr * translate(expr const * e, ast_manager & from, ast_manager & to) {
 
 class expr_dependency_translation {
     ast_translation & m_translation;
-    ptr_vector<expr>  m_buffer;
+    vector<expr*>  m_buffer;
 public:
     expr_dependency_translation(ast_translation & t):m_translation(t) {}
     expr_dependency * operator()(expr_dependency * d);

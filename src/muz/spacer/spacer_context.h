@@ -65,7 +65,7 @@ class reach_fact {
     unsigned m_ref_count;
 
     expr_ref m_fact;
-    ptr_vector<app> m_aux_vars;
+    vector<app*> m_aux_vars;
 
     const datalog::rule &m_rule;
     reach_fact_ref_vector m_justification;
@@ -77,7 +77,7 @@ class reach_fact {
 
 public:
     reach_fact (ast_manager &m, const datalog::rule &rule,
-                expr* fact, const ptr_vector<app> &aux_vars,
+                expr* fact, const vector<app*> &aux_vars,
                 bool init = false) :
         m_ref_count (0), m_fact (fact, m), m_aux_vars (aux_vars),
         m_rule(rule), m_tag(m), m_init (init) {}
@@ -92,7 +92,7 @@ public:
     const reach_fact_ref_vector& get_justifications () {return m_justification;}
 
     expr *get () {return m_fact.get ();}
-    const ptr_vector<app> &aux_vars () {return m_aux_vars;}
+    const vector<app*> &aux_vars () {return m_aux_vars;}
 
     app* tag() const {SASSERT(m_tag); return m_tag;}
     void set_tag(app* tag) {m_tag = tag;}
@@ -329,7 +329,7 @@ class pred_transformer {
     class pt_rule {
         const datalog::rule &m_rule;
         expr_ref m_trans;        // ground version of m_rule
-        ptr_vector<app> m_auxs;  // auxiliary variables in m_trans
+        vector<app*> m_auxs;  // auxiliary variables in m_trans
         app_ref_vector m_reps;   // map from fv in m_rule to ground constants
         app_ref m_tag;           // a unique tag for the rule
 
@@ -342,8 +342,8 @@ class pred_transformer {
         void set_tag(expr *tag) {SASSERT(is_app(tag)); set_tag(to_app(tag));}
         void set_tag(app* tag) {m_tag = tag;}
         app* tag() const {return m_tag;}
-        ptr_vector<app> &auxs() {return m_auxs;}
-        void set_auxs(ptr_vector<app> &v) {m_auxs.clear(); m_auxs.append(v);}
+        vector<app*> &auxs() {return m_auxs;}
+        void set_auxs(vector<app*> &v) {m_auxs.clear(); m_auxs.append(v);}
         void set_reps(app_ref_vector &v) {m_reps.clear(); m_reps.append(v);}
 
         void set_trans(expr_ref &v) {m_trans=v;}
@@ -390,9 +390,9 @@ class pred_transformer {
 
     func_decl_ref                m_head;            // predicate
     func_decl_ref_vector         m_sig;             // signature
-    ptr_vector<pred_transformer> m_use;             // places where 'this' is referenced.
+    vector<pred_transformer*> m_use;             // places where 'this' is referenced.
     pt_rules                     m_pt_rules;           // pt rules used to derive transformer
-    ptr_vector<datalog::rule>    m_rules;           // rules used to derive transformer
+    vector<datalog::rule*>    m_rules;           // rules used to derive transformer
     scoped_ptr<prop_solver>      m_solver;          // solver context
     ref<solver>                  m_reach_solver;       // context for reachability facts
     pob_manager                         m_pobs;            // proof obligations created so far
@@ -405,7 +405,7 @@ class pred_transformer {
     app_ref                      m_extend_lit0;     // first literal used to extend initial state
     app_ref                      m_extend_lit;      // current literal to extend initial state
     bool                         m_all_init;        // true if the pt has no uninterpreted body in any rule
-    ptr_vector<func_decl>        m_predicates;      // temp vector used with find_predecessors()
+    vector<func_decl*>        m_predicates;      // temp vector used with find_predecessors()
     stats                        m_stats;
     stopwatch                    m_initialize_watch;
     stopwatch                    m_must_reachable_watch;
@@ -449,14 +449,14 @@ public:
         }
         return nullptr;
     }
-    void find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& predicates) const;
+    void find_predecessors(datalog::rule const& r, vector<func_decl*>& predicates) const;
 
     void add_rule(datalog::rule* r) {m_rules.push_back(r);}
     void add_use(pred_transformer* pt) { if(!m_use.contains(pt)) { m_use.push_back(pt); } }
     void initialize(decl2rel const& pts);
 
     func_decl* head() const {return m_head;}
-    ptr_vector<datalog::rule> const& rules() const {return m_rules;}
+    vector<datalog::rule*> const& rules() const {return m_rules;}
     func_decl* sig(unsigned i) const {return m_sig[i];} // signature
     func_decl* const* sig() {return m_sig.c_ptr();}
     unsigned  sig_size() const {return m_sig.size();}
@@ -484,7 +484,7 @@ public:
     reach_fact* get_used_origin_rf(model &mdl, unsigned oidx);
     expr_ref get_origin_summary(model &mdl,
                                 unsigned level, unsigned oidx, bool must,
-                                const ptr_vector<app> **aux);
+                                const vector<app*> **aux);
 
     bool is_ctp_blocked(lemma *lem);
     const datalog::rule *find_rule(model &mdl);
@@ -495,7 +495,7 @@ public:
         pt_rule *p;
         return m_pt_rules.find_by_rule(r, p) ? p->trans() : nullptr;
     }
-    ptr_vector<app>& get_aux_vars(datalog::rule const& r) {
+    vector<app*>& get_aux_vars(datalog::rule const& r) {
         pt_rule *p = nullptr;
         VERIFY(m_pt_rules.find_by_rule(r, p));
         return p->auxs();
@@ -559,7 +559,7 @@ public:
 
     void inherit_lemmas(pred_transformer& other);
 
-    void ground_free_vars(expr* e, app_ref_vector& vars, ptr_vector<app>& aux_vars,
+    void ground_free_vars(expr* e, app_ref_vector& vars, vector<app*>& aux_vars,
                           bool is_init);
 
     /// \brief Adds a given expression to the set of initial rules
@@ -621,9 +621,9 @@ class pob {
 
     /// pobs created as children of this pob (at any time, not
     /// necessarily currently active)
-    ptr_vector<pob>  m_kids;
+    vector<pob*>  m_kids;
     // lemmas created to block this pob (at any time, not necessarily active)
-    ptr_vector<lemma> m_lemmas;
+    vector<lemma*> m_lemmas;
 
     // depth -> watch
     std::map<unsigned, stopwatch> m_expand_watches;
@@ -680,11 +680,11 @@ public:
     bool is_closed () const { return !m_open; }
     void close();
 
-    const ptr_vector<pob> &children() const {return m_kids;}
+    const vector<pob*> &children() const {return m_kids;}
     void add_child (pob &v) {m_kids.push_back (&v);}
     void erase_child (pob &v) {m_kids.erase (&v);}
 
-    const ptr_vector<lemma> &lemmas() const {return m_lemmas;}
+    const vector<lemma*> &lemmas() const {return m_lemmas;}
     void add_lemma(lemma* new_lemma) {m_lemmas.push_back(new_lemma);}
 
     bool is_ground () const { return m_binding.empty (); }
@@ -753,7 +753,7 @@ class derivation {
 
     public:
         premise (pred_transformer &pt, unsigned oidx, expr *summary, bool must,
-                 const ptr_vector<app> *aux_vars = nullptr);
+                 const vector<app*> *aux_vars = nullptr);
         premise (const premise &p);
 
         bool is_must() {return m_must;}
@@ -765,7 +765,7 @@ class derivation {
         /// \brief Updated the summary.
         /// The new summary is over n-variables.
         void set_summary(expr * summary, bool must,
-                         const ptr_vector<app> *aux_vars = nullptr);
+                         const vector<app*> *aux_vars = nullptr);
     };
 
 
@@ -792,7 +792,7 @@ public:
     derivation (pob& parent, datalog::rule const& rule,
                 expr *trans, app_ref_vector const &evars);
     void add_premise (pred_transformer &pt, unsigned oidx,
-                      expr * summary, bool must, const ptr_vector<app> *aux_vars = nullptr);
+                      expr * summary, bool must, const vector<app*> *aux_vars = nullptr);
 
     /// creates the first child. Must be called after all the premises
     /// are added. The model must be valid for the premises

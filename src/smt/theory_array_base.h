@@ -57,7 +57,7 @@ namespace smt {
 
         unsigned get_dimension(sort* s) const;
         
-        ptr_vector<enode>                   m_axiom1_todo;
+        vector<enode*>                   m_axiom1_todo;
         enode_pair_vector                   m_axiom2_todo;
         enode_pair_vector                   m_extensionality_todo;
 
@@ -76,7 +76,7 @@ namespace smt {
         // Array sort -> extensionality skolems
         // 
         // --------------------------------------------------
-        ptr_vector<sort>                     m_sorts_trail;
+        vector<sort*>                     m_sorts_trail;
         obj_map<sort, func_decl_ref_vector*> m_sort2skolem;
 
         func_decl_ref_vector * register_sort(sort * s_array);
@@ -163,12 +163,12 @@ namespace smt {
         typedef ptr_hashtable<enode, sel_hash, sel_eq> select_set;
 
         array_factory *              m_factory;
-        ptr_vector<enode>            m_defaults;       // temporary field for model construction
-        ptr_vector<void>             m_else_values;    // tagged pointer: expr or extra_fresh_value
+        vector<enode*>            m_defaults;       // temporary field for model construction
+        vector<void*>             m_else_values;    // tagged pointer: expr or extra_fresh_value
         vector<int>                 m_parents;        // temporary field for model construction
         obj_map<enode, select_set*>  m_selects;        // mapping from array -> relevant selects
-        ptr_vector<enode>            m_selects_domain; 
-        ptr_vector<select_set>       m_selects_range;
+        vector<enode*>            m_selects_domain; 
+        vector<select_set*>       m_selects_range;
         bool                         m_use_unspecified_default;  // temporary field for model construction
 
         theory_var mg_find(theory_var v);

@@ -35,7 +35,7 @@ namespace spacer {
         ast_manager& m;
         iuc_proof&   m_pr;
 
-        ptr_vector<unsat_core_plugin> m_plugins;
+        vector<unsat_core_plugin*> m_plugins;
         ast_mark m_closed;
 
         expr_ref_vector m_unsat_core;

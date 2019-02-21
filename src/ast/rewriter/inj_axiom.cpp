@@ -109,7 +109,7 @@ bool simplify_inj_axiom(ast_manager & m, quantifier * q, expr_ref & result) {
                     SASSERT(var != 0);
                     app * f    = m.mk_app(decl, f_args.size(), f_args.c_ptr());
 
-                    ptr_vector<sort>  domain;
+                    vector<sort*>  domain;
                     inv_vars.push_back(f);
                     for (unsigned i = 0; i < inv_vars.size(); ++i) {
                         domain.push_back(m.get_sort(inv_vars[i]));

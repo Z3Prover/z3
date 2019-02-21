@@ -41,7 +41,7 @@ namespace datalog {
         */
         deps_type        m_data;
         context &        m_context;
-        ptr_vector<expr> m_todo;
+        vector<expr*> m_todo;
         expr_sparse_mark m_visited;
 
 
@@ -83,7 +83,7 @@ namespace datalog {
              ordered so that elements can depend only on elements that are before them.
              If the graph is not acyclic, return false.
          */
-        bool sort_deps(ptr_vector<func_decl> & res);
+        bool sort_deps(vector<func_decl*> & res);
 
         iterator begin() const { return m_data.begin(); }
         iterator end() const { return m_data.end(); }
@@ -95,7 +95,7 @@ namespace datalog {
     public:
         typedef func_decl T;
         typedef obj_hashtable<T> item_set;
-        typedef ptr_vector<item_set> comp_vector;
+        typedef vector<item_set*> comp_vector;
         typedef obj_map<T, item_set *> deps_type;
     private:
 
@@ -103,8 +103,8 @@ namespace datalog {
         comp_vector m_strats;
 
         obj_map<T, unsigned> m_preorder_nums;
-        ptr_vector<T> m_stack_S;
-        ptr_vector<T> m_stack_P;
+        vector<T*> m_stack_S;
+        vector<T*> m_stack_P;
 
         obj_map<T, unsigned> m_component_nums;
         comp_vector m_components;
@@ -155,7 +155,7 @@ namespace datalog {
     class rule_set {
         friend class rule_dependencies;
     public:
-        typedef ptr_vector<func_decl_set> pred_set_vector;
+        typedef vector<func_decl_set*> pred_set_vector;
         typedef obj_map<func_decl, rule_vector*> decl2rules;
     private:
         typedef obj_map<func_decl, func_decl_set*> decl2deps;

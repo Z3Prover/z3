@@ -35,7 +35,7 @@ public:
         fail_if_proof_generation("ackermannize", g);
         TRACE("ackermannize", g->display(tout << "in\n"););
 
-        ptr_vector<expr> flas;
+        vector<expr*> flas;
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++) flas.push_back(g->form(i));
         lackr lackr(m, m_p, m_st, flas, nullptr);

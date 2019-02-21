@@ -133,7 +133,7 @@ public:
     obj_map<expr, expr*>             m_fd;
     obj_map<expr, unsigned>          m_max;
     expr_mark                        m_nonfd;
-    ptr_vector<expr>                 m_todo;
+    vector<expr*>                 m_todo;
         
     eq2bv_tactic(ast_manager & _m):
         m(_m),
@@ -227,7 +227,7 @@ public:
 
     void cleanup_fd(ref<bvmc>& mc) {
         SASSERT(m_fd.empty());
-        ptr_vector<expr> rm;
+        vector<expr*> rm;
         obj_map<expr, unsigned>::iterator it = m_max.begin(), end = m_max.end();
         for (; it != end; ++it) {
             if (m_nonfd.is_marked(it->m_key)) {

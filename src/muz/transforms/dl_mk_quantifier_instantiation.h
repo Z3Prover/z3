@@ -44,10 +44,10 @@ namespace datalog {
         expr_safe_replace m_var2cnst; 
         expr_safe_replace m_cnst2var;
         basic_union_find  m_uf;
-        ptr_vector<expr>  m_todo;
-        ptr_vector<expr>  m_terms;
-        ptr_vector<expr>  m_binding;
-        obj_map<func_decl, ptr_vector<expr>*> m_funs;
+        vector<expr*>  m_todo;
+        vector<expr*>  m_terms;
+        vector<expr*>  m_binding;
+        obj_map<func_decl, vector<expr*>*> m_funs;
 
 
         void extract_quantifiers(rule& r, expr_ref_vector& conjs, quantifier_ref_vector& qs);

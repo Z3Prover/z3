@@ -740,7 +740,7 @@ public:
 class declare_map_cmd : public cmd {
     symbol           m_array_sort;
     symbol           m_name;
-    ptr_vector<sort> m_domain;
+    vector<sort*> m_domain;
     func_decl *      m_f;
     family_id        m_array_fid;
 public:
@@ -782,7 +782,7 @@ public:
         psort_decl * array_sort = ctx.find_psort_decl(m_array_sort);
         if (array_sort == nullptr)
             throw cmd_exception("Array sort is not available");
-        ptr_vector<sort> & array_sort_args = m_domain;
+        vector<sort*> & array_sort_args = m_domain;
         sort_ref_buffer domain(ctx.m());
         unsigned arity = m_f->get_arity();
         for (unsigned i = 0; i < arity; i++) {
@@ -803,8 +803,8 @@ public:
 };
 
 class get_consequences_cmd : public cmd {
-    ptr_vector<expr> m_assumptions;
-    ptr_vector<expr> m_variables;
+    vector<expr*> m_assumptions;
+    vector<expr*> m_variables;
     unsigned         m_count;
 public:
     get_consequences_cmd(): cmd("get-consequences"), m_count(0) {}

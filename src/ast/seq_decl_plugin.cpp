@@ -370,7 +370,7 @@ bool seq_decl_plugin::is_sort_param(sort* s, unsigned& idx) {
         (idx = s->get_name().get_num(), true);
 }
 
-bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
+bool seq_decl_plugin::match(vector<sort*>& binding, sort* s, sort* sP) {
     if (s == sP) return true;
     unsigned idx;
     if (is_sort_param(sP, idx)) {
@@ -404,7 +404,7 @@ bool seq_decl_plugin::match(ptr_vector<sort>& binding, sort* s, sort* sP) {
   \brief match right associative operator.
 */
 void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* dom, sort* range, sort_ref& range_out) {
-    ptr_vector<sort> binding;
+    vector<sort*> binding;
     ast_manager& m = *m_manager;
     TRACE("seq_verbose",
           tout << sig.m_name << ": ";
@@ -486,7 +486,7 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
     SASSERT(range_out);
 }
 
-sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
+sort* seq_decl_plugin::apply_binding(vector<sort*> const& binding, sort* s) {
     unsigned i;
     if (is_sort_param(s, i)) {
         if (binding.size() <= i || !binding[i]) {

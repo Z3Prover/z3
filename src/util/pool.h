@@ -24,7 +24,7 @@ Revision History:
 
 template<typename T>
 class pool {
-    ptr_vector<T> m_objs;
+    vector<T*> m_objs;
 public:
     ~pool() {
         std::for_each(m_objs.begin(), m_objs.end(), delete_proc<T>());

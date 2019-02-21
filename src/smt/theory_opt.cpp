@@ -26,7 +26,7 @@ Notes:
 namespace smt {
     bool theory_opt::is_linear(ast_manager& m, expr* term) {
         arith_util a(m);
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         ast_mark mark;
         todo.push_back(term);
         expr* t1, *t2;

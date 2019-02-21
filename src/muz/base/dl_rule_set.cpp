@@ -80,7 +80,7 @@ namespace datalog {
     void rule_dependencies::populate(const rule_set & rules) {
         SASSERT(m_data.empty());
         for (auto & kv : rules.m_head2rules) {
-            ptr_vector<rule> * rules = kv.m_value;
+            vector<rule*> * rules = kv.m_value;
             for (rule* r : *rules) {
                 populate(r);
             }
@@ -138,7 +138,7 @@ namespace datalog {
     }
 
     void rule_dependencies::restrict(const item_set & allowed) {
-        ptr_vector<func_decl> to_remove;
+        vector<func_decl*> to_remove;
         for (auto const& kv : *this) {
             func_decl * pred = kv.m_key;
             if (!allowed.contains(pred)) {
@@ -181,7 +181,7 @@ namespace datalog {
         return res;
     }
 
-    bool rule_dependencies::sort_deps(ptr_vector<func_decl> & res) {
+    bool rule_dependencies::sort_deps(vector<func_decl*> & res) {
         typedef obj_map<func_decl, unsigned> deg_map;
         unsigned init_len = res.size();
         deg_map degs;
@@ -336,7 +336,7 @@ namespace datalog {
         SASSERT(head != 0);
         func_decl * d = head->get_decl();
         decl2rules::obj_map_entry* e = m_head2rules.insert_if_not_there2(d, 0);
-        if (!e->get_data().m_value) e->get_data().m_value = alloc(ptr_vector<rule>);
+        if (!e->get_data().m_value) e->get_data().m_value = alloc(vector<rule*>);
         e->get_data().m_value->push_back(r);
     }
 
@@ -404,8 +404,8 @@ namespace datalog {
        \brief Return true if the negation is indeed stratified.
     */
     bool rule_set::stratified_negation() {
-        ptr_vector<rule>::const_iterator it  = m_rules.c_ptr();
-        ptr_vector<rule>::const_iterator end = m_rules.c_ptr()+m_rules.size();
+        vector<rule*>::const_iterator it  = m_rules.c_ptr();
+        vector<rule*>::const_iterator end = m_rules.c_ptr()+m_rules.size();
         for (; it != end; it++) {
             rule * r = *it;
             app * head = r->get_head();
@@ -505,9 +505,9 @@ namespace datalog {
         decl2rules::iterator it  = m_head2rules.begin();
         decl2rules::iterator end = m_head2rules.end();
         for (; it != end; ++it) {
-            ptr_vector<rule> * rules = it->m_value;
-            ptr_vector<rule>::iterator it2  = rules->begin();
-            ptr_vector<rule>::iterator end2 = rules->end();
+            vector<rule*> * rules = it->m_value;
+            vector<rule*>::iterator it2  = rules->begin();
+            vector<rule*>::iterator end2 = rules->end();
             for (; it2 != end2; ++it2) {
                 rule * r = *it2;
                 if (!r->passes_output_thresholds(m_context)) {

@@ -35,7 +35,7 @@ static void tst1() {
 }
 
 static void tst2(unsigned num, unsigned del_rate) {
-    ptr_vector<char> ptrs;
+    vector<char*> ptrs;
     stack s;
     for (unsigned i = 0; i < num; i++) {
         ENSURE(ptrs.empty() == s.empty());

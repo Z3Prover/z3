@@ -549,7 +549,7 @@ namespace opt {
         case O_MAXSMT: {
             pb_util      pb(m);
             unsigned sz = obj.m_terms.size();
-            ptr_vector<expr> terms;
+            vector<expr*> terms;
             vector<rational> coeffs;
             for (unsigned i = 0; i < sz; ++i) {
                 terms.push_back(obj.m_terms[i]);
@@ -833,7 +833,7 @@ namespace opt {
                 continue;
             }
 
-            ptr_vector<expr> deps;
+            vector<expr*> deps;
             expr_dependency_ref core(r->dep(i), m);
             m.linearize(core, deps);
             if (!deps.empty()) {
@@ -844,7 +844,7 @@ namespace opt {
             }
         }        
         if (r->inconsistent()) {
-            ptr_vector<expr> core_elems;
+            vector<expr*> core_elems;
             expr_dependency_ref core(r->dep(0), m);
             m.linearize(core, core_elems);
             m_core.append(core_elems.size(), core_elems.c_ptr());
@@ -986,7 +986,7 @@ namespace opt {
     }
 
     expr* context::mk_objective_fn(unsigned index, objective_t ty, unsigned sz, expr*const* args) {
-        ptr_vector<sort> domain;
+        vector<sort*> domain;
         for (unsigned i = 0; i < sz; ++i) {
             domain.push_back(m.get_sort(args[i]));
         }

@@ -136,7 +136,7 @@ void model2expr(model& md, expr_ref& result) {
             }
             tmp = m.mk_eq(func, tmp);
         }
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         expr_ref_vector  rev_vars(m);
         vector<symbol>  names;
         unsigned sz = f->get_arity();

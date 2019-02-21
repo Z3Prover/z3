@@ -77,7 +77,7 @@ namespace datalog {
         bool check_params(unsigned low, unsigned up, unsigned val) const;
 
         bool is_rel_sort(sort* s);
-        bool is_rel_sort(sort* s, ptr_vector<sort>& sorts);
+        bool is_rel_sort(sort* s, vector<sort*>& sorts);
         bool is_fin_sort(sort* r);
 
         func_decl * mk_store_select(decl_kind k, unsigned arity, sort * const * domain);

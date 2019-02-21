@@ -1110,7 +1110,7 @@ namespace smt {
         CTRACE("arith_verbose", !m_new_atoms.empty(), tout << "flush bound axioms\n";);
 
         while (!m_new_atoms.empty()) {
-            ptr_vector<atom> atoms;
+            vector<atom*> atoms;
             atoms.push_back(m_new_atoms.back());
             m_new_atoms.pop_back();
             theory_var v = atoms.back()->get_var();
@@ -1126,7 +1126,7 @@ namespace smt {
                   for (unsigned i = 0; i < atoms.size(); ++i) {
                       atoms[i]->display(*this, tout); tout << "\n";
                   });
-            ptr_vector<atom> occs(m_var_occs[v]);
+            vector<atom*> occs(m_var_occs[v]);
 
             std::sort(atoms.begin(), atoms.end(), compare_atoms());
             std::sort(occs.begin(), occs.end(), compare_atoms());
@@ -3470,8 +3470,8 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::del_bounds(unsigned old_size) {
-        typename ptr_vector<bound>::iterator begin = m_bounds_to_delete.begin() + old_size;
-        typename ptr_vector<bound>::iterator it    = m_bounds_to_delete.end();
+        typename vector<bound*>::iterator begin = m_bounds_to_delete.begin() + old_size;
+        typename vector<bound*>::iterator it    = m_bounds_to_delete.end();
         while (it != begin) {
             --it;
             bound * b = *it;

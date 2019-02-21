@@ -119,7 +119,7 @@ public:
         }
     }
 
-    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
+    void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) override {
         m_base->get_levels(vars, depth);
     }
 
@@ -337,8 +337,8 @@ solver_pool::solver_pool(solver* base_solver, unsigned num_pools):
 }
 
 
-ptr_vector<solver> solver_pool::get_base_solvers() const {
-    ptr_vector<solver> solvers;
+vector<solver*> solver_pool::get_base_solvers() const {
+    vector<solver*> solvers;
     for (solver* s0 : m_solvers) {
         pool_solver* s = dynamic_cast<pool_solver*>(s0);
         if (!solvers.contains(s->base_solver())) {
@@ -353,7 +353,7 @@ void solver_pool::updt_params(const params_ref &p) {
     for (solver *s : m_solvers) s->updt_params(p);
 }
 void solver_pool::collect_statistics(statistics &st) const {
-    ptr_vector<solver> solvers = get_base_solvers();
+    vector<solver*> solvers = get_base_solvers();
     for (solver* s : solvers) s->collect_statistics(st);
     st.update("time.pool_solver.smt.total", m_check_watch.get_seconds());
     st.update("time.pool_solver.smt.total.sat", m_check_sat_watch.get_seconds());
@@ -366,7 +366,7 @@ void solver_pool::collect_statistics(statistics &st) const {
 
 void solver_pool::reset_statistics() {
 #if 0
-    ptr_vector<solver> solvers = get_base_solvers();
+    vector<solver*> solvers = get_base_solvers();
     for (solver* s : solvers) {
         s->reset_statistics();
     }

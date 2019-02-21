@@ -63,7 +63,7 @@ protected:
 
     expr_map                  m_cache;      // map: ast  -> ast    ref. counters are incremented when inserted here.
     expr_ref                  m_bit0;
-    ptr_vector<expr>  m_args;        
+    vector<expr*>  m_args;        
 
 
     void visit(app* n);

@@ -137,7 +137,7 @@ class occf_tactic : public tactic {
             
             m_mc = nullptr;
             
-            ptr_vector<expr> new_lits;
+            vector<expr*> new_lits;
             
             cnstr2bvar c2b;
             

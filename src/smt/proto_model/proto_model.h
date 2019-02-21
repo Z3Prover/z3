@@ -43,7 +43,7 @@ class proto_model : public model_core {
     plugin_manager<value_factory> m_factories;
     user_sort_factory *           m_user_sort_factory;
     func_decl_set                 m_aux_decls;
-    ptr_vector<expr>              m_tmp;
+    vector<expr*>              m_tmp;
     model_evaluator               m_eval;
     th_rewriter                   m_rewrite;
 
@@ -55,7 +55,7 @@ class proto_model : public model_core {
     // Invariant: m_func_decls  subset m_decls
     // Invariant: m_const_decls subset m_decls
     
-    void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
+    void remove_aux_decls_not_in_set(vector<func_decl*> & decls, func_decl_set const & s);
     void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
 
 
@@ -94,7 +94,7 @@ public:
     void freeze_universe(sort * s);
     bool is_finite(sort * s) const;
     obj_hashtable<expr> const & get_known_universe(sort * s) const;
-    ptr_vector<expr> const & get_universe(sort * s) const override;
+    vector<expr*> const & get_universe(sort * s) const override;
     unsigned get_num_uninterpreted_sorts() const override;
     sort * get_uninterpreted_sort(unsigned idx) const override;
 

@@ -111,7 +111,7 @@ struct aig_manager::imp {
     unsigned                 m_num_aigs;
     expr_ref_vector          m_var2exprs;
     small_object_allocator   m_allocator;
-    ptr_vector<aig>          m_to_delete;
+    vector<aig*>          m_to_delete;
     aig_lit                  m_true;
     aig_lit                  m_false;
     bool                     m_default_gate_encoding;
@@ -822,8 +822,8 @@ struct aig_manager::imp {
             visited = false;
         }
 
-        ptr_vector<expr> m_and_children;
-        ptr_vector<aig>  m_and_todo;
+        vector<expr*> m_and_children;
+        vector<aig*>  m_and_todo;
 
         void add_child(aig_lit c) {
             aig * n = c.ptr();
@@ -944,7 +944,7 @@ struct aig_manager::imp {
         */
         void naive(aig_lit const & l, expr_ref & r) {
             expr_ref_vector cache(ast_mng);
-            ptr_vector<aig> todo;
+            vector<aig*> todo;
             todo.push_back(l.ptr());
             while (!todo.empty()) {
                 aig * t = todo.back();
@@ -1032,7 +1032,7 @@ struct aig_manager::imp {
         vector<frame>    m_frame_stack;
         vector<aig_lit>  m_result_stack;
         vector<aig_lit>  m_cache;
-        ptr_vector<aig>   m_saved;
+        vector<aig*>   m_saved;
 
         max_sharing_proc(imp & _m):m(_m) {}
 
@@ -1555,7 +1555,7 @@ public:
     void display(std::ostream & out, aig_lit const & r) const {
         display_ref(out, r); 
         out << "\n";
-        ptr_vector<aig> queue;
+        vector<aig*> queue;
         unsigned        qhead = 0;
         queue.push_back(r.ptr());
         while (qhead < queue.size()) {
@@ -1599,8 +1599,8 @@ public:
     }
 
     void display_smt2(std::ostream & out, aig_lit const & r) const {
-        ptr_vector<aig> to_unmark;
-        ptr_vector<aig> todo;
+        vector<aig*> to_unmark;
+        vector<aig*> todo;
         todo.push_back(r.ptr());
         while (!todo.empty()) {
             aig * t = todo.back();

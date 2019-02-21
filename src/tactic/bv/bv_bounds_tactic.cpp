@@ -404,7 +404,7 @@ namespace {
         }
 
         // check if t contains v
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         bool contains(expr* t, expr* v) {
             ast_fast_mark1 mark;
             todo.push_back(t);
@@ -720,7 +720,7 @@ namespace {
         }
 
         // check if t contains v
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         bool contains(expr* t, expr* v) {
             ast_fast_mark1 mark;
             todo.push_back(t);

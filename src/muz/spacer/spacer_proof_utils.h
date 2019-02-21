@@ -57,7 +57,7 @@ public:
     proof_ref reduce(proof* pf);
 
 private:
-    typedef ptr_vector<proof> proof_ptr_vector;
+    typedef vector<proof*> proof_ptr_vector;
 
     ast_manager &m;
 
@@ -67,7 +67,7 @@ private:
     expr_ref_vector m_pinned;
 
     // created sets of active hypothesis
-    ptr_vector<proof_ptr_vector> m_pinned_active_hyps;
+    vector<proof_ptr_vector*> m_pinned_active_hyps;
 
     // maps a proof to the transformed proof
     obj_map<proof, proof*> m_cache;

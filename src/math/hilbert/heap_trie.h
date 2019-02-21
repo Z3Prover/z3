@@ -123,7 +123,7 @@ class heap_trie {
         }
         
         // push nodes whose keys are <= key into vector.
-        void find_le(KeyLE& le, Key key, ptr_vector<node>& nodes) {
+        void find_le(KeyLE& le, Key key, vector<node*>& nodes) {
             for (unsigned i = 0; i < m_nodes.size(); ++i) {
                 if (le.le(m_nodes[i].first, key)) {
                     node* n = m_nodes[i].second;
@@ -251,7 +251,7 @@ public:
 
     void find_all_le(Key const* keys, vector<Value>& values) {
         ++m_stats.m_num_find_le;
-        ptr_vector<node> todo[2];
+        vector<node*> todo[2];
         todo[0].push_back(m_root);
         bool index = false;
         for (unsigned i = 0; i < num_keys(); ++i) {
@@ -304,7 +304,7 @@ public:
         st.update("heap_trie.num_find_le_nodes", m_stats.m_num_find_le_nodes);
         if (m_root) st.update("heap_trie.num_nodes", m_root->num_nodes());
         vector<unsigned> nums;
-        ptr_vector<node> todo;
+        vector<node*> todo;
         if (m_root) todo.push_back(m_root);
         while (!todo.empty()) {
             node* n = todo.back();
@@ -350,7 +350,7 @@ public:
     }
 
     class iterator {
-        ptr_vector<node> m_path;
+        vector<node*> m_path;
         vector<unsigned>  m_idx;
         vector<Key>      m_keys;
         unsigned         m_count;
@@ -472,7 +472,7 @@ private:
         vector<key_set> weights;
         weights.resize(num_keys());
         vector<unsigned> depth;
-        ptr_vector<node> nodes;
+        vector<node*> nodes;
         depth.push_back(0);
         nodes.push_back(m_root);
         while (!nodes.empty()) {

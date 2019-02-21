@@ -31,7 +31,7 @@ namespace opt {
     class sortmax : public maxsmt_solver_base {
     public:
         typedef expr* pliteral;
-        typedef ptr_vector<expr> pliteral_vector;
+        typedef vector<expr*> pliteral_vector;
         psort_nw<sortmax> m_sort;
         expr_ref_vector   m_trail;
         func_decl_ref_vector m_fresh;
@@ -55,7 +55,7 @@ namespace opt {
             m_upper = offset;
             expr_ref_vector in(m);
             expr_ref tmp(m);
-            ptr_vector<expr> out;
+            vector<expr*> out;
             obj_map<expr, rational>::iterator it = soft.begin(), end = soft.end();
             for (; it != end; ++it) {
                 if (!it->m_value.is_unsigned()) {

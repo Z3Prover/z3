@@ -165,7 +165,7 @@ class ufbv_rewriter {
     demodulator2lhs_rhs m_demodulator2lhs_rhs;
     expr_ref_buffer     m_todo;
     obj_hashtable<expr> m_processed;
-    ptr_vector<expr>    m_new_args;
+    vector<expr*>    m_new_args;
 
     expr_ref_buffer     m_rewrite_todo;
     rewrite_cache_map   m_rewrite_cache;
@@ -179,7 +179,7 @@ class ufbv_rewriter {
     bool can_rewrite(expr * n, expr * lhs);
     
     expr * rewrite(expr * n);
-    bool rewrite1(func_decl * f, ptr_vector<expr> & m_new_args, expr_ref & np);
+    bool rewrite1(func_decl * f, vector<expr*> & m_new_args, expr_ref & np);
     bool rewrite_visit_children(app * a);
     void rewrite_cache(expr * e, expr * new_e, bool done);
     void reschedule_processed(func_decl * f);
@@ -256,7 +256,7 @@ public:
          typedef obj_hashtable<expr> expr_set;
          obj_map<func_decl, expr_set *> m_back_idx;
          we should represent the sets as hashtables because we want to be able to efficiently remove elements from these sets.
-         ptr_vector<expr_set>           m_expr_set_to_delete; // same trick we used in macro_manager.
+         vector<expr_set*>           m_expr_set_to_delete; // same trick we used in macro_manager.
          we can use a similar structure for m_back_idx and m_fwd_idx for demodulators.
          
      Note: m_processed should be obj_hashtable<expr> since we want to remove elements from there efficiently.

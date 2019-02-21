@@ -88,8 +88,8 @@ namespace smt {
        \brief Create the mapping root2proc: enode-root -> model_value_proc, and roots.
        Store the new model_value_proc at procs.
     */
-    void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, ptr_vector<enode> & roots, 
-                                         ptr_vector<model_value_proc> & procs) {
+    void model_generator::mk_value_procs(obj_map<enode, model_value_proc *> & root2proc, vector<enode*> & roots, 
+                                         vector<model_value_proc*> & procs) {
         for (enode * r : m_context->enodes()) {
             if (r == r->get_root() && m_context->is_relevant(r)) {
                 roots.push_back(r);
@@ -165,7 +165,7 @@ namespace smt {
     }
     
     bool model_generator::visit_children(source const & src, 
-                                         ptr_vector<enode> const & roots, 
+                                         vector<enode*> const & roots, 
                                          obj_map<enode, model_value_proc *> const & root2proc, 
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
@@ -212,7 +212,7 @@ namespace smt {
     }
 
     void model_generator::process_source(source const & src,
-                                         ptr_vector<enode> const & roots, 
+                                         vector<enode*> const & roots, 
                                          obj_map<enode, model_value_proc *> const & root2proc, 
                                          source2color & colors, 
                                          obj_hashtable<sort> & already_traversed, 
@@ -254,7 +254,7 @@ namespace smt {
     /**
        \brief Topological sort of 'sources'. Store result in sorted_sources.
     */
-    void model_generator::top_sort_sources(ptr_vector<enode> const & roots, 
+    void model_generator::top_sort_sources(vector<enode*> const & roots, 
                                            obj_map<enode, model_value_proc *> const & root2proc, 
                                            vector<source> & sorted_sources) {
         
@@ -291,11 +291,11 @@ namespace smt {
 
     void model_generator::mk_values() {
         obj_map<enode, model_value_proc *> root2proc;
-        ptr_vector<enode> roots;
-        ptr_vector<model_value_proc> procs;
+        vector<enode*> roots;
+        vector<model_value_proc*> procs;
         vector<source> sources;
         buffer<model_value_dependency> dependencies;
-        ptr_vector<expr> dependency_values;
+        vector<expr*> dependency_values;
         mk_value_procs(root2proc, roots, procs);
         top_sort_sources(roots, root2proc, sources);
         TRACE("sorted_sources",

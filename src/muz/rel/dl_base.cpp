@@ -38,9 +38,9 @@ namespace datalog {
         ptr->deallocate();
     }
 
-    void dealloc_ptr_vector_content(ptr_vector<relation_base> & v) {
-        ptr_vector<relation_base>::iterator it = v.begin();
-        ptr_vector<relation_base>::iterator end = v.end();
+    void dealloc_ptr_vector_content(vector<relation_base*> & v) {
+        vector<relation_base*>::iterator it = v.begin();
+        vector<relation_base*>::iterator end = v.end();
         for(; it!=end; ++it) {
             (*it)->deallocate();
         }

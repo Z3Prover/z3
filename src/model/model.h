@@ -29,10 +29,10 @@ typedef ref<model> model_ref;
 
 class model : public model_core {
 protected:
-    typedef obj_map<sort, ptr_vector<expr>*> sort2universe;
+    typedef obj_map<sort, vector<expr*>*> sort2universe;
     typedef obj_hashtable<func_decl> func_decl_set;
 
-    ptr_vector<sort>              m_usorts;
+    vector<sort*>              m_usorts;
     sort2universe                 m_usort2universe;
     model_evaluator               m_mev;
     bool                          m_cleaned;
@@ -49,7 +49,7 @@ protected:
     void collect_occs(top_sort& ts, expr* e);
     void cleanup_interp(top_sort& ts, func_decl * f);
     expr_ref cleanup_expr(top_sort& ts, expr* e, unsigned current_partition);
-    void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
+    void remove_decls(vector<func_decl*> & decls, func_decl_set const & s);
     bool can_inline_def(top_sort& ts, func_decl* f);
 
 public:
@@ -65,7 +65,7 @@ public:
     bool eval_expr(expr * e, expr_ref & result, bool model_completion = false);
 
     expr * get_some_value(sort * s) override;
-    ptr_vector<expr> const & get_universe(sort * s) const override;
+    vector<expr*> const & get_universe(sort * s) const override;
     unsigned get_num_uninterpreted_sorts() const override;
     sort * get_uninterpreted_sort(unsigned idx) const override;
     bool has_uninterpreted_sort(sort * s) const;

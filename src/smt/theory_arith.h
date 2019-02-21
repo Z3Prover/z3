@@ -380,13 +380,13 @@ namespace smt {
         inf_numeral normalize_bound(theory_var v, inf_numeral const & k, bound_kind kind);
         void mk_bound_from_row(theory_var v, inf_numeral const & coeff, bound_kind k, row const & r);
 
-        typedef ptr_vector<atom> atoms;
+        typedef vector<atom*> atoms;
 // #define SPARSE_MAP
 
 #ifdef SPARSE_MAP
         typedef u_map<atom *>    bool_var2atom;
 #else
-        typedef ptr_vector<atom> bool_var2atom;
+        typedef vector<atom*> bool_var2atom;
 #endif 
         struct theory_var_lt {
             bool operator()(theory_var v1, theory_var v2) const { return v1 < v2; }
@@ -437,15 +437,15 @@ namespace smt {
         vector<var_data>       m_data;             // per var
         vector<inf_numeral>     m_value;            // per var, the current assignment for the variable.
         vector<inf_numeral>     m_old_value;        // per var, the old assignment for the variable.
-        ptr_vector<bound>       m_bounds[2];        // per var, lower bound & upper_bound
+        vector<bound*>       m_bounds[2];        // per var, lower bound & upper_bound
         vector<atoms>           m_var_occs;         // per var, atoms that contain a variable
         vector<unsigned>       m_unassigned_atoms; // per var, the number of unassigned atoms that contain a variable.
         bool_var2atom           m_bool_var2atom;    // map bool_var -> atom
         vector<int>            m_var_pos;          // temporary array used in add_rows
         atoms                   m_atoms;            // set of theory atoms
-        ptr_vector<bound>       m_asserted_bounds;  // set of asserted bounds
+        vector<bound*>       m_asserted_bounds;  // set of asserted bounds
         unsigned                m_asserted_qhead;   
-        ptr_vector<atom>        m_new_atoms;        // new bound atoms that have yet to be internalized.
+        vector<atom*>        m_new_atoms;        // new bound atoms that have yet to be internalized.
         vector<theory_var>     m_nl_monomials;     // non linear monomials
         vector<theory_var>     m_nl_propagated;    // non linear monomials that became linear
         v_dependency_manager    m_dep_manager;      // for tracking bounds during non-linear reasoning
@@ -475,7 +475,7 @@ namespace smt {
         // backtracking
         vector<bound_trail>    m_bound_trail;
         vector<unsigned>       m_unassigned_atoms_trail;
-        ptr_vector<bound>       m_bounds_to_delete;
+        vector<bound*>       m_bounds_to_delete;
         struct scope {
             unsigned      m_atoms_lim;
             unsigned      m_bound_trail_lim;
@@ -547,7 +547,7 @@ namespace smt {
         void set_var_kind(theory_var v, var_kind k) { m_data[v].m_kind = k; }
         unsigned get_var_row(theory_var v) const { SASSERT(!is_non_base(v)); return m_data[v].m_row_id; }
         void set_var_row(theory_var v, unsigned r_id) { m_data[v].m_row_id = r_id; }
-        ptr_vector<expr> m_todo;
+        vector<expr*> m_todo;
         bool is_int_expr(expr* e);
         bool is_int(theory_var v) const { return m_data[v].m_is_int; }
         bool is_int_src(theory_var v) const { return m_util.is_int(var2expr(v)); }

@@ -15,7 +15,7 @@ void tst_model2expr() {
     reg_decl_plugins(m);
     arith_util a(m);
 
-    ptr_vector<sort> ints;
+    vector<sort*> ints;
     ints.push_back(a.mk_int());
     ints.push_back(a.mk_int());
     ints.push_back(a.mk_int());

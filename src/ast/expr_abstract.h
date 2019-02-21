@@ -24,7 +24,7 @@ Notes:
 class expr_abstractor {
     ast_manager& m;
     expr_ref_vector m_pinned;
-    ptr_vector<expr> m_stack, m_args;
+    vector<expr*> m_stack, m_args;
     obj_map<expr, expr*> m_map;
     
 public:

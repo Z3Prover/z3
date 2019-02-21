@@ -40,15 +40,15 @@ namespace smt {
         typedef union_find<theory_array>  th_union_find;
 
         struct var_data {
-            ptr_vector<enode>  m_stores;
-            ptr_vector<enode>  m_parent_selects;
-            ptr_vector<enode>  m_parent_stores;
+            vector<enode*>  m_stores;
+            vector<enode*>  m_parent_selects;
+            vector<enode*>  m_parent_stores;
             bool               m_prop_upward;
             bool               m_is_array;
             bool               m_is_select;
             var_data():m_prop_upward(false), m_is_array(false), m_is_select(false) {}
         };
-        ptr_vector<var_data>            m_var_data;
+        vector<var_data*>            m_var_data;
         theory_array_params&            m_params;
         theory_array_stats              m_stats;
         th_union_find                   m_find;

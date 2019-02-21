@@ -36,7 +36,7 @@ class bv1_blaster_tactic : public tactic {
         ast_manager &                      m_manager;
         bv_util                            m_util;
         obj_map<func_decl, expr*>          m_const2bits;
-        ptr_vector<func_decl>              m_newbits;
+        vector<func_decl*>              m_newbits;
         expr_ref_vector                    m_saved;
         expr_ref                           m_bit1;
         expr_ref                           m_bit0;

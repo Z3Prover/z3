@@ -23,7 +23,7 @@ Revision History:
 #include "ast/expr_delta_pair.h"
 
 class used_vars {
-    ptr_vector<sort> m_found_vars;
+    vector<sort*> m_found_vars;
     typedef hashtable<expr_delta_pair, obj_hash<expr_delta_pair>, default_eq<expr_delta_pair> > cache;
     cache                    m_cache;
     vector<expr_delta_pair> m_todo;

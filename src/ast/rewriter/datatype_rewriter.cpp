@@ -51,7 +51,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
         func_decl * c_decl = a->get_decl();
         if (c_decl != m_util.get_accessor_constructor(f))
             return BR_FAILED;
-        ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
+        vector<func_decl*> const & acc = *m_util.get_constructor_accessors(c_decl);
         SASSERT(acc.size() == a->get_num_args());
         unsigned num = acc.size();
         for (unsigned i = 0; i < num; ++i) {
@@ -74,7 +74,7 @@ br_status datatype_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr 
             result = a;
             return BR_DONE;
         }
-        ptr_vector<func_decl> const & acc = *m_util.get_constructor_accessors(c_decl);
+        vector<func_decl*> const & acc = *m_util.get_constructor_accessors(c_decl);
         SASSERT(acc.size() == a->get_num_args());
         unsigned num = acc.size();
         buffer<expr*> new_args;

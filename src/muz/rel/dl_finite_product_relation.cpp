@@ -859,7 +859,7 @@ namespace datalog {
             if(!vectors_equal(tgt.m_table2sig, src0.m_table2sig) 
                 || (delta && !vectors_equal(tgt.m_table2sig, delta->m_table2sig)) ) {
                 src_aux_copy = src0.clone();
-                ptr_vector<finite_product_relation> orig_rels;
+                vector<finite_product_relation*> orig_rels;
                 orig_rels.push_back(src_aux_copy.get());
                 orig_rels.push_back(&tgt);
                 if(delta) {
@@ -2147,15 +2147,15 @@ namespace datalog {
         }
     }
 
-    bool finite_product_relation::try_unify_specifications(ptr_vector<finite_product_relation> & rels) {
+    bool finite_product_relation::try_unify_specifications(vector<finite_product_relation*> & rels) {
         if(rels.empty()) {
             return true;
         }
         unsigned sig_sz = rels.back()->get_signature().size();
         vector<bool> table_cols(sig_sz, true);
 
-        ptr_vector<finite_product_relation>::iterator it = rels.begin();
-        ptr_vector<finite_product_relation>::iterator end = rels.end();
+        vector<finite_product_relation*>::iterator it = rels.begin();
+        vector<finite_product_relation*>::iterator end = rels.end();
         for(; it!=end; ++it) {
             finite_product_relation & rel = **it;
             for(unsigned i=0; i<sig_sz; i++) {

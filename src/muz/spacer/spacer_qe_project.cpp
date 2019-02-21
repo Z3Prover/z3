@@ -121,7 +121,7 @@ peq::peq (expr* lhs, expr* rhs, unsigned num_indices, expr * const * diff_indice
     SASSERT (m_arr_u.is_array (lhs) &&
              m_arr_u.is_array (rhs) &&
              ast_eq_proc() (m.get_sort (lhs), m.get_sort (rhs)));
-    ptr_vector<sort> sorts;
+    vector<sort*> sorts;
     sorts.push_back (m.get_sort (m_lhs));
     sorts.push_back (m.get_sort (m_rhs));
     for (unsigned i = 0; i < num_indices; i++) {
@@ -143,7 +143,7 @@ void peq::get_diff_indices (expr_ref_vector& result) {
 
 void peq::mk_peq (app_ref& result) {
     if (!m_peq) {
-        ptr_vector<expr> args;
+        vector<expr*> args;
         args.push_back (m_lhs);
         args.push_back (m_rhs);
         for (unsigned i = 0; i < m_num_indices; i++) {
@@ -166,7 +166,7 @@ void peq::mk_eq (app_ref_vector& aux_consts, app_ref& result, bool stores_on_rhs
         for (expr_ref_vector::iterator it = m_diff_indices.begin ();
                 it != end; it++) {
             app* val = m.mk_fresh_const ("diff", val_sort);
-            ptr_vector<expr> store_args;
+            vector<expr*> store_args;
             store_args.push_back (rhs);
             store_args.push_back (*it);
             store_args.push_back (val);
@@ -1313,7 +1313,7 @@ namespace spacer_qe {
         void find_arr_eqs (expr_ref const& fml, expr_ref_vector& eqs) {
             if (!is_app (fml)) return;
             ast_mark done;
-            ptr_vector<app> todo;
+            vector<app*> todo;
             todo.push_back (to_app (fml));
             while (!todo.empty ()) {
                 app* a = todo.back ();
@@ -1371,7 +1371,7 @@ namespace spacer_qe {
         void factor_selects (app_ref& fml) {
             expr_map sel_cache (m);
             ast_mark done;
-            ptr_vector<app> todo;
+            vector<app*> todo;
             expr_ref_vector pinned (m); // to ensure a reference
 
             todo.push_back (fml);
@@ -1454,7 +1454,7 @@ namespace spacer_qe {
             SASSERT (num_diff == I.size ());
             for (unsigned i = 0; i < num_diff; i++) {
                 // mk val term
-                ptr_vector<expr> sel_args;
+                vector<expr*> sel_args;
                 sel_args.push_back (arr);
                 sel_args.push_back (I.get (i));
                 expr_ref val_term (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
@@ -1556,7 +1556,7 @@ namespace spacer_qe {
                               );
 
                         // arr1[idx] == x
-                        ptr_vector<expr> sel_args;
+                        vector<expr*> sel_args;
                         sel_args.push_back (arr1);
                         sel_args.push_back (idx);
                         expr_ref arr1_idx (m_arr_u.mk_select (sel_args.size (), sel_args.c_ptr ()), m);
@@ -1620,7 +1620,7 @@ namespace spacer_qe {
          */
         bool project (expr_ref const& fml) {
             expr_ref_vector eqs (m);
-            ptr_vector<app> true_eqs; // subset of eqs; eqs ensures references
+            vector<app*> true_eqs; // subset of eqs; eqs ensures references
 
             find_arr_eqs (fml, eqs);
             TRACE ("qe",
@@ -1868,7 +1868,7 @@ namespace spacer_qe {
                 return true;
             }
 
-            ptr_vector<app> todo;
+            vector<app*> todo;
             todo.push_back (to_app (e));
 
             while (!todo.empty ()) {
@@ -2001,7 +2001,7 @@ namespace spacer_qe {
     };
 
     class array_project_selects_util {
-        typedef obj_map<app, ptr_vector<app>*> sel_map;
+        typedef obj_map<app, vector<app*>*> sel_map;
 
         ast_manager&                m;
         array_util                  m_arr_u;
@@ -2034,7 +2034,7 @@ namespace spacer_qe {
         void collect_selects (expr* fml) {
             if (!is_app (fml)) return;
             ast_mark done;
-            ptr_vector<app> todo;
+            vector<app*> todo;
             todo.push_back (to_app (fml));
             while (!todo.empty ()) {
                 app* a = todo.back ();
@@ -2056,7 +2056,7 @@ namespace spacer_qe {
                 if (m_arr_u.is_select (a)) {
                     expr* arr = a->get_arg (0);
                     if (m_arr_test.is_marked (arr)) {
-                        ptr_vector<app>* lst = m_sel_terms.find (to_app (arr));;
+                        vector<app*>* lst = m_sel_terms.find (to_app (arr));;
                         lst->push_back (a);
                     }
                 }
@@ -2069,7 +2069,7 @@ namespace spacer_qe {
          *
          * update sub with val consts for sel terms
          */
-        void ackermann (ptr_vector<app> const& sel_terms) {
+        void ackermann (vector<app*> const& sel_terms) {
             if (sel_terms.empty ()) return;
 
             expr* v = sel_terms[0]->get_arg (0); // array variable
@@ -2217,7 +2217,7 @@ namespace spacer_qe {
 
             // alloc empty map from array var to sel terms over it
             for (unsigned i = 0; i < arr_vars.size (); i++) {
-                ptr_vector<app>* lst = alloc (ptr_vector<app>);
+                vector<app*>* lst = alloc (vector<app*>);
                 m_sel_terms.insert (arr_vars.get (i), lst);
             }
 

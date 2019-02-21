@@ -61,7 +61,7 @@ namespace polynomial {
         r.insert("num_primes", CPK_UINT, "(default: 1) Z3 polynomial factorization is composed of three steps: factorization in GF(p), lifting and search. The search space may be reduced by factoring the polynomial in different GF(p)'s. This parameter specify the maximum number of finite factorizations to be considered, before lifiting and searching.");
     }
 
-    typedef ptr_vector<monomial> monomial_vector;
+    typedef vector<monomial*> monomial_vector;
 
     void var2degree::display(std::ostream & out) const {
         bool first = true;
@@ -2158,7 +2158,7 @@ namespace polynomial {
 
         class som_buffer_vector {
             imp *                  m_owner;
-            ptr_vector<som_buffer> m_buffers;
+            vector<som_buffer*> m_buffers;
 
             void ensure_capacity(unsigned sz) {
                 unsigned old_sz = m_buffers.size();
@@ -2922,7 +2922,7 @@ namespace polynomial {
 
         class newton_interpolator_vector {
             imp *                           m_imp;
-            ptr_vector<newton_interpolator> m_data;
+            vector<newton_interpolator*> m_data;
         public:
             newton_interpolator_vector():m_imp(nullptr) {}
 
@@ -2972,7 +2972,7 @@ namespace polynomial {
             var                  m_x;
             vector<entry>       m_entries;
             vector<unsigned>      m_powers;
-            ptr_vector<monomial> m_orig_monomials;
+            vector<monomial*> m_orig_monomials;
             unsigned             m_max_powers; // maximal number of powers associated with an entry
 
             skeleton(imp & _pm, polynomial * p, var x):pm(_pm), m_x(x) {

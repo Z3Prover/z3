@@ -150,7 +150,7 @@ namespace datalog {
         typedef relation_base1 base_object;
         typedef relation_signature signature;
         typedef app * element;
-        typedef ptr_vector<app> fact;
+        typedef vector<app*> fact;
         typedef relation_kind kind;
     };
 

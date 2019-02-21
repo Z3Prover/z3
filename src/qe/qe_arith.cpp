@@ -289,7 +289,7 @@ namespace qe {
         typedef opt::model_based_opt::row row;
         typedef vector<var> vars;
 
-        expr_ref var2expr(ptr_vector<expr> const& index2expr, var const& v) {
+        expr_ref var2expr(vector<expr*> const& index2expr, var const& v) {
             expr_ref t(index2expr[v.m_id], m);
             if (!v.m_coeff.is_one()) {
                 t = a.mk_mul(a.mk_numeral(v.m_coeff, a.is_int(t)), t);
@@ -357,7 +357,7 @@ namespace qe {
                 }
             }
 
-            ptr_vector<expr> index2expr;
+            vector<expr*> index2expr;
             for (auto& kv : tids) {
                 index2expr.setx(kv.m_value, kv.m_key, nullptr);
             }
@@ -499,7 +499,7 @@ namespace qe {
 
 
             // update model to use new values that satisfy optimality
-            ptr_vector<expr> vars;
+            vector<expr*> vars;
             for (auto& kv : tids) {
                 expr* e = kv.m_key;
                 if (is_uninterp_const(e)) {

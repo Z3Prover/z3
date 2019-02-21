@@ -39,7 +39,7 @@ namespace datalog {
         args.push_back(m.mk_var(idx, a.mk_int()));
         
         if (!m_old2new.find(old_fn, new_fn)) {
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
             domain.append(fn->get_num_args(), old_fn->get_domain());
             domain.push_back(a.mk_int());
             new_fn = m.mk_func_decl(old_fn->get_name(), domain.size(), domain.c_ptr(), old_fn->get_range());

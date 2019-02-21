@@ -43,7 +43,7 @@ extern "C" {
         recognizer_s += to_symbol(name).str();
         symbol recognizer(recognizer_s.c_str());
 
-        ptr_vector<accessor_decl> acc;
+        vector<accessor_decl*> acc;
         for (unsigned i = 0; i < num_fields; ++i) {
             acc.push_back(mk_accessor_decl(m, to_symbol(field_names[i]), type_ref(to_sort(field_sorts[i]))));
         }
@@ -69,13 +69,13 @@ extern "C" {
         // create constructor
         SASSERT(dt_util.is_datatype(tuple));
         SASSERT(!dt_util.is_recursive(tuple));
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(tuple);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(tuple);
         func_decl* decl = (decls)[0];
         mk_c(c)->save_multiple_ast_trail(decl);
         *mk_tuple_decl = of_func_decl(decl);
 
         // Create projections
-        ptr_vector<func_decl> const & _accs = *dt_util.get_constructor_accessors(decl);
+        vector<func_decl*> const & _accs = *dt_util.get_constructor_accessors(decl);
         SASSERT(_accs.size() == num_fields);
         for (unsigned i = 0; i < _accs.size(); i++) {
             mk_c(c)->save_multiple_ast_trail(_accs[i]);
@@ -101,7 +101,7 @@ extern "C" {
         sort_ref_vector sorts(m);
         sort* e;
 
-        ptr_vector<constructor_decl> constrs;
+        vector<constructor_decl*> constrs;
         for (unsigned i = 0; i < n; ++i) {
             symbol e_name(to_symbol(enum_names[i]));
             std::string recognizer_s("is_");
@@ -131,7 +131,7 @@ extern "C" {
         // create constructor
         SASSERT(dt_util.is_datatype(e));
         SASSERT(!dt_util.is_recursive(e));
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(e);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(e);
         SASSERT(decls.size() == n);
         for (unsigned i = 0; i < n; ++i) {
             func_decl* decl = (decls)[i];
@@ -266,7 +266,7 @@ extern "C" {
             *tester = of_func_decl(f2);
         }
 
-        ptr_vector<func_decl> const& accs = *data_util.get_constructor_accessors(f);
+        vector<func_decl*> const& accs = *data_util.get_constructor_accessors(f);
         for (unsigned i = 0; i < num_fields; ++i) {
             func_decl* f2 = (accs)[i];
             mk_c(c)->save_multiple_ast_trail(f2);
@@ -290,10 +290,10 @@ extern "C" {
                                            Z3_constructor constructors[]) {
         datatype_util& dt_util = mk_c(c)->dtutil();
         ast_manager& m = mk_c(c)->m();
-        ptr_vector<constructor_decl> constrs;
+        vector<constructor_decl*> constrs;
         for (unsigned i = 0; i < num_constructors; ++i) {
             constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
-            ptr_vector<accessor_decl> acc;
+            vector<accessor_decl*> acc;
             for (unsigned j = 0; j < cn->m_sorts.size(); ++j) {
                 if (cn->m_sorts[j].get()) {
                     acc.push_back(mk_accessor_decl(m, cn->m_field_names[j], type_ref(cn->m_sorts[j].get())));
@@ -331,7 +331,7 @@ extern "C" {
         sort * s = sorts.get(0);
 
         mk_c(c)->save_ast_trail(s);
-        ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
+        vector<func_decl*> const& cnstrs = *data_util.get_datatype_constructors(s);
 
         for (unsigned i = 0; i < num_constructors; ++i) {
             constructor* cn = reinterpret_cast<constructor*>(constructors[i]);
@@ -341,7 +341,7 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    typedef ptr_vector<constructor> constructor_list;
+    typedef vector<constructor*> constructor_list;
 
     Z3_constructor_list Z3_API Z3_mk_constructor_list(Z3_context c,
                                                       unsigned num_constructors,
@@ -349,7 +349,7 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_constructor_list(c, num_constructors, constructors);
         RESET_ERROR_CODE();
-        constructor_list* result = alloc(ptr_vector<constructor>);
+        constructor_list* result = alloc(vector<constructor*>);
         for (unsigned i = 0; i < num_constructors; ++i) {
             result->push_back(reinterpret_cast<constructor*>(constructors[i]));
         }
@@ -377,7 +377,7 @@ extern "C" {
         mk_c(c)->reset_last_result();
         datatype_util data_util(m);
 
-        ptr_vector<datatype_decl> datas;
+        vector<datatype_decl*> datas;
         for (unsigned i = 0; i < num_sorts; ++i) {
             constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
             datas.push_back(mk_datatype_decl(c, sort_names[i], cl->size(), reinterpret_cast<Z3_constructor*>(cl->c_ptr())));
@@ -397,7 +397,7 @@ extern "C" {
             mk_c(c)->save_multiple_ast_trail(s);
             sorts[i] = of_sort(s);
             constructor_list* cl = reinterpret_cast<constructor_list*>(constructor_lists[i]);
-            ptr_vector<func_decl> const& cnstrs = *data_util.get_datatype_constructors(s);
+            vector<func_decl*> const& cnstrs = *data_util.get_datatype_constructors(s);
             for (unsigned j = 0; j < cl->size(); ++j) {
                 constructor* cn = (*cl)[j];
                 cn->m_constructor = cnstrs[j];
@@ -432,7 +432,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
         }
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
@@ -462,7 +462,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
@@ -485,7 +485,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(_t);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(_t);
         if (idx_c >= decls.size()) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return nullptr;
@@ -495,7 +495,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors(decl);
+        vector<func_decl*> const & accs = *dt_util.get_constructor_accessors(decl);
         SASSERT(accs.size() == decl->get_arity());
         if (accs.size() <= idx_a) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -532,12 +532,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(tuple);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(tuple);
         if (decls.size() != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
-        ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors(decls[0]);
+        vector<func_decl*> const & accs = *dt_util.get_constructor_accessors(decls[0]);
         return accs.size();
         Z3_CATCH_RETURN(0);
     }
@@ -552,12 +552,12 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<func_decl> const & decls = *dt_util.get_datatype_constructors(tuple);
+        vector<func_decl*> const & decls = *dt_util.get_datatype_constructors(tuple);
         if (decls.size() != 1) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<func_decl> const & accs = *dt_util.get_constructor_accessors((decls)[0]);
+        vector<func_decl*> const & accs = *dt_util.get_constructor_accessors((decls)[0]);
         if (accs.size() <= i) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);

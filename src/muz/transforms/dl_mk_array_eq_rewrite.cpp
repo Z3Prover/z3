@@ -111,7 +111,7 @@ namespace datalog {
             return e;
         }
         app* f = to_app(e);
-        ptr_vector<expr> n_args;
+        vector<expr*> n_args;
         for (expr * arg : *f) {
             n_args.push_back(replace(arg, new_val, old_val));
         }

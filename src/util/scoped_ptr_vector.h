@@ -25,7 +25,7 @@ Notes:
 
 template<typename T>
 class scoped_ptr_vector {
-    ptr_vector<T> m_vector;
+    vector<T*> m_vector;
 public:
     ~scoped_ptr_vector() { clear(); }
     void clear() { std::for_each(m_vector.begin(), m_vector.end(), delete_proc<T>()); m_vector.clear(); }

@@ -44,7 +44,7 @@ public:
     grobner_stats m_stats;
     class monomial {
         rational         m_coeff;
-        ptr_vector<expr> m_vars;  //!< sorted variables
+        vector<expr*> m_vars;  //!< sorted variables
         
         friend class grobner;
         friend struct monomial_lt;
@@ -61,7 +61,7 @@ public:
         unsigned             m_scope_lvl;     //!< scope level when this equation was created.
         unsigned             m_bidx:31;       //!< position at m_equations_to_delete
         unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
-        ptr_vector<monomial> m_monomials;     //!< sorted monomials
+        vector<monomial*> m_monomials;     //!< sorted monomials
         v_dependency *         m_dep;           //!< justification for the equality
         friend class grobner;
         equation() {}
@@ -90,7 +90,7 @@ protected:
     };
 
     typedef obj_hashtable<equation> equation_set;
-    typedef ptr_vector<equation> equation_vector;
+    typedef vector<equation*> equation_vector;
 
     ast_manager &           m_manager;
     v_dependency_manager &    m_dep_manager;
@@ -109,10 +109,10 @@ protected:
         unsigned m_equations_to_delete_lim;
     };
     vector<scope>          m_scopes;
-    ptr_vector<monomial>    m_tmp_monomials;
-    ptr_vector<monomial>    m_del_monomials;
-    ptr_vector<expr>        m_tmp_vars1;
-    ptr_vector<expr>        m_tmp_vars2;
+    vector<monomial*>    m_tmp_monomials;
+    vector<monomial*>    m_del_monomials;
+    vector<expr*>        m_tmp_vars1;
+    vector<expr*>        m_tmp_vars2;
     unsigned                m_num_new_equations; // temporary variable
 
     bool is_monomial_lt(monomial const & m1, monomial const & m2) const;
@@ -127,7 +127,7 @@ protected:
 
     void del_equations(unsigned old_size);
 
-    void del_monomials(ptr_vector<monomial>& monomials);
+    void del_monomials(vector<monomial*>& monomials);
 
     void unfreeze_equations(unsigned old_size);
 
@@ -147,21 +147,21 @@ protected:
 
     void extract_monomials(expr * lhs, buffer<expr*> & monomials);
 
-    void merge_monomials(ptr_vector<monomial> & monomials);
+    void merge_monomials(vector<monomial*> & monomials);
 
     bool is_inconsistent(equation * eq) const;
 
     bool is_trivial(equation * eq) const;
     
-    void normalize_coeff(ptr_vector<monomial> & monomials);
+    void normalize_coeff(vector<monomial*> & monomials);
 
-    void simplify(ptr_vector<monomial> & monomials);
+    void simplify(vector<monomial*> & monomials);
 
     void simplify(equation * eq);
 
-    bool is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const;
+    bool is_subset(monomial const * m1, monomial const * m2, vector<expr*> & rest) const;
 
-    void mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result);
+    void mul_append(unsigned start_idx, equation const * source, rational const & coeff, vector<expr*> const & vars, vector<monomial*> & result);
 
     monomial * copy_monomial(monomial const * m);
 
@@ -179,13 +179,13 @@ protected:
 
     void simplify_to_process(equation * eq);
 
-    bool unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2);
+    bool unify(monomial const * m1, monomial const * m2, vector<expr*> & rest1, vector<expr*> & rest2);
 
     void superpose(equation * eq1, equation * eq2);
 
     void superpose(equation * eq);
 
-    void copy_to(equation_set const & s, ptr_vector<equation> & result) const;
+    void copy_to(equation_set const & s, vector<equation*> & result) const;
 
 public:
     grobner(ast_manager & m, v_dependency_manager & dep_m);
@@ -276,7 +276,7 @@ public:
     */
     void reset();
 
-    void get_equations(ptr_vector<equation> & result) const;
+    void get_equations(vector<equation*> & result) const;
     
     void push_scope();
 

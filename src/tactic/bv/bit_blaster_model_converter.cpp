@@ -38,7 +38,7 @@ struct bit_blaster_model_converter : public model_converter {
     bit_blaster_model_converter(
         ast_manager & m, 
         obj_map<func_decl, expr*> const & const2bits, 
-        ptr_vector<func_decl> const& newbits):
+        vector<func_decl*> const& newbits):
         m_vars(m), m_bits(m), m_newbits(m) {
         for (auto const& kv : const2bits) {
             func_decl * v = kv.m_key;
@@ -223,11 +223,11 @@ public:
     }
 };
 
-model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+model_converter * mk_bit_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, vector<func_decl*> const& newbits) {
     return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<true>, m, const2bits, newbits);
 }
 
-model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, ptr_vector<func_decl> const& newbits) {
+model_converter * mk_bv1_blaster_model_converter(ast_manager & m, obj_map<func_decl, expr*> const & const2bits, vector<func_decl*> const& newbits) {
     return const2bits.empty() ? nullptr : alloc(bit_blaster_model_converter<false>, m, const2bits, newbits);
 }
 

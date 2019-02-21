@@ -34,13 +34,13 @@ public:
     typedef unsigned var;
     typedef obj_map<expr, var>::key_data key_value;
     typedef key_value const* iterator;
-    typedef ptr_vector<expr>::const_iterator recent_iterator;
+    typedef vector<expr*>::const_iterator recent_iterator;
 protected:
     ast_manager &     m_manager;
     
     vector<unsigned>  m_id2map;
     vector<key_value> m_mapping;
-    ptr_vector<expr>  m_recent_exprs;
+    vector<expr*>  m_recent_exprs;
     vector<unsigned>  m_recent_lim;
     bool              m_interpreted_vars;
 public:

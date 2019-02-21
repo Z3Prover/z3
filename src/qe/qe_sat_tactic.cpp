@@ -65,7 +65,7 @@ namespace qe {
         bool                    m_strong_context_simplify_param;
         bool                    m_ctx_simplify_local_param;
         vector<app_ref_vector>  m_vars;
-        ptr_vector<smt::kernel> m_solvers;
+        vector<smt::kernel*> m_solvers;
         vector<smt_params>      m_fparamv;
         smt::kernel             m_solver;
         expr_ref                m_fml;
@@ -86,7 +86,7 @@ namespace qe {
             atom_set       m_neg;
             app_ref_vector m_vars;
             expr_ref       m_fml;
-            ptr_vector<contains_app> m_contains_app; 
+            vector<contains_app*> m_contains_app; 
             bool           m_projection_mode_param;
         public:
             solver_context(sat_tactic& s, unsigned idx):                 
@@ -235,7 +235,7 @@ namespace qe {
             try {
                 checkpoint();
                 reset();            
-                ptr_vector<expr> fmls;
+                vector<expr*> fmls;
                 goal->get_formulas(fmls);
                 m_fml = m.mk_and(fmls.size(), fmls.c_ptr());
                 TRACE("qe", tout << "input: " << mk_pp(m_fml,m) << "\n";);               
@@ -513,7 +513,7 @@ namespace qe {
         }
 
         void remove_duplicates(atom_set& pos, atom_set& neg) {
-            ptr_vector<app> to_delete;
+            vector<app*> to_delete;
             atom_set::iterator it = pos.begin(), end = pos.end();
             for (; it != end; ++it) {
                 if (neg.contains(*it)) {

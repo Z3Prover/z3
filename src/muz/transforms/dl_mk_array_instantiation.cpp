@@ -126,7 +126,7 @@ namespace datalog {
            expr_ref select(m);
            select = m_a.mk_select(dummy_args.size(), dummy_args.c_ptr());
            new_args.push_back(select);
-           selects.insert_if_not_there(arg, ptr_vector<expr>());
+           selects.insert_if_not_there(arg, vector<expr*>());
            selects[arg].push_back(select);
          }
          if(!m_ctx.get_params().xform_instantiate_arrays_enforce())
@@ -156,7 +156,7 @@ namespace datalog {
     if(m_a.is_select(f))
     {
       SASSERT(!m_a.is_array(get_sort(e)));
-      selects.insert_if_not_there(f->get_arg(0), ptr_vector<expr>());
+      selects.insert_if_not_there(f->get_arg(0), vector<expr*>());
       selects[f->get_arg(0)].push_back(e);
     }
     //If it is a condition between arrays, for example the result of a store, then add it to the equiv_classes
@@ -246,8 +246,8 @@ namespace datalog {
     for(expr_equiv_class::iterator it = eq_classes.begin(array);
         it != eq_classes.end(array); ++it)
     {
-      selects.insert_if_not_there(*it, ptr_vector<expr>());
-      ptr_vector<expr>& select_ops = selects[*it];
+      selects.insert_if_not_there(*it, vector<expr*>());
+      vector<expr*>& select_ops = selects[*it];
       for(unsigned i=0;i<select_ops.size();i++)
       {
         all_selects.push_back(rewrite_select(array, select_ops[i]));

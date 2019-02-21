@@ -332,8 +332,8 @@ void expr_strong_context_simplifier::simplify_basic(expr* fml, expr_ref& result)
         return;
     }                                                
 
-    ptr_vector<expr> todo;
-    ptr_vector<expr> names;
+    vector<expr*> todo;
+    vector<expr*> names;
     vector<bool>    is_checked;
     vector<unsigned> parent_ids, self_ids;
     expr_ref_vector  fresh_vars(m);
@@ -482,8 +482,8 @@ void expr_strong_context_simplifier::simplify_model_based(expr* fml, expr_ref& r
         return;
     }                                                
 
-    ptr_vector<expr> todo;
-    ptr_vector<expr> names;
+    vector<expr*> todo;
+    vector<expr*> names;
     vector<bool>    is_checked;
     vector<unsigned> parent_ids, self_ids;
     expr_ref_vector  fresh_vars(m);

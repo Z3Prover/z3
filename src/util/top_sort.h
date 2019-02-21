@@ -32,9 +32,9 @@ class top_sort {
     typedef obj_hashtable<T> T_set;
     obj_map<T, unsigned> m_partition_id;
     obj_map<T, unsigned> m_dfs_num;
-    ptr_vector<T>        m_top_sorted;
-    ptr_vector<T>        m_stack_S;
-    ptr_vector<T>        m_stack_P;
+    vector<T*>        m_top_sorted;
+    vector<T*>        m_stack_S;
+    vector<T*>        m_stack_P;
     unsigned             m_next_preorder;    
     obj_map<T, T_set*>   m_deps;
 
@@ -95,7 +95,7 @@ public:
         m_deps.insert(t, s); 
     }
 
-    ptr_vector<T> const& top_sorted() { return m_top_sorted; }    
+    vector<T*> const& top_sorted() { return m_top_sorted; }    
 
     obj_map<T, unsigned> const& partition_ids() const { return m_partition_id; }
 

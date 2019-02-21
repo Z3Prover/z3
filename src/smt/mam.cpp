@@ -408,7 +408,7 @@ namespace smt {
         enode_vector               m_candidates;
 #ifdef Z3DEBUG
         context *                  m_context;
-        ptr_vector<app>            m_patterns;
+        vector<app*>            m_patterns;
 #endif
 #ifdef _PROFILE_MAM
         stopwatch                  m_watch;
@@ -560,7 +560,7 @@ namespace smt {
             m_context = ctx;
         }
 
-        ptr_vector<app> & get_patterns() {
+        vector<app*> & get_patterns() {
             return m_patterns;
         }
 #endif
@@ -786,7 +786,7 @@ namespace smt {
         code_tree_manager &     m_ct_manager;
         label_hasher &          m_lbl_hasher;
         bool                    m_use_filters;
-        ptr_vector<expr>        m_registers;
+        vector<expr*>        m_registers;
         vector<unsigned>         m_todo; // list of registers that have patterns to be processed.
         vector<unsigned>         m_aux;
         vector<int>             m_vars; // -1 the variable is unbound, >= 0 is the register that contains the variable
@@ -810,10 +810,10 @@ namespace smt {
 
         vector<check_mark>     m_mark;
         vector<unsigned>         m_to_reset;
-        ptr_vector<instruction> m_compatible;
-        ptr_vector<instruction> m_incompatible;
+        vector<instruction*> m_compatible;
+        vector<instruction*> m_incompatible;
 
-        ptr_vector<instruction> m_seq;
+        vector<instruction*> m_seq;
 
         void set_register(unsigned reg, expr * p) {
             m_registers.setx(reg, p, 0);
@@ -1852,7 +1852,7 @@ namespace smt {
         // structure of the trigger, the second element gives the term that argument is replaced with in order to match the trigger. Used for logging purposes only.
         vector<std::tuple<enode *, enode *>> m_used_enodes;
         unsigned            m_curr_used_enodes_size;
-        ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
+        vector<enode*>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
         vector<unsigned>     m_min_top_generation, m_max_top_generation;
 
         pool<enode_vector>  m_pool;
@@ -2819,7 +2819,7 @@ namespace smt {
         return false;
     } // end of execute_core
 
-    void display_trees(std::ostream & out, const ptr_vector<code_tree> & trees) {
+    void display_trees(std::ostream & out, const vector<code_tree*> & trees) {
         unsigned lbl = 0;
         for (code_tree * tree : trees) {
             if (tree) {
@@ -2838,17 +2838,17 @@ namespace smt {
     class code_tree_map {
         ast_manager &               m_ast_manager;
         compiler &                  m_compiler;
-        ptr_vector<code_tree>       m_trees;       // mapping: func_label -> tree
+        vector<code_tree*>       m_trees;       // mapping: func_label -> tree
         mam_trail_stack &           m_trail_stack;
 #ifdef Z3DEBUG
         context *                   m_context;
 #endif
 
         class mk_tree_trail : public mam_trail {
-            ptr_vector<code_tree> & m_trees;
+            vector<code_tree*> & m_trees;
             unsigned                m_lbl_id;
         public:
-            mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
+            mk_tree_trail(vector<code_tree*> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
             void undo(mam_impl & m) override {
                 dealloc(m_trees[m_lbl_id]);
                 m_trees[m_lbl_id] = nullptr;
@@ -2919,11 +2919,11 @@ namespace smt {
                 return nullptr;
         }
 
-        ptr_vector<code_tree>::iterator begin_code_trees() {
+        vector<code_tree*>::iterator begin_code_trees() {
             return m_trees.begin();
         }
 
-        ptr_vector<code_tree>::iterator end_code_trees() {
+        vector<code_tree*>::iterator end_code_trees() {
             return m_trees.end();
         }
     };
@@ -2991,7 +2991,7 @@ namespace smt {
         }
     }
 
-    typedef ptr_vector<path> paths;
+    typedef vector<path*> paths;
 
     /**
        \brief Inverted path index data structure. See comments at struct path.
@@ -3069,9 +3069,9 @@ namespace smt {
         interpreter                 m_interpreter;
         code_tree_map               m_trees;
 
-        ptr_vector<code_tree>       m_tmp_trees;
-        ptr_vector<func_decl>       m_tmp_trees_to_delete;
-        ptr_vector<code_tree>       m_to_match;
+        vector<code_tree*>       m_tmp_trees;
+        vector<func_decl*>       m_tmp_trees_to_delete;
+        vector<code_tree*>       m_to_match;
         typedef std::pair<quantifier *, app *> qp_pair;
         vector<qp_pair>            m_new_patterns; // recently added patterns
 
@@ -3083,7 +3083,7 @@ namespace smt {
         vector<bool>               m_is_clbl;    // children labels
 
         // auxiliary field used to update data-structures...
-        typedef ptr_vector<func_decl> func_decls;
+        typedef vector<func_decl*> func_decls;
         vector<func_decls>          m_var_parent_labels;
 
         region &                    m_region;
@@ -3095,7 +3095,7 @@ namespace smt {
         // temporary field used to update path trees.
         vector<paths>               m_var_paths;
         // temporary field used to collect candidates
-        ptr_vector<path_tree>       m_todo;
+        vector<path_tree*>       m_todo;
 
         obj_hashtable<enode>        m_shared_enodes; // ground terms that appear in patterns.
 
@@ -3849,8 +3849,8 @@ namespace smt {
         void display(std::ostream& out) override {
             out << "mam:\n";
             m_lbl_hasher.display(out);
-            ptr_vector<code_tree>::iterator it = m_trees.begin_code_trees();
-            ptr_vector<code_tree>::iterator end = m_trees.end_code_trees();
+            vector<code_tree*>::iterator it = m_trees.begin_code_trees();
+            vector<code_tree*>::iterator end = m_trees.end_code_trees();
             for (; it != end; ++it) {
                 if (*it)
                     (*it)->display(out);
@@ -3872,8 +3872,8 @@ namespace smt {
         }
 
         void rematch(bool use_irrelevant) override {
-            ptr_vector<code_tree>::iterator it  = m_trees.begin_code_trees();
-            ptr_vector<code_tree>::iterator end = m_trees.end_code_trees();
+            vector<code_tree*>::iterator it  = m_trees.begin_code_trees();
+            vector<code_tree*>::iterator end = m_trees.end_code_trees();
             unsigned lbl = 0;
             for (; it != end; ++it, ++lbl) {
                 code_tree * t = *it;

@@ -434,7 +434,7 @@ namespace smt {
             return;
         }
         context ctx(get_manager(), get_fparams(), get_params());
-        ptr_vector<expr> assertions;
+        vector<expr*> assertions;
         get_assertions(assertions);
         unsigned sz = assertions.size();
         for (unsigned i = 0; i < sz; ++i) {

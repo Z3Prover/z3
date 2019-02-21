@@ -2050,7 +2050,7 @@ namespace smt {
        \brief Invoke method del_eh for the justification that will be deleted.
        If the method in_region() returns false, then delete operator is invoked.
     */
-    void context::del_justifications(ptr_vector<justification> & justifications, unsigned old_lim) {
+    void context::del_justifications(vector<justification*> & justifications, unsigned old_lim) {
         SASSERT(old_lim <= justifications.size());
         unsigned i = justifications.size();
         while (i != old_lim) {
@@ -4398,7 +4398,7 @@ namespace smt {
             m = const_cast<model*>(m_model.get());
     }
 
-    void context::get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
+    void context::get_levels(vector<expr*> const& vars, vector<unsigned>& depth) {
         unsigned sz = vars.size(); 
         depth.resize(sz);
         for (unsigned i = 0; i < sz; ++i) {

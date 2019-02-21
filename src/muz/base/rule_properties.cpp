@@ -115,7 +115,7 @@ void rule_properties::check_nested_free() {
 
 void rule_properties::check_existential_tail() {
     ast_mark visited;
-    ptr_vector<expr> todo, tocheck;
+    vector<expr*> todo, tocheck;
     for (unsigned i = 0; i < m_interp_pred.size(); ++i) {
         rule& r = *m_interp_pred[i];
         unsigned ut_size = r.get_uninterpreted_tail_size();
@@ -167,7 +167,7 @@ void rule_properties::check_existential_tail() {
 }
 
 
-void rule_properties::insert(ptr_vector<rule>& rules, rule* r) {
+void rule_properties::insert(vector<rule*>& rules, rule* r) {
     if (rules.empty() || rules.back() != r) {
         rules.push_back(r);
     }

@@ -131,7 +131,7 @@ namespace smt {
         qi_queue                               m_qi_queue;
         obj_map<quantifier, quantifier_stat *> m_quantifier_stat;
         quantifier_stat_gen                    m_qstat_gen;
-        ptr_vector<quantifier>                 m_quantifiers;
+        vector<quantifier*>                 m_quantifiers;
         scoped_ptr<quantifier_manager_plugin>  m_plugin;
         unsigned                               m_num_instances;
 
@@ -521,11 +521,11 @@ namespace smt {
         m_imp->display_stats(out, q);
     }
 
-    ptr_vector<quantifier>::const_iterator quantifier_manager::begin_quantifiers() const {
+    vector<quantifier*>::const_iterator quantifier_manager::begin_quantifiers() const {
         return m_imp->m_quantifiers.begin();
     }
 
-    ptr_vector<quantifier>::const_iterator quantifier_manager::end_quantifiers() const {
+    vector<quantifier*>::const_iterator quantifier_manager::end_quantifiers() const {
         return m_imp->m_quantifiers.end();
     }
 
@@ -707,8 +707,8 @@ namespace smt {
         void propagate() override {
             m_mam->match();
             if (!m_context->relevancy() && use_ematching()) {
-                ptr_vector<enode>::const_iterator it  = m_context->begin_enodes();
-                ptr_vector<enode>::const_iterator end = m_context->end_enodes();
+                vector<enode*>::const_iterator it  = m_context->begin_enodes();
+                vector<enode*>::const_iterator end = m_context->end_enodes();
                 unsigned sz = static_cast<unsigned>(end - it);
                 if (sz > m_new_enode_qhead) {
                     m_context->push_trail(value_trail<context, unsigned>(m_new_enode_qhead));

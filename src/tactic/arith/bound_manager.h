@@ -34,7 +34,7 @@ private:
     obj_map<expr, limit> m_uppers;
     obj_map<expr, expr_dependency*> m_lower_deps;
     obj_map<expr, expr_dependency*> m_upper_deps;
-    ptr_vector<expr>     m_bounded_vars;
+    vector<expr*>     m_bounded_vars;
     bool is_disjunctive_bound(expr * f, expr_dependency * d);
     bool is_equality_bound(expr * f, expr_dependency * d);
     bool is_numeral(expr* v, rational& n, bool& is_int);
@@ -96,7 +96,7 @@ public:
         return m_uppers.contains(c);
     }
     
-    typedef ptr_vector<expr>::const_iterator iterator;
+    typedef vector<expr*>::const_iterator iterator;
     
     /**
        \brief Iterator for all bounded constants.

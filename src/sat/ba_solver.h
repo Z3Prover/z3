@@ -232,9 +232,9 @@ namespace sat {
         small_object_allocator m_allocator;
        
 
-        ptr_vector<constraint> m_constraints;
-        ptr_vector<constraint> m_learned;
-        ptr_vector<constraint> m_constraint_to_reinit;
+        vector<constraint*> m_constraints;
+        vector<constraint*> m_learned;
+        vector<constraint*> m_constraint_to_reinit;
         vector<unsigned>        m_constraint_to_reinit_lim;
         unsigned               m_constraint_to_reinit_last_sz;
         unsigned               m_constraint_id;
@@ -332,7 +332,7 @@ namespace sat {
 
         void cleanup_clauses();
         void cleanup_constraints();
-        void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
+        void cleanup_constraints(vector<constraint*>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
 
         // constraints
@@ -521,7 +521,7 @@ namespace sat {
         constraint* add_xr(literal_vector const& lits, bool learned);
 
         void copy_core(ba_solver* result, bool learned);
-        void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
+        void copy_constraints(ba_solver* result, vector<constraint*> const& constraints);
 
     public:
         ba_solver();
@@ -561,7 +561,7 @@ namespace sat {
         bool is_blocked(literal l, ext_constraint_idx idx) override;
         bool check_model(model const& m) const override;
 
-        ptr_vector<constraint> const & constraints() const { return m_constraints; }
+        vector<constraint*> const & constraints() const { return m_constraints; }
         void display(std::ostream& out, constraint const& c, bool values) const;
 
         bool validate() override;

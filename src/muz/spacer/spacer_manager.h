@@ -46,7 +46,7 @@ struct relation_info {
     func_decl_ref         m_pred;
     func_decl_ref_vector  m_vars;
     expr_ref              m_body;
-    relation_info(ast_manager& m, func_decl* pred, ptr_vector<func_decl> const& vars, expr* b):
+    relation_info(ast_manager& m, func_decl* pred, vector<func_decl*> const& vars, expr* b):
         m_pred(pred, m), m_vars(m, vars.size(), vars.c_ptr()), m_body(b, m) {}
     relation_info(relation_info const& other): m_pred(other.m_pred), m_vars(other.m_vars), m_body(other.m_body) {}
 };
@@ -69,7 +69,7 @@ public:
     expr_ref to_expr() const;
     void to_model(model_ref& md) const;
     void display(datalog::rule_manager& rm,
-                 ptr_vector<datalog::rule> const& rules,
+                 vector<datalog::rule*> const& rules,
                  std::ostream& out) const;
 };
 

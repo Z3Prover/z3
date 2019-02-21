@@ -83,7 +83,7 @@ namespace smt {
         check_cache          m_check_cache;
         canonize_cache       m_canonize_cache;
         unsigned             m_num_bindings;
-        ptr_vector<enode>    m_bindings;
+        vector<enode*>    m_bindings;
         
         bool all_args(app * a, bool is_true);
         bool any_arg(app * a, bool is_true);

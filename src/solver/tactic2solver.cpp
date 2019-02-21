@@ -85,7 +85,7 @@ public:
 
     model_converter_ref get_model_converter() const override { return m_mc; }
 
-    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
+    void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) override {
         throw default_exception("cannot retrieve depth from solvers created using tactics");
     }
 
@@ -208,7 +208,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     m_result->m_model = md;
     m_result->m_proof = pr;
     if (m_produce_unsat_cores) {
-        ptr_vector<expr> core_elems;
+        vector<expr*> core_elems;
         m.linearize(core, core_elems);
         m_result->m_core.append(core_elems.size(), core_elems.c_ptr());
     }

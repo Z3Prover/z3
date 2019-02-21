@@ -71,7 +71,7 @@ namespace smt {
             eqdep_map_t            m_map;            
             eval_cache             m_cache;
             expr_ref_vector        m_lhs, m_rhs;
-            ptr_vector<dependency> m_deps;
+            vector<dependency*> m_deps;
             vector<map_update>    m_updates;
             vector<unsigned>        m_limit;
 
@@ -359,7 +359,7 @@ namespace smt {
         symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq, m_seq_align;
-        ptr_vector<expr> m_todo;
+        vector<expr*> m_todo;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
         // maintain automata with regular expressions.
@@ -405,7 +405,7 @@ namespace smt {
 
         void init_model(expr_ref_vector const& es);
         app* get_ite_value(expr* a);
-        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
+        void get_ite_concat(expr* e, vector<expr*>& concats);
         
         void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();
@@ -463,7 +463,7 @@ namespace smt {
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
-        bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
+        bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, vector<expr*>& xunits, vector<expr*>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);
         bool is_ternary_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x, expr_ref_vector& xs, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
         bool is_ternary_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref_vector& xs, expr_ref& x, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2, bool flag1);
@@ -479,7 +479,7 @@ namespace smt {
         expr_ref mk_concat(unsigned n, expr*const* es) { return expr_ref(m_util.str.mk_concat(n, es), m); }
         expr_ref mk_concat(expr_ref_vector const& es, sort* s) { if (es.empty()) return mk_empty(s); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr_ref_vector const& es) { SASSERT(!es.empty());  return expr_ref(m_util.str.mk_concat(es.size(), es.c_ptr()), m); }
-        expr_ref mk_concat(ptr_vector<expr> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
+        expr_ref mk_concat(vector<expr*> const& es) { SASSERT(!es.empty()); return mk_concat(es.size(), es.c_ptr()); }
         expr_ref mk_concat(expr* e1, expr* e2) { return expr_ref(m_util.str.mk_concat(e1, e2), m); }
         expr_ref mk_concat(expr* e1, expr* e2, expr* e3) { return expr_ref(m_util.str.mk_concat(e1, e2, e3), m); }
         bool solve_nqs(unsigned i);
@@ -495,7 +495,7 @@ namespace smt {
         };
         scoped_ptr_vector<cell> m_all_cells;
         cell* mk_cell(cell* p, expr* e, dependency* d);
-        void unfold(cell* c, ptr_vector<cell>& cons);
+        void unfold(cell* c, vector<cell*>& cons);
         void display_explain(std::ostream& out, unsigned indent, expr* e);
         bool explain_eq(expr* e1, expr* e2, dependency*& dep);
         bool explain_empty(expr_ref_vector& es, dependency*& dep);
@@ -538,7 +538,7 @@ namespace smt {
         expr_ref canonize(expr* e, dependency*& eqs);
         bool canonize(expr* e, expr_ref_vector& es, dependency*& eqs);
         bool canonize(expr_ref_vector const& es, expr_ref_vector& result, dependency*& eqs);
-        ptr_vector<expr> m_expand_todo;
+        vector<expr*> m_expand_todo;
         expr_ref expand(expr* e, dependency*& eqs);
         expr_ref expand1(expr* e, dependency*& eqs);
         expr_ref try_expand(expr* e, dependency*& eqs);

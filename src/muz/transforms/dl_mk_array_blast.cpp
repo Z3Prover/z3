@@ -60,7 +60,7 @@ namespace datalog {
         return e;
     }
 
-    void mk_array_blast::get_select_args(expr* e, ptr_vector<expr>& args) const {
+    void mk_array_blast::get_select_args(expr* e, vector<expr*>& args) const {
         while (a.is_select(e)) {
             app* ap = to_app(e);
             for (unsigned i = 1; i < ap->get_num_args(); ++i) {
@@ -87,7 +87,7 @@ namespace datalog {
         }
         else {
             if (m_next_var == 0) {
-                ptr_vector<sort> vars;
+                vector<sort*> vars;
                 r.get_vars(m, vars);
                 m_next_var = vars.size() + 1;
             }
@@ -119,9 +119,9 @@ namespace datalog {
         flatten_and(body, conjs);
         m_defs.reset();
         m_next_var = 0;
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         obj_map<expr, expr*> cache;
-        ptr_vector<expr> args;
+        vector<expr*> args;
         app_ref e1(m);
         app* s;
         var* v;
@@ -224,7 +224,7 @@ namespace datalog {
                     continue;
                 }
                 expr_ref_vector eqs(m);
-                ptr_vector<expr> args1, args2;
+                vector<expr*> args1, args2;
                 get_select_args(a1, args1);
                 get_select_args(a2, args2);
                 for (unsigned j = 0; j < args1.size(); ++j) {

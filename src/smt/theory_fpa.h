@@ -108,7 +108,7 @@ namespace smt {
                 result.append(m_deps);
             }
 
-            app * mk_value(model_generator & mg, ptr_vector<expr> & values) override;
+            app * mk_value(model_generator & mg, vector<expr*> & values) override;
         };
 
         class fpa_rm_value_proc : public model_value_proc {
@@ -129,7 +129,7 @@ namespace smt {
             }
 
             ~fpa_rm_value_proc() override {}
-            app * mk_value(model_generator & mg, ptr_vector<expr> & values) override;
+            app * mk_value(model_generator & mg, vector<expr*> & values) override;
         };
 
     protected:

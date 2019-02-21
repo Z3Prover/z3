@@ -47,7 +47,7 @@ namespace smt {
 
         // Append the new elements of v2 into v1. v2 should not be used after this operation, since it may suffer destructive updates.
         template<typename T>
-        void dappend(ptr_vector<T> & v1, ptr_vector<T> & v2) {
+        void dappend(vector<T*> & v1, vector<T*> & v2) {
             if (v2.empty())
                 return;
             if (v1.empty()) {
@@ -212,8 +212,8 @@ namespace smt {
 
             bool                m_mono_proj;     // relevant for integers & reals & bit-vectors
             bool                m_signed_proj;   // relevant for bit-vectors.
-            ptr_vector<node>    m_avoid_set;
-            ptr_vector<expr>    m_exceptions;
+            vector<node*>    m_avoid_set;
+            vector<expr*>    m_exceptions;
 
             instantiation_set * m_set;
 
@@ -274,13 +274,13 @@ namespace smt {
             }
 
             void insert_avoid(node * n) {
-                ptr_vector<node> & as = get_root()->m_avoid_set;
+                vector<node*> & as = get_root()->m_avoid_set;
                 if (!as.contains(n))
                     as.push_back(n);
             }
 
             void insert_exception(expr * n) {
-                ptr_vector<expr> & ex = get_root()->m_exceptions;
+                vector<expr*> & ex = get_root()->m_exceptions;
                 if (!ex.contains(n))
                     ex.push_back(n);
             }
@@ -345,9 +345,9 @@ namespace smt {
 
             instantiation_set * get_instantiation_set() { return get_root()->m_set; }
 
-            ptr_vector<expr> const & get_exceptions() const { return get_root()->m_exceptions; }
+            vector<expr*> const & get_exceptions() const { return get_root()->m_exceptions; }
 
-            ptr_vector<node> const & get_avoid_set() const { return get_root()->m_avoid_set; }
+            vector<node*> const & get_avoid_set() const { return get_root()->m_avoid_set; }
 
             // return true if m_avoid_set.contains(this)
             bool must_avoid_itself() const {
@@ -394,7 +394,7 @@ namespace smt {
             arith_util                m_arith;
             bv_util                   m_bv;
             array_util                m_array;
-            ptr_vector<node>          m_nodes;
+            vector<node*>          m_nodes;
             unsigned                  m_next_node_id;
             key2node                  m_uvars;
             key2node                  m_A_f_is;
@@ -413,7 +413,7 @@ namespace smt {
             obj_map<expr, expr *>     m_eval_cache[2];
             expr_ref_vector           m_eval_cache_range;
 
-            ptr_vector<node>          m_root_nodes;
+            vector<node*>          m_root_nodes;
 
             expr_ref_vector *         m_new_constraints;
 
@@ -541,7 +541,7 @@ namespace smt {
 
             // For each instantiation_set, remove entries that do not evaluate to values.
             void cleanup_instantiation_sets() {
-                ptr_vector<expr> to_delete;
+                vector<expr*> to_delete;
                 for (node * curr : m_nodes) {
                     if (curr->is_root()) {
                         instantiation_set * s = curr->get_instantiation_set();
@@ -593,8 +593,8 @@ namespace smt {
                and the interpretations of the m_else of nodes in n->get_avoid_set()
             */
             void collect_exceptions_values(node * n, buffer<expr*> & r) {
-                ptr_vector<expr> const & exceptions   = n->get_exceptions();
-                ptr_vector<node> const & avoid_set    = n->get_avoid_set();
+                vector<expr*> const & exceptions   = n->get_exceptions();
+                vector<node*> const & avoid_set    = n->get_avoid_set();
 
                 for (expr* e : exceptions) {
                     expr * val = eval(e, true);
@@ -693,7 +693,7 @@ namespace smt {
 
                It invokes get_k_interp that may fail.
             */
-            bool assert_k_diseq_exceptions(app * k, ptr_vector<expr> const & exceptions) {
+            bool assert_k_diseq_exceptions(app * k, vector<expr*> const & exceptions) {
                 TRACE("assert_k_diseq_exceptions", tout << "assert_k_diseq_exceptions, " << "k: " << mk_pp(k, m) << "\nexceptions:\n";
                       for (expr * e : exceptions) tout << mk_pp(e, m) << "\n";);
                 expr * k_interp = get_k_interp(k);
@@ -716,8 +716,8 @@ namespace smt {
                 SASSERT(n->is_root());
                 SASSERT(!n->is_mono_proj());
                 instantiation_set const * s           = n->get_instantiation_set();
-                ptr_vector<expr> const & exceptions   = n->get_exceptions();
-                ptr_vector<node> const & avoid_set    = n->get_avoid_set();
+                vector<expr*> const & exceptions   = n->get_exceptions();
+                vector<node*> const & avoid_set    = n->get_avoid_set();
                 obj_map<expr, unsigned> const & elems = s->get_elems();
                 if (elems.empty()) return;
                 if (!exceptions.empty() || !avoid_set.empty()) {
@@ -754,7 +754,7 @@ namespace smt {
                 sort * s = n->get_sort();
                 arith_rewriter arw(m);
                 bv_rewriter brw(m);
-                ptr_vector<expr> const & exceptions  = n->get_exceptions();
+                vector<expr*> const & exceptions  = n->get_exceptions();
                 expr_ref e_minus_1(m), e_plus_1(m);
                 if (m_arith.is_int(s)) {
                     expr_ref one(m_arith.mk_int(1), m);
@@ -953,7 +953,7 @@ namespace smt {
 
             void add_elem_to_empty_inst_sets() {
                 obj_map<sort, expr*> sort2elems;
-                ptr_vector<node> need_fresh;
+                vector<node*> need_fresh;
                 for (node * n : m_root_nodes) {
                     SASSERT(n->is_root());
                     instantiation_set const * s           = n->get_instantiation_set();
@@ -1130,7 +1130,7 @@ namespace smt {
             virtual void populate_inst_sets2(quantifier * q, auf_solver & s, context * ctx) {}
 
             // Macro/Hint support
-            virtual void populate_inst_sets(quantifier * q, func_decl * mhead, ptr_vector<instantiation_set> & uvar_inst_sets, context * ctx) {}
+            virtual void populate_inst_sets(quantifier * q, func_decl * mhead, vector<instantiation_set*> & uvar_inst_sets, context * ctx) {}
         };
 
         class f_var : public qinfo {
@@ -1196,7 +1196,7 @@ namespace smt {
                 }
             }
 
-            void populate_inst_sets(quantifier * q, func_decl * mhead, ptr_vector<instantiation_set> & uvar_inst_sets, context * ctx) override {
+            void populate_inst_sets(quantifier * q, func_decl * mhead, vector<instantiation_set*> & uvar_inst_sets, context * ctx) override {
                 if (m_f != mhead)
                     return;
                 uvar_inst_sets.expand(m_var_j+1, 0);
@@ -1328,7 +1328,7 @@ namespace smt {
                 }
             }
 
-            void populate_inst_sets(quantifier * q, func_decl * mhead, ptr_vector<instantiation_set> & uvar_inst_sets, context * ctx) override {
+            void populate_inst_sets(quantifier * q, func_decl * mhead, vector<instantiation_set*> & uvar_inst_sets, context * ctx) override {
                 // ignored when in macro
             }
 
@@ -1692,13 +1692,13 @@ namespace smt {
             quantifier_ref           m_flat_q; // flat version of the quantifier
             bool                     m_is_auf;
             bool                     m_has_x_eq_y;
-            ptr_vector<qinfo>        m_qinfo_vect;
+            vector<qinfo*>        m_qinfo_vect;
             func_decl_set            m_ng_decls; // declarations used in non-ground applications (basic_family operators are ignored here).
-            ptr_vector<cond_macro>   m_cond_macros;
+            vector<cond_macro*>   m_cond_macros;
             func_decl *              m_the_one; // the macro head used to satisfy the quantifier. this is useful for model checking
             // when the quantifier is satisfied by a macro/hint, it may not be processed by the AUF solver.
             // in this case, the quantifier_info stores the instantiation sets.
-            ptr_vector<instantiation_set>  * m_uvar_inst_sets;
+            vector<instantiation_set*>  * m_uvar_inst_sets;
 
             friend class quantifier_analyzer;
 
@@ -1724,7 +1724,7 @@ namespace smt {
             }
 
         public:
-            typedef ptr_vector<cond_macro>::const_iterator macro_iterator;
+            typedef vector<cond_macro*>::const_iterator macro_iterator;
 
             quantifier_info(model_finder& mf, ast_manager & m, quantifier * q):
                 m_mf(mf),
@@ -1779,7 +1779,7 @@ namespace smt {
                 return !m_cond_macros.empty();
             }
 
-            ptr_vector<cond_macro> const& macros() const { return m_cond_macros; }
+            vector<cond_macro*> const& macros() const { return m_cond_macros; }
 
             void set_the_one(func_decl * m) {
                 m_the_one = m;
@@ -1841,7 +1841,7 @@ namespace smt {
                 SASSERT(m_the_one != 0);
                 if (m_uvar_inst_sets != nullptr)
                     return;
-                m_uvar_inst_sets = alloc(ptr_vector<instantiation_set>);
+                m_uvar_inst_sets = alloc(vector<instantiation_set*>);
                 for (qinfo* qi : m_qinfo_vect)
                     qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
                 for (instantiation_set * s : *m_uvar_inst_sets) {
@@ -1889,7 +1889,7 @@ namespace smt {
             obj_hashtable<expr>  m_neg_cache;
             typedef std::pair<expr *, polarity> entry;
             vector<entry>       m_ftodo;
-            ptr_vector<expr>     m_ttodo;
+            vector<expr*>     m_ttodo;
 
             void insert_qinfo(qinfo * qi) {
                 SASSERT(m_info);
@@ -2435,7 +2435,7 @@ namespace smt {
                 TRACE("model_finder", tout << f->get_name() << " " << mk_pp(f_else, m) << "\n";);
             }
 
-            virtual bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) = 0;
+            virtual bool process(vector<quantifier*> const & qs, vector<quantifier*> & new_qs, vector<quantifier*> & residue) = 0;
 
         public:
             base_macro_solver(ast_manager & m, obj_map<quantifier, quantifier_info *> const & q2i):
@@ -2451,9 +2451,9 @@ namespace smt {
                Store in new_qs the quantifiers that were not satisfied.
                Store in residue a subset of the quantifiers that were satisfied but contain information useful for the auf_solver.
             */
-            void operator()(proto_model * m, ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) {
+            void operator()(proto_model * m, vector<quantifier*> const & qs, vector<quantifier*> & new_qs, vector<quantifier*> & residue) {
                 m_model = m;
-                ptr_vector<quantifier> curr_qs(qs);
+                vector<quantifier*> curr_qs(qs);
                 while (process(curr_qs, new_qs, residue)) {
                     curr_qs.swap(new_qs);
                     new_qs.clear();
@@ -2474,7 +2474,7 @@ namespace smt {
             /**
                \brief Return true if \c f is in (qs\{q})
             */
-            bool contains(func_decl * f, ptr_vector<quantifier> const & qs, quantifier * q) {
+            bool contains(func_decl * f, vector<quantifier*> const & qs, quantifier * q) {
                 for (quantifier * other : qs) {
                     if (q == other)
                         continue;
@@ -2485,7 +2485,7 @@ namespace smt {
                 return false;
             }
 
-            bool process(quantifier * q, ptr_vector<quantifier> const & qs) {
+            bool process(quantifier * q, vector<quantifier*> const & qs) {
                 quantifier_info * qi = get_qinfo(q);
                 for (cond_macro* m : qi->macros()) {
                     if (!m->satisfy_atom())
@@ -2509,7 +2509,7 @@ namespace smt {
                 return false;
             }
 
-            bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) override {
+            bool process(vector<quantifier*> const & qs, vector<quantifier*> & new_qs, vector<quantifier*> & residue) override {
                 bool removed = false;
                 for (quantifier* q : qs) {
                     if (process(q, qs))
@@ -2575,9 +2575,9 @@ namespace smt {
 
             q_f                        m_q_f;
             q_f_def                    m_q_f_def;
-            ptr_vector<quantifier_set> m_qsets;
+            vector<quantifier_set*> m_qsets;
             f2defs                     m_f2defs;
-            ptr_vector<expr_set>       m_esets;
+            vector<expr_set*>       m_esets;
 
             void insert_q_f(quantifier * q, func_decl * f) {
                 SASSERT(!m_forbidden.contains(f));
@@ -2656,8 +2656,8 @@ namespace smt {
                 }
             }
 
-            void preprocess(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & qcandidates, ptr_vector<quantifier> & non_qcandidates) {
-                ptr_vector<quantifier> curr(qs);
+            void preprocess(vector<quantifier*> const & qs, vector<quantifier*> & qcandidates, vector<quantifier*> & non_qcandidates) {
+                vector<quantifier*> curr(qs);
                 while (true) {
                     for (quantifier * q : curr) {
                         if (is_candidate(q)) {
@@ -2676,7 +2676,7 @@ namespace smt {
                 }
             }
 
-            void mk_q_f_defs(ptr_vector<quantifier> const & qs) {
+            void mk_q_f_defs(vector<quantifier*> const & qs) {
                 for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
                     func_decl_set const & ng_decls = qi->get_ng_decls();
@@ -2700,7 +2700,7 @@ namespace smt {
                 out << "\n";
             }
 
-            void display_qcandidates(std::ostream & out, ptr_vector<quantifier> const & qcandidates) const {
+            void display_qcandidates(std::ostream & out, vector<quantifier*> const & qcandidates) const {
                 for (quantifier * q : qcandidates) {
                     out << q->get_qid() << " ->\n" << mk_pp(q, m) << "\n";
                     quantifier_info * qi = get_qinfo(q);
@@ -2939,7 +2939,7 @@ namespace smt {
             /**
                \brief Copy the quantifiers from qcandidates to new_qs that are not in m_satisfied.
             */
-            void copy_non_satisfied(ptr_vector<quantifier> const & qcandidates, ptr_vector<quantifier> & new_qs) {
+            void copy_non_satisfied(vector<quantifier*> const & qcandidates, vector<quantifier*> & new_qs) {
                 for (quantifier * q : qcandidates) {
                     if (!m_satisfied.contains(q))
                         new_qs.push_back(q);
@@ -2967,9 +2967,9 @@ namespace smt {
                 m_fs.reset();
             }
 
-            bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) override {
+            bool process(vector<quantifier*> const & qs, vector<quantifier*> & new_qs, vector<quantifier*> & residue) override {
                 reset();
-                ptr_vector<quantifier> qcandidates;
+                vector<quantifier*> qcandidates;
                 preprocess(qs, qcandidates, new_qs);
                 if (qcandidates.empty()) {
                     SASSERT(new_qs.size() == qs.size());
@@ -3052,7 +3052,7 @@ namespace smt {
 
             typedef std::pair<cond_macro *, quantifier *> mq_pair;
 
-            void collect_candidates(ptr_vector<quantifier> const & qs, obj_map<func_decl, mq_pair> & full_macros, func_decl_set & cond_macros) {
+            void collect_candidates(vector<quantifier*> const & qs, obj_map<func_decl, mq_pair> & full_macros, func_decl_set & cond_macros) {
                 for (quantifier * q : qs) {
                     quantifier_info * qi = get_qinfo(q);
                     for (cond_macro * m : qi->macros()) {
@@ -3085,7 +3085,7 @@ namespace smt {
                 }
             }
 
-            void process(func_decl * f, ptr_vector<quantifier> const & qs, obj_hashtable<quantifier> & removed) {
+            void process(func_decl * f, vector<quantifier*> const & qs, obj_hashtable<quantifier> & removed) {
                 expr_ref fi_else(m);
                 buffer<quantifier*> to_remove;
                 for (quantifier * q : qs) {
@@ -3113,13 +3113,13 @@ namespace smt {
                 }
             }
 
-            void process_cond_macros(func_decl_set const & cond_macros, ptr_vector<quantifier> const & qs, obj_hashtable<quantifier> & removed) {
+            void process_cond_macros(func_decl_set const & cond_macros, vector<quantifier*> const & qs, obj_hashtable<quantifier> & removed) {
                 for (func_decl * f : cond_macros) {
                     process(f, qs, removed);
                 }
             }
 
-            bool process(ptr_vector<quantifier> const & qs, ptr_vector<quantifier> & new_qs, ptr_vector<quantifier> & residue) override {
+            bool process(vector<quantifier*> const & qs, vector<quantifier*> & new_qs, vector<quantifier*> & residue) override {
                 obj_map<func_decl, mq_pair> full_macros;
                 func_decl_set cond_macros;
                 obj_hashtable<quantifier> removed;
@@ -3248,14 +3248,14 @@ namespace smt {
         // do nothing in the current version
     }
 
-    void model_finder::collect_relevant_quantifiers(ptr_vector<quantifier> & qs) const {
+    void model_finder::collect_relevant_quantifiers(vector<quantifier*> & qs) const {
         for (quantifier * q : m_quantifiers) {
             if (m_context->is_relevant(q) && m_context->get_assignment(q) == l_true)
                 qs.push_back(q);
         }
     }
 
-    void model_finder::process_auf(ptr_vector<quantifier> const & qs, proto_model * mdl) {
+    void model_finder::process_auf(vector<quantifier*> const & qs, proto_model * mdl) {
         m_auf_solver->reset();
         m_auf_solver->set_model(mdl);
 
@@ -3279,22 +3279,22 @@ namespace smt {
               m_auf_solver->display_nodes(tout););
     }
 
-    void model_finder::process_simple_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m) {
-        ptr_vector<quantifier> new_qs;
+    void model_finder::process_simple_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m) {
+        vector<quantifier*> new_qs;
         m_sm_solver->operator()(m, qs, new_qs, residue);
         qs.swap(new_qs);
         TRACE("model_finder", tout << "model after processing simple macros:\n"; model_pp(tout, *m););
     }
 
-    void model_finder::process_hint_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m) {
-        ptr_vector<quantifier> new_qs;
+    void model_finder::process_hint_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m) {
+        vector<quantifier*> new_qs;
         m_hint_solver->operator()(m, qs, new_qs, residue);
         qs.swap(new_qs);
         TRACE("model_finder", tout << "model after processing simple macros:\n"; model_pp(tout, *m););
     }
 
-    void model_finder::process_non_auf_macros(ptr_vector<quantifier> & qs, ptr_vector<quantifier> & residue, proto_model * m) {
-        ptr_vector<quantifier> new_qs;
+    void model_finder::process_non_auf_macros(vector<quantifier*> & qs, vector<quantifier*> & residue, proto_model * m) {
+        vector<quantifier*> new_qs;
         m_nm_solver->operator()(m, qs, new_qs, residue);
         qs.swap(new_qs);
         TRACE("model_finder", tout << "model after processing non auf macros:\n"; model_pp(tout, *m););
@@ -3303,7 +3303,7 @@ namespace smt {
     /**
        \brief Clean leftovers from previous invocations to fix_model.
     */
-    void model_finder::cleanup_quantifier_infos(ptr_vector<quantifier> const & qs) {
+    void model_finder::cleanup_quantifier_infos(vector<quantifier*> const & qs) {
         for (quantifier* q : qs) {
             get_quantifier_info(q)->reset_the_one();
         }
@@ -3316,8 +3316,8 @@ namespace smt {
     void model_finder::fix_model(proto_model * m) {
         if (m_quantifiers.empty())
             return;
-        ptr_vector<quantifier> qs;
-        ptr_vector<quantifier> residue;
+        vector<quantifier*> qs;
+        vector<quantifier*> residue;
         collect_relevant_quantifiers(qs);
         if (qs.empty())
             return;

@@ -111,7 +111,7 @@ private:
     
 
     std::string      m_trace_id;
-    typedef ptr_vector<expr> exprs;
+    typedef vector<expr*> exprs;
 
 public:
     maxres(maxsat_context& c, unsigned index, 

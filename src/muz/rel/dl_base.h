@@ -70,7 +70,7 @@ namespace datalog {
 
     void universal_delete(relation_base* ptr);
     void universal_delete(table_base* ptr);
-    void dealloc_ptr_vector_content(ptr_vector<relation_base> & v);
+    void dealloc_ptr_vector_content(vector<relation_base*> & v);
 
 
     /**
@@ -645,7 +645,7 @@ namespace datalog {
         };
 
         class default_permutation_rename_fn : public transformer_fn {
-            typedef ptr_vector<transformer_fn> renamer_vector;
+            typedef vector<transformer_fn*> renamer_vector;
 
             vector<unsigned> m_permutation; //this is valid only before m_renamers_initialized becomes true
             bool m_renamers_initialized;
@@ -711,7 +711,7 @@ namespace datalog {
     class relation_plugin;
     class relation_base;
 
-    typedef ptr_vector<sort> relation_signature_base0;
+    typedef vector<sort*> relation_signature_base0;
     typedef ptr_hash<sort> relation_sort_hash;
 
 
@@ -820,7 +820,7 @@ namespace datalog {
         virtual bool is_precise() const { return true; }
     };
 
-    typedef ptr_vector<relation_base> relation_vector;
+    typedef vector<relation_base*> relation_vector;
 
     // -----------------------------------
     //

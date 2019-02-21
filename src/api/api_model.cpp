@@ -201,7 +201,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             RETURN_Z3(nullptr);
         }
-        ptr_vector<expr> const & universe = to_model_ref(m)->get_universe(to_sort(s));
+        vector<expr*> const & universe = to_model_ref(m)->get_universe(to_sort(s));
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         for (expr * e : universe) {

@@ -78,7 +78,7 @@ void fpa2bv_model_converter::convert(model_core * mc, model * float_mdl) {
     sz = mc->get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < sz; i++) {
         sort * s = mc->get_uninterpreted_sort(i);
-        ptr_vector<expr> u = mc->get_universe(s);
+        vector<expr*> u = mc->get_universe(s);
         float_mdl->register_usort(s, u.size(), u.c_ptr());
     }
 }

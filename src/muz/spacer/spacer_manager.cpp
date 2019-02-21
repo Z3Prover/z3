@@ -127,7 +127,7 @@ expr_ref inductive_property::to_expr() const
 }
 
 
-void inductive_property::display(datalog::rule_manager& rm, ptr_vector<datalog::rule> const& rules, std::ostream& out) const
+void inductive_property::display(datalog::rule_manager& rm, vector<datalog::rule*> const& rules, std::ostream& out) const
 {
     func_decl_set bound_decls, aux_decls;
     collect_decls_proc collect_decls(bound_decls, aux_decls);

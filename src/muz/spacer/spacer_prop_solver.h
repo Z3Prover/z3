@@ -36,7 +36,7 @@ Revision History:
 struct fp_params;
 
 namespace spacer {
-typedef ptr_vector<func_decl> decl_vector;
+typedef vector<func_decl*> decl_vector;
 
 class prop_solver {
 

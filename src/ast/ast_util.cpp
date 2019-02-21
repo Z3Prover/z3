@@ -44,8 +44,8 @@ app * mk_list_assoc_app(ast_manager & m, family_id fid, decl_kind k, unsigned nu
     return mk_list_assoc_app(m, decl, num_args, args);
 }
 
-bool is_well_formed_vars(ptr_vector<sort>& bound, expr * top) {
-    ptr_vector<expr> todo;
+bool is_well_formed_vars(vector<sort*>& bound, expr * top) {
+    vector<expr*> todo;
     ast_mark mark;
     todo.push_back(top);
     while (!todo.empty()) {

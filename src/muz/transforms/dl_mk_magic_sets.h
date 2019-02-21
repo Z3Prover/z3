@@ -83,7 +83,7 @@ namespace datalog {
         struct adorned_rule {
             app * m_head;
             adornment m_head_adornment;
-            ptr_vector<app> m_tail;
+            vector<app*> m_tail;
         };
 
         typedef hashtable<adornment_desc, obj_hash<adornment_desc>, 

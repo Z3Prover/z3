@@ -75,8 +75,8 @@ namespace spacer {
         }
     }
 
-    typedef ptr_vector<app> app_vector;
-    typedef ptr_vector<func_decl> decl_vector;
+    typedef vector<app*> app_vector;
+    typedef vector<func_decl*> decl_vector;
     typedef obj_hashtable<func_decl> func_decl_set;
 
     /**

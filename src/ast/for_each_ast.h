@@ -24,7 +24,7 @@ Revision History:
 #include "util/map.h"
 
 template<typename T>
-bool for_each_ast_args(ptr_vector<ast> & stack, ast_mark & visited, unsigned num_args, T * const * args) {
+bool for_each_ast_args(vector<ast*> & stack, ast_mark & visited, unsigned num_args, T * const * args) {
     bool result = true;
     for (unsigned i = 0; i < num_args; i++) {
         T * arg = args[i];
@@ -36,11 +36,11 @@ bool for_each_ast_args(ptr_vector<ast> & stack, ast_mark & visited, unsigned num
     return result;
 }
 
-bool for_each_parameter(ptr_vector<ast> & stack, ast_mark & visited, unsigned num_args, parameter const * params);
+bool for_each_parameter(vector<ast*> & stack, ast_mark & visited, unsigned num_args, parameter const * params);
 
 template<typename ForEachProc>
 void for_each_ast(ForEachProc & proc, ast_mark & visited, ast * n, bool visit_parameters = false) {
-    ptr_vector<ast> stack;
+    vector<ast*> stack;
     ast *           curr;
 
     stack.push_back(n);
@@ -156,9 +156,9 @@ public:
         ast*               a;
         ast * const *      args;
         T*                 result;
-        ptr_vector<ast>    stack;
+        vector<ast*>    stack;
         mem_map<T>         memoize;
-        ptr_vector<T>      results;
+        vector<T*>      results;
         
         stack.push_back(aArg);
         
@@ -215,7 +215,7 @@ public:
                 
             case AST_QUANTIFIER: {
                 quantifier * quantifier_ast = to_quantifier(a);
-                ptr_vector<T> decl_types;
+                vector<T*> decl_types;
 
                 if (recurse_quantifier) {
                     args = (ast * const *) quantifier_ast->get_decl_sorts();
@@ -256,8 +256,8 @@ public:
 private:
 
     template<typename AST>
-    static void recurse_list(ptr_vector<ast> & stack, unsigned arity, AST * const * ast_list, mem_map<T> * memoize,
-                             ptr_vector<T> & results) {
+    static void recurse_list(vector<ast*> & stack, unsigned arity, AST * const * ast_list, mem_map<T> * memoize,
+                             vector<T*> & results) {
         T * result;
         for (unsigned i = 0; i < arity; ++i) {
             if (memoize->find(ast_list[i], result)) {

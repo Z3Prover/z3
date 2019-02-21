@@ -40,7 +40,7 @@ expr_ref unmarshal(std::istream &is, ast_manager &m) {
         return expr_ref(nullptr, m); 
     }
 
-    ptr_vector<expr>::const_iterator it  = ctx.assertions().begin();
+    vector<expr*>::const_iterator it  = ctx.assertions().begin();
     unsigned size = ctx.assertions().size();
     return expr_ref(mk_and(m, size, it), m);
 }

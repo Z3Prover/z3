@@ -32,7 +32,7 @@ static char const* g_file = nullptr;
 void create_forwarding(
     char const* file, 
     datalog::ddnf_core& ddnf, 
-    ptr_vector<tbv>& tbvs,
+    vector<tbv*>& tbvs,
     vector<vector<unsigned>>& fwd_indices) {
 
     IF_VERBOSE(1, verbose_stream() << "creating (and forgetting) forwarding index\n";);
@@ -77,7 +77,7 @@ void create_forwarding(
     tbvm.deallocate(tX);
 }
 
-datalog::ddnf_core* populate_ddnf(char const* file, ptr_vector<tbv>& tbvs) {
+datalog::ddnf_core* populate_ddnf(char const* file, vector<tbv*>& tbvs) {
 
     IF_VERBOSE(1, verbose_stream() << "populate ddnf\n";);
 
@@ -182,7 +182,7 @@ static void refine_forwarding(
 
 void tst_ddnf(char ** argv, int argc, int& i) {
     read_args(argv, argc, i);
-    ptr_vector<tbv> tbvs;
+    vector<tbv*> tbvs;
     datalog::ddnf_core* ddnf = populate_ddnf(g_file, tbvs);
     IF_VERBOSE(1, ddnf->display(verbose_stream()););
     vector<vector<unsigned>> fwd_indices;

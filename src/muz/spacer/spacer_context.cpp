@@ -210,7 +210,7 @@ void derivation::add_premise (pred_transformer &pt,
                               unsigned oidx,
                               expr* summary,
                               bool must,
-                              const ptr_vector<app> *aux_vars)
+                              const vector<app*> *aux_vars)
 {m_premises.push_back (premise (pt, oidx, summary, must, aux_vars));}
 
 
@@ -439,7 +439,7 @@ pob *derivation::create_next_child ()
 
 derivation::premise::premise (pred_transformer &pt, unsigned oidx,
                               expr *summary, bool must,
-                              const ptr_vector<app> *aux_vars) :
+                              const vector<app*> *aux_vars) :
     m_pt (pt), m_oidx (oidx),
     m_summary (summary, pt.get_ast_manager ()), m_must (must),
     m_ovars (pt.get_ast_manager ())
@@ -464,7 +464,7 @@ derivation::premise::premise (const derivation::premise &p) :
 /// \brief Updated the summary.
 /// The new summary is over n-variables.
 void derivation::premise::set_summary (expr * summary, bool must,
-                                       const ptr_vector<app> *aux_vars)
+                                       const vector<app*> *aux_vars)
 {
     ast_manager &m = m_pt.get_ast_manager ();
     manager &sm = m_pt.get_manager ();
@@ -910,7 +910,7 @@ const datalog::rule *pred_transformer::find_rule(model &model,
     return r;
 }
 
-void pred_transformer::find_predecessors(datalog::rule const& r, ptr_vector<func_decl>& preds) const
+void pred_transformer::find_predecessors(datalog::rule const& r, vector<func_decl*>& preds) const
 {
     preds.clear();
     unsigned tail_sz = r.get_uninterpreted_tail_size();
@@ -1107,7 +1107,7 @@ expr_ref pred_transformer::get_reachable()
             f = m_reach_facts.get(i);
             expr_ref r(m);
             r = f->get();
-            const ptr_vector<app> &aux = f->aux_vars();
+            const vector<app*> &aux = f->aux_vars();
             if (!aux.empty()) {
                 // -- existentially quantify auxiliary variables
                 r = mk_exists (m, aux.size(), aux.c_ptr(), r);
@@ -1178,7 +1178,7 @@ expr_ref pred_transformer::get_origin_summary (model &mdl,
                                                unsigned level,
                                                unsigned oidx,
                                                bool must,
-                                               const ptr_vector<app> **aux)
+                                               const vector<app*> **aux)
 {
     model::scoped_model_completion _sc_(mdl, false);
     expr_ref_vector summary (m);
@@ -1253,7 +1253,7 @@ void pred_transformer::propagate_to_infinity (unsigned level)
 // compute a conjunction of all background facts
 void pred_transformer::get_pred_bg_invs(expr_ref_vector& out) {
     expr_ref inv(m), tmp1(m), tmp2(m);
-    ptr_vector<func_decl> preds;
+    vector<func_decl*> preds;
     for (auto kv : m_pt_rules) {
         expr* tag = kv.m_value->tag();
         datalog::rule const &r = kv.m_value->rule();
@@ -1694,7 +1694,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
     // positions the variables occur are made equivalent with these.
     expr_ref_vector side(m);
     app_ref_vector var_reprs(m);
-    ptr_vector<app> aux_vars;
+    vector<app*> aux_vars;
 
     unsigned ut_size = rule.get_uninterpreted_tail_size();
     unsigned t_size  = rule.get_tail_size();
@@ -1750,7 +1750,7 @@ void pred_transformer::init_rule(decl2rel const& pts, datalog::rule const& rule)
 
 // create constants for free variables in tail.
 void pred_transformer::ground_free_vars(expr* e, app_ref_vector& vars,
-                                        ptr_vector<app>& aux_vars, bool is_init) {
+                                        vector<app*>& aux_vars, bool is_init) {
     expr_free_vars fv;
     fv(e);
 
@@ -2547,7 +2547,7 @@ bool context::validate() {
         ex.to_model(model);
         var_subst vs(m, false);
         for (auto& kv : m_rels) {
-            ptr_vector<datalog::rule> const& rules = kv.m_value->rules();
+            vector<datalog::rule*> const& rules = kv.m_value->rules();
             TRACE ("spacer", tout << "PT: " << kv.m_value->head ()->get_name ().str ()
                    << "\n";);
             for (auto* rp : rules) {
@@ -2692,7 +2692,7 @@ void context::get_level_property(unsigned lvl, expr_ref_vector& res,
         expr_ref conj = r->get_formulas(lvl, with_bg);
         m_pm.formula_n2o(0, false, conj);
         res.push_back(conj);
-        ptr_vector<func_decl> sig(r->head()->get_arity(), r->sig());
+        vector<func_decl*> sig(r->head()->get_arity(), r->sig());
         rs.push_back(relation_info(m, r->head(), sig, conj));
     }
 }
@@ -2770,8 +2770,8 @@ unsigned context::get_cex_depth()
     }
 
     // treat the following as queues: read from left to right and insert at right
-    ptr_vector<func_decl> preds;
-    ptr_vector<pred_transformer> pts;
+    vector<func_decl*> preds;
+    vector<pred_transformer*> pts;
     reach_fact_ref_vector facts;
 
     // temporary
@@ -2845,8 +2845,8 @@ void context::get_rules_along_trace(datalog::rule_ref_vector& rules)
     }
 
     // treat the following as queues: read from left to right and insert at right
-    ptr_vector<func_decl> preds;
-    ptr_vector<pred_transformer> pts;
+    vector<func_decl*> preds;
+    vector<pred_transformer*> pts;
     reach_fact_ref_vector facts;
 
     // temporary
@@ -2957,8 +2957,8 @@ expr_ref context::get_ground_sat_answer()  {
 
     // treat the following as queues: read from left to right and insert at the right
     reach_fact_ref_vector reach_facts;
-    ptr_vector<func_decl> preds;
-    ptr_vector<pred_transformer> pts;
+    vector<func_decl*> preds;
+    vector<pred_transformer*> pts;
     expr_ref_vector cex (m); // pre-order list of ground instances of predicates
     expr_ref_vector cex_facts (m); // equalities for the ground cex using signature constants
 
@@ -3003,7 +3003,7 @@ expr_ref context::get_ground_sat_answer()  {
 
         cex_fact = cex_facts.get (curr);
 
-        ptr_vector<pred_transformer> child_pts;
+        vector<pred_transformer*> child_pts;
 
         // get justifying rule and child facts for the derivation of reach_fact at pt
         r = &reach_fact->get_rule ();
@@ -3695,7 +3695,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     expr_ref res(m);
     reach_fact_ref_vector child_reach_facts;
 
-    ptr_vector<func_decl> preds;
+    vector<func_decl*> preds;
     find_predecessors (r, preds);
 
     expr_ref_vector path_cons (m);
@@ -3715,12 +3715,12 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
         for (unsigned j = 0; j < pred->get_arity (); j++)
         { vars.push_back(m.mk_const(pm.o2o(ch_pt.sig(j), 0, i))); }
 
-        const ptr_vector<app> &v = kid->aux_vars ();
+        const vector<app*> &v = kid->aux_vars ();
         for (unsigned j = 0, sz = v.size (); j < sz; ++j)
         { vars.push_back(m.mk_const(pm.n2o(v [j]->get_decl(), i))); }
     }
     // collect aux vars to eliminate
-    ptr_vector<app>& aux_vars = get_aux_vars (r);
+    vector<app*>& aux_vars = get_aux_vars (r);
     bool elim_aux = ctx.elim_aux();
     if (elim_aux) { vars.append(aux_vars.size(), aux_vars.c_ptr()); }
 
@@ -3764,7 +3764,7 @@ reach_fact *pred_transformer::mk_rf(pob& n, model &mdl, const datalog::rule& r)
     SASSERT (vars.empty ());
 
     m_stats.m_num_reach_queries++;
-    ptr_vector<app> empty;
+    vector<app*> empty;
     reach_fact *f = alloc(reach_fact, m, r, res, elim_aux ? empty : aux_vars);
     for (unsigned i = 0, sz = child_reach_facts.size (); i < sz; ++i)
     { f->add_justification(child_reach_facts.get(i)); }
@@ -3792,7 +3792,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
     SASSERT (r.get_uninterpreted_tail_size () > 0);
 
-    ptr_vector<func_decl> preds;
+    vector<func_decl*> preds;
     pt.find_predecessors(r, preds);
 
 
@@ -3810,7 +3810,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
         vars.push_back(m.mk_const(m_pm.o2n(pt.sig(i), 0)));
     }
     // local variables of the rule
-    ptr_vector<app>& aux_vars = pt.get_aux_vars(r);
+    vector<app*>& aux_vars = pt.get_aux_vars(r);
     vars.append(aux_vars.size(), aux_vars.c_ptr());
 
     // skolems of the pob
@@ -3851,7 +3851,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
         pred_transformer &pt = get_pred_transformer(preds[j]);
 
-        const ptr_vector<app> *aux = nullptr;
+        const vector<app*> *aux = nullptr;
         expr_ref sum(m);
         sum = pt.get_origin_summary (mdl, prev_level(n.level()),
                                      j, reach_pred_used[j], &aux);

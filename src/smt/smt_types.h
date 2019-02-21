@@ -44,7 +44,7 @@ namespace smt {
     const theory_var null_theory_var = -1;
 
     class enode;
-    typedef ptr_vector<enode> enode_vector;
+    typedef vector<enode*> enode_vector;
     typedef std::pair<enode *, enode *> enode_pair;
     typedef vector<enode_pair> enode_pair_vector;
 

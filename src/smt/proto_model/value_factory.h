@@ -92,7 +92,7 @@ protected:
     sort2value_set         m_sort2value_set;
     expr_ref_vector        m_values;
     sort_ref_vector        m_sorts;
-    ptr_vector<value_set>  m_sets;
+    vector<value_set*>  m_sets;
 
     value_set * get_value_set(sort * s) {
         value_set * set = nullptr;

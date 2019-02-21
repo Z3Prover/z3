@@ -314,7 +314,7 @@ public:
         r.append(m_core.size(), m_core.c_ptr());
     }
 
-    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
+    void get_levels(vector<expr*> const& vars, vector<unsigned>& depth) override {
         unsigned sz = vars.size();
         depth.resize(sz);
         for (unsigned i = 0; i < sz; ++i) {
@@ -657,7 +657,7 @@ private:
 
     bool internalize_var(expr* v, sat::bool_var_vector& bvars) {
         obj_map<func_decl, expr*> const2bits;
-        ptr_vector<func_decl> newbits;
+        vector<func_decl*> newbits;
         m_bb_rewriter->end_rewrite(const2bits, newbits);
         expr* bv;
         bv_util bvutil(m);

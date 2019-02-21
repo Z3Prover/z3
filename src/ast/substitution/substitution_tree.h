@@ -54,11 +54,11 @@ class substitution_tree {
     };
 
     ast_manager &     m_manager;
-    ptr_vector<node>  m_roots;
+    vector<node*>  m_roots;
     unsigned          m_max_reg;
-    ptr_vector<expr>  m_registers;
+    vector<expr*>  m_registers;
     unsigned          m_size;
-    ptr_vector<var_ref_vector> m_vars; // mapping from decl_id to var_ref_vector
+    vector<var_ref_vector*> m_vars; // mapping from decl_id to var_ref_vector
 
     // Compilation time fields
     unsigned          m_next_reg;
@@ -69,7 +69,7 @@ class substitution_tree {
     
     // Execution time fields
     substitution *    m_subst;
-    ptr_vector<node>  m_bstack;
+    vector<node*>  m_bstack;
     unsigned          m_in_offset;
     unsigned          m_st_offset;
     unsigned          m_reg_offset;

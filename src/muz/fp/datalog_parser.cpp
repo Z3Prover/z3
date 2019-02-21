@@ -848,7 +848,7 @@ protected:
         if (f==nullptr) {
             //we're in a declaration
             unsigned arity = args.size();
-            ptr_vector<sort> domain;
+            vector<sort*> domain;
             for (unsigned i = 0; i < arity; ++i) {
                 domain.push_back(m_manager.get_sort(args[i].get()));
             }

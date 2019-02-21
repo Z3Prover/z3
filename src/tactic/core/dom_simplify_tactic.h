@@ -30,18 +30,18 @@ Notes:
 
 class expr_dominators {
 public:
-    typedef obj_map<expr, ptr_vector<expr>> tree_t;
+    typedef obj_map<expr, vector<expr*>> tree_t;
 private:
     ast_manager&          m;
     expr_ref              m_root;
     obj_map<expr, unsigned>     m_expr2post; // reverse post-order number
-    ptr_vector<expr>      m_post2expr;
+    vector<expr*>      m_post2expr;
     tree_t                m_parents;
     obj_map<expr, expr*>  m_doms;
     tree_t                m_tree;
 
     void add_edge(tree_t& tree, expr * src, expr* dst) {        
-        tree.insert_if_not_there2(src, ptr_vector<expr>())->get_data().m_value.push_back(dst);        
+        tree.insert_if_not_there2(src, vector<expr*>())->get_data().m_value.push_back(dst);        
     }
 
     void compute_post_order();
@@ -98,7 +98,7 @@ class dom_simplify_tactic : public tactic {
     expr_dominators      m_dominators;
     unsigned             m_depth;
     unsigned             m_max_depth;
-    ptr_vector<expr>     m_empty;
+    vector<expr*>     m_empty;
     obj_pair_map<expr, expr, bool> m_subexpr_cache;
     bool                 m_forward;
 
@@ -115,7 +115,7 @@ class dom_simplify_tactic : public tactic {
     expr_ref get_cached(expr* t) { expr* r = nullptr; if (!m_result.find(t, r)) r = t; return expr_ref(r, m); }
     void cache(expr *t, expr* r) { m_result.insert(t, r); m_trail.push_back(r); }
 
-    ptr_vector<expr> const & tree(expr * e);
+    vector<expr*> const & tree(expr * e);
     expr* idom(expr *e) const { return m_dominators.idom(e); }
 
     unsigned scope_level() { return m_simplifier->scope_level(); }

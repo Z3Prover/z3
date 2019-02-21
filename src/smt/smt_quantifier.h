@@ -93,10 +93,10 @@ namespace smt {
         void collect_statistics(::statistics & st) const;
         void reset_statistics();
 
-        ptr_vector<quantifier>::const_iterator begin_quantifiers() const;
-        ptr_vector<quantifier>::const_iterator end_quantifiers() const;
-        ptr_vector<quantifier>::const_iterator begin() const { return begin_quantifiers(); }
-        ptr_vector<quantifier>::const_iterator end() const { return end_quantifiers(); }
+        vector<quantifier*>::const_iterator begin_quantifiers() const;
+        vector<quantifier*>::const_iterator end_quantifiers() const;
+        vector<quantifier*>::const_iterator begin() const { return begin_quantifiers(); }
+        vector<quantifier*>::const_iterator end() const { return end_quantifiers(); }
         unsigned num_quantifiers() const;
         
     };

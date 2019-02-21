@@ -149,7 +149,7 @@ namespace smt {
         }
         else {
             IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
-            ptr_vector<expr> fmls;
+            vector<expr*> fmls;
             m_context.get_asserted_formulas(fmls);
             st.collect(fmls.size(), fmls.c_ptr());
             IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
@@ -777,7 +777,7 @@ namespace smt {
     void setup::setup_arith() {
         static_features    st(m_manager);
         IF_VERBOSE(100, verbose_stream() << "(smt.collecting-features)\n";);
-        ptr_vector<expr> fmls;
+        vector<expr*> fmls;
         m_context.get_asserted_formulas(fmls);
         st.collect(fmls.size(), fmls.c_ptr());
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
@@ -942,7 +942,7 @@ namespace smt {
 
     void setup::setup_unknown() {
         static_features st(m_manager);
-        ptr_vector<expr> fmls;
+        vector<expr*> fmls;
         m_context.get_asserted_formulas(fmls);
         st.collect(fmls.size(), fmls.c_ptr());
         TRACE("setup", tout << "setup_unknown\n";);        

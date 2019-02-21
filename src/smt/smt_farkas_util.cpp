@@ -204,7 +204,7 @@ namespace smt {
     }
     unsigned farkas_util::process_term(expr* e) {
         unsigned r = e->get_id();
-        ptr_vector<expr> todo;
+        vector<expr*> todo;
         ast_mark mark;
         todo.push_back(e);
         while (!todo.empty()) {

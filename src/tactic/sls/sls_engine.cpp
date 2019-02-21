@@ -240,7 +240,7 @@ void sls_engine::mk_flip(sort * s, const mpz & old_value, unsigned bit, mpz & fl
         NOT_IMPLEMENTED_YET();
 }
 
-void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
+void sls_engine::mk_random_move(vector<func_decl*> & unsat_constants)
 {
     unsigned rnd_mv = 0;
     unsigned ucc = unsat_constants.size();
@@ -309,7 +309,7 @@ void sls_engine::mk_random_move(ptr_vector<func_decl> & unsat_constants)
 
 // finds the move that increased score the most. returns best_const = -1, if no increasing move exists.
 double sls_engine::find_best_move(
-    ptr_vector<func_decl> & to_evaluate, 
+    vector<func_decl*> & to_evaluate, 
     double score,
     unsigned & best_const, 
     mpz & best_value, 
@@ -372,7 +372,7 @@ double sls_engine::find_best_move(
 }
 
 // finds the move that increased score the most. returns best_const = -1, if no increasing move exists.
-double sls_engine::find_best_move_mc(ptr_vector<func_decl> & to_evaluate, double score,
+double sls_engine::find_best_move_mc(vector<func_decl*> & to_evaluate, double score,
                         unsigned & best_const, mpz & best_value) {
     mpz old_value, temp, temp2;
     unsigned bv_sz;
@@ -439,7 +439,7 @@ lbool sls_engine::search() {
         }
 
         // get candidate variables
-        ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
+        vector<func_decl*> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
         if (to_evaluate.empty())
         {
             res = l_true;
@@ -471,7 +471,7 @@ lbool sls_engine::search() {
             // only apply if another unsatisfied assertion actually exists
             if (q)
             {
-                ptr_vector<func_decl> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(q);
+                vector<func_decl*> & to_evaluate2 = m_tracker.get_unsat_constants_walksat(q);
                 score = find_best_move(to_evaluate2, score, new_const, new_value, new_bit, move);
 
                 if (new_const != static_cast<unsigned>(-1)) {

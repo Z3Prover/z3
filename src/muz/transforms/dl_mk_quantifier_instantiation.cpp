@@ -139,7 +139,7 @@ namespace datalog {
             return;
         }
         expr* arg = pat->get_arg(i);
-        ptr_vector<expr>* terms = nullptr;
+        vector<expr*>* terms = nullptr;
     
         if (m_funs.find(to_app(arg)->get_decl(), terms)) {
             for (unsigned k = 0; k < terms->size(); ++k) {
@@ -184,9 +184,9 @@ namespace datalog {
             }
             if (is_app(e)) {
                 app* ap = to_app(e);
-                ptr_vector<expr>* terms = nullptr;
+                vector<expr*>* terms = nullptr;
                 if (!m_funs.find(ap->get_decl(), terms)) {
-                    terms = alloc(ptr_vector<expr>);
+                    terms = alloc(vector<expr*>);
                     m_funs.insert(ap->get_decl(), terms);
                 }
                 terms->push_back(e);
@@ -199,7 +199,7 @@ namespace datalog {
         rule_manager& rm = m_ctx.get_rule_manager();
         expr_ref fml(m), cnst(m);
         var_ref var(m);
-        ptr_vector<sort> sorts;
+        vector<sort*> sorts;
         r.get_vars(m, sorts);
         m_uf.reset();
         m_terms.clear();

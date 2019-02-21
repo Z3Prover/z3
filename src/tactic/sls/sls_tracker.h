@@ -74,14 +74,14 @@ public:
 
 private:
     typedef obj_map<expr, value_score> scores_type;    
-    typedef obj_map<expr, ptr_vector<expr> > uplinks_type;    
-    typedef obj_map<expr, ptr_vector<func_decl> > occ_type;
+    typedef obj_map<expr, vector<expr*> > uplinks_type;    
+    typedef obj_map<expr, vector<func_decl*> > occ_type;
     obj_hashtable<expr>      m_top_expr;
     scores_type           m_scores;
     uplinks_type          m_uplinks;
     entry_point_type      m_entry_points;
-    ptr_vector<func_decl> m_constants;
-    ptr_vector<func_decl> m_temp_constants;
+    vector<func_decl*> m_constants;
+    vector<func_decl*> m_temp_constants;
     occ_type              m_constants_occ;
     unsigned              m_last_pos;
     unsigned              m_walksat;
@@ -145,7 +145,7 @@ public:
         for (unsigned i = 0; i < g->size(); i++)
         {
             m_temp_constants.reset();
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(g->form(i));
+            vector<func_decl*> const & this_decls = m_constants_occ.find(g->form(i));
             unsigned sz = this_decls.size();
             for (unsigned i = 0; i < sz; i++) {
                 func_decl * fd = this_decls[i];
@@ -275,12 +275,12 @@ public:
         return m_top_expr.contains(n);
     }
 
-    inline ptr_vector<expr> & get_uplinks(expr * n) {
+    inline vector<expr*> & get_uplinks(expr * n) {
         SASSERT(m_uplinks.contains(n));
         return m_uplinks.find(n);
     }
 
-    inline void ucb_forget(ptr_vector<expr> & as) {
+    inline void ucb_forget(vector<expr*> & as) {
         if (m_ucb_forget < 1.0)
         {
             expr * e;
@@ -309,7 +309,7 @@ public:
         unsigned na = n->get_num_args();
         for (unsigned i = 0; i < na; i++) {
             expr * c = n->get_arg(i); 
-            uplinks_type::obj_map_entry * entry = m_uplinks.insert_if_not_there2(c, ptr_vector<expr>());
+            uplinks_type::obj_map_entry * entry = m_uplinks.insert_if_not_there2(c, vector<expr*>());
             entry->get_data().m_value.push_back(n);
         }
 
@@ -351,9 +351,9 @@ public:
 
     struct find_func_decls_proc {
         ast_manager   & m_manager;        
-        ptr_vector<func_decl> & m_occs;
+        vector<func_decl*> & m_occs;
 
-        find_func_decls_proc (ast_manager & m, ptr_vector<func_decl> & occs):
+        find_func_decls_proc (ast_manager & m, vector<func_decl*> & occs):
             m_manager(m),
             m_occs(occs) {
         }
@@ -372,10 +372,10 @@ public:
         }
     };
 
-    void calculate_expr_distances(ptr_vector<expr> const & as) {
+    void calculate_expr_distances(vector<expr*> const & as) {
         // precondition: m_scores is set up.
         unsigned sz = as.size();
-        ptr_vector<app> stack;
+        vector<app*> stack;
         for (unsigned i = 0; i < sz; i++)
             stack.push_back(to_app(as[i]));
         while (!stack.empty()) {
@@ -420,14 +420,14 @@ public:
                 initialize_recursive(q);
             }
         }
-        ptr_vector<func_decl> t;
+        vector<func_decl*> t;
         m_constants_occ.insert_if_not_there(e, t);
         find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
         expr_fast_mark1 visited;
         quick_for_each_expr(ffd_proc, visited, e);
     }*/
 
-    void initialize(ptr_vector<expr> const & as) {
+    void initialize(vector<expr*> const & as) {
         init_proc proc(m_manager, *this);
         expr_mark visited;
         unsigned sz = as.size();
@@ -442,7 +442,7 @@ public:
 
         for (unsigned i = 0; i < sz; i++) {
             expr * e = as[i];
-            ptr_vector<func_decl> t;
+            vector<func_decl*> t;
             m_constants_occ.insert_if_not_there(e, t);
             find_func_decls_proc ffd_proc(m_manager, m_constants_occ.find(e));
             expr_fast_mark1 visited;
@@ -571,7 +571,7 @@ public:
         return m_constants.size();
     }
 
-    ptr_vector<func_decl> & get_constants() {
+    vector<func_decl*> & get_constants() {
         return m_constants;
     }
 
@@ -643,7 +643,7 @@ public:
             NOT_IMPLEMENTED_YET(); // This only works for bit-vectors for now.
     }    
 
-    void randomize(ptr_vector<expr> const & as) {
+    void randomize(vector<expr*> const & as) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -657,7 +657,7 @@ public:
         TRACE("sls", tout << "Randomized model:" << std::endl; show_model(tout); );
     }              
 
-    void reset(ptr_vector<expr> const & as) {
+    void reset(vector<expr*> const & as) {
         TRACE("sls", tout << "Abandoned model:" << std::endl; show_model(tout); );
 
         for (entry_point_type::iterator it = m_entry_points.begin(); it != m_entry_points.end(); it++) {
@@ -967,8 +967,8 @@ public:
             NOT_IMPLEMENTED_YET();
     }    
 
-    ptr_vector<func_decl> & get_constants(expr * e) {
-        ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
+    vector<func_decl*> & get_constants(expr * e) {
+        vector<func_decl*> const & this_decls = m_constants_occ.find(e);
         unsigned sz = this_decls.size();
         for (unsigned i = 0; i < sz; i++) {
             func_decl * fd = this_decls[i];
@@ -978,7 +978,7 @@ public:
         return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_gsat(ptr_vector<expr> const & as) {
+    vector<func_decl*> & get_unsat_constants_gsat(vector<expr*> const & as) {
         unsigned sz = as.size();
         if (sz == 1) {
             if (m_mpz_manager.neq(get_value(as[0]), m_one))
@@ -991,7 +991,7 @@ public:
             expr * q = as[i];
             if (m_mpz_manager.eq(get_value(q), m_one))
                 continue;
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(q);
+            vector<func_decl*> const & this_decls = m_constants_occ.find(q);
             unsigned sz2 = this_decls.size();
             for (unsigned j = 0; j < sz2; j++) {
                 func_decl * fd = this_decls[j];
@@ -1002,10 +1002,10 @@ public:
         return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants_walksat(expr * e) {
+    vector<func_decl*> & get_unsat_constants_walksat(expr * e) {
             if (!e || !m_temp_constants.empty())
                 return m_temp_constants;
-            ptr_vector<func_decl> const & this_decls = m_constants_occ.find(e);
+            vector<func_decl*> const & this_decls = m_constants_occ.find(e);
             unsigned sz = this_decls.size();
             for (unsigned j = 0; j < sz; j++) {
                 func_decl * fd = this_decls[j];
@@ -1015,7 +1015,7 @@ public:
             return m_temp_constants;
     }
 
-    ptr_vector<func_decl> & get_unsat_constants(ptr_vector<expr> const & as) {
+    vector<func_decl*> & get_unsat_constants(vector<expr*> const & as) {
         if (m_walksat)
         {
             expr * e = get_unsat_assertion(as);
@@ -1032,7 +1032,7 @@ public:
             return get_unsat_constants_gsat(as);
     }
     
-    expr * get_unsat_assertion(ptr_vector<expr> const & as) {
+    expr * get_unsat_assertion(vector<expr*> const & as) {
         unsigned sz = as.size();
         if (sz == 1) {
             if (m_mpz_manager.neq(get_value(as[0]), m_one))
@@ -1089,7 +1089,7 @@ public:
         return as[pos];
     }
 
-    expr * get_new_unsat_assertion(ptr_vector<expr> const & as) {
+    expr * get_new_unsat_assertion(vector<expr*> const & as) {
         unsigned sz = as.size();
         if (sz == 1)
             return nullptr;

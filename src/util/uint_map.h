@@ -26,7 +26,7 @@ Revision History:
 */
 template<typename T>
 class uint_map {
-    ptr_vector<T> m_map;
+    vector<T*> m_map;
 public:
     bool contains(unsigned k) const { return m_map.get(k, 0) != 0; }
 

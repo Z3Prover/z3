@@ -55,7 +55,7 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
     unsigned num = md.get_num_uninterpreted_sorts();
     for (unsigned i = 0; i < num; i++) {
         sort * s = md.get_uninterpreted_sort(i);
-        ptr_vector<expr> const & u = md.get_universe(s);
+        vector<expr*> const & u = md.get_universe(s);
         std::ostringstream buffer;
         buffer << "universe for ";
         ctx.display(buffer, s, 13);
@@ -151,7 +151,7 @@ static void pp_consts(std::ostream & out, ast_printer_context & ctx, model_core 
 
 void sort_fun_decls(ast_manager & m, model_core const & md, buffer<func_decl*> & result) {
     func_decl_set         visited;
-    ptr_vector<func_decl> todo;
+    vector<func_decl*> todo;
     unsigned sz = md.get_num_functions();
     for (unsigned i = 0; i < sz; i++) {
         func_decl * f = md.get_function(i);
