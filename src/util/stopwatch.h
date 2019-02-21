@@ -50,6 +50,7 @@ public:
 
     void reset() {
         m_elapsed = duration_t::zero();
+        DEBUG_CODE(m_running = false;);
     }
     
     void start() {
