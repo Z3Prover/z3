@@ -334,17 +334,17 @@ extern "C" {
         char const* ext) {
         ast_manager& m = mk_c(c)->m();        
         if (ext && std::string("opb") == ext) {
-            unsigned_vector h;
+            vector<unsigned> h;
             parse_opb(*to_optimize_ptr(opt), s, h);
             return;
         }
         if (ext && std::string("wcnf") == ext) {
-            unsigned_vector h;
+            vector<unsigned> h;
             parse_wcnf(*to_optimize_ptr(opt), s, h);
             return;
         }
         if (ext && std::string("lp") == ext) {
-            unsigned_vector h;
+            vector<unsigned> h;
             parse_lp(*to_optimize_ptr(opt), s, h);
             return;
         }

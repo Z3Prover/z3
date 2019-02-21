@@ -32,8 +32,8 @@ class special_relations_tactic : public tactic {
     vector<sr_property> m_properties;
     
     struct sp_axioms {
-        unsigned_vector m_goal_indices;
-        sr_property     m_sp_features;
+        vector<unsigned> m_goal_indices;
+        sr_property      m_sp_features;
         sp_axioms():m_sp_features(sr_none) {}
     };
 

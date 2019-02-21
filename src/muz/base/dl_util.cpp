@@ -468,16 +468,16 @@ namespace datalog {
         out << ")\n";
     }
 
-    void cycle_from_permutation(unsigned_vector & permutation, unsigned_vector & cycle) {
+    void cycle_from_permutation(vector<unsigned> & permutation, vector<unsigned> & cycle) {
         try_remove_cycle_from_permutation(permutation, cycle);
         DEBUG_CODE(
             //here we assert that there is at most one cycle in the permutation
-            unsigned_vector aux;
+            vector<unsigned> aux;
             SASSERT(!try_remove_cycle_from_permutation(permutation, aux));
             );
     }
 
-    bool try_remove_cycle_from_permutation(unsigned_vector & permutation, unsigned_vector & cycle) {
+    bool try_remove_cycle_from_permutation(vector<unsigned> & permutation, vector<unsigned> & cycle) {
         SASSERT(cycle.empty());
         DEBUG_CODE(
             counter ctr;
@@ -505,8 +505,8 @@ namespace datalog {
         return false;
     }
 
-    void collect_sub_permutation(const unsigned_vector & permutation, const unsigned_vector & translation,
-            unsigned_vector & res, bool & identity) {
+    void collect_sub_permutation(const vector<unsigned> & permutation, const vector<unsigned> & translation,
+            vector<unsigned> & res, bool & identity) {
         SASSERT(res.empty());
         identity = true;
         unsigned sz = permutation.size();
@@ -523,8 +523,8 @@ namespace datalog {
         }
     }
 
-    void collect_and_transform(const unsigned_vector & src, const unsigned_vector & translation, 
-                               unsigned_vector & res) {
+    void collect_and_transform(const vector<unsigned> & src, const vector<unsigned> & translation, 
+                               vector<unsigned> & res) {
         for (unsigned s : src) {
             unsigned translated = translation[s];
             if(translated!=UINT_MAX) {
@@ -534,13 +534,13 @@ namespace datalog {
     }
 
 
-    void transform_set(const unsigned_vector & map, const idx_set & src, idx_set & result) {
+    void transform_set(const vector<unsigned> & map, const idx_set & src, idx_set & result) {
         for (unsigned s : src) {
             result.insert(map[s]);
         }
     }
 
-    void add_sequence(unsigned start, unsigned count, unsigned_vector & v) {
+    void add_sequence(unsigned start, unsigned count, vector<unsigned> & v) {
         unsigned after_last = start+count;
         for(unsigned i=start; i<after_last; i++) {
             v.push_back(i);

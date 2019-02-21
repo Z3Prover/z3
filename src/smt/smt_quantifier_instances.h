@@ -55,7 +55,7 @@ namespace smt {
         obj_hashtable<quantifier_instance> m_instances;  //!< Set of instances.
         ptr_vector<quantifier_instance>    m_stack;      //!< Stack for backtracking.
         heap<instance_lt>                  m_queue;      //!< Instantiation priority queue.
-        unsigned_vector                    m_scopes;
+        vector<unsigned>                    m_scopes;
         
         
     };

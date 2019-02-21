@@ -236,14 +236,14 @@ class theory_lra::imp {
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<expr>       m_idiv_terms;
-    unsigned_vector        m_var_trail;
+    vector<unsigned>        m_var_trail;
     vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
 
     // attributes for incremental version:
     u_map<lp_api::bound*>      m_bool_var2bound;
     vector<lp_bounds>      m_bounds;
-    unsigned_vector        m_unassigned_bounds;
-    unsigned_vector        m_bounds_trail;
+    vector<unsigned>        m_unassigned_bounds;
+    vector<unsigned>        m_bounds_trail;
     unsigned               m_asserted_qhead;
 
     vector<unsigned>       m_to_check;    // rows that should be checked for theory propagation

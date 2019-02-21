@@ -295,7 +295,7 @@ private:
     // compute maximal depth of terms.
     void compute_max_depth(expr* e, app_map& depth) {
         ptr_vector<expr> todo;
-        unsigned_vector  depths;
+        vector<unsigned>  depths;
         unsigned d, d1;
         todo.push_back(e);
         depths.push_back(0);

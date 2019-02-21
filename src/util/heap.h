@@ -24,8 +24,8 @@ Revision History:
 
 template<typename LT>
 class heap : private LT {
-    int_vector    m_values;
-    int_vector    m_value2indices;
+    vector<int>   m_values;
+    vector<int>   m_value2indices;
 
     static int left(int i) { 
         return i << 1; 
@@ -269,8 +269,8 @@ public:
     /**
        \brief return set of values in heap that are less or equal to val.
      */
-    void find_le(int val, int_vector& result) {
-        int_vector todo;
+    void find_le(int val, vector<int>& result) {
+        vector<int> todo;
         todo.push_back(1);
         while (!todo.empty()) {
             int index = todo.back();

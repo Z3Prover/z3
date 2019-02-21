@@ -234,7 +234,7 @@ namespace datalog {
 
     class sparse_table::key_indexer {
     protected:
-        unsigned_vector m_key_cols;
+        vector<unsigned> m_key_cols;
     public:
         typedef const store_offset * offset_iterator;
 
@@ -375,7 +375,7 @@ namespace datalog {
         /**
            Permutation of key columns to make it into table facts. If empty, no permutation is necessary.
         */
-        unsigned_vector m_permutation;
+        vector<unsigned> m_permutation;
         mutable table_fact m_key_fact;
     public:
 
@@ -1039,7 +1039,7 @@ namespace datalog {
 
 
     class sparse_table_plugin::rename_fn : public convenient_table_rename_fn {
-        unsigned_vector m_out_of_cycle;
+        vector<unsigned> m_out_of_cycle;
     public:
         rename_fn(const table_signature & orig_sig, unsigned permutation_cycle_len, const unsigned * permutation_cycle) 
             : convenient_table_rename_fn(orig_sig, permutation_cycle_len, permutation_cycle) {
@@ -1064,8 +1064,8 @@ namespace datalog {
                 }
                 tgt_layout.set(tgt, m_cycle[m_cycle.size()-1], src_layout.get(src, m_cycle[0]));
 
-                unsigned_vector::const_iterator it = m_out_of_cycle.begin();
-                unsigned_vector::const_iterator end = m_out_of_cycle.end();
+                vector<unsigned>::const_iterator it = m_out_of_cycle.begin();
+                vector<unsigned>::const_iterator end = m_out_of_cycle.end();
                 for (; it!=end; ++it) {
                     unsigned col = *it;
                     tgt_layout.set(tgt, col, src_layout.get(src, col));
@@ -1280,18 +1280,18 @@ namespace datalog {
         typedef sparse_table::store_offset store_offset;
         typedef sparse_table::key_value key_value;
         typedef sparse_table::key_indexer key_indexer;
-        unsigned_vector m_t1_cols;
-        unsigned_vector m_s1_cols;
-        unsigned_vector m_t2_cols;
-        unsigned_vector m_s2_cols;
-        unsigned_vector m_src1_cols;
+        vector<unsigned> m_t1_cols;
+        vector<unsigned> m_s1_cols;
+        vector<unsigned> m_t2_cols;
+        vector<unsigned> m_s2_cols;
+        vector<unsigned> m_src1_cols;
     public:
         negated_join_fn(        
             table_base const& src1,
-            unsigned_vector const& t_cols,
-            unsigned_vector const& src_cols,
-            unsigned_vector const& src1_cols,
-            unsigned_vector const& src2_cols):
+            vector<unsigned> const& t_cols,
+            vector<unsigned> const& src_cols,
+            vector<unsigned> const& src1_cols,
+            vector<unsigned> const& src2_cols):
             m_src1_cols(src1_cols) {
 
             // split t_cols and src_cols according to src1, and src2
@@ -1358,7 +1358,7 @@ namespace datalog {
             }                       
         }
 
-        inline bool update_key(key_value& key, unsigned key_offset, sparse_table const& t, store_offset ofs, unsigned_vector const& cols) {
+        inline bool update_key(key_value& key, unsigned key_offset, sparse_table const& t, store_offset ofs, vector<unsigned> const& cols) {
             bool modified = false;
             unsigned sz = cols.size();
             for (unsigned i = 0; i < sz; ++i) {
@@ -1386,10 +1386,10 @@ namespace datalog {
 
         const table_base & src1, 
         const table_base & src2, 
-        unsigned_vector const& t_cols,
-        unsigned_vector const& src_cols,
-        unsigned_vector const& src1_cols,
-        unsigned_vector const& src2_cols) {
+        vector<unsigned> const& t_cols,
+        vector<unsigned> const& src_cols,
+        vector<unsigned> const& src1_cols,
+        vector<unsigned> const& src2_cols) {
         if (check_kind(t) && check_kind(src1) && check_kind(src2)) {            
             return alloc(negated_join_fn, src1, t_cols, src_cols, src1_cols, src2_cols);
         }

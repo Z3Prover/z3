@@ -104,7 +104,7 @@ namespace datalog {
         rule_ref_vector      m_pinned_rules;
         expr_ref_vector      m_pinned_exprs;
         obj_map<rule, rule*> m_rule2slice;              // rule to sliced rule
-        obj_map<rule, unsigned_vector> m_renaming;      // rule to renaming
+        obj_map<rule, vector<unsigned>> m_renaming;      // rule to renaming
         obj_map<expr, rule*> m_sliceform2rule;          // sliced formula to rule.
         ptr_vector<proof>    m_todo;
         obj_map<proof, proof*> m_new_proof;
@@ -248,7 +248,7 @@ namespace datalog {
                   r1->display(m_ctx, tout << "new:"););
             m_sliceform2rule.insert(slice_concl, r1.get());
             m_rule2slice.insert(r1.get(), 0);
-            m_renaming.insert(r1.get(), unsigned_vector());
+            m_renaming.insert(r1.get(), vector<unsigned>());
             m_new_proof.insert(p, new_p);
             m_todo.pop_back();
             TRACE("dl", tout << "translated:\n" << mk_pp(p, m) << "\nto\n" << mk_pp(new_p, m) << "\n";);
@@ -268,7 +268,7 @@ namespace datalog {
             m_rule2slice.insert(orig_rule, slice_rule);
             m_pinned_rules.push_back(orig_rule);
             m_pinned_rules.push_back(slice_rule);
-            m_renaming.insert(orig_rule, unsigned_vector(sz, renaming));
+            m_renaming.insert(orig_rule, vector<unsigned>(sz, renaming));
         }
 
         proof_ref operator()(ast_manager& m, unsigned num_source, proof * const * source) override {

@@ -54,7 +54,7 @@ struct defined_names::impl {
     proof_ref_vector m_apply_proofs; //!< Range of m_expr2proof. It is used to keep the def-intro proofs alive.
 
 
-    unsigned_vector m_lims;          //!< Backtracking support.
+    vector<unsigned> m_lims;         //!< Backtracking support.
 
     impl(ast_manager & m, char const * prefix);
     virtual ~impl();

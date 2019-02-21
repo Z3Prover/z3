@@ -111,12 +111,12 @@ namespace sat {
         vector<bdd_node>          m_nodes;
         op_table                   m_op_cache;
         node_table                 m_node_table;
-        unsigned_vector            m_apply_const;
+        vector<unsigned>            m_apply_const;
         vector<BDD>               m_bdd_stack;
         op_entry*                  m_spare_entry;
         vector<BDD>               m_var2bdd;
-        unsigned_vector            m_var2level, m_level2var;
-        unsigned_vector            m_free_nodes;
+        vector<unsigned>            m_var2level, m_level2var;
+        vector<unsigned>            m_free_nodes;
         small_object_allocator     m_alloc;
         mutable vector<unsigned>  m_mark;
         mutable unsigned           m_mark_level;
@@ -125,9 +125,9 @@ namespace sat {
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_bdd_nodes;
-        unsigned_vector            m_S, m_T, m_to_free;  // used for reordering
-        vector<unsigned_vector>    m_level2nodes;
-        unsigned_vector            m_reorder_rc;
+        vector<unsigned>            m_S, m_T, m_to_free;  // used for reordering
+        vector<vector<unsigned>>    m_level2nodes;
+        vector<unsigned>            m_reorder_rc;
         cost_metric                m_cost_metric;
         BDD                        m_cost_bdd;
 

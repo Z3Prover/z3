@@ -80,8 +80,8 @@ namespace datalog {
         void add_decompression_rule(rule_set const& source, rule * r, unsigned tail_index, unsigned arg_index);
         void replace_by_decompression_rule(rule_set const& source, unsigned rule_index, unsigned tail_index, unsigned arg_index);
 
-        void add_in_progress_indices(unsigned_vector& arg_indices, app* p);
-        bool decompress_rule(rule_set const& source, rule* r, unsigned_vector const& cmpressed_tail_pred_arg_indexes, unsigned rule_index, unsigned tail_index);
+        void add_in_progress_indices(vector<unsigned>& arg_indices, app* p);
+        bool decompress_rule(rule_set const& source, rule* r, vector<unsigned> const& cmpressed_tail_pred_arg_indexes, unsigned rule_index, unsigned tail_index);
         void reset();
     public:
         mk_unbound_compressor(context & ctx);

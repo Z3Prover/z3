@@ -621,7 +621,7 @@ bool lemma_quantifier_generalizer::find_stride(expr_ref_vector &cube,
 
     app *p_index = indices.get(0);
 
-    unsigned_vector instances;
+    vector<unsigned> instances;
     for (expr* lit : cube) {
 
         if (!contains_selects(lit, m))

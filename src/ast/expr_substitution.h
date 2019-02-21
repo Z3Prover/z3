@@ -57,7 +57,7 @@ public:
 class scoped_expr_substitution {
     expr_substitution& m_subst;
     expr_ref_vector    m_trail;
-    unsigned_vector    m_trail_lim;
+    vector<unsigned>   m_trail_lim;
 public:
 
     scoped_expr_substitution(expr_substitution& s): m_subst(s), m_trail(s.m()) {}

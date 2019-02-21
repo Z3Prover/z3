@@ -529,9 +529,9 @@ bool theory_seq::eq_unit(expr* const& l, expr* const &r) const {
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = rs' ++ x && rs = y ++ rs')
 // TBD: spec comment above doesn't seem to match what this function does.
-unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector const& rs) {
+vector<unsigned> theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
-    unsigned_vector result;
+    vector<unsigned> result;
     expr_ref l = mk_concat(ls);
     expr_ref r = mk_concat(rs);
     expr_ref pair(m.mk_eq(l,r), m);
@@ -554,16 +554,16 @@ unsigned_vector theory_seq::overlap(expr_ref_vector const& ls, expr_ref_vector c
 }
 
 // exists x, y, rs' != empty s.t.  (ls = x ++ rs' ++ y & rs = rs') || (ls = x ++ rs' && rs = rs' ++ y)
-unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs) {
+vector<unsigned> theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs) {
     SASSERT(!ls.empty() && !rs.empty());
-    unsigned_vector res;
+    vector<unsigned> res;
     expr_ref l = mk_concat(ls);
     expr_ref r = mk_concat(rs);
     expr_ref pair(m.mk_eq(l,r), m);
     if (m_overlap2.find(pair, res)) {
         return res;
     }
-    unsigned_vector result;
+    vector<unsigned> result;
     for (unsigned i = 0; i < ls.size(); ++i) {
         if (eq_unit(ls[i],rs[0])) {
             bool same = true;
@@ -584,7 +584,7 @@ unsigned_vector theory_seq::overlap2(expr_ref_vector const& ls, expr_ref_vector 
 }
 
 bool theory_seq::branch_ternary_variable_base(
-    dependency* dep, unsigned_vector indexes,
+    dependency* dep, vector<unsigned> indexes,
     expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
     context& ctx = get_context();
     bool change = false;
@@ -658,7 +658,7 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     }
 
     SASSERT(!xs.empty() && !ys.empty());
-    unsigned_vector indexes = overlap(xs, ys);
+    vector<unsigned> indexes = overlap(xs, ys);
     if (branch_ternary_variable_base(e.dep(), indexes, x, xs, y1, ys, y2))
         return true;
     
@@ -701,7 +701,7 @@ bool theory_seq::branch_ternary_variable(eq const& e, bool flag1) {
     return true;
 }
 
-bool theory_seq::branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes,
+bool theory_seq::branch_ternary_variable_base2(dependency* dep, vector<unsigned> indexes,
         expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2) {
     context& ctx = get_context();
     bool change = false;
@@ -773,7 +773,7 @@ bool theory_seq::branch_ternary_variable2(eq const& e, bool flag1) {
         enforce_length(y2);
     }
     SASSERT(!xs.empty() && !ys.empty());
-    unsigned_vector indexes = overlap2(xs, ys);
+    vector<unsigned> indexes = overlap2(xs, ys);
     if (branch_ternary_variable_base2(e.dep(), indexes, xs, x, y1, ys, y2))
         return true;
     
@@ -2021,7 +2021,7 @@ void theory_seq::mk_decompose(expr* e, expr_ref& head, expr_ref& tail) {
 bool theory_seq::check_extensionality() {
     context& ctx = get_context();
     unsigned sz = get_num_vars();
-    unsigned_vector seqs;
+    vector<unsigned> seqs;
     for (unsigned v = 0; v < sz; ++v) {
         enode* n1 = get_enode(v);
         expr* o1 = n1->get_owner();
@@ -3866,7 +3866,7 @@ public:
         bool is_string = th.m_util.is_string(m_sort);
         expr_ref result(th.m);
         if (is_string) {
-            unsigned_vector buffer;
+            vector<unsigned> buffer;
             unsigned ch;
             for (source_t src : m_source) {
                 switch (src) {
@@ -4684,7 +4684,7 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     expr_ref len = mk_len(s);
 
     expr_ref zero(m_autil.mk_int(0), m);
-    unsigned_vector states;
+    vector<unsigned> states;
     a->get_epsilon_closure(a->init(), states);
     lits.push_back(~lit);
     expr_ref_vector exprs(m);

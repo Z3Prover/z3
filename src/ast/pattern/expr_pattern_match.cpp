@@ -123,7 +123,7 @@ expr_pattern_match::compile(expr* q)
     m_precompiled.push_back(qf);
 
     instr instr(BACKTRACK);
-    unsigned_vector regs;
+    vector<unsigned> regs;
     ptr_vector<expr> pats;
     unsigned max_reg = 1;
     subst s;

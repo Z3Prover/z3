@@ -249,7 +249,7 @@ void factor_rewriter::mk_expand_muls(ptr_vector<expr>& muls) {
 
 bool factor_rewriter::extract_factors() {
     m_factors.clear();
-    unsigned_vector pos;
+    vector<unsigned> pos;
     expr* e;
     SASSERT(!m_muls.empty());
     if (m_muls.size() == 1) {

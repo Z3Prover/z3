@@ -114,11 +114,11 @@ namespace opt {
             ast_manager& m;
             arith_util   m_arith;
             bv_util      m_bv;
-            unsigned_vector  m_hard_lim;
-            unsigned_vector  m_asms_lim;
-            unsigned_vector  m_objectives_lim;
-            unsigned_vector  m_objectives_term_trail;
-            unsigned_vector  m_objectives_term_trail_lim;
+            vector<unsigned>  m_hard_lim;
+            vector<unsigned>  m_asms_lim;
+            vector<unsigned>  m_objectives_lim;
+            vector<unsigned>  m_objectives_term_trail;
+            vector<unsigned>  m_objectives_term_trail_lim;
             map_id           m_indices;
 
         public:

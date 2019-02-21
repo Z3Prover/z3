@@ -97,7 +97,7 @@ public:
         }
     } 
 
-    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
         m_solver->get_levels(vars, depth);
     }
 

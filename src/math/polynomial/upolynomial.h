@@ -508,8 +508,8 @@ namespace upolynomial {
 
     class upolynomial_sequence {
         numeral_vector     m_seq_coeffs; // coefficients of all polynomials in the sequence
-        unsigned_vector    m_begins;     // start position (in m_seq_coeffs) of each polynomial in the sequence
-        unsigned_vector    m_szs;        // size of each polynomial in the sequence 
+        vector<unsigned>   m_begins;     // start position (in m_seq_coeffs) of each polynomial in the sequence
+        vector<unsigned>   m_szs;        // size of each polynomial in the sequence 
         friend class manager;
     public:
         /**

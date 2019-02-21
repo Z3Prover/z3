@@ -581,7 +581,7 @@ namespace smt {
     };
 
     lbool context::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
-        unsigned_vector ps;
+        vector<unsigned> ps;
         max_cliques<neg_literal> mc;
         expr_ref lit(m_manager);
         for (unsigned i = 0; i < vars.size(); ++i) {
@@ -601,7 +601,7 @@ namespace smt {
                 }
             }
         }
-        vector<unsigned_vector> _mutexes;
+        vector<vector<unsigned>> _mutexes;
         mc.cliques(ps, _mutexes);
         for (unsigned i = 0; i < _mutexes.size(); ++i) {
             expr_ref_vector lits(m_manager);

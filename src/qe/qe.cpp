@@ -166,12 +166,12 @@ namespace qe {
             contains_app**         vars,
             unsigned               num_args,
             expr* const*           args,
-            vector<unsigned_vector>& partition
+            vector<vector<unsigned>>& partition
             ) 
         {
-            unsigned_vector contains_index;
-            unsigned_vector non_shared;
-            unsigned_vector non_shared_vars;
+            vector<unsigned> contains_index;
+            vector<unsigned> non_shared;
+            vector<unsigned> non_shared_vars;
             union_find_default_ctx df;
             union_find<union_find_default_ctx> uf(df);
             
@@ -192,7 +192,7 @@ namespace qe {
                 // 
                 if (2*contains_index.size() > num_args) {
                     if (partition.empty()) {
-                        partition.push_back(unsigned_vector());
+                        partition.push_back(vector<unsigned>());
                     }
                     partition.back().push_back(v);
                     TRACE("qe_verbose", tout << "majority " << v << "\n";);
@@ -236,7 +236,7 @@ namespace qe {
             // class.
             // 
             
-            unsigned_vector roots;
+            vector<unsigned> roots;
             if (!partition.empty()) {
                 roots.push_back(UINT_MAX);
             }
@@ -253,7 +253,7 @@ namespace qe {
                 }
                 if (!found) {
                     roots.push_back(r);
-                    partition.push_back(unsigned_vector());
+                    partition.push_back(vector<unsigned>());
                     partition.back().push_back(x);
                 }
             }            
@@ -1348,7 +1348,7 @@ namespace qe {
         search_tree                  m_root;
         search_tree*                 m_current;      // current branch
         
-        vector<unsigned_vector>      m_partition;    // cached latest partition of variables.
+        vector<vector<unsigned>>      m_partition;    // cached latest partition of variables.
 
         app_ref_vector               m_new_vars;     // variables added by solvers
         bool                         m_get_first;    // get first satisfying branch.
@@ -1662,7 +1662,7 @@ namespace qe {
                 return false;
             }
 
-            unsigned_vector& vec = m_partition.back();;
+            vector<unsigned>& vec = m_partition.back();;
             for (unsigned i = 0; i < vec.size(); ++i) {
                 vars.push_back(m_current->free_var(vec[i]));
             }

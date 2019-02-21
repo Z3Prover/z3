@@ -62,7 +62,7 @@ private:
     numeral_manager &         m;
     mpz_buffer                m_int_buffer;
     mpz_buffer                m_val_buffer;
-    char_vector               m_mark;
+    vector<char>               m_mark;
     var_buffer                m_var_buffer;
 
     linear_equation * mk_core(unsigned sz, mpz * as, var * xs);

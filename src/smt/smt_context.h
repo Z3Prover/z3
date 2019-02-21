@@ -162,7 +162,7 @@ namespace smt {
         u_map<bool_var>             m_expr2bool_var;
 #endif
         ptr_vector<expr>            m_bool_var2expr;         // bool_var -> expr
-        signed_char_vector          m_assignment;  //!< mapping literal id -> assignment lbool
+        vector<signed char>          m_assignment;  //!< mapping literal id -> assignment lbool
         vector<watch_list>          m_watches;     //!< per literal
         vector<clause_set>          m_lit_occs;    //!< index for backward subsumption
         vector<bool_var_data>      m_bdata;       //!< mapping bool_var -> data
@@ -1587,7 +1587,7 @@ namespace smt {
             return m_unsat_core.get(idx);
         }
 
-        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth);
 
         expr_ref_vector get_trail();
 

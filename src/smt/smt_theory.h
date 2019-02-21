@@ -34,7 +34,7 @@ namespace smt {
         context *       m_context;
         ast_manager *   m_manager;
         enode_vector    m_var2enode;
-        unsigned_vector m_var2enode_lim;
+        vector<unsigned> m_var2enode_lim;
 
         friend class context;
         friend class arith_value;

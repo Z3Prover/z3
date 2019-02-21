@@ -23,7 +23,7 @@ Revision History:
 #include "util/vector.h"
 
 
-class uint_set : unsigned_vector {
+class uint_set : vector<unsigned> {
     
 public:
     
@@ -40,7 +40,7 @@ public:
     ~uint_set() {}
 
     void swap(uint_set & other) {
-        unsigned_vector::swap(other);
+        vector<unsigned>::swap(other);
     }
 
     // return the maximum value that can be stored in the set. 
@@ -49,7 +49,7 @@ public:
     }
 
     void clear() {
-        unsigned_vector::clear();
+        vector<unsigned>::clear();
     }
 
     bool empty() const {
@@ -334,8 +334,8 @@ public:
 
 class indexed_uint_set {
     unsigned        m_size;
-    unsigned_vector m_elems;
-    unsigned_vector m_index;
+    vector<unsigned> m_elems;
+    vector<unsigned> m_index;
 public:
     indexed_uint_set():
         m_size(0)
@@ -369,7 +369,7 @@ public:
     bool empty() const { return m_size == 0; }    
     unsigned size() const { return m_size; }
     unsigned max_var() const { return m_index.size(); }
-    typedef  unsigned_vector::const_iterator iterator;
+    typedef  vector<unsigned>::const_iterator iterator;
     iterator begin() const { return m_elems.begin(); }
     iterator end() const { return m_elems.begin() + m_size; }
 

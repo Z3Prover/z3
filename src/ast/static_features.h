@@ -96,15 +96,15 @@ struct static_features {
     unsigned                 m_num_simple_eqs;       // eqs of the form x = k
     unsigned                 m_num_simple_ineqs;     // ineqs of the form x <= k or x >= k
     unsigned                 m_num_non_linear;
-    unsigned_vector          m_num_apps;             // mapping decl_id   -> num_apps;
-    unsigned_vector          m_num_theory_terms;     // mapping family_id -> num_terms
-    unsigned_vector          m_num_theory_atoms;     // mapping family_id -> num_atoms
-    unsigned_vector          m_num_theory_constants; // mapping family_id -> num_exprs
-    unsigned_vector          m_num_theory_eqs;       // mapping family_id -> num_eqs
+    vector<unsigned>         m_num_apps;             // mapping decl_id   -> num_apps;
+    vector<unsigned>         m_num_theory_terms;     // mapping family_id -> num_terms
+    vector<unsigned>         m_num_theory_atoms;     // mapping family_id -> num_atoms
+    vector<unsigned>         m_num_theory_constants; // mapping family_id -> num_exprs
+    vector<unsigned>         m_num_theory_eqs;       // mapping family_id -> num_eqs
     unsigned                 m_num_aliens;            //
-    unsigned_vector          m_num_aliens_per_family; // mapping family_id -> num_alies exprs 
+    vector<unsigned>         m_num_aliens_per_family; // mapping family_id -> num_alies exprs 
     
-    unsigned_vector          m_expr2depth; // expr-id -> depth
+    vector<unsigned>         m_expr2depth; // expr-id -> depth
     unsigned                 m_max_stack_depth;      // maximal depth of stack we are willing to walk.
 
     u_map<unsigned>          m_expr2or_and_depth; 
@@ -176,7 +176,7 @@ struct static_features {
     void collect(unsigned num_formulas, expr * const * formulas);
     void collect(expr * f) { process_root(f); }
     bool internal_family(symbol const & f_name) const;
-    void display_family_data(std::ostream & out, char const * prefix, unsigned_vector const & data) const;
+    void display_family_data(std::ostream & out, char const * prefix, vector<unsigned> const & data) const;
     void display_primitive(std::ostream & out) const;
     void display(std::ostream & out) const;
     void get_feature_vector(vector<double> & result);

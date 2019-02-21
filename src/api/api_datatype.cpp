@@ -204,7 +204,7 @@ extern "C" {
         symbol           m_tester;
         vector<symbol>  m_field_names;
         sort_ref_vector  m_sorts;
-        unsigned_vector  m_sort_refs;
+        vector<unsigned>  m_sort_refs;
         func_decl_ref    m_constructor;
         constructor(ast_manager& m) : m_sorts(m), m_constructor(m) {}
     };

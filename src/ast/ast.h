@@ -2554,8 +2554,8 @@ public:
    This class is safe with respect to life-times of asts.
 */
 class scoped_mark : public ast_mark {
-    ast_ref_vector  m_stack;
-    unsigned_vector m_lim;
+    ast_ref_vector   m_stack;
+    vector<unsigned> m_lim;
 public:
     scoped_mark(ast_manager& m): m_stack(m) {}
     ~scoped_mark() override {}

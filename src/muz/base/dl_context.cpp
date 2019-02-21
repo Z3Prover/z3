@@ -1016,7 +1016,7 @@ namespace datalog {
         }
     }
 
-    void context::get_raw_rule_formulas(expr_ref_vector& rules, vector<symbol>& names, unsigned_vector &bounds) {
+    void context::get_raw_rule_formulas(expr_ref_vector& rules, vector<symbol>& names, vector<unsigned> &bounds) {
         for (unsigned i = 0; i < m_rule_fmls.size(); ++i) {
             expr_ref r = bind_vars(m_rule_fmls[i].get(), true);
             rules.push_back(r.get());
@@ -1257,7 +1257,7 @@ namespace datalog {
 
         expr_ref_vector fresh_vars(m), subst(m);
         expr_ref res(m);
-        obj_map<sort, unsigned_vector> var_idxs;
+        obj_map<sort, vector<unsigned>> var_idxs;
         obj_map<sort, unsigned> max_vars;
         for (unsigned i = 0; i < rules.size(); ++i) {
             expr* r = rules[i].get();
@@ -1285,8 +1285,8 @@ namespace datalog {
 
                 // index into fresh variable array.
                 // unsigned fresh_var_idx = 0;
-                obj_map<sort, unsigned_vector>::obj_map_entry* e = var_idxs.insert_if_not_there2(s, unsigned_vector());
-                unsigned_vector& vars = e->get_data().m_value;
+                obj_map<sort, vector<unsigned>>::obj_map_entry* e = var_idxs.insert_if_not_there2(s, vector<unsigned>());
+                vector<unsigned>& vars = e->get_data().m_value;
                 if (max_var >= vars.size()) {
                     SASSERT(vars.size() == max_var);
                     vars.push_back(fresh_vars.size());

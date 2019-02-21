@@ -195,7 +195,7 @@ namespace smt {
             return m_context.check(cube, clauses);
         }
 
-        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
             m_context.get_levels(vars, depth);
         }
 

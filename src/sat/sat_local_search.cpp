@@ -401,7 +401,7 @@ namespace sat {
         // copy cardinality clauses
         ba_solver* ext = dynamic_cast<ba_solver*>(s.get_extension());
         if (ext) {
-            unsigned_vector coeffs;
+            vector<unsigned> coeffs;
             literal_vector lits;
             for (ba_solver::constraint* cp : ext->m_constraints) {
                 switch (cp->tag()) {

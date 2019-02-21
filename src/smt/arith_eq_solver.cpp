@@ -347,7 +347,7 @@ bool arith_eq_solver::solve_integer_equations_units(
 
     TRACE("arith_eq_solver", print_rows(tout << "solving:\n", rows););
 
-    unsigned_vector todo, done;
+    vector<unsigned> todo, done;
 
     for (unsigned i = 0; i < rows.size(); ++i) {
         todo.push_back(i);
@@ -420,8 +420,8 @@ bool arith_eq_solver::solve_integer_equations_omega(
     unsigned index;
     bool is_fresh;
     vector<row>     rows_solved;
-    unsigned_vector indices;
-    unsigned_vector aux_indices;
+    vector<unsigned> indices;
+    vector<unsigned> aux_indices;
 
 
     for (unsigned i = 0; i < rows.size(); ++i) {
@@ -530,7 +530,7 @@ bool arith_eq_solver::solve_integer_equations_gcd(
     row&        unsat_row
     )
 {
-    unsigned_vector live, useful, gcd_pos;
+    vector<unsigned> live, useful, gcd_pos;
     vector<rational> gcds;
     rational u, v;
 

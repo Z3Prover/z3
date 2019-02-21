@@ -90,7 +90,7 @@ namespace nlsat {
         unsigned               m_num_bool_vars;
         atom_vector            m_atoms;        // bool_var -> atom
         vector<lbool>         m_bvalues;      // boolean assignment
-        unsigned_vector        m_levels;       // bool_var -> level
+        vector<unsigned>        m_levels;       // bool_var -> level
         vector<justification> m_justifications;
         vector<clause_vector>  m_bwatches;     // bool_var (that are not attached to atoms) -> clauses where it is maximal
         vector<bool>          m_dead;         // mark dead boolean variables
@@ -1908,8 +1908,8 @@ namespace nlsat {
         struct var_info_collector {
             pmanager &          pm;
             atom_vector const & m_atoms;
-            unsigned_vector     m_max_degree;
-            unsigned_vector     m_num_occs;
+            vector<unsigned>     m_max_degree;
+            vector<unsigned>     m_num_occs;
 
             var_info_collector(pmanager & _pm, atom_vector const & atoms, unsigned num_vars):
                 pm(_pm),
@@ -2206,8 +2206,8 @@ namespace nlsat {
         // -----------------------
         
         struct degree_lt {
-            unsigned_vector & m_degrees;
-            degree_lt(unsigned_vector & ds):m_degrees(ds) {}
+            vector<unsigned> & m_degrees;
+            degree_lt(vector<unsigned> & ds):m_degrees(ds) {}
             bool operator()(unsigned i1, unsigned i2) const { 
                 if (m_degrees[i1] < m_degrees[i2])
                     return true;
@@ -2217,8 +2217,8 @@ namespace nlsat {
             }
         };
 
-        unsigned_vector m_cs_degrees;
-        unsigned_vector m_cs_p;
+        vector<unsigned> m_cs_degrees;
+        vector<unsigned> m_cs_p;
         void sort_clauses_by_degree(unsigned sz, clause ** cs) {
             if (sz <= 1)
                 return;

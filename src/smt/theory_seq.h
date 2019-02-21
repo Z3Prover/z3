@@ -73,7 +73,7 @@ namespace smt {
             expr_ref_vector        m_lhs, m_rhs;
             ptr_vector<dependency> m_deps;
             vector<map_update>    m_updates;
-            unsigned_vector        m_limit;
+            vector<unsigned>        m_limit;
 
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
@@ -101,7 +101,7 @@ namespace smt {
             ast_manager&                      m;
             table_t                           m_table;
             expr_ref_vector                   m_lhs, m_rhs;
-            unsigned_vector                   m_limit;
+            vector<unsigned>                   m_limit;
         public:
             exclusion_table(ast_manager& m): m(m), m_lhs(m), m_rhs(m) {}
             ~exclusion_table() { }
@@ -331,8 +331,8 @@ namespace smt {
         unsigned                   m_eq_id;
         th_union_find              m_find;
 
-        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap;
-        obj_ref_map<ast_manager, expr, unsigned_vector>    m_overlap2;
+        obj_ref_map<ast_manager, expr, vector<unsigned>>    m_overlap;
+        obj_ref_map<ast_manager, expr, vector<unsigned>>    m_overlap2;
         obj_map<enode, obj_map<enode, int>>   m_len_offset;
         int                                   m_len_prop_lvl;
 
@@ -437,10 +437,10 @@ namespace smt {
         bool branch_variable_eq(eq const& e);
         bool branch_binary_variable(eq const& e);
         bool eq_unit(expr* const& l, expr* const &r) const;       
-        unsigned_vector overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        unsigned_vector overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
-        bool branch_ternary_variable_base(dependency* dep, unsigned_vector indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
-        bool branch_ternary_variable_base2(dependency* dep, unsigned_vector indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        vector<unsigned> overlap(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        vector<unsigned> overlap2(expr_ref_vector const& ls, expr_ref_vector const& rs);
+        bool branch_ternary_variable_base(dependency* dep, vector<unsigned> indexes, expr* const& x, expr_ref_vector const& xs, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
+        bool branch_ternary_variable_base2(dependency* dep, vector<unsigned> indexes, expr_ref_vector const& xs, expr* const& x, expr* const& y1, expr_ref_vector const& ys, expr* const& y2);
         bool branch_ternary_variable(eq const& e, bool flag1 = false);
         bool branch_ternary_variable2(eq const& e, bool flag1 = false);
         bool branch_quat_variable(eq const& e);

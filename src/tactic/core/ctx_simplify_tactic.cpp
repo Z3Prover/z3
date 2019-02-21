@@ -27,7 +27,7 @@ class ctx_propagate_assertions : public ctx_simplify_tactic::simplifier {
     ast_manager&         m;
     obj_map<expr, expr*> m_assertions;
     expr_ref_vector      m_trail;
-    unsigned_vector      m_scopes;
+    vector<unsigned>      m_scopes;
 
     void assert_eq_val(expr * t, app * val, bool mk_scope);
     void assert_eq_core(expr * t, app * val);

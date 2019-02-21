@@ -170,7 +170,7 @@ namespace smt {
         theory_diff_logic_statistics   m_stats;
         Graph                          m_graph;
         theory_var                     m_zero; // cache the variable representing the zero variable.
-        int_vector                     m_scc_id;                  // Cheap equality propagation
+        vector<int>                    m_scc_id;                  // Cheap equality propagation
         eq_prop_info_set               m_eq_prop_info_set;        // set of existing equality prop infos
         ptr_vector<eq_prop_info>       m_eq_prop_infos;
 

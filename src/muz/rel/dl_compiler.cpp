@@ -60,7 +60,7 @@ namespace datalog {
     }
 
     void compiler::make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
-            const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc) {
+            const vector<unsigned> & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc) {
         relation_signature aux_sig;
         relation_signature sig1 = m_reg_signatures[t1];
         relation_signature sig2 = m_reg_signatures[t2];
@@ -75,7 +75,7 @@ namespace datalog {
     }
 
     void compiler::make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
-            const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc) {
+            const vector<unsigned> & removed_cols, reg_idx & result, bool reuse, instruction_block & acc) {
         SASSERT(!removed_cols.empty());
         relation_signature res_sig;
         relation_signature::from_project(m_reg_signatures[src], removed_cols.size(),
@@ -239,7 +239,7 @@ namespace datalog {
             single_col_reg = src;
         }
         else {
-            unsigned_vector removed_cols;
+            vector<unsigned> removed_cols;
             for(unsigned i=0; i<src_col_cnt; i++) {
                 if(i!=col) {
                     removed_cols.push_back(i);
@@ -301,9 +301,9 @@ namespace datalog {
 
         //if an ACK_BOUND_VAR pointed to column i, after projection it will point to
         //i-new_src_col_offset[i] due to removal of some of earlier columns
-        unsigned_vector new_src_col_offset;
+        vector<unsigned> new_src_col_offset;
 
-        unsigned_vector src_cols_to_remove;
+        vector<unsigned> src_cols_to_remove;
         for(unsigned i=0; i<src_col_cnt; i++) {
             if(!referenced_src_cols.contains(i)) {
                 src_cols_to_remove.push_back(i);
@@ -373,7 +373,7 @@ namespace datalog {
             if(acis[i].source_column==i) {
                 continue;
             }
-            unsigned_vector permutation;
+            vector<unsigned> permutation;
             unsigned next=i;
             do {
                 permutation.push_back(next);
@@ -401,7 +401,7 @@ namespace datalog {
     }
 
     void compiler::get_local_indexes_for_projection(app * t, var_counter & globals, unsigned ofs, 
-            unsigned_vector & res) {
+            vector<unsigned> & res) {
         // TODO: this can be optimized to avoid renames in some cases
         unsigned n = t->get_num_args();
         for(unsigned i = 0; i<n; i++) {
@@ -413,7 +413,7 @@ namespace datalog {
         }
     }
 
-    void compiler::get_local_indexes_for_projection(rule * r, unsigned_vector & res) {
+    void compiler::get_local_indexes_for_projection(rule * r, vector<unsigned> & res) {
         SASSERT(r->get_positive_tail_size()==2);
         rule_counter counter;
         // leave one column copy per var in the head (avoids later duplication)
@@ -482,7 +482,7 @@ namespace datalog {
             variable_intersection a1a2(m_context.get_manager());
             a1a2.populate(a1,a2);
 
-            unsigned_vector removed_cols;
+            vector<unsigned> removed_cols;
             get_local_indexes_for_projection(r, removed_cols);
 
             if(removed_cols.empty()) {
@@ -570,7 +570,7 @@ namespace datalog {
                 else {
                     SASSERT(is_var(exp));
                     unsigned var_num=to_var(exp)->get_idx();
-                    int2ints::entry * e = var_indexes.insert_if_not_there2(var_num, unsigned_vector());
+                    int2ints::entry * e = var_indexes.insert_if_not_there2(var_num, vector<unsigned>());
                     e->get_data().m_value.push_back(i);
                 }
             }
@@ -581,7 +581,7 @@ namespace datalog {
         int2ints::iterator vend=var_indexes.end();
         for(; vit!=vend; ++vit) {
             int2ints::key_data & k = *vit;
-            unsigned_vector & indexes = k.m_value;
+            vector<unsigned> & indexes = k.m_value;
             if(indexes.size()==1) {
                 continue;
             }
@@ -631,7 +631,7 @@ namespace datalog {
                     src_col = single_res_expr.size();
                     single_res_expr.push_back(m.mk_var(v, unbound_sort));
 
-                    entry = var_indexes.insert_if_not_there2(v, unsigned_vector());
+                    entry = var_indexes.insert_if_not_there2(v, vector<unsigned>());
                     entry->get_data().m_value.push_back(src_col);
                 }
                 relation_sort var_sort = m_reg_signatures[filtered_res][src_col];
@@ -651,8 +651,8 @@ namespace datalog {
             func_decl * neg_pred = neg_tail->get_decl();
             variable_intersection neg_intersection(m_context.get_manager());
             neg_intersection.populate(single_res_expr, neg_tail);
-            unsigned_vector t_cols(neg_intersection.size(), neg_intersection.get_cols1());
-            unsigned_vector neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
+            vector<unsigned> t_cols(neg_intersection.size(), neg_intersection.get_cols1());
+            vector<unsigned> neg_cols(neg_intersection.size(), neg_intersection.get_cols2());
 
             unsigned neg_len = neg_tail->get_num_args();
             for (unsigned i = 0; i<neg_len; i++) {
@@ -684,15 +684,15 @@ namespace datalog {
             app_ref filter_cond(tail.size() == 1 ? to_app(tail.back()) : m.mk_and(tail.size(), tail.c_ptr()), m);
 
             // check if there are any columns to remove
-            unsigned_vector remove_columns;
+            vector<unsigned> remove_columns;
             {
-                unsigned_vector var_idx_to_remove;
+                vector<unsigned> var_idx_to_remove;
                 m_free_vars(r->get_head());
                 for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
                     I != E; ++I) {
                     unsigned var_idx = I->m_key;
                     if (!m_free_vars.contains(var_idx)) {
-                        unsigned_vector & cols = I->m_value;
+                        vector<unsigned> & cols = I->m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             remove_columns.push_back(cols[i]);
                         }
@@ -706,7 +706,7 @@ namespace datalog {
 
                 // update column idx for after projection state
                 if (!remove_columns.empty()) {
-                    unsigned_vector offsets;
+                    vector<unsigned> offsets;
                     offsets.resize(single_res_expr.size(), 0);
 
                     for (unsigned i = 0; i < remove_columns.size(); ++i) {
@@ -717,7 +717,7 @@ namespace datalog {
 
                     for (int2ints::iterator I = var_indexes.begin(), E = var_indexes.end();
                     I != E; ++I) {
-                        unsigned_vector & cols = I->m_value;
+                        vector<unsigned> & cols = I->m_value;
                         for (unsigned i = 0; i < cols.size(); ++i) {
                             cols[i] -= offsets[cols[i]];
                         }
@@ -790,7 +790,7 @@ namespace datalog {
                     unsigned unbound_column_index = single_res_expr.size();
                     single_res_expr.push_back(m.mk_var(v, unbound_sort));
 
-                    e = var_indexes.insert_if_not_there2(v, unsigned_vector());
+                    e = var_indexes.insert_if_not_there2(v, vector<unsigned>());
                     e->get_data().m_value.push_back(unbound_column_index);
                 }
                 unsigned src_col=e->get_data().m_value.back();
@@ -813,7 +813,7 @@ namespace datalog {
             //put together the columns of head relation
             relation_signature & head_sig = m_reg_signatures[head_reg];
             vector<assembling_column_info> head_acis;
-            unsigned_vector head_src_cols;
+            vector<unsigned> head_src_cols;
             for(unsigned i=0; i<head_len; i++) {
                 assembling_column_info aci;
                 aci.domain=head_sig[i];
@@ -823,7 +823,7 @@ namespace datalog {
                     unsigned var_num=to_var(exp)->get_idx();
                     int2ints::entry * e = var_indexes.find_core(var_num);
                     if(e) {
-                        unsigned_vector & binding_indexes = e->get_data().m_value;
+                        vector<unsigned> & binding_indexes = e->get_data().m_value;
                         aci.kind=ACK_BOUND_VAR;
                         aci.source_column=binding_indexes.back();
                         SASSERT(aci.source_column<single_res_expr.size()); //we bind only to existing columns

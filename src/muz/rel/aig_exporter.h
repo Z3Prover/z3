@@ -45,7 +45,7 @@ namespace datalog {
 
         expr_ref_vector m_latch_vars, m_latch_varsp;
         expr_ref_vector m_ruleid_var_set, m_ruleid_varp_set;
-        unsigned_vector m_input_vars;
+        vector<unsigned> m_input_vars;
 
         std::stringstream m_buffer;
 

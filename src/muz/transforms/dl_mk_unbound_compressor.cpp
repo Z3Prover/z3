@@ -264,7 +264,7 @@ namespace datalog {
         m_modified = true;
     }
     
-    void mk_unbound_compressor::add_in_progress_indices(unsigned_vector& arg_indices, app* p) {
+    void mk_unbound_compressor::add_in_progress_indices(vector<unsigned>& arg_indices, app* p) {
         arg_indices.clear();
         for (unsigned i = 0; i < p->get_num_args(); ++i) {
             if (m_in_progress.contains(c_info(p->get_decl(), i))) {
@@ -274,7 +274,7 @@ namespace datalog {
         }
     }
 
-    bool mk_unbound_compressor::decompress_rule(rule_set const& source, rule* r, unsigned_vector const& arg_indices, unsigned rule_index, unsigned tail_index) {
+    bool mk_unbound_compressor::decompress_rule(rule_set const& source, rule* r, vector<unsigned> const& arg_indices, unsigned rule_index, unsigned tail_index) {
         app * t = r->get_tail(tail_index);
         func_decl * t_pred = t->get_decl();
         bool is_negated_predicate = r->is_neg_tail(tail_index);
@@ -308,7 +308,7 @@ namespace datalog {
     
     void mk_unbound_compressor::add_decompression_rules(rule_set const& source, unsigned rule_index) {
         
-        unsigned_vector arg_indices;
+        vector<unsigned> arg_indices;
         
         // this value is updated inside the loop if replace_by_decompression_rule is called
         rule_ref r(m_rules.get(rule_index), m_context.get_rule_manager());

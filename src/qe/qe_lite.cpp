@@ -76,15 +76,15 @@ namespace eq {
         plugin_manager<qe::solve_plugin> m_solvers;
 
         ptr_vector<expr> m_map;
-        int_vector       m_pos2var;
-        int_vector       m_var2pos;
+        vector<int>      m_pos2var;
+        vector<int>      m_var2pos;
         ptr_vector<var>  m_inx2var;
-        unsigned_vector  m_order;
+        vector<unsigned>  m_order;
         expr_ref_buffer  m_new_args;
         th_rewriter      m_rewriter;
         params_ref       m_params;
 
-        void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
+        void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, vector<unsigned> & order) {
             order.clear();
 
             // eliminate self loops, and definitions containing quantifiers.
@@ -902,7 +902,7 @@ namespace fm {
     typedef ptr_vector<constraint> constraints;
 
     class constraint_set {
-        unsigned_vector m_id2pos;
+        vector<unsigned> m_id2pos;
         constraints     m_set;
     public:
         typedef constraints::const_iterator iterator;
@@ -965,13 +965,13 @@ namespace fm {
         arith_util               m_util;
         constraints              m_constraints;
         expr_ref_vector          m_bvar2expr;
-        signed_char_vector       m_bvar2sign;
+        vector<signed char>       m_bvar2sign;
         obj_map<expr, bvar>      m_expr2bvar;
-        char_vector              m_is_int;
-        char_vector              m_forbidden;
+        vector<char>              m_is_int;
+        vector<char>              m_forbidden;
         expr_ref_vector          m_var2expr;
         obj_map<expr, var>       m_expr2var;
-        unsigned_vector          m_var2pos;
+        vector<unsigned>          m_var2pos;
         vector<constraints>      m_lowers;
         vector<constraints>      m_uppers;
         uint_set                 m_forbidden_set; // variables that cannot be eliminated because occur in non OCC ineq part
@@ -1737,8 +1737,8 @@ namespace fm {
         typedef std::pair<var, unsigned> x_cost;
 
         struct x_cost_lt {
-            char_vector const m_is_int;
-            x_cost_lt(char_vector & is_int):m_is_int(is_int) {}
+            vector<char> const m_is_int;
+            x_cost_lt(vector<char> & is_int):m_is_int(is_int) {}
             bool operator()(x_cost const & p1, x_cost const & p2) const {
                 // Integer variables with cost 0 can be eliminated even if they depend on real variables.
                 // Cost 0 == no lower or no upper bound.

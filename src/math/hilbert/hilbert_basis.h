@@ -99,7 +99,7 @@ class hilbert_basis {
     passive2*          m_passive2;   // passive set
     stats              m_stats;
     index*             m_index;      // index of generated vectors
-    unsigned_vector    m_ints;       // indices that can be both positive and negative
+    vector<unsigned>   m_ints;       // indices that can be both positive and negative
     unsigned           m_current_ineq;
     
     bool               m_use_support;             // parameter: (associativity) resolve only against vectors that are initially in basis.

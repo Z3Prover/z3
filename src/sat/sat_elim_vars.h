@@ -36,10 +36,10 @@ namespace sat {
 
 
         vector<bool_var> m_vars;
-        unsigned_vector   m_mark;
+        vector<unsigned>   m_mark;
         unsigned          m_mark_lim;
-        unsigned_vector   m_var2index;
-        unsigned_vector   m_occ;
+        vector<unsigned>   m_var2index;
+        vector<unsigned>   m_occ;
         unsigned          m_miss;
         unsigned          m_hit1;
         unsigned          m_hit2;

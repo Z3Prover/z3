@@ -46,7 +46,7 @@ namespace qe {
 
     class nlqsat : public tactic {
 
-        typedef unsigned_vector assumption_vector;
+        typedef vector<unsigned> assumption_vector;
         typedef nlsat::scoped_literal_vector clause;
 
         struct stats {
@@ -62,7 +62,7 @@ namespace qe {
         tactic_ref             m_nftactic;
         nlsat::literal_vector  m_asms;
         nlsat::literal_vector  m_cached_asms;
-        unsigned_vector        m_cached_asms_lim;
+        vector<unsigned>        m_cached_asms_lim;
         nlsat::literal         m_is_true;
         nlsat::assignment      m_rmodel;        
         vector<lbool>         m_bmodel;

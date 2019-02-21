@@ -177,7 +177,7 @@ namespace datalog {
         unsigned tr_id = expr_to_aig(aig_expr);
 
         // create latch next state variables: (ite tr varp var)
-        unsigned_vector latch_varp_ids;
+        vector<unsigned> latch_varp_ids;
         for (unsigned i = 0; i < m_latch_vars.size(); ++i) {
             unsigned in_val = mk_and(tr_id, get_var(m_latch_varsp.get(i)));
             unsigned latch_val = mk_and(neg(tr_id), get_var(m_latch_vars.get(i)));

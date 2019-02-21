@@ -60,7 +60,7 @@ namespace polynomial {
        \brief A mapping from variables to degree
     */
     class var2degree {
-        unsigned_vector m_var2degree;
+        vector<unsigned> m_var2degree;
     public:
         void set_degree(var x, unsigned d) { m_var2degree.setx(x, d, 0); }
         unsigned degree(var x) const { return m_var2degree.get(x, 0); }

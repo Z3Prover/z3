@@ -82,8 +82,8 @@ public:
     bool equals(doc const& a, doc const& b) const;
     unsigned hash(doc const& src) const;
     bool contains(doc const& a, doc const& b) const;
-    bool contains(doc const& a, unsigned_vector const& colsa,
-                  doc const& b, unsigned_vector const& colsb) const;
+    bool contains(doc const& a, vector<unsigned> const& colsa,
+                  doc const& b, vector<unsigned> const& colsb) const;
     std::ostream& display(std::ostream& out, doc const& b) const;
     std::ostream& display(std::ostream& out, doc const& b, unsigned hi, unsigned lo) const;
     unsigned num_tbits() const { return m.num_tbits(); }
@@ -93,7 +93,7 @@ public:
     bool merge(doc& d, unsigned lo, unsigned length, subset_ints const& equalities, bit_vector const& discard_cols);
     void set(doc& d, unsigned idx, tbit value);
     doc* join(const doc& a, const doc& b, doc_manager& dm1,
-        const unsigned_vector& cols1, const unsigned_vector& cols2);
+        const vector<unsigned>& cols1, const vector<unsigned>& cols2);
 
     void verify_project(ast_manager& m, doc_manager& dstm, bit_vector const& to_delete, doc const& src, doc const& dst);
 private:
@@ -309,7 +309,7 @@ public:
         merge(m, lo1, length, equalities, discard_cols);
     }
 
-    void merge(M& m, unsigned_vector const& roots, subset_ints const& equalities, 
+    void merge(M& m, vector<unsigned> const& roots, subset_ints const& equalities, 
                bit_vector const& discard_cols) {
         for (unsigned i = 0; i < roots.size(); ++i) {
             merge(m, roots[i], 1, equalities, discard_cols);
@@ -317,7 +317,7 @@ public:
     }
 
     void join(const union_bvec& d1, const union_bvec& d2, M& dm, M& dm1,
-              const unsigned_vector& cols1, const unsigned_vector& cols2) {
+              const vector<unsigned>& cols1, const vector<unsigned>& cols2) {
         for (unsigned i = 0; i < d1.size(); ++i) {
             for (unsigned j = 0; j < d2.size(); ++j) {
                 if (T *d = dm.join(d1[i], d2[j], dm1, cols1, cols2))

@@ -192,7 +192,7 @@ namespace datalog {
     }
 
     class bound_relation_plugin::filter_identical_fn : public relation_mutator_fn {
-        unsigned_vector m_cols;
+        vector<unsigned> m_cols;
     public:
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_cols(col_cnt, identical_cols) {}
@@ -233,7 +233,7 @@ namespace datalog {
         app_ref            m_lt;
         arith_util         m_arith;
         interval_relation* m_interval;
-        unsigned_vector    m_vars;
+        vector<unsigned>    m_vars;
         kind_t             m_kind;
 
         unsigned get_var(expr* a) {
@@ -388,12 +388,12 @@ namespace datalog {
     // -----------------------------
     // bound_relation
 
-    void bound_relation_helper::mk_project_t(uint_set2& t, unsigned_vector const& renaming) {
+    void bound_relation_helper::mk_project_t(uint_set2& t, vector<unsigned> const& renaming) {
         if (t.lt.empty() && t.le.empty()) {
             return;
         }
         uint_set::iterator it = t.lt.begin(), end = t.lt.end();
-        unsigned_vector ltv, lev;
+        vector<unsigned> ltv, lev;
         for (; it != end; ++it) {
             ltv.push_back(renaming[*it]);
         }

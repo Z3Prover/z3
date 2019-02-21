@@ -207,9 +207,9 @@ namespace datalog {
         product_relation_plugin&     m_plugin;
         ptr_vector<relation_join_fn> m_joins;
         ptr_vector<relation_base> m_full;
-        unsigned_vector           m_offset1;
+        vector<unsigned>           m_offset1;
         vector<kind_t>           m_kind1;
-        unsigned_vector           m_offset2;
+        vector<unsigned>           m_offset2;
         vector<kind_t>           m_kind2;
 
         const relation_base & get_nonsieve_relation(const relation_base & r) {
@@ -265,8 +265,8 @@ namespace datalog {
             bit_vector bv;
             bv.resize(num_rels2);
             relation_manager& rmgr = m_plugin.get_manager();
-            unsigned_vector r1_tables_indexes;
-            unsigned_vector r2_tables_indexes;
+            vector<unsigned> r1_tables_indexes;
+            vector<unsigned> r2_tables_indexes;
             for (unsigned i = 0; i < num_rels1; ++i) {
                 if (is_tableish_relation(*r1[i])) {
                     r1_tables_indexes.push_back(i);

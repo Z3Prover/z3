@@ -75,8 +75,8 @@ namespace sat {
             }
         }
         {
-            unsigned_vector::const_iterator it  = m_id2pos.begin();
-            unsigned_vector::const_iterator end = m_id2pos.end();
+            vector<unsigned>::const_iterator it  = m_id2pos.begin();
+            vector<unsigned>::const_iterator end = m_id2pos.end();
             for (unsigned id = 0; it != end; ++it, ++id) {
                 unsigned pos = *it;
                 if (pos == UINT_MAX)

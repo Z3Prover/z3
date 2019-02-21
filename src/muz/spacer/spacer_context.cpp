@@ -3836,7 +3836,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
     derivation *deriv = alloc(derivation, n, r, phi, vars);
 
     // pick an order to process children
-    unsigned_vector kid_order;
+    vector<unsigned> kid_order;
     kid_order.resize(preds.size(), 0);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
     if (m_children_order == CO_REV_RULE) {

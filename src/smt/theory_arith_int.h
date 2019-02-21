@@ -955,13 +955,13 @@ namespace smt {
         typedef numeral_buffer<mpz, euclidean_solver::numeral_manager> mpz_buffer;
         theory_arith &                t;
         euclidean_solver              m_solver;
-        unsigned_vector               m_tv2v; // theory var to euclidean solver var
+        vector<unsigned>               m_tv2v; // theory var to euclidean solver var
         vector<theory_var>           m_j2v;  // justification to theory var
         
         // aux fields
-        unsigned_vector               m_xs;
+        vector<unsigned>               m_xs;
         mpz_buffer                    m_as;
-        unsigned_vector               m_js;
+        vector<unsigned>               m_js;
 
         typedef euclidean_solver::var            evar;
         typedef euclidean_solver::justification  ejustification;
@@ -1029,7 +1029,7 @@ namespace smt {
             euclidean_solver::numeral_manager & m = m_solver.m();
             m.set(one, 1);
             mpz_buffer & as = m_as;
-            unsigned_vector & xs = m_xs;
+            vector<unsigned> & xs = m_xs;
             int num = t.get_num_vars();
             for (theory_var v = 0; v < num; v++) {
                 if (!t.is_fixed(v)) 
@@ -1091,15 +1091,15 @@ namespace smt {
             m.del(one);
         }
 
-        void mk_bound(theory_var v, rational k, bool lower, bound * old_bound, unsigned_vector const & js) {
+        void mk_bound(theory_var v, rational k, bool lower, bound * old_bound, vector<unsigned> const & js) {
             derived_bound * new_bound = alloc(derived_bound, v, inf_numeral(k), lower ? B_LOWER : B_UPPER);
             t.m_tmp_lit_set.reset();
             t.m_tmp_eq_set.reset();
             if (old_bound != nullptr) {
                 t.accumulate_justification(*old_bound, *new_bound, numeral(0) /* refine for proof gen */, t.m_tmp_lit_set, t.m_tmp_eq_set); 
             }
-            unsigned_vector::const_iterator it  = js.begin();
-            unsigned_vector::const_iterator end = js.end();
+            vector<unsigned>::const_iterator it  = js.begin();
+            vector<unsigned>::const_iterator end = js.end();
             for (; it != end; ++it) {
                 ejustification    j = *it;
                 theory_var fixed_v = m_j2v[j];
@@ -1111,11 +1111,11 @@ namespace smt {
             t.m_asserted_bounds.push_back(new_bound);
         }
 
-        void mk_lower(theory_var v, rational k, bound * old_bound, unsigned_vector const & js) {
+        void mk_lower(theory_var v, rational k, bound * old_bound, vector<unsigned> const & js) {
             mk_bound(v, k, true, old_bound, js);
         }
 
-        void mk_upper(theory_var v, rational k, bound * old_bound, unsigned_vector const & js) {
+        void mk_upper(theory_var v, rational k, bound * old_bound, vector<unsigned> const & js) {
             mk_bound(v, k, false, old_bound, js);
         }
         
@@ -1131,7 +1131,7 @@ namespace smt {
             rational c2;
             bool init_g = false;
             mpz_buffer & as      = m_as;
-            unsigned_vector & xs = m_xs;
+            vector<unsigned> & xs = m_xs;
             as.clear();
             xs.clear();
 

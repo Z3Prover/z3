@@ -265,8 +265,8 @@ namespace datalog {
 
     class sieve_relation_plugin::join_fn : public convenient_relation_join_fn {
         sieve_relation_plugin & m_plugin;
-        unsigned_vector m_inner_cols_1;
-        unsigned_vector m_inner_cols_2;
+        vector<unsigned> m_inner_cols_1;
+        vector<unsigned> m_inner_cols_2;
         vector<bool> m_result_inner_cols;
 
         scoped_ptr<relation_join_fn> m_inner_join_fun;
@@ -322,8 +322,8 @@ namespace datalog {
         const relation_base & inner1 = r1_sieved ? sr1->get_inner() : r1;
         const relation_base & inner2 = r2_sieved ? sr2->get_inner() : r2;
 
-        unsigned_vector inner_cols1;
-        unsigned_vector inner_cols2;
+        vector<unsigned> inner_cols1;
+        vector<unsigned> inner_cols2;
 
         for(unsigned i=0; i<col_cnt; i++) {
             //if at least one end of an equality is not an inner column, we ignore that equality
@@ -374,7 +374,7 @@ namespace datalog {
             return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
-        unsigned_vector inner_removed_cols;
+        vector<unsigned> inner_removed_cols;
 
         for(unsigned i=0; i<col_cnt; i++) {
             unsigned col = removed_cols[i];
@@ -411,12 +411,12 @@ namespace datalog {
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
 
         unsigned sig_sz = r.get_signature().size();
-        unsigned_vector permutation;
+        vector<unsigned> permutation;
         add_sequence(0, sig_sz, permutation);
         permutate_by_cycle(permutation, cycle_len, permutation_cycle);
 
         bool inner_identity;
-        unsigned_vector inner_permutation;
+        vector<unsigned> inner_permutation;
         collect_sub_permutation(permutation, r.m_sig2inner, inner_permutation, inner_identity);
 
         vector<bool> result_inner_cols = r.m_inner_cols;
@@ -518,7 +518,7 @@ namespace datalog {
             return nullptr;
         }
         const sieve_relation & r = static_cast<const sieve_relation &>(r0);
-        unsigned_vector inner_icols;
+        vector<unsigned> inner_icols;
 
         //we ignore the columns which do not belong to the inner relation (which introduces imprecision)
         for(unsigned i=0; i<col_cnt; i++) {
@@ -627,8 +627,8 @@ namespace datalog {
         const relation_base & inner_r = r_sieved ? sr->get_inner() : r;
         const relation_base & inner_neg = neg_sieved ? sneg->get_inner() : neg;
 
-        unsigned_vector ir_cols;
-        unsigned_vector ineg_cols;
+        vector<unsigned> ir_cols;
+        vector<unsigned> ineg_cols;
 
         for(unsigned i=0; i<col_cnt; i++) {
             //if at least one end of an equality is not an inner column, we ignore that equality

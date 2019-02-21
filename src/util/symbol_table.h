@@ -109,7 +109,7 @@ class symbol_table {
     typedef vector<key_data> trail_stack;
     sym_table   m_sym_table;
     trail_stack m_trail_stack;
-    int_vector  m_trail_lims;
+    vector<int> m_trail_lims;
 
 public:
     void reset() {

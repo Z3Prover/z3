@@ -109,7 +109,7 @@ namespace sat {
         clause_vector           m_learned;
         unsigned                m_num_frozen;
         vector<watch_list>      m_watches;
-        char_vector             m_assignment;
+        vector<char>             m_assignment;
         vector<justification>  m_justification; 
         vector<char>           m_decision;
         vector<char>           m_mark;

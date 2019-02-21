@@ -83,11 +83,11 @@ namespace datalog {
 
         expr_ref mk_project(
             relation_signature const& sig, 
-            expr* fml, unsigned_vector const& removed_cols);
+            expr* fml, vector<unsigned> const& removed_cols);
 
         expr_ref mk_join(
             relation_base const& t1, relation_base const& t2, 
-            unsigned_vector const& cols1, unsigned_vector const& cols2);
+            vector<unsigned> const& cols1, vector<unsigned> const& cols2);
     public:
         check_relation_plugin(relation_manager& rm);
         ~check_relation_plugin() override;
@@ -125,7 +125,7 @@ namespace datalog {
             unsigned removed_col_cnt, const unsigned * removed_cols) override;
 
         void verify_join(relation_base const& t1, relation_base const& t2, relation_base const& t,
-                         unsigned_vector const& cols1, unsigned_vector const& cols2);
+                         vector<unsigned> const& cols1, vector<unsigned> const& cols2);
 
 
         void verify_filter(expr* fml0, relation_base const& t, expr* cond);
@@ -135,25 +135,25 @@ namespace datalog {
 
         void verify_permutation(
             relation_base const& src, relation_base const& dst, 
-            unsigned_vector const& cycle);
+            vector<unsigned> const& cycle);
 
         void verify_project(
             relation_base const& src, expr* f1, 
             relation_base const& dst, expr* f2,
-            unsigned_vector const& removed_cols);
+            vector<unsigned> const& removed_cols);
 
         void verify_project(
             relation_base const& src, 
             relation_base const& dst, 
-            unsigned_vector const& removed_cols);
+            vector<unsigned> const& removed_cols);
 
         void verify_filter_project(
             relation_base const& src, relation_base const& dst, 
-            app* cond, unsigned_vector const& removed_cols);
+            app* cond, vector<unsigned> const& removed_cols);
 
         void verify_join_project(
             relation_base const& t1, relation_base const& t2, relation_base const& t,
-            unsigned_vector const& cols1, unsigned_vector const& cols2, unsigned_vector const& rm_cols);
+            vector<unsigned> const& cols1, vector<unsigned> const& cols2, vector<unsigned> const& rm_cols);
 
         void check_equiv(char const* objective, expr* f1, expr* f2);
 
@@ -163,8 +163,8 @@ namespace datalog {
             expr* dst0, 
             relation_base  const& dst,
             relation_base  const& neg,
-            unsigned_vector const& dst_eq,
-            unsigned_vector const& neg_eq);
+            vector<unsigned> const& dst_eq,
+            vector<unsigned> const& neg_eq);
     };
 };
        

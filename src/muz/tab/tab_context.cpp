@@ -425,7 +425,7 @@ namespace tb {
 
     // rules
     class rules {
-        typedef obj_map<func_decl, unsigned_vector> map;
+        typedef obj_map<func_decl, vector<unsigned>> map;
         vector<ref<clause> >  m_rules;
         map                   m_index;
     public:
@@ -454,7 +454,7 @@ namespace tb {
             unsigned idx = m_rules.size();
             m_rules.push_back(g);
             func_decl* f = g->get_decl();
-            map::obj_map_entry* e = m_index.insert_if_not_there2(f, unsigned_vector());
+            map::obj_map_entry* e = m_index.insert_if_not_there2(f, vector<unsigned>());
             SASSERT(e);
             e->get_data().m_value.push_back(idx);
         }

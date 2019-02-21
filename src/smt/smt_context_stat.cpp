@@ -32,7 +32,7 @@ namespace smt {
         return static_cast<unsigned>(acc / m_lemmas.size());
     }
 
-    static void acc_num_occs(clause * cls, unsigned_vector & lit2num_occs) {
+    static void acc_num_occs(clause * cls, vector<unsigned> & lit2num_occs) {
         unsigned num_lits = cls->get_num_literals();
         for (unsigned i = 0; i < num_lits; i++) {
             literal l = cls->get_literal(i);
@@ -40,7 +40,7 @@ namespace smt {
         }
     }
 
-    static void acc_num_occs(clause_vector const & v, unsigned_vector & lit2num_occs) {
+    static void acc_num_occs(clause_vector const & v, vector<unsigned> & lit2num_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)
@@ -49,7 +49,7 @@ namespace smt {
 
     void context::display_literal_num_occs(std::ostream & out) const {
         unsigned num_lits = m_assignment.size();
-        unsigned_vector lit2num_occs;
+        vector<unsigned> lit2num_occs;
         lit2num_occs.resize(num_lits, 0);
         acc_num_occs(m_aux_clauses, lit2num_occs);
         acc_num_occs(m_lemmas, lit2num_occs);
@@ -79,7 +79,7 @@ namespace smt {
         out << (m_assigned_literals.size() - n) << "]";
     }
 
-    static void acc_var_num_occs(clause * cls, unsigned_vector & var2num_occs) {
+    static void acc_var_num_occs(clause * cls, vector<unsigned> & var2num_occs) {
         unsigned num_lits = cls->get_num_literals();
         for (unsigned i = 0; i < num_lits; i++) {
             literal l = cls->get_literal(i);
@@ -87,7 +87,7 @@ namespace smt {
         }
     }
 
-    static void acc_var_num_occs(clause_vector const & v, unsigned_vector & var2num_occs) {
+    static void acc_var_num_occs(clause_vector const & v, vector<unsigned> & var2num_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)
@@ -96,11 +96,11 @@ namespace smt {
 
     void context::display_var_occs_histogram(std::ostream & out) const {
         unsigned num_vars = get_num_bool_vars();
-        unsigned_vector var2num_occs;
+        vector<unsigned> var2num_occs;
         var2num_occs.resize(num_vars, 0);
         acc_var_num_occs(m_aux_clauses, var2num_occs);
         acc_var_num_occs(m_lemmas, var2num_occs);
-        unsigned_vector histogram;
+        vector<unsigned> histogram;
         for (unsigned v = 0; v < num_vars; v++) {
             unsigned num_occs = var2num_occs[v];
             histogram.expand(num_occs+1, 0);
@@ -114,7 +114,7 @@ namespace smt {
         out << "\n";
     }
 
-    static void acc_var_num_min_occs(clause * cls, unsigned_vector & var2num_min_occs) {
+    static void acc_var_num_min_occs(clause * cls, vector<unsigned> & var2num_min_occs) {
         unsigned num_lits = cls->get_num_literals();
         bool_var min_var  = cls->get_literal(0).var();
         for (unsigned i = 1; i < num_lits; i++) {
@@ -125,7 +125,7 @@ namespace smt {
         var2num_min_occs[min_var]++;
     }
 
-    static void acc_var_num_min_occs(clause_vector const & v, unsigned_vector & var2num_min_occs) {
+    static void acc_var_num_min_occs(clause_vector const & v, vector<unsigned> & var2num_min_occs) {
         clause_vector::const_iterator it  = v.begin();
         clause_vector::const_iterator end = v.end();
         for (; it != end; ++it)
@@ -134,7 +134,7 @@ namespace smt {
 
     void context::display_num_min_occs(std::ostream & out) const {
         unsigned num_vars = get_num_bool_vars();
-        unsigned_vector var2num_min_occs;
+        vector<unsigned> var2num_min_occs;
         var2num_min_occs.resize(num_vars, 0);
         acc_var_num_min_occs(m_aux_clauses, var2num_min_occs);
         acc_var_num_min_occs(m_lemmas, var2num_min_occs);

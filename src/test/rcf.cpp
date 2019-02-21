@@ -135,7 +135,7 @@ static void tst_lin_indep(unsigned m, unsigned n, int _A[], unsigned ex_sz, unsi
     for (unsigned i = 0; i < m; i++)
         for (unsigned j = 0; j < n; j++)
             A.set(i, j, _A[i*n + j]);
-    unsigned_vector r;
+    vector<unsigned> r;
     r.resize(A.n());
     scoped_mpz_matrix B(mm);
     mm.linear_independent_rows(A, r.c_ptr(), B);

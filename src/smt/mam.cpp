@@ -787,9 +787,9 @@ namespace smt {
         label_hasher &          m_lbl_hasher;
         bool                    m_use_filters;
         ptr_vector<expr>        m_registers;
-        unsigned_vector         m_todo; // list of registers that have patterns to be processed.
-        unsigned_vector         m_aux;
-        int_vector              m_vars; // -1 the variable is unbound, >= 0 is the register that contains the variable
+        vector<unsigned>         m_todo; // list of registers that have patterns to be processed.
+        vector<unsigned>         m_aux;
+        vector<int>             m_vars; // -1 the variable is unbound, >= 0 is the register that contains the variable
         quantifier *            m_qa;
         app *                   m_mp;
         code_tree *             m_tree;
@@ -809,7 +809,7 @@ namespace smt {
                        CHECK_SINGLETON } check_mark;
 
         vector<check_mark>     m_mark;
-        unsigned_vector         m_to_reset;
+        vector<unsigned>         m_to_reset;
         ptr_vector<instruction> m_compatible;
         ptr_vector<instruction> m_incompatible;
 
@@ -1853,7 +1853,7 @@ namespace smt {
         vector<std::tuple<enode *, enode *>> m_used_enodes;
         unsigned            m_curr_used_enodes_size;
         ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
-        unsigned_vector     m_min_top_generation, m_max_top_generation;
+        vector<unsigned>     m_min_top_generation, m_max_top_generation;
 
         pool<enode_vector>  m_pool;
 

@@ -454,7 +454,7 @@ namespace polynomial {
        \brief Mapping from monomials to positions.
     */
     class monomial2pos {
-        unsigned_vector          m_m2pos;
+        vector<unsigned> m_m2pos;
     public:
         unsigned get(monomial const * m) {
             unsigned id = m->id();
@@ -1312,7 +1312,7 @@ namespace polynomial {
         numeral *    m_as;
         monomial **  m_ms;
 
-        void lex_sort(unsigned start, unsigned end, var x, vector<unsigned_vector> & buckets, unsigned_vector & p) {
+        void lex_sort(unsigned start, unsigned end, var x, vector<vector<unsigned>> & buckets, vector<unsigned> & p) {
             SASSERT(end > start);
             unsigned max_degree = 0;
             for (unsigned i = start, j = 0; i < end; i++, j++) {
@@ -1437,7 +1437,7 @@ namespace polynomial {
         }
 
         // Put monomials in lexicographical order
-        void lex_sort(vector<unsigned_vector> & buckets, unsigned_vector & p, mpzzp_manager & nm) {
+        void lex_sort(vector<vector<unsigned>> & buckets, vector<unsigned> & p, mpzzp_manager & nm) {
             if (m_lex_sorted)
                 return;
             if (size() <= 1) {
@@ -1841,7 +1841,7 @@ namespace polynomial {
         numeral_vector           m_rat2numeral;
         numeral_vector           m_tmp_linear_as;
         monomial_vector          m_tmp_linear_ms;
-        unsigned_vector          m_degree2pos;
+        vector<unsigned>          m_degree2pos;
         bool                     m_use_sparse_gcd;
         bool                     m_use_prs_gcd;
 
@@ -2457,8 +2457,8 @@ namespace polynomial {
                 del(p);
         }
 
-        vector<unsigned_vector> m_lex_sort_buckets;
-        unsigned_vector         m_lex_sort_permutation;
+        vector<vector<unsigned>> m_lex_sort_buckets;
+        vector<unsigned>         m_lex_sort_permutation;
         void lex_sort(polynomial const * p) {
             const_cast<polynomial*>(p)->lex_sort(m_lex_sort_buckets, m_lex_sort_permutation, m_manager);
         }
@@ -2971,7 +2971,7 @@ namespace polynomial {
             imp &                pm;
             var                  m_x;
             vector<entry>       m_entries;
-            unsigned_vector      m_powers;
+            vector<unsigned>      m_powers;
             ptr_vector<monomial> m_orig_monomials;
             unsigned             m_max_powers; // maximal number of powers associated with an entry
 
@@ -3211,11 +3211,11 @@ namespace polynomial {
         /**
            Store in pws the variables occurring in p and their (minimal or maximal) degrees.
         */
-        unsigned_vector m_var_degrees_tmp;
+        vector<unsigned> m_var_degrees_tmp;
         template<bool Max>
         void var_degrees(polynomial const * p, power_buffer & pws) {
             pws.clear();
-            unsigned_vector & var2pos = m_var_degrees_tmp;
+            vector<unsigned> & var2pos = m_var_degrees_tmp;
             var2pos.expand(num_vars(), UINT_MAX);
 
             unsigned sz = p->size();
@@ -6177,7 +6177,7 @@ namespace polynomial {
 
         // Functor used to compute the maximal degree of each variable in a polynomial p.
         class var_max_degree {
-            unsigned_vector    m_max_degree;
+            vector<unsigned>    m_max_degree;
             var_vector         m_xs;
         public:
             void init(polynomial const * p) {
@@ -6306,7 +6306,7 @@ namespace polynomial {
         }
 
         struct var_pos {
-            unsigned_vector m_pos;
+            vector<unsigned> m_pos;
 
             void init(unsigned sz, var const * xs) {
                 for (unsigned i = 0; i < sz; i++) {

@@ -26,8 +26,8 @@ namespace smt {
 
     class index_set {
 
-        unsigned_vector m_elems;
-        unsigned_vector m_index;        
+        vector<unsigned> m_elems;
+        vector<unsigned> m_index;        
     public:
         unsigned num_elems() const { return m_elems.size(); }       
         unsigned operator[](unsigned idx) const { return m_elems[idx]; }
@@ -107,7 +107,7 @@ namespace smt {
         vector<rational> m_weights;      // weights of soft constraints
         rational         m_penalty;      // current penalty of soft constraints
         rational         m_best_penalty;
-        vector<unsigned_vector>  m_hard_occ, m_soft_occ;  // variable occurrence
+        vector<vector<unsigned>>  m_hard_occ, m_soft_occ;  // variable occurrence
         vector<bool>    m_assignment;   // current assignment.
         vector<bool>    m_best_assignment;
         expr_ref_vector  m_trail;
@@ -152,8 +152,8 @@ namespace smt {
             m_decl2var.insert(m.mk_true(), 0);
             m_var2decl.push_back(m.mk_true());
             m_assignment.push_back(true);
-            m_hard_occ.push_back(unsigned_vector());
-            m_soft_occ.push_back(unsigned_vector());
+            m_hard_occ.push_back(vector<unsigned>());
+            m_soft_occ.push_back(vector<unsigned>());
         }
 
         void init_max_flips() {
@@ -311,7 +311,7 @@ namespace smt {
             }
         }
 
-        void init_occ(vector<clause> const& clauses, vector<unsigned_vector> & occ) {
+        void init_occ(vector<clause> const& clauses, vector<vector<unsigned>> & occ) {
             for (unsigned i = 0; i < clauses.size(); ++i) {
                 clause const& cls = clauses[i];
                 for (unsigned j = 0; j < cls.m_lits.size(); ++j) {
@@ -331,8 +331,8 @@ namespace smt {
             m_soft_occ.clear();
             m_penalty.reset();
             for (unsigned i = 0; i <= m_var2decl.size(); ++i) {
-                m_soft_occ.push_back(unsigned_vector());
-                m_hard_occ.push_back(unsigned_vector());
+                m_soft_occ.push_back(vector<unsigned>());
+                m_hard_occ.push_back(vector<unsigned>());
             }
 
             // initialize the occurs vectors.
@@ -471,7 +471,7 @@ namespace smt {
         int flip(literal l) {
             m_assignment[l.var()] = !m_assignment[l.var()];
             int break_count = 0;
-            unsigned_vector const& occh = m_hard_occ[l.var()];
+            vector<unsigned> const& occh = m_hard_occ[l.var()];
             scoped_mpz value(mgr);            
             for (unsigned i = 0; i < occh.size(); ++i) {
                 unsigned j = occh[i];
@@ -492,7 +492,7 @@ namespace smt {
                     }
                 }
             }
-            unsigned_vector const& occs = m_soft_occ[l.var()];
+            vector<unsigned> const& occs = m_soft_occ[l.var()];
             for (unsigned i = 0; i < occs.size(); ++i) {
                 unsigned j = occs[i];
                 if (eval(m_soft[j])) {
@@ -520,8 +520,8 @@ namespace smt {
                 var = m_hard_occ.size();
                 SASSERT(m_var2decl.size() == var);
                 SASSERT(m_soft_occ.size() == var);
-                m_hard_occ.push_back(unsigned_vector());
-                m_soft_occ.push_back(unsigned_vector());
+                m_hard_occ.push_back(vector<unsigned>());
+                m_soft_occ.push_back(vector<unsigned>());
                 m_assignment.push_back(m_orig_model->is_true(f));
                 m_decl2var.insert(f, var);
                 m_var2decl.push_back(f);

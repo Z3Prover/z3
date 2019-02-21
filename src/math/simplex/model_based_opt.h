@@ -83,13 +83,13 @@ namespace opt {
 
         vector<row>             m_rows;
         static const unsigned   m_objective_id = 0;
-        vector<unsigned_vector> m_var2row_ids;
+        vector<vector<unsigned>> m_var2row_ids;
         vector<rational>        m_var2value;
         vector<bool>           m_var2is_int;
         vector<var>             m_new_vars;
-        unsigned_vector         m_lub, m_glb, m_mod;
-        unsigned_vector         m_above, m_below;
-        unsigned_vector         m_retired_rows;
+        vector<unsigned>         m_lub, m_glb, m_mod;
+        vector<unsigned>         m_above, m_below;
+        vector<unsigned>         m_retired_rows;
         
         bool invariant();
         bool invariant(unsigned index, row const& r);
@@ -140,7 +140,7 @@ namespace opt {
 
         rational n_sign(rational const& b) const;
 
-        void update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail);
+        void update_values(vector<unsigned> const& bound_vars, vector<unsigned> const& bound_trail);
 
         void update_value(unsigned x, rational const& val);
 
@@ -148,7 +148,7 @@ namespace opt {
 
         def solve_for(unsigned row_id, unsigned x, bool compute_def);
 
-        def solve_mod(unsigned x, unsigned_vector const& mod_rows, bool compute_def);
+        def solve_mod(unsigned x, vector<unsigned> const& mod_rows, bool compute_def);
         
         bool is_int(unsigned x) const { return m_var2is_int[x]; }
 

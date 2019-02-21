@@ -389,10 +389,10 @@ namespace datalog {
                 const base_object & t, 
                 const base_object & src1, 
                 const base_object & src2, 
-                unsigned_vector const& t_cols,
-                unsigned_vector const& src_cols,
-                unsigned_vector const& src1_cols,
-                unsigned_vector const& src2_cols) 
+                vector<unsigned> const& t_cols,
+                vector<unsigned> const& src_cols,
+                vector<unsigned> const& src1_cols,
+                vector<unsigned> const& src2_cols) 
             { return nullptr; }
 
         };
@@ -511,8 +511,8 @@ namespace datalog {
         class convenient_join_fn : public join_fn {
             signature m_result_sig;
         protected:
-            unsigned_vector m_cols1;
-            unsigned_vector m_cols2;
+            vector<unsigned> m_cols1;
+            vector<unsigned> m_cols2;
 
             convenient_join_fn(const signature & o1_sig, const signature & o2_sig, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2) 
@@ -527,10 +527,10 @@ namespace datalog {
         class convenient_join_project_fn : public join_fn {
             signature m_result_sig;
         protected:
-            unsigned_vector m_cols1;
-            unsigned_vector m_cols2;
+            vector<unsigned> m_cols1;
+            vector<unsigned> m_cols2;
             //it is non-const because it needs to be modified in sparse_table version of the join_project operator
-            unsigned_vector m_removed_cols;
+            vector<unsigned> m_removed_cols;
 
             convenient_join_project_fn(const signature & o1_sig, const signature & o2_sig, 
                     unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
@@ -555,7 +555,7 @@ namespace datalog {
 
         class convenient_project_fn : public convenient_transformer_fn {
         protected:
-            unsigned_vector m_removed_cols;
+            vector<unsigned> m_removed_cols;
 
             convenient_project_fn(const signature & orig_sig, unsigned col_cnt, const unsigned * removed_cols) 
                     : m_removed_cols(col_cnt, removed_cols) {
@@ -566,7 +566,7 @@ namespace datalog {
 
         class convenient_rename_fn : public convenient_transformer_fn {
         protected:
-            const unsigned_vector m_cycle;
+            const vector<unsigned> m_cycle;
 
             convenient_rename_fn(const signature & orig_sig, unsigned cycle_len,
                 const unsigned * permutation_cycle) 
@@ -579,8 +579,8 @@ namespace datalog {
         class convenient_negation_filter_fn : public intersection_filter_fn {
         protected:
             unsigned m_joined_col_cnt;
-            const unsigned_vector m_cols1;
-            const unsigned_vector m_cols2;
+            const vector<unsigned> m_cols1;
+            const vector<unsigned> m_cols2;
             bool m_all_neg_bound; //all columns are bound at least once
             bool m_overlap; //one column in negated table is bound multiple times
             vector<bool> m_bound;
@@ -647,7 +647,7 @@ namespace datalog {
         class default_permutation_rename_fn : public transformer_fn {
             typedef ptr_vector<transformer_fn> renamer_vector;
 
-            unsigned_vector m_permutation; //this is valid only before m_renamers_initialized becomes true
+            vector<unsigned> m_permutation; //this is valid only before m_renamers_initialized becomes true
             bool m_renamers_initialized;
             renamer_vector m_renamers;
         public:
@@ -672,7 +672,7 @@ namespace datalog {
                 }
                 else {
                     SASSERT(m_renamers.empty());
-                    unsigned_vector cycle;
+                    vector<unsigned> cycle;
                     while(try_remove_cycle_from_permutation(m_permutation, cycle)) {
                         transformer_fn * renamer = o.get_manager().mk_rename_fn(*res, cycle);
                         SASSERT(renamer);
@@ -1267,7 +1267,7 @@ namespace datalog {
          values of at those indexes. If a value if \c UINT_MAX, it means we do not transform the index 
          corresponding to it.
     */
-    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
+    void get_renaming_args(const vector<unsigned> & map, const relation_signature & orig_sig, 
             expr_ref_vector & renaming_arg);
 
 

@@ -522,7 +522,7 @@ static void tst_sorting_network(sorting_network_encoding enc) {
     test_sorting5(enc);
 }
 
-static void test_pb(unsigned max_w, unsigned sz, unsigned_vector& ws) {
+static void test_pb(unsigned max_w, unsigned sz, vector<unsigned>& ws) {
     if (ws.empty()) {
         for (unsigned w = 1; w <= max_w; ++w) {
             ws.push_back(w);
@@ -654,7 +654,7 @@ static void test_pb(unsigned max_w, unsigned sz, unsigned_vector& ws) {
 }
 
 static void tst_pb() {
-    unsigned_vector ws;
+    vector<unsigned> ws;
     test_pb(3, 3, ws);
 }
 

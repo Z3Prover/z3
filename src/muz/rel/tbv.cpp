@@ -260,8 +260,8 @@ bool tbv_manager::contains(tbv const& a, tbv const& b) const {
     return m.contains(a, b);
 }
 
-bool tbv_manager::contains(tbv const& a, unsigned_vector const& colsa,
-                           tbv const& b, unsigned_vector const& colsb) const {
+bool tbv_manager::contains(tbv const& a, vector<unsigned> const& colsa,
+                           tbv const& b, vector<unsigned> const& colsb) const {
     for (unsigned i = 0; i < colsa.size(); ++i) {
         tbit bit_a = a[colsa[i]];
         if (bit_a == BIT_x) continue;

@@ -2367,7 +2367,7 @@ namespace sat {
         big.init(m_s, true);
         vector<std::pair<literal, literal>> candidates;
 
-        unsigned_vector bin_size(num_lits);
+        vector<unsigned> bin_size(num_lits);
         for (unsigned idx : m_binary_trail) {
             bin_size[idx]++;
         }

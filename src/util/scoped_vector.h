@@ -25,12 +25,12 @@ template<typename T>
 class scoped_vector {
     unsigned         m_size;
     unsigned         m_elems_start;
-    unsigned_vector  m_sizes;
+    vector<unsigned>  m_sizes;
     vector<T>        m_elems;
-    unsigned_vector  m_elems_lim;
-    unsigned_vector  m_index;
-    unsigned_vector  m_src, m_dst;
-    unsigned_vector  m_src_lim;
+    vector<unsigned>  m_elems_lim;
+    vector<unsigned>  m_index;
+    vector<unsigned>  m_src, m_dst;
+    vector<unsigned>  m_src_lim;
 public:
     scoped_vector(): m_size(0), m_elems_start(0) {}
 

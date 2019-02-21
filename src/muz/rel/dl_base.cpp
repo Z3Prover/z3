@@ -46,7 +46,7 @@ namespace datalog {
         }
     }
 
-    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
+    void get_renaming_args(const vector<unsigned> & map, const relation_signature & orig_sig, 
             expr_ref_vector & renaming_arg) {
         ast_manager & m = renaming_arg.get_manager();
         unsigned sz = map.size();

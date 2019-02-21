@@ -79,7 +79,7 @@ class concat_star_converter : public T {
 protected:
     ref<T>          m_c1;
     ptr_vector<T>   m_c2s;
-    unsigned_vector m_szs;
+    vector<unsigned> m_szs;
 
     template<typename T2>
     T * translate_core(ast_translation & translator) {

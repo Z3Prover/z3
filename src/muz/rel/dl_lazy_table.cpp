@@ -159,7 +159,7 @@ namespace datalog {
     // lazy_table_plugin::filter_identical
 
     class lazy_table_plugin::filter_identical_fn : public table_mutator_fn {
-        unsigned_vector          m_cols;
+        vector<unsigned>          m_cols;
     public:
         filter_identical_fn(unsigned cnt, unsigned const* cols): m_cols(cnt, cols) {}
         
@@ -209,8 +209,8 @@ namespace datalog {
     // lazy_table_plugin::filter_by_negation
 
     class lazy_table_plugin::filter_by_negation_fn : public table_intersection_filter_fn {
-        unsigned_vector m_cols1;
-        unsigned_vector m_cols2;
+        vector<unsigned> m_cols1;
+        vector<unsigned> m_cols2;
     public:
         filter_by_negation_fn(unsigned cnt, unsigned const* cols1, unsigned const* cols2):
             m_cols1(cnt, cols1), m_cols2(cnt, cols2) {}

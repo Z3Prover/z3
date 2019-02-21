@@ -20,12 +20,12 @@ Revision History:
 
 min_cut::min_cut() {    
     // push back two empty vectors for source and sink
-    m_edges.push_back(edge_vector());
-    m_edges.push_back(edge_vector());
+    m_edges.push_back(vector<edge>());
+    m_edges.push_back(vector<edge>());
 }
 
 unsigned min_cut::new_node() {
-    m_edges.push_back(edge_vector());
+    m_edges.push_back(vector<edge>());
     return m_edges.size() - 1;
 }
 
@@ -35,7 +35,7 @@ void min_cut::add_edge(unsigned int i, unsigned int j, unsigned capacity) {
     TRACE("spacer.mincut", tout << "adding edge (" << i << "," << j << ")\n";);    
 }
 
-void min_cut::compute_min_cut(unsigned_vector& cut_nodes) {
+void min_cut::compute_min_cut(vector<unsigned>& cut_nodes) {
     if (m_edges.size() == 2) {
         return;
     }
@@ -72,7 +72,7 @@ void min_cut::compute_min_cut(unsigned_vector& cut_nodes) {
     }
 
     // split nodes into reachable and unreachable ones
-    bool_vector reachable(m_edges.size());
+    vector<bool> reachable(m_edges.size());
     compute_reachable_nodes(reachable);
     
     // find all edges between reachable and unreachable nodes and 
@@ -81,8 +81,8 @@ void min_cut::compute_min_cut(unsigned_vector& cut_nodes) {
 }
 
 void min_cut::compute_initial_distances() {
-    unsigned_vector todo;
-    bool_vector visited(m_edges.size());
+    vector<unsigned> todo;
+    vector<bool> visited(m_edges.size());
     
     todo.push_back(0); // start at the source, since we do postorder traversel
     
@@ -186,8 +186,8 @@ void min_cut::compute_distance(unsigned i) {
     }
 }
 
-void min_cut::compute_reachable_nodes(bool_vector& reachable) {
-    unsigned_vector todo;
+void min_cut::compute_reachable_nodes(vector<bool>& reachable) {
+    vector<unsigned> todo;
     
     todo.push_back(0);
     while (!todo.empty()) {
@@ -206,9 +206,9 @@ void min_cut::compute_reachable_nodes(bool_vector& reachable) {
     }
 }
 
-void min_cut::compute_cut_and_add_lemmas(bool_vector& reachable, unsigned_vector& cut_nodes) {
-    unsigned_vector todo;
-    bool_vector visited(m_edges.size());
+void min_cut::compute_cut_and_add_lemmas(vector<bool>& reachable, vector<unsigned>& cut_nodes) {
+    vector<unsigned> todo;
+    vector<bool> visited(m_edges.size());
         
     todo.push_back(0);
     while (!todo.empty()) {

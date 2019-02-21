@@ -89,12 +89,12 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     expr_ref_vector                          m_out;
     obj_map<func_decl, expr*>                m_const2bits;
     expr_ref_vector                          m_bindings;
-    unsigned_vector                          m_shifts;
+    vector<unsigned>                         m_shifts;
     func_decl_ref_vector                     m_keys;
     expr_ref_vector                          m_values;
-    unsigned_vector                          m_keyval_lim;
+    vector<unsigned>                         m_keyval_lim;
     func_decl_ref_vector                     m_newbits;
-    unsigned_vector                          m_newbits_lim;
+    vector<unsigned>                         m_newbits_lim;
 
     bool                                     m_blast_mul;
     bool                                     m_blast_add;

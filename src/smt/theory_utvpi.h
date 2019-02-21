@@ -113,13 +113,13 @@ namespace smt {
         // a negative cycle.
         class nc_functor {
             literal_vector m_antecedents;
-            unsigned_vector m_coeffs;
+            vector<unsigned> m_coeffs;
             theory_utvpi& m_super;
         public:
             nc_functor(theory_utvpi& s) : m_super(s) {}
             void reset() { m_antecedents.clear(); m_coeffs.clear(); }
             literal_vector const& get_lits() const { return m_antecedents; }
-            unsigned_vector const& get_coeffs() const { return m_coeffs; }
+            vector<unsigned> const& get_coeffs() const { return m_coeffs; }
 
             void operator()(std::pair<literal,unsigned> const & ex) {
                 if (ex.first != null_literal) {
@@ -143,7 +143,7 @@ namespace smt {
         dl_graph<GExt>          m_graph;
         nc_functor              m_nc_functor;
         atoms                   m_atoms;
-        unsigned_vector         m_asserted_atoms;   // set of asserted atoms
+        vector<unsigned>         m_asserted_atoms;   // set of asserted atoms
         unsigned                m_asserted_qhead;   
         u_map<unsigned>         m_bool_var2atom;
         vector<scope>          m_scopes;

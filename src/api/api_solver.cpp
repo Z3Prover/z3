@@ -420,7 +420,7 @@ extern "C" {
             mk_c(c)->m().is_not(e, e);
             _vars.push_back(e);
         }
-        unsigned_vector _levels(sz);
+        vector<unsigned> _levels(sz);
         to_solver_ref(s)->get_levels(_vars, _levels);
         for (unsigned i = 0; i < sz; ++i) {
             levels[i] = _levels[i];

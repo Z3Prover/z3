@@ -106,7 +106,7 @@ struct z3_replayer::imp {
     void *                      m_result;
     vector<ptr_vector<void> >   m_obj_arrays;
     vector<vector<Z3_symbol> > m_sym_arrays;
-    vector<unsigned_vector>     m_unsigned_arrays;
+    vector<vector<unsigned>>     m_unsigned_arrays;
     vector<vector<int> >       m_int_arrays;
 
     imp(z3_replayer & o, std::istream & in):
@@ -352,8 +352,8 @@ struct z3_replayer::imp {
         if (k == UINT64) {
             aidx = m_unsigned_arrays.size();
             nk   = UINT_ARRAY;
-            m_unsigned_arrays.push_back(unsigned_vector());
-            unsigned_vector & v = m_unsigned_arrays.back();
+            m_unsigned_arrays.push_back(vector<unsigned>());
+            vector<unsigned> & v = m_unsigned_arrays.back();
             for (unsigned i = asz - sz; i < asz; i++) {
                 v.push_back(static_cast<unsigned>(m_args[i].m_uint));
             }

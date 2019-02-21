@@ -129,7 +129,7 @@ namespace smt {
         vector<std::pair<theory_var, theory_var>> m_replay_diseq;
         vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
         vector<bool_var> m_diseq_watch_trail;
-        unsigned_vector   m_diseq_watch_lim;
+        vector<unsigned>   m_diseq_watch_lim;
 
         literal_vector           m_tmp_literals;
         vector<var_pos>         m_prop_queue;

@@ -23,8 +23,8 @@ Revision History:
 #include "util/vector.h"
 
 class permutation {
-    unsigned_vector m_p;
-    unsigned_vector m_inv_p;
+    vector<unsigned> m_p;
+    vector<unsigned> m_inv_p;
 public:
     permutation(unsigned size = 0);
     void reset(unsigned size = 0);

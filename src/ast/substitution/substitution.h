@@ -48,7 +48,7 @@ class substitution {
     typedef std::pair<unsigned, unsigned> var_offset;
     vector<var_offset>         m_vars;
     expr_ref_vector             m_refs;
-    unsigned_vector             m_scopes;
+    vector<unsigned>            m_scopes;
 
     // fields for applying substitutions
     vector<expr_offset>        m_todo;

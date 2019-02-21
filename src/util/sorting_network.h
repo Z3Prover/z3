@@ -396,7 +396,7 @@ Notes:
         literal cmp(unsigned k, unsigned n, unsigned const* ws, literal const* xs) {
             unsigned w_max = 0, sum = 0;
             literal_vector Xs;
-            unsigned_vector Ws;
+            vector<unsigned> Ws;
             for (unsigned i = 0; i < n; ++i) {
                 sum += ws[i];
                 w_max = std::max(ws[i], w_max);

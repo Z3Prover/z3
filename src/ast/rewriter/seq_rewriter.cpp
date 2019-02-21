@@ -373,7 +373,7 @@ eautomaton* re2automaton::seq2aut(expr* e) {
     else if (u.str.is_string(e, s)) {        
         unsigned init = 0;
         eautomaton::moves mvs;        
-        unsigned_vector final;
+        vector<unsigned> final;
         final.push_back(s.length());
         for (unsigned k = 0; k < s.length(); ++k) {
             // reference count?
@@ -1303,7 +1303,7 @@ bool seq_rewriter::is_sequence(eautomaton& aut, expr_ref_vector& seq) {
     unsigned state = aut.init();
     uint_set visited;
     eautomaton::moves mvs;
-    unsigned_vector states;
+    vector<unsigned> states;
     aut.get_epsilon_closure(state, states);
     bool has_final = false;
     for (unsigned i = 0; !has_final && i < states.size(); ++i) {
@@ -1453,7 +1453,7 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
     u_map<expr*> const& frontier = maps[select_map];
     expr_ref_vector ors(m());
     for (auto const& kv : frontier) {
-        unsigned_vector states;
+        vector<unsigned> states;
         bool has_final = false;
         aut->get_epsilon_closure(kv.m_key, states);
         for (unsigned i = 0; i < states.size() && !has_final; ++i) {

@@ -140,10 +140,10 @@ namespace datalog {
     {
         bool values_match(const expr * v1, const expr * v2);
 
-        unsigned_vector m_args1;
-        unsigned_vector m_args2;
+        vector<unsigned> m_args1;
+        vector<unsigned> m_args2;
 
-        unsigned_vector m_const_indexes;
+        vector<unsigned> m_const_indexes;
         app_ref_vector   m_consts;
 
         static unsigned expr_cont_get_size(app * a) { return a->get_num_args(); }
@@ -290,7 +290,7 @@ namespace datalog {
     }
 
     template<class T>
-    void project_out_vector_columns(T & container, const unsigned_vector & removed_cols) {
+    void project_out_vector_columns(T & container, const vector<unsigned> & removed_cols) {
         project_out_vector_columns(container, removed_cols.size(), removed_cols.c_ptr());
     }
 
@@ -301,7 +301,7 @@ namespace datalog {
 
         The function modifies the \c permutation vector
     */
-    void cycle_from_permutation(unsigned_vector & permutation, unsigned_vector & cycle);
+    void cycle_from_permutation(vector<unsigned> & permutation, vector<unsigned> & cycle);
 
 
     /**
@@ -312,10 +312,10 @@ namespace datalog {
 
        \c cycle must be empty before calling the function.
     */
-    bool try_remove_cycle_from_permutation(unsigned_vector & permutation, unsigned_vector & cycle);
+    bool try_remove_cycle_from_permutation(vector<unsigned> & permutation, vector<unsigned> & cycle);
 
-    void collect_sub_permutation(const unsigned_vector & permutation, const unsigned_vector & translation,
-        unsigned_vector & res, bool & identity);
+    void collect_sub_permutation(const vector<unsigned> & permutation, const vector<unsigned> & translation,
+        vector<unsigned> & res, bool & identity);
 
     template<class T>
     void permutate_by_cycle(T & container, unsigned cycle_len, const unsigned * permutation_cycle) {
@@ -342,7 +342,7 @@ namespace datalog {
     }
 
     template<class T>
-    void permutate_by_cycle(T & container, const unsigned_vector & permutation_cycle) {
+    void permutate_by_cycle(T & container, const vector<unsigned> & permutation_cycle) {
         permutate_by_cycle(container, permutation_cycle.size(), permutation_cycle.c_ptr());
     }
 
@@ -525,7 +525,7 @@ namespace datalog {
             }
             return;
         }
-        unsigned_vector numbers;
+        vector<unsigned> numbers;
         for(unsigned i=0; i<len; i++) {
             numbers.push_back(i);
         }
@@ -551,19 +551,19 @@ namespace datalog {
        \brief Consider \c translation as a map from indexes to values. Iterate through \c src and store 
        transformed values of elements into \c res unless they are equal to \c UINT_MAX.
     */
-    void collect_and_transform(const unsigned_vector & src, const unsigned_vector & translation, 
-        unsigned_vector & res);
+    void collect_and_transform(const vector<unsigned> & src, const vector<unsigned> & translation, 
+        vector<unsigned> & res);
 
     /**
        \brief Insert into \c res values of \c src transformed by \c map (understood as a function
        from its indexes to the values stored in it).
     */
-    void transform_set(const unsigned_vector & map, const idx_set & src, idx_set & result);
+    void transform_set(const vector<unsigned> & map, const idx_set & src, idx_set & result);
 
-    void add_sequence(unsigned start, unsigned count, unsigned_vector & v);
+    void add_sequence(unsigned start, unsigned count, vector<unsigned> & v);
 
     template<class Container>
-    void add_sequence_without_set(unsigned start, unsigned count, const Container & complement, unsigned_vector & v) {
+    void add_sequence_without_set(unsigned start, unsigned count, const Container & complement, vector<unsigned> & v) {
         unsigned after_last = start+count;
         for(unsigned i=start; i<after_last; i++) {
             if(!complement.contains(i)) {

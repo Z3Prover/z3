@@ -349,7 +349,7 @@ class reduce_hypotheses0 {
     // currently active units
     ptr_vector<expr>      m_units_trail;
     // size of m_units_trail at the last push
-    unsigned_vector       m_limits;
+    vector<unsigned>      m_limits;
     // map from proofs to active hypotheses
     obj_map<proof, expr_set*> m_hypmap;
     // reference train for hypotheses sets

@@ -141,8 +141,8 @@ namespace sat {
         unsigned            m_num_non_binary_clauses;       
         bool                m_is_pb; 
         bool                m_is_unsat;                                
-        unsigned_vector     m_unsat_stack;               // store all the unsat constraints
-        unsigned_vector     m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
+        vector<unsigned>     m_unsat_stack;               // store all the unsat constraints
+        vector<unsigned>     m_index_in_unsat_stack;      // which position is a constraint in the unsat_stack
         
         // configuration changed decreasing variables (score>0 and conf_change==true)
         bool_var_vector  m_goodvar_stack;

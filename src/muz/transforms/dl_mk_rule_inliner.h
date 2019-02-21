@@ -84,9 +84,9 @@ namespace datalog {
 
         class visitor : public st_visitor {
             context& m_context;
-            unsigned_vector m_unifiers;
+            vector<unsigned> m_unifiers;
             vector<bool> m_can_remove, m_can_expand;
-            obj_map<expr, unsigned_vector> m_positions;
+            obj_map<expr, vector<unsigned>> m_positions;
         public:
             visitor(context& c, substitution & s): st_visitor(s), m_context(c) { (void) m_context; }
             bool operator()(expr* e) override;
@@ -94,9 +94,9 @@ namespace datalog {
             void         reset(unsigned sz);
             vector<bool>& can_remove() { return m_can_remove; }
             vector<bool>& can_expand() { return m_can_expand; }
-            unsigned_vector const& add_position(expr* e, unsigned j);
-            unsigned_vector const& del_position(expr* e, unsigned j);
-            unsigned_vector const& get_unifiers() { return m_unifiers; }
+            vector<unsigned> const& add_position(expr* e, unsigned j);
+            vector<unsigned> const& del_position(expr* e, unsigned j);
+            vector<unsigned> const& get_unifiers() { return m_unifiers; }
         };
 
         typedef obj_map<func_decl, func_decl *> decl_map;

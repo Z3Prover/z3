@@ -547,7 +547,7 @@ bool static_features::internal_family(symbol const & f_name) const {
     return f_name == m_label_sym || f_name == m_pattern_sym || f_name == m_expr_list_sym;
 }
 
-void static_features::display_family_data(std::ostream & out, char const * prefix, unsigned_vector const & data) const {
+void static_features::display_family_data(std::ostream & out, char const * prefix, vector<unsigned> const & data) const {
     for (unsigned fid = 0; fid < data.size(); fid++) {
         symbol const & n = m_manager.get_family_name(fid);
         if (!internal_family(n))

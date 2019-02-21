@@ -235,7 +235,7 @@ namespace sat {
         ptr_vector<constraint> m_constraints;
         ptr_vector<constraint> m_learned;
         ptr_vector<constraint> m_constraint_to_reinit;
-        unsigned_vector        m_constraint_to_reinit_lim;
+        vector<unsigned>        m_constraint_to_reinit_lim;
         unsigned               m_constraint_to_reinit_last_sz;
         unsigned               m_constraint_id;
 
@@ -249,10 +249,10 @@ namespace sat {
         literal_vector    m_lemma;
         literal_vector    m_skipped;
         unsigned          m_num_propagations_since_pop;
-        unsigned_vector   m_parity_marks;
+        vector<unsigned>   m_parity_marks;
         literal_vector    m_parity_trail;
 
-        unsigned_vector   m_pb_undef;
+        vector<unsigned>   m_pb_undef;
 
         struct ba_sort {
             typedef sat::literal pliteral;
@@ -295,7 +295,7 @@ namespace sat {
         bool                      m_constraint_removed;
         literal_vector            m_roots;
         vector<bool>             m_root_vars;
-        unsigned_vector           m_weights;
+        vector<unsigned>           m_weights;
         vector<wliteral>         m_wlits;
         bool subsumes(card& c1, card& c2, literal_vector& comp);
         bool subsumes(card& c1, clause& c2, bool& self);

@@ -22,13 +22,7 @@ using vector = buffvec<T, SZ, 0>;
 template<typename T>
 using ptr_vector = buffvec<T*, unsigned, 0>;
 
-using char_vector        = buffvec<char, unsigned, 0>;
-using signed_char_vector = buffvec<signed char, unsigned, 0>;
-using int_vector         = buffvec<int, unsigned, 0>;
-using unsigned_vector    = buffvec<unsigned, unsigned, 0>;
-using double_vector      = buffvec<double, unsigned, 0>;
-
-inline std::ostream& operator<<(std::ostream& out, unsigned_vector const& v) {
+inline std::ostream& operator<<(std::ostream& out, vector<unsigned> const& v) {
     for (unsigned u : v) out << u << " ";
     return out;
 }

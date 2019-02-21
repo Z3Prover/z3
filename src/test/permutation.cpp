@@ -28,9 +28,9 @@ void apply_permutation_copy(unsigned sz, unsigned const * src, unsigned const * 
 
 static void tst1(unsigned sz, unsigned num_tries, unsigned max = UINT_MAX) {
 #if 0
-    unsigned_vector data;
-    unsigned_vector p;
-    unsigned_vector new_data;
+    vector<unsigned> data;
+    vector<unsigned> p;
+    vector<unsigned> new_data;
     data.resize(sz);
     p.resize(sz);
     new_data.resize(sz);

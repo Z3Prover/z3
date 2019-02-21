@@ -7058,20 +7058,20 @@ namespace smt {
 
         // from here we assume that there is a final state reachable from the initial state
 
-        unsigned_vector search_queue;
+        vector<unsigned> search_queue;
         // populate search_queue with all states reachable from the epsilon-closure of start state
         aut->get_epsilon_closure(aut->init(), search_queue);
 
         unsigned search_depth = 0;
         hashtable<unsigned, unsigned_hash, default_eq<unsigned>> next_states;
-        unsigned_vector next_search_queue;
+        vector<unsigned> next_search_queue;
 
         bool found_solution_at_lower_bound = false;
 
         while (!search_queue.empty()) {
             // if we are at the lower bound, check for final states
             if (search_depth == current_lower_bound.get_unsigned()) {
-                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                     unsigned state = *it;
                     if (aut->is_final_state(state)) {
                         found_solution_at_lower_bound = true;
@@ -7084,7 +7084,7 @@ namespace smt {
             next_states.reset();
             next_search_queue.clear();
             // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+            for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                 unsigned src = *it;
                 eautomaton::moves next_moves;
                 aut->get_moves_from(src, next_moves, true);
@@ -7115,7 +7115,7 @@ namespace smt {
         while (!search_queue.empty()) {
             if (search_depth > current_lower_bound.get_unsigned()) {
                 // check if we have found a solution above the lower bound
-                for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+                for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                     unsigned state = *it;
                     if (aut->is_final_state(state)) {
                         // this is a solution at a depth higher than the lower bound
@@ -7127,7 +7127,7 @@ namespace smt {
             next_states.reset();
             next_search_queue.clear();
             // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+            for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                 unsigned src = *it;
                 eautomaton::moves next_moves;
                 aut->get_moves_from(src, next_moves, true);
@@ -7167,7 +7167,7 @@ namespace smt {
         }
 
         // from here we assume there is a final state reachable from the initial state
-        unsigned_vector search_queue;
+        vector<unsigned> search_queue;
         // populate search queue with all states reachable from the epsilon-closure of the start state
         aut->get_epsilon_closure(aut->init(), search_queue);
 
@@ -7176,11 +7176,11 @@ namespace smt {
 
         unsigned search_depth = 0;
         hashtable<unsigned, unsigned_hash, default_eq<unsigned> > next_states;
-        unsigned_vector next_search_queue;
+        vector<unsigned> next_search_queue;
 
         while(!search_queue.empty()) {
             // see if any of the current states are final
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+            for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                 unsigned src = *it;
                 if (aut->is_final_state(src)) {
                     if (search_depth == current_upper_bound.get_unsigned()) {
@@ -7199,7 +7199,7 @@ namespace smt {
             next_states.reset();
             next_search_queue.clear();
             // move one step along all states
-            for (unsigned_vector::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
+            for (vector<unsigned>::iterator it = search_queue.begin(); it != search_queue.end(); ++it) {
                 unsigned src = *it;
                 eautomaton::moves next_moves;
                 aut->get_moves_from(src, next_moves, true);
@@ -7295,7 +7295,7 @@ namespace smt {
         if (lenVal.is_zero()) {
             // if any state in the epsilon-closure of the start state is accepting,
             // then the empty string is in this language
-            unsigned_vector states;
+            vector<unsigned> states;
             bool has_final = false;
             aut->get_epsilon_closure(aut->init(), states);
             for (unsigned i = 0; i < states.size() && !has_final; ++i) {
@@ -7439,7 +7439,7 @@ namespace smt {
         u_map<expr*>::iterator it = frontier.begin(), end = frontier.end();
         expr_ref_vector ors(m);
         for (; it != end; ++it) {
-            unsigned_vector states;
+            vector<unsigned> states;
             bool has_final = false;
             aut->get_epsilon_closure(it->m_key, states);
             for (unsigned i = 0; i < states.size() && !has_final; ++i) {
@@ -9935,9 +9935,9 @@ namespace smt {
                         if (aut->is_final_state(initial_state)) {
                             zero_solution = true;
                         } else {
-                            unsigned_vector eps_states;
+                            vector<unsigned> eps_states;
                             aut->get_epsilon_closure(initial_state, eps_states);
-                            for (unsigned_vector::iterator it = eps_states.begin(); it != eps_states.end(); ++it) {
+                            for (vector<unsigned>::iterator it = eps_states.begin(); it != eps_states.end(); ++it) {
                                 unsigned state = *it;
                                 if (aut->is_final_state(state)) {
                                     zero_solution = true;
@@ -11005,7 +11005,7 @@ namespace smt {
               );
     }
 
-    zstring theory_str::gen_val_string(int len, int_vector & encoding) {
+    zstring theory_str::gen_val_string(int len, vector<int> & encoding) {
         SASSERT(charSetSize > 0);
         SASSERT(!char_set.empty());
 
@@ -11022,7 +11022,7 @@ namespace smt {
      *   - If the next encoding is valid, return false
      *   - Otherwise, return true
      */
-    bool theory_str::get_next_val_encode(int_vector & base, int_vector & next) {
+    bool theory_str::get_next_val_encode(vector<int> & base, vector<int> & next) {
         SASSERT(charSetSize > 0);
 
         TRACE("str", tout << "base vector: [ ";
@@ -11078,8 +11078,8 @@ namespace smt {
         // ----------------------------------------------------------------------------------------
         int len = atoi(lenStr.encode().c_str());
         bool coverAll = false;
-        vector<int_vector, size_t> options;
-        int_vector base;
+        vector<vector<int>, size_t> options;
+        vector<int> base;
 
         TRACE("str", tout
               << "freeVar = " << mk_ismt2_pp(freeVar, m) << std::endl
@@ -11093,7 +11093,7 @@ namespace smt {
               );
 
         if (tries == 0) {
-            base = int_vector(len + 1, 0);
+            base = vector<int>(len + 1, 0);
             coverAll = false;
         } else {
             expr * lastestValIndi = fvar_valueTester_map[freeVar][len][tries - 1].second;
@@ -11114,9 +11114,9 @@ namespace smt {
 
         TRACE("str",
               tout << "value tester encoding " << "{" << std::endl;
-              int_vector vec = val_range_map[val_indicator];
+              vector<int> vec = val_range_map[val_indicator];
 
-              for (int_vector::iterator it = vec.begin(); it != vec.end(); ++it) {
+              for (vector<int>::iterator it = vec.begin(); it != vec.end(); ++it) {
                   tout << *it << std::endl;
               }
               tout << "}" << std::endl;

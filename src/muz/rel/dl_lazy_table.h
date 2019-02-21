@@ -171,8 +171,8 @@ namespace datalog {
     };
 
     class lazy_table_join : public lazy_table_ref {
-        unsigned_vector m_cols1;
-        unsigned_vector m_cols2;
+        vector<unsigned> m_cols1;
+        vector<unsigned> m_cols2;
         ref<lazy_table_ref>     m_t1;
         ref<lazy_table_ref>     m_t2;
     public:
@@ -186,8 +186,8 @@ namespace datalog {
               m_t2(t2.get_ref()) { }
         ~lazy_table_join() override {}
         lazy_table_kind kind() const override { return LAZY_TABLE_JOIN; }
-        unsigned_vector const& cols1() const { return m_cols1; }
-        unsigned_vector const& cols2() const { return m_cols2; }
+        vector<unsigned> const& cols1() const { return m_cols1; }
+        vector<unsigned> const& cols2() const { return m_cols2; }
         lazy_table_ref* t1() const { return m_t1.get(); }
         lazy_table_ref* t2() const { return m_t2.get(); }
         table_base* force() override;
@@ -195,7 +195,7 @@ namespace datalog {
 
 
     class lazy_table_project : public lazy_table_ref {
-        unsigned_vector         m_cols;
+        vector<unsigned>         m_cols;
         ref<lazy_table_ref>     m_src;
     public:
         lazy_table_project(unsigned col_cnt, const unsigned * cols, lazy_table const& src, table_signature const& sig)
@@ -205,13 +205,13 @@ namespace datalog {
         ~lazy_table_project() override {}
         
         lazy_table_kind kind() const override { return LAZY_TABLE_PROJECT; }
-        unsigned_vector const& cols() const { return m_cols; }
+        vector<unsigned> const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
         table_base* force() override;
     };
 
     class lazy_table_rename : public lazy_table_ref {
-        unsigned_vector         m_cols;
+        vector<unsigned>         m_cols;
         ref<lazy_table_ref>     m_src;
     public:
         lazy_table_rename(unsigned col_cnt, const unsigned * cols, lazy_table const& src, table_signature const& sig)
@@ -221,13 +221,13 @@ namespace datalog {
         ~lazy_table_rename() override {}
         
         lazy_table_kind kind() const override { return LAZY_TABLE_RENAME; }
-        unsigned_vector const& cols() const { return m_cols; }
+        vector<unsigned> const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
         table_base* force() override;
     };
 
     class lazy_table_filter_identical : public lazy_table_ref {
-        unsigned_vector          m_cols;
+        vector<unsigned>          m_cols;
         ref<lazy_table_ref>      m_src;
     public:
         lazy_table_filter_identical(unsigned col_cnt, const unsigned * cols, lazy_table const& src)
@@ -235,7 +235,7 @@ namespace datalog {
         ~lazy_table_filter_identical() override {}
         
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_IDENTICAL; }
-        unsigned_vector const& cols() const { return m_cols; }
+        vector<unsigned> const& cols() const { return m_cols; }
         lazy_table_ref* src() const { return m_src.get(); }
         table_base* force() override;
     };
@@ -278,11 +278,11 @@ namespace datalog {
     class lazy_table_filter_by_negation : public lazy_table_ref {
         ref<lazy_table_ref>       m_tgt;
         ref<lazy_table_ref>       m_src;
-        unsigned_vector           m_cols1;
-        unsigned_vector           m_cols2;
+        vector<unsigned>           m_cols1;
+        vector<unsigned>           m_cols2;
     public:
         lazy_table_filter_by_negation(lazy_table const& tgt, lazy_table const& src, 
-                                      unsigned_vector const& c1, unsigned_vector const& c2) 
+                                      vector<unsigned> const& c1, vector<unsigned> const& c2) 
         : lazy_table_ref(tgt.get_lplugin(), tgt.get_signature()),
             m_tgt(tgt.get_ref()), 
             m_src(src.get_ref()), 
@@ -292,8 +292,8 @@ namespace datalog {
         lazy_table_kind kind() const override { return LAZY_TABLE_FILTER_BY_NEGATION; }
         lazy_table_ref* tgt() const { return m_tgt.get(); }
         lazy_table_ref* src() const { return m_src.get(); }
-        unsigned_vector const& cols1() const { return m_cols1; }
-        unsigned_vector const& cols2() const { return m_cols2; }
+        vector<unsigned> const& cols1() const { return m_cols1; }
+        vector<unsigned> const& cols2() const { return m_cols2; }
         table_base* force() override;
     };
 

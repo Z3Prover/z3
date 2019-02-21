@@ -30,7 +30,7 @@ namespace datalog {
     template<typename T>
     class vector_relation_helper {
     public:
-        static void mk_project_t(T& t, unsigned_vector const& renaming) {}
+        static void mk_project_t(T& t, vector<unsigned> const& renaming) {}
     };
 
     template<typename T, typename Helper = vector_relation_helper<T> > 
@@ -206,7 +206,7 @@ namespace datalog {
 
         void mk_project(vector_relation const& r, unsigned col_cnt, unsigned const* removed_cols) {
             SASSERT(is_full());
-            unsigned_vector classRep, repNode;
+            vector<unsigned> classRep, repNode;
             unsigned result_size = get_signature().size();
             unsigned input_size = r.get_signature().size();
             repNode.resize(input_size, UINT_MAX);
@@ -235,7 +235,7 @@ namespace datalog {
             }
 
             // rename columns in image of vector relation.
-            unsigned_vector renaming;
+            vector<unsigned> renaming;
             for (unsigned i = 0, j = 0, c = 0; i < input_size; ++i) {
                 if (c < col_cnt && removed_cols[c] == i) {
                     renaming.push_back(UINT_MAX);
@@ -272,7 +272,7 @@ namespace datalog {
             SASSERT(is_full());
            
             // roundabout way of creating permuted relation.
-            unsigned_vector classRep, repNode;
+            vector<unsigned> classRep, repNode;
             for (unsigned i = 0; i < r.m_elems->size(); ++i) {
                 classRep.push_back(r.find(i));
                 repNode.push_back(UINT_MAX);

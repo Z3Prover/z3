@@ -96,7 +96,7 @@ namespace datalog {
        bound literal in the process of creating an adorned rule. If all literals are unbound,
        return -1.
      */
-    int mk_magic_sets::pop_bound(unsigned_vector & cont, rule * r, const var_idx_set & bound_vars) {
+    int mk_magic_sets::pop_bound(vector<unsigned> & cont, rule * r, const var_idx_set & bound_vars) {
         float best_cost;
         int candidate_index = -1;
         unsigned n = cont.size();
@@ -218,8 +218,8 @@ namespace datalog {
         }
 
         unsigned processed_tail_len = r->get_uninterpreted_tail_size();
-        unsigned_vector exten_tails;
-        unsigned_vector inten_tails;
+        vector<unsigned> exten_tails;
+        vector<unsigned> inten_tails;
         for (unsigned i=0; i<processed_tail_len; i++) {
             app * t = r->get_tail(i);
             if (m_extentional.contains(t->get_decl())) {

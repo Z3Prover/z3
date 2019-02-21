@@ -270,8 +270,8 @@ namespace smt {
 
         vector<var_info>        m_var_infos; 
         mutable unsynch_mpz_manager      m_mpz_mgr;        // Simplex: manager mpz numerals
-        unsigned_vector          m_ineqs_trail;
-        unsigned_vector          m_ineqs_lim;
+        vector<unsigned>          m_ineqs_trail;
+        vector<unsigned>          m_ineqs_lim;
         literal_vector           m_literals;    // temporary vector
         pb_util                  pb;
         stats                    m_stats;
@@ -305,8 +305,8 @@ namespace smt {
         // and in the common case PB constraints with small coefficients can
         // be handled using cardinality constraints.
 
-        unsigned_vector          m_card_trail;
-        unsigned_vector          m_card_lim;       
+        vector<unsigned>          m_card_trail;
+        vector<unsigned>          m_card_lim;       
         bool is_cardinality_constraint(app * atom);
         bool internalize_card(app * atom, bool gate_ctx);
         void card2conjunction(card const& c);
@@ -368,7 +368,7 @@ namespace smt {
         literal_vector& get_literals() { m_literals.clear(); return m_literals; }
 
         vector<vector<bool_var> > m_coeff2args;
-        unsigned_vector m_active_coeffs;
+        vector<unsigned> m_active_coeffs;
         bool init_arg_max();
         void reset_arg_max();
 

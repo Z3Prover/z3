@@ -28,8 +28,8 @@ void dl_util_two_array_sort() {
 
 void dl_util_cycle_from_permutation() {
     unsigned permutation_arr[] = { 0, 1, 4, 3, 2, 5, 6, 7 };
-    unsigned_vector perm(sizeof(permutation_arr)/sizeof(unsigned), permutation_arr);
-    unsigned_vector cycle;
+    vector<unsigned> perm(sizeof(permutation_arr)/sizeof(unsigned), permutation_arr);
+    vector<unsigned> cycle;
 
     datalog::cycle_from_permutation(perm, cycle);
     ENSURE(cycle.size()==2);
@@ -39,7 +39,7 @@ void dl_util_cycle_from_permutation() {
 
     unsigned permutation_arr2[] = { 1, 2, 3, 4, 5, 6, 7, 0 };
     unsigned len2 = sizeof(permutation_arr2)/sizeof(unsigned);
-    unsigned_vector perm2(len2, permutation_arr2);
+    vector<unsigned> perm2(len2, permutation_arr2);
     cycle.clear();
     datalog::cycle_from_permutation(perm2, cycle);
 

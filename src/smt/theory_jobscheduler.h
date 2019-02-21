@@ -87,7 +87,7 @@ namespace smt {
         };
 
         struct res_info {
-            unsigned_vector       m_jobs;      // jobs allocated to run on resource
+            vector<unsigned>       m_jobs;      // jobs allocated to run on resource
             vector<res_available> m_available; // time intervals where resource is available
             enode*                m_resource;
             enode*                m_makespan;
@@ -99,7 +99,7 @@ namespace smt {
         arith_util       a;
         vector<job_info> m_jobs;
         vector<res_info> m_resources;
-        unsigned_vector  m_bound_jobs;
+        vector<unsigned>  m_bound_jobs;
         unsigned         m_bound_qhead;
         struct scope {
             unsigned m_bound_jobs_lim;

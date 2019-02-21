@@ -236,10 +236,7 @@ bit_vector& bit_vector::neg() {
 
 void fc_bit_vector::clear() {
     unsigned sz = size();
-    unsigned_vector::const_iterator it  = m_one_idxs.begin();
-    unsigned_vector::const_iterator end = m_one_idxs.end();
-    for (; it != end; ++it) {
-        unsigned idx = *it;
+    for (auto const& idx : m_one_idxs) {
         if (idx < sz)
             unset(idx);
     }

@@ -66,7 +66,7 @@ namespace qe {
         ast_manager&            m;
         vector<app_ref_vector>  m_preds;
         expr_ref_vector         m_asms;
-        unsigned_vector         m_asms_lim;
+        vector<unsigned>         m_asms_lim;
         obj_map<expr, expr*>    m_pred2lit;    // maintain definitions of predicates.
         obj_map<expr, app*>     m_lit2pred;    // maintain reverse mapping to predicates
         obj_map<expr, app*>     m_asm2pred;    // maintain map from assumptions to predicates

@@ -316,7 +316,7 @@ namespace smt {
 
     bool theory_special_relations::extract_equalities(relation& r) {
         bool new_eq = false;
-        int_vector scc_id;
+        vector<int> scc_id;
         u_map<unsigned> roots;
         context& ctx = get_context();
         r.m_graph.compute_zero_edge_scc(scc_id);
@@ -485,7 +485,7 @@ namespace smt {
     void theory_special_relations::ensure_tree(graph& g) {
         unsigned sz = g.get_num_nodes();
         for (unsigned i = 0; i < sz; ++i) {
-            int_vector const& edges = g.get_in_edges(i);
+            vector<int> const& edges = g.get_in_edges(i);
             for (unsigned j = 0; j < edges.size(); ++j) {
                 edge_id e1 = edges[j];
                 if (g.is_enabled(e1)) {
@@ -581,7 +581,7 @@ namespace smt {
         return result;
     }
 
-    expr_ref theory_special_relations::mk_interval(relation& r, model_generator& mg, unsigned_vector & lo, unsigned_vector& hi) {
+    expr_ref theory_special_relations::mk_interval(relation& r, model_generator& mg, vector<unsigned> & lo, vector<unsigned>& hi) {
         graph const& g = r.m_graph;
         ast_manager& m = get_manager();
         expr_ref result(m);
@@ -752,7 +752,7 @@ namespace smt {
      */
 
     void theory_special_relations::init_model_to(relation& r, model_generator& mg) {
-        unsigned_vector num_children, lo, hi;
+        vector<unsigned> num_children, lo, hi;
         graph const& g = r.m_graph;
         r.push();
         ensure_strict(r.m_graph);
@@ -780,7 +780,7 @@ namespace smt {
         return is_neighbour_edge(g, e) && g.get_weight(e) != s_integer(0);
     }
 
-    void theory_special_relations::count_children(graph const& g, unsigned_vector& num_children) {
+    void theory_special_relations::count_children(graph const& g, vector<unsigned>& num_children) {
         unsigned sz = g.get_num_nodes();
         vector<dl_var> nodes;
         num_children.resize(sz, 0);
@@ -817,7 +817,7 @@ namespace smt {
               });
     }
 
-    void theory_special_relations::assign_interval(graph const& g, unsigned_vector const& num_children, unsigned_vector& lo, unsigned_vector& hi) {
+    void theory_special_relations::assign_interval(graph const& g, vector<unsigned> const& num_children, vector<unsigned>& lo, vector<unsigned>& hi) {
         vector<dl_var> nodes;
         unsigned sz = g.get_num_nodes();
         lo.resize(sz, 0);
@@ -825,7 +825,7 @@ namespace smt {
         unsigned offset = 0;
         for (unsigned i = 0; i < sz; ++i) {
             bool is_root = true;
-            int_vector const& edges = g.get_in_edges(i);
+            vector<int> const& edges = g.get_in_edges(i);
             for (edge_id e_id : edges) {
                 is_root &= !g.is_enabled(e_id);
             }
@@ -838,7 +838,7 @@ namespace smt {
         }
         while (!nodes.empty()) {
             dl_var v = nodes.back();
-            int_vector const& edges = g.get_out_edges(v);
+            vector<int> const& edges = g.get_out_edges(v);
             unsigned l = lo[v];
             unsigned h = hi[v];
             (void)h;

@@ -113,7 +113,7 @@ class mpff_manager {
     
     unsigned          m_precision;      //!< Number of words in the significand. Must be an even number.
     unsigned          m_precision_bits; //!< Number of bits in the significand.  Must be 32*m_precision.
-    unsigned_vector   m_significands;   //!< Array containing all significands.
+    vector<unsigned>  m_significands;   //!< Array containing all significands.
     unsigned          m_capacity;       //!< Number of significands that can be stored in m_significands.
     bool              m_to_plus_inf;    //!< If True, then round to plus infinity, otherwise to minus infinity
     id_gen            m_id_gen;

@@ -34,7 +34,7 @@ struct enum2bv_rewriter::imp {
     func_decl_ref_vector      m_enum_consts;
     func_decl_ref_vector      m_enum_bvs;
     expr_ref_vector           m_enum_defs;
-    unsigned_vector           m_enum_consts_lim;
+    vector<unsigned>          m_enum_consts_lim;
     unsigned                  m_num_translated;
     i_sort_pred*              m_sort_pred;
 

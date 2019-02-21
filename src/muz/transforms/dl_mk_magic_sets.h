@@ -113,7 +113,7 @@ namespace datalog {
 
         float get_unbound_cost(app * lit, const var_idx_set & bound_vars);
 
-        int pop_bound(unsigned_vector & cont, rule * r, const var_idx_set & bound_vars);
+        int pop_bound(vector<unsigned> & cont, rule * r, const var_idx_set & bound_vars);
         app * create_magic_literal(app * l);
         void create_magic_rules(app * head, unsigned tail_cnt, app * const * tail, bool const* negated, rule_set& result);
         app * adorn_literal(app * lit, const var_idx_set & bound_vars);

@@ -232,7 +232,7 @@ namespace datalog {
     }
 
     class interval_relation_plugin::filter_identical_fn : public relation_mutator_fn {
-        unsigned_vector m_identical_cols;
+        vector<unsigned> m_identical_cols;
     public:
         filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
             : m_identical_cols(col_cnt, identical_cols) {}

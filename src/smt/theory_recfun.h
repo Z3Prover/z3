@@ -97,7 +97,7 @@ namespace smt {
         // book-keeping for depth of predicates
         obj_map<expr, unsigned>  m_pred_depth;
         expr_ref_vector          m_preds;
-        unsigned_vector          m_preds_lim;
+        vector<unsigned>          m_preds_lim;
         unsigned                 m_max_depth; // for fairness and termination
 
         ptr_vector<case_expansion> m_q_case_expand;

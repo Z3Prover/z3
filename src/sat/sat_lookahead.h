@@ -204,33 +204,33 @@ namespace sat {
         literal_vector         m_assumptions;
 
         literal_vector         m_trail;         // trail of units
-        unsigned_vector        m_trail_lim;
+        vector<unsigned>        m_trail_lim;
         vector<literal_vector> m_binary;        // literal: binary clauses
-        unsigned_vector        m_binary_trail;  // trail of added binary clauses
-        unsigned_vector        m_binary_trail_lim; 
+        vector<unsigned>        m_binary_trail;  // trail of added binary clauses
+        vector<unsigned>        m_binary_trail_lim; 
 
         // specialized clause managemet uses ternary clauses and dedicated clause data-structure.
         // this replaces m_clauses below
         vector<vector<binary>> m_ternary;        // lit |-> vector of ternary clauses
-        unsigned_vector         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
+        vector<unsigned>         m_ternary_count;  // lit |-> current number of active ternary clauses for lit
 
         small_object_allocator    m_allocator;
         vector<ptr_vector<nary>>  m_nary;        // lit |-> vector of nary clauses
         ptr_vector<nary>          m_nary_clauses; // vector of all nary clauses
-        unsigned_vector           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
+        vector<unsigned>           m_nary_count;     // lit |-> number of valid clause_id in m_nary[lit]
 
         unsigned               m_num_tc1;
-        unsigned_vector        m_num_tc1_lim;
+        vector<unsigned>        m_num_tc1_lim;
         unsigned               m_qhead;         // propagation queue head
-        unsigned_vector        m_qhead_lim;
+        vector<unsigned>        m_qhead_lim;
         bool                   m_inconsistent;
-        unsigned_vector        m_bstamp;        // literal: timestamp for binary implication
+        vector<unsigned>        m_bstamp;        // literal: timestamp for binary implication
         vector<vector<double> >  m_H;           // literal: fitness score
         vector<double>*        m_heur;          // current fitness 
         vector<double>         m_rating;        // var:     pre-selection rating
         unsigned               m_bstamp_id;     // unique id for binary implication.
         unsigned               m_istamp_id;     // unique id for managing double lookaheads
-        unsigned_vector        m_stamp;         // var: timestamp with truth value        
+        vector<unsigned>        m_stamp;         // var: timestamp with truth value        
         unsigned               m_level;         // current level, = 2 * m_trail_lim.size() 
         const unsigned         c_fixed_truth = UINT_MAX - 1;
         vector<watch_list>     m_watches;       // literal: watch structure

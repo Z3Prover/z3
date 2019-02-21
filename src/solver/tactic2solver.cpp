@@ -36,7 +36,7 @@ Notes:
 namespace {
 class tactic2solver : public solver_na2as {
     expr_ref_vector              m_assertions;
-    unsigned_vector              m_scopes;
+    vector<unsigned>              m_scopes;
     ref<simple_check_sat_result> m_result;
     tactic_ref                   m_tactic;
     ref<model_converter>         m_mc;
@@ -85,7 +85,7 @@ public:
 
     model_converter_ref get_model_converter() const override { return m_mc; }
 
-    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
         throw default_exception("cannot retrieve depth from solvers created using tactics");
     }
 

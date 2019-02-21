@@ -3890,12 +3890,12 @@ namespace sat {
                 mc.add_edge(l1.index(), l2.index());
             }
         }
-        vector<unsigned_vector> _mutexes;
+        vector<vector<unsigned>> _mutexes;
         literal_vector _lits(lits);
         if (m_ext) {
             // m_ext->find_mutexes(_lits, mutexes);
         }
-        unsigned_vector ps;
+        vector<unsigned> ps;
         for (literal lit : _lits) {
             ps.push_back(lit.index());
         }

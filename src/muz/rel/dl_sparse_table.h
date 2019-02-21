@@ -98,10 +98,10 @@ namespace datalog {
             const table_base & t,
             const table_base & src1,
             const table_base & src2,
-            unsigned_vector const& t_cols,
-            unsigned_vector const& src_cols,
-            unsigned_vector const& src1_cols,
-            unsigned_vector const& src2_cols) override;
+            vector<unsigned> const& t_cols,
+            vector<unsigned> const& src_cols,
+            vector<unsigned> const& src1_cols,
+            vector<unsigned> const& src2_cols) override;
 
         static sparse_table const& get(table_base const&);
         static sparse_table& get(table_base&);

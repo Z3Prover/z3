@@ -222,7 +222,7 @@ protected:
     expr_ref                   m_r;
     proof_ref                  m_pr;
     proof_ref                  m_pr2;
-    unsigned_vector            m_shifts;
+    vector<unsigned>           m_shifts;
 
     vector<frame> & frame_stack() { return this->m_frame_stack; }
     vector<frame> const & frame_stack() const { return this->m_frame_stack; }

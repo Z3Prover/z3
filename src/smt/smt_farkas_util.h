@@ -35,7 +35,7 @@ namespace smt {
         // utilities for separating coefficients
         bool             m_split_literals;
         unsigned         m_time;
-        unsigned_vector  m_roots, m_size, m_his, m_reps, m_ts;
+        vector<unsigned>  m_roots, m_size, m_his, m_reps, m_ts;
 
         void mk_coerce(expr*& e1, expr*& e2);
         app* mk_add(expr* e1, expr* e2);

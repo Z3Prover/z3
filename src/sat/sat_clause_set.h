@@ -24,7 +24,7 @@ Revision History:
 namespace sat {
 
     class clause_set {
-        unsigned_vector m_id2pos; 
+        vector<unsigned> m_id2pos; 
         clause_vector   m_set;
     public:
         typedef clause_vector::const_iterator iterator;

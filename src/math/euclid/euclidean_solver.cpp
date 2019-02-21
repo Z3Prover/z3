@@ -35,14 +35,14 @@ struct euclidean_solver::imp {
     typedef vector<mpq>                         mpq_vector;
 
     struct elim_order_lt {
-        unsigned_vector & m_solved;
-        elim_order_lt(unsigned_vector & s):m_solved(s) {}
+        vector<unsigned> & m_solved;
+        elim_order_lt(vector<unsigned> & s):m_solved(s) {}
         bool operator()(var x1, var x2) const { return m_solved[x1] < m_solved[x2]; }
     };
 
     typedef heap<elim_order_lt>                  var_queue; // queue used for scheduling variables for applying substitution.
 
-    static unsigned pos(unsigned_vector const & xs, unsigned x_i) {
+    static unsigned pos(vector<unsigned> const & xs, unsigned x_i) {
         if (xs.empty())
             return UINT_MAX;
         int low  = 0;
@@ -102,8 +102,8 @@ struct euclidean_solver::imp {
     equations          m_equations;
     equations          m_solution;
     
-    vector<bool>      m_parameter;
-    unsigned_vector    m_solved; // null_eq_idx if var is not solved, otherwise the position in m_solution
+    vector<bool>       m_parameter;
+    vector<unsigned>   m_solved; // null_eq_idx if var is not solved, otherwise the position in m_solution
     vector<occs>       m_occs; // occurrences of the variable in m_equations.
     
     unsigned           m_inconsistent; // null_eq_idx if not inconsistent, otherwise it is the index of an unsatisfiable equality in m_equations.
@@ -133,7 +133,7 @@ struct euclidean_solver::imp {
     bool solved(var x) const { return m_solved[x] != null_eq_idx; }
 
     template<typename Numeral>
-    void sort_core(vector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
+    void sort_core(vector<Numeral> & as, vector<unsigned> & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
         std::sort(xs.begin(), xs.end());
         unsigned num = as.size();
         for (unsigned i = 0; i < num; i++) {
@@ -142,7 +142,7 @@ struct euclidean_solver::imp {
     }
     
     template<typename Numeral>
-    void sort(vector<Numeral> & as, unsigned_vector & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
+    void sort(vector<Numeral> & as, vector<unsigned> & xs, numeral_buffer<Numeral, numeral_manager> & buffer) {
         unsigned num = as.size();
         for (unsigned i = 0; i < num; i++) {
             m().set(buffer[xs[i]], as[i]);

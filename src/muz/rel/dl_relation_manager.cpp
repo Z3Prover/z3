@@ -586,7 +586,7 @@ namespace datalog {
     class relation_manager::default_relation_filter_interpreted_and_project_fn : public relation_transformer_fn {
         scoped_ptr<relation_mutator_fn>     m_filter;
         scoped_ptr<relation_transformer_fn> m_project;
-        unsigned_vector                     m_removed_cols;
+        vector<unsigned>                     m_removed_cols;
     public:
         /**
             This constructor should be used only if we know that the projection operation
@@ -663,7 +663,7 @@ namespace datalog {
         scoped_ptr<relation_join_fn> m_join;
         scoped_ptr<relation_transformer_fn> m_project;
 
-        unsigned_vector m_removed_cols;
+        vector<unsigned> m_removed_cols;
     public:
         /**
             This constructor should be used only if we know that the projection operation
@@ -831,7 +831,7 @@ namespace datalog {
             const relation_base & tgt, const relation_base & src, unsigned joined_col_cnt, 
             const unsigned * tgt_cols, const unsigned * src_cols) {
         TRACE("dl_verbose", tout << tgt.get_plugin().get_name() << "\n";);
-        unsigned_vector join_removed_cols;
+        vector<unsigned> join_removed_cols;
         add_sequence(tgt.get_signature().size(), src.get_signature().size(), join_removed_cols);
         scoped_rel<relation_join_fn> join_fun = mk_join_project_fn(tgt, src, joined_col_cnt, tgt_cols, src_cols,
             join_removed_cols.size(), join_removed_cols.c_ptr(), false);
@@ -875,7 +875,7 @@ namespace datalog {
         TRACE("dl_verbose", tout << tgt.get_plugin().get_name() << "\n";);
         SASSERT(tgt.get_signature()==src.get_signature());
         unsigned sz = tgt.get_signature().size();
-        unsigned_vector cols;
+        vector<unsigned> cols;
         add_sequence(0, sz, cols);
         return mk_filter_by_intersection_fn(tgt, src, cols, cols);
     }
@@ -1067,7 +1067,7 @@ namespace datalog {
         scoped_ptr<table_join_fn> m_join;
         scoped_ptr<table_transformer_fn> m_project;
 
-        unsigned_vector m_removed_cols;
+        vector<unsigned> m_removed_cols;
     public:
         default_table_join_project_fn(join_fn * join, const table_base & t1, const table_base & t2, 
                 unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
@@ -1252,7 +1252,7 @@ namespace datalog {
 
     class relation_manager::default_table_filter_identical_fn : public table_mutator_fn, auxiliary_table_filter_fn {
         const unsigned m_col_cnt;
-        const unsigned_vector m_identical_cols;
+        const vector<unsigned> m_identical_cols;
     public:
         default_table_filter_identical_fn(unsigned col_cnt, const unsigned * identical_cols) 
                 : m_col_cnt(col_cnt),
@@ -1424,7 +1424,7 @@ namespace datalog {
         scoped_ptr<table_mutator_fn> m_filter;
         scoped_ptr<table_transformer_fn> m_project;
         app_ref m_condition;
-        unsigned_vector m_removed_cols;
+        vector<unsigned> m_removed_cols;
     public:
         default_table_filter_interpreted_and_project_fn(context & ctx, table_mutator_fn * filter,
             app * condition, unsigned removed_col_cnt, const unsigned * removed_cols) 
@@ -1528,10 +1528,10 @@ namespace datalog {
         const table_base & t, 
         const table_base & src1, 
         const table_base & src2, 
-        unsigned_vector const& t_cols,
-        unsigned_vector const& src_cols,
-        unsigned_vector const& src1_cols,
-        unsigned_vector const& src2_cols) {
+        vector<unsigned> const& t_cols,
+        vector<unsigned> const& src_cols,
+        vector<unsigned> const& src1_cols,
+        vector<unsigned> const& src2_cols) {
         return t.get_plugin().mk_filter_by_negated_join_fn(t, src1, src2, t_cols, src_cols, src1_cols, src2_cols);
     }
 
@@ -1612,7 +1612,7 @@ namespace datalog {
 
 
     class relation_manager::default_table_project_with_reduce_fn : public convenient_table_transformer_fn {
-        unsigned_vector m_removed_cols;
+        vector<unsigned> m_removed_cols;
         const unsigned m_inp_col_cnt;
         const unsigned m_removed_col_cnt;
         const unsigned m_result_col_cnt;

@@ -206,7 +206,7 @@ public:
             t1 = mk_full(sig);
             t2 = mk_full(sig);
             t3 = mk_empty(sig);
-            unsigned_vector jc1, jc2;
+            vector<unsigned> jc1, jc2;
             jc1.push_back(1);
             jc2.push_back(1);
             datalog::relation_join_fn* join_fn = p.mk_join_fn(*t1, *t2, jc1.size(), jc1.c_ptr(), jc2.c_ptr());
@@ -238,7 +238,7 @@ public:
         {
             std::cout << "project\n";
             t1 = mk_full(sig);
-            unsigned_vector pc;
+            vector<unsigned> pc;
             pc.push_back(0);
             datalog::relation_transformer_fn* proj_fn = p.mk_project_fn(*t1, pc.size(), pc.c_ptr());
             t = (*proj_fn)(*t1);
@@ -294,7 +294,7 @@ public:
         // filter_identical
         {
             t1 = mk_empty(sig2);
-            unsigned_vector id;
+            vector<unsigned> id;
             id.push_back(0);
             id.push_back(2);
             id.push_back(4);
@@ -407,7 +407,7 @@ public:
 
         // filter_interpreted_project
         {
-            unsigned_vector remove;
+            vector<unsigned> remove;
             remove.push_back(0);
             remove.push_back(2);
 
@@ -452,7 +452,7 @@ public:
         sig.push_back(bv.mk_sort(2));
         //sig.push_back(bv.mk_sort(3));
         
-        unsigned_vector jc1, jc2, pc;
+        vector<unsigned> jc1, jc2, pc;
         jc1.push_back(0);
         jc2.push_back(0);
         pc.push_back(1);
@@ -493,7 +493,7 @@ public:
             neg->get_dm().set(n, 1, BIT_1);
             neg->get_dm().set(n, 2, BIT_1);
 
-            unsigned_vector allcols;
+            vector<unsigned> allcols;
             allcols.push_back(0);
             allcols.push_back(1);
             allcols.push_back(2);
@@ -509,7 +509,7 @@ public:
             t2->get_dm().set(n, 1, BIT_1);
         }
 
-        unsigned_vector jc1, jc2, pc;
+        vector<unsigned> jc1, jc2, pc;
         jc1.push_back(1);
         jc1.push_back(2);
         jc2.push_back(0);
@@ -532,7 +532,7 @@ public:
       sig.push_back(bv.mk_sort(2));
       sig.push_back(bv.mk_sort(2));
 
-      unsigned_vector jc1, jc2, pc;
+      vector<unsigned> jc1, jc2, pc;
       jc1.push_back(0);
       jc1.push_back(1);
       jc2.push_back(1);
@@ -588,7 +588,7 @@ public:
         fact1.push_back(bv.mk_numeral(rational(3), 2));
         t1 = mk_empty(sig);
         t1->add_fact(fact1);
-        unsigned_vector cycle;
+        vector<unsigned> cycle;
         cycle.push_back(0);
         cycle.push_back(2);
         check_permutation(t1, cycle);
@@ -633,7 +633,7 @@ public:
         t1 = mk_rand(sig);
         t2 = mk_rand(sig);
 
-        unsigned_vector jc1, jc2;
+        vector<unsigned> jc1, jc2;
         jc1.push_back(0);
         jc2.push_back(0);
         scoped_ptr<datalog::relation_join_fn> join_fn;
@@ -657,7 +657,7 @@ public:
         return t;
     }
 
-    void check_permutation(relation_base* t1, unsigned_vector const& cycle) {
+    void check_permutation(relation_base* t1, vector<unsigned> const& cycle) {
         scoped_ptr<datalog::relation_transformer_fn> rename;
         rename = p.mk_rename_fn(*t1, cycle.size(), cycle.c_ptr());        
         relation_base* t = (*rename)(*t1);
@@ -684,7 +684,7 @@ public:
         sig4.push_back(bv.mk_sort(1));
         udoc_relation* t1 = mk_empty(sig4);
         udoc_relation* t2 = mk_empty(sig4);
-        unsigned_vector cols1, cols2;
+        vector<unsigned> cols1, cols2;
         unsigned num_bits = t1->get_dm().num_tbits();
         
         cols1.push_back(0);
@@ -711,7 +711,7 @@ public:
         sig4.push_back(bv.mk_sort(1));
         sig4.push_back(bv.mk_sort(1));
         sig4.push_back(bv.mk_sort(1));
-        unsigned_vector cols, allcols;
+        vector<unsigned> cols, allcols;
 
         cols.push_back(0);
         cols.push_back(2);
@@ -762,7 +762,7 @@ public:
         sig.push_back(bv.mk_sort(1));
         sig.push_back(bv.mk_sort(1));
         sig.push_back(bv.mk_sort(1));
-        unsigned_vector cols1, cols2;
+        vector<unsigned> cols1, cols2;
 
         cols1.push_back(0);
         cols1.push_back(0);
@@ -794,7 +794,7 @@ public:
         sig1.push_back(bv.mk_sort(2));
         sig1.push_back(bv.mk_sort(2));
         sig2.push_back(bv.mk_sort(2));
-        unsigned_vector cols1, cols2;
+        vector<unsigned> cols1, cols2;
 
         cols1.push_back(0);
         cols1.push_back(1);
@@ -819,7 +819,7 @@ public:
         sig2.push_back(bv.mk_sort(2));
         sig2.push_back(bv.mk_sort(2));
         sig2.push_back(bv.mk_sort(2));
-        unsigned_vector cols1, cols2, cols3;
+        vector<unsigned> cols1, cols2, cols3;
 
         cols1.push_back(0);
         cols1.push_back(1);
@@ -856,7 +856,7 @@ public:
     }
 
     void apply_filter_neg(udoc_relation& dst, udoc_relation& neg, 
-                          unsigned_vector const& cols1, unsigned_vector const& cols2) {
+                          vector<unsigned> const& cols1, vector<unsigned> const& cols2) {
 
         scoped_ptr<datalog::relation_intersection_filter_fn> negf;
         negf = p.mk_filter_by_negation_fn(dst, neg, cols1.size(), cols1.c_ptr(), cols2.c_ptr());
@@ -878,7 +878,7 @@ public:
         return result;
     }
 
-    void apply_filter_project(udoc_relation& t, unsigned_vector const& rm, app* cond) {
+    void apply_filter_project(udoc_relation& t, vector<unsigned> const& rm, app* cond) {
         scoped_ptr<datalog::relation_transformer_fn> rt;
         rt = p.mk_filter_interpreted_and_project_fn(t, cond, rm.size(), rm.c_ptr());
         datalog::relation_base* result = (*rt)(t);

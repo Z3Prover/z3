@@ -210,7 +210,7 @@ void der::reduce1(quantifier * q, expr_ref & r, proof_ref & pr) {
     }
 }
 
-void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
+void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, vector<unsigned> & order) {
     order.clear();
 
     // eliminate self loops, and definitions containing quantifiers.

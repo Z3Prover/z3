@@ -117,7 +117,7 @@ class wcnf {
     opt::context&  opt;
     ast_manager&   m;
     opt_stream_buffer& in;
-    unsigned_vector& m_handles;
+    vector<unsigned>& m_handles;
 
     app_ref read_clause(unsigned& weight) {
         int     parsed_lit;
@@ -147,7 +147,7 @@ class wcnf {
 
 public:
     
-    wcnf(opt::context& opt, opt_stream_buffer& in, unsigned_vector& h): opt(opt), m(opt.get_manager()), in(in), m_handles(h) {
+    wcnf(opt::context& opt, opt_stream_buffer& in, vector<unsigned>& h): opt(opt), m(opt.get_manager()), in(in), m_handles(h) {
         opt.set_clausal(true);
     }
     
@@ -187,7 +187,7 @@ class opb {
     opt::context&  opt;
     ast_manager&   m;    
     opt_stream_buffer& in;
-    unsigned_vector& m_handles;
+    vector<unsigned>& m_handles;
     arith_util     arith;
 
     app_ref parse_id() {
@@ -271,7 +271,7 @@ class opb {
         opt.add_hard_constraint(t);
     }
 public:
-    opb(opt::context& opt, opt_stream_buffer& in, unsigned_vector& h): 
+    opb(opt::context& opt, opt_stream_buffer& in, vector<unsigned>& h): 
         opt(opt), m(opt.get_manager()), 
         in(in), m_handles(h), arith(m) {}
 
@@ -297,13 +297,13 @@ public:
     }
 };
 
-void parse_wcnf(opt::context& opt, std::istream& is, unsigned_vector& h) {
+void parse_wcnf(opt::context& opt, std::istream& is, vector<unsigned>& h) {
     opt_stream_buffer _is(is);
     wcnf w(opt, _is, h);
     w.parse();
 }
 
-void parse_opb(opt::context& opt, std::istream& is, unsigned_vector& h) {
+void parse_opb(opt::context& opt, std::istream& is, vector<unsigned>& h) {
     opt_stream_buffer _is(is);
     opb opb(opt, _is, h);
     opb.parse();
@@ -531,7 +531,7 @@ class lp_parse {
     };
 
     opt::context&       opt;
-    unsigned_vector&    m_h;
+    vector<unsigned>&    m_h;
     lp_tokenizer        tok;
     objective           m_objective;
     vector<constraint>  m_constraints;
@@ -539,7 +539,7 @@ class lp_parse {
 
 public:
 
-    lp_parse(opt::context& opt, opt_stream_buffer& in, unsigned_vector& h) : 
+    lp_parse(opt::context& opt, opt_stream_buffer& in, vector<unsigned>& h) : 
         opt(opt), m_h(h), tok(in) {}
     
     void parse() {
@@ -865,7 +865,7 @@ private:
 
 };
 
-void parse_lp(opt::context& opt, std::istream& is, unsigned_vector& h) {
+void parse_lp(opt::context& opt, std::istream& is, vector<unsigned>& h) {
     opt_stream_buffer _is(is);
     lp_parse lp(opt, _is, h);
     lp.parse();

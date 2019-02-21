@@ -40,9 +40,9 @@ namespace datalog {
         typedef instruction::reg_idx reg_idx;
         typedef hashtable<unsigned, u_hash, u_eq> int_set;
         typedef u_map<unsigned> int2int;
-        typedef u_map<unsigned_vector> int2ints;
+        typedef u_map<vector<unsigned>> int2ints;
         typedef obj_map<func_decl, reg_idx> pred2idx;
-        typedef unsigned_vector var_vector;
+        typedef vector<unsigned> var_vector;
         typedef ptr_vector<func_decl> func_decl_vector;
 
         enum assembling_column_kind {
@@ -147,12 +147,12 @@ namespace datalog {
 
         void make_join(reg_idx t1, reg_idx t2, const variable_intersection & vars, reg_idx & result, 
             bool reuse_t1, instruction_block & acc);
-        void make_min(reg_idx source, reg_idx & target, const unsigned_vector & group_by_cols,
+        void make_min(reg_idx source, reg_idx & target, const vector<unsigned> & group_by_cols,
             unsigned min_col, instruction_block & acc);
         void make_join_project(reg_idx t1, reg_idx t2, const variable_intersection & vars, 
-            const unsigned_vector & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
+            const vector<unsigned> & removed_cols, reg_idx & result, bool reuse_t1, instruction_block & acc);
         void make_filter_interpreted_and_project(reg_idx src, app_ref & cond,
-            const unsigned_vector & removed_cols, reg_idx & result, bool reuse, instruction_block & acc);
+            const vector<unsigned> & removed_cols, reg_idx & result, bool reuse, instruction_block & acc);
         void make_select_equal_and_project(reg_idx src, const relation_element val, unsigned col,
             reg_idx & result, bool reuse, instruction_block & acc);
         /**
@@ -198,9 +198,9 @@ namespace datalog {
 
            Used to get input for the "project" part of join-project.
          */
-        void get_local_indexes_for_projection(rule * r, unsigned_vector & res);
+        void get_local_indexes_for_projection(rule * r, vector<unsigned> & res);
         void get_local_indexes_for_projection(app * t, var_counter & globals, unsigned ofs, 
-            unsigned_vector & res);
+            vector<unsigned> & res);
 
         /**
            \brief Into \c acc add instructions that will add new facts following from the rule into 

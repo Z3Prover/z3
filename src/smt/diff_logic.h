@@ -174,8 +174,8 @@ class dl_graph {
     assignment_stack        m_assignment_stack; // temporary stack for restoring the assignment
     edges                   m_edges;
     
-    typedef int_vector      edge_id_vector;
-    typedef int_vector      dl_var_vector;
+    typedef vector<int>     edge_id_vector;
+    typedef vector<int>     dl_var_vector;
     
     vector<edge_id_vector>  m_out_edges;  // per var
     vector<edge_id_vector>  m_in_edges;   // per var
@@ -207,7 +207,7 @@ class dl_graph {
 
     // SCC for cheap equality propagation --
     vector<char>           m_unfinished_set; // per var
-    int_vector              m_dfs_time;       // per var
+    vector<int>             m_dfs_time;       // per var
     dl_var_vector           m_roots;     
     dl_var_vector           m_unfinished;
     int                     m_next_dfs_time;
@@ -686,8 +686,8 @@ private:
         return (gamma.is_zero() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
     }
 
-    int_vector bfs_todo;
-    int_vector dfs_todo;
+    vector<int> bfs_todo;
+    vector<int> dfs_todo;
 
 public:
 
@@ -1161,7 +1161,7 @@ public:
     }
 
     // Compute strongly connected components connected by (normalized) zero edges.
-    void compute_zero_edge_scc(int_vector & scc_id) {
+    void compute_zero_edge_scc(vector<int> & scc_id) {
         m_unfinished_set.clear();
         m_dfs_time.clear();
         scc_id.clear();
@@ -1184,7 +1184,7 @@ public:
               });
     }    
 
-    void dfs(dl_var v, int_vector & scc_id) {
+    void dfs(dl_var v, vector<int> & scc_id) {
         m_dfs_time[v] = m_next_dfs_time;
         m_next_dfs_time++;
         m_unfinished_set[v] = true;
@@ -1235,7 +1235,7 @@ public:
         }
     }
 
-    void compute_zero_succ(dl_var v, int_vector& succ) {
+    void compute_zero_succ(dl_var v, vector<int>& succ) {
         unsigned n = m_assignment.size();
         m_dfs_time.clear();
         m_dfs_time.resize(n, -1);
@@ -1451,9 +1451,9 @@ private:
     struct dfs_state {
         class hp_lt {
             assignment& m_delta;
-            char_vector& m_mark;
+            vector<char>& m_mark;
         public:
-            hp_lt(assignment& asgn, char_vector& m) : m_delta(asgn),m_mark(m) {}
+            hp_lt(assignment& asgn, vector<char>& m) : m_delta(asgn),m_mark(m) {}
             bool operator()(dl_var v1, dl_var v2) const {
                 numeral const& delta1 = m_delta[v1];
                 numeral const& delta2 = m_delta[v2];
@@ -1463,11 +1463,11 @@ private:
             }
         };
         assignment    m_delta;
-        int_vector    m_visited;
-        int_vector    m_parent;
+        vector<int>   m_visited;
+        vector<int>   m_parent;
         heap<hp_lt>   m_heap;
         unsigned      m_num_edges;
-        dfs_state(char_vector& mark): m_heap(1024, hp_lt(m_delta, mark)), m_num_edges(0) {}
+        dfs_state(vector<char>& mark): m_heap(1024, hp_lt(m_delta, mark)), m_num_edges(0) {}
 
         void re_init(unsigned sz) {
             m_delta.resize(sz, numeral(0));

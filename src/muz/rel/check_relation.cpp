@@ -242,7 +242,7 @@ namespace datalog {
 
     void check_relation_plugin::verify_filter_project(
         relation_base const& src, relation_base const& dst, 
-        app* cond, unsigned_vector const& removed_cols) {
+        app* cond, vector<unsigned> const& removed_cols) {
         expr_ref fml1(m), fml2(m);
         src.to_formula(fml1);
         dst.to_formula(fml2);
@@ -253,7 +253,7 @@ namespace datalog {
     void check_relation_plugin::verify_project(
         relation_base const& src, 
         relation_base const& dst, 
-        unsigned_vector const& removed_cols) {
+        vector<unsigned> const& removed_cols) {
         expr_ref fml1(m), fml2(m);
         src.to_formula(fml1);
         dst.to_formula(fml2);
@@ -262,14 +262,14 @@ namespace datalog {
     void check_relation_plugin::verify_project(
         relation_base const& src, expr* f1, 
         relation_base const& dst, expr* f2,
-        unsigned_vector const& removed_cols) {
+        vector<unsigned> const& removed_cols) {
         expr_ref fml1 = ground(dst, mk_project(src.get_signature(), f1, removed_cols));
         expr_ref fml2 = ground(dst, f2);
         check_equiv("project", fml1, fml2);
     }
     expr_ref check_relation_plugin::mk_project(
         relation_signature const& sig, 
-        expr* fml, unsigned_vector const& removed_cols) {
+        expr* fml, vector<unsigned> const& removed_cols) {
         expr_ref fml1(m);
         ptr_vector<sort> bound;
         vector<symbol> names;
@@ -298,7 +298,7 @@ namespace datalog {
 
     void check_relation_plugin::verify_join_project(
         relation_base const& t1, relation_base const& t2, relation_base const& t,
-        unsigned_vector const& cols1, unsigned_vector const& cols2, unsigned_vector const& rm_cols) {
+        vector<unsigned> const& cols1, vector<unsigned> const& cols2, vector<unsigned> const& rm_cols) {
         ast_manager& m = get_ast_manager();
         relation_signature const& sigA = t1.get_signature();
         relation_signature const& sigB = t2.get_signature();
@@ -317,7 +317,7 @@ namespace datalog {
 
     expr_ref check_relation_plugin::mk_join(
         relation_base const& t1, relation_base const& t2, 
-        unsigned_vector const& cols1, unsigned_vector const& cols2) {
+        vector<unsigned> const& cols1, vector<unsigned> const& cols2) {
         ast_manager& m = get_ast_manager();
         expr_ref fml1(m), fml2(m), fml3(m);
         
@@ -346,8 +346,8 @@ namespace datalog {
 
     void check_relation_plugin::verify_permutation(
         relation_base const& src, relation_base const& dst, 
-        unsigned_vector const& cycle) {
-        unsigned_vector perm;
+        vector<unsigned> const& cycle) {
+        vector<unsigned> perm;
         relation_signature const& sig1 = src.get_signature();
         relation_signature const& sig2 = dst.get_signature();
         for (unsigned i = 0; i < sig1.size(); ++i) {
@@ -384,7 +384,7 @@ namespace datalog {
 
     void check_relation_plugin::verify_join(
         relation_base const& t1, relation_base const& t2, relation_base const& t,
-        unsigned_vector const& cols1, unsigned_vector const& cols2) {
+        vector<unsigned> const& cols1, vector<unsigned> const& cols2) {
         expr_ref fml1 = ground(t, mk_join(t1, t2, cols1, cols2));
         expr_ref fml2 = ground(t);
         check_equiv("join", fml1, fml2);
@@ -519,7 +519,7 @@ namespace datalog {
     }
 
     class check_relation_plugin::filter_identical_fn : public relation_mutator_fn {        
-        unsigned_vector                 m_cols;
+        vector<unsigned>                 m_cols;
         scoped_ptr<relation_mutator_fn> m_filter;
     public:
         filter_identical_fn(relation_mutator_fn* f, unsigned col_cnt, const unsigned *identical_cols)
@@ -669,8 +669,8 @@ namespace datalog {
 
     class check_relation_plugin::negation_filter_fn : public relation_intersection_filter_fn {
         scoped_ptr<relation_intersection_filter_fn> m_filter;
-        const unsigned_vector m_t_cols;
-        const unsigned_vector m_neg_cols;
+        const vector<unsigned> m_t_cols;
+        const vector<unsigned> m_neg_cols;
     public:
         negation_filter_fn(
             relation_intersection_filter_fn* filter,
@@ -712,8 +712,8 @@ namespace datalog {
         expr* dst0, 
         relation_base const& dst,
         relation_base const& neg,
-        unsigned_vector const& cols1,
-        unsigned_vector const& cols2) {
+        vector<unsigned> const& cols1,
+        vector<unsigned> const& cols2) {
         relation_signature const& sig1 = dst.get_signature();
         relation_signature const& sig2 = neg.get_signature();
         expr_ref dstf(m), negf(m);

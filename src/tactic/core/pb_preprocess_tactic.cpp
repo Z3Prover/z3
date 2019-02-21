@@ -41,13 +41,13 @@ Notes:
 #include "ast/ast_pp.h"
 
 class pb_preprocess_tactic : public tactic {
-    struct rec { unsigned_vector pos, neg; rec() { } };
+    struct rec { vector<unsigned> pos, neg; rec() { } };
     typedef obj_map<app, rec> var_map;
     ast_manager&     m;
     pb_util          pb;
     var_map          m_vars;    
-    unsigned_vector  m_ge;
-    unsigned_vector  m_other;
+    vector<unsigned>  m_ge;
+    vector<unsigned>  m_other;
     bool             m_progress;
     th_rewriter      m_r;
     
@@ -75,8 +75,8 @@ class pb_preprocess_tactic : public tactic {
          
         for (auto const& kv : m_vars) {
             app* e = kv.m_key;
-            unsigned_vector const& pos = kv.m_value.pos;
-            unsigned_vector const& neg = kv.m_value.neg;
+            vector<unsigned> const& pos = kv.m_value.pos;
+            vector<unsigned> const& neg = kv.m_value.neg;
             out << mk_pp(e, m) << ": ";
             for (unsigned p : pos) {
                 out << "p: " << p << " ";
@@ -205,7 +205,7 @@ public:
             if (!is_uninterp_const(arg)) continue;
             if (!m_vars.contains(to_app(arg))) continue;
             rec const& r = m_vars.find(to_app(arg));
-            unsigned_vector const& pos = neg?r.neg:r.pos;
+            vector<unsigned> const& pos = neg?r.neg:r.pos;
             for (unsigned j = 0; j < pos.size(); ++j) {
                 unsigned k = pos[j];
                 if (k == m_ge[i]) continue;
@@ -280,7 +280,7 @@ private:
         expr_ref fml1(m), fml2(m);
         for (unsigned i = 0; !g->inconsistent() && i < g->size(); ++i) {
             expr* e = g->form(i);
-            unsigned_vector cuts;
+            vector<unsigned> cuts;
             if (cut(e, cuts)) {
                 app* a = to_app(e);
                 expr_ref_vector  cut_args(m);
@@ -300,7 +300,7 @@ private:
             }
         }
     }
-    bool cut(expr* e, unsigned_vector& cuts) {
+    bool cut(expr* e, vector<unsigned>& cuts) {
         if (!pb.is_ge(e)) return false;
         if (to_app(e)->get_num_args() <= 20) return false;
         unsigned n = 0, cut = 0;
@@ -450,7 +450,7 @@ private:
     // so if there is a pointer into that formula, we can no
     // longer assume variables have unique occurrences.
     //
-    bool is_valid(unsigned_vector const& positions, goal_ref const& g) const {
+    bool is_valid(vector<unsigned> const& positions, goal_ref const& g) const {
         for (unsigned i = 0; i < positions.size(); ++i) {
             unsigned idx = positions[i];
             if (m.is_true(g->form(idx))) return false;
@@ -458,7 +458,7 @@ private:
         return true;
     }
 
-    bool is_reduction(unsigned_vector const& pos, app* fml, goal_ref const& g) {
+    bool is_reduction(vector<unsigned> const& pos, app* fml, goal_ref const& g) {
         unsigned sz = fml->get_num_args();
         for (unsigned i = 0; i < pos.size(); ++i) {
             if (!is_app(g->form(pos[i]))) return false;
@@ -470,7 +470,7 @@ private:
     // Implement very special case of resolution.
     
     void resolve(generic_model_converter& mc, unsigned idx1, 
-                 unsigned_vector const& positions, app* e, bool pos, goal_ref const& g) {
+                 vector<unsigned> const& positions, app* e, bool pos, goal_ref const& g) {
         if (positions.size() != 1) return;
         unsigned idx2 = positions[0];
         expr_ref tmp1(m), tmp2(m);
@@ -486,7 +486,7 @@ private:
         // check that each variable in idx1 occurs only in idx2
         unsigned min_index = 0;
         rational min_coeff(0);
-        unsigned_vector indices;
+        vector<unsigned> indices;
         for (unsigned i = 0; i < args1.size(); ++i) {
             expr* x = args1[i].get();
             m.is_not(x, x);
@@ -588,7 +588,7 @@ private:
         return true;
     }
 
-    void replace(unsigned_vector const& positions, expr* e, expr* v, goal_ref const& g) {
+    void replace(vector<unsigned> const& positions, expr* e, expr* v, goal_ref const& g) {
         if (!is_valid(positions, g)) return;
         expr_substitution sub(m);
         sub.insert(e, v);

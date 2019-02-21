@@ -633,14 +633,14 @@ namespace datalog {
         m_positions.reset();
     }
 
-    unsigned_vector const& mk_rule_inliner::visitor::add_position(expr* e, unsigned j) {
-        obj_map<expr, unsigned_vector>::obj_map_entry * et = m_positions.insert_if_not_there2(e, unsigned_vector());
+    vector<unsigned> const& mk_rule_inliner::visitor::add_position(expr* e, unsigned j) {
+        obj_map<expr, vector<unsigned>>::obj_map_entry * et = m_positions.insert_if_not_there2(e, vector<unsigned>());
         et->get_data().m_value.push_back(j);
         return et->get_data().m_value;
     }
 
-    unsigned_vector const& mk_rule_inliner::visitor::del_position(expr* e, unsigned j) {
-        obj_map<expr, unsigned_vector>::obj_map_entry * et = m_positions.find_core(e);
+    vector<unsigned> const& mk_rule_inliner::visitor::del_position(expr* e, unsigned j) {
+        obj_map<expr, vector<unsigned>>::obj_map_entry * et = m_positions.find_core(e);
         SASSERT(et && et->get_data().m_value.contains(j));
         et->get_data().m_value.erase(j);
         return et->get_data().m_value;
@@ -769,7 +769,7 @@ namespace datalog {
                 TRACE("dl", output_predicate(m_context, r2->get_head(), tout << "unify head: "); tout << "\n";);
                 m_tail_visitor.reset();
                 m_tail_index.unify(r2->get_head(), m_tail_visitor);
-                unsigned_vector const& tail_unifiers = m_tail_visitor.get_unifiers();
+                vector<unsigned> const& tail_unifiers = m_tail_visitor.get_unifiers();
                 unsigned num_tail_unifiers = tail_unifiers.size();
                 SASSERT(!tail_unifiers.empty());
                 if (!allow_branching && num_tail_unifiers != 1) {

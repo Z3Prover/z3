@@ -24,7 +24,7 @@ extern bool g_display_statistics;
 static bool g_first_interrupt = true;
 static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
-static unsigned_vector g_handles;
+static vector<unsigned> g_handles;
 
 
 

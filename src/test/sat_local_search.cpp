@@ -24,7 +24,7 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
     //std::cout << "number of constraints: " << num_constraints << '\n';
 
 
-    unsigned_vector coefficients;
+    vector<unsigned> coefficients;
     sat::literal_vector lits;
 
     // process objective function:

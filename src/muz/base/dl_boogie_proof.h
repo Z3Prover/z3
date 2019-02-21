@@ -55,7 +55,7 @@ namespace datalog {
     class boogie_proof {
         typedef vector<std::pair<symbol,expr*> > subst;
         typedef vector<symbol> labels;
-        typedef unsigned_vector  refs;
+        typedef vector<unsigned>  refs;
         struct step {
             symbol m_rule_name;
             expr*  m_fact;

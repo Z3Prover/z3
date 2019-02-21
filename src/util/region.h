@@ -27,7 +27,7 @@ Revision History:
 
 class region {
     ptr_vector<char> m_chuncks;
-    unsigned_vector  m_scopes;
+    vector<unsigned>  m_scopes;
 public:
     ~region() {
         clear();

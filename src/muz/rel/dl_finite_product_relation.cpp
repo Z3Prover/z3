@@ -361,16 +361,16 @@ namespace datalog {
         scoped_ptr<table_join_fn> m_tjoin_fn;
         scoped_ptr<relation_join_fn> m_rjoin_fn;
         
-        unsigned_vector m_t_joined_cols1;
-        unsigned_vector m_t_joined_cols2;
-        unsigned_vector m_r_joined_cols1;
-        unsigned_vector m_r_joined_cols2;
+        vector<unsigned> m_t_joined_cols1;
+        vector<unsigned> m_t_joined_cols2;
+        vector<unsigned> m_r_joined_cols1;
+        vector<unsigned> m_r_joined_cols2;
 
         //Column equalities betweet table and inner relations.
         //The columns numbers correspont to the columns of the table/inner relation 
         //in the result of the join operation
-        unsigned_vector m_tr_table_joined_cols;
-        unsigned_vector m_tr_rel_joined_cols;
+        vector<unsigned> m_tr_table_joined_cols;
+        vector<unsigned> m_tr_rel_joined_cols;
 
         scoped_ptr<relation_mutator_fn> m_filter_tr_identities;
 
@@ -523,8 +523,8 @@ namespace datalog {
 
 
     class finite_product_relation_plugin::project_fn : public convenient_relation_project_fn {
-        unsigned_vector m_removed_table_cols;
-        unsigned_vector m_removed_rel_cols;
+        vector<unsigned> m_removed_table_cols;
+        vector<unsigned> m_removed_rel_cols;
 
         scoped_ptr<relation_transformer_fn> m_rel_projector;
         scoped_ptr<relation_union_fn> m_inner_rel_union;
@@ -663,7 +663,7 @@ namespace datalog {
         scoped_ptr<relation_transformer_fn> m_rel_renamer;
         bool m_rel_identity;
 
-        unsigned_vector m_rel_permutation;
+        vector<unsigned> m_rel_permutation;
 
         //determines which columns of the result are table columns and which are in the inner relation
         vector<bool> m_res_table_columns;
@@ -673,11 +673,11 @@ namespace datalog {
             SASSERT(cycle_len>1);
 
             unsigned sig_sz = r.get_signature().size();
-            unsigned_vector permutation;
+            vector<unsigned> permutation;
             add_sequence(0, sig_sz, permutation);
             permutate_by_cycle(permutation, cycle_len, permutation_cycle);
 
-            unsigned_vector table_permutation;
+            vector<unsigned> table_permutation;
 
             bool table_identity = true;
             m_rel_identity = true;
@@ -755,7 +755,7 @@ namespace datalog {
 
     class finite_product_relation_plugin::union_fn : public relation_union_fn {
         bool m_use_delta;
-        unsigned_vector m_data_cols;//non-functional columns in the product-relation table (useful for creating operations)
+        vector<unsigned> m_data_cols;//non-functional columns in the product-relation table (useful for creating operations)
         scoped_ptr<table_join_fn> m_common_join; //result of the join contains (data columns), tgt_rel_idx, src_rel_idx
         scoped_ptr<relation_union_fn> m_rel_union;
         scoped_ptr<table_union_fn> m_table_union;
@@ -1123,8 +1123,8 @@ namespace datalog {
     class finite_product_relation_plugin::filter_identical_fn : public relation_mutator_fn {
         //the table and relation columns that should be identical
         //the column numbering is local to the table or inner relation
-        unsigned_vector m_table_cols;
-        unsigned_vector m_rel_cols;
+        vector<unsigned> m_table_cols;
+        vector<unsigned> m_rel_cols;
 
         scoped_ptr<table_mutator_fn> m_table_filter;
         scoped_ptr<relation_mutator_fn> m_rel_filter;
@@ -1269,7 +1269,7 @@ namespace datalog {
            \brief Column indexes of the global relations to which correspond the data columns in the table
            that is result of applying the \c m_table_cond_columns_project functor.
         */
-        unsigned_vector m_global_origins_of_projected_columns;
+        vector<unsigned> m_global_origins_of_projected_columns;
 
         scoped_ptr<table_join_fn> m_assembling_join_project;
 
@@ -1321,7 +1321,7 @@ namespace datalog {
                     //We will keep the table variables that appear in the condition together 
                     //with the index column and then iterate through the tuples, evaluating
                     //the rest of the condition on the inner relations.
-                    unsigned_vector removed_cols;
+                    vector<unsigned> removed_cols;
                     unsigned table_data_col_cnt = r.m_table_sig.size()-1;
                     for(unsigned i=0; i<table_data_col_cnt; i++) {
                         if(m_table_local_cond_columns.contains(i)) {
@@ -1427,7 +1427,7 @@ namespace datalog {
             }
 
             if(!m_assembling_join_project) {
-                unsigned_vector table_cond_columns_vect;
+                vector<unsigned> table_cond_columns_vect;
                 for(unsigned i=0; i<rsig_sz; i++) {
                     if(m_table_local_cond_columns.contains(i)) {
                         table_cond_columns_vect.push_back(i);
@@ -1454,8 +1454,8 @@ namespace datalog {
 
     class finite_product_relation_plugin::negation_filter_fn : public relation_intersection_filter_fn {
 
-        unsigned_vector m_r_cols;
-        unsigned_vector m_neg_cols;
+        vector<unsigned> m_r_cols;
+        vector<unsigned> m_neg_cols;
 
         scoped_ptr<table_intersection_filter_fn> m_table_neg_filter;
         scoped_ptr<table_join_fn> m_table_neg_complement_selector;
@@ -1469,11 +1469,11 @@ namespace datalog {
 
         bool m_table_overlaps_only;
 
-        unsigned_vector m_r_shared_table_cols;
-        unsigned_vector m_neg_shared_table_cols;
+        vector<unsigned> m_r_shared_table_cols;
+        vector<unsigned> m_neg_shared_table_cols;
 
-        unsigned_vector m_r_shared_rel_cols;
-        unsigned_vector m_neg_shared_rel_cols;
+        vector<unsigned> m_r_shared_rel_cols;
+        vector<unsigned> m_neg_shared_rel_cols;
     public:
         negation_filter_fn(const finite_product_relation & r, const finite_product_relation & neg, 
                     unsigned joined_col_cnt, const unsigned * r_cols, const unsigned * neg_cols)
@@ -1499,12 +1499,12 @@ namespace datalog {
                 SASSERT(m_table_neg_filter);
             }
             else {
-                unsigned_vector removed_cols;
+                vector<unsigned> removed_cols;
                 add_sequence(r.get_signature().size(), neg.get_signature().size(), removed_cols);
                 m_neg_intersection_join = rmgr.mk_join_project_fn(r, neg, m_r_cols, m_neg_cols, removed_cols, false);
                 SASSERT(m_neg_intersection_join);
 
-                unsigned_vector data_cols;
+                vector<unsigned> data_cols;
                 add_sequence(0, tsig.size()-1, data_cols);
                 removed_cols.clear();
                 //remove the second copy of table data columns
@@ -1538,7 +1538,7 @@ namespace datalog {
                 const relation_base & inters_inner = m_inters.get_inner_rel(func_columns[1]);
 
                 if(!m_parent.m_inner_subtract) {
-                    unsigned_vector all_rel_cols;
+                    vector<unsigned> all_rel_cols;
                     add_sequence(0, r_inner->get_signature().size() , all_rel_cols);
                     m_parent.m_inner_subtract = m_r.get_manager().mk_filter_by_negation_fn(*r_inner, 
                         inters_inner, all_rel_cols, all_rel_cols);
@@ -1632,8 +1632,8 @@ namespace datalog {
     class finite_product_relation_plugin::filter_identical_pairs_fn : public relation_mutator_fn {
         scoped_ptr<table_transformer_fn> m_tproject_fn; //if zero, no columns need to be projected away
         unsigned m_col_cnt;
-        unsigned_vector m_table_cols;
-        unsigned_vector m_rel_cols;
+        vector<unsigned> m_table_cols;
+        vector<unsigned> m_rel_cols;
 
         scoped_ptr<table_join_fn> m_assembling_join_project;
         scoped_ptr<table_union_fn> m_updating_union;
@@ -1651,7 +1651,7 @@ namespace datalog {
             SASSERT(m_table_cols.back()<t_sz-1); //check the table columns aren't outside the table data columns
             SASSERT(*std::max_element(m_rel_cols.begin(), m_rel_cols.end())<r.m_other_sig.size()); //the same for relation
 
-            unsigned_vector removed_cols;
+            vector<unsigned> removed_cols;
             add_sequence_without_set(0, t_sz-1, m_table_cols, removed_cols);
             if(!removed_cols.empty()) {
                 m_tproject_fn = r.get_manager().mk_project_fn(r.get_table(), removed_cols.size(), removed_cols.c_ptr());
@@ -1727,7 +1727,7 @@ namespace datalog {
     }
 
     table_join_fn * finite_product_relation_plugin::mk_assembler_of_filter_result(const table_base & relation_table, 
-            const table_base & filtered_table, const unsigned_vector & selected_columns) {
+            const table_base & filtered_table, const vector<unsigned> & selected_columns) {
 
         table_plugin & tplugin = relation_table.get_plugin();
         const table_signature & rtable_sig = relation_table.get_signature();
@@ -1737,11 +1737,11 @@ namespace datalog {
         SASSERT(rtable_sig.functional_columns()==1);
         SASSERT(filtered_table.get_signature().functional_columns()==1);
 
-        unsigned_vector rtable_joined_cols;
+        vector<unsigned> rtable_joined_cols;
         rtable_joined_cols.append(selected_col_cnt, selected_columns.c_ptr()); //filtered table cols
         rtable_joined_cols.push_back(rtable_sig_sz-1); //unfiltered relation indexes
 
-        unsigned_vector filtered_joined_cols;
+        vector<unsigned> filtered_joined_cols;
         add_sequence(0, selected_col_cnt, filtered_joined_cols); //filtered table cols
         filtered_joined_cols.push_back(selected_col_cnt); //unfiltered relation indexes
         SASSERT(rtable_joined_cols.size()==filtered_joined_cols.size());
@@ -1749,7 +1749,7 @@ namespace datalog {
         //the signature after join:
         //(all relation table columns)(all filtered relation table columns)(unfiltered rel idx non-func from 'filtered')
         //   (unfiltered rel idx func from 'rtable')(filtered rel idx)
-        unsigned_vector removed_cols;
+        vector<unsigned> removed_cols;
         unsigned filtered_nonfunc_ofs = rtable_sig_sz-1;
         add_sequence(filtered_nonfunc_ofs, selected_col_cnt, removed_cols); //data columns from 'filtered'
         unsigned idx_ofs = filtered_nonfunc_ofs+selected_col_cnt;
@@ -2177,8 +2177,8 @@ namespace datalog {
         relation_manager & rmgr = get_manager();
         const relation_signature & sig = get_signature();
 
-        unsigned_vector new_rel_columns; //in global signature
-        unsigned_vector to_project_away; //in table signature
+        vector<unsigned> new_rel_columns; //in global signature
+        vector<unsigned> to_project_away; //in table signature
         relation_signature moved_cols_sig;
         unsigned sig_sz = get_signature().size();
         for(unsigned i=0; i<sig_sz; i++) {
@@ -2228,7 +2228,7 @@ namespace datalog {
 
         (*union_fun)(*moved_cols_rel, *moved_cols_trel);
 
-        unsigned_vector all_moved_cols_indexes;
+        vector<unsigned> all_moved_cols_indexes;
         add_sequence(0, moved_cols_sig.size(), all_moved_cols_indexes);
 
         scoped_ptr<relation_join_fn> join_fun = get_manager().mk_join_project_fn(*this, *moved_cols_rel, new_rel_columns,
@@ -2238,7 +2238,7 @@ namespace datalog {
         SASSERT(unordered_rel->get_signature().size()==sig_sz); //the signature size should be the same as original
 
         //now we need to reorder the columns in the \c new_rel to match the original table
-        unsigned_vector permutation;
+        vector<unsigned> permutation;
         unsigned moved_cols_cnt = new_rel_columns.size();
         unsigned next_replaced_idx = 0;
         unsigned next_orig_idx = 0;
@@ -2252,7 +2252,7 @@ namespace datalog {
             }
         }
 
-        unsigned_vector cycle;
+        vector<unsigned> cycle;
         while(try_remove_cycle_from_permutation(permutation, cycle)) {
             scoped_ptr<relation_transformer_fn> perm_fun = get_manager().mk_rename_fn(*unordered_rel, cycle);
             //the scoped_rel wrapper does the destruction of the old object

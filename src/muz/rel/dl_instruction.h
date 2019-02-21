@@ -284,7 +284,7 @@ namespace datalog {
         static instruction * mk_join_project(reg_idx rel1, reg_idx rel2, unsigned joined_col_cnt,
             const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
             const unsigned * removed_cols, reg_idx result);
-        static instruction * mk_min(reg_idx source, reg_idx target, const unsigned_vector & group_by_cols,
+        static instruction * mk_min(reg_idx source, reg_idx target, const vector<unsigned> & group_by_cols,
             unsigned min_col);
         static instruction * mk_rename(reg_idx src, unsigned cycle_len, const unsigned * permutation_cycle, 
             reg_idx tgt);

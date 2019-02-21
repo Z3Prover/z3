@@ -188,8 +188,8 @@ namespace datalog {
                 }
             }
             else {
-                int_vector norm1(max_var_idx + 1, -1);
-                int_vector norm2(max_var_idx + 1, -1);
+                vector<int> norm1(max_var_idx + 1, -1);
+                vector<int> norm2(max_var_idx + 1, -1);
                 unsigned n = t1->get_num_args();
                 SASSERT(n == t2->get_num_args());
                 for (unsigned i = 0; i < n; ++i) {

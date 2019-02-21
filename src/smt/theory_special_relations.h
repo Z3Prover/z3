@@ -127,7 +127,7 @@ namespace smt {
 
         special_relations_util         m_util;
         atoms                          m_atoms;
-        unsigned_vector                m_atoms_lim;
+        vector<unsigned>               m_atoms_lim;
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
         
@@ -146,13 +146,13 @@ namespace smt {
         lbool  propagate_plo(atom& a);
         lbool  propagate_po(atom& a); 
         theory_var mk_var(expr* e);
-        void count_children(graph const& g, unsigned_vector& num_children);
+        void count_children(graph const& g, vector<unsigned>& num_children);
         void ensure_strict(graph& g);
         void ensure_tree(graph& g);
-        void assign_interval(graph const& g, unsigned_vector const& num_children, unsigned_vector& lo, unsigned_vector& hi);
+        void assign_interval(graph const& g, vector<unsigned> const& num_children, vector<unsigned>& lo, vector<unsigned>& hi);
         expr_ref mk_inj(relation& r, model_generator& m);
         expr_ref mk_class(relation& r, model_generator& m);
-        expr_ref mk_interval(relation& r, model_generator& mg, unsigned_vector & lo, unsigned_vector& hi);
+        expr_ref mk_interval(relation& r, model_generator& mg, vector<unsigned> & lo, vector<unsigned>& hi);
         void init_model_lo(relation& r, model_generator& m);
         void init_model_to(relation& r, model_generator& m);
         void init_model_po(relation& r, model_generator& m);

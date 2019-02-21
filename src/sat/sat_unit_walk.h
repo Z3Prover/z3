@@ -33,7 +33,7 @@ namespace sat {
 #endif
         class var_priority {
             vector<bool_var> m_vars;
-            unsigned_vector   m_lim;
+            vector<unsigned>   m_lim;
             unsigned          m_head;
         public:
             var_priority() { m_head = 0; }

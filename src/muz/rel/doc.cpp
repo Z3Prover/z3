@@ -419,8 +419,8 @@ doc* doc_manager::project(doc_manager& dstm, bit_vector const& to_delete, doc co
 }
 
 doc* doc_manager::join(const doc& d1, const doc& d2, doc_manager& dm1,
-                       const unsigned_vector& cols1,
-                       const unsigned_vector& cols2) {
+                       const vector<unsigned>& cols1,
+                       const vector<unsigned>& cols2) {
     doc_ref d(*this, allocateX());
     tbv_ref t(m);
     tbv& pos = d->pos();
@@ -640,8 +640,8 @@ bool doc_manager::contains(doc const& a, doc const& b) const {
     return true;
 }
 
-bool doc_manager::contains(doc const& a, unsigned_vector const& colsa,
-                           doc const& b, unsigned_vector const& colsb) const {
+bool doc_manager::contains(doc const& a, vector<unsigned> const& colsa,
+                           doc const& b, vector<unsigned> const& colsb) const {
     if (!m.contains(a.pos(), colsa, b.pos(), colsb))
         return false;
 

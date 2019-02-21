@@ -490,8 +490,8 @@ void bound_propagator::propagate() {
         }
     }
 
-    unsigned_vector::iterator it  =  m_to_reset_ts.begin();
-    unsigned_vector::iterator end =  m_to_reset_ts.end();
+    vector<unsigned>::iterator it  =  m_to_reset_ts.begin();
+    vector<unsigned>::iterator end =  m_to_reset_ts.end();
     for (; it != end; ++it)
         m_constraints[*it].m_timestamp = 0;
 }

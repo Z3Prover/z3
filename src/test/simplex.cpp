@@ -58,7 +58,7 @@ static vector<R> vec(int i, int j) {
 
 void add_row(Simplex& S, vector<R> const& _v, R const& _b, bool is_eq = false) {
     unsynch_mpz_manager m;
-    unsigned_vector vars;
+    vector<unsigned> vars;
     vector<R> v(_v);
     R b(_b);
     R l(denominator(b));

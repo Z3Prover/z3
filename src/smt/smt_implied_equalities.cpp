@@ -188,7 +188,7 @@ namespace smt {
             
             expr_ref_vector vals(m);
             expr_ref vl(m), eq(m);
-            obj_map<expr, unsigned_vector>  vals_map;
+            obj_map<expr, vector<unsigned>>  vals_map;
             
             m_stats_val_eq_timer.start();
             s_stats_val_eq_timer.start();
@@ -208,7 +208,7 @@ namespace smt {
                     continue;
                 }
                 vals.push_back(vl);
-                unsigned_vector& vec = vals_map.insert_if_not_there2(vl, unsigned_vector())->get_data().m_value;
+                vector<unsigned>& vec = vals_map.insert_if_not_there2(vl, vector<unsigned>())->get_data().m_value;
                 bool found = false;
 
                 for (unsigned j = 0; !found && j < vec.size(); ++j) {

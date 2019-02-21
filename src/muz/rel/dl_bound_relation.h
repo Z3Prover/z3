@@ -112,7 +112,7 @@ namespace datalog {
 
     class bound_relation_helper {
     public:
-        static void mk_project_t(uint_set2& t, unsigned_vector const& renaming);
+        static void mk_project_t(uint_set2& t, vector<unsigned> const& renaming);
     };
 
     class bound_relation : public vector_relation<uint_set2, bound_relation_helper> {

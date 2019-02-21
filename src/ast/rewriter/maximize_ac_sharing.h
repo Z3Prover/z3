@@ -75,7 +75,7 @@ private:
     region            m_region;
     cache             m_cache;
     ptr_vector<entry> m_entries;
-    unsigned_vector   m_scopes;
+    vector<unsigned>  m_scopes;
     vector<decl_kind>    m_kinds; //!< kinds to be processed
 
     bool contains(func_decl * f, expr * arg1, expr * arg2);

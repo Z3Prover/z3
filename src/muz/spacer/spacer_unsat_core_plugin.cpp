@@ -680,7 +680,7 @@ namespace spacer {
      * and adds the corresponding lemmas to the core
      */
     void unsat_core_plugin_min_cut::finalize() {
-        unsigned_vector cut_nodes;
+        vector<unsigned> cut_nodes;
         m_min_cut.compute_min_cut(cut_nodes);
 
         for (unsigned cut_node : cut_nodes)   {

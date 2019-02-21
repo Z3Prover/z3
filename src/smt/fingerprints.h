@@ -67,7 +67,7 @@ namespace smt {
         set                      m_set;
         ptr_vector<fingerprint>  m_fingerprints;
         expr_ref_vector          m_defs;
-        unsigned_vector          m_scopes;
+        vector<unsigned>          m_scopes;
         ptr_vector<enode>        m_tmp;
         fingerprint              m_dummy;
 

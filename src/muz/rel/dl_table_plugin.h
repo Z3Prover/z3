@@ -175,7 +175,7 @@ namespace datalog {
         typedef table_base1 base_object;
         typedef table_signature signature;
         typedef unsigned element;
-        typedef unsigned_vector fact;
+        typedef vector<unsigned> fact;
         typedef table_kind kind;
     };
 

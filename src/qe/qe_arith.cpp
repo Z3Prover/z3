@@ -363,7 +363,7 @@ namespace qe {
             }
 
             j = 0;
-            unsigned_vector real_vars;
+            vector<unsigned> real_vars;
             for (app* v : vars) {
                 if (is_arith(v) && !fmls_mark.is_marked(v)) {
                     real_vars.push_back(tids.find(v));

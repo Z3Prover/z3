@@ -63,7 +63,7 @@ namespace smt {
         vector<entry>                m_new_entries;
         vector<entry>                m_delayed_entries;
         expr_ref_vector               m_instances;
-        unsigned_vector               m_instantiated_trail;
+        vector<unsigned>               m_instantiated_trail;
         struct scope {
             unsigned   m_delayed_entries_lim;
             unsigned   m_instances_lim;

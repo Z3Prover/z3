@@ -33,7 +33,7 @@ namespace datalog {
         friend class udoc_plugin;
         doc_manager&    dm;
         mutable udoc    m_elems;
-        unsigned_vector m_column_info;
+        vector<unsigned> m_column_info;
         doc* fact2doc(relation_fact const& f) const;        
         expr_ref to_formula(tbv const& t) const;
         expr_ref to_formula(doc const& d) const;
@@ -63,15 +63,15 @@ namespace datalog {
         unsigned get_num_cols() const { return m_column_info.size()-1; }
         unsigned column_idx(unsigned col) const { return m_column_info[col]; }
         unsigned column_num_bits(unsigned col) const { return m_column_info[col+1] - m_column_info[col]; }
-        void expand_column_vector(unsigned_vector& v, const udoc_relation* other = nullptr) const;
+        void expand_column_vector(vector<unsigned>& v, const udoc_relation* other = nullptr) const;
         void extract_guard(expr* condition, expr_ref& guard, expr_ref& rest) const;
         bool is_guard(expr* g) const;
         bool is_guard(unsigned n, expr* const *g) const;
         void compile_guard(expr* g, udoc& result, bit_vector const& discard_cols) const;
-        void extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities, unsigned_vector& roots) const;
+        void extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities, vector<unsigned>& roots) const;
         void extract_equalities(
             expr* e1, expr* e2, expr_ref_vector& conds, 
-            subset_ints& equalities, unsigned_vector& roots) const;
+            subset_ints& equalities, vector<unsigned>& roots) const;
         void apply_guard(expr* g, udoc& result, subset_ints const& equalities, bit_vector const& discard_cols) const;
         bool apply_ground_eq(doc_ref& d, unsigned v, unsigned hi, unsigned lo, expr* c) const;
         bool apply_bv_eq(expr* e1, expr* e2, bit_vector const& discard_cols, udoc& result) const;

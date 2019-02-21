@@ -333,7 +333,7 @@ bool context::gpdr_create_split_children(pob &n, const datalog::rule &r,
     _mbc(pmap, lits, mdl, res);
 
     // pick an order to process children
-    unsigned_vector kid_order;
+    vector<unsigned> kid_order;
     kid_order.resize(preds.size(), 0);
     for (unsigned i = 0, sz = preds.size(); i < sz; ++i) kid_order[i] = i;
     if (m_children_order == CO_REV_RULE) {

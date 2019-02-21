@@ -76,9 +76,9 @@ namespace sat {
         report rpt(*this);
         TRACE("scc", m_solver.display(tout););
         TRACE("scc_details", m_solver.display_watches(tout););
-        unsigned_vector index;
-        unsigned_vector lowlink;
-        unsigned_vector s;
+        vector<unsigned> index;
+        vector<unsigned> lowlink;
+        vector<unsigned> s;
         vector<char>   in_s;
         unsigned num_lits = m_solver.num_vars() * 2;
         index.resize(num_lits, UINT_MAX);

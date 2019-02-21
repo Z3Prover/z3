@@ -1123,7 +1123,7 @@ namespace sat {
 
     static bool _debug_conflict = false;
     static literal _debug_consequent = null_literal;
-    static unsigned_vector _debug_var2position;
+    static vector<unsigned> _debug_var2position;
 
 // #define DEBUG_CODE(_x_) _x_
 
@@ -3075,7 +3075,7 @@ namespace sat {
         unsigned k = c.k();
         bool all_units = true;
         unsigned sz = c.size();
-        unsigned_vector coeffs;
+        vector<unsigned> coeffs;
         literal_vector lits;
         unsigned j = 0;
         for (unsigned i = 0; i < sz && 0 < k; ++i) {

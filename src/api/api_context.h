@@ -96,7 +96,7 @@ namespace api {
 
         ref<api::object>           m_last_obj; //!< reference to the last API object returned by the APIs
         u_map<api::object*>        m_allocated_objects; // !< table containing current set of allocated API objects
-        unsigned_vector            m_free_object_ids;   // !< free list of identifiers available for allocated objects.
+        vector<unsigned>           m_free_object_ids;   // !< free list of identifiers available for allocated objects.
 
         family_id                  m_basic_fid;
         family_id                  m_array_fid;

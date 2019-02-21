@@ -129,8 +129,8 @@ namespace datalog {
         class bv_iterator;
         bit_vector m_bv;
         unsigned   m_num_cols;
-        unsigned_vector m_shift;
-        unsigned_vector m_mask;
+        vector<unsigned> m_shift;
+        vector<unsigned> m_mask;
 
         unsigned fact2offset(const table_element* f) const;
         void     offset2fact(unsigned offset, table_fact& f) const;

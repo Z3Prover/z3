@@ -178,9 +178,9 @@ public:
 
 
 class basic_union_find {
-    unsigned_vector   m_find;
-    unsigned_vector   m_size;
-    unsigned_vector   m_next;
+    vector<unsigned>   m_find;
+    vector<unsigned>   m_size;
+    vector<unsigned>   m_next;
     
     void ensure_size(unsigned v) {
         while (v >= get_num_vars()) {

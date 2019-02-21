@@ -41,8 +41,8 @@ namespace nlsat {
                 unsigned m_pos;
             };
             vector<section>   m_sections;
-            unsigned_vector    m_sorted_sections; // refs to m_sections
-            unsigned_vector    m_poly_sections;   // refs to m_sections
+            vector<unsigned>    m_sorted_sections; // refs to m_sections
+            vector<unsigned>    m_poly_sections;   // refs to m_sections
             vector<int>       m_poly_signs;
             struct poly_info {
                 unsigned       m_num_roots;
@@ -84,8 +84,8 @@ namespace nlsat {
 
             // Merge the new roots of a polynomial p into m_sections & m_sorted_sections.
             // Store the section ids for the new roots in p_section_ids
-            unsigned_vector new_sorted_sections;
-            void merge(anum_vector & roots, unsigned_vector & p_section_ids) {
+            vector<unsigned> new_sorted_sections;
+            void merge(anum_vector & roots, vector<unsigned> & p_section_ids) {
                 new_sorted_sections.clear();  // new m_sorted_sections
                 unsigned i1  = 0;
                 unsigned sz1 = m_sorted_sections.size();
@@ -148,7 +148,7 @@ namespace nlsat {
             /**
                \brief Add polynomial with the given roots and signs.
             */
-            unsigned_vector p_section_ids;
+            vector<unsigned> p_section_ids;
             void add(anum_vector & roots, vector<int> & signs) {
                 p_section_ids.clear();
                 if (!roots.empty())

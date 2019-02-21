@@ -249,7 +249,7 @@ public:
 
     virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
     
-    virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
+    virtual void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) = 0;
 
     virtual void set_activity(expr* lit, double activity) = 0;
 

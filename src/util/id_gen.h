@@ -23,8 +23,8 @@ Revision History:
 #include "util/util.h"
 
 class id_gen {
-    unsigned        m_next_id;
-    unsigned_vector m_free_ids;
+    unsigned         m_next_id;
+    vector<unsigned> m_free_ids;
 public:
     id_gen(unsigned start = 0):m_next_id(start) {}
     

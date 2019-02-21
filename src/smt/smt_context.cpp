@@ -4398,7 +4398,7 @@ namespace smt {
             m = const_cast<model*>(m_model.get());
     }
 
-    void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+    void context::get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
         unsigned sz = vars.size(); 
         depth.resize(sz);
         for (unsigned i = 0; i < sz; ++i) {

@@ -63,7 +63,7 @@ class substitution_tree {
     // Compilation time fields
     unsigned          m_next_reg;
     bit_vector        m_used_regs;
-    unsigned_vector   m_todo;
+    vector<unsigned>  m_todo;
     vector<subst>    m_compatible;
     vector<subst>    m_incompatible;
     

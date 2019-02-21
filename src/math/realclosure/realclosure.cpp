@@ -5722,7 +5722,7 @@ namespace realclosure {
         // ---------------------------------
 
         struct collect_algebraic_refs {
-            char_vector            m_visited; // Set of visited algebraic extensions.
+            vector<char>            m_visited; // Set of visited algebraic extensions.
             ptr_vector<algebraic>  m_found;   // vector/list of visited algebraic extensions.
 
             void mark(extension * ext) {

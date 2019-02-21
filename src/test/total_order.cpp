@@ -67,7 +67,7 @@ static void tst3(unsigned sz, unsigned num_rounds) {
     std::cout << std::endl;
 }
 
-void move_after(unsigned_vector & v, unsigned_vector & inv_v, unsigned a, unsigned b) {
+void move_after(vector<unsigned> & v, vector<unsigned> & inv_v, unsigned a, unsigned b) {
     if (a == b)
         return;
     // std::cout << std::endl;
@@ -100,8 +100,8 @@ void move_after(unsigned_vector & v, unsigned_vector & inv_v, unsigned a, unsign
 
 static void tst4(unsigned sz, unsigned num_rounds) {
     uint_total_order to;
-    unsigned_vector  v;
-    unsigned_vector  inv_v;
+    vector<unsigned>  v;
+    vector<unsigned>  inv_v;
     to.insert(0);
     v.push_back(0);
     inv_v.push_back(0);

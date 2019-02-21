@@ -147,7 +147,7 @@ namespace smt {
             return m_kernel.get_unsat_core_expr(idx);
         }
 
-        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
             m_kernel.get_levels(vars, depth);
         }
 
@@ -420,7 +420,7 @@ namespace smt {
         return m_imp->m_kernel;
     }
 
-    void kernel::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+    void kernel::get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) {
         m_imp->get_levels(vars, depth);
     }
 

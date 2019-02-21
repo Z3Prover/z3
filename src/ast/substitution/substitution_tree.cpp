@@ -124,8 +124,8 @@ void substitution_tree::process_args(app * in, app * out) {
 */
 void substitution_tree::reset_registers(unsigned old_size) {
     SASSERT(m_todo.size() >= old_size);
-    unsigned_vector::iterator it2  = m_todo.begin() + old_size;
-    unsigned_vector::iterator end2 = m_todo.end();
+    vector<unsigned>::iterator it2  = m_todo.begin() + old_size;
+    vector<unsigned>::iterator end2 = m_todo.end();
     for (; it2 != end2; ++it2)
         m_registers[*it2] = 0;
     m_todo.shrink(old_size);

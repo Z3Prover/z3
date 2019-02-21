@@ -120,7 +120,7 @@ private:
     }
 
     void display_profile(offset_t idx, std::ostream& out) {
-        unsigned_vector leq;
+        vector<unsigned> leq;
         unsigned nv = hb.get_num_vars();
         values const& vs = hb.vec(idx);
         leq.resize(nv+1);
@@ -383,7 +383,7 @@ class hilbert_basis::passive {
     };
     hilbert_basis&      hb;
     vector<offset_t>   m_passive;
-    unsigned_vector     m_free_list;
+    vector<unsigned>     m_free_list;
     passive*            m_this;
     lt                  m_lt;
     heap<lt>            m_heap;    // binary heap over weights
@@ -499,10 +499,10 @@ class hilbert_basis::passive2 {
     vector<numeral>     m_pos_sos_sum;
     vector<numeral>     m_neg_sos_sum;
     vector<numeral>     m_sum_abs;
-    unsigned_vector     m_psos;
+    vector<unsigned>     m_psos;
     vector<offset_t>   m_pas;
     vector<numeral>     m_weight;
-    unsigned_vector     m_free_list;
+    vector<unsigned>     m_free_list;
     passive2*           m_this;
     lt                  m_lt;
     heap<lt>            m_heap;    // binary heap over weights

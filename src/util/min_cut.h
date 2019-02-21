@@ -40,24 +40,22 @@ public:
       \brief produce a min cut between source node = 0 and target node = 1.
       NB. the function changes capacities on edges.
     */
-    void compute_min_cut(unsigned_vector& cut_nodes);
+    void compute_min_cut(vector<unsigned>& cut_nodes);
     
 private:
 
-    typedef vector<bool> bool_vector;
     struct edge { unsigned node; unsigned weight; edge(unsigned n, unsigned w): node(n), weight(w) {} edge(): node(0), weight(0) {} };
-    typedef vector<edge> edge_vector;
         
-    vector<edge_vector> m_edges; // map from node to all outgoing edges together with their weights (also contains "reverse edges")
-    unsigned_vector m_d;    // approximation of distance from node to sink in residual graph
-    unsigned_vector m_pred; // predecessor-information for reconstruction of augmenting path
+    vector<vector<edge>> m_edges; // map from node to all outgoing edges together with their weights (also contains "reverse edges")
+    vector<unsigned> m_d;    // approximation of distance from node to sink in residual graph
+    vector<unsigned> m_pred; // predecessor-information for reconstruction of augmenting path
     
     void compute_initial_distances();
     unsigned get_admissible_edge(unsigned i);
     void augment_path();
     void compute_distance(unsigned i);
-    void compute_reachable_nodes(bool_vector& reachable);
-    void compute_cut_and_add_lemmas(bool_vector& reachable, unsigned_vector& cut_nodes);
+    void compute_reachable_nodes(vector<bool>& reachable);
+    void compute_cut_and_add_lemmas(vector<bool>& reachable, vector<unsigned>& cut_nodes);
 };
 
 #endif

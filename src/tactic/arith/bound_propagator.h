@@ -32,7 +32,7 @@ public:
     typedef unsigned var;
     typedef unsigned assumption;
     typedef unsynch_mpq_manager numeral_manager;
-    typedef unsigned_vector assumption_vector;
+    typedef vector<unsigned> assumption_vector;
     typedef unsigned constraint_id;
     typedef numeral_buffer<mpz, numeral_manager> mpz_buffer;
     typedef vector<double> double_vector;
@@ -99,7 +99,7 @@ protected:
     typedef ptr_vector<bound>       var2bound;
     typedef vector<var>            var_vector;
     typedef vector<constraint>     constraint_vector;
-    typedef unsigned_vector         c_idx_vector;
+    typedef vector<unsigned>         c_idx_vector;
     typedef c_idx_vector            wlist;
     typedef small_object_allocator  allocator;
     typedef linear_equation_manager lin_eq_manager;
@@ -107,17 +107,17 @@ protected:
     numeral_manager &   m;
     allocator &         m_allocator;
     lin_eq_manager      m_eq_manager;
-    constraint_vector   m_constraints;
-    char_vector         m_is_int;
-    char_vector         m_dead;
+    constraint_vector  m_constraints;
+    vector<char>         m_is_int;
+    vector<char>         m_dead;
     var2bound           m_lowers;
     var2bound           m_uppers;
     vector<wlist>       m_watches;
     vector<trail_info> m_trail;
     unsigned            m_qhead;
     c_idx_vector        m_reinit_stack;
-    unsigned_vector     m_lower_refinements;  // number of times a lower bound was propagated for each variable (loop prevention)
-    unsigned_vector     m_upper_refinements;  // number of times a upper bound was propagated for each variable (loop prevention)
+    vector<unsigned>     m_lower_refinements;  // number of times a lower bound was propagated for each variable (loop prevention)
+    vector<unsigned>     m_upper_refinements;  // number of times a upper bound was propagated for each variable (loop prevention)
     unsigned            m_timestamp;
     var                 m_conflict;
     mpq                 m_tmp;
@@ -132,7 +132,7 @@ protected:
 
     vector<scope>     m_scopes;
 
-    unsigned_vector    m_to_reset_ts; // temp field: ids of the constraints we must reset the field m_timestamp
+    vector<unsigned>    m_to_reset_ts; // temp field: ids of the constraints we must reset the field m_timestamp
 
     // config
     unsigned           m_max_refinements; // maximum number of refinements per round

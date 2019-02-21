@@ -26,10 +26,10 @@ template<class T>
 class max_cliques : public T {
     using T::negate;
 
-    vector<unsigned_vector> m_next, m_tc;
+    vector<vector<unsigned>> m_next, m_tc;
     uint_set                m_reachable[2];
     uint_set                m_seen1, m_seen2;
-    unsigned_vector         m_todo;
+    vector<unsigned>         m_todo;
 
     void get_reachable(unsigned p, uint_set const& goal, uint_set& reachable) {
         m_seen1.clear();
@@ -42,7 +42,7 @@ class max_cliques : public T {
             }
             m_seen1.insert(p);
             if (m_seen2.contains(p)) {
-                unsigned_vector const& tc = m_tc[p];
+                vector<unsigned> const& tc = m_tc[p];
                 for (unsigned j = 0; j < tc.size(); ++j) {
                     unsigned np = tc[j];
                     if (goal.contains(np)) {
@@ -66,12 +66,12 @@ class max_cliques : public T {
             }
             m_seen2.insert(p);
             unsigned np = negate(p);
-            unsigned_vector& tc = m_tc[p];
+            vector<unsigned>& tc = m_tc[p];
             if (goal.contains(np)) {
                 tc.push_back(np);
             }
             else {
-                unsigned_vector const& succ = next(np);
+                vector<unsigned> const& succ = next(np);
                 for (unsigned j = 0; j < succ.size(); ++j) {
                     tc.append(m_tc[succ[j]]);
                 }
@@ -83,7 +83,7 @@ class max_cliques : public T {
 
 
 
-    unsigned_vector const& next(unsigned vertex) const { return m_next[vertex]; }
+    vector<unsigned> const& next(unsigned vertex) const { return m_next[vertex]; }
     
 public:
     max_cliques() {}
@@ -94,7 +94,7 @@ public:
         m_next[dst].push_back(src);
     }
 
-    void cliques(unsigned_vector const& ps, vector<unsigned_vector>& cliques) {     
+    void cliques(vector<unsigned> const& ps, vector<vector<unsigned>>& cliques) {     
         unsigned max = 0;
         unsigned num_ps = ps.size();
         for (unsigned i = 0; i < num_ps; ++i) {
@@ -104,7 +104,7 @@ public:
         }
         m_next.expand(max);
         m_tc.expand(m_next.size());
-        unsigned_vector clique;
+        vector<unsigned> clique;
         uint_set vars;
         for (unsigned i = 0; i < num_ps; ++i) {
             vars.insert(ps[i]);

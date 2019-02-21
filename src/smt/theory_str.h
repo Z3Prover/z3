@@ -378,7 +378,7 @@ protected:
 
     obj_map<expr, expr*> valueTester_fvar_map;
 
-    obj_map<expr, int_vector> val_range_map;
+    obj_map<expr, vector<int>> val_range_map;
 
     // This can't be an expr_ref_vector because the constructor is wrong,
     // we would need to modify the allocator so we pass in ast_manager
@@ -669,8 +669,8 @@ protected:
     expr* gen_val_options(expr * freeVar, expr * len_indicator, expr * val_indicator,
             zstring lenStr, int tries);
     void print_value_tester_list(vector<std::pair<int, expr*> > & testerList);
-    bool get_next_val_encode(int_vector & base, int_vector & next);
-    zstring gen_val_string(int len, int_vector & encoding);
+    bool get_next_val_encode(vector<int> & base, vector<int> & next);
+    zstring gen_val_string(int len, vector<int> & encoding);
 
     // binary search heuristic
     expr * binary_search_length_test(expr * freeVar, expr * previousLenTester, zstring previousLenTesterValue);

@@ -101,7 +101,7 @@ namespace simplex {
             void del_row_entry(unsigned idx);
             void compress(manager& m, vector<column> & cols); 
             void compress_if_needed(manager& _m, vector<column> & cols);
-            void save_var_pos(vector<int> & result_map, unsigned_vector& idxs) const;
+            void save_var_pos(vector<int> & result_map, vector<unsigned>& idxs) const;
             //bool is_coeff_of(var_t v, numeral const & expected) const;
             int get_idx_of(var_t v) const;
         };
@@ -134,7 +134,7 @@ namespace simplex {
         vector<unsigned>       m_dead_rows;        // rows to recycle
         vector<column>          m_columns;          // per var
         vector<int>            m_var_pos;          // temporary map from variables to positions in row
-        unsigned_vector         m_var_pos_idx;      // indices in m_var_pos
+        vector<unsigned>         m_var_pos_idx;      // indices in m_var_pos
         stats                   m_stats;
 
         bool well_formed_row(unsigned row_id) const;

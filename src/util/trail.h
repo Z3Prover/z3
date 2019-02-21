@@ -332,7 +332,7 @@ template<typename Ctx>
 class trail_stack {
     Ctx &                   m_ctx;
     ptr_vector<trail<Ctx> > m_trail_stack;
-    unsigned_vector         m_scopes;
+    vector<unsigned>         m_scopes;
     region                  m_region;
 public:
     trail_stack(Ctx & c):m_ctx(c) {}

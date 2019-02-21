@@ -62,7 +62,7 @@ namespace datalog {
         // tbv but not the previous tbvs are included.
         // 
         void reset_accumulate();
-        void accumulate(tbv const& t, unsigned_vector& labels);
+        void accumulate(tbv const& t, vector<unsigned>& labels);
         void display(std::ostream& out) const;
         void display_statistics(std::ostream& out) const;
     };

@@ -169,7 +169,7 @@ namespace datalog {
 
         */
         static table_join_fn * mk_assembler_of_filter_result(const table_base & relation_table, 
-                const table_base & filtered_table, const unsigned_vector & selected_columns);
+                const table_base & filtered_table, const vector<unsigned> & selected_columns);
 
     };
 
@@ -202,13 +202,13 @@ namespace datalog {
          */
 
         table_signature m_table_sig;
-        unsigned_vector m_table2sig; // (ordered list)
-        unsigned_vector m_sig2table; //index of corresponding table column or UINT_MAX
+        vector<unsigned> m_table2sig; // (ordered list)
+        vector<unsigned> m_sig2table; //index of corresponding table column or UINT_MAX
     private:
         relation_signature m_other_sig;
-        unsigned_vector m_other2sig; // (ordered list)
+        vector<unsigned> m_other2sig; // (ordered list)
     public:
-        unsigned_vector m_sig2other; //index of corresponding other relation column or UINT_MAX
+        vector<unsigned> m_sig2other; //index of corresponding other relation column or UINT_MAX
     private:
         relation_plugin & m_other_plugin;
         family_id m_other_kind;
@@ -217,7 +217,7 @@ namespace datalog {
     public:
         mutable relation_vector m_others;
     private:
-        mutable unsigned_vector m_available_rel_indexes;
+        mutable vector<unsigned> m_available_rel_indexes;
 
         /**
            \c UINT_MAX means uninitialized.

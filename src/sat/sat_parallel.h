@@ -32,10 +32,10 @@ namespace sat {
 
         // shared pool of learned clauses.
         class vector_pool {
-            unsigned_vector m_vectors;
+            vector<unsigned> m_vectors;
             unsigned        m_size;
             unsigned        m_tail;
-            unsigned_vector m_heads;
+            vector<unsigned> m_heads;
             vector<bool>   m_at_end;
             void next(unsigned& index);
             unsigned get_owner(unsigned index) const { return m_vectors[index]; }

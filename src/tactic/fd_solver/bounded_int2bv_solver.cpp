@@ -38,7 +38,7 @@ class bounded_int2bv_solver : public solver_na2as {
     mutable ptr_vector<bound_manager> m_bounds;
     mutable func_decl_ref_vector  m_bv_fns;
     mutable func_decl_ref_vector  m_int_fns;
-    unsigned_vector       m_bv_fns_lim;
+    vector<unsigned>       m_bv_fns_lim;
     mutable obj_map<func_decl, func_decl*> m_int2bv;
     mutable obj_map<func_decl, func_decl*> m_bv2int;
     mutable obj_map<func_decl, rational>   m_bv2offset;
@@ -155,7 +155,7 @@ public:
             if (mc) (*mc)(mdl);
         }
     }
-    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
         m_solver->get_levels(vars, depth);
     }
     expr_ref_vector get_trail() override {

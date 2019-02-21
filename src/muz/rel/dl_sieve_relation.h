@@ -150,9 +150,9 @@ namespace datalog {
 
         vector<bool> m_inner_cols;
 
-        unsigned_vector m_sig2inner;
-        unsigned_vector m_inner2sig;
-        unsigned_vector m_ignored_cols;  //in ascending order, so that it can be used in project-like functions
+        vector<unsigned> m_sig2inner;
+        vector<unsigned> m_inner2sig;
+        vector<unsigned> m_ignored_cols;  //in ascending order, so that it can be used in project-like functions
 
         scoped_rel<relation_base> m_inner;
 

@@ -270,7 +270,7 @@ namespace datalog {
         collect_orphan_consts(r, const_infos, vals);
         collect_orphan_sorts(r, const_infos, sorts);
         SASSERT(vals.size()==const_cnt);
-        vector<unsigned_vector> possible_parents(const_cnt);
+        vector<vector<unsigned>> possible_parents(const_cnt);
         for (unsigned i=1; i<const_cnt; i++) {
             for (unsigned j=0; j<i; j++) {
                 if (vals[i]==vals[j] && sorts[i]==sorts[j]) {
@@ -282,7 +282,7 @@ namespace datalog {
         for (; it!=after_last; ++it) {
             collect_orphan_consts(*it, const_infos, vals);
             for (unsigned i=1; i<const_cnt; i++) {
-                unsigned_vector & ppars = possible_parents[i];
+                vector<unsigned> & ppars = possible_parents[i];
                 unsigned j=0;
                 while(j<ppars.size()) {
                     if (vals[i]!=vals[ppars[j]]) {
@@ -297,7 +297,7 @@ namespace datalog {
         }
         for (unsigned i=0; i<const_cnt; i++) {
             unsigned parent = i;
-            unsigned_vector & ppars = possible_parents[i];
+            vector<unsigned> & ppars = possible_parents[i];
             unsigned ppars_sz = ppars.size();
             for (unsigned j=0; j<ppars_sz; j++) {
                 if (ppars[j]<parent) {

@@ -45,8 +45,8 @@ namespace datalog {
     void udoc_relation::reset() {
         m_elems.reset(dm);
     }
-    void udoc_relation::expand_column_vector(unsigned_vector& v, const udoc_relation* other) const {
-        unsigned_vector orig;
+    void udoc_relation::expand_column_vector(vector<unsigned>& v, const udoc_relation* other) const {
+        vector<unsigned> orig;
         orig.swap(v);
         for (unsigned i = 0; i < orig.size(); ++i) {
             unsigned col, limit;
@@ -399,7 +399,7 @@ namespace datalog {
     }
 
     class udoc_plugin::rename_fn : public convenient_relation_rename_fn {
-        unsigned_vector m_permutation;
+        vector<unsigned> m_permutation;
     public:
         rename_fn(udoc_relation const& t, unsigned cycle_len, const unsigned * cycle) 
             : convenient_relation_rename_fn(t.get_signature(), cycle_len, cycle) {
@@ -407,7 +407,7 @@ namespace datalog {
             
             relation_signature const& sig1 = t.get_signature();
             relation_signature const& sig2 = get_result_signature();
-            unsigned_vector permutation0, column_info;
+            vector<unsigned> permutation0, column_info;
             for (unsigned i = 0; i < t.get_num_bits(); ++i) {
                 m_permutation.push_back(i);
             }
@@ -550,7 +550,7 @@ namespace datalog {
     }
 
     class udoc_plugin::filter_identical_fn : public relation_mutator_fn {
-        unsigned_vector        m_cols;
+        vector<unsigned>        m_cols;
         unsigned               m_size;
         bit_vector             m_empty_bv;
         union_find_default_ctx union_ctx;
@@ -662,7 +662,7 @@ namespace datalog {
         rest  = mk_and(m, rests.size(),  rests.c_ptr());        
     }
     void udoc_relation::extract_equalities(expr* g, expr_ref& rest, subset_ints& equalities,
-                                           unsigned_vector& roots) const {
+                                           vector<unsigned>& roots) const {
         rest.reset();
         ast_manager& m = get_plugin().get_ast_manager();
         expr_ref_vector conds(m);
@@ -682,7 +682,7 @@ namespace datalog {
 
     void udoc_relation::extract_equalities(
         expr* e1, expr* e2, expr_ref_vector& conds, 
-        subset_ints& equalities, unsigned_vector& roots) const {        
+        subset_ints& equalities, vector<unsigned>& roots) const {        
         udoc_plugin& p = get_plugin();
         ast_manager& m  = p.get_ast_manager();
         bv_util& bv = p.bv;
@@ -975,7 +975,7 @@ namespace datalog {
         {
             unsigned num_bits1 = t1.get_num_bits();
             unsigned num_bits = num_bits1 + t2.get_num_bits();
-            unsigned_vector removed_cols(removed_col_cnt, rm_cols);
+            vector<unsigned> removed_cols(removed_col_cnt, rm_cols);
             t1.expand_column_vector(removed_cols, &t2);
             t1.expand_column_vector(m_cols1);
             t2.expand_column_vector(m_cols2);
@@ -1084,7 +1084,7 @@ namespace datalog {
     // 
     class udoc_plugin::negation_filter_fn : public relation_intersection_filter_fn {
         struct mk_remove_cols {
-            mk_remove_cols(relation_base const& t1, relation_base const& t2, unsigned_vector& remove_cols) {
+            mk_remove_cols(relation_base const& t1, relation_base const& t2, vector<unsigned>& remove_cols) {
                 unsigned sz1 = t1.get_signature().size();
                 unsigned sz2 = t2.get_signature().size();
                 for (unsigned i = 0; i < sz2; ++i) {
@@ -1092,9 +1092,9 @@ namespace datalog {
                 }                
             }                
         };
-        unsigned_vector m_t_cols;
-        unsigned_vector m_neg_cols;
-        unsigned_vector m_remove_cols;
+        vector<unsigned> m_t_cols;
+        vector<unsigned> m_neg_cols;
+        vector<unsigned> m_remove_cols;
         mk_remove_cols  m_mk_remove_cols;
         join_project_fn m_join_project;
         bool            m_is_subtract;
@@ -1198,7 +1198,7 @@ namespace datalog {
         udoc         m_udoc2;
         bit_vector   m_to_delete; // map: col idx -> bool (whether the column is to be removed)
         subset_ints  m_equalities;
-        unsigned_vector m_roots;
+        vector<unsigned> m_roots;
 
     public:
         filter_proj_fn(const udoc_relation & t, ast_manager& m, app *condition,

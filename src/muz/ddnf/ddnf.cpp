@@ -167,7 +167,7 @@ namespace datalog {
             }
         }
 
-        void accumulate(tbv const& t, unsigned_vector& acc) {
+        void accumulate(tbv const& t, vector<unsigned>& acc) {
             ddnf_node* n = find(t);
             ptr_vector<ddnf_node> todo;
             todo.push_back(n);
@@ -400,7 +400,7 @@ namespace datalog {
     void ddnf_core::reset_accumulate() {
         return m_imp->reset_accumulate();
     }
-    void ddnf_core::accumulate(tbv const& t, unsigned_vector& acc) {
+    void ddnf_core::accumulate(tbv const& t, vector<unsigned>& acc) {
         return m_imp->accumulate(t, acc);
     }
     void ddnf_core::display(std::ostream& out) const {

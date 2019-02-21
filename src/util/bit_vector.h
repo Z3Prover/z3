@@ -224,7 +224,7 @@ inline std::ostream & operator<<(std::ostream & out, bit_vector const & b) {
    This class should be used if the clear is frequently called.
 */
 class fc_bit_vector : private bit_vector {
-    unsigned_vector m_one_idxs;
+    vector<unsigned> m_one_idxs;
 public:
     void clear();
 

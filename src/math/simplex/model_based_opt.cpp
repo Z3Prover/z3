@@ -210,7 +210,7 @@ namespace opt {
     // 
     inf_eps model_based_opt::maximize() {
         SASSERT(invariant());
-        unsigned_vector bound_trail, bound_vars;
+        vector<unsigned> bound_trail, bound_vars;
         TRACE("opt", display(tout << "tableau\n"););
         while (!objective().m_vars.empty()) {
             var v = objective().m_vars.back();
@@ -267,7 +267,7 @@ namespace opt {
         rational old_val = m_var2value[x];
         m_var2value[x] = val;
         SASSERT(val.is_int() || !is_int(x));
-        unsigned_vector const& row_ids = m_var2row_ids[x];
+        vector<unsigned> const& row_ids = m_var2row_ids[x];
         for (unsigned row_id : row_ids) {
             rational coeff = get_coefficient(row_id, x);
             if (coeff.is_zero()) {
@@ -281,7 +281,7 @@ namespace opt {
     }
 
 
-    void model_based_opt::update_values(unsigned_vector const& bound_vars, unsigned_vector const& bound_trail) {
+    void model_based_opt::update_values(vector<unsigned> const& bound_vars, vector<unsigned> const& bound_trail) {
         for (unsigned i = bound_trail.size(); i-- > 0; ) {
             unsigned x = bound_vars[i];
             row& r = m_rows[bound_trail[i]];
@@ -339,7 +339,7 @@ namespace opt {
         // update and check bounds for all other affected rows.
         for (unsigned i = bound_trail.size(); i-- > 0; ) {
             unsigned x = bound_vars[i];
-            unsigned_vector const& row_ids = m_var2row_ids[x];
+            vector<unsigned> const& row_ids = m_var2row_ids[x];
             for (unsigned row_id : row_ids) {                
                 row & r = m_rows[row_id];
                 r.m_value = eval(r);
@@ -353,7 +353,7 @@ namespace opt {
         bound_row_index = UINT_MAX;
         rational lub_val;
         rational const& x_val = m_var2value[x];
-        unsigned_vector const& row_ids = m_var2row_ids[x];
+        vector<unsigned> const& row_ids = m_var2row_ids[x];
         uint_set visited;
         m_above.clear();
         m_below.clear();
@@ -755,7 +755,7 @@ namespace opt {
             display(out, r);
         }
         for (unsigned i = 0; i < m_var2row_ids.size(); ++i) {
-            unsigned_vector const& rows = m_var2row_ids[i];
+            vector<unsigned> const& rows = m_var2row_ids[i];
             out << i << ": ";
             for (auto const& r : rows) {
                 out << r << " ";
@@ -811,7 +811,7 @@ namespace opt {
         m_var2value.push_back(value);
         m_var2is_int.push_back(is_int);
         SASSERT(value.is_int() || !is_int);
-        m_var2row_ids.push_back(unsigned_vector());
+        m_var2row_ids.push_back(vector<unsigned>());
         return v;
     }
 
@@ -917,14 +917,14 @@ namespace opt {
     // If N >= M the construction is symmetric.
     // 
     model_based_opt::def model_based_opt::project(unsigned x, bool compute_def) {
-        unsigned_vector& lub_rows = m_lub;
-        unsigned_vector& glb_rows = m_glb;
-        unsigned_vector& mod_rows = m_mod;
+        vector<unsigned>& lub_rows = m_lub;
+        vector<unsigned>& glb_rows = m_glb;
+        vector<unsigned>& mod_rows = m_mod;
         unsigned lub_index = UINT_MAX, glb_index = UINT_MAX;
         bool     lub_strict = false, glb_strict = false;
         rational lub_val, glb_val;
         rational const& x_val = m_var2value[x];
-        unsigned_vector const& row_ids = m_var2row_ids[x];
+        vector<unsigned> const& row_ids = m_var2row_ids[x];
         uint_set visited;
         lub_rows.clear();
         glb_rows.clear();
@@ -1079,7 +1079,7 @@ namespace opt {
     // x := D*x' + u
     // 
 
-    model_based_opt::def model_based_opt::solve_mod(unsigned x, unsigned_vector const& mod_rows, bool compute_def) {
+    model_based_opt::def model_based_opt::solve_mod(unsigned x, vector<unsigned> const& mod_rows, bool compute_def) {
         SASSERT(!mod_rows.empty());
         rational D(1);
         for (unsigned idx : mod_rows) {
@@ -1110,7 +1110,7 @@ namespace opt {
         rational new_val = (val_x - u) / D;
         SASSERT(new_val.is_int());
         unsigned y = add_var(new_val, true);
-        unsigned_vector const& row_ids = m_var2row_ids[x];
+        vector<unsigned> const& row_ids = m_var2row_ids[x];
         uint_set visited;
         for (unsigned row_id : row_ids) {           
             if (!visited.contains(row_id)) {
@@ -1195,7 +1195,7 @@ namespace opt {
             rational c = r1.m_coeff;
             add_divides(coeffs, c, a);
         }
-        unsigned_vector const& row_ids = m_var2row_ids[x];
+        vector<unsigned> const& row_ids = m_var2row_ids[x];
         uint_set visited;
         visited.insert(row_id1);
         for (unsigned row_id2 : row_ids) {

@@ -52,9 +52,9 @@ class inc_sat_solver : public solver {
     params_ref      m_params;
     expr_ref_vector m_fmls;
     expr_ref_vector m_asmsf;
-    unsigned_vector m_fmls_lim;
-    unsigned_vector m_asms_lim;
-    unsigned_vector m_fmls_head_lim;
+    vector<unsigned> m_fmls_lim;
+    vector<unsigned> m_asms_lim;
+    vector<unsigned> m_fmls_head_lim;
     unsigned            m_fmls_head;
     expr_ref_vector     m_core;
     atom2bool_var       m_map;
@@ -314,7 +314,7 @@ public:
         r.append(m_core.size(), m_core.c_ptr());
     }
 
-    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+    void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth) override {
         unsigned sz = vars.size();
         depth.resize(sz);
         for (unsigned i = 0; i < sz; ++i) {

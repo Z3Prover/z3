@@ -181,7 +181,7 @@ class heap_trie {
     small_object_allocator m_alloc;
     KeyLE&   m_le;
     unsigned m_num_keys;
-    unsigned_vector m_keys;
+    vector<unsigned> m_keys;
     unsigned m_do_reshuffle;
     node*    m_root;
     stats    m_stats;
@@ -303,7 +303,7 @@ public:
         st.update("heap_trie.num_find_le", m_stats.m_num_find_le);
         st.update("heap_trie.num_find_le_nodes", m_stats.m_num_find_le_nodes);
         if (m_root) st.update("heap_trie.num_nodes", m_root->num_nodes());
-        unsigned_vector nums;
+        vector<unsigned> nums;
         ptr_vector<node> todo;
         if (m_root) todo.push_back(m_root);
         while (!todo.empty()) {
@@ -351,7 +351,7 @@ public:
 
     class iterator {
         ptr_vector<node> m_path;
-        unsigned_vector  m_idx;
+        vector<unsigned>  m_idx;
         vector<Key>      m_keys;
         unsigned         m_count;
     public:
@@ -471,7 +471,7 @@ private:
     void reorder_keys() {
         vector<key_set> weights;
         weights.resize(num_keys());
-        unsigned_vector depth;
+        vector<unsigned> depth;
         ptr_vector<node> nodes;
         depth.push_back(0);
         nodes.push_back(m_root);
@@ -506,7 +506,7 @@ private:
             return;
         }
         std::sort(infos.begin(), infos.end());
-        unsigned_vector sorted_keys, new_keys;
+        vector<unsigned> sorted_keys, new_keys;
         for (unsigned i = 0; i < num_keys(); ++i) {
             unsigned j = infos[i].m_index;
             sorted_keys.push_back(j);

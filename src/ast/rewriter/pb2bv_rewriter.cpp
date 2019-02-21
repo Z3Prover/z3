@@ -37,7 +37,7 @@ struct pb2bv_rewriter::imp {
     params_ref                m_params;
     expr_ref_vector           m_lemmas;
     func_decl_ref_vector      m_fresh;       // all fresh variables
-    unsigned_vector           m_fresh_lim;
+    vector<unsigned>          m_fresh_lim;
     unsigned                  m_num_translated;
     unsigned                  m_compile_bv;
     unsigned                  m_compile_card;
@@ -277,9 +277,9 @@ struct pb2bv_rewriter::imp {
             SASSERT(sz > 0);
             expr_ref result(m);
             vector<expr_ref_vector> es;
-            vector<unsigned_vector> coeffs;
+            vector<vector<unsigned>> coeffs;
             for (unsigned i = 0; i < m_coeffs.size(); ++i) {
-                unsigned_vector v;
+                vector<unsigned> v;
                 expr_ref_vector e(m);
                 unsigned c = m_coeffs[i].get_unsigned();
                 v.push_back(c >= k ? k : c);
@@ -290,7 +290,7 @@ struct pb2bv_rewriter::imp {
             while (es.size() > 1) {
                 for (unsigned i = 0; i + 1 < es.size(); i += 2) {
                     expr_ref_vector o(m);
-                    unsigned_vector oc;
+                    vector<unsigned> oc;
                     tot_adder(es[i], coeffs[i], es[i + 1], coeffs[i + 1], k, o, oc);
                     es[i / 2].set(o);
                     coeffs[i / 2] = oc;
@@ -313,10 +313,10 @@ struct pb2bv_rewriter::imp {
             return result;
         }
 
-        void tot_adder(expr_ref_vector const& l, unsigned_vector const& lc,
-                       expr_ref_vector const& r, unsigned_vector const& rc,
+        void tot_adder(expr_ref_vector const& l, vector<unsigned> const& lc,
+                       expr_ref_vector const& r, vector<unsigned> const& rc,
                        unsigned k,
-                       expr_ref_vector& o, unsigned_vector & oc) {
+                       expr_ref_vector& o, vector<unsigned> & oc) {
             SASSERT(l.size() == lc.size());
             SASSERT(r.size() == rc.size());
             uint_set sums;
@@ -503,7 +503,7 @@ struct pb2bv_rewriter::imp {
         */
         expr_ref binary_merge(lbool is_le, rational const& k) {
             expr_ref result(m);
-            unsigned_vector coeffs;
+            vector<unsigned> coeffs;
             for (rational const& c : m_coeffs) {
                 if (c.is_unsigned()) {
                     coeffs.push_back(c.get_unsigned());

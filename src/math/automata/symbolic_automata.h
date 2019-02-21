@@ -56,7 +56,7 @@ class symbolic_automata {
             m_rep_chosen(false) {
         }
 
-        block(unsigned_vector const& vs) {
+        block(vector<unsigned> const& vs) {
             for (unsigned i = 0; i < vs.size(); ++i) {
                 m_set.insert(vs[i]);               
             }
@@ -92,7 +92,7 @@ class symbolic_automata {
         uint_set::iterator end() const { return m_set.end(); }
     };
 
-    void add_block(block const& p1, unsigned p0_index, unsigned_vector& blocks, vector<block>& pblocks, unsigned_vector& W);
+    void add_block(block const& p1, unsigned p0_index, vector<unsigned>& blocks, vector<block>& pblocks, vector<unsigned>& W);
 
 public:
     symbolic_automata(M& m, ba_t& ba): m(m), m_ba(ba) {}

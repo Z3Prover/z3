@@ -80,7 +80,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
 
 
 template<class T, class M>
-void symbolic_automata<T, M>::add_block(block const& p1, unsigned p0_index, unsigned_vector& blocks, vector<block>& pblocks, unsigned_vector& W) {
+void symbolic_automata<T, M>::add_block(block const& p1, unsigned p0_index, vector<unsigned>& blocks, vector<block>& pblocks, vector<unsigned>& W) {
     block& p0 = pblocks[p0_index];
     if (p1.size() < p0.size()) {
         unsigned p1_index = pblocks.size();
@@ -104,8 +104,8 @@ void symbolic_automata<T, M>::add_block(block const& p1, unsigned p0_index, unsi
 template<class T, class M>
 typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minimize_total(automaton_t& a) {    
     vector<block> pblocks;
-    unsigned_vector blocks;
-    unsigned_vector non_final;
+    vector<unsigned> blocks;
+    vector<unsigned> non_final;
     for (unsigned i = 0; i < a.num_states(); ++i) {
         if (!a.is_final_state(i)) {
             non_final.push_back(i);
@@ -118,7 +118,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
     pblocks.push_back(block(a.final_states()));      // 0 |-> final states
     pblocks.push_back(block(non_final));             // 1 |-> non-final states
 
-    unsigned_vector W;
+    vector<unsigned> W;
     W.push_back(pblocks[0].size() > pblocks[1].size() ? 1 : 0);
         
     refs_t trail(m);
@@ -261,7 +261,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_minim
         new_moves.push_back(move_t(m, st.first, st.second, conds[st]));
     }
     // set final states.
-    unsigned_vector new_final;
+    vector<unsigned> new_final;
     uint_set new_final_set;
     for (unsigned i = 0; i < a.final_states().size(); ++i) {
         unsigned f = pblocks[blocks[a.final_states()[i]]].get_representative();
@@ -293,14 +293,13 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     map<uint_set, unsigned, uint_set::hash, uint_set::eq> s2id; // set of states to unique id
     vector<uint_set> id2s;                           // unique id to set of b-states
     uint_set set;
-    unsigned_vector vector;
     moves_t new_mvs;                                 // moves in the resulting automaton
-    unsigned_vector new_final_states;                // new final states
+    vector<unsigned> new_final_states;               // new final states
     unsigned p_state_id = 0;                         // next state identifier
 
     TRACE("seq", tout << "mk-deterministic " << flip_acceptance << " " << set << " " << a.is_final_configuration(set) << "\n";);    
     // adds non-final states of a to final if flipping and final otherwise
-    unsigned_vector init_states;
+    vector<unsigned> init_states;
     a.get_epsilon_closure(a.init(), init_states);    
     for (unsigned s : init_states) {
         set.insert(s);
@@ -312,7 +311,7 @@ symbolic_automata<T, M>::mk_determinstic_param(automaton_t& a, bool flip_accepta
     s2id.insert(set, p_state_id++);               // the index to the initial state is 0
     id2s.push_back(set);
     
-    ::vector<uint_set> todo; //States to visit
+    vector<uint_set> todo; //States to visit
     todo.push_back(set);
     
     uint_set state;
@@ -378,7 +377,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     todo.push_back(init_pair);
     pair2id.insert(init_pair, 0);
     moves_t mvs;
-    unsigned_vector final;
+    vector<unsigned> final;
     if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
         final.push_back(0);
     }
@@ -430,7 +429,7 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
         back_reachable[final[i]] = true;
     }
     
-    unsigned_vector stack(final);
+    vector<unsigned> stack(final);
     while (!stack.empty()) {
         unsigned state = stack.back();
         stack.pop_back();

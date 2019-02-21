@@ -51,7 +51,7 @@ public:
        counter().count(sz, arr).get_positive_count()
     */
     counter & count(unsigned sz, const unsigned * els, int delta = 1);
-    counter & count(const unsigned_vector & els, int delta = 1) {
+    counter & count(const vector<unsigned> & els, int delta = 1) {
         return count(els.size(), els.c_ptr(), delta);
     }
     
@@ -72,7 +72,7 @@ protected:
     expr_fast_mark1  m_visited;
     expr_free_vars   m_fv;
     ptr_vector<expr> m_todo;
-    unsigned_vector  m_scopes;
+    vector<unsigned>  m_scopes;
     unsigned get_max_var(bool & has_var);    
 public:
     var_counter() {}

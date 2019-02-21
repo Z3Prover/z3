@@ -222,7 +222,7 @@ namespace smt {
         /**
            \brief retrieve depth of variables from decision stack.
         */
-        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+        void get_levels(ptr_vector<expr> const& vars, vector<unsigned>& depth);
 
         /**
            \brief retrieve trail of assignment stack.

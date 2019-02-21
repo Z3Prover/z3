@@ -36,13 +36,13 @@ public:
     typedef key_value const* iterator;
     typedef ptr_vector<expr>::const_iterator recent_iterator;
 protected:
-    ast_manager &    m_manager;
+    ast_manager &     m_manager;
     
-    unsigned_vector    m_id2map;
+    vector<unsigned>  m_id2map;
     vector<key_value> m_mapping;
-    ptr_vector<expr> m_recent_exprs;
-    unsigned_vector  m_recent_lim;
-    bool             m_interpreted_vars;
+    ptr_vector<expr>  m_recent_exprs;
+    vector<unsigned>  m_recent_lim;
+    bool              m_interpreted_vars;
 public:
     expr2var(ast_manager & m);
     ~expr2var();

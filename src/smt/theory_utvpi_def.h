@@ -421,7 +421,7 @@ namespace smt {
 
     template<typename Ext>
     bool theory_utvpi<Ext>::check_z_consistency() {
-        int_vector scc_id;
+        vector<int> scc_id;
         m_graph.compute_zero_edge_scc(scc_id);
         
         unsigned sz = get_num_vars();
@@ -711,7 +711,7 @@ namespace smt {
      */
     template<typename Ext>
     void theory_utvpi<Ext>::enforce_parity() {
-        unsigned_vector todo;        
+        vector<unsigned> todo;        
         unsigned sz = get_num_vars();
         for (unsigned i = 0; i < sz; ++i) {
             enode* e = get_enode(i);
@@ -731,7 +731,7 @@ namespace smt {
             th_var v1 = to_var(i);
             th_var v2 = neg(v1);
 
-            int_vector zero_v;
+            vector<int> zero_v;
             m_graph.compute_zero_succ(v1, zero_v);
             for (unsigned j = 0; j < zero_v.size(); ++j) {
                 if (zero_v[j] == v2) {

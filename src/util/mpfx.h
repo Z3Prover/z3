@@ -82,12 +82,12 @@ class mpfx_manager {
     unsigned          m_int_part_sz;
     unsigned          m_frac_part_sz;
     unsigned          m_total_sz;       //!< == m_int_part_sz + m_frac_part_sz
-    unsigned_vector   m_words;          //!< Array containing all words
+    vector<unsigned>  m_words;          //!< Array containing all words
     unsigned          m_capacity;       //!< Number of mpfx numerals that can be stored in m_words.
     bool              m_to_plus_inf;    //!< If True, then round to plus infinity, otherwise to minus infinity
     id_gen            m_id_gen;
-    unsigned_vector   m_buffer0, m_buffer1, m_buffer2;
-    unsigned_vector   m_tmp_digits;
+    vector<unsigned>  m_buffer0, m_buffer1, m_buffer2;
+    vector<unsigned>  m_tmp_digits;
     mpfx              m_one;
     mpn_manager       m_mpn_manager;
 

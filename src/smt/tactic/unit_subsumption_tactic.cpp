@@ -26,7 +26,7 @@ struct unit_subsumption_tactic : public tactic {
     expr_ref_vector m_clauses;
     unsigned        m_clause_count;
     bit_vector      m_is_deleted;
-    unsigned_vector m_deleted;
+    vector<unsigned> m_deleted;
            
     unit_subsumption_tactic(
         ast_manager& m, 
