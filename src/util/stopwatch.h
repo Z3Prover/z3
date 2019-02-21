@@ -31,7 +31,8 @@ class stopwatch
     bool m_running = false;
 #endif
     
-    static std::chrono::time_point<std::chrono::steady_clock> get() {
+    // FIXME: just use auto with VS 2015+
+    static decltype(std::chrono::steady_clock::now()) get() {
         return std::chrono::steady_clock::now();
     }
 
