@@ -20,171 +20,55 @@ Revision History:
 #ifndef STOPWATCH_H_
 #define STOPWATCH_H_
 
-#if defined(_WINDOWS) || defined(_CYGWIN) || defined(_MINGW)
-
-// Does this redefinition work?
-
-#include <windows.h>
+#include "util/debug.h"
+#include <chrono>
 
 class stopwatch
 {
-private:
-    LARGE_INTEGER m_elapsed;
-    LARGE_INTEGER m_last_start_time;
-    LARGE_INTEGER m_last_stop_time;
-    LARGE_INTEGER m_frequency;
+    std::chrono::time_point<std::chrono::steady_clock> m_start;
+    std::chrono::steady_clock::duration m_elapsed;
+#if Z3DEBUG
+    bool m_running = false;
+#endif
+    
+    static std::chrono::time_point<std::chrono::steady_clock> get() {
+        return std::chrono::steady_clock::now();
+    }
 
 public:
     stopwatch() {
-        QueryPerformanceFrequency(&m_frequency); 
-        reset(); 
+        reset();
     }
 
-    ~stopwatch() {};
-    
-    void add (const stopwatch &s) {/* TODO */}
-
-    void reset() { m_elapsed.QuadPart = 0; }
-    
-    void start() { 
-        QueryPerformanceCounter(&m_last_start_time); 
-    }
-    
-    void stop() { 
-        QueryPerformanceCounter(&m_last_stop_time);
-        m_elapsed.QuadPart += m_last_stop_time.QuadPart - m_last_start_time.QuadPart;
+    void add(const stopwatch &s) {
+        m_elapsed += s.m_elapsed;
     }
 
-    double get_seconds() const { 
-        return static_cast<double>(m_elapsed.QuadPart / static_cast<double>(m_frequency.QuadPart)) ;
+    void reset() {
+        m_elapsed = std::chrono::steady_clock::duration::zero();
+    }
+    
+    void start() {
+        SASSERT(!m_running);
+        DEBUG_CODE(m_running = true);
+        m_start = get();
+    }
+
+    void stop() {
+        SASSERT(m_running);
+        DEBUG_CODE(m_running = false);
+        m_elapsed += get() - m_start;
+    }
+
+    double get_seconds() const {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(m_elapsed).count() / 1000.0;
     }
 
     double get_current_seconds() const {
-        LARGE_INTEGER t;
-        QueryPerformanceCounter(&t);
-        return static_cast<double>( (t.QuadPart - m_last_start_time.QuadPart) / static_cast<double>(m_frequency.QuadPart)); 
+        return std::chrono::duration_cast<std::chrono::milliseconds>(get() - m_start).count() / 1000.0;
     }
 };
 
-#undef max
-#undef min
-
-
-#elif defined(__APPLE__) && defined (__MACH__) // macOS
-
-#include<mach/mach.h>
-#include<mach/clock.h>
-
-class stopwatch {
-    unsigned long long m_time; // elapsed time in ns
-    bool               m_running;
-    clock_serv_t       m_host_clock;
-    mach_timespec_t    m_start;
-    
-public:
-    stopwatch():m_time(0), m_running(false) {
-        host_get_clock_service(mach_host_self(), SYSTEM_CLOCK, &m_host_clock);
-    }
-
-    ~stopwatch() {}
-    
-    void add (const stopwatch &s) {m_time += s.m_time;}
-    
-    void reset() {
-        m_time = 0ull;
-    }
-    
-    void start() {
-        if (!m_running) {
-            clock_get_time(m_host_clock, &m_start);
-            m_running = true;
-        }
-    }
-
-    void stop() {
-        if (m_running) {
-            mach_timespec_t _stop;
-            clock_get_time(m_host_clock, &_stop);
-            m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-            m_time += (_stop.tv_nsec - m_start.tv_nsec);
-            m_running = false;
-        }
-    }
-
-    double get_seconds() const { 
-        if (m_running) {
-            const_cast<stopwatch*>(this)->stop(); 
-            /* update m_time */ 
-            const_cast<stopwatch*>(this)->start();
-        }
-        return static_cast<double>(m_time)/static_cast<double>(1000000000ull); 
-    }
-
-    double get_current_seconds() const { 
-        return get_seconds(); 
-    }
-};
-
-
-#else // Linux 
-
-#include<ctime>
-
-#ifndef CLOCK_PROCESS_CPUTIME_ID
-/* BSD */
-# define CLOCK_PROCESS_CPUTIME_ID CLOCK_MONOTONIC
-#endif
-
-class stopwatch {
-    unsigned long long m_time; // elapsed time in ns
-    bool               m_running;
-    struct timespec    m_start;
-    
-public:
-    stopwatch():m_time(0), m_running(false) {
-    }
-
-    ~stopwatch() {}
-    
-    void add (const stopwatch &s) {m_time += s.m_time;}
-    
-    void reset() {
-        m_time = 0ull;
-    }
-    
-    void start() {
-        if (!m_running) {
-            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &m_start);
-            m_running = true;
-        }
-    }
-
-    void stop() {
-    if (m_running) {
-            struct timespec _stop;
-            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &_stop);
-            m_time += (_stop.tv_sec - m_start.tv_sec) * 1000000000ull;
-            if (m_time != 0 || _stop.tv_nsec >= m_start.tv_nsec)
-                m_time += (_stop.tv_nsec - m_start.tv_nsec);
-            m_running = false;
-        }
-    }
-
-    double get_seconds() const { 
-        if (m_running) {
-            const_cast<stopwatch*>(this)->stop(); 
-            /* update m_time */ 
-            const_cast<stopwatch*>(this)->start();
-        }
-        return static_cast<double>(m_time)/static_cast<double>(1000000000ull); 
-    }
-
-    double get_current_seconds() const { 
-    return get_seconds(); 
-    }
-};
-
-#endif
 
 struct scoped_watch {
     stopwatch &m_sw;
