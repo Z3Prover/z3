@@ -981,7 +981,7 @@ app * bv_util::mk_bv(unsigned n, expr* const* es) {
                     uint8_t hexDigit = 0;
                     unsigned curLength = (4 - n % 4) % 4;
                     for (unsigned i = 0; i < n; ++i) {
-                        hexDigit << 1;
+                        hexDigit <<= 1;
                         ++curLength;
                         if (m_manager.is_true(es[i])) {
                             hexDigit |= 1;

@@ -32,6 +32,96 @@ namespace smt {
 
     quantifier_manager_plugin * mk_default_plugin();
 
+    /**
+         \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
+        equivalence class are in the log and up-to-date.
+    */
+    void quantifier_manager::log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited, context &ctx, ast_manager &m) {
+        enode *root = en->get_root();
+        for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
+            if (already_visited.find(it) == already_visited.end()) already_visited.insert(it);
+            else break;
+
+            if (!it->m_proof_is_logged) {
+                log_single_justification(log, it, already_visited, ctx, m);
+                it->m_proof_is_logged = true;
+            } else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
+
+                // When the justification of an argument changes m_proof_is_logged is not reset => We need to check if the proofs of all arguments are logged.
+                const unsigned num_args = it->get_num_args();
+                enode *target = it->get_trans_justification().m_target;
+
+                for (unsigned i = 0; i < num_args; ++i) {
+                    log_justification_to_root(log, it->get_arg(i), already_visited, ctx, m);
+                    log_justification_to_root(log, target->get_arg(i), already_visited, ctx, m);
+                }
+                it->m_proof_is_logged = true;
+            }
+        }
+        if (!root->m_proof_is_logged) {
+            log << "[eq-expl] #" << root->get_owner_id() << " root\n";
+            root->m_proof_is_logged = true;
+        }
+    }
+
+    /**
+         \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
+        equalities needed by the step (e.g. argument equalities for congruence steps).
+    */
+    void quantifier_manager::log_single_justification(std::ostream & out, enode *en, obj_hashtable<enode> &already_visited, context &ctx, ast_manager &m) {
+        smt::literal lit;
+        unsigned num_args;
+        enode *target = en->get_trans_justification().m_target;
+        theory_id th_id;
+
+        switch (en->get_trans_justification().m_justification.get_kind()) {
+        case smt::eq_justification::kind::EQUATION:
+            lit = en->get_trans_justification().m_justification.get_literal();
+            out << "[eq-expl] #" << en->get_owner_id() << " lit #" << ctx.bool_var2expr(lit.var())->get_id() << " ; #" << target->get_owner_id() << "\n";
+            break;
+        case smt::eq_justification::kind::AXIOM:
+            out << "[eq-expl] #" << en->get_owner_id() << " ax ; #" << target->get_owner_id() << "\n";
+            break;
+        case smt::eq_justification::kind::CONGRUENCE:
+            if (!en->get_trans_justification().m_justification.used_commutativity()) {
+                num_args = en->get_num_args();
+
+                for (unsigned i = 0; i < num_args; ++i) {
+                    log_justification_to_root(out, en->get_arg(i), already_visited, ctx, m);
+                    log_justification_to_root(out, target->get_arg(i), already_visited, ctx, m);
+                }
+
+                out << "[eq-expl] #" << en->get_owner_id() << " cg";
+                for (unsigned i = 0; i < num_args; ++i) {
+                    out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
+                }
+                out << " ; #" << target->get_owner_id() << "\n";
+
+                break;
+            } else {
+
+                // The e-graph only supports commutativity for binary functions
+                out << "[eq-expl] #" << en->get_owner_id()
+                    << " cg (#" << en->get_arg(0)->get_owner_id() << " #" << target->get_arg(1)->get_owner_id()
+                    << ") (#" << en->get_arg(1)->get_owner_id() << " #" << target->get_arg(0)->get_owner_id()
+                    << ") ; #" << target->get_owner_id() << "\n";
+                break;
+            }
+        case smt::eq_justification::kind::JUSTIFICATION:
+            th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
+            if (th_id != null_theory_id) {
+                symbol const theory = m.get_family_name(th_id);
+                out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
+            } else {
+                out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+            }
+            break;
+        default:
+            out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
+            break;
+        }
+    }
+
     struct quantifier_manager::imp {
         quantifier_manager &                   m_wrapper;
         context &                              m_context;
@@ -105,96 +195,6 @@ namespace smt {
             return m_plugin->is_shared(n);
         }
 
-        /**
-           \brief Ensures that all relevant proof steps to explain why the enode is equal to the root of its
-           equivalence class are in the log and up-to-date.
-        */
-        void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited) {
-            enode *root = en->get_root();
-            for (enode *it = en; it != root; it = it->get_trans_justification().m_target) {
-                if (already_visited.find(it) == already_visited.end()) already_visited.insert(it);
-                else break;
-
-                if (!it->m_proof_is_logged) {
-                    log_single_justification(log, it, already_visited);
-                    it->m_proof_is_logged = true;
-                } else if (it->get_trans_justification().m_justification.get_kind() == smt::eq_justification::kind::CONGRUENCE) {
-
-                    // When the justification of an argument changes m_proof_is_logged is not reset => We need to check if the proofs of all arguments are logged.
-                    const unsigned num_args = it->get_num_args();
-                    enode *target = it->get_trans_justification().m_target;
-
-                    for (unsigned i = 0; i < num_args; ++i) {
-                        log_justification_to_root(log, it->get_arg(i), already_visited);
-                        log_justification_to_root(log, target->get_arg(i), already_visited);
-                    }
-                    it->m_proof_is_logged = true;
-                }
-            }
-            if (!root->m_proof_is_logged) {
-                log << "[eq-expl] #" << root->get_owner_id() << " root\n";
-                root->m_proof_is_logged = true;
-            }
-        }
-
-        /**
-          \brief Logs a single equality explanation step and, if necessary, recursively calls log_justification_to_root to log
-          equalities needed by the step (e.g. argument equalities for congruence steps).
-        */
-        void log_single_justification(std::ostream & out, enode *en, obj_hashtable<enode> &already_visited) {
-            smt::literal lit;
-            unsigned num_args;
-            enode *target = en->get_trans_justification().m_target;
-            theory_id th_id;
-
-            switch (en->get_trans_justification().m_justification.get_kind()) {
-            case smt::eq_justification::kind::EQUATION:
-                lit = en->get_trans_justification().m_justification.get_literal();
-                out << "[eq-expl] #" << en->get_owner_id() << " lit #" << m_context.bool_var2expr(lit.var())->get_id() << " ; #" << target->get_owner_id() << "\n";
-                break;
-            case smt::eq_justification::kind::AXIOM:
-                out << "[eq-expl] #" << en->get_owner_id() << " ax ; #" << target->get_owner_id() << "\n";
-                break;
-            case smt::eq_justification::kind::CONGRUENCE:
-                if (!en->get_trans_justification().m_justification.used_commutativity()) {
-                    num_args = en->get_num_args();
-
-                    for (unsigned i = 0; i < num_args; ++i) {
-                        log_justification_to_root(out, en->get_arg(i), already_visited);
-                        log_justification_to_root(out, target->get_arg(i), already_visited);
-                    }
-
-                    out << "[eq-expl] #" << en->get_owner_id() << " cg";
-                    for (unsigned i = 0; i < num_args; ++i) {
-                        out << " (#" << en->get_arg(i)->get_owner_id() << " #" << target->get_arg(i)->get_owner_id() << ")";
-                    }
-                    out << " ; #" << target->get_owner_id() << "\n";
-
-                    break;
-                } else {
-
-                    // The e-graph only supports commutativity for binary functions
-                    out << "[eq-expl] #" << en->get_owner_id()
-                        << " cg (#" << en->get_arg(0)->get_owner_id() << " #" << target->get_arg(1)->get_owner_id()
-                        << ") (#" << en->get_arg(1)->get_owner_id() << " #" << target->get_arg(0)->get_owner_id()
-                        << ") ; #" << target->get_owner_id() << "\n";
-                    break;
-                }
-            case smt::eq_justification::kind::JUSTIFICATION:
-                th_id = en->get_trans_justification().m_justification.get_justification()->get_from_theory();
-                if (th_id != null_theory_id) {
-                    symbol const theory = m().get_family_name(th_id);
-                    out << "[eq-expl] #" << en->get_owner_id() << " th " << theory.str() << " ; #" << target->get_owner_id() << "\n";
-                } else {
-                    out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
-                }
-                break;
-            default:
-                out << "[eq-expl] #" << en->get_owner_id() << " unknown ; #" << target->get_owner_id() << "\n";
-                break;
-            }
-        }
-
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,
@@ -225,15 +225,15 @@ namespace smt {
                         // In the term produced by the quantifier instantiation the root of the equivalence class of the terms bound to the quantified variables
                         // is used. We need to make sure that all of these equalities appear in the log.
                         for (unsigned i = 0; i < num_bindings; ++i) {
-                            log_justification_to_root(out, bindings[i], already_visited);
+                            log_justification_to_root(out, bindings[i], already_visited, m_context, m());
                         }
 
                         for (auto n : used_enodes) {
                             enode *orig = std::get<0>(n);
                             enode *substituted = std::get<1>(n);
                             if (orig != nullptr) {
-                                log_justification_to_root(out, orig, already_visited);
-                                log_justification_to_root(out, substituted, already_visited);
+                                log_justification_to_root(out, orig, already_visited, m_context, m());
+                                log_justification_to_root(out, substituted, already_visited, m_context, m());
                             }
                         }
 

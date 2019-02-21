@@ -140,7 +140,14 @@ namespace smt {
             args.push_back(acc);
         }
         expr * mk       = m.mk_app(c, args.size(), args.c_ptr());
+        app_ref ax(m);
+        ax = m.mk_eq(n->get_owner(), mk);
+        if (antecedent != null_literal) {
+            ax = m.mk_implies(get_context().bool_var2expr(antecedent.var()), ax);
+        }
+        if (m.has_trace_stream()) log_axiom_instantiation(ax, 1, &n);
         assert_eq_axiom(n, mk, antecedent);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     /**
@@ -157,11 +164,22 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
+        ptr_vector<app> bindings;
+        vector<std::tuple<enode *, enode *>> used_enodes;
+        used_enodes.push_back(std::make_tuple(nullptr, n));
+        for (unsigned i = 0; i < n->get_num_args(); ++i) {
+            bindings.push_back(n->get_arg(i)->get_owner());
+        }
+        unsigned base_id = get_manager().has_trace_stream() && accessors.size() > 0 ? m_util.get_plugin()->get_axiom_base_id(d->get_name()) : 0;
         unsigned i = 0;
         for (func_decl * acc : accessors) {
             app * acc_app     = m.mk_app(acc, n->get_owner());
             enode * arg       = n->get_arg(i);
+            app_ref eq(m);
+            eq = m.mk_eq(arg->get_owner(), acc_app);
+            if (m.has_trace_stream()) log_axiom_instantiation(eq, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
             assert_eq_axiom(arg, acc_app, null_literal);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             ++i;
         }
     }
@@ -218,10 +236,18 @@ namespace smt {
                 arg = ctx.get_enode(acc_app);
             }
             app * acc_own = m.mk_app(acc1, own);
+            app_ref imp(m);
+            imp = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
+            if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
             assert_eq_axiom(arg, acc_own, is_con); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // update_field is identity if 'n' is not created by a matching constructor.        
+        app_ref imp(m);
+        imp = m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_owner(), arg1));
+        if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
         assert_eq_axiom(n, arg1, ~is_con);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     theory_var theory_datatype::mk_var(enode * n) {

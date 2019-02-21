@@ -2486,7 +2486,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
         trace_quant(*m_trace_stream, r);
         *m_trace_stream << "[attach-var-names] #" << r->get_id();
         for (unsigned i = 0; i < num_decls; ++i) {
-            *m_trace_stream << " (" << decl_names[num_decls - i - 1].str() << " ; " << decl_sorts[num_decls - i -1]->get_name().str() << ")";
+            *m_trace_stream << " (|" << decl_names[num_decls - i - 1].str() << "| ; |" << decl_sorts[num_decls - i -1]->get_name().str() << "|)";
         }
         *m_trace_stream << "\n";
     }

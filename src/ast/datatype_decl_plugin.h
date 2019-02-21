@@ -249,13 +249,15 @@ namespace datatype {
         class plugin : public decl_plugin {
             mutable scoped_ptr<util> m_util;
             map<symbol, def*, symbol_hash_proc, symbol_eq_proc> m_defs; 
+            map<symbol, unsigned, symbol_hash_proc, symbol_eq_proc> m_axiom_bases;
+            unsigned                 m_id_counter;
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
         public:
-            plugin(): m_class_id(0) {}
+            plugin(): m_id_counter(0), m_class_id(0) {}
             ~plugin() override;
 
             void finalize() override;
@@ -290,6 +292,7 @@ namespace datatype {
             def const& get_def(sort* s) const { return *(m_defs[datatype_name(s)]); }
             def& get_def(symbol const& s) { return *(m_defs[s]); }
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
+            unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
 
         private:

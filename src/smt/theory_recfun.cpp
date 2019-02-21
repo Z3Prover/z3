@@ -308,7 +308,9 @@ namespace smt {
         unsigned depth = get_depth(e.m_lhs);
         expr_ref rhs(apply_args(depth, vars, e.m_args, e.m_def->get_rhs()), m);
         literal lit = mk_eq_lit(lhs, rhs);
+        if (m.has_trace_stream()) log_axiom_instantiation(ctx().bool_var2expr(lit.var()));
         ctx().mk_th_axiom(get_id(), 1, &lit);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         TRACEFN("macro expansion yields " << mk_pp(rhs, m) << "\n" <<
                 "literal                " << pp_lit(ctx(), lit));
     }
@@ -327,6 +329,7 @@ namespace smt {
         // add case-axioms for all case-paths
         auto & vars = e.m_def->get_vars();
         literal_vector preds;
+        ptr_vector<expr> pred_exprs;
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
@@ -337,6 +340,7 @@ namespace smt {
             SASSERT(u().owns_app(pred_applied));
             literal concl = mk_literal(pred_applied);
             preds.push_back(concl);
+            pred_exprs.push_back(pred_applied);
 
             if (c.is_immediate()) {
                 body_expansion be(pred_applied, c, e.m_args);
@@ -348,20 +352,27 @@ namespace smt {
             }
 
             literal_vector guards;
+            ptr_vector<expr> exprs;
             guards.push_back(concl);
             for (auto & g : c.get_guards()) {
                 expr_ref ga = apply_args(depth, vars, e.m_args, g);
                 literal guard = mk_literal(ga);
                 guards.push_back(~guard);
+                exprs.push_back(m.mk_not(ga));
                 literal c[2] = {~concl, guard};
+                if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(pred_applied, ga));
                 ctx().mk_th_axiom(get_id(), 2, c);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
+            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(pred_applied), m.mk_or(exprs.size(), exprs.c_ptr())));
             ctx().mk_th_axiom(get_id(), guards);
-
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // the disjunction of branches is asserted
         // to close the available cases. 
+        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(pred_exprs.size(), pred_exprs.c_ptr()));
         ctx().mk_th_axiom(get_id(), preds);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     /**
@@ -382,9 +393,11 @@ namespace smt {
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
 
         literal_vector clause;
+        ptr_vector<expr> exprs;
         for (auto & g : e.m_cdef->get_guards()) {
             expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));
+            exprs.push_back(guard);
             if (clause.back() == true_literal) {
                 TRACEFN("body " << pp_body_expansion(e,m) << "\n" << clause << "\n" << guard);
                 return;
@@ -394,7 +407,9 @@ namespace smt {
             }
         }        
         clause.push_back(mk_eq_lit(lhs, rhs));
+        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_and(exprs.size(), exprs.c_ptr()), m.mk_eq(lhs, rhs)));
         ctx().mk_th_axiom(get_id(), clause);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         TRACEFN("body   " << pp_body_expansion(e,m));
         TRACEFN(pp_lits(ctx(), clause));
     }

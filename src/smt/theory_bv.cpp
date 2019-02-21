@@ -229,9 +229,12 @@ namespace smt {
         enode * e2       = get_enode(v2);
         literal l        = ~(mk_eq(e1->get_owner(), e2->get_owner(), true));
         context & ctx    = get_context();
+        ast_manager & m  = get_manager();
+        expr * eq    = ctx.bool_var2expr(l.var());
+        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_eq(mk_bit2bool(get_enode(v1)->get_owner(), idx), m.mk_not(mk_bit2bool(get_enode(v2)->get_owner(), idx))), m.mk_not(eq)));
         ctx.mk_th_axiom(get_id(), 1, &l);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         if (ctx.relevancy()) {
-            expr * eq    = ctx.bool_var2expr(l.var());
             relevancy_eh * eh = ctx.mk_relevancy_eh(pair_relevancy_eh(e1->get_owner(), e2->get_owner(), eq));
             ctx.add_relevancy_eh(e1->get_owner(), eh);
             ctx.add_relevancy_eh(e2->get_owner(), eh);
@@ -440,11 +443,13 @@ namespace smt {
             e1 = mk_bit2bool(o1, i);
             e2 = mk_bit2bool(o2, i);
             literal eq = mk_eq(e1, e2, true);
+            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_not(ctx.bool_var2expr(oeq.var()))));
             ctx.mk_th_axiom(get_id(),  l1, ~l2, ~eq);
             ctx.mk_th_axiom(get_id(), ~l1,  l2, ~eq);
             ctx.mk_th_axiom(get_id(),  l1,  l2,  eq);
             ctx.mk_th_axiom(get_id(), ~l1, ~l2,  eq);
             ctx.mk_th_axiom(get_id(), eq, ~oeq);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             eqs.push_back(~eq);
         }
         eqs.push_back(oeq);
@@ -612,7 +617,9 @@ namespace smt {
               );
        
         ctx.mark_as_relevant(l);
+        if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
         ctx.mk_th_axiom(get_id(), 1, &l);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     void theory_bv::internalize_int2bv(app* n) {    
@@ -653,7 +660,9 @@ namespace smt {
 
         literal l(mk_eq(lhs, rhs, false));
         ctx.mark_as_relevant(l);
+        if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
         ctx.mk_th_axiom(get_id(), 1, &l);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         
         TRACE("bv", 
               tout << mk_pp(lhs, m) << " == \n";
@@ -674,7 +683,9 @@ namespace smt {
             TRACE("bv", tout << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << "\n";);
             l = literal(mk_eq(lhs, rhs, false));
             ctx.mark_as_relevant(l);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
             ctx.mk_th_axiom(get_id(), 1, &l);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             
         }
     }
@@ -1126,8 +1137,10 @@ namespace smt {
         unsigned num_bool_vars = ctx.get_num_bool_vars();
 #endif 
         literal_vector & lits = m_tmp_literals;
+        ptr_vector<expr> exprs;
         lits.reset();
-        lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
+        literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true);
+        lits.push_back(eq);
         literal_vector const & bits1        = m_bits[v1];
         literal_vector::const_iterator it1  = bits1.begin();
         literal_vector::const_iterator end1 = bits1.end();
@@ -1147,9 +1160,12 @@ namespace smt {
             ctx.internalize(diff, true);
             literal arg = ctx.get_literal(diff);
             lits.push_back(arg);
+            exprs.push_back(diff);
         }
         m_stats.m_num_diseq_dynamic++;
+        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_or(exprs.size(), exprs.c_ptr())));
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         TRACE_CODE({
             static unsigned num = 0;
             static unsigned new_bool_vars = 0;
@@ -1237,6 +1253,7 @@ namespace smt {
 
         m_stats.m_num_bit2core++;
         context & ctx = get_context();
+        ast_manager & m = get_manager();
         SASSERT(ctx.get_assignment(antecedent) == l_true);
         SASSERT(m_bits[v2][idx].var() == consequent.var());
         SASSERT(consequent.var() != antecedent.var());
@@ -1253,8 +1270,11 @@ namespace smt {
             literal_vector lits;
             lits.push_back(~consequent);
             lits.push_back(antecedent);
-            lits.push_back(~mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), false));
+            literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), false);
+            lits.push_back(~eq);
+            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_implies(ctx.bool_var2expr(consequent.var()), ctx.bool_var2expr(antecedent.var()))));
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
      
             if (m_wpos[v2] == idx)
                 find_wpos(v2);
