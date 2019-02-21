@@ -57,6 +57,7 @@ public:
     vector<ineq>& ineqs() { return m_ineqs; }
     lp::explanation& expl() { return m_expl; }
     const lp::explanation& expl() const { return m_expl; }
+    bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
 };
 
 typedef vector<monomial> polynomial;
