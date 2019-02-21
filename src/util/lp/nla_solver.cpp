@@ -779,9 +779,17 @@ struct solver::imp {
     }
 
     void negate_strict_sign(lpvar j) {
-        SASSERT(!vvr(j).is_zero());
-        mk_ineq(j, (rat_sign(vvr(j)) == 1? llc::LE : llc::GE), current_lemma());
-    }
+        int sign;
+        if (!vvr(j).is_zero()){
+            sign = rat_sign(vvr(j));
+            mk_ineq(j, (sign == 1? llc::LE : llc::GE), current_lemma());
+        } else {
+            sign = 1;
+            try_get_non_strict_sign_from_bounds(j, sign);
+            mk_ineq(j, (sign == 1? llc::LT : llc::GT), current_lemma());
+            SASSERT(sign);
+        }
+   }
     
     void generate_strict_case_zero_lemma(const monomial& m, unsigned zero_j, int sign_of_zj) {
         // we know all the signs
@@ -796,26 +804,81 @@ struct solver::imp {
         negate_strict_sign(m.var());
     }
 
-    void generate_zero_lemma(const monomial& m) {
-        SASSERT(!vvr(m).is_zero());
-        int sign = rat_sign(vvr(m));
-        unsigned zero_j = -1;
+    bool has_upper_bound(lpvar j) const {
+        return m_lar_solver.column_has_upper_bound(j);
+    } 
+
+    bool has_lower_bound(lpvar j) const {
+        return m_lar_solver.column_has_lower_bound(j);
+    } 
+    const rational& get_upper_bound(unsigned j) const {
+        return m_lar_solver.get_upper_bound(j).x;
+    }
+
+    const rational& get_lower_bound(unsigned j) const {
+        return m_lar_solver.get_lower_bound(j).x;
+    }
+    
+    
+    bool zero_is_an_inner_point_of_bounds(lpvar j) const {
+        if (has_upper_bound(j) && get_upper_bound(j) <= rational(0))            
+            return false;
+        if (has_lower_bound(j) && get_lower_bound(j) >= rational(0))            
+            return false;
+        return true;
+    }
+    
+    // try to find a variable j such that vvr(j) = 0
+    // and the bounds on j contain 0 as an inner point
+    lpvar find_best_zero(const monomial& m) const {
+        lpvar zero_j = -1;
         for (unsigned j : m){
+            if (vvr(j).is_zero()){
+                zero_j = j;
+                if (zero_is_an_inner_point_of_bounds(j)) 
+                    return j;
+            }
+        }
+        return zero_j;    
+    }
+
+    static bool is_set(unsigned j) {
+        return static_cast<int>(j) != -1; 
+    } 
+
+    bool try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const {
+        SASSERT(sign);
+        if (has_lower_bound(j) && get_lower_bound(j) >= rational(0))
+            return true;
+        if (has_upper_bound(j) && get_upper_bound(j) <= rational(0)) {
+            sign = -sign;
+            return true;
+        }
+        sign = 0;
+        return false;
+    }
+
+    void get_non_strict_sign(lpvar j, int& sign) const {
             const rational & v = vvr(j);
-            if (v.is_zero()){
-                if (zero_j + 1 == 0) {
-                    zero_j = j;
-                } else {
-                    sign = 0;
-                    break;
-                }
+            if (v.is_zero()) {
+                try_get_non_strict_sign_from_bounds(j, sign);
             } else {
                 sign *= rat_sign(v);
             }
+    }
+    
+    void generate_zero_lemma(const monomial& m) {
+        SASSERT(!vvr(m).is_zero());
+        int sign = rat_sign(vvr(m));
+        unsigned zero_j = find_best_zero(m);
+        SASSERT(is_set(zero_j));
+        for (unsigned j : m){
+            if (j == zero_j) continue;                
+            get_non_strict_sign(j, sign);
+            if(sign == 0)
+                break;
         }
-        TRACE("nla_solver", tout << "sign = " << sign << "\n";);
-        
-        SASSERT(zero_j + 1);
+        TRACE("nla_solver", tout << "zero_j = " << zero_j << ", sign = " << sign << "\n";);
         if (sign == 0) {
             mk_ineq(zero_j, llc::NE, current_lemma());
             mk_ineq(m.var(), llc::EQ, current_lemma());
@@ -856,10 +919,10 @@ struct solver::imp {
         return m_vars_equivalence.eq_vars(j);
     }
     
-    bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n) {
+    bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
         TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); );
-        rational sign;
-        if (sign_contradiction(m, n, sign)) {
+        rational contr_sign;
+        if (sign_contradiction(m, n, contr_sign)) {
             generate_sign_lemma(m, n, sign);
             return true;
         }
@@ -939,8 +1002,9 @@ struct solver::imp {
         for (index_with_sign i_s : mons_to_explore) {
             unsigned n = i_s.index();
             if (n == i) continue;
-            if (basic_sign_lemma_on_two_monomials(m, m_monomials[n]))
-                return true;
+            if (basic_sign_lemma_on_two_monomials(m, m_monomials[n], rm_i_s.sign()*i_s.sign()))
+                if(done())
+				    return true;
         }
         TRACE("nla_solver",);
         return false;
@@ -1621,13 +1685,11 @@ struct solver::imp {
         do {
             const rooted_mon& r = m_rm_table.vec()[rm_ref[i]];
             SASSERT (!check_monomial(m_monomials[r.orig_index()]));
-            if (basic_lemma_for_mon(r, derived)) {
-                return true;
-            }
+            basic_lemma_for_mon(r, derived);
             if (++i == rm_ref.size()) {
                 i = 0;
             }
-        } while(i != start);
+        } while(i != start && !done());
         
         return false;
     }
@@ -1829,6 +1891,12 @@ struct solver::imp {
             if (!check_monomial(m_monomials[i]))
                 m_to_refine.push_back(i);
         }
+        TRACE("nla_solver",
+              tout << "to refine: ";
+              for (unsigned i: m_to_refine) {
+                  print_monomial_with_vars(m_monomials[i], tout);
+              }
+              );
     }
 
     bool divide(const rooted_mon& bc, const factor& c, factor & b) const {
@@ -2329,6 +2397,9 @@ struct solver::imp {
     // not a strict version
     void generate_monl(const rooted_mon& a,
                        const rooted_mon& b) {
+        TRACE("nla_solver", tout <<
+              "a = "; print_rooted_monomial_with_vars(a, tout) << "\n:";
+              tout << "b = "; print_rooted_monomial_with_vars(a, tout) << "\n:";);
         add_empty_lemma();
         auto akey = get_sorted_key_with_vars(a);
         auto bkey = get_sorted_key_with_vars(b);
@@ -2500,6 +2571,7 @@ struct solver::imp {
     }
 
     bool generate_simple_tangent_lemma(const rooted_mon* rm) {
+        TRACE("nla_solver", tout << "rm:"; print_rooted_monomial_with_vars(*rm, tout) << std::endl; tout << "ls = " << m_lemma_vec->size(););
         add_empty_lemma();
         unsigned i_mon = rm->orig_index();
         const monomial & m = m_monomials[i_mon];
@@ -2601,7 +2673,6 @@ struct solver::imp {
         else {
             mk_ineq(j, llc::LE, a, l);
         }
-        TRACE("nla_solver", print_lemma(tout););
     }
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
@@ -2683,32 +2754,36 @@ struct solver::imp {
         TRACE("nla_solver", tout << "pushed a = "; print_point(a, tout); tout << "\npushed b = "; print_point(b, tout); tout << std::endl;);
     }
 
+    bool conflict_found() const {
+        for (const auto & l : * m_lemma_vec) {
+            if (l.is_conflict())
+                return true;
+        }
+        return false;
+    }
 
-    
-    
-    
+    bool done() const {
+        return m_lemma_vec->size() >= 10 || conflict_found();
+    }
+        
     lbool inner_check(bool derived) {
-        lbool ret = l_undef;
-        for (int search_level = 0; search_level < 3 && ret == l_undef; search_level++) {
+        for (int search_level = 0; search_level < 3 && !done(); search_level++) {
             TRACE("nla_solver", tout << "search_level = " << search_level << "\n";);
             if (search_level == 0) {
-                if (basic_lemma(derived)) {
-                    ret = l_false;
-                }
+                basic_lemma(derived);
+                if (!m_lemma_vec->empty())
+				   return l_false;
             } else if (search_level == 1) {
-                if (order_lemma(derived))  {
-                    ret = l_false;
-                }
+                order_lemma(derived);
             } else { // search_level == 2
-                if (!derived && (monotonicity_lemma() || tangent_lemma())) {
-                    ret = l_false;
+                if (!derived) {
+                    monotonicity_lemma();
+                    tangent_lemma();
                 }
             }
         }
-        return ret;
+        return m_lemma_vec->empty()? l_undef : l_false;
     }
-    
-    
     
     lbool check(vector<lemma>& l_vec) {
         settings().st().m_nla_calls++;
