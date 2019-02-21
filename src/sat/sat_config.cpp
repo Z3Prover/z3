@@ -56,11 +56,14 @@ namespace sat {
             m_phase = PS_ALWAYS_TRUE;
         else if (s == symbol("caching"))
             m_phase = PS_CACHING;
+        else if (s == symbol("scaching"))
+            m_phase = PS_SAT_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
             throw sat_param_exception("invalid phase selection strategy");
 
+        m_rephase_base      = p.rephase_base();
         m_phase_caching_on  = p.phase_caching_on();
         m_phase_caching_off = p.phase_caching_off();
         m_phase_sticky      = p.phase_sticky();

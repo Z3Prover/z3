@@ -55,6 +55,9 @@ namespace sat {
         m_search_lvl(0),
         m_fast_glue_avg(),
         m_slow_glue_avg(),
+        m_fast_glue_backup(),
+        m_slow_glue_backup(),
+        m_trail_avg(),
         m_params(p),
         m_par_id(0),
         m_par_syncing_clauses(false) {
@@ -106,6 +109,7 @@ namespace sat {
         m_activity.reset();
         m_mark.reset();
         m_lit_mark.reset();
+        m_best_phase.reset();
         m_phase.reset();
         m_prev_phase.reset();
         m_assigned_since_gc.reset();
@@ -133,6 +137,7 @@ namespace sat {
                 m_eliminated[v] = true;
             }
             m_phase[v] = src.m_phase[v];
+            m_best_phase[v] = src.m_best_phase[v];
             m_prev_phase[v] = src.m_prev_phase[v];
             
             // inherit activity:
@@ -231,8 +236,9 @@ namespace sat {
         m_mark.push_back(false);
         m_lit_mark.push_back(false);
         m_lit_mark.push_back(false);
-        m_phase.push_back(PHASE_NOT_AVAILABLE);
-        m_prev_phase.push_back(PHASE_NOT_AVAILABLE);
+        m_phase.push_back(false);
+        m_best_phase.push_back(false);
+        m_prev_phase.push_back(false);
         m_assigned_since_gc.push_back(false);
         m_last_conflict.push_back(0);
         m_last_propagation.push_back(0);
@@ -797,7 +803,7 @@ namespace sat {
         m_assignment[(~l).index()] = l_false;
         bool_var v = l.var();
         m_justification[v]         = j;
-        m_phase[v]                 = static_cast<phase>(l.sign());
+        m_phase[v]                 = !l.sign();
         m_assigned_since_gc[v]     = true;
         m_trail.push_back(l);
 
@@ -835,8 +841,8 @@ namespace sat {
 #endif
         }
 
-        SASSERT(!l.sign() || m_phase[v] == NEG_PHASE);
-        SASSERT(l.sign()  || m_phase[v] == POS_PHASE);
+        SASSERT(!l.sign() || !m_phase[v]);
+        SASSERT(l.sign()  || m_phase[v]);
         SASSERT(!l.sign() || value(v) == l_false);
         SASSERT(l.sign()  || value(v) == l_true);
         SASSERT(value(l) == l_true);
@@ -1439,36 +1445,43 @@ namespace sat {
             return false;
         push();
         m_stats.m_decision++;
-        lbool phase = m_ext ? m_ext->get_phase(next) : l_undef;
+        lbool lphase = m_ext ? m_ext->get_phase(next) : l_undef;
+        bool phase = lphase == l_true;
 
-        if (phase == l_undef) {
+        if (lphase == l_undef) {
+#if 0
+            phase = m_phase[next];
+#else
             switch (m_config.m_phase) {
             case PS_ALWAYS_TRUE:
-                phase = l_true;
+                phase = true;
                 break;
             case PS_ALWAYS_FALSE:
-                phase = l_false;
+                phase = false;
                 break;
             case PS_CACHING:
-                if ((m_phase_cache_on || m_config.m_phase_sticky) && m_phase[next] != PHASE_NOT_AVAILABLE) {
-                    phase = m_phase[next] == POS_PHASE ? l_true : l_false;
+                phase = m_phase[next];
+                break;
+            case PS_SAT_CACHING:
+                if (m_phase_cache_state) {
+                    phase = m_phase[next];
                 }
                 else {
-                    phase = l_false;
+                    phase = m_best_phase[next];
                 }
                 break;
             case PS_RANDOM:
-                phase = to_lbool((m_rand() % 2) == 0);
+                phase = (m_rand() % 2) == 0;
                 break;
             default:
                 UNREACHABLE();
-                phase = l_false;
+                phase = false;
                 break;
             }
+#endif
         }
 
-        SASSERT(phase != l_undef);
-        literal next_lit(next, phase == l_false);
+        literal next_lit(next, !phase);
         TRACE("sat_decide", tout << scope_lvl() << ": next-case-split: " << next_lit << "\n";);
         assign_scoped(next_lit);
         return true;
@@ -1504,6 +1517,8 @@ namespace sat {
             return l_false;
         if (reached_max_conflicts()) 
             return l_undef;
+        if (should_rephase()) 
+            do_rephase();
         if (at_base_lvl()) {
             cleanup(false); // cleaner may propagate frozen clauses
             if (inconsistent()) {
@@ -1667,7 +1682,14 @@ namespace sat {
     void solver::init_search() {
         m_model_is_current        = false;
         m_phase_counter           = 0;
-        m_phase_cache_on          = m_config.m_phase_sticky;
+        m_phase_cache_state       = true;
+        m_phase_caching_on        = m_config.m_phase_caching_on;
+        m_phase_caching_off       = m_config.m_phase_caching_off;
+        m_phase_next_toggle       = m_phase_caching_on;
+        m_phase_trail_threshold   = 0;
+        m_phase_luby_idx          = 0;
+        m_rephase_lim             = 0;
+        m_rephase_inc             = 0;
         m_conflicts_since_restart = 0;
         m_unique_max_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
@@ -1805,7 +1827,7 @@ namespace sat {
         for (bool_var v = 0; v < num; v++) {
             if (!was_eliminated(v)) {
                 m_model[v] = value(v);
-                m_phase[v] = (value(v) == l_true) ? POS_PHASE : NEG_PHASE;
+                m_phase[v] = value(v) == l_true;
             }
         }
         TRACE("sat_mc_bug", m_mc.display(tout););
@@ -1832,8 +1854,6 @@ namespace sat {
         if (!check_clauses(m_model)) {
             IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
             IF_VERBOSE(10, m_mc.display(verbose_stream()));
-            //IF_VERBOSE(0, display_units(verbose_stream()));
-            //IF_VERBOSE(0, display(verbose_stream()));
             IF_VERBOSE(1, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
 
             throw solver_exception("check model failed");
@@ -1844,11 +1864,8 @@ namespace sat {
         if (m_clone) {
             IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
             if (!m_clone->check_model(m_model)) {
-                //IF_VERBOSE(0, display(verbose_stream()));
-                //IF_VERBOSE(0, display_watches(verbose_stream()));
                 IF_VERBOSE(1, m_mc.display(verbose_stream()));
                 IF_VERBOSE(1, display_units(verbose_stream()));
-                //IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
                 throw solver_exception("check model failed (for cloned solver)");
             }
         }
@@ -2363,13 +2380,8 @@ namespace sat {
     unsigned solver::psm(clause const & c) const {
         unsigned r  = 0;
         for (literal l : c) {
-            if (l.sign()) {
-                if (m_phase[l.var()] == NEG_PHASE)
-                    r++;
-            }
-            else {
-                if (m_phase[l.var()] == POS_PHASE)
-                    r++;
+            if (l.sign() ^ m_phase[l.var()]) {
+                r++;
             }
         }
         return r;
@@ -2421,7 +2433,7 @@ namespace sat {
             return true;
         }
 
-        forget_phase_of_vars(m_conflict_lvl);
+        updt_phase_of_vars();
 
         if (m_ext) {
             switch (m_ext->resolve_conflict()) {
@@ -2571,7 +2583,7 @@ namespace sat {
         
         unsigned glue = num_diff_levels(m_lemma.size(), m_lemma.c_ptr());        
         m_fast_glue_avg.update(glue);
-        m_slow_glue_avg.update(glue);
+        m_slow_glue_avg.update(glue);            
     
         // compute whether to use backtracking or backjumping
         unsigned num_scopes = m_scope_lvl - backjump_lvl;
@@ -2852,30 +2864,128 @@ namespace sat {
         m_ext->get_antecedents(consequent, js.get_ext_justification_idx(), m_ext_antecedents);
     }
 
-    void solver::forget_phase_of_vars(unsigned from_lvl) {
+    bool solver::is_sat_phase() const {
+        return m_config.m_phase == PS_SAT_CACHING && !m_phase_cache_state;
+    }
+
+    void solver::updt_phase_of_vars() {
+        if (is_sat_phase() && m_phase_trail_threshold <= m_trail.size()) {
+            m_phase_trail_threshold = m_trail.size();
+            // m_phase_counter /= 2;
+            IF_VERBOSE(2, verbose_stream() << "sticky trail: " << m_trail.size() << "\n");
+            for (unsigned i = 0; i < num_vars(); ++i) {
+                m_best_phase[i] = m_phase[i];
+            }
+            for (literal l : m_trail) {
+                m_best_phase[l.var()] = !l.sign();
+            }
+        }
+        forget_phase_of_vars();
+    }
+
+    void solver::forget_phase_of_vars() {
+        unsigned from_lvl = m_conflict_lvl;
         unsigned head = from_lvl == 0 ? 0 : m_scopes[from_lvl - 1].m_trail_lim;
         unsigned sz   = m_trail.size();
         for (unsigned i = head; i < sz; i++) {
             literal l  = m_trail[i];
             bool_var v = l.var();
             TRACE("forget_phase", tout << "forgetting phase of l: " << l << "\n";);
-            m_phase[v] = PHASE_NOT_AVAILABLE;
+            m_phase[v] = m_rand() % 2 == 0;
         }
+    }
+
+    unsigned solver::next_phase_toggle() {        
+
+        if (m_config.m_phase == PS_SAT_CACHING) {
+            m_phase_trail_threshold = 0;
+            std::swap(m_fast_glue_backup, m_fast_glue_avg);
+            std::swap(m_slow_glue_backup, m_slow_glue_avg);
+            IF_VERBOSE(2, verbose_stream() << m_fast_glue_avg << " " << m_conflicts_since_init << "\n");
+
+#if 1
+            if (m_phase_cache_state) {
+                m_phase_caching_on += m_config.m_phase_caching_on;                
+            }
+            else {
+                m_phase_caching_off += m_config.m_phase_caching_off;
+            }
+#else
+            unsigned luby = get_luby(m_phase_luby_idx++);
+            m_phase_caching_on  = m_config.m_phase_caching_on * luby;
+            m_phase_caching_off = m_config.m_phase_caching_off * luby;
+#endif
+        }
+
+        if (m_phase_cache_state) {
+            return m_phase_caching_on;
+        }
+        else {
+            return m_phase_caching_off;
+        }
+    }
+
+    bool solver::should_rephase() {
+        return m_conflicts_since_init > m_rephase_lim;
+    }
+
+    void solver::do_rephase() {
+        IF_VERBOSE(2, verbose_stream() << "rephase " << m_rephase_lim << "\n");
+        switch (m_config.m_phase) {
+        case PS_ALWAYS_TRUE:
+            for (auto& p : m_phase) p = true;
+            break;
+        case PS_ALWAYS_FALSE:
+            for (auto& p : m_phase) p = false;
+            break;
+        case PS_CACHING:
+            switch (m_rephase_lim % 4) {
+            case 0:
+                for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+                break;
+            case 1:
+                for (auto& p : m_phase) p = false;
+                break;
+            case 2:
+                for (auto& p : m_phase) p = !p;
+                break;
+            default:
+                break;
+            }
+            break;
+        case PS_SAT_CACHING:
+            if (!m_phase_cache_state) {
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    m_phase[i] = m_best_phase[i];
+                }
+            }
+            break;
+        case PS_RANDOM:
+            for (auto& p : m_phase) p = (m_rand() % 2) == 0;
+            break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+        m_rephase_inc += m_config.m_rephase_base;
+        m_rephase_lim += m_rephase_inc;
+    }
+
+    bool solver::should_toggle_phase() {
+        if (m_phase_cache_state) {
+            m_trail_avg.update(m_trail.size());
+        }
+        return 
+            (m_phase_counter >= m_phase_next_toggle) &&
+            (!m_phase_cache_state || m_trail.size() > 0.50*m_trail_avg);  
     }
 
     void solver::updt_phase_counters() {
         m_phase_counter++;
-        if (m_phase_cache_on) {
-            if (m_phase_counter >= m_config.m_phase_caching_on) {
-                m_phase_counter  = 0;
-                m_phase_cache_on = false;
-            }
-        }
-        else {
-            if (m_phase_counter >= m_config.m_phase_caching_off) {
-                m_phase_counter  = 0;
-                m_phase_cache_on = true;
-            }
+        if (should_toggle_phase()) {
+            m_phase_next_toggle = next_phase_toggle();
+            m_phase_counter = 0;
+            m_phase_cache_state = !m_phase_cache_state;
         }
     }
 
@@ -3529,6 +3639,7 @@ namespace sat {
             m_mark.shrink(v);
             m_lit_mark.shrink(2*v);
             m_phase.shrink(v);
+            m_best_phase.shrink(v);
             m_prev_phase.shrink(v);
             m_assigned_since_gc.shrink(v);
             m_simplifier.reset_todos();
@@ -3585,6 +3696,9 @@ namespace sat {
         m_drat.updt_config();
         m_fast_glue_avg.set_alpha(m_config.m_fast_glue_avg);
         m_slow_glue_avg.set_alpha(m_config.m_slow_glue_avg);
+        m_fast_glue_backup.set_alpha(m_config.m_fast_glue_avg);
+        m_slow_glue_backup.set_alpha(m_config.m_slow_glue_avg);
+        m_trail_avg.set_alpha(m_config.m_slow_glue_avg);
     }
 
     void solver::collect_param_descrs(param_descrs & d) {

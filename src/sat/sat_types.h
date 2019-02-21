@@ -120,10 +120,6 @@ namespace sat {
 
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
 
-    enum phase {
-        POS_PHASE, NEG_PHASE, PHASE_NOT_AVAILABLE
-    };
-
     class solver;
     class lookahead;
     class unit_walk;

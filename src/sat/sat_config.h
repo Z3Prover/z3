@@ -28,6 +28,7 @@ namespace sat {
         PS_ALWAYS_TRUE,
         PS_ALWAYS_FALSE,
         PS_CACHING,
+        PS_SAT_CACHING,
         PS_RANDOM
     };
 
@@ -97,6 +98,7 @@ namespace sat {
         unsigned           m_phase_caching_on;
         unsigned           m_phase_caching_off;
         bool               m_phase_sticky;
+        unsigned           m_rephase_base;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;
         bool               m_restart_fast;

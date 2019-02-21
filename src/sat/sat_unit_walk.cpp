@@ -256,10 +256,10 @@ namespace sat {
 
     void unit_walk::init_phase() {
         for (bool_var v : pqueue()) {
-            if (s.m_phase[v] == POS_PHASE) {
+            if (s.m_phase[v] == l_true) {
                 m_phase[v] = true;
             }
-            else if (s.m_phase[v] == NEG_PHASE) {
+            else if (s.m_phase[v] == l_false) {
                 m_phase[v] = false;
             }
             else {

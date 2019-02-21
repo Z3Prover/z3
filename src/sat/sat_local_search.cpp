@@ -364,7 +364,7 @@ namespace sat {
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                vi.m_bias = s.m_phase[v++] == POS_PHASE ? 98 : 2;
+                vi.m_bias = s.m_phase[v++] == l_true ? 98 : 2;
             }
         }
 
@@ -835,11 +835,10 @@ namespace sat {
     }
 
 
-    void local_search::set_phase(bool_var v, lbool f) {
+    void local_search::set_phase(bool_var v, bool f) {
         unsigned& bias = m_vars[v].m_bias;
-        if (f == l_true && bias < 100) bias++;
-        if (f == l_false && bias > 0) bias--;
-        // f == l_undef ?
+        if (f  && bias < 100) bias++;
+        if (!f && bias > 0) bias--;
     }
 
     void local_search::set_bias(bool_var v, lbool f) {

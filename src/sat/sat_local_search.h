@@ -251,7 +251,7 @@ namespace sat {
 
         void import(solver& s, bool init);        
 
-        void set_phase(bool_var v, lbool f);
+        void set_phase(bool_var v, bool f);
 
         void set_bias(bool_var v, lbool f);
 

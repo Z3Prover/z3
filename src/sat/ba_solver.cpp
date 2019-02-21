@@ -2738,12 +2738,12 @@ namespace sat {
         switch (c.tag()) {            
         case card_t: 
             for (literal l : c.to_card()) {                
-                if (s().m_phase[l.var()] == (l.sign() ? NEG_PHASE : POS_PHASE)) ++r;
+                if (s().m_phase[l.var()] == !l.sign()) ++r;
             }
             break;
         case pb_t:
             for (wliteral l : c.to_pb()) {                
-                if (s().m_phase[l.second.var()] == (l.second.sign() ? NEG_PHASE : POS_PHASE)) ++r;
+                if (s().m_phase[l.second.var()] == !l.second.sign()) ++r;
             }
             break;
         default:
