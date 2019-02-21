@@ -56,7 +56,6 @@ z3_add_component(util
     symbol.cpp
     timeit.cpp
     timeout.cpp
-    timer.cpp
     trace.cpp
     util.cpp
     warning.cpp

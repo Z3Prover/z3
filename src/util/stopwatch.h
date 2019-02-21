@@ -25,14 +25,17 @@ Revision History:
 
 class stopwatch
 {
-    std::chrono::time_point<std::chrono::steady_clock> m_start;
-    std::chrono::steady_clock::duration m_elapsed;
+    typedef decltype(std::chrono::steady_clock::now()) clock_t;
+    typedef decltype(std::chrono::steady_clock::now() - std::chrono::steady_clock::now()) duration_t;
+
+    clock_t m_start;
+    duration_t m_elapsed;
 #if Z3DEBUG
     bool m_running = false;
 #endif
     
     // FIXME: just use auto with VS 2015+
-    static decltype(std::chrono::steady_clock::now()) get() {
+    static clock_t get() {
         return std::chrono::steady_clock::now();
     }
 
@@ -46,7 +49,7 @@ public:
     }
 
     void reset() {
-        m_elapsed = std::chrono::steady_clock::duration::zero();
+        m_elapsed = duration_t::zero();
     }
     
     void start() {
