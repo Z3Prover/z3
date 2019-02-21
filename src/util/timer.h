@@ -27,7 +27,7 @@ Revision History:
 class timer {
     stopwatch m_watch;
 public:
-    void start() {
+    timer() {
         m_watch.start();
     }
 
