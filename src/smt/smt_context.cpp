@@ -1776,7 +1776,7 @@ namespace smt {
 
     void context::set_conflict(const b_justification & js, literal not_l) {
         if (!inconsistent()) {
-            TRACE("set_conflict", display_literal_verbose(tout, not_l); display(tout << " ", js); );
+            TRACE("set_conflict", display_literal_verbose(tout << m_scope_lvl << " ", not_l); display(tout << " ", js); );
             m_conflict = js;
             m_not_l    = not_l;
         }
@@ -1815,7 +1815,7 @@ namespace smt {
     }
 
     /**
-       \brief Execute next clase split, return false if there are no
+       \brief Execute next case split, return false if there are no
        more case splits to be performed.
     */
     bool context::decide() {
@@ -1860,7 +1860,7 @@ namespace smt {
 
         if (is_quantifier(m_bool_var2expr[var])) {
             // Overriding any decision on how to assign the quantifier.
-            // assigining a quantifier to false is equivalent to make it irrelevant.
+            // assigning a quantifier to false is equivalent to make it irrelevant.
             phase = l_false;
         }
 
@@ -2136,7 +2136,7 @@ namespace smt {
        \brief When a clause is reinitialized (see reinit_clauses) enodes and literals may
        need to be recreated. When an enode is recreated, I want to use the same generation
        number it had before being deleted. Otherwise the generation will be 0, and will affect
-       the loop prevetion heuristics used to control quantifier instantiation.
+       the loop prevention heuristics used to control quantifier instantiation.
        Thus, I cache the generation number of enodes that will be deleted during backtracking
        and recreated by reinit_clauses.
     */
@@ -3246,8 +3246,13 @@ namespace smt {
                 proof * pr = m_manager.mk_asserted(curr_assumption);
                 internalize_assertion(curr_assumption, pr, 0);
                 literal l = get_literal(curr_assumption);
+                if (l == true_literal)
+                    continue;
+                if (l == false_literal) {
+                    set_conflict(b_justification::mk_axiom());
+                    break;
+                }
                 m_literal2assumption.insert(l.index(), orig_assumption);
-                // mark_as_relevant(l); <<< not needed
                 // internalize_assertion marked l as relevant.
                 SASSERT(is_relevant(l));
                 TRACE("assumptions", tout << l << ":" << curr_assumption << " " << mk_pp(orig_assumption, m_manager) << "\n";);
@@ -3493,7 +3498,6 @@ namespace smt {
         m_case_split_queue             ->init_search_eh();
         m_next_progress_sample         = 0;
         TRACE("literal_occ", display_literal_num_occs(tout););
-        m_timer.start();
     }
 
     void context::end_search() {
@@ -3874,7 +3878,7 @@ namespace smt {
         for (unsigned i = head; i < sz; i++) {
             literal l  = m_assigned_literals[i];
             bool_var v = l.var();
-            TRACE("forget_phase", tout << "forgeting phase of l: " << l << "\n";);
+            TRACE("forget_phase", tout << "forgetting phase of l: " << l << "\n";);
             m_bdata[v].m_phase_available = false;
         }
     }
@@ -3920,6 +3924,7 @@ namespace smt {
                 conflict_lvl > m_search_lvl + 1 &&
                 !m_manager.proofs_enabled() &&
                 m_units_to_reassert.size() < m_fparams.m_delay_units_threshold;
+
             if (delay_forced_restart) {
                 new_lvl = conflict_lvl - 1;
             }
@@ -4417,6 +4422,22 @@ namespace smt {
             m = nullptr;
         else
             m = const_cast<model*>(m_model.get());
+    }
+
+    void context::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        unsigned sz = vars.size(); 
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            expr* v = vars[i];
+            bool_var bv = m_expr2bool_var.get(v->get_id(), null_bool_var);
+            depth[i] = bv == null_bool_var ? UINT_MAX : get_assign_level(bv);            
+        }
+    }
+
+    expr_ref_vector context::get_trail() {        
+        expr_ref_vector result(get_manager());
+        get_assignments(result);
+        return result;
     }
 
     void context::get_proto_model(proto_model_ref & m) const {

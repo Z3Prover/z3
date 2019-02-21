@@ -29,13 +29,13 @@ namespace Microsoft.SolverFoundation.Plugin.Z3
         private NonlinearResult _result;
         private Z3BaseSolver _solver;
 
-        /// <summary>Constructor that initializes the base clases</summary>
+        /// <summary>Constructor that initializes the base classes</summary>
         public Z3TermSolver() : base(null) 
         {
             _solver = new Z3BaseSolver(this);
         }
 
-        /// <summary>Constructor that initializes the base clases</summary>
+        /// <summary>Constructor that initializes the base classes</summary>
         public Z3TermSolver(ISolverEnvironment context) : this() { }
 
         /// <summary>

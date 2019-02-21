@@ -18,30 +18,32 @@ Revision History:
 --*/
 
 #include "smt/smt_arith_value.h"
-#include "smt/theory_lra.h"
-#include "smt/theory_arith.h"
 
 namespace smt {
 
-    arith_value::arith_value(context& ctx): 
-        m_ctx(ctx), m(ctx.get_manager()), a(m) {}
+    arith_value::arith_value(ast_manager& m): 
+        m_ctx(nullptr), m(m), a(m) {}
 
-    bool arith_value::get_lo(expr* e, rational& lo, bool& is_strict) {
-        if (!m_ctx.e_internalized(e)) return false;
+    void arith_value::init(context* ctx) {
+        m_ctx = ctx;
         family_id afid = a.get_family_id();
+        theory* th = m_ctx->get_theory(afid);
+        m_tha = dynamic_cast<theory_mi_arith*>(th);
+        m_thi = dynamic_cast<theory_i_arith*>(th);
+        m_thr = dynamic_cast<theory_lra*>(th);
+    }
+
+    bool arith_value::get_lo_equiv(expr* e, rational& lo, bool& is_strict) {
+        if (!m_ctx->e_internalized(e)) return false;
         is_strict = false;
-        enode* next = m_ctx.get_enode(e), *n = next;
+        enode* next = m_ctx->get_enode(e), *n = next;
         bool found = false;
         bool is_strict1; 
         rational lo1;
-        theory* th = m_ctx.get_theory(afid);
-        theory_mi_arith* tha = dynamic_cast<theory_mi_arith*>(th);
-        theory_i_arith*  thi = dynamic_cast<theory_i_arith*>(th);
-        theory_lra*      thr = dynamic_cast<theory_lra*>(th);
         do {
-            if ((tha && tha->get_lower(next, lo1, is_strict1)) ||
-                (thi && thi->get_lower(next, lo1, is_strict1)) ||
-                (thr && thr->get_lower(next, lo1, is_strict1))) {
+            if ((m_tha && m_tha->get_lower(next, lo1, is_strict1)) ||
+                (m_thi && m_thi->get_lower(next, lo1, is_strict1)) ||
+                (m_thr && m_thr->get_lower(next, lo1, is_strict1))) {
                 if (!found || lo1 > lo || (lo == lo1 && is_strict1)) lo = lo1, is_strict = is_strict1;
                 found = true;
             }
@@ -51,21 +53,16 @@ namespace smt {
         return found;
     }
 
-    bool arith_value::get_up(expr* e, rational& up, bool& is_strict) {
-        if (!m_ctx.e_internalized(e)) return false;
-        family_id afid = a.get_family_id();
+    bool arith_value::get_up_equiv(expr* e, rational& up, bool& is_strict) {
+        if (!m_ctx->e_internalized(e)) return false;
         is_strict = false;
-        enode* next = m_ctx.get_enode(e), *n = next;
+        enode* next = m_ctx->get_enode(e), *n = next;
         bool found = false, is_strict1;
         rational up1;
-        theory* th = m_ctx.get_theory(afid);
-        theory_mi_arith* tha = dynamic_cast<theory_mi_arith*>(th);
-        theory_i_arith*  thi = dynamic_cast<theory_i_arith*>(th);
-        theory_lra*      thr = dynamic_cast<theory_lra*>(th);
         do {
-            if ((tha && tha->get_upper(next, up1, is_strict1)) ||
-                (thi && thi->get_upper(next, up1, is_strict1)) ||
-                (thr && thr->get_upper(next, up1, is_strict1))) {
+            if ((m_tha && m_tha->get_upper(next, up1, is_strict1)) ||
+                (m_thi && m_thi->get_upper(next, up1, is_strict1)) ||
+                (m_thr && m_thr->get_upper(next, up1, is_strict1))) {
                 if (!found || up1 < up || (up1 == up && is_strict1)) up = up1, is_strict = is_strict1;
                 found = true;
             }
@@ -75,20 +72,46 @@ namespace smt {
         return found;
     }
 
-    bool arith_value::get_value(expr* e, rational& val) {
-        if (!m_ctx.e_internalized(e)) return false;
+    bool arith_value::get_up(expr* e, rational& up, bool& is_strict) const {
+        if (!m_ctx->e_internalized(e)) return false;
+        is_strict = false;
+        enode* n = m_ctx->get_enode(e);
+        if (m_tha) return m_tha->get_upper(n, up, is_strict);
+        if (m_thi) return m_thi->get_upper(n, up, is_strict);
+        if (m_thr) return m_thr->get_upper(n, up, is_strict);
+        return false;
+    }
+
+    bool arith_value::get_lo(expr* e, rational& up, bool& is_strict) const {
+        if (!m_ctx->e_internalized(e)) return false;
+        is_strict = false;
+        enode* n = m_ctx->get_enode(e);
+        if (m_tha) return m_tha->get_lower(n, up, is_strict);
+        if (m_thi) return m_thi->get_lower(n, up, is_strict);
+        if (m_thr) return m_thr->get_lower(n, up, is_strict);
+        return false;
+    }
+
+    bool arith_value::get_value(expr* e, rational& val) const {
+        if (!m_ctx->e_internalized(e)) return false;
         expr_ref _val(m);
-        enode* next = m_ctx.get_enode(e), *n = next;
-        family_id afid = a.get_family_id();
-        theory* th = m_ctx.get_theory(afid);
-        theory_mi_arith* tha = dynamic_cast<theory_mi_arith*>(th);
-        theory_i_arith* thi = dynamic_cast<theory_i_arith*>(th);
-        theory_lra* thr = dynamic_cast<theory_lra*>(th);           
+        enode* n = m_ctx->get_enode(e);
+        if (m_tha && m_tha->get_value(n, _val) && a.is_numeral(_val, val)) return true;
+        if (m_thi && m_thi->get_value(n, _val) && a.is_numeral(_val, val)) return true;
+        if (m_thr && m_thr->get_value(n, val)) return true;
+        return false;
+    }
+
+
+    bool arith_value::get_value_equiv(expr* e, rational& val) const {
+        if (!m_ctx->e_internalized(e)) return false;
+        expr_ref _val(m);
+        enode* next = m_ctx->get_enode(e), *n = next;
         do { 
             e = next->get_owner();
-            if (tha && tha->get_value(next, _val) && a.is_numeral(_val, val)) return true;
-            if (thi && thi->get_value(next, _val) && a.is_numeral(_val, val)) return true;
-            if (thr && thr->get_value(next, val)) return true;
+            if (m_tha && m_tha->get_value(next, _val) && a.is_numeral(_val, val)) return true;
+            if (m_thi && m_thi->get_value(next, _val) && a.is_numeral(_val, val)) return true;
+            if (m_thr && m_thr->get_value(next, val)) return true;
             next = next->get_next();
         }
         while (next != n);
@@ -97,7 +120,7 @@ namespace smt {
 
     final_check_status arith_value::final_check() {
         family_id afid = a.get_family_id();
-        theory * th = m_ctx.get_theory(afid);
+        theory * th = m_ctx->get_theory(afid);
         return th->final_check_eh();
     }
 };

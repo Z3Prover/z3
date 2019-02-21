@@ -69,7 +69,7 @@ namespace smt {
             recfun::case_def const * m_cdef;
             ptr_vector<expr>        m_args;
 
-            body_expansion(recfun::util& u, app * n) : m_pred(n), m_cdef(0), m_args() {
+            body_expansion(recfun::util& u, app * n) : m_pred(n), m_cdef(nullptr), m_args() {
                 m_cdef = &u.get_case_def(n);
                 m_args.append(n->get_num_args(), n->get_args());
             }
@@ -125,7 +125,7 @@ namespace smt {
         
         literal mk_eq_lit(expr* l, expr* r);
         bool is_standard_order(recfun::vars const& vars) const { 
-            return vars.size() == 0 || vars[vars.size()-1]->get_idx() == 0; 
+            return vars.empty() || vars[vars.size()-1]->get_idx() == 0;
         }
     protected:
         void push_case_expand(case_expansion* e) { m_q_case_expand.push_back(e); }

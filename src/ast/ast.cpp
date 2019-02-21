@@ -1407,6 +1407,7 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
     copy_families_plugins(src);
+    update_fresh_id(src);
 }
 
 void ast_manager::update_fresh_id(ast_manager const& m) {
@@ -2156,7 +2157,6 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     app * new_node = nullptr;
     unsigned sz = app::get_obj_size(num_args);
     void * mem = allocate_node(sz);
-
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);

@@ -35,10 +35,9 @@ public:
     ~solver_na2as() override;
 
     void assert_expr_core2(expr * t, expr * a) override;
-    // virtual void assert_expr_core(expr * t) = 0;
 
     // Subclasses of solver_na2as should redefine the following *_core methods instead of these ones.
-    lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override;
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
     lbool check_sat_cc(const expr_ref_vector &assumptions, vector<expr_ref_vector> const &clauses) override;
     void push() override;
     void pop(unsigned n) override;
@@ -49,7 +48,7 @@ public:
     lbool get_consequences(expr_ref_vector const& asms, expr_ref_vector const& vars, expr_ref_vector& consequences) override;
     lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
 protected:
-    virtual lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) = 0;
+    virtual lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) = 0;
     virtual lbool check_sat_cc_core(const expr_ref_vector &assumptions, vector<expr_ref_vector> const &clauses) { NOT_IMPLEMENTED_YET(); }
     virtual void push_core() = 0;
     virtual void pop_core(unsigned n) = 0;

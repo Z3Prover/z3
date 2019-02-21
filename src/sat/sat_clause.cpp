@@ -94,6 +94,11 @@ namespace sat {
             mark_strengthened(); 
         } 
     }
+    
+    void clause::restore(unsigned num_lits) {
+        SASSERT(num_lits <= m_capacity);
+        m_size = num_lits;
+    }
 
     bool clause::satisfied_by(model const & m) const {
         for (literal l : *this) {
@@ -111,7 +116,7 @@ namespace sat {
 
     clause_offset clause::get_new_offset() const {
         unsigned o1 = m_lits[0].index();
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(__LP64__) || defined(_WIN64)
         if (sizeof(clause_offset) == 8) {
             unsigned o2 = m_lits[1].index();
             return (clause_offset)o1 + (((clause_offset)o2) << 32);
@@ -122,7 +127,7 @@ namespace sat {
 
     void clause::set_new_offset(clause_offset offset) {
         m_lits[0] = to_literal(static_cast<unsigned>(offset));
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(__LP64__) || defined(_WIN64)
         if (sizeof(offset) == 8) {
             m_lits[1] = to_literal(static_cast<unsigned>(offset >> 32));
         }

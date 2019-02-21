@@ -2,7 +2,7 @@
 
 # The Z3 Python API requires libz3.dll/.so/.dylib in the 
 # PATH/LD_LIBRARY_PATH/DYLD_LIBRARY_PATH
-# environment variable and the PYTHON_PATH environment variable
+# environment variable and the PYTHONPATH environment variable
 # needs to point to the `python' directory that contains `z3/z3.py'
 # (which is at bin/python in our binary releases).
 

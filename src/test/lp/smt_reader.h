@@ -52,7 +52,7 @@ namespace lp {
             std::string m_head;
             std::vector<lisp_elem> m_elems;
             void print() {
-                if (m_elems.size()) {
+                if (!m_elems.empty()) {
                     std::cout << '(';
                     std::cout << m_head << ' ';
                     for (auto & el : m_elems)
@@ -133,7 +133,7 @@ namespace lp {
             lm.m_head = m_line.substr(0, separator);
             m_line = m_line.substr(lm.m_head.size());
             eat_blanks();
-            while (m_line.size()) {
+            while (!m_line.empty()) {
                 if (m_line[0] == '(') {
                     lisp_elem el;
                     fill_nested_elem(el);
@@ -152,7 +152,7 @@ namespace lp {
         }
 
         void eat_blanks() {
-            while (m_line.size()) {
+            while (!m_line.empty()) {
                 if (m_line[0] == ' ')
                     m_line = m_line.substr(1);
                 else
@@ -193,19 +193,19 @@ namespace lp {
             }
         }
 
-        void adjust_rigth_side(formula_constraint & /* c*/, lisp_elem & /*el*/) {
+        void adjust_right_side(formula_constraint & /* c*/, lisp_elem & /*el*/) {
             // lp_assert(el.m_head == "0"); // do nothing for the time being
         }
 
         void set_constraint_coeffs(formula_constraint & c, lisp_elem & el) {
             lp_assert(el.m_elems.size() == 2);
             set_constraint_coeffs_on_coeff_element(c, el.m_elems[0]);
-            adjust_rigth_side(c, el.m_elems[1]);
+            adjust_right_side(c, el.m_elems[1]);
         }
 
 
         bool is_integer(std::string & s) {
-            if (s.size() == 0) return false;
+            if (s.empty()) return false;
             return atoi(s.c_str()) != 0 || isdigit(s.c_str()[0]);
         }
 

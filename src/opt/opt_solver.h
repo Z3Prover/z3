@@ -95,7 +95,7 @@ namespace opt {
         void assert_expr_core(expr * t) override;
         void push_core() override;
         void pop_core(unsigned n) override;
-        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
         void get_unsat_core(expr_ref_vector & r) override;
         void get_model_core(model_ref & _m) override;
         proof * get_proof() override;
@@ -108,6 +108,9 @@ namespace opt {
         ast_manager& get_manager() const override { return m; }
         lbool find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) override;
         lbool preferred_sat(expr_ref_vector const& asms, vector<expr_ref_vector>& cores) override;
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
+        expr_ref_vector get_trail() override { return m_context.get_trail(); }
+        void set_activity(expr* lit, double act) override { m_context.set_activity(lit, act); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
         void set_logic(symbol const& logic);

@@ -798,7 +798,7 @@ namespace qe {
          */
         expr* reduce_core (app *a) {
             if (!m_arr_u.is_store (a->get_arg (0))) return a;
-			expr* array = a->get_arg(0);
+            expr* array = a->get_arg(0);
             unsigned arity = get_array_arity(m.get_sort(array));
 
             expr* const* js = a->get_args() + 1;
@@ -810,7 +810,7 @@ namespace qe {
 
                 if (is_equals (arity, idxs, js)) {
                     add_idx_cond (cond);
-                    return a->get_arg (2);
+                    return a->get_arg (a->get_num_args() - 1);
                 }
                 else {
                     cond = m.mk_not (cond);

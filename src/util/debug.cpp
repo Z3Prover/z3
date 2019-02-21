@@ -56,20 +56,20 @@ void finalize_debug() {
 
 void enable_debug(const char * tag) {
     init_debug_table();
-    g_enabled_debug_tags->insert(const_cast<char *>(tag));
+    g_enabled_debug_tags->insert(tag);
 }
 
 void disable_debug(const char * tag) {
     init_debug_table();
-    g_enabled_debug_tags->erase(const_cast<char *>(tag));
+    g_enabled_debug_tags->erase(tag);
 }
 
 bool is_debug_enabled(const char * tag) {
     init_debug_table();
-    return g_enabled_debug_tags->contains(const_cast<char *>(tag));
+    return g_enabled_debug_tags->contains(tag);
 }
 
-#ifndef _WINDOWS
+#if !defined(_WINDOWS) && !defined(NO_Z3_DEBUGGER)
 void invoke_gdb() {
     char buffer[1024];
     int * x = nullptr;

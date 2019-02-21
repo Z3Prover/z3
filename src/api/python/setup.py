@@ -10,13 +10,14 @@ from distutils.util import get_platform
 from distutils.errors import LibError
 from distutils.command.build import build as _build
 from distutils.command.sdist import sdist as _sdist
+from distutils.command.clean import clean as _clean
 from setuptools.command.develop import develop as _develop
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
 
 build_env = dict(os.environ)
 build_env['PYTHON'] = sys.executable
-build_env['CXXFLAGS'] = "-std=c++11"
+build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++11"
 
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
@@ -37,13 +38,23 @@ else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
 
+def rmtree(tree):
+    if os.path.exists(tree):
+        shutil.rmtree(tree, ignore_errors=False)
+
 def _clean_bins():
     """
     Clean up the binary files and headers that are installed along with the bindings
     """
-    shutil.rmtree(LIBS_DIR, ignore_errors=True)
-    shutil.rmtree(BINS_DIR, ignore_errors=True)
-    shutil.rmtree(HEADERS_DIR, ignore_errors=True)
+    rmtree(LIBS_DIR)
+    rmtree(BINS_DIR)
+    rmtree(HEADERS_DIR)
+
+def _clean_native_build():
+    """
+    Clean the "build" directory in the z3 native root
+    """
+    rmtree(BUILD_DIR)
 
 def _z3_version():
     post = os.getenv('Z3_VERSION_SUFFIX', '')
@@ -146,9 +157,15 @@ class bdist_egg(_bdist_egg):
 
 class sdist(_sdist):
     def run(self):
-        self.execute(_clean_bins, (), msg="Cleaning binary files")
+        self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
         self.execute(_copy_sources, (), msg="Copying source files")
         _sdist.run(self)
+
+class clean(_clean):
+    def run(self):
+        self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
+        self.execute(_clean_native_build, (), msg="Cleaning native build")
+        _clean.run(self)
 
 # the build directory needs to exist
 #try: os.makedirs(os.path.join(ROOT_DIR, 'build'))
@@ -178,7 +195,7 @@ setup(
     name='z3-solver',
     version=_z3_version(),
     description='an efficient SMT solver library',
-    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compiliation, or installation, please submit issues to https://github.com/angr/angr-z3',
+    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compilation, or installation, please submit issues to https://github.com/angr/angr-z3',
     author="The Z3 Theorem Prover Project",
     maintainer="Audrey Dutcher",
     maintainer_email="audrey@rhelmot.io",
@@ -191,5 +208,5 @@ setup(
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])],
-    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},
+    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg, 'clean': clean},
 )

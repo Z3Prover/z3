@@ -148,7 +148,7 @@ namespace Microsoft.Z3
             get
             {
 
-                return new BoolExpr(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
+                return (BoolExpr)Expr.Create(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
             }
         }
 

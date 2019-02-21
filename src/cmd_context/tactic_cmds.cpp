@@ -224,7 +224,7 @@ public:
                     ctx.display_sat_result(r);
                     result->set_status(r);
                     if (r == l_undef) {
-                        if (reason_unknown != "") {
+                        if (!reason_unknown.empty()) {
                             result->m_unknown = reason_unknown;
                             // ctx.diagnostic_stream() << "\"" << escaped(reason_unknown.c_str(), true) << "\"" << std::endl;
                         }

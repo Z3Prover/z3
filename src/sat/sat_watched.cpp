@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "sat/sat_watched.h"
 #include "sat/sat_clause.h"
+#include "sat/sat_extension.h"
 
 namespace sat {
 
@@ -96,7 +97,7 @@ namespace sat {
     }
 
 
-    std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist) {
+    std::ostream& display_watch_list(std::ostream & out, clause_allocator const & ca, watch_list const & wlist, extension* ext) {
         bool first = true;
         for (watched const& w : wlist) {
             if (first)
@@ -116,7 +117,12 @@ namespace sat {
                 out << "(" << w.get_blocked_literal() << " " << *(ca.get_clause(w.get_clause_offset())) << ")";
                 break;
             case watched::EXT_CONSTRAINT:
-                out << "ext: " << w.get_ext_constraint_idx();
+                if (ext) {
+                    ext->display_constraint(out, w.get_ext_constraint_idx());
+                }
+                else  {
+                    out << "ext: " << w.get_ext_constraint_idx();
+                }
                 break;
             default: 
                 UNREACHABLE();

@@ -25,11 +25,11 @@ Revision History:
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
     m_result(result) {
-    SASSERT(is_ground(result));
+    //SASSERT(is_ground(result));
     m.inc_ref(result);
     for (unsigned i = 0; i < arity; i++) {
         expr * arg = args[i];
-        SASSERT(is_ground(arg));
+        //SASSERT(is_ground(arg));
         if (!m.is_value(arg))
             m_args_are_values = false;
         m.inc_ref(arg);

@@ -80,6 +80,11 @@ namespace smt {
                 m_queue.decreased(v);
         }
 
+        void activity_decreased_eh(bool_var v) override {
+            if (m_queue.contains(v))
+                m_queue.increased(v);
+        }
+
         void mk_var_eh(bool_var v) override {
             m_queue.reserve(v+1);
             SASSERT(!m_queue.contains(v));
@@ -165,6 +170,14 @@ namespace smt {
                 m_queue.decreased(v);
             if (m_delayed_queue.contains(v))
                 m_delayed_queue.decreased(v);
+        }
+
+        void activity_decreased_eh(bool_var v) override {
+            act_case_split_queue::activity_decreased_eh(v);
+            if (m_queue.contains(v))
+                m_queue.increased(v);
+            if (m_delayed_queue.contains(v))
+                m_delayed_queue.increased(v);
         }
 
         void mk_var_eh(bool_var v) override {
@@ -281,7 +294,7 @@ namespace smt {
             }
         }
         if (order == 1) {
-            if (undef_children.size() == 0) {
+            if (undef_children.empty()) {
                 // a bug?
             } else if (undef_children.size() == 1) {
                 undef_child = undef_children[0];
@@ -323,6 +336,8 @@ namespace smt {
         }
         
         void activity_increased_eh(bool_var v) override {}
+
+        void activity_decreased_eh(bool_var v) override {}
 
         void mk_var_eh(bool_var v) override {}
 
@@ -508,6 +523,8 @@ namespace smt {
         }
 
         void activity_increased_eh(bool_var v) override {}
+
+        void activity_decreased_eh(bool_var v) override {}
 
         void mk_var_eh(bool_var v) override {
             if (m_context.is_searching()) {
@@ -752,6 +769,8 @@ namespace smt {
         }
         
         void activity_increased_eh(bool_var v) override {}
+
+        void activity_decreased_eh(bool_var v) override {}
 
         void mk_var_eh(bool_var v) override {}
 
@@ -1131,6 +1150,11 @@ namespace smt {
         void activity_increased_eh(bool_var v) override {
             if (m_queue.contains(v))
                 m_queue.decreased(v);
+        }
+
+        void activity_decreased_eh(bool_var v) override {
+            if (m_queue.contains(v))
+                m_queue.increased(v);
         }
 
         void mk_var_eh(bool_var v) override {

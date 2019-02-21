@@ -101,7 +101,7 @@ public:
         resize_data(0);
 #if _WINDOWS
         errno_t err = fopen_s(&m_file, fname, "rb");
-        m_ok = (m_file != NULL) && (err == 0);
+        m_ok = (m_file != nullptr) && (err == 0);
 #else
         m_file = fopen(fname, "rb");
         m_ok = (m_file != nullptr);
@@ -1057,7 +1057,7 @@ protected:
             line.push_back(ch);
             ch = strm.get();
         }
-        return line.size() > 0;
+        return !line.empty();
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {

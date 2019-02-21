@@ -26,6 +26,7 @@ DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_ENABLED=True
 DOTNET_CORE_ENABLED=False
+ESRP_SIGN=False
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
 GIT_HASH=False
@@ -65,6 +66,7 @@ def display_help():
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
     print("  --dotnetcore                  build for dotnet core.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
+    print("  --esrp                        sign with esrp.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
     print("  --githash                     include git hash in the Zip file.")
@@ -74,7 +76,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY, ESRP_SIGN
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -84,6 +86,7 @@ def parse_options():
                                                                    'nodotnet',
                                                                    'dotnetcore',
                                                                    'dotnet-key=',
+                                                                   'esrp',
                                                                    'githash',
                                                                    'nopython',
                                                                    'x86-only',
@@ -109,6 +112,8 @@ def parse_options():
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
             DOTNET_KEY_FILE = arg
+        elif opt == '--esrp':
+            ESRP_SIGN = True
         elif opt == '--nojava':
             JAVA_ENABLED = False
         elif opt == '--githash':
@@ -142,6 +147,8 @@ def mk_build_dir(path, x64):
             opts.append('--java')
         if x64:
             opts.append('-x')
+        if ESRP_SIGN:
+            opts.append('--esrp')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
             opts.append('--git-describe')
@@ -210,6 +217,7 @@ def get_z3_name(x64):
         return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
 
 def mk_dist_dir(x64):
+    global ESRP_SIGN
     if x64:
         platform = "x64"
         build_path = BUILD_X64_DIR
@@ -218,6 +226,7 @@ def mk_dist_dir(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
+    mk_util.ESRP_SIGN = ESRP_SIGN
     if DOTNET_CORE_ENABLED:
        mk_util.DOTNET_CORE_ENABLED = True
     else:

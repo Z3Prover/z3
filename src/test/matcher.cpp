@@ -84,7 +84,7 @@ void tst1() {
     app_ref b(           m.mk_const(symbol("b"), s), m);
     expr_ref x(          m.mk_var(0, s), m);
     expr_ref y(          m.mk_var(1, s), m);
-    app_ref gx(          m.mk_app(g, x), m);
+    app_ref gx(          m.mk_app(g.get(), x.get()), m);
     app_ref fgx_x(       m.mk_app(f, gx.get(), x.get()), m);
     app_ref ha(          m.mk_app(h, a.get()), m);
     app_ref gha(         m.mk_app(g, ha.get()), m);

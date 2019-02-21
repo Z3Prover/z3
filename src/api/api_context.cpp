@@ -109,13 +109,10 @@ namespace api {
 
     context::~context() {
         m_last_obj = nullptr;
-        u_map<api::object*>::iterator it = m_allocated_objects.begin();
-        while (it != m_allocated_objects.end()) {
-            api::object* val = it->m_value;
-            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", it->m_key, typeid(*val).name()););
-            m_allocated_objects.remove(it->m_key);
+        for (auto& kv : m_allocated_objects) {
+            api::object* val = kv.m_value;
+            DEBUG_CODE(warning_msg("Uncollected memory: %d: %s", kv.m_key, typeid(*val).name()););
             dealloc(val);
-            it = m_allocated_objects.begin();
         }
     }
 
@@ -489,9 +486,3 @@ extern "C" {
     }
     
 };
-
-Z3_API ast_manager& Z3_get_manager(Z3_context c) {
-    return mk_c(c)->m();
-}
-
-

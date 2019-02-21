@@ -39,13 +39,14 @@ struct tactic_report::imp {
     ~imp() {
         m_watch.stop();
         double end_memory = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        verbose_stream() << "(" << m_id
-                         << " :num-exprs " << m_goal.num_exprs()
-                         << " :num-asts " << m_goal.m().get_num_asts()
-                         << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
-                         << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
-                         << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
-                         << ")" << std::endl;
+        IF_VERBOSE(0, 
+                   verbose_stream() << "(" << m_id
+                   << " :num-exprs " << m_goal.num_exprs()
+                   << " :num-asts " << m_goal.m().get_num_asts()
+                   << " :time " << std::fixed << std::setprecision(2) << m_watch.get_seconds()
+                   << " :before-memory " << std::fixed << std::setprecision(2) << m_start_memory
+                   << " :after-memory " << std::fixed << std::setprecision(2) << end_memory
+                   << ")" << std::endl);
     }
 };
 
@@ -191,7 +192,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
         return l_false;
     }
     else {
-        if (models_enabled && r.size() >= 1) {
+        if (models_enabled && !r.empty()) {
         model_converter_ref mc = r[0]->mc();            
             model_converter2model(m, mc.get(), md);
             if (mc)

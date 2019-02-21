@@ -230,7 +230,7 @@ namespace datalog {
         bool is_closed() const { return m_stratifier != 0; }
 
         unsigned get_num_rules() const { return m_rules.size(); }
-        bool empty() const { return m_rules.size() == 0; }
+        bool empty() const { return m_rules.empty(); }
 
         rule * get_rule(unsigned i) const { return m_rules[i]; }
         rule * last() const { return m_rules[m_rules.size()-1]; }

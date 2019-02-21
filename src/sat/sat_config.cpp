@@ -90,6 +90,7 @@ namespace sat {
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();
+        m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
         if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;
@@ -123,13 +124,16 @@ namespace sat {
         m_lookahead_cube_psat_clause_base = p.lookahead_cube_psat_clause_base();
         m_lookahead_cube_psat_trigger = p.lookahead_cube_psat_trigger();
         m_lookahead_global_autarky = p.lookahead_global_autarky();
+        m_lookahead_delta_fraction = p.lookahead_delta_fraction();
         m_lookahead_use_learned = p.lookahead_use_learned();
-
+        if (m_lookahead_delta_fraction < 0 || m_lookahead_delta_fraction > 1.0) {
+            throw sat_param_exception("invalid value for delta fraction. It should be a number in the interval 0 to 1"); 
+        }
 
         // These parameters are not exposed
-        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
+        m_next_simplify1  = _p.get_uint("next_simplify", 90000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
-        m_simplify_max    = _p.get_uint("simplify_max", 500000);
+        m_simplify_max    = _p.get_uint("simplify_max", 1000000);
         // --------------------------------
         m_simplify_delay  = p.simplify_delay();
 
@@ -162,6 +166,7 @@ namespace sat {
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
         m_drat            = (m_drat_check_unsat || m_drat_file != symbol("") || m_drat_check_sat) && p.threads() == 1;
+        m_drat_binary     = p.drat_binary();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.

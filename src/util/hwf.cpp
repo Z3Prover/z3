@@ -61,7 +61,7 @@ hwf_manager::hwf_manager() :
     m_mpz_manager(m_mpq_manager)
 {
 #ifdef _WINDOWS
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(_WIN64)
     // Precision control is not supported on x64.
     // See: http://msdn.microsoft.com/en-us/library/e9b52ceh(VS.110).aspx
     // CMW: I think this is okay though, the compiler will chose the right instructions
@@ -303,7 +303,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // CMW: modf is not the right function here.
     // modf(x.value, &o.value);
 
-    // According to the Intel Architecture manual, the x87-instrunction FRNDINT is the
+    // According to the Intel Architecture manual, the x87-instruction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
 #if defined(USE_INTRINSICS) && \
@@ -557,7 +557,7 @@ void hwf_manager::mk_ninf(hwf & o) {
 }
 
 #ifdef _WINDOWS
-#if defined(_AMD64_) || defined(_M_IA64)
+#if defined(_WIN64)
 #ifdef USE_INTRINSICS
 #define SETRM(RM) _MM_SET_ROUNDING_MODE(RM)
 #else

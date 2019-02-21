@@ -27,8 +27,11 @@ namespace opt {
        Returns an optimal assignment to objective functions.
     */
 
+    class context;
+
     class optsmt {
         ast_manager&     m;
+        context&         m_context;
         opt_solver*      m_s;
         vector<inf_eps>  m_lower;
         vector<inf_eps>  m_upper;
@@ -40,8 +43,8 @@ namespace opt {
         svector<symbol>  m_labels;
         sref_vector<model> m_models;
     public:
-        optsmt(ast_manager& m): 
-            m(m), m_s(nullptr), m_objs(m), m_lower_fmls(m) {}
+        optsmt(ast_manager& m, context& ctx): 
+            m(m), m_context(ctx), m_s(nullptr), m_objs(m), m_lower_fmls(m) {}
 
         void setup(opt_solver& solver);
 

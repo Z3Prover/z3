@@ -239,9 +239,11 @@ namespace smt {
             set_activity(get_activity() + 1);
         }
 
-        void display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
+        std::ostream& display(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
+        
+        std::ostream& display_smt2(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
 
-        void display_compact(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
+        std::ostream& display_compact(std::ostream & out, ast_manager & m, expr * const * bool_var2expr_map) const;
 
         unsigned hash() const {
             return get_ptr_hash(this); 

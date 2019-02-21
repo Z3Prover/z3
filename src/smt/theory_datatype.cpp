@@ -481,33 +481,46 @@ namespace smt {
         return d->m_constructor;
     }
 
+    void theory_datatype::explain_is_child(enode* parent, enode* child) {
+        enode * parentc = oc_get_cstor(parent);        
+        if (parent != parentc) {
+            m_used_eqs.push_back(enode_pair(parent, parentc));
+        }
+
+        // collect equalities on all children that may have been used.
+        bool found = false;
+        for (enode * arg : enode::args(parentc)) {
+            // found an argument which is equal to root
+            if (arg->get_root() == child->get_root()) {
+                if (arg != child) {
+                    m_used_eqs.push_back(enode_pair(arg, child));
+                }
+                found = true;
+            }
+        }
+        VERIFY(found);
+    }
+
     // explain the cycle root -> ... -> app -> root
     void theory_datatype::occurs_check_explain(enode * app, enode * root) {
         TRACE("datatype", tout << "occurs_check_explain " << mk_bounded_pp(app->get_owner(), get_manager()) << " <-> " << mk_bounded_pp(root->get_owner(), get_manager()) << "\n";);
-        enode* app_parent = nullptr;
 
         // first: explain that root=v, given that app=cstor(...,v,...)
-        for (enode * arg : enode::args(oc_get_cstor(app))) {
-            // found an argument which is equal to root
-            if (arg->get_root() == root->get_root()) {
-                if (arg != root)
-                    m_used_eqs.push_back(enode_pair(arg, root));
-                break;
-            }
-        }
+
+        explain_is_child(app, root);
 
         // now explain app=cstor(..,v,..) where v=root, and recurse with parent of app
         while (app->get_root() != root->get_root()) {
-            enode * app_cstor = oc_get_cstor(app);
-            if (app != app_cstor)
-                m_used_eqs.push_back(enode_pair(app, app_cstor));
-            app_parent = m_parent[app->get_root()];
-            app = app_parent;
+            enode* parent_app = m_parent[app->get_root()];
+            explain_is_child(parent_app, app);
+            SASSERT(is_constructor(parent_app));
+            app = parent_app;            
         }
         
         SASSERT(app->get_root() == root->get_root());
-        if (app != root)
+        if (app != root) {
             m_used_eqs.push_back(enode_pair(app, root));
+        }
 
         TRACE("datatype",
               tout << "occurs_check\n";
@@ -732,11 +745,11 @@ namespace smt {
         sort * s     = recognizer->get_decl()->get_domain(0);
         if (d->m_recognizers.empty()) {
             SASSERT(m_util.is_datatype(s));
-            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s));
+            d->m_recognizers.resize(m_util.get_datatype_num_constructors(s), nullptr);
         }
         SASSERT(d->m_recognizers.size() == m_util.get_datatype_num_constructors(s));
         unsigned c_idx = m_util.get_recognizer_constructor_idx(recognizer->get_decl());
-        if (d->m_recognizers[c_idx] == 0) {
+        if (d->m_recognizers[c_idx] == nullptr) {
             lbool val = ctx.get_assignment(recognizer);
             TRACE("datatype", tout << "adding recognizer to v" << v << " rec: #" << recognizer->get_owner_id() << " val: " << val << "\n";);
             if (val == l_true) {
@@ -808,7 +821,7 @@ namespace smt {
             region & reg = ctx.get_region();
             TRACE("datatype_conflict", tout << mk_ismt2_pp(recognizer->get_owner(), get_manager()) << "\n";
                   for (literal l : lits) {
-                      ctx.display_detailed_literal(tout, l); tout << "\n";
+                      ctx.display_detailed_literal(tout, l) << "\n";
                   }
                   for (auto const& p : eqs) {
                       tout << enode_eq_pp(p, ctx);

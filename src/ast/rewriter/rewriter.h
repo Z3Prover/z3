@@ -90,8 +90,10 @@ protected:
     void init_cache_stack();
     void del_cache_stack();
     void reset_cache();
-    void cache_result(expr * k, expr * v);
+    void cache_result(expr * k, expr * v) { cache_shifted_result(k, 0, v); }
+    void cache_shifted_result(expr * k, unsigned offset, expr * v);
     expr * get_cached(expr * k) const { return m_cache->find(k); } 
+    expr * get_cached(expr* k, unsigned offset) const { return m_cache->find(k, offset); }
 
     void cache_result(expr * k, expr * v, proof * pr);
     proof * get_cached_pr(expr * k) const { return static_cast<proof*>(m_cache_pr->find(k)); } 

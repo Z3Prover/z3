@@ -482,6 +482,7 @@ def _to_ast_ref(a, ctx):
     else:
         return _to_expr_ref(a, ctx)
 
+
 #########################################
 #
 # Sorts
@@ -3836,7 +3837,7 @@ def Extract(high, low, a):
     >>> Extract(6, 2, x).sort()
     BitVec(5)
     >>> simplify(Extract(StringVal("abcd"),2,1))
-    "c"
+    c
     """
     if isinstance(high, str):
         high = StringVal(high)
@@ -4489,11 +4490,15 @@ def K(dom, v):
     return ArrayRef(Z3_mk_const_array(ctx.ref(), dom.ast, v.as_ast()), ctx)
 
 def Ext(a, b):
-    """Return extensionality index for arrays.
+    """Return extensionality index for one-dimensional arrays.
+    >> a, b = Consts('a b', SetSort(IntSort()))
+    >> Ext(a, b)
+    Ext(a, b)
     """
+    ctx = a.ctx
     if __debug__:
-        _z3_assert(is_array(a) and is_array(b))
-    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()));
+        _z3_assert(is_array(a) and is_array(b), "arguments must be arrays")
+    return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
@@ -5339,7 +5344,7 @@ class Goal(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def simplify(self, *arguments, **keywords):
@@ -5527,7 +5532,7 @@ class AstVector(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def __repr__(self):
@@ -5871,7 +5876,7 @@ class FuncInterp(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def as_list(self):
@@ -6167,7 +6172,7 @@ class ModelRef(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
 def Model(ctx = None):
@@ -6664,17 +6669,11 @@ class Solver(Z3PPObject):
 
     def from_file(self, filename):
         """Parse assertions from a file"""
-        try:
-            Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)
+        Z3_solver_from_file(self.ctx.ref(), self.solver, filename)
 
     def from_string(self, s):
         """Parse assertions from a string"""
-        try:
-           Z3_solver_from_string(self.ctx.ref(), self.solver, s)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)        
+        Z3_solver_from_string(self.ctx.ref(), self.solver, s)
     
     def cube(self, vars = None):
         """Get set of cubes
@@ -6732,6 +6731,25 @@ class Solver(Z3PPObject):
         """
         return AstVector(Z3_solver_get_non_units(self.ctx.ref(), self.solver), self.ctx)
 
+    def trail_levels(self):
+        """Return trail and decision levels of the solver state after a check() call. 
+        """
+        trail = self.trail()
+        levels = (ctypes.c_uint * len(trail))()
+        Z3_solver_get_levels(self.ctx.ref(), self.solver, trail.vector, len(trail), levels)
+        return trail, levels
+
+    def trail(self):
+        """Return trail of the solver state after a check() call. 
+        """
+        return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
+
+    def set_activity(self, lit, act):
+        """Set activity of literal on solver object.
+        This influences the case split order of the variable.
+        """
+        Z3_solver_set_activity(self.ctx.ref(), self.solver, lit.ast, act)
+        
     def statistics(self):
         """Return statistics for the last `check()`.
 
@@ -6791,7 +6809,7 @@ class Solver(Z3PPObject):
     def __copy__(self):
         return self.translate(self.ctx)
 
-    def __deepcopy__(self):
+    def __deepcopy__(self, memo={}):
         return self.translate(self.ctx)
 
     def sexpr(self):
@@ -6804,6 +6822,10 @@ class Solver(Z3PPObject):
         >>> r = s.sexpr()
         """
         return Z3_solver_to_string(self.ctx.ref(), self.solver)
+
+    def dimacs(self):
+        """Return a textual representation of the solver in DIMACS format."""
+        return Z3_solver_to_dimacs_string(self.ctx.ref(), self.solver)
 
     def to_smt2(self):
         """return SMTLIB2 formatted benchmark for solver's assertions"""
@@ -7063,17 +7085,11 @@ class Fixedpoint(Z3PPObject):
 
     def parse_string(self, s):
         """Parse rules and queries from a string"""
-        try:
-            return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)
+        return AstVector(Z3_fixedpoint_from_string(self.ctx.ref(), self.fixedpoint, s), self.ctx)
 
     def parse_file(self, f):
         """Parse rules and queries from a file"""
-        try:
-            return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)
+        return AstVector(Z3_fixedpoint_from_file(self.ctx.ref(), self.fixedpoint, f), self.ctx)
 
     def get_rules(self):
         """retrieve rules that have been added to fixedpoint context"""
@@ -7330,6 +7346,35 @@ class Optimize(Z3PPObject):
         self.add(fml)
         return self
 
+    def assert_and_track(self, a, p):
+        """Assert constraint `a` and track it in the unsat core using the Boolean constant `p`.
+
+        If `p` is a string, it will be automatically converted into a Boolean constant.
+
+        >>> x = Int('x')
+        >>> p3 = Bool('p3')
+        >>> s = Optimize()
+        >>> s.assert_and_track(x > 0,  'p1')
+        >>> s.assert_and_track(x != 1, 'p2')
+        >>> s.assert_and_track(x < 0,  p3)
+        >>> print(s.check())
+        unsat
+        >>> c = s.unsat_core()
+        >>> len(c)
+        2
+        >>> Bool('p1') in c
+        True
+        >>> Bool('p2') in c
+        False
+        >>> p3 in c
+        True
+        """
+        if isinstance(p, str):
+            p = Bool(p, self.ctx)
+        _z3_assert(isinstance(a, BoolRef), "Boolean expression expected")
+        _z3_assert(isinstance(p, BoolRef) and is_const(p), "Boolean expression expected")
+        Z3_optimize_assert_and_track(self.ctx.ref(), self.optimize, a.as_ast(), p.as_ast())
+
     def add_soft(self, arg, weight = "1", id = None):
         """Add soft constraint with optional weight and optional identifier.
            If no weight is supplied, then the penalty for violating the soft constraint
@@ -7410,17 +7455,11 @@ class Optimize(Z3PPObject):
 
     def from_file(self, filename):
         """Parse assertions and objectives from a file"""
-        try:
-            Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)
+        Z3_optimize_from_file(self.ctx.ref(), self.optimize, filename)
 
     def from_string(self, s):
         """Parse assertions and objectives from a string"""
-        try:
-            Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
-        except Z3Exception as e:
-            _handle_parse_error(e, self.ctx)
+        Z3_optimize_from_string(self.ctx.ref(), self.optimize, s)
 
     def assertions(self):
         """Return an AST vector containing all added constraints."""
@@ -9914,6 +9953,8 @@ class SeqRef(ExprRef):
 
     def as_string(self):
         """Return a string representation of sequence expression."""
+        if self.is_string_value():
+           return Z3_get_string(self.ctx_ref(), self.as_ast())
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
 
@@ -9993,8 +10034,6 @@ def Strings(names, ctx=None):
 def Empty(s):
     """Create the empty sequence of the given sort
     >>> e = Empty(StringSort())
-    >>> print(e)
-    ""
     >>> e2 = StringVal("")
     >>> print(e.eq(e2))
     True
@@ -10080,7 +10119,7 @@ def Replace(s, src, dst):
     """Replace the first occurrence of 'src' by 'dst' in 's'
     >>> r = Replace("aaa", "a", "b")
     >>> simplify(r)
-    "baa"
+    baa
     """
     ctx = _get_ctx2(dst, s)
     if ctx is None and is_expr(src):

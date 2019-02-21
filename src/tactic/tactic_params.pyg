@@ -1,0 +1,20 @@
+
+def_module_params('tactic', 
+                  description='tactic parameters',
+                  export=True,
+                  params=(('solve_eqs.context_solve', BOOL, False, "solve equalities within disjunctions."),
+                          ('solve_eqs.theory_solver', BOOL, True, "use theory solvers."),
+                          ('solve_eqs.ite_solver', BOOL, True, "use if-then-else solvers."),
+                          ('solve_eqs.max_occs', UINT, UINT_MAX, "maximum number of occurrences for considering a variable for gaussian eliminations."),
+                          ('blast_term_ite.max_inflation', UINT, UINT_MAX, "multiplicative factor of initial term size."),
+                          ('blast_term_ite.max_steps', UINT, UINT_MAX, "maximal number of steps allowed for tactic."),
+                          ('propagate_values.max_rounds', UINT, 4, "maximal number of rounds to propagate values."),
+                     #     ('aig.per_assertion', BOOL, True, "process one assertion at a time"),
+                     #     ('add_bounds.lower, INT, -2, "lower bound to be added to unbounded variables."),
+                     #     ('add_bounds.upper, INT, 2, "upper bound to be added to unbounded variables."),
+                     #     ('fm.real_only', BOOL, True, "consider only real variables for FM"),
+                     #     ('fm.occ', BOOL, False, "consider inequalities occurring in clauses for FM."), 
+                     #     ('fm.limit', UINT, 5000000, "maximal number of constraints, monomials, clauses visited during FM."),
+                     # etc: lia2card, factor, nla2bv, normalize_bounds, pb2bv, purify_arith, bit_blaster, bv_bounds
+                          ))
+                

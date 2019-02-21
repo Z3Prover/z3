@@ -36,7 +36,7 @@ namespace sat {
         bool                   m_learned;
         bool                   m_include_cardinality;
 
-        svector<std::pair<literal, literal>> m_del_bin;
+        vector<svector<literal> > m_del_bin;
         
 
         void init_dfs_num();

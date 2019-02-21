@@ -85,7 +85,7 @@ struct model::value_proc : public some_value_proc {
     expr * operator()(sort * s) override {
         ptr_vector<expr> * u = nullptr;
         if (m_model.m_usort2universe.find(s, u)) {
-            if (u->size() > 0)
+            if (!u->empty())
                 return u->get(0);
         }
         return nullptr;
@@ -277,6 +277,13 @@ model::func_decl_set* model::collect_deps(top_sort& ts, func_interp * fi) {
     fi->compress();
     expr* e = fi->get_else();
     if (e) for_each_expr(collector, e);
+    unsigned num_args = fi->get_arity();
+    for (func_entry* fe : *fi) {
+        for (unsigned i = 0; i < num_args; ++i) {
+            for_each_expr(collector, fe->get_arg(i));
+        }
+        for_each_expr(collector, fe->get_result());
+    }
     return s;
 }
 
@@ -466,6 +473,10 @@ expr_ref model::get_inlined_const_interp(func_decl* f) {
 
 expr_ref model::operator()(expr* t) {
     return m_mev(t);
+}
+
+void model::set_solver(expr_solver* s) {
+    m_mev.set_solver(s);
 }
 
 expr_ref_vector model::operator()(expr_ref_vector const& ts) {

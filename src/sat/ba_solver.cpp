@@ -676,7 +676,6 @@ namespace sat {
                 verbose_stream() << "alit: " << alit << "\n";
                 verbose_stream() << "num watch " << num_watch << "\n");
             UNREACHABLE();
-            exit(0);
             return l_undef;
         }
         
@@ -1066,7 +1065,7 @@ namespace sat {
 
     uint64_t ba_solver::get_coeff(literal lit) const {
         int64_t c1 = get_coeff(lit.var());
-        SASSERT(c1 < 0 == lit.sign());
+        SASSERT((c1 < 0) == lit.sign());
         int64_t c = std::abs(c1);
         m_overflow |= (c != c1);
         return static_cast<uint64_t>(c);
@@ -2606,7 +2605,6 @@ namespace sat {
                 IF_VERBOSE(0, s().display_watches(verbose_stream()));
 
                 UNREACHABLE();
-                exit(1);
                 return false;
             }
         }
@@ -2839,7 +2837,7 @@ namespace sat {
 
     void ba_solver::simplify() {        
         if (!s().at_base_lvl()) s().pop_to_base_level();
-        unsigned trail_sz;
+        unsigned trail_sz, count = 0;
         do {
             trail_sz = s().init_trail_size();
             m_simplify_change = false;
@@ -2857,8 +2855,9 @@ namespace sat {
             cleanup_clauses();
             cleanup_constraints();
             update_pure();
+            ++count;
         }        
-        while (m_simplify_change || trail_sz < s().init_trail_size());
+        while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
 
         IF_VERBOSE(1, verbose_stream() << "(ba.simplify"
                    << " :vars " << s().num_vars() - trail_sz 
@@ -4138,6 +4137,10 @@ namespace sat {
     }
 
     std::ostream& ba_solver::display_justification(std::ostream& out, ext_justification_idx idx) const {
+        return out << index2constraint(idx);
+    }
+
+    std::ostream& ba_solver::display_constraint(std::ostream& out, ext_constraint_idx idx) const {
         return out << index2constraint(idx);
     }
 

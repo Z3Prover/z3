@@ -35,20 +35,19 @@ class internal_symbol_table {
 public:
 
     char const * get_str(char const * d) {
-        char * result;
+        const char * result;
         #pragma omp critical (cr_symbol) 
         {
-        char * r_d = const_cast<char *>(d);
         str_hashtable::entry * e;
-        if (m_table.insert_if_not_there_core(r_d, e)) {
+        if (m_table.insert_if_not_there_core(d, e)) {
             // new entry
             size_t l   = strlen(d);
             // store the hash-code before the string
             size_t * mem = static_cast<size_t*>(m_region.allocate(l + 1 + sizeof(size_t)));
             *mem = e->get_hash();
             mem++;
-            result = reinterpret_cast<char*>(mem);
-            memcpy(result, d, l+1);
+            result = reinterpret_cast<const char*>(mem);
+            memcpy(mem, d, l+1);
             // update the entry with the new ptr.
             e->set_data(result);
         }

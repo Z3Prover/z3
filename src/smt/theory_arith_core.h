@@ -485,12 +485,12 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
+        th_rewriter & s  = get_context().get_rewriter();
         if (!m_util.is_zero(divisor)) {
             ast_manager & m = get_manager();
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m);
-            th_rewriter & s  = get_context().get_rewriter();
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
@@ -511,6 +511,17 @@ namespace smt {
             mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
             context& ctx = get_context();
+
+            if (!m_util.is_numeral(divisor)) {
+                // (=> (> y 0) (<= (* y (div x y)) x))
+                // (=> (< y 0) ???)
+                expr_ref div_ge(m), div_non_pos(m);
+                div_ge = m_util.mk_ge(m_util.mk_sub(dividend, m_util.mk_mul(divisor, div)), zero);
+                s(div_ge);
+                div_non_pos = m_util.mk_le(divisor, zero);
+                mk_axiom(div_non_pos, div_ge, false);
+            }
+
             (void)ctx;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
                 k.is_pos() && k < rational(8)) {
@@ -547,6 +558,7 @@ namespace smt {
                 }
 #endif
             }
+
 #if 0
             // e-matching is too restrictive for multiplication.
             // also suffers from use-after free so formulas have to be pinned in solver.

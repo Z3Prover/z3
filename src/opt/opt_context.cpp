@@ -48,6 +48,7 @@ Notes:
 namespace opt {
 
     void context::scoped_state::push() {
+        m_asms_lim.push_back(m_asms.size());
         m_hard_lim.push_back(m_hard.size());
         m_objectives_lim.push_back(m_objectives.size());        
         m_objectives_term_trail_lim.push_back(m_objectives_term_trail.size());
@@ -55,6 +56,7 @@ namespace opt {
 
     void context::scoped_state::pop() {
         m_hard.resize(m_hard_lim.back());
+        m_asms.resize(m_asms_lim.back());
         unsigned k = m_objectives_term_trail_lim.back();
         while (m_objectives_term_trail.size() > k) {
             unsigned idx = m_objectives_term_trail.back();
@@ -73,6 +75,7 @@ namespace opt {
         }
         m_objectives_lim.pop_back();            
         m_hard_lim.pop_back();   
+        m_asms_lim.pop_back();
     }
     
     void context::scoped_state::add(expr* hard) {
@@ -125,7 +128,7 @@ namespace opt {
         m_solver(nullptr),
         m_pareto1(false),
         m_box_index(UINT_MAX),
-        m_optsmt(m),
+        m_optsmt(m, *this),
         m_scoped_state(m),
         m_fm(alloc(generic_model_converter, m, "opt")),
         m_model_fixed(),
@@ -185,6 +188,12 @@ namespace opt {
 
     void context::add_hard_constraint(expr* f) { 
         m_scoped_state.add(f);
+        clear_state();
+    }
+
+    void context::add_hard_constraint(expr* f, expr* t) {
+        m_scoped_state.m_asms.push_back(t);
+        m_scoped_state.add(m.mk_implies(t, f));
         clear_state();
     }
 
@@ -253,7 +262,7 @@ namespace opt {
         m_hard_constraints.append(s.m_hard);
     }
 
-    lbool context::optimize(expr_ref_vector const& asms) {
+    lbool context::optimize(expr_ref_vector const& _asms) {
         if (m_pareto) {
             return execute_pareto();
         }
@@ -263,6 +272,8 @@ namespace opt {
         clear_state();
         init_solver(); 
         import_scoped_state(); 
+        expr_ref_vector asms(_asms);
+        asms.append(m_scoped_state.m_asms);
         normalize(asms);
         if (m_hard_constraints.size() == 1 && m.is_false(m_hard_constraints.get(0))) {
             return l_false;
@@ -300,6 +311,7 @@ namespace opt {
             }
             return is_sat;
         }
+        s.assert_expr(asms);
         IF_VERBOSE(1, verbose_stream() << "(optimize:sat)\n");
         TRACE("opt", model_smt2_pp(tout, m, *m_model, 0););
         m_optsmt.setup(*m_opt_solver.get());
@@ -356,11 +368,22 @@ namespace opt {
         }
     }
 
+    void context::set_model(model_ref& m) { 
+        m_model = m; 
+        opt_params optp(m_params);
+        if (optp.dump_models()) {
+            model_ref md = m->copy();
+            fix_model(md);
+            std::cout << *md << "\n";
+        }
+    }
+
+
     void context::get_model_core(model_ref& mdl) {
         mdl = m_model;
         fix_model(mdl);
         if (mdl) mdl->set_model_completion(true);
-        TRACE("opt", tout << *mdl;);
+        CTRACE("opt", mdl, tout << *mdl;);
     }
 
     void context::get_box_model(model_ref& mdl, unsigned index) {
@@ -382,7 +405,7 @@ namespace opt {
     lbool context::execute_min_max(unsigned index, bool committed, bool scoped, bool is_max) {
         if (scoped) get_solver().push();            
         lbool result = m_optsmt.lex(index, is_max);
-        if (result == l_true) m_optsmt.get_model(m_model, m_labels);
+        if (result == l_true) { m_optsmt.get_model(m_model, m_labels); SASSERT(m_model); }
         if (scoped) get_solver().pop(1);        
         if (result == l_true && committed) m_optsmt.commit_assignment(index);
         if (result == l_true && m_optsmt.is_unbounded(index, is_max) && contains_quantifiers()) {
@@ -436,7 +459,7 @@ namespace opt {
         for (unsigned i = 0; r == l_true && i < sz; ++i) {
             objective const& o = m_objectives[i];
             bool is_last = i + 1 == sz;            
-            r = execute(o, i + 1 < sz, sc && !is_last && o.m_type != O_MAXSMT);
+            r = execute(o, i + 1 < sz, sc && !is_last);
             if (r == l_true && o.m_type == O_MINIMIZE && !get_lower_as_num(i).is_finite()) {
                 return r;
             }
@@ -481,7 +504,7 @@ namespace opt {
                 ++j;
             }
         }
-        if (r == l_true && m_box_models.size() > 0) {
+        if (r == l_true && !m_box_models.empty()) {
             m_model = m_box_models[0];
         }
         return r;
@@ -853,7 +876,10 @@ namespace opt {
                             bool& neg, symbol& id, expr_ref& orig_term, unsigned& index) {
         if (!is_app(fml)) return false;
         neg = false;
+        orig_term = nullptr;
+        index = 0;
         app* a = to_app(fml);
+        
         if (m_objective_fns.find(a->get_decl(), index) && m_objectives[index].m_type == O_MAXSMT) {
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 expr_ref arg(a->get_arg(i), m);
@@ -995,13 +1021,13 @@ namespace opt {
     void context::from_fmls(expr_ref_vector const& fmls) {
         TRACE("opt", tout << fmls << "\n";);
         m_hard_constraints.reset();
-        expr_ref orig_term(m);
         for (expr * fml : fmls) {
             app_ref tr(m);
+            expr_ref orig_term(m);
             expr_ref_vector terms(m);
             vector<rational> weights;
             rational offset(0);
-            unsigned index;
+            unsigned index = 0;
             symbol id;
             bool neg;
             if (is_maxsat(fml, terms, weights, offset, neg, id, orig_term, index)) {
@@ -1058,6 +1084,9 @@ namespace opt {
 
 
     void context::model_updated(model* md) {
+        model_ref mdl = md;
+        set_model(mdl);
+#if 0
         opt_params optp(m_params);
         symbol prefix = optp.solution_prefix();
         if (prefix == symbol::null || prefix == symbol("")) return;        
@@ -1070,6 +1099,7 @@ namespace opt {
             out << *mdl;
             out.close();
         }
+#endif
     }
 
 
@@ -1573,7 +1603,6 @@ namespace opt {
                            m_model_converter->display(verbose_stream() << "mc\n");
                            model_smt2_pp(verbose_stream(), m, *mdl, 0);
                            verbose_stream() << to_string_internal() << "\n");
-                exit(0);
             }
         }
     }
@@ -1596,7 +1625,7 @@ namespace opt {
                 value = obj.m_adjust_value(value);
                 rational value0 = ms.get_lower();
                 TRACE("opt", tout << "value " << value << " " << value0 << "\n";);
-                SASSERT(value == value0);
+                // TBD is this correct? SASSERT(value == value0);
             }
         }
     }
@@ -1604,6 +1633,7 @@ namespace opt {
     void context::validate_lex() {
         rational r1;
         expr_ref val(m);
+        SASSERT(m_model);
         for (unsigned i = 0; i < m_objectives.size(); ++i) {
             objective const& obj = m_objectives[i];
             switch(obj.m_type) {
@@ -1632,7 +1662,10 @@ namespace opt {
                     }
                     // TBD: check that optimal was not changed.
                 }
-                TRACE("opt", tout << "value " << value << "\n";);
+                maxsmt& ms = *m_maxsmts.find(obj.m_id);
+                rational value0 = ms.get_lower();
+                TRACE("opt", tout << "value " << value << " other " << value0 << "\n";);
+                // TBD SASSERT(value0 == value);
                 break;
             }
             }       

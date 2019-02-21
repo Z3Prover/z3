@@ -154,7 +154,7 @@ namespace realclosure {
 
     struct value {
         unsigned m_ref_count;  //!< Reference counter
-        bool     m_rational;   //!< True if the value is represented as an abitrary precision rational value.
+        bool     m_rational;   //!< True if the value is represented as an arbitrary precision rational value.
         mpbqi    m_interval;   //!< approximation as an interval with binary rational end-points
         // When performing an operation OP, we may have to make the width (upper - lower) of m_interval very small.
         // The precision (i.e., a small interval) needed for executing OP is usually unnecessary for subsequent operations,
@@ -283,7 +283,7 @@ namespace realclosure {
     struct algebraic : public extension {
         polynomial   m_p;
         mpbqi        m_iso_interval;
-        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constains more than one root of m_p.
+        sign_det *   m_sign_det; //!< != 0         if m_iso_interval constrains more than one root of m_p.
         unsigned     m_sc_idx;   //!< != UINT_MAX  if m_sign_det != 0, in this case m_sc_idx < m_sign_det->m_sign_conditions.size()
         bool         m_depends_on_infinitesimals;  //!< True if the polynomial p depends on infinitesimal extensions.
 
@@ -1741,7 +1741,7 @@ namespace realclosure {
            \brief In the sign determination algorithm main loop, we keep processing polynomials q,
            and checking whether they discriminate the roots of the target polynomial.
 
-           The vectors sc_cardinalities contains the cardinalites of the new realizable sign conditions.
+           The vectors sc_cardinalities contains the cardinalities of the new realizable sign conditions.
            That is, we started we a sequence of sign conditions
                      sc_1, ..., sc_n,
            If q2_used is true, then we expanded this sequence as
@@ -1750,7 +1750,7 @@ namespace realclosure {
 
            Thus, q is useful (i.e., it is a discriminator for the roots of p) IF
                 If !q2_used,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
-                If q2_used,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+                If q2_used,    then There is an i s.t. AtLeastTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
         */
         bool keep_new_sc_assignment(unsigned sz, int const * sc_cardinalities, bool q2_used) {
             SASSERT(q2_used  || sz % 2 == 0);
@@ -2038,7 +2038,7 @@ namespace realclosure {
                 // We should keep q only if it discriminated something.
                 // That is,
                 //   If !use_q2,   then There is an i s.t. sc_cardinalities[2*i] > 0 && sc_cardinalities[2*i] > 0
-                //   If use_q2,    then There is an i s.t. AtLeatTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
+                //   If use_q2,    then There is an i s.t. AtLeastTwo(sc_cardinalities[3*i] > 0, sc_cardinalities[3*i+1] > 0, sc_cardinalities[3*i+2] > 0)
                 if (!keep_new_sc_assignment(sc_cardinalities.size(), sc_cardinalities.c_ptr(), use_q2)) {
                     // skip q since it did not reduced the cardinality of the existing sign conditions.
                     continue;
@@ -3466,11 +3466,11 @@ namespace realclosure {
         // ---------------------------------
 
         bool is_monic(value_ref_buffer const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         bool is_monic(polynomial const & p) {
-            return p.size() > 0 && is_rational_one(p[p.size() - 1]);
+            return !p.empty() && is_rational_one(p[p.size() - 1]);
         }
 
         /**

@@ -56,7 +56,7 @@ lbool lackr::operator() () {
     if (!init()) return l_undef;
     const lbool rv = m_eager ? eager() : lazy();
     if (rv == l_true) m_sat->get_model(m_model);
-    CTRACE("lackr", rv == l_true,
+    CTRACE("ackermannize", rv == l_true,
         model_smt2_pp(tout << "abstr_model(\n", m_m, *(m_model.get()), 2); tout << ")\n"; );
     return rv;
 }
@@ -89,7 +89,7 @@ bool lackr::init() {
 // Introduce ackermann lemma for the two given terms.
 //
 bool lackr::ackr(app * const t1, app * const t2) {
-    TRACE("lackr", tout << "ackr "
+    TRACE("ackermannize", tout << "ackr "
             << mk_ismt2_pp(t1, m_m, 2) << " , " << mk_ismt2_pp(t2, m_m, 2) << "\n";);
     const unsigned sz = t1->get_num_args();
     SASSERT(t2->get_num_args() == sz);
@@ -99,7 +99,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
         expr * const arg2 = t2->get_arg(i);
         if (m_m.are_equal(arg1, arg2)) continue; // quickly skip syntactically equal
         if (m_m.are_distinct(arg1, arg2)){ // quickly abort if there are two distinct (e.g. numerals)                    
-            TRACE("lackr", tout << "never eq\n";);
+            TRACE("ackermannize", tout << "never eq\n";);
             return false;
         }
         eqs.push_back(m_m.mk_eq(arg1, arg2));
@@ -107,22 +107,22 @@ bool lackr::ackr(app * const t1, app * const t2) {
     app * const a1 = m_info->get_abstr(t1);
     app * const a2 = m_info->get_abstr(t2);
     SASSERT(a1 && a2);
-    TRACE("lackr", tout << "abstr1 " << mk_ismt2_pp(a1, m_m, 2) << "\n";);
-    TRACE("lackr", tout << "abstr2 " << mk_ismt2_pp(a2, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "abstr1 " << mk_ismt2_pp(a1, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "abstr2 " << mk_ismt2_pp(a2, m_m, 2) << "\n";);
     expr_ref lhs(m_m);
     lhs = (eqs.size() == 1) ? eqs.get(0) : m_m.mk_and(eqs.size(), eqs.c_ptr());
-    TRACE("lackr", tout << "ackr constr lhs" << mk_ismt2_pp(lhs, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "ackr constr lhs" << mk_ismt2_pp(lhs, m_m, 2) << "\n";);
     expr_ref rhs(m_m.mk_eq(a1, a2),m_m);
-    TRACE("lackr", tout << "ackr constr rhs" << mk_ismt2_pp(rhs, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "ackr constr rhs" << mk_ismt2_pp(rhs, m_m, 2) << "\n";);
     expr_ref cg(m_m.mk_implies(lhs, rhs), m_m);
-    TRACE("lackr", tout << "ackr constr" << mk_ismt2_pp(cg, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "ackr constr" << mk_ismt2_pp(cg, m_m, 2) << "\n";);
     expr_ref cga(m_m);
     m_info->abstract(cg, cga); // constraint needs abstraction due to nested applications
     m_simp(cga);
-    TRACE("lackr", tout << "ackr constr abs:" << mk_ismt2_pp(cga, m_m, 2) << "\n";);
+    TRACE("ackermannize", tout << "ackr constr abs:" << mk_ismt2_pp(cga, m_m, 2) << "\n";);
     if (m_m.is_true(cga)) return false;
     m_st.m_ackrs_sz++;
-    m_ackrs.push_back(cga);
+    m_ackrs.push_back(std::move(cga));
     return true;
 }
 
@@ -130,11 +130,10 @@ bool lackr::ackr(app * const t1, app * const t2) {
 // Introduce the ackermann lemma for each pair of terms.
 //
 void lackr::eager_enc() {
-    TRACE("lackr", tout << "#funs: " << m_fun2terms.size() << std::endl;);
-    const fun2terms_map::iterator e = m_fun2terms.end();
-    for (fun2terms_map::iterator i = m_fun2terms.begin(); i != e; ++i) {
+    TRACE("ackermannize", tout << "#funs: " << m_fun2terms.size() << std::endl;);
+    for (auto const& kv : m_fun2terms) {
         checkpoint();
-        app_set * const  ts = i->get_value();
+        app_set * const  ts = kv.get_value();
         const app_set::iterator r = ts->end();
         for (app_set::iterator j = ts->begin(); j != r; ++j) {
             app_set::iterator k = j;
@@ -142,10 +141,11 @@ void lackr::eager_enc() {
             for (;  k != r; ++k) {
                 app * const t1 = *j;
                 app * const t2 = *k;
-                SASSERT(t1->get_decl() == i->m_key);
-                SASSERT(t2->get_decl() == i->m_key);
-                if (t1 == t2) continue;
-                ackr(t1,t2);
+                SASSERT(t1->get_decl() == kv.m_key);
+                SASSERT(t2->get_decl() == kv.m_key);
+                if (t1 != t2) {
+                    ackr(t1,t2);
+                }
             }
         }
     }
@@ -153,18 +153,15 @@ void lackr::eager_enc() {
 
 
 void lackr::abstract() {
-    const fun2terms_map::iterator e = m_fun2terms.end();
-    for (fun2terms_map::iterator i = m_fun2terms.begin(); i != e; ++i) {
-        func_decl* const fd = i->m_key;
-        app_set * const ts = i->get_value();
+    for (auto const& kv : m_fun2terms) {
+        func_decl* const fd = kv.m_key;
+        app_set * const ts = kv.get_value();
         sort* const s = fd->get_range();
-        const app_set::iterator r = ts->end();
-        for (app_set::iterator j = ts->begin(); j != r; ++j) {
+        for (app * t : (*ts)) {
             app * const fc = m_m.mk_fresh_const(fd->get_name().str().c_str(), s);
-            app * const t = *j;
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);
-            TRACE("lackr", tout << "abstr term "
+            TRACE("ackermannize", tout << "abstr term "
                     << mk_ismt2_pp(t, m_m, 2)
                     << " -> "
                     << mk_ismt2_pp(fc, m_m, 2)
@@ -189,7 +186,7 @@ void lackr::add_term(app* a) {
         ts = alloc(app_set);
         m_fun2terms.insert(fd, ts);
     }
-    TRACE("lackr", tout << "term(" << mk_ismt2_pp(a, m_m, 2) << ")\n";);
+    TRACE("ackermannize", tout << "term(" << mk_ismt2_pp(a, m_m, 2) << ")\n";);
     ts->insert(a);
 }
 
@@ -203,7 +200,7 @@ void  lackr::push_abstraction() {
 lbool lackr::eager() {
     SASSERT(m_is_init);
     push_abstraction();
-    TRACE("lackr", tout << "run sat 0\n"; );
+    TRACE("ackermannize", tout << "run sat 0\n"; );
     const lbool rv0 = m_sat->check_sat(0, nullptr);
     if (rv0 == l_false) return l_false;
     eager_enc();
@@ -211,7 +208,7 @@ lbool lackr::eager() {
     all = m_m.mk_and(m_ackrs.size(), m_ackrs.c_ptr());
     m_simp(all);
     m_sat->assert_expr(all);
-    TRACE("lackr", tout << "run sat all\n"; );
+    TRACE("ackermannize", tout << "run sat all\n"; );
     return m_sat->check_sat(0, nullptr);
 }
 
@@ -223,7 +220,7 @@ lbool lackr::lazy() {
     while (true) {
         m_st.m_it++;
         checkpoint();
-        TRACE("lackr", tout << "lazy check: " << m_st.m_it << "\n";);
+        TRACE("ackermannize", tout << "lazy check: " << m_st.m_it << "\n";);
         const lbool r = m_sat->check_sat(0, nullptr);
         if (r == l_undef) return l_undef; // give up
         if (r == l_false) return l_false; // abstraction unsat
@@ -264,16 +261,15 @@ bool lackr::collect_terms() {
                 visited.mark(curr, true);
                 stack.pop_back();
                 break;
-            case AST_APP:
-            {
+            case AST_APP: {
                 app * const a = to_app(curr);
                 if (for_each_expr_args(stack, visited, a->get_num_args(), a->get_args())) {
                     visited.mark(curr, true);
                     stack.pop_back();
                     add_term(a);
                 }
-            }
                 break;
+            }
             case AST_QUANTIFIER:
                 return false; // quantifiers not supported
             default:

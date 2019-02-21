@@ -323,7 +323,7 @@ br_status pb_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * cons
         break;
     }
     }
-    TRACE("pb",
+    TRACE("pb_verbose",
           expr_ref tmp(m);
           tmp = m.mk_app(f, num_args, args);
           tout << tmp << "\n";

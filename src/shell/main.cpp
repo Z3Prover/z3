@@ -60,7 +60,7 @@ void error(const char * msg) {
 void display_usage() {
     std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
     std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
     std::cout << "64";
 #else
     std::cout << "32";
@@ -115,6 +115,7 @@ void display_usage() {
 }
    
 void parse_cmd_line_args(int argc, char ** argv) {
+    long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
     while (i < argc) {
@@ -161,7 +162,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             if (strcmp(opt_name, "version") == 0) {
                 std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
                 std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
                 std::cout << "64";
 #else
                 std::cout << "32";
@@ -216,8 +217,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
                     error("option argument (-T:timeout) is missing.");
-                long tm = strtol(opt_arg, nullptr, 10);
-                set_timeout(tm * 1000);
+                timeout = strtol(opt_arg, nullptr, 10);
             }
             else if (strcmp(opt_name, "t") == 0) {
                 if (!opt_arg)
@@ -292,6 +292,9 @@ void parse_cmd_line_args(int argc, char ** argv) {
         }
         i++;
     }
+
+    if (timeout)
+        set_timeout(timeout * 1000);
 }
 
 

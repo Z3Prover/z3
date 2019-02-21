@@ -17,6 +17,7 @@ z3_add_component(ast
     csp_decl_plugin.cpp
     datatype_decl_plugin.cpp
     decl_collector.cpp
+    display_dimacs.cpp
     dl_decl_plugin.cpp
     expr2polynomial.cpp
     expr2var.cpp

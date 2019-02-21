@@ -387,7 +387,7 @@ namespace qe {
             for (row const& r : rows) {
                 expr_ref_vector ts(m);
                 expr_ref t(m), s(m), val(m);
-                if (r.m_vars.size() == 0) {
+                if (r.m_vars.empty()) {
                     continue;
                 }
                 if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_mod) {

@@ -338,26 +338,33 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
 """)
 
     for sig in _API2PY:
-        name   = sig[0]
-        result = sig[1]
-        params = sig[2]
-        num    = len(params)
-        core_py.write("def %s(" % name)
-        display_args(num)
-        comma = ", " if num != 0 else ""
-        core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
-        lval = "r = " if result != VOID else ""
-        core_py.write("  %s_elems.f(" % lval)
-        display_args_to_z3(params)
-        core_py.write(")\n")
-        if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
-            core_py.write("  _elems.Check(a0)\n")
-        if result == STRING:
-            core_py.write("  return _to_pystr(r)\n")
-        elif result != VOID:
-            core_py.write("  return r\n")
-        core_py.write("\n")
-    core_py
+        mk_py_wrapper_single(sig)
+        if sig[1] == STRING:
+            mk_py_wrapper_single(sig, decode_string=False)
+
+def mk_py_wrapper_single(sig, decode_string=True):
+    name    = sig[0]
+    result  = sig[1]
+    params  = sig[2]
+    num     = len(params)
+    def_name = name
+    if not decode_string:
+        def_name += '_bytes'
+    core_py.write("def %s(" % def_name)
+    display_args(num)
+    comma = ", " if num != 0 else ""
+    core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
+    lval = "r = " if result != VOID else ""
+    core_py.write("  %s_elems.f(" % lval)
+    display_args_to_z3(params)
+    core_py.write(")\n")
+    if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+        core_py.write("  _elems.Check(a0)\n")
+    if result == STRING and decode_string:
+        core_py.write("  return _to_pystr(r)\n")
+    elif result != VOID:
+        core_py.write("  return r\n")
+    core_py.write("\n")
 
 
 ## .NET API native interface
@@ -584,7 +591,7 @@ def mk_java(java_dir, package_name):
     java_wrapper.write('extern "C" {\n')
     java_wrapper.write('#endif\n\n')
     java_wrapper.write('#ifdef __GNUC__\n#if __GNUC__ >= 4\n#define DLL_VIS __attribute__ ((visibility ("default")))\n#else\n#define DLL_VIS\n#endif\n#else\n#define DLL_VIS\n#endif\n\n')
-    java_wrapper.write('#if defined(_M_X64) || defined(_AMD64_)\n\n')
+    java_wrapper.write('#if defined(__LP64__) || defined(_WIN64)\n\n')
     java_wrapper.write('#define GETLONGAELEMS(T,OLD,NEW)                                   \\\n')
     java_wrapper.write('  T * NEW = (OLD == 0) ? 0 : (T*) jenv->GetLongArrayElements(OLD, NULL);\n')
     java_wrapper.write('#define RELEASELONGAELEMS(OLD,NEW)                                 \\\n')
@@ -1335,6 +1342,10 @@ z3_long_funs = frozenset([
     'Z3_simplify_ex',
     ])
 
+z3_ml_overrides = frozenset([
+    'Z3_mk_config'
+    ])
+
 def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_wrapperf = os.path.join(ml_output_dir, 'z3native_stubs.c')
     ml_wrapper = open(ml_wrapperf, 'w')
@@ -1346,6 +1357,10 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
     ml_pref.close()
 
     for name, result, params in _dotnet_decls:
+
+        if name in z3_ml_overrides:
+            continue
+
         ip = inparams(params)
         op = outparams(params)
         ap = arrayparams(params)
@@ -1527,6 +1542,11 @@ def mk_z3native_stubs_c(ml_src_dir, ml_output_dir): # C interface
                 ml_wrapper.write('_a%i' % i)
             i = i + 1
         ml_wrapper.write(');\n')
+
+        if name in NULLWrapped:
+            ml_wrapper.write('  if (z3rv_m == NULL) {\n')
+            ml_wrapper.write('    caml_raise_with_string(*caml_named_value("Z3EXCEPTION"), "Object allocation failed");\n')
+            ml_wrapper.write('  }\n')
 
         if release_caml_gc:
             ml_wrapper.write('\n  caml_acquire_runtime_system();\n')

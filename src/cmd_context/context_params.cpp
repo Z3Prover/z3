@@ -166,8 +166,8 @@ void context_params::updt_params(params_ref const & p) {
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {
-    d.insert("timeout", CPK_UINT, "default timeout (in milliseconds) used for solvers", "4294967295");
-    d.insert("rlimit", CPK_UINT, "default resource limit used for solvers. Unrestricted when set to 0.", "0");
+    insert_rlimit(d);
+    insert_timeout(d);
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "false");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");

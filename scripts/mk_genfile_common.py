@@ -8,6 +8,7 @@
 # You should **not** import ``mk_util`` here
 # to avoid having this code depend on the
 # of the Python build system.
+import io
 import os
 import pprint
 import logging
@@ -622,7 +623,7 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
     reg_mod_descr_pat = re.compile('[ \t]*REG_MODULE_DESCRIPTION\(\'([^\']*)\', *\'([^\']*)\'\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
-        with open(h_file, 'r') as fin:
+        with io.open(h_file, encoding='utf-8', mode='r') as fin:
             for line in fin:
                 m = reg_pat.match(line)
                 if m:
@@ -696,7 +697,7 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
         try:
-            with open(h_file, 'r') as fin:
+            with io.open(h_file, encoding='utf-8', mode='r') as fin:
                 for line in fin:
                     if tactic_pat.match(line):
                         if not added_include:
@@ -719,7 +720,7 @@ def mk_install_tactic_cpp_internal(h_files_full_path, path):
                                 fullname, line))
                             raise e
         except Exception as e:
-           _loggeer.error("Failed to read file {}\n".format(h_file))
+           _logger.error("Failed to read file {}\n".format(h_file))
            raise e
     # First pass will just generate the tactic factories
     fout.write('#define ADD_TACTIC_CMD(NAME, DESCR, CODE) ctx.insert(alloc(tactic_cmd, symbol(NAME), DESCR, [](ast_manager &m, const params_ref &p) { return CODE; }))\n')
@@ -764,7 +765,7 @@ def mk_mem_initializer_cpp_internal(h_files_full_path, path):
     finalizer_pat        = re.compile('[ \t]*ADD_FINALIZER\(\'([^\']*)\'\)')
     for h_file in sorted_headers_by_component(h_files_full_path):
         added_include = False
-        with open(h_file, 'r') as fin:
+        with io.open(h_file, encoding='utf-8', mode='r') as fin:
             for line in fin:
                 m = initializer_pat.match(line)
                 if m:

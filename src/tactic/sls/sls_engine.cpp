@@ -440,7 +440,7 @@ lbool sls_engine::search() {
 
         // get candidate variables
         ptr_vector<func_decl> & to_evaluate = m_tracker.get_unsat_constants(m_assertions);
-        if (!to_evaluate.size())
+        if (to_evaluate.empty())
         {
             res = l_true;
             goto bailout;
@@ -492,7 +492,7 @@ lbool sls_engine::search() {
 
             score = m_tracker.get_top_sum();
 
-            // update assertion weights if a weigthing is enabled (sp < 1024)
+            // update assertion weights if a weighting is enabled (sp < 1024)
             if (m_paws)
             {
                 for (unsigned i = 0; i < sz; i++)

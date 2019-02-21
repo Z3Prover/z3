@@ -774,11 +774,13 @@ namespace qe {
             TRACE("qe", tout << "literals: " << res << "\n";);            
         }
 
-        void mk_distinct(expr_ref_vector& res) {
-            vector<ptr_vector<term>> decl2terms; // terms that use function f
-            ptr_vector<func_decl> decls;
-            decl2terms.reset();
+        vector<ptr_vector<term>> m_decl2terms; // terms that use function f
+        ptr_vector<func_decl>    m_decls;
+        
+        void collect_decl2terms() {
             // Collect the projected function symbols.
+            m_decl2terms.reset();
+            m_decls.reset();
             for (term *t : m_tg.m_terms) {
                 expr* e = t->get_expr();
                 if (!is_app(e)) continue;
@@ -787,38 +789,61 @@ namespace qe {
                 func_decl* d = a->get_decl();
                 if (d->get_arity() == 0) continue;
                 unsigned id = d->get_decl_id();
-                decl2terms.reserve(id+1);
-                if (decl2terms[id].empty()) decls.push_back(d);
-                decl2terms[id].push_back(t);
+                m_decl2terms.reserve(id+1);
+                if (m_decl2terms[id].empty()) m_decls.push_back(d);
+                m_decl2terms[id].push_back(t);
             }
-            
+        }
+
+        void args_are_distinct(expr_ref_vector& res) {
             //
             // for each projected function that occurs 
             // (may occur) in multiple congruence classes, 
             // produce assertions that non-congruent arguments 
-            // are forced distinct.
+            // are distinct.
             //
-            for (func_decl* d : decls) {
+            for (func_decl* d : m_decls) {
                 unsigned id = d->get_decl_id();
-                ptr_vector<term> const& terms = decl2terms[id];
+                ptr_vector<term> const& terms = m_decl2terms[id];
                 if (terms.size() <= 1) continue;
                 unsigned arity = d->get_arity();
                 for (unsigned i = 0; i < arity; ++i) {
-                    obj_hashtable<expr> roots;
+                    obj_hashtable<expr> roots, root_vals;
+                    expr_ref_vector pinned(m);
                     for (term* t : terms) {
                         expr* arg = to_app(t->get_expr())->get_arg(i);
                         term const& root = m_tg.get_term(arg)->get_root();
-                        roots.insert(root.get_expr());
+                        expr* r = root.get_expr();
+                        // if a model is given, then use the equivalence class induced 
+                        // by the model. Otherwise, use the congruence class.
+                        if (m_model) {
+                            expr_ref tmp(m);
+                            tmp = (*m_model)(r);
+                            if (!root_vals.contains(tmp)) {
+                                root_vals.insert(tmp);
+                                roots.insert(r);
+                                pinned.push_back(tmp);
+                            }
+                        }
+                        else {
+                            roots.insert(r);
+                        }
                     }
                     if (roots.size() > 1) {
                         ptr_buffer<expr> args;
                         for (expr* r : roots) {
                             args.push_back(r);
                         }
+                        TRACE("qe", tout << "function: " << d->get_name() << "\n";);
                         res.push_back(m.mk_distinct(args.size(), args.c_ptr()));
                     }
                 }
             }
+        }
+
+        void mk_distinct(expr_ref_vector& res) {
+            collect_decl2terms();
+            args_are_distinct(res);
             TRACE("qe", tout << res << "\n";);
         }
 
@@ -965,6 +990,7 @@ namespace qe {
             m_pinned.reset();
             m_model.reset();
         }
+
         expr_ref_vector project() {
             expr_ref_vector res(m);
             purify();

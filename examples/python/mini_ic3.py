@@ -17,6 +17,7 @@ class Horn2Transitions:
     def __init__(self):
         self.trans = True
         self.init = True
+        self.inputs = []
         self.goal = True
         self.index = 0
         
@@ -48,6 +49,9 @@ class Horn2Transitions:
         if pred is None:
             return False
         self.goal = self.subst_vars("x", inv, pred)
+        self.goal = self.subst_vars("i", self.goal, self.goal)
+        self.inputs += self.vars
+        self.inputs = list(set(self.inputs))
         return True
 
     def is_body(self, body):
@@ -77,6 +81,9 @@ class Horn2Transitions:
         self.xs = self.vars
         pred = self.subst_vars("xn", inv1, pred)
         self.xns = self.vars
+        pred = self.subst_vars("i", pred, pred)
+        self.inputs += self.vars
+        self.inputs = list(set(self.inputs))
         self.trans = pred
         return True
 
@@ -97,11 +104,23 @@ class Horn2Transitions:
 
     def mk_subst(self, prefix, inv):
         self.index = 0
-        return [(f, self.mk_bool(prefix)) for f in inv.children()]
+        if self.is_inv(inv) is not None:
+            return [(f, self.mk_bool(prefix)) for f in inv.children()]
+        else:
+            vars = self.get_vars(inv)
+            return [(f, self.mk_bool(prefix)) for f in vars]
 
     def mk_bool(self, prefix):
         self.index += 1
         return Bool("%s%d" % (prefix, self.index))
+
+    def get_vars(self, f, rs=[]):
+        if is_var(f):
+            return z3util.vset(rs + [f], str)
+        else:
+            for f_ in f.children():
+                rs = self.get_vars(f_, rs)
+            return z3util.vset(rs, str)
 
 # Produce a finite domain solver.
 # The theory QF_FD covers bit-vector formulas
@@ -169,8 +188,9 @@ def prune(R):
     return R - removed
                 
 class MiniIC3:
-    def __init__(self, init, trans, goal, x0, xn):
+    def __init__(self, init, trans, goal, x0, inputs, xn):
         self.x0 = x0
+        self.inputs = inputs
         self.xn = xn
         self.init = init
         self.bad = goal
@@ -229,6 +249,9 @@ class MiniIC3:
     def project0(self, m):
         return self.values2literals(m, self.x0)
 
+    def projectI(self, m):
+        return self.values2literals(m, self.inputs)
+
     def projectN(self, m):
         return self.values2literals(m, self.xn)
 
@@ -242,12 +265,14 @@ class MiniIC3:
         is_sat = self.s_bad.check()
         if is_sat == sat:
            m = self.s_bad.model()
-           props = self.project0(m)
+           cube = self.project0(m)
+           props = cube + self.projectI(m)
            self.s_good.push()
            self.s_good.add(R)
            is_sat2 = self.s_good.check(props)
            assert is_sat2 == unsat
            core = self.s_good.unsat_core()
+           core = [c for c in core if c in set(cube)]
            self.s_good.pop()
         self.s_bad.pop()
         return is_sat, core
@@ -263,8 +288,8 @@ class MiniIC3:
 
     # minimize cube that is core of Dual solver.
     # this assumes that props & cube => Trans    
-    def minimize_cube(self, cube, lits):
-        is_sat = self.min_cube_solver.check(lits + [c for c in cube])
+    def minimize_cube(self, cube, inputs, lits):
+        is_sat = self.min_cube_solver.check(lits + [c for c in cube] + [i for i in inputs])
         assert is_sat == unsat
         core = self.min_cube_solver.unsat_core()
         assert core
@@ -306,7 +331,9 @@ class MiniIC3:
     def generalize(self, cube, f):
         s = self.states[f - 1].solver
         if unsat == s.check(cube):
-            return s.unsat_core(), f
+            core = s.unsat_core()
+            if not check_disjoint(self.init, self.prev(And(core))):
+                return core, f
         return cube, f
 
     # Check if the negation of cube is inductive at level f
@@ -319,7 +346,7 @@ class MiniIC3:
            m = s.model()
         s.pop()
         if is_sat == sat:
-           cube = self.next(self.minimize_cube(self.project0(m), self.projectN(m)))
+           cube = self.next(self.minimize_cube(self.project0(m), self.projectI(m), self.projectN(m)))
         elif is_sat == unsat:
            cube, f = self.generalize(cube, f)
         return cube, f, is_sat
@@ -348,7 +375,7 @@ class MiniIC3:
 def test(file):
     h2t = Horn2Transitions()
     h2t.parse(file)
-    mp = MiniIC3(h2t.init, h2t.trans, h2t.goal, h2t.xs, h2t.xns)
+    mp = MiniIC3(h2t.init, h2t.trans, h2t.goal, h2t.xs, h2t.inputs, h2t.xns)
     result = mp.run()    
     if isinstance(result, Goal):
        g = result
@@ -364,75 +391,7 @@ def test(file):
 
 test("data/horn1.smt2")
 test("data/horn2.smt2")
-
-
-
-"""
-# TBD: Quip variant of IC3
-
-must = True
-may = False
-
-class QGoal:
-    def __init__(self, cube, parent, level, must):
-        self.level = level
-        self.cube = cube
-        self.parent = parent
-        self.must = must
-
-class Quip(MiniIC3):
-
-    # prev & tras -> r', such that r' intersects with cube
-    def add_reachable(self, prev, cube):
-        s = fd_solver()
-        s.add(self.trans)
-        s.add(prev)
-        s.add(Or(cube))
-        is_sat = s.check()
-        assert is_sat == sat
-        m = s.model();
-        result = self.values2literals(m, cube)
-        assert result
-        self.reachable.add(result)
-
-    # A state s0 and level f0 such that
-    # not(s0) is f0-1 inductive
-    def quip_blocked(self, s0, f0):
-        self.push_heap(QGoal(self.next(s0), None, f0, must))
-        while self.goals:
-           f, g = heapq.heappop(self.goals)
-           sys.stdout.write("%d." % f)
-           sys.stdout.flush()
-           if f == 0:
-              if g.must:
-                 print("")
-                 return g
-              self.add_reachable(self.init, p.parent.cube)
-              continue
-
-        # TBD
-        return None
-
-                        
-    def run(self):
-        if not check_disjoint(self.init, self.bad):
-           return "goal is reached in initial state"
-        level = 0
-        while True:
-            inv = self.is_valid()
-            if inv is not None:
-                return inv
-            is_sat, cube = self.unfold()
-            if is_sat == unsat:
-               level += 1
-               print("Unfold %d" % level)
-               sys.stdout.flush()
-               self.add_solver()
-            elif is_sat == sat:
-               cex = self.quipie_blocked(cube, level)
-               if cex is not None:
-                  return cex
-            else:
-               return is_sat  
-
-"""
+test("data/horn3.smt2")
+test("data/horn4.smt2")
+test("data/horn5.smt2")
+# test("data/horn6.smt2") # takes long time to finish

@@ -128,7 +128,9 @@ namespace sat {
         double             m_lookahead_cube_psat_clause_base;
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
         bool               m_lookahead_global_autarky;
+        double             m_lookahead_delta_fraction;
         bool               m_lookahead_use_learned;
 
         bool               m_incremental;
@@ -155,6 +157,7 @@ namespace sat {
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
         bool               m_drat;
+        bool               m_drat_binary;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;

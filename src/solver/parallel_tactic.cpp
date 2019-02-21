@@ -213,7 +213,7 @@ class parallel_tactic : public tactic {
         solver_state* clone() {
             SASSERT(!m_cubes.empty());
             ast_manager& m = m_solver->get_manager();
-            ast_manager* new_m = alloc(ast_manager, m, m.proof_mode());
+            ast_manager* new_m = alloc(ast_manager, m, true);
             ast_translation tr(m, *new_m);
             solver* s = m_solver.get()->translate(*new_m, m_params);
             solver_state* st = alloc(solver_state, new_m, s, m_params);
@@ -330,6 +330,7 @@ private:
     volatile bool m_has_undef;
     bool          m_allsat;
     unsigned      m_num_unsat;
+    unsigned      m_last_depth;
     int           m_exn_code;
     std::string   m_exn_msg;
 
@@ -340,7 +341,8 @@ private:
         m_has_undef = false;
         m_allsat = false;
         m_branches = 0;    
-        m_num_unsat = 0;    
+        m_num_unsat = 0;
+        m_last_depth = 0;
         m_backtrack_frequency = pp.conquer_backtrack_frequency();
         m_conquer_delay = pp.conquer_delay();
         m_exn_code = 0;
@@ -350,9 +352,10 @@ private:
 
     void log_branches(lbool status) {
         IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :progress " << m_progress << "% ";
-                   if (status == l_true)  verbose_stream() << ":status sat ";
-                   if (status == l_undef) verbose_stream() << ":status unknown ";
-                   verbose_stream() << ":closed " << m_num_unsat << " :open " << m_branches << ")\n";);
+                   if (status == l_true)  verbose_stream() << ":status sat";
+                   if (status == l_undef) verbose_stream() << ":status unknown";
+                   if (m_num_unsat > 0) verbose_stream() << " :closed " << m_num_unsat << "@" << m_last_depth;
+                   verbose_stream() << " :open " << m_branches << ")\n";);
     }
 
     void add_branches(unsigned b) {
@@ -388,10 +391,15 @@ private:
         log_branches(status);
     }
 
-    void report_sat(solver_state& s) {
+    void report_sat(solver_state& s, solver* conquer) {
         close_branch(s, l_true);
         model_ref mdl;
-        s.get_solver().get_model(mdl);
+        if (conquer) {
+            conquer->get_model(mdl);
+        }
+        else {
+            s.get_solver().get_model(mdl);
+        }
         if (mdl) {
             std::lock_guard<std::mutex> lock(m_mutex);
             if (&s.m() != &m_manager) {
@@ -405,13 +413,14 @@ private:
         }
     }
 
-    void inc_unsat() {
+    void inc_unsat(solver_state& s) {
         std::lock_guard<std::mutex> lock(m_mutex);
         ++m_num_unsat;
+        m_last_depth = s.get_depth();
     }
 
     void report_unsat(solver_state& s) {        
-        inc_unsat();
+        inc_unsat(s);
         close_branch(s, l_false);
         if (s.has_assumptions()) {
             expr_ref_vector core(s.m());
@@ -449,7 +458,7 @@ private:
         if (canceled(s)) return;
         switch (s.simplify()) {
         case l_undef: break;
-        case l_true:  report_sat(s); return;
+        case l_true:  report_sat(s, nullptr); return;
         case l_false: report_unsat(s); return;                
         }
         if (canceled(s)) return;
@@ -489,12 +498,12 @@ private:
                     IF_VERBOSE(0, verbose_stream() << "(tactic.parallel :backtrack " << cutoff << " -> " << c.size() << ")\n");
                     cutoff = c.size();
                 }
-                inc_unsat();
+                inc_unsat(s);
                 log_branches(l_false);
                 break;
 
             case l_true:
-                report_sat(s);
+                report_sat(s, conquer.get());
                 if (conquer) {
                     collect_statistics(*conquer.get());
                 }
