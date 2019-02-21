@@ -50,13 +50,13 @@ public:
     
     void start() {
         SASSERT(!m_running);
-        DEBUG_CODE(m_running = true);
+        DEBUG_CODE(m_running = true;);
         m_start = get();
     }
 
     void stop() {
         SASSERT(m_running);
-        DEBUG_CODE(m_running = false);
+        DEBUG_CODE(m_running = false;);
         m_elapsed += get() - m_start;
     }
 
