@@ -18,7 +18,6 @@ Revision History:
 --*/
 #include<sstream>
 #include<iomanip>
-#include<bitset>
 #include "ast/bv_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/warning.h"
@@ -876,6 +875,17 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
     return mk_numeral(val, bv_size);
 }
 
+void log_binary_data(std::ostream &out, unsigned val, unsigned numBits) {
+    SASSERT(numBits <= sizeof(unsigned)*8);
+    for (int shift = numBits-1; shift >= 0; --shift) {
+        if (val & (1 << shift)) {
+            out << "1";
+        } else {
+            out << "0";
+        }
+    }
+ }
+
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
     app * r = m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
@@ -888,7 +898,9 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
             if (bv_size % 4 == 0) {
                 m_manager.trace_stream() << "#x" << std::hex << std::setw(bv_size/4) << std::setfill('0') << val << "\n";
             } else {
-                m_manager.trace_stream() << "#b" << std::bitset<sizeof(unsigned)*8>(val.get_unsigned()).to_string().substr(sizeof(unsigned)*8 - bv_size) << "\n";
+                m_manager.trace_stream() << "#b";
+                log_binary_data(m_manager.trace_stream(), val.get_unsigned(), bv_size);
+                m_manager.trace_stream() << "\n";
             }
             return r;
         }
@@ -923,9 +935,9 @@ app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
             }
             for (unsigned i = 0; i < size; ++i) {
                 if (i == 0 && firstDigitLength != 0) {
-                    m_manager.trace_stream() << std::bitset<digitBitSize>(digits[size-1]).to_string().substr(digitBitSize - firstDigitLength);
+                    log_binary_data(m_manager.trace_stream(), digits[size-1], firstDigitLength);
                 } else {
-                    m_manager.trace_stream() << std::bitset<digitBitSize>(digits[size-i-1]);
+                    log_binary_data(m_manager.trace_stream(), digits[size-i-1], digitBitSize);
                 }
             }
             m_manager.trace_stream() << "\n";

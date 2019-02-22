@@ -1062,8 +1062,10 @@ public:
             expr_ref hi(a.mk_ge(a.mk_sub(x, to_r), a.mk_real(1)), m);
             if (m.has_trace_stream()) th.log_axiom_instantiation(lo);
             mk_axiom(mk_literal(lo));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            if (m.has_trace_stream()) th.log_axiom_instantiation(m.mk_not(hi));
+            if (m.has_trace_stream()) {
+                m.trace_stream() << "[end-of-instance]\n";
+                th.log_axiom_instantiation(m.mk_not(hi));
+            }
             mk_axiom(~mk_literal(hi));
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
@@ -1805,8 +1807,10 @@ public:
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
-            if (m.has_trace_stream()) th.log_axiom_instantiation(m.mk_or(b, m.mk_not(b)));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                th.log_axiom_instantiation(m.mk_or(b, m.mk_not(b)));
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
@@ -1820,8 +1824,10 @@ public:
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
-            if (m.has_trace_stream()) th.log_axiom_instantiation(b);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                th.log_axiom_instantiation(b);
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_lia->get_explanation(), m_lia->is_upper()););
             m_eqs.reset();

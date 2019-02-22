@@ -306,8 +306,10 @@ namespace smt {
             literal end_ge_lo = mk_ge(ji.m_end, clb);
             // Initialization ensures that satisfiable states have completion time below end.
             ast_manager& m = get_manager();
-            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_and(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()), ctx.bool_var2expr(start_ge_lo.var())), ctx.bool_var2expr(end_ge_lo.var())));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                log_axiom_instantiation(m.mk_implies(m.mk_and(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()), ctx.bool_var2expr(start_ge_lo.var())), ctx.bool_var2expr(end_ge_lo.var())));
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             region& r = ctx.get_region();
             ctx.assign(end_ge_lo, 
                        ctx.mk_justification(
@@ -383,8 +385,10 @@ namespace smt {
         context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
         ast_manager& m = get_manager();
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_and(ctx.bool_var2expr(lits[0].var()), ctx.bool_var2expr(lits[1].var()), ctx.bool_var2expr(lits[2].var())), ctx.bool_var2expr(lits[3].var())));
-        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+        if (m.has_trace_stream()) {
+            log_axiom_instantiation(m.mk_implies(m.mk_and(ctx.bool_var2expr(lits[0].var()), ctx.bool_var2expr(lits[1].var()), ctx.bool_var2expr(lits[2].var())), ctx.bool_var2expr(lits[3].var())));
+            m.trace_stream() << "[end-of-instance]\n";
+        }
         return true;
     }
 
@@ -890,8 +894,10 @@ namespace smt {
             if (ctx.is_diseq(e1, e2))
                 continue;
             literal eq = mk_eq_lit(e1, e2);
-            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(ctx.bool_var2expr(eq.var()), m.mk_not(ctx.bool_var2expr(eq.var()))));
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                log_axiom_instantiation(m.mk_or(ctx.bool_var2expr(eq.var()), m.mk_not(ctx.bool_var2expr(eq.var()))));
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             if (ctx.get_assignment(eq) != l_false) {
                 ctx.mark_as_relevant(eq);
                 if (assume_eq(e1, e2)) {
