@@ -24,9 +24,10 @@ Revision History:
 #include <unordered_map>
 #include <unordered_set>
 template <typename C>
-void print_vector(const C & t, std::ostream & out) {
+std::ostream& print_vector(const C & t, std::ostream & out) {
     for (const auto & p : t)
         out << p << " ";
+    return out;
 }
 
 template <typename C, typename D>
@@ -35,10 +36,11 @@ bool contains(const C & collection, const D & key) {
 }
 
 template <typename C>
-void print_vector(const C * t, unsigned size, std::ostream & out) {
+std::ostream& print_vector(const C * t, unsigned size, std::ostream & out) {
     for (unsigned i = 0; i < size; i++ )
         out << t[i] << " ";
     out << std::endl;
+    return out;
 }
 
 

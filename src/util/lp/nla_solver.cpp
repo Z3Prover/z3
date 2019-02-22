@@ -260,7 +260,7 @@ struct solver::imp {
     // return true iff the monomial value is equal to the product of the values of the factors
     bool check_monomial(const monomial& m) const {
         SASSERT(m_lar_solver.get_column_value(m.var()).is_int());
-        TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout););
+        TRACE("nla_solver_check", tout << "m = "; print_monomial_with_vars(m, tout););
         return product_value(m) == m_lar_solver.get_column_value_rational(m.var());
     }
     
@@ -866,18 +866,28 @@ struct solver::imp {
                 sign *= rat_sign(v);
             }
     }
+
+    static bool is_even(unsigned k) {
+        return (k >> 1) << 1 == k;
+    }
     
     void generate_zero_lemma(const monomial& m) {
         SASSERT(!vvr(m).is_zero());
         int sign = rat_sign(vvr(m));
         unsigned zero_j = find_best_zero(m);
         SASSERT(is_set(zero_j));
+        unsigned zero_power = 0;
         for (unsigned j : m){
-            if (j == zero_j) continue;                
+            if (j == zero_j) {
+                zero_power++;
+                continue;
+            }
             get_non_strict_sign(j, sign);
             if(sign == 0)
                 break;
         }
+        if (sign && is_even(zero_power))
+            sign = 0;
         TRACE("nla_solver", tout << "zero_j = " << zero_j << ", sign = " << sign << "\n";);
         if (sign == 0) {
             mk_ineq(zero_j, llc::NE, current_lemma());
@@ -1603,8 +1613,10 @@ struct solver::imp {
     }
 
     bool basic_lemma_for_mon_model_based(const rooted_mon& rm) {
+        TRACE("nla_solver", tout << "rm = "; print_rooted_monomial(rm, tout););
         if (vvr(rm).is_zero()) {
             for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+                
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_zero_model_based(rm, factorization) ||
@@ -1662,6 +1674,8 @@ struct solver::imp {
     }
 
     void init_rm_to_refine() {
+        if (!m_rm_table.to_refine().empty())
+            return;
         std::unordered_set<unsigned> ref;
         ref.insert(m_to_refine.begin(), m_to_refine.end());
         m_rm_table.init_to_refine(ref);
@@ -1677,9 +1691,11 @@ struct solver::imp {
     bool basic_lemma(bool derived) {
         if (basic_sign_lemma(derived))
             return true;
-        
+        if (derived)
+            return false;
         init_rm_to_refine();
         const auto& rm_ref = m_rm_table.to_refine();
+        TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
         unsigned start = random() % rm_ref.size();
         unsigned i = start;
         do {
@@ -2227,7 +2243,7 @@ struct solver::imp {
     
     bool order_lemma(bool derived) {
         TRACE("nla_solver", );
-
+        init_rm_to_refine();
         const auto& rm_ref = m_rm_table.to_refine();
         unsigned start = random() % rm_ref.size();
         unsigned i = start;
@@ -2538,7 +2554,7 @@ struct solver::imp {
     }
     
     bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
-        // todo : random        
+        // todo : run on m_rm_table.to_refine()
         for (const auto& rm : m_rm_table.vec()) {
             if (check_monomial(m_monomials[rm.orig_index()]))
                 continue;
@@ -2546,8 +2562,10 @@ struct solver::imp {
             if (find_bfc_on_monomial(rm, bf)) {
                 j = m_monomials[rm.orig_index()].var();
                 sign = rm.orig_sign();
-                TRACE("nla_solver", tout << "found bf"; print_bfc(bf, tout);
-                      tout << " product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
+                TRACE("nla_solver", tout << "found bf";
+                      tout << ":rm:"; print_rooted_monomial(rm, tout) << "\n";
+                      print_bfc(bf, tout);
+                      tout << ", product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
                       tout << ", j == "; print_var(j, tout) << "\n";);
                 rm_found = &rm;
                 return true;
@@ -2624,11 +2642,11 @@ struct solver::imp {
         return true;
     }
 
-    void generate_explanations_of_tang_lemma(const rooted_mon& rm, const bfc& bf) {
+    void generate_explanations_of_tang_lemma(const rooted_mon& rm, const bfc& bf, lp::explanation& exp) {
         // here we repeat the same explanation for each lemma
-        explain(rm, current_expl());
-        explain(bf.m_x, current_expl());
-        explain(bf.m_y, current_expl());
+        explain(rm, exp);
+        explain(bf.m_x, exp);
+        explain(bf.m_y, exp);
     }
     
     void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const rooted_mon& rm){
@@ -2640,10 +2658,19 @@ struct solver::imp {
         TRACE("nla_solver", tout << "below = " << below << std::endl;);
         get_tang_points(a, b, below, val, xy);
         TRACE("nla_solver", tout << "sign = " << sign << ", tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
+        lp::explanation expl;
+        unsigned lemmas_start = m_lemma_vec->size();
+        generate_explanations_of_tang_lemma(rm, bf, expl);
         generate_two_tang_lines(bf, xy, sign, j);
         generate_tang_plane(a.x, a.y, bf.m_x, bf.m_y, below, j, sign);
         generate_tang_plane(b.x, b.y, bf.m_x, bf.m_y, below, j, sign);
-        generate_explanations_of_tang_lemma(rm, bf);
+        for (unsigned i = lemmas_start; i < m_lemma_vec->size(); i++) {
+            auto &l = (*m_lemma_vec)[i];
+            l.expl().add(expl);
+            TRACE("nla_solver",
+                  print_ineqs(l, tout);
+                  print_explanation(l.expl(), tout););
+        }
     }
 
     void add_empty_lemma() {
@@ -2680,6 +2707,7 @@ struct solver::imp {
         mk_ineq(bf.m_x, llc::NE, xy.x, current_lemma());
         mk_ineq(sign, j, - xy.x, bf.m_y, llc::EQ, current_lemma());
         TRACE("nla_solver", print_lemma(tout););
+        
         add_empty_lemma();
         mk_ineq(bf.m_y, llc::NE, xy.y, current_lemma());
         mk_ineq(sign, j, - xy.y, bf.m_x, llc::EQ, current_lemma());
@@ -2803,9 +2831,9 @@ struct solver::imp {
         if (ret == l_undef)
             ret = inner_check(false);
 
-        TRACE("nla_solver_c", tout << "ret = " << ret;);
+        TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemma_vec->size() << "\n";);
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
-        CTRACE("nla_solver_c", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
+        CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || no_lemmas_hold());
         return ret;
     }
@@ -3478,7 +3506,6 @@ void solver::test_order_lemma_params(bool var_equiv, int sign) {
     vector<lemma> lemma;
 
     SASSERT(nla.m_imp->test_check(lemma) == l_false);
-    SASSERT(!var_equiv || !nla.m_imp->current_expl().empty());
     // lp::lar_term t;
     // t.add_coeff_var(lp_bde);
     // t.add_coeff_var(lp_acd);

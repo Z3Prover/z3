@@ -101,17 +101,18 @@ struct rooted_mon_table {
     }
 
     bool list_contains_to_refine_reg(const vector<index_with_sign>& list, const std::unordered_set<unsigned>& to_refine_reg) const {
-        // the call should happen when no sign lemma is found, so the assert below should hold
+        // the call should happen when no derived sign lemma is found, so the assert below should hold
         SASSERT(list_is_consistent(list, to_refine_reg));
         return !(to_refine_reg.find(list.begin()->index()) == to_refine_reg.end());
     }
     
     void init_to_refine(const std::unordered_set<unsigned>& to_refine_reg) {
+        SASSERT(m_to_refine.empty());
         for (unsigned i = 0; i < vec().size(); i++) {
             if (list_contains_to_refine_reg(vec()[i].m_mons, to_refine_reg))
                 m_to_refine.push_back(i);
         }
-        TRACE("nla_solver", tout << "rooted to_refine size = " << m_to_refine.size() << std::endl;);
+        TRACE("nla_solver", tout << "m_to_refine = "; print_vector(m_to_refine, tout) << std::endl;);
     }
     
     void clear() {
