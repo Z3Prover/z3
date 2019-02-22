@@ -36,8 +36,6 @@ Revision History:
 
 namespace sat {
 
-    static unsigned s_lemma_count = 0;
-    static bool     s_verify_contains = false;
 
     solver::solver(params_ref const & p, reslimit& l):
         solver_core(l),
@@ -387,9 +385,6 @@ namespace sat {
                 return;
             if (!learned && !at_search_lvl()) 
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
-        }
-        if (l1 == literal(29327, false) && l2 == literal(29328, false)) {
-            std::cout << s_lemma_count << "\n";            
         }
         m_stats.m_mk_bin_clause++;
         get_wlist(~l1).push_back(watched(l2, learned));
@@ -2422,20 +2417,6 @@ namespace sat {
             }
         }
 
-        s_lemma_count++;
-
-        if (s_lemma_count == 51802) {
-            disable_trace("sat");
-            disable_trace("sat_conflict");
-            s_verify_contains = false;
-        }
-
-
-        if (s_lemma_count == 51801) {
-            enable_trace("sat");
-            enable_trace("sat_conflict");
-            s_verify_contains = true;
-        }
 
         m_lemma.reset();
 
@@ -2457,8 +2438,6 @@ namespace sat {
         do {
             TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << "\n";
                   tout << "num_marks: " << num_marks << ", js: " << js << "\n";);
-
-            // VERIFY(!s_verify_contains || !m_config.m_drat || m_drat.contains(consequent, js));
 
             switch (js.get_kind()) {
             case justification::NONE:
