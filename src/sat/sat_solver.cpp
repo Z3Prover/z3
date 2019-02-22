@@ -27,6 +27,9 @@ Revision History:
 #include "util/trace.h"
 #include "util/max_cliques.h"
 #include "util/gparams.h"
+#ifdef _MSC_VER
+# include <xmmintrin.h>
+#endif
 
 // define to update glue during propagation
 #define UPDATE_GLUE
