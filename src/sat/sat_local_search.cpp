@@ -515,7 +515,6 @@ namespace sat {
         reinit();
         DEBUG_CODE(verify_slack(););
         timer timer;
-        timer.start();
         unsigned step = 0, total_flips = 0, tries = 0;
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {

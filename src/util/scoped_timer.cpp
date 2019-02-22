@@ -26,39 +26,33 @@ Revision History:
 
 
 struct scoped_timer::imp {
-    event_handler *  m_eh;
+private:
     std::thread      m_thread;
     std::timed_mutex m_mutex;
-    unsigned         m_ms;
 
-    static void* thread_func(imp * st) {
-        auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(st->m_ms);
+    static void thread_func(unsigned ms, event_handler * eh, std::timed_mutex * mutex) {
+        auto end = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
 
-        while (!st->m_mutex.try_lock_until(end)) {
-          if (std::chrono::steady_clock::now() > end) {
-            st->m_eh->operator()(TIMEOUT_EH_CALLER);
-            return nullptr;
-          }
+        while (!mutex->try_lock_until(end)) {
+            if (std::chrono::steady_clock::now() >= end) {
+                eh->operator()(TIMEOUT_EH_CALLER);
+                return;
+            }
         }
 
-        st->m_mutex.unlock();
-        return nullptr;
+        mutex->unlock();
     }
 
-    imp(unsigned ms, event_handler * eh):
-        m_eh(eh), m_ms(ms) {
+public:
+    imp(unsigned ms, event_handler * eh) {
         m_mutex.lock();
-        m_thread = std::thread(thread_func, this);
+        m_thread = std::thread(thread_func, ms, eh, &m_mutex);
     }
 
     ~imp() {
         m_mutex.unlock();
-        while (!m_thread.joinable()) {
-            std::this_thread::yield();
-        }
         m_thread.join();
     }
-
 };
 
 scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
@@ -69,6 +63,5 @@ scoped_timer::scoped_timer(unsigned ms, event_handler * eh) {
 }
     
 scoped_timer::~scoped_timer() {
-    if (m_imp)
-        dealloc(m_imp);
+    dealloc(m_imp);
 }

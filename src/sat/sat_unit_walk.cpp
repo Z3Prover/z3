@@ -249,22 +249,14 @@ namespace sat {
         std::sort(pqueue().begin(), pqueue().end(), cb);        
         for (bool_var v : pqueue()) {
             m_phase_tf[v].update(m_ls.cur_solution(v) ? 100 : 0);
-            m_phase[v] = m_ls.cur_solution(v);
+            m_phase[v] = l_true == m_ls.cur_solution(v);
         }
         pqueue().rewind();
     }
 
     void unit_walk::init_phase() {
         for (bool_var v : pqueue()) {
-            if (s.m_phase[v] == l_true) {
-                m_phase[v] = true;
-            }
-            else if (s.m_phase[v] == l_false) {
-                m_phase[v] = false;
-            }
-            else {
-                m_phase[v] = m_rand(100) < m_phase_tf[v];
-            }
+            m_phase[v] = s.m_phase[v];            
         }
     }
 

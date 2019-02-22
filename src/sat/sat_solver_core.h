@@ -50,6 +50,8 @@ namespace sat {
         // check satisfiability
         virtual lbool check(unsigned num_lits = 0, literal const* lits = nullptr) = 0;
 
+        virtual char const* get_reason_unknown() const { return "reason unavailable"; }
+
         // add clauses
         virtual void add_clause(unsigned n, literal* lits, bool is_redundant) = 0;
         void add_clause(literal l1, literal l2, bool is_redundant) {

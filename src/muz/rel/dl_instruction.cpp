@@ -41,7 +41,6 @@ namespace datalog {
 
     execution_context::~execution_context() {
         reset();
-        dealloc(m_stopwatch);
     }
 
     void execution_context::reset() {
@@ -104,15 +103,15 @@ namespace datalog {
         m_timelimit_ms = time_in_ms;
         if (!m_stopwatch) {
             m_stopwatch = alloc(stopwatch);
+        } else {
+            m_stopwatch->stop();
+            m_stopwatch->reset();
         }
-        m_stopwatch->stop();
-        m_stopwatch->reset();
         m_stopwatch->start();
     }
     void execution_context::reset_timelimit() {
-        if (m_stopwatch) {
-            m_stopwatch->stop();
-        }
+        dealloc(m_stopwatch);
+        m_stopwatch = nullptr;
         m_timelimit_ms = 0;
     }
 
