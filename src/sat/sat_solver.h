@@ -85,9 +85,10 @@ namespace sat {
         stats                   m_stats;
         scoped_ptr<extension>   m_ext;
         parallel*               m_par;
-        random_gen              m_rand;
+        drat                    m_drat;          // DRAT for generating proofs
         clause_allocator        m_cls_allocator[2];
         bool                    m_cls_allocator_idx;
+        random_gen              m_rand;
         cleaner                 m_cleaner;
         model                   m_model;        
         model_converter         m_mc;
@@ -97,7 +98,6 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
-        drat                    m_drat;          // DRAT for generating proofs
         bool                    m_inconsistent;
         bool                    m_searching;
         // A conflict is usually a single justification. That is, a justification
@@ -461,17 +461,8 @@ namespace sat {
         void gc_dyn_psm();
         bool activate_frozen_clause(clause & c);
         unsigned psm(clause const & c) const;
-        bool can_delete(clause const & c) const {
-            if (c.on_reinit_stack())
-                return false;
-            if (c.size() == 3)
-                return true; // not needed to justify anything.
-            literal l0 = c[0];
-            if (value(l0) != l_true)
-                return true;
-            justification const & jst = m_justification[l0.var()];
-            return !jst.is_clause() || cls_allocator().get_clause(jst.get_clause_offset()) != &c;
-        }
+        bool can_delete(clause const & c) const;
+        bool can_delete3(literal l1, literal l2, literal l3) const;
 
         clause& get_clause(watch_list::iterator it) const {
             SASSERT(it->get_kind() == watched::CLAUSE);
@@ -522,14 +513,14 @@ namespace sat {
         typedef approx_set_tpl<unsigned, u2u, unsigned> level_approx_set;
         bool_var_vector   m_unmark;
         level_approx_set  m_lvl_set;
-        bool_var_vector   m_lemma_min_stack;
+        literal_vector    m_lemma_min_stack;
         bool process_antecedent_for_minimization(literal antecedent);
         bool implied_by_marked(literal lit);
         void reset_unmark(unsigned old_size);
         void updt_lemma_lvl_set();
-        void minimize_lemma();
         void reset_lemma_var_marks();
-        void dyn_sub_res();
+        bool minimize_lemma();
+        bool dyn_sub_res();
 
         // -----------------------
         //

@@ -124,9 +124,9 @@ namespace sat {
         }
     }
 
-    inline void simplifier::remove_clause(clause & c) {
+    inline void simplifier::remove_clause(clause & c, bool is_unique) {
         if (!c.was_removed()) {
-            if (s.m_config.m_drat) {
+            if (s.m_config.m_drat && is_unique) {
                 s.m_drat.del(c);
             }
             for (literal l : c) {
@@ -477,7 +477,7 @@ namespace sat {
                     s.set_learned(c1, false);
                 }
                 TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
-                remove_clause(c2);
+                remove_clause(c2, false);
                 m_num_subsumed++;
             }
             else if (!c2.was_removed()) {
@@ -577,7 +577,7 @@ namespace sat {
             if (c1.is_learned() && !c2.is_learned())
                 s.set_learned(c1, false);
             TRACE("subsumption", tout << c1 << " subsumed " << c2 << "\n";);
-            remove_clause(c2);
+            remove_clause(c2, false);
             m_num_subsumed++;
         }
     }
@@ -662,7 +662,7 @@ namespace sat {
             for (auto it = cs.mk_iterator(); !it.at_end(); ) {
                 clause & c = it.curr();
                 it.next();
-                remove_clause(c);
+                remove_clause(c, true);
             }
             cs.reset();            
         }
@@ -674,10 +674,12 @@ namespace sat {
         m_num_elim_lits++;
         insert_elim_todo(l.var());
         if (s.m_config.m_drat && c.contains(l)) {
-            m_dummy.set(c.size(), c.begin(), c.is_learned());
+            unsigned sz = c.size();
             c.elim(l);
             s.m_drat.add(c, true); 
-            s.m_drat.del(*m_dummy.get());
+            c.restore(sz);
+            s.m_drat.del(c);
+            c.shrink(sz-1);
         }
         else {
             c.elim(l);
@@ -690,7 +692,7 @@ namespace sat {
         if (cleanup_clause(c)) {
             // clause was satisfied
             TRACE("elim_lit", tout << "clause was satisfied\n";);
-            remove_clause(c);
+            remove_clause(c, true);
             return;
         }
         unsigned sz = c.size();
@@ -710,7 +712,7 @@ namespace sat {
             c.restore(sz0);
             s.mk_bin_clause(c[0], c[1], c.is_learned());
             m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));            
-            remove_clause(c);
+            remove_clause(c, sz0 != sz);
             break;
         default:
             if (s.m_config.m_drat && sz0 != sz) {
@@ -888,7 +890,7 @@ namespace sat {
             if (s.m_trail.size() > m_last_sub_trail_sz) {
                 unsigned sz0 = c.size();
                 if (cleanup_clause(c)) {
-                    remove_clause(c);
+                    remove_clause(c, true);
                     continue;
                 }
                 unsigned sz = c.size();
@@ -906,7 +908,7 @@ namespace sat {
                     s.mk_bin_clause(c[0], c[1], c.is_learned());
                     m_sub_bin_todo.push_back(bin_clause(c[0], c[1], c.is_learned()));
                     c.restore(sz0);
-                    remove_clause(c);
+                    remove_clause(c, sz != sz0);
                     continue;
                 default:
                     if (s.m_config.m_drat && sz != sz0) {

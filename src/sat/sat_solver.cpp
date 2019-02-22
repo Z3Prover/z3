@@ -33,19 +33,22 @@ Revision History:
 
 namespace sat {
 
+    static unsigned s_lemma_count = 0;
+    static bool     s_verify_contains = false;
+
     solver::solver(params_ref const & p, reslimit& l):
         solver_core(l),
         m_checkpoint_enabled(true),
         m_config(p),
         m_par(nullptr),
         m_cls_allocator_idx(false),
+        m_drat(*this),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
-        m_drat(*this),
         m_inconsistent(false),
         m_searching(false),
         m_num_frozen(0),
@@ -382,6 +385,9 @@ namespace sat {
             if (!learned && !at_search_lvl()) 
                 m_clauses_to_reinit.push_back(clause_wrapper(l1, l2));
         }
+        if (l1 == literal(29327, false) && l2 == literal(29328, false)) {
+            std::cout << s_lemma_count << "\n";            
+        }
         m_stats.m_mk_bin_clause++;
         get_wlist(~l1).push_back(watched(l2, learned));
         get_wlist(~l2).push_back(watched(l1, learned));
@@ -413,8 +419,6 @@ namespace sat {
         clause * r = alloc_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
-        if (m_config.m_drat) m_drat.add(*r, learned);
-
         if (learned)
             m_learned.push_back(r);
         else
@@ -424,6 +428,9 @@ namespace sat {
 
     bool solver::attach_ter_clause(clause & c) {
         bool reinit = false;
+        if (m_config.m_drat) m_drat.add(c, c.is_learned());
+        TRACE("sat", tout << c << "\n";);
+        SASSERT(!c.was_removed());
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
         m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));
         m_watches[(~c[2]).index()].push_back(watched(c[0], c[1]));
@@ -459,8 +466,9 @@ namespace sat {
         else {
             m_clauses.push_back(r);
         }
-        if (m_config.m_drat) 
+        if (m_config.m_drat) {
             m_drat.add(*r, learned);
+        }
         return r;
     }
 
@@ -2163,6 +2171,36 @@ namespace sat {
         IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat-gc :strategy " << st_name << " :deleted " << (sz - new_sz) << ")\n";);
     }
 
+    bool solver::can_delete3(literal l1, literal l2, literal l3) const {                                                           
+        if (value(l1) == l_true && 
+            value(l2) == l_false && 
+            value(l3) == l_false) {
+            justification const& j = m_justification[l1.var()];
+            if (j.is_ternary_clause()) {
+                watched w1(l2, l3);
+                watched w2(j.get_literal1(), j.get_literal2());
+                return w1 != w2;
+            }
+        }
+        return true;
+    }
+
+    bool solver::can_delete(clause const & c) const {
+        if (c.on_reinit_stack())
+            return false;
+        if (c.size() == 3) {
+            return
+                can_delete3(c[0],c[1],c[2]) &&
+                can_delete3(c[1],c[0],c[2]) &&
+                can_delete3(c[2],c[0],c[1]);
+        }
+        literal l0 = c[0];
+        if (value(l0) != l_true)
+            return true;
+        justification const & jst = m_justification[l0.var()];
+        return !jst.is_clause() || cls_allocator().get_clause(jst.get_clause_offset()) != &c;
+    }
+
     /**
        \brief Use gc based on dynamic psm. Clauses are initially frozen.
     */
@@ -2381,6 +2419,21 @@ namespace sat {
             }
         }
 
+        s_lemma_count++;
+
+        if (s_lemma_count == 51802) {
+            disable_trace("sat");
+            disable_trace("sat_conflict");
+            s_verify_contains = false;
+        }
+
+
+        if (s_lemma_count == 51801) {
+            enable_trace("sat");
+            enable_trace("sat_conflict");
+            s_verify_contains = true;
+        }
+
         m_lemma.reset();
 
         unsigned idx = skip_literals_above_conflict_level();
@@ -2401,6 +2454,9 @@ namespace sat {
         do {
             TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << "\n";
                   tout << "num_marks: " << num_marks << ", js: " << js << "\n";);
+
+            // VERIFY(!s_verify_contains || !m_config.m_drat || m_drat.contains(consequent, js));
+
             switch (js.get_kind()) {
             case justification::NONE:
                 break;
@@ -2455,6 +2511,8 @@ namespace sat {
             idx--;
             num_marks--;
             reset_mark(c_var);
+
+            TRACE("sat", display_justification(tout << consequent << " ", js) << "\n";);            
         }
         while (num_marks > 0);
 
@@ -2467,12 +2525,13 @@ namespace sat {
         TRACE("sat_lemma", tout << "new lemma size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
 
         unsigned new_scope_lvl       = 0;
+        bool sub_min = false, res_min = false;
         if (!m_lemma.empty()) {
             if (m_config.m_minimize_lemmas) {
-                minimize_lemma();
+                res_min = minimize_lemma();
                 reset_lemma_var_marks();
                 if (m_config.m_dyn_sub_res)
-                    dyn_sub_res();
+                    sub_min = dyn_sub_res();
                 TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
             }
             else
@@ -2492,12 +2551,12 @@ namespace sat {
         m_slow_glue_avg.update(glue);
         pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", tout << glue << " " << new_scope_lvl << "\n";);
-        // unsound: m_asymm_branch.minimize(m_scc, m_lemma);
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
             lemma->set_glue(glue);
             if (m_par) m_par->share_clause(*this, *lemma);
         }
+
         TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n";);
         decay_activity();
         updt_phase_counters();
@@ -2844,7 +2903,7 @@ namespace sat {
             if (m_lvl_set.may_contain(var_lvl)) {
                 mark(var);
                 m_unmark.push_back(var);
-                m_lemma_min_stack.push_back(var);
+                m_lemma_min_stack.push_back(antecedent);
             }
             else {
                 return false;
@@ -2862,11 +2921,12 @@ namespace sat {
     */
     bool solver::implied_by_marked(literal lit) {
         m_lemma_min_stack.reset();  // avoid recursive function
-        m_lemma_min_stack.push_back(lit.var());
+        m_lemma_min_stack.push_back(lit);
         unsigned old_size = m_unmark.size();
 
         while (!m_lemma_min_stack.empty()) {
-            bool_var var       = m_lemma_min_stack.back();
+            lit = m_lemma_min_stack.back();
+            bool_var var = lit.var();
             m_lemma_min_stack.pop_back();
             justification const& js   = m_justification[var];
             switch(js.get_kind()) {
@@ -2928,6 +2988,8 @@ namespace sat {
                 UNREACHABLE();
                 break;
             }
+            TRACE("sat_conflict", 
+                  display_justification(tout << var << " ",js) << "\n";);
         }
         return true;
     }
@@ -2958,7 +3020,7 @@ namespace sat {
        literals that are implied by other literals in m_lemma and/or literals
        assigned at level 0.
     */
-    void solver::minimize_lemma() {
+    bool solver::minimize_lemma() {
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         updt_lemma_lvl_set();
@@ -2982,6 +3044,7 @@ namespace sat {
         reset_unmark(0);
         m_lemma.shrink(j);
         m_stats.m_minimized_lits += sz - j;
+        return j < sz;
     }
 
     /**
@@ -3055,7 +3118,7 @@ namespace sat {
        \brief Apply dynamic subsumption resolution to new lemma.
        Only binary and ternary clauses are used.
     */
-    void solver::dyn_sub_res() {
+    bool solver::dyn_sub_res() {
         unsigned sz = m_lemma.size();
         for (unsigned i = 0; i < sz; i++) {
             mark_lit(m_lemma[i]);
@@ -3168,6 +3231,7 @@ namespace sat {
 
         SASSERT(j >= 1);
         m_lemma.shrink(j);
+        return j < sz;
     }
 
 

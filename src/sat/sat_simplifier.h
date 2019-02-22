@@ -133,7 +133,7 @@ namespace sat {
 
         void register_clauses(clause_vector & cs);
 
-        void remove_clause(clause & c);
+        void remove_clause(clause & c, bool is_unique);
         void set_learned(clause & c);
         void set_learned(literal l1, literal l2);
 

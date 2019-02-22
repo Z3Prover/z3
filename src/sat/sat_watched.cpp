@@ -86,7 +86,15 @@ namespace sat {
             }    
         }
         wlist.set_end(it2);
-        //VERIFY(found);
+#if 0
+        VERIFY(found);
+        for (watched const& w2 : wlist) {
+            if (w2 == w) {
+                std::cout << l1 << " " << l2 << "\n";
+            }
+            //VERIFY(w2 != w);
+        }
+#endif
     }
 
     void conflict_cleanup(watch_list::iterator it, watch_list::iterator it2, watch_list& wlist) {

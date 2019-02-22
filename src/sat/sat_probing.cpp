@@ -52,6 +52,9 @@ namespace sat {
         unsigned tr_sz = s.m_trail.size();
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
             entry.m_lits.push_back(s.m_trail[i]);
+            if (s.m_config.m_drat) {
+                s.m_drat.add(~l, s.m_trail[i], true);
+            }
         }
     }
 
