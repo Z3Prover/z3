@@ -213,6 +213,8 @@ namespace datatype {
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
+            void log_axiom_definitions(symbol const& s, sort * new_sort);
+
         public:
             plugin(): m_id_counter(0), m_class_id(0) {}
             ~plugin() override;

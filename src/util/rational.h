@@ -95,6 +95,10 @@ public:
 
     void display_smt2(std::ostream & out) const { return m().display_smt2(out, m_val, false); }
 
+    void display_hex(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_hex(out, m_val.numerator(), num_bits); }
+
+    void display_bin(std::ostream & out, unsigned num_bits) const { SASSERT(is_int()); return m().display_bin(out, m_val.numerator(), num_bits); }
+
     bool is_uint64() const { return m().is_uint64(m_val); }
 
     bool is_int64() const { return m().is_int64(m_val); }
