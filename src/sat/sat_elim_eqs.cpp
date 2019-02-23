@@ -207,7 +207,7 @@ namespace sat {
                     c.update_approx();
                 }
                 if (m_solver.m_config.m_drat) {
-                    m_solver.m_drat.add(c, true); 
+                    m_solver.m_drat.add(c, true);
                     drat_delete_clause();
                 }
 

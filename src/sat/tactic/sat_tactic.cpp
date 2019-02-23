@@ -200,6 +200,7 @@ public:
             throw tactic_exception(ex.msg());
         }
         catch (z3_exception& ex) {
+            (void)ex;
             TRACE("sat", tout << ex.msg() << "\n";);            
             throw;
         }
