@@ -500,9 +500,9 @@ namespace smt {
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
         return out << "r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_finite_capacity_end;
         for (auto const& s : jr.m_properties) {
-			out << " " << s;
-		}
-		out << "\n";
+            out << " " << s;
+        }
+        out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_info const& j) const {
@@ -515,9 +515,9 @@ namespace smt {
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_available const& r) const {
         return out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%";
         for (auto const& s : r.m_properties) {
-			out << " " << s;
-		}
-		out << "\n";
+            out << " " << s;
+        }
+        out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_info const& r) const {
