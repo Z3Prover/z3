@@ -1,3 +1,16 @@
+/*++
+Copyright (c) 2019 Microsoft Corporation
+
+Module Name:
+
+    vector.h
+
+Author:
+
+    Daniel Schemmel 2019-2-23
+
+--*/
+
 #ifndef VECTOR_H_
 #define VECTOR_H_
 

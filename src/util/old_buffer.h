@@ -15,6 +15,8 @@ Author:
 
 Revision History:
 
+   2019-2-23 Renamed to old_buffer from buffer to provide new implementation
+
 --*/
 #ifndef OLD_BUFFER_H_
 #define OLD_BUFFER_H_

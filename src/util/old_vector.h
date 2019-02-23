@@ -20,6 +20,8 @@ Author:
 
 Revision History:
 
+   2019-2-23 Renamed from vector to old_vector to provide new implementation
+
 --*/
 #ifndef OLD_VECTOR_H_
 #define OLD_VECTOR_H_

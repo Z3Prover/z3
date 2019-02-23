@@ -1,3 +1,16 @@
+/*++
+Copyright (c) 2019 Microsoft Corporation
+
+Module Name:
+
+    buffer.h
+
+Author:
+
+    Daniel Schemmel 2019-2-23
+
+--*/
+
 #ifndef BUFFER_H_
 #define BUFFER_H_
 
