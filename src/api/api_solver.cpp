@@ -35,6 +35,7 @@ Revision History:
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include "util/file_path.h"
+#include "util/neuro_predictor.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
@@ -439,6 +440,14 @@ extern "C" {
         to_solver_ref(s)->set_activity(to_expr(a), activity);
         Z3_CATCH;
     }
+
+    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor* f) {
+        Z3_TRY;
+        init_solver(c, s);
+        to_solver_ref(s)->set_predictor(state, (neuro_predictor*)f);
+        Z3_CATCH;
+    }
+
 
     Z3_ast_vector Z3_API Z3_solver_get_trail(Z3_context c, Z3_solver s) {
         Z3_TRY;

@@ -45,6 +45,7 @@ Revision History:
 #include "util/trace.h"
 #include "util/rlimit.h"
 #include "util/scoped_ptr_vector.h"
+#include "util/neuro_predictor.h"
 
 namespace sat {
 
@@ -177,6 +178,9 @@ namespace sat {
 
         class lookahead*        m_cuber;
         class local_search*     m_local_search;
+
+        void *                  m_neuro_state;
+        neuro_predictor *       m_neuro_predictor;
 
         statistics              m_aux_stats;
 
@@ -356,6 +360,7 @@ namespace sat {
         bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const override { return m_ext.get(); }
         void       set_extension(extension* e) override;
+        void       set_predictor(void* state, neuro_predictor* p);
         bool       set_root(literal l, literal r);
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
@@ -371,7 +376,14 @@ namespace sat {
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
         bool check_inconsistent();
 
-
+        unsigned_vector m_neuro_clauses;       // vector to hold set of clauses.
+        svector<double> m_neuro_clause_scores; // vectors to hold neuropredictions
+        svector<double> m_neuro_var_scores;    
+        ptr_vector<clause> m_neuro_idx2clause; // map index of clause to clause pointer.
+        void call_neuro();
+        void serialize_neuro_units(neuro_prediction& p);
+        void serialize_neuro_binaries(neuro_prediction& p);
+        void serialize_neuro_clauses(neuro_prediction& p, clause_vector& clauses);
         // -----------------------
         //
         // Propagation

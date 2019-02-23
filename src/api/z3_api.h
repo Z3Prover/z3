@@ -6243,6 +6243,24 @@ extern "C" {
      */
     void Z3_API Z3_solver_set_activity(Z3_context c, Z3_solver s, Z3_ast l, double activity);
 
+
+    /**
+       \brief callback from solver to obtain predictions.
+
+     */
+    struct Z3_neuro_prediction {
+        unsigned num_vars;        // [in]
+        unsigned num_clauses;     // [in]
+        unsigned sz;              // [in]
+        int * clauses;            // [in] array of size sz. Clauses are separated by 0. There are num_clauses in the array
+        double* var_scores;       // [out] array of length num_vars with variable scores
+        double  is_sat;           // [out] prediction if the problem is sat
+        double* clause_scores;    // [out] array of length num_clauses                
+    };
+    typedef void (*Z3_solver_predictor)(void* state, struct Z3_neuro_prediction* p);
+
+    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor* f);
+
     /**
        \brief Check whether the assertions in a given solver are consistent or not.
 

@@ -207,6 +207,11 @@ namespace smt {
             m_context.set_activity(lit, activity);
         }
 
+        void set_predictor(void* state, neuro_predictor* p) override {
+            throw default_exception("cannot set predictors for smt solver");
+        }
+
+
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;

@@ -333,6 +333,11 @@ public:
         m_solver2->set_activity(lit, activity);
     }
 
+    void set_predictor(void* state, neuro_predictor* p) override {
+        m_solver1->set_predictor(state, p);
+        m_solver2->set_predictor(state, p);
+    }
+
     proof * get_proof() override {
         if (m_use_solver1_results)
             return m_solver1->get_proof();

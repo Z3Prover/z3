@@ -94,7 +94,11 @@ public:
     }
 
     void set_activity(expr* var, double activity) override {
-        throw default_exception("cannot set activity for solvers created using tactcis");
+        throw default_exception("cannot set activity for solvers created using tactics");
+    }
+
+    void set_predictor(void* state, neuro_predictor* p) override {
+        throw default_exception("cannot set predictors for solvers created using tactics");
     }
 
 

@@ -351,6 +351,10 @@ public:
         m_solver.set_activity(v, static_cast<unsigned>(activity));
     }
 
+    void set_predictor(void* state, neuro_predictor* p) override {
+        m_solver.set_predictor(state, p);
+    }
+
     proof * get_proof() override {
         UNREACHABLE();
         return nullptr;

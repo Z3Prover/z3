@@ -111,6 +111,7 @@ namespace opt {
         void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override; 
         expr_ref_vector get_trail() override { return m_context.get_trail(); }
         void set_activity(expr* lit, double act) override { m_context.set_activity(lit, act); }
+        void set_predictor(void* state, neuro_predictor* p) override { UNREACHABLE(); }
         expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
 
         void set_logic(symbol const& logic);

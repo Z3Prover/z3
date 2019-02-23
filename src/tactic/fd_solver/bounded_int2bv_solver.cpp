@@ -164,6 +164,9 @@ public:
     void set_activity(expr* var, double activity) override {
         m_solver->set_activity(var, activity);
     }
+    void set_predictor(void* state, neuro_predictor* p) override {
+        m_solver->set_predictor(state, p);
+    }
 
     model_converter* external_model_converter() const {
         return concat(mc0(), local_model_converter());

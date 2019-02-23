@@ -125,6 +125,7 @@ public:
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override { m_solver.get_levels(vars, depth); }
     expr_ref_vector get_trail() override { return m_solver.get_trail(); }
     void set_activity(expr* lit, double act) override { m_solver.set_activity(lit, act); }
+    void set_predictor(void* state, neuro_predictor* p) override { m_solver.set_predictor(state, p); }
 
     void push() override;
     void pop(unsigned n) override;
