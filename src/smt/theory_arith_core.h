@@ -447,7 +447,11 @@ namespace smt {
               tout << l_ante << "\n" << l_conseq << "\n";);
 
         // literal lits[2] = {l_ante, l_conseq};
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(ante, conseq));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(ante, conseq);
+            log_axiom_instantiation(body);
+        }
         mk_clause(l_ante, l_conseq, 0, nullptr);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 

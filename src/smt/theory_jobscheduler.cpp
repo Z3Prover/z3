@@ -307,7 +307,9 @@ namespace smt {
             // Initialization ensures that satisfiable states have completion time below end.
             ast_manager& m = get_manager();
             if (m.has_trace_stream()) {
-                log_axiom_instantiation(m.mk_implies(m.mk_and(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()), ctx.bool_var2expr(start_ge_lo.var())), ctx.bool_var2expr(end_ge_lo.var())));
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()), ctx.bool_var2expr(start_ge_lo.var())), ctx.bool_var2expr(end_ge_lo.var()));
+                log_axiom_instantiation(body);
                 m.trace_stream() << "[end-of-instance]\n";
             }
             region& r = ctx.get_region();
@@ -386,7 +388,9 @@ namespace smt {
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
         ast_manager& m = get_manager();
         if (m.has_trace_stream()) {
-            log_axiom_instantiation(m.mk_implies(m.mk_and(ctx.bool_var2expr(lits[0].var()), ctx.bool_var2expr(lits[1].var()), ctx.bool_var2expr(lits[2].var())), ctx.bool_var2expr(lits[3].var())));
+            app_ref body(m);
+            body = m.mk_implies(m.mk_and(ctx.bool_var2expr(lits[0].var()), ctx.bool_var2expr(lits[1].var()), ctx.bool_var2expr(lits[2].var())), ctx.bool_var2expr(lits[3].var()));
+            log_axiom_instantiation(body);
             m.trace_stream() << "[end-of-instance]\n";
         }
         return true;
@@ -810,7 +814,11 @@ namespace smt {
         job_info const& ji = m_jobs[j];
         literal l2 = mk_le(ji.m_end, jr.m_finite_capacity_end);
         context& ctx = get_context();
-        if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var())));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), ~eq, l2);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 #endif
@@ -822,13 +830,21 @@ namespace smt {
         time_t t;
         if (lst(j, r, t)) {
             literal le = mk_le(m_jobs[j].m_start, t);
-            if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(le.var())));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(le.var()));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), ~eq, le);
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         else {
             eq.neg();
-            if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_not(ctx.bool_var2expr(eq.var())));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_not(ctx.bool_var2expr(eq.var()));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), 1, &eq);
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
@@ -842,7 +858,11 @@ namespace smt {
         vector<res_available>& available = m_resources[r].m_available;
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx].m_start);
         context& ctx = get_context();
-        if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var())));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), ~eq, l2);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -856,8 +876,11 @@ namespace smt {
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         literal l3 = mk_le(m_jobs[j].m_start, available[idx].m_end);
         context& ctx = get_context();
-        ast_manager& m = get_manager();
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var()))));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), ~eq, l2, l3);        
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -871,8 +894,11 @@ namespace smt {
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
         literal l3 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         context& ctx = get_context();
-        ast_manager& m = get_manager();
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var()))));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), ~eq, l2, l3);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }    
@@ -883,7 +909,6 @@ namespace smt {
     bool theory_jobscheduler::split_job2resource(unsigned j) {
         job_info const& ji = m_jobs[j];
         context& ctx = get_context();
-        ast_manager& m = get_manager();
         if (ji.m_is_bound) return false;
         auto const& jrs = ji.m_resources;
         for (job_resource const& jr : jrs) {
@@ -895,7 +920,9 @@ namespace smt {
                 continue;
             literal eq = mk_eq_lit(e1, e2);
             if (m.has_trace_stream()) {
-                log_axiom_instantiation(m.mk_or(ctx.bool_var2expr(eq.var()), m.mk_not(ctx.bool_var2expr(eq.var()))));
+                app_ref body(m);
+                body = m.mk_or(ctx.bool_var2expr(eq.var()), m.mk_not(ctx.bool_var2expr(eq.var())));
+                log_axiom_instantiation(body);
                 m.trace_stream() << "[end-of-instance]\n";
             }
             if (ctx.get_assignment(eq) != l_false) {
@@ -916,7 +943,11 @@ namespace smt {
             lits.push_back(eq);
             exprs.push_back(ctx.bool_var2expr(eq.var()));
         }
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(exprs.size(), exprs.c_ptr()));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(exprs.size(), exprs.c_ptr());
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         return true;

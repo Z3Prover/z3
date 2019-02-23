@@ -140,12 +140,14 @@ namespace smt {
             args.push_back(acc);
         }
         expr * mk       = m.mk_app(c, args.size(), args.c_ptr());
-        app_ref ax(m);
-        ax = m.mk_eq(n->get_owner(), mk);
-        if (antecedent != null_literal) {
-            ax = m.mk_implies(get_context().bool_var2expr(antecedent.var()), ax);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_eq(n->get_owner(), mk);
+            if (antecedent != null_literal) {
+                body = m.mk_implies(get_context().bool_var2expr(antecedent.var()), body);
+            }
+            log_axiom_instantiation(body, 1, &n);
         }
-        if (m.has_trace_stream()) log_axiom_instantiation(ax, 1, &n);
         assert_eq_axiom(n, mk, antecedent);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -175,9 +177,11 @@ namespace smt {
         for (func_decl * acc : accessors) {
             app * acc_app     = m.mk_app(acc, n->get_owner());
             enode * arg       = n->get_arg(i);
-            app_ref eq(m);
-            eq = m.mk_eq(arg->get_owner(), acc_app);
-            if (m.has_trace_stream()) log_axiom_instantiation(eq, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_eq(arg->get_owner(), acc_app);
+                log_axiom_instantiation(body, base_id + 3*i, bindings.size(), bindings.c_ptr(), base_id - 3, used_enodes);
+            }
             assert_eq_axiom(arg, acc_app, null_literal);
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             ++i;
@@ -236,9 +240,11 @@ namespace smt {
                 arg = ctx.get_enode(acc_app);
             }
             app * acc_own = m.mk_app(acc1, own);
-            app_ref imp(m);
-            imp = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
-            if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
+                log_axiom_instantiation(body, 1, &n);
+            }
             assert_eq_axiom(arg, acc_own, is_con); 
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }

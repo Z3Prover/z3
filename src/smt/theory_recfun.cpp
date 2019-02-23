@@ -360,17 +360,29 @@ namespace smt {
                 guards.push_back(~guard);
                 exprs.push_back(m.mk_not(ga));
                 literal c[2] = {~concl, guard};
-                if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(pred_applied, ga));
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(pred_applied, ga);
+                    log_axiom_instantiation(body);
+                }
                 ctx().mk_th_axiom(get_id(), 2, c);
                 if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
-            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(pred_applied), m.mk_or(exprs.size(), exprs.c_ptr())));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(pred_applied), m.mk_or(exprs.size(), exprs.c_ptr()));
+                log_axiom_instantiation(body);
+            }
             ctx().mk_th_axiom(get_id(), guards);
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // the disjunction of branches is asserted
         // to close the available cases. 
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(pred_exprs.size(), pred_exprs.c_ptr()));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(pred_exprs.size(), pred_exprs.c_ptr());
+            log_axiom_instantiation(body);
+        }
         ctx().mk_th_axiom(get_id(), preds);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -407,7 +419,11 @@ namespace smt {
             }
         }        
         clause.push_back(mk_eq_lit(lhs, rhs));
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_and(exprs.size(), exprs.c_ptr()), m.mk_eq(lhs, rhs)));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_and(exprs.size(), exprs.c_ptr()), m.mk_eq(lhs, rhs));
+            log_axiom_instantiation(body);
+        }
         ctx().mk_th_axiom(get_id(), clause);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         TRACEFN("body   " << pp_body_expansion(e,m));

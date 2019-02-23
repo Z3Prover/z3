@@ -126,6 +126,7 @@ inline func_decl * get_div0_decl(ast_manager & m, func_decl * decl) {
 }
 
 class bv_decl_plugin : public decl_plugin {
+    friend class bv_util;
 protected:
     symbol m_bv_sym;
     symbol m_concat_sym;
@@ -239,7 +240,6 @@ protected:
 
     void get_offset_term(app * a, expr * & t, rational & offset) const;
 
-    friend class bv_util;
 public:
     bv_decl_plugin();
 
@@ -381,8 +381,6 @@ class bv_util : public bv_recognizers {
     ast_manager &    m_manager;
     bv_decl_plugin * m_plugin;
 
-    void log_mk_numeral(rational const & val, unsigned bv_size) const;
-
 public:
     bv_util(ast_manager & m);
 
@@ -436,13 +434,12 @@ public:
     app * mk_bvsmul_no_udfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BSMUL_NO_UDFL, n, m); }
     app * mk_bvumul_no_ovfl(expr* m, expr* n) { return m_manager.mk_app(get_fid(), OP_BUMUL_NO_OVFL, n, m); }
 
-    app * mk_bv(unsigned n, expr* const* es) {
-        app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
-
+    private:
+    void log_bv_from_exprs(app * r, unsigned n, expr* const* es) {
         if (m_manager.has_trace_stream()) {
             for (unsigned i = 0; i < n; ++i) {
                 if (!m_manager.is_true(es[i]) && !m_manager.is_true(es[i]))
-                    return r;
+                    return;
             } 
 
             if (m_plugin->log_constant_meaning_prelude(r)) {
@@ -474,6 +471,13 @@ public:
                 m_manager.trace_stream() << ")\n";
             }
         }
+    }
+
+public:
+    app * mk_bv(unsigned n, expr* const* es) {
+        app * r = m_manager.mk_app(get_fid(), OP_MKBV, n, es);
+
+        log_bv_from_exprs(r, n, es);
 
         return r;
     }

@@ -255,7 +255,11 @@ namespace smt {
         context & ctx    = get_context();
         ast_manager & m  = get_manager();
         expr * eq    = ctx.bool_var2expr(l.var());
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_eq(mk_bit2bool(get_enode(v1)->get_owner(), idx), m.mk_not(mk_bit2bool(get_enode(v2)->get_owner(), idx))), m.mk_not(eq)));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_eq(mk_bit2bool(get_enode(v1)->get_owner(), idx), m.mk_not(mk_bit2bool(get_enode(v2)->get_owner(), idx))), m.mk_not(eq));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), 1, &l);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         if (ctx.relevancy()) {
@@ -472,7 +476,11 @@ namespace smt {
             e1 = mk_bit2bool(o1, i);
             e2 = mk_bit2bool(o2, i);
             literal eq = mk_eq(e1, e2, true);
-            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_not(ctx.bool_var2expr(oeq.var()))));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_not(ctx.bool_var2expr(oeq.var())));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(),  l1, ~l2, ~eq);
             ctx.mk_th_axiom(get_id(), ~l1,  l2, ~eq);
             ctx.mk_th_axiom(get_id(),  l1,  l2,  eq);
@@ -1228,7 +1236,11 @@ namespace smt {
             exprs.push_back(diff);
         }
         m_stats.m_num_diseq_dynamic++;
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_or(exprs.size(), exprs.c_ptr())));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_not(ctx.bool_var2expr(eq.var())), m.mk_or(exprs.size(), exprs.c_ptr()));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -1341,7 +1353,11 @@ namespace smt {
             lits.push_back(antecedent);
             literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), false);
             lits.push_back(~eq);
-            if (m.has_trace_stream()) log_axiom_instantiation(m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_implies(ctx.bool_var2expr(consequent.var()), ctx.bool_var2expr(antecedent.var()))));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_implies(ctx.bool_var2expr(consequent.var()), ctx.bool_var2expr(antecedent.var())));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
      

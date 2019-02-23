@@ -866,24 +866,20 @@ app * bv_util::mk_numeral(rational const & val, sort* s) const {
     return mk_numeral(val, bv_size);
 }
 
- void bv_util::log_mk_numeral(rational const & val, unsigned bv_size) const {
-    if (bv_size % 4 == 0) {
-        m_manager.trace_stream() << "#x";
-        val.display_hex(m_manager.trace_stream(), bv_size);
-        m_manager.trace_stream() << "\n";
-    } else {
-        m_manager.trace_stream() << "#b";
-        val.display_bin(m_manager.trace_stream(), bv_size);
-        m_manager.trace_stream() << "\n";
-    }
- }
-
 app * bv_util::mk_numeral(rational const & val, unsigned bv_size) const {
     parameter p[2] = { parameter(val), parameter(static_cast<int>(bv_size)) };
     app * r = m_manager.mk_app(get_fid(), OP_BV_NUM, 2, p, 0, nullptr);
 
     if (m_plugin->log_constant_meaning_prelude(r)) {
-        log_mk_numeral(val, bv_size);
+        if (bv_size % 4 == 0) {
+            m_manager.trace_stream() << "#x";
+            val.display_hex(m_manager.trace_stream(), bv_size);
+            m_manager.trace_stream() << "\n";
+        } else {
+            m_manager.trace_stream() << "#b";
+            val.display_bin(m_manager.trace_stream(), bv_size);
+            m_manager.trace_stream() << "\n";
+        }
     }
 
     return r;

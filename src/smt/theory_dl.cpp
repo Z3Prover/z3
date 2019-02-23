@@ -256,7 +256,11 @@ namespace smt {
             lt = u().mk_lt(x,y);
             le = b().mk_ule(m().mk_app(r,y),m().mk_app(r,x)); 
             context& ctx = get_context();
-            if (m().has_trace_stream()) log_axiom_instantiation(m().mk_eq(lt, le));
+            if (m().has_trace_stream()) {
+                app_ref body(m());
+                body = m().mk_eq(lt, le);
+                log_axiom_instantiation(body);
+            }
             ctx.internalize(lt, false);
             ctx.internalize(le, false);
             literal lit1(ctx.get_literal(lt));

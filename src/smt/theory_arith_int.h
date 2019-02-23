@@ -210,7 +210,11 @@ namespace smt {
         expr_ref bound(m);
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(to_app(bound), m.mk_not(to_app(bound))));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(to_app(bound), m.mk_not(to_app(bound)));
+            log_axiom_instantiation(body);
+        }
         TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
@@ -368,7 +372,11 @@ namespace smt {
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
         context& ctx = get_context();
-        if (get_manager().has_trace_stream()) log_axiom_instantiation(get_manager().mk_or(p1, p2));
+        if (get_manager().has_trace_stream()) {
+            app_ref body(get_manager());
+            body = get_manager().mk_or(p1, p2);
+            log_axiom_instantiation(body);
+        }
         ctx.internalize(p1, false);
         ctx.internalize(p2, false);
         literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));

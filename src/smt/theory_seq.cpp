@@ -2167,8 +2167,9 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
     m_new_propagation = true;
     ctx.assign(lit, js);    
     if (m.has_trace_stream()) {
-        expr* expr = ctx.bool_var2expr(lit.var());
-        if (lit.sign()) expr = get_manager().mk_not(expr);
+        expr_ref expr(m);
+        expr = ctx.bool_var2expr(lit.var());
+        if (lit.sign()) expr = m.mk_not(expr);
         log_axiom_instantiation(expr);
         m.trace_stream() << "[end-of-instance]\n";
     }
@@ -2205,7 +2206,11 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
             get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
-    if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_eq(n1->get_owner(), n2->get_owner()));
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_eq(n1->get_owner(), n2->get_owner());
+        log_axiom_instantiation(body);
+    }
     ctx.assign_eq(n1, n2, eq_justification(js));
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     m_new_propagation = true;
@@ -3184,10 +3189,12 @@ bool theory_seq::solve_nc(unsigned idx) {
             ptr_vector<expr> exprs;
             for (literal l : lits) {
                 expr* e = ctx.bool_var2expr(l.var());
-                if (l.sign()) e = get_manager().mk_not(e);
+                if (l.sign()) e = m.mk_not(e);
                 exprs.push_back(e);
             }
-            log_axiom_instantiation(get_manager().mk_or(exprs.size(), exprs.c_ptr()));
+            app_ref body(m);
+            body = m.mk_or(exprs.size(), exprs.c_ptr());
+            log_axiom_instantiation(body);
             m.trace_stream() << "[end-of-instance]\n";
         }
         return true;
@@ -4647,7 +4654,11 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     }
     else {
         TRACE("seq", ctx.display_literals_verbose(tout, lits) << "\n";);
-        if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(n, get_manager().mk_or(exprs.size(), exprs.c_ptr())));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(n, m.mk_or(exprs.size(), exprs.c_ptr()));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
@@ -5096,7 +5107,7 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
 
 void theory_seq::push_lit_as_expr(literal l, ptr_vector<expr>& buf) {
     expr* e = get_context().bool_var2expr(l.var());
-    if (l.sign()) e = get_manager().mk_not(e);
+    if (l.sign()) e = m.mk_not(e);
     buf.push_back(e);
 }
 
@@ -5113,7 +5124,11 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:\n", lits) << "\n";);
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
-    if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_or(exprs.size(), exprs.c_ptr()));
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_or(exprs.size(), exprs.c_ptr());
+        log_axiom_instantiation(body);
+    }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 }
@@ -5240,7 +5255,11 @@ void theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
                 get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
 
     m_new_propagation = true;
-    if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_eq(e1, e2));
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_eq(e1, e2);
+        log_axiom_instantiation(body);
+    }
     ctx.assign_eq(n1, n2, eq_justification(js));
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 }
@@ -5288,7 +5307,11 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
                 lits.push_back(mk_literal(d));
             }
             ++m_stats.m_add_axiom;            
-            if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(e, get_manager().mk_or(disj.size(), disj.c_ptr())));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(e, m.mk_or(disj.size(), disj.c_ptr()));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             for (expr* d : disj) {
@@ -5659,7 +5682,11 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
         lits.push_back(step);
         exprs.push_back(step_e);
     }
-    if (m.has_trace_stream()) log_axiom_instantiation(get_manager().mk_implies(acc, get_manager().mk_or(exprs.size(), exprs.c_ptr())));
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_implies(acc, m.mk_or(exprs.size(), exprs.c_ptr()));
+        log_axiom_instantiation(body);
+    }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
     if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 

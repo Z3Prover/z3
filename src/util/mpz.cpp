@@ -1768,7 +1768,6 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
 #endif
     }
     out.copyfmt(fmt);
-    out << std::dec;
 }
 
 void display_binary_data(std::ostream &out, unsigned val, unsigned numBits) {

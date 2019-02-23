@@ -790,7 +790,11 @@ namespace smt {
         TRACE("non_linear", tout << "new bound:\n" << mk_pp(bound, get_manager()) << "\n";);
         context & ctx = get_context();
         ast_manager & m = get_manager();
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_or(bound, m.mk_not(bound)));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(bound, m.mk_not(bound));
+            log_axiom_instantiation(body);
+        }
         ctx.internalize(bound, true);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         ctx.mark_as_relevant(bound);

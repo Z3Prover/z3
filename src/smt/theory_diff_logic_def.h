@@ -1009,7 +1009,11 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         t2 = m_util.mk_numeral(k, m.get_sort(s2.get()));
         // t1 - s1 = k
         eq = m.mk_eq(s2.get(), t2.get());
-        if (m.has_trace_stream()) log_axiom_instantiation(m.mk_eq(m.mk_eq(m_util.mk_add(s1, t2), t1), eq));
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_eq(m.mk_eq(m_util.mk_add(s1, t2), t1), eq);
+            log_axiom_instantiation(body);
+        }
         
         TRACE("diff_logic", 
               tout << v1 << " .. " << v2 << "\n";
