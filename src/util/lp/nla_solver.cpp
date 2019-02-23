@@ -2554,10 +2554,9 @@ struct solver::imp {
     }
     
     bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
-        // todo : run on m_rm_table.to_refine()
-        for (const auto& rm : m_rm_table.vec()) {
-            if (check_monomial(m_monomials[rm.orig_index()]))
-                continue;
+        for (unsigned i: m_rm_table.to_refine()) {
+            const auto& rm = m_rm_table.vec()[i]; 
+            SASSERT (!check_monomial(m_monomials[rm.orig_index()]));
             rm_found = &rm;
             if (find_bfc_on_monomial(rm, bf)) {
                 j = m_monomials[rm.orig_index()].var();
@@ -2567,7 +2566,6 @@ struct solver::imp {
                       print_bfc(bf, tout);
                       tout << ", product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
                       tout << ", j == "; print_var(j, tout) << "\n";);
-                rm_found = &rm;
                 return true;
             } 
         }
