@@ -1076,7 +1076,9 @@ public:
             mk_axiom(mk_literal(lo));
             if (m.has_trace_stream()) {
                 m.trace_stream() << "[end-of-instance]\n";
-                th.log_axiom_instantiation(m.mk_not(hi));
+                expr_ref body(m);
+                body = m.mk_not(hi);
+                th.log_axiom_instantiation(body);
             }
             mk_axiom(~mk_literal(hi));
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";

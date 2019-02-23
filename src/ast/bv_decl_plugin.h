@@ -239,7 +239,6 @@ protected:
     func_decl * mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity);
 
     void get_offset_term(app * a, expr * & t, rational & offset) const;
-
 public:
     bv_decl_plugin();
 
