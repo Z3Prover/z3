@@ -1574,17 +1574,19 @@ namespace sat {
         else {
             return false;
         }
+    }    
+    
+    solver::unsigned2  solver::litcls(literal lit) {
+        unsigned2 r;
+        r.lit = lit.index();
+        r.cls = m_neuro_idx2clause.size();
+        return r;
     }
 
-    static int lit2int(literal lit) {
-        return lit.sign() ? -static_cast<int>(1+lit.var()) : (1+lit.var());
-    }
-    
     void solver::serialize_neuro_units(neuro_prediction& p) {
         unsigned trail_sz = init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {            
-            m_neuro_clauses.push_back(lit2int(m_trail[i]));
-            m_neuro_clauses.push_back(0);
+            m_neuro_clauses.push_back(litcls(m_trail[i]));
             m_neuro_idx2clause.push_back(nullptr);
         }
     }
@@ -1602,9 +1604,8 @@ namespace sat {
                 if (l.index() > l2.index() ||
                     was_eliminated(l2.var()))
                     continue;
-                m_neuro_clauses.push_back(lit2int(l));
-                m_neuro_clauses.push_back(lit2int(l2));
-                m_neuro_clauses.push_back(0);
+                m_neuro_clauses.push_back(litcls(l));
+                m_neuro_clauses.push_back(litcls(l2));
                 m_neuro_idx2clause.push_back(nullptr);
             }
         }
@@ -1613,9 +1614,8 @@ namespace sat {
     void solver::serialize_neuro_clauses(neuro_prediction& p, clause_vector& clauses) {
         for (clause* cp : clauses) {
             for (literal lit : *cp) {
-                m_neuro_clauses.push_back(lit2int(lit));
+                m_neuro_clauses.push_back(litcls(lit));
             }
-            m_neuro_clauses.push_back(0);
             m_neuro_idx2clause.push_back(cp);
         }
     }
@@ -1626,7 +1626,7 @@ namespace sat {
         neuro_prediction p;
         
         p.num_clauses = 0;
-        p.num_vars = num_vars()+1;
+        p.num_vars = num_vars()+1; // pretend there is an extra variable so that variable index 0 can be used.
         m_neuro_clauses.reset();
         serialize_neuro_units(p);
         serialize_neuro_binaries(p);

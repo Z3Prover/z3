@@ -376,11 +376,13 @@ namespace sat {
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
         bool check_inconsistent();
 
-        unsigned_vector m_neuro_clauses;       // vector to hold set of clauses.
+        struct unsigned2 { unsigned lit; unsigned cls; };
+        svector<unsigned2> m_neuro_clauses;       // vector to hold set of clauses.
         svector<double> m_neuro_clause_scores; // vectors to hold neuropredictions
         svector<double> m_neuro_var_scores;    
         ptr_vector<clause> m_neuro_idx2clause; // map index of clause to clause pointer.
         void call_neuro();
+        unsigned2 litcls(literal lit);
         void serialize_neuro_units(neuro_prediction& p);
         void serialize_neuro_binaries(neuro_prediction& p);
         void serialize_neuro_clauses(neuro_prediction& p, clause_vector& clauses);
