@@ -44,7 +44,8 @@ namespace sat {
         GC_PSM,
         GC_GLUE,
         GC_GLUE_PSM,
-        GC_PSM_GLUE
+        GC_PSM_GLUE,
+        GC_NEURO
     };
 
     enum branching_heuristic {

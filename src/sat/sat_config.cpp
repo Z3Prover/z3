@@ -151,6 +151,8 @@ namespace sat {
             m_gc_strategy = GC_PSM;
         else if (s == symbol("psm_glue"))
             m_gc_strategy = GC_PSM_GLUE;
+        else if (s == symbol("neuro"))
+            m_gc_strategy = GC_NEURO;
         else 
             throw sat_param_exception("invalid gc strategy");
         m_gc_initial      = p.gc_initial();

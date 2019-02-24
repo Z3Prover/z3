@@ -1620,24 +1620,44 @@ namespace sat {
         }
     }
 
-    void solver::call_neuro() {
+    bool solver::call_neuro() {
 
-        if (!m_neuro_predictor) return;
+        if (!m_neuro_predictor) return false;
         neuro_prediction p;
         
-        p.num_clauses = 0;
-        p.num_vars = num_vars()+1; // pretend there is an extra variable so that variable index 0 can be used.
         m_neuro_clauses.reset();
         serialize_neuro_units(p);
         serialize_neuro_binaries(p);
         serialize_neuro_clauses(p, m_clauses);
         serialize_neuro_clauses(p, m_learned);
         p.sz = m_neuro_clauses.size();
+        p.num_vars = num_vars()+1; // pretend there is an extra variable so that variable index 0 can be used.
         p.num_clauses = m_neuro_idx2clause.size();
-        m_neuro_clause_scores.reserve(p.num_clauses);
-        m_neuro_var_scores.reserve(p.num_vars+1);
+        m_neuro_clause_scores.resize(p.num_clauses);
+        m_neuro_var_scores.resize(p.num_vars);
 
-        (*m_neuro_predictor)(m_neuro_state, &p);
+        return (*m_neuro_predictor)(m_neuro_state, &p);
+    }
+
+    // higher weight is assumed to be indication of more useful
+    struct neuro_lt {
+        bool operator()(clause const * c1, clause const * c2) const {
+            return c1->neuro_weight() > c2->neuro_weight();
+        }
+    };
+
+    bool solver::gc_neuro() {
+        if (!call_neuro()) return false;
+        unsigned idx = 0;
+        for (clause* c : m_neuro_idx2clause) {
+            if (c && c->is_learned()) {
+                c->set_neuro_weight(m_neuro_clause_scores[idx]);
+            }
+            ++idx;
+        }
+        std::stable_sort(m_learned.begin(), m_learned.end(), neuro_lt());
+        gc_half("neuro");
+        return true;
     }
 
     void solver::init_assumptions(unsigned num_lits, literal const* lits) {
@@ -2194,6 +2214,10 @@ namespace sat {
             if (!at_base_lvl()) 
                 return;
             gc_dyn_psm();
+            break;
+        case GC_NEURO:
+            if (!gc_neuro())
+                gc_glue_psm();
             break;
         default:
             UNREACHABLE();

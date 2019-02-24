@@ -381,7 +381,7 @@ namespace sat {
         svector<double> m_neuro_clause_scores; // vectors to hold neuropredictions
         svector<double> m_neuro_var_scores;    
         ptr_vector<clause> m_neuro_idx2clause; // map index of clause to clause pointer.
-        void call_neuro();
+        bool call_neuro();
         unsigned2 litcls(literal lit);
         void serialize_neuro_units(neuro_prediction& p);
         void serialize_neuro_binaries(neuro_prediction& p);
@@ -484,6 +484,7 @@ namespace sat {
         void gc_psm();
         void gc_glue_psm();
         void gc_psm_glue();
+        bool gc_neuro();
         void save_psm();
         void gc_half(char const * st_name);
         void gc_dyn_psm();

@@ -44,6 +44,7 @@ namespace sat {
         unsigned           m_id;
         unsigned           m_size;
         unsigned           m_capacity;
+        double             m_neuro_weight;
         var_approx_set     m_approx;
         unsigned           m_strengthened:1;
         unsigned           m_removed:1;
@@ -77,6 +78,8 @@ namespace sat {
         void set_removed(bool f) { m_removed = f; }
         var_approx_set approx() const { return m_approx; }
         void update_approx();
+        void set_neuro_weight(double d) { m_neuro_weight = d; }
+        double neuro_weight() const { return m_neuro_weight; }
         bool check_approx() const; // for debugging
         literal * begin() { return m_lits; }
         literal * end() { return m_lits + m_size; }

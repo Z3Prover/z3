@@ -27,6 +27,7 @@ namespace sat {
         m_id(id),
         m_size(sz),
         m_capacity(sz),
+        m_neuro_weight(0),
         m_removed(false),
         m_learned(learned),
         m_used(false),
