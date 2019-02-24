@@ -103,7 +103,7 @@ namespace sat {
         if (ext) ext->set_solver(this);
     }
 
-    void solver::set_predictor(void* state, neuro_predictor* p) {
+    void solver::set_predictor(void* state, neuro_predictor p) {
         m_neuro_state = state;
         m_neuro_predictor = p;
     }

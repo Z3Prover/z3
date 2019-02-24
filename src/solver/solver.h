@@ -254,7 +254,7 @@ public:
 
     virtual void set_activity(expr* lit, double activity) = 0;
 
-    virtual void set_predictor(void* state, neuro_predictor* p) = 0;
+    virtual void set_predictor(void* state, neuro_predictor p) = 0;
 
     class scoped_push {
         solver& s;

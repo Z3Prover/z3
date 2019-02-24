@@ -6257,9 +6257,9 @@ extern "C" {
         double  is_sat;           // [out] prediction if the problem is sat
         double* clause_scores;    // [out] array of length num_clauses                
     };
-    typedef bool (*Z3_solver_predictor)(void* state, struct Z3_neuro_prediction* p);
+    typedef bool Z3_solver_predictor(void* state, struct Z3_neuro_prediction* p);
 
-    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor* f);
+    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor f);
 
     /**
        \brief Check whether the assertions in a given solver are consistent or not.

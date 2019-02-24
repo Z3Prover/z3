@@ -441,7 +441,7 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor* f) {
+    void Z3_API Z3_solver_set_predictor(Z3_context c, Z3_solver s, void* state, Z3_solver_predictor f) {
         Z3_TRY;
         init_solver(c, s);
         to_solver_ref(s)->set_predictor(state, (neuro_predictor*)f);

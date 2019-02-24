@@ -97,7 +97,7 @@ public:
         throw default_exception("cannot set activity for solvers created using tactics");
     }
 
-    void set_predictor(void* state, neuro_predictor* p) override {
+    void set_predictor(void* state, neuro_predictor p) override {
         throw default_exception("cannot set predictors for solvers created using tactics");
     }
 

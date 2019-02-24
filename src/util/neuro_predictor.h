@@ -34,5 +34,5 @@ struct neuro_prediction {
 };
 
 // callback returns true on success, false on failure.
-typedef bool (*neuro_predictor)(void* state, neuro_prediction* p);
+typedef bool neuro_predictor(void* state, neuro_prediction* p);
 

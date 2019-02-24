@@ -180,7 +180,7 @@ namespace sat {
         class local_search*     m_local_search;
 
         void *                  m_neuro_state;
-        neuro_predictor *       m_neuro_predictor;
+        neuro_predictor*        m_neuro_predictor;
 
         statistics              m_aux_stats;
 
