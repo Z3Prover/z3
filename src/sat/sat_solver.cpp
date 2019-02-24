@@ -1477,7 +1477,7 @@ namespace sat {
                 phase = m_phase[next];
                 break;
             case PS_SAT_CACHING:
-                if (m_phase_cache_state) {
+                if (m_search_state == s_unsat) {
                     phase = m_phase[next];
                 }
                 else {
@@ -1780,10 +1780,10 @@ namespace sat {
     void solver::init_search() {
         m_model_is_current        = false;
         m_phase_counter           = 0;
-        m_phase_cache_state       = true;
-        m_phase_caching_on        = m_config.m_phase_caching_on;
-        m_phase_caching_off       = m_config.m_phase_caching_off;
-        m_phase_next_toggle       = m_phase_caching_on;
+        m_search_state            = s_unsat;
+        m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts;
+        m_search_sat_conflicts    = m_config.m_search_sat_conflicts;
+        m_search_next_toggle      = m_search_unsat_conflicts;
         m_phase_trail_threshold   = 0;
         m_phase_luby_idx          = 0;
         m_rephase_lim             = 0;
@@ -3003,7 +3003,7 @@ namespace sat {
     }
 
     bool solver::is_sat_phase() const {
-        return m_config.m_phase == PS_SAT_CACHING && !m_phase_cache_state;
+        return m_config.m_phase == PS_SAT_CACHING && m_search_state == s_sat;
     }
 
     void solver::updt_phase_of_vars() {
@@ -3033,7 +3033,7 @@ namespace sat {
         }
     }
 
-    unsigned solver::next_phase_toggle() {        
+    unsigned solver::next_search_toggle() {        
 
         if (m_config.m_phase == PS_SAT_CACHING) {
             m_phase_trail_threshold = 0;
@@ -3042,24 +3042,24 @@ namespace sat {
             IF_VERBOSE(2, verbose_stream() << m_fast_glue_avg << " " << m_conflicts_since_init << "\n");
 
 #if 1
-            if (m_phase_cache_state) {
-                m_phase_caching_on += m_config.m_phase_caching_on;                
+            if (m_search_state == s_unsat) {
+                m_search_unsat_conflicts += m_config.m_search_unsat_conflicts;                
             }
             else {
-                m_phase_caching_off += m_config.m_phase_caching_off;
+                m_search_sat_conflicts += m_config.m_search_sat_conflicts;
             }
 #else
             unsigned luby = get_luby(m_phase_luby_idx++);
-            m_phase_caching_on  = m_config.m_phase_caching_on * luby;
-            m_phase_caching_off = m_config.m_phase_caching_off * luby;
+            m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts * luby;
+            m_search_sat_conflicts = m_config.m_search_sat_conflicts * luby;
 #endif
         }
 
-        if (m_phase_cache_state) {
-            return m_phase_caching_on;
+        if (m_search_state == s_unsat) {
+            return m_search_unsat_conflicts;
         }
         else {
-            return m_phase_caching_off;
+            return m_search_sat_conflicts;
         }
     }
 
@@ -3092,7 +3092,7 @@ namespace sat {
             }
             break;
         case PS_SAT_CACHING:
-            if (!m_phase_cache_state) {
+            if (m_search_state == s_sat) {
                 for (unsigned i = 0; i < m_phase.size(); ++i) {
                     m_phase[i] = m_best_phase[i];
                 }
@@ -3110,20 +3110,20 @@ namespace sat {
     }
 
     bool solver::should_toggle_phase() {
-        if (m_phase_cache_state) {
+        if (m_search_state == s_unsat) {
             m_trail_avg.update(m_trail.size());
         }
         return 
-            (m_phase_counter >= m_phase_next_toggle) &&
-            (!m_phase_cache_state || m_trail.size() > 0.50*m_trail_avg);  
+            (m_phase_counter >= m_search_next_toggle) &&
+            (m_search_state == s_sat || m_trail.size() > 0.50*m_trail_avg);  
     }
 
     void solver::updt_phase_counters() {
         m_phase_counter++;
         if (should_toggle_phase()) {
-            m_phase_next_toggle = next_phase_toggle();
+            m_search_next_toggle = next_search_toggle();
             m_phase_counter = 0;
-            m_phase_cache_state = !m_phase_cache_state;
+            m_search_state = (m_search_state == s_sat) ? s_unsat : s_sat;
         }
     }
 

@@ -96,8 +96,8 @@ namespace sat {
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
-        unsigned           m_phase_caching_on;
-        unsigned           m_phase_caching_off;
+        unsigned           m_search_sat_conflicts;
+        unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
         unsigned           m_rephase_base;
         bool               m_propagate_prefetch;

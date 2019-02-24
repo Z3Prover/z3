@@ -83,6 +83,8 @@ namespace sat {
     public:
         struct abort_solver {};
     protected:
+        enum search_state { s_sat, s_unsat };
+
         bool                    m_checkpoint_enabled;
         config                  m_config;
         stats                   m_stats;
@@ -135,11 +137,11 @@ namespace sat {
         svector<bool>           m_best_phase;
         svector<bool>           m_prev_phase;
         svector<char>           m_assigned_since_gc;
-        bool                    m_phase_cache_state;
-        unsigned                m_phase_caching_on;
-        unsigned                m_phase_caching_off;
+        search_state            m_search_state; 
+        unsigned                m_search_unsat_conflicts;
+        unsigned                m_search_sat_conflicts;
+        unsigned                m_search_next_toggle;
         unsigned                m_phase_counter; 
-        unsigned                m_phase_next_toggle;
         unsigned                m_phase_trail_threshold;
         unsigned                m_phase_luby_idx;
         unsigned                m_rephase_lim;
@@ -541,7 +543,7 @@ namespace sat {
         void updt_phase_of_vars();
         void forget_phase_of_vars();
         void updt_phase_counters();
-        unsigned next_phase_toggle();
+        unsigned next_search_toggle();
         bool should_toggle_phase();
         bool is_sat_phase() const;
         bool should_rephase();

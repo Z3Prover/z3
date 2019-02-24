@@ -64,8 +64,8 @@ namespace sat {
             throw sat_param_exception("invalid phase selection strategy");
 
         m_rephase_base      = p.rephase_base();
-        m_phase_caching_on  = p.phase_caching_on();
-        m_phase_caching_off = p.phase_caching_off();
+        m_search_sat_conflicts = p.search_sat_conflicts();
+        m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
 
         m_restart_initial = p.restart_initial();
