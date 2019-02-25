@@ -212,7 +212,6 @@ struct rooted_mon_table {
         for (unsigned i = 0; i < vec().size(); i++) {
             register_rooted_monomial_containing_vars(i);
         }
-      
     }
 
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i_mon) {

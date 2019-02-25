@@ -117,10 +117,10 @@ tactic * mk_qfnia_tactic(ast_manager & m, params_ref const & p) {
     return and_then(
         mk_report_verbose_tactic("(qfnia-tactic)", 10),
         mk_qfnia_premable(m, p),
-               or_else(mk_qfnia_sat_solver(m, p),
-               try_for(mk_qfnia_smt_solver(m, p), 2000),
-               mk_qfnia_nlsat_solver(m, p),
+        //               or_else(mk_qfnia_sat_solver(m, p),
+        //     try_for(mk_qfnia_smt_solver(m, p), 2000),
+        //     mk_qfnia_nlsat_solver(m, p),
                 mk_qfnia_smt_solver(m, p))
-         )
+        //         )
         ;
 }
