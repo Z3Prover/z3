@@ -45,7 +45,9 @@ namespace sat {
         svector<watched_clause>   m_watched_clauses;
         typedef svector<unsigned> watch;
         solver& s;
+        clause_allocator        m_alloc;
         std::ostream*           m_out;
+        std::ostream*           m_bout;
         ptr_vector<clause>      m_proof;
         svector<status>         m_status;
         literal_vector          m_units;
@@ -55,9 +57,12 @@ namespace sat {
         bool                    m_check_unsat, m_check_sat, m_check;
 
         void dump(unsigned n, literal const* c, status st);
+        void bdump(unsigned n, literal const* c, status st);
         void append(literal l, status st);
         void append(literal l1, literal l2, status st);
         void append(clause& c, status st);
+
+        bool is_clause(clause& c, literal l1, literal l2, literal l3, status st1, status st2);
 
         friend std::ostream& operator<<(std::ostream & out, status st);
         status get_status(bool learned) const;
@@ -102,6 +107,7 @@ namespace sat {
         bool contains(unsigned n, literal const* c);
         bool contains(literal l1, literal l2) { literal lits[2] = {l1, l2}; return contains(2, lits); }
         bool contains(literal l1, literal l2, literal l3) { literal lits[3] = {l1, l2, l3}; return contains(3, lits); }
+        bool contains(literal c, justification const& j);
 
         void check_model(model const& m);
     };

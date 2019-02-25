@@ -70,9 +70,9 @@ import com.microsoft.z3.enumerations.Z3_ast_kind;
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr getBody()
+    public Expr getBody()
     {
-        return new BoolExpr(getContext(), Native.getQuantifierBody(getContext()
+        return Expr.create(getContext(), Native.getQuantifierBody(getContext()
                 .nCtx(), getNativeObject()));
     }
 

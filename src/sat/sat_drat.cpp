@@ -27,24 +27,35 @@ namespace sat {
     drat::drat(solver& s):
         s(s),
         m_out(nullptr),
+        m_bout(nullptr),
         m_inconsistent(false),
         m_check_unsat(false),
         m_check_sat(false),
         m_check(false)
     {
         if (s.m_config.m_drat && s.m_config.m_drat_file != symbol()) {
-            m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str());
+            auto mode = s.m_config.m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
+            m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str(), mode);
+            if (s.m_config.m_drat_binary) {
+                std::swap(m_out, m_bout);
+            }
         }
     }
 
     drat::~drat() {
+        if (m_out) m_out->flush();
+        if (m_bout) m_bout->flush();
         dealloc(m_out);
+        dealloc(m_bout);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             clause* c = m_proof[i];
-            if (c && (c->size() == 2 || m_status[i] == status::deleted || m_status[i] == status::external)) {
-                s.dealloc_clause(c);
+            if (c) {
+                m_alloc.del_clause(c);
             }
         }
+        m_proof.reset();
+        m_out = nullptr;
+        m_bout = nullptr;
     }
 
     void drat::updt_config() {
@@ -64,14 +75,75 @@ namespace sat {
     }
 
     void drat::dump(unsigned n, literal const* c, status st) {
+        if (st == status::asserted || st == status::external) {
+            return;
+        }
+        
+        char buffer[10000];
+        char digits[20];     // enough for storing unsigned
+        char* lastd = digits + sizeof(digits);
+        
+        int len = 0;
+        if (st == status::deleted) {
+            buffer[0] = 'd';
+            buffer[1] = ' ';
+            len = 2;
+        }
+        for (unsigned i = 0; i < n; ++i) {
+            literal lit = c[i];
+            unsigned v = lit.var();            
+            if (lit.sign()) buffer[len++] = '-';
+            char* d = lastd;
+            while (v > 0) {                
+                d--;
+                *d = (v % 10) + '0';
+                v /= 10;
+                SASSERT(d > digits);
+            }
+	    SASSERT(len + lastd - d < sizeof(buffer));
+	    memcpy(buffer + len, d, lastd - d);
+	    len += static_cast<unsigned>(lastd - d);            
+	    buffer[len++] = ' ';
+	    if (len + 50 > sizeof(buffer)) {
+	        m_out->write(buffer, len);
+	        len = 0;
+            }
+        }        
+	buffer[len++] = '0';
+	buffer[len++] = '\n';
+	m_out->write(buffer, len);               
+    }
+
+    void drat::bdump(unsigned n, literal const* c, status st) {
+        unsigned char ch = 0;
         switch (st) {
         case status::asserted: return;
-        case status::external: return; // requires extension to drat format.
-        case status::learned: break;
-        case status::deleted: (*m_out) << "d "; break;
+        case status::external: return; 
+        case status::learned: ch = 'a'; break;
+        case status::deleted: ch = 'd'; break;
+        default: UNREACHABLE(); break;
         }
-        for (unsigned i = 0; i < n; ++i) (*m_out) << c[i] << " ";
-        (*m_out) << "0\n";
+        char buffer[10000];
+        int len = 0;
+        buffer[len++] = ch;
+
+        for (unsigned i = 0; i < n; ++i) {
+            literal lit = c[i];
+            unsigned v = 2 * lit.var() + (lit.sign() ? 1 : 0);
+            do {
+                ch = static_cast<unsigned char>(v & 255);
+                v >>= 7;
+                if (v) ch |= 128;
+                buffer[len++] = ch;
+                if (len == sizeof(buffer)) {
+                    m_bout->write(buffer, len);
+                    len = 0;
+                }
+            }
+            while (v);
+        }
+        buffer[len++] = 0;
+        m_bout->write(buffer, len);
     }
 
     bool drat::is_cleaned(clause& c) const {
@@ -97,6 +169,9 @@ namespace sat {
     }
 
     void drat::append(literal l, status st) {
+        TRACE("sat_drat", tout << st << " " << l << "\n";);
+
+        declare(l);
         IF_VERBOSE(20, trace(verbose_stream(), 1, &l, st););
         if (st == status::learned) {
             verify(1, &l);
@@ -104,11 +179,19 @@ namespace sat {
         if (st == status::deleted) {
             return;
         }
-        assign_propagate(l);
+        if (m_check_unsat) {
+            assign_propagate(l);
+        }
+
+        m_units.push_back(l);
     }
 
     void drat::append(literal l1, literal l2, status st) {
+        TRACE("sat_drat", tout << st << " " << l1 << " " << l2 << "\n";);
+        declare(l1); 
+        declare(l2);
         literal lits[2] = { l1, l2 };
+        
         IF_VERBOSE(20, trace(verbose_stream(), 2, lits, st););
         if (st == status::deleted) {
             // noop
@@ -118,9 +201,10 @@ namespace sat {
             if (st == status::learned) {
                 verify(2, lits);
             }
-            clause* c = s.alloc_clause(2, lits, st == status::learned);
+            clause* c = m_alloc.mk_clause(2, lits, st == status::learned);
             m_proof.push_back(c);
             m_status.push_back(st);
+            if (!m_check_unsat) return;
             unsigned idx = m_watched_clauses.size();
             m_watched_clauses.push_back(watched_clause(c, l1, l2));
             m_watches[(~l1).index()].push_back(idx);
@@ -138,14 +222,37 @@ namespace sat {
         }
     }
 
+#if 0
+    // debugging code
+    bool drat::is_clause(clause& c, literal l1, literal l2, literal l3, drat::status st1, drat::status st2) {
+        //if (st1 != st2) return false;
+        if (c.size() != 3) return false;
+        if (l1 == c[0]) {
+            if (l2 == c[1] && l3 == c[2]) return true;
+            if (l2 == c[2] && l3 == c[1]) return true;
+        }
+        if (l2 == c[0]) {
+            if (l1 == c[1] && l3 == c[2]) return true;
+            if (l1 == c[2] && l3 == c[1]) return true;
+        }
+        if (l3 == c[0]) {
+            if (l1 == c[1] && l2 == c[2]) return true;
+            if (l1 == c[2] && l2 == c[1]) return true;
+        }
+        return false;
+    }
+#endif
+
     void drat::append(clause& c, status st) {
+        TRACE("sat_drat", tout << st << " " << c << "\n";);
+        for (literal lit : c) declare(lit);
         unsigned n = c.size();
         IF_VERBOSE(20, trace(verbose_stream(), n, c.begin(), st););
 
         if (st == status::learned) {
             verify(c);
         }
-
+           
         m_status.push_back(st);
         m_proof.push_back(&c); 
         if (st == status::deleted) {
@@ -198,6 +305,7 @@ namespace sat {
     }
 
     void drat::declare(literal l) {
+        if (!m_check) return;
         unsigned n = static_cast<unsigned>(l.var());
         while (m_assignment.size() <= n) {
             m_assignment.push_back(l_undef);
@@ -212,10 +320,10 @@ namespace sat {
         for (unsigned i = 0; !m_inconsistent && i < n; ++i) {            
             assign_propagate(~c[i]);
         }
+        if (!m_inconsistent) {
+            DEBUG_CODE(validate_propagation(););
+        }
         DEBUG_CODE(
-            if (!m_inconsistent) {
-                validate_propagation();
-            }
             for (literal u : m_units) {
                 SASSERT(m_assignment[u.var()] != l_undef);
             });
@@ -293,7 +401,7 @@ namespace sat {
     void drat::validate_propagation() const {
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             status st = m_status[i];
-            if (m_proof[i] && st != status::deleted) {
+            if (m_proof[i] && m_proof[i]->size() > 1 && st != status::deleted) {
                 clause& c = *m_proof[i];
                 unsigned num_undef = 0, num_true = 0;
                 for (unsigned j = 0; j < c.size(); ++j) {
@@ -303,7 +411,7 @@ namespace sat {
                     case l_undef: num_undef++; break;
                     }
                 }
-                CTRACE("sat", num_true == 0 && num_undef == 1, display(tout););
+                CTRACE("sat_drat", num_true == 0 && num_undef == 1, display(tout););
                 SASSERT(num_true != 0 || num_undef != 1);
             }
         }
@@ -316,7 +424,7 @@ namespace sat {
         SASSERT(lits.size() == n);
         for (unsigned i = 0; i < m_proof.size(); ++i) {
             status st = m_status[i];
-            if (m_proof[i] && (st == status::asserted || st == status::external)) {
+            if (m_proof[i] && m_proof[i]->size() > 1 && (st == status::asserted || st == status::external)) {
                 clause& c = *m_proof[i];
                 unsigned j = 0;
                 for (; j < c.size() && c[j] != ~l; ++j) {}
@@ -347,7 +455,7 @@ namespace sat {
             exit(0);
             UNREACHABLE();
             //display(std::cout);
-            TRACE("sat", 
+            TRACE("sat_drat", 
                   tout << literal_vector(n, c) << "\n";
                   display(tout); 
                   s.display(tout););
@@ -355,16 +463,41 @@ namespace sat {
         }
     }
 
+    bool drat::contains(literal c, justification const& j) {
+        if (!m_check_sat) {
+            return true;
+        }
+        switch (j.get_kind()) {
+        case justification::NONE:
+            return m_units.contains(c);
+        case justification::BINARY:
+            return contains(c, j.get_literal());
+        case justification::TERNARY:
+            return contains(c, j.get_literal1(), j.get_literal2());
+        case justification::CLAUSE: 
+            return contains(s.get_clause(j));
+        default:
+            return true;
+        }
+    }
+
     bool drat::contains(unsigned n, literal const* lits) {
         if (!m_check) return true;
+        unsigned num_add = 0;
+        unsigned num_del = 0;
         for (unsigned i = m_proof.size(); i-- > 0; ) {
             clause& c = *m_proof[i];
             status st = m_status[i];
             if (match(n, lits, c)) {
-                return st != status::deleted;
+                if (st == status::deleted) {
+                    num_del++;
+                } 
+                else {
+                    num_add++;
+                }
             }
         }
-        return false;
+        return num_add > num_del;
     }
 
     bool drat::match(unsigned n, literal const* lits, clause const& c) const {
@@ -378,7 +511,9 @@ namespace sat {
                         break;
                     }
                 }
-                if (!found) return false;
+                if (!found) {
+                    return false;
+                }
             }
             return true;
         }
@@ -436,7 +571,7 @@ namespace sat {
     void drat::assign(literal l) {
         lbool new_value = l.sign() ? l_false : l_true;
         lbool old_value = value(l);
-//        TRACE("sat", tout << "assign " << l << " := " << new_value << " from " << old_value << "\n";);
+//        TRACE("sat_drat", tout << "assign " << l << " := " << new_value << " from " << old_value << "\n";);
         switch (old_value) {
         case l_false:
             m_inconsistent = true;
@@ -468,7 +603,7 @@ namespace sat {
             watched_clause& wc = m_watched_clauses[idx];
             clause& c = *wc.m_clause;
 
-            //TRACE("sat", tout << "Propagate " << l << " " << c << " watch: " << wc.m_l1 << " " << wc.m_l2 << "\n";);
+            //TRACE("sat_drat", tout << "Propagate " << l << " " << c << " watch: " << wc.m_l1 << " " << wc.m_l2 << "\n";);
             if (wc.m_l1 == ~l) {
                 std::swap(wc.m_l1, wc.m_l2);
             }
@@ -514,32 +649,32 @@ namespace sat {
 
     void drat::add() {
         if (m_out) (*m_out) << "0\n";
+        if (m_bout) bdump(0, nullptr, status::learned);
         if (m_check_unsat) {
             SASSERT(m_inconsistent);
         }
     }
     void drat::add(literal l, bool learned) {
-        TRACE("sat", tout << "add: " << l << " " << (learned?"l":"t") << "\n";);
-        declare(l);
         status st = get_status(learned);
         if (m_out) dump(1, &l, st);
+        if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
     }
     void drat::add(literal l1, literal l2, bool learned) {
-        TRACE("sat", tout << "add: " << l1 << " " << l2 << " " << (learned?"l":"t") << "\n";);
-        declare(l1);
-        declare(l2);
         literal ls[2] = {l1, l2};
         status st = get_status(learned);
         if (m_out) dump(2, ls, st);
+        if (m_bout) bdump(2, ls, st);
         if (m_check) append(l1, l2, st);
     }
     void drat::add(clause& c, bool learned) {
-        TRACE("sat", tout << "add: " << c << "\n";);
-        for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         status st = get_status(learned);
         if (m_out) dump(c.size(), c.begin(), st);
-        if (m_check_unsat) append(c, get_status(learned));
+        if (m_bout) bdump(c.size(), c.begin(), st);
+        if (m_check) {
+            clause* cl = m_alloc.mk_clause(c.size(), c.begin(), learned);
+            append(*cl, get_status(learned));
+        }
     }
     void drat::add(literal_vector const& lits, svector<premise> const& premises) {
         if (m_check) {
@@ -547,7 +682,7 @@ namespace sat {
             case 0: add(); break;
             case 1: append(lits[0], status::external); break;
             default: {
-                clause* c = s.alloc_clause(lits.size(), lits.c_ptr(), true);
+                clause* c = m_alloc.mk_clause(lits.size(), lits.c_ptr(), true);
                 append(*c, status::external);
                 break;
             }
@@ -555,15 +690,16 @@ namespace sat {
         }                        
     }
     void drat::add(literal_vector const& c) {
-        for (unsigned i = 0; i < c.size(); ++i) declare(c[i]);
         if (m_out) dump(c.size(), c.begin(), status::learned);
+        if (m_bout) bdump(c.size(), c.begin(), status::learned);
         if (m_check) {
+            for (literal lit : c) declare(lit);
             switch (c.size()) {
             case 0: add(); break;
             case 1: append(c[0], status::learned); break;
             default: {
                 verify(c.size(), c.begin());
-                clause* cl = s.alloc_clause(c.size(), c.c_ptr(), true);
+                clause* cl = m_alloc.mk_clause(c.size(), c.c_ptr(), true);
                 append(*cl, status::external);                
                 break;
             }
@@ -573,13 +709,16 @@ namespace sat {
 
     void drat::del(literal l) {
         if (m_out) dump(1, &l, status::deleted);
+        if (m_bout) bdump(1, &l, status::deleted);
         if (m_check_unsat) append(l, status::deleted);
     }
+
     void drat::del(literal l1, literal l2) {
         literal ls[2] = {l1, l2};
+        SASSERT(!(l1 == literal(13923, false) && l2 == literal(14020, true)));
         if (m_out) dump(2, ls, status::deleted);
-        if (m_check) 
-            append(l1, l2, status::deleted);
+        if (m_bout) bdump(2, ls, status::deleted);
+        if (m_check) append(l1, l2, status::deleted);
     }
 
     void drat::del(clause& c) {
@@ -595,18 +734,16 @@ namespace sat {
         }
 #endif
 
-        TRACE("sat", tout << "del: " << c << "\n";);
-        if (m_out) {
-            dump(c.size(), c.begin(), status::deleted);
-        }
+        //SASSERT(!(c.size() == 2 && c[0] == literal(13923, false) && c[1] == literal(14020, true)));
+        if (m_out) dump(c.size(), c.begin(), status::deleted);
+        if (m_bout) bdump(c.size(), c.begin(), status::deleted);
         if (m_check) {
-            clause* c1 = s.alloc_clause(c.size(), c.begin(), c.is_learned()); 
+            clause* c1 = m_alloc.mk_clause(c.size(), c.begin(), c.is_learned()); 
             append(*c1, status::deleted);
         }
     }
     
-    void drat::check_model(model const& m) {
-        std::cout << "check model on " << m_proof.size() << "\n";
+    void drat::check_model(model const& m) {        
     }
 
 }

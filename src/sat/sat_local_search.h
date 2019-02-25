@@ -202,6 +202,7 @@ namespace sat {
         void init_slack();
         void init_scores();
         void init_goodvars();        
+        void pick_flip_lookahead();
         void pick_flip_walksat();
         void flip_walksat(bool_var v);
         bool propagate(literal lit);
@@ -250,7 +251,7 @@ namespace sat {
 
         void import(solver& s, bool init);        
 
-        void set_phase(bool_var v, lbool f);
+        void set_phase(bool_var v, bool f);
 
         void set_bias(bool_var v, lbool f);
 

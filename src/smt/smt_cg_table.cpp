@@ -71,10 +71,7 @@ namespace smt {
     
     void cg_table::display(std::ostream & out) const {
         out << "congruence table:\n";
-        table::iterator it  = m_table.begin();
-        table::iterator end = m_table.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode * n : m_table) {
             out << mk_pp(n->get_owner(), m_manager) << "\n";
         }
     }
@@ -82,10 +79,7 @@ namespace smt {
     void cg_table::display_compact(std::ostream & out) const {
         if (!m_table.empty()) {
             out << "congruence table:\n";
-            table::iterator it  = m_table.begin();
-            table::iterator end = m_table.end();
-            for (; it != end; ++it) {
-                enode * n = *it;
+            for (enode * n : m_table) {
                 out << "#" << n->get_owner()->get_id() << " ";
             }
             out << "\n";
@@ -94,10 +88,7 @@ namespace smt {
 
 #ifdef Z3DEBUG
     bool cg_table::check_invariant() const {
-        table::iterator it  = m_table.begin();
-        table::iterator end = m_table.end();
-        for (; it != end; ++it) {
-            enode * n = *it;
+        for (enode * n : m_table) {
             CTRACE("cg_table", !contains_ptr(n), tout << "#" << n->get_owner_id() << "\n";);
             SASSERT(contains_ptr(n));
         }
@@ -136,9 +127,11 @@ namespace smt {
     }
 
     bool cg_table::cg_eq::operator()(enode * n1, enode * n2) const {
-        SASSERT(n1->get_num_args() == n2->get_num_args());
         SASSERT(n1->get_decl() == n2->get_decl());
         unsigned num = n1->get_num_args();
+        if (num != n2->get_num_args()) {
+            return false;
+        }
         for (unsigned i = 0; i < num; i++) 
             if (n1->get_arg(i)->get_root() != n2->get_arg(i)->get_root())
                 return false;
@@ -205,10 +198,7 @@ namespace smt {
     }
     
     void cg_table::reset() {
-        ptr_vector<void>::iterator it  = m_tables.begin();
-        ptr_vector<void>::iterator end = m_tables.end();
-        for (; it != end; ++it) {
-            void * t = *it;
+        for (void* t : m_tables) {
             switch (GET_TAG(t)) {
             case UNARY:
                 dealloc(UNTAG(unary_table*, t));
@@ -225,10 +215,9 @@ namespace smt {
             }
         }
         m_tables.reset();
-        obj_map<func_decl, unsigned>::iterator it2  = m_func_decl2id.begin();
-        obj_map<func_decl, unsigned>::iterator end2 = m_func_decl2id.end();
-        for (; it2 != end2; ++it2) 
-            m_manager.dec_ref(it2->m_key);
+        for (auto const& kv : m_func_decl2id) {
+            m_manager.dec_ref(kv.m_key);
+        }
         m_func_decl2id.reset();
     }
 

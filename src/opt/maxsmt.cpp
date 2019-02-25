@@ -18,17 +18,18 @@ Notes:
 --*/
 
 #include <typeinfo>
+#include "util/uint_set.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
+#include "ast/pb_decl_plugin.h"
 #include "opt/maxsmt.h"
 #include "opt/maxres.h"
+#include "opt/maxlex.h"
 #include "opt/wmax.h"
 #include "opt/opt_params.hpp"
-#include "ast/ast_pp.h"
-#include "util/uint_set.h"
 #include "opt/opt_context.h"
 #include "smt/theory_wmaxsat.h"
 #include "smt/theory_pb.h"
-#include "ast/ast_util.h"
-#include "ast/pb_decl_plugin.h"
 
 
 namespace opt {
@@ -61,7 +62,7 @@ namespace opt {
         rational k(0), cost(0);
         vector<rational> weights;
         for (soft const& s : m_soft) {
-            if (s.is_true) {
+            if (s.is_true()) {
                 k += s.weight;
             }
             else {
@@ -80,13 +81,13 @@ namespace opt {
         m_lower.reset();
         m_upper.reset();
         for (soft& s : m_soft) {
-            s.is_true = m.is_true(s.s);
-            if (!s.is_true) m_upper += s.weight;
+            s.set_value(m.is_true(s.s));
+            if (!s.is_true()) m_upper += s.weight;
         }
         
         TRACE("opt", 
               tout << "upper: " << m_upper << " assignments: ";
-              for (soft& s : m_soft) tout << (s.is_true?"T":"F");              
+              for (soft& s : m_soft) tout << (s.is_true()?"T":"F");              
               tout << "\n";);
         return true;
     }
@@ -231,10 +232,14 @@ namespace opt {
     lbool maxsmt::operator()() {
         lbool is_sat = l_undef;
         m_msolver = nullptr;
+        opt_params optp(m_params);
         symbol const& maxsat_engine = m_c.maxsat_engine();
         IF_VERBOSE(1, verbose_stream() << "(maxsmt)\n";);
         TRACE("opt_verbose", s().display(tout << "maxsmt\n") << "\n";);
-        if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
+        if (optp.maxlex_enable() && is_maxlex(m_weights)) {
+            m_msolver = mk_maxlex(m_c, m_index, m_weights, m_soft_constraints);
+        }
+        else if (m_soft_constraints.empty() || maxsat_engine == symbol("maxres") || maxsat_engine == symbol::null) {            
             m_msolver = mk_maxres(m_c, m_index, m_weights, m_soft_constraints);
         }
         else if (maxsat_engine == symbol("pd-maxres")) {            

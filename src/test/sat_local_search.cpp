@@ -46,10 +46,6 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         std::cout << "Objective function format error. They have different lengths.\n";
         return false;
     }
-
-    for (unsigned i = 0; i < lits.size(); ++i) {
-        local_search.add_soft(lits[i].var(), coefficients[i]);
-    }
     
     // read the constraints, one at a time
     int k;

@@ -42,7 +42,7 @@ void rewriter_core::del_cache_stack() {
     }
 }
 
-void rewriter_core::cache_result(expr * k, expr * v) {
+void rewriter_core::cache_shifted_result(expr * k, unsigned offset, expr * v) {
 #if 0
     // trace for tracking cache usage
     verbose_stream() << "1 " << k->get_id() << std::endl;
@@ -53,7 +53,7 @@ void rewriter_core::cache_result(expr * k, expr * v) {
 
     SASSERT(m().get_sort(k) == m().get_sort(v));
 
-    m_cache->insert(k, v);
+    m_cache->insert(k, offset, v);
 #if 0
     static unsigned num_cached = 0;
     num_cached ++;

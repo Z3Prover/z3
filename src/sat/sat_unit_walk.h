@@ -35,14 +35,10 @@ namespace sat {
             svector<bool_var> m_vars;
             unsigned_vector   m_lim;
             unsigned          m_head;
-            unsigned          m_depth;
         public:
-            var_priority() { m_depth = 0; m_head = 0; }
-            void rewind() { m_head = 0; for (unsigned& l : m_lim) l = 0; }
-            unsigned depth() const { return m_depth; }
-            void inc_depth() { ++m_depth; }
-            void dec_depth() { --m_depth; }
-            void reset() { m_lim.reset(); m_head = 0; m_depth = 0; }
+            var_priority() { m_head = 0; }
+            void reset() { m_lim.reset(); m_head = 0;}
+            void rewind() { for (unsigned& l : m_lim) l = 0; m_head = 0;}
             void add(bool_var v) { m_vars.push_back(v); }
             bool_var next(solver& s);
             bool_var peek(solver& s);
@@ -67,7 +63,6 @@ namespace sat {
 
         // settings
         unsigned          m_max_conflicts;
-        bool              m_sticky_phase;
 
         unsigned          m_flips;
         unsigned          m_max_trail;
@@ -78,11 +73,17 @@ namespace sat {
         unsigned          m_conflict_offset;
 
         bool should_restart();
+        void do_pop();
+        bool should_backjump();
+        lbool do_backjump();
+        lbool do_local_search(unsigned num_rounds);
+        lbool decide();
         void restart();
         void pop();
         void pop_decision();
         void init_runs();
-        lbool update_priority();
+        lbool update_priority(unsigned level);
+        void update_pqueue();
         void init_phase();
         void init_propagation();
         void refresh_solver();
@@ -90,7 +91,6 @@ namespace sat {
         void flip_phase(literal l); 
         void propagate();
         void propagate(literal lit);
-        literal choose_literal();
         void set_conflict(literal l1, literal l2);
         void set_conflict(literal l1, literal l2, literal l3);
         void set_conflict(clause const& c);

@@ -94,7 +94,7 @@ namespace sat {
 
     void elim_eqs::drat_delete_clause() {
         if (m_solver.m_config.m_drat) {
-            m_solver.m_drat.del(*m_to_delete->get()); 
+            m_solver.m_drat.del(*m_to_delete->get());             
         }
     }
 
@@ -172,13 +172,14 @@ namespace sat {
 
             if (i < sz) {
                 drat_delete_clause();
-                m_solver.del_clause(c, false);
+                c.set_removed(true);
+                m_solver.del_clause(c);
                 continue; 
             }
 
             switch (j) {
             case 0:
-                m_solver.set_conflict(justification(0));
+                m_solver.set_conflict();
                 for (; it != end; ++it) {
                     *it2 = *it;
                     it2++;
@@ -187,13 +188,15 @@ namespace sat {
                 return;                
             case 1:
                 m_solver.assign_unit(c[0]);
-                m_solver.del_clause(c, false);
                 drat_delete_clause();
+                c.set_removed(true);
+                m_solver.del_clause(c);
                 break;
             case 2:
                 m_solver.mk_bin_clause(c[0], c[1], c.is_learned());
-                m_solver.del_clause(c, false);
                 drat_delete_clause();
+                c.set_removed(true);
+                m_solver.del_clause(c);
                 break;
             default:
                 SASSERT(*it == &c);
@@ -204,7 +207,7 @@ namespace sat {
                     c.update_approx();
                 }
                 if (m_solver.m_config.m_drat) {
-                    m_solver.m_drat.add(c, true); 
+                    m_solver.m_drat.add(c, true);
                     drat_delete_clause();
                 }
 

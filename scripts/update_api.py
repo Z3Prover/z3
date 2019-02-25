@@ -338,26 +338,33 @@ def Z3_set_error_handler(ctx, hndlr, _elems=Elementaries(_lib.Z3_set_error_handl
 """)
 
     for sig in _API2PY:
-        name   = sig[0]
-        result = sig[1]
-        params = sig[2]
-        num    = len(params)
-        core_py.write("def %s(" % name)
-        display_args(num)
-        comma = ", " if num != 0 else ""
-        core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
-        lval = "r = " if result != VOID else ""
-        core_py.write("  %s_elems.f(" % lval)
-        display_args_to_z3(params)
-        core_py.write(")\n")
-        if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
-            core_py.write("  _elems.Check(a0)\n")
-        if result == STRING:
-            core_py.write("  return _to_pystr(r)\n")
-        elif result != VOID:
-            core_py.write("  return r\n")
-        core_py.write("\n")
-    core_py
+        mk_py_wrapper_single(sig)
+        if sig[1] == STRING:
+            mk_py_wrapper_single(sig, decode_string=False)
+
+def mk_py_wrapper_single(sig, decode_string=True):
+    name    = sig[0]
+    result  = sig[1]
+    params  = sig[2]
+    num     = len(params)
+    def_name = name
+    if not decode_string:
+        def_name += '_bytes'
+    core_py.write("def %s(" % def_name)
+    display_args(num)
+    comma = ", " if num != 0 else ""
+    core_py.write("%s_elems=Elementaries(_lib.%s)):\n" % (comma, name))
+    lval = "r = " if result != VOID else ""
+    core_py.write("  %s_elems.f(" % lval)
+    display_args_to_z3(params)
+    core_py.write(")\n")
+    if len(params) > 0 and param_type(params[0]) == CONTEXT and not name in Unwrapped:
+        core_py.write("  _elems.Check(a0)\n")
+    if result == STRING and decode_string:
+        core_py.write("  return _to_pystr(r)\n")
+    elif result != VOID:
+        core_py.write("  return r\n")
+    core_py.write("\n")
 
 
 ## .NET API native interface

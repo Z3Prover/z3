@@ -24,6 +24,7 @@ Revision History:
 #include "smt/smt_model_generator.h"
 #include "util/stats.h"
 
+#define WATCH_DISEQ 0
 
 namespace smt {
 
@@ -442,16 +443,21 @@ namespace smt {
     };
 
     void theory_bv::add_fixed_eq(theory_var v1, theory_var v2) {
-        ++m_stats.m_num_eq_dynamic;
         if (v1 > v2) {
             std::swap(v1, v2);
         }
-        unsigned sz = get_bv_size(v1);
+
+        unsigned act = m_eq_activity[hash_u_u(v1, v2) & 0xFF]++;
+        if ((act & 0xFF) != 0xFF) {
+            return;
+        }
+        ++m_stats.m_num_eq_dynamic;
         ast_manager& m = get_manager();
         context & ctx = get_context();
         app* o1 = get_enode(v1)->get_owner();
         app* o2 = get_enode(v2)->get_owner();
         literal oeq = mk_eq(o1, o2, true);
+        unsigned sz = get_bv_size(v1);
         TRACE("bv", 
               tout << mk_pp(o1, m) << " = " << mk_pp(o2, m) << " " 
               << ctx.get_scope_level() << "\n";);
@@ -624,7 +630,7 @@ namespace smt {
             num *= numeral(2);
         }
         expr_ref sum(m_autil.mk_add(sz, args.c_ptr()), m);
-		th_rewriter rw(m);
+        th_rewriter rw(m);
         rw(sum);
         literal l(mk_eq(n, sum, false));
         TRACE("bv", 
@@ -1146,12 +1152,9 @@ namespace smt {
         SASSERT(get_bv_size(v1) == get_bv_size(v2));
         context & ctx         = get_context();
         ast_manager & m       = get_manager();
-#ifdef _TRACE
-        unsigned num_bool_vars = ctx.get_num_bool_vars();
-#endif 
-        literal_vector & lits = m_tmp_literals;
-        lits.reset();
-        lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
+        if (v1 > v2) {
+            std::swap(v1, v2);
+        }
         literal_vector const & bits1        = m_bits[v1];
         literal_vector::const_iterator it1  = bits1.begin();
         literal_vector::const_iterator end1 = bits1.end();
@@ -1159,8 +1162,46 @@ namespace smt {
         literal_vector::const_iterator it2  = bits2.begin();
         for (; it1 != end1; ++it1, ++it2) {
             if (*it1 == ~(*it2))
-                return; // static diseq
+                return; 
+            lbool val1 = ctx.get_assignment(*it1);
+            lbool val2 = ctx.get_assignment(*it2);
+            if (val1 != l_undef && val2 != l_undef && val1 != val2) {
+                return;
+            }
         }
+
+#if WATCH_DISEQ
+        bool_var watch_var = null_bool_var;
+        it1 = bits1.begin();
+        it2 = bits2.begin();
+        unsigned h = hash_u_u(v1, v2);
+        unsigned act = m_diseq_activity[hash_u_u(v1, v2) & 0xFF]++;
+
+        for (; it1 != end1 && ((act & 0x3) != 0x3); ++it1, ++it2) {
+            lbool val1 = ctx.get_assignment(*it1);
+            lbool val2 = ctx.get_assignment(*it2);
+        
+            if (val1 == l_undef) {
+                watch_var = it1->var();
+            }
+            else if (val2 == l_undef) {
+                watch_var = it2->var();
+            }
+            else {
+                continue;
+            }
+
+            m_diseq_watch.reserve(watch_var+1);
+            m_diseq_watch[watch_var].push_back(std::make_pair(v1, v2));
+            m_diseq_watch_trail.push_back(watch_var);
+            return;
+            //m_replay_diseq.push_back(std::make_pair(v1, v2));            
+        }
+#endif
+
+        literal_vector & lits = m_tmp_literals;
+        lits.reset();
+        lits.push_back(mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true));
         it1 = bits1.begin();
         it2 = bits2.begin();
         for (; it1 != end1; ++it1, ++it2) {
@@ -1174,14 +1215,6 @@ namespace smt {
         }
         m_stats.m_num_diseq_dynamic++;
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-        TRACE_CODE({
-            static unsigned num = 0;
-            static unsigned new_bool_vars = 0;
-            new_bool_vars += (ctx.get_num_bool_vars() - num_bool_vars);
-            if (num % 1000 == 0)
-                TRACE("expand_diseq", tout << "num: " << num << " " << new_bool_vars << "\n";);
-            num++;
-        });
     }
 
     void theory_bv::assign_eh(bool_var v, bool is_true) {
@@ -1205,6 +1238,17 @@ namespace smt {
             }
             TRACE("bv", tout << "prop queue size: " << m_prop_queue.size() << "\n";);
             propagate_bits();
+
+#if WATCH_DISEQ
+            if (!get_context().inconsistent() && m_diseq_watch.size() > static_cast<unsigned>(v)) {
+                unsigned sz = m_diseq_watch[v].size();
+                for (unsigned i = 0; i < sz; ++i) {
+                    auto const & p = m_diseq_watch[v][i];
+                    expand_diseq(p.first, p.second);
+                }
+                m_diseq_watch[v].reset();
+            }
+#endif
         }
     }
     
@@ -1344,6 +1388,9 @@ namespace smt {
     void theory_bv::push_scope_eh() {
         theory::push_scope_eh();
         m_trail_stack.push_scope();
+#if WATCH_DISEQ
+        m_diseq_watch_lim.push_back(m_diseq_watch_trail.size());
+#endif
     }
     
     void theory_bv::pop_scope_eh(unsigned num_scopes) {
@@ -1353,6 +1400,16 @@ namespace smt {
         m_bits.shrink(num_old_vars);
         m_wpos.shrink(num_old_vars);
         m_zero_one_bits.shrink(num_old_vars);
+#if WATCH_DISEQ
+        unsigned old_trail_sz = m_diseq_watch_lim[m_diseq_watch_lim.size()-num_scopes];
+        for (unsigned i = m_diseq_watch_trail.size(); i-- > old_trail_sz;) {
+            if (!m_diseq_watch[m_diseq_watch_trail[i]].empty()) {
+                m_diseq_watch[m_diseq_watch_trail[i]].pop_back();
+            }
+        }
+        m_diseq_watch_trail.shrink(old_trail_sz);
+        m_diseq_watch_lim.shrink(m_diseq_watch_lim.size()-num_scopes);
+#endif
         theory::pop_scope_eh(num_scopes);
     }
 
@@ -1395,6 +1452,8 @@ namespace smt {
         m_trail_stack(*this),
         m_find(*this),
         m_approximates_large_bvs(false) {
+        memset(m_eq_activity, 0, sizeof(m_eq_activity));
+        memset(m_diseq_activity, 0, sizeof(m_diseq_activity));
     }
 
     theory_bv::~theory_bv() {
@@ -1515,6 +1574,17 @@ namespace smt {
         RESET_MERGET_AUX();
         DEBUG_CODE(for (unsigned i = 0; i < bv_size; i++) { SASSERT(m_merge_aux[0][i] == null_theory_var || m_merge_aux[1][i] == null_theory_var); });
         return true;
+    }
+
+    void theory_bv::propagate() {
+        unsigned sz = m_replay_diseq.size();
+        if (sz > 0) {
+            for (unsigned i = 0; i < sz; ++i) {
+                auto const& p = m_replay_diseq[i];
+                expand_diseq(p.first, p.second);
+            }
+            m_replay_diseq.reset();
+        }
     }
 
     class bit_eq_justification : public justification {

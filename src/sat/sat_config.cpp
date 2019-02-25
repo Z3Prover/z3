@@ -56,13 +56,16 @@ namespace sat {
             m_phase = PS_ALWAYS_TRUE;
         else if (s == symbol("caching"))
             m_phase = PS_CACHING;
+        else if (s == symbol("scaching"))
+            m_phase = PS_SAT_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
             throw sat_param_exception("invalid phase selection strategy");
 
-        m_phase_caching_on  = p.phase_caching_on();
-        m_phase_caching_off = p.phase_caching_off();
+        m_rephase_base      = p.rephase_base();
+        m_search_sat_conflicts = p.search_sat_conflicts();
+        m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
 
         m_restart_initial = p.restart_initial();
@@ -90,6 +93,7 @@ namespace sat {
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
         m_lookahead_simplify = p.lookahead_simplify();
+        m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
         if (p.lookahead_reward() == symbol("heule_schur")) 
             m_lookahead_reward = heule_schur_reward;
@@ -130,9 +134,9 @@ namespace sat {
         }
 
         // These parameters are not exposed
-        m_next_simplify1  = _p.get_uint("next_simplify", 30000);
+        m_next_simplify1  = _p.get_uint("next_simplify", 90000);
         m_simplify_mult2  = _p.get_double("simplify_mult2", 1.5);
-        m_simplify_max    = _p.get_uint("simplify_max", 500000);
+        m_simplify_max    = _p.get_uint("simplify_max", 1000000);
         // --------------------------------
         m_simplify_delay  = p.simplify_delay();
 
@@ -147,6 +151,8 @@ namespace sat {
             m_gc_strategy = GC_PSM;
         else if (s == symbol("psm_glue"))
             m_gc_strategy = GC_PSM_GLUE;
+        else if (s == symbol("neuro"))
+            m_gc_strategy = GC_NEURO;
         else 
             throw sat_param_exception("invalid gc strategy");
         m_gc_initial      = p.gc_initial();
@@ -168,6 +174,7 @@ namespace sat {
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
         m_drat            = (m_drat_check_unsat || m_drat_file != symbol("") || m_drat_check_sat) && p.threads() == 1;
+        m_drat_binary     = p.drat_binary();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.

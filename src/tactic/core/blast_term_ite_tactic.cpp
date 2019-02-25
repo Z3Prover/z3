@@ -16,11 +16,12 @@ Author:
 Notes:
 
 --*/
-#include "tactic/tactical.h"
+#include "util/cooperate.h"
 #include "ast/normal_forms/defined_names.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "util/cooperate.h"
 #include "ast/scoped_proof.h"
+#include "tactic/tactical.h"
+#include "tactic/tactic_params.hpp"
 
 
 
@@ -50,9 +51,10 @@ class blast_term_ite_tactic : public tactic {
         }
 
         void updt_params(params_ref const & p) {
+            tactic_params tp(p);
             m_max_memory    = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
-            m_max_steps = p.get_uint("max_steps", UINT_MAX);
-            m_max_inflation = p.get_uint("max_inflation", UINT_MAX);  // multiplicative factor of initial term size.
+            m_max_steps = p.get_uint("max_steps", tp.blast_term_ite_max_steps());
+            m_max_inflation = p.get_uint("max_inflation", tp.blast_term_ite_max_inflation());  // multiplicative factor of initial term size.
         }
 
         
@@ -182,8 +184,7 @@ public:
     void collect_param_descrs(param_descrs & r) override {
         insert_max_memory(r);
         insert_max_steps(r);
-        r.insert("max_args", CPK_UINT, 
-                 "(default: 128) maximum number of arguments (per application) that will be considered by the greedy (quadratic) heuristic.");
+        r.insert("max_inflation", CPK_UINT, "(default: infinity) multiplicative factor of initial term size.");
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

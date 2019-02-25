@@ -56,10 +56,22 @@ extern "C" {
        \brief Assert hard constraint to the optimization context.
 
        \sa Z3_optimize_assert_soft
+       \sa Z3_optimize_assert_and_track
 
        def_API('Z3_optimize_assert', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST)))
     */
     void Z3_API Z3_optimize_assert(Z3_context c, Z3_optimize o, Z3_ast a);
+
+
+    /**
+       \brief Assert tracked hard constraint to the optimization context.
+
+       \sa Z3_optimize_assert
+       \sa Z3_optimize_assert_soft
+
+       def_API('Z3_optimize_assert_and_track', VOID, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(AST)))
+    */
+    void Z3_API Z3_optimize_assert_and_track(Z3_context c, Z3_optimize o, Z3_ast a, Z3_ast t);
 
     /**
        \brief Assert soft constraint to the optimization context.

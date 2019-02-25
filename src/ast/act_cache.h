@@ -26,9 +26,15 @@ Notes:
 
 class act_cache {
     ast_manager &        m_manager;
-    typedef cmap<expr*, expr*, obj_ptr_hash<expr>, default_eq<expr*> > map;
+    typedef std::pair<expr*, unsigned> entry_t;
+    struct entry_hash {
+        unsigned operator()(entry_t const& e) const {
+            return e.first->hash() + e.second;
+        }
+    };
+    typedef cmap<entry_t, expr*, entry_hash, default_eq<entry_t> > map;
     map                  m_table;
-    ptr_vector<expr>     m_queue; // recently created queue
+    svector<entry_t>     m_queue; // recently created queue
     unsigned             m_qhead;
     unsigned             m_unused;
     unsigned             m_max_unused;
@@ -42,8 +48,10 @@ public:
     act_cache(ast_manager & m);
     act_cache(ast_manager & m, unsigned max_unused);
     ~act_cache();
-    void insert(expr * k, expr * v);
-    expr * find(expr * k);
+    void insert(expr * k, expr * v) { insert(k, 0, v); }
+    expr * find(expr * k) { return find(k, 0); }
+    void insert(expr * k, unsigned offset, expr * v);
+    expr * find(expr * k, unsigned offset);
     void reset();
     void cleanup();
     unsigned size() const { return m_table.size(); }

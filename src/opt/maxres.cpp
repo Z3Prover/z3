@@ -329,8 +329,8 @@ public:
         verify_assumptions();
         m_lower.reset();
         for (soft& s : m_soft) {
-            s.is_true = m_model->is_true(s.s);
-            if (!s.is_true) {
+            s.set_value(m_model->is_true(s.s));
+            if (!s.is_true()) {
                 m_lower += s.weight;
             }
         }
@@ -375,7 +375,7 @@ public:
             get_mus_model(mdl);
             is_sat = minimize_core(_core);
             core.append(_core.size(), _core.c_ptr());
-            verify_core(core);
+            DEBUG_CODE(verify_core(core););
             ++m_stats.m_num_cores;
             if (is_sat != l_true) {
                 IF_VERBOSE(100, verbose_stream() << "(opt.maxres minimization failed)\n";);
@@ -738,7 +738,7 @@ public:
             m_correction_set_size = correction_set_size;
         }
 
-        TRACE("opt", tout << *mdl;);
+        TRACE("opt_verbose", tout << *mdl;);
 
         rational upper(0);
 
@@ -761,10 +761,10 @@ public:
         m_model = mdl;
         m_c.model_updated(mdl.get());
 
-        TRACE("opt", tout << "updated upper: " << upper << "\nmodel\n" << *m_model;);
+        TRACE("opt", tout << "updated upper: " << upper << "\n";);
 
         for (soft& s : m_soft) {
-            s.is_true = m_model->is_true(s.s);
+            s.set_value(m_model->is_true(s.s));
         }
        
         verify_assignment();
@@ -838,16 +838,17 @@ public:
 
     void commit_assignment() override {
         if (m_found_feasible_optimum) {
-            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n";);
             add(m_defs);
             add(m_asms);
+            TRACE("opt", tout << "Committing feasible solution\ndefs:" << m_defs << "\nasms:" << m_asms << "\n";);
+
         }
         // else: there is only a single assignment to these soft constraints.
     }
 
     void verify_core(exprs const& core) {
         return;
-        IF_VERBOSE(3, verbose_stream() << "verify core " << s().check_sat(core.size(), core.c_ptr()) << "\n";);                
+        IF_VERBOSE(1, verbose_stream() << "verify core " << s().check_sat(core.size(), core.c_ptr()) << "\n";);                
         ref<solver> _solver = mk_smt_solver(m, m_params, symbol());
         _solver->assert_expr(s().get_assertions());
         _solver->assert_expr(core);
@@ -855,8 +856,11 @@ public:
         IF_VERBOSE(0, verbose_stream() << "core status (l_false:) " << is_sat << " core size " << core.size() << "\n");
         CTRACE("opt", is_sat != l_false, 
                for (expr* c : core) tout << "core: " << mk_pp(c, m) << "\n";
-               _solver->display(tout););
-        VERIFY(is_sat == l_false);
+               _solver->display(tout);
+               tout << "other solver\n";
+               s().display(tout);
+               );
+        VERIFY(is_sat == l_false || m.canceled());
     }
 
     void verify_assumptions() {
@@ -878,7 +882,7 @@ public:
         expr_ref n(m);
         for (soft& s : m_soft) {
             n = s.s;
-            if (!s.is_true) {
+            if (!s.is_true()) {
                 n = mk_not(m, n);
             }
             _solver->assert_expr(n);

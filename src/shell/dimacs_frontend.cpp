@@ -113,7 +113,7 @@ static void track_clauses(sat::solver const& src,
     sat::clause * const * it  = src.begin_clauses();
     sat::clause * const * end = src.end_clauses();
     svector<sat::solver::bin_clause> bin_clauses;
-    src.collect_bin_clauses(bin_clauses, false);
+    src.collect_bin_clauses(bin_clauses, false, false);
     tracking_clauses.reserve(2*src.num_vars() + static_cast<unsigned>(end - it) + bin_clauses.size());
 
     for (sat::bool_var v = 1; v < src.num_vars(); ++v) {
@@ -248,7 +248,11 @@ unsigned read_dimacs(char const * file_name) {
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;
-    sat::solver solver2(p, limit);
+    params_ref p2;
+    p2.copy(p);
+    p2.set_sym("drat.file", symbol::null);
+    
+    sat::solver solver2(p2, limit);
     if (p.get_bool("dimacs.core", false)) {
         g_solver = &solver2;        
         sat::literal_vector assumptions;

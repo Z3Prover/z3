@@ -28,6 +28,7 @@ namespace sat {
         PS_ALWAYS_TRUE,
         PS_ALWAYS_FALSE,
         PS_CACHING,
+        PS_SAT_CACHING,
         PS_RANDOM
     };
 
@@ -43,7 +44,8 @@ namespace sat {
         GC_PSM,
         GC_GLUE,
         GC_GLUE_PSM,
-        GC_PSM_GLUE
+        GC_PSM_GLUE,
+        GC_NEURO
     };
 
     enum branching_heuristic {
@@ -94,9 +96,10 @@ namespace sat {
     struct config {
         unsigned long long m_max_memory;
         phase_selection    m_phase;
-        unsigned           m_phase_caching_on;
-        unsigned           m_phase_caching_off;
+        unsigned           m_search_sat_conflicts;
+        unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
+        unsigned           m_rephase_base;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;
         bool               m_restart_fast;
@@ -128,6 +131,7 @@ namespace sat {
         double             m_lookahead_cube_psat_clause_base;
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
         bool               m_lookahead_global_autarky;
         double             m_lookahead_delta_fraction;
         bool               m_lookahead_use_learned;
@@ -161,6 +165,7 @@ namespace sat {
 
         // drat proofs
         bool               m_drat;
+        bool               m_drat_binary;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;

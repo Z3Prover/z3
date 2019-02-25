@@ -214,19 +214,10 @@ namespace sat {
             m_phase.reserve(s.num_vars(), l_undef);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
                 if (s.value(i) != l_undef) {
-                    m_phase[i] = s.value(i);
-                    continue;
+                    m_phase[i] = s.value(i) == l_true;
                 }
-                switch (s.m_phase[i]) {
-                case POS_PHASE:
-                    m_phase[i] = l_true;
-                    break;
-                case NEG_PHASE:
-                    m_phase[i] = l_false;
-                    break;
-                default:
-                    m_phase[i] = l_undef;
-                    break;
+                else {
+                    m_phase[i] = s.m_phase[i];
                 }
             }
         }
@@ -256,13 +247,9 @@ namespace sat {
 
     void parallel::_get_phase(solver& s) {
         if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), l_undef);
+            m_phase.reserve(s.num_vars(), false);
             for (unsigned i = 0; i < s.num_vars(); ++i) {
-                switch (m_phase[i]) {
-                case l_false: s.m_phase[i] = NEG_PHASE; break;
-                case l_true: s.m_phase[i] = POS_PHASE; break;
-                default: break;
-                }
+                s.m_phase[i] = m_phase[i];
             }
         }
     }
@@ -278,7 +265,6 @@ namespace sat {
             }
             for (unsigned i = 0; i < m_phase.size(); ++i) {
                 s.set_phase(i, m_phase[i]);
-                m_phase[i] = l_undef;
             }
             m_phase.reserve(s.num_vars(), l_undef);
         }

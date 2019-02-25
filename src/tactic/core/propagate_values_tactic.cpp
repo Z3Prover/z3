@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/expr_substitution.h"
 #include "tactic/goal_shared_occs.h"
+#include "tactic/tactic_params.hpp"
 
 namespace {
 class propagate_values_tactic : public tactic {
@@ -37,7 +38,8 @@ class propagate_values_tactic : public tactic {
     params_ref                    m_params;
 
     void updt_params_core(params_ref const & p) {
-        m_max_rounds = p.get_uint("max_rounds", 4);
+        tactic_params tp(p);
+        m_max_rounds = p.get_uint("max_rounds", tp.propagate_values_max_rounds());
     }
 
     bool is_shared(expr * t) {
@@ -215,7 +217,7 @@ public:
 
     void collect_param_descrs(param_descrs & r) override {
         th_rewriter::get_param_descrs(r);
-        r.insert("max_rounds", CPK_UINT, "(default: 2) maximum number of rounds.");
+        r.insert("max_rounds", CPK_UINT, "(default: 4) maximum number of rounds.");
     }
     
     void operator()(goal_ref const & in, goal_ref_buffer & result) override {

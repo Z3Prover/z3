@@ -364,7 +364,7 @@ namespace sat {
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                vi.m_bias = s.m_phase[v++] == POS_PHASE ? 98 : 2;
+                vi.m_bias = s.m_phase[v++] == l_true ? 98 : 2;
             }
         }
 
@@ -515,7 +515,6 @@ namespace sat {
         reinit();
         DEBUG_CODE(verify_slack(););
         timer timer;
-        timer.start();
         unsigned step = 0, total_flips = 0, tries = 0;
         
         for (tries = 1; !m_unsat_stack.empty() && m_limit.inc(); ++tries) {
@@ -591,18 +590,40 @@ namespace sat {
         m_unsat_stack.push_back(c);
     }
 
+    void local_search::pick_flip_lookahead() {
+        unsigned num_unsat = m_unsat_stack.size();
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % num_unsat]];
+        literal best = null_literal;
+        unsigned best_make = UINT_MAX;
+        for (literal lit : c.m_literals) {
+            if (!is_unit(lit) && is_true(lit)) {
+                flip_walksat(lit.var());
+                if (propagate(~lit) && best_make > m_unsat_stack.size()) {
+                    best = lit;
+                    best_make = m_unsat_stack.size();
+                }
+                flip_walksat(lit.var());
+                propagate(lit);
+            }
+        }
+        if (best != null_literal) {
+            flip_walksat(best.var());
+            propagate(~best);
+        }        
+        else {
+            std::cout << "no best\n";
+        }
+    }
+
     void local_search::pick_flip_walksat() {
     reflip:
         bool_var best_var = null_bool_var;
         unsigned n = 1;
         bool_var v = null_bool_var;
         unsigned num_unsat = m_unsat_stack.size();
-        constraint const& c = m_constraints[m_unsat_stack[m_rand() % m_unsat_stack.size()]];
-        // VERIFY(c.m_k < constraint_value(c));
+        constraint const& c = m_constraints[m_unsat_stack[m_rand() % num_unsat]];
         unsigned reflipped = 0;
         bool is_core = m_unsat_stack.size() <= 10;
-        // TBD: dynamic noise strategy 
-        //if (m_rand() % 100 < 98) {
         if (m_rand() % 10000 <= m_noise) {
             // take this branch with 98% probability.
             // find the first one, to fast break the rest    
@@ -813,11 +834,10 @@ namespace sat {
     }
 
 
-    void local_search::set_phase(bool_var v, lbool f) {
+    void local_search::set_phase(bool_var v, bool f) {
         unsigned& bias = m_vars[v].m_bias;
-        if (f == l_true && bias < 100) bias++;
-        if (f == l_false && bias > 0) bias--;
-        // f == l_undef ?
+        if (f  && bias < 100) bias++;
+        if (!f && bias > 0) bias--;
     }
 
     void local_search::set_bias(bool_var v, lbool f) {

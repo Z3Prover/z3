@@ -166,7 +166,7 @@ public:
             (m.is_not(e, e) && is_uninterp_const(e));
     }
 
-    lbool check_sat(unsigned sz, expr * const * assumptions) override {
+    lbool check_sat_core(unsigned sz, expr * const * assumptions) override {
         m_solver.pop_to_base_level();
         m_core.reset();
         if (m_solver.inconsistent()) return l_false;
@@ -318,6 +318,43 @@ public:
         r.reset();
         r.append(m_core.size(), m_core.c_ptr());
     }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        unsigned sz = vars.size();
+        depth.resize(sz);
+        for (unsigned i = 0; i < sz; ++i) {
+            auto bv = m_map.to_bool_var(vars[i]);
+            depth[i] = bv == sat::null_bool_var ? UINT_MAX : m_solver.lvl(bv);
+        }
+    }
+
+    expr_ref_vector get_trail() override {
+        expr_ref_vector result(m);
+        unsigned sz = m_solver.trail_size();
+        expr_ref_vector lit2expr(m);
+        lit2expr.resize(m_solver.num_vars() * 2);
+        m_map.mk_inv(lit2expr);
+        for (unsigned i = 0; i < sz; ++i) {
+            sat::literal lit = m_solver.trail_literal(i);
+            result.push_back(lit2expr[lit.index()].get());
+        }
+        return result;
+    }
+
+    void set_activity(expr* var, double activity) override {
+        m.is_not(var, var);
+        sat::bool_var v = m_map.to_bool_var(var);
+        if (v == sat::null_bool_var) {
+            v = m_solver.add_var(true);
+            m_map.insert(var, v);
+        }
+        m_solver.set_activity(v, static_cast<unsigned>(activity));
+    }
+
+    void set_predictor(void* state, neuro_predictor p) override {
+        m_solver.set_predictor(state, p);
+    }
+
     proof * get_proof() override {
         UNREACHABLE();
         return nullptr;

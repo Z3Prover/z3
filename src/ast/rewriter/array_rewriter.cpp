@@ -375,7 +375,13 @@ br_status array_rewriter::mk_set_intersect(unsigned num_args, expr * const * arg
 
 
 br_status array_rewriter::mk_set_complement(expr * arg, expr_ref & result) {
-    return mk_map_core(m().mk_not_decl(), 1, &arg, result);
+    func_decl* fnot = m().mk_not_decl();
+    br_status st = mk_map_core(fnot, 1, &arg, result);
+    if (BR_FAILED == st) {
+        result = m_util.mk_map(fnot, 1, &arg);
+        st = BR_DONE;
+    }
+    return st;
 }
 
 br_status array_rewriter::mk_set_difference(expr * arg1, expr * arg2, expr_ref & result) {

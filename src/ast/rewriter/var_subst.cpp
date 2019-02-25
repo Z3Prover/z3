@@ -135,17 +135,14 @@ expr_ref unused_vars_eliminator::operator()(quantifier* q) {
         return result;
     }
 
-    expr_ref tmp(m);
     expr_ref_buffer new_patterns(m);
     expr_ref_buffer new_no_patterns(m);
 
     for (unsigned i = 0; i < num_patterns; i++) {
-        tmp = m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr());
-        new_patterns.push_back(tmp);
+        new_patterns.push_back(m_subst(q->get_pattern(i), var_mapping.size(), var_mapping.c_ptr()));
     }
     for (unsigned i = 0; i < num_no_patterns; i++) {
-        tmp = m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr());
-        new_no_patterns.push_back(tmp);
+        new_no_patterns.push_back(m_subst(q->get_no_pattern(i), var_mapping.size(), var_mapping.c_ptr()));
     }
 
     result = m.mk_quantifier(q->get_kind(),

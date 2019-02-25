@@ -62,7 +62,7 @@ public:
 
     void push_core() override;
     void pop_core(unsigned n) override;
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
 
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
@@ -84,6 +84,23 @@ public:
     }
 
     model_converter_ref get_model_converter() const override { return m_mc; }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        throw default_exception("cannot retrieve depth from solvers created using tactics");
+    }
+
+    expr_ref_vector get_trail() override {
+        throw default_exception("cannot retrieve trail from solvers created using tactcis");
+    }
+
+    void set_activity(expr* var, double activity) override {
+        throw default_exception("cannot set activity for solvers created using tactics");
+    }
+
+    void set_predictor(void* state, neuro_predictor p) override {
+        throw default_exception("cannot set predictors for solvers created using tactics");
+    }
+
 
 };
 
@@ -136,7 +153,7 @@ void tactic2solver::pop_core(unsigned n) {
     m_result = nullptr;
 }
 
-lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
     if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();

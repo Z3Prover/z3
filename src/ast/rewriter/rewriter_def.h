@@ -38,9 +38,10 @@ void rewriter_tpl<Config>::process_var(var * v) {
     if (!ProofGen) {
         // bindings are only used when Proof Generation is not enabled.
         unsigned idx = v->get_idx();
+
         if (idx < m_bindings.size()) {
             unsigned index = m_bindings.size() - idx - 1;
-            var * r = (var*)(m_bindings[index]);
+            expr * r = m_bindings[index];
             if (r != nullptr) {
                 CTRACE("rewriter", v->get_sort() != m().get_sort(r),
                        tout << expr_ref(v, m()) << ":" << sort_ref(v->get_sort(), m()) << " != " << expr_ref(r, m()) << ":" << sort_ref(m().get_sort(r), m());
@@ -50,11 +51,18 @@ void rewriter_tpl<Config>::process_var(var * v) {
                 if (!is_ground(r) && m_shifts[index] != m_bindings.size()) {
 
                     unsigned shift_amount = m_bindings.size() - m_shifts[index];
+                    expr* c = get_cached(r, shift_amount);
+                    if (c) {
+                        result_stack().push_back(c);
+                        set_new_child_flag(v);
+                        return;
+                    }
                     expr_ref tmp(m());
                     m_shifter(r, shift_amount, tmp);
                     result_stack().push_back(tmp);
                     TRACE("rewriter", tout << "shift: " << shift_amount << " idx: " << idx << " --> " << tmp << "\n";
                           display_bindings(tout););
+                    cache_shifted_result(r, shift_amount, tmp);                    
                 }
                 else {
                     result_stack().push_back(r);
@@ -380,7 +388,6 @@ void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
                     TRACE("get_macro", display_bindings(tout););
                     begin_scope();
                     m_num_qvars += num_args;
-                    //m_num_qvars = 0;
                     m_root      = def;
                     push_frame(def, false, RW_UNBOUNDED_DEPTH);
                     return;
@@ -480,7 +487,7 @@ void rewriter_tpl<Config>::process_quantifier(quantifier * q, frame & fr) {
             m_root       = q->get_expr();
             unsigned sz = m_bindings.size();
             for (unsigned i = 0; i < num_decls; i++) {
-                m_bindings.push_back(0);
+                m_bindings.push_back(nullptr);
                 m_shifts.push_back(sz);
             }
         }

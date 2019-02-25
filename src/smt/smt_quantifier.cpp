@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #include "ast/ast_pp.h"
-#include "ast/ast_smt2_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_context.h"
 #include "smt/smt_quantifier_stat.h"
@@ -260,13 +260,13 @@ namespace smt {
                 m_qi_queue.insert(f, pat, max_generation, min_top_generation, max_top_generation); // TODO
                 m_num_instances++;
             }
-            TRACE("quantifier",
-                  tout << mk_pp(q, m()) << " ";
+
+            CTRACE("quantifier_", f != nullptr, 
+                  tout << expr_ref(q, m()) << " ";
                   for (unsigned i = 0; i < num_bindings; ++i) {
-                      tout << mk_pp(bindings[i]->get_owner(), m()) << " ";
+                      tout << expr_ref(bindings[i]->get_owner(), m()) << " ";
                   }
                   tout << "\n";
-                  tout << "inserted: " << (f != nullptr) << "\n";
                   );
 
             return f != nullptr;
@@ -646,7 +646,7 @@ namespace smt {
                     m_lazy_mam->add_pattern(q, mp);
                 }
                 else {
-                    TRACE("quantifier", tout << "adding:\n" << mk_ismt2_pp(mp, m) << "\n";);
+                    TRACE("quantifier", tout << "adding:\n" << expr_ref(mp, m) << "\n";);
                     m_mam->add_pattern(q, mp);
                 }
                 if (!unary)

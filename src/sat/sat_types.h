@@ -26,6 +26,7 @@ Revision History:
 #include "util/common_msgs.h"
 #include "util/vector.h"
 #include "util/uint_set.h"
+#include "util/stopwatch.h"
 #include<iomanip>
 
 namespace sat {
@@ -118,10 +119,6 @@ namespace sat {
     typedef approx_set_tpl<literal, literal2unsigned, unsigned> literal_approx_set;
 
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
-
-    enum phase {
-        POS_PHASE, NEG_PHASE, PHASE_NOT_AVAILABLE
-    };
 
     class solver;
     class lookahead;
@@ -220,8 +217,11 @@ namespace sat {
 
     inline std::ostream & operator<<(std::ostream & out, mem_stat const & m) {
         double mem = static_cast<double>(memory::get_allocation_size())/static_cast<double>(1024*1024);
-        out << std::setw(4) << std::fixed << std::setprecision(2) << mem;
-        return out;
+        return out << std::fixed << std::setprecision(2) << mem;
+    }
+
+    inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
+        return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
     }
 
     struct dimacs_lit {

@@ -62,7 +62,7 @@ namespace sat {
         vector_pool    m_pool;
 
         // for exchange with local search:
-        svector<lbool>     m_phase;
+        svector<bool>      m_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;

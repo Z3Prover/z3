@@ -27,6 +27,7 @@ namespace sat {
         m_id(id),
         m_size(sz),
         m_capacity(sz),
+        m_neuro_weight(0),
         m_removed(false),
         m_learned(learned),
         m_used(false),
@@ -38,7 +39,6 @@ namespace sat {
         memcpy(m_lits, lits, sizeof(literal) * sz);
         mark_strengthened();
         SASSERT(check_approx());
-        SASSERT(sz > 1);
     }
 
     var_approx_set clause::approx(unsigned num, literal const * lits) {
@@ -50,10 +50,6 @@ namespace sat {
 
     void clause::update_approx() {
         m_approx = approx(m_size, m_lits);
-    }
-
-    void clause::set_removed(bool f) { 
-        m_removed = f; 
     }
 
     bool clause::check_approx() const {
@@ -87,6 +83,7 @@ namespace sat {
         i++;
         for (; i < m_size; i++)
             m_lits[i-1] = m_lits[i];
+        m_lits[m_size-1] = l;
         m_size--;
         mark_strengthened();
     }
