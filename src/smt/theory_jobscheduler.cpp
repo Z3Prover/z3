@@ -933,7 +933,7 @@ namespace smt {
             }
         }
         literal_vector lits;
-        ptr_vector<expr> exprs;
+        expr_ref_vector exprs(m);
         for (job_resource const& jr : jrs) {
             unsigned r = jr.m_resource_id;
             res_info const& ri = m_resources[r];

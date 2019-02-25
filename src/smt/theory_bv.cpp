@@ -254,7 +254,7 @@ namespace smt {
         literal l        = ~(mk_eq(e1->get_owner(), e2->get_owner(), true));
         context & ctx    = get_context();
         ast_manager & m  = get_manager();
-        expr * eq    = ctx.bool_var2expr(l.var());
+        expr * eq        = ctx.bool_var2expr(l.var());
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_implies(m.mk_eq(mk_bit2bool(get_enode(v1)->get_owner(), idx), m.mk_not(mk_bit2bool(get_enode(v2)->get_owner(), idx))), m.mk_not(eq));
@@ -1219,7 +1219,7 @@ namespace smt {
 #endif
 
         literal_vector & lits = m_tmp_literals;
-        ptr_vector<expr> exprs;
+        expr_ref_vector exprs(m);
         lits.reset();
         literal eq = mk_eq(get_enode(v1)->get_owner(), get_enode(v2)->get_owner(), true);
         lits.push_back(eq);

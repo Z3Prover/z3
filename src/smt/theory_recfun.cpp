@@ -329,7 +329,7 @@ namespace smt {
         // add case-axioms for all case-paths
         auto & vars = e.m_def->get_vars();
         literal_vector preds;
-        ptr_vector<expr> pred_exprs;
+        expr_ref_vector pred_exprs(m);
         for (recfun::case_def const & c : e.m_def->get_cases()) {
             // applied predicate to `args`
             app_ref pred_applied = c.apply_case_predicate(e.m_args);
@@ -352,7 +352,7 @@ namespace smt {
             }
 
             literal_vector guards;
-            ptr_vector<expr> exprs;
+            expr_ref_vector exprs(m);
             guards.push_back(concl);
             for (auto & g : c.get_guards()) {
                 expr_ref ga = apply_args(depth, vars, e.m_args, g);
@@ -405,7 +405,7 @@ namespace smt {
         expr_ref rhs = apply_args(depth, vars, args, e.m_cdef->get_rhs());
 
         literal_vector clause;
-        ptr_vector<expr> exprs;
+        expr_ref_vector exprs(m);
         for (auto & g : e.m_cdef->get_guards()) {
             expr_ref guard = apply_args(depth, vars, args, g);
             clause.push_back(~mk_literal(guard));

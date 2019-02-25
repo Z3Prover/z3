@@ -1277,7 +1277,7 @@ public:
         if (m_arith_params.m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
             unsigned _k = k.get_unsigned();
             literal_buffer lits;
-            ptr_vector<expr> exprs;
+            expr_ref_vector exprs(m);
             for (unsigned j = 0; j < _k; ++j) {
                 literal mod_j = th.mk_eq(mod, a.mk_int(j), false);
                 lits.push_back(mod_j);

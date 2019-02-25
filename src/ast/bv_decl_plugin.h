@@ -437,7 +437,7 @@ public:
     void log_bv_from_exprs(app * r, unsigned n, expr* const* es) {
         if (m_manager.has_trace_stream()) {
             for (unsigned i = 0; i < n; ++i) {
-                if (!m_manager.is_true(es[i]) && !m_manager.is_true(es[i]))
+                if (!m_manager.is_true(es[i]) && !m_manager.is_false(es[i]))
                     return;
             } 
 

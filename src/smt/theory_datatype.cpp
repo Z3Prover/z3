@@ -166,7 +166,7 @@ namespace smt {
         func_decl * d     = n->get_decl();
         ptr_vector<func_decl> const & accessors   = *m_util.get_constructor_accessors(d);
         SASSERT(n->get_num_args() == accessors.size());
-        ptr_vector<app> bindings;
+        app_ref_vector bindings(m);
         vector<std::tuple<enode *, enode *>> used_enodes;
         used_enodes.push_back(std::make_tuple(nullptr, n));
         for (unsigned i = 0; i < n->get_num_args(); ++i) {

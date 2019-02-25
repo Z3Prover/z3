@@ -3186,7 +3186,7 @@ bool theory_seq::solve_nc(unsigned idx) {
         TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()) << "\n";);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
         if (m.has_trace_stream()) {
-            ptr_vector<expr> exprs;
+            expr_ref_vector exprs(m);
             for (literal l : lits) {
                 expr* e = ctx.bool_var2expr(l.var());
                 if (l.sign()) e = m.mk_not(e);
@@ -4642,7 +4642,7 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     unsigned_vector states;
     a->get_epsilon_closure(a->init(), states);
     lits.push_back(~lit);
-    ptr_vector<expr> exprs;
+    expr_ref_vector exprs(m);
     
     for (unsigned st : states) {
         literal acc = mk_accept(s, zero, re, st);
@@ -5105,7 +5105,7 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
     return lit;
 }
 
-void theory_seq::push_lit_as_expr(literal l, ptr_vector<expr>& buf) {
+void theory_seq::push_lit_as_expr(literal l, expr_ref_vector& buf) {
     expr* e = get_context().bool_var2expr(l.var());
     if (l.sign()) e = m.mk_not(e);
     buf.push_back(e);
@@ -5114,7 +5114,7 @@ void theory_seq::push_lit_as_expr(literal l, ptr_vector<expr>& buf) {
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
     context& ctx = get_context();
     literal_vector lits;
-    ptr_vector<expr> exprs;
+    expr_ref_vector exprs(m);
     if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;
     if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); push_lit_as_expr(l1, exprs); }
     if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); push_lit_as_expr(l2, exprs); }
@@ -5672,12 +5672,12 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
     TRACE("seq", tout << mk_pp(acc, m) << " #moves " << mvs.size() << "\n";);
-    ptr_vector<expr> exprs;
+    expr_ref_vector exprs(m);
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
         get_context().get_rewriter()(t);
-        expr* step_e = mk_step(e, idx, re, src, mv.dst(), t);
+        expr_ref step_e(mk_step(e, idx, re, src, mv.dst(), t), m);
         literal step = mk_literal(step_e);
         lits.push_back(step);
         exprs.push_back(step_e);
