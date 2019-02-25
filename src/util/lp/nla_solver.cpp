@@ -717,10 +717,9 @@ struct solver::imp {
             // either m or n has to be equal zero, but it is not the case
             SASSERT(!vvr(m).is_zero() || !vvr(n).is_zero());
             if (!vvr(m).is_zero())
-                generate_zero_lemma(m);
+                generate_zero_lemmas(m);
             if (!vvr(n).is_zero())
-                generate_zero_lemma(n);
-            TRACE("nla_solver", print_lemma(tout););
+                generate_zero_lemmas(n);
             return;
         }
         unsigned_vector mvars(m.vars());
@@ -830,13 +829,15 @@ struct solver::imp {
     
     // try to find a variable j such that vvr(j) = 0
     // and the bounds on j contain 0 as an inner point
-    lpvar find_best_zero(const monomial& m) const {
+    lpvar find_best_zero(const monomial& m, unsigned_vector & fixed_zeros) const {
         lpvar zero_j = -1;
         for (unsigned j : m){
             if (vvr(j).is_zero()){
-                zero_j = j;
-                if (zero_is_an_inner_point_of_bounds(j)) 
-                    return j;
+                if (var_is_fixed_to_zero(j))
+                    fixed_zeros.push_back(j);
+                
+                if (!is_set(zero_j) || zero_is_an_inner_point_of_bounds(j))
+                    zero_j = j;
             }
         }
         return zero_j;    
@@ -871,10 +872,11 @@ struct solver::imp {
         return (k >> 1) << 1 == k;
     }
     
-    void generate_zero_lemma(const monomial& m) {
+    void generate_zero_lemmas(const monomial& m) {
         SASSERT(!vvr(m).is_zero());
         int sign = rat_sign(vvr(m));
-        unsigned zero_j = find_best_zero(m);
+        unsigned_vector fixed_zeros;
+        unsigned zero_j = find_best_zero(m, fixed_zeros);        
         SASSERT(is_set(zero_j));
         unsigned zero_power = 0;
         for (unsigned j : m){
@@ -895,8 +897,17 @@ struct solver::imp {
         } else {
             generate_strict_case_zero_lemma(m, zero_j, sign);
         }
+        TRACE("nla_solver", print_lemma(tout););
+        for (lpvar j : fixed_zeros)
+            add_fixed_zero_lemma(m, j);
     }
 
+    void add_fixed_zero_lemma(const monomial& m, lpvar j) {
+        add_empty_lemma();
+        explain_fixed_var(j);
+        mk_ineq(m.var(), llc::EQ, current_lemma());
+    }
+    
     rational rat_sign(const monomial& m) const {
         int sign = 1;
         for (lpvar j : m) {
