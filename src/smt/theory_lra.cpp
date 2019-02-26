@@ -3149,20 +3149,22 @@ public:
 
     theory_lra::inf_eps value(theory_var v) {
         lp::impq ival = get_ivalue(v);
-        return inf_eps(0, inf_rational(ival.x, ival.y));
+        return inf_eps(rational(0), inf_rational(ival.x, ival.y));
     }
 
     theory_lra::inf_eps maximize(theory_var v, expr_ref& blocker, bool& has_shared) {
         lp::impq term_max;
         lp::lp_status st;
+        lp::var_index vi = 0;
         if (!can_get_bound(v)) {
+            TRACE("arith", tout << "cannot get bound for v" << v << "\n";);
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            lp::var_index vi = m_theory_var2var_index[v];
+            vi = m_theory_var2var_index[v];
             st = m_solver->maximize_term(vi, term_max);
         }
-        TRACE("arith", display(tout << st << " v" << v << "\n"););
+        TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             init_variable_values();

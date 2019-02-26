@@ -186,6 +186,7 @@ namespace opt {
         void add_hard_constraint(expr* f, expr* t);
         
         void get_hard_constraints(expr_ref_vector& hard);
+        expr_ref_vector get_hard_constraints() { expr_ref_vector hard(m); get_hard_constraints(hard); return hard; }
         expr_ref get_objective(unsigned i);
 
         void push() override;
