@@ -311,7 +311,7 @@ namespace qe {
         //for (app* a : avars) shared.push_back(a->get_decl());
         tg.set_vars(shared, false);
         tg.add_lits(lits);
-        //lits.reset();
+        lits.reset();
         lits.append(tg.project(*mdl.get()));
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }
@@ -398,7 +398,9 @@ namespace qe {
         // sort avars based on depth
         struct compare_depth {
             bool operator()(app* x, app* y) const {
-                return x->get_depth() > y->get_depth();
+                return 
+                    (x->get_depth() > y->get_depth()) || 
+                    (x->get_depth() == y->get_depth() && x->get_id() > y->get_id());
             }
         };
         compare_depth cmpd;
