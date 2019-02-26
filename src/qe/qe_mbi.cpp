@@ -304,15 +304,22 @@ namespace qe {
 
     /**
      * \brief project private symbols.
+     * - project with respect to shared symbols only.
+     *   retains equalities that are independent of arithmetic
+     * - project with respect to shared + arithmetic basic terms
+     *   retains predicates that are projected by arithmetic 
      */
     void euf_arith_mbi_plugin::project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
-        term_graph tg(m);
+        term_graph tg1(m), tg2(m);
         func_decl_ref_vector shared(m_shared);
-        //for (app* a : avars) shared.push_back(a->get_decl());
-        tg.set_vars(shared, false);
-        tg.add_lits(lits);
+        tg1.set_vars(shared, false);
+        for (app* a : avars) shared.push_back(a->get_decl());
+        tg2.set_vars(shared, false);
+        tg1.add_lits(lits);
+        tg2.add_lits(lits);
         lits.reset();
-        lits.append(tg.project(*mdl.get()));
+        lits.append(tg1.project(*mdl.get()));
+        lits.append(tg2.project(*mdl.get()));
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }
 
