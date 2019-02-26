@@ -38,7 +38,7 @@ Notes:
 #include "qe/qe_mbi.h"
 #include "qe/qe_term_graph.h"
 #include "qe/qe_arith.h"
-#include "opt/opt_context.h"
+// include "opt/opt_context.h"
 
 
 namespace qe {
@@ -339,6 +339,7 @@ namespace qe {
     }
 
     void euf_arith_mbi_plugin::minimize_span(model_ref& mdl, app_ref_vector& avars, app_ref_vector const& proxies) {
+#if 0
         arith_util a(m);
         opt::context opt(m);        
         expr_ref_vector fmls(m);
@@ -366,6 +367,7 @@ namespace qe {
         opt.get_model(mdl);
         model_evaluator mev(*mdl.get());
         std::cout << mev(t) << "\n";
+#endif
     }
 
     /**
