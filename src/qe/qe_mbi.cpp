@@ -294,15 +294,15 @@ namespace qe {
     }
 
     /**
-     * \brief project non-arithmetical private symbols.
+     * \brief project private symbols.
      */
     void euf_arith_mbi_plugin::project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars) {
         term_graph tg(m);
         func_decl_ref_vector shared(m_shared);
-        for (app* a : avars) shared.push_back(a->get_decl());
+        //for (app* a : avars) shared.push_back(a->get_decl());
         tg.set_vars(shared, false);
         tg.add_lits(lits);
-        lits.reset();
+        //lits.reset();
         lits.append(tg.project(*mdl.get()));
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }
