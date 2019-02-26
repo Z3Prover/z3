@@ -115,6 +115,7 @@ void display_usage() {
 }
    
 void parse_cmd_line_args(int argc, char ** argv) {
+    long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
     while (i < argc) {
@@ -216,8 +217,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
                     error("option argument (-T:timeout) is missing.");
-                long tm = strtol(opt_arg, nullptr, 10);
-                set_timeout(tm * 1000);
+                timeout = strtol(opt_arg, nullptr, 10);
             }
             else if (strcmp(opt_name, "t") == 0) {
                 if (!opt_arg)
@@ -292,6 +292,9 @@ void parse_cmd_line_args(int argc, char ** argv) {
         }
         i++;
     }
+
+    if (timeout)
+        set_timeout(timeout * 1000);
 }
 
 

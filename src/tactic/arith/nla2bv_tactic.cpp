@@ -21,6 +21,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/pb_decl_plugin.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "util/optional.h"
@@ -85,13 +86,18 @@ class nla2bv_tactic : public tactic {
             TRACE("nla2bv", g.display(tout);
                   tout << "Muls: " << count_mul(g) << "\n";
                   );
+            tactic_report report("nla->bv", g);
             m_fmc = alloc(generic_model_converter, m_manager, "nla2bv");
             m_bounds(g);
             collect_power2(g);
-            if(!collect_vars(g)) {
+            switch (collect_vars(g)) {
+            case has_num: 
+                break;
+            case not_supported:
                 throw tactic_exception("goal is not in the fragment supported by nla2bv");
+            case is_bool:
+                return;
             }
-            tactic_report report("nla->bv", g);
             substitute_vars(g);
             TRACE("nla2bv", g.display(tout << "substitute vars\n"););
             reduce_bv2int(g);
@@ -308,41 +314,47 @@ class nla2bv_tactic : public tactic {
         
         class get_uninterp_proc {
             imp& m_imp;
+            arith_util& a;
+            ast_manager& m;
+            pb_util    pb;
             ptr_vector<app> m_vars;
+            bool            m_no_arith;
             bool m_in_supported_fragment;
         public:
-            get_uninterp_proc(imp& s): m_imp(s), m_in_supported_fragment(true) {}
+            get_uninterp_proc(imp& s): m_imp(s), a(s.m_arith), m(a.get_manager()), pb(m), m_no_arith(true), m_in_supported_fragment(true) {}
             ptr_vector<app> const& vars() { return m_vars; }
+            bool no_arith() const { return m_no_arith; }
             void operator()(var * n) { 
                 m_in_supported_fragment = false; 
             }
             void operator()(app* n) { 
-                arith_util& a = m_imp.m_arith;
-                ast_manager& m = a.get_manager();
-                if (a.is_int(n) &&
-                    is_uninterp_const(n)) {
+                if (a.is_int(n) && is_uninterp_const(n)) {
                     m_vars.push_back(n);
                 }
-                else if (a.is_real(n) &&
-                         is_uninterp_const(n)) {
+                else if (a.is_real(n) && is_uninterp_const(n)) {
                     m_vars.push_back(n);
                 }
                 else if (m.is_bool(n) && is_uninterp_const(n)) {
                     
                 }
-                else if (!(a.is_mul(n) ||
-                           a.is_add(n) ||
-                           a.is_sub(n) ||
-                           a.is_le(n) ||
-                           a.is_lt(n) ||
-                           a.is_ge(n) ||
-                           a.is_gt(n) ||
-                           a.is_numeral(n) ||
-                           a.is_uminus(n) ||
-                           m_imp.m_bv2real.is_pos_le(n) ||
-                           m_imp.m_bv2real.is_pos_lt(n) ||
-                           n->get_family_id() == a.get_manager().get_basic_family_id())) {
-                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, a.get_manager()) << "\n";);
+                else if (m.is_bool(n) && n->get_decl()->get_family_id() == pb.get_family_id()) {
+                    
+                }
+                else if (a.is_mul(n) ||
+                         a.is_add(n) ||
+                         a.is_sub(n) ||
+                         a.is_le(n) ||
+                         a.is_lt(n) ||
+                         a.is_ge(n) ||
+                         a.is_gt(n) ||
+                         a.is_numeral(n) ||
+                         a.is_uminus(n) ||
+                         m_imp.m_bv2real.is_pos_le(n) ||
+                         m_imp.m_bv2real.is_pos_lt(n)) {
+                    m_no_arith = false;
+                }
+                else if (n->get_family_id() != m.get_basic_family_id()) {
+                    TRACE("nla2bv", tout << "Not supported: " << mk_ismt2_pp(n, m) << "\n";);
                     m_in_supported_fragment = false;
                 }
                 m_imp.update_num_bits(n);
@@ -353,13 +365,17 @@ class nla2bv_tactic : public tactic {
             bool is_supported() const { return m_in_supported_fragment; }
         };
         
-        bool collect_vars(goal const & g) {
+        enum collect_t { has_num, not_supported, is_bool };
+
+        collect_t collect_vars(goal const & g) {
             get_uninterp_proc fe_var(*this);
             for_each_expr_at(fe_var, g);
             for (unsigned i = 0; i < fe_var.vars().size(); ++i) {
                 add_var(fe_var.vars()[i]);
             }
-            return fe_var.is_supported() && !fe_var.vars().empty();
+            if (!fe_var.is_supported()) return not_supported;
+            if (fe_var.vars().empty() && fe_var.no_arith()) return is_bool;
+            return has_num;
         }
         
         class count_mul_proc {

@@ -1166,6 +1166,14 @@ static void parse_example() {
     // expr b = c.parse_string("(benchmark tst :extrafuns ((x Int) (y Int)) :formula (> x y) :formula (> x 0))");
 }
 
+static void parse_string() {
+    std::cout << "parse string\n";
+    z3::context c;
+    z3::solver s(c);
+    s.from_string("(declare-const x Int)(assert (> x 10))");
+    std::cout << s.check() << "\n";
+}
+
 void mk_model_example() {
     context c;
 
@@ -1252,6 +1260,7 @@ int main() {
         sudoku_example(); std::cout << "\n";
         consequence_example(); std::cout << "\n";
         parse_example(); std::cout << "\n";
+        parse_string(); std::cout << "\n";
         mk_model_example(); std::cout << "\n";
         recfun_example(); std::cout << "\n";
         std::cout << "done\n";

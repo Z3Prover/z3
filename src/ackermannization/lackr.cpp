@@ -122,7 +122,7 @@ bool lackr::ackr(app * const t1, app * const t2) {
     TRACE("ackermannize", tout << "ackr constr abs:" << mk_ismt2_pp(cga, m_m, 2) << "\n";);
     if (m_m.is_true(cga)) return false;
     m_st.m_ackrs_sz++;
-    m_ackrs.push_back(cga);
+    m_ackrs.push_back(std::move(cga));
     return true;
 }
 

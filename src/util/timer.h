@@ -19,21 +19,29 @@ Revision History:
 #ifndef TIMER_H_
 #define TIMER_H_
 
-class stopwatch;
+#include "util/stopwatch.h"
 
 /**
-   \brief Wrapper for the stopwatch class. It hides windows.h dependency.
+   \brief Wrapper for the stopwatch class.
 */
 class timer {
-    stopwatch * m_watch;
+    stopwatch m_watch;
 public:
-    timer();
-    ~timer();
-    void start();
-    double get_seconds();
-    bool timeout(unsigned secs) { return secs > 0 && secs != UINT_MAX && get_seconds() > secs; }
-    bool ms_timeout(unsigned ms) { return ms > 0 && ms != UINT_MAX && get_seconds() * 1000 > ms; }
+    timer() {
+        m_watch.start();
+    }
+
+    double get_seconds() const {
+        return m_watch.get_current_seconds();
+    }
+
+    bool timeout(unsigned secs) const {
+        return secs != 0 && secs != UINT_MAX && get_seconds() > secs;
+    }
+
+    bool ms_timeout(unsigned ms) const {
+        return ms != 0 && ms != UINT_MAX && get_seconds() * 1000 > ms;
+    }
 };
 
 #endif /* TIMER_H_ */
-

@@ -156,6 +156,14 @@ namespace smt {
         }
 
         void set_activity(expr* lit, double act) {
+            SASSERT(m().is_bool(lit));
+            m().is_not(lit, lit);
+            if (!m_kernel.b_internalized(lit)) {
+                m_kernel.internalize(lit, false);
+            }
+            if (!m_kernel.b_internalized(lit)) {
+                return;
+            }
             auto v = m_kernel.get_bool_var(lit);
             double old_act = m_kernel.get_activity(v);
             m_kernel.set_activity(v, act);

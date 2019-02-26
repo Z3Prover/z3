@@ -112,7 +112,7 @@ void substitution::apply(unsigned num_actual_offsets, unsigned const * deltas, e
                 TRACE("subst_bug", tout << "visited: " << visited << ", n1: " << mk_pp(n1.get_expr(), m_manager) << " : " << n1.get_offset() << "\n";);
                 if (visited) {
                     m_todo.pop_back();
-                    expr * new_expr;
+                    expr * new_expr = nullptr;
                     m_apply_cache.find(n1, new_expr);
                     m_apply_cache.insert(n, new_expr);
                     TRACE("subst_bug", tout << "1. insert n: " << mk_pp(n.get_expr(), m_manager) << " : " << n.get_offset() 

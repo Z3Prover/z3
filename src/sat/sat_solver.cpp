@@ -27,11 +27,15 @@ Revision History:
 #include "util/trace.h"
 #include "util/max_cliques.h"
 #include "util/gparams.h"
+#ifdef _MSC_VER
+# include <xmmintrin.h>
+#endif
 
 // define to update glue during propagation
 #define UPDATE_GLUE
 
 namespace sat {
+
 
     solver::solver(params_ref const & p, reslimit& l):
         solver_core(l),
@@ -39,13 +43,13 @@ namespace sat {
         m_config(p),
         m_par(nullptr),
         m_cls_allocator_idx(false),
+        m_drat(*this),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
-        m_drat(*this),
         m_inconsistent(false),
         m_searching(false),
         m_num_frozen(0),
@@ -413,8 +417,6 @@ namespace sat {
         clause * r = alloc_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
         if (reinit && !learned) push_reinit_stack(*r);
-        if (m_config.m_drat) m_drat.add(*r, learned);
-
         if (learned)
             m_learned.push_back(r);
         else
@@ -424,6 +426,9 @@ namespace sat {
 
     bool solver::attach_ter_clause(clause & c) {
         bool reinit = false;
+        if (m_config.m_drat) m_drat.add(c, c.is_learned());
+        TRACE("sat", tout << c << "\n";);
+        SASSERT(!c.was_removed());
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
         m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));
         m_watches[(~c[2]).index()].push_back(watched(c[0], c[1]));
@@ -459,8 +464,9 @@ namespace sat {
         else {
             m_clauses.push_back(r);
         }
-        if (m_config.m_drat) 
+        if (m_config.m_drat) {
             m_drat.add(*r, learned);
+        }
         return r;
     }
 
@@ -1157,6 +1163,7 @@ namespace sat {
         }
         catch (const abort_solver &) {
             m_reason_unknown = "sat.giveup";
+            IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort giveup\")\n";);
             return l_undef;
         }
     }
@@ -1779,38 +1786,30 @@ namespace sat {
         }
 #endif
 
-        IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
-        if (!check_clauses(m_model)) {
-            throw solver_exception("check model failed");
-        }
-        
-        if (m_config.m_drat) m_drat.check_model(m_model);
-
-        // m_mc.set_solver(nullptr);
-        m_mc(m_model);
-        
-        if (!check_clauses(m_model)) {
-            IF_VERBOSE(0, verbose_stream() << "failure checking clauses on transformed model\n";);
-            IF_VERBOSE(10, m_mc.display(verbose_stream()));
-            //IF_VERBOSE(0, display_units(verbose_stream()));
-            //IF_VERBOSE(0, display(verbose_stream()));
-            IF_VERBOSE(0, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
-
-            throw solver_exception("check model failed");
-        }
-
-        TRACE("sat", for (bool_var v = 0; v < num; v++) tout << v << ": " << m_model[v] << "\n";);
-
         if (m_clone) {
-            IF_VERBOSE(1, verbose_stream() << "\"checking model (on original set of clauses)\"\n";);
-            if (!m_clone->check_model(m_model)) {
-                //IF_VERBOSE(0, display(verbose_stream()));
-                //IF_VERBOSE(0, display_watches(verbose_stream()));
-                IF_VERBOSE(0, m_mc.display(verbose_stream()));
-                IF_VERBOSE(0, display_units(verbose_stream()));
-                //IF_VERBOSE(0, m_clone->display(verbose_stream() << "clone\n"));
-                throw solver_exception("check model failed (for cloned solver)");
+            IF_VERBOSE(10, verbose_stream() << "\"checking model\"\n";);
+            if (!check_clauses(m_model)) {
+                throw solver_exception("check model failed");
             }
+        }
+        
+        if (m_config.m_drat) {
+            m_drat.check_model(m_model);
+        }
+
+        m_mc(m_model);
+
+        if (m_clone && !check_clauses(m_model)) {
+            IF_VERBOSE(1, verbose_stream() << "failure checking clauses on transformed model\n";);
+            IF_VERBOSE(10, m_mc.display(verbose_stream()));
+            IF_VERBOSE(10, display_model(verbose_stream()));
+            throw solver_exception("check model failed");
+        }
+
+        if (m_clone && !m_clone->check_model(m_model)) {
+            IF_VERBOSE(1, m_mc.display(verbose_stream()));
+            IF_VERBOSE(1, display_units(verbose_stream()));
+            throw solver_exception("check model failed (for cloned solver)");
         }
     }
 
@@ -1819,7 +1818,7 @@ namespace sat {
         for (clause const* cp : m_clauses) {
             clause const & c = *cp;
             if (!c.satisfied_by(m)) {
-                IF_VERBOSE(0, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "failed clause " << c.id() << ": " << c << "\n";);
                 TRACE("sat", tout << "failed: " << c << "\n";
                       tout << "assumptions: " << m_assumptions << "\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1827,7 +1826,7 @@ namespace sat {
                       m_mc.display(tout);
                       );
                 for (literal l : c) {
-                    if (was_eliminated(l.var())) IF_VERBOSE(0, verbose_stream() << "eliminated: " << l << "\n";);
+                    if (was_eliminated(l.var())) IF_VERBOSE(1, verbose_stream() << "eliminated: " << l << "\n";);
                 }
                 ok = false;
             }
@@ -1843,8 +1842,8 @@ namespace sat {
                     if (l.index() > l2.index()) 
                         continue;
                     if (value_at(l2, m) != l_true) {
-                        IF_VERBOSE(0, verbose_stream() << "failed binary: " << l << " := " << value_at(l, m) << " " << l2 <<  " := " << value_at(l2, m) << "\n");
-                        IF_VERBOSE(0, verbose_stream() << "elim l1: " << was_eliminated(l.var()) << " elim l2: " << was_eliminated(l2) << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "failed binary: " << l << " := " << value_at(l, m) << " " << l2 <<  " := " << value_at(l2, m) << "\n");
+                        IF_VERBOSE(1, verbose_stream() << "elim l1: " << was_eliminated(l.var()) << " elim l2: " << was_eliminated(l2) << "\n");
                         TRACE("sat", m_mc.display(tout << "failed binary: " << l << " " << l2 << "\n"););
                         ok = false;
                     }
@@ -1855,7 +1854,7 @@ namespace sat {
         for (literal l : m_assumptions) {
             if (value_at(l, m) != l_true) {
                 VERIFY(is_external(l.var()));
-                IF_VERBOSE(0, verbose_stream() << "assumption: " << l << " does not model check " << value_at(l, m) << "\n";);
+                IF_VERBOSE(1, verbose_stream() << "assumption: " << l << " does not model check " << value_at(l, m) << "\n";);
                 TRACE("sat",
                       tout << l << " does not model check\n";
                       tout << "trail: " << m_trail << "\n";
@@ -1876,8 +1875,8 @@ namespace sat {
         if (ok && !m_mc.check_model(m)) {
             ok = false;
             TRACE("sat", tout << "model: " << m << "\n"; m_mc.display(tout););
+            IF_VERBOSE(0, verbose_stream() << "model check failed\n");
         }
-        IF_VERBOSE(1, verbose_stream() << "model check " << (ok?"OK":"failed") << "\n";);
         return ok;
     }
 
@@ -2170,6 +2169,36 @@ namespace sat {
         IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat-gc :strategy " << st_name << " :deleted " << (sz - new_sz) << ")\n";);
     }
 
+    bool solver::can_delete3(literal l1, literal l2, literal l3) const {                                                           
+        if (value(l1) == l_true && 
+            value(l2) == l_false && 
+            value(l3) == l_false) {
+            justification const& j = m_justification[l1.var()];
+            if (j.is_ternary_clause()) {
+                watched w1(l2, l3);
+                watched w2(j.get_literal1(), j.get_literal2());
+                return w1 != w2;
+            }
+        }
+        return true;
+    }
+
+    bool solver::can_delete(clause const & c) const {
+        if (c.on_reinit_stack())
+            return false;
+        if (c.size() == 3) {
+            return
+                can_delete3(c[0],c[1],c[2]) &&
+                can_delete3(c[1],c[0],c[2]) &&
+                can_delete3(c[2],c[0],c[1]);
+        }
+        literal l0 = c[0];
+        if (value(l0) != l_true)
+            return true;
+        justification const & jst = m_justification[l0.var()];
+        return !jst.is_clause() || cls_allocator().get_clause(jst.get_clause_offset()) != &c;
+    }
+
     /**
        \brief Use gc based on dynamic psm. Clauses are initially frozen.
     */
@@ -2388,6 +2417,7 @@ namespace sat {
             }
         }
 
+
         m_lemma.reset();
 
         unsigned idx = skip_literals_above_conflict_level();
@@ -2408,6 +2438,7 @@ namespace sat {
         do {
             TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << "\n";
                   tout << "num_marks: " << num_marks << ", js: " << js << "\n";);
+
             switch (js.get_kind()) {
             case justification::NONE:
                 break;
@@ -2462,6 +2493,8 @@ namespace sat {
             idx--;
             num_marks--;
             reset_mark(c_var);
+
+            TRACE("sat", display_justification(tout << consequent << " ", js) << "\n";);            
         }
         while (num_marks > 0);
 
@@ -2474,12 +2507,13 @@ namespace sat {
         TRACE("sat_lemma", tout << "new lemma size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
 
         unsigned new_scope_lvl       = 0;
+        bool sub_min = false, res_min = false;
         if (!m_lemma.empty()) {
             if (m_config.m_minimize_lemmas) {
-                minimize_lemma();
+                res_min = minimize_lemma();
                 reset_lemma_var_marks();
                 if (m_config.m_dyn_sub_res)
-                    dyn_sub_res();
+                    sub_min = dyn_sub_res();
                 TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
             }
             else
@@ -2499,12 +2533,12 @@ namespace sat {
         m_slow_glue_avg.update(glue);
         pop_reinit(m_scope_lvl - new_scope_lvl);
         TRACE("sat_conflict_detail", tout << glue << " " << new_scope_lvl << "\n";);
-        // unsound: m_asymm_branch.minimize(m_scc, m_lemma);
         clause * lemma = mk_clause_core(m_lemma.size(), m_lemma.c_ptr(), true);
         if (lemma) {
             lemma->set_glue(glue);
             if (m_par) m_par->share_clause(*this, *lemma);
         }
+
         TRACE("sat_conflict_detail", tout << new_scope_lvl << "\n";);
         decay_activity();
         updt_phase_counters();
@@ -2851,7 +2885,7 @@ namespace sat {
             if (m_lvl_set.may_contain(var_lvl)) {
                 mark(var);
                 m_unmark.push_back(var);
-                m_lemma_min_stack.push_back(var);
+                m_lemma_min_stack.push_back(antecedent);
             }
             else {
                 return false;
@@ -2869,11 +2903,12 @@ namespace sat {
     */
     bool solver::implied_by_marked(literal lit) {
         m_lemma_min_stack.reset();  // avoid recursive function
-        m_lemma_min_stack.push_back(lit.var());
+        m_lemma_min_stack.push_back(lit);
         unsigned old_size = m_unmark.size();
 
         while (!m_lemma_min_stack.empty()) {
-            bool_var var       = m_lemma_min_stack.back();
+            lit = m_lemma_min_stack.back();
+            bool_var var = lit.var();
             m_lemma_min_stack.pop_back();
             justification const& js   = m_justification[var];
             switch(js.get_kind()) {
@@ -2935,6 +2970,8 @@ namespace sat {
                 UNREACHABLE();
                 break;
             }
+            TRACE("sat_conflict", 
+                  display_justification(tout << var << " ",js) << "\n";);
         }
         return true;
     }
@@ -2965,7 +3002,7 @@ namespace sat {
        literals that are implied by other literals in m_lemma and/or literals
        assigned at level 0.
     */
-    void solver::minimize_lemma() {
+    bool solver::minimize_lemma() {
         SASSERT(!m_lemma.empty());
         SASSERT(m_unmark.empty());
         updt_lemma_lvl_set();
@@ -2989,6 +3026,7 @@ namespace sat {
         reset_unmark(0);
         m_lemma.shrink(j);
         m_stats.m_minimized_lits += sz - j;
+        return j < sz;
     }
 
     /**
@@ -3062,7 +3100,7 @@ namespace sat {
        \brief Apply dynamic subsumption resolution to new lemma.
        Only binary and ternary clauses are used.
     */
-    void solver::dyn_sub_res() {
+    bool solver::dyn_sub_res() {
         unsigned sz = m_lemma.size();
         for (unsigned i = 0; i < sz; i++) {
             mark_lit(m_lemma[i]);
@@ -3175,6 +3213,7 @@ namespace sat {
 
         SASSERT(j >= 1);
         m_lemma.shrink(j);
+        return j < sz;
     }
 
 
@@ -3542,6 +3581,14 @@ namespace sat {
         }
         return true;
     }
+
+    std::ostream& solver::display_model(std::ostream& out) const {
+        unsigned num = num_vars();
+        for (bool_var v = 0; v < num; v++) {
+            out << v << ": " << m_model[v] << "\n";
+        }
+        return out;
+}
 
     void solver::display_binary(std::ostream & out) const {
         unsigned sz = m_watches.size();
