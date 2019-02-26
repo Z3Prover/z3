@@ -38,6 +38,7 @@ Notes:
 #include "qe/qe_mbi.h"
 #include "qe/qe_term_graph.h"
 #include "qe/qe_arith.h"
+#include "opt/opt_context.h"
 
 
 namespace qe {
@@ -139,6 +140,10 @@ namespace qe {
 
             if (m_arith.is_int_real(a)) {
                 m_avars.push_back(a);
+                if (!m_seen.contains(a)) {
+                    m_proxies.push_back(a);
+                    m_seen.insert(a);
+                }
             }
             for (expr* arg : *a) {
                 if (is_app(arg) && !m_seen.contains(arg) && m_arith.is_int_real(arg)) {
@@ -259,27 +264,31 @@ namespace qe {
         TRACE("qe", tout << m_solver->get_assertions() << "\n";);
 
 
-        // 1. arithmetical variables - atomic and in purified positions
+        // . arithmetical variables - atomic and in purified positions
         app_ref_vector proxies(m);
         app_ref_vector avars = get_arith_vars(mdl, lits, proxies);
         TRACE("qe", tout << "vars: " << avars << "\nproxies: " << proxies << "\nlits: " << lits << "\n";);
 
-        // 2. project private non-arithmetical variables from lits
+        // . project private non-arithmetical variables from lits
         project_euf(mdl, lits, avars);
 
-        // 3. Order arithmetical variables and purified positions
+        // . Minimzie span between smallest and largest proxy variable.
+        minimize_span(mdl, avars, proxies);
+
+        // . Order arithmetical variables and purified positions
         order_avars(mdl, lits, avars, proxies);
         TRACE("qe", tout << "ordered: " << lits << "\n";);
 
-        // 4. Perform arithmetical projection
+        // . Perform arithmetical projection
         arith_project_plugin ap(m);
         ap.set_check_purified(false);
         auto defs = ap.project(*mdl.get(), avars, lits);
         TRACE("qe", tout << "aproject: " << lits << "\n";);
 
-        // 5. Substitute solution into lits
+        // . Substitute solution into lits
         substitute(defs, lits);
         TRACE("qe", tout << "substitute: " << lits << "\n";);
+        IF_VERBOSE(1, verbose_stream() << lits << "\n");
     }
 
     /**
@@ -307,12 +316,7 @@ namespace qe {
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }
 
-    /**
-     * \brief Order arithmetical variables:
-     * 1. add literals that order the proxies according to the model.
-     * 2. sort arithmetical terms, such that deepest terms are first.
-     */
-    void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies) {
+    vector<std::pair<rational, app*>> euf_arith_mbi_plugin::sort_proxies(model_ref& mdl, app_ref_vector const& proxies) {
         arith_util a(m);
         model_evaluator mev(*mdl.get());
         vector<std::pair<rational, app*>> vals;
@@ -328,15 +332,61 @@ namespace qe {
                 return x.first < y.first;
             }
         };
-        // add linear order between proxies
+        // add offset ordering between proxies
         compare_first cmp;
         std::sort(vals.begin(), vals.end(), cmp);
+        return vals;
+    }
+
+    void euf_arith_mbi_plugin::minimize_span(model_ref& mdl, app_ref_vector& avars, app_ref_vector const& proxies) {
+        arith_util a(m);
+        opt::context opt(m);        
+        expr_ref_vector fmls(m);
+        m_solver->get_assertions(fmls);
+        for (expr* l : fmls) opt.add_hard_constraint(l);
+        vector<std::pair<rational, app*>> vals = sort_proxies(mdl, proxies);
+        app_ref t(m);
         for (unsigned i = 1; i < vals.size(); ++i) {
-            if (vals[i-1].first == vals[i].first) {
-                lits.push_back(m.mk_eq(vals[i-1].second, vals[i].second));
+            rational offset = vals[i].first - vals[i-1].first;
+            expr* t1 = vals[i-1].second;
+            expr* t2 = vals[i].second;
+            if (offset.is_zero()) {
+                t = m.mk_eq(t1, t2);
             }
             else {
-                lits.push_back(a.mk_lt(vals[i-1].second, vals[i].second));
+                SASSERT(offset.is_pos());
+                t = a.mk_lt(t1, t2);
+            }
+            opt.add_hard_constraint(t);
+        }
+        t = a.mk_sub(vals[0].second, vals.back().second);
+        opt.add_objective(t, true);
+        expr_ref_vector asms(m);
+        VERIFY(l_true == opt.optimize(asms));
+        opt.get_model(mdl);
+        model_evaluator mev(*mdl.get());
+        std::cout << mev(t) << "\n";
+    }
+
+    /**
+     * \brief Order arithmetical variables:
+     * 1. add literals that order the proxies according to the model.
+     * 2. sort arithmetical terms, such that deepest terms are first.
+     */
+    void euf_arith_mbi_plugin::order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies) {
+        arith_util a(m);
+        model_evaluator mev(*mdl.get());
+        vector<std::pair<rational, app*>> vals = sort_proxies(mdl, proxies);
+        for (unsigned i = 1; i < vals.size(); ++i) {
+            rational offset = vals[i].first - vals[i-1].first;
+            expr* t1 = vals[i-1].second;
+            expr* t2 = vals[i].second;
+            if (offset.is_zero()) {
+                lits.push_back(m.mk_eq(t1, t2));
+            }
+            else {
+                expr_ref t(a.mk_add(t1, a.mk_numeral(offset, true)), m);
+                lits.push_back(a.mk_le(t, t2));
             }
         }
 
@@ -355,9 +405,11 @@ namespace qe {
     }
 
     void euf_arith_mbi_plugin::block(expr_ref_vector const& lits) {
-        collect_atoms(lits);
-        m_fmls.push_back(mk_not(mk_and(lits)));
-        m_solver->assert_expr(m_fmls.back());
+        // want to rely only on atoms from original literals: collect_atoms(lits);
+        expr_ref conj(mk_not(mk_and(lits)), m);
+        //m_fmls.push_back(conj);
+        TRACE("qe", tout << "block " << lits << "\n";);
+        m_solver->assert_expr(conj);
     }
 
 
