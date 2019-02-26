@@ -22,7 +22,6 @@ Revision History:
 #define SEQ_DECL_PLUGIN_H_
 
 #include "ast/ast.h"
-#include "ast/bv_decl_plugin.h"
 
 
 enum seq_sort_kind {
@@ -41,6 +40,7 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
+    OP_SEQ_NTH,
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_TO_RE,
@@ -139,12 +139,14 @@ class seq_decl_plugin : public decl_plugin {
     };
 
     ptr_vector<psig> m_sigs;
+    ptr_vector<sort> m_binding;
     bool             m_init;
     symbol           m_stringc_sym;
     symbol           m_charc_sym;
     sort*            m_string;
     sort*            m_char;
     sort*            m_re;
+    bool             m_has_re;
 
     void match(psig& sig, unsigned dsz, sort* const* dom, sort* range, sort_ref& rng);
 
@@ -196,6 +198,8 @@ public:
     app* mk_string(symbol const& s);
     app* mk_string(zstring const& s);
 
+    bool has_re() const { return m_has_re; }
+
 };
 
 class seq_util {
@@ -216,9 +220,14 @@ public:
     bool is_re(expr* e) const { return is_re(m.get_sort(e)); }
     bool is_re(expr* e, sort*& seq) const { return is_re(m.get_sort(e), seq); }
     bool is_char(expr* e) const { return is_char(m.get_sort(e)); }
+    bool is_const_char(expr* e, unsigned& c) const;
+    app* mk_char(unsigned ch) const;
+    app* mk_le(expr* ch1, expr* ch2) const;
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
+
+    bool has_re() const { return seq.has_re(); }
 
     class str {
         seq_util&    u;
@@ -232,26 +241,30 @@ public:
     public:
         str(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
-        sort* mk_seq(sort* s) { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
+        sort* mk_seq(sort* s) const { parameter param(s); return m.mk_sort(m_fid, SEQ_SORT, 1, &param); }
         sort* mk_string_sort() const { return m.mk_sort(m_fid, _STRING_SORT, 0, nullptr); }
         app* mk_empty(sort* s) const { return m.mk_const(m.mk_func_decl(m_fid, OP_SEQ_EMPTY, 0, nullptr, 0, (expr*const*)nullptr, s)); }
-        app* mk_string(zstring const& s);
-        app* mk_string(symbol const& s) { return u.seq.mk_string(s); }
-        app* mk_char(char ch);
+        app* mk_string(zstring const& s) const;
+        app* mk_string(symbol const& s) const { return u.seq.mk_string(s); }
+        app* mk_char(char ch) const;
         app* mk_concat(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONCAT, 2, es); }
-        app* mk_concat(expr* a, expr* b, expr* c) { return mk_concat(a, mk_concat(b, c)); }
+        app* mk_concat(expr* a, expr* b, expr* c) const { return mk_concat(a, mk_concat(b, c)); }
         expr* mk_concat(unsigned n, expr* const* es) const { if (n == 1) return es[0]; SASSERT(n > 1); return m.mk_app(m_fid, OP_SEQ_CONCAT, n, es); }
         expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
-        app* mk_substr(expr* a, expr* b, expr* c) { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
-        app* mk_contains(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
-        app* mk_prefix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
-        app* mk_suffix(expr* a, expr* b) { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
-        app* mk_index(expr* a, expr* b, expr* i) { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
-        app* mk_unit(expr* u) { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
-        app* mk_char(zstring const& s, unsigned idx);
-        app* mk_itos(expr* i) { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
-        app* mk_stoi(expr* s) { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
+        app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
+        app* mk_nth(expr* s, unsigned i) const;
+
+        app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
+        app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
+        app* mk_prefix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
+        app* mk_suffix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
+        app* mk_index(expr* a, expr* b, expr* i) const { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
+        app* mk_unit(expr* u) const { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
+        app* mk_char(zstring const& s, unsigned idx) const;
+        app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
+        app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
+        app* mk_is_empty(expr* s) const;
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
 
@@ -269,6 +282,8 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
+        bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
+        bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
@@ -293,6 +308,7 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
+        MATCH_BINARY(is_nth);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
         MATCH_TERNARY(is_replace);
@@ -304,6 +320,7 @@ public:
         MATCH_UNARY(is_unit);
 
         void get_concat(expr* e, expr_ref_vector& es) const;
+        void get_concat_units(expr* e, expr_ref_vector& es) const;
         expr* get_leftmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e1; return e; }
         expr* get_rightmost_concat(expr* e) const { expr* e1, *e2; while (is_concat(e, e1, e2)) e = e2; return e; }
     };

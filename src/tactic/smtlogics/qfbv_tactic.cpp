@@ -36,7 +36,7 @@ Notes:
 static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
 
     params_ref solve_eq_p;
-    // conservative guassian elimination.
+    // conservative gaussian elimination.
     solve_eq_p.set_uint("solve_eqs_max_occs", 2);
 
     params_ref simp2_p = p;
@@ -89,14 +89,6 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
     params_ref solver_p;
     solver_p.set_bool("preprocess", false); // preprocessor of smt::context is not needed.
 
-    params_ref no_flat_p;
-    no_flat_p.set_bool("flat", false);
-
-    params_ref ctx_simp_p;
-    ctx_simp_p.set_uint("max_depth", 32);
-    ctx_simp_p.set_uint("max_steps", 50000000);
-
-
     params_ref big_aig_p;
     big_aig_p.set_bool("aig_per_assertion", false);
 
@@ -129,9 +121,9 @@ static tactic * mk_qfbv_tactic(ast_manager& m, params_ref const & p, tactic* sat
 
 tactic * mk_qfbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * new_sat = cond(mk_produce_proofs_probe(),
-                            and_then(mk_simplify_tactic(m), mk_smt_tactic()),
+                            and_then(mk_simplify_tactic(m), mk_smt_tactic(m)),
                             mk_psat_tactic(m, p));
 
-    return mk_qfbv_tactic(m, p, new_sat, mk_psmt_tactic(m, p));
+    return mk_qfbv_tactic(m, p, new_sat, mk_smt_tactic(m, p));
 
 }

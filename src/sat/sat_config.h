@@ -60,6 +60,16 @@ namespace sat {
         PB_SEGMENTED
     };
 
+    enum pb_resolve {
+        PB_CARDINALITY,
+        PB_ROUNDING
+    };
+
+    enum pb_lemma_format {
+        PB_LEMMA_CARDINALITY,
+        PB_LEMMA_PB
+    };
+
     enum reward_t {
         ternary_reward,
         unit_literal_reward,
@@ -105,6 +115,7 @@ namespace sat {
         unsigned           m_local_search_threads;
         bool               m_local_search;
         local_search_mode  m_local_search_mode;
+        bool               m_local_search_dbg_flips;
         unsigned           m_unit_walk_threads;
         bool               m_unit_walk;
         bool               m_lookahead_simplify;
@@ -117,7 +128,9 @@ namespace sat {
         double             m_lookahead_cube_psat_clause_base;
         double             m_lookahead_cube_psat_trigger;
         reward_t           m_lookahead_reward;
+        bool               m_lookahead_double;
         bool               m_lookahead_global_autarky;
+        double             m_lookahead_delta_fraction;
         bool               m_lookahead_use_learned;
 
         bool               m_incremental;
@@ -136,18 +149,23 @@ namespace sat {
         bool               m_gc_burst;
         bool               m_gc_defrag;
 
+        bool               m_force_cleanup;
+
 
         bool               m_minimize_lemmas;
         bool               m_dyn_sub_res;
         bool               m_core_minimize;
         bool               m_core_minimize_partial;
         bool               m_drat;
+        bool               m_drat_binary;
         symbol             m_drat_file;
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
         
         pb_solver          m_pb_solver;
         bool               m_card_solver;
+        pb_resolve         m_pb_resolve;
+        pb_lemma_format    m_pb_lemma_format;
         
         // branching heuristic settings.
         branching_heuristic m_branching_heuristic;

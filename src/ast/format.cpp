@@ -152,21 +152,13 @@ namespace format_ns {
     
     format * mk_int(ast_manager & m, int i) {
         char buffer[128];
-#ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "%d", i);
-#else
-        sprintf(buffer, "%d", i);
-#endif
+        SPRINTF_D(buffer, i);
         return mk_string(m, buffer); 
     }
     
     format * mk_unsigned(ast_manager & m, unsigned u) {
         char buffer[128];
-#ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "%u", u);
-#else
-        sprintf(buffer, "%u", u);
-#endif
+        SPRINTF_U(buffer, u);
         return mk_string(m, buffer); 
     }
     

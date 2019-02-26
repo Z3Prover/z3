@@ -30,15 +30,6 @@ Revision History:
 
 extern "C" {
 
-
-    Z3_string Z3_API Z3_get_parser_error(Z3_context c) {        
-        Z3_TRY;
-        LOG_Z3_get_parser_error(c);
-        RESET_ERROR_CODE(); 
-        return mk_c(c)->m_parser_error_buffer.c_str();
-        Z3_CATCH_RETURN("");
-    }
-
     // ---------------
     // Support for SMTLIB2
 
@@ -70,22 +61,18 @@ extern "C" {
         try {
             if (!parse_smt2_commands(*ctx.get(), is)) {
                 ctx = nullptr;
-                mk_c(c)->m_parser_error_buffer = errstrm.str();
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
                 return of_ast_vector(v);
             }
         }
         catch (z3_exception& e) {
             errstrm << e.msg();
-            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return of_ast_vector(v);
         }
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            v->m_ast_vector.push_back(*it);
+        for (expr * e : ctx->assertions()) {
+            v->m_ast_vector.push_back(e);
         }
         return of_ast_vector(v);
         Z3_CATCH_RETURN(nullptr);
@@ -118,7 +105,7 @@ extern "C" {
         LOG_Z3_parse_smtlib2_string(c, file_name, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
         std::ifstream is(file_name);
         if (!is) {
-            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR);
+            SET_ERROR_CODE(Z3_FILE_ACCESS_ERROR, nullptr);
             return nullptr;
         }
         Z3_ast_vector r = parse_smtlib2_stream(false, c, is, num_sorts, sort_names, sorts, num_decls, decl_names, decls);
@@ -141,15 +128,13 @@ extern "C" {
         ctx->set_diagnostic_stream(ous);
         try {
             if (!parse_smt2_commands(*ctx.get(), is)) {
-                mk_c(c)->m_parser_error_buffer = ous.str();
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str().c_str());
                 RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
             }
         }
         catch (z3_exception& e) {
             if (ous.str().empty()) ous << e.msg();
-            mk_c(c)->m_parser_error_buffer = ous.str();
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, ous.str().c_str());
             RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));
         }
         RETURN_Z3(mk_c(c)->mk_external_string(ous.str()));

@@ -97,7 +97,7 @@ namespace datalog {
        \brief Auxiliary function used to create a tail based on \c pred for a new rule.
        The variables in \c pred are re-assigned using \c next_idx and \c varidx2var.
        A variable is considered non-local to the rule if it is in the set \c non_local_vars.
-       Non-local variables are coppied to new_rule_args, and their sorts to \c new_rule_domain.
+       Non-local variables are copied to new_rule_args, and their sorts to \c new_rule_domain.
        The new predicate is stored in \c new_pred.
     */
     void mk_new_rule_tail(ast_manager & m, app * pred, 
@@ -276,7 +276,7 @@ namespace datalog {
         }
         unsigned n = container.size();
         unsigned ofs = 1;
-        int r_i = 1;
+        unsigned r_i = 1;
         for(unsigned i=removed_cols[0]+1; i<n; i++) {
             if(r_i!=removed_col_cnt && removed_cols[r_i]==i) {
                 r_i++;

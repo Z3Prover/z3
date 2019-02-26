@@ -21,6 +21,7 @@ Revision History:
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/id_gen.h"
 #include "ast/ast_smt2_pp.h"
+#include "util/gparams.h"
 
 struct arith_decl_plugin::algebraic_numbers_wrapper {
     unsynch_mpq_manager           m_qmanager;
@@ -351,6 +352,7 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_MUL:     return is_real ? m_r_mul_decl : m_i_mul_decl;
     case OP_DIV:     return m_r_div_decl;
     case OP_IDIV:    return m_i_div_decl;
+    case OP_IDIVIDES: UNREACHABLE(); 
     case OP_REM:     return m_i_rem_decl;
     case OP_MOD:     return m_i_mod_decl;
     case OP_TO_REAL: return m_to_real_decl;
@@ -482,6 +484,14 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
     }
+    if (k == OP_IDIVIDES) {
+        if (arity != 1 || domain[0] != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
+            m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
+        }
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+                                       func_decl_info(m_family_id, k, num_parameters, parameters));
+    }
+
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, arity), has_real_arg(arity, domain, m_real_decl));
     }
@@ -498,6 +508,13 @@ func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
     if (num_args == 0 && !is_const_op(k)) {
         m_manager->raise_exception("no arguments supplied to arithmetical operator");
         return nullptr;
+    }
+    if (k == OP_IDIVIDES) {
+        if (num_args != 1 || m_manager->get_sort(args[0]) != m_int_decl || num_parameters != 1 || !parameters[0].is_int()) {
+            m_manager->raise_exception("invalid divides application. Expects integer parameter and one argument of sort integer");
+        }
+        return m_manager->mk_func_decl(symbol("divisible"), 1, &m_int_decl, m_manager->mk_bool_sort(), 
+                                       func_decl_info(m_family_id, k, num_parameters, parameters));
     }
     if (m_manager->int_real_coercions() && use_coercion(k)) {
         return mk_func_decl(fix_kind(k, num_args), has_real_arg(m_manager, num_args, args, m_real_decl));
@@ -533,6 +550,9 @@ void arith_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
     op_names.push_back(builtin_name("*",OP_MUL));
     op_names.push_back(builtin_name("/",OP_DIV));
     op_names.push_back(builtin_name("div",OP_IDIV));
+    if (gparams::get_value("smtlib2_compliant") == "true") {
+        op_names.push_back(builtin_name("divisible",OP_IDIVIDES));
+    }
     op_names.push_back(builtin_name("rem",OP_REM));
     op_names.push_back(builtin_name("mod",OP_MOD));
     op_names.push_back(builtin_name("to_real",OP_TO_REAL));

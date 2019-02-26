@@ -58,7 +58,7 @@ bool has_skolem_functions(expr * n) {
     try {
         for_each_expr(p, n);
     }
-    catch (has_skolem_functions_ns::found) {
+    catch (const has_skolem_functions_ns::found &) {
         return true;
     }
     return false;

@@ -17,8 +17,8 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -29,7 +29,6 @@ namespace Microsoft.Z3
     /// Note that this is a global, static log and if multiple Context 
     /// objects are created, it logs the interaction with all of them.
     /// </remarks>
-    [ContractVerification(true)]
     public static class Log
     {
         private static bool m_is_open = false;
@@ -59,7 +58,7 @@ namespace Microsoft.Z3
         /// </summary>    
         public static void Append(string s)
         {
-            Contract.Requires(isOpen());
+            Debug.Assert(isOpen());
 
             if (!m_is_open)
                 throw new Z3Exception("Log cannot be closed.");
@@ -70,7 +69,6 @@ namespace Microsoft.Z3
         /// Checks whether the interaction log is opened.
         /// </summary>
         /// <returns>True if the interaction log is open, false otherwise.</returns>
-        [Pure]
         public static bool isOpen()
         {
             return m_is_open;

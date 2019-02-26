@@ -6,6 +6,7 @@
 #
 # Author: Leonardo de Moura (leonardo)
 ############################################
+import io
 import sys
 import os
 import re
@@ -37,6 +38,7 @@ OCAMLOPT=getenv("OCAMLOPT", "ocamlopt")
 OCAML_LIB=getenv("OCAML_LIB", None)
 OCAMLFIND=getenv("OCAMLFIND", "ocamlfind")
 CSC=getenv("CSC", None)
+DOTNET="dotnet"
 GACUTIL=getenv("GACUTIL", 'gacutil')
 # Standard install directories relative to PREFIX
 INSTALL_BIN_DIR=getenv("Z3_INSTALL_BIN_DIR", "bin")
@@ -60,6 +62,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
+DOTNET_CORE_COMPONENT='dotnetcore'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
@@ -82,13 +85,17 @@ VS_ARM = False
 LINUX_X64 = True
 ONLY_MAKEFILES = False
 Z3PY_SRC_DIR=None
+Z3JS_SRC_DIR=None
 VS_PROJ = False
 TRACE = False
 PYTHON_ENABLED=False
 DOTNET_ENABLED=False
+DOTNET_CORE_ENABLED=False
+ESRP_SIGN=False
 DOTNET_KEY_FILE=getenv("Z3_DOTNET_KEY_FILE", None)
 JAVA_ENABLED=False
 ML_ENABLED=False
+JS_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
 STATIC_BIN=False
@@ -394,7 +401,7 @@ def check_java():
                 libdirs = m.group(1).split(',')
                 for libdir in libdirs:
                     q = os.path.dirname(libdir)
-                    if cdirs.count(q) == 0:
+                    if cdirs.count(q) == 0 and len(q) > 0:
                         cdirs.append(q)
         t.close()
 
@@ -449,6 +456,13 @@ def check_dotnet():
     r = exec_cmd([GACUTIL, '/l', 'hello' ])
     if r != 0:
         raise MKException('Failed testing gacutil. Set environment variable GACUTIL with the path to gacutil.')
+
+def check_dotnet_core():
+    if not IS_WINDOWS:
+        return
+    r = exec_cmd([DOTNET, '--help'])
+    if r != 0:
+        raise MKException('Failed testing dotnet. Make sure to install and configure dotnet core utilities')
 
 def check_ml():
     t = TempFile('hello.ml')
@@ -551,6 +565,11 @@ def set_version(major, minor, build, revision):
 def get_version():
     return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
 
+def get_version_string(n):
+    if n == 3:
+        return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
+    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_REVISION)
+
 def build_static_lib():
     return STATIC_LIB
 
@@ -650,10 +669,12 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
         print("  --optimize                    generate optimized code during linking.")
+    print("  --dotnetcore                  generate .NET platform bindings.")
     print("  --dotnet                      generate .NET bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
+    print("  --js                          generate JScript bindings.")
     print("  --python                      generate Python bindings.")
     print("  --staticlib                   build Z3 static library.")
     print("  --staticbin                   build a statically linked Z3 binary.")
@@ -687,14 +708,14 @@ def display_help(exit_code):
 # Parse configuration option for mk_make script
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
-    global DOTNET_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED
+    global DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
     global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnet-key=', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof',
+                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -728,8 +749,12 @@ def parse_options():
             TRACE = True
         elif opt in ('-.net', '--dotnet'):
             DOTNET_ENABLED = True
+        elif opt in ('--dotnetcore',):
+            DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
+        elif opt in ('--esrp'):
+            ESRP_SIGN = True
         elif opt in ('--staticlib'):
             STATIC_LIB = True
         elif opt in ('--staticbin'):
@@ -755,6 +780,8 @@ def parse_options():
             GIT_DESCRIBE = True
         elif opt in ('', '--ml'):
             ML_ENABLED = True
+        elif opt == "--js":
+            JS_ENABLED = True
         elif opt in ('', '--noomp'):
             USE_OMP = False
         elif opt in ('', '--log-sync'):
@@ -780,7 +807,7 @@ def extract_c_includes(fname):
     # We should generate and error for any occurrence of #include that does not match the previous pattern.
     non_std_inc_pat = re.compile(".*#include.*")
 
-    f = open(fname, 'r')
+    f = io.open(fname, encoding='utf-8', mode='r')
     linenum = 1
     for line in f:
         m1 = std_inc_pat.match(line)
@@ -817,6 +844,16 @@ def set_build_dir(d):
     BUILD_DIR = norm_path(d)
     REV_BUILD_DIR = reverse_path(d)
 
+def set_z3js_dir(p):
+    global SRC_DIR, Z3JS_SRC_DIR
+    p = norm_path(p)
+    full = os.path.join(SRC_DIR, p)
+    if not os.path.exists(full):
+        raise MKException("Python bindings directory '%s' does not exist" % full)
+    Z3JS_SRC_DIR = full
+    if VERBOSE:
+        print("Js bindings directory was detected.")
+
 def set_z3py_dir(p):
     global SRC_DIR, Z3PY_SRC_DIR
     p = norm_path(p)
@@ -852,6 +889,10 @@ def get_components():
 def get_z3py_dir():
     return Z3PY_SRC_DIR
 
+# Return directory where the js bindings are located
+def get_z3js_dir():
+    return Z3JS_SRC_DIR
+
 # Return true if in verbose mode
 def is_verbose():
     return VERBOSE
@@ -862,8 +903,14 @@ def is_java_enabled():
 def is_ml_enabled():
     return ML_ENABLED
 
+def is_js_enabled():
+    return JS_ENABLED
+
 def is_dotnet_enabled():
     return DOTNET_ENABLED
+
+def is_dotnet_core_enabled():
+    return DOTNET_CORE_ENABLED
 
 def is_python_enabled():
     return PYTHON_ENABLED
@@ -1411,6 +1458,22 @@ class DLLComponent(Component):
             shutil.copy('%s.a' % os.path.join(build_path, self.dll_name),
                         '%s.a' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
 
+class JsComponent(Component):
+    def __init__(self):
+         Component.__init__(self, "js", None, [])
+
+    def main_component(self):
+        return False
+
+    def mk_win_dist(self, build_path, dist_path):
+        return
+
+    def mk_unix_dist(self, build_path, dist_path):
+        return
+
+    def mk_makefile(self, out):
+        return
+
 class PythonComponent(Component):
     def __init__(self, name, libz3Component):
         assert isinstance(libz3Component, DLLComponent)
@@ -1568,6 +1631,23 @@ class PythonInstallComponent(Component):
     def mk_makefile(self, out):
         return
 
+def set_key_file(self):
+    global DOTNET_KEY_FILE
+    # We need to give the assembly a strong name so that it
+    # can be installed into the GAC with ``make install``
+    if not DOTNET_KEY_FILE is None:
+       self.key_file = DOTNET_KEY_FILE
+
+    if not self.key_file is None:
+       if os.path.isfile(self.key_file):
+           self.key_file = os.path.abspath(self.key_file)
+       elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
+           self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
+       else:
+           print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
+           self.key_file = None
+    
+
 class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
@@ -1587,11 +1667,7 @@ class DotNetDLLComponent(Component):
         pkg_config_template = os.path.join(self.src_dir, '{}.pc.in'.format(self.gac_pkg_name()))
         substitutions = { 'PREFIX': PREFIX,
                           'GAC_PKG_NAME': self.gac_pkg_name(),
-                          'VERSION': "{}.{}.{}.{}".format(
-                              VER_MAJOR,
-                              VER_MINOR,
-                              VER_BUILD,
-                              VER_REVISION)
+                          'VERSION': get_version_string(4)
                         }
         pkg_config_output = os.path.join(BUILD_DIR,
                                        self.build_dir,
@@ -1630,25 +1706,10 @@ class DotNetDLLComponent(Component):
                                 '/noconfig',
                                 '/nostdlib+',
                                 '/reference:mscorlib.dll',
-                                # Under mono this isn't neccessary as mono will search the system
-                                # library paths for libz3.so
-                                '/linkresource:{}.dll'.format(get_component(Z3_DLL_COMPONENT).dll_name),
                                ]
                              )
 
-        # We need to give the assembly a strong name so that it
-        # can be installed into the GAC with ``make install``
-        if not DOTNET_KEY_FILE is None:
-            self.key_file = DOTNET_KEY_FILE
-
-        if not self.key_file is None:
-            if os.path.isfile(self.key_file):
-                self.key_file = os.path.abspath(self.key_file)
-            elif os.path.isfile(os.path.join(self.src_dir, self.key_file)):
-                self.key_file = os.path.abspath(os.path.join(self.src_dir, self.key_file))
-            else:
-                print("Keyfile '%s' could not be found; %s.dll will be unsigned." % (self.key_file, self.dll_name))
-                self.key_file = None
+        set_key_file(self)
 
         if not self.key_file is None:
             print("%s.dll will be signed using key '%s'." % (self.dll_name, self.key_file))
@@ -1713,6 +1774,22 @@ class DotNetDLLComponent(Component):
     def has_assembly_info(self):
         return True
 
+    def make_assembly_info(c, major, minor, build, revision):
+        assembly_info_template = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs.in')
+        assembly_info_output = assembly_info_template[:-3]
+        assert assembly_info_output.endswith('.cs')
+        if os.path.exists(assembly_info_template):
+             configure_file(assembly_info_template, assembly_info_output,
+                            { 'VER_MAJOR': str(major),
+                              'VER_MINOR': str(minor),
+                              'VER_BUILD': str(build),
+                              'VER_REVISION': str(revision),
+                            }
+                           )
+        else:
+             raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
+
+
     def mk_win_dist(self, build_path, dist_path):
         if is_dotnet_enabled():
             mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
@@ -1775,6 +1852,204 @@ class DotNetDLLComponent(Component):
         self._install_or_uninstall_to_gac(out, install=False)
         pkg_config_file = os.path.join('lib','pkgconfig','{}.pc'.format(self.gac_pkg_name()))
         MakeRuleCmd.remove_installed_files(out, pkg_config_file)
+
+
+# build for dotnet core
+class DotNetCoreDLLComponent(Component):
+    def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
+        Component.__init__(self, name, path, deps)
+        if dll_name is None:
+            dll_name = name
+        if assembly_info_dir is None:
+            assembly_info_dir = "."
+        self.dll_name          = dll_name
+        self.assembly_info_dir = assembly_info_dir
+        self.key_file = default_key_file
+
+    
+    def mk_makefile(self, out):
+        if not is_dotnet_core_enabled():
+            return
+        cs_fp_files = []
+        for cs_file in get_cs_files(self.src_dir):
+            cs_fp_files.append(os.path.join(self.to_src_dir, cs_file))
+        if self.assembly_info_dir != '.':
+            for cs_file in get_cs_files(os.path.join(self.src_dir, self.assembly_info_dir)):
+                cs_fp_files.append(os.path.join(self.to_src_dir, self.assembly_info_dir, cs_file))
+        dllfile = '%s.dll' % self.dll_name
+        out.write('%s: %s$(SO_EXT)' % (dllfile, get_component(Z3_DLL_COMPONENT).dll_name))
+        for cs_file in cs_fp_files:
+            out.write(' ')
+            out.write(cs_file)
+        out.write('\n')
+        
+        set_key_file(self)
+        key = ""
+        if not self.key_file is None:
+            key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
+            key += "\n<SignAssembly>true</SignAssembly>"
+
+        if VS_X64:
+            platform = 'x64'
+        elif VS_ARM:
+            platform = 'ARM'
+        else:
+            platform = 'x86'
+
+        version = get_version_string(3)
+
+        core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard1.4</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>    
+    <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
+    <DebugType>portable</DebugType>
+    <AssemblyName>Microsoft.Z3</AssemblyName>
+    <OutputType>Library</OutputType>
+    <PackageId>Microsoft.Z3</PackageId>
+    <RuntimeFrameworkVersion>1.0.4</RuntimeFrameworkVersion>
+    <Version>%s</Version>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+    <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
+    <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
+    <PackageTags>smt constraint solver theorem prover</PackageTags>
+    %s
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
+  </ItemGroup>
+
+</Project>""" % (platform, version, key, self.to_src_dir)
+
+        mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
+        csproj = os.path.join('dotnet', 'z3.csproj')
+        with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
+            ous.write(core_csproj_str)
+
+        dotnetCmdLine = [DOTNET, "build", csproj]
+        
+        dotnetCmdLine.extend(['-c'])
+        if DEBUG_MODE:
+            dotnetCmdLine.extend(['Debug'])
+        else:
+            dotnetCmdLine.extend(['Release'])
+
+        path = os.path.join(os.path.abspath(BUILD_DIR), ".")
+        dotnetCmdLine.extend(['-o', path])
+            
+        MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
+        self.sign_esrp(out)
+        out.write('\n')        
+        out.write('%s: %s\n\n' % (self.name, dllfile))
+
+    def sign_esrp(self, out):
+        global ESRP_SIGNx
+        print("esrp-sign", ESRP_SIGN)
+        if not ESRP_SIGN:
+            return
+        
+        import uuid
+        guid = str(uuid.uuid4())
+        path = os.path.abspath(BUILD_DIR).replace("\\","\\\\")        
+        assemblySignStr = """
+{
+  "Version": "1.0.0",
+  "SignBatches"
+  :
+  [
+   {
+    "SourceLocationType": "UNC",
+    "SourceRootDirectory": "%s",
+    "DestinationLocationType": "UNC",
+    "DestinationRootDirectory": "c:\\\\ESRP\\\\output",
+    "SignRequestFiles": [
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "libz3.dll",
+      "DestinationLocation": "libz3.dll"
+     },
+     {
+      "CustomerCorrelationId": "%s",
+      "SourceLocation": "Microsoft.Z3.dll",
+      "DestinationLocation": "Microsoft.Z3.dll"
+     }
+    ],
+    "SigningInfo": {
+     "Operations": [
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolSign",
+       "Parameters" : {
+        "OpusName": "Microsoft",
+        "OpusInfo": "http://www.microsoft.com",
+        "FileDigest": "/fd \\"SHA256\\"",
+        "PageHash": "/NPH",
+        "TimeStamp": "/tr \\"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\\" /td sha256"
+       },
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      },
+      {
+       "KeyCode" : "CP-230012",
+       "OperationCode" : "SigntoolVerify",
+       "Parameters" : {},
+       "ToolName" : "sign",
+       "ToolVersion" : "1.0"
+      }
+     ]
+    }
+   }
+  ]
+}       """ % (path, guid, guid)
+        assemblySign = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', 'assembly-sign-input.json')
+        with open(assemblySign, 'w') as ous:
+            ous.write(assemblySignStr)
+        outputFile = os.path.join(os.path.abspath(BUILD_DIR), 'dotnet', "esrp-out.json")
+        esrpCmdLine = ["esrpclient.exe", "sign", "-a", "C:\\esrp\\config\\authorization.json", "-p", "C:\\esrp\\config\\policy.json", "-i", assemblySign, "-o", outputFile]
+        MakeRuleCmd.write_cmd(out, ' '.join(esrpCmdLine))
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\libz3.dll .")
+        MakeRuleCmd.write_cmd(out, "move /Y C:\\esrp\\output\\Microsoft.Z3.dll .")
+
+
+    def main_component(self):
+        return is_dotnet_core_enabled()
+    
+    def has_assembly_info(self):
+        # TBD: is this required for dotnet core given that version numbers are in z3.csproj file?
+        return False
+
+    
+    def mk_win_dist(self, build_path, dist_path):
+        if is_dotnet_core_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            if DEBUG_MODE:
+                shutil.copy('%s.pdb' % os.path.join(build_path, self.dll_name),
+                            '%s.pdb' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+
+    def mk_unix_dist(self, build_path, dist_path):
+        if is_dotnet_core_enabled():
+            mk_dir(os.path.join(dist_path, INSTALL_BIN_DIR))
+            shutil.copy('%s.dll' % os.path.join(build_path, self.dll_name),
+                        '%s.dll' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+            shutil.copy('%s.deps.json' % os.path.join(build_path, self.dll_name),
+                        '%s.deps.json' % os.path.join(dist_path, INSTALL_BIN_DIR, self.dll_name))
+
+    def mk_install_deps(self, out):
+        pass
+
+    def mk_install(self, out):
+        pass
+
+    def mk_uninstall(self, out):
+        pass
 
 class JavaDLLComponent(Component):
     def __init__(self, name, dll_name, package_name, manifest_file, path, deps):
@@ -2166,7 +2441,7 @@ class DotNetExampleComponent(ExampleComponent):
         ExampleComponent.__init__(self, name, path)
 
     def is_example(self):
-        return is_dotnet_enabled()
+        return is_dotnet_enabled() or is_dotnet_core_enabled()
 
     def mk_makefile(self, out):
         if is_dotnet_enabled():
@@ -2194,6 +2469,48 @@ class DotNetExampleComponent(ExampleComponent):
                 out.write(os.path.join(relative_path, csfile))
             out.write('\n')
             out.write('_ex_%s: %s\n\n' % (self.name, exefile))
+        if is_dotnet_core_enabled():
+            proj_name = 'dotnet_example.csproj'
+            out.write('_ex_%s:' % self.name)
+            for csfile in get_cs_files(self.ex_dir):
+                out.write(' ')
+                out.write(os.path.join(self.to_ex_dir, csfile))
+
+            mk_dir(os.path.join(BUILD_DIR, 'dotnet_example'))
+            csproj = os.path.join('dotnet_example', proj_name)
+            if VS_X64:
+                platform = 'x64'
+            elif VS_ARM:
+                platform = 'ARM'
+            else:
+                platform = 'x86'
+
+            dotnet_proj_str = """<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <PlatformTarget>%s</PlatformTarget>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\%s/*.cs" />
+    <Reference Include="Microsoft.Z3">
+      <HintPath>..\Microsoft.Z3.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+</Project>""" % (platform, self.to_ex_dir)
+
+            with open(os.path.join(BUILD_DIR, csproj), 'w') as ous:
+                ous.write(dotnet_proj_str)
+
+            out.write('\n')
+            dotnetCmdLine = [DOTNET, "build", csproj]
+            dotnetCmdLine.extend(['-c'])
+            if DEBUG_MODE:
+                dotnetCmdLine.extend(['Debug'])
+            else:
+                dotnetCmdLine.extend(['Release'])
+            MakeRuleCmd.write_cmd(out, ' '.join(dotnetCmdLine))
+            out.write('\n')
 
 class JavaExampleComponent(ExampleComponent):
     def __init__(self, name, path):
@@ -2312,6 +2629,10 @@ def add_dot_net_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=N
     c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
     reg_component(name, c)
 
+def add_dot_net_core_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None, default_key_file=None):
+    c = DotNetCoreDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
+    reg_component(name, c)
+
 def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
     c = JavaDLLComponent(name, dll_name, package_name, manifest_file, path, deps)
     reg_component(name, c)
@@ -2319,6 +2640,9 @@ def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, man
 def add_python(libz3Component):
     name = 'python'
     reg_component(name, PythonComponent(name, libz3Component))
+
+def add_js():
+    reg_component('js', JsComponent())
 
 def add_python_install(libz3Component):
     name = 'python_install'
@@ -2401,7 +2725,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _AMD64_ /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2426,7 +2750,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _AMD64_ /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2548,7 +2872,6 @@ def mk_config():
         if is64():
             if not sysname.startswith('CYGWIN') and not sysname.startswith('MSYS') and not sysname.startswith('MINGW'):
                 CXXFLAGS     = '%s -fPIC' % CXXFLAGS
-            CPPFLAGS     = '%s -D_AMD64_' % CPPFLAGS
             if sysname == 'Linux':
                 CPPFLAGS = '%s -D_USE_THREAD_LOCAL' % CPPFLAGS
         elif not LINUX_X64:
@@ -2616,6 +2939,8 @@ def mk_config():
             if is_dotnet_enabled():
                 print('C# Compiler:    %s' % CSC)
                 print('GAC utility:    %s' % GACUTIL)
+            if is_dotnet_core_enabled():
+                print('C# Compiler:    %s' % DOTNET)
 
     config.close()
 
@@ -2764,8 +3089,8 @@ def get_full_version_string(major, minor, build, revision):
 # Update files with the version number
 def mk_version_dot_h(major, minor, build, revision):
     c = get_component(UTIL_COMPONENT)
-    version_template = os.path.join(c.src_dir, 'version.h.in')
-    version_header_output = os.path.join(c.src_dir, 'version.h')
+    version_template = os.path.join(c.src_dir, 'z3_version.h.in')
+    version_header_output = os.path.join(c.src_dir, 'z3_version.h')
     # Note the substitution names are what is used by the CMake
     # builds system. If you change these you should change them
     # in the CMake build too
@@ -2784,19 +3109,7 @@ def mk_version_dot_h(major, minor, build, revision):
 def mk_all_assembly_infos(major, minor, build, revision):
     for c in get_components():
         if c.has_assembly_info():
-            assembly_info_template = os.path.join(c.src_dir, c.assembly_info_dir, 'AssemblyInfo.cs.in')
-            assembly_info_output = assembly_info_template[:-3]
-            assert assembly_info_output.endswith('.cs')
-            if os.path.exists(assembly_info_template):
-                configure_file(assembly_info_template, assembly_info_output,
-                               { 'VER_MAJOR': str(major),
-                                 'VER_MINOR': str(minor),
-                                 'VER_BUILD': str(build),
-                                 'VER_REVISION': str(revision),
-                               }
-                              )
-            else:
-                raise MKException("Failed to find assembly template info file '%s'" % assembly_info_template)
+            c.make_assembly_info(major, minor, build, revision)
 
 def get_header_files_for_components(component_src_dirs):
     assert isinstance(component_src_dirs, list)
@@ -2941,6 +3254,9 @@ def mk_bindings(api_files):
         dotnet_output_dir = None
         if is_dotnet_enabled():
           dotnet_output_dir = get_component('dotnet').src_dir
+        elif is_dotnet_core_enabled():
+          dotnet_output_dir = os.path.join(BUILD_DIR, 'dotnet')
+          mk_dir(dotnet_output_dir)
         java_output_dir = None
         java_package_name = None
         if is_java_enabled():
@@ -2949,6 +3265,9 @@ def mk_bindings(api_files):
         ml_output_dir = None
         if is_ml_enabled():
           ml_output_dir = get_component('ml').src_dir
+        if is_js_enabled():
+          set_z3js_dir("api/js")
+          js_output_dir = get_component('js').src_dir
         # Get the update_api module to do the work for us
         update_api.generate_files(api_files=new_api_files,
           api_output_dir=get_component('api').src_dir,
@@ -2956,6 +3275,7 @@ def mk_bindings(api_files):
           dotnet_output_dir=dotnet_output_dir,
           java_output_dir=java_output_dir,
           java_package_name=java_package_name,
+          js_output_dir=get_z3js_dir(),
           ml_output_dir=ml_output_dir,
           ml_src_dir=ml_output_dir
         )
@@ -2965,7 +3285,10 @@ def mk_bindings(api_files):
             mk_z3consts_ml(api_files)
         if is_dotnet_enabled():
             check_dotnet()
-            mk_z3consts_dotnet(api_files)
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
+        if  is_dotnet_core_enabled():
+            check_dotnet_core()
+            mk_z3consts_dotnet(api_files, dotnet_output_dir)
 
 # Extract enumeration types from API files, and add python definitions.
 def mk_z3consts_py(api_files):
@@ -2982,14 +3305,16 @@ def mk_z3consts_py(api_files):
         print("Generated '{}".format(generated_file))
 
 # Extract enumeration types from z3_api.h, and add .Net definitions
-def mk_z3consts_dotnet(api_files):
+def mk_z3consts_dotnet(api_files, output_dir):
     dotnet = get_component(DOTNET_COMPONENT)
+    if not dotnet:
+       dotnet = get_component(DOTNET_CORE_COMPONENT)
     full_path_api_files = []
     for api_file in api_files:
         api_file_c = dotnet.find_file(api_file, dotnet.name)
         api_file   = os.path.join(api_file_c.src_dir, api_file)
         full_path_api_files.append(api_file)
-    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, dotnet.src_dir)
+    generated_file = mk_genfile_common.mk_z3consts_dotnet_internal(full_path_api_files, output_dir)
     if VERBOSE:
         print("Generated '{}".format(generated_file))
 
@@ -3234,7 +3559,7 @@ class MakeRuleCmd(object):
         needed commands used in Makefile rules
         Note that several of the method are meant for use during ``make
         install`` and ``make uninstall``.  These methods correctly use
-        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferrable
+        ``$(PREFIX)`` and ``$(DESTDIR)`` and therefore are preferable
         to writing commands manually which can be error prone.
     """
     @classmethod

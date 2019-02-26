@@ -38,6 +38,8 @@ namespace smt {
         st.update("arith gcd tests", m_stats.m_gcd_tests);
         st.update("arith ineq splits", m_stats.m_branches);
         st.update("arith gomory cuts", m_stats.m_gomory_cuts);
+        st.update("arith patches", m_stats.m_patches);
+        st.update("arith patches_succ", m_stats.m_patches_succ);
         st.update("arith max-min", m_stats.m_max_min);
         st.update("arith grobner", m_stats.m_gb_compute_basis);
         st.update("arith pseudo nonlinear", m_stats.m_nl_linear);
@@ -389,8 +391,19 @@ namespace smt {
     void theory_arith<Ext>::display_vars(std::ostream & out) const {
         out << "vars:\n";
         int n = get_num_vars();
-        for (theory_var v = 0; v < n; v++)
+        int inf_vars = 0;
+        int int_inf_vars = 0;
+        for (theory_var v = 0; v < n; v++) {
+            if ((lower(v) && lower(v)->get_value() > get_value(v))
+                || (upper(v) && upper(v)->get_value() < get_value(v)))
+                inf_vars++;
+            if (is_int(v) && !get_value(v).is_int())
+                int_inf_vars++;
+        }
+        out << "infeasibles = " << inf_vars << " int_inf = " << int_inf_vars << std::endl;
+        for (theory_var v = 0; v < n; v++) {
             display_var(out, v);
+        }
     }
 
     template<typename Ext>
@@ -405,9 +418,9 @@ namespace smt {
         th.get_context().display_literals_verbose(out, lits().size(), lits().c_ptr());
         if (!lits().empty()) out << "\n";
         ast_manager& m = th.get_manager();
-        for (unsigned i = 0; i < m_eqs.size(); ++i) {
-            out << mk_pp(m_eqs[i].first->get_owner(), m) << " ";
-            out << mk_pp(m_eqs[i].second->get_owner(), m) << "\n";            
+        for (auto const& e : m_eqs) {
+            out << mk_pp(e.first->get_owner(), m) << " ";
+            out << mk_pp(e.second->get_owner(), m) << "\n";            
         }
         return out;
     }
@@ -418,27 +431,24 @@ namespace smt {
         m_dep_manager.linearize(dep, bounds);
         m_tmp_lit_set.reset();
         m_tmp_eq_set.reset();
-        ptr_vector<void>::const_iterator it  = bounds.begin();
-        ptr_vector<void>::const_iterator end = bounds.end();
-        for (; it != end; ++it) {
-            bound * b = static_cast<bound*>(*it);
-            out << " ";
-            b->display(*this, out);
+        for (void *_b : bounds) {
+            bound * b = static_cast<bound*>(_b);
+            b->display(*this, out << "\n");
         }
     }
 
     template<typename Ext>
     void theory_arith<Ext>::display_interval(std::ostream & out, interval const& i) {
         i.display(out);
-        display_deps(out << " lo:", i.get_lower_dependencies());
-        display_deps(out << " hi:", i.get_upper_dependencies());
+        display_deps(out << "\nlo:", i.get_lower_dependencies());
+        display_deps(out << "\nhi:", i.get_upper_dependencies());
     }
 
     template<typename Ext>
     void theory_arith<Ext>::display_atoms(std::ostream & out) const {
         out << "atoms:\n";
-        for (unsigned i = 0; i < m_atoms.size(); i++)
-            display_atom(out, m_atoms[i], false);
+        for (atom * a : m_atoms) 
+            display_atom(out, a, false);
     }
 
     template<typename Ext>
@@ -534,7 +544,7 @@ namespace smt {
         char buffer[128];
         static int id = 0;
 #ifdef _WINDOWS
-        sprintf_s(buffer, ARRAYSIZE(buffer), "arith_%d.smt", id);
+        sprintf_s(buffer, Z3_ARRAYSIZE(buffer), "arith_%d.smt", id);
 #else
         sprintf(buffer, "arith_%d.smt", id);
 #endif

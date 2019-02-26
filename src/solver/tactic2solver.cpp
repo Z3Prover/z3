@@ -62,7 +62,7 @@ public:
 
     void push_core() override;
     void pop_core(unsigned n) override;
-    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override;
+    lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override;
 
     void collect_statistics(statistics & st) const override;
     void get_unsat_core(expr_ref_vector & r) override;
@@ -79,10 +79,24 @@ public:
 
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
+        set_reason_unknown("cubing is not supported on tactics");
         return expr_ref_vector(get_manager());
     }
 
     model_converter_ref get_model_converter() const override { return m_mc; }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        throw default_exception("cannot retrieve depth from solvers created using tactics");
+    }
+
+    expr_ref_vector get_trail() override {
+        throw default_exception("cannot retrieve trail from solvers created using tactcis");
+    }
+
+    void set_activity(expr* var, double activity) override {
+        throw default_exception("cannot set activity for solvers created using tactcis");
+    }
+
 
 };
 
@@ -122,9 +136,12 @@ void tactic2solver::assert_expr_core(expr * t) {
 void tactic2solver::push_core() {
     m_scopes.push_back(m_assertions.size());
     m_result = nullptr;
+    TRACE("pop", tout << m_scopes.size() << "\n";);
 }
 
 void tactic2solver::pop_core(unsigned n) {
+    TRACE("pop", tout << m_scopes.size() << " " << n << "\n";);
+    n = std::min(m_scopes.size(), n);
     unsigned new_lvl = m_scopes.size() - n;
     unsigned old_sz  = m_scopes[new_lvl];
     m_assertions.shrink(old_sz);
@@ -132,7 +149,7 @@ void tactic2solver::pop_core(unsigned n) {
     m_result = nullptr;
 }
 
-lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
     if (m_tactic.get() == nullptr)
         return l_false;
     ast_manager & m = m_assertions.m();
@@ -142,9 +159,8 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
     m_tactic->updt_params(get_params()); // parameters are allowed to overwrite logic.
     goal_ref g = alloc(goal, m, m_produce_proofs, m_produce_models, m_produce_unsat_cores);
 
-    unsigned sz = m_assertions.size();
-    for (unsigned i = 0; i < sz; i++) {
-        g->assert_expr(m_assertions.get(i));
+    for (expr* e : m_assertions) {
+        g->assert_expr(e);
     }
     for (unsigned i = 0; i < num_assumptions; i++) {
         proof_ref pr(m.mk_asserted(assumptions[i]), m);
@@ -167,9 +183,9 @@ lbool tactic2solver::check_sat_core(unsigned num_assumptions, expr * const * ass
             break;
         default: 
             m_result->set_status(l_undef);
-            if (reason_unknown != "")
+            if (!reason_unknown.empty())
                 m_result->m_unknown = reason_unknown;
-            if (num_assumptions == 0) {
+            if (num_assumptions == 0 && m_scopes.empty()) {
                 m_assertions.reset();
                 g->get_formulas(m_assertions);
             }

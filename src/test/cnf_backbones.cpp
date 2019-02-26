@@ -90,7 +90,7 @@ static void track_clauses(sat::solver const& src,
     sat::clause * const * it  = src.begin_clauses();
     sat::clause * const * end = src.end_clauses();
     svector<sat::solver::bin_clause> bin_clauses;
-    src.collect_bin_clauses(bin_clauses, false);
+    src.collect_bin_clauses(bin_clauses, false, false);
     tracking_clauses.reserve(2*src.num_vars() + static_cast<unsigned>(end - it) + bin_clauses.size());
 
     for (sat::bool_var v = 1; v < src.num_vars(); ++v) {
@@ -238,10 +238,10 @@ static void cnf_backbones(bool use_chunk, char const* file_name) {
             std::cerr << "(error \"failed to open file '" << file_name << "'\")" << std::endl;
             exit(ERR_OPEN_FILE);
         }
-        parse_dimacs(in, solver);
+        if (!parse_dimacs(in, std::cerr, solver)) return;
     }
     else {
-        parse_dimacs(std::cin, solver);
+        if (!parse_dimacs(std::cin, std::cerr, solver)) return;
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
     

@@ -91,6 +91,7 @@ add_subdirectory(tactic/ufbv)
 add_subdirectory(sat/sat_solver)
 add_subdirectory(tactic/smtlogics)
 add_subdirectory(tactic/fpa)
+add_subdirectory(tactic/fd_solver)
 add_subdirectory(tactic/portfolio)
 add_subdirectory(opt)
 add_subdirectory(api)
@@ -165,6 +166,8 @@ foreach (header ${libz3_public_headers})
   set_property(TARGET libz3 APPEND PROPERTY
     PUBLIC_HEADER "${CMAKE_SOURCE_DIR}/src/api/${header}")
 endforeach()
+set_property(TARGET libz3 APPEND PROPERTY
+    PUBLIC_HEADER "${CMAKE_CURRENT_BINARY_DIR}/util/z3_version.h")
 
 install(TARGETS libz3
   EXPORT Z3_EXPORTED_TARGETS

@@ -491,13 +491,21 @@ namespace smt {
                 if (!it->is_dead()) {
                     unsigned rid = it->m_row_id;
                     row & r = m_rows[rid];
-                    if (is_base(r.get_base_var()))
+                    theory_var v = r.get_base_var();
+                    if (v == null_theory_var) {
+                        // skip
+                    }
+                    else if (is_base(v)) {
                         return it;
+                    }
                     else if (quasi_base_rid == -1)
                         quasi_base_rid = rid;
                 }
             }
-            SASSERT(quasi_base_rid != -1); // since c.size() != 0
+            if (quasi_base_rid == -1) {
+                return nullptr;
+            }
+			
             quasi_base_row2base_row(quasi_base_rid);
             // There is no guarantee that v is still a variable of row quasi_base_rid.
 
@@ -540,7 +548,7 @@ namespace smt {
             if (!it->is_dead()) {
                 row const & r = m_rows[it->m_row_id];
                 theory_var s  = r.get_base_var();
-                if (is_quasi_base(s) && m_var_occs[s].size() == 0)
+                if (is_quasi_base(s) && m_var_occs[s].empty())
                     continue;
                 if (is_int(v)) {
                     numeral const & c = r[it->m_row_idx].m_coeff;
@@ -566,7 +574,7 @@ namespace smt {
         TRACE("move_unconstrained_to_base", tout << "before...\n"; display(tout););
         int num = get_num_vars();
         for (theory_var v = 0; v < num; v++) {
-            if (m_var_occs[v].size() == 0 && is_free(v)) {
+            if (m_var_occs[v].empty() && is_free(v)) {
                 switch (get_var_kind(v)) {
                 case QUASI_BASE:
                     break;
@@ -731,35 +739,34 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::derived_bound::push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) {
 
+        TRACE("arith", tout << m_lits << " " << m_eqs.size() << "\n";);
         if (proofs_enabled) {
-            for (unsigned i = 0; i < m_lits.size(); ++i) {
-                a.push_lit(m_lits[i], coeff, proofs_enabled);
-            }
-            for (unsigned i = 0; i < m_eqs.size(); ++i) {
-                a.push_eq(m_eqs[i], coeff, proofs_enabled);
-            }
+            for (literal l : m_lits)    
+                a.push_lit(l, coeff, proofs_enabled);
+            for (auto const& e : m_eqs) 
+                a.push_eq(e, coeff, proofs_enabled);
         }
         else {
             a.append(m_lits.size(), m_lits.c_ptr());
-            a.append(m_eqs.size(), m_eqs.c_ptr());
+            a.append(m_eqs.size(),  m_eqs.c_ptr());
         }
     }
 
     template<typename Ext>
     void theory_arith<Ext>::derived_bound::display(theory_arith<Ext> const& th, std::ostream& out) const {
-      out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value();
-        
         ast_manager& m = th.get_manager();
-        for (unsigned i = 0; i < m_eqs.size(); ++i) {
-            enode* a = m_eqs[i].first;
-            enode* b = m_eqs[i].second;
+        out << "v" << bound::get_var() << " " << bound::get_bound_kind() << " " << bound::get_value() << "\n";
+        out << "expr: " << mk_pp(th.var2expr(bound::get_var()), m) << "\n";
+        
+        for (auto const& e : m_eqs) {
+            enode* a = e.first;
+            enode* b = e.second;
             out << " ";
             out << "#" << a->get_owner_id() << " " << mk_pp(a->get_owner(), m) << " = "
-                << "#" << b->get_owner_id() << " " << mk_pp(b->get_owner(), m);
+                << "#" << b->get_owner_id() << " " << mk_pp(b->get_owner(), m) << "\n";
         }
-        for (unsigned i = 0; i < m_lits.size(); ++i) {
-            literal l = m_lits[i];
-            out << " " << l << ":"; th.get_context().display_detailed_literal(out, l);            
+        for (literal l : m_lits) {
+            out << l << ":"; th.get_context().display_detailed_literal(out, l) << "\n";           
         }
     }
 
@@ -882,13 +889,10 @@ namespace smt {
         }
         TRACE("derived_bound", 
               tout << "explanation:\n";
-              literal_vector::const_iterator it1  = new_bound->m_lits.begin();
-              literal_vector::const_iterator end1 = new_bound->m_lits.end();
-              for (; it1 != end1; ++it1) tout << *it1 << " ";
+              for (literal l : new_bound->m_lits) tout << l << " ";
               tout << " ";
-              eq_vector::const_iterator it2  = new_bound->m_eqs.begin();
-              eq_vector::const_iterator end2 = new_bound->m_eqs.end();
-              for (; it2 != end2; ++it2) tout << "#" << it2->first->get_owner_id() << "=#" << it2->second->get_owner_id() << " ";
+              for (auto const& e : new_bound->m_eqs) 
+                  tout << "#" << e.first->get_owner_id() << "=#" << e.second->get_owner_id() << " ";
               tout << "\n";);
         DEBUG_CODE(CTRACE("derived_bound", k != val, tout << "k: " << k << ", k_norm: " << k_norm << ", val: " << val << "\n";););
         SASSERT(k == val);
@@ -1077,7 +1081,7 @@ namespace smt {
     /**
        \brief: Create an atom that enforces the inequality v > val
        The arithmetical expression encoding the inequality suffices 
-       for the theory of aritmetic.
+       for the theory of arithmetic.
     */
     template<typename Ext>
     expr_ref theory_arith<Ext>::mk_gt(theory_var v) {
@@ -1107,6 +1111,7 @@ namespace smt {
                 e = m_util.mk_gt(obj, e);
             }
         }
+        TRACE("opt", tout << e << "\n";);
         return e;
     }
 
@@ -1123,6 +1128,8 @@ namespace smt {
         std::ostringstream strm;
         strm << val << " <= " << mk_pp(get_enode(v)->get_owner(), get_manager());
         app* b = m.mk_const(symbol(strm.str().c_str()), m.mk_bool_sort());
+        expr_ref result(b, m);
+        TRACE("opt", tout << result << "\n";);
         if (!ctx.b_internalized(b)) {
             fm.hide(b->get_decl());
             bool_var bv = ctx.mk_bool_var(b);
@@ -1137,7 +1144,7 @@ namespace smt {
             TRACE("arith", tout << mk_pp(b, m) << "\n";
                   display_atom(tout, a, false););            
         }
-        return expr_ref(b, m);
+        return result;
     }
 
 
@@ -1147,7 +1154,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::enable_record_conflict(expr* bound) {
         m_params.m_arith_bound_prop = BP_NONE;
-        SASSERT(propagation_mode() == BP_NONE); // bound propagtion rules are not (yet) handled.
+        SASSERT(propagation_mode() == BP_NONE); // bound propagation rules are not (yet) handled.
         if (bound) {
             context& ctx = get_context();
             m_bound_watch = ctx.get_bool_var(bound);

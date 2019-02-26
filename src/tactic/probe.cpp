@@ -524,7 +524,7 @@ public:
             }
             return false;
         }
-        catch (found) {
+        catch (const found &) {
             return true;
         }
     }
@@ -554,7 +554,7 @@ public:
             }
             return false;
         }
-        catch (found) {
+        catch (const found &) {
             return true;
         }
     }

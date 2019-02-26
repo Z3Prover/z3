@@ -458,7 +458,7 @@ struct pb2bv_rewriter::imp {
             result = m.mk_true();
             expr_ref_vector carry(m), new_carry(m);
             m_base.push_back(bound + rational::one());
-            for (rational b_i : m_base) {
+            for (const rational& b_i : m_base) {
                 unsigned B   = b_i.get_unsigned();
                 unsigned d_i = (bound % b_i).get_unsigned();
                 bound = div(bound, b_i);                
@@ -865,8 +865,8 @@ struct pb2bv_rewriter::imp {
         // definitions used for sorting network
         pliteral mk_false() { return m.mk_false(); }
         pliteral mk_true() { return m.mk_true(); }
-        pliteral mk_max(pliteral a, pliteral b) { return trail(m.mk_or(a, b)); }
-        pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+        pliteral mk_max(unsigned n, pliteral const* lits) { return trail(m.mk_or(n, lits)); }
+        pliteral mk_min(unsigned n, pliteral const* lits) { return trail(m.mk_and(n, lits)); }
         pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
         std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_ismt2_pp(lit, m);  }
@@ -889,7 +889,7 @@ struct pb2bv_rewriter::imp {
             m_keep_cardinality_constraints = f;
         }
 
-        void set_at_most1(sorting_network_encoding enc) { m_sort.cfg().m_encoding = enc; }
+        void set_cardinality_encoding(sorting_network_encoding enc) { m_sort.cfg().m_encoding = enc; }
 
     };
 
@@ -904,7 +904,7 @@ struct pb2bv_rewriter::imp {
         card2bv_rewriter_cfg(imp& i, ast_manager & m):m_r(i, m) {}
         void keep_cardinality_constraints(bool f) { m_r.keep_cardinality_constraints(f); }
         void set_pb_solver(symbol const& s) { m_r.set_pb_solver(s); }
-        void set_at_most1(sorting_network_encoding enc) { m_r.set_at_most1(enc); }
+        void set_cardinality_encoding(sorting_network_encoding enc) { m_r.set_cardinality_encoding(enc); }
 
     };
     
@@ -916,7 +916,7 @@ struct pb2bv_rewriter::imp {
             m_cfg(i, m) {}
         void keep_cardinality_constraints(bool f) { m_cfg.keep_cardinality_constraints(f); }
         void set_pb_solver(symbol const& s) { m_cfg.set_pb_solver(s); }
-        void set_at_most1(sorting_network_encoding e) { m_cfg.set_at_most1(e); }
+        void set_cardinality_encoding(sorting_network_encoding e) { m_cfg.set_cardinality_encoding(e); }
         void rewrite(bool full, expr* e, expr_ref& r, proof_ref& p) {
             expr_ref ee(e, m());
             if (m_cfg.m_r.mk_app(full, e, r)) {
@@ -947,15 +947,17 @@ struct pb2bv_rewriter::imp {
         return gparams::get_module("sat").get_sym("pb.solver", symbol("solver"));
     }
 
-    sorting_network_encoding atmost1_encoding() const {
-        symbol enc = m_params.get_sym("atmost1_encoding", symbol());
+    sorting_network_encoding cardinality_encoding() const {
+        symbol enc = m_params.get_sym("cardinality.encoding", symbol());
         if (enc == symbol()) {
-            enc = gparams::get_module("sat").get_sym("atmost1_encoding", symbol());
+            enc = gparams::get_module("sat").get_sym("cardinality.encoding", symbol());
         }
-        if (enc == symbol("grouped")) return sorting_network_encoding::grouped_at_most_1;
-        if (enc == symbol("bimander")) return sorting_network_encoding::bimander_at_most_1;
-        if (enc == symbol("ordered")) return sorting_network_encoding::ordered_at_most_1;
-        return grouped_at_most_1;
+        if (enc == symbol("grouped")) return sorting_network_encoding::grouped_at_most;
+        if (enc == symbol("bimander")) return sorting_network_encoding::bimander_at_most;
+        if (enc == symbol("ordered")) return sorting_network_encoding::ordered_at_most;
+        if (enc == symbol("unate")) return sorting_network_encoding::unate_at_most;
+        if (enc == symbol("circuit")) return sorting_network_encoding::circuit_at_most;
+        return grouped_at_most;
     }
     
 
@@ -973,10 +975,11 @@ struct pb2bv_rewriter::imp {
         m_params.append(p);
         m_rw.keep_cardinality_constraints(keep_cardinality());
         m_rw.set_pb_solver(pb_solver());
-        m_rw.set_at_most1(atmost1_encoding());
+        m_rw.set_cardinality_encoding(cardinality_encoding());
     }
+
     void collect_param_descrs(param_descrs& r) const {
-        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: true) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
+        r.insert("keep_cardinality_constraints", CPK_BOOL, "(default: false) retain cardinality constraints (don't bit-blast them) and use built-in cardinality solver");
         r.insert("pb.solver", CPK_SYMBOL, "(default: solver) retain pb constraints (don't bit-blast them) and use built-in pb solver");
     }
 

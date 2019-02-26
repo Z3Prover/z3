@@ -89,6 +89,7 @@ struct blaster_rewriter_cfg : public default_rewriter_cfg {
     expr_ref_vector                          m_out;
     obj_map<func_decl, expr*>                m_const2bits;
     expr_ref_vector                          m_bindings;
+    unsigned_vector                          m_shifts;
     func_decl_ref_vector                     m_keys;
     expr_ref_vector                          m_values;
     unsigned_vector                          m_keyval_lim;
@@ -579,19 +580,36 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
             }
             SASSERT(new_bindings.size() == q->get_num_decls());
             i = q->get_num_decls();
+            unsigned shift = j;
+            if (!m_shifts.empty()) shift += m_shifts.back();
             while (i > 0) {
                 i--;
                 m_bindings.push_back(new_bindings[i]);
+                m_shifts.push_back(shift);
             }
         }
         return true;
     }
 
     bool reduce_var(var * t, expr_ref & result, proof_ref & result_pr) {
-        if (m_blast_quant) {
-            if (t->get_idx() >= m_bindings.size())
+        if (m_blast_quant) {   
+            if (m_bindings.empty())
                 return false;
-            result = m_bindings.get(m_bindings.size() - t->get_idx() - 1);
+            unsigned shift = m_shifts.back();
+            if (t->get_idx() >= m_bindings.size()) {
+                if (shift == 0)
+                    return false;
+                result = m_manager.mk_var(t->get_idx() + shift, t->get_sort());
+            }
+            else {
+                unsigned offset = m_bindings.size() - t->get_idx() - 1; 
+                result = m_bindings.get(offset);
+                shift = shift - m_shifts[offset];
+                if (shift > 0) {
+                    var_shifter vs(m_manager);
+                    vs(result, shift, result);
+                }
+            }
             result_pr = nullptr;
             return true;
         }
@@ -641,6 +659,7 @@ MK_PARAMETRIC_UNARY_REDUCE(reduce_sign_extend, mk_sign_extend);
                                    old_q->get_num_patterns(), new_patterns, old_q->get_num_no_patterns(), new_no_patterns);
         result_pr = nullptr;
         m_bindings.shrink(old_sz);
+        m_shifts.shrink(old_sz);
         return true;
     }
 };

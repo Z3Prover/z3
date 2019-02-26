@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include<sstream>
-#include<cstring>
+#include <sstream>
+#include <cstring>
 #include "ast/ast.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
@@ -424,7 +424,7 @@ sort * get_sort(expr const * n) {
         return to_quantifier(n)->get_sort();
     default:
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 }
 
@@ -595,8 +595,7 @@ unsigned get_node_hash(ast const * n) {
     return 0;
 }
 
-void ast_table::erase(ast * n) {
-    // Customized erase method
+void ast_table::push_erase(ast * n) {
     // It uses two important properties:
     // 1. n is known to be in the table.
     // 2. operator== can be used instead of compare_nodes (big savings)
@@ -604,35 +603,58 @@ void ast_table::erase(ast * n) {
     unsigned h    = n->hash();
     unsigned idx  = h & mask;
     cell * c      = m_table + idx;
-    SASSERT(!c->is_free());
     cell * prev = nullptr;
     while (true) {
+        SASSERT(!c->is_free());
+        cell * next = c->m_next;
         if (c->m_data == n) {
             m_size--;
             if (prev == nullptr) {
-                cell * next = c->m_next;
                 if (next == nullptr) {
                     m_used_slots--;
+                    push_recycle_cell(c);
                     c->mark_free();
                     SASSERT(c->is_free());
                 }
                 else {
                     *c = *next;
-                    recycle_cell(next);
+                    next->m_data = n;
+                    push_recycle_cell(next);
                 }
             }
             else {
-                prev->m_next = c->m_next;
-                recycle_cell(c);
+                prev->m_next = next;
+                push_recycle_cell(c);
             }
             return;
         }
         CHS_CODE(m_collisions++;);
         prev = c;
-        c = c->m_next;
+        c = next;
         SASSERT(c);
     }
 }
+
+ast* ast_table::pop_erase() {
+    cell* c = m_tofree_cell;
+    if (c == nullptr) {
+        return nullptr;
+    }
+    if (c->is_free()) {
+        // cell was marked free, should not be recycled.
+        c->unmark_free();
+        m_tofree_cell = c->m_next;
+        c->mark_free();
+    }
+    else {
+        // cell should be recycled with m_free_cell
+        m_tofree_cell = c->m_next;
+        recycle_cell(c);
+    }        
+    return c->m_data;
+}
+
+
 
 // -----------------------------------
 //
@@ -1057,7 +1079,7 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     }
     std::ostringstream buffer;
     buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
-    throw ast_exception(buffer.str().c_str());
+    throw ast_exception(buffer.str());
 }
 
 
@@ -1086,7 +1108,7 @@ func_decl * basic_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
             if (domain[i] != domain[0]) {
                 std::ostringstream buffer;
                 buffer << "Sort mismatch between first argument and argument " << (i+1);
-                throw ast_exception(buffer.str().c_str());
+                throw ast_exception(buffer.str());
             }
         }
         return m_manager->mk_func_decl(symbol("distinct"), arity, domain, m_bool_sort, info);
@@ -1360,16 +1382,19 @@ ast_manager::ast_manager(ast_manager const & src, bool disable_proofs):
     m_proof_mode(disable_proofs ? PGM_DISABLED : src.m_proof_mode),
     m_trace_stream(src.m_trace_stream),
     m_trace_stream_owner(false),
-    m_rec_fun(":rec-fun") {
+    m_rec_fun(":rec-fun"),
+    m_lambda_def(":lambda-def") {
     SASSERT(!src.is_format_manager());
     m_format_manager = alloc(ast_manager, PGM_DISABLED, m_trace_stream, true);
     init();
     copy_families_plugins(src);
+    update_fresh_id(src);
 }
 
 void ast_manager::update_fresh_id(ast_manager const& m) {
     m_fresh_id = std::max(m_fresh_id, m.m_fresh_id);
 }
+
 
 void ast_manager::init() {
     m_int_real_coercions = true;
@@ -1401,6 +1426,7 @@ void ast_manager::init() {
     m_false = mk_const(m_basic_family_id, OP_FALSE);
     inc_ref(m_false);
 }
+
 
 template<typename T>
 static void mark_array_ref(ast_mark& mark, unsigned sz, T * const * a) {
@@ -1539,6 +1565,20 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
+void ast_manager::raise_exception(std::string const&  msg) {
+    throw ast_exception(msg.c_str());
+}
+
+
+std::ostream& ast_manager::display(std::ostream& out, parameter const& p) {
+    switch (p.get_kind()) {
+    case parameter::PARAM_AST:
+        return out << mk_pp(p.get_ast(), *this);
+    default:
+        return p.display(out);
+    }
+    return out;
+}
 
 void ast_manager::copy_families_plugins(ast_manager const & from) {
     TRACE("copy_families_plugins",
@@ -1654,6 +1694,12 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     return false;
 }
 
+func_decl* ast_manager::get_rec_fun_decl(quantifier* q) const {
+    SASSERT(is_rec_fun_def(q)); 
+    return to_app(to_app(q->get_pattern(0))->get_arg(0))->get_decl(); 
+}
+
+
 void ast_manager::register_plugin(family_id id, decl_plugin * plugin) {
     SASSERT(m_plugins.get(id, 0) == 0);
     m_plugins.setx(id, plugin, 0);
@@ -1700,9 +1746,9 @@ ast * ast_manager::register_node_core(ast * n) {
         SASSERT(m_ast_table.contains(n));
         if (is_func_decl(r) && to_func_decl(r)->get_range() != to_func_decl(n)->get_range()) {
             std::ostringstream buffer;
-            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str().c_str() << "'"
-                   << " and domain, but different range type is not permitted";
-            throw ast_exception(buffer.str().c_str());
+            buffer << "Recycling of declaration for the same name '" << to_func_decl(r)->get_name().str()
+                   << "' and domain, but different range type is not permitted";
+            throw ast_exception(buffer.str());
         }
         deallocate_node(n, ::get_node_size(n));
         return r;
@@ -1714,6 +1760,7 @@ ast * ast_manager::register_node_core(ast * n) {
 
 
     n->m_id   = is_decl(n) ? m_decl_id_gen.mk() : m_expr_id_gen.mk();
+    
 
     TRACE("ast", tout << "Object " << n->m_id << " was created.\n";);
     TRACE("mk_var_bug", tout << "mk_ast: " << n->m_id << "\n";);
@@ -1803,21 +1850,17 @@ ast * ast_manager::register_node_core(ast * n) {
 
 void ast_manager::delete_node(ast * n) {
     TRACE("delete_node_bug", tout << mk_ll_pp(n, *this) << "\n";);
-    ptr_buffer<ast> worklist;
-    worklist.push_back(n);
 
-    while (!worklist.empty()) {
-        n = worklist.back();
-        worklist.pop_back();
+    SASSERT(m_ast_table.contains(n));
+    m_ast_table.push_erase(n);
+
+    while ((n = m_ast_table.pop_erase())) {
 
         TRACE("ast", tout << "Deleting object " << n->m_id << " " << n << "\n";);
         CTRACE("del_quantifier", is_quantifier(n), tout << "deleting quantifier " << n->m_id << " " << n << "\n";);
         TRACE("mk_var_bug", tout << "del_ast: " << n->m_id << "\n";);
         TRACE("ast_delete_node", tout << mk_bounded_pp(n, *this) << "\n";);
 
-        SASSERT(m_ast_table.contains(n));
-        m_ast_table.erase(n);
-        SASSERT(!m_ast_table.contains(n));
         SASSERT(!m_debug_ref_count || !m_debug_free_indices.contains(n->m_id));
 
 #ifdef RECYCLE_FREE_AST_INDICES
@@ -1836,29 +1879,35 @@ void ast_manager::delete_node(ast * n) {
                 dealloc(info);
             }
             break;
-        case AST_FUNC_DECL:
-            if (to_func_decl(n)->m_info != nullptr && !m_debug_ref_count) {
-                func_decl_info * info = to_func_decl(n)->get_info();
+        case AST_FUNC_DECL: {
+            func_decl* f = to_func_decl(n);
+            if (f->m_info != nullptr && !m_debug_ref_count) {
+                func_decl_info * info = f->get_info();
                 info->del_eh(*this);
                 dealloc(info);
             }
-            dec_array_ref(worklist, to_func_decl(n)->get_arity(), to_func_decl(n)->get_domain());
-            dec_ref(worklist, to_func_decl(n)->get_range());
+            push_dec_array_ref(f->get_arity(), f->get_domain());
+            push_dec_ref(f->get_range());
             break;
-        case AST_APP:
-            dec_ref(worklist, to_app(n)->get_decl());
-            dec_array_ref(worklist, to_app(n)->get_num_args(), to_app(n)->get_args());
+        }
+        case AST_APP: {
+            app* a = to_app(n);
+            push_dec_ref(a->get_decl());
+            push_dec_array_ref(a->get_num_args(), a->get_args());
             break;
+        }
         case AST_VAR:
-            dec_ref(worklist, to_var(n)->get_sort());
+            push_dec_ref(to_var(n)->get_sort());
             break;
-        case AST_QUANTIFIER:
-            dec_array_ref(worklist, to_quantifier(n)->get_num_decls(), to_quantifier(n)->get_decl_sorts());
-            dec_ref(worklist, to_quantifier(n)->get_expr());
-            dec_ref(worklist, to_quantifier(n)->get_sort());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_patterns(), to_quantifier(n)->get_patterns());
-            dec_array_ref(worklist, to_quantifier(n)->get_num_no_patterns(), to_quantifier(n)->get_no_patterns());
+        case AST_QUANTIFIER: {
+            quantifier* q = to_quantifier(n);
+            push_dec_array_ref(q->get_num_decls(), q->get_decl_sorts());
+            push_dec_ref(q->get_expr());
+            push_dec_ref(q->get_sort());
+            push_dec_array_ref(q->get_num_patterns(), q->get_patterns());
+            push_dec_array_ref(q->get_num_no_patterns(), q->get_no_patterns());
             break;
+        }
         default:
             break;
         }
@@ -1933,8 +1982,7 @@ sort * ast_manager::substitute(sort* s, unsigned n, sort * const * src, sort * c
     vector<parameter> ps;
     bool change = false;
     sort_ref_vector sorts(*this);
-    for (unsigned i = 0; i < s->get_num_parameters(); ++i) {
-        parameter const& p = s->get_parameter(i);
+    for (parameter const& p : s->parameters()) {
         if (p.is_ast()) {
             SASSERT(is_sort(p.get_ast()));
             change = true;
@@ -1991,7 +2039,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -2007,7 +2055,7 @@ void ast_manager::check_sort(func_decl const * decl, unsigned num_args, expr * c
                 buff << "invalid function application for " << decl->get_name() << ", ";
                 buff << "sort mismatch on argument at position " << (i+1) << ", ";
                 buff << "expected " << mk_pp(expected, m) << " but given " << mk_pp(given, m);
-                throw ast_exception(buff.str().c_str());
+                throw ast_exception(buff.str());
             }
         }
     }
@@ -2090,7 +2138,6 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     app * new_node = nullptr;
     unsigned sz = app::get_obj_size(num_args);
     void * mem = allocate_node(sz);
-
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
@@ -2169,7 +2216,7 @@ void ast_manager::check_args(func_decl* f, unsigned n, expr* const* es) {
                    << " for function " << mk_pp(f,*this)
                    << " supplied sort is "
                    << mk_pp(actual_sort, *this);
-            throw ast_exception(buffer.str().c_str());
+            throw ast_exception(buffer.str());
         }
     }
 }
@@ -2193,7 +2240,7 @@ app * ast_manager::mk_app(func_decl * decl, unsigned num_args, expr * const * ar
         std::ostringstream buffer;
         buffer << "Wrong number of arguments (" << num_args
                << ") passed to function " << mk_pp(decl, *this);
-        throw ast_exception(buffer.str().c_str());
+        throw ast_exception(buffer.str());
     }
     app * r = nullptr;
     if (num_args == 1 && decl->is_chainable() && decl->get_arity() == 2) {
@@ -2329,8 +2376,8 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
         return false;
     }
     func_decl const * decl = to_app(n)->get_decl();
-    for (unsigned i = 0; i < decl->get_num_parameters(); i++)
-        names.push_back(decl->get_parameter(i).get_symbol());
+    for (parameter const& p : decl->parameters()) 
+        names.push_back(p.get_symbol());
     return true;
 }
 
@@ -2369,6 +2416,15 @@ bool ast_manager::is_pattern(expr const * n, ptr_vector<expr> &args) {
     return true;
 }
 
+static void trace_quant(std::ostream& strm, quantifier* q) {
+    strm << (is_lambda(q) ? "[mk-lambda]" : "[mk-quant]")
+         << " #" << q->get_id() << " " << q->get_qid();
+    for (unsigned i = 0; i < q->get_num_patterns(); ++i) {
+        strm << " #" << q->get_pattern(i)->get_id();
+    }
+    strm << " #" << q->get_expr()->get_id() << "\n";
+}
+
 
 quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, sort * const * decl_sorts, symbol const * decl_names,
                                         expr * body, int weight , symbol const & qid, symbol const & skid,
@@ -2401,12 +2457,7 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
     quantifier * r = register_node(new_node);
 
     if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-quant] #" << r->get_id() << " " << qid;
-        for (unsigned i = 0; i < num_patterns; ++i) {
-            *m_trace_stream << " #" << patterns[i]->get_id();
-        }
-        *m_trace_stream << " #" << body->get_id() << "\n";
-
+        trace_quant(*m_trace_stream, r);
     }
 
     return r;
@@ -2420,6 +2471,9 @@ quantifier * ast_manager::mk_lambda(unsigned num_decls, sort * const * decl_sort
     sort* s = autil.mk_array_sort(num_decls, decl_sorts, ::get_sort(body));
     quantifier * new_node = new (mem) quantifier(num_decls, decl_sorts, decl_names, body, s);
     quantifier * r = register_node(new_node);
+    if (m_trace_stream && r == new_node) {
+        trace_quant(*m_trace_stream, r);
+    }
     return r;
 }
 
@@ -2927,8 +2981,8 @@ bool ast_manager::is_quant_inst(expr const* e, expr*& not_q_or_i, ptr_vector<exp
         not_q_or_i = to_app(e)->get_arg(0);
         func_decl* d = to_app(e)->get_decl();
         SASSERT(binding.empty());
-        for (unsigned i = 0; i < d->get_num_parameters(); ++i) {
-            binding.push_back(to_expr(d->get_parameter(i).get_ast()));
+        for (parameter const& p : d->parameters()) {
+            binding.push_back(to_expr(p.get_ast()));
         }
         return true;
     }

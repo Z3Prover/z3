@@ -97,9 +97,6 @@ namespace smt {
             unsigned m_num_conflicts;
             unsigned m_num_propagations;
             unsigned m_num_predicates;
-            unsigned m_num_compiles;
-            unsigned m_num_compiled_vars;
-            unsigned m_num_compiled_clauses;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };
@@ -107,7 +104,7 @@ namespace smt {
 
         struct ineq {
             unsynch_mpz_manager& m_mpz;    // mpz manager.
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             bool            m_is_eq;    // is this an = or >=.
             arg_t           m_args[2];  // encode args[0]*coeffs[0]+...+args[n-1]*coeffs[n-1] >= k();
             // Watch the first few positions until the sum satisfies:
@@ -120,8 +117,6 @@ namespace smt {
             scoped_mpz      m_max_sum;      // maximal possible sum.
             scoped_mpz      m_min_sum;      // minimal possible sum.
             unsigned        m_num_propagations;
-            unsigned        m_compilation_threshold;
-            lbool           m_compiled;
             
             ineq(unsynch_mpz_manager& m, literal l, bool is_eq) : 
                 m_mpz(m), m_lit(l), m_is_eq(is_eq), 
@@ -192,13 +187,11 @@ namespace smt {
         // If none are available, then perform unit propagation.
         // 
         class card {
-            literal         m_lit;      // literal repesenting predicate
+            literal         m_lit;      // literal representing predicate
             literal_vector  m_args;
             unsigned        m_bound;
             unsigned        m_num_propagations;
             unsigned        m_all_propagations;
-            unsigned        m_compilation_threshold;
-            lbool           m_compiled;
             bool            m_aux;
             
         public:
@@ -207,8 +200,6 @@ namespace smt {
                 m_bound(bound),
                 m_num_propagations(0),
                 m_all_propagations(0),
-                m_compilation_threshold(0),
-                m_compiled(l_false),
                 m_aux(is_aux)
             {
                 SASSERT(bound > 0);
@@ -252,13 +243,12 @@ namespace smt {
 
         struct var_info {
             ineq_watch*  m_lit_watch[2];
-            ineq_watch*  m_var_watch;
             ineq*        m_ineq;
 
             card_watch*  m_lit_cwatch[2];
             card*        m_card;
             
-            var_info(): m_var_watch(0), m_ineq(0), m_card(0)
+            var_info(): m_ineq(nullptr), m_card(nullptr)
             {
                 m_lit_watch[0] = nullptr;
                 m_lit_watch[1] = nullptr;
@@ -269,7 +259,6 @@ namespace smt {
             void reset() {
                 dealloc(m_lit_watch[0]);
                 dealloc(m_lit_watch[1]);
-                dealloc(m_var_watch);
                 dealloc(m_ineq);
                 dealloc(m_lit_cwatch[0]);
                 dealloc(m_lit_cwatch[1]);
@@ -286,13 +275,9 @@ namespace smt {
         literal_vector           m_literals;    // temporary vector
         pb_util                  pb;
         stats                    m_stats;
-        ptr_vector<ineq>         m_to_compile;  // inequalities to compile.
         unsigned                 m_conflict_frequency;
         bool                     m_learn_complements;
-        bool                     m_enable_compilation;
-        rational                 m_max_compiled_coeff;
 
-        bool                     m_cardinality_lemma;
         unsigned                 m_restart_lim;
         unsigned                 m_restart_inc;
         uint_set                 m_occs;
@@ -305,16 +290,13 @@ namespace smt {
         void add_watch(ineq& c, unsigned index);
         void del_watch(ineq_watch& watch, unsigned index, ineq& c, unsigned ineq_index);
         void init_watch_literal(ineq& c);
-        void init_watch_var(ineq& c);
+        void init_watch_ineq(ineq& c);
         void clear_watch(ineq& c);
         void watch_literal(literal lit, ineq* c);
-        void watch_var(bool_var v, ineq* c);
         void unwatch_literal(literal w, ineq* c);
-        void unwatch_var(bool_var v, ineq* c);
         void remove(ptr_vector<ineq>& ineqs, ineq* c);
 
         bool assign_watch_ge(bool_var v, bool is_true, ineq_watch& watch, unsigned index);
-        void assign_watch(bool_var v, bool is_true, ineq& c);
         void assign_ineq(ineq& c, bool is_true);
         void assign_eq(ineq& c, bool is_true);
 
@@ -357,11 +339,6 @@ namespace smt {
         literal_vector& get_helpful_literals(ineq& c, bool negate);
         literal_vector& get_unhelpful_literals(ineq& c, bool negate);
 
-        //
-        // Utilities to compile cardinality 
-        // constraints into a sorting network.
-        //
-        void compile_ineq(ineq& c);
         void inc_propagations(ineq& c);
 
         //
@@ -396,7 +373,6 @@ namespace smt {
         void reset_arg_max();
 
         void reset_coeffs();
-        void add_cardinality_lemma();
         literal get_asserting_literal(literal conseq);
 
         bool resolve_conflict(card& c, literal_vector const& conflict_clause);
@@ -411,6 +387,7 @@ namespace smt {
         bool validate_lemma();
         void validate_final_check();
         void validate_final_check(ineq& c);
+        void validate_final_check(card& c);
         void validate_assign(ineq const& c, literal_vector const& lits, literal l) const;
         void validate_watch(ineq const& c) const;
         bool validate_unit_propagation(card const& c);

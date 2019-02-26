@@ -520,7 +520,7 @@ public:
             try {
                 symbol m, p;
                 normalize(name, m, p);
-                std::cout << name << " " << m << " " << p << "\n";
+                out << name << " " << m << " " << p << "\n";
                 param_descrs * d;
                 if (m == symbol::null) {
                     d = &get_param_descrs();

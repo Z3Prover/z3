@@ -138,7 +138,7 @@ void assert_hard_constraints(Z3_context ctx, Z3_solver s, unsigned num_cnstrs, Z
 
 /**
    \brief Assert soft constraints stored in the given array.
-   This funtion will assert each soft-constraint C_i as (C_i or k_i) where k_i is a fresh boolean variable.
+   This function will assert each soft-constraint C_i as (C_i or k_i) where k_i is a fresh boolean variable.
    It will also return an array containing these fresh variables.
 */
 Z3_ast * assert_soft_constraints(Z3_context ctx, Z3_solver s, unsigned num_cnstrs, Z3_ast * cnstrs) 
@@ -382,7 +382,7 @@ unsigned get_num_disabled_soft_constraints(Z3_context ctx, Z3_model m, unsigned 
     Z3_ast t = Z3_mk_true(ctx);
     for (i = 0; i < num_soft_cnstrs; i++) {
         Z3_ast val;
-        if (Z3_model_eval(ctx, m, aux_vars[i], 1, &val) == Z3_TRUE) {
+        if (Z3_model_eval(ctx, m, aux_vars[i], 1, &val) == true) {
             // printf("%s", Z3_ast_to_string(ctx, aux_vars[i]));
             // printf(" -> %s\n", Z3_ast_to_string(ctx, val));
             if (Z3_is_eq_ast(ctx, val, t)) {
@@ -565,7 +565,7 @@ int fu_malik_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_as
 
 /**
   \brief Finds the maximal number of assumptions that can be satisfied.
-  An assumption is any formula preceeded with the :assumption keyword.
+  An assumption is any formula preceded with the :assumption keyword.
   "Hard" constraints can be supported by using the :formula keyword.
   
   Input: file in SMT-LIB format, and MaxSAT algorithm to be used: 0 - Naive, 1 - Fu&Malik's algo.

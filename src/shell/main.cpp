@@ -26,7 +26,7 @@ Revision History:
 #include "shell/smtlib_frontend.h"
 #include "shell/z3_log_frontend.h"
 #include "util/warning.h"
-#include "util/version.h"
+#include "util/z3_version.h"
 #include "shell/dimacs_frontend.h"
 #include "shell/datalog_frontend.h"
 #include "shell/opt_frontend.h"
@@ -60,7 +60,7 @@ void error(const char * msg) {
 void display_usage() {
     std::cout << "Z3 [version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
     std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
     std::cout << "64";
 #else
     std::cout << "32";
@@ -91,7 +91,7 @@ void display_usage() {
     std::cout << "  -pp:name    display Z3 parameter description, if 'name' is not provided, then all module names are listed.\n";
     std::cout << "  --"      << "          all remaining arguments are assumed to be part of the input file name. This option allows Z3 to read files with strange names such as: -foo.smt2.\n";
     std::cout << "\nResources:\n";
-    // timeout and memout are now available on Linux and OSX too.
+    // timeout and memout are now available on Linux and macOS too.
     std::cout << "  -T:timeout  set the timeout (in seconds).\n";
     std::cout << "  -t:timeout  set the soft timeout (in milli seconds). It only kills the current query.\n";
     std::cout << "  -memory:Megabytes  set a limit for virtual memory consumption.\n";
@@ -115,6 +115,7 @@ void display_usage() {
 }
    
 void parse_cmd_line_args(int argc, char ** argv) {
+    long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;
     while (i < argc) {
@@ -161,7 +162,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             if (strcmp(opt_name, "version") == 0) {
                 std::cout << "Z3 version " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER;
                 std::cout << " - ";
-#ifdef _AMD64_
+#if defined(__LP64__) || defined(_WIN64)
                 std::cout << "64";
 #else
                 std::cout << "32";
@@ -199,6 +200,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             }
             else if (strcmp(opt_name, "st") == 0) {
                 g_display_statistics = true; 
+                gparams::set("stats", "true");
             }
             else if (strcmp(opt_name, "ist") == 0) {
                 g_display_istatistics = true; 
@@ -215,8 +217,7 @@ void parse_cmd_line_args(int argc, char ** argv) {
             else if (strcmp(opt_name, "T") == 0) {
                 if (!opt_arg)
                     error("option argument (-T:timeout) is missing.");
-                long tm = strtol(opt_arg, nullptr, 10);
-                set_timeout(tm * 1000);
+                timeout = strtol(opt_arg, nullptr, 10);
             }
             else if (strcmp(opt_name, "t") == 0) {
                 if (!opt_arg)
@@ -291,11 +292,20 @@ void parse_cmd_line_args(int argc, char ** argv) {
         }
         i++;
     }
+
+    if (timeout)
+        set_timeout(timeout * 1000);
 }
 
 
 int STD_CALL main(int argc, char ** argv) {
-    try{
+#ifdef DUMP_ARGS
+     std::cout << "args are: ";
+     for (int i = 0; i < argc; i++)
+         std::cout << argv[i] <<" ";
+     std::cout << std::endl;
+#endif
+     try{
         unsigned return_value = 0;
         memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");

@@ -185,7 +185,7 @@ namespace smt {
             m_context.pop(n);
         }
 
-        lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             TRACE("solver_na2as", tout << "smt_solver::check_sat_core: " << num_assumptions << "\n";);
             return m_context.check(num_assumptions, assumptions);
         }
@@ -193,6 +193,18 @@ namespace smt {
 
         lbool check_sat_cc_core(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses) override {
             return m_context.check(cube, clauses);
+        }
+
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+            m_context.get_levels(vars, depth);
+        }
+
+        expr_ref_vector get_trail() override {
+            return m_context.get_trail();
+        }
+
+        void set_activity(expr* lit, double activity) override {
+            m_context.set_activity(lit, activity);
         }
 
         struct scoped_minimize_core {

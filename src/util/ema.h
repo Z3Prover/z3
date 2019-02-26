@@ -51,6 +51,10 @@ class ema {
         m_beta *= 0.5;
         if (m_beta < m_alpha) m_beta = m_alpha;        
     }
+
+    void set(double x) {
+        m_value = x;
+    }
 };
 
 #endif

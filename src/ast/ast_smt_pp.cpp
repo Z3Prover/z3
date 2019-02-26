@@ -24,6 +24,7 @@ Revision History:
 #include "util/vector.h"
 #include "util/smt2_util.h"
 #include "ast/ast_smt_pp.h"
+#include "ast/ast_smt2_pp.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
@@ -117,7 +118,7 @@ bool smt_renaming::all_is_legal(char const* s) {
 }
 
 smt_renaming::smt_renaming() {
-    for (unsigned i = 0; i < ARRAYSIZE(m_predef_names); ++i) {
+    for (unsigned i = 0; i < Z3_ARRAYSIZE(m_predef_names); ++i) {
         symbol s(m_predef_names[i]);
         m_translate.insert(s, sym_b(s, false));
         m_rev_translate.insert(s, s);
@@ -223,7 +224,7 @@ class smt_printer {
             }
         }
         else if (m_manager.is_ite(d)) {
-            m_out << "ite";            
+            m_out << "ite";
         }
         else if (m_manager.is_implies(d)) {
             m_out << "=>";
@@ -266,7 +267,7 @@ class smt_printer {
         else {
             m_out << "(_ " << sym << " ";
         }
-        
+
         for (unsigned i = 0; i < num_params; ++i) {
             parameter const& p = params[i];
             if (p.is_ast()) {
@@ -320,7 +321,7 @@ class smt_printer {
             if (num_sorts > 0) {
                 m_out << "(";
             }
-            m_out << m_renaming.get_symbol(s->get_name(), false);            
+            m_out << m_renaming.get_symbol(s->get_name(), false);
             if (num_sorts > 0) {
                 for (unsigned i = 0; i < num_sorts; ++i) {
                     m_out << " ";
@@ -388,10 +389,7 @@ class smt_printer {
             m_out << "(_ bv" << val << " " << bv_size << ")";
         }
         else if (m_futil.is_numeral(n, float_val)) {
-            m_out << "((_ to_fp " <<
-                float_val.get().get_ebits() << " " <<
-                float_val.get().get_sbits() << ") RTZ " <<
-                m_futil.fm().to_string(float_val).c_str() << ")";
+            m_out << mk_ismt2_pp(n, m_manager);
         }
         else if (m_bvutil.is_bit2bool(n)) {
             unsigned bit = n->get_decl()->get_parameter(0).get_int();
@@ -399,12 +397,12 @@ class smt_printer {
             pp_marked_expr(n->get_arg(0));
             m_out << ") (_ bv1 1))";
         }
-        else if (m_manager.is_label(n, pos, names) && names.size() >= 1) {
+        else if (m_manager.is_label(n, pos, names) && !names.empty()) {
             m_out << "(! ";
             pp_marked_expr(n->get_arg(0));
-            m_out << (pos?":lblpos":":lblneg") << " " << m_renaming.get_symbol(names[0], false) << ")";            
+            m_out << (pos?":lblpos":":lblneg") << " " << m_renaming.get_symbol(names[0], false) << ")";
         }
-        else if (m_manager.is_label_lit(n, names) && names.size() >= 1) {
+        else if (m_manager.is_label_lit(n, names) && !names.empty()) {
             m_out << "(! true :lblpos " << m_renaming.get_symbol(names[0], false) << ")";
         }
         else if (num_args == 0) {
@@ -435,7 +433,7 @@ class smt_printer {
             pp_arg(curr, n);
             m_out << ")";
 
-        } 
+        }
         else if (m_manager.is_distinct(decl)) {
             ptr_vector<expr> args(num_args, n->get_args());
             unsigned         idx = 0;
@@ -613,7 +611,7 @@ class smt_printer {
         pp_id(n);
         m_out << " ";
         pp_expr(n);
-        m_out << ")";        
+        m_out << ")";
         m_out << ")";
         newline();
     }
@@ -781,7 +779,7 @@ public:
         datatype_util util(m_manager);
         SASSERT(util.is_datatype(s));
 
-        sort_ref_vector ps(m_manager);        
+        sort_ref_vector ps(m_manager);
         ptr_vector<datatype::def> defs;
         util.get_defs(s, defs);
 
@@ -790,7 +788,7 @@ public:
             if (mark.is_marked(sr)) return; // already processed
             mark.mark(sr, true);
         }
-                
+
         m_out << "(declare-datatypes (";
         bool first_def = true;
         for (datatype::def* d : defs) {
@@ -800,7 +798,7 @@ public:
         m_out << ") (";
         bool first_sort = true;
         for (datatype::def* d : defs) {
-            if (!first_sort) m_out << "\n   "; else first_sort = false; 
+            if (!first_sort) m_out << "\n   "; else first_sort = false;
             if (!d->params().empty()) {
                 m_out << "(par (";
                 bool first_param = true;
@@ -811,12 +809,10 @@ public:
                 m_out << ")";
             }
             m_out << "(";
-            m_out << m_renaming.get_symbol(d->name(), false);
-            m_out << " ";
             bool first_constr = true;
             for (datatype::constructor* f : *d) {
                 if (!first_constr) m_out << " "; else first_constr = false;
-                m_out << "(";                
+                m_out << "(";
                 m_out << m_renaming.get_symbol(f->name(), false);
                 for (datatype::accessor* a : *f) {
                     m_out << " (" << m_renaming.get_symbol(a->name(), false) << " ";
@@ -830,7 +826,7 @@ public:
             }
             m_out << ")";
         }
-        m_out << "))";     
+        m_out << "))";
         newline();
     }
 
@@ -866,7 +862,7 @@ public:
         }
         m_out << ") ";
         visit_sort(d->get_range());
-        m_out << ")";       
+        m_out << ")";
     }
 
     void visit_pred(func_decl* d) {
@@ -954,7 +950,7 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
     if (m_logic != symbol::null && m_logic != symbol("")) {
         strm << "(set-logic " << m_logic << ")\n";
     }
-    if (m_attributes.size() > 0) {
+    if (!m_attributes.empty()) {
         strm << "; " << m_attributes.c_str();
     }
 
@@ -980,14 +976,6 @@ void ast_smt_pp::display_smt2(std::ostream& strm, expr* n) {
         }
     }
 
-    for (unsigned i = 0; i < decls.get_num_preds(); ++i) {
-        func_decl* d = decls.get_pred_decls()[i];
-        if (!(*m_is_declared)(d)) {
-            smt_printer p(strm, m, ql, rn, m_logic, true, true, m_simplify_implies, 0);
-            p(d);
-            strm << "\n";
-        }
-    }
 #endif
 
     for (expr* a : m_assumptions) {

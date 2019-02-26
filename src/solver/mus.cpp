@@ -217,13 +217,12 @@ struct mus::imp {
         }
 
         expr_set mss_set;
-        for (unsigned i = 0; i < mss.size(); ++i) {
-            mss_set.insert(mss[i]);
+        for (expr* e : mss) {
+            mss_set.insert(e);
         }
-        expr_set::iterator it = min_core.begin(), end = min_core.end();
-        for (; it != end; ++it) {
-            if (mss_set.contains(*it) && min_lit != *it) {
-                unknown.push_back(*it);
+        for (expr * e : min_core) {
+            if (mss_set.contains(e) && min_lit != e) {
+                unknown.push_back(e);
             }
         }
         core_literal = min_lit;

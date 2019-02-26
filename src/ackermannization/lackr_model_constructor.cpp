@@ -237,7 +237,7 @@ struct lackr_model_constructor::imp {
             // handle functions
             if (m_ackr_helper.should_ackermannize(a)) { // handle uninterpreted
                 app_ref key(m_m.mk_app(a->get_decl(), values.c_ptr()), m_m);
-                if (!make_value_uninterpreted_function(a, values, key.get(), result)) {
+                if (!make_value_uninterpreted_function(a, key.get(), result)) {
                     return false;
                 }
             }
@@ -276,7 +276,7 @@ struct lackr_model_constructor::imp {
             SASSERT(a->get_num_args() == 0);
             func_decl * const fd = a->get_decl();
             expr * val = m_abstr_model->get_const_interp(fd);
-            if (val == nullptr) { // TODO: avoid model completetion?
+            if (val == nullptr) { // TODO: avoid model completion?
                 sort * s = fd->get_range();
                 val = m_abstr_model->get_some_value(s);
             }
@@ -284,7 +284,6 @@ struct lackr_model_constructor::imp {
         }
 
         bool make_value_uninterpreted_function(app* a,
-                expr_ref_vector& values,
                 app* key,
                 expr_ref& result) {
             // get ackermann constant
@@ -370,15 +369,12 @@ lackr_model_constructor::lackr_model_constructor(ast_manager& m, ackr_info_ref i
 {}
 
 lackr_model_constructor::~lackr_model_constructor() {
-    if (m_imp) dealloc(m_imp);
+    dealloc(m_imp);
 }
 
 bool lackr_model_constructor::check(model_ref& abstr_model) {
     m_conflicts.reset();
-    if (m_imp) {
-        dealloc(m_imp);
-        m_imp = nullptr;
-    }
+    dealloc(m_imp);
     m_imp = alloc(lackr_model_constructor::imp, m_m, m_info, abstr_model, m_conflicts);
     const bool rv = m_imp->check();
     m_state = rv ? CHECKED : CONFLICT;

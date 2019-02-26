@@ -67,7 +67,7 @@ namespace polynomial {
         bool first = true;
         out << "[";
         for (unsigned i = 0; i < m_var2degree.size(); ++ i) {
-            if (m_var2degree.size() > 0) {
+            if (!m_var2degree.empty()) {
                 if (!first) {
                     out << ",";
                 }
@@ -100,7 +100,7 @@ namespace polynomial {
 
         struct lt_var {
             bool operator()(power const & p1, power const & p2) {
-                // CMW: The assertion below does not hold on OSX, because
+                // CMW: The assertion below does not hold on macOS, because
                 // their implementation of std::sort will try to compare
                 // two items at the same index instead of comparing
                 // the indices directly. I suspect that the purpose of
@@ -4052,7 +4052,7 @@ namespace polynomial {
 
         // select a new random value in GF(p) that is not in vals, and store it in r
         void peek_fresh(scoped_numeral_vector const & vals, unsigned p, scoped_numeral & r) {
-            SASSERT(vals.size() < p); // otherwise we cant keep the fresh value
+            SASSERT(vals.size() < p); // otherwise we can't keep the fresh value
             unsigned sz = vals.size();
             while (true) {
                 m().set(r, rand() % p);
@@ -4149,7 +4149,7 @@ namespace polynomial {
                 TRACE("mgcd_detail", tout << "counter: " << counter << "\nidx: " << idx << "\nq: " << q << "\ndeg_q: " << deg_q << "\nmin_deg_q: " <<
                       min_deg_q << "\nnext_x: x" << vars[idx+1] << "\nmax_var(q): " << q_var << "\n";);
                 if (deg_q < min_deg_q) {
-                    TRACE("mgcd_detail", tout << "reseting...\n";);
+                    TRACE("mgcd_detail", tout << "resetting...\n";);
                     counter   = 0;
                     min_deg_q = deg_q;
                     // start from scratch
@@ -4493,7 +4493,7 @@ namespace polynomial {
                         }
                         #endif
                     }
-                    catch (sparse_mgcd_failed) {
+                    catch (const sparse_mgcd_failed &) {
                         flet<bool> use_prs(m_use_prs_gcd, false);
                         gcd_prs(u, v, x, r);
                     }

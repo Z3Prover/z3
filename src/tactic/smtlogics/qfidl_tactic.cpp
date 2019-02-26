@@ -101,9 +101,9 @@ tactic * mk_qfidl_tactic(ast_manager & m, params_ref const & p) {
                        using_params(and_then(preamble_st,
                                              or_else(using_params(mk_diff_neq_tactic(m), diff_neq_p),
                                                      try2bv,
-                                                     mk_smt_tactic())),
+                                                     mk_smt_tactic(m))),
                                     main_p),
-                       mk_smt_tactic());
+                       mk_smt_tactic(m));
     
     st->updt_params(p);
 

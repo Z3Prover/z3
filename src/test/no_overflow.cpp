@@ -530,7 +530,7 @@ void test_div(unsigned bvsize) {
     Z3_del_context(ctx);
 }
 
-typedef Z3_ast (Z3_API *NO_OVFL_ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed);
+typedef Z3_ast (Z3_API *NO_OVFL_ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed);
 typedef Z3_ast (Z3_API *ARITH_FUNC)(Z3_context ctx, Z3_ast t1, Z3_ast t2);
 
 typedef enum { OVFL_FUNC, UDFL_FUNC } overflow_type;
@@ -546,11 +546,11 @@ typedef struct {
     bool               sign_compar; // whether signed comparison should be used even for unsigned operation
 } Equivalence_params;
 
-Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+Z3_ast Z3_API Z3_mk_bvsdiv_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed) {
     return Z3_mk_bvsdiv_no_overflow(ctx, t1, t2);
 }
 
-Z3_ast Z3_API Z3_mk_bvneg_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+Z3_ast Z3_API Z3_mk_bvneg_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed) {
     return Z3_mk_bvneg_no_overflow(ctx, t1);
 }
 
@@ -558,15 +558,15 @@ Z3_ast Z3_API Z3_mk_bvneg_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2) {
     return Z3_mk_bvneg(ctx, t1);
 }
 
-Z3_ast Z3_API Z3_mk_bvadd_no_underflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+Z3_ast Z3_API Z3_mk_bvadd_no_underflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed) {
     return Z3_mk_bvadd_no_underflow(ctx, t1, t2);
 }
 
-Z3_ast Z3_API Z3_mk_bvsub_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+Z3_ast Z3_API Z3_mk_bvsub_no_overflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed) {
     return Z3_mk_bvsub_no_overflow(ctx, t1, t2);
 }
 
-Z3_ast Z3_API Z3_mk_bvmul_no_underflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+Z3_ast Z3_API Z3_mk_bvmul_no_underflow_wrapper(Z3_context ctx, Z3_ast t1, Z3_ast t2, bool is_signed) {
     return Z3_mk_bvmul_no_underflow(ctx, t1, t2);
 }
 
@@ -662,7 +662,7 @@ void test_equiv(Equivalence_params params, unsigned bvsize, bool is_signed) {
 //    Z3_solver_assert(ctx, s, Z3_mk_eq(ctx, t2, Z3_mk_numeral(ctx, "1", bv)));
 //    //TEST_NO_UNDERFLOW;
 //    Z3_solver_assert(ctx, s, test_udfl);
-//    ENSURE(Z3_check(ctx) == Z3_TRUE);
+//    ENSURE(Z3_check(ctx) == true);
 //    Z3_solver_pop(ctx, s, 1);
 //
 //    Z3_del_config(cfg);

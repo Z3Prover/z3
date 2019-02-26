@@ -49,6 +49,7 @@ Revision History:
 #include "util/timer.h"
 #include "util/statistics.h"
 #include "solver/progress_callback.h"
+#include <tuple>
 
 // there is a significant space overhead with allocating 1000+ contexts in
 // the case that each context only references a few expressions.
@@ -87,6 +88,7 @@ namespace smt {
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
         random_gen                  m_random;
         bool                        m_flushing; // (debug support) true when flushing
+        mutable unsigned            m_lemma_id;
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;
 
@@ -410,8 +412,17 @@ namespace smt {
             return m_activity[v];
         }
 
-        void set_activity(bool_var v, double & act) {
+        void set_activity(bool_var v, double const & act) {
             m_activity[v] = act;
+        }
+
+        void activity_changed(bool_var v, bool increased) {
+            if (increased) {
+                m_case_split_queue->activity_increased_eh(v);
+            }
+            else {
+                m_case_split_queue->activity_decreased_eh(v);
+            }
         }
 
         bool is_assumption(bool_var v) const {
@@ -489,7 +500,7 @@ namespace smt {
         }
 
         bool tracking_assumptions() const {
-            return m_search_lvl > m_base_lvl;
+            return !m_assumptions.empty() && m_search_lvl > m_base_lvl;
         }
 
         expr * bool_var2expr(bool_var v) const {
@@ -563,7 +574,7 @@ namespace smt {
             return m_asserted_formulas.has_quantifiers();
         }
 
-        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = 0) {
+        fingerprint * add_fingerprint(void * data, unsigned data_hash, unsigned num_args, enode * const * args, expr* def = nullptr) {
             return m_fingerprints.insert(data, data_hash, num_args, args, def);
         }
 
@@ -857,6 +868,10 @@ namespace smt {
 
         void mk_th_axiom(theory_id tid, literal l1, literal l2, literal l3, unsigned num_params = 0, parameter * params = nullptr);
 
+        void mk_th_axiom(theory_id tid, literal_vector const& ls, unsigned num_params = 0, parameter * params = nullptr) {
+            mk_th_axiom(tid, ls.size(), ls.c_ptr(), num_params, params);
+        }
+
         /*
          * Provide a hint to the core solver that the specified literals form a "theory case split".
          * The core solver will enforce the condition that exactly one of these literals can be
@@ -970,7 +985,7 @@ namespace smt {
         bool contains_instance(quantifier * q, unsigned num_bindings, enode * const * bindings);
 
         bool add_instance(quantifier * q, app * pat, unsigned num_bindings, enode * const * bindings, expr* def, unsigned max_generation,
-                          unsigned min_top_generation, unsigned max_top_generation, ptr_vector<enode> & used_enodes);
+                          unsigned min_top_generation, unsigned max_top_generation, vector<std::tuple<enode *, enode*>> & used_enodes /*gives the equalities used for the pattern match, see mam.cpp for more info*/);
 
         void set_global_generation(unsigned generation) { m_generation = generation; }
 
@@ -1008,8 +1023,9 @@ namespace smt {
         void restore_theory_vars(enode * r2, enode * r1);
 
         void push_eq(enode * lhs, enode * rhs, eq_justification const & js) {
-            SASSERT(lhs != rhs);
-            m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            if (lhs->get_root() != rhs->get_root()) {
+                m_eq_propagation_queue.push_back(new_eq(lhs, rhs, js));
+            }
         }
 
         void push_new_congruence(enode * n1, enode * n2, bool used_commutativity) {
@@ -1130,6 +1146,8 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & theory_assumptions);
 
         lbool mk_unsat_core(lbool result);
+        
+        bool should_research(lbool result);
 
         void validate_unsat_core();
 
@@ -1240,6 +1258,11 @@ namespace smt {
     public:
         bool can_propagate() const;
 
+        // Retrieve arithmetic values. 
+        bool get_arith_lo(expr* e, rational& lo, bool& strict);
+        bool get_arith_up(expr* e, rational& up, bool& strict);
+        bool get_arith_value(expr* e, rational& value);
+
         // -----------------------------------
         //
         // Model checking... (must be improved)
@@ -1317,12 +1340,12 @@ namespace smt {
 
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
+        unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent = false_literal, symbol const& logic = symbol::null) const;
         void display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
                                           literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
-        void display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+        unsigned display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                           unsigned num_antecedent_eqs, enode_pair const * antecedent_eqs,
                                           literal consequent = false_literal, symbol const& logic = symbol::null) const;
 
@@ -1344,7 +1367,7 @@ namespace smt {
 
         void display_profile(std::ostream & out) const;
 
-        void display(std::ostream& out, b_justification j) const;
+        std::ostream& display(std::ostream& out, b_justification j) const;
 
         // -----------------------------------
         //
@@ -1490,7 +1513,7 @@ namespace smt {
            If l == 0, then the logic of this context is used in the new context.
            If p == 0, then this->m_params is used
         */
-        context * mk_fresh(symbol const * l = nullptr,  smt_params * p = nullptr);
+        context * mk_fresh(symbol const * l = nullptr,  smt_params * smtp = nullptr, params_ref const & p = params_ref());
 
         static void copy(context& src, context& dst);
 
@@ -1512,7 +1535,7 @@ namespace smt {
 
         void pop(unsigned num_scopes);
 
-        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true, bool already_did_theory_assumptions = false);
+        lbool check(unsigned num_assumptions = 0, expr * const * assumptions = nullptr, bool reset_cancel = true);
 
         lbool check(expr_ref_vector const& cube, vector<expr_ref_vector> const& clauses);
 
@@ -1561,6 +1584,10 @@ namespace smt {
             return m_unsat_core.get(idx);
         }
 
+        void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth);
+
+        expr_ref_vector get_trail();
+
         void get_model(model_ref & m) const;
 
         bool update_model(bool refinalize);
@@ -1605,6 +1632,50 @@ namespace smt {
         quantifier * get_macro_quantifier(func_decl * f) const { return m_asserted_formulas.get_macro_quantifier(f); }
         void insert_macro(func_decl * f, quantifier * m, proof * pr, expr_dependency * dep) { m_asserted_formulas.insert_macro(f, m, pr, dep); }
     };
+
+    struct pp_lit {
+        context & ctx;
+        literal lit;
+        pp_lit(context & ctx, literal lit) : ctx(ctx), lit(lit) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lit const & pp) {
+        return pp.ctx.display_detailed_literal(out, pp.lit);
+    }
+
+    struct pp_lits {
+        context & ctx;
+        literal const *lits;
+        unsigned len;
+        pp_lits(context & ctx, unsigned len, literal const *lits) : ctx(ctx), lits(lits), len(len) {}
+        pp_lits(context & ctx, literal_vector const& ls) : ctx(ctx), lits(ls.c_ptr()), len(ls.size()) {}
+    };
+
+    inline std::ostream & operator<<(std::ostream & out, pp_lits const & pp) {
+        out << "{";
+        bool first = true;
+        for (unsigned i = 0; i < pp.len; ++i) {
+            if (first) { first = false; } else { out << " or\n"; }
+            pp.ctx.display_detailed_literal(out, pp.lits[i]);
+        }
+        return out << "}";
+
+    }
+    struct enode_eq_pp {
+        context const&          ctx;
+        enode_pair const& p;
+        enode_eq_pp(enode_pair const& p, context const& ctx): ctx(ctx), p(p) {}        
+    };
+
+    std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p);
+
+    struct enode_pp {
+        context const& ctx;
+        enode*   n;
+        enode_pp(enode* n, context const& ctx): ctx(ctx), n(n) {}
+    };
+
+    std::ostream& operator<<(std::ostream& out, enode_pp const& p);
 
 };
 

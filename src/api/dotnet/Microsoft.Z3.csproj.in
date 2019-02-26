@@ -1,0 +1,95 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Package metadata properties -->
+  <PropertyGroup>
+
+    <PackageId>Microsoft.Z3</PackageId>
+    <AssemblyName>Microsoft.Z3</AssemblyName>
+    <RootNamespace>Microsoft.Z3</RootNamespace>
+
+    <Title>Z3 .NET Interface</Title>
+    <AssemblyTitle>Z3 .NET Interface</AssemblyTitle>
+
+    <AssemblyProduct>Z3</AssemblyProduct>
+
+    <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
+    <AssemblyDescription>.NET Interface to the Z3 Theorem Prover</AssemblyDescription>
+
+    <Copyright>Copyright (C) 2006-2019 Microsoft Corporation</Copyright>
+    <AssemblyCopyright>Copyright (C) 2006-2019 Microsoft Corporation</AssemblyCopyright>
+
+    <Company>Microsoft Corporation</Company>
+    <AssemblyCompany>Microsoft Corporation</AssemblyCompany>
+
+    <Version>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</Version>
+    <AssemblyVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyVersion>
+
+    <FileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</FileVersion>
+    <AssemblyFileVersion>@VER_MAJOR@.@VER_MINOR@.@VER_BUILD@.@VER_REVISION@</AssemblyFileVersion>
+
+    <PackageVersion>${DOTNET_PACKAGE_VERSION}</PackageVersion>
+    <PackageTags>smt constraint solver theorem prover</PackageTags>
+
+    <Authors>Microsoft</Authors>
+    <Company>Microsoft</Company>
+  </PropertyGroup>
+
+  <!-- Code contract & signing properties -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Release_delaysign'">
+    <SignAssembly>false</SignAssembly>
+    <DelaySign>false</DelaySign>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release_delaysign'">
+    <DefineConstants>DELAYSIGN</DefineConstants>
+    <SignAssembly>true</SignAssembly>
+    <DelaySign>true</DelaySign>
+  </PropertyGroup>
+
+  <!-- Build properties -->
+  <PropertyGroup>
+    <!-- In *nix builds, netfx TFMs are not available. -->
+    <TargetFrameworks>netstandard2.0;net45</TargetFrameworks>
+    <OutputTypeEx>library</OutputTypeEx>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <NoWarn>1701,1702</NoWarn>
+    <Warn>4</Warn>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <DocumentationFile>$(OutputPath)\Microsoft.Z3.xml</DocumentationFile>
+  </PropertyGroup>
+
+  <!-- Compilation items -->
+  <ItemGroup>
+${Z3_DOTNET_COMPILE_ITEMS}
+  </ItemGroup>
+
+  <!-- Legacy .NET framework native library helper routines  -->
+  <ItemGroup>
+    <Content Include="${CMAKE_CURRENT_LIST_DIR}/Microsoft.Z3.props">
+      <PackagePath>build</PackagePath>
+    </Content>
+    <Content Include="${CMAKE_CURRENT_LIST_DIR}/Microsoft.Z3.targets">
+      <PackagePath>build</PackagePath>
+    </Content>
+  </ItemGroup>
+
+  <!-- TODO we may want to pack x64 and x86 native assemblies into a single nupkg -->
+
+  <!-- Native binaries x64 -->
+  <ItemGroup Condition="'$(Platform)' != 'x86'">
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll')">
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+    </Content>
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/libz3.so')">
+      <PackagePath>runtimes\linux-x64\native</PackagePath>
+    </Content>
+  </ItemGroup>
+
+  <!-- Native binaries for x86; currently only Windows is supported. -->
+  <ItemGroup Condition="'$(Platform)' == 'x86'">
+    <Content Include="${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll" Condition="Exists('${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/$(_DN_CMAKE_CONFIG)/libz3.dll')">
+      <PackagePath>runtimes\win-x86\native</PackagePath>
+    </Content>
+  </ItemGroup>
+
+</Project>

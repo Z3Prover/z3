@@ -31,7 +31,7 @@ class ast_pp_util {
 
     decl_collector      coll;
 
-    ast_pp_util(ast_manager& m): m(m), m_env(m), coll(m, false) {}
+    ast_pp_util(ast_manager& m): m(m), m_env(m), coll(m) {}
 
     void collect(expr* e);
 

@@ -73,11 +73,9 @@ void act_cache::init() {
 }
 
 void act_cache::dec_refs() {
-    map::iterator it  = m_table.begin();
-    map::iterator end = m_table.end();
-    for (; it != end; ++it) {
-        m_manager.dec_ref((*it).m_key);
-        m_manager.dec_ref(UNTAG(expr*, (*it).m_value));
+    for (auto & kv : m_table) {
+        m_manager.dec_ref(kv.m_key.first);
+        m_manager.dec_ref(UNTAG(expr*, kv.m_value));
     }
 }
 
@@ -105,18 +103,18 @@ act_cache::~act_cache() {
 void act_cache::del_unused() {
     unsigned sz = m_queue.size();
     while (m_qhead < sz) {
-        expr * k = m_queue[m_qhead];
+        entry_t const& e = m_queue[m_qhead];
         m_qhead++;
-        SASSERT(m_table.contains(k));
-        map::key_value * entry = m_table.find_core(k);
+        SASSERT(m_table.contains(e));
+        map::key_value * entry = m_table.find_core(e);
         SASSERT(entry);
         if (GET_TAG(entry->m_value) == 0) {
             // Key k was never accessed by client code.
             // That is, find(k) was never executed by client code.
             m_unused--;
             expr * v = entry->m_value;
-            m_table.erase(k);
-            m_manager.dec_ref(k);
+            m_table.erase(e);
+            m_manager.dec_ref(e.first);
             m_manager.dec_ref(v);
             break;
         }
@@ -135,12 +133,13 @@ void act_cache::del_unused() {
 /**
    \brief Insert a new entry k -> v into the cache.
 */
-void act_cache::insert(expr * k, expr * v) {
+void act_cache::insert(expr * k, unsigned offset, expr * v) {
     SASSERT(k);
+    entry_t e(k, offset);
     if (m_unused >= m_max_unused)
         del_unused();
     expr * dummy = reinterpret_cast<expr*>(1);
-    map::key_value & entry = m_table.insert_if_not_there(k, dummy);
+    map::key_value & entry = m_table.insert_if_not_there(e, dummy);
 #if 0
     unsigned static counter = 0;
     counter++;
@@ -156,7 +155,7 @@ void act_cache::insert(expr * k, expr * v) {
         m_manager.inc_ref(k);
         m_manager.inc_ref(v);
         entry.m_value = v;
-        m_queue.push_back(k);
+        m_queue.push_back(e);
         m_unused++;
         DEBUG_CODE(expected_tag = 0;); // new entry
     }
@@ -175,7 +174,7 @@ void act_cache::insert(expr * k, expr * v) {
     }
     DEBUG_CODE({
         expr * v2;
-        SASSERT(m_table.find(k, v2));
+        SASSERT(m_table.find(e, v2));
         SASSERT(v == UNTAG(expr*, v2));
         SASSERT(expected_tag == GET_TAG(v2));
     });
@@ -185,8 +184,9 @@ void act_cache::insert(expr * k, expr * v) {
    \brief Search for key k in the cache.
    If entry k -> (v, tag) is found, we set tag to 1.
 */
-expr * act_cache::find(expr * k) {
-    map::key_value * entry = m_table.find_core(k);
+expr * act_cache::find(expr * k, unsigned offset) {
+    entry_t e(k, offset);
+    map::key_value * entry = m_table.find_core(e);
     if (entry == nullptr)
         return nullptr;
     if (GET_TAG(entry->m_value) == 0) {
@@ -196,7 +196,7 @@ expr * act_cache::find(expr * k) {
         m_unused--;
         DEBUG_CODE({
             expr * v;
-            SASSERT(m_table.find(k, v));
+            SASSERT(m_table.find(e, v));
             SASSERT(GET_TAG(v) == 1);
         });
     }

@@ -157,7 +157,7 @@ extern "C" {
         RESET_ERROR_CODE();  
         sort * r = to_sort(s);
         if (Z3_get_sort_kind(c, s) != Z3_RELATION_SORT) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "sort should be a relation");
             return 0;
         }
         return r->get_num_parameters();
@@ -170,18 +170,18 @@ extern "C" {
         RESET_ERROR_CODE();  
         sort * r = to_sort(s);
         if (Z3_get_sort_kind(c, s) != Z3_RELATION_SORT) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "sort should be a relation");
             RETURN_Z3(nullptr);
         }
         if (col >= r->get_num_parameters()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         parameter const& p = r->get_parameter(col);
         if (!p.is_ast() || !is_sort(p.get_ast())) {
             UNREACHABLE();
             warning_msg("Sort parameter expected at %d", col);
-            SET_ERROR_CODE(Z3_INTERNAL_FATAL);
+            SET_ERROR_CODE(Z3_INTERNAL_FATAL, "sort parameter expected");
             RETURN_Z3(nullptr);
         }
         Z3_sort res = of_sort(to_sort(p.get_ast()));
@@ -199,23 +199,23 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t * out) {
+    bool Z3_API Z3_get_finite_domain_sort_size(Z3_context c, Z3_sort s, uint64_t * out) {
         Z3_TRY;
         if (out) {
             *out = 0;
         }
         if (Z3_get_sort_kind(c, s) != Z3_FINITE_DOMAIN_SORT) {
-            return Z3_FALSE;
+            return false;
         }
         if (!out) {
-            return Z3_FALSE;
+            return false;
         }
-        // must start loggging here, since function uses Z3_get_sort_kind above
+        // must start logging here, since function uses Z3_get_sort_kind above
         LOG_Z3_get_finite_domain_sort_size(c, s, out);
         RESET_ERROR_CODE();  
         VERIFY(mk_c(c)->datalog_util().try_get_size(to_sort(s), *out));
-        return Z3_TRUE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return true;
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_fixedpoint Z3_API Z3_mk_fixedpoint(Z3_context c) {
@@ -364,7 +364,7 @@ extern "C" {
         install_dl_collect_cmds(coll, ctx);
         ctx.set_ignore_check(true);
         if (!parse_smt2_commands(ctx, s)) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
             return nullptr;
         }
 
@@ -379,10 +379,8 @@ extern "C" {
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
         }
-        ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-        for (; it != end; ++it) {
-            to_fixedpoint_ref(d)->ctx().assert_expr(*it);
+        for (expr * e : ctx.assertions()) {
+            to_fixedpoint_ref(d)->ctx().assert_expr(e);
         }
 
         return of_ast_vector(v);
@@ -408,7 +406,7 @@ extern "C" {
         LOG_Z3_fixedpoint_from_file(c, d, s);
         std::ifstream is(s);
         if (!is) {
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
             RETURN_Z3(nullptr);
         }
         RETURN_Z3(Z3_fixedpoint_from_stream(c, d, is));
@@ -623,6 +621,98 @@ extern "C" {
         to_fixedpoint_ref(d)->ctx().add_constraint(to_expr(e), lvl);
     }
 
-#include "api_datalog_spacer.inc"
+    Z3_lbool Z3_API Z3_fixedpoint_query_from_lvl (Z3_context c, Z3_fixedpoint d, Z3_ast q, unsigned lvl) {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_query_from_lvl (c, d, q, lvl);
+        RESET_ERROR_CODE();
+        lbool r = l_undef;
+        unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        {
+            scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
+            cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+            api::context::set_interruptable si(*(mk_c(c)), eh);        
+            scoped_timer timer(timeout, &eh);
+            try {
+                r = to_fixedpoint_ref(d)->ctx().query_from_lvl (to_expr(q), lvl);
+            }
+            catch (z3_exception& ex) {
+                mk_c(c)->handle_exception(ex);
+                r = l_undef;
+            }
+            to_fixedpoint_ref(d)->ctx().cleanup();
+        }
+        return of_lbool(r);
+        Z3_CATCH_RETURN(Z3_L_UNDEF);
+    }
+
+    Z3_ast Z3_API Z3_fixedpoint_get_ground_sat_answer(Z3_context c, Z3_fixedpoint d) {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_get_ground_sat_answer(c, d);
+        RESET_ERROR_CODE();
+        expr* e = to_fixedpoint_ref(d)->ctx().get_ground_sat_answer();
+        mk_c(c)->save_ast_trail(e);
+        RETURN_Z3(of_expr(e));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_ast_vector Z3_API Z3_fixedpoint_get_rules_along_trace(
+        Z3_context c,
+        Z3_fixedpoint d)
+    {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_get_rules_along_trace(c, d);
+        ast_manager& m = mk_c(c)->m();
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
+        mk_c(c)->save_object(v);
+        expr_ref_vector rules(m);
+        svector<symbol> names;
+        
+        to_fixedpoint_ref(d)->ctx().get_rules_along_trace_as_formulas(rules, names);
+        for (unsigned i = 0; i < rules.size(); ++i) {
+            v->m_ast_vector.push_back(rules[i].get());
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    Z3_symbol Z3_API Z3_fixedpoint_get_rule_names_along_trace(
+        Z3_context c,
+        Z3_fixedpoint d)
+    {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_get_rule_names_along_trace(c, d);
+        ast_manager& m = mk_c(c)->m();
+        Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
+        mk_c(c)->save_object(v);
+        expr_ref_vector rules(m);
+        svector<symbol> names;
+        std::stringstream ss;
+        
+        to_fixedpoint_ref(d)->ctx().get_rules_along_trace_as_formulas(rules, names);
+        for (unsigned i = 0; i < names.size(); ++i) {
+            ss << ";" << names[i].str();
+        }
+        RETURN_Z3(of_symbol(symbol(ss.str().substr(1).c_str())));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
+    void Z3_API Z3_fixedpoint_add_invariant(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred, Z3_ast property) {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_add_invariant(c, d, pred, property);
+        RESET_ERROR_CODE();
+        to_fixedpoint_ref(d)->ctx ().add_invariant(to_func_decl(pred), to_expr(property));        
+        Z3_CATCH;
+    }
+
+    Z3_ast Z3_API Z3_fixedpoint_get_reachable(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred) {
+        Z3_TRY;
+        LOG_Z3_fixedpoint_get_reachable(c, d, pred);
+        RESET_ERROR_CODE();
+        expr_ref r = to_fixedpoint_ref(d)->ctx().get_reachable(to_func_decl(pred));
+        mk_c(c)->save_ast_trail(r);        
+        RETURN_Z3(of_expr(r.get()));
+        Z3_CATCH_RETURN(nullptr);
+    }
 
 };

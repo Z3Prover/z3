@@ -96,17 +96,19 @@ namespace smt {
     class model_value_dependency {
         bool m_fresh; //!< True if the dependency is a new fresh value;
         union {
-            enode *             m_enode; //!< When m_fresh == false, contains an enode depedency. 
+            enode *             m_enode; //!< When m_fresh == false, contains an enode dependency.
             extra_fresh_value * m_value; //!< When m_fresh == true, contains the sort of the fresh value
         };
     public:
-        model_value_dependency():m_fresh(true), m_value(nullptr) {}
-        model_value_dependency(enode * n):m_fresh(false), m_enode(n->get_root()) {}
-        model_value_dependency(extra_fresh_value * v):m_fresh(true), m_value(v) {}
+        model_value_dependency():m_fresh(true), m_value(nullptr) { }
+        explicit model_value_dependency(enode * n):m_fresh(false), m_enode(n->get_root()) {}
+        explicit model_value_dependency(extra_fresh_value * v) :m_fresh(true), m_value(v) { SASSERT(v); }
         bool is_fresh_value() const { return m_fresh; }
         enode * get_enode() const { SASSERT(!is_fresh_value()); return m_enode; }
         extra_fresh_value * get_value() const { SASSERT(is_fresh_value()); return m_value; }
     };
+
+    std::ostream& operator<<(std::ostream& out, model_value_dependency const& d);
 
     typedef model_value_dependency source;
 
@@ -166,7 +168,7 @@ namespace smt {
         extra_fresh_value * m_value;
     public:
         fresh_value_proc(extra_fresh_value * v):m_value(v) {}
-        void get_dependencies(buffer<model_value_dependency> & result) override { result.push_back(m_value); }
+        void get_dependencies(buffer<model_value_dependency> & result) override;
         app * mk_value(model_generator & m, ptr_vector<expr> & values) override { return to_app(values[0]); }
         bool is_fresh() const override { return true; }
     };

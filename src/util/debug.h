@@ -44,6 +44,17 @@ bool assertions_enabled();
 #define DEBUG_CODE(CODE) ((void) 0)
 #endif
 
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if !TARGET_OS_OSX
+#define NO_Z3_DEBUGGER
+#endif
+#endif
+
+#ifdef __EMSCRIPTEN__
+#define NO_Z3_DEBUGGER
+#endif
+
 #ifdef NO_Z3_DEBUGGER
 #define INVOKE_DEBUGGER() exit(ERR_INTERNAL_FATAL)
 #else

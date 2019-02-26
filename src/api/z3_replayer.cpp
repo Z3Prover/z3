@@ -78,6 +78,7 @@ struct z3_replayer::imp {
             std::stringstream strm;
             strm << "expecting " << kind2string(k) << " at position "
                  << pos << " but got " << kind2string(m_args[pos].m_kind);
+            TRACE("z3_replayer", tout << strm.str() << "\n";);
             throw z3_replayer_exception(strm.str().c_str());
         }
     }
@@ -186,10 +187,10 @@ struct z3_replayer::imp {
                         sz++;
                     }
                     else {
-                        throw z3_replayer_exception("invalid scaped character");
+                        throw z3_replayer_exception("invalid escaped character");
                     }
                     if (val > 255)
-                        throw z3_replayer_exception("invalid scaped character");
+                        throw z3_replayer_exception("invalid escaped character");
                     next();
                 }
                 TRACE("z3_replayer_escape", tout << "val: " << val << "\n";);
@@ -400,6 +401,7 @@ struct z3_replayer::imp {
 #define TICK_FREQUENCY 100000
 
     void parse() {
+        memory::exit_when_out_of_memory(false, nullptr);
         uint64_t counter = 0;
         unsigned tick = 0;
         while (true) {
@@ -497,6 +499,7 @@ struct z3_replayer::imp {
             case 'p':
             case 's':
             case 'u':
+            case 'i':
                 // push array
                 next(); skip_blank(); read_uint64();
                 TRACE("z3_replayer", tout << "[" << m_line << "] " << "A " << m_uint64 << "\n";);
@@ -504,6 +507,8 @@ struct z3_replayer::imp {
                     push_array(static_cast<unsigned>(m_uint64), OBJECT);
                 else if (c == 's')
                     push_array(static_cast<unsigned>(m_uint64), SYMBOL);
+                else if (c == 'i')
+                    push_array(static_cast<unsigned>(m_uint64), INT64);
                 else
                     push_array(static_cast<unsigned>(m_uint64), UINT64);
                 break;

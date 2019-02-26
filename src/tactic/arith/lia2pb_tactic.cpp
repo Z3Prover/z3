@@ -156,7 +156,7 @@ class lia2pb_tactic : public tactic {
                 }
                 return true;
             }
-            catch (failed) {
+            catch (const failed &) {
                 return false;
             }
         }

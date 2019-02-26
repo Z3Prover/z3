@@ -401,7 +401,7 @@ namespace smt {
         label_hasher &             m_lbl_hasher;
         func_decl *                m_root_lbl;
         unsigned                   m_num_args; //!< we need this information to avoid the nary *,+ crash bug
-        unsigned char              m_filter_candidates;
+        bool                       m_filter_candidates;
         unsigned                   m_num_regs;
         unsigned                   m_num_choices;
         instruction *              m_root;
@@ -531,7 +531,7 @@ namespace smt {
         }
 
         bool filter_candidates() const {
-            return m_filter_candidates != 0;
+            return m_filter_candidates;
         }
 
         const instruction * get_root() const {
@@ -1847,7 +1847,10 @@ namespace smt {
         enode *             m_n2;
         enode *             m_app;
         const bind *        m_b;
-        ptr_vector<enode>   m_used_enodes;
+
+        // equalities used for pattern match. The first element of the tuple gives the argument (or null) of some term that was matched against some higher level
+        // structure of the trigger, the second element gives the term that argument is replaced with in order to match the trigger. Used for logging purposes only.
+        vector<std::tuple<enode *, enode *>> m_used_enodes;
         unsigned            m_curr_used_enodes_size;
         ptr_vector<enode>   m_pattern_instances; // collect the pattern instances... used for computing min_top_generation and max_top_generation
         unsigned_vector     m_min_top_generation, m_max_top_generation;
@@ -1864,11 +1867,11 @@ namespace smt {
             m_pool.recycle(v);
         }
 
-        void update_max_generation(enode * n) {
+        void update_max_generation(enode * n, enode * prev) {
             m_max_generation = std::max(m_max_generation, n->get_generation());
 
             if (m_ast_manager.has_trace_stream())
-                m_used_enodes.push_back(n);
+                m_used_enodes.push_back(std::make_tuple(prev, n));
         }
 
         // We have to provide the number of expected arguments because we have flat-assoc applications such as +.
@@ -1877,7 +1880,7 @@ namespace smt {
             enode * first = curr;
             do {
                 if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr);
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -1890,7 +1893,7 @@ namespace smt {
             curr = curr->get_next();
             while (curr != first) {
                 if (curr->get_decl() == lbl && curr->is_cgr() && curr->get_num_args() == num_expected_args) {
-                    update_max_generation(curr);
+                    update_max_generation(curr, first);
                     return curr;
                 }
                 curr = curr->get_next();
@@ -1914,7 +1917,7 @@ namespace smt {
                 do {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0]) {
-                        update_max_generation(n);
+                        update_max_generation(n, first);
                         return true;
                     }
                     n = n->get_next();
@@ -1929,7 +1932,7 @@ namespace smt {
                     if (n->get_decl() == f &&
                         n->get_arg(0)->get_root() == m_args[0] &&
                         n->get_arg(1)->get_root() == m_args[1]) {
-                        update_max_generation(n);
+                        update_max_generation(n, first);
                         return true;
                     }
                     n = n->get_next();
@@ -1949,7 +1952,7 @@ namespace smt {
                                 break;
                         }
                         if (i == num_args) {
-                            update_max_generation(n);
+                            update_max_generation(n, first);
                             return true;
                         }
                     }
@@ -1975,10 +1978,10 @@ namespace smt {
 #define INIT_ARGS_SIZE 16
 
     public:
-        interpreter(context & ctx, mam & m, bool use_filters):
+        interpreter(context & ctx, mam & ma, bool use_filters):
             m_context(ctx),
             m_ast_manager(ctx.get_manager()),
-            m_mam(m),
+            m_mam(ma),
             m_use_filters(use_filters) {
             m_args.resize(INIT_ARGS_SIZE);
         }
@@ -1999,6 +2002,7 @@ namespace smt {
             init(t);
             if (t->filter_candidates()) {
                 for (enode* app : t->get_candidates()) {
+                    TRACE("trigger_bug", tout << "candidate\n" << mk_ismt2_pp(app->get_owner(), m_ast_manager) << "\n";);
                     if (!app->is_marked() && app->is_cgr()) {
                         if (m_context.resource_limits_exceeded() || !execute_core(t, app))
                             return;
@@ -2196,7 +2200,7 @@ namespace smt {
         if (bp.m_it == bp.m_end)
             return nullptr;
         m_top++;
-        update_max_generation(*(bp.m_it));
+        update_max_generation(*(bp.m_it), nullptr);
         return *(bp.m_it);
     }
 
@@ -2277,7 +2281,7 @@ namespace smt {
 
         if (m_ast_manager.has_trace_stream()) {
             m_used_enodes.reset();
-            m_used_enodes.push_back(n);
+            m_used_enodes.push_back(std::make_tuple(nullptr, n)); // null indicates that n was matched against the trigger at the top-level
         }
 
         m_pc             = t->get_root();
@@ -2372,6 +2376,13 @@ namespace smt {
             SASSERT(m_n2 != 0);
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
+            
+            // We will use the common root when instantiating the quantifier => log the necessary equalities
+            if (m_ast_manager.has_trace_stream()) {
+                m_used_enodes.push_back(std::make_tuple(m_n1, m_n1->get_root()));
+                m_used_enodes.push_back(std::make_tuple(m_n2, m_n2->get_root()));
+            }
+
             m_pc = m_pc->m_next;
             goto main_loop;
 
@@ -2382,6 +2393,10 @@ namespace smt {
             SASSERT(m_n2 != 0);
             if (m_n1->get_root() != m_n2->get_root())
                 goto backtrack;
+
+            // we used the equality m_n1 = m_n2 for the match and need to make sure it ends up in the log
+            m_used_enodes.push_back(std::make_tuple(m_n1, m_n2));
+
             m_pc = m_pc->m_next;
             goto main_loop;
 
@@ -2563,6 +2578,12 @@ namespace smt {
             m_n1 = m_context.get_enode_eq_to(static_cast<const get_cgr *>(m_pc)->m_label, static_cast<const get_cgr *>(m_pc)->m_num_args, m_args.c_ptr());              \
             if (m_n1 == 0 || !m_context.is_relevant(m_n1))                                                                                                              \
                 goto backtrack;                                                                                                                                         \
+            update_max_generation(m_n1, nullptr);                                                                                                                       \
+            if (m_ast_manager.has_trace_stream()) {                                                                                                                     \
+                for (unsigned i = 0; i < static_cast<const get_cgr *>(m_pc)->m_num_args; ++i) {                                                                         \
+                    m_used_enodes.push_back(std::make_tuple(m_n1->get_arg(i), m_n1->get_arg(i)->get_root()));                                                           \
+                }                                                                                                                                                       \
+            }                                                                                                                                                           \
             m_registers[static_cast<const get_cgr *>(m_pc)->m_oreg] = m_n1;                                                                                             \
             m_pc = m_pc->m_next;                                                                                                                                        \
             goto main_loop;
@@ -2776,7 +2797,7 @@ namespace smt {
                     m_pattern_instances.pop_back();
                     m_pattern_instances.push_back(m_app);
                     // continue succeeded
-                    update_max_generation(m_app);
+                    update_max_generation(m_app, nullptr); // null indicates a top-level match
                     TRACE("mam_int", tout << "continue next candidate:\n" << mk_ll_pp(m_app->get_owner(), m_ast_manager););
                     m_num_args = c->m_num_args;
                     m_oreg     = c->m_oreg;
@@ -2830,7 +2851,7 @@ namespace smt {
             mk_tree_trail(ptr_vector<code_tree> & t, unsigned id):m_trees(t), m_lbl_id(id) {}
             void undo(mam_impl & m) override {
                 dealloc(m_trees[m_lbl_id]);
-                m_trees[m_lbl_id] = 0;
+                m_trees[m_lbl_id] = nullptr;
             }
         };
 
@@ -2863,8 +2884,8 @@ namespace smt {
             app * p           = to_app(mp->get_arg(first_idx));
             func_decl * lbl   = p->get_decl();
             unsigned lbl_id   = lbl->get_decl_id();
-            m_trees.reserve(lbl_id+1, 0);
-            if (m_trees[lbl_id] == 0) {
+            m_trees.reserve(lbl_id+1, nullptr);
+            if (m_trees[lbl_id] == nullptr) {
                 m_trees[lbl_id] = m_compiler.mk_tree(qa, mp, first_idx, false);
                 SASSERT(m_trees[lbl_id]->expected_num_args() == p->get_num_args());
                 DEBUG_CODE(m_trees[lbl_id]->set_context(m_context););
@@ -2949,7 +2970,7 @@ namespace smt {
             m_ground_arg(ground_arg),
             m_pattern_idx(pat_idx),
             m_child(child) {
-            SASSERT(ground_arg != 0 || ground_arg_idx == 0);
+            SASSERT(ground_arg != nullptr || ground_arg_idx == 0);
         }
     };
 
@@ -3216,7 +3237,7 @@ namespace smt {
 
         path_tree * mk_path_tree(path * p, quantifier * qa, app * mp) {
             SASSERT(m_ast_manager.is_pattern(mp));
-            SASSERT(p != 0);
+            SASSERT(p != nullptr);
             unsigned pat_idx = p->m_pattern_idx;
             path_tree * head = nullptr;
             path_tree * curr = nullptr;
@@ -3509,9 +3530,7 @@ namespace smt {
                     std::cout << "Avg. " << static_cast<double>(total_sz)/static_cast<double>(counter) << ", Max. " << max_sz << "\n";
 #endif
 
-                enode_vector::iterator it1  = v->begin();
-                enode_vector::iterator end1 = v->end();
-                for (; it1 != end1; ++it1) {
+                for (enode* n : *v) {
                     // Two different kinds of mark are used:
                     // - enode mark field:  it is used to mark the already processed parents.
                     // - enode mark2 field: it is used to mark the roots already added to be processed in the next level.
@@ -3520,7 +3539,7 @@ namespace smt {
                     // and Z3 may fail to find potential new matches.
                     //
                     // The file regression\acu.sx exposed this problem.
-                    enode * curr_child = (*it1)->get_root();
+                    enode * curr_child = n->get_root();
 
                     if (m_use_filters && curr_child->get_plbls().empty_intersection(filter))
                         continue;
@@ -3584,7 +3603,7 @@ namespace smt {
                                          is_eq(curr_tree->m_ground_arg, curr_parent->get_arg(curr_tree->m_ground_arg_idx))
                                          )) {
                                         if (curr_tree->m_code) {
-                                            TRACE("mam_path_tree", tout << "found candidate\n";);
+                                            TRACE("mam_path_tree", tout << "found candidate " << expr_ref(curr_parent->get_owner(), m_ast_manager) << "\n";);
                                             add_candidate(curr_tree->m_code, curr_parent);
                                         }
                                         if (curr_tree->m_first_child) {
@@ -3878,7 +3897,7 @@ namespace smt {
         }
 #endif
 
-        void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, ptr_vector<enode> & used_enodes) override {
+        void on_match(quantifier * qa, app * pat, unsigned num_bindings, enode * const * bindings, unsigned max_generation, vector<std::tuple<enode *, enode *>> & used_enodes) override {
             TRACE("trigger_bug", tout << "found match " << mk_pp(qa, m_ast_manager) << "\n";);
 #ifdef Z3DEBUG
             if (m_check_missing_instances) {
@@ -3896,7 +3915,7 @@ namespace smt {
                 SASSERT(bindings[i]->get_generation() <= max_generation);
             }
 #endif
-            unsigned min_gen, max_gen;
+            unsigned min_gen = 0, max_gen = 0;
             m_interpreter.get_min_max_top_generation(min_gen, max_gen);
             m_context.add_instance(qa, pat, num_bindings, bindings, nullptr, max_generation, min_gen, max_gen, used_enodes);
         }

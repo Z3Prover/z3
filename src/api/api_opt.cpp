@@ -79,6 +79,16 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_optimize_assert_and_track(Z3_context c, Z3_optimize o, Z3_ast a, Z3_ast t) {
+        Z3_TRY;
+        LOG_Z3_optimize_assert_and_track(c, o, a, t);
+        RESET_ERROR_CODE();
+        CHECK_FORMULA(a,);        
+        CHECK_FORMULA(t,);        
+        to_optimize_ptr(o)->add_hard_constraint(to_expr(a), to_expr(t));
+        Z3_CATCH;
+    }
+
     unsigned Z3_API Z3_optimize_assert_soft(Z3_context c, Z3_optimize o, Z3_ast a, Z3_string weight, Z3_symbol id) {
         Z3_TRY;
         LOG_Z3_optimize_assert_soft(c, o, a, weight, id);
@@ -124,10 +134,16 @@ extern "C" {
     }
 
 
-    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o) {
+    Z3_lbool Z3_API Z3_optimize_check(Z3_context c, Z3_optimize o, unsigned num_assumptions, Z3_ast const assumptions[]) {
         Z3_TRY;
-        LOG_Z3_optimize_check(c, o);
+        LOG_Z3_optimize_check(c, o, num_assumptions, assumptions);
         RESET_ERROR_CODE();
+        for (unsigned i = 0; i < num_assumptions; i++) {
+            if (!is_expr(to_ast(assumptions[i]))) {
+                SET_ERROR_CODE(Z3_INVALID_ARG, "assumption is not an expression");
+                return Z3_L_UNDEF;
+            }
+        }
         lbool r = l_undef;
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
@@ -137,7 +153,9 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
-                r = to_optimize_ptr(o)->optimize();
+                expr_ref_vector asms(mk_c(c)->m());
+                asms.append(num_assumptions, to_exprs(assumptions));
+                r = to_optimize_ptr(o)->optimize(asms);
             }
             catch (z3_exception& ex) {
                 if (!mk_c(c)->m().canceled()) {
@@ -156,6 +174,22 @@ extern "C" {
         return of_lbool(r);
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }
+
+    Z3_ast_vector Z3_API Z3_optimize_get_unsat_core(Z3_context c, Z3_optimize o) {
+        Z3_TRY;
+        LOG_Z3_optimize_get_unsat_core(c, o);
+        RESET_ERROR_CODE();
+        expr_ref_vector core(mk_c(c)->m());
+        to_optimize_ptr(o)->get_unsat_core(core);
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        mk_c(c)->save_object(v);
+        for (expr* e : core) {
+            v->m_ast_vector.push_back(e);
+        }
+        RETURN_Z3(of_ast_vector(v));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
 
     Z3_string Z3_API Z3_optimize_get_reason_unknown(Z3_context c, Z3_optimize o) {
         Z3_TRY;
@@ -318,24 +352,20 @@ extern "C" {
         ctx->set_ignore_check(true);
         try {
             if (!parse_smt2_commands(*ctx.get(), s)) {
-                mk_c(c)->m_parser_error_buffer = errstrm.str();            
                 ctx = nullptr;
-                SET_ERROR_CODE(Z3_PARSER_ERROR);
+                SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
                 return;
             }        
         }
         catch (z3_exception& e) {
             errstrm << e.msg();
-            mk_c(c)->m_parser_error_buffer = errstrm.str();            
             ctx = nullptr;
-            SET_ERROR_CODE(Z3_PARSER_ERROR);
+            SET_ERROR_CODE(Z3_PARSER_ERROR, errstrm.str().c_str());
             return;
         }
 
-        ptr_vector<expr>::const_iterator it  = ctx->begin_assertions();
-        ptr_vector<expr>::const_iterator end = ctx->end_assertions();
-        for (; it != end; ++it) {
-            to_optimize_ptr(opt)->add_hard_constraint(*it);
+        for (expr * e : ctx->assertions()) {
+            to_optimize_ptr(opt)->add_hard_constraint(e);
         }
     }
 

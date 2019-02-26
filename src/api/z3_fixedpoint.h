@@ -106,9 +106,9 @@ extern "C" {
         \endcode
 
         query returns
-        - Z3_L_FALSE if the query is unsatisfiable.
-        - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
-        - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
+        - \c Z3_L_FALSE if the query is unsatisfiable.
+        - \c Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
+        - \c Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
 
         def_API('Z3_fixedpoint_query', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(AST)))
     */
@@ -120,9 +120,9 @@ extern "C" {
         The queries are encoded as relations (function declarations).
 
         query returns
-        - Z3_L_FALSE if the query is unsatisfiable.
-        - Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
-        - Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
+        - \c Z3_L_FALSE if the query is unsatisfiable.
+        - \c Z3_L_TRUE if the query is satisfiable. Obtain the answer by calling #Z3_fixedpoint_get_answer.
+        - \c Z3_L_UNDEF if the query was interrupted, timed out or otherwise failed.
 
         def_API('Z3_fixedpoint_query_relations', INT, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, FUNC_DECL)))
     */
@@ -138,8 +138,8 @@ extern "C" {
        Each conjunct encodes values of the bound variables of the query that are satisfied.
        In PDR mode, the returned answer is a single conjunction.
 
-       When used in Datalog mode the previous call to Z3_fixedpoint_query must have returned Z3_L_TRUE.
-       When used with the PDR engine, the previous call must have been either Z3_L_TRUE or Z3_L_FALSE.
+       When used in Datalog mode the previous call to #Z3_fixedpoint_query must have returned \c Z3_L_TRUE.
+       When used with the PDR engine, the previous call must have been either \c Z3_L_TRUE or \c Z3_L_FALSE.
 
        def_API('Z3_fixedpoint_get_answer', AST, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
@@ -148,7 +148,7 @@ extern "C" {
     /**
        \brief Retrieve a string that describes the last status returned by #Z3_fixedpoint_query.
 
-       Use this method when #Z3_fixedpoint_query returns Z3_L_UNDEF.
+       Use this method when #Z3_fixedpoint_query returns \c Z3_L_UNDEF.
 
        def_API('Z3_fixedpoint_get_reason_unknown', STRING, (_in(CONTEXT), _in(FIXEDPOINT) ))
     */
@@ -253,6 +253,9 @@ extern "C" {
     /**
        \brief Set parameters on fixedpoint context.
 
+       \sa Z3_fixedpoint_get_help
+       \sa Z3_fixedpoint_get_param_descrs
+
        def_API('Z3_fixedpoint_set_params', VOID, (_in(CONTEXT), _in(FIXEDPOINT), _in(PARAMS)))
     */
     void Z3_API Z3_fixedpoint_set_params(Z3_context c, Z3_fixedpoint f, Z3_params p);
@@ -260,12 +263,18 @@ extern "C" {
     /**
        \brief Return a string describing all fixedpoint available parameters.
 
+       \sa Z3_fixedpoint_get_param_descrs
+       \sa Z3_fixedpoint_set_params
+
        def_API('Z3_fixedpoint_get_help', STRING, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
     Z3_string Z3_API Z3_fixedpoint_get_help(Z3_context c, Z3_fixedpoint f);
 
     /**
        \brief Return the parameter description set for the given fixedpoint object.
+
+       \sa Z3_fixedpoint_get_help
+       \sa Z3_fixedpoint_set_params
 
        def_API('Z3_fixedpoint_get_param_descrs', PARAM_DESCRS, (_in(CONTEXT), _in(FIXEDPOINT)))
     */
@@ -277,6 +286,9 @@ extern "C" {
        \param f - fixedpoint context.
        \param num_queries - number of additional queries to print.
        \param queries - additional queries.
+
+       \sa Z3_fixedpoint_from_file
+       \sa Z3_fixedpoint_from_string
 
        def_API('Z3_fixedpoint_to_string', STRING, (_in(CONTEXT), _in(FIXEDPOINT), _in(UINT), _in_array(2, AST)))
     */
@@ -295,6 +307,9 @@ extern "C" {
        \param f - fixedpoint context.
        \param s - string containing SMT2 specification.
 
+       \sa Z3_fixedpoint_from_file
+       \sa Z3_fixedpoint_to_string
+
        def_API('Z3_fixedpoint_from_string', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
     Z3_ast_vector Z3_API Z3_fixedpoint_from_string(Z3_context c,
@@ -308,7 +323,10 @@ extern "C" {
 
        \param c - context.
        \param f - fixedpoint context.
-       \param s - string containing SMT2 specification.
+       \param s - path to file containing SMT2 specification.
+
+       \sa Z3_fixedpoint_from_string
+       \sa Z3_fixedpoint_to_string
 
        def_API('Z3_fixedpoint_from_file', AST_VECTOR, (_in(CONTEXT), _in(FIXEDPOINT), _in(STRING)))
     */
@@ -377,7 +395,7 @@ extern "C" {
                                             Z3_fixedpoint_predecessor_eh predecessor_eh,
                                             Z3_fixedpoint_unfold_eh unfold_eh);
 
-    void Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl);
+    void Z3_API Z3_fixedpoint_add_constraint (Z3_context c, Z3_fixedpoint d, Z3_ast e, unsigned lvl);
 
     /*@}*/
     /*@}*/

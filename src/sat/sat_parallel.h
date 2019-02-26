@@ -104,8 +104,6 @@ namespace sat {
 
         void get_phase(solver& s);
         
-        void set_phase(local_search& s);
-
         bool get_phase(local_search& s);
 
         bool copy_solver(solver& s);

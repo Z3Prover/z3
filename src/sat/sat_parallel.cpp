@@ -113,7 +113,7 @@ namespace sat {
                 s.m_params.set_sym("phase", symbol("random"));
             }                        
             m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i]);
-            m_solvers[i]->copy(s);
+            m_solvers[i]->copy(s, true);
             m_solvers[i]->set_par(this, i);
             push_child(m_solvers[i]->rlimit());            
         }
@@ -232,10 +232,10 @@ namespace sat {
         }
         if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
             // time to update local search with new clauses.
-            // there could be multiple local search engines runing at the same time.
+            // there could be multiple local search engines running at the same time.
             IF_VERBOSE(1, verbose_stream() << "(sat-parallel refresh :from " << m_num_clauses << " :to " << s.m_clauses.size() << ")\n";);
             m_solver_copy = alloc(solver, s.m_params, s.rlimit());
-            m_solver_copy->copy(s);
+            m_solver_copy->copy(s, true);
             m_num_clauses = s.m_clauses.size();
         }
     }
@@ -285,17 +285,6 @@ namespace sat {
         return copied;
     }
 
-    void parallel::set_phase(local_search& s) {
-        #pragma omp critical (par_solver)
-        {
-            m_consumer_ready = true;
-            m_phase.reserve(s.num_vars(), l_undef);
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
-                m_phase[i] = s.get_phase(i) ? l_true : l_false;
-            }
-            m_num_clauses = s.num_non_binary_clauses();
-        }
-    }
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
@@ -303,7 +292,7 @@ namespace sat {
         {
             m_consumer_ready = true;
             if (m_solver_copy && s.m_clauses.size() > m_solver_copy->m_clauses.size()) {
-                s.copy(*m_solver_copy);
+                s.copy(*m_solver_copy, true);
                 copied = true;
                 m_num_clauses = s.m_clauses.size();
             }

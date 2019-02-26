@@ -197,7 +197,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {
@@ -264,7 +264,7 @@ struct cofactor_elim_term_ite::imp {
                     switch (arg->get_kind()) {
                     case AST_VAR:
                     case AST_QUANTIFIER:
-                        // ingore quantifiers
+                        // ignore quantifiers
                         break;
                     case AST_APP:
                         if (to_app(arg)->get_num_args() > 0) {

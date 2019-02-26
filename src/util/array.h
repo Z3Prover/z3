@@ -151,10 +151,10 @@ public:
         if (m_data == nullptr) {
             return 0;  
         }
-        return static_cast<unsigned>(reinterpret_cast<size_t *>(m_data)[SIZE_IDX]); 
+        return static_cast<unsigned>(reinterpret_cast<size_t *>(m_data)[ARRAY_SIZE_IDX]); 
     }
     
-    bool empty() const { return m_data == 0; }
+    bool empty() const { return m_data == nullptr; }
 
     T & operator[](unsigned idx) { 
         SASSERT(idx < size()); 

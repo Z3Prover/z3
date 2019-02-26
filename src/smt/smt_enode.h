@@ -64,7 +64,7 @@ namespace smt {
     class tmp_enode;
 
     /**
-       \brief Aditional data-structure for implementing congruence closure,
+       \brief Additional data-structure for implementing congruence closure,
        equality propagation, and the theory central bus of equalities.
     */
     class enode {
@@ -105,6 +105,7 @@ namespace smt {
         enode_vector        m_parents;          //!< Parent enodes of the equivalence class.
         theory_var_list     m_th_var_list;      //!< List of theories that 'care' about this enode.
         trans_justification m_trans;            //!< A justification for the enode being equal to its root.
+        bool                m_proof_is_logged;  //!< Indicates that the proof for the enode being equal to its root is in the log.
         signed char         m_lbl_hash;         //!< It is different from -1, if enode is used in a pattern
         approx_set          m_lbls;
         approx_set          m_plbls;
@@ -113,6 +114,7 @@ namespace smt {
         friend class context;
         friend class euf_manager;
         friend class conflict_resolution;
+        friend class quantifier_manager;
         
 
         theory_var_list * get_th_var_list() { 
@@ -360,6 +362,10 @@ namespace smt {
         unsigned get_num_th_vars() const;
 
         theory_var get_th_var(theory_id th_id) const;
+
+        trans_justification get_trans_justification() {
+            return m_trans;
+        }
 
         unsigned get_generation() const {
             return m_generation;

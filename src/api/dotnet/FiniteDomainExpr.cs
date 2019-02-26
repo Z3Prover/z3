@@ -16,8 +16,8 @@ Author:
 Notes:
 
 --*/
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -31,7 +31,7 @@ namespace Microsoft.Z3
         internal FiniteDomainExpr(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         #endregion
     }

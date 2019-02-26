@@ -32,6 +32,8 @@ Notes:
 #include "ast/ast.h"
 #include "ast/ast_printer.h"
 #include "ast/datatype_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
+#include "ast/rewriter/seq_rewriter.h"
 #include "tactic/generic_model_converter.h"
 #include "solver/solver.h"
 #include "solver/progress_callback.h"
@@ -148,8 +150,8 @@ public:
     virtual bool empty() = 0;
     virtual void push() = 0;
     virtual void pop(unsigned n) = 0;
-    virtual lbool optimize() = 0;
-    virtual void set_hard_constraints(ptr_vector<expr> & hard) = 0;
+    virtual lbool optimize(expr_ref_vector const& asms) = 0;
+    virtual void set_hard_constraints(expr_ref_vector const & hard) = 0;
     virtual void display_assignment(std::ostream& out) = 0;
     virtual bool is_pareto() = 0;
     virtual void set_logic(symbol const& s) = 0;
@@ -199,7 +201,6 @@ protected:
     ast_manager *                m_manager;
     bool                         m_own_manager;
     bool                         m_manager_initialized;
-    bool                         m_rec_fun_declared;
     pdecl_manager *              m_pmanager;
     sexpr_manager *              m_sexpr_manager;
     check_logic                  m_check_logic;
@@ -240,7 +241,6 @@ protected:
 
     svector<scope>               m_scopes;
     scoped_ptr<solver_factory>   m_solver_factory;
-    scoped_ptr<solver_factory>   m_interpolating_solver_factory;
     ref<solver>                  m_solver;
     ref<check_sat_result>        m_check_sat_result;
     ref<opt_wrapper>             m_opt;
@@ -291,6 +291,7 @@ protected:
     bool logic_has_array() const;
     bool logic_has_datatype() const;
     bool logic_has_fpa() const;
+    bool logic_has_recfun() const;
 
     void print_unsupported_msg() { regular_stream() << "unsupported" << std::endl; }
     void print_unsupported_info(symbol const& s, int line, int pos) { if (s != symbol::null) diagnostic_stream() << "; " << s << " line: " << line << " position: " << pos << std::endl;}
@@ -306,6 +307,7 @@ protected:
     void erase_macro(symbol const& s);
     bool macros_find(symbol const& s, unsigned n, expr*const* args, expr*& t) const;
 
+    recfun::decl::plugin& get_recfun_plugin();
 
 public:
     cmd_context(bool main_ctx = true, ast_manager * m = nullptr, symbol const & l = symbol::null);
@@ -313,7 +315,6 @@ public:
     void set_cancel(bool f);
     context_params  & params() { return m_params; }
     solver_factory &get_solver_factory() { return *m_solver_factory; }
-    solver_factory &get_interpolating_solver_factory() { return *m_interpolating_solver_factory; }
     opt_wrapper*  get_opt();
     void          set_opt(opt_wrapper* o);
     void global_params_updated(); // this method should be invoked when global (and module) params are updated.
@@ -339,14 +340,12 @@ public:
     void set_random_seed(unsigned s) { m_random_seed = s; }
     bool produce_models() const;
     bool produce_proofs() const;
-    bool produce_interpolants() const;
     bool produce_unsat_cores() const;
     bool well_sorted_check_enabled() const;
     bool validate_model_enabled() const;
     void set_produce_models(bool flag);
     void set_produce_unsat_cores(bool flag);
     void set_produce_proofs(bool flag);
-    void set_produce_interpolants(bool flag);
     void set_produce_unsat_assumptions(bool flag) { m_produce_unsat_assumptions = flag; }
     bool produce_assignments() const { return m_produce_assignments; }
     bool produce_unsat_assumptions() const { return m_produce_unsat_assumptions; }
@@ -362,7 +361,6 @@ public:
     sexpr_manager & sm() const { if (!m_sexpr_manager) const_cast<cmd_context*>(this)->m_sexpr_manager = alloc(sexpr_manager); return *m_sexpr_manager; }
 
     void set_solver_factory(solver_factory * s);
-    void set_interpolating_solver_factory(solver_factory * s);
     void set_check_sat_result(check_sat_result * r) { m_check_sat_result = r; }
     check_sat_result * get_check_sat_result() const { return m_check_sat_result.get(); }
     check_sat_state cs_state() const;
@@ -384,12 +382,14 @@ public:
     void insert(probe_info * p) { tactic_manager::insert(p); }
     void insert_user_tactic(symbol const & s, sexpr * d);
     void insert_aux_pdecl(pdecl * p);
-    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     void model_add(symbol const & s, unsigned arity, sort *const* domain, expr * t);
     void model_del(func_decl* f);
+    void insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
+    void insert_rec_fun_as_axiom(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e);
     func_decl * find_func_decl(symbol const & s) const;
     func_decl * find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                unsigned arity, sort * const * domain, sort * range) const;
+    recfun::promise_def decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range);
     psort_decl * find_psort_decl(symbol const & s) const;
     cmd * find_cmd(symbol const & s) const;
     sexpr * find_user_tactic(symbol const & s) const;
@@ -452,11 +452,8 @@ public:
 
     double get_seconds() const { return m_watch.get_seconds(); }
 
-    ptr_vector<expr>::const_iterator begin_assertions() const { return m_assertions.begin(); }
-    ptr_vector<expr>::const_iterator end_assertions() const { return m_assertions.end(); }
-
-    ptr_vector<expr>::const_iterator begin_assertion_names() const { return m_assertion_names.begin(); }
-    ptr_vector<expr>::const_iterator end_assertion_names() const { return m_assertion_names.end(); }
+    ptr_vector<expr> const& assertions() const { return m_assertions; }
+    ptr_vector<expr> const& assertion_names() const { return m_assertion_names; }
 
     /**
        \brief Hack: consume assertions if there are no scopes.
@@ -491,5 +488,25 @@ public:
 };
 
 std::ostream & operator<<(std::ostream & out, cmd_context::status st);
+
+
+class th_solver : public expr_solver {
+    cmd_context& m_ctx;
+    params_ref   m_params;
+    ref<solver> m_solver;
+public:
+    th_solver(cmd_context& ctx): m_ctx(ctx) {}
+    
+    lbool check_sat(expr* e) override {
+        if (!m_solver) {
+            m_solver = m_ctx.get_solver_factory()(m_ctx.m(), m_params, false, true, false, symbol::null);
+        }
+        m_solver->push();
+        m_solver->assert_expr(e);
+        lbool r = m_solver->check_sat(0,nullptr);
+        m_solver->pop(1);
+        return r;
+    }
+};
 
 #endif

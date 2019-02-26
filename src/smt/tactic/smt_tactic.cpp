@@ -217,7 +217,7 @@ public:
                     model_ref md;
                     m_ctx->get_model(md);
                     buffer<symbol> r;
-                    m_ctx->get_relevant_labels(0, r);
+                    m_ctx->get_relevant_labels(nullptr, r);
                     labels_vec rv;
                     rv.append(r.size(), r.c_ptr());
                     model_converter_ref mc;
@@ -270,7 +270,7 @@ public:
                             model_ref md;
                             m_ctx->get_model(md);
                             buffer<symbol> r;
-                            m_ctx->get_relevant_labels(0, r);
+                            m_ctx->get_relevant_labels(nullptr, r);
                             labels_vec rv;
                             rv.append(r.size(), r.c_ptr());
                             in->add(model_and_labels2model_converter(md.get(), rv));
@@ -289,30 +289,24 @@ public:
     }
 };
 
-tactic * mk_smt_tactic(params_ref const & p) {
+static tactic * mk_seq_smt_tactic(params_ref const & p) {
     return alloc(smt_tactic, p);
 }
 
-tactic * mk_smt_tactic_using(bool auto_config, params_ref const & _p) {
-    params_ref p = _p;
-    p.set_bool("auto_config", auto_config);
-    tactic * r = mk_smt_tactic(p);
-    TRACE("smt_tactic", tout << "auto_config: " << auto_config << "\nr: " << r << "\np: " << p << "\n";);
-    return using_params(r, p);
-}
-
-tactic * mk_psmt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
-    parallel_params pp(p);
-    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p);
-}
-
-tactic * mk_psmt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p, symbol const& logic) {
-    parallel_params pp(_p);
-    params_ref p = _p;
-    p.set_bool("auto_config", auto_config);
-    return using_params(pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_smt_tactic(p), p);
-}
 
 tactic * mk_parallel_smt_tactic(ast_manager& m, params_ref const& p) {
     return mk_parallel_tactic(mk_smt_solver(m, p, symbol::null), p);
 }
+
+tactic * mk_smt_tactic(ast_manager& m, params_ref const& p, symbol const& logic) {
+    parallel_params pp(p);
+    return pp.enable() ? mk_parallel_tactic(mk_smt_solver(m, p, logic), p) : mk_seq_smt_tactic(p);
+}
+
+tactic * mk_smt_tactic_using(ast_manager& m, bool auto_config, params_ref const& _p) {
+    parallel_params pp(_p);
+    params_ref p = _p;
+    p.set_bool("auto_config", auto_config);
+    return using_params(pp.enable() ? mk_parallel_smt_tactic(m, p) : mk_seq_smt_tactic(p), p);
+}
+

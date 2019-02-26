@@ -28,6 +28,7 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "smt/theory_bv.h"
 #include "smt/theory_datatype.h"
+#include "smt/theory_recfun.h"
 #include "smt/theory_dummy.h"
 #include "smt/theory_dl.h"
 #include "smt/theory_seq_empty.h"
@@ -35,6 +36,7 @@ Revision History:
 #include "smt/theory_pb.h"
 #include "smt/theory_fpa.h"
 #include "smt/theory_str.h"
+#include "smt/theory_jobscheduler.h"
 
 namespace smt {
 
@@ -119,6 +121,8 @@ namespace smt {
             setup_UFLRA();
         else if (m_logic == "LRA")
             setup_LRA();
+        else if (m_logic == "CSP")
+            setup_CSP();
         else if (m_logic == "QF_FP")
             setup_QF_FP();
         else if (m_logic == "QF_FPBV" || m_logic == "QF_BVFP")
@@ -196,6 +200,8 @@ namespace smt {
                 setup_QF_DT();
             else if (m_logic == "LRA")
                 setup_LRA();
+            else if (m_logic == "CSP")
+                setup_CSP();
             else 
                 setup_unknown(st);
         }
@@ -203,7 +209,7 @@ namespace smt {
 
     static void check_no_arithmetic(static_features const & st, char const * logic) {
         if (st.m_num_arith_ineqs > 0 || st.m_num_arith_terms > 0 || st.m_num_arith_eqs > 0) 
-            throw default_exception("Benchmark constains arithmetic, but specified loging does not support it.");
+            throw default_exception("Benchmark constrains arithmetic, but specified logic does not support it.");
     }
 
     void setup::setup_QF_UF() {
@@ -217,6 +223,7 @@ namespace smt {
     void setup::setup_QF_DT() {
         setup_QF_UF();
         setup_datatypes();
+        setup_recfuns();
     }
 
     void setup::setup_QF_BVRE() {
@@ -332,7 +339,7 @@ namespace smt {
         m_params.m_arith_propagate_eqs = false;
         m_params.m_arith_small_lemma_size = 30;
         m_params.m_nnf_cnf             = false;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_IDL(static_features & st) {
@@ -404,7 +411,7 @@ namespace smt {
         m_params.m_restart_strategy = RS_GEOMETRIC;
         m_params.m_restart_factor   = 1.5;
         m_params.m_restart_adaptive = false;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFIDL(static_features & st) {
@@ -454,7 +461,7 @@ namespace smt {
         m_params.m_arith_propagate_eqs = false;
         m_params.m_eliminate_term_ite  = true;
         m_params.m_nnf_cnf             = false;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LRA(static_features const & st) {
@@ -479,7 +486,7 @@ namespace smt {
             m_params.m_restart_adaptive      = false;
         }
         m_params.m_arith_small_lemma_size = 32;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LIRA(static_features const& st) {
@@ -492,8 +499,8 @@ namespace smt {
         m_params.m_arith_eq2ineq       = true;
         m_params.m_arith_reflect       = false; 
         m_params.m_arith_propagate_eqs = false; 
-        m_params.m_nnf_cnf             = false;
-        setup_i_arith();
+        m_params.m_nnf_cnf             = false;        
+        setup_lra_arith();
     }
 
     void setup::setup_QF_LIA(static_features const & st) {
@@ -519,7 +526,7 @@ namespace smt {
             m_params.m_arith_eq2ineq          = true;
             m_params.m_eliminate_term_ite     = true;
             // if (st.m_num_exprs < 5000 && st.m_num_ite_terms < 50) { // safeguard to avoid high memory consumption
-            // TODO: implement analsysis function to decide where lift ite is too expensive.
+            // TODO: implement analysis function to decide where lift ite is too expensive.
             //    m_params.m_lift_ite           = LI_FULL;
             // }
         } 
@@ -534,7 +541,7 @@ namespace smt {
             m_params.m_arith_bound_prop      = BP_NONE;
             m_params.m_arith_stronger_lemmas = false;
         }
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFLIA() {
@@ -542,7 +549,7 @@ namespace smt {
         m_params.m_arith_reflect       = false; 
         m_params.m_nnf_cnf             = false;
         m_params.m_arith_propagation_threshold = 1000;
-        setup_i_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_UFLIA(static_features & st) {
@@ -555,7 +562,7 @@ namespace smt {
         m_params.m_relevancy_lvl       = 0;
         m_params.m_arith_reflect       = false; 
         m_params.m_nnf_cnf             = false;
-        setup_r_arith();
+        setup_lra_arith();
     }
 
     void setup::setup_QF_BV() {
@@ -627,9 +634,6 @@ namespace smt {
             m_params.m_phase_selection         = PS_CACHING_CONSERVATIVE2;
             m_params.m_random_initial_activity = IA_ZERO;
         }
-        // if (st.m_num_arith_ineqs == st.m_num_diff_ineqs && st.m_num_arith_eqs == st.m_num_diff_eqs && st.arith_k_sum_is_small()) 
-        //    m_context.register_plugin(new smt::theory_si_arith(m_manager, m_params));
-        // else 
         setup_i_arith();
         setup_arrays();
     }
@@ -654,7 +658,7 @@ namespace smt {
         // 
         m_params.m_ng_lift_ite             = LI_FULL;
         TRACE("setup", tout << "max_eager_multipatterns: " << m_params.m_qi_max_eager_multipatterns << "\n";);
-        setup_i_arith();
+        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
         setup_arrays();
     }
 
@@ -740,22 +744,34 @@ namespace smt {
     }
 
     void setup::setup_i_arith() {
-        // m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
-        m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));        
+        if (AS_OLD_ARITH == m_params.m_arith_mode) {
+            m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
+        }
+        else {
+            setup_lra_arith();
+        }
     }
 
-    void setup::setup_r_arith() {
+    void setup::setup_lra_arith() {
+        // m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         m_context.register_plugin(alloc(smt::theory_lra, m_manager, m_params));
     }
 
     void setup::setup_mi_arith() {
-        if (m_params.m_arith_mode == AS_OPTINF) {
+        switch (m_params.m_arith_mode) {
+        case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
-        }
-        else {
+            break;
+        case AS_NEW_ARITH:
+            setup_lra_arith();
+            break;
+        default:
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            break;
         }
     }
+
+
 
     void setup::setup_arith() {
         static_features    st(m_manager);
@@ -766,7 +782,11 @@ namespace smt {
         IF_VERBOSE(1000, st.display_primitive(verbose_stream()););
         bool fixnum = st.arith_k_sum_is_small() && m_params.m_arith_fixnum;
         bool int_only = !st.m_has_rational && !st.m_has_real && m_params.m_arith_int_only;
-        switch(m_params.m_arith_mode) {
+        auto mode = m_params.m_arith_mode;
+        if (m_logic == "QF_LIA") {
+            mode = AS_NEW_ARITH;
+        }
+        switch(mode) {
         case AS_NO_ARITH:
             m_context.register_plugin(alloc(smt::theory_dummy, m_manager.mk_family_id("arith"), "no arithmetic"));
             break;
@@ -810,14 +830,20 @@ namespace smt {
         case AS_OPTINF:
             m_context.register_plugin(alloc(smt::theory_inf_arith, m_manager, m_params));            
             break;
-        case AS_LRA:
-            setup_r_arith();
-            break;
-        default:
+        case AS_OLD_ARITH:
             if (m_params.m_arith_int_only && int_only)
                 m_context.register_plugin(alloc(smt::theory_i_arith, m_manager, m_params));
             else
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            break;
+        case AS_NEW_ARITH:
+            if (st.m_num_non_linear != 0) 
+                m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
+            else 
+                setup_lra_arith();
+            break;
+        default:
+            m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
             break;
         }
     }
@@ -853,6 +879,12 @@ namespace smt {
     void setup::setup_datatypes() {
         TRACE("datatype", tout << "registering theory datatype...\n";);
         m_context.register_plugin(alloc(theory_datatype, m_manager, m_params));
+    }
+
+    void setup::setup_recfuns() {
+        TRACE("recfun", tout << "registering theory recfun...\n";);
+        theory_recfun * th = alloc(theory_recfun, m_manager);
+        m_context.register_plugin(th);
     }
 
     void setup::setup_dl() {
@@ -898,6 +930,11 @@ namespace smt {
         m_context.register_plugin(alloc(smt::theory_seq, m_manager, m_params));
     }
 
+    void setup::setup_CSP() {
+        setup_unknown();
+        m_context.register_plugin(alloc(smt::theory_jobscheduler, m_manager));
+    }
+
     void setup::setup_unknown() {
         static_features st(m_manager);
         ptr_vector<expr> fmls;
@@ -908,6 +945,7 @@ namespace smt {
         setup_arrays();
         setup_bv();
         setup_datatypes();
+        setup_recfuns();
         setup_dl();
         setup_seq_str(st);
         setup_card();
@@ -927,6 +965,7 @@ namespace smt {
             setup_seq_str(st);
             setup_card();
             setup_fpa();
+            setup_recfuns();
             return;
         }
 
@@ -976,9 +1015,9 @@ namespace smt {
         }
 
         if (st.num_theories() == 2 && st.has_uf() && is_arith(st)) {
-            if (!st.m_has_real)
+            if (!st.m_has_real && st.m_num_non_linear == 0)
                 setup_QF_UFLIA(st);
-            else if (!st.m_has_int && st.m_num_non_linear == 0)
+            else if (!st.m_has_int && st.m_num_non_linear == 0) 
                 setup_QF_UFLRA();
             else
                 setup_unknown();

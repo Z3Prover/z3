@@ -166,7 +166,7 @@ namespace opt {
         return true;
     }
 
-#define PASSERT(_e_) if (!(_e_)) { TRACE("opt", display(tout, r);); SASSERT(_e_); }
+#define PASSERT(_e_) if (!(_e_)) { TRACE("opt1", display(tout, r); display(tout);); SASSERT(_e_); }
 
     bool model_based_opt::invariant(unsigned index, row const& r) {
         vector<var> const& vars = r.m_vars;
@@ -539,7 +539,7 @@ namespace opt {
         rational slack = (abs_src_c - rational::one()) * (abs_dst_c - rational::one());
         rational dst_val = dst.m_value - x_val*dst_c;
         rational src_val = src.m_value - x_val*src_c;
-        rational distance = src_c * dst_val + dst_c * src_val + slack; 
+        rational distance = abs_src_c * dst_val + abs_dst_c * src_val + slack; 
         bool use_case1 = distance.is_nonpos() || abs_src_c.is_one() || abs_dst_c.is_one();
 
 #if 0
@@ -606,7 +606,7 @@ namespace opt {
         }
     }
 
-    void model_based_opt::mk_coeffs_without(vector<var>& dst, vector<var> const src, unsigned x) {
+    void model_based_opt::mk_coeffs_without(vector<var>& dst, vector<var> const& src, unsigned x) {
         for (var const & v : src) {
             if (v.m_id != x) dst.push_back(v);
         }
@@ -655,7 +655,10 @@ namespace opt {
 
     void model_based_opt::normalize(unsigned row_id) {
         row& r = m_rows[row_id];
-        if (r.m_vars.empty()) return;
+        if (r.m_vars.empty()) {
+            retire_row(row_id);
+            return;
+        }
         if (r.m_type == t_mod) return;
         rational g(abs(r.m_vars[0].m_coeff));
         bool all_int = g.is_int();
@@ -1085,14 +1088,16 @@ namespace opt {
         if (D.is_zero()) {
             throw default_exception("modulo 0 is not defined");
         }
-        TRACE("opt", display(tout << "lcm: " << D << " tableau\n"););
+        TRACE("opt1", display(tout << "lcm: " << D << " x: v" << x << " tableau\n"););
         rational val_x = m_var2value[x];
         rational u = mod(val_x, D);
         SASSERT(u.is_nonneg() && u < D);
         for (unsigned idx : mod_rows) {
             replace_var(idx, x, u);            
             SASSERT(invariant(idx, m_rows[idx]));
+            normalize(idx);
         }
+        TRACE("opt1", display(tout << "tableau after replace x under mod\n"););
         //
         // update inequalities such that u is added to t and
         // D is multiplied to coefficient of x.
@@ -1112,8 +1117,10 @@ namespace opt {
                 // x |-> D*y + u
                 replace_var(row_id, x, D, y, u);
                 visited.insert(row_id);
+                normalize(row_id);
             }
         }
+        TRACE("opt1", display(tout << "tableau after replace x by y := v" << y << "\n"););
         def result = project(y, compute_def);
         if (compute_def) {
             result = (result * D) + u;     

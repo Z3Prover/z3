@@ -67,7 +67,7 @@ tactic * mk_ufbv_tactic(ast_manager & m, params_ref const & p) {
     main_p.set_bool("elim_and", true);
 
     tactic * t = and_then(repeat(mk_ufbv_preprocessor_tactic(m, main_p), 2),
-                          mk_smt_tactic_using(false, main_p));
+                          mk_smt_tactic_using(m, false, main_p));
     
     t->updt_params(p);
 

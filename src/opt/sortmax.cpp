@@ -39,9 +39,9 @@ namespace opt {
         sortmax(maxsat_context& c, weights_t& ws, expr_ref_vector const& soft): 
             maxsmt_solver_base(c, ws, soft), m_sort(*this), m_trail(m), m_fresh(m) {}
 
-        virtual ~sortmax() {}
+        ~sortmax() override {}
 
-        lbool operator()() {
+        lbool operator()() override {
             obj_map<expr, rational> soft;            
             if (!init()) {
                 return l_false;
@@ -114,7 +114,7 @@ namespace opt {
         }
 
         void update_assignment() {
-            for (soft& s : m_soft) s.is_true = is_true(s.s);
+            for (soft& s : m_soft) s.set_value(is_true(s.s));
         }
 
         bool is_true(expr* e) {
@@ -124,8 +124,8 @@ namespace opt {
         // definitions used for sorting network
         pliteral mk_false() { return m.mk_false(); }
         pliteral mk_true() { return m.mk_true(); }
-        pliteral mk_max(pliteral a, pliteral b) { return trail(m.mk_or(a, b)); }
-        pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+        pliteral mk_max(unsigned n, pliteral const* as) { return trail(m.mk_or(n, as)); }
+        pliteral mk_min(unsigned n, pliteral const* as) { return trail(m.mk_and(n, as)); }
         pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a; return trail(m.mk_not(a)); }
 
         std::ostream& pp(std::ostream& out, pliteral lit) {  return out << mk_pp(lit, m);  }

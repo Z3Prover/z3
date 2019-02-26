@@ -17,8 +17,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef PROPAGATE_VALUES_TACTIC_H_
-#define PROPAGATE_VALUES_TACTIC_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -29,5 +28,3 @@ tactic * mk_propagate_values_tactic(ast_manager & m, params_ref const & p = para
 /*
   ADD_TACTIC("propagate-values", "propagate constants.", "mk_propagate_values_tactic(m, p)")
 */
-
-#endif

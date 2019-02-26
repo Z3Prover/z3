@@ -16,8 +16,7 @@ Author:
 Revision History:
 
 --*/
-#ifndef ELIM_SMALL_BV_H_
-#define ELIM_SMALL_BV_H_
+#pragma once
 
 #include "util/params.h"
 class ast_manager;
@@ -28,5 +27,3 @@ tactic * mk_elim_small_bv_tactic(ast_manager & m, params_ref const & p = params_
 /*
     ADD_TACTIC("elim-small-bv", "eliminate small, quantified bit-vectors by expansion.", "mk_elim_small_bv_tactic(m, p)")
 */
-
-#endif

@@ -17,15 +17,14 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
     /// <summary>
     /// Constructors are used for datatype sorts.
     /// </summary>
-    [ContractVerification(true)]
     public class Constructor : Z3Object
     {
         /// <summary>
@@ -46,7 +45,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
@@ -62,7 +60,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl>() != null);
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
@@ -78,7 +75,6 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Ensures(Contract.Result<FuncDecl[]>() != null);
                 IntPtr constructor = IntPtr.Zero;
                 IntPtr tester = IntPtr.Zero;
                 IntPtr[] accessors = new IntPtr[n];
@@ -105,9 +101,9 @@ namespace Microsoft.Z3
                              Sort[] sorts, uint[] sortRefs)
             : base(ctx)
         {
-            Contract.Requires(ctx != null);
-            Contract.Requires(name != null);
-            Contract.Requires(recognizer != null);
+            Debug.Assert(ctx != null);
+            Debug.Assert(name != null);
+            Debug.Assert(recognizer != null);
 
             n = AST.ArrayLength(fieldNames);
 

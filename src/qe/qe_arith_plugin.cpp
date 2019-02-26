@@ -316,7 +316,7 @@ namespace qe {
         void mk_bound_aux(rational const& a, expr* t, rational const& b, expr* s, expr_ref& result) {
             SASSERT(a.is_neg() == b.is_neg());
             expr_ref tt(t, m), ss(s, m), e(m);
-            // hack to fix wierd gcc compilation error
+            // hack to fix weird gcc compilation error
             rational abs_a(a);
             rational abs_b(b);
             if (abs_a.is_neg()) abs_a.neg();
@@ -1301,6 +1301,7 @@ namespace qe {
             ptr_vector<expr> todo;
             todo.push_back(a);
             rational k1, k2;
+            expr* e1 = nullptr, *e2 = nullptr;
             expr_ref rest(m);
             while (!todo.empty()) {
                 expr* e = todo.back();
@@ -1319,9 +1320,9 @@ namespace qe {
                     return false;
                 }
                 a = to_app(e);
-                if (m_util.m_arith.is_mod(e) && 
-                    m_util.m_arith.is_numeral(to_app(e)->get_arg(1), k1) &&
-                    m_util.get_coeff(contains_x, to_app(e)->get_arg(0), k2, rest)) {
+                if (m_util.m_arith.is_mod(e, e1, e2) && 
+                    m_util.m_arith.is_numeral(e2, k1) &&
+                    m_util.get_coeff(contains_x, e1, k2, rest)) {
                     app_ref z(m), z_bv(m);
                     m_util.mk_bounded_var(k1, z_bv, z);
                     m_nested_div_terms.push_back(rest);
@@ -1331,10 +1332,9 @@ namespace qe {
                     m_nested_div_z.push_back(z);
                     continue;
                 }
-                unsigned num_args = a->get_num_args();
-                for (unsigned i = 0; i < num_args; ++i) {
-                    todo.push_back(a->get_arg(i));
-                }                
+                for (expr* arg : *a) {
+                    todo.push_back(arg);
+                }
             }              
             return true;
         }

@@ -181,6 +181,7 @@ namespace sat {
             double         m_psat_threshold;
             unsigned       m_conflicts;
             unsigned       m_cutoffs;
+            unsigned       m_backtracks;
             cube_state() { reset(); }
             void reset() { 
                 m_first = true;
@@ -190,7 +191,7 @@ namespace sat {
                 m_psat_threshold = dbl_max;
                 reset_stats();
             }
-            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; }
+            void reset_stats() { m_conflicts = 0; m_cutoffs = 0; m_backtracks = 0;}
             void inc_conflict() { ++m_conflicts; }
             void inc_cutoff() { ++m_cutoffs; }
         };
@@ -198,8 +199,8 @@ namespace sat {
         config                 m_config;
         double                 m_delta_trigger;
         double                 m_delta_decrease;
+        double                 m_delta_fraction;
 
-        drat                   m_drat;
         literal_vector         m_assumptions;
 
         literal_vector         m_trail;         // trail of units
@@ -471,7 +472,7 @@ namespace sat {
         watch_list& get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const& get_wlist(literal l) const { return m_watches[l.index()]; }
 
-        // new clause managment:
+        // new clause management:
         void add_ternary(literal u, literal v, literal w);
         void propagate_ternary(literal l);
         lbool propagate_ternary(literal l1, literal l2);
@@ -558,11 +559,12 @@ namespace sat {
 
         double psat_heur();
 
+        bool should_cutoff(unsigned depth);
+
     public:
         lookahead(solver& s) : 
             m_s(s),
             m_num_vars(s.num_vars()),
-            m_drat(s),
             m_num_tc1(0),
             m_level(2),
             m_last_prefix_length(0),

@@ -1976,6 +1976,22 @@ public class Context implements AutoCloseable {
     {
         return (SeqExpr) Expr.create(this, Native.mkString(nCtx(), s));
     }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public SeqExpr intToString(Expr e) 
+    {
+	return (SeqExpr) Expr.create(this, Native.mkIntToStr(nCtx(), e.getNativeObject()));
+    }
+
+    /**
+     * Convert an integer expression to a string.
+     */
+    public IntExpr stringToInt(Expr e)  
+    {
+	return (IntExpr) Expr.create(this, Native.mkStrToInt(nCtx(), e.getNativeObject()));
+    }
     
     /**
      * Concatenate sequences.
@@ -2157,6 +2173,22 @@ public class Context implements AutoCloseable {
     {
         checkContextMatch(t);
         return (ReExpr) Expr.create(this, Native.mkReIntersect(nCtx(), t.length, AST.arrayToNative(t)));
+    }
+
+    /**
+     * Create the empty regular expression.
+     */
+    public ReExpr mkEmptyRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReEmpty(nCtx(), s.getNativeObject()));
+    }
+
+    /**
+     * Create the full regular expression.
+     */
+    public ReExpr mkFullRe(Sort s) 
+    {
+	return (ReExpr) Expr.create(this, Native.mkReFull(nCtx(), s.getNativeObject()));
     }    
     
     /**
@@ -2505,7 +2537,7 @@ public class Context implements AutoCloseable {
      * with the sorts of the bound variables, {@code names} is an array with the
      * 'names' of the bound variables, and {@code body} is the body of the
      * lambda. 
-     * Note that the bound variables are de-Bruijn indices created using {@see #MkBound}
+     * Note that the bound variables are de-Bruijn indices created using {@link #mkBound}
      * Z3 applies the convention that the last element in {@code names} and
      * {@code sorts} refers to the variable with index 0, the second to last element
      * of {@code names} and {@code sorts} refers to the variable
@@ -3324,7 +3356,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
@@ -3336,7 +3368,7 @@ public class Context implements AutoCloseable {
 
     /**
      * Create a numeral of FloatingPoint sort from an int.
-     * * @param v numeral value.
+     * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/                    
@@ -3348,8 +3380,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/            
@@ -3361,8 +3393,8 @@ public class Context implements AutoCloseable {
     /**
      * Create a numeral of FloatingPoint sort from a sign bit and two 64-bit integers.
      * @param sgn the sign.
-     * @param sig the significand.
      * @param exp the exponent.
+     * @param sig the significand.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
      **/
@@ -3383,7 +3415,7 @@ public class Context implements AutoCloseable {
     }
 
     /**
-     * Create a numeral of FloatingPoint sort from a float.
+     * Create a numeral of FloatingPoint sort from a double.
      * @param v numeral value.
      * @param s FloatingPoint sort.
      * @throws Z3Exception 
@@ -3415,7 +3447,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, int exp, int sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
     /**
@@ -3428,7 +3460,7 @@ public class Context implements AutoCloseable {
      **/                     
     public FPNum mkFP(boolean sgn, long exp, long sig, FPSort s)
     {
-        return mkFPNumeral(sgn, sig, exp, s);
+        return mkFPNumeral(sgn, exp, sig, s);
     }
 
 

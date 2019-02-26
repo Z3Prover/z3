@@ -280,6 +280,8 @@ namespace datalog {
         bool xform_coi() const;
         bool array_blast() const;
         bool array_blast_full() const;
+        bool elim_term_ite() const;
+        unsigned blast_term_ite_inflation() const;
 
         void register_finite_sort(sort * s, sort_kind k);
 
@@ -613,7 +615,7 @@ namespace datalog {
 
         void ensure_engine();
 
-        // auxilary functions for SMT2 pretty-printer.
+        // auxiliary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);
 
         //undefined and private copy constructor and operator=

@@ -25,6 +25,8 @@ public:
     static bool supported_logic(symbol const & s);
     static bool logic_has_reals_only(symbol const& l);       
     static bool logic_is_all(symbol const& s) { return s == "ALL"; }
+    static bool logic_is_csp(symbol const& s) { return s == "CSP"; }
+    static bool logic_is_allcsp(symbol const& s) { return logic_is_all(s) || logic_is_csp(s); }
     static bool logic_has_uf(symbol const& s);
     static bool logic_has_arith(symbol const & s);
     static bool logic_has_bv(symbol const & s);

@@ -65,40 +65,36 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_seq_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_seq(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return mk_c(c)->sutil().is_seq(to_sort(s));
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_re_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_re(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return mk_c(c)->sutil().is_re(to_sort(s));
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
+    bool Z3_API Z3_is_string_sort(Z3_context c, Z3_sort s) {
         Z3_TRY;
         LOG_Z3_is_string_sort(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().is_string(to_sort(s));
-        return result?Z3_TRUE:Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return mk_c(c)->sutil().is_string(to_sort(s));
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_is_string(Z3_context c, Z3_ast s) {
+    bool Z3_API Z3_is_string(Z3_context c, Z3_ast s) {
         Z3_TRY;
         LOG_Z3_is_string(c, s);
         RESET_ERROR_CODE();
-        bool result = mk_c(c)->sutil().str.is_string(to_expr(s));
-        return result?Z3_TRUE:Z3_FALSE;
-        Z3_CATCH_RETURN(Z3_FALSE);
+        return mk_c(c)->sutil().str.is_string(to_expr(s));
+        Z3_CATCH_RETURN(false);
     }
 
     Z3_string Z3_API Z3_get_string(Z3_context c, Z3_ast s) {
@@ -107,11 +103,11 @@ extern "C" {
         RESET_ERROR_CODE();
         zstring str;
         if (!mk_c(c)->sutil().str.is_string(to_expr(s), str)) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
             return "";
         }
-        std::string result = str.encode();
-        return mk_c(c)->mk_external_string(result);
+        std::string s = str.encode();
+        return mk_c(c)->mk_external_string(s);
         Z3_CATCH_RETURN("");
     }
 

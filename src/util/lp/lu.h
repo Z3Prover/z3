@@ -8,7 +8,12 @@ Module Name:
 Abstract:
 
     <abstract>
-
+    for matrix B we have
+    t0*...*tn-1*B = Q*U*R
+    here ti are matrices corresponding to pivot operations,
+    including columns and rows swaps,
+    or a multiplication matrix row by a number
+    Q, R - permutations and U is an upper triangular matrix
 Author:
 
     Lev Nachmanson (levnach)
@@ -24,7 +29,7 @@ Revision History:
 #include "util/debug.h"
 #include <algorithm>
 #include <set>
-#include "util/lp/sparse_matrix.h"
+#include "util/lp/square_sparse_matrix.h"
 #include "util/lp/static_matrix.h"
 #include <string>
 #include "util/lp/numeric_pair.h"
@@ -34,20 +39,15 @@ Revision History:
 #include "util/lp/square_dense_submatrix.h"
 #include "util/lp/dense_matrix.h"
 namespace lp {
-#ifdef Z3DEBUG
 template <typename T, typename X> // print the nr x nc submatrix at the top left corner
-void print_submatrix(sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
+void print_submatrix(square_sparse_matrix<T, X> & m, unsigned mr, unsigned nc);
 
-template<typename T, typename X>
-void print_matrix(static_matrix<T, X> &m, std::ostream & out);
-
-template <typename T, typename X>
-void print_matrix(sparse_matrix<T, X>& m, std::ostream & out);
-#endif
+template <typename M>
+void print_matrix(M &m, std::ostream & out);
 
 template <typename T, typename X>
 X dot_product(const vector<T> & a, const vector<X> & b) {
-    SASSERT(a.size() == b.size());
+    lp_assert(a.size() == b.size());
     auto r = zero_of_type<X>();
     for (unsigned i = 0; i < a.size(); i++) {
         r += a[i] * b[i];
@@ -114,7 +114,7 @@ public:
         m_i = p.apply_reverse(m_i);
 
 #ifdef Z3DEBUG
-        // SASSERT(*this == deb);
+        // lp_assert(*this == deb);
 #endif
     }
 }; // end of one_elem_on_diag
@@ -123,17 +123,20 @@ enum class LU_status { OK, Degenerated};
 
 // This class supports updates of the columns of B, and solves systems Bx=b,and yB=c
 // Using Suhl-Suhl method described in the dissertation of Achim Koberstein, Chapter 5
-template <typename T, typename X>
+template <typename M>
 class lu {
     LU_status m_status;
 public:
+    typedef typename M::coefftype T;
+    typedef typename M::argtype   X;
+    
     // the fields
     unsigned                   m_dim;
-    static_matrix<T, X> const &m_A;
+    const M &                  m_A;
     permutation_matrix<T, X>   m_Q;
     permutation_matrix<T, X>   m_R;
     permutation_matrix<T, X>   m_r_wave;
-    sparse_matrix<T, X>        m_U;
+    square_sparse_matrix<T, X>        m_U;
     square_dense_submatrix<T, X>* m_dense_LU;
     
     vector<tail_matrix<T, X> *> m_tail;
@@ -147,10 +150,11 @@ public:
     // constructor
     // if A is an m by n matrix then basis has length m and values in [0,n); the values are all different
     // they represent the set of m columns
-    lu(static_matrix<T, X> const & A,
+    lu(const M & A,
        vector<unsigned>& basis,
        lp_settings & settings);
-    void debug_test_of_basis(static_matrix<T, X> const & A, vector<unsigned> & basis);
+    lu(const M & A, lp_settings&);
+    void debug_test_of_basis(const M & A, vector<unsigned> & basis);
     void solve_Bd_when_w_is_ready(vector<T> & d, indexed_vector<T>& w );
     void solve_By(indexed_vector<X> & y);
 
@@ -222,7 +226,7 @@ public:
 
     eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j);
     // we're processing the column j now
-    eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, sparse_matrix<T, X>& copy_of_U);
+    eta_matrix<T, X> * get_eta_matrix_for_pivot(unsigned j, square_sparse_matrix<T, X>& copy_of_U);
 
     // see page 407 of Chvatal
     unsigned transform_U_to_V_by_replacing_column(indexed_vector<T> & w, unsigned leaving_column_of_U);
@@ -245,7 +249,7 @@ public:
     }
 
     T B_(unsigned i, unsigned j,  const vector<unsigned>& basis) {
-        return m_A.get_elem(i, basis[j]);
+        return m_A[i][basis[j]];
     }
 
     unsigned dimension() { return m_dim; }
@@ -261,11 +265,13 @@ public:
     void process_column(int j);
 
     bool is_correct(const vector<unsigned>& basis);
+    bool is_correct();
 
 
 #ifdef Z3DEBUG
     dense_matrix<T, X> tail_product();
     dense_matrix<T, X>  get_left_side(const vector<unsigned>& basis);
+    dense_matrix<T, X>  get_left_side();
 
     dense_matrix<T, X>  get_right_side();
 #endif
@@ -306,7 +312,7 @@ public:
     bool need_to_refactor() { return m_refactor_counter >= 200; }
     
     void adjust_dimension_with_matrix_A() {
-        SASSERT(m_A.row_count() >= m_dim);
+        lp_assert(m_A.row_count() >= m_dim);
         m_dim = m_A.row_count();
         m_U.resize(m_dim);
         m_Q.resize(m_dim);
@@ -320,15 +326,15 @@ public:
         unsigned m = m_A.row_count();
         unsigned m_prev = m_U.dimension();
 
-        SASSERT(m_A.column_count() == heading.size());
+        lp_assert(m_A.column_count() == heading.size());
 
         for (unsigned i = m_prev; i < m; i++) {
             for (const row_cell<T> & c : m_A.m_rows[i]) {
-                int h = heading[c.m_j];
+                int h = heading[c.var()];
                 if (h < 0) {
                     continue;
                 }
-                columns_to_replace.insert(c.m_j);
+                columns_to_replace.insert(c.var());
             }
         }
         return columns_to_replace;
@@ -336,14 +342,14 @@ public:
     
     void add_last_rows_to_B(const vector<int> & heading, const std::unordered_set<unsigned> & columns_to_replace) {
         unsigned m = m_A.row_count();
-        SASSERT(m_A.column_count() == heading.size());
+        lp_assert(m_A.column_count() == heading.size());
         adjust_dimension_with_matrix_A();
         m_w_for_extension.resize(m);
         // At this moment the LU is correct      
         // for B extended by only by ones at the diagonal in the lower right corner
 
         for (unsigned j :columns_to_replace) {
-            SASSERT(heading[j] >= 0);
+            lp_assert(heading[j] >= 0);
             replace_column_with_only_change_at_last_rows(j, heading[j]);
             if (get_status() == LU_status::Degenerated)
                 break;
@@ -364,11 +370,14 @@ public:
     
 }; // end of lu
 
-template <typename T, typename X>
-void init_factorization(lu<T, X>* & factorization, static_matrix<T, X> & m_A, vector<unsigned> & m_basis, lp_settings &m_settings);
+template <typename M>
+void init_factorization(lu<M>* & factorization, M & m_A, vector<unsigned> & m_basis, lp_settings &m_settings);
 
 #ifdef Z3DEBUG
-template <typename T, typename X>
-dense_matrix<T, X>  get_B(lu<T, X>& f, const vector<unsigned>& basis);
+template <typename T, typename X, typename M>
+dense_matrix<T, X>  get_B(lu<M>& f, const vector<unsigned>& basis);
+
+template <typename T, typename X, typename M>
+dense_matrix<T, X>  get_B(lu<M>& f);
 #endif
 }

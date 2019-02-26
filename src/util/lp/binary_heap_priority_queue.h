@@ -45,7 +45,7 @@ public:
     unsigned size() const { return m_heap_size; }
     binary_heap_priority_queue(): m_heap(1), m_heap_size(0) {} // the empty constructror
     // n is the initial queue capacity.
-    // The capacity will be enlarged two times automatically if needed
+    // The capacity will be enlarged each time twice if needed
     binary_heap_priority_queue(unsigned n);
 
     void clear() {
@@ -75,11 +75,9 @@ public:
     /// return the first element of the queue and removes it from the queue
     unsigned dequeue();
     unsigned peek() const {
-        SASSERT(m_heap_size > 0);
+        lp_assert(m_heap_size > 0);
         return m_heap[1];
     }
-#ifdef Z3DEBUG
     void print(std::ostream & out);
-#endif
 };
 }

@@ -4,7 +4,6 @@ Copyright (c) 2015 Microsoft Corporation
 
 --*/
 
-#include "util/lp/sparse_matrix.h"
 #include "math/simplex/sparse_matrix_def.h"
 #include "math/simplex/simplex.h"
 #include "math/simplex/simplex_def.h"

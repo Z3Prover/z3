@@ -56,7 +56,7 @@ public:
                         vector<int> & heading,
                         vector<T> & costs,
                         vector<column_type> & column_type_array,
-                        vector<X> & low_bound_values,
+                        vector<X> & lower_bound_values,
                         vector<X> & upper_bound_values,
                         lp_settings & settings,
                         const column_namer & column_names):
@@ -70,7 +70,7 @@ public:
                                   settings,
                                   column_names,
                                   column_type_array,
-                                  low_bound_values,
+                                  lower_bound_values,
                                   upper_bound_values),
         m_can_enter_basis(can_enter_basis),
         m_a_wave(this->m_m()),
@@ -110,7 +110,7 @@ public:
 
     bool done();
 
-    T get_edge_steepness_for_low_bound(unsigned p);
+    T get_edge_steepness_for_lower_bound(unsigned p);
 
     T get_edge_steepness_for_upper_bound(unsigned p);
 
@@ -174,7 +174,7 @@ public:
 
     // it is positive if going from low bound to upper bound and negative if going from upper bound to low bound
     T signed_span_of_boxed(unsigned j) {
-        return this->x_is_at_low_bound(j)? this->bound_span(j): - this->bound_span(j);
+        return this->x_is_at_lower_bound(j)? this->bound_span(j): - this->bound_span(j);
     }
 
     void add_tight_breakpoints_and_q_to_flipped_set();
@@ -207,6 +207,6 @@ public:
 
     void solve();
 
-    bool low_bounds_are_set() const override { return true; }
+    bool lower_bounds_are_set() const override { return true; }
 };
 }

@@ -160,7 +160,7 @@ namespace smt {
     }
 
     void context::display_clause(std::ostream & out, clause const * cls) const {
-        cls->display_compact(out, m_manager, m_bool_var2expr.c_ptr());
+        cls->display_smt2(out, m_manager, m_bool_var2expr.c_ptr());
     }
 
     void context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
@@ -185,11 +185,18 @@ namespace smt {
                         out << "binary clauses:\n";
                         first = false;
                     }
+                    expr_ref t1(m_manager), t2(m_manager);
+                    literal2expr(neg_l1, t1);
+                    literal2expr(l2, t2);
+                    expr_ref disj(m_manager.mk_or(t1, t2), m_manager);
+                    out << disj << "\n";
+#if 0
                     out << "(clause ";
                     display_literal(out, neg_l1);
                     out << " ";
                     display_literal(out, l2);
                     out << ")\n";
+#endif
                 }
             }
         }
@@ -200,6 +207,7 @@ namespace smt {
             out << "current assignment:\n";
             for (literal lit : m_assigned_literals) {
                 display_literal(out, lit);
+                if (!is_relevant(lit)) out << " n ";
                 out << ": ";
                 display_verbose(out, m_manager, 1, &lit, m_bool_var2expr.c_ptr());
                 out << "\n";
@@ -255,7 +263,7 @@ namespace smt {
             for (unsigned i = 0; i < sz; i++) {
                 expr *  n  = m_b_internalized_stack.get(i);
                 bool_var v = get_bool_var_of_id(n->get_id());
-                out << "(#" << n->get_id() << " -> p!" << v << ") ";
+                out << "(#" << n->get_id() << " -> " << literal(v, false) << ") ";
             }
             out << "\n";
         }
@@ -348,9 +356,9 @@ namespace smt {
     }
 
     void context::display_unsat_core(std::ostream & out) const {
-        unsigned sz = m_unsat_core.size();
-        for (unsigned i = 0; i < sz; i++)
-            out << mk_pp(m_unsat_core.get(i), m_manager) << "\n";
+        for (expr* c : m_unsat_core) {
+            out << mk_pp(c, m_manager) << "\n";
+        }
     }
 
     void context::collect_statistics(::statistics & st) const {
@@ -419,23 +427,17 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
-    static unsigned g_lemma_id = 0;
-
-#define BUFFER_SZ 128
-
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents, literal consequent, symbol const& logic) const {
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
+        TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     void context::display_lemma_as_smt_problem(std::ostream & out, unsigned num_antecedents, literal const * antecedents,
@@ -464,21 +466,19 @@ namespace smt {
         visitor.collect(fmls);
         visitor.display_decls(out);
         visitor.display_asserts(out, fmls, true);
+        out << "(check-sat)\n";
     }
 
-    void context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
+    unsigned context::display_lemma_as_smt_problem(unsigned num_antecedents, literal const * antecedents,
                                                unsigned num_eq_antecedents, enode_pair const * eq_antecedents,
                                                literal consequent, symbol const& logic) const {
-        char buffer[BUFFER_SZ];
-#ifdef _WINDOWS
-        sprintf_s(buffer, BUFFER_SZ, "lemma_%d.smt2", g_lemma_id);
-#else
-        sprintf(buffer, "lemma_%d.smt2", g_lemma_id);
-#endif
-        std::ofstream out(buffer);
+        std::stringstream strm;
+        strm << "lemma_" << (++m_lemma_id) << ".smt2";
+        std::ofstream out(strm.str());
+        TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
-        g_lemma_id++;
+        return m_lemma_id;
     }
 
     /**
@@ -563,23 +563,21 @@ namespace smt {
             }
             out << "\n";
             if (is_app(n)) {
-                for (unsigned i = 0; i < to_app(n)->get_num_args(); i++)
-                    todo.push_back(to_app(n)->get_arg(i));
+                for (expr* arg : *to_app(n)) {
+                    todo.push_back(arg);
+                }
             }
         }
     }
 
-    void context::display(std::ostream& out, b_justification j) const {
+    std::ostream& context::display(std::ostream& out, b_justification j) const {
         switch (j.get_kind()) {
         case b_justification::AXIOM:
             out << "axiom";
             break;
-        case b_justification::BIN_CLAUSE: {
-            literal l2 = j.get_literal();
-            out << "bin-clause ";
-            display_literal_verbose(out, l2);
+        case b_justification::BIN_CLAUSE: 
+            out << "bin " << j.get_literal();
             break;
-        }
         case b_justification::CLAUSE: {
             clause * cls = j.get_clause();
             out << "clause ";
@@ -587,17 +585,16 @@ namespace smt {
             break;
         }
         case b_justification::JUSTIFICATION: {
-            out << "justification " << j.get_justification()->get_from_theory() << ": ";
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            display_literals_verbose(out, lits);
+            out << "justification " << j.get_justification()->get_from_theory() << ": " << lits;
             break;
         }
         default:
             UNREACHABLE();
             break;
         }
-        out << "\n";
+        return out << "\n";
     }
 
     void context::trace_assign(literal l, b_justification j, bool decision) const {
@@ -610,6 +607,18 @@ namespace smt {
         out << " ";
         display(out, j);
     }
+
+    std::ostream& operator<<(std::ostream& out, enode_pp const& p) {
+        ast_manager& m = p.ctx.get_manager();
+        enode* n = p.n;
+        return out << "[#" << n->get_owner_id() << " " << mk_bounded_pp(n->get_owner(), m) << "]";
+    }
+
+    std::ostream& operator<<(std::ostream& out, enode_eq_pp const& p) {
+        return out << enode_pp(p.p.first, p.ctx) << " = " << enode_pp(p.p.second, p.ctx) << "\n";
+    }
+
+
 
 };
 

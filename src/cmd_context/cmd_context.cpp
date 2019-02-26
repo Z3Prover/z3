@@ -30,6 +30,7 @@ Notes:
 #include "ast/seq_decl_plugin.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/csp_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/pp.h"
@@ -38,6 +39,7 @@ Notes:
 #include "ast/well_sorted.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/th_rewriter.h"
+#include "ast/rewriter/recfun_replace.h"
 #include "model/model_evaluator.h"
 #include "model/model_smt2_pp.h"
 #include "model/model_v2_pp.h"
@@ -474,7 +476,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_manager(m),
     m_own_manager(m == nullptr),
     m_manager_initialized(false),
-    m_rec_fun_declared(false),
     m_pmanager(nullptr),
     m_sexpr_manager(nullptr),
     m_regular("stdout", std::cout),
@@ -559,25 +560,12 @@ void cmd_context::set_produce_proofs(bool f) {
     m_params.m_proof = f;
 }
 
-void cmd_context::set_produce_interpolants(bool f) {
-    // can only be set before initialization
-    // FIXME currently synonym for produce_proofs
-    // also sets the default solver to be simple smt
-    SASSERT(!has_manager());
-    m_params.m_proof = f;
-    // set_solver_factory(mk_smt_solver_factory());
-}
 
 bool cmd_context::produce_models() const {
     return m_params.m_model;
 }
 
 bool cmd_context::produce_proofs() const {
-    return m_params.m_proof;
-}
-
-bool cmd_context::produce_interpolants() const {
-    // FIXME currently synonym for produce_proofs
     return m_params.m_proof;
 }
 
@@ -679,6 +667,8 @@ bool cmd_context::logic_has_datatype() const {
     return !has_logic() || smt_logics::logic_has_datatype(m_logic);
 }
 
+bool cmd_context::logic_has_recfun() const { return true; }
+
 void cmd_context::init_manager_core(bool new_manager) {
     SASSERT(m_manager != 0);
     SASSERT(m_pmanager != 0);
@@ -691,10 +681,12 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("bv"),       alloc(bv_decl_plugin), logic_has_bv());
         register_plugin(symbol("array"),    alloc(array_decl_plugin), logic_has_array());
         register_plugin(symbol("datatype"), alloc(datatype_decl_plugin), logic_has_datatype());
+        register_plugin(symbol("recfun"),   alloc(recfun::decl::plugin), logic_has_recfun());
         register_plugin(symbol("seq"),      alloc(seq_decl_plugin), logic_has_seq());
         register_plugin(symbol("pb"),       alloc(pb_decl_plugin), logic_has_pb());
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
+        register_plugin(symbol("csp"),      alloc(csp_decl_plugin), smt_logics::logic_is_csp(m_logic));
     }
     else {
         // the manager was created by an external module
@@ -706,9 +698,11 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("bv"),       logic_has_bv(), fids);
         load_plugin(symbol("array"),    logic_has_array(), fids);
         load_plugin(symbol("datatype"), logic_has_datatype(), fids);
+        load_plugin(symbol("recfun"),   logic_has_recfun(), fids);
         load_plugin(symbol("seq"),      logic_has_seq(), fids);
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
+        load_plugin(symbol("csp"),      smt_logics::logic_is_csp(m_logic), fids);
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
             if (p) {
@@ -790,9 +784,11 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
     if (contains_macro(s, f)) {
         throw cmd_exception("invalid declaration, named expression already defined with this name ", s);
     }
+#if 0
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid declaration, builtin symbol ", s);
     }
+#endif
     dictionary<func_decls>::entry * e = m_func_decls.insert_if_not_there2(s, func_decls());
     func_decls & fs = e->get_data().m_value;
     if (!fs.insert(m(), f)) {
@@ -827,9 +823,11 @@ void cmd_context::insert(symbol const & s, psort_decl * p) {
 
 void cmd_context::insert(symbol const & s, unsigned arity, sort *const* domain, expr * t) {
     expr_ref _t(t, m());
+#if 0
     if (m_builtin_decls.contains(s)) {
         throw cmd_exception("invalid macro/named expression, builtin symbol ", s);
     }
+#endif
     if (contains_macro(s, arity, domain)) {
         throw cmd_exception("named expression already defined");
     }
@@ -888,7 +886,20 @@ void cmd_context::model_del(func_decl* f) {
     m_mc0->hide(f);
 }
 
-void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* e) {
+
+recfun::decl::plugin& cmd_context::get_recfun_plugin() {
+    recfun::util u(get_ast_manager());
+    return u.get_plugin();
+}
+
+
+recfun::promise_def cmd_context::decl_rec_fun(const symbol &name, unsigned int arity, sort *const *domain, sort *range) {        
+    SASSERT(logic_has_recfun());
+    return get_recfun_plugin().mk_def(name, arity, domain, range);
+}
+
+// insert a recursive function as a regular quantified axiom
+void cmd_context::insert_rec_fun_as_axiom(func_decl *f, expr_ref_vector const& binding, svector<symbol> const &ids, expr* e) {
     expr_ref eq(m());
     app_ref lhs(m());
     lhs = m().mk_app(f, binding.size(), binding.c_ptr());
@@ -907,19 +918,43 @@ void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, s
         eq  = m().mk_forall(ids.size(), f->get_domain(), ids.c_ptr(), eq, 0, m().rec_fun_qid(), symbol::null, 2, pats);
     }
 
-    //
-    // disable warning given the current way they are used
-    // (Z3 will here silently assume and not check the definitions to be well founded,
-    // and please use HSF for everything else).
-    //
-    if (false && !ids.empty() && !m_rec_fun_declared) {
-        warning_msg("recursive function definitions are assumed well-founded");
-        m_rec_fun_declared = true;
-    }
     assert_expr(eq);
 }
 
+
+void cmd_context::insert_rec_fun(func_decl* f, expr_ref_vector const& binding, svector<symbol> const& ids, expr* rhs) {
+
+    if (gparams::get_value("smt.recfun.native") != "true") {
+        // just use an axiom
+        insert_rec_fun_as_axiom(f, binding, ids, rhs);
+        return;
+    }
+
+    TRACE("recfun", tout<< "define recfun " << f->get_name()  << " = " << mk_pp(rhs, m()) << "\n";);
+
+    recfun::decl::plugin& p = get_recfun_plugin();
+
+    var_ref_vector vars(m());
+    for (expr* b : binding) {
+        SASSERT(is_var(b));
+        vars.push_back(to_var(b));
+    }
+    
+    recfun::promise_def d = p.get_promise_def(f);
+    recfun_replace replace(m());
+    p.set_definition(replace, d, vars.size(), vars.c_ptr(), rhs);
+}
+
 func_decl * cmd_context::find_func_decl(symbol const & s) const {
+    if (contains_macro(s)) {
+        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
+    }
+    func_decls fs;
+    if (m_func_decls.find(s, fs)) {
+        if (fs.more_than_one())
+            throw cmd_exception("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) ", s);
+        return fs.first();
+    }
     builtin_decl d;
     if (m_builtin_decls.find(s, d)) {
         try {
@@ -932,15 +967,6 @@ func_decl * cmd_context::find_func_decl(symbol const & s) const {
         catch (ast_exception &) {
         }
         throw cmd_exception("invalid function declaration reference, must provide signature for builtin symbol ", s);
-    }
-    if (contains_macro(s)) {
-        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
-    }
-    func_decls fs;
-    if (m_func_decls.find(s, fs)) {
-        if (fs.more_than_one())
-            throw cmd_exception("ambiguous function declaration reference, provide full signature to disumbiguate (<symbol> (<sort>*) <sort>) ", s);
-        return fs.first();
     }
     throw cmd_exception("invalid function declaration reference, unknown function ", s);
     return nullptr;
@@ -966,6 +992,18 @@ static builtin_decl const & peek_builtin_decl(builtin_decl const & first, family
 
 func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, unsigned const * indices,
                                         unsigned arity, sort * const * domain, sort * range) const {
+
+    if (domain && contains_macro(s, arity, domain))
+        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
+
+    func_decl * f = nullptr;
+    func_decls fs;
+    if (num_indices == 0 && m_func_decls.find(s, fs)) {
+        f = fs.find(arity, domain, range);
+    }
+    if (f) {
+        return f;
+    }
     builtin_decl d;
     if (domain && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
@@ -990,21 +1028,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
         return f;
     }
-
-    if (domain && contains_macro(s, arity, domain))
-        throw cmd_exception("invalid function declaration reference, named expressions (aka macros) cannot be referenced ", s);
-
-    if (num_indices > 0)
-        throw cmd_exception("invalid indexed function declaration reference, unknown builtin function ", s);
-
-    func_decl * f = nullptr;
-    func_decls fs;
-    if (m_func_decls.find(s, fs)) {
-        f = fs.find(arity, domain, range);
-    }
-    if (f == nullptr)
-        throw cmd_exception("invalid function declaration reference, unknown function ", s);
-    return f;
+    throw cmd_exception("invalid function declaration reference, unknown function ", s);
 }
 
 psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
@@ -1041,29 +1065,6 @@ void cmd_context::mk_const(symbol const & s, expr_ref & result) const {
 
 void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * args, unsigned num_indices, parameter const * indices, sort * range,
                          expr_ref & result) const {
-    builtin_decl d;
-    if (m_builtin_decls.find(s, d)) {
-        family_id fid = d.m_fid;
-        decl_kind k   = d.m_decl;
-        // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
-        if (d.m_decl != 0 && num_args > 0) {
-            builtin_decl const & d2 = peek_builtin_decl(d, m().get_sort(args[0])->get_family_id());
-            fid = d2.m_fid;
-            k   = d2.m_decl;
-        }
-        if (num_indices == 0) {
-            result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-        }
-        else {
-            result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-        }
-        if (result.get() == nullptr)
-            throw cmd_exception("invalid builtin application ", s);
-        CHECK_SORT(result.get());
-        return;
-    }
-    if (num_indices > 0)
-        throw cmd_exception("invalid use of indexed indentifier, unknown builtin function ", s);
     expr* _t;
     if (macros_find(s, num_args, args, _t)) {
         TRACE("macro_bug", tout << "well_sorted_check_enabled(): " << well_sorted_check_enabled() << "\n";
@@ -1079,6 +1080,31 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
 
     func_decls fs;
     if (!m_func_decls.find(s, fs)) {
+
+        builtin_decl d;
+        if (m_builtin_decls.find(s, d)) {
+            family_id fid = d.m_fid;
+            decl_kind k   = d.m_decl;
+            // Hack: if d.m_next != 0, we use the sort of args[0] (if available) to decide which plugin we use.
+            if (d.m_decl != 0 && num_args > 0) {
+                builtin_decl const & d2 = peek_builtin_decl(d, m().get_sort(args[0])->get_family_id());
+                fid = d2.m_fid;
+                k   = d2.m_decl;
+            }
+            if (num_indices == 0) {
+                result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
+            }
+            else {
+                result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
+        }
+            if (result.get() == nullptr)
+                throw cmd_exception("invalid builtin application ", s);
+            CHECK_SORT(result.get());
+            return;
+        }
+        if (num_indices > 0)
+            throw cmd_exception("invalid use of indexed identifier, unknown builtin function ", s);
+        
         if (num_args == 0) {
             throw cmd_exception("unknown constant ", s);
         }
@@ -1088,14 +1114,17 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
 
     if (num_args == 0 && range == nullptr) {
         if (fs.more_than_one())
-            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disumbiguate ", s);
+            throw cmd_exception("ambiguous constant reference, more than one constant with the same sort, use a qualified expression (as <symbol> <sort>) to disambiguate ", s);
         func_decl * f = fs.first();
         if (f == nullptr) {
             throw cmd_exception("unknown constant ", s);
         }
-        if (f->get_arity() != 0)
-            throw cmd_exception("invalid function application, missing arguments ", s);
-        result = m().mk_const(f);
+        if (f->get_arity() != 0) {
+            result = array_util(m()).mk_as_array(f);
+        }
+        else {
+            result = m().mk_const(f);
+        }
     }
     else {
         func_decl * f = fs.find(m(), num_args, args, range);
@@ -1312,7 +1341,7 @@ void cmd_context::assert_expr(expr * t) {
     m().inc_ref(t);
     m_assertions.push_back(t);
     if (produce_unsat_cores())
-        m_assertion_names.push_back(0);
+        m_assertion_names.push_back(nullptr);
     if (m_solver)
         m_solver->assert_expr(t);
 }
@@ -1488,13 +1517,24 @@ void cmd_context::check_sat(unsigned num_assumptions, expr * const * assumptions
         scoped_ctrl_c ctrlc(eh);
         scoped_timer timer(timeout, &eh);
         scoped_rlimit _rlimit(m().limit(), rlimit);
+        expr_ref_vector asms(m());
+        asms.append(num_assumptions, assumptions);
         if (!m_processing_pareto) {
-            ptr_vector<expr> cnstr(m_assertions);
-            cnstr.append(num_assumptions, assumptions);
-            get_opt()->set_hard_constraints(cnstr);
+            expr_ref_vector assertions(m());
+            unsigned sz = m_assertions.size();
+            for (unsigned i = 0; i < sz; ++i) {
+                if (m_assertion_names.size() > i && m_assertion_names[i]) {
+                    asms.push_back(m_assertion_names[i]);
+                    assertions.push_back(m().mk_implies(m_assertion_names[i], m_assertions[i]));
+                }
+                else {
+                    assertions.push_back(m_assertions[i]);
+                }
+            }
+            get_opt()->set_hard_constraints(assertions);
         }
         try {
-            r = get_opt()->optimize();
+            r = get_opt()->optimize(asms);
             if (r == l_true && get_opt()->is_pareto()) {
                 m_processing_pareto = true;
             }
@@ -1697,20 +1737,25 @@ struct contains_underspecified_op_proc {
     struct found {};
     family_id m_array_fid;
     datatype_util m_dt;
+    seq_util m_seq;
+    family_id m_seq_id;
     
-    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m) {}
+    contains_underspecified_op_proc(ast_manager & m):m_array_fid(m.mk_family_id("array")), m_dt(m), m_seq(m), m_seq_id(m_seq.get_family_id()) {}
     void operator()(var * n)        {}
     void operator()(app * n)        {
         if (m_dt.is_accessor(n->get_decl())) 
             throw found();
-        if (n->get_family_id() != m_array_fid)
-            return;
-        decl_kind k = n->get_decl_kind();
-        if (k == OP_AS_ARRAY ||
-            k == OP_STORE ||
-            k == OP_ARRAY_MAP ||
-            k == OP_CONST_ARRAY)
+        if (n->get_family_id() == m_array_fid) {
+            decl_kind k = n->get_decl_kind();
+            if (k == OP_AS_ARRAY ||
+                k == OP_STORE ||
+                k == OP_ARRAY_MAP ||
+                k == OP_CONST_ARRAY)
+                throw found();
+        }
+        if (n->get_family_id() == m_seq_id && m_seq.is_re(n)) {
             throw found();
+        }
     }
     void operator()(quantifier * n) {}
 };
@@ -1802,11 +1847,8 @@ void cmd_context::validate_model() {
         cancel_eh<reslimit> eh(m().limit());
         expr_ref r(m());
         scoped_ctrl_c ctrlc(eh);
-        ptr_vector<expr>::const_iterator it  = begin_assertions();
-        ptr_vector<expr>::const_iterator end = end_assertions();
         bool invalid_model = false;
-        for (; it != end; ++it) {
-            expr * a = *it;
+        for (expr * a : assertions()) {
             if (is_ground(a)) {
                 r = nullptr;
                 evaluator(a, r);
@@ -1825,7 +1867,7 @@ void cmd_context::validate_model() {
                     for_each_expr(contains_underspecified, a);
                     for_each_expr(contains_underspecified, r);
                 }
-                catch (contains_underspecified_op_proc::found) {
+                catch (const contains_underspecified_op_proc::found &) {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
@@ -1840,25 +1882,14 @@ void cmd_context::validate_model() {
     }
 }
 
-// FIXME: really interpolants_enabled ought to be a parameter to the solver factory,
-// but this is a global change, so for now, we use an alternate solver factory
-// for interpolation
 
 void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
     params_ref p;
     m_params.get_solver_params(m(), p, proofs_enabled, models_enabled, unsat_core_enabled);
-    if (produce_interpolants() && m_interpolating_solver_factory) {
-        m_solver = (*m_interpolating_solver_factory)(m(), p, true /* must have proofs */, models_enabled, unsat_core_enabled, m_logic);
-    }
-    else
-        m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
+    m_solver = (*m_solver_factory)(m(), p, proofs_enabled, models_enabled, unsat_core_enabled, m_logic);
 }
 
-void cmd_context::set_interpolating_solver_factory(solver_factory * f) {
-  SASSERT(!has_manager());
-  m_interpolating_solver_factory   = f;
-}
 
 void cmd_context::set_solver_factory(solver_factory * f) {
     m_solver_factory   = f;
@@ -1992,7 +2023,7 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
     if (logic != symbol::null)
         out << "(set-logic " << logic << ")" << std::endl;
     // collect uninterpreted function declarations
-    decl_collector decls(m(), false);
+    decl_collector decls(m());
     for (unsigned i = 0; i < num; i++) {
         decls.visit(assertions[i]);
     }
@@ -2023,8 +2054,8 @@ void cmd_context::slow_progress_sample() {
     svector<symbol> labels;
     m_solver->get_labels(labels);
     regular_stream() << "(labels";
-    for (unsigned i = 0; i < labels.size(); i++) {
-        regular_stream() << " " << labels[i];
+    for (symbol const& s : labels) {
+        regular_stream() << " " << s;
     }
     regular_stream() << "))" << std::endl;
 }
@@ -2053,7 +2084,7 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
             m_owner.insert(a);
         }
     }
-    if (m_owner.m_scopes.size() > 0) {
+    if (!m_owner.m_scopes.empty()) {
         m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);
     }

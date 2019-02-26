@@ -263,7 +263,7 @@ bool quasi_macros::find_macros(unsigned n, expr * const * exprs) {
     m_occurrences.reset();
 
 
-    // Find out how many non-ground appearences for each uninterpreted function there are
+    // Find out how many non-ground appearances for each uninterpreted function there are
     for (unsigned i = 0 ; i < n ; i++)
         find_occurrences(exprs[i]);
 
@@ -301,7 +301,7 @@ bool quasi_macros::find_macros(unsigned n, justified_expr const * exprs) {
     m_occurrences.reset();
     
 
-    // Find out how many non-ground appearences for each uninterpreted function there are    
+    // Find out how many non-ground appearances for each uninterpreted function there are
     for ( unsigned i = 0 ; i < n ; i++ )
         find_occurrences(exprs[i].get_fml());
 

@@ -58,9 +58,14 @@ class mpz;
 class mpq;
 template<bool SYNCH> class mpz_manager;
 template<bool SYNCH> class mpq_manager;
+#ifndef _NO_OMP_
 typedef mpz_manager<true>  synch_mpz_manager;
-typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<true>  synch_mpq_manager;
+#else
+typedef mpz_manager<false>  synch_mpz_manager;
+typedef mpq_manager<false>  synch_mpq_manager;
+#endif
+typedef mpz_manager<false> unsynch_mpz_manager;
 typedef mpq_manager<false> unsynch_mpq_manager;
 
 class mpff_manager {
@@ -213,7 +218,9 @@ public:
        \brief Return the significand as a mpz numeral.
     */
     void significand(mpff const & n, unsynch_mpz_manager & m, mpz & r);
+#ifndef _NO_OMP_
     void significand(mpff const & n, synch_mpz_manager & m, mpz & r);
+#endif
 
     /**
        \brief Return true if n is negative
@@ -378,9 +385,11 @@ public:
     void set(mpff & n, int64_t num, uint64_t den);
     void set(mpff & n, mpff const & v);
     void set(mpff & n, unsynch_mpz_manager & m, mpz const & v);
-    void set(mpff & n, synch_mpz_manager & m, mpz const & v); 
     void set(mpff & n, unsynch_mpq_manager & m, mpq const & v);
+#ifndef _NO_OMP_
     void set(mpff & n, synch_mpq_manager & m, mpq const & v);
+    void set(mpff & n, synch_mpz_manager & m, mpz const & v);
+#endif
     void set_plus_epsilon(mpff & n);
     void set_minus_epsilon(mpff & n);
     void set_max(mpff & n);
@@ -420,6 +429,7 @@ public:
     */
     void to_mpz(mpff const & n, unsynch_mpz_manager & m, mpz & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpz numeral.
        
@@ -428,6 +438,7 @@ public:
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t);
+#endif
 
     /**
        \brief Convert n into a mpq numeral.
@@ -436,13 +447,15 @@ public:
     */
     void to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t);
 
+#ifndef _NO_OMP_
     /**
        \brief Convert n into a mpq numeral.
 
        \remark if exponent(n) is too big, we may run out of memory.
     */
     void to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t);
-    
+#endif
+
     /**
        \brief Return n as an int64.
 

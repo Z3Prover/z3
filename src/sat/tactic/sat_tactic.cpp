@@ -17,12 +17,11 @@ Notes:
 
 --*/
 #include "ast/ast_pp.h"
+#include "model/model_v2_pp.h"
 #include "tactic/tactical.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/sat_solver.h"
-#include "solver/parallel_tactic.h"
-#include "solver/parallel_params.hpp"
-#include "model/model_v2_pp.h"
+#include "sat/sat_params.hpp"
 
 class sat_tactic : public tactic {
 
@@ -30,14 +29,15 @@ class sat_tactic : public tactic {
         ast_manager &   m;
         goal2sat        m_goal2sat;
         sat2goal        m_sat2goal;
-        sat::solver     m_solver;
+        scoped_ptr<sat::solver_core>   m_solver;
         params_ref      m_params;
         
         imp(ast_manager & _m, params_ref const & p):
             m(_m),
-            m_solver(p, m.limit()),
+            m_solver(alloc(sat::solver, p, m.limit())),
             m_params(p) {
             SASSERT(!m.proofs_enabled());
+            updt_params(p);
         }
         
         void operator()(goal_ref const & g, 
@@ -51,7 +51,7 @@ class sat_tactic : public tactic {
             atom2bool_var map(m);
             obj_map<expr, sat::literal> dep2asm;
             sat::literal_vector assumptions;
-            m_goal2sat(*g, m_params, m_solver, map, dep2asm);
+            m_goal2sat(*g, m_params, *m_solver, map, dep2asm);
             TRACE("sat_solver_unknown", tout << "interpreted_atoms: " << map.interpreted_atoms() << "\n";
                   for (auto const& kv : map) {
                       if (!is_uninterp_const(kv.m_key))
@@ -60,15 +60,16 @@ class sat_tactic : public tactic {
             g->reset();
             g->m().compact_memory();
 
-            CASSERT("sat_solver", m_solver.check_invariant());
-            IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver.display_status(verbose_stream()););
-            TRACE("sat_dimacs", m_solver.display_dimacs(tout););
+            CASSERT("sat_solver", m_solver->check_invariant());
+            IF_VERBOSE(TACTIC_VERBOSITY_LVL, m_solver->display_status(verbose_stream()););
+            TRACE("sat_dimacs", m_solver->display_dimacs(tout););
             dep2assumptions(dep2asm, assumptions);
-            lbool r = m_solver.check(assumptions.size(), assumptions.c_ptr());
+            lbool r = m_solver->check(assumptions.size(), assumptions.c_ptr());
+            TRACE("sat", tout << "result of checking: " << r << " " << m_solver->get_reason_unknown() << "\n";);
             if (r == l_false) {
                 expr_dependency * lcore = nullptr;
                 if (produce_core) {
-                    sat::literal_vector const& ucore = m_solver.get_core();
+                    sat::literal_vector const& ucore = m_solver->get_core();
                     u_map<expr*> asm2dep;
                     mk_asm2dep(dep2asm, asm2dep);
                     for (unsigned i = 0; i < ucore.size(); ++i) {
@@ -83,7 +84,7 @@ class sat_tactic : public tactic {
                 // register model
                 if (produce_models) {
                     model_ref md = alloc(model, m);
-                    sat::model const & ll_m = m_solver.get_model();
+                    sat::model const & ll_m = m_solver->get_model();
                     TRACE("sat_tactic", for (unsigned i = 0; i < ll_m.size(); i++) tout << i << ":" << ll_m[i] << " "; tout << "\n";);
                     for (auto const& kv : map) {
                         expr * n   = kv.m_key;
@@ -107,11 +108,11 @@ class sat_tactic : public tactic {
             else {
                 // get simplified problem.
 #if 0
-                IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constains interpreted atoms, recovering formula from sat solver...\"\n";);
+                IF_VERBOSE(TACTIC_VERBOSITY_LVL, verbose_stream() << "\"formula constrains interpreted atoms, recovering formula from sat solver...\"\n";);
 #endif
-                m_solver.pop_to_base_level();
+                m_solver->pop_to_base_level();
                 ref<sat2goal::mc> mc;
-                m_sat2goal(m_solver, map, m_params, *(g.get()), mc);
+                m_sat2goal(*m_solver, map, m_params, *(g.get()), mc);
                 g->add(mc.get());
             }
             g->inc_depth();
@@ -132,13 +133,20 @@ class sat_tactic : public tactic {
                 lit2asm.insert(kv.m_value.index(), kv.m_key);
             }
         }
+
+        void updt_params(params_ref const& p) {
+            m_solver->updt_params(p);
+        }
+
     };
+
     
     struct scoped_set_imp {
         sat_tactic * m_owner; 
 
         scoped_set_imp(sat_tactic * o, imp * i):m_owner(o) {
-            m_owner->m_imp = i;            
+            m_owner->m_imp = i;         
+            m_owner->updt_params(m_owner->m_params);
         }
         
         ~scoped_set_imp() {
@@ -154,6 +162,8 @@ public:
     sat_tactic(ast_manager & m, params_ref const & p):
         m_imp(nullptr),
         m_params(p) {
+        sat_params p1(p);
+        m_params.set_bool("xor_solver", p1.xor_solver());
     }
 
     tactic * translate(ast_manager & m) override {
@@ -166,6 +176,9 @@ public:
 
     void updt_params(params_ref const & p) override {
         m_params = p;
+        sat_params p1(p);
+        m_params.set_bool("xor_solver", p1.xor_solver());
+        if (m_imp) m_imp->updt_params(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {
@@ -180,11 +193,16 @@ public:
         scoped_set_imp set(this, &proc);
         try {
             proc(g, result);
-            proc.m_solver.collect_statistics(m_stats);
+            proc.m_solver->collect_statistics(m_stats);
         }
         catch (sat::solver_exception & ex) {
-            proc.m_solver.collect_statistics(m_stats);
+            proc.m_solver->collect_statistics(m_stats);
             throw tactic_exception(ex.msg());
+        }
+        catch (z3_exception& ex) {
+            (void)ex;
+            TRACE("sat", tout << ex.msg() << "\n";);            
+            throw;
         }
         TRACE("sat_stats", m_stats.display_smt2(tout););
     }

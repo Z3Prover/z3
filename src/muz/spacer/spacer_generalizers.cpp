@@ -50,7 +50,7 @@ namespace{
         contains_array_op_proc(ast_manager &manager) :
             m(manager), m_array_fid(m.mk_family_id("array"))
             {}
-        virtual bool operator()(expr *e) {
+        bool operator()(expr *e) override {
             return is_app(e) && to_app(e)->get_family_id() == m_array_fid;
         }
     };
@@ -107,8 +107,7 @@ void lemma_bool_inductive_generalizer::operator()(lemma_ref &lemma) {
             expand_literals(m, extra_lits);
             SASSERT(extra_lits.size() > 0);
             bool found = false;
-            if (extra_lits.get(0) != lit) {
-                SASSERT(extra_lits.size() > 1);
+            if (extra_lits.get(0) != lit && extra_lits.size() > 1) {
                 for (unsigned j = 0, sz = extra_lits.size(); !found && j < sz; ++j) {
                     cube[i] = extra_lits.get(j);
                     if (pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {

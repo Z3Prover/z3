@@ -123,7 +123,7 @@ extern "C" {
         }
         if (rz == 0) {
             // it is the zero polynomial
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
             return 0;
         }
         av.shrink(rz);
@@ -214,67 +214,67 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_lt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_lt(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).lt(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_gt(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_gt(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).gt(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_le(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_le(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).le(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_ge(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_ge(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).ge(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_eq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_eq(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).eq(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
+    bool Z3_API Z3_rcf_neq(Z3_context c, Z3_rcf_num a, Z3_rcf_num b) {
         Z3_TRY;
         LOG_Z3_rcf_neq(c, a, b);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         return rcfm(c).neq(to_rcnumeral(a), to_rcnumeral(b));
-        Z3_CATCH_RETURN(Z3_FALSE);
+        Z3_CATCH_RETURN(false);
     }
 
-    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, Z3_bool compact, Z3_bool html) {
+    Z3_string Z3_API Z3_rcf_num_to_string(Z3_context c, Z3_rcf_num a, bool compact, bool html) {
         Z3_TRY;
         LOG_Z3_rcf_num_to_string(c, a, compact, html);
         RESET_ERROR_CODE();
         reset_rcf_cancel(c);
         std::ostringstream buffer;
-        rcfm(c).display(buffer, to_rcnumeral(a), compact != 0, html != 0);
+        rcfm(c).display(buffer, to_rcnumeral(a), compact, html);
         return mk_c(c)->mk_external_string(buffer.str());
         Z3_CATCH_RETURN("");
     }

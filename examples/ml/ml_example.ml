@@ -65,8 +65,7 @@ let  model_converter_test ( ctx : context ) =
 	| None -> raise (TestFailedException "")
 	| Some (m) -> 
 	  Printf.printf "Solver says: %s\n" (string_of_status q) ;
-	  Printf.printf "Model: \n%s\n" (Model.to_string m) ;
-	  Printf.printf "Converted Model: \n%s\n" (Model.to_string (convert_model ar 0 m))
+	  Printf.printf "Model: \n%s\n" (Model.to_string m) 
   )
 
 (**
@@ -330,12 +329,14 @@ let _ =
 	let ss = (Symbol.mk_string ctx "mySymbol") in
 	let bs = (Boolean.mk_sort ctx) in
 	let ints = (Integer.mk_sort ctx) in
-	let rs = (Real.mk_sort ctx) in
+        let rs = (Real.mk_sort ctx) in
+	let v = (Arithmetic.Integer.mk_numeral_i ctx 8000000000) in
 	Printf.printf "int symbol: %s\n" (Symbol.to_string is);
 	Printf.printf "string symbol: %s\n" (Symbol.to_string ss);
 	Printf.printf "bool sort: %s\n" (Sort.to_string bs);
 	Printf.printf "int sort: %s\n" (Sort.to_string ints);
 	Printf.printf "real sort: %s\n" (Sort.to_string rs);
+	Printf.printf "integer: %s\n" (Expr.to_string v);
 	basic_tests ctx ;
 	quantifier_example1 ctx ;
 	fpa_example ctx ;

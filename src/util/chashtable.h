@@ -31,6 +31,8 @@ Revision History:
 #include "util/memory_manager.h"
 #include "util/debug.h"
 #include "util/trace.h"
+#include "util/tptr.h"
+#include "util/util.h"
 #ifdef Z3DEBUG
 #include "util/hashtable.h"
 #endif
@@ -54,8 +56,9 @@ protected:
         cell *  m_next;
         T       m_data;
         cell():m_next(reinterpret_cast<cell*>(1)) {}
-        bool is_free() const { return m_next == reinterpret_cast<cell*>(1); }
-        void mark_free() { m_next = reinterpret_cast<cell*>(1); }
+        bool is_free() const { return GET_TAG(m_next) == 1; }
+        void mark_free() { m_next = TAG(cell*, m_next, 1); }
+        void unmark_free() { m_next = UNTAG(cell*, m_next); }
     };
     
     cell *    m_table;         // array of cells.
@@ -70,6 +73,7 @@ protected:
 #endif
     cell *    m_next_cell;   
     cell *    m_free_cell;   
+    cell *    m_tofree_cell;
     
     unsigned get_hash(T const & d) const { return HashProc::operator()(d); }
     bool equals(T const & e1, T const & e2) const { return EqProc::operator()(e1, e2); }
@@ -171,6 +175,7 @@ protected:
                 m_slots      = new_slots;
                 m_next_cell  = next_cell;
                 m_free_cell  = nullptr;
+                m_tofree_cell = nullptr;
                 CASSERT("chashtable", check_invariant());
                 return;
             }
@@ -204,6 +209,12 @@ protected:
         m_free_cell = c;
     }
 
+    void push_recycle_cell(cell* c) {
+        SASSERT(c < m_table + m_capacity);
+        c->m_next = m_tofree_cell;
+        m_tofree_cell = c;
+    }
+
     void init(unsigned slots, unsigned cellar) {
         m_capacity   = slots + cellar;
         m_table      = alloc_table(m_capacity);
@@ -212,6 +223,7 @@ protected:
         m_size       = 0;
         m_next_cell  = m_table + slots;
         m_free_cell  = nullptr;
+        m_tofree_cell = nullptr;
     }
 
 public:

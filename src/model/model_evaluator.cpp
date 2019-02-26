@@ -40,6 +40,7 @@ Revision History:
 struct evaluator_cfg : public default_rewriter_cfg {
     ast_manager &                   m;
     model_core &                    m_model;
+    params_ref                      m_params;
     bool_rewriter                   m_b_rw;
     arith_rewriter                  m_a_rw;
     bv_rewriter                     m_bv_rw;
@@ -55,10 +56,13 @@ struct evaluator_cfg : public default_rewriter_cfg {
     bool                            m_cache;
     bool                            m_array_equalities;
     bool                            m_array_as_stores;
+    obj_map<func_decl, expr*>       m_def_cache;
+    expr_ref_vector                 m_pinned;
 
     evaluator_cfg(ast_manager & m, model_core & md, params_ref const & p):
         m(m),
         m_model(md),
+        m_params(p),
         m_b_rw(m),
         // We must allow customers to set parameters for arithmetic rewriter/evaluator.
         // In particular, the maximum degree of algebraic numbers that will be evaluated.
@@ -70,7 +74,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_pb_rw(m),
         m_f_rw(m),
         m_seq_rw(m),
-        m_ar(m) {
+        m_ar(m),
+        m_pinned(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
         m_a_rw.set_flat(flat);
@@ -200,6 +205,39 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 return BR_REWRITE1;
             }
         }
+#if 1
+        if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f) && m_model_completion) {
+            func_decl* g = nullptr;
+            VERIFY(m_ar.is_as_array(f, g));
+            expr* def = nullptr;
+            quantifier* q = nullptr;
+            proof* def_pr = nullptr;
+            if (m_def_cache.find(g, def)) {
+                result = def;
+                return BR_DONE;
+            }
+            if (get_macro(g, def, q, def_pr)) {
+                sort_ref_vector sorts(m);
+                expr_ref_vector vars(m);
+                svector<symbol> var_names;
+                unsigned sz = g->get_arity();
+                for (unsigned i = 0; i < sz; ++i) {
+                    var_names.push_back(symbol(sz - i - 1));
+                    vars.push_back(m.mk_var(sz - i - 1, g->get_domain(i)));
+                    sorts.push_back(g->get_domain(i));
+                }
+                var_subst subst(m, false);
+                result = subst(def, sorts.size(), vars.c_ptr());
+                result = m.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), result);
+                model_evaluator ev(m_model, m_params);
+                result = ev(result);
+                m_pinned.push_back(result);
+                m_def_cache.insert(g, result);
+                return BR_DONE;
+            }
+        }
+#endif
+
         CTRACE("model_evaluator", st != BR_FAILED, tout << result << "\n";);
         return st;
     }
@@ -222,7 +260,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         }
     }
 
-    bool get_macro(func_decl * f, expr * & def, quantifier * & q, proof * & def_pr) {
+    bool get_macro(func_decl * f, expr * & def, quantifier * & , proof * &) {
 
 #define TRACE_MACRO TRACE("model_evaluator", tout << "get_macro for " << f->get_name() << " (model completion: " << m_model_completion << ")\n";);
 
@@ -626,4 +664,8 @@ bool model_evaluator::eval(expr_ref_vector const& ts, expr_ref& r, bool model_co
     expr_ref tmp(m());
     tmp = mk_and(ts);
     return eval(tmp, r, model_completion);
+}
+
+void model_evaluator::set_solver(expr_solver* solver) {
+    m_imp->m_cfg.m_seq_rw.set_solver(solver);
 }

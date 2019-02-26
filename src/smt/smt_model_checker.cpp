@@ -33,6 +33,7 @@ Revision History:
 #include "smt/smt_context.h"
 #include "smt/smt_model_finder.h"
 #include "model/model_pp.h"
+#include <tuple>
 
 namespace smt {
 
@@ -46,6 +47,7 @@ namespace smt {
         m_model_finder(mf),
         m_max_cexs(1),
         m_iteration_idx(0),
+        m_has_rec_fun(false),
         m_curr_model(nullptr),
         m_pinned_exprs(m) {
     }
@@ -259,7 +261,7 @@ namespace smt {
         try {
             for_each_expr(*this, m_visited, n);
         }
-        catch (is_model_value) {
+        catch (const is_model_value &) {
             return true;
         }
         return false;
@@ -350,9 +352,7 @@ namespace smt {
     bool model_checker::check_rec_fun(quantifier* q, bool strict_rec_fun) {
         TRACE("model_checker", tout << mk_pp(q, m) << "\n";);
         SASSERT(q->get_num_patterns() == 2); // first pattern is the function, second is the body.
-        expr* fn = to_app(q->get_pattern(0))->get_arg(0);
-        SASSERT(is_app(fn));
-        func_decl* f = to_app(fn)->get_decl();
+        func_decl* f = m.get_rec_fun_decl(q);
 
         expr_ref_vector args(m);
         unsigned num_decls = q->get_num_decls();
@@ -383,10 +383,13 @@ namespace smt {
             m_fparams = alloc(smt_params, m_context->get_fparams());
             m_fparams->m_relevancy_lvl = 0; // no relevancy since the model checking problems are quantifier free
             m_fparams->m_case_split_strategy = CS_ACTIVITY; // avoid warning messages about smt.case_split >= 3.
+            m_fparams->m_arith_dump_lemmas = false;
         }
         if (!m_aux_context) {
             symbol logic;
-            m_aux_context = m_context->mk_fresh(&logic, m_fparams.get());
+            params_ref p;
+            p.set_bool("arith.dump_lemmas", false);
+            m_aux_context = m_context->mk_fresh(&logic, m_fparams.get(), p);
         }
     }
 
@@ -429,7 +432,7 @@ namespace smt {
         TRACE("model_checker", tout << "model checker result: " << (num_failures == 0) << "\n";);
         m_max_cexs += m_params.m_mbqi_max_cexs;
 
-        if (num_failures == 0 && !m_context->validate_model()) {
+        if (num_failures == 0 && (!m_context->validate_model() || has_rec_under_quantifiers())) {
             num_failures = 1;
             // this time force expanding recursive function definitions
             // that are not forced true in the current model.
@@ -444,6 +447,43 @@ namespace smt {
                 verbose_stream() << "(smt.mbqi :num-failures " << num_failures << ")\n";
         }
         return num_failures == 0;
+    }
+
+    struct has_rec_fun_proc {
+        obj_hashtable<func_decl>& m_rec_funs;
+        bool m_has_rec_fun;
+
+        bool has_rec_fun() const { return m_has_rec_fun; }
+
+        has_rec_fun_proc(obj_hashtable<func_decl>& rec_funs):
+            m_rec_funs(rec_funs),
+            m_has_rec_fun(false) {}
+
+        void operator()(app* fn) {
+            m_has_rec_fun |= m_rec_funs.contains(fn->get_decl());
+        }
+        void operator()(expr*) {}
+    };
+
+    bool model_checker::has_rec_under_quantifiers() {
+        if (!m_has_rec_fun) {
+            return false;
+        }
+        obj_hashtable<func_decl> rec_funs;
+        for (quantifier * q : *m_qm) {
+            if (m.is_rec_fun_def(q)) {
+                rec_funs.insert(m.get_rec_fun_decl(q));
+            }            
+        }
+        expr_fast_mark1 visited;
+        has_rec_fun_proc proc(rec_funs);
+        for (quantifier * q : *m_qm) {
+            if (!m.is_rec_fun_def(q)) {
+                quick_for_each_expr(proc, visited, q);
+                if (proc.has_rec_fun()) return true;
+            }            
+        }
+        return false;
     }
 
     // 
@@ -475,6 +515,7 @@ namespace smt {
             }
             found_relevant = true;
             if (m.is_rec_fun_def(q)) {
+                m_has_rec_fun = true;
                 if (!check_rec_fun(q, strict_rec_fun)) {
                     TRACE("model_checker", tout << "checking recursive function failed\n";);
                     num_failures++;
@@ -518,7 +559,7 @@ namespace smt {
     void model_checker::assert_new_instances() {
         TRACE("model_checker_bug_detail", tout << "assert_new_instances, inconsistent: " << m_context->inconsistent() << "\n";);
         ptr_buffer<enode> bindings;
-        ptr_vector<enode> dummy;
+        vector<std::tuple<enode *, enode *>> dummy;
         for (instance const& inst : m_new_instances) {
             quantifier * q  = inst.m_q;
             if (m_context->b_internalized(q)) {
@@ -536,7 +577,7 @@ namespace smt {
                 }
 
                 if (inst.m_def) {
-                    m_context->internalize_assertion(inst.m_def, 0, gen);
+                    m_context->internalize_assertion(inst.m_def, nullptr, gen);
                 }
                 
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";

@@ -482,13 +482,12 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::mk_idiv_mod_axioms(expr * dividend, expr * divisor) {
+        th_rewriter & s  = get_context().get_rewriter();
         if (!m_util.is_zero(divisor)) {
             ast_manager & m = get_manager();
-            bool is_numeral = m_util.is_numeral(divisor);
             // if divisor is zero, then idiv and mod are uninterpreted functions.
             expr_ref div(m), mod(m), zero(m), abs_divisor(m), one(m);
             expr_ref eqz(m), eq(m), lower(m), upper(m);
-            th_rewriter & s  = get_context().get_rewriter();
             div         = m_util.mk_idiv(dividend, divisor);
             mod         = m_util.mk_mod(dividend, divisor);
             zero        = m_util.mk_int(0);
@@ -504,11 +503,22 @@ namespace smt {
                   tout << "lower: " << lower << "\n";
                   tout << "upper: " << upper << "\n";);
 
-            mk_axiom(eqz, eq, !is_numeral);
-            mk_axiom(eqz, lower, !is_numeral);
-            mk_axiom(eqz, upper, !is_numeral);
+            mk_axiom(eqz, eq,    false);
+            mk_axiom(eqz, lower, false);
+            mk_axiom(eqz, upper, !m_util.is_numeral(abs_divisor));
             rational k;
             context& ctx = get_context();
+
+            if (!m_util.is_numeral(divisor)) {
+                // (=> (> y 0) (<= (* y (div x y)) x))
+                // (=> (< y 0) ???)
+                expr_ref div_ge(m), div_non_pos(m);
+                div_ge = m_util.mk_ge(m_util.mk_sub(dividend, m_util.mk_mul(divisor, div)), zero);
+                s(div_ge);
+                div_non_pos = m_util.mk_le(divisor, zero);
+                mk_axiom(div_non_pos, div_ge, false);
+            }
+
             (void)ctx;
             if (m_params.m_arith_enum_const_mod && m_util.is_numeral(divisor, k) &&
                 k.is_pos() && k < rational(8)) {
@@ -543,6 +553,7 @@ namespace smt {
                 }
 #endif
             }
+
 #if 0
             // e-matching is too restrictive for multiplication.
             // also suffers from use-after free so formulas have to be pinned in solver.
@@ -1708,7 +1719,7 @@ namespace smt {
 
     template<typename Ext>
     theory* theory_arith<Ext>::mk_fresh(context* new_ctx) {
-        return alloc(theory_arith<Ext>, new_ctx->get_manager(), m_params);
+        return alloc(theory_arith<Ext>, new_ctx->get_manager(), new_ctx->get_fparams());
     }
 
     template<typename Ext>
@@ -1853,10 +1864,7 @@ namespace smt {
     void theory_arith<Ext>::restore_assignment() {
         CASSERT("arith", valid_row_assignment());
         TRACE("restore_assignment_bug", tout << "START restore_assignment...\n";);
-        typename svector<unsigned>::iterator it  = m_update_trail_stack.begin();
-        typename svector<unsigned>::iterator end = m_update_trail_stack.end();
-        for(; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : m_update_trail_stack) {
             TRACE("restore_assignment_bug", tout << "restoring v" << v << " <- " << m_old_value[v] << "\n";);
             SASSERT(!is_quasi_base(v));
             SASSERT(m_in_update_trail_stack.contains(v));
@@ -2237,11 +2245,7 @@ namespace smt {
         theory_var  best = null_theory_var;
         inf_numeral best_error;
         inf_numeral curr_error;
-        typename var_heap::iterator it  = m_to_patch.begin();
-        typename var_heap::iterator end = m_to_patch.end();
-        //unsigned n = 0;
-        for (; it != end; ++it) {
-            theory_var v = *it;
+        for (theory_var v : m_to_patch) {
             if (below_lower(v))
                 curr_error = lower(v)->get_value() - get_value(v);
             else if (above_upper(v))
@@ -2391,10 +2395,11 @@ namespace smt {
 
         TRACE("sign_row_conflict", tout << "v" << x_i << " is_below: " << is_below << " delta: " << delta << "\n"; display_var(tout, x_i);
               tout << "is_below_lower: " << below_lower(x_i) << ", is_above_upper: " << above_upper(x_i) << "\n";
+              display_row(tout, r, true);
+              display_row(tout, r, false);
               ante.display(tout););
 
         set_conflict(ante, ante, "farkas");
-        // display_bounds_in_smtlib();
     }
 
     // -----------------------------------
@@ -2535,10 +2540,9 @@ namespace smt {
         antecedents ante(*this);
         b1->push_justification(ante, numeral(1), coeffs_enabled());
         b2->push_justification(ante, numeral(1), coeffs_enabled());
-
-        set_conflict(ante, ante, "farkas");
         TRACE("arith_conflict", tout << "bound conflict v" << b1->get_var() << "\n";
               tout << "bounds: " << b1 << " " << b2 << "\n";);
+        set_conflict(ante, ante, "farkas");
     }
 
     // -----------------------------------
@@ -2771,8 +2775,10 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::explain_bound(row const & r, int idx, bool is_lower, inf_numeral & delta, antecedents& ante) {
         SASSERT(delta >= inf_numeral::zero());
-        if (!relax_bounds() && (!ante.lits().empty() || !ante.eqs().empty()))
+        TRACE("arith_conflict", tout << "relax: " << relax_bounds() << " lits: " << ante.lits().size() << " eqs: " << ante.eqs().size() << " idx: " << idx << "\n";);
+        if (!relax_bounds() && (!ante.lits().empty() || !ante.eqs().empty())) {
             return;
+        }
         context & ctx = get_context();
         row_entry const & entry = r[idx];
         numeral           coeff = entry.m_coeff;
@@ -2790,9 +2796,11 @@ namespace smt {
             if (!it->is_dead() && idx != idx2) {
                 bound * b  = get_bound(it->m_var, is_lower ? it->m_coeff.is_pos() : it->m_coeff.is_neg());
                 SASSERT(b);
-                if (!b->has_justification())
+                if (!b->has_justification()) {
                     continue;
+                }
                 if (!relax_bounds() || delta.is_zero()) {
+                    TRACE("propagate_bounds", tout << "push justification: v" << it->m_var << "\n";);
                     b->push_justification(ante, it->m_coeff, coeffs_enabled());
                     continue;
                 }
@@ -2821,10 +2829,7 @@ namespace smt {
                 inf_numeral k_2 = k_1;
                 atom * new_atom = nullptr;
                 atoms const & as           = m_var_occs[it->m_var];
-                typename atoms::const_iterator it  = as.begin();
-                typename atoms::const_iterator end = as.end();
-                for (; it != end; ++it) {
-                    atom * a    = *it;
+                for (atom * a : as) {
                     if (a == b)
                         continue;
                     bool_var bv = a->get_bool_var();
@@ -2880,10 +2885,7 @@ namespace smt {
         atoms const & as                 = m_var_occs[v];
         inf_numeral const & epsilon      = get_epsilon(v);
         inf_numeral delta;
-        typename atoms::const_iterator     it  = as.begin();
-        typename atoms::const_iterator     end = as.end();
-        for (; it != end; ++it) {
-            atom * a = *it;
+        for (atom* a : as) {
             bool_var bv = a->get_bool_var();
             literal  l(bv);
             if (get_context().get_assignment(bv) == l_undef) {
@@ -2954,6 +2956,7 @@ namespace smt {
             TRACE("arith", ante.display(tout) << " --> "; ctx.display_detailed_literal(tout, l); tout << "\n";);
             ctx.display_lemma_as_smt_problem(ante.lits().size(), ante.lits().c_ptr(),
                                              ante.eqs().size(), ante.eqs().c_ptr(), l);
+
         }
     }
 
@@ -2972,12 +2975,13 @@ namespace smt {
         context & ctx = get_context();
         antecedents ante(*this);
         explain_bound(r, idx, is_lower, delta, ante);
-        dump_lemmas(l, ante);
 
         TRACE("propagate_bounds",
               ante.display(tout) << " --> ";
               ctx.display_detailed_literal(tout, l);
               tout << "\n";);
+        dump_lemmas(l, ante);
+
         if (ante.lits().size() < small_lemma_size() && ante.eqs().empty()) {
             literal_vector & lits = m_tmp_literal_vector2;
             lits.reset();
@@ -3060,14 +3064,14 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(antecedents const& ante, antecedents& bounds, char const* proof_rule) {
-        dump_lemmas(false_literal, ante);
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), bounds, proof_rule);
+        dump_lemmas(false_literal, ante);
     }
 
     template<typename Ext>
     void theory_arith<Ext>::set_conflict(derived_bound const& ante, antecedents& bounds, char const* proof_rule) {
-        dump_lemmas(false_literal, ante);
         set_conflict(ante.lits().size(), ante.lits().c_ptr(), ante.eqs().size(), ante.eqs().c_ptr(), bounds, proof_rule);
+        dump_lemmas(false_literal, ante);
     }
 
     template<typename Ext>
@@ -3136,7 +3140,7 @@ namespace smt {
     //
     // 1) Handling inequalities: (n1, k1) <= (n2, k2)
     //
-    // The only intersting case is n1 < n2 and k1 > k2.
+    // The only interesting case is n1 < n2 and k1 > k2.
     // Using the definition of infinitesimal numbers
     // we have:
     // n1 + k1 * epsilon <= n2 + k2 - epsilon
@@ -3308,6 +3312,20 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         bound* b = (v == null_theory_var) ? nullptr : upper(v);
         return b && to_expr(b->get_value(), is_int(v), r);
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_lower(enode * n, rational& r, bool& is_strict) {
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? nullptr : lower(v);
+        return b && (r = b->get_value().get_rational().to_rational(), is_strict = b->get_value().get_infinitesimal().is_pos(), true);
+    }
+
+    template<typename Ext>
+    bool theory_arith<Ext>::get_upper(enode * n, rational& r, bool& is_strict) {
+        theory_var v = n->get_th_var(get_id());
+        bound* b = (v == null_theory_var) ? nullptr : upper(v);
+        return b && (r = b->get_value().get_rational().to_rational(), is_strict = b->get_value().get_infinitesimal().is_neg(), true);
     }
 
     // -----------------------------------
@@ -3526,7 +3544,7 @@ namespace smt {
     }
 
     /**
-       \brief reset and retrieve built-in explanation hints for arithmetic lemmmas.
+       \brief reset and retrieve built-in explanation hints for arithmetic lemmas.
     */
 
     template<typename Ext>

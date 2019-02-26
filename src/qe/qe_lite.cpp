@@ -394,7 +394,7 @@ namespace eq {
             expr* const* args = &e;
             if (is_lambda(q)) {
                 r = q;
-                pr = 0;
+                pr = nullptr;
                 return;
             }
             flatten_args(q, num_args, args);
@@ -1816,7 +1816,7 @@ namespace fm {
         }
 
         // An integer variable x may be eliminated, if
-        //   1- All variables in the contraints it occur are integer.
+        //   1- All variables in the constraints it occur are integer.
         //   2- The coefficient of x in all lower bounds (or all upper bounds) is unit.
         bool can_eliminate(var x) const {
             if (!is_int(x))
@@ -2370,6 +2370,7 @@ void qe_lite::operator()(uint_set const& index_set, bool index_of_bound, expr_re
     (*m_impl)(index_set, index_of_bound, fmls);
 }
 
+namespace {
 class qe_lite_tactic : public tactic {
 
     struct imp {
@@ -2494,7 +2495,6 @@ public:
         (*m_imp)(in, result);
     }
 
-
     void collect_statistics(statistics & st) const override {
         // m_imp->collect_statistics(st);
     }
@@ -2503,14 +2503,14 @@ public:
         // m_imp->reset_statistics();
     }
 
-
     void cleanup() override {
         ast_manager & m = m_imp->m;
-        dealloc(m_imp);
-        m_imp = alloc(imp, m, m_params);
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(m, m_params);
     }
 
 };
+}
 
 tactic * mk_qe_lite_tactic(ast_manager & m, params_ref const & p) {
     return alloc(qe_lite_tactic, m, p);

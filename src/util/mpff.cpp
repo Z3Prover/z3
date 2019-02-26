@@ -376,9 +376,11 @@ void mpff_manager::set(mpff & n, unsynch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v); 
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::set(mpff & n, synch_mpz_manager & m, mpz const & v) { 
     set_core(n, m, v); 
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::set_core(mpff & n, mpq_manager<SYNCH> & m, mpq const & v) {
@@ -397,9 +399,11 @@ void mpff_manager::set(mpff & n, unsynch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v); 
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::set(mpff & n, synch_mpq_manager & m, mpq const & v) { 
     set_core(n, m, v); 
 }
+#endif
 
 bool mpff_manager::eq(mpff const & a, mpff const & b) const {
     if (is_zero(a) && is_zero(b))
@@ -1070,16 +1074,18 @@ bool mpff_manager::is_power_of_two(mpff const & a) const {
 
 template<bool SYNCH>
 void mpff_manager::significand_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) {
-    m.set(t, m_precision, sig(n));
+    m.set_digits(t, m_precision, sig(n));
 }
 
 void mpff_manager::significand(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
     significand_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::significand(mpff const & n, synch_mpz_manager & m, mpz & t) {
     significand_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::to_mpz_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) {
@@ -1090,10 +1096,10 @@ void mpff_manager::to_mpz_core(mpff const & n, mpz_manager<SYNCH> & m, mpz & t) 
         to_buffer(0, n);
         unsigned * b = m_buffers[0].c_ptr();
         shr(m_precision, b, -exp, m_precision, b);
-        m.set(t, m_precision, b);
+        m.set_digits(t, m_precision, b);
     }
     else {
-        m.set(t, m_precision, sig(n));
+        m.set_digits(t, m_precision, sig(n));
         if (exp > 0) {
             _scoped_numeral<mpz_manager<SYNCH> > p(m);
             m.set(p, 2);
@@ -1109,9 +1115,11 @@ void mpff_manager::to_mpz(mpff const & n, unsynch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::to_mpz(mpff const & n, synch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpff_manager::to_mpq_core(mpff const & n, mpq_manager<SYNCH> & m, mpq & t) {
@@ -1154,9 +1162,11 @@ void mpff_manager::to_mpq(mpff const & n, unsynch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpff_manager::to_mpq(mpff const & n, synch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
+#endif
 
 void mpff_manager::display_raw(std::ostream & out, mpff const & n) const {
     if (is_neg(n))

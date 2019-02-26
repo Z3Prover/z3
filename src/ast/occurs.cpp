@@ -58,7 +58,7 @@ bool occurs(expr * n1, expr * n2) {
     try {
         quick_for_each_expr(p, n2);
     }
-    catch (occurs_namespace::found) {
+    catch (const occurs_namespace::found &) {
         return true;
     }
     return false;
@@ -69,7 +69,7 @@ bool occurs(func_decl * d, expr * n) {
     try {
         quick_for_each_expr(p, n);
     }
-    catch (occurs_namespace::found) {
+    catch (const occurs_namespace::found &) {
         return true;
     }
     return false;

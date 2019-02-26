@@ -272,9 +272,11 @@ void mpfx_manager::set(mpfx & n, unsynch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::set(mpfx & n, synch_mpz_manager & m, mpz const & v) {
     set_core(n, m, v);
 }
+#endif
 
 template<bool SYNCH>
 void mpfx_manager::set_core(mpfx & n, mpq_manager<SYNCH> & m, mpq const & v) {
@@ -309,9 +311,11 @@ void mpfx_manager::set(mpfx & n, unsynch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::set(mpfx & n, synch_mpq_manager & m, mpq const & v) {
     set_core(n, m, v);
 }
+#endif
 
 bool mpfx_manager::eq(mpfx const & a, mpfx const & b) const {
     if (is_zero(a) && is_zero(b))
@@ -705,7 +709,7 @@ template<bool SYNCH>
 void mpfx_manager::to_mpz_core(mpfx const & n, mpz_manager<SYNCH> & m, mpz & t) {
     SASSERT(is_int(n));
     unsigned * w = words(n);
-    m.set(t, m_int_part_sz, w+m_frac_part_sz);
+    m.set_digits(t, m_int_part_sz, w+m_frac_part_sz);
     if (is_neg(n))
         m.neg(t);
 }
@@ -714,9 +718,11 @@ void mpfx_manager::to_mpz(mpfx const & n, unsynch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::to_mpz(mpfx const & n, synch_mpz_manager & m, mpz & t) {
     to_mpz_core(n, m, t);
 }
+#endif
 
 template<bool SYNCH>
 void mpfx_manager::to_mpq_core(mpfx const & n, mpq_manager<SYNCH> & m, mpq & t) {
@@ -738,9 +744,11 @@ void mpfx_manager::to_mpq(mpfx const & n, unsynch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
 
+#ifndef _NO_OMP_
 void mpfx_manager::to_mpq(mpfx const & n, synch_mpq_manager & m, mpq & t) {
     to_mpq_core(n, m, t);
 }
+#endif
 
 void mpfx_manager::display_raw(std::ostream & out, mpfx const & n) const {
     if (is_neg(n))

@@ -1,4 +1,4 @@
-# Continous integration scripts
+# Continuous integration scripts
 
 ## TravisCI
 
@@ -45,7 +45,7 @@ the future.
 * `Z3_VERBOSE_BUILD_OUTPUT` - Show compile commands in CMake builds (`0` or `1`)
 * `Z3_STATIC_BUILD` - Build Z3 binaries and libraries statically (`0` or `1`)
 * `Z3_SYSTEM_TEST_GIT_REVISION` - Git revision of [z3test](https://github.com/Z3Prover/z3test). If empty lastest revision will be used.
-* `Z3_WARNINGS_AS_ERRORS` - Set the `WARNINGS_AS_ERRORS` CMake option pased to Z3 (`OFF`, `ON`, or `SERIOUS_ONLY`)
+* `Z3_WARNINGS_AS_ERRORS` - Set the `WARNINGS_AS_ERRORS` CMake option passed to Z3 (`OFF`, `ON`, or `SERIOUS_ONLY`)
 
 ### Linux
 

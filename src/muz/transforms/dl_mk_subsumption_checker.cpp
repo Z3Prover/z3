@@ -45,7 +45,7 @@ namespace datalog {
 
         unsigned pt_len = r->get_positive_tail_size();
         if(pt_len != r->get_uninterpreted_tail_size()) {
-            // we dont' expect rules with negative tails to be total
+            // we don't expect rules with negative tails to be total
             return false;
         }
 
@@ -97,7 +97,7 @@ namespace datalog {
     void mk_subsumption_checker::scan_for_total_rules(const rule_set & rules) {
         bool new_discovered;
         //we cycle through the rules until we keep discovering new total relations
-        //(discovering a total relation migh reveal other total relations)
+        //(discovering a total relation might reveal other total relations)
         do {
             new_discovered = false;
             rule_set::iterator rend = rules.end();

@@ -95,7 +95,7 @@ namespace sat {
                         IF_VERBOSE(0, display(verbose_stream() << "violated ate\n", *it) << "\n");
                         IF_VERBOSE(0, for (unsigned v = 0; v < m.size(); ++v) verbose_stream() << v << " := " << m[v] << "\n";);
                         IF_VERBOSE(0, display(verbose_stream()));
-                        exit(0);
+                        UNREACHABLE();
                         first = false;
                     }
                     if (!sat && it->get_kind() != ATE && v0 != null_bool_var) {     
@@ -264,7 +264,7 @@ namespace sat {
     }
 
     void model_converter::insert(entry & e, literal_vector const& c) {
-        SASSERT(c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
+        SASSERT(e.var() == null_bool_var || c.contains(literal(e.var(), false)) || c.contains(literal(e.var(), true)));
         SASSERT(m_entries.begin() <= &e);
         SASSERT(&e < m_entries.end());
         for (literal l : c) e.m_clauses.push_back(l);

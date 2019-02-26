@@ -88,7 +88,7 @@ bool iuc_proof::is_core_pure(expr* e) const
     try {
         for_each_expr(proc, e);
     }
-    catch (is_pure_expr_proc::non_pure)
+    catch (const is_pure_expr_proc::non_pure &)
     {return false;}
 
     return true;

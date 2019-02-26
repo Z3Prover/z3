@@ -114,6 +114,27 @@ namespace qe {
         expr_ref_vector solve();
         expr_ref_vector project(model &mdl);
 
+        /**
+         * Return disequalities to ensure that disequalities between 
+         * excluded functions are preserved.
+         * For example if f(a) = b, f(c) = d, and b and d are not 
+         * congruent, then produce the disequality a != c.
+         */
+        expr_ref_vector get_ackerman_disequalities();
+
+        /**
+         * Produce a model-based partition.
+         */
+        vector<expr_ref_vector> get_partition(model& mdl);
+
+        /**
+         * Extract shared occurrences of terms whose sort are 
+         * fid, but appear in a context that is not fid.
+         * for example f(x + y) produces the shared occurrence
+         * x + y when f is uninterpreted and x + y has sort Int or Real.
+         */
+        expr_ref_vector shared_occurrences(family_id fid);
+
     };
 
 }

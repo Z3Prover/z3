@@ -134,16 +134,12 @@ void test_sorting3() {
     for (unsigned i = 0; i < 7; ++i) {
         in.push_back(m.mk_fresh_const("a",m.mk_bool_sort()));
     }
-    for (unsigned i = 0; i < in.size(); ++i) {
-        std::cout << mk_pp(in[i].get(), m) << "\n";
-    }
+    for (expr* e : in) std::cout << mk_pp(e, m) << "\n";
     ast_ext aext(m);
     sorting_network<ast_ext> sn(aext);
     sn(in, out);
     std::cout << "size: " << out.size() << "\n";
-    for (unsigned i = 0; i < out.size(); ++i) {
-        std::cout << mk_pp(out[i].get(), m) << "\n";
-    }
+    for (expr* e : out) std::cout << mk_pp(e, m) << "\n";
 }
 
 
@@ -162,10 +158,12 @@ struct ast_ext2 {
 
     pliteral mk_false() { return m.mk_false(); }
     pliteral mk_true() { return m.mk_true(); }
-    pliteral mk_max(pliteral a, pliteral b) {
-        return trail(m.mk_or(a, b));
+    pliteral mk_max(unsigned n, pliteral const* lits) {
+        return trail(m.mk_or(n, lits));
     }
-    pliteral mk_min(pliteral a, pliteral b) { return trail(m.mk_and(a, b)); }
+    pliteral mk_min(unsigned n, pliteral const* lits) {
+        return trail(m.mk_and(n, lits));
+    }
     pliteral mk_not(pliteral a) { if (m.is_not(a,a)) return a;
         return trail(m.mk_not(a));
     }
@@ -199,8 +197,8 @@ static void test_eq1(unsigned n, sorting_network_encoding enc) {
     // equality:
     solver.push();
     result1 = sn.eq(true, 1, in.size(), in.c_ptr());
-    for (expr* cl : ext.m_clauses) {
-        solver.assert_expr(cl);
+    for (expr* cls : ext.m_clauses) {
+        solver.assert_expr(cls);
     }
     expr_ref_vector ors(m);
     for (unsigned i = 0; i < n; ++i) {
@@ -245,12 +243,15 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
     std::cout << "eq " << k << " out of " << n << " for encoding " << enc << "\n";
     solver.push();
     result = sn.eq(false, k, in.size(), in.c_ptr());
-    std::cout << result << "\n" << ext.m_clauses << "\n";
     solver.assert_expr(result);
     for (expr* cl : ext.m_clauses) {
         solver.assert_expr(cl);
     }
     lbool res = solver.check();
+    if (res != l_true) {
+        std::cout << res << "\n";
+        solver.display(std::cout);
+    }
     ENSURE(res == l_true);
 
     solver.push();
@@ -258,6 +259,9 @@ static void test_sorting_eq(unsigned n, unsigned k, sorting_network_encoding enc
         solver.assert_expr(in[i].get());
     }
     res = solver.check();
+    if (res != l_true) {
+        std::cout << result << "\n" << ext.m_clauses << "\n";
+    }
     ENSURE(res == l_true);
     solver.assert_expr(in[k].get());
     res = solver.check();
@@ -295,16 +299,26 @@ static void test_sorting_le(unsigned n, unsigned k, sorting_network_encoding enc
     solver.push();
     result = sn.le(false, k, in.size(), in.c_ptr());
     solver.assert_expr(result);
-    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
-        solver.assert_expr(ext.m_clauses[i].get());
+    for (expr* cls : ext.m_clauses) {
+        solver.assert_expr(cls);
     }
     lbool res = solver.check();
+    if (res != l_true) {
+        std::cout << res << "\n";
+        solver.display(std::cout);
+        std::cout << "clauses: " << ext.m_clauses << "\n";
+        std::cout << "result: " << result << "\n";
+    }
     ENSURE(res == l_true);
 
     for (unsigned i = 0; i < k; ++i) {
         solver.assert_expr(in[i].get());
     }
     res = solver.check();
+    if (res != l_true) {
+        std::cout << res << "\n";
+        solver.display(std::cout);
+    }
     ENSURE(res == l_true);
     solver.assert_expr(in[k].get());
     res = solver.check();
@@ -343,8 +357,8 @@ void test_sorting_ge(unsigned n, unsigned k, sorting_network_encoding enc) {
     solver.push();
     result = sn.ge(false, k, in.size(), in.c_ptr());
     solver.assert_expr(result);
-    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
-        solver.assert_expr(ext.m_clauses[i].get());
+    for (expr* cls : ext.m_clauses) {
+        solver.assert_expr(cls);
     }
     lbool res = solver.check();
     ENSURE(res == l_true);
@@ -407,13 +421,13 @@ void test_at_most_1(unsigned n, bool full, sorting_network_encoding enc) {
 
 
     std::cout << "clauses: " << ext.m_clauses << "\n-----\n";
-    std::cout << "encoded: " << result1 << "\n";
-    std::cout << "naive: " << result2 << "\n";
+    //std::cout << "encoded: " << result1 << "\n";
+    //std::cout << "naive: " << result2 << "\n";
 
     smt_params fp;
     smt::kernel solver(m, fp);
-    for (unsigned i = 0; i < ext.m_clauses.size(); ++i) {
-        solver.assert_expr(ext.m_clauses[i].get());
+    for (expr* cls : ext.m_clauses) {
+        solver.assert_expr(cls);
     }
     if (full) {
         solver.push();
@@ -481,8 +495,8 @@ static void test_at_most1(sorting_network_encoding enc) {
     sn.cfg().m_encoding = enc;
     expr_ref result(m);
     result = sn.le(true, 1, in.size(), in.c_ptr());
-    std::cout << result << "\n";
-    std::cout << ext.m_clauses << "\n";
+    //std::cout << result << "\n";
+    //std::cout << ext.m_clauses << "\n";
 }
 
 static void test_sorting5(sorting_network_encoding enc) {
@@ -509,9 +523,11 @@ static void tst_sorting_network(sorting_network_encoding enc) {
 }
 
 void tst_sorting_network() {
-    tst_sorting_network(sorting_network_encoding::ordered_at_most_1);
-    tst_sorting_network(sorting_network_encoding::grouped_at_most_1);
-    tst_sorting_network(sorting_network_encoding::bimander_at_most_1);
+    tst_sorting_network(sorting_network_encoding::unate_at_most);
+    tst_sorting_network(sorting_network_encoding::circuit_at_most);
+    tst_sorting_network(sorting_network_encoding::ordered_at_most);
+    tst_sorting_network(sorting_network_encoding::grouped_at_most);
+    tst_sorting_network(sorting_network_encoding::bimander_at_most);
     test_sorting1();
     test_sorting2();
     test_sorting3();

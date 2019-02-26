@@ -237,10 +237,12 @@ struct check_logic::imp {
                 return;
             }
             else if (m_bv_arrays) {
-                if (get_array_arity(s) != 1)
-                    fail("logic supports only unidimensional arrays");
-                if (!m_bv_util.is_bv_sort(get_array_range(s)) || !m_bv_util.is_bv_sort(get_array_domain(s, 0)))
-                    fail("logic supports only arrays from bitvectors to bitvectors");
+                unsigned sz = get_array_arity(s);
+                for (unsigned i = 0; i < sz; ++i) {
+                    if (!m_bv_util.is_bv_sort(get_array_domain(s, i)))
+                        fail("logic supports only arrays from bitvectors to bitvectors");
+                }
+                check_sort(get_array_range(s));
             }
             else {
                 fail("logic does not support arrays");
@@ -476,7 +478,7 @@ struct check_logic::imp {
             quick_for_each_expr(*this, n);
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }
@@ -495,7 +497,7 @@ struct check_logic::imp {
             check_sort(f->get_range());
             return true;
         }
-        catch (failed) {
+        catch (const failed &) {
             return false;
         }
     }

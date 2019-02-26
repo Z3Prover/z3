@@ -364,7 +364,7 @@ struct bv_trailing::imp {
     }
 
     void reset_cache(const unsigned condition) {
-        SASSERT(m_count_cache[0] == NULL);
+        SASSERT(m_count_cache[0] == nullptr);
         for (unsigned i = 1; i <= TRAILING_DEPTH; ++i) {
             if (m_count_cache[i] == nullptr) continue;
             TRACE("bv-trailing", tout << "may reset cache " << i << " " << condition <<  "\n";);

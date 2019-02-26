@@ -39,7 +39,7 @@ Notes:
 
    The object switches to incremental when:
        - push is used
-       - assertions are peformed after a check_sat
+       - assertions are performed after a check_sat
        - parameter ignore_solver1==false
 */
 class combined_solver : public solver {
@@ -186,10 +186,12 @@ public:
     void push() override {
         switch_inc_mode();
         m_solver1->push();
-        m_solver2->push();
+        m_solver2->push();        
+        TRACE("pop", tout << "push\n";);
     }
     
     void pop(unsigned n) override {
+        TRACE("pop", tout << n << "\n";);
         switch_inc_mode();
         m_solver1->pop(n);
         m_solver2->pop(n);
@@ -216,7 +218,7 @@ public:
         return l_undef;
     }
 
-    lbool check_sat(unsigned num_assumptions, expr * const * assumptions) override {
+    lbool check_sat_core(unsigned num_assumptions, expr * const * assumptions) override {
         m_check_sat_executed  = true;        
         m_use_solver1_results = false;
 
@@ -225,13 +227,13 @@ public:
             m_ignore_solver1)  {
             // must use incremental solver
             switch_inc_mode();
-            return m_solver2->check_sat(num_assumptions, assumptions);
+            return m_solver2->check_sat_core(num_assumptions, assumptions);
         }
         
         if (m_inc_mode) {
             if (m_inc_timeout == UINT_MAX) {
                 IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 2 (without a timeout)\")\n";);            
-                lbool r = m_solver2->check_sat(num_assumptions, assumptions);
+                lbool r = m_solver2->check_sat_core(num_assumptions, assumptions);
                 if (r != l_undef || !use_solver1_when_undef() || get_manager().canceled()) {
                     return r;
                 }
@@ -242,7 +244,7 @@ public:
                 lbool r = l_undef;
                 try {
                     scoped_timer timer(m_inc_timeout, &eh);
-                    r = m_solver2->check_sat(num_assumptions, assumptions);
+                    r = m_solver2->check_sat_core(num_assumptions, assumptions);
                 }
                 catch (z3_exception&) {
                     if (!eh.m_canceled) {
@@ -258,7 +260,7 @@ public:
         
         IF_VERBOSE(PS_VB_LVL, verbose_stream() << "(combined-solver \"using solver 1\")\n";);
         m_use_solver1_results = true;
-        return m_solver1->check_sat(num_assumptions, assumptions);
+        return m_solver1->check_sat_core(num_assumptions, assumptions);
     }
     
     void set_progress_callback(progress_callback * callback) override {
@@ -310,6 +312,25 @@ public:
             m_solver1->get_model(m);
         else
             m_solver2->get_model(m);
+    }
+
+    void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override {
+        if (m_use_solver1_results)
+            m_solver1->get_levels(vars, depth);
+        else
+            m_solver2->get_levels(vars, depth);
+    }
+
+    expr_ref_vector get_trail() override {
+        if (m_use_solver1_results)
+            return m_solver1->get_trail();
+        else
+            return m_solver2->get_trail();
+    }
+
+    void set_activity(expr* lit, double activity) override {
+        m_solver1->set_activity(lit, activity);
+        m_solver2->set_activity(lit, activity);
     }
 
     proof * get_proof() override {

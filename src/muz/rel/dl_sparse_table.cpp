@@ -568,7 +568,7 @@ namespace datalog {
     }
 
     /**
-       In this function we modify the content of table functional columns without reseting indexes.
+       In this function we modify the content of table functional columns without resetting indexes.
        This is ok as long as we do not allow indexing on functional columns.
     */
     void sparse_table::ensure_fact(const table_fact & f) {
@@ -1216,7 +1216,7 @@ namespace datalog {
            
             verbose_action  _va("filter_by_negation");
 
-            if (m_cols1.size() == 0) {
+            if (m_cols1.empty()) {
                 if (!neg.empty()) {
                     tgt.reset();
                 }

@@ -36,6 +36,7 @@ namespace smt {
         unsigned_vector m_var2enode_lim;
 
         friend class context;
+        friend class arith_value;
     protected:
         virtual void init(context * ctx);
 
@@ -67,7 +68,7 @@ namespace smt {
         
     public:
         /**
-           \brief Return ture if the given enode is attached to a
+           \brief Return true if the given enode is attached to a
            variable of the theory.
            
            \remark The result is not equivalent to
@@ -194,6 +195,15 @@ namespace smt {
         }
 
         /**
+           \brief This method is called from the smt_context when an unsat core is generated.
+           The theory may tell the solver to perform iterative deepening by invalidating
+           this unsat core and increasing some resource constraints.
+        */
+        virtual bool should_research(expr_ref_vector & unsat_core) {
+            return false;
+        }
+
+        /**
            \brief This method is invoked before the search starts.
         */
         virtual void init_search_eh() {
@@ -293,6 +303,8 @@ namespace smt {
             SASSERT(m_context);
             return *m_context;
         }
+
+        context & ctx() const { return get_context(); }
         
         ast_manager & get_manager() const {
             SASSERT(m_manager);
@@ -388,7 +400,7 @@ namespace smt {
            \brief When an eq atom n is created during the search, the default behavior is 
            to make sure that the n->get_arg(0)->get_id() < n->get_arg(1)->get_id().
            This may create some redundant atoms, since some theories/families use different
-           convetions in their simplifiers. For example, arithmetic always force a numeral
+           conventions in their simplifiers. For example, arithmetic always force a numeral
            to be in the right hand side. So, this method should be redefined if the default
            behavior conflicts with a convention used by the theory/family.
         */

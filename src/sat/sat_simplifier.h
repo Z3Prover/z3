@@ -74,7 +74,7 @@ namespace sat {
         // config
         bool                   m_abce; // block clauses using asymmetric added literals
         bool                   m_cce;  // covered clause elimination
-        bool                   m_acce; // cce with asymetric literal addition
+        bool                   m_acce; // cce with asymmetric literal addition
         bool                   m_bca;  // blocked (binary) clause addition. 
         unsigned               m_bce_delay; 
         bool                   m_bce;  // blocked clause elimination
@@ -133,9 +133,7 @@ namespace sat {
 
         void register_clauses(clause_vector & cs);
 
-        void remove_clause_core(clause & c);
-        void remove_clause(clause & c);
-        void remove_clause(clause & c, literal l);
+        void remove_clause(clause & c, bool is_unique);
         void set_learned(clause & c);
         void set_learned(literal l1, literal l2);
 
@@ -154,7 +152,7 @@ namespace sat {
         void collect_subsumed0(clause const & c1, clause_vector & out);
         void back_subsumption0(clause & c1);
 
-        bool cleanup_clause(clause & c, bool in_use_list);
+        bool cleanup_clause(clause & c);
         bool cleanup_clause(literal_vector & c);
         void elim_lit(clause & c, literal l);
         void elim_dup_bins();
@@ -164,7 +162,7 @@ namespace sat {
 
         void cleanup_watches();
         void move_clauses(clause_vector & cs, bool learned);
-        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated, bool in_use_lists);
+        void cleanup_clauses(clause_vector & cs, bool learned, bool vars_eliminated);
 
         bool is_external(bool_var v) const;
         bool is_external(literal l) const { return is_external(l.var()); }

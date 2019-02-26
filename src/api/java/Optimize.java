@@ -161,9 +161,23 @@ public class Optimize extends Z3Object {
      * Produce a model that (when the objectives are bounded and 
      * don't use strict inequalities) meets the objectives.
      **/
-    public Status Check()
+    public Status Check(Expr... assumptions)
     {
-        Z3_lbool r = Z3_lbool.fromInt(Native.optimizeCheck(getContext().nCtx(), getNativeObject()));
+        Z3_lbool r;
+        if (assumptions == null) {
+          r = Z3_lbool.fromInt(
+              Native.optimizeCheck(
+                  getContext().nCtx(), 
+                  getNativeObject(), 0, null));
+        }
+        else {
+          r = Z3_lbool.fromInt(
+              Native.optimizeCheck(
+                  getContext().nCtx(), 
+                  getNativeObject(), 
+                  assumptions.length, 
+                  AST.arrayToNative(assumptions)));
+        }
         switch (r) {
             case Z3_L_TRUE:
                 return Status.SATISFIABLE;
@@ -207,6 +221,21 @@ public class Optimize extends Z3Object {
         } else {
             return new Model(getContext(), x);
         }
+    }
+
+    /**
+     * The unsat core of the last {@code Check}.
+     * Remarks:  The unsat core
+     * is a subset of {@code Assumptions} The result is empty if
+     * {@code Check} was not invoked before, if its results was not
+     * {@code UNSATISFIABLE}, or if core production is disabled. 
+     * 
+     * @throws Z3Exception
+     **/
+    public BoolExpr[] getUnsatCore()
+    {
+        ASTVector core = new ASTVector(getContext(), Native.optimizeGetUnsatCore(getContext().nCtx(), getNativeObject()));        
+        return core.ToBoolExprArray();
     }
 
     /**
@@ -314,6 +343,23 @@ public class Optimize extends Z3Object {
         Native.optimizeFromString(getContext().nCtx(), getNativeObject(), s);
     }
 
+    /**
+     * The set of asserted formulas.
+     */
+    public BoolExpr[] getAssertions() 
+    {
+        ASTVector assertions = new ASTVector(getContext(), Native.optimizeGetAssertions(getContext().nCtx(), getNativeObject()));
+        return assertions.ToBoolExprArray();
+    }
+
+    /**
+     * The set of asserted formulas.
+     */
+    public Expr[] getObjectives() 
+    {
+        ASTVector objectives = new ASTVector(getContext(), Native.optimizeGetObjectives(getContext().nCtx(), getNativeObject()));
+        return objectives.ToExprArray();
+    }
 
     /**
      *  Optimize statistics.

@@ -94,8 +94,6 @@ public:
     void cleanup() override {}
 
 private:
-
-
     void checkpoint() { 
         if (m.canceled())
             throw tactic_exception(m.limit().get_cancel_msg());
@@ -148,7 +146,12 @@ private:
                 c.m_parents[arg->get_id()].set(n);
             }
         }
-        void operator()(expr*) {}
+
+        void operator()(var* v) {
+            c.m_parents.reserve(v->get_id() + 1);
+        }
+
+        void operator()(quantifier* q) {}
     };
 
     void collect_parents(goal_ref const& g) {
@@ -165,14 +168,94 @@ private:
         if (mc && !(*mc)) *mc = alloc(generic_model_converter, m, "reduce-invertible");        
     }
 
+    bool is_full_domain_var(expr* v, rational& model) {
+        auto f = is_app(v) ? to_app(v)->get_decl() : nullptr;
+        if (!f || f->get_family_id() != m_bv.get_family_id() || f->get_arity() == 0)
+            return false;
+
+        switch (f->get_decl_kind()) {
+        case OP_BADD:
+        case OP_BSUB:
+        case OP_BSHL:
+        case OP_BASHR:
+        case OP_BLSHR:
+        case OP_BOR:
+            model = rational::zero();
+            return true;
+
+        case OP_BAND:
+            model = rational::power_of_two(m_bv.get_bv_size(v)) - rational::one();
+            return true;
+
+        case OP_BMUL:
+        case OP_BSDIV:
+        case OP_BSDIV0:
+        case OP_BSDIV_I:
+        case OP_BUDIV:
+        case OP_BUDIV0:
+        case OP_BUDIV_I:
+            model = rational::one();
+            return true;
+
+        default:
+            return false;
+        }
+    }
+
+    bool rewrite_unconstr(expr* v, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var) {
+        rational mdl;
+        if (!is_full_domain_var(v, mdl))
+            return false;
+
+        rational r;
+        app* a = to_app(v);
+        expr* fst_arg = a->get_arg(0);
+        bool fst_is_var = is_var(fst_arg);
+
+        for (unsigned i = 0, n = a->get_num_args(); i != n; ++i) {
+            auto arg = a->get_arg(i);
+            if (!m_parents[arg->get_id()].get() || is_var(arg) != fst_is_var)
+                return false;
+
+            if (fst_is_var && to_var(arg)->get_idx() >= max_var)
+                return false;
+
+            if (m_bv.is_numeral(arg, r) && r != mdl)
+                return false;
+        }
+
+        if (mc) {
+            ensure_mc(mc);
+            expr_ref num(m_bv.mk_numeral(mdl, get_sort(fst_arg)), m);
+            for (unsigned i = 1, n = a->get_num_args(); i != n; ++i) {
+                (*mc)->add(a->get_arg(i), num);
+            }
+        }
+        new_v = fst_arg;
+        return true;
+    }
+
     // TBD: could be made to be recursive, by walking multiple layers of parents.
     
-    bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc) {
+    bool is_invertible(expr* v, expr*& p, expr_ref& new_v, generic_model_converter_ref* mc, unsigned max_var = 0) {
         p = m_parents[v->get_id()].get();
-        SASSERT(p);
-
+        if (!p) return false;
         if (m_inverted.is_marked(p)) return false;
         if (mc && !is_ground(p)) return false;
+
+        if (m_bv.is_bv_xor(p) ||
+            m_bv.is_bv_not(p) ||
+            m_bv.is_bv_neg(p)) {
+            if (mc) {
+                ensure_mc(mc);
+                (*mc)->add(v, p);
+            }
+            new_v = v;
+            return true;
+        }
+
+        if (rewrite_unconstr(p, new_v, mc, max_var))
+            return true;
 
         if (m_bv.is_bv_add(p)) {
             if (mc) {
@@ -186,23 +269,6 @@ private:
                 (*mc)->add(v, def);
             }
             new_v = v;
-            return true;
-        }
-
-        expr *a, *b;
-        // shift(a, b), where both a,b are single use. Set b = 0 and return a
-        // FIXME: needs to check that both variables are grounded by same quantifier
-        if (m_bv.is_bv_shl(p, a, b) ||
-            m_bv.is_bv_ashr(p, a, b) ||
-            m_bv.is_bv_lshr(p, a, b)) {
-            if (!m_parents[(v == a ? b : a)->get_id()].get())
-                return false;
-
-            if (mc) {
-                ensure_mc(mc);
-                (*mc)->add(b, m_bv.mk_numeral(rational::zero(), get_sort(b)));
-            }
-            new_v = a;
             return true;
         }
 
@@ -260,18 +326,7 @@ private:
             }
             return true;
         }
-        if (m_bv.is_bv_xor(p)) {
-            if (mc) {
-                ensure_mc(mc);
-                (*mc)->add(v, p);
-            }
-            new_v = v;
-            return true;
-        }
         if (m_bv.is_bv_sub(p)) {
-            // TBD
-        }
-        if (m_bv.is_bv_neg(p)) {
             // TBD
         }
         if (m_bv.is_bv_udivi(p)) {
@@ -390,7 +445,7 @@ private:
                 new_sorts.push_back(srt);
             }
             // for each variable, collect parents,
-            // ensure they are in uniqe location and not under other quantifiers.
+            // ensure they are in unique location and not under other quantifiers.
             // if they are invertible, then produce inverting expression.
             //
             expr_safe_replace sub(m);
@@ -407,7 +462,7 @@ private:
             bool has_new_var = false;
             for (unsigned i = 0; i < vars.size(); ++i) {
                 var* v = vars[i];
-                if (!occurs_under_nested_q(v, new_body) && t.is_invertible(v, p, new_v, nullptr)) {
+                if (!occurs_under_nested_q(v, new_body) && t.is_invertible(v, p, new_v, nullptr, vars.size())) {
                     t.mark_inverted(p);
                     sub.insert(p, new_v);
                     new_sorts[i] = m.get_sort(new_v);

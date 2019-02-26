@@ -19,7 +19,7 @@ Revision History:
 #ifndef SYMBOL_H_
 #define SYMBOL_H_
 #include<ostream>
-#include<limits.h>
+#include<climits>
 
 #include "util/util.h"
 #include "util/tptr.h"
@@ -56,7 +56,7 @@ public:
     explicit symbol(char const * d);
     explicit symbol(unsigned idx):
         m_data(BOXTAGINT(char const *, idx, 1)) {
-#ifndef _AMD64_
+#if !defined(__LP64__) && !defined(_WIN64)
         SASSERT(idx < (SIZE_MAX >> PTR_ALIGNMENT));
 #endif
     }

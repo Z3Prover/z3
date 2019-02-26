@@ -40,12 +40,11 @@ inline std::string lconstraint_kind_string(lconstraint_kind t) {
     case GT: return std::string(">");
     case EQ: return std::string("=");
     }
-    SASSERT(false);
+    lp_unreachable();
     return std::string(); // it is unreachable
 }
 
-class lar_base_constraint {
-public:
+struct lar_base_constraint {
     lconstraint_kind m_kind;
     mpq m_right_side;
     virtual vector<std::pair<mpq, var_index>> get_left_side_coefficients() const = 0;
@@ -76,7 +75,7 @@ struct lar_term_constraint: public lar_base_constraint {
     }
     unsigned size() const override { return m_term->size();}
     lar_term_constraint(const lar_term *t, lconstraint_kind kind, const mpq& right_side) : lar_base_constraint(kind, right_side), m_term(t) { }
-    mpq get_free_coeff_of_left_side() const override { return m_term->m_v;}
+    // mpq get_free_coeff_of_left_side() const override { return m_term->m_v;}
 
 };
 
@@ -88,7 +87,7 @@ public:
         :  lar_base_constraint(kind, right_side), m_coeffs(left_side) {}
     
     lar_constraint(const lar_base_constraint & c) {
-        SASSERT(false); // should not be called : todo!
+        lp_assert(false); // should not be called : todo!
     }
 
     unsigned size() const override {

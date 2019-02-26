@@ -26,12 +26,9 @@ Revision History:
 #include "util/lp/indexed_vector.h"
 #include "util/lp/binary_heap_priority_queue.h"
 #include "util/lp/breakpoint.h"
-#include "util/lp/stacked_unordered_set.h"
 #include "util/lp/lp_primal_core_solver.h"
 #include "util/lp/stacked_vector.h"
 #include "util/lp/lar_solution_signature.h"
-#include "util/lp/iterator_on_column.h"
-#include "util/lp/iterator_on_indexed_vector.h"
 #include "util/lp/stacked_value.h"
 namespace lp {
 
@@ -50,7 +47,7 @@ public:
     stacked_vector<column_type> m_column_types;
     // r - solver fields, for rational numbers
     vector<numeric_pair<mpq>> m_r_x; // the solution
-    stacked_vector<numeric_pair<mpq>> m_r_low_bounds;
+    stacked_vector<numeric_pair<mpq>> m_r_lower_bounds;
     stacked_vector<numeric_pair<mpq>> m_r_upper_bounds;
     static_matrix<mpq, numeric_pair<mpq>> m_r_A;
     stacked_vector<unsigned> m_r_pushed_basis;
@@ -62,7 +59,7 @@ public:
     
     // d - solver fields, for doubles
     vector<double> m_d_x; // the solution in doubles
-    vector<double> m_d_low_bounds;
+    vector<double> m_d_lower_bounds;
     vector<double> m_d_upper_bounds;
     static_matrix<double, double> m_d_A;
     stacked_vector<unsigned> m_d_pushed_basis;
@@ -155,11 +152,11 @@ public:
 
     void fill_evidence(unsigned row);
 
-
+	unsigned get_number_of_non_ints() const;
 
     void solve();
 
-    bool low_bounds_are_set() const { return true; }
+    bool lower_bounds_are_set() const { return true; }
 
     const indexed_vector<mpq> & get_pivot_row() const {
         return m_r_solver.m_pivot_row;
@@ -183,16 +180,16 @@ public:
     }
 
     void push() {
-        SASSERT(m_r_solver.basis_heading_is_correct());
-        SASSERT(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
-        SASSERT(m_column_types.size() == m_r_A.column_count());
+        lp_assert(m_r_solver.basis_heading_is_correct());
+        lp_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
+        lp_assert(m_column_types.size() == m_r_A.column_count());
         m_stacked_simplex_strategy = settings().simplex_strategy();
         m_stacked_simplex_strategy.push();
         m_column_types.push();
         // rational
         if (!settings().use_tableau()) 
             m_r_A.push();
-        m_r_low_bounds.push();
+        m_r_lower_bounds.push();
         m_r_upper_bounds.push();
         if (!settings().use_tableau()) {
             push_vector(m_r_pushed_basis, m_r_basis);
@@ -207,7 +204,7 @@ public:
 
     template <typename K> 
     void push_vector(stacked_vector<K> & pushed_vector, const vector<K> & vector) {
-        SASSERT(pushed_vector.size() <= vector.size());
+        lp_assert(pushed_vector.size() <= vector.size());
         for (unsigned i = 0; i < vector.size();i++) {
             if (i == pushed_vector.size()) {
                 pushed_vector.push_back(vector[i]);
@@ -234,7 +231,7 @@ public:
         // rationals
         if (!settings().use_tableau()) 
             m_r_A.pop(k);
-        m_r_low_bounds.pop(k);
+        m_r_lower_bounds.pop(k);
         m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
         
@@ -257,8 +254,8 @@ public:
         pop_basis(k);
         m_stacked_simplex_strategy.pop(k);
         settings().simplex_strategy() = m_stacked_simplex_strategy;
-        SASSERT(m_r_solver.basis_heading_is_correct());
-        SASSERT(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
+        lp_assert(m_r_solver.basis_heading_is_correct());
+        lp_assert(!need_to_presolve_with_double_solver() || m_d_solver.basis_heading_is_correct());
     }
 
     bool need_to_presolve_with_double_solver() const {
@@ -276,11 +273,11 @@ public:
     bool update_xj_and_get_delta(unsigned j, non_basic_column_value_position pos_type, numeric_pair<mpq> & delta) {
         auto & x = m_r_x[j];
         switch (pos_type) {
-        case at_low_bound:
-            if (x == m_r_solver.m_low_bounds[j])
+        case at_lower_bound:
+            if (x == m_r_solver.m_lower_bounds[j])
                 return false;
-            delta = m_r_solver.m_low_bounds[j] - x;
-            m_r_solver.m_x[j] = m_r_solver.m_low_bounds[j];
+            delta = m_r_solver.m_lower_bounds[j] - x;
+            m_r_solver.m_x[j] = m_r_solver.m_lower_bounds[j];
             break;
         case at_fixed:
         case at_upper_bound:
@@ -300,30 +297,30 @@ public:
                 delta = m_r_solver.m_upper_bounds[j] - x;
                 x = m_r_solver.m_upper_bounds[j];
                 break;
-            case column_type::low_bound:
-                delta = m_r_solver.m_low_bounds[j] - x;
-                x = m_r_solver.m_low_bounds[j];
+            case column_type::lower_bound:
+                delta = m_r_solver.m_lower_bounds[j] - x;
+                x = m_r_solver.m_lower_bounds[j];
                 break;
             case column_type::boxed:
                 if (x > m_r_solver.m_upper_bounds[j]) {
                     delta = m_r_solver.m_upper_bounds[j] - x;
                     x += m_r_solver.m_upper_bounds[j];
                 } else {
-                    delta = m_r_solver.m_low_bounds[j] - x;
-                    x = m_r_solver.m_low_bounds[j];
+                    delta = m_r_solver.m_lower_bounds[j] - x;
+                    x = m_r_solver.m_lower_bounds[j];
                 }
                 break;
             case column_type::fixed:
-                delta = m_r_solver.m_low_bounds[j] - x;
-                x = m_r_solver.m_low_bounds[j];
+                delta = m_r_solver.m_lower_bounds[j] - x;
+                x = m_r_solver.m_lower_bounds[j];
                 break;
 
             default:
-                SASSERT(false);
+                lp_assert(false);
             }
             break;
         default:
-            SASSERT(false);
+            lp_unreachable();
         }
         m_r_solver.remove_column_from_inf_set(j);
         return true;
@@ -332,7 +329,7 @@ public:
     
     
     void prepare_solver_x_with_signature_tableau(const lar_solution_signature & signature) {
-        SASSERT(m_r_solver.inf_set_is_correct());
+        lp_assert(m_r_solver.inf_set_is_correct());
         for (auto &t : signature) {
             unsigned j = t.first;
             if (m_r_heading[j] >= 0)
@@ -342,14 +339,13 @@ public:
             if (!update_xj_and_get_delta(j, pos_type, delta))
                 continue;
             for (const auto & cc : m_r_solver.m_A.m_columns[j]){
-                unsigned i = cc.m_i;
+                unsigned i = cc.var();
                 unsigned jb = m_r_solver.m_basis[i];
-                m_r_solver.m_x[jb] -= delta * m_r_solver.m_A.get_val(cc);
-                m_r_solver.update_column_in_inf_set(jb);
+                m_r_solver.update_x_with_delta_and_track_feasibility(jb, - delta * m_r_solver.m_A.get_val(cc));
             }
-            SASSERT(m_r_solver.A_mult_x_is_off() == false);
+            CASSERT("A_off", m_r_solver.A_mult_x_is_off() == false);
         }
-        SASSERT(m_r_solver.inf_set_is_correct());
+        lp_assert(m_r_solver.inf_set_is_correct());
     }
 
     
@@ -357,11 +353,11 @@ public:
     void prepare_solver_x_with_signature(const lar_solution_signature & signature, lp_primal_core_solver<L,K> & s) {
         for (auto &t : signature) {
             unsigned j = t.first;
-            SASSERT(m_r_heading[j] < 0);
+            lp_assert(m_r_heading[j] < 0);
             auto pos_type = t.second;
             switch (pos_type) {
-            case at_low_bound:
-                s.m_x[j] = s.m_low_bounds[j];
+            case at_lower_bound:
+                s.m_x[j] = s.m_lower_bounds[j];
                 break;
             case at_fixed:
             case at_upper_bound:
@@ -374,33 +370,33 @@ public:
             case not_at_bound:
                   switch (m_column_types[j]) {
                   case column_type::free_column:
-                      SASSERT(false); // unreachable
+                      lp_assert(false); // unreachable
                   case column_type::upper_bound:
                       s.m_x[j] = s.m_upper_bounds[j];
                       break;
-                  case column_type::low_bound:
-                      s.m_x[j] = s.m_low_bounds[j];
+                  case column_type::lower_bound:
+                      s.m_x[j] = s.m_lower_bounds[j];
                       break;
                   case column_type::boxed:
                       if (settings().random_next() % 2) {
-                          s.m_x[j] = s.m_low_bounds[j];
+                          s.m_x[j] = s.m_lower_bounds[j];
                       } else {
                           s.m_x[j] = s.m_upper_bounds[j];
                       }
                       break;
                   case column_type::fixed:
-                      s.m_x[j] = s.m_low_bounds[j];
+                      s.m_x[j] = s.m_lower_bounds[j];
                       break;
                   default:
-                      SASSERT(false);
+                      lp_assert(false);
                   }
                   break;
             default:
-                SASSERT(false);
+                lp_unreachable();
             }
         }
 
-        SASSERT(is_zero_vector(s.m_b));
+        lp_assert(is_zero_vector(s.m_b));
         s.solve_Ax_eq_b();
     }
 
@@ -433,7 +429,7 @@ public:
             // the queues of delayed indices
             std::queue<unsigned> entr_q, leav_q;
             auto * l = cs.m_factorization;
-            SASSERT(l->get_status() == LU_status::OK);
+            lp_assert(l->get_status() == LU_status::OK);
             for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
                 unsigned entering = trace_of_basis_change[i];
                 unsigned leaving = trace_of_basis_change[i+1];
@@ -461,8 +457,8 @@ public:
                         continue;
                     }
                 }
-                SASSERT(cs.m_basis_heading[entering] < 0);
-                SASSERT(cs.m_basis_heading[leaving] >= 0);
+                lp_assert(cs.m_basis_heading[entering] < 0);
+                lp_assert(cs.m_basis_heading[leaving] >= 0);
                 if (l->get_status() == LU_status::OK) {
                     l->prepare_entering(entering, w); // to init vector w
                     l->replace_column(zero_of_type<L>(), w, cs.m_basis_heading[leaving]);
@@ -486,7 +482,7 @@ public:
 
     void solve_on_signature_tableau(const lar_solution_signature & signature, const vector<unsigned> & changes_of_basis) {
         r_basis_is_OK();
-        SASSERT(settings().use_tableau());
+        lp_assert(settings().use_tableau());
         bool r = catch_up_in_lu_tableau(changes_of_basis, m_d_solver.m_basis_heading);
 
         if (!r) { // it is the case where m_d_solver gives a degenerated basis
@@ -505,10 +501,10 @@ public:
                 return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
-            SASSERT(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
+            lp_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
             catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
         }
-        SASSERT(r_basis_is_OK());
+        lp_assert(r_basis_is_OK());
     }
 
     bool adjust_x_of_column(unsigned j) {
@@ -522,16 +518,16 @@ public:
         }
 
         m_r_solver.snap_column_to_bound_tableau(j);
-        SASSERT(m_r_solver.column_is_feasible(j));
+        lp_assert(m_r_solver.column_is_feasible(j));
         m_r_solver.m_inf_set.erase(j);
         */
-        SASSERT(false);
+        lp_assert(false);
         return true;
     }
 
     
     bool catch_up_in_lu_tableau(const vector<unsigned> & trace_of_basis_change, const vector<int> & basis_heading) {
-        SASSERT(r_basis_is_OK());
+        lp_assert(r_basis_is_OK());
         // the queues of delayed indices
         std::queue<unsigned> entr_q, leav_q;
         for (unsigned i = 0; i < trace_of_basis_change.size(); i+= 2) {
@@ -561,8 +557,8 @@ public:
                     continue;
                 }
             }
-            SASSERT(m_r_solver.m_basis_heading[entering] < 0);
-            SASSERT(m_r_solver.m_basis_heading[leaving] >= 0);
+            lp_assert(m_r_solver.m_basis_heading[entering] < 0);
+            lp_assert(m_r_solver.m_basis_heading[leaving] >= 0);
             m_r_solver.change_basis_unconditionally(entering, leaving);
             if(!m_r_solver.pivot_column_tableau(entering, m_r_solver.m_basis_heading[entering])) {
                 // unroll the last step
@@ -572,12 +568,12 @@ public:
 #endif
                     m_r_solver.pivot_column_tableau(leaving, m_r_solver.m_basis_heading[leaving]);
 #ifdef Z3DEBUG
-                SASSERT(t);
+                lp_assert(t);
 #endif 
                 return false;
             }
         }
-        SASSERT(r_basis_is_OK());
+        lp_assert(r_basis_is_OK());
         return true;
     }
 
@@ -587,14 +583,13 @@ public:
         if (!m_r_solver.m_settings.use_tableau())
             return true;
         for (unsigned j : m_r_solver.m_basis) {
-            SASSERT(m_r_solver.m_A.m_columns[j].size() == 1);
-            SASSERT(m_r_solver.m_A.get_val(m_r_solver.m_A.m_columns[j][0]) == one_of_type<mpq>());
+            lp_assert(m_r_solver.m_A.m_columns[j].size() == 1);
         }
         for (unsigned j =0; j < m_r_solver.m_basis_heading.size(); j++) {
             if (m_r_solver.m_basis_heading[j] >= 0) continue;
             if (m_r_solver.m_column_types[j] == column_type::fixed) continue;
-            SASSERT(static_cast<unsigned>(- m_r_solver.m_basis_heading[j] - 1) < m_r_solver.m_column_types.size());
-            SASSERT( m_r_solver.m_basis_heading[j] <= -1);
+            lp_assert(static_cast<unsigned>(- m_r_solver.m_basis_heading[j] - 1) < m_r_solver.m_column_types.size());
+            lp_assert( m_r_solver.m_basis_heading[j] <= -1);
         }
 #endif
         return true;
@@ -614,7 +609,6 @@ public:
         }
 
         if (no_r_lu()) { // it is the case where m_d_solver gives a degenerated basis, we need to roll back
-            //            std::cout << "no_r_lu" << std::endl;
             catch_up_in_lu_in_reverse(changes_of_basis, m_r_solver);
             m_r_solver.find_feasible_solution();
             m_d_basis = m_r_basis;
@@ -630,7 +624,7 @@ public:
                 return;
             m_r_solver.stop_tracing_basis_changes();
             // and now catch up in the double solver
-            SASSERT(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
+            lp_assert(m_r_solver.total_iterations() >= m_r_solver.m_trace_of_basis_change_vector.size() /2);
             catch_up_in_lu(m_r_solver.m_trace_of_basis_change_vector, m_r_solver.m_basis_heading, m_d_solver);
         }
     }
@@ -639,7 +633,7 @@ public:
         for (unsigned i = 0; i < m_r_A.row_count(); i++) {
             auto & row = m_r_A.m_rows[i];
             for (row_cell<mpq> & c : row) {
-                A.set(i, c.m_j, c.get_val().get_double());
+                A.add_new_element(i, c.var(), c.get_val().get_double());
             }
         }
     }
@@ -656,7 +650,7 @@ public:
     template <typename L, typename K>
     void extract_signature_from_lp_core_solver(const lp_primal_core_solver<L, K> & solver, lar_solution_signature & signature) {
         signature.clear();
-        SASSERT(signature.size() == 0);
+        lp_assert(signature.size() == 0);
         for (unsigned j = 0; j < solver.m_basis_heading.size(); j++) {
             if (solver.m_basis_heading[j] < 0) {
                 signature[j] = solver.get_non_basic_column_value_position(j);
@@ -666,27 +660,27 @@ public:
 
     void get_bounds_for_double_solver() {
         unsigned n = m_n();
-        m_d_low_bounds.resize(n);
+        m_d_lower_bounds.resize(n);
         m_d_upper_bounds.resize(n);
         double delta = find_delta_for_strict_boxed_bounds().get_double();
         if (delta > 0.000001)
             delta = 0.000001;
         for (unsigned j = 0; j < n; j++) {
-            if (low_bound_is_set(j)) {
-                const auto & lb = m_r_solver.m_low_bounds[j];
-                m_d_low_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
+            if (lower_bound_is_set(j)) {
+                const auto & lb = m_r_solver.m_lower_bounds[j];
+                m_d_lower_bounds[j] = lb.x.get_double() + delta * lb.y.get_double();
             }
             if (upper_bound_is_set(j)) {
                 const auto & ub = m_r_solver.m_upper_bounds[j];
                 m_d_upper_bounds[j] = ub.x.get_double() + delta * ub.y.get_double();
-                SASSERT(!low_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_low_bounds[j]));
+                lp_assert(!lower_bound_is_set(j) || (m_d_upper_bounds[j] >= m_d_lower_bounds[j]));
             }
         }
     }
 
     void scale_problem_for_doubles(
                         static_matrix<double, double>& A,        
-                        vector<double> & low_bounds,
+                        vector<double> & lower_bounds,
                         vector<double> & upper_bounds) {
         vector<double> column_scale_vector;
         vector<double> right_side_vector(A.column_count());
@@ -706,8 +700,8 @@ public:
                 if (m_r_solver.column_has_upper_bound(j)) {
                     upper_bounds[j] /= column_scale_vector[j];
                 }
-                if (m_r_solver.column_has_low_bound(j)) {
-                    low_bounds[j] /= column_scale_vector[j];
+                if (m_r_solver.column_has_lower_bound(j)) {
+                    lower_bounds[j] /= column_scale_vector[j];
                 }
             }
         }
@@ -734,17 +728,17 @@ public:
     }
 
 
-    bool low_bound_is_set(unsigned j) const {
+    bool lower_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:
         case column_type::upper_bound:
             return false;
-        case column_type::low_bound:
+        case column_type::lower_bound:
         case column_type::boxed:
         case column_type::fixed:
             return true;
         default:
-            SASSERT(false);
+            lp_assert(false);
         }
         return false;
     }
@@ -752,27 +746,27 @@ public:
     bool upper_bound_is_set(unsigned j) const {
         switch (m_column_types[j]) {
         case column_type::free_column:
-        case column_type::low_bound:
+        case column_type::lower_bound:
             return false;
         case column_type::upper_bound:
         case column_type::boxed:
         case column_type::fixed:
             return true;
         default:
-            SASSERT(false);
+            lp_assert(false);
         }
         return false;
     }
 
     void update_delta(mpq& delta, numeric_pair<mpq> const& l, numeric_pair<mpq> const& u) const {
-        SASSERT(l <= u);
+        lp_assert(l <= u);
         if (l.x < u.x && l.y > u.y) {
             mpq delta1 = (u.x - l.x) / (l.y - u.y);
             if (delta1 < delta) {
                 delta = delta1;
             }
         }
-        SASSERT(l.x + delta * l.y <= u.x + delta * u.y);
+        lp_assert(l.x + delta * l.y <= u.x + delta * u.y);
     }
 
 
@@ -781,8 +775,7 @@ public:
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
             if (m_column_types()[j] != column_type::boxed)
                 continue;
-            update_delta(delta, m_r_low_bounds[j], m_r_upper_bounds[j]);
-
+            update_delta(delta, m_r_lower_bounds[j], m_r_upper_bounds[j]);
         }
         return delta;
     }
@@ -791,8 +784,8 @@ public:
     mpq find_delta_for_strict_bounds(const mpq & initial_delta) const{
         mpq delta = initial_delta;
         for (unsigned j = 0; j < m_r_A.column_count(); j++ ) {
-            if (low_bound_is_set(j))
-                update_delta(delta, m_r_low_bounds[j], m_r_x[j]);
+            if (lower_bound_is_set(j))
+                update_delta(delta, m_r_lower_bounds[j], m_r_x[j]);
             if (upper_bound_is_set(j))
                 update_delta(delta, m_r_x[j], m_r_upper_bounds[j]);
         }
@@ -803,14 +796,38 @@ public:
         m_r_solver.init_column_row_non_zeroes();
     }
 
-    linear_combination_iterator<mpq> * get_column_iterator(unsigned j) {
-        if (settings().use_tableau()) {
-            return new iterator_on_column<mpq, numeric_pair<mpq>>(m_r_solver.m_A.m_columns[j], m_r_solver.m_A);
-        } else {
-            m_r_solver.solve_Bd(j);
-            return new iterator_on_indexed_vector<mpq>(m_r_solver.m_ed);
+    bool column_is_fixed(unsigned j) const {
+        return m_column_types()[j] == column_type::fixed ||
+            ( m_column_types()[j] == column_type::boxed &&
+              m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
+    }
+
+    const impq & lower_bound(unsigned j) const {
+        lp_assert(m_column_types()[j] == column_type::fixed ||
+                    m_column_types()[j] == column_type::boxed ||
+                    m_column_types()[j] == column_type::lower_bound);
+        return m_r_lower_bounds[j];
+    }
+
+    const impq & upper_bound(unsigned j) const {
+        lp_assert(m_column_types()[j] == column_type::fixed ||
+                    m_column_types()[j] == column_type::boxed ||
+                    m_column_types()[j] == column_type::upper_bound);
+        return m_r_upper_bounds[j];
+    }
+
+    
+    bool column_is_bounded(unsigned j) const {
+        switch(m_column_types()[j]) {
+        case column_type::fixed:
+        case column_type::boxed:
+            return true;
+        default:
+            return false;
         }
     }
-    
+
+    const vector<unsigned>& r_basis() const { return m_r_basis; }
+    const vector<unsigned>& r_nbasis() const { return m_r_nbasis; }
 };
 }

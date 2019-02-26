@@ -65,7 +65,7 @@ extern "C" {
         LOG_Z3_ast_vector_get(c, v, i);
         RESET_ERROR_CODE();
         if (i >= to_ast_vector_ref(v).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         // Remark: Don't need to invoke save_object.
@@ -79,7 +79,7 @@ extern "C" {
         LOG_Z3_ast_vector_set(c, v, i, a);
         RESET_ERROR_CODE();
         if (i >= to_ast_vector_ref(v).size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
         to_ast_vector_ref(v).set(i, to_ast(a));
@@ -107,8 +107,7 @@ extern "C" {
         LOG_Z3_ast_vector_translate(c, v, t);
         RESET_ERROR_CODE();
         if (c == t) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-            RETURN_Z3(nullptr);
+            RETURN_Z3(v);
         }
         ast_translation translator(mk_c(c)->m(), mk_c(t)->m()); 
         Z3_ast_vector_ref * new_v = alloc(Z3_ast_vector_ref, *mk_c(t), mk_c(t)->m());

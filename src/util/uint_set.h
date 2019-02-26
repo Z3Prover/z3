@@ -269,10 +269,10 @@ public:
     void remove(unsigned v) {
         if (contains(v)) {
             m_in_set[v] = false;
-            unsigned i = 0;
-            for (i = 0; i < m_set.size() && m_set[i] != v; ++i)
+            unsigned i = m_set.size();
+            for (; i > 0 && m_set[--i] != v; ) 
                 ;
-            SASSERT(i < m_set.size());
+            SASSERT(m_set[i] == v);
             m_set[i] = m_set.back();
             m_set.pop_back();
         }

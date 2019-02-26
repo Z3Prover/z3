@@ -43,6 +43,7 @@ bld_dbg/*
 bld_rel/*
 bld_dbg_x64/*
 bld_rel_x64/*
+.vscode
 # Auto generated files.
 config.log
 config.status
@@ -75,3 +76,6 @@ src/api/ml/z3.mllib
 *.bak
 doc/api
 doc/code
+.vs
+examples/**/obj
+CMakeSettings.json

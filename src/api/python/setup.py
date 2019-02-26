@@ -6,16 +6,18 @@ import subprocess
 import multiprocessing
 import re
 from setuptools import setup
+from distutils.util import get_platform
 from distutils.errors import LibError
 from distutils.command.build import build as _build
 from distutils.command.sdist import sdist as _sdist
+from distutils.command.clean import clean as _clean
 from setuptools.command.develop import develop as _develop
 from setuptools.command.bdist_egg import bdist_egg as _bdist_egg
 
 
 build_env = dict(os.environ)
 build_env['PYTHON'] = sys.executable
-build_env['CXXFLAGS'] = "-std=c++11"
+build_env['CXXFLAGS'] = build_env.get('CXXFLAGS', '') + " -std=c++11"
 
 ROOT_DIR = os.path.abspath(os.path.dirname(__file__))
 SRC_DIR_LOCAL = os.path.join(ROOT_DIR, 'core')
@@ -36,22 +38,33 @@ else:
     LIBRARY_FILE = "libz3.so"
     EXECUTABLE_FILE = "z3"
 
+def rmtree(tree):
+    if os.path.exists(tree):
+        shutil.rmtree(tree, ignore_errors=False)
+
 def _clean_bins():
     """
     Clean up the binary files and headers that are installed along with the bindings
     """
-    shutil.rmtree(LIBS_DIR, ignore_errors=True)
-    shutil.rmtree(BINS_DIR, ignore_errors=True)
-    shutil.rmtree(HEADERS_DIR, ignore_errors=True)
+    rmtree(LIBS_DIR)
+    rmtree(BINS_DIR)
+    rmtree(HEADERS_DIR)
+
+def _clean_native_build():
+    """
+    Clean the "build" directory in the z3 native root
+    """
+    rmtree(BUILD_DIR)
 
 def _z3_version():
+    post = os.getenv('Z3_VERSION_SUFFIX', '')
     fn = os.path.join(SRC_DIR, 'scripts', 'mk_project.py')
-    if os.path.exists(fn):        
+    if os.path.exists(fn):
         with open(fn) as f:
             for line in f:
                 n = re.match(".*set_version\((.*), (.*), (.*), (.*)\).*", line)
                 if not n is None:
-                    return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4)
+                    return n.group(1) + '.' + n.group(2) + '.' + n.group(3) + '.' + n.group(4) + post
     return "?.?.?.?"
 
 def _configure_z3():
@@ -71,7 +84,7 @@ def _build_z3():
         if subprocess.call(['nmake'], env=build_env,
                            cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
-    else:   # linux and osx
+    else:   # linux and macOS
         if subprocess.call(['make', '-j', str(multiprocessing.cpu_count())],
                     env=build_env, cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
@@ -97,7 +110,10 @@ def _copy_bins():
     os.mkdir(os.path.join(HEADERS_DIR, 'c++'))
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
-    for fname in ('z3.h', 'z3_v1.h', 'z3_macros.h', 'z3_api.h', 'z3_algebraic.h', 'z3_polynomial.h', 'z3_rcf.h', 'z3_interp.h', 'z3_fpa.h', os.path.join('c++', 'z3++.h')):
+
+    header_files = [x for x in os.listdir(os.path.join(SRC_DIR, 'src', 'api')) if x.endswith('.h')]
+    header_files += [os.path.join('c++', x) for x in os.listdir(os.path.join(SRC_DIR, 'src', 'api', 'c++')) if x.endswith('.h')]
+    for fname in header_files:
         shutil.copy(os.path.join(SRC_DIR, 'src', 'api', fname), os.path.join(HEADERS_DIR, fname))
 
 def _copy_sources():
@@ -118,6 +134,7 @@ def _copy_sources():
     os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python'))
     os.mkdir(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3'))
     open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3', '.placeholder'), 'w').close()
+    open(os.path.join(SRC_DIR_LOCAL, 'src', 'api', 'python', 'z3test.py'), 'w').close()
 
 class build(_build):
     def run(self):
@@ -140,22 +157,48 @@ class bdist_egg(_bdist_egg):
 
 class sdist(_sdist):
     def run(self):
-        self.execute(_clean_bins, (), msg="Cleaning binary files")
+        self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
         self.execute(_copy_sources, (), msg="Copying source files")
         _sdist.run(self)
+
+class clean(_clean):
+    def run(self):
+        self.execute(_clean_bins, (), msg="Cleaning binary files and headers")
+        self.execute(_clean_native_build, (), msg="Cleaning native build")
+        _clean.run(self)
 
 # the build directory needs to exist
 #try: os.makedirs(os.path.join(ROOT_DIR, 'build'))
 #except OSError: pass
 
+if 'bdist_wheel' in sys.argv and '--plat-name' not in sys.argv:
+    idx = sys.argv.index('bdist_wheel') + 1
+    sys.argv.insert(idx, '--plat-name')
+    name = get_platform()
+    if 'linux' in name:
+        # linux_* platform tags are disallowed because the python ecosystem is fubar
+        # linux builds should be built in the centos 5 vm for maximum compatibility
+        # see https://github.com/pypa/manylinux
+        # see also https://github.com/angr/angr-dev/blob/master/admin/bdist.py
+        sys.argv.insert(idx + 1, 'manylinux1_' + platform.machine())
+    elif 'mingw' in name:
+        if platform.architecture()[0] == '64bit':
+            sys.argv.insert(idx + 1, 'win_amd64')
+        else:
+            sys.argv.insert(idx + 1, 'win32')
+    else:
+        # https://www.python.org/dev/peps/pep-0425/
+        sys.argv.insert(idx + 1, name.replace('.', '_').replace('-', '_'))
+
+
 setup(
     name='z3-solver',
     version=_z3_version(),
     description='an efficient SMT solver library',
-    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compiliation, or installation, please submit issues to https://github.com/angr/angr-z3',
+    long_description='Z3 is a theorem prover from Microsoft Research with support for bitvectors, booleans, arrays, floating point numbers, strings, and other data types.\n\nFor documentation, please read http://z3prover.github.io/api/html/z3.html\n\nIn the event of technical difficulties related to configuration, compilation, or installation, please submit issues to https://github.com/angr/angr-z3',
     author="The Z3 Theorem Prover Project",
-    maintainer="Andrew Dutcher",
-    maintainer_email="andrew@andrewdutcher.com",
+    maintainer="Audrey Dutcher",
+    maintainer_email="audrey@rhelmot.io",
     url='https://github.com/Z3Prover/z3',
     license='MIT License',
     keywords=['z3', 'smt', 'sat', 'prover', 'theorem'],
@@ -165,5 +208,5 @@ setup(
         'z3': [os.path.join('lib', '*'), os.path.join('include', '*.h'), os.path.join('include', 'c++', '*.h')]
     },
     data_files=[('bin',[os.path.join('bin',EXECUTABLE_FILE)])],
-    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg},
+    cmdclass={'build': build, 'develop': develop, 'sdist': sdist, 'bdist_egg': bdist_egg, 'clean': clean},
 )

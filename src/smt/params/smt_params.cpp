@@ -63,6 +63,7 @@ void smt_params::updt_params(params_ref const & p) {
     theory_bv_params::updt_params(p);
     theory_pb_params::updt_params(p);
     // theory_array_params::updt_params(p);
+    theory_datatype_params::updt_params(p);
     updt_local_params(p);
 }
 

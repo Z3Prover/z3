@@ -58,7 +58,7 @@ public:
     void reset();
 
     /**
-       \brief Create a dependecy set.
+       \brief Create a dependency set.
        This set should be populated using #collect_func_decls.
        After populating the set, it must be used as an argument for the #insert method.
 

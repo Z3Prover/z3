@@ -41,7 +41,7 @@ bool uses_theory(expr * n, family_id fid, expr_mark & visited) {
     try {
         for_each_expr(p, visited, n);
     }
-    catch (uses_theory_ns::found) {
+    catch (const uses_theory_ns::found &) {
         return true;
     }
     return false;

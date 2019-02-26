@@ -119,6 +119,7 @@ namespace sat {
         void add_ate(clause const& c);
 
         bool empty() const { return m_entries.empty(); }
+        unsigned size() const { return m_entries.size(); }
 
         void reset();
         bool check_invariant(unsigned num_vars) const;

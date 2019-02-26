@@ -22,4 +22,6 @@ z3_add_component(tactic
     probe.h
     sine_filter.h
     tactic.h
+  PYG_FILES
+    tactic_params.pyg
 )

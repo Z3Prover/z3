@@ -70,7 +70,7 @@ public:
     }
 
     void push_back(unsigned row_index, T val ) {
-        SASSERT(row_index != m_row);
+        lp_assert(row_index != m_row);
         m_row_vector.push_back(row_index, val);
     }
 

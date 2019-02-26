@@ -196,7 +196,7 @@ namespace smt {
         TRACE("incompleteness_bug", tout << "[internalize-assertion]: #" << n->get_id() << "\n";);
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
-        if (get_depth(n) > DEEP_EXPR_THRESHOLD) {
+        if (::get_depth(n) > DEEP_EXPR_THRESHOLD) {
             // if the expression is deep, then execute topological sort to avoid
             // stack overflow.
             // a caveat is that theory internalizers do rely on recursive descent so
@@ -216,13 +216,17 @@ namespace smt {
         SASSERT(m_manager.is_bool(n));
         if (is_gate(m_manager, n)) {
             switch(to_app(n)->get_decl_kind()) {
-            case OP_AND:
-                UNREACHABLE();
+            case OP_AND: {
+                for (expr * arg : *to_app(n)) {
+                    internalize(arg, true);
+                    literal lit = get_literal(arg);
+                    mk_root_clause(1, &lit, pr);
+                }
+                break;
+            }
             case OP_OR: {
                 literal_buffer lits;
-                unsigned num = to_app(n)->get_num_args();
-                for (unsigned i = 0; i < num; i++) {
-                    expr * arg = to_app(n)->get_arg(i); 
+                for (expr * arg : *to_app(n)) { 
                     internalize(arg, true);
                     lits.push_back(get_literal(arg));
                 }
@@ -294,8 +298,7 @@ namespace smt {
         sort * s = m_manager.get_sort(n->get_arg(0));
         sort_ref u(m_manager.mk_fresh_sort("distinct-elems"), m_manager);
         func_decl_ref f(m_manager.mk_fresh_func_decl("distinct-aux-f", "", 1, &s, u), m_manager);
-        for (unsigned i = 0; i < num_args; i++) {
-            expr * arg  = n->get_arg(i);
+        for (expr * arg : *n) {
             app_ref fapp(m_manager.mk_app(f, arg), m_manager);
             app_ref val(m_manager.mk_fresh_const("unique-value", u), m_manager);
             enode * e   = mk_enode(val, false, false, true);
@@ -678,8 +681,18 @@ namespace smt {
                 push_trail(set_merge_tf_trail(n));
             n->m_merge_tf = true;
             lbool val = get_assignment(v); 
-            if (val != l_undef)
-                push_eq(n, val == l_true ? m_true_enode : m_false_enode, eq_justification(literal(v, val == l_false)));
+            switch (val) {
+            case l_undef: 
+                break;
+            case l_true: 
+                if (n->get_root() != m_true_enode->get_root()) 
+                    push_eq(n, m_true_enode, eq_justification(literal(v, false))); 
+                break;
+            case l_false: 
+                if (n->get_root() != m_false_enode->get_root()) 
+                    push_eq(n, m_false_enode, eq_justification(literal(v, true))); 
+                break;
+            }
         }
     }
 
@@ -816,9 +829,7 @@ namespace smt {
     void context::internalize_uninterpreted(app * n) {
         SASSERT(!e_internalized(n));
         // process args
-        unsigned num = n->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
-            expr * arg = n->get_arg(i); 
+        for (expr * arg : *n) {
             internalize(arg, false);
             SASSERT(e_internalized(arg));
         }
@@ -849,7 +860,7 @@ namespace smt {
             std::cerr << v << " ::=\n" << mk_ll_pp(n, m_manager) << "<END-OF-FORMULA>\n";
         }
 #endif
-        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << "\n";);
+        TRACE("mk_bool_var", tout << "creating boolean variable: " << v << " for:\n" << mk_pp(n, m_manager) << " " << n->get_id() << "\n";);
         TRACE("mk_var_bug", tout << "mk_bool: " << v << "\n";);                
         set_bool_var(id, v);
         m_bdata.reserve(v+1);
@@ -1007,8 +1018,17 @@ namespace smt {
     void context::apply_sort_cnstr(app * term, enode * e) {
         sort * s    = term->get_decl()->get_range();
         theory * th = m_theories.get_plugin(s->get_family_id());
-        if (th)
+        if (th) {
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[theory-constraints] " << m_manager.get_family_name(s->get_family_id()) << "\n";
+            }
+
             th->apply_sort_cnstr(e, s);
+
+            if (m_manager.has_trace_stream()) {
+                m_manager.trace_stream() << "[end-theory-constraints]\n";
+            }
+        }
     }
 
     /**
@@ -1532,10 +1552,9 @@ namespace smt {
     void context::add_and_rel_watches(app * n) {
         if (relevancy()) {
             relevancy_eh * eh = m_relevancy_propagator->mk_and_relevancy_eh(n);
-            unsigned num = n->get_num_args();
-            for (unsigned i = 0; i < num; i++) {
+            for (expr * arg : *n) {
                 // if one child is assigned to false, the and-parent must be notified
-                literal l = get_literal(n->get_arg(i));
+                literal l = get_literal(arg);
                 add_rel_watch(~l, eh);
             }
         }
@@ -1544,10 +1563,9 @@ namespace smt {
     void context::add_or_rel_watches(app * n) {
         if (relevancy()) {
             relevancy_eh * eh = m_relevancy_propagator->mk_or_relevancy_eh(n);
-            unsigned num = n->get_num_args();
-            for (unsigned i = 0; i < num; i++) {
+            for (expr * arg : *n) {
                 // if one child is assigned to true, the or-parent must be notified
-                literal l = get_literal(n->get_arg(i));
+                literal l = get_literal(arg);
                 add_rel_watch(l, eh);
             }
         }
@@ -1578,9 +1596,8 @@ namespace smt {
         TRACE("mk_and_cnstr", tout << "l: "; display_literal(tout, l); tout << "\n";);
         literal_buffer buffer;
         buffer.push_back(l);
-        unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            literal l_arg = get_literal(n->get_arg(i));
+        for (expr * arg : *n) {
+            literal l_arg = get_literal(arg);
             TRACE("mk_and_cnstr", tout << "l_arg: "; display_literal(tout, l_arg); tout << "\n";);
             mk_gate_clause(~l, l_arg);
             buffer.push_back(~l_arg);
@@ -1592,9 +1609,8 @@ namespace smt {
         literal l = get_literal(n);
         literal_buffer buffer;
         buffer.push_back(~l);
-        unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            literal l_arg = get_literal(n->get_arg(i));
+        for (expr * arg : *n) {
+            literal l_arg = get_literal(arg);
             mk_gate_clause(l, ~l_arg);
             buffer.push_back(l_arg);
         }

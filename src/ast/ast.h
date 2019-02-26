@@ -69,7 +69,7 @@ class ast_manager;
 */
 class ast_exception : public default_exception {
 public:
-    ast_exception(char const * msg):default_exception(msg) {}
+    ast_exception(std::string && msg) : default_exception(std::move(msg)) {}
 };
 
 typedef int     family_id;
@@ -122,6 +122,7 @@ public:
     explicit parameter(ast * p): m_kind(PARAM_AST), m_ast(p) {}
     explicit parameter(symbol const & s): m_kind(PARAM_SYMBOL), m_symbol(s.c_ptr()) {}
     explicit parameter(rational const & r): m_kind(PARAM_RATIONAL), m_rational(alloc(rational, r)) {}
+    explicit parameter(rational && r) : m_kind(PARAM_RATIONAL), m_rational(alloc(rational, std::move(r))) {}
     explicit parameter(double d):m_kind(PARAM_DOUBLE), m_dval(d) {}
     explicit parameter(const char *s):m_kind(PARAM_SYMBOL), m_symbol(symbol(s).c_ptr()) {}
     explicit parameter(unsigned ext_id, bool):m_kind(PARAM_EXTERNAL), m_ext_id(ext_id) {}
@@ -272,6 +273,14 @@ public:
     parameter const & get_parameter(unsigned idx) const { return m_parameters[idx]; }
     parameter const * get_parameters() const { return m_parameters.begin(); }
     bool private_parameters() const { return m_private_parameters; }
+
+    struct iterator {
+        decl_info const& d;
+        iterator(decl_info const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
 
     unsigned hash() const;
     bool operator==(decl_info const & info) const;
@@ -571,6 +580,16 @@ public:
     parameter const & get_parameter(unsigned idx) const { return m_info->get_parameter(idx); }
     parameter const * get_parameters() const { return m_info == nullptr ? nullptr : m_info->get_parameters(); }
     bool private_parameters() const { return m_info != nullptr && m_info->private_parameters(); }
+
+    struct iterator {
+        decl const& d;
+        iterator(decl const& d) : d(d) {}
+        parameter const* begin() const { return d.get_parameters(); }
+        parameter const* end() const { return begin() + d.get_num_parameters(); }
+    };
+    iterator parameters() const { return iterator(*this); }
+
+
 };
 
 // -----------------------------------
@@ -688,6 +707,10 @@ public:
     func_decl * get_decl() const { return m_decl; }
     family_id get_family_id() const { return get_decl()->get_family_id(); }
     decl_kind get_decl_kind() const { return get_decl()->get_decl_kind(); }
+    symbol const& get_name() const { return get_decl()->get_name(); }
+    unsigned get_num_parameters() const { return get_decl()->get_num_parameters(); }
+    parameter const& get_parameter(unsigned idx) const { return get_decl()->get_parameter(idx); }
+    parameter const* get_parameters() const { return get_decl()->get_parameters(); }
     bool is_app_of(family_id fid, decl_kind k) const { return get_family_id() == fid && get_decl_kind() == k; }
     unsigned get_num_args() const { return m_num_args; }
     expr * get_arg(unsigned idx) const { SASSERT(idx < m_num_args); return m_args[idx]; }
@@ -939,7 +962,8 @@ class ast_translation;
 
 class ast_table : public chashtable<ast*, obj_ptr_hash<ast>, ast_eq_proc> {
 public:
-    void erase(ast * n);
+    void push_erase(ast * n);
+    ast* pop_erase();
 };
 
 // -----------------------------------
@@ -1539,6 +1563,9 @@ public:
 
     // Equivalent to throw ast_exception(msg)
     Z3_NORETURN void raise_exception(char const * msg);
+    Z3_NORETURN void raise_exception(std::string const& s);
+
+    std::ostream& display(std::ostream& out, parameter const& p);
 
     bool is_format_manager() const { return m_format_manager == nullptr; }
 
@@ -1610,9 +1637,10 @@ public:
     bool are_distinct(expr * a, expr * b) const;
 
     bool contains(ast * a) const { return m_ast_table.contains(a); }
-
+    
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
+    func_decl* get_rec_fun_decl(quantifier* q) const;
     
     symbol const& rec_fun_qid() const { return m_rec_fun; }
 
@@ -2270,17 +2298,17 @@ protected:
     bool check_nnf_proof_parents(unsigned num_proofs, proof * const * proofs) const;
 
 private:
-    void dec_ref(ptr_buffer<ast> & worklist, ast * n) {
+    void push_dec_ref(ast * n) {
         n->dec_ref();
         if (n->get_ref_count() == 0) {
-            worklist.push_back(n);
+            m_ast_table.push_erase(n);
         }
     }
 
     template<typename T>
-    void dec_array_ref(ptr_buffer<ast> & worklist, unsigned sz, T * const * a) {
+    void push_dec_array_ref(unsigned sz, T * const * a) {
         for(unsigned i = 0; i < sz; i++) {
-            dec_ref(worklist, a[i]);
+            push_dec_ref(a[i]);
         }
     }
 };
@@ -2401,11 +2429,7 @@ public:
     }
 
     void reset() {
-        ptr_buffer<ast>::iterator it  = m_to_unmark.begin();
-        ptr_buffer<ast>::iterator end = m_to_unmark.end();
-        for (; it != end; ++it) {
-            reset_mark(*it);
-        }
+        for (ast* a : m_to_unmark) reset_mark(a); 
         m_to_unmark.reset();
     }
 
@@ -2477,6 +2501,7 @@ public:
 
     void mark(ast * n, bool flag) { if (flag) mark(n); else reset_mark(n); }
 };
+
 
 typedef ast_ref_fast_mark<1> ast_ref_fast_mark1;
 typedef ast_ref_fast_mark<2> ast_ref_fast_mark2;
@@ -2552,6 +2577,16 @@ public:
     inc_ref_proc(ast_manager & m):m_manager(m) {}
     void operator()(AST * n) { m_manager.inc_ref(n); }
 };
+
+struct parameter_pp {
+    parameter const& p;
+    ast_manager& m;
+    parameter_pp(parameter const& p, ast_manager& m): p(p), m(m) {}
+};
+
+inline std::ostream& operator<<(std::ostream& out, parameter_pp const& pp) {
+    return pp.m.display(out, pp.p);
+}
 
 
 #endif /* AST_H_ */

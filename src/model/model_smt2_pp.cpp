@@ -21,6 +21,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/func_decl_dependencies.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/pp.h"
 using namespace format_ns;
 
@@ -60,11 +61,9 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         ctx.display(buffer, s, 13);
         buffer << ":\n";
         pp_indent(buffer, TAB_SZ);
-        ptr_vector<expr>::const_iterator it  = u.begin();
-        ptr_vector<expr>::const_iterator end = u.end();
-        for (; it != end; ++it) {
-            SASSERT(is_app(*it));
-            app * c = to_app(*it);
+        for (expr* e : u) {
+            SASSERT(is_app(e));
+            app * c = to_app(e);
             pp_symbol(buffer, c->get_decl()->get_name());
             buffer << " ";
         }
@@ -87,9 +86,8 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         out << "\n";
         pp_indent(out, indent);
         out << ";; definitions for universe elements:\n";
-        it  = u.begin();
-        for (; it != end; ++it) {
-            app * c = to_app(*it);
+        for (expr * e : u) {
+            app * c = to_app(e);
             pp_indent(out, indent);
             out << "(declare-fun ";
             unsigned len  = pp_symbol(out, c->get_decl()->get_name());
@@ -101,9 +99,8 @@ static void pp_uninterp_sorts(std::ostream & out, ast_printer_context & ctx, mod
         out << ";; cardinality constraint:\n";
         f_conds.reset();
         format * var = mk_string(m, "x");
-        it  = u.begin();
-        for (; it != end; ++it) {
-            app * c = to_app(*it);
+        for (expr* e : u) {
+            app * c = to_app(e);
             symbol csym = c->get_decl()->get_name();
             std::string cname;
             if (is_smt2_quoted_symbol(csym))
@@ -170,10 +167,7 @@ void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl
                 func_decl_set deps;
                 bool all_visited = true;
                 collect_func_decls(m, curr_i->get_else(), deps);
-                func_decl_set::iterator it2  = deps.begin();
-                func_decl_set::iterator end2 = deps.end();
-                for (; it2 != end2; ++it2) {
-                    func_decl * d = *it2;
+                for (func_decl * d : deps) {
                     if (d->get_arity() > 0 && md.has_interpretation(d) && !visited.contains(d)) {
                         todo.push_back(d);
                         visited.insert(d);
@@ -189,8 +183,10 @@ void sort_fun_decls(ast_manager & m, model_core const & md, ptr_buffer<func_decl
     }
 }
 
+
 static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core const & md, unsigned indent) {
     ast_manager & m = ctx.get_ast_manager();
+    recfun::util recfun_util(m);
     sbuffer<symbol>    var_names;
     ptr_buffer<format> f_var_names;
     ptr_buffer<format> f_arg_decls;
@@ -200,6 +196,9 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
     sort_fun_decls(m, md, func_decls);
     for (unsigned i = 0; i < func_decls.size(); i++) {
         func_decl * f     = func_decls[i]; 
+        if (recfun_util.is_defined(f)) {
+            continue;
+        }
         func_interp * f_i = md.get_func_interp(f);
         SASSERT(f->get_arity() == f_i->get_arity());
         format_ref body(fm(m));

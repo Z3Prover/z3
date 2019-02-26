@@ -27,9 +27,6 @@ extern "C" {
         Z3_TRY;
         LOG_Z3_mk_bv_sort(c, sz);
         RESET_ERROR_CODE();
-        if (sz == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
-        }
         parameter p(sz);
         Z3_sort r = of_sort(mk_c(c)->m().mk_sort(mk_c(c)->get_bv_fid(), BV_SORT, 1, &p));
         RETURN_Z3(r);
@@ -109,7 +106,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
     MK_BV_PUNARY(Z3_mk_rotate_right, OP_ROTATE_RIGHT);
     MK_BV_PUNARY(Z3_mk_int2bv, OP_INT2BV);
 
-    Z3_ast Z3_API Z3_mk_bv2int(Z3_context c, Z3_ast n, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bv2int(Z3_context c, Z3_ast n, bool is_signed) {
         Z3_TRY;
         LOG_Z3_mk_bv2int(c, n, is_signed);
         RESET_ERROR_CODE();
@@ -163,7 +160,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         // Not logging this one, since it is just syntax sugar.
         unsigned sz = Z3_get_bv_sort_size(c, s);
         if (sz == 0) {
-            SET_ERROR_CODE(Z3_INVALID_ARG);
+            SET_ERROR_CODE(Z3_INVALID_ARG, "zero length bit-vector supplied");
             return nullptr;
         }
         Z3_ast x = Z3_mk_int64(c, 1, s);
@@ -189,7 +186,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         return Z3_mk_int(c, -1, s);
     }
 
-    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvadd_no_overflow(Z3_context c, Z3_ast t1, Z3_ast t2, bool is_signed) {
         Z3_TRY;
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -289,7 +286,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(Z3_context c, Z3_ast t1, Z3_ast t2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvsub_no_underflow(Z3_context c, Z3_ast t1, Z3_ast t2, bool is_signed) {
         Z3_TRY;
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -314,7 +311,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         Z3_CATCH_RETURN(nullptr);
     }
 
-    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(Z3_context c, Z3_ast n1, Z3_ast n2, Z3_bool is_signed) {
+    Z3_ast Z3_API Z3_mk_bvmul_no_overflow(Z3_context c, Z3_ast n1, Z3_ast n2, bool is_signed) {
         LOG_Z3_mk_bvmul_no_overflow(c, n1, n2, is_signed);
         RESET_ERROR_CODE();
         if (is_signed) {
@@ -393,7 +390,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned i, Z3_ast n) {                \
         if (to_sort(t)->get_family_id() == mk_c(c)->get_bv_fid() && to_sort(t)->get_decl_kind() == BV_SORT) {
             return to_sort(t)->get_parameter(0).get_int();
         }
-        SET_ERROR_CODE(Z3_INVALID_ARG);
+        SET_ERROR_CODE(Z3_INVALID_ARG, "sort is not a bit-vector");
         return 0;
         Z3_CATCH_RETURN(0);
     }

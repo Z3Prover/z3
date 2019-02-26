@@ -101,7 +101,7 @@ public:
         resize_data(0);
 #if _WINDOWS
         errno_t err = fopen_s(&m_file, fname, "rb");
-        m_ok = (m_file != NULL) && (err == 0);
+        m_ok = (m_file != nullptr) && (err == 0);
 #else
         m_file = fopen(fname, "rb");
         m_ok = (m_file != nullptr);
@@ -120,7 +120,7 @@ public:
 
        This operation invalidates the line previously retrieved.
 
-       This operatio can be called only if we are not at the end of file.
+       This operation can be called only if we are not at the end of file.
 
        User is free to modify the content of the returned array until the terminating NULL character.
      */
@@ -876,7 +876,7 @@ protected:
 
     /**
        \brief Parse predicate arguments. If \c f==0, they are arguments of a predicate declaration.
-       If parsing a declaration, argumens names are pushed to the \c arg_names vector.
+       If parsing a declaration, argument names are pushed to the \c arg_names vector.
     */
     dtoken parse_args(dtoken tok, func_decl* f, expr_ref_vector& args, svector<symbol> & arg_names) {
         if (tok != TK_LP) {
@@ -1057,7 +1057,7 @@ protected:
             line.push_back(ch);
             ch = strm.get();
         }
-        return line.size() > 0;
+        return !line.empty();
     }
 
     void add_rule(app* head, unsigned sz, app* const* body, const bool * is_neg) {

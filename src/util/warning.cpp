@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include<stdio.h>
-#include<stdarg.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include "util/error_codes.h"
 #include "util/util.h"
@@ -25,7 +25,6 @@ Revision History:
 #include "util/vector.h"
 
 #ifdef _WINDOWS
-#define PRF sprintf_s
 #define VPRF vsprintf_s
 
 void STD_CALL myInvalidParameterHandler(
@@ -54,7 +53,6 @@ void STD_CALL myInvalidParameterHandler(
 
 
 #else
-#define PRF snprintf
 #define VPRF vsnprintf
 #define BEGIN_ERR_HANDLER() {}
 #define END_ERR_HANDLER() {}
@@ -64,7 +62,6 @@ static bool g_warning_msgs   = true;
 static bool g_use_std_stdout = false;
 static std::ostream* g_error_stream = nullptr;
 static std::ostream* g_warning_stream = nullptr;
-static bool g_show_error_msg_prefix = true;
 
 void send_warnings_to_stdout(bool flag) {
     g_use_std_stdout = flag;
@@ -82,61 +79,24 @@ void set_warning_stream(std::ostream* strm) {
     g_warning_stream = strm;
 }
 
-void disable_error_msg_prefix() {
-    g_show_error_msg_prefix = false;
-}
-
-#if 0
-// [Leo]: Do we need this?
-static void string2ostream(std::ostream& out, char const* msg) {
-    svector<char>  buff;
-    buff.resize(10);
-    BEGIN_ERR_HANDLER();                            
-    while (true) {
-        int nc = PRF(buff.c_ptr(), buff.size(), msg);                                                
-        if (nc >= 0 && nc < static_cast<int>(buff.size()))
-            break; // success
-        buff.resize(buff.size()*2 + 1);             
-    }         
-    END_ERR_HANDLER();
-    out << buff.c_ptr();
-}
-#endif
-
 void format2ostream(std::ostream & out, char const* msg, va_list args) {
     svector<char>  buff;
-#if !defined(_WINDOWS) && defined(_AMD64_)
-    // see comment below.
-    buff.resize(1024);
-#else
-    buff.resize(128);
-#endif
     BEGIN_ERR_HANDLER();
-    while (true) {
-        int nc = VPRF(buff.c_ptr(), buff.size(), msg, args);                                                
-#if !defined(_WINDOWS) && defined(_AMD64_)
-    // For some strange reason, on Linux 64-bit version, va_list args is reset by vsnprintf.
-    // Z3 crashes when trying to use va_list args again.
-        // Hack: I truncate the message instead of expanding the buffer to make sure that
-        // va_list args is only used once.
-    END_ERR_HANDLER();
-    if (nc < 0) {
-      // vsnprintf didn't work, so we just print the msg
-      out << msg; 
-      return;
-    }
-    if (nc >= static_cast<int>(buff.size())) {
-          // truncate the message
-          buff[buff.size() - 1] = 0;
-    }
-        out << buff.c_ptr();
-    return;
+
+    va_list args_copy;
+    va_copy(args_copy, args);
+#ifdef _WINDOWS
+    size_t msg_len = _vscprintf(msg, args_copy);
 #else
-        if (nc >= 0 && nc < static_cast<int>(buff.size()))
-            break; // success
-        buff.resize(buff.size()*2 + 1);             
+    size_t msg_len = vsnprintf(nullptr, 0, msg, args_copy);
 #endif
-    }                   
+    va_end(args_copy);
+
+    // +1 is for NUL termination.
+    buff.resize(static_cast<unsigned>(msg_len + 1));
+
+    VPRF(buff.c_ptr(), buff.size(), msg, args);
+
     END_ERR_HANDLER();
     out << buff.c_ptr();
 }

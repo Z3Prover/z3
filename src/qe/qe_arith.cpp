@@ -387,7 +387,7 @@ namespace qe {
             for (row const& r : rows) {
                 expr_ref_vector ts(m);
                 expr_ref t(m), s(m), val(m);
-                if (r.m_vars.size() == 0) {
+                if (r.m_vars.empty()) {
                     continue;
                 }
                 if (r.m_vars.size() == 1 && r.m_vars[0].m_coeff.is_neg() && r.m_type != opt::t_mod) {
@@ -453,30 +453,12 @@ namespace qe {
                     else if (!d.m_div.is_one() && !is_int) {
                         t = a.mk_div(t, a.mk_numeral(d.m_div, is_int));
                     }
-                    update_model(model, to_app(x), eval(t));
                     
-                    SASSERT(eval(t) == eval(x));
                     result.push_back(def(expr_ref(x, m), t));
                 }
             }
             return result;
         }        
-
-        void update_model(model& mdl, app* x, expr_ref const& val) {
-            if (is_uninterp_const(x)) {
-                mdl.register_decl(x->get_decl(), val);
-            }
-            else {
-                func_interp* fi = mdl.get_func_interp(x->get_decl());
-                if (!fi) return;
-                model_evaluator eval(mdl);
-                expr_ref_vector args(m);
-                for (expr* arg : *x) {
-                    args.push_back(eval(arg));
-                }
-                fi->insert_entry(args.c_ptr(), val);
-            }
-        }
 
         expr_ref mk_add(expr_ref_vector const& ts) {
             switch (ts.size()) {

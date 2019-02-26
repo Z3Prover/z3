@@ -44,7 +44,7 @@ tactic * mk_nra_tactic(ast_manager & m, params_ref const& p) {
                      try_for(mk_qfnra_nlsat_tactic(m, p1), 10000),
                      mk_qfnra_nlsat_tactic(m, p2)),
              or_else(mk_nlqsat_tactic(m, p),
-                     mk_smt_tactic(p))
+                     mk_smt_tactic(m, p))
              ));
 }
 

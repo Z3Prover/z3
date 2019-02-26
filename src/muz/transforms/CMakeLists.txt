@@ -1,3 +1,4 @@
+
 z3_add_component(transforms
   SOURCES
     dl_mk_array_blast.cpp
@@ -23,6 +24,8 @@ z3_add_component(transforms
     dl_transforms.cpp
     dl_mk_array_eq_rewrite.cpp
     dl_mk_array_instantiation.cpp
+    dl_mk_elim_term_ite.cpp
+    dl_mk_synchronize.cpp
   COMPONENT_DEPENDENCIES
     dataflow
     hilbert

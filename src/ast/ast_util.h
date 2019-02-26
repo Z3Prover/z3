@@ -123,7 +123,7 @@ inline expr_ref mk_or(expr_ref_vector const& args) { return expr_ref(mk_or(args.
 
 /**
    Return a          if arg = (not a)
-   Retur (not arg)   otherwise
+   Return (not arg)  otherwise
  */
 expr * mk_not(ast_manager & m, expr * arg);
 

@@ -37,6 +37,7 @@ context_params::context_params() {
     m_model_compress = true;
     m_timeout = UINT_MAX;
     m_rlimit  = 0;
+    m_statistics = false;
     updt_params();
 }
 
@@ -109,6 +110,9 @@ void context_params::set(char const * param, char const * value) {
     else if (p == "dump_models") {
         set_bool(m_dump_models, param, value);
     }
+    else if (p == "stats") {
+        set_bool(m_statistics, param, value);
+    }
     else if (p == "trace") {
         set_bool(m_trace, param, value);
     }
@@ -158,11 +162,12 @@ void context_params::updt_params(params_ref const & p) {
     m_unsat_core        = p.get_bool("unsat_core", m_unsat_core);
     m_debug_ref_count   = p.get_bool("debug_ref_count", m_debug_ref_count);
     m_smtlib2_compliant = p.get_bool("smtlib2_compliant", m_smtlib2_compliant);
+    m_statistics        = p.get_bool("stats", m_statistics);
 }
 
 void context_params::collect_param_descrs(param_descrs & d) {
-    d.insert("timeout", CPK_UINT, "default timeout (in milliseconds) used for solvers", "4294967295");
-    d.insert("rlimit", CPK_UINT, "default resource limit used for solvers. Unrestricted when set to 0.", "0");
+    insert_rlimit(d);
+    insert_timeout(d);
     d.insert("well_sorted_check", CPK_BOOL, "type checker", "false");
     d.insert("type_check", CPK_BOOL, "type checker (alias for well_sorted_check)", "true");
     d.insert("auto_config", CPK_BOOL, "use heuristics to automatically select solver and configure it", "true");
@@ -174,6 +179,8 @@ void context_params::collect_param_descrs(param_descrs & d) {
     d.insert("dot_proof_file", CPK_STRING, "file in which to output graphical proofs", "proof.dot");
     d.insert("debug_ref_count", CPK_BOOL, "debug support for AST reference counting", "false");
     d.insert("smtlib2_compliant", CPK_BOOL, "enable/disable SMT-LIB 2.0 compliance", "false");
+    d.insert("stats", CPK_BOOL, "enable/disable statistics", "false");
+    // statistics are hidden as they are controlled by the /st option.
     collect_solver_param_descrs(d);
 }
 

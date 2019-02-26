@@ -62,11 +62,11 @@ extern "C" {
     /**
        \brief Add a Boolean parameter \c k with value \c v to the parameter set \c p.
     */
-    void Z3_API Z3_params_set_bool(Z3_context c, Z3_params p, Z3_symbol k, Z3_bool v) {
+    void Z3_API Z3_params_set_bool(Z3_context c, Z3_params p, Z3_symbol k, bool v) {
         Z3_TRY;
         LOG_Z3_params_set_bool(c, p, k, v);
         RESET_ERROR_CODE();
-        to_params(p)->m_params.set_bool(norm_param_name(to_symbol(k)).c_str(), v != 0);
+        to_params(p)->m_params.set_bool(norm_param_name(to_symbol(k)).c_str(), v);
         Z3_CATCH;
     }
 
@@ -171,7 +171,7 @@ extern "C" {
         LOG_Z3_param_descrs_get_name(c, p, i);
         RESET_ERROR_CODE();
         if (i >= to_param_descrs_ptr(p)->size()) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         Z3_symbol result = of_symbol(to_param_descrs_ptr(p)->get_param_name(i));
@@ -185,7 +185,7 @@ extern "C" {
         RESET_ERROR_CODE();
         char const* result = to_param_descrs_ptr(p)->get_descr(to_symbol(s));
         if (result == nullptr) {
-            SET_ERROR_CODE(Z3_IOB);
+            SET_ERROR_CODE(Z3_IOB, nullptr);
             RETURN_Z3(nullptr);
         }
         return mk_c(c)->mk_external_string(result);

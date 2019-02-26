@@ -158,7 +158,7 @@ namespace opt {
         return m_dump_benchmarks;
     }
 
-    lbool opt_solver::check_sat_core(unsigned num_assumptions, expr * const * assumptions) {
+    lbool opt_solver::check_sat_core2(unsigned num_assumptions, expr * const * assumptions) {
         TRACE("opt_verbose", {
             tout << "context size: " << m_context.size() << "\n";            
             for (unsigned i = 0; i < m_context.size(); ++i) {
@@ -208,6 +208,9 @@ namespace opt {
         return m_context.preferred_sat(asms, cores);
     }
 
+    void opt_solver::get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) {
+        return m_context.get_levels(vars, depth);
+    }
 
 
     /**
@@ -230,11 +233,14 @@ namespace opt {
         get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << "\n";);
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << "\n";);
         if (!m_models[i]) {
             set_model(i);
         }
-        if (m_context.get_context().update_model(has_shared)) {
+        if (!val.is_finite()) {
+            // skip model updates
+        }
+        else if (m_context.get_context().update_model(has_shared)) {
             if (has_shared && val != current_objective_value(i)) {
                 decrement_value(i, val);
             }

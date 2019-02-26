@@ -1,33 +1,38 @@
 z3_add_component(lp
   SOURCES
-    lp_utils.cpp
-    binary_heap_priority_queue_instances.cpp
-    binary_heap_upair_queue_instances.cpp
+    binary_heap_priority_queue.cpp
+    binary_heap_upair_queue.cpp
     lp_bound_propagator.cpp
-    core_solver_pretty_printer_instances.cpp
-    dense_matrix_instances.cpp
-    eta_matrix_instances.cpp
-    indexed_vector_instances.cpp
-    lar_core_solver_instances.cpp
-    lp_core_solver_base_instances.cpp
-    lp_dual_core_solver_instances.cpp
-    lp_dual_simplex_instances.cpp
-    lp_primal_core_solver_instances.cpp
-    lp_primal_simplex_instances.cpp
-    lp_settings_instances.cpp
-    lp_solver_instances.cpp
-    lu_instances.cpp
-    matrix_instances.cpp
-    permutation_matrix_instances.cpp
-    quick_xplain.cpp
-    row_eta_matrix_instances.cpp
-    scaler_instances.cpp
-    sparse_matrix_instances.cpp
-    square_dense_submatrix_instances.cpp
-    static_matrix_instances.cpp
-    random_updater_instances.cpp      
+    core_solver_pretty_printer.cpp
+    dense_matrix.cpp
+    eta_matrix.cpp
+    gomory.cpp
+    indexed_vector.cpp
+    int_solver.cpp
+    lar_solver.cpp
+    lar_core_solver.cpp
+    lp_core_solver_base.cpp
+    lp_dual_core_solver.cpp
+    lp_dual_simplex.cpp
+    lp_primal_core_solver.cpp
+    lp_primal_simplex.cpp
+    lp_settings.cpp
+    lp_solver.cpp
+    lu.cpp
+    lp_utils.cpp
+    matrix.cpp
+    nra_solver.cpp
+    permutation_matrix.cpp
+    random_updater.cpp      
+    row_eta_matrix.cpp
+    scaler.cpp
+    square_dense_submatrix.cpp
+    square_sparse_matrix.cpp
+    static_matrix.cpp
   COMPONENT_DEPENDENCIES
     util
+    polynomial
+    nlsat
   PYG_FILES
     lp_params.pyg
 )

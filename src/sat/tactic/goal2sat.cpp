@@ -57,10 +57,10 @@ struct goal2sat::imp {
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
     obj_hashtable<expr>         m_interface_vars;
-    sat::solver &               m_solver;
+    sat::solver_core &          m_solver;
     atom2bool_var &             m_map;
     dep2asm_map &               m_dep2asm;
-    sat::bool_var               m_true;
+    sat::literal                m_true;
     bool                        m_ite_extra;
     unsigned long long          m_max_memory;
     expr_ref_vector             m_trail;
@@ -69,10 +69,10 @@ struct goal2sat::imp {
     bool                        m_xor_solver;
     bool                        m_is_lemma;
     
-    imp(ast_manager & _m, params_ref const & p, sat::solver & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
+    imp(ast_manager & _m, params_ref const & p, sat::solver_core & s, atom2bool_var & map, dep2asm_map& dep2asm, bool default_external):
         m(_m),
         pb(m),
-        m_ext(0),
+        m_ext(nullptr),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -81,13 +81,14 @@ struct goal2sat::imp {
         m_default_external(default_external),
         m_is_lemma(false) {
         updt_params(p);
-        m_true = sat::null_bool_var;
+        m_true = sat::null_literal;
     }
         
     void updt_params(params_ref const & p) {
         m_ite_extra  = p.get_bool("ite_extra", true);
         m_max_memory = megabytes_to_bytes(p.get_uint("max_memory", UINT_MAX));
         m_xor_solver = p.get_bool("xor_solver", false);
+        if (m_xor_solver) ensure_extension();
     }
 
     void throw_op_not_handled(std::string const& s) {
@@ -97,31 +98,31 @@ struct goal2sat::imp {
     
     void mk_clause(sat::literal l) {
         TRACE("goal2sat", tout << "mk_clause: " << l << "\n";);
-        m_solver.mk_clause(1, &l);
+        m_solver.add_clause(1, &l, false);
     }
 
     void set_lemma_mode(bool f) { m_is_lemma = f; }
 
     void mk_clause(sat::literal l1, sat::literal l2) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << "\n";);
-        m_solver.mk_clause(l1, l2, m_is_lemma);
+        m_solver.add_clause(l1, l2, m_is_lemma);
     }
 
     void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.mk_clause(l1, l2, l3, m_is_lemma);
+        m_solver.add_clause(l1, l2, l3, m_is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
         TRACE("goal2sat", tout << "mk_clause: "; for (unsigned i = 0; i < num; i++) tout << lits[i] << " "; tout << "\n";);
-        m_solver.mk_clause(num, lits, m_is_lemma);
+        m_solver.add_clause(num, lits, m_is_lemma);
     }
 
-    sat::bool_var mk_true() {
-        if (m_true == sat::null_bool_var) {
+    sat::literal mk_true() {
+        if (m_true == sat::null_literal) {
             // create fake variable to represent true;
-            m_true = m_solver.mk_var(false);
-            mk_clause(sat::literal(m_true, false)); // v is true
+            m_true = sat::literal(m_solver.add_var(false), false);
+            mk_clause(m_true); // v is true
         }
         return m_true;
     }
@@ -132,14 +133,14 @@ struct goal2sat::imp {
         sat::bool_var v = m_map.to_bool_var(t);
         if (v == sat::null_bool_var) {
             if (m.is_true(t)) {
-                l = sat::literal(mk_true(), sign);
+                l = sign ? ~mk_true() : mk_true();
             }
             else if (m.is_false(t)) {
-                l = sat::literal(mk_true(), !sign);
+                l = sign ? mk_true() : ~mk_true();
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                sat::bool_var v = m_solver.mk_var(ext);
+                sat::bool_var v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
@@ -247,7 +248,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.mk_var();
+            sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
@@ -286,7 +287,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.mk_var();
+            sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             // l => /\ lits
@@ -329,7 +330,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.mk_var();
+            sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(n, l);
             mk_clause(~l, ~c, t);
@@ -366,7 +367,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.mk_var();
+            sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             mk_clause(~l, l1, ~l2);
@@ -390,7 +391,7 @@ struct goal2sat::imp {
             return;
         }
         sat::literal_vector lits;
-        sat::bool_var v = m_solver.mk_var(true);
+        sat::bool_var v = m_solver.add_var(true);
         lits.push_back(sat::literal(v, true));
         convert_pb_args(num, lits);
         // ensure that = is converted to xor
@@ -443,23 +444,40 @@ struct goal2sat::imp {
         convert_to_wlits(t, lits, wlits);        
     }
 
+    void push_result(bool root, sat::literal lit, unsigned num_args) {
+        if (root) {
+            m_result_stack.reset();
+            mk_clause(lit);                
+        }
+        else {
+            m_result_stack.shrink(m_result_stack.size() - num_args);
+            m_result_stack.push_back(lit);
+        }
+    }
+
     void convert_pb_ge(app* t, bool root, bool sign) {
         rational k = pb.get_k(t);
         check_unsigned(k);                
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
-        unsigned sz = m_result_stack.size();
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+            unsigned k1 = k.get_unsigned();
+            if (sign) {
+                k1 = 1 - k1;
+                for (wliteral& wl : wlits) {
+                    wl.second.neg();
+                    k1 += wl.first;
+                }
+            }
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
-            sat::bool_var v = m_solver.mk_var(true);
+            sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
@@ -473,29 +491,36 @@ struct goal2sat::imp {
             k += rational(wl.first);
         }
         check_unsigned(k);
-        unsigned sz = m_result_stack.size();
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_pb_ge(sat::null_bool_var, wlits, k.get_unsigned());
+            unsigned k1 = k.get_unsigned();
+            if (sign) {
+                k1 = 1 - k1;
+                for (wliteral& wl : wlits) {
+                    wl.second.neg();
+                    k1 += wl.first;
+                }
+            }
+            m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
-            sat::bool_var v = m_solver.mk_var(true);
+            sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
     void convert_pb_eq(app* t, bool root, bool sign) {
-        IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
+        //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
-        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
-        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
+        bool base_assert = (root && !sign && m_solver.num_user_scopes() == 0);
+        sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
+        sat::bool_var v2 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
         m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
         k.neg();
         for (wliteral& wl : wlits) {
@@ -504,68 +529,59 @@ struct goal2sat::imp {
         }
         check_unsigned(k);
         m_ext->add_pb_ge(v2, wlits, k.get_unsigned());
-        if (root && !sign) {
+        if (base_assert) {
             m_result_stack.reset();
         }
         else {
             sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.mk_var();
+            sat::bool_var v = m_solver.add_var(false);
             sat::literal l(v, false);
             mk_clause(~l, l1);
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_cache.insert(t, l);
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             if (sign) l.neg();
-            m_result_stack.push_back(l);
-            if (root) {
-                m_result_stack.reset();
-                mk_clause(l);
-            }
+            push_result(root, l, t->get_num_args());
         }
     }
 
     void convert_at_least_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
-        unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
         }
         else {
-            sat::bool_var v = m_solver.mk_var(true);
+            sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, false);
             m_ext->add_at_least(v, lits, k.get_unsigned());
             m_cache.insert(t, lit);
             if (sign) lit.neg();
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
-            m_result_stack.shrink(sz - t->get_num_args());
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }
     }
 
     void convert_at_most_k(app* t, rational const& k, bool root, bool sign) {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
-        unsigned sz = m_result_stack.size();
         convert_pb_args(t->get_num_args(), lits);
         for (sat::literal& l : lits) {
             l.neg();
         }
-        if (root) {
+        if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
             m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
         }
         else {
-            sat::bool_var v = m_solver.mk_var(true);
+            sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, false);
             m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
             m_cache.insert(t, lit);
-            m_result_stack.shrink(sz - t->get_num_args());
             if (sign) lit.neg();
-            m_result_stack.push_back(lit);
+            push_result(root, lit, t->get_num_args());
         }        
     }
 
@@ -573,8 +589,8 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
-        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.mk_var(true);
+        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
+        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
         m_ext->add_at_least(v1, lits, k.get_unsigned());        
         for (sat::literal& l : lits) {
             l.neg();
@@ -587,19 +603,14 @@ struct goal2sat::imp {
         }
         else {
             sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.mk_var();
+            sat::bool_var v = m_solver.add_var(false);
             sat::literal l(v, false);
             mk_clause(~l, l1);
             mk_clause(~l, l2);
             mk_clause(~l1, ~l2, l);
             m_cache.insert(t, l);
-            m_result_stack.shrink(m_result_stack.size() - t->get_num_args());
             if (sign) l.neg();
-            m_result_stack.push_back(l);
-            if (root) {
-                mk_clause(l);
-                m_result_stack.reset();
-            }
+            push_result(root, l, t->get_num_args());
         }
     }
 
@@ -887,7 +898,7 @@ struct goal2sat::scoped_set_imp {
 };
 
 
-void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external, bool is_lemma) {
+void goal2sat::operator()(goal const & g, params_ref const & p, sat::solver_core & t, atom2bool_var & m, dep2asm_map& dep2asm, bool default_external, bool is_lemma) {
     imp proc(g.m(), p, t, m, dep2asm, default_external);
     scoped_set_imp set(this, &proc);
     proc.set_lemma_mode(is_lemma);
@@ -906,7 +917,7 @@ void goal2sat::get_interpreted_atoms(expr_ref_vector& atoms) {
 
 sat2goal::mc::mc(ast_manager& m): m(m), m_var2expr(m) {}
 
-void sat2goal::mc::flush_smc(sat::solver& s, atom2bool_var const& map) {
+void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
     s.flush(m_smc);
     m_var2expr.resize(s.num_vars());
     map.mk_var_inv(m_var2expr);
@@ -1047,7 +1058,7 @@ void sat2goal::mc::insert(sat::bool_var v, app * atom, bool aux) {
 
 expr_ref sat2goal::mc::lit2expr(sat::literal l) {
     if (!m_var2expr.get(l.var())) {
-        app* aux = m.mk_fresh_const(0, m.mk_bool_sort());
+        app* aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
         m_var2expr.set(l.var(), aux);
         if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
         m_gmc->hide(aux->get_decl());
@@ -1091,7 +1102,7 @@ struct sat2goal::imp {
             SASSERT(m_lit2expr.get((~l).index()) == 0);
             app* aux = mc ? mc->var2expr(l.var()) : nullptr;
             if (!aux) {
-                aux = m.mk_fresh_const(0, m.mk_bool_sort());
+                aux = m.mk_fresh_const(nullptr, m.mk_bool_sort());
                 if (mc) {
                     mc->insert(l.var(), aux, true);
                 }
@@ -1147,13 +1158,14 @@ struct sat2goal::imp {
         r.assert_expr(fml);
     }
 
-    void assert_clauses(ref<mc>& mc, sat::solver const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
+    void assert_clauses(ref<mc>& mc, sat::solver_core const & s, sat::clause_vector const& clauses, goal & r, bool asserted) {
         ptr_buffer<expr> lits;
+        unsigned small_lbd = 3; // s.get_config().m_gc_small_lbd;
         for (sat::clause* cp : clauses) {
             checkpoint();
             lits.reset();
             sat::clause const & c = *cp;
-            if (asserted || m_learned || c.glue() <= s.get_config().m_gc_small_lbd) {
+            if (asserted || m_learned || c.glue() <= small_lbd) {
                 for (sat::literal l : c) {
                     lits.push_back(lit2expr(mc, l));
                 }
@@ -1162,12 +1174,12 @@ struct sat2goal::imp {
         }
     }
 
-    sat::ba_solver* get_ba_solver(sat::solver const& s) {
+    sat::ba_solver* get_ba_solver(sat::solver_core const& s) {
         return dynamic_cast<sat::ba_solver*>(s.get_extension());
     }
 
-    void operator()(sat::solver & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
-        if (s.inconsistent()) {
+    void operator()(sat::solver_core & s, atom2bool_var const & map, goal & r, ref<mc> & mc) {
+        if (s.at_base_lvl() && s.inconsistent()) {
             r.assert_expr(m.mk_false());
             return;
         }
@@ -1186,7 +1198,7 @@ struct sat2goal::imp {
 
         // collect binary clauses
         svector<sat::solver::bin_clause> bin_clauses;
-        s.collect_bin_clauses(bin_clauses, m_learned);
+        s.collect_bin_clauses(bin_clauses, m_learned, false);
         for (sat::solver::bin_clause const& bc : bin_clauses) {
             checkpoint();
             r.assert_expr(m.mk_or(lit2expr(mc, bc.first), lit2expr(mc, bc.second)));
@@ -1252,7 +1264,7 @@ struct sat2goal::scoped_set_imp {
     }
 };
 
-void sat2goal::operator()(sat::solver & t, atom2bool_var const & m, params_ref const & p, 
+void sat2goal::operator()(sat::solver_core & t, atom2bool_var const & m, params_ref const & p, 
                           goal & g, ref<mc> & mc) {
     imp proc(g.m(), p);
     scoped_set_imp set(this, &proc);

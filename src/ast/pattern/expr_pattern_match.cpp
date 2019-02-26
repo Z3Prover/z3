@@ -393,10 +393,8 @@ expr_pattern_match::initialize(char const * spec_string) {
     VERIFY(parse_smt2_commands(ctx, is));
     ctx.set_print_success(ps);
 
-    ptr_vector<expr>::const_iterator it  = ctx.begin_assertions();
-    ptr_vector<expr>::const_iterator end = ctx.end_assertions();
-    for (; it != end; ++it) {
-        compile(*it);
+    for (expr * e : ctx.assertions()) {
+        compile(e);
     }
     TRACE("expr_pattern_match", display(tout); );
 }

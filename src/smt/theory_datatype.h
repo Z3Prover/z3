@@ -73,7 +73,7 @@ namespace smt {
         void sign_recognizer_conflict(enode * c, enode * r);
 
         typedef enum { ENTER, EXIT } stack_op;
-        typedef map<enode*, enode*, obj_ptr_hash<enode>, ptr_eq<enode> > parent_tbl;
+        typedef obj_map<enode, enode*> parent_tbl;
         typedef std::pair<stack_op, enode*> stack_entry;
 
         ptr_vector<enode>     m_to_unmark;
@@ -102,6 +102,7 @@ namespace smt {
         bool occurs_check(enode * n);
         bool occurs_check_enter(enode * n);
         void occurs_check_explain(enode * top, enode * root);
+        void explain_is_child(enode* parent, enode* child);
 
         void mk_split(theory_var v);
 

@@ -121,7 +121,7 @@ private:
             tactic_ref t = mk_qfaufbv_tactic(m_m, m_p);
             sat = mk_tactic2solver(m_m, t.get(), m_p);
         }
-        SASSERT(sat != NULL);
+        SASSERT(sat != nullptr);
         sat->set_produce_models(true);
         return sat;
     }
@@ -176,7 +176,7 @@ tactic * mk_qfufbv_tactic(ast_manager & m, params_ref const & p) {
     tactic * const preamble_st = mk_qfufbv_preamble(m, p);
 
     tactic * st = using_params(and_then(preamble_st,
-        cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic())),
+        cond(mk_is_qfbv_probe(), mk_qfbv_tactic(m), mk_smt_tactic(m))),
         main_p);
 
     st->updt_params(p);
@@ -188,5 +188,5 @@ tactic * mk_qfufbv_ackr_tactic(ast_manager & m, params_ref const & p) {
 
     tactic * const actual_tactic = alloc(qfufbv_ackr_tactic, m, p);
     return and_then(preamble_t,
-        cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic()));
+        cond(mk_is_qfufbv_probe(), actual_tactic, mk_smt_tactic(m)));
 }

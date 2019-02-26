@@ -131,12 +131,12 @@ namespace polynomial {
             ~factors();
             
             /**
-               \brief Numer of distinct factors (not counting multiplicities).
+               \brief Number of distinct factors (not counting multiplicities).
             */
             unsigned distinct_factors() const { return m_factors.size(); }
             
             /**
-               \brief Numer of distinct factors (counting multiplicities).
+               \brief Number of distinct factors (counting multiplicities).
             */
             unsigned total_factors() const { return m_total_factors; }
 

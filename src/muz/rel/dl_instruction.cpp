@@ -41,7 +41,6 @@ namespace datalog {
 
     execution_context::~execution_context() {
         reset();
-        dealloc(m_stopwatch);
     }
 
     void execution_context::reset() {
@@ -104,15 +103,15 @@ namespace datalog {
         m_timelimit_ms = time_in_ms;
         if (!m_stopwatch) {
             m_stopwatch = alloc(stopwatch);
+        } else {
+            m_stopwatch->stop();
+            m_stopwatch->reset();
         }
-        m_stopwatch->stop();
-        m_stopwatch->reset();
         m_stopwatch->start();
     }
     void execution_context::reset_timelimit() {
-        if (m_stopwatch) {
-            m_stopwatch->stop();
-        }
+        dealloc(m_stopwatch);
+        m_stopwatch = nullptr;
         m_timelimit_ms = 0;
     }
 
@@ -640,7 +639,7 @@ namespace datalog {
         reg_idx m_src;
         reg_idx m_tgt;
         reg_idx m_delta;
-        bool m_widen; //if true, widening is performed intead of an union
+        bool m_widen; //if true, widening is performed instead of an union
     public:
         instr_union(reg_idx src, reg_idx tgt, reg_idx delta, bool widen)
             : m_src(src), m_tgt(tgt), m_delta(delta), m_widen(widen) {}

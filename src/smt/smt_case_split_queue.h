@@ -32,6 +32,7 @@ namespace smt {
     class case_split_queue {
     public:
         virtual void activity_increased_eh(bool_var v) = 0;
+        virtual void activity_decreased_eh(bool_var v) = 0;
         virtual void mk_var_eh(bool_var v) = 0;
         virtual void del_var_eh(bool_var v) = 0;
         virtual void assign_lit_eh(literal l) {}

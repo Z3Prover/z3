@@ -31,7 +31,7 @@ namespace datalog {
     rule_dependencies::rule_dependencies(const rule_dependencies & o, bool reversed):
         m_context(o.m_context) {
         if (reversed) {
-            for (auto & kv : o) { 
+            for (auto & kv : o) {
                 func_decl * pred = kv.m_key;
                 item_set & orig_items = *kv.get_value();
 
@@ -114,8 +114,8 @@ namespace datalog {
                 app* a = to_app(e);
                 d = a->get_decl();
                 if (m_context.is_predicate(d)) {
-                    // insert d and ensure the invariant 
-                    // that every predicate is present as 
+                    // insert d and ensure the invariant
+                    // that every predicate is present as
                     // a key in m_data
                     s.insert(d);
                     ensure_key(d);
@@ -148,7 +148,7 @@ namespace datalog {
             item_set& itms = *kv.get_value();
             set_intersection(itms, allowed);
         }
-        for (func_decl* f : to_remove) 
+        for (func_decl* f : to_remove)
             remove_m_data_entry(f);
     }
 
@@ -253,18 +253,18 @@ namespace datalog {
     //
     // -----------------------------------
 
-    rule_set::rule_set(context & ctx) 
-          : m_context(ctx), 
-            m_rule_manager(ctx.get_rule_manager()), 
-            m_rules(m_rule_manager), 
+    rule_set::rule_set(context & ctx)
+          : m_context(ctx),
+            m_rule_manager(ctx.get_rule_manager()),
+            m_rules(m_rule_manager),
             m_deps(ctx),
             m_stratifier(nullptr),
             m_refs(ctx.get_manager()) {
     }
 
-    rule_set::rule_set(const rule_set & other) 
-        : m_context(other.m_context), 
-          m_rule_manager(other.m_rule_manager), 
+    rule_set::rule_set(const rule_set & other)
+        : m_context(other.m_context),
+          m_rule_manager(other.m_rule_manager),
           m_rules(m_rule_manager),
           m_deps(other.m_context),
           m_stratifier(nullptr),
@@ -353,10 +353,27 @@ namespace datalog {
                 break;                                  \
             }                                           \
         }                                               \
-        
+
         DEL_VECTOR(*rules);
         DEL_VECTOR(m_rules);
-    }    
+    }
+
+    void rule_set::replace_rule(rule * r, rule * other) {
+        TRACE("dl", r->display(m_context, tout << "replace:"););
+        func_decl* d = r->get_decl();
+        rule_vector* rules = m_head2rules.find(d);
+#define REPLACE_VECTOR(_v)                              \
+        for (unsigned i = (_v).size(); i > 0; ) {       \
+            --i;                                        \
+            if ((_v)[i] == r) {                         \
+                (_v)[i] = other;                        \
+                break;                                  \
+            }                                           \
+        }                                               \
+
+        REPLACE_VECTOR(*rules);
+        REPLACE_VECTOR(m_rules);
+    }
 
     void rule_set::ensure_closed() {
         if (!is_closed()) {
@@ -365,7 +382,7 @@ namespace datalog {
     }
 
     bool rule_set::close() {
-        SASSERT(!is_closed()); //the rule_set is not already closed        
+        SASSERT(!is_closed()); //the rule_set is not already closed
         m_deps.populate(*this);
         m_stratifier = alloc(rule_stratifier, m_deps);
         if (!stratified_negation()) {
@@ -426,7 +443,7 @@ namespace datalog {
         inherit_predicates(src);
     }
 
-    const rule_vector & rule_set::get_predicate_rules(func_decl * pred) const { 
+    const rule_vector & rule_set::get_predicate_rules(func_decl * pred) const {
         decl2rules::obj_map_entry * e = m_head2rules.find_core(pred);
         if (!e) {
             return m_empty_rule_vector;
@@ -501,6 +518,14 @@ namespace datalog {
         }
     }
 
+    bool rule_set::is_finite_domain() const {
+        for (rule * r : *this) {
+            if (!get_rule_manager().is_finite_domain(*r)) 
+                return false;
+        }
+        return true;
+    }
+
 
     void rule_set::display_deps( std::ostream & out ) const
     {
@@ -511,7 +536,7 @@ namespace datalog {
                 out << "\n";
                 non_empty = false;
             }
-            
+
             for (func_decl * first : *strat) {
                 const func_decl_set & deps = m_deps.get_deps(first);
                 for (func_decl * dep : deps) {
@@ -537,8 +562,8 @@ namespace datalog {
     unsigned rule_stratifier::get_predicate_strat(func_decl * pred) const {
         unsigned num;
         if (!m_pred_strat_nums.find(pred, num)) {
-            //the number of the predicate is not stored, therefore it did not appear 
-            //in the algorithm and therefore it does not depend on anything and nothing 
+            //the number of the predicate is not stored, therefore it did not appear
+            //in the algorithm and therefore it does not depend on anything and nothing
             //depends on it. So it is safe to assign zero strate to it, although it is
             //not strictly true.
             num = 0;
@@ -633,7 +658,7 @@ namespace datalog {
         }
 
 
-        // We put components whose indegree is zero to m_strats and assign its 
+        // We put components whose indegree is zero to m_strats and assign its
         // m_components entry to zero.
         unsigned comp_cnt = m_components.size();
         for (unsigned i = 0; i < comp_cnt; i++) {
@@ -672,7 +697,7 @@ namespace datalog {
             strats_index++;
         }
         //we have managed to topologicaly order all the components
-        SASSERT(std::find_if(m_components.begin(), m_components.end(), 
+        SASSERT(std::find_if(m_components.begin(), m_components.end(),
             std::bind1st(std::not_equal_to<item_set*>(), (item_set*)0)) == m_components.end());
 
         //reverse the strats array, so that the only the later components would depend on earlier ones
@@ -705,7 +730,7 @@ namespace datalog {
             }
             out << "\n";
         }
-        
+
     }
 
 };

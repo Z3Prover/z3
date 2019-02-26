@@ -32,7 +32,6 @@ RUN apt-get update && \
         libomp-dev \
         llvm-3.9 \
         make \
-        mono-devel \
         ninja-build \
         python3 \
         python3-setuptools \
@@ -48,4 +47,6 @@ RUN useradd -m user && \
     echo 'user  ALL=(root) NOPASSWD: ALL' >> /etc/sudoers
 USER user
 WORKDIR /home/user
-ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.9/bin/llvm-symbolizer
+# TODO .NET core does not support Linux x86 yet, disable it for now.
+# see: https://github.com/dotnet/coreclr/issues/9265
+ENV ASAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.9/bin/llvm-symbolizer DOTNET_BINDINGS=0

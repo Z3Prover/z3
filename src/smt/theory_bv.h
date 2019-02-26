@@ -124,6 +124,13 @@ namespace smt {
 
         value2var                m_fixed_var_table;
         
+        unsigned char            m_eq_activity[256];
+        unsigned char            m_diseq_activity[256];
+        svector<std::pair<theory_var, theory_var>> m_replay_diseq;
+        vector<vector<std::pair<theory_var, theory_var>>> m_diseq_watch;
+        svector<bool_var> m_diseq_watch_trail;
+        unsigned_vector   m_diseq_watch_lim;
+
         literal_vector           m_tmp_literals;
         svector<var_pos>         m_prop_queue;
         bool                     m_approximates_large_bvs;
@@ -233,6 +240,8 @@ namespace smt {
         bool include_func_interp(func_decl* f) override;
         svector<theory_var>   m_merge_aux[2]; //!< auxiliary vector used in merge_zero_one_bits
         bool merge_zero_one_bits(theory_var r1, theory_var r2);
+        bool can_propagate() override { return !m_replay_diseq.empty(); }
+        void propagate() override;
 
         // -----------------------------------
         //
@@ -266,9 +275,9 @@ namespace smt {
 
 
 #ifdef Z3DEBUG
-        bool check_assignment(theory_var v) const;
-        bool check_invariant() const;
-        bool check_zero_one_bits(theory_var v) const;
+        bool check_assignment(theory_var v);
+        bool check_invariant();
+        bool check_zero_one_bits(theory_var v);
 #endif
     };
 };

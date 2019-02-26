@@ -202,7 +202,7 @@ public:
     public:
         node(context_t & s, unsigned id);
         node(node * parent, unsigned id);
-        // return unique indentifier.
+        // return unique identifier.
         unsigned id() const { return m_id; }
         bound_array_manager & bm() const { return m_bm; }
         bound_array & lowers() { return m_lowers; }

@@ -17,9 +17,9 @@ Notes:
     
 --*/
 
+using System.Diagnostics;
 using System;
 using System.Runtime.InteropServices;
-using System.Diagnostics.Contracts;
 
 namespace Microsoft.Z3
 {
@@ -30,7 +30,6 @@ namespace Microsoft.Z3
     /// and <c>Context.ProbeNames</c>.
     /// It may also be obtained using the command <c>(help-tactic)</c> in the SMT 2.0 front-end.
     /// </summary>
-    [ContractVerification(true)]
     public class Probe : Z3Object
     {
         /// <summary>
@@ -40,7 +39,7 @@ namespace Microsoft.Z3
         /// "Boolean" probes return 0.0 for false, and a value different from 0.0 for true.</returns>
         public double Apply(Goal g)
         {
-            Contract.Requires(g != null);
+            Debug.Assert(g != null);
 
             Context.CheckContextMatch(g);
             return Native.Z3_probe_apply(Context.nCtx, NativeObject, g.NativeObject);
@@ -53,7 +52,7 @@ namespace Microsoft.Z3
         {
             get
             {
-                Contract.Requires(g != null);
+                Debug.Assert(g != null);
 
                 return Apply(g);
             }
@@ -63,12 +62,12 @@ namespace Microsoft.Z3
         internal Probe(Context ctx, IntPtr obj)
             : base(ctx, obj)
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
         internal Probe(Context ctx, string name)
             : base(ctx, Native.Z3_mk_probe(ctx.nCtx, name))
         {
-            Contract.Requires(ctx != null);
+            Debug.Assert(ctx != null);
         }
 
         internal class DecRefQueue : IDecRefQueue

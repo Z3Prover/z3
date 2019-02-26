@@ -58,6 +58,12 @@ public:
         inc_ref(n);
         m_buffer.push_back(n);
     }
+
+    template <typename M>
+    void push_back(obj_ref<T,M> && n) {
+        m_buffer.push_back(n.get());
+        n.steal();
+    }
     
     void pop_back() {
         SASSERT(!m_buffer.empty());

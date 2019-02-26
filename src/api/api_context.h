@@ -29,6 +29,7 @@ Revision History:
 #include "ast/datatype_decl_plugin.h"
 #include "ast/dl_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "util/event_handler.h"
@@ -37,6 +38,9 @@ Revision History:
 #include "cmd_context/cmd_context.h"
 #include "api/api_polynomial.h"
 #include "util/hashtable.h"
+#include "ast/rewriter/seq_rewriter.h"
+#include "smt/smt_solver.h"
+#include "solver/solver.h"
 
 namespace smtlib {
     class parser;
@@ -48,6 +52,24 @@ namespace realclosure {
 
 namespace api {
        
+    class seq_expr_solver : public expr_solver {
+        ast_manager& m;
+        params_ref const& p;
+        solver_ref   s;
+    public:
+        seq_expr_solver(ast_manager& m, params_ref const& p): m(m), p(p) {}
+        lbool check_sat(expr* e) {
+            if (!s) {
+                s = mk_smt_solver(m, p, symbol("ALL"));
+            }
+            s->push();
+            s->assert_expr(e);
+            lbool r = s->check_sat();
+            s->pop(1);
+            return r;
+        }
+    };
+
 
     class context : public tactic_manager {
         struct add_plugins {  add_plugins(ast_manager & m); };
@@ -62,6 +84,7 @@ namespace api {
         datalog::dl_decl_util      m_datalog_util;
         fpa_util                   m_fpa_util;
         seq_util                   m_sutil;
+        recfun::util               m_recfun;
 
         // Support for old solver API
         smt_params                 m_fparams;
@@ -128,6 +151,7 @@ namespace api {
         fpa_util & fpautil() { return m_fpa_util; }
         datatype_util& dtutil() { return m_dt_plugin->u(); }
         seq_util& sutil() { return m_sutil; }
+        recfun::util& recfun() { return m_recfun; }
         family_id get_basic_fid() const { return m_basic_fid; }
         family_id get_array_fid() const { return m_array_fid; }
         family_id get_arith_fid() const { return m_arith_fid; }
@@ -141,7 +165,7 @@ namespace api {
 
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code();
-        void set_error_code(Z3_error_code err);
+        void set_error_code(Z3_error_code err, char const* opt_msg);
         void set_error_handler(Z3_error_handler h) { m_error_handler = h; }
         // Sign an error if solver is searching
         void check_searching();
@@ -219,14 +243,6 @@ namespace api {
         //
         // ------------------------
         smt_params & fparams() { return m_fparams; }
-
-        // ------------------------
-        //
-        // Parser interface 
-        //
-        // ------------------------
-
-        std::string m_parser_error_buffer;        
         
     };
     
@@ -234,14 +250,14 @@ namespace api {
 
 inline api::context * mk_c(Z3_context c) { return reinterpret_cast<api::context*>(c); }
 #define RESET_ERROR_CODE() { mk_c(c)->reset_error_code(); }
-#define SET_ERROR_CODE(ERR) { mk_c(c)->set_error_code(ERR); }
-#define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
-#define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define SET_ERROR_CODE(ERR, MSG) { mk_c(c)->set_error_code(ERR, MSG); }
+#define CHECK_NON_NULL(_p_,_ret_) { if (_p_ == 0) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is null"); return _ret_; } }
+#define CHECK_VALID_AST(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "not a valid ast"); return _ret_; } }
 #define CHECK_SEARCHING(c) mk_c(c)->check_searching();
 inline bool is_expr(Z3_ast a) { return is_expr(to_ast(a)); }
-#define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define CHECK_IS_EXPR(_p_, _ret_) { if (_p_ == 0 || !is_expr(_p_)) { SET_ERROR_CODE(Z3_INVALID_ARG, "ast is not an expression"); return _ret_; } }
 inline bool is_bool_expr(Z3_context c, Z3_ast a) { return is_expr(a) && mk_c(c)->m().is_bool(to_expr(a)); }
-#define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG); return _ret_; } }
+#define CHECK_FORMULA(_a_, _ret_) { if (_a_ == 0 || !CHECK_REF_COUNT(_a_) || !is_bool_expr(c, _a_)) { SET_ERROR_CODE(Z3_INVALID_ARG, nullptr); return _ret_; } }
 inline void check_sorts(Z3_context c, ast * n) { mk_c(c)->check_sorts(n); }
 
 #endif
