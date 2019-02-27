@@ -216,10 +216,10 @@ namespace sat {
 
     void local_search::set_best_unsat() {
         m_best_unsat = m_unsat_stack.size();
-        if (m_best_unsat == 1) {
-            constraint const& c = m_constraints[m_unsat_stack[0]];
-            IF_VERBOSE(2, display(verbose_stream() << "single unsat:", c));
-        }
+        m_best_phase.reserve(m_vars.size());
+        for (unsigned i = m_vars.size(); i-- > 0; ) {
+            m_best_phase[i] = m_vars[i].m_value;
+        }        
     }    
     
     void local_search::verify_solution() const {
@@ -530,6 +530,9 @@ namespace sat {
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
+            if (m_par) {
+                m_par->set_phase(*this);
+            }
             if (m_par && m_par->get_phase(*this)) {
                 reinit();
             }

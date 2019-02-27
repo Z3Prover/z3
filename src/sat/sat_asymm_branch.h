@@ -36,6 +36,7 @@ namespace sat {
         int64_t    m_counter;
         random_gen m_rand;
         unsigned   m_calls;
+        unsigned   m_touch_index;
         
         // config
         bool       m_asymm_branch;
@@ -57,9 +58,10 @@ namespace sat {
        
         struct compare_left;
 
+        bool is_touched(bool_var v) const;
+
         void sort(big& big, literal const* begin, literal const* end);
         void sort(big & big, clause const& c);
-        void radix_sort(big & big, literal_vector& lits);
 
         bool uhle(scoped_detach& scoped_d, big & big, clause & c);
 
@@ -99,8 +101,6 @@ namespace sat {
 
         void collect_statistics(statistics & st) const;
         void reset_statistics();
-
-        void minimize(big& big, literal_vector& lemma);
 
         void init_search() { m_calls = 0; }
 

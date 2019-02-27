@@ -133,17 +133,11 @@ namespace sat {
                     s.del_clause(c);
                     break;
                 default:
-                    c.shrink(new_sz);
+                    s.shrink(c, sz, new_sz);
                     *it2 = *it;
                     it2++;
                     if (!c.frozen()) {                            
                         s.attach_clause(c);
-                    }
-                    if (s.m_config.m_drat && new_sz < sz) {
-                        s.m_drat.add(c, true);
-                        c.restore(sz);
-                        s.m_drat.del(c);
-                        c.shrink(new_sz);
                     }
                     break;
                 }

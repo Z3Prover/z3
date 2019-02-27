@@ -72,6 +72,7 @@ namespace sat {
         m_next_simplify           = 0;
         m_num_checkpoints         = 0;
         m_simplifications         = 0;
+        m_touch_index             = 0;
         m_ext                     = nullptr;
         m_cuber                   = nullptr;
         m_local_search            = nullptr;
@@ -243,6 +244,7 @@ namespace sat {
         m_decision.push_back(dvar);
         m_eliminated.push_back(false);
         m_external.push_back(ext);
+        m_touched.push_back(0);
         m_activity.push_back(0);
         m_mark.push_back(false);
         m_lit_mark.push_back(false);
@@ -367,6 +369,9 @@ namespace sat {
     }
 
     void solver::mk_bin_clause(literal l1, literal l2, bool learned) {
+        m_touched[l1.var()] = m_touch_index;
+        m_touched[l2.var()] = m_touch_index;
+        
         if (find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
@@ -440,6 +445,9 @@ namespace sat {
             m_learned.push_back(r);
         else
             m_clauses.push_back(r);
+        for (literal l : *r) {
+            m_touched[l.var()] = m_touch_index;
+        }
         return r;
     }
 
@@ -485,6 +493,9 @@ namespace sat {
         }
         if (m_config.m_drat) {
             m_drat.add(*r, learned);
+        }
+        for (literal l : *r) {
+            m_touched[l.var()] = m_touch_index;
         }
         return r;
     }
@@ -553,6 +564,23 @@ namespace sat {
             if (w.is_binary_clause() && l2 == w.get_literal() && !w.is_learned()) {
                 w.set_learned(learned);
                 break;
+            }
+        }
+    }
+
+    void solver::shrink(clause& c, unsigned old_sz, unsigned new_sz) {
+        SASSERT(new_sz > 2);
+        SASSERT(old_sz >= new_sz);
+        if (old_sz != new_sz) {
+            c.shrink(new_sz);
+            for (literal l : c) {
+                m_touched[l.var()] = m_touch_index;
+            }
+            if (m_config.m_drat) {
+                m_drat.add(c, true);
+                c.restore(old_sz);
+                m_drat.del(c);
+                c.shrink(new_sz);
             }
         }
     }
@@ -1784,7 +1812,7 @@ namespace sat {
         m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts;
         m_search_sat_conflicts    = m_config.m_search_sat_conflicts;
         m_search_next_toggle      = m_search_unsat_conflicts;
-        m_phase_trail_threshold   = 0;
+        m_best_phase_size         = 0;
         m_phase_luby_idx          = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
@@ -1895,6 +1923,7 @@ namespace sat {
             display(ous);
         }
 #endif
+
     }
 
     bool solver::set_root(literal l, literal r) {
@@ -2495,15 +2524,7 @@ namespace sat {
             mk_bin_clause(c[0], c[1], true);
             return false;
         default:
-            if (new_sz != sz) {
-                c.shrink(new_sz);
-                if (m_config.m_drat) {
-                    m_drat.add(c, true);
-                    c.restore(sz);
-                    m_drat.del(c);
-                    c.shrink(new_sz);
-                }
-            }
+            shrink(c, sz, new_sz);
             attach_clause(c);
             return true;
         }
@@ -3007,36 +3028,28 @@ namespace sat {
     }
 
     void solver::updt_phase_of_vars() {
-        if (is_sat_phase() && m_phase_trail_threshold <= m_trail.size()) {
-            m_phase_trail_threshold = m_trail.size();
-            // m_phase_counter /= 2;
-            IF_VERBOSE(2, verbose_stream() << "sticky trail: " << m_trail.size() << "\n");
-            for (unsigned i = 0; i < num_vars(); ++i) {
-                m_best_phase[i] = m_phase[i];
-            }
-            for (literal l : m_trail) {
-                m_best_phase[l.var()] = !l.sign();
-            }
-        }
-        forget_phase_of_vars();
-    }
-
-    void solver::forget_phase_of_vars() {
         unsigned from_lvl = m_conflict_lvl;
         unsigned head = from_lvl == 0 ? 0 : m_scopes[from_lvl - 1].m_trail_lim;
         unsigned sz   = m_trail.size();
         for (unsigned i = head; i < sz; i++) {
-            literal l  = m_trail[i];
-            bool_var v = l.var();
-            TRACE("forget_phase", tout << "forgetting phase of l: " << l << "\n";);
+            bool_var v = m_trail[i].var();
+            TRACE("forget_phase", tout << "forgetting phase of v" << v << "\n";);
             m_phase[v] = m_rand() % 2 == 0;
+        }
+        if (is_sat_phase() && head >= m_best_phase_size) {
+            m_best_phase_size = head;
+            IF_VERBOSE(2, verbose_stream() << "sticky trail: " << head << "\n");
+            for (unsigned i = 0; i < head; ++i) {
+                bool_var v = m_trail[i].var();
+                m_best_phase[v] = m_phase[v];
+            }
         }
     }
 
     unsigned solver::next_search_toggle() {        
 
         if (m_config.m_phase == PS_SAT_CACHING) {
-            m_phase_trail_threshold = 0;
+            m_best_phase_size = 0;
             std::swap(m_fast_glue_backup, m_fast_glue_avg);
             std::swap(m_slow_glue_backup, m_slow_glue_avg);
             IF_VERBOSE(2, verbose_stream() << m_fast_glue_avg << " " << m_conflicts_since_init << "\n");
@@ -3053,6 +3066,9 @@ namespace sat {
             m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts * luby;
             m_search_sat_conflicts = m_config.m_search_sat_conflicts * luby;
 #endif
+            if (m_search_state == s_unsat && m_par && m_par->get_phase(*this)) {
+                m_best_phase_size = num_vars(); // make it sticky.
+            }
         }
 
         if (m_search_state == s_unsat) {
@@ -3774,6 +3790,7 @@ namespace sat {
             m_decision.shrink(v);
             m_eliminated.shrink(v);
             m_external.shrink(v);
+            m_touched.shrink(v);
             m_activity.shrink(v);
             m_mark.shrink(v);
             m_lit_mark.shrink(2*v);

@@ -134,6 +134,7 @@ namespace sat {
         local_search_config m_config;        
         
         vector<var_info>    m_vars;                      // variables
+        svector<bool>       m_best_phase;                // best value in round
         svector<bool_var>   m_units;                     // unit clauses
         vector<constraint>  m_constraints;               // all constraints
         literal_vector      m_assumptions;               // temporary assumptions
@@ -255,7 +256,7 @@ namespace sat {
 
         void set_bias(bool_var v, lbool f);
 
-        bool get_phase(bool_var v) const { return is_true(v); }
+        bool get_best_phase(bool_var v) const { return m_best_phase[v]; }
 
         inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
 

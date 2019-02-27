@@ -121,6 +121,8 @@ namespace sat {
         svector<char>           m_lit_mark;
         svector<char>           m_eliminated;
         svector<char>           m_external;
+        unsigned_vector         m_touched;
+        unsigned                m_touch_index;
         literal_vector          m_replay_assign;
         // branch variable selection:
         svector<unsigned>       m_activity;
@@ -142,7 +144,7 @@ namespace sat {
         unsigned                m_search_sat_conflicts;
         unsigned                m_search_next_toggle;
         unsigned                m_phase_counter; 
-        unsigned                m_phase_trail_threshold;
+        unsigned                m_best_phase_size;
         unsigned                m_phase_luby_idx;
         unsigned                m_rephase_lim;
         unsigned                m_rephase_inc;
@@ -270,6 +272,7 @@ namespace sat {
         void attach_clause(clause & c, bool & reinit);
         void attach_clause(clause & c) { bool reinit; attach_clause(c, reinit); }
         void set_learned(clause& c, bool learned);
+        void shrink(clause& c, unsigned old_sz, unsigned new_sz);
         void set_learned(literal l1, literal l2, bool learned);
         void set_learned1(literal l1, literal l2, bool learned);
         void add_ate(clause& c) { m_mc.add_ate(c); }        
@@ -541,7 +544,6 @@ namespace sat {
         void fill_ext_antecedents(literal consequent, justification js);
         unsigned skip_literals_above_conflict_level();
         void updt_phase_of_vars();
-        void forget_phase_of_vars();
         void updt_phase_counters();
         unsigned next_search_toggle();
         bool should_toggle_phase();

@@ -221,7 +221,7 @@ namespace sat {
         switch (is_sat) {
         case l_true:
             for (unsigned v = 0; v < s.num_vars(); ++v) {
-                s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
+                s.m_assignment[v] = m_ls.get_best_phase(v) ? l_true : l_false;
             } 
             return l_true;
         case l_false:

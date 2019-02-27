@@ -210,16 +210,9 @@ namespace sat {
     }
 
     void parallel::_set_phase(solver& s) {
-        if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), l_undef);
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
-                if (s.value(i) != l_undef) {
-                    m_phase[i] = s.value(i) == l_true;
-                }
-                else {
-                    m_phase[i] = s.m_phase[i];
-                }
-            }
+        m_cdcl_phase.reserve(s.num_vars(), false);
+        for (unsigned i = 0; i < s.num_vars(); ++i) {
+            m_cdcl_phase[i] = s.m_best_phase[i];
         }
         if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
             // time to update local search with new clauses.
@@ -231,6 +224,17 @@ namespace sat {
         }
     }
 
+
+    bool parallel::_get_phase(solver& s) {
+        if (!m_ls_phase.empty()) {
+            m_ls_phase.reserve(s.num_vars(), false);
+            for (unsigned i = s.num_vars(); i-- > 0; ) {
+                s.m_best_phase[i] = m_ls_phase[i];
+            }
+        }
+        return !m_ls_phase.empty();
+    }
+
     void parallel::set_phase(solver& s) {
         #pragma omp critical (par_solver)
         {
@@ -238,37 +242,53 @@ namespace sat {
         }
     }
 
-    void parallel::get_phase(solver& s) {
+    bool parallel::get_phase(solver& s) {
+        bool r;
         #pragma omp critical (par_solver)
         {
-            _get_phase(s);
+            r = _get_phase(s);
+        }
+        return r;
+    }
+
+
+    void parallel::_set_phase(local_search& s) {
+        m_ls_phase.reserve(s.num_vars(), false);
+        for (unsigned i = s.num_vars(); i-- > 0; ) {
+            m_ls_phase[i] = s.get_best_phase(i);
         }
     }
 
-    void parallel::_get_phase(solver& s) {
-        if (!m_phase.empty()) {
-            m_phase.reserve(s.num_vars(), false);
-            for (unsigned i = 0; i < s.num_vars(); ++i) {
-                s.m_phase[i] = m_phase[i];
+    bool parallel::_get_phase(local_search& s) {
+        bool copied = false;
+        m_consumer_ready = true;
+        if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
+            copied = true;
+            s.import(*m_solver_copy.get(), true);
+        }
+        if (!m_cdcl_phase.empty()) {
+            m_cdcl_phase.reserve(s.num_vars(), false);                    
+            for (unsigned i = s.num_vars(); i-- > 0; ) {
+                s.set_phase(i, m_cdcl_phase[i]);
             }
         }
+        return copied;
     }
 
     bool parallel::get_phase(local_search& s) {
         bool copied = false;
         #pragma omp critical (par_solver)
         {
-            m_consumer_ready = true;
-            if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
-                copied = true;
-                s.import(*m_solver_copy.get(), true);
-            }
-            for (unsigned i = 0; i < m_phase.size(); ++i) {
-                s.set_phase(i, m_phase[i]);
-            }
-            m_phase.reserve(s.num_vars(), l_undef);
-        }
+            copied = _get_phase(s);
+        }       
         return copied;
+    }
+
+    void parallel::set_phase(local_search& s) {
+        #pragma omp critical (par_solver)
+        {
+            _set_phase(s);
+        }       
     }
 
 

@@ -52,8 +52,10 @@ namespace sat {
 
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
-        void _get_phase(solver& s);
+        bool _get_phase(solver& s);
         void _set_phase(solver& s);
+        bool _get_phase(local_search& s);
+        void _set_phase(local_search& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;
@@ -62,7 +64,8 @@ namespace sat {
         vector_pool    m_pool;
 
         // for exchange with local search:
-        svector<bool>      m_phase;
+        svector<bool>      m_cdcl_phase;
+        svector<bool>      m_ls_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
@@ -102,10 +105,12 @@ namespace sat {
         // exchange phase of variables.
         void set_phase(solver& s);
 
-        void get_phase(solver& s);
+        bool get_phase(solver& s);
         
         bool get_phase(local_search& s);
 
+        void set_phase(local_search& s);
+        
         bool copy_solver(solver& s);
     };
 
