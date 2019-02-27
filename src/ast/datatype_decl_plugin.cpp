@@ -453,6 +453,48 @@ namespace datatype {
             }
         }
 
+        void plugin::log_axiom_definitions(symbol const& s, sort * new_sort) {
+            symbol const& family_name = m_manager->get_family_name(get_family_id());
+            for (constructor const* c : *m_defs[s]) {
+                func_decl_ref f = c->instantiate(new_sort);
+                const unsigned num_args = f->get_arity();
+                if (num_args == 0) continue;
+                for (unsigned i = 0; i < num_args; ++i) {
+                    m_manager->trace_stream() << "[mk-var] " << family_name << "#" << m_id_counter << " " << i << "\n";
+                    ++m_id_counter;
+                }
+                const unsigned constructor_id = m_id_counter;
+                m_manager->trace_stream() << "[mk-app] " << family_name << "#" << constructor_id << " " << f->get_name();
+                for (unsigned i = 0; i < num_args; ++i) {
+                    m_manager->trace_stream() << " " << family_name << "#" << constructor_id - num_args + i;
+                }
+                m_manager->trace_stream() << "\n";
+                ++m_id_counter;
+                m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " pattern " << family_name << "#" << constructor_id << "\n";
+                ++m_id_counter;
+                m_axiom_bases.insert(f->get_name(), constructor_id + 4);
+                std::ostringstream var_sorts;
+                for (accessor const* a : *c) {
+                    var_sorts << " (;" << a->range()->get_name() << ")";
+                }
+                std::string var_description = var_sorts.str();
+                unsigned i = 0;
+                for (accessor const* a : *c) {
+                    func_decl_ref acc = a->instantiate(new_sort);
+                    m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " " << acc->get_name() << " " << family_name << "#" << constructor_id << "\n";
+                    ++m_id_counter;
+                    m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " = " << family_name << "#" << constructor_id - num_args + i 
+                        << " " << family_name << "#" << m_id_counter - 1 << "\n";
+                    ++m_id_counter;
+                    m_manager->trace_stream() << "[mk-quant] " << family_name << "#" << m_id_counter << " constructor_accessor_axiom " << family_name << "#" << constructor_id + 1
+                        << " " << family_name << "#" << m_id_counter - 1 << "\n";
+                    m_manager->trace_stream() << "[attach-var-names] " << family_name << "#" << m_id_counter << var_description << "\n";
+                    ++m_id_counter;
+                    ++i;
+                }
+            }
+        }
+
         bool plugin::mk_datatypes(unsigned num_datatypes, def * const * datatypes, unsigned num_params, sort* const* sort_params, sort_ref_vector & new_sorts) {
             begin_def_block();
             for (unsigned i = 0; i < num_datatypes; ++i) {
@@ -470,6 +512,9 @@ namespace datatype {
             sort_ref_vector ps(*m_manager);
             for (symbol const& s : m_def_block) {                
                 new_sorts.push_back(m_defs[s]->instantiate(ps));
+                if (m_manager->has_trace_stream()) {
+                    log_axiom_definitions(s, new_sorts.back());
+                }
             }
             return true;
         }

@@ -28,6 +28,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_translation.h"
+#include "util/z3_version.h"
 
 
 // -----------------------------------
@@ -661,6 +662,23 @@ ast* ast_table::pop_erase() {
 // decl_plugin
 //
 // -----------------------------------
+
+/**
+     \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+    to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
+    internal reasoning to the end of the line and insert a line break.
+    
+    \param a the term that should be described.
+
+    \return true if a log is being generated, false otherwise.
+*/
+bool decl_plugin::log_constant_meaning_prelude(app * a) {
+    if (m_manager->has_trace_stream()) {
+        m_manager->trace_stream() << "[attach-meaning] #" << a->get_id() << " " << m_manager->get_family_name(m_family_id).str() << " ";
+        return true;
+    }
+    return false;
+}
 
 func_decl * decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                         unsigned num_args, expr * const * args, sort * range) {
@@ -1347,6 +1365,7 @@ ast_manager::ast_manager(proof_gen_mode m, char const * trace_file, bool is_form
     if (trace_file) {
         m_trace_stream       = alloc(std::fstream, trace_file, std::ios_base::out);
         m_trace_stream_owner = true;
+        *m_trace_stream << "[tool-version] Z3 " << Z3_MAJOR_VERSION << "." << Z3_MINOR_VERSION << "." << Z3_BUILD_NUMBER << "\n";
     }
 
     if (!is_format_manager)
@@ -2183,7 +2202,14 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
         }
 
         if (m_trace_stream && r == new_node) {
-            *m_trace_stream << "[mk-app] #" << r->get_id() << " ";
+            if (is_proof(r)) {
+                if (decl == mk_func_decl(m_basic_family_id, PR_UNDEF, 0, nullptr, 0, static_cast<expr * const *>(nullptr)))
+                    return r;
+                *m_trace_stream << "[mk-proof] #";
+            } else {
+                *m_trace_stream << "[mk-app] #";
+            }
+            *m_trace_stream << r->get_id() << " ";
             if (r->get_num_args() == 0 && r->get_decl()->get_name() == "int") {
                 ast_ll_pp(*m_trace_stream, *this, r);
             }
@@ -2329,7 +2355,7 @@ var * ast_manager::mk_var(unsigned idx, sort * s) {
     var * r         = register_node(new_node);
 
     if (m_trace_stream && r == new_node) {
-        *m_trace_stream << "[mk-var] #" << r->get_id() << "\n";
+        *m_trace_stream << "[mk-var] #" << r->get_id() << " " << idx << "\n";
     }
     return r;
 }
@@ -2458,6 +2484,11 @@ quantifier * ast_manager::mk_quantifier(quantifier_kind k, unsigned num_decls, s
 
     if (m_trace_stream && r == new_node) {
         trace_quant(*m_trace_stream, r);
+        *m_trace_stream << "[attach-var-names] #" << r->get_id();
+        for (unsigned i = 0; i < num_decls; ++i) {
+            *m_trace_stream << " (|" << decl_names[num_decls - i - 1].str() << "| ; |" << decl_sorts[num_decls - i -1]->get_name().str() << "|)";
+        }
+        *m_trace_stream << "\n";
     }
 
     return r;

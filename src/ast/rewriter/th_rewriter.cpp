@@ -562,6 +562,29 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         br_status st = reduce_app_core(f, num, args, result);
+
+        if (st != BR_FAILED && m().has_trace_stream()) {
+            family_id fid = f->get_family_id();
+            if (fid == m_b_rw.get_fid()) {
+                decl_kind k = f->get_decl_kind();
+                if (k == OP_EQ) {
+                    SASSERT(num == 2);
+                    fid = m().get_sort(args[0])->get_family_id();
+                }
+                else if (k == OP_ITE) {
+                    SASSERT(num == 3);
+                    fid = m().get_sort(args[1])->get_family_id();
+                }
+            }
+            app_ref tmp(m());
+            tmp = m().mk_app(f, num, args);
+            m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
+            tmp = m().mk_eq(tmp, result);
+            m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
+            m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
+            m().trace_stream() << "[end-of-instance]\n";
+        }
+
         if (st != BR_DONE && st != BR_FAILED) {
             CTRACE("th_rewriter_step", st != BR_FAILED,
                    tout << f->get_name() << "\n";

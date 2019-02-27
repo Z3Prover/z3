@@ -598,7 +598,9 @@ void theory_diff_logic<Ext>::new_edge(dl_var src, dl_var dst, unsigned num_edges
         le = m_util.mk_le(m_util.mk_add(n2,n1), n3);
         le = get_manager().mk_not(le);
     }
+    if (get_manager().has_trace_stream())log_axiom_instantiation(le);
     ctx.internalize(le, false);
+    if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
     ctx.mark_as_relevant(le.get());
     literal lit(ctx.get_literal(le));
     bool_var bv = lit.var();
@@ -1007,6 +1009,11 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         t2 = m_util.mk_numeral(k, m.get_sort(s2.get()));
         // t1 - s1 = k
         eq = m.mk_eq(s2.get(), t2.get());
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_eq(m.mk_eq(m_util.mk_add(s1, t2), t1), eq);
+            log_axiom_instantiation(body);
+        }
         
         TRACE("diff_logic", 
               tout << v1 << " .. " << v2 << "\n";
@@ -1015,6 +1022,8 @@ void theory_diff_logic<Ext>::new_eq_or_diseq(bool is_eq, theory_var v1, theory_v
         if (!internalize_atom(eq.get(), false)) {
             UNREACHABLE();
         }
+
+        if (m.has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
                 
         literal l(ctx.get_literal(eq.get()));
         if (!is_eq) {

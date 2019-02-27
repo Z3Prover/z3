@@ -20,6 +20,7 @@ Revision History:
 #define SMT_THEORY_H_
 
 #include "smt/smt_enode.h"
+#include "smt/smt_quantifier.h"
 #include "util/obj_hashtable.h"
 #include "util/statistics.h"
 #include<typeinfo>
@@ -358,6 +359,67 @@ namespace smt {
         
         std::ostream& display_var_flat_def(std::ostream & out, theory_var v) const { return display_flat_app(out, get_enode(v)->get_owner());  }
 
+    protected:
+        void log_axiom_instantiation(app * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>()) {
+            ast_manager & m = get_manager();
+            symbol const & family_name = m.get_family_name(get_family_id());
+            if (pattern_id == UINT_MAX) {
+                m.trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << family_name << "#";
+                if (axiom_id != UINT_MAX)
+                    m.trace_stream() << axiom_id;
+                for (unsigned i = 0; i < num_bindings; ++i) {
+                    m.trace_stream() << " #" << bindings[i]->get_id();
+                }
+                if (used_enodes.size() > 0) {
+                    m.trace_stream() << " ;";
+                    for (auto n : used_enodes) {
+                        enode *orig = std::get<0>(n);
+                        enode *substituted = std::get<1>(n);
+                        SASSERT(orig == nullptr);
+                        m.trace_stream() << " #" << substituted->get_owner_id();
+                    }
+                }
+            } else {
+                SASSERT(axiom_id != UINT_MAX);
+                obj_hashtable<enode> already_visited;
+                for (auto n : used_enodes) {
+                    enode *orig = std::get<0>(n);
+                    enode *substituted = std::get<1>(n);
+                    if (orig != nullptr) {
+                        quantifier_manager::log_justification_to_root(m.trace_stream(), orig, already_visited, get_context(), get_manager());
+                        quantifier_manager::log_justification_to_root(m.trace_stream(), substituted, already_visited, get_context(), get_manager());
+                    }
+                }
+                m.trace_stream() << "[new-match] " << static_cast<void *>(nullptr) << " " << family_name << "#" << axiom_id << " " << family_name << "#" << pattern_id;
+                for (unsigned i = 0; i < num_bindings; ++i) {
+                    m.trace_stream() << " #" << bindings[i]->get_id();
+                }
+                m.trace_stream() << " ;";
+                for (auto n : used_enodes) {
+                    enode *orig = std::get<0>(n);
+                    enode *substituted = std::get<1>(n);
+                    if (orig == nullptr) {
+                        m.trace_stream() << " #" << substituted->get_owner_id();
+                    } else {
+                        m.trace_stream() << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                    }
+                }
+            }
+            m.trace_stream() << "\n";
+            m.trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << r->get_id() << "\n";
+        }
+
+        void log_axiom_instantiation(expr * r, unsigned axiom_id = UINT_MAX, unsigned num_bindings = 0, app * const * bindings = nullptr, unsigned pattern_id = UINT_MAX, const vector<std::tuple<enode *, enode *>> & used_enodes = vector<std::tuple<enode *, enode*>>()) { log_axiom_instantiation(to_app(r), axiom_id, num_bindings, bindings, pattern_id, used_enodes); }
+
+        void log_axiom_instantiation(app * r, unsigned num_blamed_enodes, enode ** blamed_enodes) {
+            vector<std::tuple<enode *, enode *>> used_enodes;
+            for (unsigned i = 0; i < num_blamed_enodes; ++i) {
+                used_enodes.push_back(std::make_tuple(nullptr, blamed_enodes[i]));
+            }
+            log_axiom_instantiation(r, UINT_MAX, 0, nullptr, UINT_MAX, used_enodes);
+        }
+
+    public:
         /**
            \brief Assume eqs between variable that are equal with respect to the given table.
            Table is a hashtable indexed by the variable value.

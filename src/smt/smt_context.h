@@ -106,6 +106,8 @@ namespace smt {
 
         unsigned                    m_final_check_idx; // circular counter used for implementing fairness
 
+        bool                        m_is_auxiliary; // used to prevent unwanted information from being logged.
+
         // -----------------------------------
         //
         // Equality & Uninterpreted functions
