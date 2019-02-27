@@ -592,6 +592,17 @@ public:
     */
     void display_smt2(std::ostream & out, mpz const & a, bool decimal) const;
 
+    /**
+       \brief Displays the num_bits least significant bits of a mpz number in hexadecimal format.
+       num_bits must be divisible by 4.
+    */
+    void display_hex(std::ostream & out, mpz const & a, unsigned num_bits) const;
+
+    /**
+       \brief Displays the num_bits least significant bits of a mpz number in binary format.
+    */
+    void display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const;
+
     static unsigned hash(mpz const & a);
 
     static bool is_one(mpz const & a) {

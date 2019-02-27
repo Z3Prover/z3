@@ -1026,9 +1026,18 @@ public:
         expr_ref rem(a.mk_rem(dividend, divisor), m);
         expr_ref mod(a.mk_mod(dividend, divisor), m);
         expr_ref mmod(a.mk_uminus(mod), m);
-        literal dgez = mk_literal(a.mk_ge(divisor, zero));
-        mk_axiom(~dgez, th.mk_eq(rem, mod,  false));
-        mk_axiom( dgez, th.mk_eq(rem, mmod, false));                    
+        expr_ref degz_expr(a.mk_ge(divisor, zero), m);
+        literal dgez = mk_literal(degz_expr);
+        literal pos = th.mk_eq(rem, mod,  false);
+        literal neg = th.mk_eq(rem, mmod, false);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_ite(degz_expr, ctx().bool_var2expr(pos.var()), ctx().bool_var2expr(neg.var()));
+            th.log_axiom_instantiation(body);
+        }
+        mk_axiom(~dgez, pos);
+        mk_axiom( dgez, neg);                    
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // q = 0 or q * (p div q) = p
@@ -1036,7 +1045,13 @@ public:
         if (a.is_zero(q)) return;
         literal eqz = th.mk_eq(q, a.mk_real(0), false);
         literal eq  = th.mk_eq(a.mk_mul(q, a.mk_div(p, q)), p, false);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_not(ctx().bool_var2expr(eqz.var())), ctx().bool_var2expr(eq.var()));
+            th.log_axiom_instantiation(body);
+        }
         mk_axiom(eqz, eq);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // to_int (to_real x) = x
@@ -1045,14 +1060,28 @@ public:
         expr* x = nullptr, *y = nullptr;
         VERIFY (a.is_to_int(n, x));            
         if (a.is_to_real(x, y)) {
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_eq(n, y);
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(th.mk_eq(y, n, false));
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         else {
             expr_ref to_r(a.mk_to_real(n), m);
             expr_ref lo(a.mk_le(a.mk_sub(to_r, x), a.mk_real(0)), m);
             expr_ref hi(a.mk_ge(a.mk_sub(x, to_r), a.mk_real(1)), m);
+            if (m.has_trace_stream()) th.log_axiom_instantiation(lo);
             mk_axiom(mk_literal(lo));
+            if (m.has_trace_stream()) {
+                m.trace_stream() << "[end-of-instance]\n";
+                expr_ref body(m);
+                body = m.mk_not(hi);
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(~mk_literal(hi));
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
     }
 
@@ -1062,8 +1091,14 @@ public:
         VERIFY(a.is_is_int(n, x));
         literal eq = th.mk_eq(a.mk_to_real(a.mk_to_int(x)), x, false);
         literal is_int = ctx().get_literal(n);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_iff(n, ctx().bool_var2expr(eq.var()));
+            th.log_axiom_instantiation(body);
+        }
         mk_axiom(~is_int, eq);
         mk_axiom(is_int, ~eq);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // create axiom for 
@@ -1115,17 +1150,60 @@ public:
             k = rational::zero();
         }
 
+        context& c = ctx();
         if (!k.is_zero()) {
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(eq.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(eq);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(mod_ge_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(mod_ge_0);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), a.mk_le(mod, upper));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(mk_literal(a.mk_le(mod, upper)));
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             if (k.is_pos()) {
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_ge_0, div_ge_0);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_le_0, div_le_0);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
             else {
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_ge_0, div_le_0);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_le_0, div_ge_0);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
         }
         else {
@@ -1137,26 +1215,82 @@ public:
             // q >= 0 or (p mod q) < -q
             literal q_ge_0 = mk_literal(a.mk_ge(q, zero));
             literal q_le_0 = mk_literal(a.mk_le(q, zero));
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(eq.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_ge_0, eq);
             mk_axiom(q_le_0, eq);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_not(m.mk_eq(q, zero)), c.bool_var2expr(mod_ge_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_ge_0, mod_ge_0);
             mk_axiom(q_le_0, mod_ge_0);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_sub(mod, q), zero));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_le_0, ~mk_literal(a.mk_ge(a.mk_sub(mod, q), zero)));
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(a.mk_lt(q, zero), a.mk_lt(a.mk_add(mod, q), zero));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_ge_0, ~mk_literal(a.mk_ge(a.mk_add(mod, q), zero)));        
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_ge_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_le_0, ~p_ge_0, div_ge_0); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(a.mk_gt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_le_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_le_0, ~p_le_0, div_le_0); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_ge_0.var())), c.bool_var2expr(div_le_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_ge_0, ~p_ge_0, div_le_0); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(a.mk_lt(q, zero), c.bool_var2expr(p_le_0.var())), c.bool_var2expr(div_ge_0.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(q_ge_0, ~p_le_0, div_ge_0); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         if (m_arith_params.m_arith_enum_const_mod && k.is_pos() && k < rational(8)) {
             unsigned _k = k.get_unsigned();
             literal_buffer lits;
+            expr_ref_vector exprs(m);
             for (unsigned j = 0; j < _k; ++j) {
                 literal mod_j = th.mk_eq(mod, a.mk_int(j), false);
                 lits.push_back(mod_j);
+                exprs.push_back(c.bool_var2expr(mod_j.var()));
                 ctx().mark_as_relevant(mod_j);
             }
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_or(exprs.size(), exprs.c_ptr());
+                th.log_axiom_instantiation(body);
+            }
             ctx().mk_th_axiom(get_id(), lits.size(), lits.begin());                
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }            
     }
 
@@ -1591,8 +1725,20 @@ public:
                 literal p_ge_r1  = mk_literal(a.mk_ge(p, a.mk_numeral(lo, true)));
                 literal n_le_div = mk_literal(a.mk_le(n, a.mk_numeral(div_r, true)));
                 literal n_ge_div = mk_literal(a.mk_ge(n, a.mk_numeral(div_r, true)));
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(ctx().bool_var2expr(p_le_r1.var()), ctx().bool_var2expr(n_le_div.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_le_r1, n_le_div); 
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+                if (m.has_trace_stream()) {
+                    app_ref body(m);
+                    body = m.mk_implies(ctx().bool_var2expr(p_ge_r1.var()), ctx().bool_var2expr(n_ge_div.var()));
+                    th.log_axiom_instantiation(body);
+                }
                 mk_axiom(~p_ge_r1, n_ge_div);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
                 all_divs_valid = false;
 
@@ -1631,8 +1777,20 @@ public:
             literal pq_rhs   = ~mk_literal(a.mk_ge(pqr, zero));
             literal n_le_div = mk_literal(a.mk_le(n, divc));
             literal n_ge_div = mk_literal(a.mk_ge(n, divc)); 
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(ctx().bool_var2expr(pq_lhs.var()), ctx().bool_var2expr(n_le_div.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(pq_lhs, n_le_div); 
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(ctx().bool_var2expr(pq_rhs.var()), ctx().bool_var2expr(n_ge_div.var()));
+                th.log_axiom_instantiation(body);
+            }
             mk_axiom(pq_rhs, n_ge_div);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             TRACE("arith",
                   literal_vector lits;
                   lits.push_back(pq_lhs);
@@ -1747,6 +1905,12 @@ public:
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_or(b, m.mk_not(b));
+                th.log_axiom_instantiation(body);
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             IF_VERBOSE(2, verbose_stream() << "branch " << b << "\n";);
             // branch on term >= k + 1
             // branch on term <= k
@@ -1760,6 +1924,10 @@ public:
             ++m_stats.m_gomory_cuts;
             // m_explanation implies term <= k
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
+            if (m.has_trace_stream()) {
+                th.log_axiom_instantiation(b);
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             IF_VERBOSE(2, verbose_stream() << "cut " << b << "\n");
             TRACE("arith", dump_cut_lemma(tout, m_lia->get_term(), m_lia->get_offset(), m_lia->get_explanation(), m_lia->is_upper()););
             m_eqs.reset();

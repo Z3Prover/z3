@@ -409,7 +409,9 @@ namespace smt {
         if (get_manager().is_true(e)) return;
         TRACE("t_fpa_detail", tout << "asserting " << mk_ismt2_pp(e, get_manager()) << "\n";);
         context & ctx = get_context();
+        if (get_manager().has_trace_stream()) log_axiom_instantiation(e);
         ctx.internalize(e, false);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
         ctx.mk_th_axiom(get_id(), 1, &lit);

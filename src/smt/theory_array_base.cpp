@@ -111,7 +111,9 @@ namespace smt {
         if (m.proofs_enabled()) {
             literal l(mk_eq(sel, val, true));
             ctx.mark_as_relevant(l);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
             assert_axiom(l);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         else {
             TRACE("mk_var_bug", tout << "mk_sel: " << sel->get_id() << "\n";);
@@ -189,7 +191,13 @@ namespace smt {
             TRACE("array_map_bug", tout << "axiom2:\n";
                   tout << mk_ismt2_pp(idx1->get_owner(), m) << "\n=\n" << mk_ismt2_pp(idx2->get_owner(), m);
                   tout << "\nimplies\n" << mk_ismt2_pp(conseq_expr, m) << "\n";);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_or(ctx.bool_var2expr(ante.var()), conseq_expr);
+                log_axiom_instantiation(body);
+            }
             assert_axiom(ante, conseq);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
     }
     
@@ -331,7 +339,13 @@ namespace smt {
         literal sel1_eq_sel2 = mk_eq(sel1, sel2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         ctx.mark_as_relevant(sel1_eq_sel2);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_not(ctx.bool_var2expr(n1_eq_n2.var())), m.mk_not(ctx.bool_var2expr(sel1_eq_sel2.var())));
+            log_axiom_instantiation(body);
+        }
         assert_axiom(n1_eq_n2, ~sel1_eq_sel2);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     bool theory_array_base::can_propagate() {
