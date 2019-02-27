@@ -6249,13 +6249,15 @@ extern "C" {
 
      */
     struct Z3_neuro_prediction {
-        unsigned num_vars;        // [in]
-        unsigned num_clauses;     // [in]
-        unsigned sz;              // [in]
-        unsigned ** clauses;      // [in] array of size sz. literal (2*(var-1) if pos or 2*var-1 if neg) * clause index.
-        double* var_scores;       // [out] array of length num_vars with variable scores
-        double  is_sat;           // [out] prediction if the problem is sat
-        double* clause_scores;    // [out] array of length num_clauses                
+        unsigned n_vars;              // [in] number of variables
+        unsigned n_clauses;           // [in] number of clauses
+        unsigned n_cells;             // [in] number of cells
+        unsigned** LC_idxs;           // [in] [n_cells][2]
+        float* pi_march_logits;       // [out n_vars] cube prediction
+        float* pi_core_var_logits;    // [out n_vars] membership of core
+        float* pi_core_clause_logits; // [out n_clauses] membership of core
+        float* pi_model_logits;       // [out n_vars] variable valuation
+        float is_sat_logit;           // [out]
     };
     typedef bool Z3_solver_predictor(void* state, struct Z3_neuro_prediction* p);
 

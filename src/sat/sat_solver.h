@@ -145,7 +145,6 @@ namespace sat {
         unsigned                m_search_next_toggle;
         unsigned                m_phase_counter; 
         unsigned                m_best_phase_size;
-        unsigned                m_phase_luby_idx;
         unsigned                m_rephase_lim;
         unsigned                m_rephase_inc;
         var_queue               m_case_split_queue;
@@ -383,8 +382,10 @@ namespace sat {
 
         struct unsigned2 { unsigned lit; unsigned cls; };
         svector<unsigned2> m_neuro_clauses;       // vector to hold set of clauses.
-        svector<double> m_neuro_clause_scores; // vectors to hold neuropredictions
-        svector<double> m_neuro_var_scores;    
+        svector<float> m_neuro_core_clause_logits; // vectors to hold neuropredictions
+        svector<float> m_neuro_core_var_logits;    
+        svector<float> m_neuro_march_logits;    
+        svector<float> m_neuro_model_logits;    
         ptr_vector<clause> m_neuro_idx2clause; // map index of clause to clause pointer.
         bool call_neuro();
         unsigned2 litcls(literal lit);
@@ -545,8 +546,8 @@ namespace sat {
         unsigned skip_literals_above_conflict_level();
         void updt_phase_of_vars();
         void updt_phase_counters();
-        unsigned next_search_toggle();
-        bool should_toggle_phase();
+        void do_toggle_search_state();
+        bool should_toggle_search_state();
         bool is_sat_phase() const;
         bool should_rephase();
         void do_rephase();

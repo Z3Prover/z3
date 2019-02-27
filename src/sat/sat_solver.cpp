@@ -31,6 +31,8 @@ Revision History:
 # include <xmmintrin.h>
 #endif
 
+#define ENABLE_TERNARY true
+
 
 namespace sat {
 
@@ -362,7 +364,9 @@ namespace sat {
             if (learned && m_par) m_par->share_clause(*this, lits[0], lits[1]);
             return nullptr;
         case 3:
-            return mk_ter_clause(lits, learned);
+            if (ENABLE_TERNARY) {
+                return mk_ter_clause(lits, learned);
+            }
         default:
             return mk_nary_clause(num_lits, lits, learned);
         }
@@ -437,6 +441,7 @@ namespace sat {
 
 
     clause * solver::mk_ter_clause(literal * lits, bool learned) {
+        VERIFY(ENABLE_TERNARY);
         m_stats.m_mk_ter_clause++;
         clause * r = alloc_clause(3, lits, learned);
         bool reinit = attach_ter_clause(*r);
@@ -452,6 +457,7 @@ namespace sat {
     }
 
     bool solver::attach_ter_clause(clause & c) {
+        VERIFY(ENABLE_TERNARY);
         bool reinit = false;
         if (m_config.m_drat) m_drat.add(c, c.is_learned());
         TRACE("sat", tout << c << "\n";);
@@ -548,7 +554,7 @@ namespace sat {
     void solver::attach_clause(clause & c, bool & reinit) {
         SASSERT(c.size() > 2);
         reinit = false;
-        if (c.size() == 3)
+        if (ENABLE_TERNARY && c.size() == 3)
             reinit = attach_ter_clause(c);
         else
             reinit = attach_nary_clause(c);
@@ -798,7 +804,7 @@ namespace sat {
     }
 
     void solver::detach_clause(clause & c) {
-        if (c.size() == 3)
+        if (ENABLE_TERNARY && c.size() == 3)
             detach_ter_clause(c);
         else
             detach_nary_clause(c);
@@ -1658,11 +1664,20 @@ namespace sat {
         serialize_neuro_binaries(p);
         serialize_neuro_clauses(p, m_clauses);
         serialize_neuro_clauses(p, m_learned);
-        p.sz = m_neuro_clauses.size();
-        p.num_vars = num_vars()+1; // pretend there is an extra variable so that variable index 0 can be used.
-        p.num_clauses = m_neuro_idx2clause.size();
-        m_neuro_clause_scores.resize(p.num_clauses);
-        m_neuro_var_scores.resize(p.num_vars);
+        p.n_cells = m_neuro_clauses.size();
+        p.n_vars = num_vars(); 
+        p.n_clauses = m_neuro_idx2clause.size();
+        m_neuro_core_clause_logits.resize(p.n_clauses);
+        m_neuro_core_var_logits.resize(p.n_vars);
+        m_neuro_model_logits.resize(p.n_vars);
+
+        // TBD: 
+        // p.LC_idxs = m_neuro_clauses.begin();
+        // 
+        p.pi_march_logits = m_neuro_march_logits.begin();
+        p.pi_core_clause_logits = m_neuro_core_clause_logits.begin();
+        p.pi_core_var_logits = m_neuro_core_var_logits.begin();
+        p.pi_model_logits = m_neuro_model_logits.begin();
 
         return (*m_neuro_predictor)(m_neuro_state, &p);
     }
@@ -1679,7 +1694,7 @@ namespace sat {
         unsigned idx = 0;
         for (clause* c : m_neuro_idx2clause) {
             if (c && c->is_learned()) {
-                c->set_neuro_weight(m_neuro_clause_scores[idx]);
+                c->set_neuro_weight(m_neuro_core_clause_logits[idx]);
             }
             ++idx;
         }
@@ -1813,7 +1828,6 @@ namespace sat {
         m_search_sat_conflicts    = m_config.m_search_sat_conflicts;
         m_search_next_toggle      = m_search_unsat_conflicts;
         m_best_phase_size         = 0;
-        m_phase_luby_idx          = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
         m_conflicts_since_restart = 0;
@@ -2381,7 +2395,7 @@ namespace sat {
     bool solver::can_delete(clause const & c) const {
         if (c.on_reinit_stack())
             return false;
-        if (c.size() == 3) {
+        if (ENABLE_TERNARY && c.size() == 3) {
             return
                 can_delete3(c[0],c[1],c[2]) &&
                 can_delete3(c[1],c[0],c[2]) &&
@@ -3046,37 +3060,42 @@ namespace sat {
         }
     }
 
-    unsigned solver::next_search_toggle() {        
+    bool solver::should_toggle_search_state() {
+        if (m_search_state == s_unsat) {
+            m_trail_avg.update(m_trail.size());
+        }
+        return 
+            (m_phase_counter >= m_search_next_toggle) &&
+            (m_search_state == s_sat || m_trail.size() > 0.50*m_trail_avg);  
+    }
+
+    void solver::do_toggle_search_state() {
 
         if (m_config.m_phase == PS_SAT_CACHING) {
             m_best_phase_size = 0;
             std::swap(m_fast_glue_backup, m_fast_glue_avg);
             std::swap(m_slow_glue_backup, m_slow_glue_avg);
-            IF_VERBOSE(2, verbose_stream() << m_fast_glue_avg << " " << m_conflicts_since_init << "\n");
-
-#if 1
-            if (m_search_state == s_unsat) {
-                m_search_unsat_conflicts += m_config.m_search_unsat_conflicts;                
+            if (m_search_state == s_sat) {
+                m_search_unsat_conflicts += m_config.m_search_unsat_conflicts;   
             }
             else {
                 m_search_sat_conflicts += m_config.m_search_sat_conflicts;
-            }
-#else
-            unsigned luby = get_luby(m_phase_luby_idx++);
-            m_search_unsat_conflicts  = m_config.m_search_unsat_conflicts * luby;
-            m_search_sat_conflicts = m_config.m_search_sat_conflicts * luby;
-#endif
-            if (m_search_state == s_unsat && m_par && m_par->get_phase(*this)) {
-                m_best_phase_size = num_vars(); // make it sticky.
+                if (m_par && m_par->get_phase(*this)) {
+                    m_best_phase_size = num_vars(); // make it sticky.
+                }
             }
         }
 
         if (m_search_state == s_unsat) {
-            return m_search_unsat_conflicts;
+            m_search_state = s_sat;
+            m_search_next_toggle = m_search_sat_conflicts;
         }
         else {
-            return m_search_sat_conflicts;
+            m_search_state = s_unsat;
+            m_search_next_toggle = m_search_unsat_conflicts;
         }
+
+        m_phase_counter = 0;
     }
 
     bool solver::should_rephase() {
@@ -3125,21 +3144,10 @@ namespace sat {
         m_rephase_lim += m_rephase_inc;
     }
 
-    bool solver::should_toggle_phase() {
-        if (m_search_state == s_unsat) {
-            m_trail_avg.update(m_trail.size());
-        }
-        return 
-            (m_phase_counter >= m_search_next_toggle) &&
-            (m_search_state == s_sat || m_trail.size() > 0.50*m_trail_avg);  
-    }
-
     void solver::updt_phase_counters() {
         m_phase_counter++;
-        if (should_toggle_phase()) {
-            m_search_next_toggle = next_search_toggle();
-            m_phase_counter = 0;
-            m_search_state = (m_search_state == s_sat) ? s_unsat : s_sat;
+        if (should_toggle_search_state()) {
+            do_toggle_search_state();
         }
     }
 
@@ -4813,7 +4821,7 @@ namespace sat {
             clause_vector const & cs = *(vs[i]);
             for (clause* cp : cs) {
                 clause & c = *cp;
-                if (c.size() == 3)
+                if (ENABLE_TERNARY && c.size() == 3)
                     num_ter++;
                 else
                     num_cls++;
