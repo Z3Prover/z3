@@ -172,7 +172,7 @@ public:
         }
         for (unsigned i = 0; i < n; i++) {
             if (tmp[i] == '.') {
-                param_name = tmp.substr(i+1).c_str();
+                param_name = tmp.c_str() + i + 1;
                 tmp.resize(i);
                 mod_name   = tmp.c_str();
                 return;

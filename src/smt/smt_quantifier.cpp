@@ -173,7 +173,7 @@ namespace smt {
             if (num_instances > 0) {
                 out << "[quantifier_instances] ";
                 out.width(10);
-                out << q->get_qid().str().c_str() << " : ";
+                out << q->get_qid().str() << " : ";
                 out.width(6);
                 out << num_instances << " : ";
                 out.width(3);

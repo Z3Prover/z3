@@ -1584,8 +1584,8 @@ void ast_manager::raise_exception(char const * msg) {
     throw ast_exception(msg);
 }
 
-void ast_manager::raise_exception(std::string const&  msg) {
-    throw ast_exception(msg.c_str());
+void ast_manager::raise_exception(std::string &&  msg) {
+    throw ast_exception(std::move(msg));
 }
 
 

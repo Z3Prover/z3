@@ -342,7 +342,7 @@ namespace datatype {
                 std::ostringstream buffer;
                 buffer << "second argument to field update should be " << mk_ismt2_pp(rng, m) 
                        << " instead of " << mk_ismt2_pp(domain[1], m);
-                m.raise_exception(buffer.str().c_str());
+                m.raise_exception(buffer.str());
                 return nullptr;
             }
             range = domain[0];

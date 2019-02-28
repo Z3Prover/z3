@@ -1574,7 +1574,7 @@ public:
 
     // Equivalent to throw ast_exception(msg)
     Z3_NORETURN void raise_exception(char const * msg);
-    Z3_NORETURN void raise_exception(std::string const& s);
+    Z3_NORETURN void raise_exception(std::string && s);
 
     std::ostream& display(std::ostream& out, parameter const& p);
 
