@@ -945,7 +945,6 @@ bool lar_solver::all_constraints_hold() const {
 }
 
 bool lar_solver::constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const {
-    return true;
     mpq left_side_val = get_left_side_val(constr, var_map);
     switch (constr.m_kind) {
     case LE: return left_side_val <= constr.m_right_side;
