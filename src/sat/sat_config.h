@@ -52,15 +52,6 @@ namespace sat {
         BH_LRB
     };
 
-    enum pb_solver {
-        PB_SOLVER,
-        PB_CIRCUIT,
-        PB_SORTING,
-        PB_TOTALIZER,
-        PB_SEGMENTED,
-        PB_BINARY_MERGE
-    };
-
     enum pb_resolve {
         PB_CARDINALITY,
         PB_ROUNDING
@@ -182,9 +173,6 @@ namespace sat {
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
-
-    private:
-        pb_solver          m_pb_solver;
 
     };
 };
