@@ -781,8 +781,10 @@ namespace smt {
         else {
             m_eqs.insert(v1, v2, true);
             literal eq(mk_eq(v1, v2, true));
+            if (get_manager().has_trace_stream()) log_axiom_instantiation(get_context().bool_var2expr(eq.var()));
             get_context().mark_as_relevant(eq);            
             assert_axiom(eq);
+            if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
 
             // m_eqsv.push_back(eq);
             return true;

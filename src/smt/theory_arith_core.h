@@ -447,7 +447,14 @@ namespace smt {
               tout << l_ante << "\n" << l_conseq << "\n";);
 
         // literal lits[2] = {l_ante, l_conseq};
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(ante, conseq);
+            log_axiom_instantiation(body);
+        }
         mk_clause(l_ante, l_conseq, 0, nullptr);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
+
         if (ctx.relevancy()) {
             if (l_ante == false_literal) {
                 ctx.mark_as_relevant(l_conseq);
@@ -528,7 +535,9 @@ namespace smt {
                 expr_ref mod_j(m);
                 while(j < k) {
                     mod_j = m.mk_eq(mod, m_util.mk_numeral(j, true));
+                    if (m.has_trace_stream()) log_axiom_instantiation(mod_j);
                     ctx.internalize(mod_j, false);
+                    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
                     literal lit(ctx.get_literal(mod_j));
                     lits.push_back(lit);
                     ctx.mark_as_relevant(lit);

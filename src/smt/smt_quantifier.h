@@ -52,6 +52,8 @@ namespace smt {
         quantifier_stat * get_stat(quantifier * q) const;
         unsigned get_generation(quantifier * q) const;
 
+        static void log_justification_to_root(std::ostream & log, enode *en, obj_hashtable<enode> &already_visited, context &ctx, ast_manager &m);
+
         bool add_instance(quantifier * q, app * pat,
                           unsigned num_bindings,
                           enode * const * bindings,

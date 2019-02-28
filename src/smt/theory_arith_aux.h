@@ -1239,6 +1239,10 @@ namespace smt {
             farkas.add(abs(pa.get_rational()), to_app(tmp));
         }
         tmp = farkas.get();
+        if (m.has_trace_stream()) {
+            log_axiom_instantiation(tmp);
+            m.trace_stream() << "[end-of-instance]\n";
+        }
         // IF_VERBOSE(1, verbose_stream() << "Farkas result: " << tmp << "\n";);
         atom* a = get_bv2a(m_bound_watch);
         SASSERT(a);

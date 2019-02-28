@@ -998,6 +998,17 @@ protected:
 
     virtual void inherit(decl_plugin* other_p, ast_translation& ) { }
 
+    /**
+       \brief Checks wether a log is being generated and, if necessary, adds the beginning of an "[attach-meaning]" line
+       to that log. The theory solver should add some description of the meaning of the term in terms of the theory's
+       internal reasoning to the end of the line and insert a line break.
+       
+       \param a the term that should be described.
+
+       \return true if a log is being generated, false otherwise.
+    */
+    bool log_constant_meaning_prelude(app * a);
+
     friend class ast_manager;
 
 public:
@@ -1563,7 +1574,7 @@ public:
 
     // Equivalent to throw ast_exception(msg)
     Z3_NORETURN void raise_exception(char const * msg);
-    Z3_NORETURN void raise_exception(std::string const& s);
+    Z3_NORETURN void raise_exception(std::string && s);
 
     std::ostream& display(std::ostream& out, parameter const& p);
 
