@@ -1511,6 +1511,7 @@ namespace sat {
                 phase = m_phase[next];
                 break;
             case PS_SAT_CACHING:
+            case PS_NEURO_CACHING:
                 if (m_search_state == s_unsat) {
                     phase = m_phase[next];
                 }
@@ -3059,8 +3060,12 @@ namespace sat {
         m_ext->get_antecedents(consequent, js.get_ext_justification_idx(), m_ext_antecedents);
     }
 
+    bool solver::is_two_phase() const {
+        return m_config.m_phase == PS_SAT_CACHING || m_config.m_phase == PS_NEURO_CACHING;
+    }
+
     bool solver::is_sat_phase() const {
-        return m_config.m_phase == PS_SAT_CACHING && m_search_state == s_sat;
+        return is_two_phase() && m_search_state == s_sat;
     }
 
     void solver::updt_phase_of_vars() {
@@ -3093,7 +3098,7 @@ namespace sat {
 
     void solver::do_toggle_search_state() {
 
-        if (m_config.m_phase == PS_SAT_CACHING) {
+        if (is_two_phase()) {
             m_best_phase_size = 0;
             std::swap(m_fast_glue_backup, m_fast_glue_avg);
             std::swap(m_slow_glue_backup, m_slow_glue_avg);
@@ -3104,6 +3109,12 @@ namespace sat {
                 m_search_sat_conflicts += m_config.m_search_sat_conflicts;
                 if (m_par && m_par->get_phase(*this)) {
                     m_best_phase_size = num_vars(); // make it sticky.
+                }
+                if (call_neuro() && m_config.m_phase_neuro) {
+                    for (bool_var v = 0; v < num_vars(); ++v) {
+                        m_best_phase[v] = m_neuro.model_logits[m_neuro.var2nvar[v]] >= 0.5;
+                    }
+                    m_best_phase_size = num_vars();
                 }
             }
         }
@@ -3149,6 +3160,7 @@ namespace sat {
             }
             break;
         case PS_SAT_CACHING:
+        case PS_NEURO_CACHING:
             if (m_search_state == s_sat) {
                 for (unsigned i = 0; i < m_phase.size(); ++i) {
                     m_phase[i] = m_best_phase[i];

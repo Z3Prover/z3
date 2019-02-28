@@ -29,6 +29,7 @@ namespace sat {
         PS_ALWAYS_FALSE,
         PS_CACHING,
         PS_SAT_CACHING,
+        PS_NEURO_CACHING,
         PS_RANDOM
     };
 
@@ -99,6 +100,7 @@ namespace sat {
         unsigned           m_search_sat_conflicts;
         unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
+        bool               m_phase_neuro;
         unsigned           m_rephase_base;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;

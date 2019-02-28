@@ -58,6 +58,8 @@ namespace sat {
             m_phase = PS_CACHING;
         else if (s == symbol("scaching"))
             m_phase = PS_SAT_CACHING;
+        else if (s == symbol("neuro"))
+            m_phase = PS_NEURO_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
@@ -67,6 +69,7 @@ namespace sat {
         m_search_sat_conflicts = p.search_sat_conflicts();
         m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
+        m_phase_neuro       = p.phase_neuro();
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();

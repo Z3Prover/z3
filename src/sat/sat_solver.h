@@ -564,6 +564,7 @@ namespace sat {
         void do_toggle_search_state();
         bool should_toggle_search_state();
         bool is_sat_phase() const;
+        bool is_two_phase() const;
         bool should_rephase();
         void do_rephase();
         svector<char> m_diff_levels;
