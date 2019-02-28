@@ -19,8 +19,6 @@
   --*/
 
 namespace nla {
-    bool is_set(unsigned j) { return static_cast<int>(j) != -1; } 
-
 
 typedef lp::constraint_index     lpci;
 typedef lp::explanation          expl_set;
@@ -41,24 +39,15 @@ struct vars_equivalence {
         rational             m_sign;
         lpci                 m_c0;
         lpci                 m_c1;
-        lpci                 m_c2;
-        lpci                 m_c3;
-        equiv(lpvar i, lpvar j, rational const& sign,
-              lpci c0,
-              lpci c1,
-              lpci c2,
-              lpci c3
-              ) :
+
+        equiv(lpvar i, lpvar j, rational const& sign, lpci c0, lpci c1) :
             m_i(i),
             m_j(j),
             m_sign(sign),
             m_c0(c0),
-            m_c1(c1),
-            m_c2(c2),
-            m_c3(c3) {
+            m_c1(c1) {
             SASSERT(m_i != m_j);
         }
-        
     };
 
     struct node {
@@ -150,13 +139,9 @@ struct vars_equivalence {
     }
 
     void add_equiv(lpvar i, lpvar j, rational const& sign, lpci c0, lpci c1) {
-        m_equivs.push_back(equiv(i, j, sign, c0, c1, -1, -1));
+        m_equivs.push_back(equiv(i, j, sign, c0, c1));
     }
-
-    void add_equiv(lpvar i, lpvar j, rational const& sign, lpci c0, lpci c1, lpci c2, lpci c3) {
-        m_equivs.push_back(equiv(i, j, sign, c0, c1, c2, c3));
-    }
-
+    
     void connect_equiv_to_tree(unsigned k) {
         // m_tree is the tree with the edges formed by m_equivs
         const equiv &e = m_equivs[k];
@@ -262,14 +247,8 @@ struct vars_equivalence {
             if (it->second.m_parent == static_cast<unsigned>(-1))
                 return;
             const equiv & e = m_equivs[it->second.m_parent];
-            if (is_set(e.m_c0))
-                exp.add(e.m_c0);
-            if (is_set(e.m_c1))
-                exp.add(e.m_c1);
-            if (is_set(e.m_c2))
-                exp.add(e.m_c2);
-            if (is_set(e.m_c3))
-                exp.add(e.m_c3);
+            exp.add(e.m_c0);
+            exp.add(e.m_c1);
             j = get_parent_node(j, e);
         }
     }
