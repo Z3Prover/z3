@@ -510,6 +510,11 @@ struct solver::imp {
     }
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
+        if (cmp == llc::NE) {
+            mk_ineq(t, llc::LT, rs, l);
+            mk_ineq(t, llc::GT, rs, l);
+            return;
+        }
         TRACE("nla_solver_details", m_lar_solver.print_term(t, tout << "t = "););
         if (explain_ineq(t, cmp, rs)) {
             return;
@@ -577,62 +582,6 @@ struct solver::imp {
         }
         return cmp;
     }
-    
-    // bool explain(lpvar j, llc cmp, const rational& rs, lp::explanation & exp) {
-    //     unsigned lc, uc; // indices for the lower and upper bounds
-    //     m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-    //     switch(cmp) {
-    //     case llc::LE: {
-    //         if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
-    //             return false;
-    //         exp.add(uc);
-    //         return true;
-    //     }
-    //     case llc::LT: {
-    //         if (uc + 1 == 0 || m_lar_solver.column_upper_bound(j) >= rs) 
-    //             return false;
-    //         exp.add(uc);
-    //         return true;
-    //     }
-    //     case llc::GE: {
-    //         if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs) 
-    //             return false;
-    //         exp.add(lc);
-    //         return true;
-    //     }
-    //     case llc::GT:  {
-    //         if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) <= rs) 
-    //             return false;
-    //         exp.add(lc);
-    //         return true;
-    //     }
-    //     case llc::EQ: 
-    //         {
-    //             if (lc + 1 == 0 || m_lar_solver.column_lower_bound(j) < rs
-    //                 ||
-    //                 uc + 1 == 0 || m_lar_solver.column_upper_bound(j) > rs) 
-    //                 return false;
-    //             exp.add(lc);
-    //             exp.add(uc);
-    //             return true;
-    //         }
-    //     case llc::NE: {
-    //         if (uc + 1 && m_lar_solver.column_upper_bound(j) < rs) {
-    //             exp.add(uc);
-    //             return true;
-    //         }
-    //         if (lc + 1 && m_lar_solver.column_lower_bound(j) > rs) {
-    //             exp.add(lc);
-    //             return true;
-    //         }
-    //         return false;
-    //     };
-    //     default:
-    //         SASSERT(false); 
-    //     };
-    //     SASSERT(false); 
-    //     return false;
-    // }
     
     void mk_ineq(const rational& a, lpvar j, llc cmp, lemma& l) {
         mk_ineq(a, j, cmp, rational::zero(), l);
@@ -843,10 +792,6 @@ struct solver::imp {
         return zero_j;    
     }
 
-    static bool is_set(unsigned j) {
-        return static_cast<int>(j) != -1; 
-    } 
-
     bool try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const {
         SASSERT(sign);
         if (has_lower_bound(j) && get_lower_bound(j) >= rational(0))
@@ -941,14 +886,12 @@ struct solver::imp {
         return m_vars_equivalence.eq_vars(j);
     }
     
-    bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
+    void basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
         TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); );
         rational contr_sign;
         if (sign_contradiction(m, n, contr_sign)) {
             generate_sign_lemma(m, n, sign);
-            return true;
         }
-        return false;
     }
 
     void init_abs_val_table() {
@@ -1024,9 +967,9 @@ struct solver::imp {
         for (index_with_sign i_s : mons_to_explore) {
             unsigned n = i_s.index();
             if (n == i) continue;
-            if (basic_sign_lemma_on_two_monomials(m, m_monomials[n], rm_i_s.sign()*i_s.sign()))
-                if(done())
-				    return true;
+            basic_sign_lemma_on_two_monomials(m, m_monomials[n], rm_i_s.sign()*i_s.sign());
+            if(done())
+                return true;
         }
         TRACE("nla_solver",);
         return false;
@@ -1036,16 +979,18 @@ struct solver::imp {
      * \brief <generate lemma by using the fact that -ab = (-a)b) and
      -ab = a(-b)
     */
-    bool basic_sign_lemma(bool derived) {
-        if (!derived)
-            return basic_sign_lemma_model_based();
-
-        std::unordered_set<unsigned> explored;
-        for (unsigned i : m_to_refine){
-            if (basic_sign_lemma_on_mon(i, explored))
-                return true;
+    void basic_sign_lemma(bool derived) {
+        if (!derived) {
+            basic_sign_lemma_model_based();
+        } else {
+            std::unordered_set<unsigned> explored;
+            for (unsigned i : m_to_refine){
+                basic_sign_lemma_on_mon(i, explored);
+                if (done())
+                    return;
+                
+            }
         }
-        return false;
     }
 
     bool var_is_fixed_to_zero(lpvar j) const {
@@ -1715,11 +1660,10 @@ struct solver::imp {
     unsigned random() {return settings().random_next();}
     
     // use basic multiplication properties to create a lemma
-    bool basic_lemma(bool derived) {
-        if (basic_sign_lemma(derived))
-            return true;
+    void basic_lemma(bool derived) {
+        basic_sign_lemma(derived);
         if (derived)
-            return false;
+            return;
         init_rm_to_refine();
         const auto& rm_ref = m_rm_table.to_refine();
         TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
@@ -1733,8 +1677,6 @@ struct solver::imp {
                 i = 0;
             }
         } while(i != start && !done());
-        
-        return false;
     }
 
     void map_monomial_vars_to_monomial_indices(unsigned i) {
@@ -1765,7 +1707,8 @@ struct solver::imp {
     // we look for octagon constraints here, with a left part  +-x +- y 
     void collect_equivs() {
         const lp::lar_solver& s = m_lar_solver;
-
+        
+        
         for (unsigned i = 0; i < s.terms().size(); i++) {
             unsigned ti = i + s.terms_start_index();
             if (!s.term_is_used_as_row(ti))
@@ -1776,6 +1719,27 @@ struct solver::imp {
                 add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
             }
         }
+
+        std::unordered_map<rational, lpvar> fixed_vars;
+        for (unsigned j = 0; j < s.number_of_vars(); j++) {
+            if (!var_is_fixed_to_zero(j)) continue;
+            rational v = abs(vvr(j));
+            auto it = fixed_vars.find(v);
+            if (it == fixed_vars.end()){
+                fixed_vars[v] = j;
+            } else {
+                lpvar k = it->second;
+                TRACE("nla_solver", tout << "fixed vars eq: " << k << ", " << j << ", fixed to " << vvr(j) << "\n";);
+                add_equivalence_of_two_vars(k, j,
+                                            s.get_column_upper_bound_witness(k),
+                                            s.get_column_lower_bound_witness(k),
+                                            s.get_column_upper_bound_witness(j),
+                                            s.get_column_lower_bound_witness(j));
+            }
+        }
+        
+        
+        
     }
 
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
@@ -1801,6 +1765,11 @@ struct solver::imp {
         SASSERT(j != static_cast<unsigned>(-1));
         rational sign((seen_minus && seen_plus)? 1 : -1);
         m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
+    }
+    void add_equivalence_of_two_vars(lpvar k, lpvar j, lpci c0, lpci c1, lpci c2, lpci c3) {
+        SASSERT(abs(vvr(k)) == abs(vvr(j)));
+        rational sign(vvr(k) == vvr(j)? 1 : -1);
+        m_vars_equivalence.add_equiv(k, j, sign, c0, c1, c2, c3);
     }
 
     // x is equivalent to y if x = +- y
@@ -2825,7 +2794,7 @@ struct solver::imp {
             if (search_level == 0) {
                 basic_lemma(derived);
                 if (!m_lemma_vec->empty())
-				   return l_false;
+                    return l_false;
             } else if (search_level == 1) {
                 order_lemma(derived);
             } else { // search_level == 2
