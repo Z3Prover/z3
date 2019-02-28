@@ -694,7 +694,8 @@ namespace eq {
                 if (m.proofs_enabled() && r != q) {
                     pr = m.mk_transitivity(pr, curr_pr);
                 }
-            } while (q != r && is_quantifier(r));
+            } 
+            while (q != r && is_quantifier(r));
 
             m_new_exprs.reset();
         }
@@ -2441,7 +2442,7 @@ class qe_lite_tactic : public tactic {
                     continue;
                 new_f = f;
                 m_qe(new_f, new_pr);
-                if (produce_proofs) {
+                if (new_pr) {
                     expr* fact = m.get_fact(new_pr);
                     if (to_app(fact)->get_arg(0) != to_app(fact)->get_arg(1)) {
                         new_pr = m.mk_modus_ponens(g->pr(i), new_pr);

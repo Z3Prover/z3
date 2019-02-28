@@ -2166,6 +2166,13 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
 
     m_new_propagation = true;
     ctx.assign(lit, js);    
+    if (m.has_trace_stream()) {
+        expr_ref expr(m);
+        expr = ctx.bool_var2expr(lit.var());
+        if (lit.sign()) expr = m.mk_not(expr);
+        log_axiom_instantiation(expr);
+        m.trace_stream() << "[end-of-instance]\n";
+    }
 }
 
 void theory_seq::set_conflict(dependency* dep, literal_vector const& _lits) {
@@ -2199,7 +2206,13 @@ void theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
             get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_eq(n1->get_owner(), n2->get_owner());
+        log_axiom_instantiation(body);
+    }
     ctx.assign_eq(n1, n2, eq_justification(js));
+    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     m_new_propagation = true;
 
     enforce_length_coherence(n1, n2);
@@ -3172,6 +3185,18 @@ bool theory_seq::solve_nc(unsigned idx) {
         }
         TRACE("seq", ctx.display_literals_verbose(tout, lits.size(), lits.c_ptr()) << "\n";);
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        if (m.has_trace_stream()) {
+            expr_ref_vector exprs(m);
+            for (literal l : lits) {
+                expr* e = ctx.bool_var2expr(l.var());
+                if (l.sign()) e = m.mk_not(e);
+                exprs.push_back(e);
+            }
+            app_ref body(m);
+            body = m.mk_or(exprs.size(), exprs.c_ptr());
+            log_axiom_instantiation(body);
+            m.trace_stream() << "[end-of-instance]\n";
+        }
         return true;
     }
     
@@ -4617,16 +4642,25 @@ void theory_seq::propagate_in_re(expr* n, bool is_true) {
     unsigned_vector states;
     a->get_epsilon_closure(a->init(), states);
     lits.push_back(~lit);
+    expr_ref_vector exprs(m);
     
     for (unsigned st : states) {
-        lits.push_back(mk_accept(s, zero, re, st));
+        literal acc = mk_accept(s, zero, re, st);
+        lits.push_back(acc);
+        exprs.push_back(ctx.bool_var2expr(acc.var()));
     }
     if (lits.size() == 2) {
         propagate_lit(nullptr, 1, &lit, lits[1]);
     }
     else {
         TRACE("seq", ctx.display_literals_verbose(tout, lits) << "\n";);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(n, m.mk_or(exprs.size(), exprs.c_ptr()));
+            log_axiom_instantiation(body);
+        }
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 }
 
@@ -5071,19 +5105,32 @@ literal theory_seq::mk_eq_empty(expr* _e, bool phase) {
     return lit;
 }
 
+void theory_seq::push_lit_as_expr(literal l, expr_ref_vector& buf) {
+    expr* e = get_context().bool_var2expr(l.var());
+    if (l.sign()) e = m.mk_not(e);
+    buf.push_back(e);
+}
+
 void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, literal l5) {
     context& ctx = get_context();
     literal_vector lits;
+    expr_ref_vector exprs(m);
     if (l1 == true_literal || l2 == true_literal || l3 == true_literal || l4 == true_literal || l5 == true_literal) return;
-    if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); }
-    if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); }
-    if (l3 != null_literal && l3 != false_literal) { ctx.mark_as_relevant(l3); lits.push_back(l3); }
-    if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); }
-    if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); }
+    if (l1 != null_literal && l1 != false_literal) { ctx.mark_as_relevant(l1); lits.push_back(l1); push_lit_as_expr(l1, exprs); }
+    if (l2 != null_literal && l2 != false_literal) { ctx.mark_as_relevant(l2); lits.push_back(l2); push_lit_as_expr(l2, exprs); }
+    if (l3 != null_literal && l3 != false_literal) { ctx.mark_as_relevant(l3); lits.push_back(l3); push_lit_as_expr(l3, exprs); }
+    if (l4 != null_literal && l4 != false_literal) { ctx.mark_as_relevant(l4); lits.push_back(l4); push_lit_as_expr(l4, exprs); }
+    if (l5 != null_literal && l5 != false_literal) { ctx.mark_as_relevant(l5); lits.push_back(l5); push_lit_as_expr(l5, exprs); }
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:\n", lits) << "\n";);
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_or(exprs.size(), exprs.c_ptr());
+        log_axiom_instantiation(body);
+    }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 }
 
 
@@ -5208,7 +5255,13 @@ void theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
                 get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
 
     m_new_propagation = true;
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_eq(e1, e2);
+        log_axiom_instantiation(body);
+    }
     ctx.assign_eq(n1, n2, eq_justification(js));
+    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 }
 
 
@@ -5254,7 +5307,13 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
                 lits.push_back(mk_literal(d));
             }
             ++m_stats.m_add_axiom;            
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(e, m.mk_or(disj.size(), disj.c_ptr()));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             for (expr* d : disj) {
                 add_axiom(lit, ~mk_literal(d));
             }
@@ -5613,14 +5672,23 @@ void theory_seq::propagate_accept(literal lit, expr* acc) {
     eautomaton::moves mvs;
     aut->get_moves_from(src, mvs);
     TRACE("seq", tout << mk_pp(acc, m) << " #moves " << mvs.size() << "\n";);
+    expr_ref_vector exprs(m);
     for (auto const& mv : mvs) {
         expr_ref nth = mk_nth(e, idx);
         expr_ref t = mv.t()->accept(nth);
-        ctx.get_rewriter()(t);
-        literal step = mk_literal(mk_step(e, idx, re, src, mv.dst(), t));
+        get_context().get_rewriter()(t);
+        expr_ref step_e(mk_step(e, idx, re, src, mv.dst(), t), m);
+        literal step = mk_literal(step_e);
         lits.push_back(step);
+        exprs.push_back(step_e);
+    }
+    if (m.has_trace_stream()) {
+        app_ref body(m);
+        body = m.mk_implies(acc, m.mk_or(exprs.size(), exprs.c_ptr()));
+        log_axiom_instantiation(body);
     }
     ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+    if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
     if (_idx.get_unsigned() > m_max_unfolding_depth && 
         m_max_unfolding_lit != null_literal && ctx.get_scope_level() > 0) {

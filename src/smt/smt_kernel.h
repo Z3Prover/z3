@@ -237,7 +237,7 @@ namespace smt {
         /**
            \brief (For debubbing purposes) Prints the state of the kernel
         */
-        void display(std::ostream & out) const;
+        std::ostream& display(std::ostream & out) const;
 
         /**
            \brief Collect runtime statistics.

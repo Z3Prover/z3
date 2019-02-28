@@ -83,7 +83,7 @@ namespace sat {
         char digits[20];     // enough for storing unsigned
         char* lastd = digits + sizeof(digits);
         
-        int len = 0;
+        unsigned len = 0;
         if (st == status::deleted) {
             buffer[0] = 'd';
             buffer[1] = ' ';

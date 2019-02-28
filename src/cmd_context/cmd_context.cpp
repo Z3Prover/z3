@@ -797,7 +797,7 @@ void cmd_context::insert(symbol const & s, func_decl * f) {
         msg += " '";
         msg += s.str();
         msg += "' (with the given signature) already declared";
-        throw cmd_exception(msg.c_str());
+        throw cmd_exception(std::move(msg));
     }
     if (s != f->get_name()) {
         TRACE("func_decl_alias", tout << "adding alias for: " << f->get_name() << ", alias: " << s << "\n";);
@@ -1142,7 +1142,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
             for (unsigned i = 0; i < fs.get_num_entries(); ++i) {
                 buffer << "\ndeclared: " << mk_pp(fs.get_entry(i), m()) << " ";
             }
-            throw cmd_exception(buffer.str().c_str());
+            throw cmd_exception(buffer.str());
         }
         if (well_sorted_check_enabled())
             m().check_sort(f, num_args, args);

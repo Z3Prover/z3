@@ -107,6 +107,8 @@ namespace qe {
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
         void project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
+        vector<std::pair<rational, app*>> sort_proxies(model_ref& mdl, app_ref_vector const& proxies);
+        void minimize_span(model_ref& mdl, app_ref_vector& avars, app_ref_vector const& proxies);
         void order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies);
         void substitute(vector<def> const& defs, expr_ref_vector& lits);
         void filter_private_arith(app_ref_vector& avars);

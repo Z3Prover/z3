@@ -400,7 +400,7 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
         std::ostringstream strm;
         strm << "Unexpected number of arguments to '" << sig.m_name << "' ";
         strm << "at least one argument expected " << dsz << " given";
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
@@ -420,7 +420,7 @@ void seq_decl_plugin::match_right_assoc(psig& sig, unsigned dsz, sort *const* do
         if (range) {
             strm << " and range: " << mk_pp(range, m);
         }
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
     }
     range_out = apply_binding(binding, sig.m_range);
     SASSERT(range_out);
@@ -434,7 +434,7 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
         std::ostringstream strm;
         strm << "Unexpected number of arguments to '" << sig.m_name << "' ";
         strm << sig.m_dom.size() << " arguments expected " << dsz << " given";
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
     }
     bool is_match = true;
     for (unsigned i = 0; is_match && i < dsz; ++i) {
@@ -459,13 +459,13 @@ void seq_decl_plugin::match(psig& sig, unsigned dsz, sort *const* dom, sort* ran
             strm << mk_pp(sig.m_dom[i].get(), m) << " ";
         }
 
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
     }
     if (!range && dsz == 0) {
         std::ostringstream strm;
         strm << "Sort of polymorphic function '" << sig.m_name << "' ";
         strm << "is ambiguous. Function takes no arguments and sort of range has not been constrained";
-        m.raise_exception(strm.str().c_str());
+        m.raise_exception(strm.str());
     }
     range_out = apply_binding(m_binding, sig.m_range);
     SASSERT(range_out);

@@ -141,7 +141,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
         std::ostringstream buffer;
         buffer << "map expects to take as many arguments as the function being mapped, "
                << "it was given " << arity << " but expects " << f->get_arity();
-        m_manager->raise_exception(buffer.str().c_str());
+        m_manager->raise_exception(buffer.str());
         return nullptr;
     }
     if (arity == 0) {
@@ -158,14 +158,14 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
         if (!is_array_sort(domain[i])) {
             std::ostringstream buffer;
             buffer << "map expects an array sort as argument at position " << i;
-            m_manager->raise_exception(buffer.str().c_str());
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
         if (get_array_arity(domain[i]) != dom_arity) {
             std::ostringstream buffer;
             buffer << "map expects all arguments to have the same array domain,  "
                    << "this is not the case for argument " << i;
-            m_manager->raise_exception(buffer.str().c_str());
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
         for (unsigned j = 0; j < dom_arity; ++j) {
@@ -173,7 +173,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
                 std::ostringstream buffer;
                 buffer << "map expects all arguments to have the same array domain, "
                        << "this is not the case for argument " << i;
-                m_manager->raise_exception(buffer.str().c_str());
+                m_manager->raise_exception(buffer.str());
                 return nullptr;
             }
         }
@@ -181,7 +181,7 @@ func_decl * array_decl_plugin::mk_map(func_decl* f, unsigned arity, sort* const*
             std::ostringstream buffer;
             buffer << "map expects the argument at position " << i 
                    << " to have the array range the same as the function";
-            m_manager->raise_exception(buffer.str().c_str());
+            m_manager->raise_exception(buffer.str());
             return nullptr;
         }
     }
@@ -244,7 +244,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
     if (num_parameters != arity) {
         std::stringstream strm;
         strm << "select requires " << num_parameters << " arguments, but was provided with " << arity << " arguments";
-        m_manager->raise_exception(strm.str().c_str());
+        m_manager->raise_exception(strm.str());
         return nullptr;
     }
     ptr_buffer<sort> new_domain; // we need this because of coercions.
@@ -256,7 +256,7 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
             std::stringstream strm;
             strm << "domain sort " << sort_ref(domain[i+1], *m_manager) << " and parameter ";
             strm << parameter_pp(parameters[i], *m_manager) << " do not match";
-            m_manager->raise_exception(strm.str().c_str());
+            m_manager->raise_exception(strm.str());
             UNREACHABLE();
             return nullptr;
         }
@@ -284,7 +284,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         std::ostringstream buffer;
         buffer << "store expects the first argument to be an array taking " << num_parameters+1 
                << ", instead it was passed " << (arity - 1) << "arguments";
-        m_manager->raise_exception(buffer.str().c_str());
+        m_manager->raise_exception(buffer.str());
         UNREACHABLE();
         return nullptr;
     }

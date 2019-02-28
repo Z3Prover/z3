@@ -305,6 +305,13 @@ namespace smt {
 
             literal end_ge_lo = mk_ge(ji.m_end, clb);
             // Initialization ensures that satisfiable states have completion time below end.
+            ast_manager& m = get_manager();
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(m.mk_and(m.mk_eq(eq.first->get_owner(), eq.second->get_owner()), ctx.bool_var2expr(start_ge_lo.var())), ctx.bool_var2expr(end_ge_lo.var()));
+                log_axiom_instantiation(body);
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             region& r = ctx.get_region();
             ctx.assign(end_ge_lo, 
                        ctx.mk_justification(
@@ -379,6 +386,13 @@ namespace smt {
         lits.push_back(mk_eq_lit(end_e->get_owner(), rhs));
         context& ctx = get_context();
         ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
+        ast_manager& m = get_manager();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(m.mk_and(ctx.bool_var2expr(lits[0].var()), ctx.bool_var2expr(lits[1].var()), ctx.bool_var2expr(lits[2].var())), ctx.bool_var2expr(lits[3].var()));
+            log_axiom_instantiation(body);
+            m.trace_stream() << "[end-of-instance]\n";
+        }
         return true;
     }
 
@@ -499,7 +513,10 @@ namespace smt {
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_resource const& jr) const {
         return out << "r:" << jr.m_resource_id << " cap:" << jr.m_capacity << " load:" << jr.m_loadpct << " end:" << jr.m_finite_capacity_end;
-        for (auto const& s : jr.m_properties) out << " " << s; out << "\n";
+        for (auto const& s : jr.m_properties) {
+            out << " " << s;
+        }
+        out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, job_info const& j) const {
@@ -511,7 +528,10 @@ namespace smt {
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_available const& r) const {
         return out << "[" << r.m_start << ":" << r.m_end << "] @ " << r.m_loadpct << "%";
-        for (auto const& s : r.m_properties) out << " " << s; out << "\n";
+        for (auto const& s : r.m_properties) {
+            out << " " << s;
+        }
+        out << "\n";
     }
 
     std::ostream& theory_jobscheduler::display(std::ostream & out, res_info const& r) const {
@@ -730,7 +750,9 @@ namespace smt {
 
             // start(j) <= end(j)            
             lit = mk_le(ji.m_start, ji.m_end);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
             time_t start_lb = std::numeric_limits<time_t>::max();
             time_t runtime_lb = std::numeric_limits<time_t>::max();
@@ -773,11 +795,15 @@ namespace smt {
 
             // start(j) >= start_lb
             lit = mk_ge(ji.m_start, start_lb);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
             // end(j) <= end_ub
             lit = mk_le(ji.m_end, end_ub);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
             // start(j) + runtime_lb <= end(j)
             // end(j) <= start(j) + runtime_ub 
@@ -793,7 +819,14 @@ namespace smt {
 #if 0
         job_info const& ji = m_jobs[j];
         literal l2 = mk_le(ji.m_end, jr.m_finite_capacity_end);
-        get_context().mk_th_axiom(get_id(), ~eq, l2);
+        context& ctx = get_context();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
+            log_axiom_instantiation(body);
+        }
+        ctx.mk_th_axiom(get_id(), ~eq, l2);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 #endif
     }
 
@@ -802,11 +835,24 @@ namespace smt {
         context& ctx = get_context();
         time_t t;
         if (lst(j, r, t)) {
-            ctx.mk_th_axiom(get_id(), ~eq, mk_le(m_jobs[j].m_start, t));
+            literal le = mk_le(m_jobs[j].m_start, t);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(le.var()));
+                log_axiom_instantiation(body);
+            }
+            ctx.mk_th_axiom(get_id(), ~eq, le);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         else {
             eq.neg();
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_not(ctx.bool_var2expr(eq.var()));
+                log_axiom_instantiation(body);
+            }
             ctx.mk_th_axiom(get_id(), 1, &eq);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
     }
 
@@ -817,7 +863,14 @@ namespace smt {
         if (!first_available(jr, m_resources[r], idx)) return;
         vector<res_available>& available = m_resources[r].m_available;
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx].m_start);
-        get_context().mk_th_axiom(get_id(), ~eq, l2);
+        context& ctx = get_context();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), ctx.bool_var2expr(l2.var()));
+            log_axiom_instantiation(body);
+        }
+        ctx.mk_th_axiom(get_id(), ~eq, l2);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // resource(j) = r => start(j) <= end[idx]  || start[idx+1] <= start(j);
@@ -828,7 +881,14 @@ namespace smt {
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
         literal l3 = mk_le(m_jobs[j].m_start, available[idx].m_end);
-        get_context().mk_th_axiom(get_id(), ~eq, l2, l3);        
+        context& ctx = get_context();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
+            log_axiom_instantiation(body);
+        }
+        ctx.mk_th_axiom(get_id(), ~eq, l2, l3);        
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     // resource(j) = r => end(j) <= end[idx] || start[idx+1] <= start(j);
@@ -839,7 +899,14 @@ namespace smt {
         SASSERT(resource_available(jr, available[idx]));
         literal l2 = mk_le(m_jobs[j].m_end, available[idx].m_end);
         literal l3 = mk_ge(m_jobs[j].m_start, available[idx1].m_start);
-        get_context().mk_th_axiom(get_id(), ~eq, l2, l3);
+        context& ctx = get_context();
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_implies(ctx.bool_var2expr(eq.var()), m.mk_or(ctx.bool_var2expr(l2.var()), ctx.bool_var2expr(l3.var())));
+            log_axiom_instantiation(body);
+        }
+        ctx.mk_th_axiom(get_id(), ~eq, l2, l3);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }    
 
     /**
@@ -858,6 +925,12 @@ namespace smt {
             if (ctx.is_diseq(e1, e2))
                 continue;
             literal eq = mk_eq_lit(e1, e2);
+            if (m.has_trace_stream()) {
+                app_ref body(m);
+                body = m.mk_or(ctx.bool_var2expr(eq.var()), m.mk_not(ctx.bool_var2expr(eq.var())));
+                log_axiom_instantiation(body);
+                m.trace_stream() << "[end-of-instance]\n";
+            }
             if (ctx.get_assignment(eq) != l_false) {
                 ctx.mark_as_relevant(eq);
                 if (assume_eq(e1, e2)) {
@@ -866,14 +939,23 @@ namespace smt {
             }
         }
         literal_vector lits;
+        expr_ref_vector exprs(m);
         for (job_resource const& jr : jrs) {
             unsigned r = jr.m_resource_id;
             res_info const& ri = m_resources[r];
             enode* e1 = ji.m_job2resource;
             enode* e2 = ri.m_resource;
-            lits.push_back(mk_eq_lit(e1, e2));
+            literal eq = mk_eq_lit(e1, e2);
+            lits.push_back(eq);
+            exprs.push_back(ctx.bool_var2expr(eq.var()));
+        }
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(exprs.size(), exprs.c_ptr());
+            log_axiom_instantiation(body);
         }
         ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         return true;
     }
 

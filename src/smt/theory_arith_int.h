@@ -199,6 +199,7 @@ namespace smt {
     void theory_arith<Ext>::branch_infeasible_int_var(theory_var v) {
         SASSERT(is_int(v));
         SASSERT(!get_value(v).is_int());
+        ast_manager & m = get_manager();
         m_stats.m_branches++;
         numeral k     = ceil(get_value(v));
         rational _k   = k.to_rational();
@@ -206,13 +207,19 @@ namespace smt {
               display_var(tout, v);
               tout << "k = " << k << ", _k = "<< _k << std::endl;
               );
-        expr_ref bound(get_manager());
+        expr_ref bound(m);
         expr* e = get_enode(v)->get_owner();
         bound  = m_util.mk_ge(e, m_util.mk_numeral(_k, m_util.is_int(e)));
-        TRACE("arith_int", tout << mk_bounded_pp(bound, get_manager()) << "\n";);
+        if (m.has_trace_stream()) {
+            app_ref body(m);
+            body = m.mk_or(to_app(bound), m.mk_not(to_app(bound)));
+            log_axiom_instantiation(body);
+        }
+        TRACE("arith_int", tout << mk_bounded_pp(bound, m) << "\n";);
         context & ctx = get_context();
         ctx.internalize(bound, true);
         ctx.mark_as_relevant(bound.get());
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
     
@@ -365,6 +372,11 @@ namespace smt {
         mk_polynomial_ge(pol.size(), pol.c_ptr(), unsat_row[0]+rational(1), p2);
         
         context& ctx = get_context();
+        if (get_manager().has_trace_stream()) {
+            app_ref body(get_manager());
+            body = get_manager().mk_or(p1, p2);
+            log_axiom_instantiation(body);
+        }
         ctx.internalize(p1, false);
         ctx.internalize(p2, false);
         literal l1(ctx.get_literal(p1)), l2(ctx.get_literal(p2));
@@ -372,6 +384,7 @@ namespace smt {
         ctx.mark_as_relevant(p2.get());
         
         ctx.mk_th_axiom(get_id(), l1, l2);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
        
         TRACE("arith_int", 
               tout << "cut: (or " << mk_pp(p1, get_manager()) << " " << mk_pp(p2, get_manager()) << ")\n";
@@ -400,7 +413,9 @@ namespace smt {
                 bool _is_int = m_util.is_int(e);
                 expr * bound  = m_util.mk_ge(e, m_util.mk_numeral(rational::zero(), _is_int));
                 context & ctx = get_context();
+                if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
                 ctx.internalize(bound, true);
+                if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
                 ctx.mark_as_relevant(bound);
                 result = true;
             }
@@ -646,7 +661,9 @@ namespace smt {
         TRACE("gomory_cut", tout << "new cut:\n" << bound << "\n"; ante.display(tout););
         literal l     = null_literal;
         context & ctx = get_context();
+        if (get_manager().has_trace_stream()) log_axiom_instantiation(bound);
         ctx.internalize(bound, true);
+        if (get_manager().has_trace_stream()) get_manager().trace_stream() << "[end-of-instance]\n";
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
         dump_lemmas(l, ante);

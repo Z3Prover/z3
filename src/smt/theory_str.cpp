@@ -217,7 +217,9 @@ namespace smt {
         }
         literal lit(ctx.get_literal(e));
         ctx.mark_as_relevant(lit);
+        if (m.has_trace_stream()) log_axiom_instantiation(e);
         ctx.mk_th_axiom(get_id(), 1, &lit);
+        if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
 
         // crash/error avoidance: add all axioms to the trail
         m_trail.push_back(e);
@@ -1084,7 +1086,9 @@ namespace smt {
 
             literal lit(mk_eq(len_str, len, false));
             ctx.mark_as_relevant(lit);
+            if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(lit.var()));
             ctx.mk_th_axiom(get_id(), 1, &lit);
+            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         } else {
             // build axiom 1: Length(a_str) >= 0
             {
@@ -1126,7 +1130,9 @@ namespace smt {
                 TRACE("str", tout << "string axiom 2: " << mk_ismt2_pp(lhs, m) << " <=> " << mk_ismt2_pp(rhs, m) << std::endl;);
                 literal l(mk_eq(lhs, rhs, true));
                 ctx.mark_as_relevant(l);
+                if (m.has_trace_stream()) log_axiom_instantiation(ctx.bool_var2expr(l.var()));
                 ctx.mk_th_axiom(get_id(), 1, &l);
+                if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
             }
 
         }

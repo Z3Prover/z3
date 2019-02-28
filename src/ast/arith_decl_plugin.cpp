@@ -89,7 +89,14 @@ app * arith_decl_plugin::mk_numeral(algebraic_numbers::anum const & val, bool is
         parameter p(idx, true);
         SASSERT(p.is_external());
         func_decl * decl = m_manager->mk_const_decl(m_rootv_sym, m_real_decl, func_decl_info(m_family_id, OP_IRRATIONAL_ALGEBRAIC_NUM, 1, &p));
-        return m_manager->mk_const(decl);
+        app * r = m_manager->mk_const(decl);
+
+        if (log_constant_meaning_prelude(r)) {
+            am().display_root_smt2(m_manager->trace_stream(), val);
+            m_manager->trace_stream() << "\n";
+        }
+
+        return r;
     }
 }
 
@@ -415,6 +422,10 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
                     r = m_manager->mk_const(m_manager->mk_const_decl(m_intv_sym, m_int_decl, func_decl_info(m_family_id, OP_NUM, 2, p)));
                     m_manager->inc_ref(r);
                     m_small_ints.setx(u_val, r, 0);
+
+                    if (log_constant_meaning_prelude(r)) {
+                        m_manager->trace_stream() << u_val << "\n";
+                    }
                 }
                 return r;
             }
@@ -425,6 +436,10 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
                     r = m_manager->mk_const(m_manager->mk_const_decl(m_realv_sym, m_real_decl, func_decl_info(m_family_id, OP_NUM, 2, p)));
                     m_manager->inc_ref(r);
                     m_small_reals.setx(u_val, r, 0);
+
+                    if (log_constant_meaning_prelude(r)) {
+                        m_manager->trace_stream() << u_val << "\n";
+                    }
                 }
                 return r;
             }
@@ -436,7 +451,14 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
         decl = m_manager->mk_const_decl(m_intv_sym, m_int_decl, func_decl_info(m_family_id, OP_NUM, 2, p));
     else
         decl = m_manager->mk_const_decl(m_realv_sym, m_real_decl, func_decl_info(m_family_id, OP_NUM, 2, p));
-    return m_manager->mk_const(decl);
+    app * r = m_manager->mk_const(decl);
+
+    if (log_constant_meaning_prelude(r)) {
+        val.display_smt2(m_manager->trace_stream());
+        m_manager->trace_stream() << "\n";
+    }
+
+    return r;
 }
 
 func_decl * arith_decl_plugin::mk_num_decl(unsigned num_parameters, parameter const * parameters, unsigned arity) {
