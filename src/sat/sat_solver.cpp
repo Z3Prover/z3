@@ -1699,10 +1699,11 @@ namespace sat {
     }
 
     bool solver::call_neuro() {
-        if (!m_neuro_predictor) return false;        
+        if (!m_neuro_predictor) return false;  
+        pop_to_base_level();
         m_cleaner(true);
-        m_neuro.init(*this);            
-        return (*m_neuro_predictor)(m_neuro_state, &m_neuro.p);
+        m_neuro.init(*this);
+        return (m_neuro_predictor)(m_neuro_state, &m_neuro.p);
     }
 
     // higher weight is assumed to be indication of more useful

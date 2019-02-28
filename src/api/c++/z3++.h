@@ -2154,7 +2154,7 @@ namespace z3 {
 
     class neuro_predictor {
     public:
-        virtual bool operator()(Z3_neuro_prediction& p);
+        virtual bool operator()(Z3_neuro_prediction& p) = 0;
     };
 
     class solver : public object {
@@ -2374,6 +2374,7 @@ namespace z3 {
         cube_generator cubes(expr_vector& vars) { return cube_generator(*this, vars); }
 
         void set_predictor(neuro_predictor* p) {
+            m_predictor = p;
             Z3_solver_set_predictor(ctx(), m_solver, this, solver_predictor);
         }
 
