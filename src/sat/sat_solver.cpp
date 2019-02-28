@@ -1655,6 +1655,7 @@ namespace sat {
         core_clause_logits.resize(n_clauses());
         core_var_logits.resize(n_vars());
         model_logits.resize(n_vars());
+        march_logits.resize(n_vars());
 
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
