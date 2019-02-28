@@ -10147,7 +10147,7 @@ def IndexOf(s, substr, offset):
     substr = _coerce_seq(substr, ctx)
     if _is_int(offset):
         offset = IntVal(offset, ctx)
-    return SeqRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
+    return ArithRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
 
 def Length(s):
     """Obtain the length of a sequence 's'
