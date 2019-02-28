@@ -380,18 +380,33 @@ namespace sat {
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
         bool check_inconsistent();
 
-        struct unsigned2 { unsigned lit; unsigned cls; };
-        svector<unsigned2> m_neuro_clauses;       // vector to hold set of clauses.
-        svector<float> m_neuro_core_clause_logits; // vectors to hold neuropredictions
-        svector<float> m_neuro_core_var_logits;    
-        svector<float> m_neuro_march_logits;    
-        svector<float> m_neuro_model_logits;    
-        ptr_vector<clause> m_neuro_idx2clause; // map index of clause to clause pointer.
+        struct neuro {
+            unsigned        n_clauses() { return idx2clause.size(); }; // number of clauses
+            unsigned        n_vars() { return nvar2var.size(); }       // number of variables
+            unsigned_vector C_idxs;             // vector to hold set of clauses.
+            unsigned_vector L_idxs;             // vector to hold set of clauses.
+            svector<float> core_clause_logits;  // vectors to hold neuropredictions
+            svector<float> core_var_logits;     // core membership prediction 
+            svector<float> march_logits;        // march cubing prediction
+            svector<float> model_logits;        // model value prediction
+            float          is_sat;              // prediction is sat
+            ptr_vector<clause> idx2clause;      // map index of clause to clause pointer.
+            unsigned_vector var2nvar;           // variable to Neuro var
+            unsigned_vector nvar2var;           // Neuro var to var
+            void init(solver& s);
+            void init_var(bool_var v);
+            void init_var(clause_vector& clauses);
+            void push_clause(clause* c);
+            void push_literal(literal lit);
+            void push_clause(clause_vector& clauses);
+            
+            neuro_prediction p;
+        };
+
+        neuro m_neuro;
+
         bool call_neuro();
-        unsigned2 litcls(literal lit);
-        void serialize_neuro_units(neuro_prediction& p);
-        void serialize_neuro_binaries(neuro_prediction& p);
-        void serialize_neuro_clauses(neuro_prediction& p, clause_vector& clauses);
+
         // -----------------------
         //
         // Propagation

@@ -1609,77 +1609,99 @@ namespace sat {
             return false;
         }
     }    
-    
-    solver::unsigned2  solver::litcls(literal lit) {
-        unsigned2 r;
-        r.lit = lit.index();
-        r.cls = m_neuro_idx2clause.size();
-        return r;
-    }
 
-    void solver::serialize_neuro_units(neuro_prediction& p) {
-        unsigned trail_sz = init_trail_size();
-        for (unsigned i = 0; i < trail_sz; ++i) {            
-            m_neuro_clauses.push_back(litcls(m_trail[i]));
-            m_neuro_idx2clause.push_back(nullptr);
-        }
-    }
+    void solver::neuro::init(solver& s) {
+        C_idxs.reset();
+        L_idxs.reset();
+        idx2clause.reset();
+        var2nvar.reset();
+        nvar2var.reset();
+        var2nvar.fill(s.num_vars(), null_bool_var);
 
-    void solver::serialize_neuro_binaries(neuro_prediction& p) {
-        unsigned sz = m_watches.size();
-        for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
-            literal l = ~to_literal(l_idx);
-            if (was_eliminated(l.var())) continue;
-            watch_list const & wlist = m_watches[l_idx];
-            for (auto & wi : wlist) {
-                if (!wi.is_binary_clause())
-                    continue;
-                literal l2 = wi.get_literal();
-                if (l.index() > l2.index() ||
-                    was_eliminated(l2.var()))
-                    continue;
-                m_neuro_clauses.push_back(litcls(l));
-                m_neuro_clauses.push_back(litcls(l2));
-                m_neuro_idx2clause.push_back(nullptr);
+        // initialize variables
+        unsigned idx = 0;
+        for (watch_list const& wlist : s.m_watches) {
+            if (!wlist.empty()) {
+                init_var(to_literal(idx).var());
             }
+            ++idx;
         }
+        init_var(s.m_clauses);
+        init_var(s.m_learned);
+
+        // add binary and other clauses
+        idx = 0;
+        for (watch_list const& wlist : s.m_watches) {
+            literal l1 = ~to_literal(idx);
+            if (!s.was_eliminated(l1.var())) {
+                for (auto & wi : wlist) {
+                    if (!wi.is_binary_clause())
+                        continue;
+                    literal l2 = wi.get_literal();
+                    if (l1.index() > l2.index() ||
+                        s.was_eliminated(l2.var()))
+                        continue;
+                    push_literal(l1);
+                    push_literal(l2);
+                    idx2clause.push_back(nullptr);
+                }
+            }
+            ++idx;
+        }
+        push_clause(s.m_clauses);
+        push_clause(s.m_learned);
+
+        core_clause_logits.resize(n_clauses());
+        core_var_logits.resize(n_vars());
+        model_logits.resize(n_vars());
+
+        p.n_cells = C_idxs.size();
+        p.n_vars =  n_vars();        
+        p.n_clauses = n_clauses();        
+        p.C_idxs = C_idxs.begin();
+        p.L_idxs = L_idxs.begin();
+        p.pi_march_logits = march_logits.begin();
+        p.pi_core_clause_logits = core_clause_logits.begin();
+        p.pi_core_var_logits = core_var_logits.begin();
+        p.pi_model_logits = model_logits.begin();
+
+    }
+    
+    void solver::neuro::init_var(bool_var v) {
+        if (var2nvar[v] == null_bool_var) {
+            var2nvar[v] = nvar2var.size();
+            nvar2var.push_back(v);
+        }                        
     }
 
-    void solver::serialize_neuro_clauses(neuro_prediction& p, clause_vector& clauses) {
+    void solver::neuro::init_var(clause_vector& clauses) {
         for (clause* cp : clauses) {
             for (literal lit : *cp) {
-                m_neuro_clauses.push_back(litcls(lit));
+                init_var(lit.var());
             }
-            m_neuro_idx2clause.push_back(cp);
+        }
+    }
+
+    void solver::neuro::push_literal(literal lit) {
+        bool_var v = var2nvar[lit.var()];
+        C_idxs.push_back(n_clauses());
+        L_idxs.push_back(v + (lit.sign() ? n_vars() : 0));
+    }
+
+    void solver::neuro::push_clause(clause_vector& clauses) {
+        for (clause* cp : clauses) {
+            for (literal lit : *cp) {
+                push_literal(lit);
+            }
+            idx2clause.push_back(cp);
         }
     }
 
     bool solver::call_neuro() {
-
-        if (!m_neuro_predictor) return false;
-        neuro_prediction p;
-        
-        m_neuro_clauses.reset();
-        serialize_neuro_units(p);
-        serialize_neuro_binaries(p);
-        serialize_neuro_clauses(p, m_clauses);
-        serialize_neuro_clauses(p, m_learned);
-        p.n_cells = m_neuro_clauses.size();
-        p.n_vars = num_vars(); 
-        p.n_clauses = m_neuro_idx2clause.size();
-        m_neuro_core_clause_logits.resize(p.n_clauses);
-        m_neuro_core_var_logits.resize(p.n_vars);
-        m_neuro_model_logits.resize(p.n_vars);
-
-        // TBD: 
-        // p.LC_idxs = m_neuro_clauses.begin();
-        // 
-        p.pi_march_logits = m_neuro_march_logits.begin();
-        p.pi_core_clause_logits = m_neuro_core_clause_logits.begin();
-        p.pi_core_var_logits = m_neuro_core_var_logits.begin();
-        p.pi_model_logits = m_neuro_model_logits.begin();
-
-        return (*m_neuro_predictor)(m_neuro_state, &p);
+        if (!m_neuro_predictor) return false;        
+        m_cleaner(true);
+        m_neuro.init(*this);            
+        return (*m_neuro_predictor)(m_neuro_state, &m_neuro.p);
     }
 
     // higher weight is assumed to be indication of more useful
@@ -1692,9 +1714,9 @@ namespace sat {
     bool solver::gc_neuro() {
         if (!call_neuro()) return false;
         unsigned idx = 0;
-        for (clause* c : m_neuro_idx2clause) {
+        for (clause* c : m_neuro.idx2clause) {
             if (c && c->is_learned()) {
-                c->set_neuro_weight(m_neuro_core_clause_logits[idx]);
+                c->set_neuro_weight(m_neuro.core_clause_logits[idx]);
             }
             ++idx;
         }
