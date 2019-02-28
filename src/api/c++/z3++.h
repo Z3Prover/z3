@@ -2152,12 +2152,21 @@ namespace z3 {
         return out;
     }
 
+    class neuro_predictor {
+    public:
+        virtual bool operator()(Z3_neuro_prediction& p);
+    };
 
     class solver : public object {
         Z3_solver m_solver;
         void init(Z3_solver s) {
             m_solver = s;
             Z3_solver_inc_ref(ctx(), s);
+        }
+        neuro_predictor* m_predictor;
+        Z3_API static bool solver_predictor(void* state, Z3_neuro_prediction* p) {
+            solver* s = reinterpret_cast<solver*>(state);
+            return (*s->m_predictor)(*p);
         }
     public:
         struct simple {};
@@ -2363,6 +2372,10 @@ namespace z3 {
 
         cube_generator cubes() { return cube_generator(*this); }
         cube_generator cubes(expr_vector& vars) { return cube_generator(*this, vars); }
+
+        void set_predictor(neuro_predictor* p) {
+            Z3_solver_set_predictor(ctx(), m_solver, this, solver_predictor);
+        }
 
     };
     inline std::ostream & operator<<(std::ostream & out, solver const & s) { out << Z3_solver_to_string(s.ctx(), s); return out; }
