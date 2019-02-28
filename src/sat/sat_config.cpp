@@ -201,8 +201,10 @@ namespace sat {
             m_pb_solver = PB_SOLVER;
         else if (s == symbol("segmented")) 
             m_pb_solver = PB_SEGMENTED;
+        else if (s == symbol("binary_merge"))
+            m_pb_solver == PB_BINARY_MERGE;        
         else 
-            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented, binary_merge");
 
         s = p.pb_resolve();
         if (s == "cardinality") 

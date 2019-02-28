@@ -57,7 +57,8 @@ namespace sat {
         PB_CIRCUIT,
         PB_SORTING,
         PB_TOTALIZER,
-        PB_SEGMENTED
+        PB_SEGMENTED,
+        PB_BINARY_MERGE
     };
 
     enum pb_resolve {
@@ -162,7 +163,6 @@ namespace sat {
         bool               m_drat_check_unsat;
         bool               m_drat_check_sat;
         
-        pb_solver          m_pb_solver;
         bool               m_card_solver;
         pb_resolve         m_pb_resolve;
         pb_lemma_format    m_pb_lemma_format;
@@ -182,6 +182,10 @@ namespace sat {
         config(params_ref const & p);
         void updt_params(params_ref const & p);
         static void collect_param_descrs(param_descrs & d);
+
+    private:
+        pb_solver          m_pb_solver;
+
     };
 };
 
