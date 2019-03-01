@@ -389,7 +389,6 @@ namespace sat {
             svector<float> core_var_logits;     // core membership prediction 
             svector<float> march_logits;        // march cubing prediction
             svector<float> model_logits;        // model value prediction
-            float          is_sat;              // prediction is sat
             ptr_vector<clause> idx2clause;      // map index of clause to clause pointer.
             unsigned_vector var2nvar;           // variable to Neuro var
             unsigned_vector nvar2var;           // Neuro var to var
@@ -402,6 +401,7 @@ namespace sat {
 
             double core_var_p(bool_var v, double tau) const { return exp(core_var_logits[var2nvar[v]] * tau); }
             double march_var_p(bool_var v, double tau) const { return exp(march_logits[var2nvar[v]] * tau); }
+            bool   var_phase(bool_var v) const { return model_logits[var2nvar[v]] > 0; }
             
             neuro_prediction p;
         };
