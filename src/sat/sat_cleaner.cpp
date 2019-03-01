@@ -181,7 +181,7 @@ namespace sat {
         unsigned idx = 0;
         for (auto& wlist : s.m_watches) {
             literal lit = to_literal(idx);
-            if (s.value(lit) != l_undef && s.lvl(lit) == 0 && wlist.empty()) return false;
+            if (s.value(lit) != l_undef && s.lvl(lit) == 0 && !wlist.empty()) return false;
             ++idx;
         }
         return true;
