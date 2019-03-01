@@ -247,6 +247,7 @@ namespace sat {
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
+        unsigned               m_max_ops;       // cap number of operations used to compute lookahead reward.
         //scoped_ptr<extension>  m_ext;
  
         // ---------------------------------------

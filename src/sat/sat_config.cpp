@@ -83,8 +83,9 @@ namespace sat {
 
         m_neuro_activity = p.neuro_activity();
         m_neuro_march_weight = p.neuro_march_weight();
-        m_neuro_core_weight = p.neuro_core_weight();
-        m_neuro_temperature = p.neuro_temperature();
+        m_neuro_core_weight  = p.neuro_core_weight();
+        m_neuro_march_tau    = p.neuro_march_tau();
+        m_neuro_core_tau     = p.neuro_core_tau();
         
         m_burst_search    = p.burst_search();
         

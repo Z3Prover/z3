@@ -399,6 +399,9 @@ namespace sat {
             void push_clause(clause* c);
             void push_literal(literal lit);
             void push_clause(clause_vector& clauses);
+
+            double core_var_p(bool_var v, double tau) const { return exp(core_var_logits[var2nvar[v]] * tau); }
+            double march_var_p(bool_var v, double tau) const { return exp(march_logits[var2nvar[v]] * tau); }
             
             neuro_prediction p;
         };

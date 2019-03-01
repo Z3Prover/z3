@@ -1687,10 +1687,14 @@ namespace sat {
         unsigned base = 2;
         bool change = true;
         literal last_changed = null_literal;
-        while (change && !inconsistent()) {
+        unsigned ops = 0;
+        m_max_ops = 100000;
+        while (change && !inconsistent() && ops < m_max_ops) {
             change = false;
-            for (unsigned i = 0; !inconsistent() && i < m_lookahead.size(); ++i) {
+            IF_VERBOSE(10, verbose_stream() << "(sat.lookahead :compute-reward " << m_lookahead.size() << ")\n");
+            for (unsigned i = 0; !inconsistent() && i < m_lookahead.size() && ops < m_max_ops; ++i) {
                 checkpoint();
+                ++ops;
                 literal lit = m_lookahead[i].m_lit;
                 if (lit == last_changed) {
                     SASSERT(!change);

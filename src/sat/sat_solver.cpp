@@ -2236,10 +2236,34 @@ namespace sat {
 
     void solver::update_neuro_activity() {
         if (m_config.m_neuro_activity && call_neuro()) {
-            // TBD
-            m_config.m_neuro_temperature;
-            m_config.m_neuro_march_weight;
-            m_config.m_neuro_core_weight;
+            uint64_t sum = 0;
+            for (unsigned act : m_activity) {
+                sum += act;
+            }
+            if (sum >= (1ul << 24)) {
+                sum = 1ul << 24;
+            }
+            unsigned n_vars = m_activity.size();
+            double march_sum = 0;
+            double core_sum = 0;
+            for (bool_var v = 0; v < n_vars; ++v) {
+                march_sum += m_neuro.march_var_p(v, m_config.m_neuro_march_tau);
+                core_sum  += m_neuro.core_var_p(v, m_config.m_neuro_core_tau);
+            }
+            double core_w = m_config.m_neuro_core_weight;
+            double march_w = m_config.m_neuro_march_weight;
+            // use the sum of activities and percentile from neuro to compute new activity.
+            for (bool_var v = 0; v < n_vars; ++v) {
+                unsigned old_act = m_activity[v];
+                double march_p = m_neuro.march_var_p(v, m_config.m_neuro_march_tau);
+                double core_p = m_neuro.core_var_p(v, m_config.m_neuro_core_tau);
+                unsigned new_act = (unsigned)
+                    (sum *  (march_w*march_p/march_sum + core_w*core_p/core_sum) / (march_w + core_w));
+                if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
+                    m_case_split_queue.activity_changed_eh(v, new_act > old_act);
+                }
+                m_activity[v] = new_act;
+            }
         }
     }
 
