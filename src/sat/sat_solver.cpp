@@ -3153,7 +3153,7 @@ namespace sat {
                 }
                 if (m_config.m_phase == PS_NEURO_CACHING && call_neuro()) {
                     for (bool_var v = 0; v < num_vars(); ++v) {
-                        m_best_phase[v] = m_neuro.model_logits[m_neuro.var2nvar[v]] >= 0.5;
+                        m_best_phase[v] = m_neuro.model_logits[m_neuro.var2nvar[v]] > 0;
                     }
                     m_best_phase_size = num_vars();
                 }
