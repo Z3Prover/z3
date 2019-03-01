@@ -1704,11 +1704,13 @@ namespace sat {
             return false;  
         }
         if (!m_cleaner.is_clean()) {
+            IF_VERBOSE(0, verbose_stream() << "neuro-clean\n");
             pop_to_base_level();
             m_cleaner(true);
             reinit_assumptions();
         }
         m_neuro.init(*this);
+        IF_VERBOSE(0, verbose_stream() << "neuro-call\n");
         return m_neuro_predictor(m_neuro_state, &m_neuro.p);
     }
 
@@ -1721,6 +1723,7 @@ namespace sat {
 
     bool solver::gc_neuro() {
         if (!call_neuro()) return false;
+        IF_VERBOSE(0, verbose_stream() << "neuro-gc\n");
         unsigned idx = 0;
         for (clause* c : m_neuro.idx2clause) {
             if (c && c->is_learned()) {
@@ -2236,6 +2239,7 @@ namespace sat {
 
     void solver::update_neuro_activity() {
         if (m_config.m_neuro_activity && call_neuro()) {
+            IF_VERBOSE(0, verbose_stream() << "neuro-activity\n");
             uint64_t sum = 0;
             for (unsigned act : m_activity) {
                 sum += act;
@@ -3152,6 +3156,7 @@ namespace sat {
                     m_best_phase_size = num_vars(); // make it sticky.
                 }
                 if (m_config.m_phase == PS_NEURO_CACHING && call_neuro()) {
+                    IF_VERBOSE(0, verbose_stream() << "neuro-best-phase\n");
                     for (bool_var v = 0; v < num_vars(); ++v) {
                         m_best_phase[v] = m_neuro.var_phase(v);
                     }

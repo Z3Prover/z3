@@ -21,7 +21,7 @@ Author:
 Revision History:
 
 --*/
-#pragma once;
+#pragma once
 
 struct neuro_prediction {
     unsigned n_vars;              // [in] number of variables
