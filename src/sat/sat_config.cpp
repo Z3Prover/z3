@@ -69,7 +69,6 @@ namespace sat {
         m_search_sat_conflicts = p.search_sat_conflicts();
         m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
-        m_phase_neuro       = p.phase_neuro();
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
@@ -81,6 +80,11 @@ namespace sat {
         m_random_seed     = p.random_seed();
         if (m_random_seed == 0) 
             m_random_seed = _p.get_uint("random_seed", 0);
+
+        m_neuro_activity = p.neuro_activity();
+        m_neuro_march_weight = p.neuro_march_weight();
+        m_neuro_core_weight = p.neuro_core_weight();
+        m_neuro_temperature = p.neuro_temperature();
         
         m_burst_search    = p.burst_search();
         

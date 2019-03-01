@@ -1700,11 +1700,16 @@ namespace sat {
     }
 
     bool solver::call_neuro() {
-        if (!m_neuro_predictor) return false;  
-        pop_to_base_level();
-        m_cleaner(true);
+        if (!m_neuro_predictor) {
+            return false;  
+        }
+        if (!m_cleaner.is_clean()) {
+            pop_to_base_level();
+            m_cleaner(true);
+            reinit_assumptions();
+        }
         m_neuro.init(*this);
-        return (m_neuro_predictor)(m_neuro_state, &m_neuro.p);
+        return m_neuro_predictor(m_neuro_state, &m_neuro.p);
     }
 
     // higher weight is assumed to be indication of more useful
@@ -2197,6 +2202,7 @@ namespace sat {
         IF_VERBOSE(30, display_status(verbose_stream()););
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
+        update_neuro_activity();
         set_next_restart();
     }
 
@@ -2225,6 +2231,15 @@ namespace sat {
             for (; n < scope_lvl() && m_case_split_queue.more_active(scope_literal(n).var(), next); ++n) {
             }
             return n - search_lvl();
+        }
+    }
+
+    void solver::update_neuro_activity() {
+        if (m_config.m_neuro_activity && call_neuro()) {
+            // TBD
+            m_config.m_neuro_temperature;
+            m_config.m_neuro_march_weight;
+            m_config.m_neuro_core_weight;
         }
     }
 
@@ -3112,7 +3127,7 @@ namespace sat {
                 if (m_par && m_par->get_phase(*this)) {
                     m_best_phase_size = num_vars(); // make it sticky.
                 }
-                if (call_neuro() && m_config.m_phase_neuro) {
+                if (m_config.m_phase == PS_NEURO_CACHING && call_neuro()) {
                     for (bool_var v = 0; v < num_vars(); ++v) {
                         m_best_phase[v] = m_neuro.model_logits[m_neuro.var2nvar[v]] >= 0.5;
                     }

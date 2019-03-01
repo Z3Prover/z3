@@ -167,6 +167,26 @@ namespace sat {
         }
     };
 
+    bool cleaner::is_clean() const {
+        for (clause* cp : s.m_clauses) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        for (clause* cp : s.m_learned) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        unsigned idx = 0;
+        for (auto& wlist : s.m_watches) {
+            literal lit = to_literal(idx);
+            if (s.value(lit) != l_undef && s.lvl(lit) == 0 && wlist.empty()) return false;
+            ++idx;
+        }
+        return true;
+    }
+
     /**
        \brief Return true if cleaner executed.
     */

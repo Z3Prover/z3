@@ -486,6 +486,7 @@ namespace sat {
         unsigned restart_level(bool to_base);
         void log_stats();
         bool should_restart() const;
+        void update_neuro_activity();
         void set_next_restart();
         bool reached_max_conflicts();
         void sort_watch_lits();
