@@ -99,6 +99,7 @@ namespace sat {
         double             m_neuro_core_tau;     // temperature to align weights
         unsigned           m_neuro_activity_base; 
         unsigned           m_rephase_base;
+        bool               m_rephase_neuro;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;
         bool               m_restart_fast;

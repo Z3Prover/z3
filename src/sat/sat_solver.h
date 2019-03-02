@@ -138,6 +138,7 @@ namespace sat {
         svector<bool>           m_phase; 
         svector<bool>           m_best_phase;
         svector<bool>           m_prev_phase;
+        svector<bool>           m_neuro_phase;
         svector<char>           m_assigned_since_gc;
         search_state            m_search_state; 
         unsigned                m_search_unsat_conflicts;
@@ -346,18 +347,33 @@ namespace sat {
         void set_conflict() { set_conflict(justification(0)); }
         lbool status(clause const & c) const;        
         clause_offset get_offset(clause const & c) const { return cls_allocator().get_offset(&c); }
-        void checkpoint() {
-            if (!m_checkpoint_enabled) return;
+
+        bool limit_reached() {
             if (!m_rlimit.inc()) {
                 m_mc.reset();
                 m_model_is_current = false;
                 TRACE("sat", tout << "canceled\n";);
+                m_reason_unknown = "sat.canceled";
+                return true;
+            }
+            return false;
+        }
+
+        bool memory_exceeded() {
+            ++m_num_checkpoints;
+            if (m_num_checkpoints < 10) return false;
+            m_num_checkpoints = 0;
+            return memory::get_allocation_size() > m_config.m_max_memory;
+        }
+        
+        void checkpoint() {
+            if (!m_checkpoint_enabled) return;
+            if (limit_reached()) {
                 throw solver_exception(Z3_CANCELED_MSG);
             }
-            ++m_num_checkpoints;
-            if (m_num_checkpoints < 10) return;
-            m_num_checkpoints = 0;
-            if (memory::get_allocation_size() > m_config.m_max_memory) throw solver_exception(Z3_MAX_MEMORY_MSG);
+            if (memory_exceeded()) {
+                throw solver_exception(Z3_MAX_MEMORY_MSG);                
+            }
         }
         void set_par(parallel* p, unsigned id);
         bool canceled() { return !m_rlimit.inc(); }
@@ -422,6 +438,7 @@ namespace sat {
         bool propagate(bool update);
 
     protected:
+        bool should_propagate() const;
         bool propagate_core(bool update);
         
         // -----------------------
@@ -481,15 +498,17 @@ namespace sat {
         void reinit_assumptions();
         bool tracking_assumptions() const;
         bool is_assumption(literal l) const;
-        void simplify_problem();
+        bool should_simplify() const;
+        void do_simplify();
         void mk_model();
         bool check_model(model const & m) const;
-        void restart(bool to_base);
+        void do_restart(bool to_base);
         svector<size_t> m_last_positions;
         unsigned m_last_position_log;
         unsigned m_restart_logs;
         unsigned restart_level(bool to_base);
         void log_stats();
+        bool should_cancel();
         bool should_restart() const;
         void set_next_restart();
         bool should_update_neuro_activity();
@@ -507,7 +526,8 @@ namespace sat {
         //
         // -----------------------
     protected:
-        void gc();
+        bool should_gc() const;
+        void do_gc();
         void gc_glue();
         void gc_psm();
         void gc_glue_psm();
@@ -551,7 +571,7 @@ namespace sat {
         literal_vector m_ext_antecedents;
         bool use_backjumping(unsigned num_scopes);
         bool resolve_conflict();
-        bool resolve_conflict_core();
+        lbool resolve_conflict_core();
         void learn_lemma_and_backjump();
         inline unsigned update_max_level(literal lit, unsigned lvl2, bool& unique_max) {
             unsigned lvl1 = lvl(lit);
@@ -627,7 +647,7 @@ namespace sat {
         //
         // -----------------------
     public:
-        void cleanup(bool force);
+        bool do_cleanup(bool force);
         void simplify(bool learned = true);
         void asymmetric_branching();
         unsigned scc_bin();

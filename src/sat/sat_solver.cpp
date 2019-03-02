@@ -1181,7 +1181,7 @@ namespace sat {
             init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
-            cleanup(m_config.m_force_cleanup);
+            do_cleanup(m_config.m_force_cleanup);
 
             if (m_config.m_unit_walk) {
                 return do_unit_walk();
@@ -1189,7 +1189,7 @@ namespace sat {
             if (m_config.m_gc_burst) {
                 // force gc
                 m_conflicts_since_gc = m_gc_threshold + 1;
-                gc();
+                do_gc();
             }
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
@@ -1201,53 +1201,45 @@ namespace sat {
                 m_unique_max_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
-
-            if (reached_max_conflicts()) {
-                return l_undef;
+            lbool is_sat = l_undef;
+            while (is_sat == l_undef && !should_cancel()) {
+                if (inconsistent()) is_sat = resolve_conflict_core();
+                else if (should_propagate()) propagate(true);
+                else if (do_cleanup(false)) continue;
+                else if (should_gc()) do_gc();
+                else if (should_rephase()) do_rephase();
+                else if (should_restart()) do_restart(!m_config.m_restart_fast);
+                else if (should_update_neuro_activity()) do_update_neuro_activity();
+                else if (should_simplify()) do_simplify();
+                else if (!decide()) is_sat = final_check();
             }
-
-            // iff3_finder(*this)();
-            simplify_problem();
-            if (check_inconsistent()) return l_false;
-
-            if (reached_max_conflicts()) {
-                return l_undef;
-            }
-
-            while (true) {
-                SASSERT(!inconsistent());
-
-                lbool r = bounded_search();
-                if (r != l_undef)
-                    return r;
-
-                if (reached_max_conflicts()) {
-                    return l_undef;
-                }
-
-                restart(!m_config.m_restart_fast);
-                simplify_problem();
-                if (check_inconsistent()) return l_false;
-                gc();
-
-                if (m_config.m_restart_max <= m_restarts) {
-                    m_reason_unknown = "sat.max.restarts";
-                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
-                    return l_undef;
-                }
-                if (m_config.m_inprocess_max <= m_simplifications) {
-                    m_reason_unknown = "sat.max.inprocess";
-                    IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
-                    return l_undef;
-                }
-
-            }
+            return is_sat;
         }
         catch (const abort_solver &) {
             m_reason_unknown = "sat.giveup";
             IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort giveup\")\n";);
             return l_undef;
         }
+    }
+
+    bool solver::should_cancel() {
+        if (limit_reached() || memory_exceeded()) {
+            return true;
+        }
+        if (m_config.m_restart_max <= m_restarts) {
+            m_reason_unknown = "sat.max.restarts";
+            IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+            return true;
+        }
+        if (m_config.m_inprocess_max <= m_simplifications) {
+            m_reason_unknown = "sat.max.inprocess";
+            IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-inprocess\")\n";);
+            return true;
+        }
+        if (reached_max_conflicts()) {
+            return true;
+        }
+        return false;
     }
 
     enum par_exception_kind {
@@ -1497,9 +1489,6 @@ namespace sat {
         bool phase = lphase == l_true;
 
         if (lphase == l_undef) {
-#if 0
-            phase = m_phase[next];
-#else
             switch (m_config.m_phase) {
             case PS_ALWAYS_TRUE:
                 phase = true;
@@ -1511,9 +1500,16 @@ namespace sat {
                 phase = m_phase[next];
                 break;
             case PS_SAT_CACHING:
-            case PS_NEURO_CACHING:
                 if (m_search_state == s_unsat) {
                     phase = m_phase[next];
+                }
+                else {
+                    phase = m_best_phase[next];
+                }
+                break;
+            case PS_NEURO_CACHING:
+                if (m_search_state == s_unsat) {
+                    phase = next < m_neuro_phase.size() ? m_neuro_phase[next] : m_phase[next];
                 }
                 else {
                     phase = m_best_phase[next];
@@ -1527,7 +1523,6 @@ namespace sat {
                 phase = false;
                 break;
             }
-#endif
         }
 
         literal next_lit(next, !phase);
@@ -1545,7 +1540,7 @@ namespace sat {
                 if (is_sat != l_true) return is_sat;
             }
 
-            gc();
+            do_gc();
 
             if (!decide()) {
                 lbool is_sat = final_check();
@@ -1555,6 +1550,11 @@ namespace sat {
             }
         }
     }
+
+    bool solver::should_propagate() const {        
+        return !inconsistent() && m_qhead < m_trail.size();
+    }
+
 
     lbool solver::propagate_and_backjump_step(bool& done) {
         done = true;
@@ -1569,12 +1569,12 @@ namespace sat {
         if (should_rephase()) 
             do_rephase();
         if (at_base_lvl()) {
-            cleanup(false); // cleaner may propagate frozen clauses
+            do_cleanup(false); // cleaner may propagate frozen clauses
             if (inconsistent()) {
                 TRACE("sat", tout << "conflict at level 0\n";);
                 return l_false;
             }
-            gc();
+            do_gc();
         }
         done = false;
         return l_true;
@@ -1707,7 +1707,7 @@ namespace sat {
         sw.start();
         if (!m_cleaner.is_clean()) {
             IF_VERBOSE(0, verbose_stream() << "neuro-clean\n");
-            pop_to_base_level();
+            pop(scope_lvl());
             m_cleaner(true);
             reinit_assumptions();
         }
@@ -1900,11 +1900,14 @@ namespace sat {
 
     }
 
+    bool solver::should_simplify() const {
+        return m_conflicts_since_init >= m_next_simplify;
+    }
     /**
        \brief Apply all simplifications.
     */
-    void solver::simplify_problem() {
-        if (m_conflicts_since_init < m_next_simplify) {
+    void solver::do_simplify() {
+        if (!should_simplify()) {
             return;
         }
         log_stats();
@@ -2199,7 +2202,7 @@ namespace sat {
         IF_VERBOSE(1, verbose_stream() << str);            
     }
 
-    void solver::restart(bool to_base) {
+    void solver::do_restart(bool to_base) {
         m_stats.m_restart++;
         m_restarts++;
         if (m_conflicts_since_init >= m_restart_next_out && get_verbosity_level() >= 1) {
@@ -2215,7 +2218,6 @@ namespace sat {
         IF_VERBOSE(30, display_status(verbose_stream()););
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
-        if (should_update_neuro_activity()) do_update_neuro_activity();
         set_next_restart();
     }
 
@@ -2316,11 +2318,14 @@ namespace sat {
     //
     // -----------------------
 
-    void solver::gc() {
-        if (m_conflicts_since_gc <= m_gc_threshold)
-            return;
-        if (m_config.m_gc_strategy == GC_DYN_PSM && !at_base_lvl())
-            return;
+    bool solver::should_gc() const {
+        return 
+            m_conflicts_since_gc > m_gc_threshold &&
+            (m_config.m_gc_strategy != GC_DYN_PSM || at_base_lvl());
+    }
+
+    void solver::do_gc() {
+        if (!should_gc()) return;
         unsigned gc = m_stats.m_gc_clause;
         IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
@@ -2649,17 +2654,18 @@ namespace sat {
 
     bool solver::resolve_conflict() {
         while (true) {
-            bool r = resolve_conflict_core();
+            lbool r = resolve_conflict_core();
             CASSERT("sat_check_marks", check_marks());
             // after pop, clauses are reinitialized, this may trigger another conflict.
-            if (!r)
+            if (r == l_false)
                 return false;
             if (!inconsistent())
                 return true;
         }
     }
 
-    bool solver::resolve_conflict_core() {
+
+    lbool solver::resolve_conflict_core() {
         m_conflicts_since_init++;
         m_conflicts_since_restart++;
         m_conflicts_since_gc++;
@@ -2672,19 +2678,19 @@ namespace sat {
 
         if (m_conflict_lvl <= 1 && tracking_assumptions()) {
             resolve_conflict_for_unsat_core();
-            return false;
+            return l_false;
         }
 
         if (m_conflict_lvl == 0) {
             TRACE("sat", tout << "conflict level is 0 " << lvl(m_not_l) << "\n";);
-            return false;
+            return l_false;
         }
 
         if (unique_max) {
             m_unique_max_since_restart++; // does not update glue
             IF_VERBOSE(5, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
-            return true;
+            return l_undef;
         }
 
         updt_phase_of_vars();
@@ -2693,12 +2699,12 @@ namespace sat {
             switch (m_ext->resolve_conflict()) {
             case l_true:
                 learn_lemma_and_backjump();
-                return true;
+                return l_undef;
             case l_undef:
                 break;
             case l_false:
                 // backjumping was taken care of internally.
-                return true;
+                return l_undef;
             }
         }
 
@@ -2797,7 +2803,7 @@ namespace sat {
 
         m_lemma[0] = ~consequent;
         learn_lemma_and_backjump();
-        return true;
+        return l_undef;
     }
 
     void solver::learn_lemma_and_backjump() {
@@ -3171,13 +3177,6 @@ namespace sat {
                 if (m_par && m_par->get_phase(*this)) {
                     m_best_phase_size = num_vars(); // make it sticky.
                 }
-                if (m_config.m_phase == PS_NEURO_CACHING && call_neuro()) {
-                    IF_VERBOSE(0, verbose_stream() << "neuro-best-phase\n");
-                    for (bool_var v = 0; v < num_vars(); ++v) {
-                        m_best_phase[v] = m_neuro.var_phase(v);
-                    }
-                    m_best_phase_size = num_vars();
-                }
             }
         }
 
@@ -3198,7 +3197,7 @@ namespace sat {
     }
 
     void solver::do_rephase() {
-        IF_VERBOSE(2, verbose_stream() << "rephase " << m_rephase_lim << "\n");
+        IF_VERBOSE(2, verbose_stream() << "rephase " << m_rephase_lim << " " << m_best_phase_size << "\n");
         switch (m_config.m_phase) {
         case PS_ALWAYS_TRUE:
             for (auto& p : m_phase) p = true;
@@ -3222,10 +3221,28 @@ namespace sat {
             }
             break;
         case PS_SAT_CACHING:
+            if (m_search_state == s_sat) {
+                for (unsigned i = 0; i < m_phase.size(); ++i) {
+                    m_phase[i] = m_best_phase[i];
+                }
+            }
+            break;
         case PS_NEURO_CACHING:
             if (m_search_state == s_sat) {
                 for (unsigned i = 0; i < m_phase.size(); ++i) {
                     m_phase[i] = m_best_phase[i];
+                }
+            }
+            else if (call_neuro()) {
+                IF_VERBOSE(0, verbose_stream() << "neuro-phase\n");
+                for (bool_var v = 0; v < num_vars(); ++v) {
+                    m_phase[v] = m_neuro.var_phase(v);
+                }
+                if (m_config.m_rephase_neuro) {
+                    m_neuro_phase.reserve(m_phase.size());
+                    for (unsigned i = 0; i < m_phase.size(); ++i) {
+                        m_neuro_phase[i] = m_phase[i];
+                    }
                 }
             }
             break;
@@ -4321,11 +4338,13 @@ namespace sat {
     // Simplification
     //
     // -----------------------
-    void solver::cleanup(bool force) {
-        if (!at_base_lvl() || inconsistent())
-            return;
-        if (m_cleaner(force) && m_ext)
-            m_ext->clauses_modifed();
+    bool solver::do_cleanup(bool force) {
+        if (at_base_lvl() && !inconsistent() && m_cleaner(force)) {
+            if (m_ext)
+                m_ext->clauses_modifed();
+            return true;
+        }
+        return false;
     }
 
     void solver::simplify(bool learned) {
@@ -4578,7 +4597,7 @@ namespace sat {
 
         extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
 
-        simplify_problem();
+        do_simplify();
         if (check_inconsistent()) {
             fixup_consequence_core();
             return l_false;
@@ -4596,20 +4615,15 @@ namespace sat {
 
             extract_fixed_consequences(num_units, asms, unfixed_vars, conseq);
 
-            if (reached_max_conflicts()) {
-                return l_undef;
-            }
-
-            restart(true);
-            simplify_problem();
+            do_restart(true);
+            do_simplify();
             if (check_inconsistent()) {
                 fixup_consequence_core();
                 return l_false;
             }
-            gc();
+            do_gc();
 
-            if (m_config.m_restart_max <= num_iterations) {
-                IF_VERBOSE(SAT_VB_LVL, verbose_stream() << "(sat \"abort: max-restarts\")\n";);
+            if (should_cancel()) {
                 return l_undef;
             }
         }
@@ -4620,8 +4634,8 @@ namespace sat {
         m_antecedents.reset();
         literal_set unfixed_lits(lits), assumptions(asms);
         bool_var_set unfixed_vars;
-        for (unsigned i = 0; i < lits.size(); ++i) {
-            unfixed_vars.insert(lits[i].var());
+        for (literal lit : lits) {
+            unfixed_vars.insert(lit.var());
         }
 
         pop_to_base_level();
@@ -4677,10 +4691,6 @@ namespace sat {
                     propagate(false);
                     ++num_resolves;
                 }
-                if (false && scope_lvl() == search_lvl()) {
-                    is_sat = l_undef;
-                    break;
-                }
             }
 
             extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
@@ -4693,7 +4703,7 @@ namespace sat {
                 else {
                     is_sat = bounded_search();
                     if (is_sat == l_undef) {
-                        restart(true);
+                        do_restart(true);
                     }
                     extract_fixed_consequences(unfixed_lits, assumptions, unfixed_vars, conseq);
                 }
