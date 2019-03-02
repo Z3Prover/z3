@@ -147,6 +147,8 @@ namespace sat {
         unsigned                m_best_phase_size;
         unsigned                m_rephase_lim;
         unsigned                m_rephase_inc;
+        unsigned                m_neuro_activity_lim;
+        unsigned                m_neuro_activity_inc;
         var_queue               m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
@@ -489,8 +491,9 @@ namespace sat {
         unsigned restart_level(bool to_base);
         void log_stats();
         bool should_restart() const;
-        void update_neuro_activity();
         void set_next_restart();
+        bool should_update_neuro_activity();
+        void do_update_neuro_activity();
         bool reached_max_conflicts();
         void sort_watch_lits();
         void exchange_par();

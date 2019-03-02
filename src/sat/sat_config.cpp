@@ -81,6 +81,7 @@ namespace sat {
         if (m_random_seed == 0) 
             m_random_seed = _p.get_uint("random_seed", 0);
 
+        m_neuro_activity_base = p.neuro_activity_base();
         m_neuro_activity = p.neuro_activity();
         m_neuro_march_weight = p.neuro_march_weight();
         m_neuro_core_weight  = p.neuro_core_weight();

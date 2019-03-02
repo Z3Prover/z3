@@ -1871,6 +1871,8 @@ namespace sat {
         m_best_phase_size         = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
+        m_neuro_activity_lim      = 0;
+        m_neuro_activity_inc      = 0;
         m_conflicts_since_restart = 0;
         m_unique_max_since_restart = 0;
         m_restart_threshold       = m_config.m_restart_initial;
@@ -2213,7 +2215,7 @@ namespace sat {
         IF_VERBOSE(30, display_status(verbose_stream()););
         TRACE("sat", tout << "restart " << restart_level(to_base) << "\n";);
         pop_reinit(restart_level(to_base));
-        update_neuro_activity();
+        if (should_update_neuro_activity()) do_update_neuro_activity();
         set_next_restart();
     }
 
@@ -2245,7 +2247,11 @@ namespace sat {
         }
     }
 
-    void solver::update_neuro_activity() {
+    bool solver::should_update_neuro_activity() {
+        return m_config.m_neuro_activity && m_neuro_activity_lim >= m_conflicts_since_init;
+    }
+
+    void solver::do_update_neuro_activity() {
         if (m_config.m_neuro_activity && call_neuro()) {
             IF_VERBOSE(0, verbose_stream() << "neuro-activity\n");
             uint64_t sum = 0;
@@ -2277,6 +2283,8 @@ namespace sat {
                 m_activity[v] = new_act;
             }
         }
+        m_neuro_activity_inc += m_config.m_neuro_activity_base;
+        m_neuro_activity_lim += m_neuro_activity_inc;
     }
 
     void solver::set_next_restart() {
