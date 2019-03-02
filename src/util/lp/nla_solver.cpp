@@ -508,12 +508,7 @@ struct solver::imp {
     }
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs, lemma& l) {
-        if (cmp == llc::NE) {
-            mk_ineq(t, llc::LT, rs, l);
-            mk_ineq(t, llc::GT, rs, l);
-            return;
-        }
-        TRACE("nla_solver_details", m_lar_solver.print_term(t, tout << "t = "););
+       TRACE("nla_solver_details", m_lar_solver.print_term(t, tout << "t = "););
         if (explain_ineq(t, cmp, rs)) {
             return;
         }
