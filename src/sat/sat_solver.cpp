@@ -1710,8 +1710,12 @@ namespace sat {
             reinit_assumptions();
         }
         m_neuro.init(*this);
-        IF_VERBOSE(0, verbose_stream() << "neuro-call\n");
-        return m_neuro_predictor(m_neuro_state, &m_neuro.p);
+        stopwatch sw;
+        sw.start();
+        bool r = m_neuro_predictor(m_neuro_state, &m_neuro.p);
+        sw.stop();
+        IF_VERBOSE(0, verbose_stream() << "neuro-call " << sw.get_seconds() << "\n");        
+        return r;
     }
 
     // higher weight is assumed to be indication of more useful
