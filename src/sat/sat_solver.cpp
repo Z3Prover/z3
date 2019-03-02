@@ -1703,6 +1703,8 @@ namespace sat {
         if (!m_neuro_predictor) {
             return false;  
         }
+        stopwatch sw;
+        sw.start();
         if (!m_cleaner.is_clean()) {
             IF_VERBOSE(0, verbose_stream() << "neuro-clean\n");
             pop_to_base_level();
@@ -1710,11 +1712,13 @@ namespace sat {
             reinit_assumptions();
         }
         m_neuro.init(*this);
-        stopwatch sw;
+        sw.stop();
+        double t1 = sw.get_seconds();
+        sw.reset();
         sw.start();
         bool r = m_neuro_predictor(m_neuro_state, &m_neuro.p);
         sw.stop();
-        IF_VERBOSE(0, verbose_stream() << "neuro-call " << sw.get_seconds() << "\n");        
+        IF_VERBOSE(0, verbose_stream() << "neuro-call t1: " << t1 << " t2: " << sw.get_seconds() << "\n");        
         return r;
     }
 
@@ -3128,7 +3132,7 @@ namespace sat {
         }
         if (is_sat_phase() && head >= m_best_phase_size) {
             m_best_phase_size = head;
-            IF_VERBOSE(2, verbose_stream() << "sticky trail: " << head << "\n");
+            IF_VERBOSE(12, verbose_stream() << "sticky trail: " << head << "\n");
             for (unsigned i = 0; i < head; ++i) {
                 bool_var v = m_trail[i].var();
                 m_best_phase[v] = m_phase[v];
