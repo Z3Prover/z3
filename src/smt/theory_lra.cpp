@@ -3329,7 +3329,8 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            st = m_solver->maximize_term(v, term_max);
+            vi = m_theory_var2var_index[v];
+            st = m_solver->maximize_term(vi, term_max);
         }
         switch (st) {
         case lp::lp_status::OPTIMAL: {
@@ -3342,11 +3343,13 @@ public:
         }
         case lp::lp_status::FEASIBLE: {
             inf_rational val = get_value(v);
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());
