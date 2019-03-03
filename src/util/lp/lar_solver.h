@@ -310,7 +310,7 @@ public:
                                              impq &term_max);    
     // starting from a given feasible state look for the maximum of the term
     // return true if found and false if unbounded
-    lp_status maximize_term(unsigned ext_j ,
+    lp_status maximize_term(unsigned j_or_term,
                             impq &term_max);
     
 

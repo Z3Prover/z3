@@ -3329,7 +3329,8 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            st = m_solver->maximize_term(v, term_max);
+            vi = m_theory_var2var_index[v];
+            st = m_solver->maximize_term(vi, term_max);
         }
         switch (st) {
         case lp::lp_status::OPTIMAL: {
