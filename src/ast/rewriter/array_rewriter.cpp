@@ -389,10 +389,96 @@ br_status array_rewriter::mk_set_subset(expr * arg1, expr * arg2, expr_ref & res
     return BR_REWRITE3;
 }
 
+void array_rewriter::mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls) {
+    expr_ref tmp1(m()), tmp2(m());
+    expr_ref a(m()), v(m());
+    expr_ref_vector args0(m()), args(m());
+    while (m_util.is_store_ext(e, a, args0, v)) {                                        
+        args.reset();
+        args.push_back(lhs);
+        args.append(args0);
+        mk_select(args.size(), args.c_ptr(), tmp1);                     
+        args[0] = rhs;                                                  
+        mk_select(args.size(), args.c_ptr(), tmp2);                     
+        fmls.push_back(m().mk_eq(tmp1, tmp2));    
+        e = a;
+    }                                                
+}
+
+bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices) {
+    expr_ref_vector args(m());
+    expr_ref a(m()), v(m());
+    a = e;
+    while (m_util.is_store_ext(e, a, args, v)) {
+        indices.push_back(args);
+        e = a;
+    }
+    e0 = e;
+    if (is_lambda(e0)) {
+        quantifier* q = to_quantifier(e0);
+        e = q->get_expr();
+        unsigned num_idxs = q->get_num_decls();
+        expr* e1, *e2, *e3;
+        ptr_vector<expr> eqs;
+        while (!is_ground(e) && m().is_ite(e, e1, e2, e3) && is_ground(e2)) {
+            args.reset();
+            args.resize(num_idxs, nullptr);
+            eqs.reset();
+            eqs.push_back(e1);
+            for (unsigned i = 0; i < eqs.size(); ++i) {
+                expr* e = eqs[i];
+                if (m().is_and(e)) {
+                    eqs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+                }
+                else if (m().is_eq(e, e1, e2)) {
+                    if (is_var(e2)) {
+                        std::swap(e1, e2);
+                    }
+                    if (is_var(e1) && is_ground(e2)) {
+                        unsigned idx = to_var(e1)->get_idx();
+                        args[num_idxs - idx - 1] = e2;
+                    }
+                    else {
+                        return false;
+                    }
+                }                
+            }
+            for (unsigned i = 0; i < num_idxs; ++i) {
+                if (!args.get(i)) return false;
+            }
+            indices.push_back(args);
+            e = e3;
+        }
+        e0 = e;
+        return is_ground(e);
+    }
+    return true;
+}
+
 br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     if (!m_expand_store_eq) {
         return BR_FAILED;
     }
+    expr_ref_vector fmls(m());
+
+#if 0
+    // lambda friendly version of array equality rewriting.
+    vector<expr_ref_vector> indices;
+    expr_ref lhs0(m()), rhs0(m());
+    expr_ref tmp1(m()), tmp2(m());
+    if (has_index_set(lhs, lhs0, indices) && has_index_set(rhs, rhs0, indices) && lhs0 == rhs0) {
+        expr_ref_vector args(m());
+        for (auto const& idxs : indices) {
+            args.reset();
+            args.push_back(lhs);
+            args.append(idxs);
+            mk_select(args.size(), args.c_ptr(), tmp1);
+            args[0] = rhs;
+            mk_select(args.size(), args.c_ptr(), tmp2);
+            fmls.push_back(m().mk_eq(tmp1, tmp2));
+        }
+    }
+#endif
     expr* lhs1 = lhs;
     while (m_util.is_store(lhs1)) {
         lhs1 = to_app(lhs1)->get_arg(0);
@@ -404,25 +490,9 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     if (lhs1 != rhs1) {
         return BR_FAILED;
     }
-    ptr_buffer<expr> fmls, args;
-    expr* e;
-    expr_ref tmp1(m()), tmp2(m());
-#define MK_EQ()                                                         \
-    while (m_util.is_store(e)) {                                        \
-        args.push_back(lhs);                                            \
-        args.append(to_app(e)->get_num_args()-2,to_app(e)->get_args()+1); \
-        mk_select(args.size(), args.c_ptr(), tmp1);                     \
-        args[0] = rhs;                                                  \
-        mk_select(args.size(), args.c_ptr(), tmp2);                     \
-        fmls.push_back(m().mk_eq(tmp1, tmp2));                          \
-        e = to_app(e)->get_arg(0);                                      \
-        args.reset();                                                   \
-    }                                                \
-    
-    e = lhs;
-    MK_EQ();
-    e = rhs;
-    MK_EQ();
+
+    mk_eq(lhs, lhs, rhs, fmls);
+    mk_eq(rhs, lhs, rhs, fmls);
     result = m().mk_and(fmls.size(), fmls.c_ptr());
     return BR_REWRITE_FULL;
 }

@@ -154,6 +154,8 @@ public:
     func_decl * get_as_array_func_decl(func_decl* f) const;
 
     bool is_const(expr* e, expr*& v) const;
+
+    bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 };
 
 class array_util : public array_recognizers {

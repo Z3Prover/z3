@@ -35,6 +35,8 @@ class array_rewriter {
     bool          m_expand_select_ite;
     template<bool CHECK_DISEQ>
     lbool compare_args(unsigned num_args, expr * const * args1, expr * const * args2);
+    bool has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices);
+    void mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls);
 public:    
     array_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {
