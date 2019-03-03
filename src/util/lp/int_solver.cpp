@@ -282,6 +282,7 @@ void int_solver::find_feasible_solution() {
 lia_move int_solver::run_gcd_test() {
     if (settings().m_int_run_gcd_test) {
         settings().st().m_gcd_calls++;
+        TRACE("int_solver", tout << "gcd-test " << settings().st().m_gcd_calls << "\n";);
         if (!gcd_test()) {
             settings().st().m_gcd_conflicts++;
             return lia_move::conflict;
@@ -291,6 +292,7 @@ lia_move int_solver::run_gcd_test() {
 }
 
 lia_move int_solver::gomory_cut() {
+    TRACE("int_solver", tout << "gomory " << m_number_of_calls << "\n";);
     if ((m_number_of_calls) % settings().m_int_gomory_cut_period != 0)
         return lia_move::undef;
 
@@ -1052,7 +1054,7 @@ lia_move int_solver::create_branch_on_column(int j) {
         m_k = m_upper? floor(get_value(j)) : ceil(get_value(j));        
     }
 
-    TRACE("arith_int", tout << "branching v" << j << " = " << get_value(j) << "\n";
+    TRACE("int_solver", tout << "branching v" << j << " = " << get_value(j) << "\n";
           display_column(tout, j);
           tout << "k = " << m_k << std::endl;
           );
