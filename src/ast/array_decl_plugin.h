@@ -180,11 +180,6 @@ public:
         parameter param(s);
         return m_manager.mk_app(m_fid, OP_CONST_ARRAY, 1, &param, 1, &v);
     }
-    app * mk_const_array(unsigned n, sort * const* s, expr * v) {
-        vector<parameter> ps;
-        for (unsigned i = 0; i < n; ++i) ps.push_back(parameter(s[i]));
-        return m_manager.mk_app(m_fid, OP_CONST_ARRAY, n, ps.c_ptr(), 1, &v);
-    }
     app * mk_empty_set(sort * s) {
         return mk_const_array(s, m_manager.mk_false());
     }

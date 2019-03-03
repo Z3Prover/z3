@@ -127,7 +127,6 @@ func_decl * array_decl_plugin::mk_const(sort * s, unsigned arity, sort * const *
         return nullptr;
     }
     if (!m_manager->compatible_sorts(get_array_range(s), domain[0])) {
-        SASSERT(false);
         m_manager->raise_exception("invalid const array definition, sort mismatch between array range and argument");
         return nullptr;
     }
