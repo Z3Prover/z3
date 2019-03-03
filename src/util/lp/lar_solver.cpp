@@ -505,24 +505,23 @@ bool lar_solver::remove_from_basis(unsigned j) {
     return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
 }
 
-lar_term lar_solver::get_term_to_maximize(unsigned ext_j) const {
-    unsigned local_j;
-    if (m_var_register.external_is_used(ext_j, local_j)) {
+lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
+    if (is_term(j_or_term))
+        return get_term(j_or_term);
+    if (j_or_term < m_mpq_lar_core_solver.m_r_x.size()) {
         lar_term r;
-        r. add_monomial(one_of_type<mpq>(), local_j);
+        r.add_monomial(one_of_type<mpq>(), j_or_term);
         return r;
-    }
-    if (!is_term(ext_j) || adjust_term_index(ext_j) >= m_terms.size())
-        return lar_term(); // return an empty term
-    return get_term(ext_j);
+    } 
+    return lar_term(); // return an empty term
 }
 
-lp_status lar_solver::maximize_term(unsigned ext_j,
+lp_status lar_solver::maximize_term(unsigned j_or_term,
                                impq &term_max) {
     TRACE("lar_solver", print_values(tout););
     bool was_feasible = m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
     impq prev_value;
-    lar_term term = get_term_to_maximize(ext_j);
+    lar_term term = get_term_to_maximize(j_or_term);
     if (term.is_empty()) {
         return lp_status::UNBOUNDED;
     }
