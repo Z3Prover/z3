@@ -457,6 +457,7 @@ public:
 
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
 
+    std::ostream& print_values(std::ostream& out) const;
     
     mpq get_left_side_val(const lar_base_constraint &  cns, const std::unordered_map<var_index, mpq> & var_map) const;
 

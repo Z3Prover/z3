@@ -152,6 +152,8 @@ public:
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
+
+    bool is_const(expr* e, expr*& v) const;
 };
 
 class array_util : public array_recognizers {
@@ -177,6 +179,11 @@ public:
     app * mk_const_array(sort * s, expr * v) {
         parameter param(s);
         return m_manager.mk_app(m_fid, OP_CONST_ARRAY, 1, &param, 1, &v);
+    }
+    app * mk_const_array(unsigned n, sort * const* s, expr * v) {
+        vector<parameter> ps;
+        for (unsigned i = 0; i < n; ++i) ps.push_back(parameter(s[i]));
+        return m_manager.mk_app(m_fid, OP_CONST_ARRAY, n, ps.c_ptr(), 1, &v);
     }
     app * mk_empty_set(sort * s) {
         return mk_const_array(s, m_manager.mk_false());

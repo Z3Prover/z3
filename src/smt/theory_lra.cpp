@@ -3329,13 +3329,12 @@ public:
             st = lp::lp_status::UNBOUNDED;
         }
         else {
-            vi = m_theory_var2var_index[v];
-            st = m_solver->maximize_term(vi, term_max);
+            st = m_solver->maximize_term(v, term_max);
         }
-        TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             init_variable_values();
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             inf_rational val = get_value(v);
             // inf_rational val(term_max.x, term_max.y);
             blocker = mk_gt(v);

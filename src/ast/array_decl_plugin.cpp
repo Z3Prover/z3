@@ -576,6 +576,10 @@ func_decl * array_recognizers::get_as_array_func_decl(func_decl * f) const {
     return to_func_decl(f->get_parameter(0).get_ast()); 
 }
 
+bool array_recognizers::is_const(expr* e, expr*& v) const {
+    return is_const(e) && (v = to_app(e)->get_arg(0), true);
+}
+
 array_util::array_util(ast_manager& m): 
     array_recognizers(m.mk_family_id("array")),
     m_manager(m) {
