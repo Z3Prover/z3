@@ -236,6 +236,7 @@ class theory_lra::imp {
     expr*                  m_not_handled;
     ptr_vector<app>        m_underspecified;
     ptr_vector<expr>       m_idiv_terms;
+    unsigned               m_idiv_bound_calls;
     unsigned_vector        m_var_trail;
     vector<ptr_vector<lp_api::bound> > m_use_list;        // bounds where variables are used.
 
@@ -307,6 +308,7 @@ class theory_lra::imp {
         if (m_solver) return;
 
         reset_variable_values();
+        m_idiv_bound_calls;
         m_theory_var2var_index.reset();
         m_solver = alloc(lp::lar_solver); 
         lp_params lp(ctx().get_params());
@@ -1683,6 +1685,10 @@ public:
         if (m_idiv_terms.empty()) {
             return true;
         }
+        ++m_idiv_bound_calls;
+        if ((m_idiv_bound_calls % 10) != 0) {
+            return true;
+        }
         bool all_divs_valid = true;        
         init_variable_values();
         for (expr* n : m_idiv_terms) {
@@ -1753,53 +1759,6 @@ public:
                       ctx().display_literals_verbose(tout, lits) << "\n";);                      
                 continue;
             }
-#if 0
-
-            // TBD similar for non-linear division.
-            // better to deal with in nla_solver:
-
-            all_divs_valid = false;
-
-        
-            //  
-            //    p/q <= r1/r2 => n <= div(r1, r2)
-            // <=>
-            //    p*r2 <= q*r1 => n <= div(r1, r2)
-            //
-            //    p/q >= r1/r2 => n >= div(r1, r2)
-            // <=>
-            //    p*r2 >= r1*q => n >= div(r1, r2)
-            // 
-            expr_ref zero(a.mk_int(0), m);
-            expr_ref divc(a.mk_numeral(div(r1, r2), true), m);
-            expr_ref pqr(a.mk_sub(a.mk_mul(a.mk_numeral(r2, true), p), a.mk_mul(a.mk_numeral(r1, true), q)), m);            
-            literal pq_lhs   = ~mk_literal(a.mk_le(pqr, zero));
-            literal pq_rhs   = ~mk_literal(a.mk_ge(pqr, zero));
-            literal n_le_div = mk_literal(a.mk_le(n, divc));
-            literal n_ge_div = mk_literal(a.mk_ge(n, divc)); 
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(ctx().bool_var2expr(pq_lhs.var()), ctx().bool_var2expr(n_le_div.var()));
-                th.log_axiom_instantiation(body);
-            }
-            mk_axiom(pq_lhs, n_le_div); 
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(ctx().bool_var2expr(pq_rhs.var()), ctx().bool_var2expr(n_ge_div.var()));
-                th.log_axiom_instantiation(body);
-            }
-            mk_axiom(pq_rhs, n_ge_div);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            TRACE("arith",
-                  literal_vector lits;
-                  lits.push_back(pq_lhs);
-                  lits.push_back(n_le_div);
-                  ctx().display_literals_verbose(tout, lits) << "\n";
-                  lits[0] = pq_rhs;
-                  lits[1] = n_ge_div;
-                  ctx().display_literals_verbose(tout, lits) << "\n";);
-#endif
         }
         
         return all_divs_valid;
