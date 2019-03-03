@@ -270,15 +270,21 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
                 values.push_back(to_app(a)->get_arg(num_indices+1));
             }
         }
-        ptr_buffer<expr> new_args;
-        new_args.push_back(m_util.mk_map(f, arrays.size(), arrays.c_ptr()));
         if (store_expr) {
+            ptr_buffer<expr> new_args;
+            new_args.push_back(m_util.mk_map(f, arrays.size(), arrays.c_ptr()));
             new_args.append(num_indices, to_app(args[0])->get_args() + 1);
             new_args.push_back(m().mk_app(f, values.size(), values.c_ptr()));
             result = m().mk_app(get_fid(), OP_STORE, new_args.size(), new_args.c_ptr());
         }
         else {
-            result = m_util.mk_const_array(m().get_sort(args[0]), new_args.back());
+            expr_ref value(m().mk_app(f, values.size(), values.c_ptr()), m());
+            sort* s0 = m().get_sort(args[0]);
+            unsigned sz = get_array_arity(s0);
+            ptr_vector<sort> domain;
+            for (unsigned i = 0; i < sz; ++i) domain.push_back(get_array_domain(s0, i));
+            sort_ref s(m_util.mk_array_sort(sz, domain.c_ptr(), m().get_sort(value)), m());
+            result = m_util.mk_const_array(s, value);
         }
         return BR_REWRITE2;
     }
