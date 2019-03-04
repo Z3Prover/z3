@@ -346,13 +346,12 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
 
     
 void lar_solver::pop(unsigned k) {
-    TRACE("arith_int", tout << "pop" << std::endl;);
+    TRACE("int_solver", tout << "pop" << std::endl;);
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
 
     m_infeasible_column_index.pop(k);
     unsigned n = m_columns_to_ul_pairs.peek_size(k);
     m_var_register.shrink(n);
-    TRACE("arith_int", tout << "pop" << std::endl;);
     if (m_settings.use_tableau()) {
         pop_tableau();
     }
@@ -453,6 +452,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
 
 void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
         
+    TRACE("lar_solver", print_term(term, tout << "prepare: "););
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     rslv.m_using_infeas_costs = false;
     lp_assert(costs_are_zeros_for_r_solver());
@@ -473,6 +473,7 @@ bool lar_solver::maximize_term_on_corrected_r_solver(lar_term & term,
                                                      impq &term_max) {
     settings().backup_costs = false;
     bool ret = false;
+    TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"; print_constraints(tout););
     switch (settings().simplex_strategy()) {
     case simplex_strategy_enum::tableau_rows:
         prepare_costs_for_r_solver(term);
@@ -506,8 +507,9 @@ bool lar_solver::remove_from_basis(unsigned j) {
 }
 
 lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
-    if (is_term(j_or_term))
+    if (is_term(j_or_term)) {
         return get_term(j_or_term);
+    }
     if (j_or_term < m_mpq_lar_core_solver.m_r_x.size()) {
         lar_term r;
         r.add_monomial(one_of_type<mpq>(), j_or_term);

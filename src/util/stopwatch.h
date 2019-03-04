@@ -60,7 +60,7 @@ public:
     }
 
     void stop() {
-        SASSERT(m_running);
+        // SASSERT(m_running);
         DEBUG_CODE(m_running = false;);
         m_elapsed += get() - m_start;
     }

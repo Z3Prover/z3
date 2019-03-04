@@ -215,7 +215,7 @@ namespace opt {
                     ++num_scopes;
                     bound = m_s->mk_ge(obj_index, obj + inf_eps(delta_per_step));
                 }
-                TRACE("opt", tout << delta_per_step << " " << bound << "\n";);
+                TRACE("opt", tout << "delta: " << delta_per_step << " " << bound << "\n";);
                 m_s->assert_expr(bound);
             }
             else if (is_sat == l_false && delta_per_step > rational::one()) {

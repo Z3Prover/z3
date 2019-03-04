@@ -342,7 +342,7 @@ namespace spacer {
                     
                     proof_ref pr2(m);
                     {
-                        scoped_watch _t_ (m_hyp_reduce2_sw);
+                        // scoped_watch _t_ (m_hyp_reduce2_sw);
                         hypothesis_reducer hyp_reducer(m);
                         pr2 = hyp_reducer.reduce(pr1);
                     }
