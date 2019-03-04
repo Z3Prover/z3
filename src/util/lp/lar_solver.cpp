@@ -403,12 +403,15 @@ bool lar_solver::maximize_term_on_tableau(const lar_term & term,
 
     m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::FEASIBLE);
     m_mpq_lar_core_solver.solve();
-    if (m_mpq_lar_core_solver.m_r_solver.get_status() == lp_status::UNBOUNDED)
+    lp_status st = m_mpq_lar_core_solver.m_r_solver.get_status();
+    TRACE("lar_solver", tout << st << "\n";);
+    if (st == lp_status::UNBOUNDED) {
         return false;
-
-    term_max = term.apply(m_mpq_lar_core_solver.m_r_x);
-
-    return true;
+    }
+    else {
+        term_max = term.apply(m_mpq_lar_core_solver.m_r_x);        
+        return true;
+    }
 }
 
 bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -452,7 +455,7 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
 
 void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
         
-    TRACE("lar_solver", print_term(term, tout << "prepare: "););
+    TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     rslv.m_using_infeas_costs = false;
     lp_assert(costs_are_zeros_for_r_solver());

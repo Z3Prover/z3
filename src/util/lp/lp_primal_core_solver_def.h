@@ -775,6 +775,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_precise(entering, t);
     if (leaving == -1) {
+        TRACE("lar_solver", tout << "non-leaving\n";);
         this->set_status(lp_status::UNBOUNDED);
         return;
     }
@@ -828,6 +829,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         } else {
             this->set_status(lp_status::TENTATIVE_UNBOUNDED);
         }
+        TRACE("lar_solver", tout << this->get_status() << "\n";);
         return;
     }
     advance_on_entering_and_leaving(entering, leaving, t);
@@ -857,11 +859,11 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
         out << this->m_column_norms[j] << " ";
     }
     out << std::endl;
-    out << std::endl;
-}
+ }
 
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
+    TRACE("lar_solver", pretty_print(tout););
     if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
         return solve_with_tableau();
 

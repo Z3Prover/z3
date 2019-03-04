@@ -136,8 +136,6 @@ public:
     }
 
     const vector<unsigned> & non_basis() const { return m_nbasis; }
-
-
     
     void set_status(lp_status status) {
         m_status = status;
