@@ -1669,7 +1669,7 @@ namespace sat {
             for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
                 literal v = lits[lits.size() - sz];
                 if (!m_s.was_eliminated(v.var())) {
-                    clauses.push_back(u);
+                    clauses.push_back(~u);
                     clauses.push_back(v);
                     clauses.push_back(null_literal);
                 }
@@ -1678,11 +1678,9 @@ namespace sat {
         // push ternary clauses
         for (unsigned idx = 0; idx < num_lits; ++idx) {
             literal u = to_literal(idx);
-            auto const& tv = m_ternary[u.index()];
-            unsigned sz = tv.size();
-            unsigned i = m_ternary_count[u.index()];
-            for (; i < sz; ++i) {
-                binary const& b = tv[i];
+            unsigned sz = m_ternary_count[u.index()];
+            for (binary const& b : m_ternary[u.index()]) {
+                if (sz-- == 0) break;
                 if (!is_true(b.m_u) && !is_true(b.m_v)) {
                     clauses.push_back(u);
                     clauses.push_back(b.m_u);
@@ -1705,6 +1703,18 @@ namespace sat {
             }
         }
 
+        TRACE("sat",
+              for (literal lit : clauses) {
+                  if (lit == null_literal) {
+                      tout << "\n";
+                  }
+                  else {
+                      tout << lit << " ";
+                  }
+              }
+              tout << "\n";
+              m_s.display(tout);
+              );
     }
 
     void lookahead::propagate_binary(literal l) {
@@ -2345,10 +2355,12 @@ namespace sat {
     }
 
     literal lookahead::choose() {
-        if (should_neuro_choose()) {
-            return neuro_choose();
-        }
         literal l = null_literal;
+        if (should_neuro_choose()) {
+            l = neuro_choose();
+            if (l != null_literal) return l;
+            IF_VERBOSE(0, verbose_stream() << "null neuro choice\n");
+        }
         while (l == null_literal && !inconsistent()) {
             pre_select();
             if (m_lookahead.empty()) {
