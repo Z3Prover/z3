@@ -511,6 +511,8 @@ namespace sat {
         void propagate_binary(literal l);
         void propagate();
         literal choose();
+        bool should_neuro_choose();
+        literal neuro_choose();
         void compute_lookahead_reward();
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
@@ -612,6 +614,12 @@ namespace sat {
 
         double literal_occs(literal l);
         double literal_big_occs(literal l);
+
+        /**
+           \brief retrieve clauses as one vector of literals.
+           clauses are separated by null-literal
+        */
+        void get_clauses(literal_vector& clauses);
 
         sat::config const& get_config() const { return m_s.get_config(); }
               

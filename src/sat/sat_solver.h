@@ -411,6 +411,7 @@ namespace sat {
             unsigned_vector var2nvar;           // variable to Neuro var
             unsigned_vector nvar2var;           // Neuro var to var
             void init(solver& s);
+            void init(lookahead& lh, solver& s);
             void init_var(bool_var v);
             void init_var(clause_vector& clauses);
             void push_clause(clause* c);

@@ -1655,6 +1655,58 @@ namespace sat {
         return result;
     }
 
+    void lookahead::get_clauses(literal_vector& clauses) {
+        // push binary clauses
+        unsigned num_lits = m_s.num_vars() * 2;
+        unsigned_vector bin_size(num_lits);
+        for (unsigned idx : m_binary_trail) {
+            bin_size[idx]++;
+        }
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = to_literal(idx);
+            if (m_s.was_eliminated(u.var())) continue;
+            literal_vector const& lits = m_binary[idx];
+            for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
+                literal v = lits[lits.size() - sz];
+                if (!m_s.was_eliminated(v.var())) {
+                    clauses.push_back(u);
+                    clauses.push_back(v);
+                    clauses.push_back(null_literal);
+                }
+            }
+        }
+        // push ternary clauses
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = to_literal(idx);
+            auto const& tv = m_ternary[u.index()];
+            unsigned sz = tv.size();
+            unsigned i = m_ternary_count[u.index()];
+            for (; i < sz; ++i) {
+                binary const& b = tv[i];
+                if (!is_true(b.m_u) && !is_true(b.m_v)) {
+                    clauses.push_back(u);
+                    clauses.push_back(b.m_u);
+                    clauses.push_back(b.m_v);
+                    clauses.push_back(null_literal);
+                }
+            }
+        }
+
+        // push n-ary clauses
+        for (unsigned idx = 0; idx < num_lits; ++idx) {
+            literal u = to_literal(idx);
+            unsigned sz = m_nary_count[u.index()];
+            for (nary* n : m_nary[u.index()]) {
+                if (sz-- == 0) break;
+                for (literal lit : *n) {
+                    clauses.push_back(lit);
+                }
+                clauses.push_back(null_literal);
+            }
+        }
+
+    }
+
     void lookahead::propagate_binary(literal l) {
         literal_vector const& lits = m_binary[l.index()];
         TRACE("sat", tout << l << " => " << lits << "\n";);
@@ -2257,7 +2309,45 @@ namespace sat {
         }
     }
 
+    literal lookahead::neuro_choose() {
+        bool_var best_v = null_bool_var;
+        double best_p = 0;
+        unsigned nv = m_s.num_vars();
+        for (bool_var v = 0; v < nv; ++v) {
+            if (!m_s.was_eliminated(v)) {
+                double p = m_s.m_neuro.march_var_p(v, 1);
+                if (best_v = null_bool_var || p > best_p) {
+                    best_v = v;
+                    best_p = p;
+                }
+            }
+        }
+        if (best_v != null_bool_var) {
+            return literal(best_v, false);
+        }
+        return null_literal;
+    }
+
+    bool lookahead::should_neuro_choose() {
+        if (!m_s.m_config.m_neuro_choose) {
+            return false;
+        }
+        if (!m_s.m_neuro_predictor) {
+            return false;
+        }
+        m_s.m_neuro.init(*this, m_s);
+        stopwatch sw;
+        sw.start();
+        bool r = m_s.m_neuro_predictor(m_s.m_neuro_state, &m_s.m_neuro.p);
+        sw.stop();
+        IF_VERBOSE(1, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
+        return r;
+    }
+
     literal lookahead::choose() {
+        if (should_neuro_choose()) {
+            return neuro_choose();
+        }
         literal l = null_literal;
         while (l == null_literal && !inconsistent()) {
             pre_select();

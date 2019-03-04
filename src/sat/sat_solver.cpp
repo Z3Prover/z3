@@ -1668,6 +1668,49 @@ namespace sat {
         p.pi_model_logits = model_logits.begin();
 
     }
+
+    void solver::neuro::init(lookahead& lh, solver& s) {
+        C_idxs.reset();
+        L_idxs.reset();
+        idx2clause.reset();
+        var2nvar.reset();
+        nvar2var.reset();
+        unsigned nv = s.num_vars();
+        unsigned num_lits = 2*nv;
+        var2nvar.fill(nv, null_bool_var);
+
+        for (unsigned v = 0; v < nv; ++v) {
+            if (!s.was_eliminated(v)) {
+                init_var(v);
+            }
+        }
+        literal_vector clauses;
+        lh.get_clauses(clauses);
+        for (literal lit : clauses) {
+            if (lit == null_literal) {
+                idx2clause.push_back(nullptr);
+            }
+            else {
+                push_literal(lit);
+            }
+        }
+
+        core_clause_logits.resize(n_clauses());
+        core_var_logits.resize(n_vars());
+        model_logits.resize(n_vars());
+        march_logits.resize(n_vars());
+
+        p.n_cells = C_idxs.size();
+        p.n_vars =  n_vars();        
+        p.n_clauses = n_clauses();        
+        p.C_idxs = C_idxs.begin();
+        p.L_idxs = L_idxs.begin();
+        p.pi_march_logits = march_logits.begin();
+        p.pi_core_clause_logits = core_clause_logits.begin();
+        p.pi_core_var_logits = core_var_logits.begin();
+        p.pi_model_logits = model_logits.begin();
+
+    }
     
     void solver::neuro::init_var(bool_var v) {
         if (var2nvar[v] == null_bool_var) {
@@ -2262,6 +2305,9 @@ namespace sat {
             }
             if (sum >= (1ul << 24)) {
                 sum = 1ul << 24;
+            }
+            if (sum < (1ul << 10)) {
+                sum = 1ul << 10;
             }
             unsigned n_vars = m_activity.size();
             double march_sum = 0;
