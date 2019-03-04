@@ -1783,8 +1783,8 @@ void display_binary_data(std::ostream &out, unsigned val, unsigned numBits) {
 
 template<bool SYNCH>
 void mpz_manager<SYNCH>::display_bin(std::ostream & out, mpz const & a, unsigned num_bits) const {
-    if (is_small(a)) {
-        display_binary_data(out, get_uint64(a), num_bits);
+    if (is_uint(a)) {
+        display_binary_data(out, get_uint(a), num_bits);
     } else {
 #ifndef _MP_GMP
         digit_t *ds = digits(a);

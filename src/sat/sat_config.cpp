@@ -66,6 +66,7 @@ namespace sat {
             throw sat_param_exception("invalid phase selection strategy");
 
         m_rephase_base      = p.rephase_base();
+        m_rephase_neuro     = p.rephase_neuro();
         m_search_sat_conflicts = p.search_sat_conflicts();
         m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
@@ -82,11 +83,12 @@ namespace sat {
             m_random_seed = _p.get_uint("random_seed", 0);
 
         m_neuro_activity_base = p.neuro_activity_base();
-        m_neuro_activity = p.neuro_activity();
-        m_neuro_march_weight = p.neuro_march_weight();
-        m_neuro_core_weight  = p.neuro_core_weight();
-        m_neuro_march_tau    = p.neuro_march_tau();
-        m_neuro_core_tau     = p.neuro_core_tau();
+        m_neuro_activity      = p.neuro_activity();
+        m_neuro_march_weight  = p.neuro_march_weight();
+        m_neuro_core_weight   = p.neuro_core_weight();
+        m_neuro_march_tau     = p.neuro_march_tau();
+        m_neuro_core_tau      = p.neuro_core_tau();
+        m_neuro_choose        = p.neuro_choose();
         
         m_burst_search    = p.burst_search();
         
