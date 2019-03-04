@@ -3055,7 +3055,6 @@ expr_ref context::get_ground_sat_answer()  {
             for (unsigned j = 0; j < sig_size; j++) {
                 expr_ref sig_arg(m), sig_val(m);
                 sig_arg = m.mk_const (m_pm.o2n(pt->sig(j), 0));
-                std::cout << sig_arg << "\n";
                 sig_val = (*local_mdl)(sig_arg);
                 ground_arg_vals.push_back(sig_val);
             }
