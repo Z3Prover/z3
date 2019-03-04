@@ -570,7 +570,11 @@ lp_status lar_solver::maximize_term(unsigned j_or_term,
         m_mpq_lar_core_solver.m_r_x = backup;
     }
     TRACE("lar_solver", print_values(tout););
-    return term_max == opt_val? lp_status::OPTIMAL :lp_status::FEASIBLE;
+    if (term_max == opt_val) {
+        set_status(lp_status::OPTIMAL);
+        return lp_status::OPTIMAL;
+    }
+    return lp_status::FEASIBLE;
 }
     
 
