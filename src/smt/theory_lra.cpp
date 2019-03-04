@@ -1704,9 +1704,13 @@ public:
                 continue;
             }
 
-            if (a.is_numeral(q, r2) && r2.is_pos() && is_bounded(n)) {
+            if (a.is_numeral(q, r2) && r2.is_pos()) {
                 rational val_v = get_value(v);
                 if (val_v == div(r1, r2)) continue;
+                if (!is_bounded(n)) {
+                    TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
+                    continue;
+                }
             
                 TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
                 rational div_r = div(r1, r2);

@@ -357,20 +357,20 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_
                                                                                                           bool & unlimited) {
     switch(this->m_column_types[entering]){
     case column_type::boxed: 
-            if (m_sign_of_entering_delta > 0) {
-                t = this->m_upper_bounds[entering] - this->m_x[entering];
-                if (unlimited || t <= theta){
-                    lp_assert(t >= zero_of_type<X>());
-                    return true;
-                }
-            } else { // m_sign_of_entering_delta == -1
-                t = this->m_x[entering] - this->m_lower_bounds[entering];
-                if (unlimited || t <= theta) {
-                    lp_assert(t >= zero_of_type<X>());
-                    return true;
-                }
+        if (m_sign_of_entering_delta > 0) {
+            t = this->m_upper_bounds[entering] - this->m_x[entering];
+            if (unlimited || t <= theta){
+                lp_assert(t >= zero_of_type<X>());
+                return true;
             }
-            return false;
+        } else { // m_sign_of_entering_delta == -1
+            t = this->m_x[entering] - this->m_lower_bounds[entering];
+            if (unlimited || t <= theta) {
+                lp_assert(t >= zero_of_type<X>());
+                return true;
+            }
+        }
+        return false;
     case column_type::upper_bound:
         if (m_sign_of_entering_delta > 0) {
             t = this->m_upper_bounds[entering] - this->m_x[entering];
@@ -863,7 +863,6 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
-    TRACE("lar_solver", pretty_print(tout););
     if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
         return solve_with_tableau();
 
