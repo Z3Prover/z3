@@ -1664,11 +1664,11 @@ namespace sat {
         }
         for (unsigned idx = 0; idx < num_lits; ++idx) {
             literal u = to_literal(idx);
-            if (m_s.was_eliminated(u.var())) continue;
+            if (m_s.was_eliminated(u.var()) || is_false(u) || is_true(u)) continue;
             literal_vector const& lits = m_binary[idx];
             for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
                 literal v = lits[lits.size() - sz];
-                if (!m_s.was_eliminated(v.var())) {
+                if (!m_s.was_eliminated(v.var()) && !is_false(v) && !is_true(v)) {
                     clauses.push_back(~u);
                     clauses.push_back(v);
                     clauses.push_back(null_literal);
@@ -1678,13 +1678,14 @@ namespace sat {
         // push ternary clauses
         for (unsigned idx = 0; idx < num_lits; ++idx) {
             literal u = to_literal(idx);
+            if (is_true(u) || is_false(u)) continue;
             unsigned sz = m_ternary_count[u.index()];
             for (binary const& b : m_ternary[u.index()]) {
                 if (sz-- == 0) break;
-                if (!is_true(b.m_u) && !is_true(b.m_v)) {
+                if (!is_true(b.m_u) && !is_true(b.m_v) && (!is_false(b.m_u) || !is_false(b.m_v))) {
                     clauses.push_back(u);
-                    clauses.push_back(b.m_u);
-                    clauses.push_back(b.m_v);
+                    if (!is_false(b.m_u)) clauses.push_back(b.m_u);
+                    if (!is_false(b.m_v)) clauses.push_back(b.m_v);
                     clauses.push_back(null_literal);
                 }
             }
@@ -1696,10 +1697,19 @@ namespace sat {
             unsigned sz = m_nary_count[u.index()];
             for (nary* n : m_nary[u.index()]) {
                 if (sz-- == 0) break;
+                unsigned sz0 = clauses.size();
                 for (literal lit : *n) {
-                    clauses.push_back(lit);
+                    if (is_true(lit)) {
+                        clauses.shrink(sz0);
+                        break;
+                    }
+                    if (!is_false(lit)) { 
+                        clauses.push_back(lit);
+                    }
                 }
-                clauses.push_back(null_literal);
+                if (clauses.size() > sz0) {
+                    clauses.push_back(null_literal);
+                }
             }
         }
 
