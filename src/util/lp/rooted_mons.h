@@ -112,7 +112,7 @@ struct rooted_mon_table {
             if (list_contains_to_refine_reg(vec()[i].m_mons, to_refine_reg))
                 m_to_refine.push_back(i);
         }
-        TRACE("nla_solver", tout << "m_to_refine = "; print_vector(m_to_refine, tout) << std::endl;);
+        TRACE("nla_solver", tout << "rooted m_to_refine =["; print_vector(m_to_refine, tout) << "]\n";);
     }
     
     void clear() {
@@ -219,14 +219,14 @@ struct rooted_mon_table {
         SASSERT(abs(mc.coeff()) == rational(1));
         auto it = map().find(mc.vars());
         if (it == map().end()) {
-            TRACE("nla_solver", tout << "size = " << vec().size(););
+            TRACE("nla_solver_rm", tout << "size = " << vec().size(););
             map().emplace(mc.vars(), vec().size());
             m_reg_to_rm.emplace(i_mon, index_with_sign(vec().size(), mc.coeff()));
             vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
         } 
         else {
             vec()[it->second].push_back(ms);
-            TRACE("nla_solver", tout << "add ms.m_i = " << ms.m_i;);
+            TRACE("nla_solver_rm", tout << "add ms.m_i = " << ms.m_i;);
             m_reg_to_rm.emplace(i_mon, index_with_sign(it->second, mc.coeff()));
         }
     }
