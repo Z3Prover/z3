@@ -947,14 +947,20 @@ struct solver::imp {
         init_abs_val_table();        
         std::unordered_map<unsigned_vector, unsigned, hash_svector> key_mons =
             create_relevant_abs_keys();
-        for (unsigned i = 0; i < m_monomials.size(); i++) {
+        unsigned i = random() % m_monomials.size();
+        unsigned ii = i;
+        do {
             unsigned_vector key = get_abs_key(m_monomials[i]);
             auto it = key_mons.find(key);            
-            if (it == key_mons.end() || it->second == i)
-                continue;
-            if (basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]))
+            if (
+                !(it == key_mons.end() || it->second == i)
+                &&
+                basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]))
                 return true;
-        }
+            i++;
+            if (i == m_monomials.size())
+                i = 0;
+        } while (i != ii);
         return false;
     }
 
