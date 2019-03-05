@@ -2332,17 +2332,15 @@ namespace sat {
     literal lookahead::neuro_choose() {
         bool_var best_v = null_bool_var;
         double best_p = 0;
-        unsigned nv = m_s.num_vars();
-        for (bool_var v = 0; v < nv; ++v) {
-            if (!m_s.was_eliminated(v)) {
-                double p = m_s.m_neuro.march_var_p(v, 1);
-                if (best_v = null_bool_var || p > best_p) {
-                    best_v = v;
-                    best_p = p;
-                }
+        unsigned nv = m_s.m_neuro.n_vars();
+        for (unsigned v = 0; v < nv; ++v) {  
+            double p = m_s.m_neuro.march_logits[v];
+            if (best_v = null_bool_var || p > best_p) {
+                best_v = m_s.m_neuro.nvar2var[v];
+                best_p = p;
             }
         }
-        if (best_v != null_bool_var) {
+        if (best_v != null_bool_var) {            
             return literal(best_v, false);
         }
         return null_literal;
@@ -2360,7 +2358,7 @@ namespace sat {
         sw.start();
         bool r = m_s.m_neuro_predictor(m_s.m_neuro_state, &m_s.m_neuro.p);
         sw.stop();
-        IF_VERBOSE(1, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
+        IF_VERBOSE(2, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
         return r;
     }
 

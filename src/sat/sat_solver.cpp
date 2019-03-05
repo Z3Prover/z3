@@ -1679,13 +1679,14 @@ namespace sat {
         unsigned num_lits = 2*nv;
         var2nvar.fill(nv, null_bool_var);
 
-        for (unsigned v = 0; v < nv; ++v) {
-            if (!s.was_eliminated(v)) {
-                init_var(v);
-            }
-        }
         literal_vector clauses;
         lh.get_clauses(clauses);
+        for (literal lit : clauses) {
+            if (lit != null_literal) {
+                init_var(lit.var());
+            }
+        }
+
         for (literal lit : clauses) {
             if (lit == null_literal) {
                 idx2clause.push_back(nullptr);
@@ -1749,7 +1750,7 @@ namespace sat {
         stopwatch sw;
         sw.start();
         if (!m_cleaner.is_clean()) {
-            IF_VERBOSE(0, verbose_stream() << "neuro-clean\n");
+            IF_VERBOSE(2, verbose_stream() << "neuro-clean\n");
             pop(scope_lvl());
             m_cleaner(true);
             reinit_assumptions();
@@ -1761,7 +1762,7 @@ namespace sat {
         sw.start();
         bool r = m_neuro_predictor(m_neuro_state, &m_neuro.p);
         sw.stop();
-        IF_VERBOSE(0, verbose_stream() << "neuro-call t1: " << t1 << " t2: " << sw.get_seconds() << "\n");        
+        IF_VERBOSE(3, verbose_stream() << "neuro-call t1: " << t1 << " t2: " << sw.get_seconds() << "\n");        
         return r;
     }
 
@@ -1774,7 +1775,7 @@ namespace sat {
 
     bool solver::gc_neuro() {
         if (!call_neuro()) return false;
-        IF_VERBOSE(0, verbose_stream() << "neuro-gc\n");
+        IF_VERBOSE(2, verbose_stream() << "neuro-gc\n");
         unsigned idx = 0;
         for (clause* c : m_neuro.idx2clause) {
             if (c && c->is_learned()) {
@@ -2298,7 +2299,7 @@ namespace sat {
 
     void solver::do_update_neuro_activity() {
         if (m_config.m_neuro_activity && call_neuro()) {
-            IF_VERBOSE(0, verbose_stream() << "neuro-activity\n");
+            IF_VERBOSE(2, verbose_stream() << "neuro-activity\n");
             uint64_t sum = 0;
             for (unsigned act : m_activity) {
                 sum += act;
@@ -3280,7 +3281,7 @@ namespace sat {
                 }
             }
             else if (call_neuro()) {
-                IF_VERBOSE(0, verbose_stream() << "neuro-phase\n");
+                IF_VERBOSE(2, verbose_stream() << "neuro-phase\n");
                 for (bool_var v = 0; v < num_vars(); ++v) {
                     m_phase[v] = m_neuro.var_phase(v);
                 }
