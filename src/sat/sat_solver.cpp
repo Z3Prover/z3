@@ -1703,7 +1703,8 @@ namespace sat {
 
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
-        p.n_clauses = n_clauses();        
+        p.n_clauses = n_clauses();   
+        std::cout << "cells: " << p.n_cells << " vars: " << p.n_vars << " clauses " << p.n_clauses << "\n";
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_logits = march_logits.begin();

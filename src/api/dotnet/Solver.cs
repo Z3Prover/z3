@@ -462,6 +462,25 @@ namespace Microsoft.Z3
 	     Native.Z3_solver_import_model_converter(Context.nCtx, src.NativeObject, NativeObject);
 	}
 
+
+	/// <summary>
+	/// Managed incarnation of neuro state for C# consumption
+	/// </summary>
+	public class NeuroState 
+	{
+            #pragma warning disable 1591
+	    public uint n_vars;
+            public uint n_clauses;
+            public uint n_cells;
+            public int[] C_idxs;
+            public int[] L_idxs;
+            public Single[] pi_march_logits;
+            public Single[] pi_core_var_logits;
+            public Single[] pi_core_clause_logits;
+            public Single[] pi_model_logits;
+            public Single   is_sat_logit;
+	}
+
         /// <summary>
         /// Interface specification for predictor.
         /// </summary>
@@ -470,32 +489,36 @@ namespace Microsoft.Z3
              /// <summary>
              /// Callback for prediction.
              /// </summary>
-             bool Predict();
+             bool Predict(NeuroState n);
         }
-
-       [StructLayout(LayoutKind.Sequential, Pack = 2, CharSet = CharSet.Ansi)]
-        struct Z3_neuro_prediction {
-            uint n_vars;              // [in] number of variables
-            uint n_clauses;           // [in] number of clauses
-            uint n_cells;             // [in] number of cells
-            uint[] C_idxs;             // [in n_cells] clause indices
-            uint[] L_idxs;             // [in n_cells] literal indices
-            float[] pi_march_logits;       // [out n_vars] cube prediction
-            float[] pi_core_var_logits;    // [out n_vars] membership of core
-            float[] pi_core_clause_logits; // [out n_clauses] membership of core
-            float[] pi_model_logits;       // [out n_vars] variable valuation
-            float is_sat_logit;           // [out]
-        };
-
 
         /// <summary>
         /// Wrapper for predictor callback
         /// </summary>
-        static bool Predictor(System.IntPtr state, System.IntPtr p) {
+        static bool Predictor(System.IntPtr state, [MarshalAs(UnmanagedType.Struct)] ref Native.NeuroPredict p) {
              GCHandle gch = GCHandle.FromIntPtr(state);
              IPredictor pred = (IPredictor)gch.Target;
-	     pred.Predict();
-             return false; 
+             NeuroState n = new NeuroState();
+             n.n_vars = p.n_vars;
+             n.n_clauses = p.n_clauses;
+             n.n_cells = p.n_cells;
+             Console.WriteLine($"cells: {n.n_cells} vars: {n.n_vars} clauses: {n.n_clauses}");
+             n.C_idxs = new int[n.n_cells];
+             n.L_idxs = new int[n.n_cells];
+             Marshal.Copy(p.C_idxs, n.C_idxs, 0, (int)n.n_cells);
+             Marshal.Copy(p.L_idxs, n.L_idxs, 0, (int)n.n_cells);
+             n.pi_march_logits = new Single[n.n_vars];
+             n.pi_core_var_logits = new Single[n.n_vars];
+             n.pi_core_clause_logits = new Single[n.n_clauses];
+             n.pi_model_logits = new Single[n.n_vars];
+             n.is_sat_logit = 0.0f;
+	     if (!pred.Predict(n)) return false;
+             Marshal.Copy(n.pi_march_logits, 0, p.pi_march_logits, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_var_logits, 0, p.pi_core_var_logits, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_clause_logits, 0, p.pi_core_clause_logits, (int)n.n_clauses);
+             Marshal.Copy(n.pi_model_logits, 0, p.pi_model_logits, (int)n.n_vars);
+             p.is_sat_logit = n.is_sat_logit;
+             return true; 
         }
 
         GCHandle predictorGch;
@@ -504,7 +527,6 @@ namespace Microsoft.Z3
         /// Register predictor callback.
         /// </summary>         
         public void SetPredictor(IPredictor predict) {
-             if (predictorGch != null) predictorGch.Free();
              predictorGch = GCHandle.Alloc(predict);
              Native.LIB.Z3_solver_set_predictor(Context.nCtx, NativeObject, GCHandle.ToIntPtr(predictorGch), Predictor);
         }
