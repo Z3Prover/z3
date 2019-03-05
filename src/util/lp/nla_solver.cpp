@@ -470,7 +470,8 @@ struct solver::imp {
     // return true iff the negation of the ineq can be derived from the constraints
     bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
         // check that we have something like 0 < 0, which is always false and can be safely
-        // removed from the lemma        
+        // removed from the lemma
+        
         if (t.is_empty() && rs.is_zero() &&
             (cmp == llc::LT || cmp == llc::GT || cmp == llc::NE)) return true;
         lp::explanation exp;
@@ -933,14 +934,12 @@ struct solver::imp {
         return r;
     }
 
-    bool basic_sign_lemma_on_two_mons_model_based(const monomial& m, const monomial& n) {
+    void basic_sign_lemma_on_two_mons_model_based(const monomial& m, const monomial& n) {
         rational sign;
         if (sign_contradiction(m, n, sign)) {
             TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); tout << "sign: " << sign<< "\n"; );
             generate_sign_lemma_model_based(m, n, sign);
-            return true;
         }
-        return false;
     }
     bool basic_sign_lemma_model_based() {
         init_abs_val_table();        
@@ -951,10 +950,11 @@ struct solver::imp {
             auto it = key_mons.find(key);            
             if (it == key_mons.end() || it->second == i)
                 continue;
-            if (basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]))
-                return true;
+            basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]);
+            if (done())
+                return m_lemma_vec->size() > 0;
         }
-        return false;
+        return m_lemma_vec->size() > 0;
     }
 
     
@@ -1663,11 +1663,11 @@ struct solver::imp {
     unsigned random() {return settings().random_next();}
     
     // use basic multiplication properties to create a lemma
-    bool basic_lemma(bool derived) {
+    void basic_lemma(bool derived) {
         if (basic_sign_lemma(derived))
-            return true;
+            return;
         if (derived)
-            return false;
+            return;
         init_rm_to_refine();
         const auto& rm_ref = m_rm_table.to_refine();
         TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
@@ -1681,8 +1681,6 @@ struct solver::imp {
                 i = 0;
             }
         } while(i != start && !done());
-        
-        return false;
     }
 
     void map_monomial_vars_to_monomial_indices(unsigned i) {
