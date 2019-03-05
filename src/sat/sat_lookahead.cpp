@@ -1658,17 +1658,11 @@ namespace sat {
     void lookahead::get_clauses(literal_vector& clauses) {
         // push binary clauses
         unsigned num_lits = m_s.num_vars() * 2;
-        unsigned_vector bin_size(num_lits);
-        for (unsigned idx : m_binary_trail) {
-            bin_size[idx]++;
-        }
         for (unsigned idx = 0; idx < num_lits; ++idx) {
             literal u = to_literal(idx);
             if (m_s.was_eliminated(u.var()) || is_false(u) || is_true(u)) continue;
-            literal_vector const& lits = m_binary[idx];
-            for (unsigned sz = bin_size[idx]; sz > 0; --sz) {
-                literal v = lits[lits.size() - sz];
-                if (!m_s.was_eliminated(v.var()) && !is_false(v) && !is_true(v)) {
+            for (literal v : m_binary[idx]) {
+                if (u.index() < v.index() && !m_s.was_eliminated(v.var()) && !is_false(v) && !is_true(v)) {
                     clauses.push_back(~u);
                     clauses.push_back(v);
                     clauses.push_back(null_literal);
@@ -1682,12 +1676,16 @@ namespace sat {
             unsigned sz = m_ternary_count[u.index()];
             for (binary const& b : m_ternary[u.index()]) {
                 if (sz-- == 0) break;
-                if (!is_true(b.m_u) && !is_true(b.m_v) && (!is_false(b.m_u) || !is_false(b.m_v))) {
-                    clauses.push_back(u);
-                    if (!is_false(b.m_u)) clauses.push_back(b.m_u);
-                    if (!is_false(b.m_v)) clauses.push_back(b.m_v);
-                    clauses.push_back(null_literal);
-                }
+                if (u.index() > b.m_v.index() || u.index() > b.m_u.index())
+                    continue;
+                if (is_true(b.m_u) || is_true(b.m_v)) 
+                    continue;
+                if (is_false(b.m_u) && is_false(b.m_v))
+                    continue;
+                clauses.push_back(u);
+                if (!is_false(b.m_u)) clauses.push_back(b.m_u);
+                if (!is_false(b.m_v)) clauses.push_back(b.m_v);
+                clauses.push_back(null_literal);            
             }
         }
 
@@ -2332,17 +2330,15 @@ namespace sat {
     literal lookahead::neuro_choose() {
         bool_var best_v = null_bool_var;
         double best_p = 0;
-        unsigned nv = m_s.num_vars();
-        for (bool_var v = 0; v < nv; ++v) {
-            if (!m_s.was_eliminated(v)) {
-                double p = m_s.m_neuro.march_var_p(v, 1);
-                if (best_v = null_bool_var || p > best_p) {
-                    best_v = v;
-                    best_p = p;
-                }
+        unsigned nv = m_s.m_neuro.n_vars();
+        for (unsigned v = 0; v < nv; ++v) {  
+            double p = m_s.m_neuro.march_logits[v];
+            if (best_v = null_bool_var || p > best_p) {
+                best_v = m_s.m_neuro.nvar2var[v];
+                best_p = p;
             }
         }
-        if (best_v != null_bool_var) {
+        if (best_v != null_bool_var) {            
             return literal(best_v, false);
         }
         return null_literal;
@@ -2360,7 +2356,7 @@ namespace sat {
         sw.start();
         bool r = m_s.m_neuro_predictor(m_s.m_neuro_state, &m_s.m_neuro.p);
         sw.stop();
-        IF_VERBOSE(1, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
+        IF_VERBOSE(2, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
         return r;
     }
 
