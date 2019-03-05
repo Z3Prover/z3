@@ -82,7 +82,7 @@ const_iterator_mon::self_type const_iterator_mon::operator++(int) { advance_mask
 const_iterator_mon::const_iterator_mon(const svector<bool>& mask, const factorization_factory *f) : 
     m_mask(mask),
     m_ff(f) ,
-    m_full_factorization_returned(false)
+    m_full_factorization_returned(mask.size() == 1) // if mask.size() is equal to 1 the full factorization is not needed
 {}
             
 bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) const {

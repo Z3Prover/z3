@@ -934,12 +934,14 @@ struct solver::imp {
         return r;
     }
 
-    void basic_sign_lemma_on_two_mons_model_based(const monomial& m, const monomial& n) {
+    bool basic_sign_lemma_on_two_mons_model_based(const monomial& m, const monomial& n) {
         rational sign;
         if (sign_contradiction(m, n, sign)) {
             TRACE("nla_solver", tout << "m = "; print_monomial_with_vars(m, tout); tout << "n= "; print_monomial_with_vars(n, tout); tout << "sign: " << sign<< "\n"; );
             generate_sign_lemma_model_based(m, n, sign);
+            return true;
         }
+        return false;
     }
     bool basic_sign_lemma_model_based() {
         init_abs_val_table();        
@@ -950,11 +952,10 @@ struct solver::imp {
             auto it = key_mons.find(key);            
             if (it == key_mons.end() || it->second == i)
                 continue;
-            basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]);
-            if (done())
-                return m_lemma_vec->size() > 0;
+            if (basic_sign_lemma_on_two_mons_model_based(m_monomials[it->second], m_monomials[i]))
+                return true;
         }
-        return m_lemma_vec->size() > 0;
+        return false;
     }
 
     
@@ -1663,11 +1664,11 @@ struct solver::imp {
     unsigned random() {return settings().random_next();}
     
     // use basic multiplication properties to create a lemma
-    void basic_lemma(bool derived) {
+    bool basic_lemma(bool derived) {
         if (basic_sign_lemma(derived))
-            return;
+            return true;
         if (derived)
-            return;
+            return false;
         init_rm_to_refine();
         const auto& rm_ref = m_rm_table.to_refine();
         TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
@@ -1681,6 +1682,8 @@ struct solver::imp {
                 i = 0;
             }
         } while(i != start && !done());
+        
+        return false;
     }
 
     void map_monomial_vars_to_monomial_indices(unsigned i) {
@@ -2819,19 +2822,18 @@ struct solver::imp {
     
     void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
         vector<ineq> lemma;
-        init_search();
 
-        factorization_factory_imp fc(m_monomials[mon_index].vars(), // 0 is the index of "abcde"
+        unsigned_vector vars = m_monomials[mon_index].vars();
+        
+        factorization_factory_imp fc(vars, // 0 is the index of "abcde"
                                      *this);
      
-        std::cout << "factorizations = of "; print_var(m_monomials[0].var(), std::cout) << "\n";
+        std::cout << "factorizations = of "; print_monomial(m_monomials[mon_index], std::cout) << "\n";
         unsigned found_factorizations = 0;
         for (auto f : fc) {
             if (f.is_empty()) continue;
             found_factorizations ++;
-            for (auto j : f) {
-                std::cout << "j = "; print_factor(j, std::cout);
-            }
+            print_factorization(f, std::cout);
             std::cout << std::endl;
         }
         SASSERT(found_factorizations == number_of_factorizations);
@@ -2924,21 +2926,21 @@ void solver::test_factorization() {
     lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_var(a, true);
-    lpvar lp_b = s.add_var(b, true);
-    lpvar lp_c = s.add_var(c, true);
-    lpvar lp_d = s.add_var(d, true);
-    lpvar lp_e = s.add_var(e, true);
-    lpvar lp_abcde = s.add_var(abcde, true);
-    lpvar lp_ac = s.add_var(ac, true);
-    lpvar lp_bde = s.add_var(bde, true);
-    lpvar lp_acd = s.add_var(acd, true);
-    lpvar lp_be = s.add_var(be, true);
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
+    lpvar lp_ac = s.add_named_var(ac, true, "ac");
+    lpvar lp_bde = s.add_named_var(bde, true, "bde");
+    lpvar lp_acd = s.add_named_var(acd, true, "acd");
+    lpvar lp_be = s.add_named_var(be, true, "be");
     
     reslimit l;
     params_ref p;
     solver nla(s, l, p);
-
+    
     create_abcde(nla,
                  lp_a,
                  lp_b,
@@ -2950,7 +2952,10 @@ void solver::test_factorization() {
                  lp_bde,
                  lp_acd,
                  lp_be);
-
+    nla.m_imp->register_monomials_in_tables();
+    nla.m_imp->print_monomials(std::cout);
+    nla.m_imp->test_factorization(1, // 0 is the index of monomial abcde
+                                  1); // 3 is the number of expected factorizations
     nla.m_imp->test_factorization(0, // 0 is the index of monomial abcde
                                   3); // 3 is the number of expected factorizations
 
