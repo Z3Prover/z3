@@ -21,6 +21,7 @@ using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
@@ -462,13 +463,59 @@ namespace Microsoft.Z3
 	}
 
         /// <summary>
+        /// Interface specification for predictor.
+        /// </summary>
+        public interface IPredictor 
+        {
+             /// <summary>
+             /// Callback for prediction.
+             /// </summary>
+             bool Predict();
+        }
+
+       [StructLayout(LayoutKind.Sequential, Pack = 2, CharSet = CharSet.Ansi)]
+        struct Z3_neuro_prediction {
+            uint n_vars;              // [in] number of variables
+            uint n_clauses;           // [in] number of clauses
+            uint n_cells;             // [in] number of cells
+            uint[] C_idxs;             // [in n_cells] clause indices
+            uint[] L_idxs;             // [in n_cells] literal indices
+            float[] pi_march_logits;       // [out n_vars] cube prediction
+            float[] pi_core_var_logits;    // [out n_vars] membership of core
+            float[] pi_core_clause_logits; // [out n_clauses] membership of core
+            float[] pi_model_logits;       // [out n_vars] variable valuation
+            float is_sat_logit;           // [out]
+        };
+
+
+        /// <summary>
+        /// Wrapper for predictor callback
+        /// </summary>
+        static bool Predictor(System.IntPtr state, System.IntPtr p) {
+             GCHandle gch = GCHandle.FromIntPtr(state);
+             IPredictor pred = (IPredictor)gch.Target;
+	     pred.Predict();
+             return false; 
+        }
+
+        GCHandle predictorGch;
+
+        /// <summary>
+        /// Register predictor callback.
+        /// </summary>         
+        public void SetPredictor(IPredictor predict) {
+             if (predictorGch != null) predictorGch.Free();
+             predictorGch = GCHandle.Alloc(predict);
+             Native.LIB.Z3_solver_set_predictor(Context.nCtx, NativeObject, GCHandle.ToIntPtr(predictorGch), Predictor);
+        }
+
+        /// <summary>
         /// Solver statistics.
         /// </summary>
         public Statistics Statistics
         {
             get
             {
-
                 return new Statistics(Context, Native.Z3_solver_get_statistics(Context.nCtx, NativeObject));
             }
         }

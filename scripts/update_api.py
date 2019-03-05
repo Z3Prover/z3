@@ -392,12 +392,16 @@ def mk_dotnet(dotnet):
     dotnet.write('    {\n\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
     dotnet.write('        public delegate void Z3_error_handler(Z3_context c, Z3_error_code e);\n\n')
+    dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
+    dotnet.write('        public delegate bool Z3_solver_predictor(System.IntPtr state, System.IntPtr p);\n\n')
     dotnet.write('        public class LIB\n')
     dotnet.write('        {\n')
     dotnet.write('            const string Z3_DLL_NAME = \"libz3\";\n'
                  '            \n')
     dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
     dotnet.write('            public extern static void Z3_set_error_handler(Z3_context a0, Z3_error_handler a1);\n\n')
+    dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
+    dotnet.write('            public extern static void Z3_solver_set_predictor(Z3_context a0, Z3_solver a1, System.IntPtr a2, Z3_solver_predictor a3);\n\n')
     for name, result, params in _dotnet_decls:
         dotnet.write('            [DllImport(Z3_DLL_NAME, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]\n')
         dotnet.write('            ')
