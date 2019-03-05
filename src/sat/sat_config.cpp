@@ -54,9 +54,9 @@ namespace sat {
             m_phase = PS_ALWAYS_FALSE;
         else if (s == symbol("always_true"))
             m_phase = PS_ALWAYS_TRUE;
+        else if (s == symbol("basic_caching"))
+            m_phase = PS_BASIC_CACHING;
         else if (s == symbol("caching"))
-            m_phase = PS_CACHING;
-        else if (s == symbol("scaching"))
             m_phase = PS_SAT_CACHING;
         else if (s == symbol("neuro"))
             m_phase = PS_NEURO_CACHING;

@@ -388,8 +388,9 @@ namespace sat {
         unsigned true_val = 0, slack = 0, num_false = 0;
         for (unsigned i = 0; i < p.size(); ++i) {
             literal l = p.get_lit(i);
-            if (s().was_eliminated(l.var())) {
-                SASSERT(p.learned());
+            bool_var v = l.var();
+            if (s().was_eliminated(v)) {
+                VERIFY(p.learned());
                 remove_constraint(p, "contains eliminated");
                 return;
             }
@@ -1308,7 +1309,11 @@ namespace sat {
             while (true) {
                 consequent = lits[idx];
                 v = consequent.var();
-                if (s().is_marked(v)) break;
+                if (s().is_marked(v)) {
+                    if (s().lvl(v) == m_conflict_lvl) {
+                        break;
+                    }
+                }
                 if (idx == 0) {
                     IF_VERBOSE(2, verbose_stream() << "did not find marked literal\n";);
                     goto bail_out;
@@ -1955,6 +1960,9 @@ namespace sat {
         if (k == 0 && lit == null_literal) {
             return nullptr;
         }
+        if (!learned) {
+            for (wliteral wl : wlits) s().set_external(wl.second.var()); 
+        }
         if (units || k == 1) {
             literal_vector lits;
             for (wliteral wl : wlits) lits.push_back(wl.second);
@@ -2046,7 +2054,7 @@ namespace sat {
                 SASSERT(all_distinct(x));
                 if (parity1 == parity2) l0.neg();
                 if (!learned && x.learned()) {
-                    x.set_learned(false);
+                    set_non_learned(x);
                 }
                 return l0;
             }
@@ -2978,7 +2986,7 @@ namespace sat {
             set_non_external();
             if (get_config().m_elim_vars) elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
-            for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);          
+            for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
             extract_xor();
             merge_xor();
@@ -2988,6 +2996,8 @@ namespace sat {
             count++;
         }        
         while (count < 10 && (m_simplify_change || trail_sz < s().init_trail_size()));
+
+        // validate_eliminated();
 
         IF_VERBOSE(1, 
                    unsigned subs = m_stats.m_num_bin_subsumes + m_stats.m_num_clause_subsumes + m_stats.m_num_pb_subsumes;
@@ -3169,6 +3179,36 @@ namespace sat {
             flush_roots(*m_learned[i]);
         cleanup_constraints();
         // validate();
+
+        // validate_eliminated();
+    }
+
+    void ba_solver::validate_eliminated() {
+        validate_eliminated(m_constraints);
+        validate_eliminated(m_learned);
+    }
+
+    void ba_solver::validate_eliminated(ptr_vector<constraint> const& cs) {
+        for (constraint const* c : cs) {
+            if (c->learned()) continue;
+            switch (c->tag()) {
+            case tag_t::card_t:
+                for (literal l : c->to_card()) {
+                    VERIFY(!s().was_eliminated(l.var()));
+                }
+                break;
+            case tag_t::pb_t:
+                for (wliteral wl : c->to_pb()) {
+                    VERIFY(!s().was_eliminated(wl.second.var()));
+                }
+                break;
+            case tag_t::xr_t:
+                for (literal l : c->to_xr()) {
+                    VERIFY(!s().was_eliminated(l.var()));
+                }
+                break;                
+            }
+        }
     }
 
     void ba_solver::recompile(constraint& c) {
@@ -4293,8 +4333,8 @@ namespace sat {
                 break;
             }
             if (s) {
-                ++m_stats.m_num_pb_subsumes;
-                p1.set_learned(false);
+                ++m_stats.m_num_pb_subsumes;                
+                set_non_learned(p1);
                 remove_constraint(*c, "subsumed");
             }
         }
@@ -4327,7 +4367,7 @@ namespace sat {
                     TRACE("ba", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
-                    c1.set_learned(false);
+                    set_non_learned(c1);
                 }
                 else {
                     TRACE("ba", tout << "self subsume cardinality\n";);
@@ -4365,11 +4405,39 @@ namespace sat {
                     TRACE("ba", tout << "remove\n" << c1 << "\n" << c2 << "\n";);
                     removed_clauses.push_back(&c2);
                     ++m_stats.m_num_clause_subsumes;
-                    c1.set_learned(false);
+                    set_non_learned(c1);
                 }            
             }
             it.next();
         }
+    }
+
+    void ba_solver::set_non_learned(constraint& c) {
+        literal lit = c.lit();
+        if (lit != null_literal) {
+            s().set_external(lit.var());
+        }
+        switch (c.tag()) {
+        case card_t:
+            for (literal lit : c.to_card()) {
+                s().set_external(lit.var());             
+                SASSERT(!s().was_eliminated(lit.var()));
+            }
+            break;
+        case pb_t:
+            for (wliteral wl : c.to_pb()) {
+                s().set_external(wl.second.var());
+                SASSERT(!s().was_eliminated(wl.second.var()));
+            }
+            break;
+        default:
+            for (literal lit : c.to_xr()) {
+                s().set_external(lit.var());
+                SASSERT(!s().was_eliminated(lit.var()));
+            }
+            break;
+        }
+        c.set_learned(false);
     }
 
     void ba_solver::binary_subsumption(card& c1, literal lit) {
@@ -4384,9 +4452,9 @@ namespace sat {
             watched w = *it;
             if (w.is_binary_clause() && is_visited(w.get_literal())) {
                 ++m_stats.m_num_bin_subsumes;
-                IF_VERBOSE(10, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
+                IF_VERBOSE(20, verbose_stream() << c1 << " subsumes (" << lit << " " << w.get_literal() << ")\n";);
                 if (!w.is_learned()) {
-                    c1.set_learned(false);
+                    set_non_learned(c1);
                 }
             }
             else {

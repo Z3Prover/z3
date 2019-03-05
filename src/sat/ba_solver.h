@@ -358,6 +358,8 @@ namespace sat {
         void get_antecedents(literal l, constraint const& c, literal_vector & r);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
+        void validate_eliminated();
+        void validate_eliminated(ptr_vector<constraint> const& cs);
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
         lbool eval(constraint const& c) const;
@@ -368,6 +370,7 @@ namespace sat {
         void recompile(constraint& c);
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
+        void set_non_learned(constraint& c);
 
 
         // cardinality

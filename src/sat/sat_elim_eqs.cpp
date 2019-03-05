@@ -239,7 +239,7 @@ namespace sat {
             else {
                 model_converter::entry & e = mc.mk(model_converter::ELIM_VAR, v);
                 TRACE("save_elim", tout << "marking as deleted: " << v << " l: " << l << " r: " << r << "\n";);
-                m_solver.m_eliminated[v] = true;
+                m_solver.set_eliminated(v, true);
                 mc.insert(e, ~l, r);
                 mc.insert(e,  l, ~r);
             }
