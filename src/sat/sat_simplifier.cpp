@@ -609,7 +609,7 @@ namespace sat {
         }
         if (j < sz && !r) {
             if (j > 2) {
-                s.shrink(c, j, sz);
+                s.shrink(c, sz, j);
             }
             else {
                 c.shrink(j);
@@ -1969,7 +1969,7 @@ namespace sat {
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
         save_clauses(mc_entry, m_neg_cls);
-        s.m_eliminated[v] = true;       
+        s.set_eliminated(v, true);
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         for (auto & c1 : m_pos_cls) {

@@ -317,7 +317,7 @@ namespace sat {
         void set_external(bool_var v) override;
         void set_non_external(bool_var v) override;
         bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
-        void set_eliminated(bool_var v, bool f) override { m_eliminated[v] = f; }
+        void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }

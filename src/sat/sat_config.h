@@ -27,7 +27,7 @@ namespace sat {
     enum phase_selection {
         PS_ALWAYS_TRUE,
         PS_ALWAYS_FALSE,
-        PS_CACHING,
+        PS_BASIC_CACHING,
         PS_SAT_CACHING,
         PS_NEURO_CACHING,
         PS_RANDOM

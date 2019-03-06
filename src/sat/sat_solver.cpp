@@ -148,7 +148,7 @@ namespace sat {
             bool dvar = src.m_decision[v] != 0;
             VERIFY(v == mk_var(ext, dvar));
             if (src.was_eliminated(v)) {
-                m_eliminated[v] = true;
+                set_eliminated(v, true);
             }
             m_phase[v] = src.m_phase[v];
             m_best_phase[v] = src.m_best_phase[v];
@@ -267,12 +267,12 @@ namespace sat {
     }
 
     void solver::set_non_external(bool_var v) {
-        m_external[v] = 0;
+        m_external[v] = false;
     }
 
     void solver::set_external(bool_var v) {
         if (m_external[v] != 0) return;
-        m_external[v] = 1;
+        m_external[v] = true;
         if (!m_ext) return;
         
         lbool val = value(v);
@@ -290,6 +290,11 @@ namespace sat {
             break;
         }
     }
+
+    void solver::set_eliminated(bool_var v, bool f) { 
+        m_eliminated[v] = f; 
+    }
+
 
     clause* solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
         m_model_is_current = false;
@@ -1038,7 +1043,7 @@ namespace sat {
                                 max_index = i;
                             }
                         }
-                        IF_VERBOSE(5, verbose_stream() << "lower assignment level " << assign_level << " scope: " << scope_lvl() << "\n");
+                        IF_VERBOSE(20, verbose_stream() << "lower assignment level " << assign_level << " scope: " << scope_lvl() << "\n");
                     }
 
                     if (value(c[0]) == l_false) {
@@ -1050,7 +1055,7 @@ namespace sat {
                     }
                     else {
                         if (max_index != 1) {
-                            IF_VERBOSE(5, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
+                            IF_VERBOSE(20, verbose_stream() << "swap watch for: " << c[1] << " " << c[max_index] << "\n");
                             std::swap(c[1], c[max_index]);
                             m_watches[(~c[1]).index()].push_back(watched(c[0], cls_off));                                
                         }
@@ -1496,7 +1501,7 @@ namespace sat {
             case PS_ALWAYS_FALSE:
                 phase = false;
                 break;
-            case PS_CACHING:
+            case PS_BASIC_CACHING:
                 phase = m_phase[next];
                 break;
             case PS_SAT_CACHING:
@@ -1704,7 +1709,7 @@ namespace sat {
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
         p.n_clauses = n_clauses();   
-        std::cout << "cells: " << p.n_cells << " vars: " << p.n_vars << " clauses " << p.n_clauses << "\n";
+        // std::cout << "cells: " << p.n_cells << " vars: " << p.n_vars << " clauses " << p.n_clauses << "\n";
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_logits = march_logits.begin();
@@ -2736,7 +2741,7 @@ namespace sat {
 
         if (unique_max) {
             m_unique_max_since_restart++; // does not update glue
-            IF_VERBOSE(5, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
+            IF_VERBOSE(20, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             return l_undef;
         }
@@ -3253,7 +3258,7 @@ namespace sat {
         case PS_ALWAYS_FALSE:
             for (auto& p : m_phase) p = false;
             break;
-        case PS_CACHING:
+        case PS_BASIC_CACHING:
             switch (m_rephase_lim % 4) {
             case 0:
                 for (auto& p : m_phase) p = (m_rand() % 2) == 0;
