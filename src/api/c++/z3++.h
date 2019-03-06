@@ -996,6 +996,7 @@ namespace z3 {
         bool is_implies() const { return is_app() && Z3_OP_IMPLIES  == decl().decl_kind(); }
         bool is_eq() const { return is_app() && Z3_OP_EQ == decl().decl_kind(); }
         bool is_ite() const { return is_app() && Z3_OP_ITE == decl().decl_kind(); }
+        bool is_distinct() const { return is_app() && Z3_OP_DISTINCT == decl().decl_kind(); }
 
         friend expr distinct(expr_vector const& args);
         friend expr concat(expr const& a, expr const& b);
