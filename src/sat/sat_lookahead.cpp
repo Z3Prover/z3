@@ -2362,9 +2362,8 @@ namespace sat {
 
     literal lookahead::choose() {
         literal l0 = choose_base();
-        literal l1 = null_literal;
         if (should_neuro_choose()) {
-            l1 = neuro_choose();
+            literal l1 = neuro_choose();
             if (l1 != null_literal) return l1;
             IF_VERBOSE(0, verbose_stream() << "null neuro choice\n");
         }
