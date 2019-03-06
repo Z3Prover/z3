@@ -511,6 +511,7 @@ namespace sat {
         void propagate_binary(literal l);
         void propagate();
         literal choose();
+        literal choose_base();
         bool should_neuro_choose();
         literal neuro_choose();
         void compute_lookahead_reward();

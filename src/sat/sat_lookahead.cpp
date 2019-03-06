@@ -2361,12 +2361,17 @@ namespace sat {
     }
 
     literal lookahead::choose() {
-        literal l = null_literal;
+        literal l0 = choose_base();
+        literal l1 = null_literal;
         if (should_neuro_choose()) {
-            l = neuro_choose();
-            if (l != null_literal) return l;
+            l1 = neuro_choose();
+            if (l1 != null_literal) return l1;
             IF_VERBOSE(0, verbose_stream() << "null neuro choice\n");
         }
+        return l0;
+    }
+
+    literal lookahead::choose_base() {
         while (l == null_literal && !inconsistent()) {
             pre_select();
             if (m_lookahead.empty()) {
@@ -2394,7 +2399,7 @@ namespace sat {
         init(learned);                
         if (inconsistent()) return;
         inc_istamp();            
-        choose();        
+        choose_base();        
         if (inconsistent()) return;
         SASSERT(m_trail_lim.empty());
         unsigned num_units = 0;
