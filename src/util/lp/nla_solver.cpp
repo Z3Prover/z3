@@ -958,13 +958,14 @@ struct solver::imp {
             int product_sign = rat_sign(m);
             if (mon_sign != product_sign) {
                 basic_sign_lemma_model_based_one_mon(m, product_sign);
-                return true;
+                if (done())
+                    return true;
             }
             i++;
             if (i == m_to_refine.size())
                 i = 0;
         } while (i != ii);
-        return false;
+        return m_lemma_vec->size() > 0;
     }
 
     
