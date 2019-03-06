@@ -189,7 +189,6 @@ endif()
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:LEAN_DEBUG>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
 
