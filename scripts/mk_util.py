@@ -2832,24 +2832,18 @@ def mk_config():
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
             CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'OpenBSD':
             CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_OPENBSD_'

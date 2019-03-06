@@ -272,45 +272,6 @@ list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
 )
 
 ################################################################################
-# Linux specific configuration
-################################################################################
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  # Try to detect if it is necessary to link against librt.
-  # Note that glibc < 2.17 required librt to be linked to use clock_gettime()
-  # and friends.
-  set(CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE
-    "
-    #include <time.h>
-    int main() {
-      timespec res;
-      int result = clock_gettime(CLOCK_REALTIME, &res);
-      return result == 0;
-    }
-    "
-  )
-  check_cxx_source_compiles(
-    "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-    CLOCK_GETTIME_NO_REQUIRE_LIBRT
-  )
-  if (NOT CLOCK_GETTIME_NO_REQUIRE_LIBRT)
-    # Try again with librt
-    message(STATUS "Failed to link against clock_gettime(), trying with librt")
-    set(CMAKE_REQUIRED_LIBRARIES_OLD "${CMAKE_REQUIRED_LIBRARIES}")
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES} rt")
-    check_cxx_source_compiles(
-      "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-      CLOCK_GETTIME_REQUIRES_LIBRT
-    )
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES_OLD}")
-    if (CLOCK_GETTIME_REQUIRES_LIBRT)
-      list(APPEND Z3_DEPENDENT_LIBS "rt")
-    else()
-      message(FATAL_ERROR "Failed to link against clock_gettime()")
-    endif()
-  endif()
-endif()
-
-################################################################################
 # GNU multiple precision library support
 ################################################################################
 option(USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
