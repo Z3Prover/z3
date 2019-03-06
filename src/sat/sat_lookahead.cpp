@@ -2372,6 +2372,7 @@ namespace sat {
     }
 
     literal lookahead::choose_base() {
+        literal l = null_literal;
         while (l == null_literal && !inconsistent()) {
             pre_select();
             if (m_lookahead.empty()) {
