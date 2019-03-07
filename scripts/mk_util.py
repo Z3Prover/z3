@@ -2903,7 +2903,7 @@ def mk_config():
         config.write('SO_EXT=%s\n' % SO_EXT)
         config.write('SLINK=%s\n' % CXX)
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
-        config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
+        config.write('SLINK_EXTRA_FLAGS=-lpthread %s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
         config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
