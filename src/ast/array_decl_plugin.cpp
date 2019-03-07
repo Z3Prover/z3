@@ -299,7 +299,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         sort* srt2 = domain[i+1];
         if (!m_manager->compatible_sorts(srt1, srt2)) {
             std::stringstream strm;
-            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt2, *m_manager) << " do not match";
+            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt1, *m_manager) << " do not match";
             m_manager->raise_exception(strm.str());
             UNREACHABLE();
             return nullptr;
@@ -575,6 +575,27 @@ func_decl * array_recognizers::get_as_array_func_decl(func_decl * f) const {
     SASSERT(is_as_array(f)); 
     return to_func_decl(f->get_parameter(0).get_ast()); 
 }
+
+bool array_recognizers::is_const(expr* e, expr*& v) const {
+    return is_const(e) && (v = to_app(e)->get_arg(0), true);
+}
+
+bool array_recognizers::is_store_ext(expr* _e, expr_ref& a, expr_ref_vector& args, expr_ref& value) {
+    ast_manager& m = a.m();
+    if (is_store(_e)) {
+        app* e = to_app(_e);
+        a = e->get_arg(0);
+        unsigned sz = e->get_num_args();
+        args.reset();
+        for (unsigned i = 1; i < sz-1; ++i) {
+            args.push_back(e->get_arg(i));
+        }
+        value = e->get_arg(sz-1);
+        return true;
+    }
+    return false;
+}
+
 
 array_util::array_util(ast_manager& m): 
     array_recognizers(m.mk_family_id("array")),

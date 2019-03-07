@@ -1101,24 +1101,6 @@ public:
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
-    // create axiom for 
-    //    u = v + r*w,
-    ///   abs(r) > r >= 0
-    void assert_idiv_mod_axioms(theory_var u, theory_var v, theory_var w, rational const& r) {
-        app_ref term(m);
-        term = a.mk_sub(get_enode(u)->get_owner(), 
-                        a.mk_add(get_enode(v)->get_owner(),
-                                 a.mk_mul(a.mk_numeral(r, true), 
-                                          get_enode(w)->get_owner())));
-        theory_var z = internalize_def(term);
-        lp::var_index vi = get_var_index(z);
-        add_def_constraint(m_solver->add_var_bound(vi, lp::GE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(vi, lp::LE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::GE, rational::zero()));
-        add_def_constraint(m_solver->add_var_bound(get_var_index(v), lp::LT, abs(r)));
-        TRACE("arith", m_solver->print_constraints(tout << term << "\n"););
-    }
-
     void mk_idiv_mod_axioms(expr * p, expr * q) {
         if (a.is_zero(q)) {
             return;
@@ -1679,12 +1661,31 @@ public:
      * 0 < q => (v(p)/v(q) <= p/q => v(p)/v(q) - 1 < n) 
      * 
      */
+
+    bool is_bounded(expr* n) {
+        expr* x = nullptr, *y = nullptr;
+        while (true) {
+            if (a.is_idiv(n, x, y) && a.is_numeral(y)) {
+                n = x;
+            }
+            else if (a.is_mod(n, x, y) && a.is_numeral(y)) {
+                return true;
+            }
+            else if (a.is_numeral(n)) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
+
     bool check_idiv_bounds() {
         if (m_idiv_terms.empty()) {
             return true;
         }
-        bool all_divs_valid = true;        
         init_variable_values();
+        bool all_divs_valid = true;        
         for (expr* n : m_idiv_terms) {
             expr* p = nullptr, *q = nullptr;
             VERIFY(a.is_idiv(n, p, q));
@@ -1704,8 +1705,14 @@ public:
             }
 
             if (a.is_numeral(q, r2) && r2.is_pos()) {
-                if (get_value(v) == div(r1, r2)) continue;
+                rational val_v = get_value(v);
+                if (val_v == div(r1, r2)) continue;
+                if (!is_bounded(n)) {
+                    TRACE("arith", tout << "unbounded " << expr_ref(n, m) << "\n";);
+                    continue;
+                }
             
+                TRACE("arith", tout << get_value(v) << " != " << r1 << " div " << r2 << "\n";);
                 rational div_r = div(r1, r2);
                 // p <= q * div(r1, q) + q - 1 => div(p, q) <= div(r1, r2)
                 // p >= q * div(r1, q) => div(r1, q) <= div(p, q)
@@ -1753,53 +1760,6 @@ public:
                       ctx().display_literals_verbose(tout, lits) << "\n";);                      
                 continue;
             }
-#if 0
-
-            // TBD similar for non-linear division.
-            // better to deal with in nla_solver:
-
-            all_divs_valid = false;
-
-        
-            //  
-            //    p/q <= r1/r2 => n <= div(r1, r2)
-            // <=>
-            //    p*r2 <= q*r1 => n <= div(r1, r2)
-            //
-            //    p/q >= r1/r2 => n >= div(r1, r2)
-            // <=>
-            //    p*r2 >= r1*q => n >= div(r1, r2)
-            // 
-            expr_ref zero(a.mk_int(0), m);
-            expr_ref divc(a.mk_numeral(div(r1, r2), true), m);
-            expr_ref pqr(a.mk_sub(a.mk_mul(a.mk_numeral(r2, true), p), a.mk_mul(a.mk_numeral(r1, true), q)), m);            
-            literal pq_lhs   = ~mk_literal(a.mk_le(pqr, zero));
-            literal pq_rhs   = ~mk_literal(a.mk_ge(pqr, zero));
-            literal n_le_div = mk_literal(a.mk_le(n, divc));
-            literal n_ge_div = mk_literal(a.mk_ge(n, divc)); 
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(ctx().bool_var2expr(pq_lhs.var()), ctx().bool_var2expr(n_le_div.var()));
-                th.log_axiom_instantiation(body);
-            }
-            mk_axiom(pq_lhs, n_le_div); 
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            if (m.has_trace_stream()) {
-                app_ref body(m);
-                body = m.mk_implies(ctx().bool_var2expr(pq_rhs.var()), ctx().bool_var2expr(n_ge_div.var()));
-                th.log_axiom_instantiation(body);
-            }
-            mk_axiom(pq_rhs, n_ge_div);
-            if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
-            TRACE("arith",
-                  literal_vector lits;
-                  lits.push_back(pq_lhs);
-                  lits.push_back(n_le_div);
-                  ctx().display_literals_verbose(tout, lits) << "\n";
-                  lits[0] = pq_rhs;
-                  lits[1] = n_ge_div;
-                  ctx().display_literals_verbose(tout, lits) << "\n";);
-#endif
         }
         
         return all_divs_valid;
@@ -1894,14 +1854,17 @@ public:
             TRACE("arith", tout << "canceled\n";);
             return l_undef;
         }
+
+        lbool lia_check = l_undef;
         if (!check_idiv_bounds()) {
-            TRACE("arith", tout << "idiv bounds check\n";);
             return l_false;
         }
         m_explanation.reset();
         switch (m_lia->check()) {
         case lp::lia_move::sat:
-            return l_true;
+            lia_check = l_true;
+            break;
+
         case lp::lia_move::branch: {
             TRACE("arith", tout << "branch\n";);
             app_ref b = mk_bound(m_lia->get_term(), m_lia->get_offset(), !m_lia->is_upper());
@@ -1917,7 +1880,8 @@ public:
             // TBD: ctx().force_phase(ctx().get_literal(b));
             // at this point we have a new unassigned atom that the 
             // SAT core assigns a value to
-            return l_false;
+            lia_check = l_false;
+            break;
         }
         case lp::lia_move::cut: {
             TRACE("arith", tout << "cut\n";);
@@ -1943,24 +1907,27 @@ public:
                   ctx().display_lemma_as_smt_problem(tout << "new cut:\n", m_core.size(), m_core.c_ptr(), m_eqs.size(), m_eqs.c_ptr(), lit);
                   display(tout););
             assign(lit);
-            return l_false;
+            lia_check = l_false;
+            break;
         }
         case lp::lia_move::conflict:
             TRACE("arith", tout << "conflict\n";);
             // ex contains unsat core
             m_explanation = m_lia->get_explanation().m_explanation;
             set_conflict1();
-            return l_false;
+            lia_check = l_false;
+            break;
         case lp::lia_move::undef:
             TRACE("arith", tout << "lia undef\n";);
-            return l_undef;
+            lia_check = l_undef;
+            break;
         case lp::lia_move::continue_with_check:
-            return l_undef;
+            lia_check = l_undef;
+            break;
         default:
             UNREACHABLE();
         }
-        UNREACHABLE();
-        return l_undef;
+        return lia_check;
     }
 
     lbool check_nra() {
@@ -3332,10 +3299,10 @@ public:
             vi = m_theory_var2var_index[v];
             st = m_solver->maximize_term(vi, term_max);
         }
-        TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << " " << term_max << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             init_variable_values();
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             inf_rational val = get_value(v);
             // inf_rational val(term_max.x, term_max.y);
             blocker = mk_gt(v);
@@ -3343,11 +3310,13 @@ public:
         }
         case lp::lp_status::FEASIBLE: {
             inf_rational val = get_value(v);
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             blocker = mk_gt(v);
             return inf_eps(rational::zero(), val);
         }
         default:
             SASSERT(st == lp::lp_status::UNBOUNDED);
+            TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
             has_shared = false;
             blocker = m.mk_false();
             return inf_eps(rational::one(), inf_rational());

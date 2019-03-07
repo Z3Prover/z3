@@ -152,6 +152,10 @@ public:
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
+
+    bool is_const(expr* e, expr*& v) const;
+
+    bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 };
 
 class array_util : public array_recognizers {

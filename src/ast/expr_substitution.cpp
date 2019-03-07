@@ -65,8 +65,8 @@ std::ostream& expr_substitution::display(std::ostream& out) {
 }
 
 void expr_substitution::insert(expr * c, expr * def, proof * def_pr, expr_dependency * def_dep) {
-    obj_map<expr, expr*>::obj_map_entry * entry = m_subst.insert_if_not_there2(c, 0); 
-    if (entry->get_data().m_value == 0) {
+    obj_map<expr, expr*>::obj_map_entry * entry = m_subst.insert_if_not_there2(c, nullptr); 
+    if (entry->get_data().m_value == nullptr) {
         // new entry
         m_manager.inc_ref(c);
         m_manager.inc_ref(def);
@@ -89,14 +89,14 @@ void expr_substitution::insert(expr * c, expr * def, proof * def_pr, expr_depend
         entry->get_data().m_value = def;
         if (proofs_enabled()) {
             obj_map<expr, proof*>::obj_map_entry * entry_pr = m_subst_pr->find_core(c);
-            SASSERT(entry_pr != 0);
+            SASSERT(entry_pr != nullptr);
             m_manager.inc_ref(def_pr);
             m_manager.dec_ref(entry_pr->get_data().m_value);
             entry_pr->get_data().m_value = def_pr;
         }
         if (unsat_core_enabled()) {
             obj_map<expr, expr_dependency*>::obj_map_entry * entry_dep = m_subst_dep->find_core(c);
-            SASSERT(entry_dep != 0);
+            SASSERT(entry_dep != nullptr);
             m_manager.inc_ref(def_dep);
             m_manager.dec_ref(entry_dep->get_data().m_value);
             entry_dep->get_data().m_value = def_dep;

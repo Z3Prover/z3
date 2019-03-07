@@ -233,7 +233,8 @@ namespace opt {
         get_model(m_model);
         inf_eps val2;
         m_valid_objectives[i] = true;
-        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << "\n";);
+        has_shared = true;
+        TRACE("opt", tout << (has_shared?"has shared":"non-shared") << " " << val << " " << blocker << "\n";);
         if (!m_models[i]) {
             set_model(i);
         }

@@ -37,7 +37,7 @@ Revision History:
 #include "model/model_smt2_pp.h"
 #include "ast/rewriter/var_subst.h"
 
-
+namespace {
 struct evaluator_cfg : public default_rewriter_cfg {
     ast_manager &                   m;
     model_core &                    m_model;
@@ -54,7 +54,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;
-    bool                            m_cache;
     bool                            m_array_equalities;
     bool                            m_array_as_stores;
     obj_map<func_decl, expr*>       m_def_cache;
@@ -92,7 +91,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         model_evaluator_params p(_p);
         m_max_memory       = megabytes_to_bytes(p.max_memory());
         m_max_steps        = p.max_steps();
-        m_cache            = p.cache();
         m_model_completion = p.completion();
         m_array_equalities = p.array_equalities();
         m_array_as_stores  = p.array_as_stores();
@@ -340,8 +338,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return num_steps > m_max_steps;
     }
 
-    bool cache_results() const { return m_cache; }
-
     br_status mk_array_eq(expr* a, expr* b, expr_ref& result) {
         TRACE("model_evaluator", tout << "mk_array_eq " << m_array_equalities << "\n";);
         if (a == b) {
@@ -556,8 +552,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         return true;
     }
 };
-
-template class rewriter_tpl<evaluator_cfg>;
+}
 
 struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
     evaluator_cfg m_cfg;
@@ -569,6 +564,11 @@ struct model_evaluator::imp : public rewriter_tpl<evaluator_cfg> {
         set_cancel_check(false);
     }
     void expand_stores(expr_ref &val) {m_cfg.expand_stores(val);}
+    void reset() {
+        rewriter_tpl<evaluator_cfg>::reset();
+        m_cfg.reset();
+        m_cfg.m_def_cache.reset();
+    }
 };
 
 model_evaluator::model_evaluator(model_core & md, params_ref const & p) {
@@ -592,7 +592,10 @@ void model_evaluator::get_param_descrs(param_descrs & r) {
 }
 
 void model_evaluator::set_model_completion(bool f) {
-    m_imp->cfg().m_model_completion = f;
+    if (m_imp->cfg().m_model_completion != f) {
+        reset();
+        m_imp->cfg().m_model_completion = f;
+    }
 }
 
 bool model_evaluator::get_model_completion() const {
@@ -609,8 +612,8 @@ unsigned model_evaluator::get_num_steps() const {
 
 void model_evaluator::cleanup(params_ref const & p) {
     model_core & md = m_imp->cfg().m_model;
-    dealloc(m_imp);
-    m_imp = alloc(imp, md, p);
+    m_imp->~imp();
+    new (m_imp) imp(md, p);
 }
 
 void model_evaluator::reset(params_ref const & p) {
@@ -619,8 +622,8 @@ void model_evaluator::reset(params_ref const & p) {
 }
 
 void model_evaluator::reset(model_core &model, params_ref const& p) {
-    dealloc(m_imp);
-    m_imp = alloc(imp, model, p);
+    m_imp->~imp();
+    new (m_imp) imp(model, p);
 }
 
 

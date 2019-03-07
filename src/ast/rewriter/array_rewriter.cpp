@@ -230,105 +230,98 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
 }
 
 br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
-    SASSERT(num_args >= 0);
-    bool is_store0 = m_util.is_store(args[0]);
-    bool is_const0 = m_util.is_const(args[0]);
-    if (num_args == 1) {
-        //
-        // map_f (store a j v) = (store (map_f a) j (f v)) 
-        //
-        if (is_store0) {
-            app * store_expr = to_app(args[0]);
-            unsigned num_args = store_expr->get_num_args();
-            SASSERT(num_args >= 3);
-            expr * a = store_expr->get_arg(0);
-            expr * v = store_expr->get_arg(num_args-1);
-            
-            ptr_buffer<expr> new_args;
-            
-            new_args.push_back(m_util.mk_map(f, 1, &a)); // (map_f a)
-            new_args.append(num_args - 2, store_expr->get_args() + 1); // j
-            new_args.push_back(m().mk_app(f, v));   // (f v)
-            
-            result = m().mk_app(get_fid(), OP_STORE, new_args.size(), new_args.c_ptr());
-            return BR_REWRITE2;
-        }
-        
-        //
-        // map_f (const v) = (const (f v))
-        //
-        if (is_const0) {
-            expr * fv = m().mk_app(f, to_app(args[0])->get_arg(0));
-            result = m_util.mk_const_array(m().get_sort(args[0]), fv);
-            return BR_REWRITE2;
-        }
-        return BR_FAILED;
-    }
 
-    SASSERT(num_args > 1);
-    
-    if (is_store0) {
-        unsigned num_indices = to_app(args[0])->get_num_args() - 2;
-        unsigned i;
-        for (i = 1; i < num_args; i++) {
-            if (!m_util.is_store(args[i]))
-                break;
-            unsigned j;
-            for (j = 1; j < num_indices+1; j++) {
-                if (to_app(args[0])->get_arg(j) != to_app(args[i])->get_arg(j))
-                    break;
-            }
-            if (j < num_indices+1)
-                break;
+    app* store_expr = nullptr;
+    unsigned num_indices = 0;
+    bool same_store = true;
+    for (unsigned i = 0; same_store && i < num_args; i++) {
+        expr* a = args[i];
+        if (m_util.is_const(a)) {
+            continue;
         }
-        //
-        // map_f (store a_1 j v_1) ... (store a_n j v_n) --> (store (map_f a_1 ... a_n) j (f v_1 ... v_n))
-        //
-        if (i == num_args) {
-            ptr_buffer<expr> arrays;
-            ptr_buffer<expr> values;
-            for (unsigned i = 0; i < num_args; i++) {
-                arrays.push_back(to_app(args[i])->get_arg(0));
-                values.push_back(to_app(args[i])->get_arg(num_indices+1));
+        else if (!m_util.is_store(a)) {
+            same_store = false;
+        }
+        else if (!store_expr) {
+            num_indices = to_app(a)->get_num_args() - 2;
+            store_expr = to_app(a);
+        }
+        else {
+            for (unsigned j = 1; same_store && j < num_indices + 1; j++) {
+                same_store = (store_expr->get_arg(j) == to_app(a)->get_arg(j));
             }
+        }
+    }
+    
+    //
+    // map_f (store a_1 j v_1) ... (store a_n j v_n) --> (store (map_f a_1 ... a_n) j (f v_1 ... v_n))
+    //
+    if (same_store) {
+        ptr_buffer<expr> arrays;
+        ptr_buffer<expr> values;
+        for (unsigned i = 0; i < num_args; i++) {
+            expr* a = args[i];
+            if (m_util.is_const(a)) {
+                arrays.push_back(a);
+                values.push_back(to_app(a)->get_arg(0));
+            }
+            else {
+                arrays.push_back(to_app(a)->get_arg(0));
+                values.push_back(to_app(a)->get_arg(num_indices+1));
+            }
+        }
+        if (store_expr) {
             ptr_buffer<expr> new_args;
             new_args.push_back(m_util.mk_map(f, arrays.size(), arrays.c_ptr()));
             new_args.append(num_indices, to_app(args[0])->get_args() + 1);
             new_args.push_back(m().mk_app(f, values.size(), values.c_ptr()));
             result = m().mk_app(get_fid(), OP_STORE, new_args.size(), new_args.c_ptr());
-            return BR_REWRITE2;
         }
-        return BR_FAILED;
+        else {
+            expr_ref value(m().mk_app(f, values.size(), values.c_ptr()), m());
+            sort* s0 = m().get_sort(args[0]);
+            unsigned sz = get_array_arity(s0);
+            ptr_vector<sort> domain;
+            for (unsigned i = 0; i < sz; ++i) domain.push_back(get_array_domain(s0, i));
+            sort_ref s(m_util.mk_array_sort(sz, domain.c_ptr(), m().get_sort(value)), m());
+            result = m_util.mk_const_array(s, value);
+        }
+        return BR_REWRITE2;
     }
 
-    if (is_const0) {
-        unsigned i;
-        for (i = 1; i < num_args; i++) {
-            if (!m_util.is_const(args[i]))
-                break;
+    //
+    // map_f (lambda x1 b1) ... (lambda x1 bn) -> lambda x1 (f b1 .. bn)
+    //
+    quantifier* lam = nullptr;
+    for (unsigned i = 0; i < num_args; ++i) {
+        if (is_lambda(args[i])) {
+            lam = to_quantifier(args[i]);
         }
-        if (i == num_args) {
-            //
-            // map_f (const v_1) ... (const v_n) = (const (f v_1 ... v_n))
-            //
-            ptr_buffer<expr> values;
-            for (unsigned i = 0; i < num_args; i++) {
-                values.push_back(to_app(args[i])->get_arg(0));
+    }
+    if (lam) {
+        expr_ref_vector args1(m());
+        for (unsigned i = 0; i < num_args; ++i) {
+            expr* a = args[i];
+            if (m_util.is_const(a)) {
+                args1.push_back(to_app(a)->get_arg(0));
             }
-            
-            expr * fv = m().mk_app(f, values.size(), values.c_ptr());
-            sort * in_s = get_sort(args[0]);
-            ptr_vector<sort> domain;
-            unsigned domain_sz = get_array_arity(in_s);
-            for (unsigned i = 0; i < domain_sz; i++) 
-                domain.push_back(get_array_domain(in_s, i));
-            sort_ref out_s(m());
-            out_s = m_util.mk_array_sort(domain_sz, domain.c_ptr(), f->get_range());
-            parameter p(out_s.get());
-            result = m().mk_app(get_fid(), OP_CONST_ARRAY, 1, &p, 1, &fv);
-            return BR_REWRITE2;
+            else if (is_lambda(a)) {
+                lam = to_quantifier(a);
+                args1.push_back(lam->get_expr());
+            }
+            else {
+                expr_ref_vector sel(m());
+                sel.push_back(a);
+                unsigned n = lam->get_num_decls();
+                for (unsigned i = 0; i < n; ++i) {
+                    sel.push_back(m().mk_var(n - i - 1, lam->get_decl_sort(i)));
+                }
+                args1.push_back(m_util.mk_select(sel.size(), sel.c_ptr()));
+            }
         }
-        return BR_FAILED;
+        result = m().mk_app(f, args1.size(), args1.c_ptr());
+        result = m().update_quantifier(lam, result);
+        return BR_REWRITE3;        
     }
 
     return BR_FAILED;
@@ -396,10 +389,96 @@ br_status array_rewriter::mk_set_subset(expr * arg1, expr * arg2, expr_ref & res
     return BR_REWRITE3;
 }
 
+void array_rewriter::mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls) {
+    expr_ref tmp1(m()), tmp2(m());
+    expr_ref a(m()), v(m());
+    expr_ref_vector args0(m()), args(m());
+    while (m_util.is_store_ext(e, a, args0, v)) {                                        
+        args.reset();
+        args.push_back(lhs);
+        args.append(args0);
+        mk_select(args.size(), args.c_ptr(), tmp1);                     
+        args[0] = rhs;                                                  
+        mk_select(args.size(), args.c_ptr(), tmp2);                     
+        fmls.push_back(m().mk_eq(tmp1, tmp2));    
+        e = a;
+    }                                                
+}
+
+bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices) {
+    expr_ref_vector args(m());
+    expr_ref a(m()), v(m());
+    a = e;
+    while (m_util.is_store_ext(e, a, args, v)) {
+        indices.push_back(args);
+        e = a;
+    }
+    e0 = e;
+    if (is_lambda(e0)) {
+        quantifier* q = to_quantifier(e0);
+        e = q->get_expr();
+        unsigned num_idxs = q->get_num_decls();
+        expr* e1, *e2, *e3;
+        ptr_vector<expr> eqs;
+        while (!is_ground(e) && m().is_ite(e, e1, e2, e3) && is_ground(e2)) {
+            args.reset();
+            args.resize(num_idxs, nullptr);
+            eqs.reset();
+            eqs.push_back(e1);
+            for (unsigned i = 0; i < eqs.size(); ++i) {
+                expr* e = eqs[i];
+                if (m().is_and(e)) {
+                    eqs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+                }
+                else if (m().is_eq(e, e1, e2)) {
+                    if (is_var(e2)) {
+                        std::swap(e1, e2);
+                    }
+                    if (is_var(e1) && is_ground(e2)) {
+                        unsigned idx = to_var(e1)->get_idx();
+                        args[num_idxs - idx - 1] = e2;
+                    }
+                    else {
+                        return false;
+                    }
+                }                
+            }
+            for (unsigned i = 0; i < num_idxs; ++i) {
+                if (!args.get(i)) return false;
+            }
+            indices.push_back(args);
+            e = e3;
+        }
+        e0 = e;
+        return is_ground(e);
+    }
+    return true;
+}
+
 br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     if (!m_expand_store_eq) {
         return BR_FAILED;
     }
+    expr_ref_vector fmls(m());
+
+#if 0
+    // lambda friendly version of array equality rewriting.
+    vector<expr_ref_vector> indices;
+    expr_ref lhs0(m()), rhs0(m());
+    expr_ref tmp1(m()), tmp2(m());
+    if (has_index_set(lhs, lhs0, indices) && has_index_set(rhs, rhs0, indices) && lhs0 == rhs0) {
+        expr_ref_vector args(m());
+        for (auto const& idxs : indices) {
+            args.reset();
+            args.push_back(lhs);
+            args.append(idxs);
+            mk_select(args.size(), args.c_ptr(), tmp1);
+            args[0] = rhs;
+            mk_select(args.size(), args.c_ptr(), tmp2);
+            fmls.push_back(m().mk_eq(tmp1, tmp2));
+        }
+    }
+#endif
     expr* lhs1 = lhs;
     while (m_util.is_store(lhs1)) {
         lhs1 = to_app(lhs1)->get_arg(0);
@@ -411,25 +490,9 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
     if (lhs1 != rhs1) {
         return BR_FAILED;
     }
-    ptr_buffer<expr> fmls, args;
-    expr* e;
-    expr_ref tmp1(m()), tmp2(m());
-#define MK_EQ()                                                         \
-    while (m_util.is_store(e)) {                                        \
-        args.push_back(lhs);                                            \
-        args.append(to_app(e)->get_num_args()-2,to_app(e)->get_args()+1); \
-        mk_select(args.size(), args.c_ptr(), tmp1);                     \
-        args[0] = rhs;                                                  \
-        mk_select(args.size(), args.c_ptr(), tmp2);                     \
-        fmls.push_back(m().mk_eq(tmp1, tmp2));                          \
-        e = to_app(e)->get_arg(0);                                      \
-        args.reset();                                                   \
-    }                                                \
-    
-    e = lhs;
-    MK_EQ();
-    e = rhs;
-    MK_EQ();
+
+    mk_eq(lhs, lhs, rhs, fmls);
+    mk_eq(rhs, lhs, rhs, fmls);
     result = m().mk_and(fmls.size(), fmls.c_ptr());
     return BR_REWRITE_FULL;
 }

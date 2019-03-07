@@ -996,6 +996,7 @@ namespace z3 {
         bool is_implies() const { return is_app() && Z3_OP_IMPLIES  == decl().decl_kind(); }
         bool is_eq() const { return is_app() && Z3_OP_EQ == decl().decl_kind(); }
         bool is_ite() const { return is_app() && Z3_OP_ITE == decl().decl_kind(); }
+        bool is_distinct() const { return is_app() && Z3_OP_DISTINCT == decl().decl_kind(); }
 
         friend expr distinct(expr_vector const& args);
         friend expr concat(expr const& a, expr const& b);
@@ -2387,7 +2388,7 @@ namespace z3 {
             return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
-        // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
+        void add(expr_vector const& v) { check_context(*this, v); for (unsigned i = 0; i < v.size(); ++i) add(v[i]); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
