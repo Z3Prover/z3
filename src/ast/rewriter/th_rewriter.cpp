@@ -839,3 +839,13 @@ expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args)
 void th_rewriter::set_solver(expr_solver* solver) {
     m_imp->set_solver(solver);
 }
+
+
+bool th_rewriter::reduce_quantifier(quantifier * old_q, 
+                                    expr * new_body, 
+                                    expr * const * new_patterns, 
+                                    expr * const * new_no_patterns,
+                                    expr_ref & result,
+                                    proof_ref & result_pr) {
+    return m_imp->cfg().reduce_quantifier(old_q, new_body, new_patterns, new_no_patterns, result, result_pr);
+}
