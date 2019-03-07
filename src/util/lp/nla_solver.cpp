@@ -1536,19 +1536,18 @@ struct solver::imp {
               tout << "orig mon = "; print_monomial(m_monomials[rm.orig_index()], tout););
         add_empty_lemma();
         int fi = 0;
+        rational rmv = vvr(rm);
+        rational sm = rational(rat_sign(rmv));
+        unsigned mon_var = var(rm);
+        mk_ineq(sm, mon_var, llc::LT);
         for (factor f : fc) {
             if (fi++ != factor_index) {
                 mk_ineq(var(f), llc::EQ);
             } else {
-                rational rmv = vvr(rm);
-                rational sm = rational(rat_sign(rmv));
-                unsigned mon_var = var(rm);
                 lpvar j = var(f);
                 rational jv = vvr(j);
                 rational sj = rational(rat_sign(jv));
                 SASSERT(sm*rmv < sj*jv);
-                TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
-                mk_ineq(sm, mon_var, llc::LT);
                 mk_ineq(sj, j, llc::LT);
                 mk_ineq(sm, mon_var, -sj, j, llc::GE);
             }
@@ -1566,7 +1565,16 @@ struct solver::imp {
         }
         return false;
     }
-    
+
+        template <typename T>
+    bool mon_has_zero(const T& product) const {
+        for (lpvar j: product) {
+            if (vvr(j).is_zero())
+                return true;
+        }
+        return false;
+    }
+
     // x != 0 or y = 0 => |xy| >= |y|
     bool proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
         rational rmv = abs(vvr(rm));
@@ -2253,19 +2261,6 @@ struct solver::imp {
         std::sort(r.begin(), r.end());
         return r;
     }
-    
-
-    // void sort_monotone_table() {
-    //     for (auto & p : m_lex_sorted_root_mons){
-    //         std::sort(p.second.begin(),p.second.end(),
-    //                   [](std::pair<std::vector<rational>, unsigned> const &a,
-    //                      std::pair<std::vector<rational>, unsigned> const &b) { 
-    //                       return a.first[0] < b.first[0]; // just compare the first elements
-    //                   } );
-    //     }
-    //     find_to_refines();
-    //     TRACE("nla_solver", tout << "Monotone table:\n"; print_monotone_table(tout); tout << "\n";);
-    // }
 
     void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
                               std::ostream& out) const {
@@ -2514,16 +2509,65 @@ struct solver::imp {
         return monotonicity_lemma_on_lex_sorted(lex_sorted);
     }
     
-    bool monotonicity_lemma() {
-        auto rm_by_arity = get_rm_by_arity();
-        for (const auto & p : rm_by_arity) {
-            if (monotonicity_lemma_on_rms_of_same_arity(p.second)) {
-                return true;
-            }
-        }
-        return false;
+    void monotonicity_lemma() {
+        unsigned i = random()%m_rm_table.m_to_refine.size();
+        unsigned ii = i;
+        do {
+            unsigned rm_i = m_rm_table.m_to_refine[i];
+            monotonicity_lemma(m_rm_table.vec()[rm_i].orig_index());
+            TRACE("nla_solver", print_lemma(tout); );
+            if (done()) return;
+            i++;
+            if (i == m_rm_table.m_to_refine.size())
+                i = 0;
+        } while (i != ii);
     }
 
+    void monotonicity_lemma(unsigned i_mon) {
+        const monomial & m = m_monomials[i_mon];
+        SASSERT(!check_monomial(m));
+        if (mon_has_zero(m))
+            return;
+        const rational prod_val = abs(product_value(m));
+        const rational m_val = abs(vvr(m));
+        if (m_val < prod_val)
+            monotonicity_lemma_lt(m, prod_val);
+        else if (m_val > prod_val)
+            monotonicity_lemma_gt(m, prod_val);
+    }
+
+    void monotonicity_lemma_gt(const monomial& m, const rational& prod_val) {
+        // the abs of the monomial is too large
+        SASSERT(prod_val.is_pos());
+        add_empty_lemma();
+        for (lpvar j : m) {
+            auto s = rational(rat_sign(vvr(j)));
+            mk_ineq(s, j, llc::LT);
+            mk_ineq(s, j, llc::GT, abs(vvr(j)));
+        }
+        lpvar m_j = m.var();
+        auto s = rational(rat_sign(vvr(m_j)));
+        mk_ineq(s, m_j, llc::LT);
+        mk_ineq(s, m_j, llc::LE, prod_val);
+        TRACE("nla_solver", print_lemma(tout););
+    }
+
+    void monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
+        // the abs of the monomial is too small
+        SASSERT(prod_val.is_pos());
+        add_empty_lemma();
+        for (lpvar j : m) {
+            auto s = rational(rat_sign(vvr(j)));
+            mk_ineq(s, j, llc::LT);
+            mk_ineq(s, j, llc::LT, abs(vvr(j)));
+        }
+        lpvar m_j = m.var();
+        auto s = rational(rat_sign(vvr(m_j)));
+        mk_ineq(s, m_j, llc::LT);
+        mk_ineq(s, m_j, llc::GE, prod_val);
+        TRACE("nla_solver", print_lemma(tout););
+    }
+    
     bool find_bfc_on_monomial(const rooted_mon& rm, bfc & bf) {
         for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
             if (factorization.size() == 2) {
