@@ -373,9 +373,8 @@ namespace smt {
                 if (used_enodes.size() > 0) {
                     m.trace_stream() << " ;";
                     for (auto n : used_enodes) {
-                        enode *orig = std::get<0>(n);
                         enode *substituted = std::get<1>(n);
-                        SASSERT(orig == nullptr);
+                        SASSERT(std::get<0>(n) == nullptr);
                         m.trace_stream() << " #" << substituted->get_owner_id();
                     }
                 }
