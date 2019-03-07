@@ -30,6 +30,7 @@ Revision History:
 #include "ast/rewriter/datatype_rewriter.h"
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/fpa_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
@@ -125,6 +126,17 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         return false;
     }
+
+    bool reduce_quantifier(quantifier * old_q, 
+                           expr * new_body, 
+                           expr * const * new_patterns, 
+                           expr * const * new_no_patterns,
+                           expr_ref & result,
+                           proof_ref & result_pr) {
+        th_rewriter th(m);
+        return th.reduce_quantifier(old_q, new_body, new_patterns, new_no_patterns, result, result_pr);
+    }
+
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;

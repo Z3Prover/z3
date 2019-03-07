@@ -3332,7 +3332,7 @@ public:
             vi = m_theory_var2var_index[v];
             st = m_solver->maximize_term(vi, term_max);
         }
-        TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << "\n"););
+        TRACE("arith", display(tout << st << " v" << v << " vi: " << vi << " " << term_max << "\n"););
         switch (st) {
         case lp::lp_status::OPTIMAL: {
             init_variable_values();
