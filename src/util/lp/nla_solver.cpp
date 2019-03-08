@@ -287,7 +287,7 @@ struct solver::imp {
     template <typename T>
     std::ostream& print_product(const T & m, std::ostream& out) const {
         for (unsigned k = 0; k < m.size(); k++) {
-            out << m_lar_solver.get_variable_name(m[k]);
+            out << "(" << m_lar_solver.get_variable_name(m[k]) << "=" << vvr(m[k]) << ")";
             if (k + 1 < m.size()) out << "*";
         }
         return out;
@@ -2215,7 +2215,8 @@ struct solver::imp {
             if (v.is_zero())
                 continue;
 
-            if (order_lemma_on_factor(rm, ac, k, derived)) { 
+            if (order_lemma_on_factor(rm, ac, k, derived)) {
+                TRACE("nla_solver", print_lemma(tout););
                 return true;
             }
         }
