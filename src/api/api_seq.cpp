@@ -106,8 +106,7 @@ extern "C" {
             SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
             return "";
         }
-        std::string s = str.encode();
-        return mk_c(c)->mk_external_string(s);
+        return mk_c(c)->mk_external_string(str.encode());
         Z3_CATCH_RETURN("");
     }
 
