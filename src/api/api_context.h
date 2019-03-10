@@ -179,7 +179,7 @@ namespace api {
         // Store a copy of str in m_string_buffer, and return a reference to it.
         // This method is used to communicate local/internal strings with the "external world"
         char * mk_external_string(char const * str);
-        char * mk_external_string(std::string const & str);
+        char * mk_external_string(std::string && str);
 
         // Create a numeral of the given sort
         expr * mk_numeral_core(rational const & n, sort * s);

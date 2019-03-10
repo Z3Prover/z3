@@ -41,14 +41,14 @@ Revision History:
 
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
 
-std::string         g_aux_input_file;
-char const *        g_input_file          = nullptr;
-bool                g_standard_input      = false;
-input_kind          g_input_kind          = IN_UNSPECIFIED;
+static std::string  g_aux_input_file;
+static char const * g_input_file          = nullptr;
+static bool         g_standard_input      = false;
+static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
-bool                g_display_istatistics = false;
+static bool         g_display_istatistics = false;
 
-void error(const char * msg) {
+static void error(const char * msg) {
     std::cerr << "Error: " << msg << "\n";
     std::cerr << "For usage information: z3 -h\n";
     exit(ERR_CMD_LINE);
@@ -114,7 +114,7 @@ void display_usage() {
     std::cout << "Use 'z3 -p' for the complete list of global and module parameters.\n";
 }
    
-void parse_cmd_line_args(int argc, char ** argv) {
+static void parse_cmd_line_args(int argc, char ** argv) {
     long timeout = 0;
     int i = 1;
     char * eq_pos = nullptr;

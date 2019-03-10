@@ -96,7 +96,7 @@ uint64_t prime_generator::operator()(unsigned idx) {
     return m_primes[idx];
 }
 
-prime_generator g_prime_generator;
+static prime_generator g_prime_generator;
 
 prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
     if (g == nullptr) {
