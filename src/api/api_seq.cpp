@@ -55,6 +55,20 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
+
+    Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned sz, Z3_string str) {
+        Z3_TRY;
+        LOG_Z3_mk_string(c, str);
+        RESET_ERROR_CODE();
+        unsigned_vector chs;
+        for (unsigned i = 0; i < sz; ++i) chs.push_back(str[i]);
+        zstring s(sz, chs.c_ptr(), zstring::ascii);
+        app* a = mk_c(c)->sutil().str.mk_string(s);
+        mk_c(c)->save_ast_trail(a);
+        RETURN_Z3(of_ast(a));
+        Z3_CATCH_RETURN(nullptr);
+    }
+
     Z3_sort Z3_API Z3_mk_string_sort(Z3_context c) {
         Z3_TRY;
         LOG_Z3_mk_string_sort(c);

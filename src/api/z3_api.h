@@ -3328,6 +3328,15 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_string(Z3_context c, Z3_string s);
 
     /**
+       \brief Create a string constant out of the string that is passed in
+       It takes the length of the string as well to take into account
+       0 characters.
+
+       def_API('Z3_mk_lstring' ,AST ,(_in(CONTEXT), _in(UINT), _in(STRING)))
+     */
+    Z3_ast Z3_API Z3_mk_lstring(Z3_context c, unsigned len, Z3_string s);
+
+    /**
        \brief Determine if \c s is a string constant.
 
        def_API('Z3_is_string', BOOL, (_in(CONTEXT), _in(AST)))
