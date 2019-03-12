@@ -159,11 +159,11 @@ void defined_names::impl::bound_vars(sort_ref_buffer const & sorts, buffer<symbo
         expr * patterns[1] = { m.mk_pattern(name) };
         quantifier_ref q(m);
         q = m.mk_forall(sorts.size(),
-                                sorts.c_ptr(),
-                                names.c_ptr(),
-                                def_conjunct,
-                                1, qid, symbol::null,
-                                1, patterns);
+                        sorts.c_ptr(),
+                        names.c_ptr(),
+                        def_conjunct,
+                        1, qid, symbol::null,
+                        1, patterns);
         TRACE("mk_definition_bug", tout << "before elim_unused_vars:\n" << mk_ismt2_pp(q, m) << "\n";);
         result = elim_unused_vars(m, q, params_ref());
         TRACE("mk_definition_bug", tout << "after elim_unused_vars:\n" << result << "\n";);

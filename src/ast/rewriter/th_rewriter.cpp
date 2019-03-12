@@ -661,6 +661,13 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p1 = m().mk_pull_quant(old_q, q1);
             }
         }
+        else if (
+                 old_q->get_kind() == lambda_k &&
+                 is_ground(new_body)) {
+            result = m_ar_rw.util().mk_const_array(old_q->get_sort(), new_body);
+            result_pr = nullptr;
+            return true;
+        }
         else {
             ptr_buffer<expr> new_patterns_buf;
             ptr_buffer<expr> new_no_patterns_buf;
@@ -677,9 +684,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             TRACE("reduce_quantifier", tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
             SASSERT(is_well_sorted(m(), q1));
         }
-
         SASSERT(m().get_sort(old_q) == m().get_sort(q1));
         result = elim_unused_vars(m(), q1, params_ref());
+
 
         TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 

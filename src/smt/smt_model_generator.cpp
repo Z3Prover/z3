@@ -380,11 +380,9 @@ namespace smt {
     */
     bool model_generator::include_func_interp(func_decl * f) const {
         family_id fid = f->get_family_id();
-        TRACE("model", tout << f->get_name() << " " << fid << "\n";);
         if (fid == null_family_id) return !m_hidden_ufs.contains(f); 
         if (fid == m_manager.get_basic_family_id()) return false;
         theory * th = m_context->get_theory(fid);
-        TRACE("model", tout << th << "\n";);
         if (!th) return true;
         return th->include_func_interp(f);
     }

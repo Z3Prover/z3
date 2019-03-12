@@ -45,6 +45,7 @@ public:
     }
     ast_manager & m() const { return m_util.get_manager(); }
     family_id get_fid() const { return m_util.get_family_id(); }
+    array_util& util() { return m_util; }
 
     void set_expand_select_store(bool f) { m_expand_select_store = f; }
     void set_expand_select_ite(bool f) { m_expand_select_ite = f; }

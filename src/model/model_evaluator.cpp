@@ -140,24 +140,25 @@ struct evaluator_cfg : public default_rewriter_cfg {
         result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
+        br_status st = BR_FAILED;
         if (num == 0 && (fid == null_family_id || is_uninterp)) {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                return BR_DONE;
+                return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
             }
-
-            if (m_model_completion) {
+            else if (m_model_completion) {
                 sort * s   = f->get_range();
                 expr * val = m_model.get_some_value(s);
                 m_model.register_decl(f, val);
                 result = val;
                 return BR_DONE;
             }
-            return BR_FAILED;
+            else {
+                return BR_FAILED;
+            }
         }
 
-        br_status st = BR_FAILED;
 
         if (fid == m_b_rw.get_fid()) {
             decl_kind k = f->get_decl_kind();
@@ -205,17 +206,18 @@ struct evaluator_cfg : public default_rewriter_cfg {
             TRACE("model_evaluator", tout << "reduce_app " << f->get_name() << "\n";
                   for (unsigned i = 0; i < num; i++) tout << mk_ismt2_pp(args[i], m) << "\n";
                   tout << "---->\n" << mk_ismt2_pp(result, m) << "\n";);
-            return BR_REWRITE1;
+            st = BR_REWRITE1;
         }
         if (st == BR_FAILED && !m.is_builtin_family_id(fid))
             st = evaluate_partial_theory_func(f, num, args, result, result_pr);
         if (st == BR_DONE && is_app(result)) {
             app* a = to_app(result);
             if (evaluate(a->get_decl(), a->get_num_args(), a->get_args(), result)) {
-                return BR_REWRITE1;
+                st = BR_REWRITE1;
             }
         }
 #if 1
+        TRACE("model_evaluator", tout << st << " " << num << " " << m_ar.is_as_array(f) << " " << m_model_completion << "\n";);
         if (st == BR_FAILED && num == 0 && m_ar.is_as_array(f) && m_model_completion) {
             func_decl* g = nullptr;
             VERIFY(m_ar.is_as_array(f, g));
@@ -253,6 +255,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     }
 
     void expand_stores(expr_ref& val) {
+        TRACE("model_evaluator", tout << val << "\n";);
         vector<expr_ref_vector> stores;
         expr_ref else_case(m);
         bool _unused;
@@ -503,6 +506,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         if (!m_ar.is_as_array(a)) {
             TRACE("model_evaluator", tout << "no translation: " << mk_pp(a, m) << "\n";);
+            TRACE("model_evaluator", tout << m_model << "\n";);
             return false;
         }
 
@@ -630,6 +634,7 @@ void model_evaluator::reset(model_core &model, params_ref const& p) {
 void model_evaluator::operator()(expr * t, expr_ref & result) {
     TRACE("model_evaluator", tout << mk_ismt2_pp(t, m()) << "\n";);
     m_imp->operator()(t, result);
+    TRACE("model_evaluator", tout << result << "\n";);
     m_imp->expand_stores(result);
 }
 
