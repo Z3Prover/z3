@@ -25,6 +25,8 @@ using System.Runtime.InteropServices;
 
 namespace Microsoft.Z3
 {
+
+
     /// <summary>
     /// Solvers.
     /// </summary>
@@ -472,13 +474,13 @@ namespace Microsoft.Z3
 	    public uint n_vars;
             public uint n_clauses;
             public uint n_cells;
+            public float itau;
             public int[] C_idxs;
             public int[] L_idxs;
-            public Single[] pi_march_logits;
-            public Single[] pi_core_var_logits;
-            public Single[] pi_core_clause_logits;
-            public Single[] pi_model_logits;
-            public Single   is_sat_logit;
+            public Single[] pi_march_ps;
+            public Single[] pi_core_var_ps;
+            public Single[] pi_core_clause_ps;
+            public Single[] pi_model_ps;
 	}
 
         /// <summary>
@@ -495,6 +497,7 @@ namespace Microsoft.Z3
         /// <summary>
         /// Wrapper for predictor callback
         /// </summary>
+
         static bool Predictor(System.IntPtr state, [MarshalAs(UnmanagedType.Struct)] ref Native.NeuroPredict p) {
              GCHandle gch = GCHandle.FromIntPtr(state);
              IPredictor pred = (IPredictor)gch.Target;
@@ -502,33 +505,35 @@ namespace Microsoft.Z3
              n.n_vars = p.n_vars;
              n.n_clauses = p.n_clauses;
              n.n_cells = p.n_cells;
+             n.itau = p.itau;
              Console.WriteLine($"cells: {n.n_cells} vars: {n.n_vars} clauses: {n.n_clauses}");
              n.C_idxs = new int[n.n_cells];
-             n.L_idxs = new int[n.n_cells];
+             n.L_idxs = new int[n.n_cells];             
              Marshal.Copy(p.C_idxs, n.C_idxs, 0, (int)n.n_cells);
              Marshal.Copy(p.L_idxs, n.L_idxs, 0, (int)n.n_cells);
-             n.pi_march_logits = new Single[n.n_vars];
-             n.pi_core_var_logits = new Single[n.n_vars];
-             n.pi_core_clause_logits = new Single[n.n_clauses];
-             n.pi_model_logits = new Single[n.n_vars];
-             n.is_sat_logit = 0.0f;
+             n.pi_march_ps = new Single[n.n_vars];
+             n.pi_core_var_ps = new Single[n.n_vars];
+             n.pi_core_clause_ps = new Single[n.n_clauses];
+             n.pi_model_ps = new Single[n.n_vars];
 	     if (!pred.Predict(n)) return false;
-             Marshal.Copy(n.pi_march_logits, 0, p.pi_march_logits, (int)n.n_vars);
-             Marshal.Copy(n.pi_core_var_logits, 0, p.pi_core_var_logits, (int)n.n_vars);
-             Marshal.Copy(n.pi_core_clause_logits, 0, p.pi_core_clause_logits, (int)n.n_clauses);
-             Marshal.Copy(n.pi_model_logits, 0, p.pi_model_logits, (int)n.n_vars);
-             p.is_sat_logit = n.is_sat_logit;
+             Marshal.Copy(n.pi_march_ps, 0, p.pi_march_ps, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_var_ps, 0, p.pi_core_var_ps, (int)n.n_vars);
+             Marshal.Copy(n.pi_core_clause_ps, 0, p.pi_core_clause_ps, (int)n.n_clauses);
+             Marshal.Copy(n.pi_model_ps, 0, p.pi_model_ps, (int)n.n_vars);
              return true; 
         }
 
         GCHandle predictorGch;
+        GCHandle predictorFn;
 
         /// <summary>
-        /// Register predictor callback.
+        /// Register predictor callback.1
         /// </summary>         
         public void SetPredictor(IPredictor predict) {
              predictorGch = GCHandle.Alloc(predict);
-             Native.LIB.Z3_solver_set_predictor(Context.nCtx, NativeObject, GCHandle.ToIntPtr(predictorGch), Predictor);
+             var cb = new Native.Z3_solver_predictor(Predictor);
+             predictorFn = GCHandle.Alloc(cb);
+             Native.LIB.Z3_solver_set_predictor(Context.nCtx, NativeObject, GCHandle.ToIntPtr(predictorGch), cb);
         }
 
         /// <summary>

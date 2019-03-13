@@ -1196,6 +1196,7 @@ namespace sat {
                 m_conflicts_since_gc = m_gc_threshold + 1;
                 do_gc();
             }
+
             if (m_config.m_max_conflicts > 0 && m_config.m_burst_search > 0) {
                 m_restart_threshold = m_config.m_burst_search;
                 lbool r = bounded_search();
@@ -1657,20 +1658,21 @@ namespace sat {
         push_clause(s.m_clauses);
         push_clause(s.m_learned);
 
-        core_clause_logits.resize(n_clauses());
-        core_var_logits.resize(n_vars());
-        model_logits.resize(n_vars());
-        march_logits.resize(n_vars());
+        core_clause_ps.resize(n_clauses());
+        core_var_ps.resize(n_vars());
+        model_ps.resize(n_vars());
+        march_ps.resize(n_vars());
 
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
-        p.n_clauses = n_clauses();        
+        p.n_clauses = n_clauses();   
+        p.activity_itau = s.m_config.m_neuro_activity_itau;
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
-        p.pi_march_logits = march_logits.begin();
-        p.pi_core_clause_logits = core_clause_logits.begin();
-        p.pi_core_var_logits = core_var_logits.begin();
-        p.pi_model_logits = model_logits.begin();
+        p.pi_march_ps = march_ps.begin();
+        p.pi_core_clause_ps = core_clause_ps.begin();
+        p.pi_core_var_ps = core_var_ps.begin();
+        p.pi_model_ps = model_ps.begin();
 
     }
 
@@ -1701,10 +1703,10 @@ namespace sat {
             }
         }
 
-        core_clause_logits.resize(n_clauses());
-        core_var_logits.resize(n_vars());
-        model_logits.resize(n_vars());
-        march_logits.resize(n_vars());
+        core_clause_ps.resize(n_clauses());
+        core_var_ps.resize(n_vars());
+        model_ps.resize(n_vars());
+        march_ps.resize(n_vars());
 
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
@@ -1712,10 +1714,10 @@ namespace sat {
         // std::cout << "cells: " << p.n_cells << " vars: " << p.n_vars << " clauses " << p.n_clauses << "\n";
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
-        p.pi_march_logits = march_logits.begin();
-        p.pi_core_clause_logits = core_clause_logits.begin();
-        p.pi_core_var_logits = core_var_logits.begin();
-        p.pi_model_logits = model_logits.begin();
+        p.pi_march_ps = march_ps.begin();
+        p.pi_core_clause_ps = core_clause_ps.begin();
+        p.pi_core_var_ps = core_var_ps.begin();
+        p.pi_model_ps = model_ps.begin();
 
     }
     
@@ -1768,7 +1770,7 @@ namespace sat {
         sw.start();
         bool r = m_neuro_predictor(m_neuro_state, &m_neuro.p);
         sw.stop();
-        IF_VERBOSE(3, verbose_stream() << "neuro-call t1: " << t1 << " t2: " << sw.get_seconds() << "\n");        
+        IF_VERBOSE(3, verbose_stream() << "neuro-call t1: " << t1 << " t2: " << sw.get_seconds() << " " << r << "\n");        
         return r;
     }
 
@@ -1781,11 +1783,11 @@ namespace sat {
 
     bool solver::gc_neuro() {
         if (!call_neuro()) return false;
-        IF_VERBOSE(2, verbose_stream() << "neuro-gc\n");
+        IF_VERBOSE(0, verbose_stream() << "neuro-gc\n");
         unsigned idx = 0;
         for (clause* c : m_neuro.idx2clause) {
             if (c && c->is_learned()) {
-                c->set_neuro_weight(m_neuro.core_clause_logits[idx]);
+                c->set_neuro_weight(m_neuro.core_clause_ps[idx]);
             }
             ++idx;
         }
@@ -1921,7 +1923,7 @@ namespace sat {
         m_best_phase_size         = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
-        m_neuro_activity_lim      = 0;
+        m_neuro_activity_lim      = m_config.m_neuro_activity_base;
         m_neuro_activity_inc      = 0;
         m_conflicts_since_restart = 0;
         m_unique_max_since_restart = 0;
@@ -2300,46 +2302,28 @@ namespace sat {
     }
 
     bool solver::should_update_neuro_activity() {
-        return m_config.m_neuro_activity && m_neuro_activity_lim >= m_conflicts_since_init && call_neuro();
+        if (m_config.m_neuro_activity && m_conflicts_since_init >= m_neuro_activity_lim) {
+            m_neuro_activity_lim += m_neuro_activity_inc;
+            m_neuro_activity_inc += m_config.m_neuro_activity_base;
+            return call_neuro();
+        }
+        return false;
     }
 
     void solver::do_update_neuro_activity() {
-        if (m_config.m_neuro_activity && call_neuro()) {
-            IF_VERBOSE(2, verbose_stream() << "neuro-activity\n");
-            uint64_t sum = 0;
-            for (unsigned act : m_activity) {
-                sum += act;
-            }
-            if (sum >= (1ul << 24)) {
-                sum = 1ul << 24;
-            }
-            if (sum < (1ul << 10)) {
-                sum = 1ul << 10;
-            }
-            unsigned n_vars = m_activity.size();
-            double march_sum = 0;
-            double core_sum = 0;
-            for (bool_var v = 0; v < n_vars; ++v) {
-                march_sum += m_neuro.march_var_p(v, m_config.m_neuro_march_tau);
-                core_sum  += m_neuro.core_var_p(v, m_config.m_neuro_core_tau);
-            }
-            double core_w = m_config.m_neuro_core_weight;
-            double march_w = m_config.m_neuro_march_weight;
-            // use the sum of activities and percentile from neuro to compute new activity.
-            for (bool_var v = 0; v < n_vars; ++v) {
-                unsigned old_act = m_activity[v];
-                double march_p = m_neuro.march_var_p(v, m_config.m_neuro_march_tau);
-                double core_p = m_neuro.core_var_p(v, m_config.m_neuro_core_tau);
-                unsigned new_act = (unsigned)
-                    (sum *  (march_w*march_p/march_sum + core_w*core_p/core_sum) / (march_w + core_w));
-                if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
-                    m_case_split_queue.activity_changed_eh(v, new_act > old_act);
-                }
-                m_activity[v] = new_act;
+        IF_VERBOSE(2, verbose_stream() << "neuro-activity\n");
+        m_activity_inc = 128;             
+        unsigned n_vars = m_activity.size();
+        for (bool_var v = 0; v < n_vars; ++v) {
+            unsigned old_act = m_activity[v];
+            double core_p = m_neuro.core_var_p(v);
+            unsigned new_act = (unsigned) (m_neuro.n_vars() * m_config.m_neuro_activity_scale *  core_p);
+            m_activity[v] = new_act;
+            if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
+                IF_VERBOSE(0, verbose_stream() << v << " " << new_act << " " << old_act << "\n");
+                m_case_split_queue.activity_changed_eh(v, new_act > old_act);
             }
         }
-        m_neuro_activity_inc += m_config.m_neuro_activity_base;
-        m_neuro_activity_lim += m_neuro_activity_inc;
     }
 
     void solver::set_next_restart() {

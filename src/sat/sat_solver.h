@@ -403,10 +403,10 @@ namespace sat {
             unsigned        n_vars() { return nvar2var.size(); }       // number of variables
             unsigned_vector C_idxs;             // vector to hold set of clauses.
             unsigned_vector L_idxs;             // vector to hold set of clauses.
-            svector<float> core_clause_logits;  // vectors to hold neuropredictions
-            svector<float> core_var_logits;     // core membership prediction 
-            svector<float> march_logits;        // march cubing prediction
-            svector<float> model_logits;        // model value prediction
+            svector<float> core_clause_ps;      // vectors to hold neuropredictions
+            svector<float> core_var_ps;         // core membership prediction 
+            svector<float> march_ps;            // march cubing prediction
+            svector<float> model_ps;            // model value prediction
             ptr_vector<clause> idx2clause;      // map index of clause to clause pointer.
             unsigned_vector var2nvar;           // variable to Neuro var
             unsigned_vector nvar2var;           // Neuro var to var
@@ -418,9 +418,9 @@ namespace sat {
             void push_literal(literal lit);
             void push_clause(clause_vector& clauses);
 
-            double core_var_p(bool_var v, double tau) const { return exp(core_var_logits[var2nvar[v]] * tau); }
-            double march_var_p(bool_var v, double tau) const { return exp(march_logits[var2nvar[v]] * tau); }
-            bool   var_phase(bool_var v) const { return model_logits[var2nvar[v]] > 0; }
+            double core_var_p(bool_var v) const { return core_var_ps[var2nvar[v]]; }
+            double march_var_p(bool_var v) const { return march_ps[var2nvar[v]]; }
+            bool   var_phase(bool_var v) const { return model_ps[var2nvar[v]] > 0; }
             
             neuro_prediction p;
         };

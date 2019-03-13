@@ -2332,7 +2332,7 @@ namespace sat {
         double best_p = 0;
         unsigned nv = m_s.m_neuro.n_vars();
         for (unsigned v = 0; v < nv; ++v) {  
-            double p = m_s.m_neuro.march_logits[v];
+            double p = m_s.m_neuro.march_ps[v];
             if (best_v = null_bool_var || p > best_p) {
                 best_v = m_s.m_neuro.nvar2var[v];
                 best_p = p;

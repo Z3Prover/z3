@@ -27,13 +27,13 @@ struct neuro_prediction {
     unsigned n_vars;              // [in] number of variables
     unsigned n_clauses;           // [in] number of clauses
     unsigned n_cells;             // [in] number of cells
+    float    activity_itau;       // [in] itau
     unsigned* C_idxs;             // [in n_cells] clause indices
     unsigned* L_idxs;             // [in n_cells] literal indices
-    float* pi_march_logits;       // [out n_vars] cube prediction
-    float* pi_core_var_logits;    // [out n_vars] membership of core
-    float* pi_core_clause_logits; // [out n_clauses] membership of core
-    float* pi_model_logits;       // [out n_vars] variable valuation
-    float is_sat_logit;           // [out]
+    float* pi_march_ps;           // [out n_vars] cube prediction
+    float* pi_core_var_ps;        // [out n_vars] membership of core
+    float* pi_core_clause_ps;     // [out n_clauses] membership of core
+    float* pi_model_ps;           // [out n_vars] variable valuation
 };
 
 // callback returns true on success, false on failure.

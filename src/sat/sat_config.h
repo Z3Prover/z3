@@ -92,12 +92,10 @@ namespace sat {
         unsigned           m_search_sat_conflicts;
         unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
-        bool               m_neuro_activity;     // enable neuro activity recalibration
-        double             m_neuro_march_tau;    // temperature to align weights
-        double             m_neuro_march_weight; // weight to assign to march ordering
-        double             m_neuro_core_weight;  // weight to assign to core ordering
-        double             m_neuro_core_tau;     // temperature to align weights
-        bool               m_neuro_choose;       // use neuro-core for literal choice in lookahead solver
+        bool               m_neuro_activity;        // enable neuro activity recalibration
+        double             m_neuro_activity_scale;  // scale factor
+        double             m_neuro_activity_itau;   // temperature to align weights
+        bool               m_neuro_choose;         // use neuro-core for literal choice in lookahead solver
         unsigned           m_neuro_activity_base; 
         unsigned           m_rephase_base;
         bool               m_rephase_neuro;
