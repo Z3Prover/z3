@@ -955,6 +955,7 @@ public:
     }
 
     void push_scope_eh() {
+        TRACE("arith", tout << "push\n";);
         m_scopes.push_back(scope());
         scope& s = m_scopes.back();
         s.m_bounds_lim = m_bounds_trail.size();
@@ -969,6 +970,7 @@ public:
     }
 
     void pop_scope_eh(unsigned num_scopes) {
+        TRACE("arith", tout << "pop " << num_scopes << "\n";);
         if (num_scopes == 0) {
             return;
         }

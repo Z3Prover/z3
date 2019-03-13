@@ -863,6 +863,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
 
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
+    TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
     if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
         return solve_with_tableau();
 
@@ -882,6 +883,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         }
         one_iteration();
 
+        TRACE("lar_solver", tout << "one iteration: " << this->get_status() << "\n";);
         lp_assert(!this->m_using_infeas_costs || this->costs_on_nbasis_are_zeros());
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum
