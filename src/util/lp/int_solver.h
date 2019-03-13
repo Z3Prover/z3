@@ -55,7 +55,6 @@ public:
     explanation const& get_explanation() const { return m_ex; }
     bool is_upper() const { return m_upper; }
 
-    bool move_non_basic_column_to_bounds(unsigned j);
     bool is_base(unsigned j) const;
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
@@ -95,7 +94,6 @@ private:
     bool is_fixed(unsigned j) const;
     bool is_free(unsigned j) const;
     bool value_is_int(unsigned j) const;
-    void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void set_value_for_nbasic_column_ignore_old_values(unsigned j, const impq & new_val);
     bool non_basic_columns_are_at_bounds() const;
     bool is_feasible() const;
@@ -108,7 +106,6 @@ private:
     int get_kth_inf_int(unsigned) const;
     lp_settings& settings();
     const lp_settings& settings() const;
-    bool move_non_basic_columns_to_bounds();
     void branch_infeasible_int_var(unsigned);
     lia_move mk_gomory_cut(unsigned inf_col, const row_strip<mpq>& row);
     lia_move proceed_with_gomory_cut(unsigned j);

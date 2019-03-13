@@ -151,8 +151,9 @@ template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
     lp_assert (numeric_traits<T>::precise());
     if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
-        return column_is_benefitial_for_entering_on_breakpoints(j);
+        return column_is_benefitial_for_entering_on_breakpoints(j);    
     const T& dj = this->m_d[j];
+    TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
     case column_type::free_column:

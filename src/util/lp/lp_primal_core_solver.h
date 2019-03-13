@@ -869,7 +869,8 @@ public:
         for (unsigned j : this->m_basis)
             if(!basis_column_is_set_correctly(j))
                 return false;
-        return true;
+        
+        return this->m_basis_heading.size() == this->m_A.column_count() && this->m_basis.size() == this->m_A.row_count();
     }
 
     void init_run_tableau();
