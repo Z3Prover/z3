@@ -81,6 +81,9 @@ def unpack():
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
+def mk_targets():
+    shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/Microsoft.Z3.targets")
+    
 def create_nuget_spec():
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
@@ -164,6 +167,7 @@ def main():
     mk_dir("packages")
     download_installs()
     unpack()
+    mk_targets()
     create_nuget_spec()
     create_nuget_package()
     sign_nuget_package()
