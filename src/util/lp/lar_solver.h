@@ -359,7 +359,14 @@ public:
     void detect_rows_with_changed_bounds_for_column(unsigned j);
     
     void detect_rows_with_changed_bounds();
+    inline bool is_base(unsigned j) const {
+        return m_mpq_lar_core_solver.m_r_heading[j] >= 0;
+    }
 
+    bool move_non_basic_columns_to_bounds();
+
+    bool move_non_basic_column_to_bounds(unsigned j);
+    void set_value_for_nbasic_column(unsigned j, const impq & new_val);
     void update_x_and_inf_costs_for_columns_with_changed_bounds();
 
     void update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
