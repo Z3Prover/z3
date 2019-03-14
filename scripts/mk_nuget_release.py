@@ -42,7 +42,8 @@ def download_installs():
 os_info = {"z64-ubuntu-14" : ('so', 'ubuntu.14.04-x64'),
            'ubuntu-16' : ('so', 'ubuntu-x64'),
            'x64-win' : ('dll', 'win-x64'),
-           'x86-win' : ('dll', 'win-x86'),
+# Skip x86 as I can't get dotnet build to produce AnyCPU TargetPlatform           
+#          'x86-win' : ('dll', 'win-x86'),
            'osx' : ('dylib', 'macos'),
            'debian' : ('so', 'debian.8-x64') }
 
@@ -82,13 +83,19 @@ def unpack():
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
 def mk_targets():
-    shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/Microsoft.Z3.targets")
+    mk_dir("out/build")
+    shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.targets")
+
+def mk_license():
+    mk_dir("out/license")
+    shutil.copy("../LICENSE.txt", "out/license/LICENSE.txt")
     
 def create_nuget_spec():
+    mk_license()
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
-        <id>Microsoft.Z3</id>
+        <id>Microsoft.Z3.x64</id>
         <version>%s</version>
         <authors>Microsoft</authors>
         <description>
@@ -108,7 +115,7 @@ Linux Dependencies:
     </metadata>
 </package>"""
 
-    with open("out/Microsoft.Z3.nuspec", 'w') as f:
+    with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
         f.write(contents % version_num)
         
 def create_nuget_package():
@@ -128,8 +135,8 @@ nuget_sign_input = """
     "SignRequestFiles": [
      {
       "CustomerCorrelationId": "42fc9577-af9e-4ac9-995d-1788d8721d17",
-      "SourceLocation": "Microsoft.Z3.%s.nupkg",
-      "DestinationLocation": "Microsoft.Z3.%s.nupkg"
+      "SourceLocation": "Microsoft.Z3.x64.%s.nupkg",
+      "DestinationLocation": "Microsoft.Z3.x64.%s.nupkg"
      }
     ],
     "SigningInfo": {
@@ -155,7 +162,7 @@ nuget_sign_input = """
 }"""
 
 def sign_nuget_package():
-    package_name = "Microsoft.Z3.%s.nupkg" % version_num
+    package_name = "Microsoft.Z3.x64.%s.nupkg" % version_num
     input_file = "out/nuget_sign_input.json"
     output_path = os.path.abspath("out").replace("\\","\\\\") 
     with open(input_file, 'w') as f:
