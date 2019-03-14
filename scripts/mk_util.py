@@ -1889,20 +1889,12 @@ class DotNetCoreDLLComponent(Component):
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
             key += "\n<SignAssembly>true</SignAssembly>"
 
-        if VS_X64:
-            platform = 'x64'
-        elif VS_ARM:
-            platform = 'ARM'
-        else:
-            platform = 'x86'
-
         version = get_version_string(3)
 
         core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
-    <PlatformTarget>%s</PlatformTarget>    
     <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
     <DebugType>portable</DebugType>
     <AssemblyName>Microsoft.Z3</AssemblyName>
@@ -1923,7 +1915,7 @@ class DotNetCoreDLLComponent(Component):
     <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
   </ItemGroup>
 
-</Project>""" % (platform, version, key, self.to_src_dir)
+</Project>""" % (version, key, self.to_src_dir)
 
         mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
         csproj = os.path.join('dotnet', 'z3.csproj')
