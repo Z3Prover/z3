@@ -91,7 +91,7 @@ std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostr
 std::ostream& lar_solver::print_values(std::ostream& out) const {
     for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
         const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
-        out << this->get_column_name(i) << " -> " << rp << "\n";
+        out << this->get_variable_name(i) << " -> " << rp << "\n";
     }
     return out;
 }
@@ -1264,7 +1264,7 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
                 delta /= mpq(2);
                 break;
             }
-            TRACE("get_model", tout << get_column_name(i) << " := " << x << "\n";);
+            TRACE("get_model", tout << this->get_variable_name(j) << " := " << x << "\n";);
             if (!column_corresponds_to_term(j))
                 variable_values[j] = x;
         }
