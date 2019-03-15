@@ -88,6 +88,9 @@ namespace sat {
         m_neuro_activity_itau   = p.neuro_activity_itau();
         m_neuro_activity_scale  = p.neuro_activity_scale();
         m_neuro_choose          = p.neuro_choose();
+        m_neuro_max_size_overhead = p.neuro_max_size_overhead();
+        m_neuro_learned_size_overhead = p.neuro_learned_size_overhead();
+        m_neuro_max_learned_clause_size = p.neuro_max_learned_clause_size();
         
         m_burst_search    = p.burst_search();
         

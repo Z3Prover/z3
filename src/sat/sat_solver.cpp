@@ -1622,13 +1622,21 @@ namespace sat {
         }
     }    
 
-    void solver::neuro::init(solver& s) {
+    void solver::neuro::reset(solver& s) {
         C_idxs.reset();
         L_idxs.reset();
         idx2clause.reset();
         var2nvar.reset();
         nvar2var.reset();
         var2nvar.fill(s.num_vars(), null_bool_var);
+        m_max_learned_clause_size = s.m_config.m_neuro_max_learned_clause_size;
+        m_max_size_overhead = s.m_config.m_neuro_max_size_overhead;
+        m_learned_clause_size_overhead = s.m_config.m_neuro_learned_size_overhead;
+        m_num_non_learned_idxs = 0;
+    }
+
+    void solver::neuro::init(solver& s) {
+        reset(s);
 
         // initialize variables
         unsigned idx = 0;
@@ -1660,8 +1668,9 @@ namespace sat {
             }
             ++idx;
         }
-        push_clause(s.m_clauses);
-        push_clause(s.m_learned);
+        push_clauses(false, s.m_clauses);
+        m_num_non_learned_idxs = C_idxs.size();        
+        push_clauses(true, s.m_learned);
 
         core_clause_ps.resize(n_clauses());
         core_var_ps.resize(n_vars());
@@ -1682,14 +1691,9 @@ namespace sat {
     }
 
     void solver::neuro::init(lookahead& lh, solver& s) {
-        C_idxs.reset();
-        L_idxs.reset();
-        idx2clause.reset();
-        var2nvar.reset();
-        nvar2var.reset();
+        reset(s);
         unsigned nv = s.num_vars();
         unsigned num_lits = 2*nv;
-        var2nvar.fill(nv, null_bool_var);
 
         literal_vector clauses;
         lh.get_clauses(clauses);
@@ -1748,8 +1752,14 @@ namespace sat {
         L_idxs.push_back(v + (lit.sign() ? n_vars() : 0));
     }
 
-    void solver::neuro::push_clause(clause_vector& clauses) {
+    void solver::neuro::push_clauses(bool learned, clause_vector& clauses) {
         for (clause* cp : clauses) {
+            if (nodes_plus_cells() > m_max_size_overhead)
+                return;
+            if (learned && cp->size() > m_max_learned_clause_size) 
+                continue;
+            if (learned && nodes_plus_cells() > m_learned_clause_size_overhead * m_num_non_learned_idxs)
+                return;
             for (literal lit : *cp) {
                 push_literal(lit);
             }

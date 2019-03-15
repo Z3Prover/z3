@@ -399,8 +399,9 @@ namespace sat {
         bool check_inconsistent();
 
         struct neuro {
-            unsigned        n_clauses() { return idx2clause.size(); }; // number of clauses
-            unsigned        n_vars() { return nvar2var.size(); }       // number of variables
+            unsigned        n_clauses() const { return idx2clause.size(); }; // number of clauses
+            unsigned        n_vars() const { return nvar2var.size(); }       // number of variables
+            unsigned        nodes_plus_cells() const { return 2 * n_vars() + n_clauses() + C_idxs.size(); }
             unsigned_vector C_idxs;             // vector to hold set of clauses.
             unsigned_vector L_idxs;             // vector to hold set of clauses.
             svector<float> core_clause_ps;      // vectors to hold neuropredictions
@@ -410,13 +411,17 @@ namespace sat {
             ptr_vector<clause> idx2clause;      // map index of clause to clause pointer.
             unsigned_vector var2nvar;           // variable to Neuro var
             unsigned_vector nvar2var;           // Neuro var to var
+            unsigned m_max_size_overhead;            // maximal size overhead of for cells/nodes
+            double   m_learned_clause_size_overhead; // relative overhead of learned clause overhead to overhead of irredundant clauses
+            unsigned m_max_learned_clause_size;         // configuration parameter for maximal clause size
+            unsigned m_num_non_learned_idxs;        // non-learned indices
             void init(solver& s);
+            void reset(solver& s);
             void init(lookahead& lh, solver& s);
             void init_var(bool_var v);
             void init_var(clause_vector& clauses);
-            void push_clause(clause* c);
             void push_literal(literal lit);
-            void push_clause(clause_vector& clauses);
+            void push_clauses(bool learned, clause_vector& clauses);
 
             bool has_nvar(bool_var v) const { return var2nvar[v] != null_bool_var;  }
             double core_var_p(bool_var v) const { return has_nvar(v) ? core_var_ps[var2nvar[v]] : 0; }

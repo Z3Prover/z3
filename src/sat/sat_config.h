@@ -97,6 +97,9 @@ namespace sat {
         double             m_neuro_activity_itau;   // temperature to align weights
         bool               m_neuro_choose;         // use neuro-core for literal choice in lookahead solver
         unsigned           m_neuro_activity_base; 
+        unsigned           m_neuro_max_size_overhead;
+        double             m_neuro_learned_size_overhead;
+        unsigned           m_neuro_max_learned_clause_size;
         unsigned           m_rephase_base;
         bool               m_rephase_neuro;
         bool               m_propagate_prefetch;
