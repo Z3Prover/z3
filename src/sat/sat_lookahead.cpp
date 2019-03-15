@@ -2237,6 +2237,29 @@ namespace sat {
         return l_undef;
     }
 
+
+    void lookahead::display_lookahead_scores(std::ostream& out) {
+        scoped_ext _scoped_ext(*this);
+        m_select_lookahead_vars.reset();
+        init_search();
+        scoped_level _sl(*this, c_fixed_truth);
+        m_search_mode = lookahead_mode::searching;
+        literal l = choose_base();        
+        if (l == null_literal) {
+            out << "null\n";
+            return;
+        }
+        for (auto const& l : m_lookahead) {
+            literal lit = l.m_lit;
+            if (!lit.sign() && is_undef(lit)) {
+                double diff1 = get_lookahead_reward(lit);
+                double diff2 = get_lookahead_reward(~lit);
+                out << lit << " " << diff1 << " " << diff2 << "\n";
+            }       
+        }
+    }
+
+
     void lookahead::init_model() {
         m_model.reset();
         for (unsigned i = 0; i < m_num_vars; ++i) {

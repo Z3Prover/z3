@@ -1114,6 +1114,11 @@ namespace sat {
         return r;
     }
 
+    void solver::display_lookahead_scores(std::ostream& out) {
+        lookahead lh(*this);
+        lh.display_lookahead_scores(out);
+    }
+
     lbool solver::cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level) {
         bool is_first = !m_cuber;
         if (is_first) {

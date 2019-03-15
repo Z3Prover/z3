@@ -462,6 +462,8 @@ namespace sat {
         void set_activity(bool_var v, unsigned act);
 
         lbool  cube(bool_var_vector& vars, literal_vector& lits, unsigned backtrack_level);
+        
+        void display_lookahead_scores(std::ostream& out);
 
     protected:
 
