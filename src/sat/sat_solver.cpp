@@ -1630,7 +1630,7 @@ namespace sat {
         nvar2var.reset();
         var2nvar.fill(s.num_vars(), null_bool_var);
         m_max_learned_clause_size = s.m_config.m_neuro_max_learned_clause_size;
-        m_max_size_overhead = s.m_config.m_neuro_max_size_overhead;
+        m_max_size = s.m_config.m_neuro_max_size;
         m_learned_clause_size_overhead = s.m_config.m_neuro_learned_size_overhead;
         m_num_non_learned_idxs = 0;
     }
@@ -1761,7 +1761,7 @@ namespace sat {
 
     void solver::neuro::push_clauses(bool learned, clause_vector& clauses) {
         for (clause* cp : clauses) {
-            if (nodes_plus_cells() > m_max_size_overhead)
+            if (nodes_plus_cells() > m_max_size)
                 return;
             if (learned && cp->size() > m_max_learned_clause_size) 
                 continue;

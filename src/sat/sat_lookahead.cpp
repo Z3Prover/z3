@@ -2368,6 +2368,7 @@ namespace sat {
     }
 
     bool lookahead::should_neuro_choose() {
+        IF_VERBOSE(1, verbose_stream() << "neuro: " << m_s.m_config.m_neuro_choose << " " << m_s.m_neuro_predictor << "\n");
         if (!m_s.m_config.m_neuro_choose) {
             return false;
         }
@@ -2379,7 +2380,7 @@ namespace sat {
         sw.start();
         bool r = m_s.m_neuro_predictor(m_s.m_neuro_state, &m_s.m_neuro.p);
         sw.stop();
-        IF_VERBOSE(2, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
+        IF_VERBOSE(1, verbose_stream() << "neuro-call time: " << sw.get_seconds() << "\n");
         return r;
     }
 

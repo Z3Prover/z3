@@ -411,7 +411,7 @@ namespace sat {
             ptr_vector<clause> idx2clause;      // map index of clause to clause pointer.
             unsigned_vector var2nvar;           // variable to Neuro var
             unsigned_vector nvar2var;           // Neuro var to var
-            unsigned m_max_size_overhead;            // maximal size overhead of for cells/nodes
+            unsigned m_max_size;                // maximal size overhead of for cells/nodes
             double   m_learned_clause_size_overhead; // relative overhead of learned clause overhead to overhead of irredundant clauses
             unsigned m_max_learned_clause_size;         // configuration parameter for maximal clause size
             unsigned m_num_non_learned_idxs;        // non-learned indices
