@@ -1635,6 +1635,12 @@ namespace sat {
         m_num_non_learned_idxs = 0;
     }
 
+    struct clause_size_lt {
+        bool operator()(clause const * c1, clause const * c2) const {
+            return c1->size() < c2->size();
+        }
+    };
+
     void solver::neuro::init(solver& s) {
         reset(s);
 
@@ -1669,7 +1675,8 @@ namespace sat {
             ++idx;
         }
         push_clauses(false, s.m_clauses);
-        m_num_non_learned_idxs = C_idxs.size();        
+        m_num_non_learned_idxs = C_idxs.size();   
+        std::stable_sort(s.m_learned.begin(), s.m_learned.end(), clause_size_lt());
         push_clauses(true, s.m_learned);
 
         core_clause_ps.resize(n_clauses());
