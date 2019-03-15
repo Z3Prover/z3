@@ -418,9 +418,10 @@ namespace sat {
             void push_literal(literal lit);
             void push_clause(clause_vector& clauses);
 
-            double core_var_p(bool_var v) const { return core_var_ps[var2nvar[v]]; }
-            double march_var_p(bool_var v) const { return march_ps[var2nvar[v]]; }
-            bool   var_phase(bool_var v) const { return model_ps[var2nvar[v]] > 0; }
+            bool has_nvar(bool_var v) const { return var2nvar[v] != null_bool_var;  }
+            double core_var_p(bool_var v) const { return has_nvar(v) ? core_var_ps[var2nvar[v]] : 0; }
+            double march_var_p(bool_var v) const { return has_nvar(v) ? march_ps[var2nvar[v]] : 0; }
+            bool   var_phase(bool_var v) const { return has_nvar(v) ? model_ps[var2nvar[v]] > 0 : false; }
             
             neuro_prediction p;
         };

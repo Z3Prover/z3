@@ -1737,6 +1737,7 @@ namespace sat {
     }
 
     void solver::neuro::push_literal(literal lit) {
+        SASSERT(has_nvar(lit.var()));
         bool_var v = var2nvar[lit.var()];
         C_idxs.push_back(n_clauses());
         L_idxs.push_back(v + (lit.sign() ? n_vars() : 0));
@@ -2311,7 +2312,7 @@ namespace sat {
     }
 
     void solver::do_update_neuro_activity() {
-        IF_VERBOSE(2, verbose_stream() << "neuro-activity\n");
+        IF_VERBOSE(2, verbose_stream() << "neuro-activity " << m_neuro_activity_inc << "\n");
         m_activity_inc = 128;             
         unsigned n_vars = m_activity.size();
         unsigned n_zeros = 0;
