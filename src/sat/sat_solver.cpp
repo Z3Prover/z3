@@ -1666,7 +1666,7 @@ namespace sat {
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
         p.n_clauses = n_clauses();   
-        p.activity_itau = s.m_config.m_neuro_activity_itau;
+        p.activity_itau = (float)s.m_config.m_neuro_activity_itau;
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_ps = march_ps.begin();
@@ -2314,16 +2314,18 @@ namespace sat {
         IF_VERBOSE(2, verbose_stream() << "neuro-activity\n");
         m_activity_inc = 128;             
         unsigned n_vars = m_activity.size();
+        unsigned n_zeros = 0;
         for (bool_var v = 0; v < n_vars; ++v) {
             unsigned old_act = m_activity[v];
             double core_p = m_neuro.core_var_p(v);
             unsigned new_act = (unsigned) (m_neuro.n_vars() * m_config.m_neuro_activity_scale *  core_p);
             m_activity[v] = new_act;
+            if (new_act == 0) n_zeros++;
             if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
-                IF_VERBOSE(0, verbose_stream() << v << " " << new_act << " " << old_act << "\n");
                 m_case_split_queue.activity_changed_eh(v, new_act > old_act);
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "zeros: " << n_zeros << " vars: " << n_vars << "\n");
     }
 
     void solver::set_next_restart() {
