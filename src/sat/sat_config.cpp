@@ -87,6 +87,7 @@ namespace sat {
         m_neuro_activity        = p.neuro_activity();
         m_neuro_activity_itau   = p.neuro_activity_itau();
         m_neuro_activity_scale  = p.neuro_activity_scale();
+        IF_VERBOSE(1, verbose_stream() << "neuro choose:" << p.neuro_choose() << "\n");
         m_neuro_choose          = p.neuro_choose();
         m_neuro_max_size        = p.neuro_max_size();
         m_neuro_learned_size_overhead = p.neuro_learned_size_overhead();

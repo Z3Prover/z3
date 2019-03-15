@@ -1726,8 +1726,8 @@ namespace sat {
 
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
-        p.n_clauses = n_clauses();   
-        // std::cout << "cells: " << p.n_cells << " vars: " << p.n_vars << " clauses " << p.n_clauses << "\n";
+        p.n_clauses = n_clauses();  
+        p.activity_itau = (float)s.m_config.m_neuro_activity_itau; 
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_ps = march_ps.begin();
@@ -1806,7 +1806,7 @@ namespace sat {
 
     bool solver::gc_neuro() {
         if (!call_neuro()) return false;
-        IF_VERBOSE(0, verbose_stream() << "neuro-gc\n");
+        IF_VERBOSE(2, verbose_stream() << "neuro-gc\n");
         unsigned idx = 0;
         for (clause* c : m_neuro.idx2clause) {
             if (c && c->is_learned()) {
@@ -2095,10 +2095,10 @@ namespace sat {
         TRACE("sat_mc_bug", m_mc.display(tout););
 
 #if 0
-        IF_VERBOSE(0, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
+        IF_VERBOSE(2, for (bool_var v = 0; v < num; v++) verbose_stream() << v << ": " << m_model[v] << "\n";);
         for (auto p : big::s_del_bin) {
             if (value(p.first) != l_true && value(p.second) != l_true) {
-                IF_VERBOSE(0, verbose_stream() << "binary violation: " << p.first << " " << p.second << "\n");
+                IF_VERBOSE(2, verbose_stream() << "binary violation: " << p.first << " " << p.second << "\n");
             }
         }
 #endif
@@ -2349,7 +2349,6 @@ namespace sat {
                 m_case_split_queue.activity_changed_eh(v, new_act > old_act);
             }
         }
-        IF_VERBOSE(0, verbose_stream() << "zeros: " << n_zeros << " vars: " << n_vars << "\n");
     }
 
     void solver::set_next_restart() {
