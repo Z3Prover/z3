@@ -36,7 +36,7 @@ def mk_dir(d):
         os.makedirs(d)
 
 def download_installs():
-    for asset in latest_release_data['assets']:
+    for asset in release_data['assets']:
         url = asset['browser_download_url']
         name = asset['name']
         print("Downloading ", url)
