@@ -218,6 +218,9 @@ lbool solve_parallel(sat::solver& s) {
     return r;
 }
 
+void dump_lookahead(sat::solver& s) {
+}
+
 unsigned read_dimacs(char const * file_name) {
     g_start_time = clock();
     register_on_timeout_proc(on_timeout);
@@ -245,6 +248,11 @@ unsigned read_dimacs(char const * file_name) {
         parse_dimacs(std::cin, std::cerr, solver);
     }
     IF_VERBOSE(20, solver.display_status(verbose_stream()););
+
+    if (sp.lookahead_scores()) {
+        solver.display_lookahead_scores(std::cout);
+        return 0;
+    }
     
     lbool r;
     vector<sat::literal_vector> tracking_clauses;

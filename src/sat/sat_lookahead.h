@@ -609,6 +609,13 @@ namespace sat {
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_summary(std::ostream& out) const;
+
+        /**
+           \brief display lookahead scores as a sequence of:
+           <variable_id:uint> <true_branch_score:double> <false_branch_score:double>\n
+        */
+        void display_lookahead_scores(std::ostream& out);
+
         model const& get_model();
 
         void collect_statistics(statistics& st) const;
