@@ -2336,12 +2336,13 @@ namespace sat {
     void solver::do_update_neuro_activity() {
         IF_VERBOSE(2, verbose_stream() << "neuro-activity " << m_neuro_activity_inc << "\n");
         m_activity_inc = 128;             
-        unsigned n_vars = m_activity.size();
+        unsigned n_vars = m_neuro.n_vars();
         unsigned n_zeros = 0;
-        for (bool_var v = 0; v < n_vars; ++v) {
+        for (unsigned nv = 0; nv < n_vars; ++nv) {
+            bool_var v = m_neuro.nvar2var[nv];
             unsigned old_act = m_activity[v];
             double core_p = m_neuro.core_var_p(v);
-            unsigned new_act = (unsigned) (m_neuro.n_vars() * m_config.m_neuro_activity_scale *  core_p);
+            unsigned new_act = (unsigned) (n_vars * m_config.m_neuro_activity_scale *  core_p);
             m_activity[v] = new_act;
             if (new_act == 0) n_zeros++;
             if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
