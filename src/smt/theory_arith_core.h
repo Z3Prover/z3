@@ -3004,7 +3004,7 @@ namespace smt {
                 js = alloc(theory_lemma_justification, get_id(), ctx, lits.size(), lits.c_ptr(),
                            ante.num_params(), ante.params("assign-bounds"));
             }
-            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
+            ctx.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
             region & r = ctx.get_region();

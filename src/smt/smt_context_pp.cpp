@@ -146,9 +146,7 @@ namespace smt {
 
     void context::display_clause_detail(std::ostream & out, clause const * cls) const {
         out << "lemma: " << cls->is_lemma() << "\n";
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             display_literal(out, l);
             out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l)
                 << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n"

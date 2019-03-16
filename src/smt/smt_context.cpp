@@ -2489,11 +2489,11 @@ namespace smt {
        \remark This method should only be invoked if we are at the
        base level.
     */
-    bool context::simplify_clause(clause * cls) {
+    bool context::simplify_clause(clause& cls) {
         SASSERT(m_scope_lvl == m_base_lvl);
-        unsigned s = cls->get_num_literals();
-        if (get_assignment(cls->get_literal(0)) == l_true ||
-            get_assignment(cls->get_literal(1)) == l_true) {
+        unsigned s = cls.get_num_literals();
+        if (get_assignment(cls[0]) == l_true ||
+            get_assignment(cls[1]) == l_true) {
             // clause is already satisfied.
             return true;
         }
@@ -2503,18 +2503,17 @@ namespace smt {
         unsigned i = 2;
         unsigned j = i;
         for(; i < s; i++) {
-            literal l = cls->get_literal(i);
+            literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
                 if (m_manager.proofs_enabled())
                     simp_lits.push_back(~l);
                 if (lit_occs_enabled())
-                    m_lit_occs[l.index()].erase(cls);
+                    m_lit_occs[l.index()].erase(&cls);
                 break;
             case l_undef:
                 if (i != j) {
-                    cls->set_literal(i, cls->get_literal(j));
-                    cls->set_literal(j, l);
+                    cls.swap_lits(i, j);
                 }
                 j++;
                 break;
@@ -2524,19 +2523,14 @@ namespace smt {
         }
 
         if (j < s) {
-            cls->set_num_literals(j);
+            m_clause_proof.shrink(cls, j);
+            cls.set_num_literals(j);
             SASSERT(j >= 2);
-            if (m_fparams.m_clause_proof) {
-                m_clause_proof.add_lemma(*cls); 
-                cls->set_num_literals(s);
-                m_clause_proof.del(*cls);             
-                cls->set_num_literals(j);            
-            }
         }
 
         if (m_manager.proofs_enabled() && !simp_lits.empty()) {
             SASSERT(m_scope_lvl == m_base_lvl);
-            justification * js = cls->get_justification();
+            justification * js = cls.get_justification();
             justification * new_js = nullptr;
             if (js->in_region())
                 new_js = mk_justification(unit_resolution_justification(m_region,
@@ -2545,7 +2539,7 @@ namespace smt {
                                                                         simp_lits.c_ptr()));
             else
                 new_js = alloc(unit_resolution_justification, js, simp_lits.size(), simp_lits.c_ptr());
-            cls->set_justification(new_js);
+            cls.set_justification(new_js);
         }
         return false;
     }
@@ -2564,9 +2558,9 @@ namespace smt {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
             TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
-            if (simplify_clause(cls)) {
+            if (simplify_clause(*cls)) {
                 for (unsigned idx = 0; idx < 2; idx++) {
-                    literal     l0        = cls->get_literal(idx);
+                    literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
                     if (l0_js != null_b_justification &&
                         l0_js.get_kind() == b_justification::CLAUSE &&
@@ -2581,7 +2575,7 @@ namespace smt {
                             unsigned num_lits = cls->get_num_literals();
                             for(unsigned i = 0; i < num_lits; i++) {
                                 if (i != idx) {
-                                    literal l = cls->get_literal(i);
+                                    literal l = (*cls)[i];
                                     SASSERT(l != l0);
                                     simp_lits.push_back(~l);
                                 }
@@ -2803,9 +2797,7 @@ namespace smt {
     */
     bool context::more_than_k_unassigned_literals(clause * cls, unsigned k) {
         SASSERT(k > 0);
-        unsigned num_lits = cls->get_num_literals();
-        for(unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             if (get_assignment(l) == l_undef) {
                 k--;
                 if (k == 0) {

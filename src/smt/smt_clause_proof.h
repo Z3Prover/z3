@@ -7,7 +7,15 @@ Module Name:
 
 Abstract:
 
-    <abstract>
+    This module tracks clausal proof objects as a trail of added and removed assumptions (input clauses)
+    theory lemmas and axioms, and lemmas produced from conflict resolution (possibly using theory propagation).
+   
+    Clausal proofs may serve a set of purposes:
+    - detailed diagnostics of general properties of the search.
+    - an interface to proof checking 
+    - an interface to replay in trusted bases
+    - an interface to proof pruning methods
+    - an interface to clausal interpolation methods.
 
 Author:
 
@@ -29,7 +37,9 @@ namespace smt {
     class clause_proof {
         enum status {
             lemma,
-            hypothesis,
+            assumption,
+            th_lemma,
+            th_assumption,
             deleted
         };
 
@@ -44,12 +54,13 @@ namespace smt {
         vector<info> m_trail;
         void update(clause& c, status st, proof* p);
         status kind2st(clause_kind k);
+        proof* justification2proof(justification* j);
     public:
         clause_proof(context& ctx);
+        void shrink(clause& c, unsigned new_size);
         void add(literal lit, clause_kind k, justification* j);
         void add(literal lit1, literal lit2, clause_kind k, justification* j);
         void add(clause& c);
-        void add_lemma(clause& c);
         void del(clause& c);
         proof_ref get_proof();
     };

@@ -2239,7 +2239,7 @@ public:
                 js = alloc(theory_lemma_justification, get_id(), ctx(), m_core2.size(), m_core2.c_ptr(),
                            m_params.size(), m_params.c_ptr());
             }
-            ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_AUX_LEMMA, nullptr);
+            ctx().mk_clause(m_core2.size(), m_core2.c_ptr(), js, CLS_TH_LEMMA, nullptr);
         }
         else {
             ctx().assign(

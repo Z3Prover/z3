@@ -5,10 +5,6 @@ Module Name:
 
     smt_clause_proof.cpp
 
-Abstract:
-
-    <abstract>
-
 Author:
 
     Nikolaj Bjorner (nbjorner) 2019-03-15
@@ -26,27 +22,42 @@ namespace smt {
     clause_proof::status clause_proof::kind2st(clause_kind k) {
         switch (k) {
         case CLS_AUX: 
-            return status::hypothesis;
+            return status::assumption;
+        case CLS_TH_AXIOM:
+            return status::th_assumption;
         case CLS_LEARNED:
-        case CLS_AUX_LEMMA:
             return status::lemma;
+        case CLS_TH_LEMMA:
+            return status::th_lemma;
         default:
             UNREACHABLE();
             return status::lemma;
         }
     }
 
+    proof* clause_proof::justification2proof(justification* j) {
+        return (m.proofs_enabled() && j) ? j->mk_proof(ctx.get_cr()) : nullptr;
+    }
+
     void clause_proof::add(clause& c) {
         if (ctx.get_fparams().m_clause_proof) {  
             justification* j = c.get_justification();
-            proof* pr = nullptr; // j ? j->mk_proof(ctx.get_cr()) : nullptr;          
+            proof* pr = justification2proof(j);
             update(c, kind2st(c.get_kind()), pr);
         }
     }
 
-    void clause_proof::add_lemma(clause& c) {
+    void clause_proof::shrink(clause& c, unsigned new_size) {
         if (ctx.get_fparams().m_clause_proof) {            
-            update(c, status::lemma, nullptr);
+            expr_ref_vector lits(m);
+            for (unsigned i = 0; i < new_size; ++i) {
+                lits.push_back(ctx.literal2expr(c[i]));
+            }
+            m_trail.push_back(info(status::lemma, lits, nullptr));
+            for (unsigned i = new_size; i < c.get_num_literals(); ++i) {
+                lits.push_back(ctx.literal2expr(c[i]));
+            }
+            m_trail.push_back(info(status::deleted, lits, nullptr));
         }
     }
 
@@ -54,7 +65,7 @@ namespace smt {
         if (ctx.get_fparams().m_clause_proof) {
             expr_ref_vector lits(m);
             lits.push_back(ctx.literal2expr(lit));
-            proof* pr = nullptr; // j ? j->mk_proof(ctx.get_cr()) : nullptr; 
+            proof* pr = justification2proof(j);
             m_trail.push_back(info(kind2st(k), lits, pr));
         }
     }
@@ -64,7 +75,7 @@ namespace smt {
             expr_ref_vector lits(m);
             lits.push_back(ctx.literal2expr(lit1));
             lits.push_back(ctx.literal2expr(lit2));
-            proof* pr = nullptr; // j ? j->mk_proof(ctx.get_cr()) : nullptr;          
+            proof* pr = justification2proof(j);
             m_trail.push_back(info(kind2st(k), lits, pr));
         }
     }
@@ -93,11 +104,17 @@ namespace smt {
             expr_ref fact = mk_or(info.m_clause);
             proof* pr = info.m_proof;
             switch (info.m_status) {
-            case status::hypothesis:
+            case status::assumption:
                 ps.push_back(m.mk_assumption_add(pr, fact)); 
                 break;
             case status::lemma:
                 ps.push_back(m.mk_lemma_add(pr, fact)); 
+                break;
+            case status::th_assumption:
+                ps.push_back(m.mk_th_assumption_add(pr, fact)); 
+                break;
+            case status::th_lemma:
+                ps.push_back(m.mk_th_lemma_add(pr, fact)); 
                 break;
             case status::deleted:
                 ps.push_back(m.mk_redundant_del(fact));

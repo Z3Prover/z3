@@ -738,6 +738,8 @@ basic_decl_plugin::basic_decl_plugin():
     m_hyper_res_decl0(nullptr),
     m_assumption_add_decl(nullptr),
     m_lemma_add_decl(nullptr),
+    m_th_assumption_add_decl(nullptr),
+    m_th_lemma_add_decl(nullptr),
     m_redundant_del_decl(nullptr),
     m_clause_trail_decl(nullptr) {
 }
@@ -911,8 +913,10 @@ func_decl * basic_decl_plugin::mk_proof_decl(basic_op_kind k, unsigned num_paren
     case PR_HYPER_RESOLVE:                return mk_proof_decl("hyper-res", k, num_parents, m_hyper_res_decl0);
     case PR_ASSUMPTION_ADD:               return mk_proof_decl("assumption-add", k, num_parents, m_assumption_add_decl);
     case PR_LEMMA_ADD:                    return mk_proof_decl("lemma-add", k, num_parents, m_lemma_add_decl);
-    case PR_REDUNDANT_DEL:               return mk_proof_decl("redundant-del", k, num_parents, m_redundant_del_decl);
-    case PR_CLAUSE_TRAIL:               return mk_proof_decl("clause-trail", k, num_parents, m_clause_trail_decl);
+    case PR_TH_ASSUMPTION_ADD:            return mk_proof_decl("th-assumption-add", k, num_parents, m_th_assumption_add_decl);
+    case PR_TH_LEMMA_ADD:                 return mk_proof_decl("th-lemma-add", k, num_parents, m_th_lemma_add_decl);
+    case PR_REDUNDANT_DEL:                return mk_proof_decl("redundant-del", k, num_parents, m_redundant_del_decl);
+    case PR_CLAUSE_TRAIL:                 return mk_proof_decl("clause-trail", k, num_parents, m_clause_trail_decl);
     default:
         UNREACHABLE();
         return nullptr;
@@ -1030,6 +1034,8 @@ void basic_decl_plugin::finalize() {
     DEC_REF(m_mp_oeq_decl);
     DEC_REF(m_assumption_add_decl);
     DEC_REF(m_lemma_add_decl);
+    DEC_REF(m_th_assumption_add_decl);
+    DEC_REF(m_th_lemma_add_decl);
     DEC_REF(m_redundant_del_decl);
     DEC_REF(m_clause_trail_decl);
     DEC_ARRAY_REF(m_apply_def_decls);
@@ -3269,22 +3275,31 @@ proof * ast_manager::mk_not_or_elim(proof * p, unsigned i) {
     return mk_app(m_basic_family_id, PR_NOT_OR_ELIM, p, f);
 }
 
-proof * ast_manager::mk_assumption_add(proof* pr, expr* e) {
+proof* ast_manager::mk_clause_trail_elem(proof *pr, expr* e, decl_kind k) {
     ptr_buffer<expr> args;
     if (pr) args.push_back(pr);
     args.push_back(e);
-    return mk_app(m_basic_family_id, PR_ASSUMPTION_ADD, 0, nullptr, args.size(), args.c_ptr());
+    return mk_app(m_basic_family_id, k, 0, nullptr, args.size(), args.c_ptr());
+}
+
+proof * ast_manager::mk_assumption_add(proof* pr, expr* e) {
+    return mk_clause_trail_elem(pr, e, PR_ASSUMPTION_ADD);
 }
 
 proof * ast_manager::mk_lemma_add(proof* pr, expr* e) {
-    ptr_buffer<expr> args;
-    if (pr) args.push_back(pr);
-    args.push_back(e);
-    return mk_app(m_basic_family_id, PR_LEMMA_ADD, 0, nullptr, args.size(), args.c_ptr());
+    return mk_clause_trail_elem(pr, e, PR_LEMMA_ADD);
+}
+
+proof * ast_manager::mk_th_assumption_add(proof* pr, expr* e) {
+    return mk_clause_trail_elem(pr, e, PR_TH_ASSUMPTION_ADD);
+}
+
+proof * ast_manager::mk_th_lemma_add(proof* pr, expr* e) {
+    return mk_clause_trail_elem(pr, e, PR_TH_LEMMA_ADD);
 }
 
 proof * ast_manager::mk_redundant_del(expr* e) {
-    return mk_app(m_basic_family_id, PR_REDUNDANT_DEL, 0, nullptr, 1, &e);
+    return mk_clause_trail_elem(nullptr, e, PR_REDUNDANT_DEL);
 }
 
 proof * ast_manager::mk_clause_trail(unsigned n, proof* const* ps) {    

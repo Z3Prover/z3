@@ -1101,7 +1101,7 @@ enum basic_op_kind {
 
     PR_HYPOTHESIS, PR_LEMMA, PR_UNIT_RESOLUTION, PR_IFF_TRUE, PR_IFF_FALSE, PR_COMMUTATIVITY, PR_DEF_AXIOM,
 
-    PR_ASSUMPTION_ADD, PR_LEMMA_ADD, PR_REDUNDANT_DEL, PR_CLAUSE_TRAIL,
+    PR_ASSUMPTION_ADD, PR_TH_ASSUMPTION_ADD, PR_LEMMA_ADD, PR_TH_LEMMA_ADD, PR_REDUNDANT_DEL, PR_CLAUSE_TRAIL,
 
     PR_DEF_INTRO, PR_APPLY_DEF, PR_IFF_OEQ, PR_NNF_POS, PR_NNF_NEG, PR_SKOLEMIZE, 
     PR_MODUS_PONENS_OEQ, PR_TH_LEMMA, PR_HYPER_RESOLVE, LAST_BASIC_PR
@@ -1159,6 +1159,8 @@ protected:
     func_decl * m_mp_oeq_decl;
     func_decl * m_assumption_add_decl;
     func_decl * m_lemma_add_decl;
+    func_decl * m_th_assumption_add_decl;
+    func_decl * m_th_lemma_add_decl;
     func_decl * m_redundant_del_decl;
     func_decl * m_clause_trail_decl;
     ptr_vector<func_decl> m_apply_def_decls;
@@ -2288,8 +2290,11 @@ public:
     proof * mk_der(quantifier * q, expr * r);
     proof * mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* const* binding);
 
+    proof * mk_clause_trail_elem(proof* p, expr* e, decl_kind k);
     proof * mk_assumption_add(proof* pr, expr* e);
     proof * mk_lemma_add(proof* pr, expr* e);
+    proof * mk_th_assumption_add(proof* pr, expr* e);
+    proof * mk_th_lemma_add(proof* pr, expr* e);
     proof * mk_redundant_del(expr* e);
     proof * mk_clause_trail(unsigned n, proof* const* ps);
 

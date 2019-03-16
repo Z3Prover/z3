@@ -1106,7 +1106,7 @@ namespace smt {
             m_bvar_inc *= m_fparams.m_inv_decay;
         }
 
-        bool simplify_clause(clause * cls);
+        bool simplify_clause(clause& cls);
 
         unsigned simplify_clauses(clause_vector & clauses, unsigned starting_at);
 
@@ -1118,7 +1118,7 @@ namespace smt {
         bool is_justifying(clause * cls) const {
             for (unsigned i = 0; i < 2; i++) {
                 b_justification js;
-                js = get_justification(cls->get_literal(i).var());
+                js = get_justification((*cls)[i].var());
                 if (js.get_kind() == b_justification::CLAUSE && js.get_clause() == cls)
                     return true;
             }
