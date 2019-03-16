@@ -27,6 +27,7 @@ Revision History:
 #include "smt/smt_eq_justification.h"
 #include "smt/smt_justification.h"
 #include "smt/smt_bool_var_data.h"
+#include "smt/smt_clause_proof.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_quantifier.h"
 #include "smt/smt_quantifier_stat.h"
@@ -91,6 +92,7 @@ namespace smt {
         mutable unsigned            m_lemma_id;
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;
+        clause_proof                m_clause_proof;
 
         region                      m_region;
 
@@ -518,6 +520,12 @@ namespace smt {
                 result = m_manager.mk_not(bool_var2expr(l.var()));
             else
                 result = bool_var2expr(l.var());
+        }
+
+        expr_ref literal2expr(literal l) const {
+            expr_ref result(m_manager);
+            literal2expr(l, result);
+            return result;
         }
 
         bool is_true(enode const * n) const {

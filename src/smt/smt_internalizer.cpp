@@ -1355,6 +1355,7 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
+            m_clause_proof.add(lits[0], k);
             return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {
@@ -1366,6 +1367,7 @@ namespace smt {
                     assign(l1, b_justification(~l2));
 
                 m_stats.m_num_mk_bin_clause++;
+                m_clause_proof.add(l1, l2, k);
                 return nullptr;
             }
         default: {
@@ -1376,6 +1378,7 @@ namespace smt {
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
             clause * cls = clause::mk(m_manager, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.c_ptr());
+            m_clause_proof.add(*cls);
             if (lemma) {
                 cls->set_activity(activity);
                 if (k == CLS_LEARNED) {

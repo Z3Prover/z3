@@ -55,6 +55,7 @@ namespace smt {
         m_lemma_id(0),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
+        m_clause_proof(*this),
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
@@ -4088,6 +4089,9 @@ namespace smt {
             update_phase_cache_counter();
             return true;
         }
+        else if (m_fparams.m_clause_proof) {
+            m_unsat_proof = m_clause_proof.proof();
+        }
         else if (m_manager.proofs_enabled()) {
             m_unsat_proof = m_conflict_resolution->get_lemma_proof();
             check_proof(m_unsat_proof);
@@ -4412,8 +4416,9 @@ namespace smt {
     }
 
     proof * context::get_proof() {
-        if (!m_manager.proofs_enabled())
-            return nullptr;
+        if (!m_unsat_proof) {
+            m_unsat_proof = m_clause_proof.proof();
+        }
         return m_unsat_proof;
     }
 

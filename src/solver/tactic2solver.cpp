@@ -177,6 +177,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     expr_dependency_ref core(m);
     std::string         reason_unknown = "unknown";
     labels_vec labels;
+
     try {
         switch (::check_sat(*m_tactic, g, md, labels, pr, core, reason_unknown)) {
         case l_true: 
@@ -200,12 +201,14 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
+        m_result->m_proof = pr;
         throw ex;
     }
     catch (z3_exception & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);
         m_result->set_status(l_undef);
         m_result->m_unknown = ex.msg();
+        m_result->m_proof = pr;
     }
     m_tactic->collect_statistics(m_result->m_stats);
     m_tactic->collect_statistics(m_stats);

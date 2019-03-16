@@ -248,11 +248,11 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     expr_ref _f(f, m());
     proof_ref _pr(pr, m());
     expr_dependency_ref _d(d, m());
-    SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
-    if (proofs_enabled())
+    if (pr) {
         slow_process(f, pr, d);
+    }
     else {
         expr_ref fr(f, m());
         quick_process(false, fr, d);
