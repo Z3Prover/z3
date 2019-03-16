@@ -102,7 +102,7 @@ STATIC_BIN=False
 VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
-VER_REVISION=None
+VER_TWEAK=None
 PREFIX=sys.prefix
 GMP=False
 VS_PAR=False
@@ -553,22 +553,22 @@ def find_c_compiler():
     raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
-    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION, GIT_DESCRIBE
+    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
     VER_MAJOR = major
     VER_MINOR = minor
     VER_BUILD = build
-    VER_REVISION = revision
+    VER_TWEAK = revision
     if GIT_DESCRIBE:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
-        VER_REVISION = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
+        VER_TWEAK = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
 
 def get_version():
-    return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+    return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
 
 def get_version_string(n):
     if n == 3:
         return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
-    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_REVISION)
+    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_TWEAK)
 
 def build_static_lib():
     return STATIC_LIB
@@ -1783,7 +1783,7 @@ class DotNetDLLComponent(Component):
                             { 'VER_MAJOR': str(major),
                               'VER_MINOR': str(minor),
                               'VER_BUILD': str(build),
-                              'VER_REVISION': str(revision),
+                              'VER_TWEAK': str(revision),
                             }
                            )
         else:
@@ -2222,7 +2222,7 @@ class MLComponent(Component):
             else:
                 prefix_lib = '-L' + PREFIX + '/lib'
             substitutions = { 'LEXTRA': prefix_lib,
-                              'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION) }
+                              'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
 
             configure_file(os.path.join(self.src_dir, 'META.in'),
                            os.path.join(BUILD_DIR, self.sub_dir, 'META'),
@@ -3054,7 +3054,7 @@ def update_version():
     major = VER_MAJOR
     minor = VER_MINOR
     build = VER_BUILD
-    revision = VER_REVISION
+    revision = VER_TWEAK
     if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:
