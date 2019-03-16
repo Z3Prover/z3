@@ -58,7 +58,6 @@ namespace smt {
         unsigned m_has_atoms:1;           //!< true if the clause has memory space for storing atoms.
         unsigned m_has_del_eh:1;          //!< true if must notify event handler when deleted.
         unsigned m_has_justification:1;   //!< true if the clause has a justification attached to it.
-        unsigned m_deleted:1;             //!< true if the clause is marked for deletion by was not deleted yet because it is referenced by some data-structure (e.g., m_lemmas)
         literal  m_lits[0];
 
         static unsigned get_obj_size(unsigned num_lits, clause_kind k, bool has_atoms, bool has_del_eh, bool has_justification) {
@@ -133,7 +132,6 @@ namespace smt {
         }
 
         void set_num_literals(unsigned n) {
-            SASSERT(n <= m_num_literals);
             SASSERT(!m_reinit);
             m_num_literals = n;
         }
@@ -248,20 +246,7 @@ namespace smt {
         unsigned hash() const {
             return get_ptr_hash(this); 
         }
-        
-        void mark_as_deleted(ast_manager & m) {
-            SASSERT(!m_deleted);
-            m_deleted = true;
-            clause_del_eh * del_eh = get_del_eh();
-            if (del_eh) {
-                (*del_eh)(m, this);
-                *(const_cast<clause_del_eh **>(get_del_eh_addr())) = nullptr;
-            }
-        }
 
-        bool deleted() const { 
-            return m_deleted; 
-        }
     };
 
     typedef ptr_vector<clause> clause_vector;

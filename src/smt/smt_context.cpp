@@ -2020,8 +2020,7 @@ namespace smt {
     */
     void context::del_clause(clause * cls) {
         SASSERT(m_flushing || !cls->in_reinit_stack());
-        if (!cls->deleted())
-            remove_cls_occs(cls);
+        remove_cls_occs(cls);
         cls->deallocate(m_manager);
         m_stats.m_num_del_clause++;
     }
@@ -2041,13 +2040,6 @@ namespace smt {
         v.shrink(old_size);
     }
 
-#if 0
-    void context::mark_as_deleted(clause * cls) {
-        SASSERT(!cls->deleted());
-        remove_cls_occs(cls);
-        cls->mark_as_deleted(m_manager);
-    }
-#endif
 
     /**
        \brief Undo variable assignments.
@@ -2246,13 +2238,6 @@ namespace smt {
         for (unsigned i = m_scope_lvl+1; i <= lim; i++) {
             clause_vector & v = m_clauses_to_reinit[i];
             for (clause* cls : v) {
-                if (cls->deleted()) {
-                    cls->release_atoms(m_manager);
-                    cls->m_reinit              = false;
-                    cls->m_reinternalize_atoms = false;
-                    continue;
-                }
-
                 SASSERT(cls->in_reinit_stack());
                 bool keep = false;
                 if (cls->reinternalize_atoms()) {
@@ -2527,7 +2512,10 @@ namespace smt {
                     m_lit_occs[l.index()].erase(cls);
                 break;
             case l_undef:
-                cls->set_literal(j, l);
+                if (i != j) {
+                    cls->set_literal(i, cls->get_literal(j));
+                    cls->set_literal(j, l);
+                }
                 j++;
                 break;
             case l_true:
@@ -2538,6 +2526,12 @@ namespace smt {
         if (j < s) {
             cls->set_num_literals(j);
             SASSERT(j >= 2);
+            if (m_fparams.m_clause_proof) {
+                m_clause_proof.add_lemma(*cls); 
+                cls->set_num_literals(s);
+                m_clause_proof.del(*cls);             
+                cls->set_num_literals(j);            
+            }
         }
 
         if (m_manager.proofs_enabled() && !simp_lits.empty()) {
@@ -2570,11 +2564,7 @@ namespace smt {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
             TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
-            if (cls->deleted()) {
-                del_clause(cls);
-                num_del_clauses++;
-            }
-            else if (simplify_clause(cls)) {
+            if (simplify_clause(cls)) {
                 for (unsigned idx = 0; idx < 2; idx++) {
                     literal     l0        = cls->get_literal(idx);
                     b_justification l0_js = get_justification(l0.var());
@@ -2618,6 +2608,7 @@ namespace smt {
                             m_bdata[v0].set_axiom();
                     }
                 }
+                m_clause_proof.del(*cls);
                 del_clause(cls);
                 num_del_clauses++;
             }
@@ -2738,6 +2729,7 @@ namespace smt {
             if (can_delete(cls)) {
                 TRACE("del_inactive_lemmas", tout << "deleting: "; display_clause(tout, cls); tout << ", activity: " <<
                       cls->get_activity() << "\n";);
+                m_clause_proof.del(*cls);
                 del_clause(cls);
                 num_del_cls++;
             }
@@ -2748,15 +2740,7 @@ namespace smt {
         }
         // keep recent clauses
         for (; i < sz; i++) {
-            clause * cls = m_lemmas[i];
-            if (cls->deleted() && can_delete(cls)) {
-                del_clause(cls);
-                num_del_cls++;
-            }
-            else {
-                m_lemmas[j] = cls;
-                j++;
-            }
+            m_lemmas[j++] = m_lemmas[i];
         }
         m_lemmas.shrink(j);
         if (m_fparams.m_clause_decay > 1) {
@@ -2791,12 +2775,6 @@ namespace smt {
         for (; i < sz; i++) {
             clause * cls = m_lemmas[i];
             if (can_delete(cls)) {
-                if (cls->deleted()) {
-                    // clause is already marked for deletion
-                    del_clause(cls);
-                    num_del_cls++;
-                    continue;
-                }
                 // A clause is deleted if it has low activity and the number of unknowns is greater than a threshold.
                 // The activity threshold depends on how old the clause is.
                 unsigned act_threshold = m_fparams.m_old_clause_activity -
@@ -2804,6 +2782,7 @@ namespace smt {
                 if (cls->get_activity() < act_threshold) {
                     unsigned rel_threshold = (i >= new_first_idx ? m_fparams.m_new_clause_relevancy : m_fparams.m_old_clause_relevancy);
                     if (more_than_k_unassigned_literals(cls, rel_threshold)) {
+                        m_clause_proof.del(*cls);
                         del_clause(cls);
                         num_del_cls++;
                         continue;
@@ -3763,8 +3742,8 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
 
-            if (m_timer.ms_timeout(m_fparams.m_timeout)) {
-                m_last_search_failure = TIMEOUT;
+            if (get_cancel_flag()) {
+                m_last_search_failure = CANCELED;
                 return true;
             }
 
@@ -4090,7 +4069,7 @@ namespace smt {
             return true;
         }
         else if (m_fparams.m_clause_proof) {
-            m_unsat_proof = m_clause_proof.proof();
+            m_unsat_proof = m_clause_proof.get_proof();
         }
         else if (m_manager.proofs_enabled()) {
             m_unsat_proof = m_conflict_resolution->get_lemma_proof();
@@ -4397,7 +4376,7 @@ namespace smt {
               m_fingerprints.display(tout);
               );
         failure fl = get_last_search_failure();
-        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
+        if (fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
             TRACE("get_model", tout << "last search failure: " << fl << "\n";);
         }
         else if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
@@ -4417,7 +4396,7 @@ namespace smt {
 
     proof * context::get_proof() {
         if (!m_unsat_proof) {
-            m_unsat_proof = m_clause_proof.proof();
+            m_unsat_proof = m_clause_proof.get_proof();
         }
         return m_unsat_proof;
     }

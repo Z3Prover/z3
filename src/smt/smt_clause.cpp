@@ -41,7 +41,6 @@ namespace smt {
         cls->m_has_atoms           = save_atoms;
         cls->m_has_del_eh          = del_eh != nullptr;
         cls->m_has_justification   = js != nullptr;
-        cls->m_deleted             = false;
         SASSERT(!m.proofs_enabled() || js != 0);
         memcpy(cls->m_lits, lits, sizeof(literal) * num_lits);
         if (cls->is_lemma())

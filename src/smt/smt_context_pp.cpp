@@ -31,8 +31,6 @@ namespace smt {
             return out << "OK";
         case UNKNOWN:
             return out << "UNKNOWN";
-        case TIMEOUT:
-            return out << "TIMEOUT";
         case MEMOUT:
             return out << "MEMOUT";
         case CANCELED:
@@ -64,7 +62,6 @@ namespace smt {
         std::string r;
         switch(m_last_search_failure) {
         case OK: r = m_unknown; break;
-        case TIMEOUT: r = "timeout"; break;
         case MEMOUT: r = "memout"; break;
         case CANCELED: r = "canceled"; break;
         case NUM_CONFLICTS: r = "max-conflicts-reached"; break;

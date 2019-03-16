@@ -44,8 +44,7 @@ namespace smt {
 
     bool context::check_clauses(clause_vector const & v) const {
         for (clause* cls : v) 
-            if (!cls->deleted())
-                check_clause(cls);
+            check_clause(cls);
         return true;
     }
 

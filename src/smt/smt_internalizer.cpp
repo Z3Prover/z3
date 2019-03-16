@@ -1355,7 +1355,7 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
-            m_clause_proof.add(lits[0], k);
+            m_clause_proof.add(lits[0], k, j);
             return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {
@@ -1367,7 +1367,7 @@ namespace smt {
                     assign(l1, b_justification(~l2));
 
                 m_stats.m_num_mk_bin_clause++;
-                m_clause_proof.add(l1, l2, k);
+                m_clause_proof.add(l1, l2, k, j);
                 return nullptr;
             }
         default: {

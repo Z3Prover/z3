@@ -3269,12 +3269,18 @@ proof * ast_manager::mk_not_or_elim(proof * p, unsigned i) {
     return mk_app(m_basic_family_id, PR_NOT_OR_ELIM, p, f);
 }
 
-proof * ast_manager::mk_assumption_add(expr* e) {
-    return mk_app(m_basic_family_id, PR_ASSUMPTION_ADD, 0, nullptr, 1, &e);
+proof * ast_manager::mk_assumption_add(proof* pr, expr* e) {
+    ptr_buffer<expr> args;
+    if (pr) args.push_back(pr);
+    args.push_back(e);
+    return mk_app(m_basic_family_id, PR_ASSUMPTION_ADD, 0, nullptr, args.size(), args.c_ptr());
 }
 
-proof * ast_manager::mk_lemma_add(expr* e) {
-    return mk_app(m_basic_family_id, PR_LEMMA_ADD, 0, nullptr, 1, &e);
+proof * ast_manager::mk_lemma_add(proof* pr, expr* e) {
+    ptr_buffer<expr> args;
+    if (pr) args.push_back(pr);
+    args.push_back(e);
+    return mk_app(m_basic_family_id, PR_LEMMA_ADD, 0, nullptr, args.size(), args.c_ptr());
 }
 
 proof * ast_manager::mk_redundant_del(expr* e) {

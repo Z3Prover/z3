@@ -684,9 +684,6 @@ namespace smt {
 
         void remove_watch(bool_var v);
 
-        void mark_as_deleted(clause * cls);
-
-
         // -----------------------------------
         //
         // Internalization
@@ -1568,6 +1565,8 @@ namespace smt {
         failure get_last_search_failure() const;
 
         proof * get_proof();
+
+        conflict_resolution& get_cr() { return *m_conflict_resolution.get(); }
 
         void get_relevant_labels(expr* cnstr, buffer<symbol> & result);
 

@@ -2288,8 +2288,8 @@ public:
     proof * mk_der(quantifier * q, expr * r);
     proof * mk_quant_inst(expr * not_q_or_i, unsigned num_bind, expr* const* binding);
 
-    proof * mk_assumption_add(expr* e);
-    proof * mk_lemma_add(expr* e);
+    proof * mk_assumption_add(proof* pr, expr* e);
+    proof * mk_lemma_add(proof* pr, expr* e);
     proof * mk_redundant_del(expr* e);
     proof * mk_clause_trail(unsigned n, proof* const* ps);
 
