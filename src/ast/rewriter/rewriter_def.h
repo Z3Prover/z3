@@ -82,14 +82,14 @@ template<typename Config>
 template<bool ProofGen>
 bool rewriter_tpl<Config>::process_const(app * t0) {
     app_ref t(t0, m());
-    bool rounds = 0;
+    bool retried = false;
  retry:
     SASSERT(t->get_num_args() == 0);
     br_status st = m_cfg.reduce_app(t->get_decl(), 0, nullptr, m_r, m_pr);
     SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
     switch (st) {
     case BR_FAILED:
-        if (rounds == 0) {
+        if (!retried) {
             result_stack().push_back(t);
             if (ProofGen)
                 result_pr_stack().push_back(nullptr); // implicit reflexivity
@@ -112,7 +112,7 @@ bool rewriter_tpl<Config>::process_const(app * t0) {
     default: 
         if (is_app(m_r) && to_app(m_r)->get_num_args() == 0) {
             t = to_app(m_r);
-            rounds++;
+            retried = true;
             goto retry;
         }
         return false;
