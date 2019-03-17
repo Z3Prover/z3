@@ -1314,6 +1314,7 @@ namespace smt {
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
         TRACE("mk_clause", tout << "creating clause:\n"; display_literals_verbose(tout, num_lits, lits); tout << "\n";);
+        m_clause_proof.add(num_lits, lits, k, j);
         switch (k) {
         case CLS_AUX: 
         case CLS_TH_AXIOM: {
@@ -1358,7 +1359,6 @@ namespace smt {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             assign(lits[0], j);
-            m_clause_proof.add(lits[0], k, j);
             return nullptr;
         case 2:
             if (use_binary_clause_opt(lits[0], lits[1], lemma)) {

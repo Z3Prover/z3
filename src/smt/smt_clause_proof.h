@@ -51,6 +51,7 @@ namespace smt {
         };
         context&     ctx;
         ast_manager& m;
+        expr_ref_vector m_lits;
         vector<info> m_trail;
         void update(status st, expr_ref_vector& v, proof* p);
         void update(clause& c, status st, proof* p);
@@ -62,6 +63,7 @@ namespace smt {
         void add(literal lit, clause_kind k, justification* j);
         void add(literal lit1, literal lit2, clause_kind k, justification* j);
         void add(clause& c);
+        void add(unsigned n, literal const* lits, clause_kind k, justification* j);
         void del(clause& c);
         proof_ref get_proof();
     };

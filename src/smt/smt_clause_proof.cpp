@@ -17,7 +17,7 @@ Revision History:
 #include "ast/ast_pp.h"
 
 namespace smt {
-    clause_proof::clause_proof(context& ctx): ctx(ctx), m(ctx.get_manager()) {}
+    clause_proof::clause_proof(context& ctx): ctx(ctx), m(ctx.get_manager()), m_lits(m) {}
 
     clause_proof::status clause_proof::kind2st(clause_kind k) {
         switch (k) {
@@ -47,36 +47,49 @@ namespace smt {
         }
     }
 
+    void clause_proof::add(unsigned n, literal const* lits, clause_kind k, justification* j) {
+        if (ctx.get_fparams().m_clause_proof) {  
+            proof* pr = justification2proof(j);
+            m_lits.reset();
+            for (unsigned i = 0; i < n; ++i) {
+                literal lit = lits[i];
+                m_lits.push_back(ctx.literal2expr(lit));
+            }
+            update(kind2st(k), m_lits, pr);
+        }
+    }
+
+
     void clause_proof::shrink(clause& c, unsigned new_size) {
         if (ctx.get_fparams().m_clause_proof) {            
-            expr_ref_vector lits(m);
+            m_lits.reset();
             for (unsigned i = 0; i < new_size; ++i) {
-                lits.push_back(ctx.literal2expr(c[i]));
+                m_lits.push_back(ctx.literal2expr(c[i]));
             }
-            update(status::lemma, lits, nullptr);
+            update(status::lemma, m_lits, nullptr);
             for (unsigned i = new_size; i < c.get_num_literals(); ++i) {
-                lits.push_back(ctx.literal2expr(c[i]));
+                m_lits.push_back(ctx.literal2expr(c[i]));
             }
-            update(status::deleted, lits, nullptr);
+            update(status::deleted, m_lits, nullptr);
         }
     }
 
     void clause_proof::add(literal lit, clause_kind k, justification* j) {
         if (ctx.get_fparams().m_clause_proof) {
-            expr_ref_vector lits(m);
-            lits.push_back(ctx.literal2expr(lit));
+            m_lits.reset();
+            m_lits.push_back(ctx.literal2expr(lit));
             proof* pr = justification2proof(j);
-            update(kind2st(k), lits, pr);
+            update(kind2st(k), m_lits, pr);
         }
     }
 
     void clause_proof::add(literal lit1, literal lit2, clause_kind k, justification* j) {
         if (ctx.get_fparams().m_clause_proof) {
-            expr_ref_vector lits(m);
-            lits.push_back(ctx.literal2expr(lit1));
-            lits.push_back(ctx.literal2expr(lit2));
+            m_lits.reset();
+            m_lits.push_back(ctx.literal2expr(lit1));
+            m_lits.push_back(ctx.literal2expr(lit2));
             proof* pr = justification2proof(j);
-            m_trail.push_back(info(kind2st(k), lits, pr));
+            m_trail.push_back(info(kind2st(k), m_lits, pr));
         }
     }
 
@@ -92,11 +105,11 @@ namespace smt {
 
     void clause_proof::update(clause& c, status st, proof* p) {
         if (ctx.get_fparams().m_clause_proof) {
-            expr_ref_vector lits(m);
+            m_lits.reset();
             for (literal lit : c) {
-                lits.push_back(ctx.literal2expr(lit));
+                m_lits.push_back(ctx.literal2expr(lit));
             }
-            update(st, lits, p);
+            update(st, m_lits, p);
         }
     }
 
