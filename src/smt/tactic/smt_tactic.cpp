@@ -204,11 +204,13 @@ public:
                     r = m_ctx->check(assumptions.size(), assumptions.c_ptr());
             }
             catch(...) {
+                TRACE("smt_tactic", tout << "exception\n";);
                 m_ctx->collect_statistics(m_stats);
                 throw;
             }
             m_ctx->collect_statistics(m_stats);
             proof * pr = m_ctx->get_proof();
+            TRACE("smt_tactic", tout << r << " " << pr << "\n";);
             switch (r) {
             case l_true: {
                 if (m_fail_if_inconclusive && !in->sat_preserved())

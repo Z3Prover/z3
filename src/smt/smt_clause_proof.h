@@ -52,6 +52,7 @@ namespace smt {
         context&     ctx;
         ast_manager& m;
         vector<info> m_trail;
+        void update(status st, expr_ref_vector& v, proof* p);
         void update(clause& c, status st, proof* p);
         status kind2st(clause_kind k);
         proof* justification2proof(justification* j);

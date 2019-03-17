@@ -281,7 +281,9 @@ namespace smt {
             set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
         }
         else {
-            assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
+            justification* j = mk_justification(justification_proof_wrapper(*this, pr));
+            m_clause_proof.add(l, CLS_AUX, j);
+            assign(l, j);
             mark_as_relevant(l);
         }
     }
@@ -1364,11 +1366,11 @@ namespace smt {
                 literal l2 = lits[1];
                 m_watches[(~l1).index()].insert_literal(l2);
                 m_watches[(~l2).index()].insert_literal(l1);
-                if (get_assignment(l2) == l_false)
+                if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
-
-                m_stats.m_num_mk_bin_clause++;
+                }
                 m_clause_proof.add(l1, l2, k, j);
+                m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
         default: {

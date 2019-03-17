@@ -4387,9 +4387,11 @@ namespace smt {
     }
 
     proof * context::get_proof() {
+        
         if (!m_unsat_proof) {
             m_unsat_proof = m_clause_proof.get_proof();
         }
+        TRACE("context", tout << m_unsat_proof << "\n";);
         return m_unsat_proof;
     }
 

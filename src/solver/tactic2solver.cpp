@@ -197,7 +197,7 @@ lbool tactic2solver::check_sat_core2(unsigned num_assumptions, expr * const * as
             break;
         }
         m_mc = g->mc();
-        TRACE("tactic", if (m_mc) m_mc->display(tout););
+        TRACE("tactic", tout << pr << "\n"; if (m_mc) m_mc->display(tout););
     }
     catch (z3_error & ex) {
         TRACE("tactic2solver", tout << "exception: " << ex.msg() << "\n";);

@@ -53,11 +53,11 @@ namespace smt {
             for (unsigned i = 0; i < new_size; ++i) {
                 lits.push_back(ctx.literal2expr(c[i]));
             }
-            m_trail.push_back(info(status::lemma, lits, nullptr));
+            update(status::lemma, lits, nullptr);
             for (unsigned i = new_size; i < c.get_num_literals(); ++i) {
                 lits.push_back(ctx.literal2expr(c[i]));
             }
-            m_trail.push_back(info(status::deleted, lits, nullptr));
+            update(status::deleted, lits, nullptr);
         }
     }
 
@@ -66,7 +66,7 @@ namespace smt {
             expr_ref_vector lits(m);
             lits.push_back(ctx.literal2expr(lit));
             proof* pr = justification2proof(j);
-            m_trail.push_back(info(kind2st(k), lits, pr));
+            update(kind2st(k), lits, pr);
         }
     }
 
@@ -85,17 +85,23 @@ namespace smt {
         update(c, status::deleted, nullptr);
     }
 
+    void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
+        TRACE("clause_proof", tout << st << " " << v << "\n";);
+        m_trail.push_back(info(st, v, p));
+    }
+
     void clause_proof::update(clause& c, status st, proof* p) {
         if (ctx.get_fparams().m_clause_proof) {
             expr_ref_vector lits(m);
             for (literal lit : c) {
                 lits.push_back(ctx.literal2expr(lit));
             }
-            m_trail.push_back(info(st, lits, p));
+            update(st, lits, p);
         }
     }
 
     proof_ref clause_proof::get_proof() {
+        TRACE("context", tout << "get-proof " << ctx.get_fparams().m_clause_proof << "\n";);
         if (!ctx.get_fparams().m_clause_proof) {
             return proof_ref(m);
         }
