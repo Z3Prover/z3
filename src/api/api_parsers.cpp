@@ -34,27 +34,57 @@ extern "C" {
     // Support for SMTLIB2
 
     Z3_ast_vector parse_smtlib2_stream(bool exec, Z3_context c, std::istream& is,
-                                unsigned num_sorts,
-                                Z3_symbol const sort_names[],
-                                Z3_sort const sorts[],
-                                unsigned num_decls,
-                                Z3_symbol const decl_names[],
-                                Z3_func_decl const decls[]) {
+                                       unsigned num_sorts,
+                                       Z3_symbol const _sort_names[],
+                                       Z3_sort const _sorts[],
+                                       unsigned num_decls,
+                                       Z3_symbol const decl_names[],
+                                       Z3_func_decl const decls[]) {
         Z3_TRY;
-        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(mk_c(c)->m()));
+        ast_manager& m = mk_c(c)->m();
+        scoped_ptr<cmd_context> ctx = alloc(cmd_context, false, &(m));
         ctx->set_ignore_check(true);
-        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
+        Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
+        
+        vector<symbol> sort_names;
+        ptr_vector<sort> sorts;
+        for (unsigned i = 0; i < num_sorts; ++i) {
+            sorts.push_back(to_sort(_sorts[i]));
+            sort_names.push_back(to_symbol(_sort_names[i]));
+        }
+                    
         mk_c(c)->save_object(v);        
         for (unsigned i = 0; i < num_decls; ++i) {
-            ctx->insert(to_symbol(decl_names[i]), to_func_decl(decls[i]));
-        }
-        for (unsigned i = 0; i < num_sorts; ++i) {
-            sort* srt = to_sort(sorts[i]);
-            symbol name(to_symbol(sort_names[i]));
-            if (!ctx->find_psort_decl(name)) {
-                psort* ps = ctx->pm().mk_psort_cnst(srt);
-                ctx->insert(ctx->pm().mk_psort_user_decl(0, name, ps));
+            func_decl* d = to_func_decl(decls[i]);
+            ctx->insert(to_symbol(decl_names[i]), d);
+            sort_names.push_back(d->get_range()->get_name());
+            sorts.push_back(d->get_range());
+            for (sort* s : *d) {
+                sort_names.push_back(s->get_name());
+                sorts.push_back(s);
             }
+        }
+        datatype_util dt(m);
+        for (unsigned i = 0; i < num_sorts; ++i) {
+            sort* srt = sorts[i];
+            symbol name = sort_names[i];
+            if (ctx->find_psort_decl(name)) {
+                continue;
+            }
+            psort* ps = ctx->pm().mk_psort_cnst(srt);
+            ctx->insert(ctx->pm().mk_psort_user_decl(0, name, ps));
+            if (!dt.is_datatype(srt)) {
+                continue;
+            }
+
+            for (func_decl * c : *dt.get_datatype_constructors(srt)) {
+                ctx->insert(c->get_name(), c);
+                func_decl * r = dt.get_constructor_recognizer(c);
+                ctx->insert(r->get_name(), r);
+                for (func_decl * a : *dt.get_constructor_accessors(c)) {
+                    ctx->insert(a->get_name(), a);
+                }
+            }            
         }
         std::stringstream errstrm;
         ctx->set_regular_stream(errstrm);
