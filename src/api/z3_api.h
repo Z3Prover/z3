@@ -1168,6 +1168,7 @@ typedef enum {
     Z3_OP_SEQ_EXTRACT,
     Z3_OP_SEQ_REPLACE,
     Z3_OP_SEQ_AT,
+    Z3_OP_SEQ_NTH,
     Z3_OP_SEQ_LENGTH,
     Z3_OP_SEQ_INDEX,
     Z3_OP_SEQ_TO_RE,
@@ -3420,10 +3421,19 @@ extern "C" {
 
     /**
        \brief Retrieve from \c s the unit sequence positioned at position \c index.
+       The sequence is empty if the index is out of bounds.
 
        def_API('Z3_mk_seq_at' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_at(Z3_context c, Z3_ast s, Z3_ast index);
+
+    /**
+       \brief Retrieve from \c s the element positioned at position \c index.
+       The function is under-specified if the index is out of bounds.
+
+       def_API('Z3_mk_seq_nth' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_seq_nth(Z3_context c, Z3_ast s, Z3_ast index);
 
     /**
        \brief Return the length of the sequence \c s.

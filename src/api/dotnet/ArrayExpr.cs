@@ -38,5 +38,11 @@ namespace Microsoft.Z3
             Debug.Assert(ctx != null);
         }
         #endregion	
+
+        public Expr this[Expr index] 
+        {
+            get { return Context.MkSelect(this, index); }
+        }
+
     }
 }
