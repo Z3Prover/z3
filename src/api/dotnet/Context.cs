@@ -2079,6 +2079,7 @@ namespace Microsoft.Z3
             return Expr.Create(this, Native.Z3_mk_select_n(nCtx, a.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args)));
         }
 
+
         /// <summary>
         /// Array update.
         /// </summary>

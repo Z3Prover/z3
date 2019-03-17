@@ -44,5 +44,10 @@ namespace Microsoft.Z3
             get { return Context.MkSelect(this, index); }
         }
 
+        public Expr this[IEnumerable<Expr> index] 
+        {
+            get { return Context.MkSelect(this, index.ToArray()); }
+        }
+
     }
 }
