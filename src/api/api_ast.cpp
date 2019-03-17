@@ -1162,6 +1162,7 @@ extern "C" {
             case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
             case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
             case OP_SEQ_AT: return Z3_OP_SEQ_AT;
+            case OP_SEQ_NTH: return Z3_OP_SEQ_NTH;
             case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
             case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
             case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
