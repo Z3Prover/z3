@@ -253,7 +253,7 @@ namespace smt {
             m_context.get_model(m);
         }
 
-        proof * get_proof() override {
+        proof * get_proof() override {            
             return m_context.get_proof();
         }
 

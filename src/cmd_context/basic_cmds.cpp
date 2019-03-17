@@ -174,14 +174,14 @@ public:
 };
 
 ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
-    if (!ctx.produce_proofs())
-        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
-    if (!ctx.has_manager() ||
-        ctx.cs_state() != cmd_context::css_unsat)
+    if (!ctx.has_manager())
         throw cmd_exception("proof is not available");
+
     expr_ref pr(ctx.m());
     pr = ctx.get_check_sat_result()->get_proof();
-    if (pr == 0)
+    if (!pr && !ctx.produce_proofs())
+        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
+    if (!pr) 
         throw cmd_exception("proof is not available");
     if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
         throw cmd_exception("proof is not well sorted");
