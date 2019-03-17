@@ -40,3 +40,4 @@ z3_add_component(smtlogic_tactics
     qfufbv_tactic.h
     quant_tactics.h
 )
+add_definitions(-DSTART_ONLY_QFNIA_SMT)
