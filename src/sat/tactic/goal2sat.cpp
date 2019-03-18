@@ -1002,7 +1002,6 @@ void sat2goal::mc::operator()(model_ref & md) {
     // create a SAT model using md
     sat::model sat_md;
     expr_ref val(m);
-    VERIFY(!m_var2expr.empty());
     for (expr * atom : m_var2expr) {
         if (!atom) {
             sat_md.push_back(l_undef);
