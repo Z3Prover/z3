@@ -163,7 +163,7 @@ public:
 
     var_index add_var(unsigned ext_j, bool is_integer);
 
-    var_index add_named_var(unsigned ext_j, bool is_integer, std::string);
+    var_index add_named_var(unsigned ext_j, bool is_integer, const std::string&);
 
     void register_new_ext_var_index(unsigned ext_v, bool is_int);
 

@@ -87,10 +87,7 @@ struct vars_equivalence {
     // j itself is also included
     svector<lpvar> eq_vars(lpvar j) const {
         svector<lpvar> r = path_to_root(j);
-        svector<lpvar> ch = children(j);
-        for (lpvar k : ch) {
-            r.push_back(k);
-        }
+        r.append(children(j));
         r.push_back(j);
         return r;
     } 

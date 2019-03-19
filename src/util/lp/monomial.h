@@ -1,6 +1,8 @@
 /*
   Copyright (c) 2017 Microsoft Corporation
   Author: Nikolaj Bjorner
+          Lev Nachmanson
+      
 */
 #pragma once
 #include "util/lp/lp_settings.h"

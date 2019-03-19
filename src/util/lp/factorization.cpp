@@ -28,7 +28,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         k.type() = factor_type::VAR;
     } else {
         unsigned i;
-        if (!m_ff->find_rm_monomial_of_vars(k_vars,i)) {
+        if (!m_ff->find_rm_monomial_of_vars(k_vars, i)) {
             return false;
         }
         k.index() = i;
@@ -49,7 +49,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     return true;
 }
 
-const_iterator_mon::reference const_iterator_mon::operator*() const {
+factorization const_iterator_mon::operator*() const {
     if (m_full_factorization_returned == false)  {
         return create_full_factorization();
     }
