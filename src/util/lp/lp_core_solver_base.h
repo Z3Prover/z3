@@ -214,7 +214,7 @@ public:
             if (m_A.m_columns[bj].size() > 1)
                 return true;
             for (const auto & c : m_A.m_columns[bj]) {
-                if (m_A.get_val(c) != one_of_type<mpq>())
+                if (m_A.get_val(c) != one_of_type<T>())
                     return true;
                 else
                     break;
