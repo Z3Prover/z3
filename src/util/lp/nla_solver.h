@@ -35,16 +35,9 @@ struct ineq {
     bool operator==(const ineq& a) const {
         return m_cmp == a.m_cmp && m_term == a.m_term && m_rs == a.m_rs;
     }
-    const lp::lar_term& term() const {
-        return m_term;
-    };
-    const lp::lconstraint_kind& cmp() const {
-        return m_cmp;
-    };
-    const rational& rs() const {
-        return m_rs;
-    };
-
+    const lp::lar_term& term() const { return m_term; };
+    lp::lconstraint_kind cmp() const { return m_cmp;  };
+    const rational& rs() const { return m_rs; };
 };
 
 class lemma {
