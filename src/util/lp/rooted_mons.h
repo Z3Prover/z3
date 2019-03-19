@@ -57,19 +57,19 @@ struct rooted_mon {
 
 struct rooted_mon_table {
     std::unordered_map<svector<lpvar>,
-                       unsigned, // points to vec()
-                       hash_svector>                                 m_map;
-    vector<rooted_mon>                                               m_vector;
-    // for every k 
-    // for each i in m_rooted_monomials_containing_var[k]
-    // m_vector_of_rooted_monomials[i] contains k
+                       unsigned, // points to rms()
+                       hash_svector>                                 m_vars_key_to_rm_index;
+    vector<rooted_mon>                                               m_rms;
+    // for every lpvar k m_mons_containing_var[k]
+    // is the set of all rooted monomials containing
+    // (rather the indices of those pointing to m_rms) 
     std::unordered_map<lpvar, std::unordered_set<unsigned>>          m_mons_containing_var;
 
-    // A map from m_vector_of_rooted_monomials to a set
-    // of sets of m_vector_of_rooted_monomials,
-    // such that for every i and every h in m_proper_factors[i] we have m_vector[i] as a proper factor of m_vector[h]
+    // A map from m_rms_of_rooted_monomials to a set
+    // of sets of m_rms_of_rooted_monomials,
+    // such that for every i and every h in m_proper_factors[i] we have m_rms[i] as a proper factor of m_rms[h]
     std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_factors;
-    // points to m_vector
+    // points to m_rms
     svector<unsigned>                                                m_to_refine;
     // maps the indices of the regular monomials to the rooted monomial indices
     std::unordered_map<unsigned, index_with_sign>                    m_reg_to_rm;
@@ -77,19 +77,21 @@ struct rooted_mon_table {
     void print_stats(std::ostream& out) const {
         static double ratio = 1;
         double s = 0;
-        for (const auto& p : m_map) {
-            s += m_vector[p.second].m_mons.size();
+        for (const auto& p : m_vars_key_to_rm_index) {
+            s += m_rms[p.second].m_mons.size();
         }
-        double r = s /m_map.size();
+        double r = s /m_vars_key_to_rm_index.size();
         if (r > ratio) {
             ratio = r;
-            out << "rooted mons "  << m_map.size() << ", ratio = " << r << "\n";
+            out << "rooted mons "  << m_vars_key_to_rm_index.size() << ", ratio = " << r << "\n";
         }
     }
 
     const svector<unsigned>& to_refine() { return m_to_refine; }
 
     bool list_is_consistent(const vector<index_with_sign>& list, const std::unordered_set<unsigned>& to_refine_reg) const {
+        if (list.begin() == list.end())
+            return false;
         bool t = to_refine_reg.find(list.begin()->index()) == to_refine_reg.end();
         for (const auto& i_s : list) {
             bool tt = to_refine_reg.find(i_s.index()) == to_refine_reg.end();
@@ -108,31 +110,31 @@ struct rooted_mon_table {
     
     void init_to_refine(const std::unordered_set<unsigned>& to_refine_reg) {
         SASSERT(m_to_refine.empty());
-        for (unsigned i = 0; i < vec().size(); i++) {
-            if (list_contains_to_refine_reg(vec()[i].m_mons, to_refine_reg))
+        for (unsigned i = 0; i < rms().size(); i++) {
+            if (list_contains_to_refine_reg(rms()[i].m_mons, to_refine_reg))
                 m_to_refine.push_back(i);
         }
         TRACE("nla_solver", tout << "rooted m_to_refine =["; print_vector(m_to_refine, tout) << "]\n";);
     }
     
     void clear() {
-        m_map.clear();
-        m_vector.clear();
+        m_vars_key_to_rm_index.clear();
+        m_rms.clear();
         m_mons_containing_var.clear();
         m_proper_factors.clear();
         m_to_refine.clear();
         m_reg_to_rm.clear();
     }
     
-    const vector<rooted_mon>& vec() const { return m_vector; }
-    vector<rooted_mon>& vec() { return m_vector; }
+    const vector<rooted_mon>& rms() const { return m_rms; }
+    vector<rooted_mon>& rms() { return m_rms; }
 
-    const std::unordered_map<svector<lpvar>, unsigned, hash_svector> & map() const {
-        return m_map;
+    const std::unordered_map<svector<lpvar>, unsigned, hash_svector> & vars_key_to_rm_index() const {
+        return m_vars_key_to_rm_index;
     }
 
-    std::unordered_map<svector<lpvar>, unsigned, hash_svector> & map() {
-        return m_map;
+    std::unordered_map<svector<lpvar>, unsigned, hash_svector> & vars_key_to_rm_index() {
+        return m_vars_key_to_rm_index;
     }
 
     const std::unordered_map<lpvar, std::unordered_set<unsigned>>& var_map() const {
@@ -151,24 +153,10 @@ struct rooted_mon_table {
         return m_proper_factors;
     }
 
-    void reduce_set_by_checking_proper_containment(std::unordered_set<unsigned>& p,
-                                                   const rooted_mon & rm ) {
-        for (auto it = p.begin(); it != p.end();) {
-            if (lp::is_proper_factor(rm.m_vars, vec()[*it].m_vars)) {
-                it++;
-                continue;
-            }
-            auto iit = it;
-            iit ++;
-            p.erase(it);
-            it = iit;
-        }
-    }
-
-    // here i is the index of a monomial in m_vector
+    // here i is the index of a rooted monomial in m_rms
     void find_rooted_monomials_containing_rm(unsigned i_rm) {
-        const auto & rm = vec()[i_rm];
-    
+        const auto & rm = rms()[i_rm];
+        SASSERT(rm.size() > 1);
         std::unordered_set<unsigned> p = var_map()[rm[0]];
         // TRACE("nla_solver",
         //       tout << "i_rm = " << i_rm << ", rm = ";
@@ -184,19 +172,17 @@ struct rooted_mon_table {
             intersect_set(p, var_map()[rm[k]]);
         }
         // TRACE("nla_solver", trace_print_rms(p, tout););
-        reduce_set_by_checking_proper_containment(p, rm);
-        // TRACE("nla_solver", trace_print_rms(p, tout););
         proper_factors()[i_rm] = p;
     }
 
     void fill_proper_factors() {
-        for (unsigned i = 0; i < vec().size(); i++) {
+        for (unsigned i = 0; i < rms().size(); i++) {
             find_rooted_monomials_containing_rm(i);
         }
     }
 
     void register_rooted_monomial_containing_vars(unsigned i_rm) {
-        for (lpvar j_var : vec()[i_rm].vars()) {
+        for (lpvar j_var : rms()[i_rm].vars()) {
             auto it = var_map().find(j_var);
             if (it == var_map().end()) {
                 std::unordered_set<unsigned> s;
@@ -209,7 +195,7 @@ struct rooted_mon_table {
     }
     
     void fill_rooted_monomials_containing_var() {
-        for (unsigned i = 0; i < vec().size(); i++) {
+        for (unsigned i = 0; i < rms().size(); i++) {
             register_rooted_monomial_containing_vars(i);
         }
     }
@@ -217,15 +203,15 @@ struct rooted_mon_table {
     void register_key_mono_in_rooted_monomials(monomial_coeff const& mc, unsigned i_mon) {
         index_with_sign ms(i_mon, mc.coeff());
         SASSERT(abs(mc.coeff()) == rational(1));
-        auto it = map().find(mc.vars());
-        if (it == map().end()) {
-            TRACE("nla_solver_rm", tout << "size = " << vec().size(););
-            map().emplace(mc.vars(), vec().size());
-            m_reg_to_rm.emplace(i_mon, index_with_sign(vec().size(), mc.coeff()));
-            vec().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
+        auto it = vars_key_to_rm_index().find(mc.vars());
+        if (it == vars_key_to_rm_index().end()) {
+            TRACE("nla_solver_rm", tout << "size = " << rms().size(););
+            vars_key_to_rm_index().emplace(mc.vars(), rms().size());
+            m_reg_to_rm.emplace(i_mon, index_with_sign(rms().size(), mc.coeff()));
+            rms().push_back(rooted_mon(mc.vars(), i_mon, mc.coeff()));
         } 
         else {
-            vec()[it->second].push_back(ms);
+            rms()[it->second].push_back(ms);
             TRACE("nla_solver_rm", tout << "add ms.m_i = " << ms.m_i;);
             m_reg_to_rm.emplace(i_mon, index_with_sign(it->second, mc.coeff()));
         }
@@ -234,6 +220,5 @@ struct rooted_mon_table {
     const index_with_sign& get_rooted_mon(unsigned i_mon) const {
         return m_reg_to_rm.find(i_mon)->second;
     }
-    
 };
 }

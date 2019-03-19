@@ -2760,10 +2760,10 @@ void test_bound_propagation_one_small_sample1() {
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
-    ls.add_term(coeffs);
+    ls.add_term(coeffs, -1);
     coeffs.pop_back();
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
-    ls.add_term(coeffs);
+    ls.add_term(coeffs, -1);
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
     coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
@@ -2824,8 +2824,7 @@ void test_bound_propagation_one_row() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    explanation e;
-    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x0, LE, mpq(1));
     ls.solve();
@@ -2839,8 +2838,7 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    explanation e;
-    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x0, GE, mpq(-3));
     ls.add_var_bound(x0, LE, mpq(3));
@@ -2856,8 +2854,7 @@ void test_bound_propagation_one_row_mixed() {
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
     c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
-    explanation e;
-    ls.add_constraint(c, EQ, one_of_type<mpq>(), e);
+    ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x1, LE, mpq(1));
     ls.solve();

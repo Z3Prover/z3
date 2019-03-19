@@ -1609,7 +1609,7 @@ bool lar_solver::strategy_is_undecided() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::undecided;
 }
 
-var_index lar_solver::add_named_var(unsigned ext_j, bool is_int, std::string name) {
+var_index lar_solver::add_named_var(unsigned ext_j, bool is_int, const std::string& name) {
     var_index j = add_var(ext_j,is_int);
     m_var_register.set_name(j, name);
     return j;

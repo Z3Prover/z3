@@ -180,7 +180,7 @@ struct solver::imp {
 
     lpvar var(const factor& f) const {
         return f.is_var()?
-            f.index() : var(m_rm_table.vec()[f.index()]);
+            f.index() : var(m_rm_table.rms()[f.index()]);
     }
 
     svector<lpvar> sorted_vars(const factor& f) const {
@@ -189,14 +189,14 @@ struct solver::imp {
             return r;
         }
         TRACE("nla_solver", tout << "nv";);
-        return m_rm_table.vec()[f.index()].vars();
+        return m_rm_table.rms()[f.index()].vars();
     }
 
     // the value of the factor is equal to the value of the variable multiplied
     // by the flip_sign
     rational flip_sign(const factor& f) const {
         return f.is_var()?
-            flip_sign_of_var(f.index()) : m_rm_table.vec()[f.index()].orig_sign();
+            flip_sign_of_var(f.index()) : m_rm_table.rms()[f.index()].orig_sign();
     }
 
     rational flip_sign_of_var(lpvar j) const {
@@ -282,7 +282,7 @@ struct solver::imp {
         if (f.type() == factor_type::VAR) {
             m_vars_equivalence.explain(f.index(), exp);
         } else {
-            m_vars_equivalence.explain(m_monomials[m_rm_table.vec()[f.index()].orig_index()], exp);
+            m_vars_equivalence.explain(m_monomials[m_rm_table.rms()[f.index()].orig_index()], exp);
         }
     }
 
@@ -305,7 +305,7 @@ struct solver::imp {
             print_var(f.index(), out);
         } else {
             out << "PROD, ";
-            print_product(m_rm_table.vec()[f.index()].vars(), out);
+            print_product(m_rm_table.rms()[f.index()].vars(), out);
         }
         out << "\n";
         return out;
@@ -315,8 +315,8 @@ struct solver::imp {
         if (f.is_var()) {
             print_var(f.index(), out);
         } else {
-            out << " RM = "; print_rooted_monomial_with_vars(m_rm_table.vec()[f.index()], out);
-            out << "\n orig mon = "; print_monomial_with_vars(m_monomials[m_rm_table.vec()[f.index()].orig_index()], out);
+            out << " RM = "; print_rooted_monomial_with_vars(m_rm_table.rms()[f.index()], out);
+            out << "\n orig mon = "; print_monomial_with_vars(m_monomials[m_rm_table.rms()[f.index()].orig_index()], out);
         }
         return out;
     }
@@ -929,7 +929,7 @@ struct solver::imp {
         if (!try_insert(k, explored))
             return false;
 
-        const auto& mons_to_explore = m_rm_table.vec()[k].m_mons;
+        const auto& mons_to_explore = m_rm_table.rms()[k].m_mons;
         
         for (index_with_sign i_s : mons_to_explore) {
             unsigned n = i_s.index();
@@ -1027,7 +1027,7 @@ struct solver::imp {
                 print_var(f[k].index(), out);
             else {
                 out << "(";
-                print_product(m_rm_table.vec()[f[k].index()].vars(), out);
+                print_product(m_rm_table.rms()[f[k].index()].vars(), out);
                 out << ")";
             }
             
@@ -1039,15 +1039,15 @@ struct solver::imp {
     
     bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
         SASSERT(vars_are_roots(vars));
-        auto it = m_rm_table.map().find(vars);
-        if (it == m_rm_table.map().end()) {
+        auto it = m_rm_table.vars_key_to_rm_index().find(vars);
+        if (it == m_rm_table.vars_key_to_rm_index().end()) {
             return false;
         }
         
         i = it->second;
         TRACE("nla_solver",);
         
-        SASSERT(lp::vectors_are_equal_(vars, m_rm_table.vec()[i].vars()));
+        SASSERT(lp::vectors_are_equal_(vars, m_rm_table.rms()[i].vars()));
         return true;
     }
 
@@ -1648,7 +1648,7 @@ struct solver::imp {
         unsigned start = random() % rm_ref.size();
         unsigned i = start;
         do {
-            const rooted_mon& r = m_rm_table.vec()[rm_ref[i]];
+            const rooted_mon& r = m_rm_table.rms()[rm_ref[i]];
             SASSERT (!check_monomial(m_monomials[r.orig_index()]));
             basic_lemma_for_mon(r, derived);
             if (++i == rm_ref.size()) {
@@ -1756,7 +1756,7 @@ struct solver::imp {
     }
 
     bool rm_table_is_ok() const {
-        for (const auto & rm : m_rm_table.vec()) {
+        for (const auto & rm : m_rm_table.rms()) {
             for (lpvar j : rm.vars()) {
                 if (!m_vars_equivalence.is_root(j)){
                     TRACE("nla_solver", print_var(j, tout););
@@ -1800,7 +1800,7 @@ struct solver::imp {
         for (auto j : p) {
             out << "\nj = " << j <<
                 ", rm = ";
-            print_rooted_monomial(m_rm_table.vec()[j], out);
+            print_rooted_monomial(m_rm_table.rms()[j], out);
         }
         out << "\n}";
     }
@@ -1812,8 +1812,8 @@ struct solver::imp {
             if (abs(vvr(mc.vars()[i])) == rational(1)) {
                 auto vv = mc.vars();
                 vv.erase(vv.begin()+i);
-                auto it = m_rm_table.map().find(vv);
-                if (it == m_rm_table.map().end()) {
+                auto it = m_rm_table.vars_key_to_rm_index().find(vv);
+                if (it == m_rm_table.vars_key_to_rm_index().end()) {
                     out << "nf length" << vv.size() << "\n"; ;
                 }
             }
@@ -1881,8 +1881,8 @@ struct solver::imp {
             b = factor(b_vars[0]);
             return true;
         }
-        auto it = m_rm_table.map().find(b_vars);
-        if (it == m_rm_table.map().end()) {
+        auto it = m_rm_table.vars_key_to_rm_index().find(b_vars);
+        if (it == m_rm_table.vars_key_to_rm_index().end()) {
             TRACE("nla_solver_div", tout << "not in rooted";);
             return false;
         }
@@ -2088,7 +2088,7 @@ struct solver::imp {
             SASSERT(m_monomials[it->second].var() == i && abs(vvr(m_monomials[it->second])) == abs(vvr(c)));
             const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
             unsigned rm_i = i_s.index();
-            //                SASSERT(abs(vvr(m_rm_table.vec()[i])) == abs(vvr(c)));
+            //                SASSERT(abs(vvr(m_rm_table.rms()[i])) == abs(vvr(c)));
             if (try_insert(rm_i, found_rm)) {
                 r.push_back(factor(rm_i, factor_type::RM));
                 TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(rm_i, factor_type::RM), tout); );
@@ -2114,13 +2114,13 @@ struct solver::imp {
             TRACE("nla_solver", tout << "var(d) = " << var(d););
             for (unsigned rm_bd : m_rm_table.var_map()[d.index()]) {
                 TRACE("nla_solver", );
-                if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.vec()[rm_bd], d)) {
+                if (order_lemma_on_ac_and_bd(rm ,ac, k, m_rm_table.rms()[rm_bd], d)) {
                     return true;
                 }
             }
         } else {
             for (unsigned rm_b : m_rm_table.proper_factors()[d.index()]) {
-                if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.vec()[rm_b], d)) {
+                if (order_lemma_on_ac_and_bd(rm , ac, k, m_rm_table.rms()[rm_b], d)) {
                     return true;
                 }
             }
@@ -2266,7 +2266,7 @@ struct solver::imp {
         unsigned start = random() % rm_ref.size();
         unsigned i = start;
         do {
-            const rooted_mon& rm = m_rm_table.vec()[rm_ref[i]];
+            const rooted_mon& rm = m_rm_table.rms()[rm_ref[i]];
             order_lemma_on_monomial(rm);
             if (++i == rm_ref.size()) {
                 i = 0;
@@ -2297,8 +2297,8 @@ struct solver::imp {
     // Returns rooted monomials by arity
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity() {
         std::unordered_map<unsigned, unsigned_vector> m;
-        for (unsigned i = 0; i < m_rm_table.vec().size(); i++ ) {
-            unsigned arity = m_rm_table.vec()[i].vars().size();
+        for (unsigned i = 0; i < m_rm_table.rms().size(); i++ ) {
+            unsigned arity = m_rm_table.rms()[i].vars().size();
             auto it = m.find(arity);
             if (it == m.end()) {
                 it = m.insert(it, std::make_pair(arity, unsigned_vector()));
@@ -2438,7 +2438,7 @@ struct solver::imp {
               print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
         for (unsigned k = i + 1; k < lex_sorted.size(); k++) {
             const auto& p = lex_sorted[k];
-            const rooted_mon& rmk = m_rm_table.vec()[p.second];
+            const rooted_mon& rmk = m_rm_table.rms()[p.second];
             const rational vk = abs(vvr(rmk));
             TRACE("nla_solver", tout << "rmk = ";
                   print_rooted_monomial_with_vars(rmk, tout);
@@ -2470,7 +2470,7 @@ struct solver::imp {
         
         for (unsigned k = i; k-- > 0;) {
             const auto& p = lex_sorted[k];
-            const rooted_mon& rmk = m_rm_table.vec()[p.second];
+            const rooted_mon& rmk = m_rm_table.rms()[p.second];
             const rational vk = abs(vvr(rmk));
             TRACE("nla_solver", tout << "rmk = ";
                   print_rooted_monomial_with_vars(rmk, tout);
@@ -2508,7 +2508,7 @@ struct solver::imp {
     bool monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted) {
         for (unsigned i = 0; i < lex_sorted.size(); i++) {
             unsigned rmi = lex_sorted[i].second;
-            const rooted_mon& rm = m_rm_table.vec()[rmi];
+            const rooted_mon& rm = m_rm_table.rms()[rmi];
             TRACE("nla_solver", print_rooted_monomial(rm, tout); tout << "\n, rm_check = " << rm_check(rm); tout << std::endl;); 
             if ((!rm_check(rm)) && monotonicity_lemma_on_lex_sorted_rm(lex_sorted, i, rm))
                 return true;
@@ -2519,7 +2519,7 @@ struct solver::imp {
     bool monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms) { 
         vector<std::pair<std::vector<rational>, unsigned>> lex_sorted;
         for (unsigned i : rms) {
-            lex_sorted.push_back(std::make_pair(get_sorted_key(m_rm_table.vec()[i]), i));
+            lex_sorted.push_back(std::make_pair(get_sorted_key(m_rm_table.rms()[i]), i));
         }
         std::sort(lex_sorted.begin(), lex_sorted.end(),
                   [](const std::pair<std::vector<rational>, unsigned> &a,
@@ -2535,7 +2535,7 @@ struct solver::imp {
         unsigned ii = i;
         do {
             unsigned rm_i = m_rm_table.m_to_refine[i];
-            monotonicity_lemma(m_rm_table.vec()[rm_i].orig_index());
+            monotonicity_lemma(m_rm_table.rms()[rm_i].orig_index());
             TRACE("nla_solver", print_lemma(tout); );
             if (done()) return;
             i++;
@@ -2606,7 +2606,7 @@ struct solver::imp {
     
     bool find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
         for (unsigned i: m_rm_table.to_refine()) {
-            const auto& rm = m_rm_table.vec()[i]; 
+            const auto& rm = m_rm_table.rms()[i]; 
             SASSERT (!check_monomial(m_monomials[rm.orig_index()]));
             rm_found = &rm;
             if (find_bfc_on_monomial(rm, bf)) {
