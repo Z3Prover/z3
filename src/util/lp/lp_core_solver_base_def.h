@@ -698,7 +698,7 @@ non_basis_is_correctly_represented_in_heading() const {
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::
     basis_heading_is_correct() const {
-    if ( m_A.column_count() > 10 ) {
+    if ( m_A.column_count() > 10 ) { // for the performance reason
         return true;
     }
     lp_assert(m_basis_heading.size() == m_A.column_count());

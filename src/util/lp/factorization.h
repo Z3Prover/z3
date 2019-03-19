@@ -73,7 +73,6 @@ struct const_iterator_mon {
     //typedefs
     typedef const_iterator_mon self_type;
     typedef factorization value_type;
-    typedef const factorization reference;
     typedef int difference_type;
     typedef std::forward_iterator_tag iterator_category;
 
@@ -81,7 +80,7 @@ struct const_iterator_mon {
             
     bool get_factors(factor& k, factor& j, rational& sign) const;
 
-    reference operator*() const;
+    factorization operator*() const;
     void advance_mask();
             
     self_type operator++();

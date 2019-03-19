@@ -2721,7 +2721,7 @@ void test_evidence_for_total_inf_simple(argument_parser & args_parser) {
     lar_solver solver;
     var_index x = solver.add_var(0, false);
     var_index y = solver.add_var(1, false);
-    solver.add_var_bound(x, LE, -mpq(1));
+    solver.add_var_bound(x, LE, mpq(-1));
     solver.add_var_bound(y, GE, mpq(0));
     vector<std::pair<mpq, var_index>> ls;
     
@@ -2759,18 +2759,18 @@ void test_bound_propagation_one_small_sample1() {
     unsigned c = ls.add_var(2, false);
     vector<std::pair<mpq, var_index>> coeffs;
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
-    coeffs.push_back(std::pair<mpq, var_index>(-mpq(1), c));
+    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
     ls.add_term(coeffs, -1);
     coeffs.pop_back();
-    coeffs.push_back(std::pair<mpq, var_index>(-mpq(1), b));
+    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
     ls.add_term(coeffs, -1);
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), a));
-    coeffs.push_back(std::pair<mpq, var_index>(-mpq(1), b));
+    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), b));
     ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     coeffs.clear();
     coeffs.push_back(std::pair<mpq, var_index>(mpq(1), b));
-    coeffs.push_back(std::pair<mpq, var_index>(-mpq(1), c));
+    coeffs.push_back(std::pair<mpq, var_index>(mpq(-1), c));
     ls.add_constraint(coeffs, LE, zero_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(a, LE, mpq(1));
@@ -2823,7 +2823,7 @@ void test_bound_propagation_one_row() {
     unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(-mpq(1), x1));
+    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x0, LE, mpq(1));
@@ -2837,7 +2837,7 @@ void test_bound_propagation_one_row_with_bounded_vars() {
     unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(-mpq(1), x1));
+    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x0, GE, mpq(-3));
@@ -2853,7 +2853,7 @@ void test_bound_propagation_one_row_mixed() {
     unsigned x1 = ls.add_var(1, false);
     vector<std::pair<mpq, var_index>> c;
     c.push_back(std::pair<mpq, var_index>(mpq(1), x0));
-    c.push_back(std::pair<mpq, var_index>(-mpq(1), x1));
+    c.push_back(std::pair<mpq, var_index>(mpq(-1), x1));
     ls.add_constraint(c, EQ, one_of_type<mpq>());
     vector<implied_bound> ev;
     ls.add_var_bound(x1, LE, mpq(1));
