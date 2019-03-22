@@ -3276,6 +3276,12 @@ namespace z3 {
         s.check_error();
         return expr(s.ctx(), r);
     }
+    inline expr last_indexof(expr const& s, expr const& substr) {
+        check_context(s, substr); 
+        Z3_ast r = Z3_mk_seq_last_index(s.ctx(), s, substr);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
     inline expr to_re(expr const& s) {
         MK_EXPR1(Z3_mk_seq_to_re, s);
     }

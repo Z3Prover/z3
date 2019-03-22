@@ -235,20 +235,17 @@ public:
         m_r_upper_bounds.pop(k);
         m_column_types.pop(k);
         
-        if (m_r_solver.m_factorization != nullptr) {
-            delete m_r_solver.m_factorization;
-            m_r_solver.m_factorization = nullptr;
-        }
+        delete m_r_solver.m_factorization;
+        m_r_solver.m_factorization = nullptr;
         m_r_x.resize(m_r_A.column_count());
         m_r_solver.m_costs.resize(m_r_A.column_count());
         m_r_solver.m_d.resize(m_r_A.column_count());
         if(!settings().use_tableau())
             pop_markowitz_counts(k);
         m_d_A.pop(k);
-        if (m_d_solver.m_factorization != nullptr) {
-            delete m_d_solver.m_factorization;
-            m_d_solver.m_factorization = nullptr;
-        }
+        // doubles
+        delete m_d_solver.m_factorization;
+        m_d_solver.m_factorization = nullptr;
         
         m_d_x.resize(m_d_A.column_count());
         pop_basis(k);
@@ -421,9 +418,10 @@ public:
                 unsigned leaving = trace_of_basis_change[i+1];
                 cs.change_basis_unconditionally(entering, leaving);
             }
-            if (cs.m_factorization != nullptr)
+            if (cs.m_factorization != nullptr) {
                 delete cs.m_factorization;
-            cs.m_factorization = nullptr;
+                cs.m_factorization = nullptr;
+            }
         } else {
             indexed_vector<L> w(cs.m_A.row_count());
             // the queues of delayed indices

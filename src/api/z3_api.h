@@ -1171,6 +1171,7 @@ typedef enum {
     Z3_OP_SEQ_NTH,
     Z3_OP_SEQ_LENGTH,
     Z3_OP_SEQ_INDEX,
+    Z3_OP_SEQ_LAST_INDEX,
     Z3_OP_SEQ_TO_RE,
     Z3_OP_SEQ_IN_RE,
 
@@ -3446,11 +3447,18 @@ extern "C" {
     /**
        \brief Return index of first occurrence of \c substr in \c s starting from offset \c offset.
        If \c s does not contain \c substr, then the value is -1, if \c offset is the length of \c s, then the value is -1 as well.
-       The function is under-specified if \c offset is negative or larger than the length of \c s.
+       The value is -1 if \c offset is negative or larger than the length of \c s.
 
        def_API('Z3_mk_seq_index' ,AST ,(_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_seq_index(Z3_context c, Z3_ast s, Z3_ast substr, Z3_ast offset);
+
+    /**
+       \brief Return the last occurrence of \c substr in \c s.
+       If \c s does not contain \c substr, then the value is -1, 
+       def_API('Z3_mk_seq_last_index', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_seq_last_index(Z3_context c, Z3_ast, Z3_ast substr);
 
     /**
        \brief Convert string to integer.

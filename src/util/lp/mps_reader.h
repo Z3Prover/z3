@@ -754,10 +754,7 @@ public:
         }
         for (auto s : m_columns) {
             auto col = s.second;
-            auto b = col->m_bound;
-            if (b != nullptr) {
-                delete b;
-            }
+            delete col->m_bound;
             delete col;
         }
     }

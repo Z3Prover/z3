@@ -391,44 +391,57 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         
     case OP_SEQ_UNIT:
         SASSERT(num_args == 1);
-        return mk_seq_unit(args[0], result);
+        st = mk_seq_unit(args[0], result);
+        break;
     case OP_SEQ_EMPTY:
         return BR_FAILED;
     case OP_RE_PLUS:
         SASSERT(num_args == 1);
-        return mk_re_plus(args[0], result);
+        st = mk_re_plus(args[0], result);
+        break;
     case OP_RE_STAR:
         SASSERT(num_args == 1);
         st = mk_re_star(args[0], result);
         break;
     case OP_RE_OPTION:
         SASSERT(num_args == 1);
-        return mk_re_opt(args[0], result);
+        st = mk_re_opt(args[0], result);
+        break;
     case OP_RE_CONCAT:
         if (num_args == 1) {
             result = args[0]; 
-            return BR_DONE;
+            st = BR_DONE;
         }
-        SASSERT(num_args == 2);
-        st = mk_re_concat(args[0], args[1], result); 
+        else {
+            SASSERT(num_args == 2);
+            st = mk_re_concat(args[0], args[1], result); 
+        }
         break;
     case OP_RE_UNION:
         if (num_args == 1) {
-            result = args[0]; return BR_DONE;
+            result = args[0]; 
+            st = BR_DONE;
         }
-        SASSERT(num_args == 2);
-        return mk_re_union(args[0], args[1], result);
+        else {
+            SASSERT(num_args == 2);
+            st = mk_re_union(args[0], args[1], result);
+        }
+        break;
     case OP_RE_RANGE:
         SASSERT(num_args == 2);
-        return mk_re_range(args[0], args[1], result);
+        st = mk_re_range(args[0], args[1], result);
+        break;
     case OP_RE_INTERSECT:
         SASSERT(num_args == 2);
-        return mk_re_inter(args[0], args[1], result);
+        st = mk_re_inter(args[0], args[1], result);
+        break;
     case OP_RE_COMPLEMENT:
         SASSERT(num_args == 1);
-        return mk_re_complement(args[0], result);
+        st = mk_re_complement(args[0], result);
+        break;
     case OP_RE_LOOP:
-        return mk_re_loop(num_args, args, result);
+        st = mk_re_loop(num_args, args, result);
+        break;
     case OP_RE_EMPTY_SET:
         return BR_FAILED;    
     case OP_RE_FULL_SEQ_SET:
@@ -442,23 +455,29 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case OP_SEQ_CONCAT: 
         if (num_args == 1) {
             result = args[0];
-            return BR_DONE;
+            st = BR_DONE;
         }
-        SASSERT(num_args == 2);
-        return mk_seq_concat(args[0], args[1], result);
+        else {
+            SASSERT(num_args == 2);
+            st = mk_seq_concat(args[0], args[1], result);
+        }
+        break;
     case OP_SEQ_LENGTH:
         SASSERT(num_args == 1);
-        return mk_seq_length(args[0], result);
+        st = mk_seq_length(args[0], result);
+        break;
     case OP_SEQ_EXTRACT:
         SASSERT(num_args == 3);
         st = mk_seq_extract(args[0], args[1], args[2], result);
         break;
     case OP_SEQ_CONTAINS: 
         SASSERT(num_args == 2);
-        return mk_seq_contains(args[0], args[1], result);
+        st = mk_seq_contains(args[0], args[1], result);
+        break;
     case OP_SEQ_AT:
         SASSERT(num_args == 2);
-        return mk_seq_at(args[0], args[1], result); 
+        st = mk_seq_at(args[0], args[1], result); 
+        break;
 #if 0
     case OP_SEQ_NTH:
         SASSERT(num_args == 2);
@@ -466,35 +485,49 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
 #endif
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
-        return mk_seq_prefix(args[0], args[1], result);
+        st = mk_seq_prefix(args[0], args[1], result);
+        break;
     case OP_SEQ_SUFFIX: 
         SASSERT(num_args == 2);
-        return mk_seq_suffix(args[0], args[1], result);
+        st = mk_seq_suffix(args[0], args[1], result);
+        break;
     case OP_SEQ_INDEX:
         if (num_args == 2) {
             expr_ref arg3(m_autil.mk_int(0), m());
             result = m_util.str.mk_index(args[0], args[1], arg3);
-            return BR_REWRITE1;
+            st = BR_REWRITE1;
         }
-        SASSERT(num_args == 3);
-        return mk_seq_index(args[0], args[1], args[2], result);
+        else {
+            SASSERT(num_args == 3);
+            st = mk_seq_index(args[0], args[1], args[2], result);
+        }
+        break;
+    case OP_SEQ_LAST_INDEX:
+        SASSERT(num_args == 2);
+        st = mk_seq_last_index(args[0], args[1], result);
+        break;
     case OP_SEQ_REPLACE:
         SASSERT(num_args == 3);
-        return mk_seq_replace(args[0], args[1], args[2], result);
+        st = mk_seq_replace(args[0], args[1], args[2], result);
+        break;
     case OP_SEQ_TO_RE:
         SASSERT(num_args == 1);
-        return mk_str_to_regexp(args[0], result);
+        st = mk_str_to_regexp(args[0], result);
+        break;
     case OP_SEQ_IN_RE:
         SASSERT(num_args == 2);
-        return mk_str_in_regexp(args[0], args[1], result);
+        st = mk_str_in_regexp(args[0], args[1], result);
+        break;
     case OP_STRING_CONST:
         return BR_FAILED;
     case OP_STRING_ITOS: 
         SASSERT(num_args == 1);
-        return mk_str_itos(args[0], result);
+        st = mk_str_itos(args[0], result);
+        break;
     case OP_STRING_STOI: 
         SASSERT(num_args == 1);
-        return mk_str_stoi(args[0], result);
+        st = mk_str_stoi(args[0], result);
+        break;
     case _OP_STRING_CONCAT:
     case _OP_STRING_PREFIX:
     case _OP_STRING_SUFFIX:
@@ -904,6 +937,18 @@ br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
         else {
             return BR_FAILED;
         }
+    }
+    return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_seq_last_index(expr* a, expr* b, expr_ref& result) {
+    zstring s1, s2;
+    bool isc1 = m_util.str.is_string(a, s1);
+    bool isc2 = m_util.str.is_string(b, s2);
+    if (isc1 && isc2) {
+        int idx = s1.last_indexof(s2);
+        result = m_autil.mk_numeral(rational(idx), true);
+        return BR_DONE;
     }
     return BR_FAILED;
 }

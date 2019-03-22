@@ -116,6 +116,7 @@ class seq_rewriter {
     br_status mk_seq_at(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_nth(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_index(expr* a, expr* b, expr* c, expr_ref& result);
+    br_status mk_seq_last_index(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& result);
     br_status mk_seq_prefix(expr* a, expr* b, expr_ref& result);
     br_status mk_seq_suffix(expr* a, expr* b, expr_ref& result);
