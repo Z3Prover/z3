@@ -43,6 +43,7 @@ enum seq_op_kind {
     OP_SEQ_NTH,
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
+    OP_SEQ_LAST_INDEX,
     OP_SEQ_TO_RE,
     OP_SEQ_IN_RE,
 
@@ -113,6 +114,7 @@ public:
     bool prefixof(zstring const& other) const;
     bool contains(zstring const& other) const;
     int  indexof(zstring const& other, int offset) const;
+    int  last_indexof(zstring const& other) const;
     zstring extract(int lo, int hi) const;
     zstring operator+(zstring const& other) const;
     bool operator==(const zstring& other) const;
@@ -260,6 +262,7 @@ public:
         app* mk_prefix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_PREFIX, 2, es); }
         app* mk_suffix(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_SUFFIX, 2, es); }
         app* mk_index(expr* a, expr* b, expr* i) const { expr* es[3] = { a, b, i}; return m.mk_app(m_fid, OP_SEQ_INDEX, 3, es); }
+        app* mk_last_index(expr* a, expr* b) const { expr* es[2] = { a, b}; return m.mk_app(m_fid, OP_SEQ_LAST_INDEX, 2, es); }
         app* mk_unit(expr* u) const { return m.mk_app(m_fid, OP_SEQ_UNIT, 1, &u); }
         app* mk_char(zstring const& s, unsigned idx) const;
         app* mk_itos(expr* i) const { return m.mk_app(m_fid, OP_STRING_ITOS, 1, &i); }
@@ -285,6 +288,7 @@ public:
         bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
         bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
+        bool is_last_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_LAST_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
         bool is_prefix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_PREFIX); }
         bool is_suffix(expr const* n)   const { return is_app_of(n, m_fid, OP_SEQ_SUFFIX); }
@@ -311,6 +315,7 @@ public:
         MATCH_BINARY(is_nth);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
+        MATCH_BINARY(is_last_index);
         MATCH_TERNARY(is_replace);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);

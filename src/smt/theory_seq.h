@@ -550,6 +550,7 @@ namespace smt {
         void push_lit_as_expr(literal l, expr_ref_vector& buf);
         void add_axiom(literal l1, literal l2 = null_literal, literal l3 = null_literal, literal l4 = null_literal, literal l5 = null_literal);        
         void add_indexof_axiom(expr* e);
+        void add_last_indexof_axiom(expr* e);
         void add_replace_axiom(expr* e);
         void add_extract_axiom(expr* e);
         void add_length_axiom(expr* n);
