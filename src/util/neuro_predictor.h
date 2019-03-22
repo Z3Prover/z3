@@ -27,7 +27,8 @@ struct neuro_prediction {
     unsigned n_vars;              // [in] number of variables
     unsigned n_clauses;           // [in] number of clauses
     unsigned n_cells;             // [in] number of cells
-    float    activity_itau;       // [in] itau
+    float    v_itau;              // [in] variable itau
+    float    c_itau;              // [in] clause itau
     unsigned* C_idxs;             // [in n_cells] clause indices
     unsigned* L_idxs;             // [in n_cells] literal indices
     float* pi_march_ps;           // [out n_vars] cube prediction
