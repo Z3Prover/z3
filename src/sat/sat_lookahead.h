@@ -20,9 +20,9 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-// #define OLD_NARY 0
 
-#include "sat_elim_eqs.h"
+#include "util/small_object_allocator.h"
+#include "sat/sat_elim_eqs.h"
 
 namespace sat {
 

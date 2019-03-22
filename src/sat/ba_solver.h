@@ -26,6 +26,7 @@ Revision History:
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_big.h"
+#include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 
