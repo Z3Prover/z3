@@ -36,36 +36,48 @@ void array_rewriter::get_param_descrs(param_descrs & r) {
 
 br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
     SASSERT(f->get_family_id() == get_fid());
-    TRACE("array_rewriter", tout << mk_pp(f, m()) << "\n";
-          for (unsigned i = 0; i < num_args; ++i) {
-              tout << mk_pp(args[i], m()) << "\n";
-          });
+    br_status st;
     switch (f->get_decl_kind()) {
     case OP_SELECT:
-        return mk_select_core(num_args, args, result);
+        st = mk_select_core(num_args, args, result);
+        break;
     case OP_STORE:
-        return mk_store_core(num_args, args, result);
+        st = mk_store_core(num_args, args, result);
+        break;
     case OP_ARRAY_MAP:
         SASSERT(f->get_num_parameters() == 1);
         SASSERT(f->get_parameter(0).is_ast());
         SASSERT(is_func_decl(f->get_parameter(0).get_ast()));
-        return mk_map_core(to_func_decl(f->get_parameter(0).get_ast()), num_args, args, result);
+        st = mk_map_core(to_func_decl(f->get_parameter(0).get_ast()), num_args, args, result);
+        break;
     case OP_SET_UNION:
-        return mk_set_union(num_args, args, result);
+        st = mk_set_union(num_args, args, result);
+        break;
     case OP_SET_INTERSECT:
-        return mk_set_intersect(num_args, args, result);
+        st = mk_set_intersect(num_args, args, result);
+        break;
     case OP_SET_SUBSET: 
         SASSERT(num_args == 2);
-        return mk_set_subset(args[0], args[1], result);
+        st = mk_set_subset(args[0], args[1], result);
+        break;
     case OP_SET_COMPLEMENT:
         SASSERT(num_args == 1);
-        return mk_set_complement(args[0], result);
+        st = mk_set_complement(args[0], result);
+        break;
     case OP_SET_DIFFERENCE:
         SASSERT(num_args == 2);
-        return mk_set_difference(args[0], args[1], result);
+        st = mk_set_difference(args[0], args[1], result);
+        break;
     default:
         return BR_FAILED;
     }
+    TRACE("array_rewriter", tout << mk_pp(f, m()) << "\n";
+          for (unsigned i = 0; i < num_args; ++i) {
+              tout << mk_pp(args[i], m()) << "\n";
+          }
+          tout << "\n --> " << result << "\n";
+          );
+    return st;
 }
 
 // l_true  -- all equal
@@ -456,6 +468,17 @@ bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector
 }
 
 br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
+    TRACE("array_rewriter", tout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
+    expr* v = nullptr;
+    if (m_util.is_const(rhs) && is_lambda(lhs)) {
+        std::swap(lhs, rhs);
+    }
+    if (m_util.is_const(lhs, v) && is_lambda(rhs)) {
+        quantifier* lam = to_quantifier(rhs);
+        expr_ref e(m().mk_eq(lam->get_expr(), v), m());
+        result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
+        return BR_REWRITE2; 
+    }
     if (!m_expand_store_eq) {
         return BR_FAILED;
     }

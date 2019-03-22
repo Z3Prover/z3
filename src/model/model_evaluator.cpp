@@ -38,6 +38,7 @@ Revision History:
 #include "ast/rewriter/var_subst.h"
 
 namespace {
+
 struct evaluator_cfg : public default_rewriter_cfg {
     ast_manager &                   m;
     model_core &                    m_model;
@@ -165,7 +166,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             if (k == OP_EQ) {
                 // theory dispatch for =
                 SASSERT(num == 2);
-                family_id s_fid = m.get_sort(args[0])->get_family_id();
+                sort* s = m.get_sort(args[0]);
+                family_id s_fid = s->get_family_id();
                 if (s_fid == m_a_rw.get_fid())
                     st = m_a_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_bv_rw.get_fid())
@@ -178,6 +180,9 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
+                TRACE("model_evaluator", 
+                      tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " " 
+                      << mk_pp(args[0], m) << " " << mk_pp(args[1], m) << " " << result << "\n";);
                 if (st != BR_FAILED)
                     return st;
             }
@@ -348,7 +353,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_DONE;
         }
         if (!m_array_equalities) {
-            return BR_FAILED;
+            return m_ar_rw.mk_eq_core(a, b, result);
         }
 
         vector<expr_ref_vector> stores1, stores2;
@@ -389,7 +394,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                   );
             return BR_REWRITE_FULL;
         }
-        return BR_FAILED;
+        return m_ar_rw.mk_eq_core(a, b, result);
     }
 
     struct args_eq {
