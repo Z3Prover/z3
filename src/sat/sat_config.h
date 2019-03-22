@@ -94,7 +94,8 @@ namespace sat {
         bool               m_phase_sticky;
         bool               m_neuro_activity;        // enable neuro activity recalibration
         double             m_neuro_activity_scale;  // scale factor
-        double             m_neuro_activity_itau;   // temperature to align weights
+        double             m_neuro_var_itau;   // temperature to align weights
+        double             m_neuro_clause_itau;   // temperature to align weights
         bool               m_neuro_choose;         // use neuro-core for literal choice in lookahead solver
         unsigned           m_neuro_activity_base; 
         unsigned           m_neuro_max_size;

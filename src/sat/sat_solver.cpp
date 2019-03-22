@@ -1687,7 +1687,8 @@ namespace sat {
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
         p.n_clauses = n_clauses();   
-        p.activity_itau = (float)s.m_config.m_neuro_activity_itau;
+        p.v_itau = (float)s.m_config.m_neuro_var_itau;
+        p.c_itau = (float)s.m_config.m_neuro_clause_itau;
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_ps = march_ps.begin();
@@ -1727,7 +1728,8 @@ namespace sat {
         p.n_cells = C_idxs.size();
         p.n_vars =  n_vars();        
         p.n_clauses = n_clauses();  
-        p.activity_itau = (float)s.m_config.m_neuro_activity_itau; 
+        p.v_itau = (float)s.m_config.m_neuro_var_itau; 
+        p.c_itau = (float)s.m_config.m_neuro_clause_itau; 
         p.C_idxs = C_idxs.begin();
         p.L_idxs = L_idxs.begin();
         p.pi_march_ps = march_ps.begin();
