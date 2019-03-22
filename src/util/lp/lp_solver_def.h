@@ -86,9 +86,7 @@ template <typename T, typename X> int lp_solver<T, X>::get_column_index_by_name(
 
 
 template <typename T, typename X>  lp_solver<T, X>::~lp_solver(){
-    if (m_A != nullptr) {
-        delete m_A;
-    }
+    delete m_A;
     for (auto t : m_map_from_var_index_to_column_info) {
         delete t.second;
     }

@@ -127,9 +127,8 @@ public:
     void init();
 
     virtual ~lp_core_solver_base() {
-        if (m_factorization != nullptr)
-            delete m_factorization;
-     }
+        delete m_factorization;
+    }
 
     vector<unsigned> & non_basis() {
         return m_nbasis;

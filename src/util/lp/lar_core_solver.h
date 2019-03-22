@@ -421,9 +421,10 @@ public:
                 unsigned leaving = trace_of_basis_change[i+1];
                 cs.change_basis_unconditionally(entering, leaving);
             }
-            if (cs.m_factorization != nullptr)
+            if (cs.m_factorization != nullptr) {
                 delete cs.m_factorization;
-            cs.m_factorization = nullptr;
+                cs.m_factorization = nullptr;
+            }
         } else {
             indexed_vector<L> w(cs.m_A.row_count());
             // the queues of delayed indices
