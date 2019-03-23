@@ -3749,7 +3749,6 @@ namespace smt {
             }
 
             if (resource_limits_exceeded() && !inconsistent()) {
-                m_last_search_failure = RESOURCE_LIMIT;
                 return l_undef;
             }
         }
