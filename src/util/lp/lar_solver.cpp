@@ -2225,11 +2225,11 @@ void lar_solver::round_to_integer_solution() {
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
         if (v.is_int())
             continue;
-        impq flv = floor(v);
+        impq flv = impq(floor(v));
         auto del = flv - v; // del is negative
-        if (del < - mpq(1, 2)) {
+        if (del < - impq(mpq(1, 2))) {
             del = impq(one_of_type<mpq>()) + del;
-            v = ceil(v);
+            v = impq(ceil(v));
         } else {
             v = flv;
         }

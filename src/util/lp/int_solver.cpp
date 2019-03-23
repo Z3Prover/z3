@@ -122,11 +122,11 @@ bool int_solver::current_solution_is_inf_on_cut() const {
     const auto & x = m_lar_solver->m_mpq_lar_core_solver.m_r_x;
     impq v = m_t.apply(x);
     mpq sign = m_upper ? one_of_type<mpq>()  : -one_of_type<mpq>();
-    CTRACE("current_solution_is_inf_on_cut", v * sign <= m_k * sign,
+    CTRACE("current_solution_is_inf_on_cut", v * sign <= impq(m_k) * sign,
            tout << "m_upper = " << m_upper << std::endl;
            tout << "v = " << v << ", k = " << m_k << std::endl;
           );
-    return v * sign > m_k * sign;
+    return v * sign > impq(m_k) * sign;
 }
 
 constraint_index int_solver::column_lower_bound_constraint(unsigned j) const {
@@ -476,7 +476,7 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
           tout << "]";
           tout << ", m: " << m << ", val: " << val << ", is_int: " << m_lar_solver->column_is_int(j) << "\n";);
     if (!inf_l) {
-        l = m_is_one ? ceil(l) : m * ceil(l / m);
+        l = impq(m_is_one ? ceil(l) : m * ceil(l / m));
         if (inf_u || l <= u) {
             TRACE("patch_int",
                   tout << "patching with l: " << l << '\n';);
@@ -488,7 +488,7 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
         }
     }
     else if (!inf_u) {
-        u = m_is_one ? floor(u) : m * floor(u / m);
+        u = impq(m_is_one ? floor(u) : m * floor(u / m));
         m_lar_solver->set_value_for_nbasic_column(j, u);
         TRACE("patch_int",
               tout << "patching with u: " << u << '\n';);
@@ -913,14 +913,14 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
     }
     if (column_is_int(j)) {
         if (!inf_l) {
-            l = ceil(l);
+            l = impq(ceil(l));
             if (!m.is_one())
-                l = m*ceil(l/m);
+                l = impq(m*ceil(l/m));
         }
         if (!inf_u) {
-            u = floor(u);
+            u = impq(floor(u));
             if (!m.is_one())
-                u = m*floor(u/m);
+                u = impq(m*floor(u/m));
         }
     }
     if (!inf_l && !inf_u && l >= u)
