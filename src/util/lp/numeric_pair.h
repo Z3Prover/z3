@@ -140,7 +140,7 @@ struct numeric_pair {
     numeric_pair(T xp, T yp) : x(xp), y(yp) {}
 
     template <typename X>
-    numeric_pair(const X & n) : x(n), y(0) {
+    explicit numeric_pair(const X & n) : x(n), y(0) {
     }
 
     numeric_pair(const numeric_pair<T> & n) : x(n.x), y(n.y) {}

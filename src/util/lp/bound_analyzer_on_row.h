@@ -238,7 +238,7 @@ public :
 
         bound /= u_coeff;
         
-        if (numeric_traits<impq>::is_pos(u_coeff)) {
+        if (u_coeff.is_pos()) {
             limit_j(m_column_of_u, bound, true, true, strict);
         } else {
             limit_j(m_column_of_u, bound, false, false, strict);

@@ -35,12 +35,12 @@ public:
         m_explanation.push_back(std::make_pair(one_of_type<mpq>(), j));
     }
 
-    template <typename A>
-    void add(const A& a) { for (auto j : a) add(j); }
+    void add(const explanation& e) { for (auto j: e.m_set_of_ci) add(j); }
+
+    void add(unsigned ci) { push_justification(ci); }
     
     void add(const std::pair<mpq, constraint_index>& j) { push_justification(j.second, j.first); }
 
-    void add(unsigned j) { push_justification(j); }
     bool empty() const {  return m_explanation.empty();  }
     size_t size() const { return m_explanation.size(); }
 };

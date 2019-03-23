@@ -82,5 +82,7 @@ public:
     static void test_tangent_lemma();
     static void test_tangent_lemma_reg();
     static void test_tangent_lemma_equiv();
+    static void s_set_column_value(lp::lar_solver&, unsigned, const rational &);
+    static void s_set_column_value(lp::lar_solver&, unsigned, const lp::impq &);
 };
 }

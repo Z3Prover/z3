@@ -474,7 +474,7 @@ public:
             break;
         default:
             lp_assert(false);
-            new_val_for_leaving = numeric_traits<T>::zero(); // does not matter
+            new_val_for_leaving = numeric_traits<X>::zero(); // does not matter
         }
         return j;
     }
