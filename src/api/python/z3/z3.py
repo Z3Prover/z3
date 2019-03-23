@@ -10316,3 +10316,15 @@ def Loop(re, lo, hi=0):
     False
     """
     return ReRef(Z3_mk_re_loop(re.ctx_ref(), re.as_ast(), lo, hi), re.ctx)
+
+def Range(lo, hi, ctx = None):
+    """Create the range regular expression over two sequences of length 1
+    >>> range = Range("a","z")
+    >>> print(simplify(InRe("b", range)))
+    True
+    >>> print(simplify(InRe("bb", range)))
+    False
+    """
+    lo = _coerce_seq(lo, ctx)
+    hi = _coerce_seq(hi, ctx)
+    return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
