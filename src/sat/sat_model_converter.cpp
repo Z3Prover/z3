@@ -75,7 +75,7 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first =  false; // true; // false; // // true;
+        bool first =  false; 
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
@@ -146,6 +146,10 @@ namespace sat {
                 bool sat = false;
                 for (literal l : it->m_clauses) {
                     if (l == null_literal) {
+                        CTRACE("sat", !sat, 
+                               display(tout);
+                               for (unsigned v = 0; v < m.size(); ++v) tout << v << ": " << m[v] << "\n";
+                               );
                         SASSERT(sat);
                         sat = false;
                         continue;

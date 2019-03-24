@@ -609,6 +609,10 @@ def _to_sort_ref(s, ctx):
         return FPSortRef(s, ctx)
     elif k == Z3_ROUNDING_MODE_SORT:
         return FPRMSortRef(s, ctx)
+    elif k == Z3_RE_SORT:
+        return ReSortRef(s, ctx)
+    elif k == Z3_SEQ_SORT:
+        return SeqSortRef(s, ctx)
     return SortRef(s, ctx)
 
 def _sort(ctx, a):
@@ -9908,6 +9912,9 @@ class SeqSortRef(SortRef):
         False
         """
         return Z3_is_string_sort(self.ctx_ref(), self.ast)
+
+    def basis(self):
+        return _to_sort_ref(Z3_get_seq_sort_basis(self.ctx_ref(), self.ast), self.ctx)
         
 
 def StringSort(ctx=None):
@@ -10062,7 +10069,7 @@ def Full(s):
     re.all
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    re.all
+    rel.all
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
@@ -10212,6 +10219,8 @@ def Re(s, ctx=None):
 class ReSortRef(SortRef):
     """Regular expression sort."""
 
+    def basis(self):
+        return _to_sort_ref(Z3_get_re_sort_basis(self.ctx_ref(), self.ast), self.ctx)
 
 def ReSort(s):
     if is_ast(s):
@@ -10227,7 +10236,6 @@ class ReRef(ExprRef):
 
     def __add__(self, other):
         return Union(self, other)
-
 
 def is_re(s):
     return isinstance(s, ReRef)
@@ -10264,6 +10272,24 @@ def Union(*args):
     for i in range(sz):
         v[i] = args[i].as_ast()
     return ReRef(Z3_mk_re_union(ctx.ref(), sz, v), ctx)
+
+def Intersect(*args):
+    """Create intersection of regular expressions.
+    >>> re = Intersect(Re("a"), Re("b"), Re("c"))
+    Intersect(Re("a"), Re("b"), Re("c"))
+    """
+    args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz > 0, "At least one argument expected.")
+        _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+    if sz == 1:
+        return args[0]
+    ctx = args[0].ctx
+    v = (Ast * sz)()
+    for i in range(sz):
+        v[i] = args[i].as_ast()
+    return ReRef(Z3_mk_re_intersect(ctx.ref(), sz, v), ctx)
 
 def Plus(re):
     """Create the regular expression accepting one or more repetitions of argument.

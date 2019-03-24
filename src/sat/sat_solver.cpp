@@ -1608,6 +1608,7 @@ namespace sat {
                 if (inconsistent()) break;
                 assign_scoped(lit);
             }
+            propagate(false);
             TRACE("sat",
                   for (literal a : m_assumptions) {
                       index_set s;

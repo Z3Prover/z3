@@ -3293,6 +3293,13 @@ extern "C" {
     bool Z3_API Z3_is_seq_sort(Z3_context c, Z3_sort s);
 
     /**
+       \brief Retrieve basis sort for sequence sort.
+
+       def_API('Z3_get_seq_sort_basis', SORT, (_in(CONTEXT), _in(SORT)))
+     */
+    Z3_sort Z3_API Z3_get_seq_sort_basis(Z3_context c, Z3_sort s);
+
+    /**
        \brief Create a regular expression sort out of a sequence sort.
 
        def_API('Z3_mk_re_sort', SORT, (_in(CONTEXT), _in(SORT)))
@@ -3305,6 +3312,13 @@ extern "C" {
        def_API('Z3_is_re_sort', BOOL, (_in(CONTEXT), _in(SORT)))
      */
     bool Z3_API Z3_is_re_sort(Z3_context c, Z3_sort s);
+
+    /**
+       \brief Retrieve basis sort for regex sort.
+
+       def_API('Z3_get_re_sort_basis', SORT, (_in(CONTEXT), _in(SORT)))
+     */
+    Z3_sort Z3_API Z3_get_re_sort_basis(Z3_context c, Z3_sort s);
 
     /**
        \brief Create a sort for 8 bit strings.

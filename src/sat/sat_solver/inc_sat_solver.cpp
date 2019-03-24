@@ -879,6 +879,7 @@ private:
             mdl = nullptr;
             return;
         }
+        TRACE("sat", m_solver.display_model(tout););
         sat::model const & ll_m = m_solver.get_model();
         mdl = alloc(model, m);
         for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
@@ -899,11 +900,9 @@ private:
         }
 
         if (m_sat_mc) {
-            // IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
             (*m_sat_mc)(mdl);
         }
         if (m_mcs.back()) {            
-            //IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
             (*m_mcs.back())(mdl);
         }
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        
