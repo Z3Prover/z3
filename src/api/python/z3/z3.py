@@ -10066,7 +10066,7 @@ def Full(s):
     """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
-    Full(ReSort(Int))
+    Full(ReSort(Seq(Int)))
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
     Full(ReSort(String))
