@@ -3841,7 +3841,7 @@ def Extract(high, low, a):
     >>> Extract(6, 2, x).sort()
     BitVec(5)
     >>> simplify(Extract(StringVal("abcd"),2,1))
-    c
+    "c"
     """
     if isinstance(high, str):
         high = StringVal(high)
@@ -10051,10 +10051,10 @@ def Empty(s):
     True
     >>> e3 = Empty(SeqSort(IntSort()))
     >>> print(e3)
-    seq.empty
+    Empty(Seq(Int))
     >>> e4 = Empty(ReSort(SeqSort(IntSort())))
     >>> print(e4)
-    re.empty
+    Empty(ReSort(Seq(Int)))
     """
     if isinstance(s, SeqSortRef):
        return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
@@ -10066,10 +10066,10 @@ def Full(s):
     """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
-    re.all
+    Full(ReSort(Int))
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    rel.all
+    Full(ReSort(String))
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
@@ -10131,7 +10131,7 @@ def Replace(s, src, dst):
     """Replace the first occurrence of 'src' by 'dst' in 's'
     >>> r = Replace("aaa", "a", "b")
     >>> simplify(r)
-    baa
+    "baa"
     """
     ctx = _get_ctx2(dst, s)
     if ctx is None and is_expr(src):
@@ -10276,7 +10276,6 @@ def Union(*args):
 def Intersect(*args):
     """Create intersection of regular expressions.
     >>> re = Intersect(Re("a"), Re("b"), Re("c"))
-    Intersect(Re("a"), Re("b"), Re("c"))
     """
     args = _get_args(args)
     sz = len(args)
