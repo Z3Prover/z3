@@ -629,6 +629,7 @@ class get_info_cmd : public cmd {
     symbol   m_reason_unknown;
     symbol   m_all_statistics;
     symbol   m_assertion_stack_levels;
+    symbol   m_rlimit;
 public:
     get_info_cmd():
         cmd("get-info"),
@@ -639,7 +640,8 @@ public:
         m_status(":status"),
         m_reason_unknown(":reason-unknown"),
         m_all_statistics(":all-statistics"),
-        m_assertion_stack_levels(":assertion-stack-levels") {
+        m_assertion_stack_levels(":assertion-stack-levels"),
+        m_rlimit(":rlimit") {
     }
     char const * get_usage() const override { return "<keyword>"; }
     char const * get_descr(cmd_context & ctx) const override { return "get information."; }
@@ -670,6 +672,9 @@ public:
         }
         else if (opt == m_reason_unknown) {
             ctx.regular_stream() << "(:reason-unknown \"" << escaped(ctx.reason_unknown().c_str()) << "\")" << std::endl;
+        }
+        else if (opt == m_rlimit) {
+            ctx.regular_stream() << "(:rlimit " << ctx.m().limit().count() << ")" << std::endl;
         }
         else if (opt == m_all_statistics) {
             ctx.display_statistics();
