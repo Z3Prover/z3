@@ -58,11 +58,11 @@ namespace smt {
             }
             bool_var var() const { return m_bvar;}
             relation& get_relation() const { return m_relation; }
-            bool phase() { return m_phase; }
+            bool phase() const { return m_phase; }
             void set_phase(bool b) { m_phase = b; }
-            theory_var v1() { return m_v1; }
-            theory_var v2() { return m_v2; }
-            literal explanation() { return literal(m_bvar, !m_phase); }
+            theory_var v1() const { return m_v1; }
+            theory_var v2() const { return m_v2; }
+            literal explanation() const { return literal(m_bvar, !m_phase); }
             bool enable() {
                 edge_id edge = m_phase?m_pos:m_neg;
                 return m_relation.m_graph.enable_edge(edge);
@@ -112,16 +112,16 @@ namespace smt {
         typedef u_map<atom*>     bool_var2atom;
 
         special_relations_util         m_util;
-        arith_util m_autil;
-
+        arith_util                     m_autil;
         atoms                          m_atoms;
         unsigned_vector                m_atoms_lim;
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
 
         scoped_ptr<solver> m_nested_solver;
+
         struct atom_hash {
-            size_t operator()(atom a) const {
+            size_t operator()(atom const& a) const {
                 return std::hash<int>()(a.v1()) ^ std::hash<int>()(a.v2()) ^ std::hash<bool>()(a.phase());
             }
         };
@@ -158,6 +158,13 @@ namespace smt {
         bool is_strict_neighbour_edge(graph const& g, edge_id id) const;
         bool disconnected(graph const& g, dl_var u, dl_var v) const;
 
+        literal mk_literal(expr* _e);
+        enode* ensure_enode(expr* e);
+        theory_var mk_var(enode* n);
+
+        void collect_asserted_po_atoms(vector< std::pair<bool_var,bool> >& atoms) const;
+        void display_atom(std::ostream & out, atom& a) const;
+
     public:
         theory_special_relations(ast_manager& m);
         ~theory_special_relations() override;
@@ -182,13 +189,6 @@ namespace smt {
         bool can_propagate() override { return false; }
         void propagate() override {}
         void display(std::ostream & out) const override;
-
-        literal mk_literal(expr* _e);
-        enode* ensure_enode(expr* e);
-        theory_var mk_var(enode* n);
-
-        void collect_asserted_po_atoms( vector< std::pair<bool_var,bool> >& atoms) const;
-        void display_atom( std::ostream & out, atom& a) const;
    
     };
 }
