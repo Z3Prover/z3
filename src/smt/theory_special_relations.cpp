@@ -28,8 +28,6 @@ Notes:
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 
-static constexpr bool HYBRID_SEARCH = false;
-
 namespace smt {
 
     void theory_special_relations::relation::push() {
@@ -63,9 +61,7 @@ namespace smt {
         ensure_var(v2);
         literal_vector ls;
         ls.push_back(l);
-        return
-            m_graph.enable_edge(m_graph.add_edge(v1, v2, s_integer(1), ls)) &&
-            m_graph.enable_edge(m_graph.add_edge(v2, v1, s_integer(1), ls));
+        return m_graph.add_non_strict_edge(v1, v2, ls) && m_graph.add_non_strict_edge(v2, v1, ls);
     }
 
     theory_special_relations::theory_special_relations(ast_manager& m):
@@ -81,22 +77,13 @@ namespace smt {
         return alloc(theory_special_relations, new_ctx->get_manager());
     }
 
-    static void populate_k_vars(int v, int k, u_map<ptr_vector<expr>>& map, int& curr_id, ast_manager& m, sort* int_sort) {
-        int need = !map.contains(v) ? k : k - map[v].size();
-        for (auto i = 0; i < need; ++i) {
-            auto *fd = m.mk_const_decl(symbol(curr_id++), int_sort);
-            map[v].push_back(m.mk_app(fd, unsigned(0), nullptr));
-        }
-    }
-
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
-        TRACE("special_relations", tout << mk_pp(atm, get_manager()) << "\n";);
         SASSERT(m_util.is_special_relation(atm));
         relation* r = 0;
         if (!m_relations.find(atm->get_decl(), r)) {
-          //todo: push pop may get misaligned if the following alloc happens after push
             r = alloc(relation, m_util.get_property(atm), atm->get_decl());
             m_relations.insert(atm->get_decl(), r);
+            for (unsigned i = 0; i < m_atoms_lim.size(); ++i) r->push();
         }
         context& ctx = get_context();
         expr* arg0 = atm->get_arg(0);
@@ -107,7 +94,7 @@ namespace smt {
         ctx.set_var_theory(v, get_id());
         atom* a = alloc(atom, v, *r, v0, v1);
         m_atoms.push_back(a);
-        TRACE("sr", tout << "INTER : " << a->v1() << ' ' << a->v2() << ' ' << gate_ctx << "\n";);
+        TRACE("special_relations", tout << mk_pp(atm, get_manager()) << " : " << a->v1() << ' ' << a->v2() << ' ' << gate_ctx << "\n";);
         m_bool_var2atom.insert(v, a);
         return true;
     }
@@ -222,42 +209,39 @@ namespace smt {
 
     lbool theory_special_relations::final_check_to(relation& r) {
         uint_set visited, target;
-        lbool res = l_true;
-        for (unsigned i = 0; res == l_true && i < r.m_asserted_atoms.size(); ++i) {
-            atom& a = *r.m_asserted_atoms[i];
-            if (!a.phase() && r.m_uf.find(a.v1()) == r.m_uf.find(a.v2())) {
-                target.reset();
-                theory_var w;
-                // v2 !<= v1 is asserted
-                target.insert(a.v2());
-                if (r.m_graph.reachable(a.v1(), visited, target, w)) {
-                    // we already have v1 <= v2
-                    continue;
+        for (atom* ap : r.m_asserted_atoms) {
+            atom& a = *ap;
+            if (a.phase() || r.m_uf.find(a.v1()) != r.m_uf.find(a.v2())) {
+                continue;
+            }
+            target.reset();
+            theory_var w;
+            // v2 !<= v1 is asserted
+            target.insert(a.v2());
+            if (r.m_graph.reachable(a.v1(), visited, target, w)) {
+                // we already have v1 <= v2
+                continue;
+            }
+            target.reset();
+            if (r.m_graph.reachable(a.v2(), target, visited, w)) {
+                // there is a common successor
+                // v1 <= w
+                // v2 <= w
+                // v1 !<= v2
+                // -> v1 <= w & v2 <= w & v1 !<= v2 -> v2 <= v1
+                unsigned timestamp = r.m_graph.get_timestamp();
+                r.m_explanation.reset();
+                r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
+                r.m_graph.find_shortest_reachable_path(a.v2(), w, timestamp, r);
+                r.m_explanation.push_back(a.explanation());
+                literal_vector const& lits = r.m_explanation;
+                if (!r.m_graph.add_non_strict_edge(a.v2(), a.v1(), lits)) {
+                    set_neg_cycle_conflict(r);
+                    return l_false;
                 }
-                target.reset();
-                if (r.m_graph.reachable(a.v2(), target, visited, w)) {
-                    // there is a common successor
-                    // v1 <= w
-                    // v2 <= w
-                    // v1 !<= v2
-                    // -> v1 <= w & v2 <= w & v1 !<= v2 -> v2 <= v1
-                    unsigned timestamp = r.m_graph.get_timestamp();
-                    r.m_explanation.reset();
-                    r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
-                    r.m_graph.find_shortest_reachable_path(a.v2(), w, timestamp, r);
-                    r.m_explanation.push_back(a.explanation());
-                    literal_vector const& lits = r.m_explanation;
-                    if (!r.m_graph.enable_edge(r.m_graph.add_edge(a.v2(), a.v1(), s_integer(0), lits))) {
-                        set_neg_cycle_conflict(r);
-                        res = l_false;
-                    }
-                }
-                // TODO: check if algorithm correctly produces all constraints.
-                // e.g., if we add an edge, do we have to repeat the loop?
-                //
             }
         }
-        return res;
+        return l_true;
     }
 
     lbool theory_special_relations::enable(atom& a) {
@@ -289,12 +273,6 @@ namespace smt {
     }
 
     lbool theory_special_relations::final_check(relation& r) {
-      // timer m_timer_fc; //for debugging
-      // static unsigned call_count = 0;
-      // static double total_call_times = 0.0;
-      // m_timer_fc.start();
-      // call_count++;
-
         lbool res = propagate(r);
         if (res != l_true) return res;
         switch (r.m_property) {
@@ -446,6 +424,7 @@ namespace smt {
         }
         unsigned new_lvl = m_atoms_lim.size() - num_scopes;
         del_atoms(m_atoms_lim[new_lvl]);
+        m_atoms_lim.shrink(new_lvl);
     }
 
     void theory_special_relations::del_atoms(unsigned old_size) {
@@ -453,7 +432,7 @@ namespace smt {
         atoms::iterator it    = m_atoms.end();
         while (it != begin) {
             --it;
-            atom * a     = *it;
+            atom* a = *it;
             m_bool_var2atom.erase(a->var());
             dealloc(a);
         }
@@ -469,7 +448,7 @@ namespace smt {
 
     model_value_proc * theory_special_relations::mk_value(enode * n, model_generator & mg) {
         UNREACHABLE();
-        return 0;
+        return nullptr;
     }
 
     void theory_special_relations::ensure_strict(graph& g) {
@@ -480,7 +459,7 @@ namespace smt {
             dl_var src = g.get_source(i);
             dl_var dst = g.get_target(i);
             if (get_enode(src)->get_root() == get_enode(dst)->get_root()) continue;
-            VERIFY(g.enable_edge(g.add_edge(src, dst, s_integer(-2), literal_vector())));
+            VERIFY(g.add_strict_edge(src, dst, literal_vector()));
         }
         TRACE("special_relations", g.display(tout););
     }
@@ -498,9 +477,10 @@ namespace smt {
                         edge_id e2 = edges[k];
                         if (g.is_enabled(e2)) {
                             dl_var src2 = g.get_source(e2);
-                            if (get_enode(src1)->get_root() == get_enode(src2)->get_root()) continue;
-                            if (!disconnected(g, src1, src2)) continue;
-                            VERIFY(g.enable_edge(g.add_edge(src1, src2, s_integer(-2), literal_vector())));
+                            if (get_enode(src1)->get_root() != get_enode(src2)->get_root() && 
+                                disconnected(g, src1, src2)) {
+                                VERIFY(g.add_strict_edge(src1, src2, literal_vector()));
+                            }
                         }
                     }
                 }
@@ -587,7 +567,6 @@ namespace smt {
 
     expr_ref theory_special_relations::mk_interval(relation& r, model_generator& mg, unsigned_vector & lo, unsigned_vector& hi) {
         graph const& g = r.m_graph;
-        //context& ctx = get_context();
         ast_manager& m = get_manager();
         expr_ref result(m);
         func_decl_ref lofn(m), hifn(m);

@@ -78,7 +78,14 @@ namespace smt {
         struct int_ext : public sidl_ext {
             typedef literal_vector explanation;
         };
-        typedef dl_graph<int_ext> graph;
+        struct graph : public dl_graph<int_ext> {
+            bool add_strict_edge(theory_var v1, theory_var v2, literal_vector const& j) {
+                return enable_edge(add_edge(v1, v2, s_integer(1), j));
+            }
+            bool add_non_strict_edge(theory_var v1, theory_var v2, literal_vector const& j) {
+                return enable_edge(add_edge(v1, v2, s_integer(-2), j));
+            }
+        };
 
         typedef union_find<union_find_default_ctx> union_find_t;
 
@@ -104,6 +111,9 @@ namespace smt {
                 m_explanation.append(ex);
             }
             void new_edge(dl_var src, dl_var dst, unsigned num_edges, edge_id const* edges) {}
+
+            bool add_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);
+            bool add_non_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);
         };
 
 
@@ -117,6 +127,7 @@ namespace smt {
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
         
+
         void del_atoms(unsigned old_size);
         lbool final_check(relation& r);
         lbool final_check_po(relation& r);
