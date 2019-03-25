@@ -477,7 +477,7 @@ namespace sat {
         unsigned m_restarts;
         unsigned m_restart_next_out;
         unsigned m_conflicts_since_restart;
-        unsigned m_unique_max_since_restart;
+        bool     m_force_conflict_analysis;
         unsigned m_simplifications;
         unsigned m_restart_threshold;
         unsigned m_luby_idx;

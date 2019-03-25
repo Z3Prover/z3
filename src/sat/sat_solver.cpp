@@ -1209,7 +1209,6 @@ namespace sat {
                     return r;
                 pop_reinit(scope_lvl());
                 m_conflicts_since_restart = 0;
-                m_unique_max_since_restart = 0;
                 m_restart_threshold = m_config.m_restart_initial;
             }
             lbool is_sat = l_undef;
@@ -1551,6 +1550,7 @@ namespace sat {
                 if (is_sat != l_true) return is_sat;
             }
 
+            SASSERT(!inconsistent());
             do_gc();
 
             if (!decide()) {
@@ -1899,7 +1899,7 @@ namespace sat {
 
     void solver::reinit_assumptions() {
         if (tracking_assumptions() && at_base_lvl() && !inconsistent()) {
-            TRACE("sat", tout << m_assumptions << "\n";);
+            TRACE("sat", tout << "assumptions: " << m_assumptions << " user scopes: " << m_user_scope_literals << "\n";);
             if (!propagate(false)) return;
             push();
             for (literal lit : m_user_scope_literals) {
@@ -1910,13 +1910,19 @@ namespace sat {
                 if (inconsistent()) break;
                 assign_scoped(lit);
             }
+            if (!inconsistent()) propagate(false);
             TRACE("sat",
+                  tout << "consistent: " << !inconsistent() << "\n";
                   for (literal a : m_assumptions) {
                       index_set s;
                       if (m_antecedents.find(a.var(), s)) {
                           tout << a << ": "; display_index_set(tout, s) << "\n";
                       }
-                  });
+                  }
+                  for (literal lit : m_user_scope_literals) {
+                      tout << "user " << lit << "\n"; 
+                  }
+                  );
         }
     }
 
@@ -1951,7 +1957,7 @@ namespace sat {
         m_neuro_activity_lim      = m_config.m_neuro_activity_base;
         m_neuro_activity_inc      = 0;
         m_conflicts_since_restart = 0;
-        m_unique_max_since_restart = 0;
+        m_force_conflict_analysis = false;
         m_restart_threshold       = m_config.m_restart_initial;
         m_luby_idx                = 1;
         m_gc_threshold            = m_config.m_gc_initial;
@@ -2037,6 +2043,7 @@ namespace sat {
         }
 
         reinit_assumptions();
+        if (inconsistent()) return;
 
         if (m_next_simplify == 0) {
             m_next_simplify = m_config.m_next_simplify1;
@@ -2209,7 +2216,6 @@ namespace sat {
         if (m_conflicts_since_restart <= m_restart_threshold) return false;
         if (scope_lvl() < 2 + search_lvl()) return false;
         if (m_config.m_restart != RS_EMA) return true;
-        if (m_unique_max_since_restart >= m_restart_threshold) return true;
         return 
             m_fast_glue_avg + search_lvl() <= scope_lvl() && 
             m_config.m_restart_margin * m_slow_glue_avg <= m_fast_glue_avg;
@@ -2355,7 +2361,6 @@ namespace sat {
 
     void solver::set_next_restart() {
         m_conflicts_since_restart = 0;
-        m_unique_max_since_restart = 0;
         switch (m_config.m_restart) {
         case RS_GEOMETRIC:
             m_restart_threshold = static_cast<unsigned>(m_restart_threshold * m_config.m_restart_factor);
@@ -2390,7 +2395,10 @@ namespace sat {
 
     void solver::do_gc() {
         if (!should_gc()) return;
+        TRACE("sat", tout << m_conflicts_since_gc << " " << m_gc_threshold << "\n";);
         unsigned gc = m_stats.m_gc_clause;
+        m_conflicts_since_gc = 0;
+        m_gc_threshold += m_config.m_gc_increment;
         IF_VERBOSE(10, verbose_stream() << "(sat.gc)\n";);
         CASSERT("sat_gc_bug", check_invariant());
         switch (m_config.m_gc_strategy) {
@@ -2407,6 +2415,10 @@ namespace sat {
             gc_psm_glue();
             break;
         case GC_DYN_PSM:
+            if (!m_assumptions.empty()) {
+                gc_glue_psm();
+                break;
+            }
             if (!at_base_lvl()) 
                 return;
             gc_dyn_psm();
@@ -2423,8 +2435,6 @@ namespace sat {
         if (gc > 0 && should_defrag()) {
             defrag_clauses();
         }
-        m_conflicts_since_gc = 0;
-        m_gc_threshold += m_config.m_gc_increment;
         CASSERT("sat_gc_bug", check_invariant());
     }
 
@@ -2739,8 +2749,10 @@ namespace sat {
         }
         bool unique_max;
         m_conflict_lvl = get_max_lvl(m_not_l, m_conflict, unique_max);        
+        justification js = m_conflict;
 
         if (m_conflict_lvl <= 1 && tracking_assumptions()) {
+            TRACE("sat", tout << "unsat core\n";);
             resolve_conflict_for_unsat_core();
             return l_false;
         }
@@ -2750,12 +2762,17 @@ namespace sat {
             return l_false;
         }
 
-        if (unique_max) {
-            m_unique_max_since_restart++; // does not update glue
-            IF_VERBOSE(20, verbose_stream() << "unique max scope " << m_scope_lvl << " conflict level: " << m_conflict_lvl << "\n");
+        // force_conflict_analysis is used instead of relying on normal propagation to assign m_not_l 
+        // at the backtracking level. This is the case where the external theories miss propagations
+        // that only get triggered after decisions.
+        
+        if (unique_max && !m_force_conflict_analysis) {
+            TRACE("sat", tout << "unique max " << js << " " << m_not_l << "\n";);
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
+            m_force_conflict_analysis = true;
             return l_undef;
         }
+        m_force_conflict_analysis = false;
 
         updt_phase_of_vars();
 
@@ -2772,10 +2789,7 @@ namespace sat {
             }
         }
 
-
         m_lemma.reset();
-
-        justification js = m_conflict;
 
         unsigned idx = skip_literals_above_conflict_level();
 
@@ -2796,7 +2810,6 @@ namespace sat {
             process_antecedent(m_not_l, num_marks);
             consequent = ~m_not_l;
         }
-
 
         do {
             TRACE("sat_conflict_detail", tout << "processing consequent: " << consequent << " @" << (consequent==null_literal?m_conflict_lvl:lvl(consequent)) << "\n";
