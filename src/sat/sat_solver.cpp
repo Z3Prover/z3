@@ -1714,6 +1714,9 @@ namespace sat {
         for (literal lit : clauses) {
             if (lit == null_literal) {
                 idx2clause.push_back(nullptr);
+                if (nodes_plus_cells() > m_max_size) {
+                    break;
+                }
             }
             else {
                 push_literal(lit);
