@@ -160,38 +160,36 @@ namespace smt {
 
     public:
         theory_special_relations(ast_manager& m);
-        virtual ~theory_special_relations();
+        ~theory_special_relations() override;
 
-        virtual theory * mk_fresh(context * new_ctx);
-        virtual bool internalize_atom(app * atom, bool gate_ctx);
-        virtual bool internalize_term(app * term) { UNREACHABLE(); return false; }
-        virtual void new_eq_eh(theory_var v1, theory_var v2);
-        virtual void new_diseq_eh(theory_var v1, theory_var v2) {}
-        virtual bool use_diseqs() const { return false; }
-        virtual bool build_models() const { return true; }
-        virtual final_check_status final_check_eh();
-        virtual void reset_eh();
-        virtual void assign_eh(bool_var v, bool is_true);
-        virtual void init_search_eh() {}
-        virtual void push_scope_eh();
-        virtual void pop_scope_eh(unsigned num_scopes);
-        virtual void restart_eh() {}
-        virtual void collect_statistics(::statistics & st) const;
-        virtual model_value_proc * mk_value(enode * n, model_generator & mg);
-        virtual void init_model(model_generator & m);
-        virtual bool can_propagate() { return false; }
-        virtual void propagate() {}
-        virtual void display(std::ostream & out) const;
+        theory * mk_fresh(context * new_ctx) override;
+        bool internalize_atom(app * atom, bool gate_ctx) override;
+        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        void new_eq_eh(theory_var v1, theory_var v2) override;
+        void new_diseq_eh(theory_var v1, theory_var v2) override {}
+        bool use_diseqs() const override { return false; }
+        bool build_models() const override { return true; }
+        final_check_status final_check_eh() override;
+        void reset_eh() override;
+        void assign_eh(bool_var v, bool is_true) override;
+        void init_search_eh() override {}
+        void push_scope_eh() override;
+        void pop_scope_eh(unsigned num_scopes) override;
+        void restart_eh() override {}
+        void collect_statistics(::statistics & st) const override;
+        model_value_proc * mk_value(enode * n, model_generator & mg) override;
+        void init_model(model_generator & m) override;
+        bool can_propagate() override { return false; }
+        void propagate() override {}
+        void display(std::ostream & out) const override;
 
         literal mk_literal(expr* _e);
         enode* ensure_enode(expr* e);
         theory_var mk_var(enode* n);
 
-  //BEGIN: ASHU
-      void collect_asserted_po_atoms( vector< std::pair<bool_var,bool> >& atoms) const;
-      void display_atom( std::ostream & out, atom& a) const;
-      void display_atom( atom& a) const;
-  //END: ASHU
+        void collect_asserted_po_atoms( vector< std::pair<bool_var,bool> >& atoms) const;
+        void display_atom( std::ostream & out, atom& a) const;
+   
     };
 }
 
