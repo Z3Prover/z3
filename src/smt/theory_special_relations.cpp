@@ -898,8 +898,4 @@ namespace smt {
         out << "\n";
     }
     
-    void theory_special_relations::display_atom( atom& a) const {
-        display_atom( std::cerr, a);
-    }
-
 }
