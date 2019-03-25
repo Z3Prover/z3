@@ -28,7 +28,6 @@ Notes:
 #include "ast/reg_decl_plugins.h"
 #include "ast/ast_pp.h"
 
-static constexpr bool KVEC = false;
 static constexpr bool HYBRID_SEARCH = false;
 
 namespace smt {
@@ -38,9 +37,7 @@ namespace smt {
         scope& s = m_scopes.back();
         s.m_asserted_atoms_lim = m_asserted_atoms.size();
         s.m_asserted_qhead_old = m_asserted_qhead;
-        if (!KVEC) {
-          m_graph.push();
-        }
+        m_graph.push();        
         m_ufctx.get_trail_stack().push_scope();
     }
 
@@ -50,9 +47,7 @@ namespace smt {
         m_asserted_atoms.shrink(s.m_asserted_atoms_lim);
         m_asserted_qhead = s.m_asserted_qhead_old;
         m_scopes.shrink(new_lvl);
-        if (!KVEC) {
-          m_graph.pop(num_scopes);
-        }
+        m_graph.pop(num_scopes);        
         m_ufctx.get_trail_stack().pop_scope(num_scopes);
     }
 
@@ -75,17 +70,11 @@ namespace smt {
 
     theory_special_relations::theory_special_relations(ast_manager& m):
         theory(m.mk_family_id("special_relations")),
-        m_util(m), m_autil(m) {
-        params_ref params;
-        params.set_bool("model", true);
-        params.set_bool("unsat_core", true);
-        m_nested_solver = mk_smt_solver(m, params, symbol("QF_LRA"));
-        m_int_sort = m_autil.mk_real();
+        m_util(m) {
     }
 
     theory_special_relations::~theory_special_relations() {
         reset_eh();
-        m_nested_solver = nullptr;
     }
 
     theory * theory_special_relations::mk_fresh(context * new_ctx) {
@@ -118,7 +107,7 @@ namespace smt {
         ctx.set_var_theory(v, get_id());
         atom* a = alloc(atom, v, *r, v0, v1);
         m_atoms.push_back(a);
-        //std::cerr << "INTER : " << a->v1() << ' ' << a->v2() << ' ' << gate_ctx << "\n";
+        TRACE("sr", tout << "INTER : " << a->v1() << ' ' << a->v2() << ' ' << gate_ctx << "\n";);
         m_bool_var2atom.insert(v, a);
         return true;
     }
@@ -386,86 +375,22 @@ namespace smt {
     }
 
     lbool theory_special_relations::final_check_po(relation& r) {
-        if (!KVEC) {
-            lbool res = l_true;
-            for (unsigned i = 0; res == l_true && i < r.m_asserted_atoms.size(); ++i) {
-                atom& a = *r.m_asserted_atoms[i];
-                if (!a.phase() && r.m_uf.find(a.v1()) == r.m_uf.find(a.v2())) {
-                    // v1 !-> v2
-                    // find v1 -> v3 -> v4 -> v2 path
-                    r.m_explanation.reset();
-                    unsigned timestamp = r.m_graph.get_timestamp();
-                    auto found_path = HYBRID_SEARCH ?
-                        r.m_graph.find_path(a.v1(), a.v2(), timestamp, r) :
-                        r.m_graph.find_shortest_reachable_path(a.v1(), a.v2(), timestamp, r);
-                    if (found_path) {
-                        r.m_explanation.push_back(a.explanation());
-                        set_conflict(r);
-                        res = l_false;
-                    }
-                }
-            }
-            return res;
-        }
-        context& ctx = get_context();
-        ast_manager& m = ctx.get_manager();
-
-        ptr_vector<expr> assumptions;
-        ptr_vector<expr> literals;
-
-        int k = 1;
-        static int curr_id = 100000;
-        
-        u_map<ptr_vector<expr>> map;
-        lbool res = l_true;
-        // TBD: non-functional code?
-        for (atom * ap : r.m_asserted_atoms) {
-            if (res != l_true) break;
-            atom a = *ap;
-            if (a.phase()) {
-                continue;
-                // assumptions.push_back(b);
-                r.m_uf.merge(a.v1(), a.v2());
-            }
-        }
-        for (atom * ap : r.m_asserted_atoms) {
-            if (res != l_true) break;
-            atom a = *ap;
-            if (a.phase())
-                continue;
-            if (r.m_uf.find(a.v1()) != r.m_uf.find(a.v2())) {
-                continue;
-            }
-            populate_k_vars(a.v1(), k, map, curr_id, m, m_int_sort);
-            populate_k_vars(a.v2(), k, map, curr_id, m, m_int_sort);
-            
-            literals.push_back(m_autil.mk_lt(map[a.v1()][0], map[a.v2()][0]));
-            
-            auto bool_sort = m.mk_bool_sort();
-            auto b_func = m.mk_const_decl(symbol(curr_id++), bool_sort);
-            auto b = m.mk_app(b_func, unsigned(0), nullptr);
-            
-            auto f = m.mk_implies( b, m.mk_not(literals.back()) );
-            m_nested_solver->assert_expr(f);
-            atom_cache.insert(b->get_id(), ap);
-            assumptions.push_back(b);
-            r.m_explanation.reset();
-            if (m_nested_solver->check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
-                expr_ref_vector unsat_core(m);
-                m_nested_solver->get_unsat_core(unsat_core);
-                for (expr* e : unsat_core) {
-                    atom& a = *atom_cache[e->get_id()];
+        for (atom* ap : r.m_asserted_atoms) {
+            atom& a = *ap;
+            if (!a.phase() && r.m_uf.find(a.v1()) == r.m_uf.find(a.v2())) {
+                // v1 !-> v2
+                // find v1 -> v3 -> v4 -> v2 path
+                r.m_explanation.reset();
+                unsigned timestamp = r.m_graph.get_timestamp();
+                bool found_path = r.m_graph.find_shortest_reachable_path(a.v1(), a.v2(), timestamp, r);
+                if (found_path) {
                     r.m_explanation.push_back(a.explanation());
+                    set_conflict(r);
+                    return l_false;
                 }
-                for (auto e : r.m_explanation) {
-                    std::cerr << "EX " << e.hash() << "\n";
-                }
-                set_conflict(r);
-                res = l_false;
             }
-            assumptions.pop_back();
         }
-        return res;
+        return l_true;
     }
 
     lbool theory_special_relations::propagate(relation& r) {
@@ -503,8 +428,7 @@ namespace smt {
 
     void theory_special_relations::assign_eh(bool_var v, bool is_true) {
         TRACE("special_relations", tout << "assign bv" << v << " " << (is_true?" <- true":" <- false") << "\n";);
-        atom* a = 0;
-        VERIFY(m_bool_var2atom.find(v, a));
+        atom* a = m_bool_var2atom[v];
         a->set_phase(is_true);
         a->get_relation().m_asserted_atoms.push_back(a);
     }
