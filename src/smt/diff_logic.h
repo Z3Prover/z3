@@ -296,6 +296,9 @@ public:
 
     numeral const& get_weight(edge_id id) const { return m_edges[id].get_weight(); }
 
+    edge_id_vector const& get_out_edges(dl_var v) const { return m_out_edges[v]; }
+
+    edge_id_vector const& get_in_edges(dl_var v) const { return m_in_edges[v]; }
 
 private:
     // An assignment is almost feasible if all but edge with idt edge are feasible.
@@ -659,6 +662,113 @@ public:
             edge const& e = m_edges[edges[i]];
             f(e.get_explanation());
         }
+    }
+
+    bool can_reach(dl_var src, dl_var dst) {
+        uint_set target, visited;
+        target.insert(dst);
+        return reachable(src, target, visited, dst);
+    }
+
+    bool reachable(dl_var start, uint_set const& target, uint_set& visited, dl_var& dst) {
+        visited.reset();
+        svector<dl_var> nodes;
+        nodes.push_back(start);
+        for (dl_var n : nodes) {
+            if (visited.contains(n)) continue;
+            visited.insert(n);
+            edge_id_vector & edges = m_out_edges[n];
+            for (edge_id e_id : edges) {
+                edge & e     = m_edges[e_id];
+                if (e.is_enabled()) {
+                    dst = e.get_target();
+                    if (target.contains(dst)) {
+                        return true;
+                    }
+                    nodes.push_back(dst);
+                }
+            }
+        }
+        return false;
+    }
+
+private:
+    svector<int> m_freq_hybrid;
+    int m_total_count = 0;
+    int m_run_counter = -1;
+    svector<int> m_hybrid_visited, m_hybrid_parent;
+public:
+
+    template<typename Functor>
+    bool find_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        auto zero_edge = true;
+        unsigned bfs_head = 0;
+        int_vector bfs_todo;
+        int_vector dfs_todo;
+        m_hybrid_visited.resize(m_assignment.size(), m_run_counter++);
+        m_hybrid_parent.resize(m_assignment.size(), -1);
+        bfs_todo.push_back(source);
+        m_hybrid_parent[source] = -1;
+        m_hybrid_visited[source] = m_run_counter;
+        numeral gamma;
+        while (bfs_head < bfs_todo.size() || !dfs_todo.empty()) {
+            m_total_count++;
+            dl_var v;
+            if (!dfs_todo.empty()) {
+                v = dfs_todo.back();
+                dfs_todo.pop_back();
+            } 
+            else {
+                v = bfs_todo[bfs_head++];
+            }
+
+            edge_id_vector & edges = m_out_edges[v];
+            for (edge_id e_id : edges) {
+                edge & e     = m_edges[e_id];
+                SASSERT(e.get_source() == v);
+                if (!e.is_enabled()) {
+                    continue;
+                }
+                set_gamma(e, gamma);
+                if ((gamma.is_one() || (!zero_edge && gamma.is_neg()))
+                    && e.get_timestamp() < timestamp) {
+                    dl_var curr_target = e.get_target();
+                    if (curr_target == target) {
+                        f(e.get_explanation());
+                        m_freq_hybrid[e_id]++;
+                        for (;;) {
+                            int p = m_hybrid_parent[v];
+                            if (p == -1)
+                                return true;
+
+                            edge_id eid;
+                            bool ret = get_edge_id(p, v, eid);
+                            if (eid == null_edge_id || !ret) {
+                                return true;
+                            }
+                            else {
+                                edge & e = m_edges[eid];
+                                f(e.get_explanation());
+                                m_freq_hybrid[eid]++;
+                                v = p;
+                            }
+                        }
+                    }
+                    else if (m_hybrid_visited[curr_target] != m_run_counter) {
+                        if (m_freq_hybrid[e_id] > 1) {                            
+                            dfs_todo.push_back(curr_target);
+                        } 
+                        else {
+                            bfs_todo.push_back(curr_target);                            
+                        }
+                        m_hybrid_visited[curr_target] = m_run_counter;                        
+                        m_hybrid_parent[curr_target] = v;
+                    }
+                }
+            }
+        }
+        return false;
+
     }
 
     // 
@@ -1274,8 +1384,22 @@ public:
     // Find the shortest path from source to target using (normalized) zero edges with timestamp less than the given timestamp.
     // The functor f is applied on every explanation attached to the edges in the shortest path.
     // Return true if the path exists, false otherwise.
+
+
+     // Return true if the path exists, false otherwise.
+     template<typename Functor>
+     bool find_shortest_zero_edge_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+         return find_shortest_path_aux(source, target, timestamp, f, true);
+     }
+
     template<typename Functor>
-    bool find_shortest_zero_edge_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+    bool find_shortest_reachable_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        return find_shortest_path_aux(source, target, timestamp, f, false);
+    }
+
+
+    template<typename Functor>
+    bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
         svector<bfs_elem> bfs_todo;
         svector<char>     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
@@ -1292,10 +1416,7 @@ public:
             dl_var  v = curr.m_var;
             TRACE("dl_bfs", tout << "processing: " << v << "\n";);
             edge_id_vector & edges = m_out_edges[v];
-            typename edge_id_vector::iterator it  = edges.begin();
-            typename edge_id_vector::iterator end = edges.end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : edges) {
                 edge & e     = m_edges[e_id];
                 SASSERT(e.get_source() == v);
                 if (!e.is_enabled()) {
@@ -1303,7 +1424,8 @@ public:
                 }
                 set_gamma(e, gamma);
                 TRACE("dl_bfs", tout << "processing edge: "; display_edge(tout, e); tout << "gamma: " << gamma << "\n";);
-                if (gamma.is_zero() && e.get_timestamp() < timestamp) {
+                if ((gamma.is_one() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp) {
+                    // if (gamma.is_zero() && e.get_timestamp() < timestamp)
                     dl_var curr_target = e.get_target();
                     TRACE("dl_bfs", tout << "curr_target: " << curr_target << 
                           ", mark: " << static_cast<int>(bfs_mark[curr_target]) << "\n";);
@@ -1477,11 +1599,7 @@ private:
             }
             TRACE("diff_logic", tout << "source: " << source << "\n";);
   
-            typename edge_id_vector::const_iterator it  = edges[source].begin();
-            typename edge_id_vector::const_iterator end = edges[source].end();
-
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : edges[source]) {
                 edge const& e = m_edges[e_id];
 
                 if (&e == &e_init) {
@@ -1569,11 +1687,9 @@ private:
                 tout << "\n";
             });
 
-        typename heap<typename dfs_state::hp_lt>::const_iterator it  = state.m_heap.begin();
-        typename heap<typename dfs_state::hp_lt>::const_iterator end = state.m_heap.end();
-        for (; it != end; ++it) {
-            SASSERT(m_mark[*it] != DL_PROP_UNMARKED);
-            m_mark[*it] = DL_PROP_UNMARKED;;
+        for (auto & s : state.m_heap) {
+            SASSERT(m_mark[s] != DL_PROP_UNMARKED);
+            m_mark[s] = DL_PROP_UNMARKED;;
         }
         state.m_heap.reset();
         SASSERT(marks_are_clear());
