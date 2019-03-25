@@ -730,6 +730,7 @@ namespace datalog {
     void context::collect_params(param_descrs& p) {
         fp_params::collect_param_descrs(p);
         insert_timeout(p);
+        insert_ctrl_c(p);
     }
 
     void context::updt_params(params_ref const& p) {
@@ -854,7 +855,11 @@ namespace datalog {
             UNREACHABLE();
         }
         ensure_engine();
-        return m_engine->query(query);
+        lbool r = m_engine->query(query);
+        if (r != l_undef && get_params().print_certificate()) {
+            display_certificate(std::cout) << "\n";
+        }
+        return r;
     }
 
     lbool context::query_from_lvl (expr* query, unsigned lvl) {
@@ -951,9 +956,10 @@ namespace datalog {
         }
     }
 
-    void context::display_certificate(std::ostream& out) {
+    std::ostream& context::display_certificate(std::ostream& out) {
         ensure_engine();
         m_engine->display_certificate(out);
+        return out;
     }
 
     void context::display(std::ostream & out) const {

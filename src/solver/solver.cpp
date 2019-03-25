@@ -223,9 +223,6 @@ void solver::assert_expr(expr* f, expr* t) {
     assert_expr_core2(fml, a);    
 }
 
-static void insert_ctrl_c(param_descrs & r) {
-    r.insert("ctrl_c", CPK_BOOL, "enable interrupts from ctrl-c", "false");
-}
 
 
 void solver::collect_param_descrs(param_descrs & r) {

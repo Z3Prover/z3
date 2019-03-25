@@ -305,6 +305,9 @@ void insert_rlimit(param_descrs & r) {
     r.insert("rlimit", CPK_UINT, "default resource limit used for solvers. Unrestricted when set to 0.", "0");
 }
 
+void insert_ctrl_c(param_descrs & r) {
+    r.insert("ctrl_c", CPK_BOOL, "enable interrupts from ctrl-c", "true");
+}
 
 class params {
     friend class params_ref;
