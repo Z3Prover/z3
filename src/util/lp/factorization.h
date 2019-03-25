@@ -54,21 +54,32 @@ inline bool operator!=(const factor& a, const factor& b) {
 
 class factorization {
     vector<factor>         m_vars;
+    const monomial*       m_mon;
 public:
+    factorization(const monomial* m): m_mon(m) {
+        if (m != nullptr) {
+            for(lpvar j : *m)
+                m_vars.push_back(factor(j, factor_type::VAR));
+        }
+    }
+    bool is_mon() const { return m_mon != nullptr;}
     bool is_empty() const { return m_vars.empty(); }
-    const vector<factor> & vars() const { return m_vars; }
     factor operator[](unsigned k) const { return m_vars[k]; }
     size_t size() const { return m_vars.size(); }
     const factor* begin() const { return m_vars.begin(); }
     const factor* end() const { return m_vars.end(); }
-    void push_back(factor v) {m_vars.push_back(v);}
+    void push_back(factor v) {
+        SASSERT(!is_mon());
+        m_vars.push_back(v);
+    }
+    const monomial* mon() const { return m_mon; }
 };
 
 struct const_iterator_mon {
     // fields
-    svector<bool>                  m_mask;
+    svector<bool>               m_mask;
     const factorization_factory *  m_ff;
-    bool                           m_full_factorization_returned;
+    bool                        m_full_factorization_returned;
 
     //typedefs
     typedef const_iterator_mon self_type;
@@ -93,23 +104,34 @@ struct const_iterator_mon {
             
     factorization create_binary_factorization(factor j, factor k) const;
     
-    factorization create_full_factorization() const;
+    factorization create_full_factorization(const monomial*) const;
 };
 
 struct factorization_factory {
     const svector<lpvar>& m_vars;
+    const monomial* m_monomial;
     // returns true if found
     virtual bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
+    virtual const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const = 0;
+    
 
-    factorization_factory(const svector<lpvar>& vars) :
-        m_vars(vars) {
+    factorization_factory(const svector<lpvar>& vars, const monomial* m) :
+        m_vars(vars), m_monomial(m) {
     }
 
-    const_iterator_mon begin() const {
+    svector<bool> get_mask() const {
         // we keep the last element always in the first factor to avoid
-        // repeating a pair twice
-        svector<bool> mask(m_vars.size() - 1, false);
-        return const_iterator_mon(mask, this);
+        // repeating a pair twice, that is why m_mask is shorter by one then m_vars
+        
+        return
+            m_vars.size() != 2?
+            svector<bool>(m_vars.size() - 1, false)
+            :
+            svector<bool>(1, true); // init mask as in the end() since the full iteration will do the job
+    }
+    
+    const_iterator_mon begin() const {
+        return const_iterator_mon(get_mask(), this);
     }
     
     const_iterator_mon end() const {
