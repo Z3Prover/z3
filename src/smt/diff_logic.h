@@ -324,10 +324,11 @@ private:
     // Store in gamma the normalized weight. The normalized weight is given
     // by the formula  
     // m_assignment[e.get_source()] - m_assignment[e.get_target()] + e.get_weight()
-    void set_gamma(const edge & e, numeral & gamma) {
+    numeral& set_gamma(const edge & e, numeral & gamma) {
         gamma  = m_assignment[e.get_source()];
         gamma -= m_assignment[e.get_target()];
         gamma += e.get_weight();
+        return gamma;
     }
 
     void reset_marks() {
@@ -373,7 +374,7 @@ private:
         TRACE("arith", tout << id << "\n";);
 
         dl_var source = target;
-        for(;;) {
+        while (true) {
             ++m_stats.m_propagation_cost;
             if (m_mark[root] != DL_UNMARKED) {
                 // negative cycle was found
@@ -680,7 +681,13 @@ private:
     int m_total_count = 0;
     int m_run_counter = -1;
     svector<int> m_hybrid_visited, m_hybrid_parent;
+
+    bool is_connected(numeral const& gamma, bool zero_edge, edge const& e, unsigned timestamp) const {
+        return (gamma.is_one() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
+    }
+
 public:
+
 
     template<typename Functor>
     bool find_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
@@ -713,13 +720,12 @@ public:
                     continue;
                 }
                 set_gamma(e, gamma);
-                if ((gamma.is_one() || (!zero_edge && gamma.is_neg()))
-                    && e.get_timestamp() < timestamp) {
+                if (is_connected(gamma, zero_edge, e, timestamp)) {
                     dl_var curr_target = e.get_target();
                     if (curr_target == target) {
                         f(e.get_explanation());
                         m_freq_hybrid[e_id]++;
-                        for (;;) {
+                        while (true) {
                             int p = m_hybrid_parent[v];
                             if (p == -1)
                                 return true;
@@ -981,12 +987,12 @@ public:
         }
     }
 
-    void display_edge(std::ostream & out, edge_id id) const {
-        display_edge(out, m_edges[id]);
+    std::ostream& display_edge(std::ostream & out, edge_id id) const {
+        return display_edge(out, m_edges[id]);
     }
 
-    void display_edge(std::ostream & out, const edge & e) const {
-        out << e.get_explanation() << " (<= (- $" << e.get_target() << " $" << e.get_source() << ") " << e.get_weight() << ") " << e.get_timestamp() << "\n";
+    std::ostream& display_edge(std::ostream & out, const edge & e) const {
+        return out << e.get_explanation() << " (<= (- $" << e.get_target() << " $" << e.get_source() << ") " << e.get_weight() << ") " << e.get_timestamp() << "\n";
     }
 
     template<typename FilterAssignmentProc>
@@ -1233,17 +1239,11 @@ public:
         m_dfs_time[v] = 0;
         succ.push_back(v);
         numeral gamma;
-        for (unsigned i = 0; i < succ.size(); ++i) {
-            v = succ[i];
-            edge_id_vector & edges = m_out_edges[v];
-            for (edge_id e_id : edges) {
-                edge & e     = m_edges[e_id];
-                if (!e.is_enabled()) {
-                    continue;
-                }
-                SASSERT(e.get_source() == v);
-                set_gamma(e, gamma);
-                if (gamma.is_zero()) {
+        for (dl_var w : succ) {
+            for (edge_id e_id : m_out_edges[w]) {
+                edge & e = m_edges[e_id];
+                if (e.is_enabled() && set_gamma(e, gamma).is_zero()) {
+                    SASSERT(e.get_source() == w);
                     dl_var target = e.get_target();
                     if (m_dfs_time[target] == -1) {
                         succ.push_back(target);
@@ -1334,40 +1334,37 @@ private:
             m_edge_id(e) {
         }
     };
-
+    
 public:
     // Find the shortest path from source to target using (normalized) zero edges with timestamp less than the given timestamp.
     // The functor f is applied on every explanation attached to the edges in the shortest path.
     // Return true if the path exists, false otherwise.
-
-
-     // Return true if the path exists, false otherwise.
-     template<typename Functor>
-     bool find_shortest_zero_edge_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
-         return find_shortest_path_aux(source, target, timestamp, f, true);
-     }
+    
+    
+    // Return true if the path exists, false otherwise.
+    template<typename Functor>
+    bool find_shortest_zero_edge_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        return find_shortest_path_aux(source, target, timestamp, f, true);
+    }
 
     template<typename Functor>
     bool find_shortest_reachable_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
         return find_shortest_path_aux(source, target, timestamp, f, false);
     }
 
-
     template<typename Functor>
     bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
         svector<bfs_elem> bfs_todo;
-        svector<char>     bfs_mark;
+        svector<bool>     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
         
         bfs_todo.push_back(bfs_elem(source, -1, null_edge_id));
         bfs_mark[source] = true;
         
-        unsigned  m_head = 0;
         numeral gamma;
-        while (m_head < bfs_todo.size()) {
-            bfs_elem & curr = bfs_todo[m_head];
-            int parent_idx  = m_head;
-            m_head++;
+        for (unsigned head = 0; head < bfs_todo.size(); ++head) {
+            bfs_elem & curr = bfs_todo[head];
+            int parent_idx  = head;
             dl_var  v = curr.m_var;
             TRACE("dl_bfs", tout << "processing: " << v << "\n";);
             edge_id_vector & edges = m_out_edges[v];
@@ -1378,18 +1375,16 @@ public:
                     continue;
                 }
                 set_gamma(e, gamma);
-                TRACE("dl_bfs", tout << "processing edge: "; display_edge(tout, e); tout << "gamma: " << gamma << "\n";);
-                if ((gamma.is_one() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp) {
-                    // if (gamma.is_zero() && e.get_timestamp() < timestamp)
+                TRACE("dl_bfs", display_edge(tout << "processing edge: ", e) << " gamma: " << gamma << "\n";);
+                if (is_connected(gamma, zero_edge, e, timestamp)) {
                     dl_var curr_target = e.get_target();
-                    TRACE("dl_bfs", tout << "curr_target: " << curr_target << 
-                          ", mark: " << static_cast<int>(bfs_mark[curr_target]) << "\n";);
+                    TRACE("dl_bfs", tout << "curr_target: " << curr_target << ", mark: " << bfs_mark[curr_target] << "\n";);
                     if (curr_target == target) {
                         TRACE("dl_bfs", tout << "found path\n";);
                         TRACE("dl_eq_bug", tout << "path: " << source << " --> " << target << "\n";
                               display_edge(tout, e);
                               int tmp_parent_idx = parent_idx;
-                              for (;;) {
+                              while (true) {
                                   bfs_elem & curr = bfs_todo[tmp_parent_idx];
                                   if (curr.m_edge_id == null_edge_id) {
                                       break;
@@ -1399,11 +1394,10 @@ public:
                                       display_edge(tout, e);
                                       tmp_parent_idx = curr.m_parent_idx;
                                   }
-                                  tout.flush();
                               });
                         TRACE("dl_eq_bug", display_edge(tout, e););
                         f(e.get_explanation());
-                        for (;;) {
+                        while (true) {
                             SASSERT(parent_idx >= 0);
                             bfs_elem & curr = bfs_todo[parent_idx];
                             if (curr.m_edge_id == null_edge_id) {
@@ -1417,11 +1411,9 @@ public:
                             }
                         }
                     }
-                    else {
-                        if (!bfs_mark[curr_target]) {
-                            bfs_todo.push_back(bfs_elem(curr_target, parent_idx, e_id));
-                            bfs_mark[curr_target] = true;
-                        }
+                    else if (!bfs_mark[curr_target]) {
+                        bfs_todo.push_back(bfs_elem(curr_target, parent_idx, e_id));
+                        bfs_mark[curr_target] = true;
                     }
                 }
             }
@@ -1507,8 +1499,7 @@ private:
 
     numeral get_reduced_weight(dfs_state& state, dl_var n, edge const& e) {
         numeral gamma;
-        set_gamma(e, gamma);
-        return state.m_delta[n] + gamma;
+        return state.m_delta[n] + set_gamma(e, gamma);
     }
 
     template<bool is_fw>
