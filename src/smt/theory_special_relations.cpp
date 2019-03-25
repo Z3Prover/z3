@@ -92,10 +92,10 @@ namespace smt {
         return alloc(theory_special_relations, new_ctx->get_manager());
     }
 
-    static void populate_k_vars(int v, int k, u_map<ptr_vector<expr>>& map, int& curr_id, ast_manager& m, sort** int_sort) {
+    static void populate_k_vars(int v, int k, u_map<ptr_vector<expr>>& map, int& curr_id, ast_manager& m, sort* int_sort) {
         int need = !map.contains(v) ? k : k - map[v].size();
         for (auto i = 0; i < need; ++i) {
-            auto *fd = m.mk_func_decl(symbol(curr_id++), 0, int_sort, *int_sort);
+            auto *fd = m.mk_const_decl(symbol(curr_id++), int_sort);
             map[v].push_back(m.mk_app(fd, unsigned(0), nullptr));
         }
     }
@@ -438,13 +438,13 @@ namespace smt {
             if (r.m_uf.find(a.v1()) != r.m_uf.find(a.v2())) {
                 continue;
             }
-            populate_k_vars(a.v1(), k, map, curr_id, m, &m_int_sort);
-            populate_k_vars(a.v2(), k, map, curr_id, m, &m_int_sort);
+            populate_k_vars(a.v1(), k, map, curr_id, m, m_int_sort);
+            populate_k_vars(a.v2(), k, map, curr_id, m, m_int_sort);
             
             literals.push_back(m_autil.mk_lt(map[a.v1()][0], map[a.v2()][0]));
             
             auto bool_sort = m.mk_bool_sort();
-            auto b_func = m.mk_func_decl(symbol(curr_id++), 0, &bool_sort, bool_sort);
+            auto b_func = m.mk_const_decl(symbol(curr_id++), bool_sort);
             auto b = m.mk_app(b_func, unsigned(0), nullptr);
             
             auto f = m.mk_implies( b, m.mk_not(literals.back()) );
