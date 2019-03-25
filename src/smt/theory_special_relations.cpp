@@ -157,23 +157,20 @@ namespace smt {
 
     final_check_status theory_special_relations::final_check_eh() {
         TRACE("special_relations", tout << "\n";);
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        lbool r = l_true;
-        for (; it != end && r == l_true; ++it) {
-            r = final_check(*it->m_value);
+        for (auto const& kv : m_relations) {
+            lbool r = final_check(*kv.m_value);
+            switch (r) {
+            case l_undef:
+                return FC_GIVEUP;
+            case l_false:
+                return FC_CONTINUE;
+            default:
+                break;
+            }
         }
-        switch (r) {
-        case l_undef:
-            return FC_GIVEUP;
-        case l_false:
-            return FC_CONTINUE;
-        default:
-            break;
-        }
-        it = m_relations.begin();
         bool new_equality = false;
-        for (; it != end; ++it) {
-            if (extract_equalities(*it->m_value)) {
+        for (auto const& kv : m_relations) {
+            if (extract_equalities(*kv.m_value)) {
                 new_equality = true;
             }
         }
@@ -421,6 +418,7 @@ namespace smt {
         
         u_map<ptr_vector<expr>> map;
         lbool res = l_true;
+        // TBD: non-functional code?
         for (atom * ap : r.m_asserted_atoms) {
             if (res != l_true) break;
             atom a = *ap;
@@ -449,7 +447,7 @@ namespace smt {
             
             auto f = m.mk_implies( b, m.mk_not(literals.back()) );
             m_nested_solver->assert_expr(f);
-            atom_cache.insert(b->get_id(), &a);
+            atom_cache.insert(b->get_id(), ap);
             assumptions.push_back(b);
             r.m_explanation.reset();
             if (m_nested_solver->check_sat(assumptions.size(), assumptions.c_ptr()) == l_false) {
@@ -496,9 +494,8 @@ namespace smt {
     }
 
     void theory_special_relations::reset_eh() {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            dealloc(it->m_value);
+        for (auto const& kv : m_relations) {
+            dealloc(kv.m_value);
         }
         m_relations.reset();
         del_atoms(0);
@@ -510,21 +507,18 @@ namespace smt {
         VERIFY(m_bool_var2atom.find(v, a));
         a->set_phase(is_true);
         a->get_relation().m_asserted_atoms.push_back(a);
-        //std::cerr << "ASSIGN: " << a->v1() << ' ' << a->v2() << "\n";
     }
 
     void theory_special_relations::push_scope_eh() {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            it->m_value->push();
+        for (auto const& kv : m_relations) {
+            kv.m_value->push();
         }
         m_atoms_lim.push_back(m_atoms.size());
     }
 
     void theory_special_relations::pop_scope_eh(unsigned num_scopes) {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            it->m_value->pop(num_scopes);
+        for (auto const& kv : m_relations) {
+            kv.m_value->pop(num_scopes);
         }
         unsigned new_lvl = m_atoms_lim.size() - num_scopes;
         del_atoms(m_atoms_lim[new_lvl]);
@@ -544,9 +538,8 @@ namespace smt {
 
 
     void theory_special_relations::collect_statistics(::statistics & st) const {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            it->m_value->m_graph.collect_statistics(st);
+        for (auto const& kv : m_relations) {
+            kv.m_value->m_graph.collect_statistics(st);
         }
     }
 
@@ -613,9 +606,7 @@ namespace smt {
             if (g.get_assignment(u) <= val_v) {
                 continue;
             }
-            int_vector const& edges = g.get_out_edges(u);
-            for (unsigned i = 0; i < edges.size(); ++i) {
-                edge_id e = edges[i];
+            for (edge_id e : g.get_out_edges(u)) {
                 if (is_strict_neighbour_edge(g, e)) {
                     todo.push_back(g.get_target(e));
                 }
@@ -773,9 +764,7 @@ namespace smt {
             }
             unsigned nc = 1;
             bool all_p = true;
-            int_vector const& edges = g.get_out_edges(v);
-            for (unsigned i = 0; i < edges.size(); ++i) {
-                edge_id e = edges[i];
+            for (edge_id e : g.get_out_edges(v)) {
                 if (is_strict_neighbour_edge(g, e)) {
                     dl_var dst = g.get_target(e);
                     TRACE("special_relations", tout << v << " -> " << dst << "\n";);
@@ -839,23 +828,22 @@ namespace smt {
     }
 
     void theory_special_relations::init_model(model_generator & m) {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            switch (it->m_value->m_property) {
+        for (auto const& kv : m_relations) {
+            switch (kv.m_value->m_property) {
             case sr_lo:
-                init_model_lo(*it->m_value, m);
+                init_model_lo(*kv.m_value, m);
                 break;
             case sr_plo:
-                init_model_plo(*it->m_value, m);
+                init_model_plo(*kv.m_value, m);
                 break;
             case sr_to:
-                init_model_to(*it->m_value, m);
+                init_model_to(*kv.m_value, m);
                 break;
             case sr_po:
-                init_model_po(*it->m_value, m);
+                init_model_po(*kv.m_value, m);
                 break;
             default:
-              UNREACHABLE(); //ASHU: added to remove warning! Should be supported!
+                UNREACHABLE(); //ASHU: added to remove warning! Should be supported!
             }
         }
     }
@@ -864,38 +852,30 @@ namespace smt {
         if (m_relations.empty()) return;
         out << "Theory Special Relations\n";
         display_var2enode(out);
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            out << mk_pp(it->m_value->decl(), get_manager()) << ":\n";
-            it->m_value->m_graph.display(out);
-            it->m_value->m_uf.display(out);
-            for (unsigned i = 0; i < it->m_value->m_asserted_atoms.size(); ++i){
-              atom& a = *it->m_value->m_asserted_atoms[i];
-            display_atom( out, a );
+        for (auto const& kv : m_relations) {
+            out << mk_pp(kv.m_value->decl(), get_manager()) << ":\n";
+            kv.m_value->m_graph.display(out);
+            kv.m_value->m_uf.display(out);
+            for (atom* ap : kv.m_value->m_asserted_atoms) {
+                display_atom(out, *ap);
             }
         }
     }
 
-    void theory_special_relations::collect_asserted_po_atoms( vector< std::pair<bool_var,bool> >& atoms) const {
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; it != end; ++it) {
-            relation& r = *(it->m_value );
-            if( r.m_property != sr_po ) continue;
-            // SASSERT( r.m_asserted_qhead == r.m_asserted_atoms.size() );
-            for (unsigned i = 0; i < r.m_asserted_atoms.size(); ++i) {
-                atom& a = *r.m_asserted_atoms[i];
-                atoms.push_back( std::make_pair(a.var(),a.phase()) );
+    void theory_special_relations::collect_asserted_po_atoms(vector<std::pair<bool_var, bool>>& atoms) const {
+        for (auto const& kv : m_relations) {
+            relation& r = *kv.m_value;
+            if (r.m_property != sr_po) continue;
+            for (atom* ap : r.m_asserted_atoms) {
+                atoms.push_back(std::make_pair(ap->var(), ap->phase()));
             }
         }
     }
     
-    void theory_special_relations::display_atom( std::ostream & out, atom& a ) const {
+    void theory_special_relations::display_atom(std::ostream & out, atom& a) const {
         context& ctx = get_context();
         expr* e = ctx.bool_var2expr( a.var() );
-        if( !a.phase() ) out << "(not ";
-        out << mk_pp( e, get_manager());
-        if( !a.phase() ) out << ")";
-        out << "\n";
+        out << (a.phase() ? "" : "(not ") << mk_pp(e, get_manager()) << (a.phase() ? "" : ")") << "\n";
     }
     
 }

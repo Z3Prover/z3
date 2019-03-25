@@ -1365,7 +1365,7 @@ public:
         for (unsigned head = 0; head < bfs_todo.size(); ++head) {
             bfs_elem & curr = bfs_todo[head];
             int parent_idx  = head;
-            dl_var  v = curr.m_var;
+            dl_var v = curr.m_var;
             TRACE("dl_bfs", tout << "processing: " << v << "\n";);
             edge_id_vector & edges = m_out_edges[v];
             for (edge_id e_id : edges) {
