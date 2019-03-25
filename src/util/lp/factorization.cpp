@@ -51,11 +51,11 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
 
 factorization const_iterator_mon::operator*() const {
     if (m_full_factorization_returned == false)  {
-        return create_full_factorization();
+        return create_full_factorization(m_ff->m_monomial);
     }
     factor j, k; rational sign;
     if (!get_factors(j, k, sign))
-        return factorization();
+        return factorization(nullptr);
     return create_binary_factorization(j, k);
 }
             
@@ -82,7 +82,7 @@ const_iterator_mon::self_type const_iterator_mon::operator++(int) { advance_mask
 const_iterator_mon::const_iterator_mon(const svector<bool>& mask, const factorization_factory *f) : 
     m_mask(mask),
     m_ff(f) ,
-    m_full_factorization_returned(mask.size() == 1) // if mask.size() is equal to 1 the full factorization is not needed
+    m_full_factorization_returned(false)
 {}
             
 bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) const {
@@ -106,19 +106,21 @@ factorization const_iterator_mon::create_binary_factorization(factor j, factor k
 
     //                                               impl.add_explanation_of_reducing_to_rooted_monomial(m_ff->m_mon, exp);
     //                                           };
-    factorization f;
+    factorization f(nullptr);
     f.push_back(j);
     f.push_back(k);  
     return f;
 }
 
-factorization const_iterator_mon::create_full_factorization() const {
-    factorization f;
-    //    f.vars() = m_ff->m_vars;
+factorization const_iterator_mon::create_full_factorization(const monomial* m) const {
+    if (m != nullptr)
+        return factorization(m);
+    factorization f(nullptr);
     for (lpvar j : m_ff->m_vars) {
         f.push_back(factor(j, factor_type::VAR));
     }
     return f;
 }
+
 }
 
