@@ -112,22 +112,10 @@ namespace smt {
         typedef u_map<atom*>     bool_var2atom;
 
         special_relations_util         m_util;
-        arith_util                     m_autil;
         atoms                          m_atoms;
         unsigned_vector                m_atoms_lim;
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
-
-        scoped_ptr<solver> m_nested_solver;
-
-        struct atom_hash {
-            size_t operator()(atom const& a) const {
-                return std::hash<int>()(a.v1()) ^ std::hash<int>()(a.v2()) ^ std::hash<bool>()(a.phase());
-            }
-        };
-        u_map<expr*> expr_cache;
-        u_map<atom*> atom_cache;
-        sort* m_int_sort;
         
         void del_atoms(unsigned old_size);
         lbool final_check(relation& r);
