@@ -1060,16 +1060,29 @@ struct solver::imp {
         return true;
     }
 
+    const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const {
+        unsigned i;
+        if (!find_rm_monomial_of_vars(vars, i))
+            return nullptr;
+        return &m_monomials[m_rm_table.rms()[i].orig_index()];
+    }
+
     struct factorization_factory_imp: factorization_factory {
         const imp&  m_imp;
+        const monomial *m_mon;
+        const rooted_mon& m_rm;
         
-        factorization_factory_imp(const svector<lpvar>& m_vars, const imp& s) :
-            factorization_factory(m_vars),
-            m_imp(s) { }
+        factorization_factory_imp(const rooted_mon& rm, const imp& s) :
+            factorization_factory(rm.m_vars, &s.m_monomials[rm.orig_index()]),
+            m_imp(s), m_mon(& s.m_monomials[rm.orig_index()]), m_rm(rm) { }
         
         bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
             return m_imp.find_rm_monomial_of_vars(vars, i);
         }
+        const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const {
+            return m_imp.find_monomial_of_vars(vars);
+        }
+
     };
     // here we use the fact
     // xy = 0 -> x = 0 or y = 0
@@ -1163,7 +1176,15 @@ struct solver::imp {
         current_expl().add(m_lar_solver.get_column_lower_bound_witness(j));
     }
     // x = 0 or y = 0 -> xy = 0
-    bool basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, const factorization& f) {
+    void basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, const factorization& f) {
+        TRACE("nla_solver_bl", trace_print_monomial_and_factorization(rm, f, tout););
+        if (f.is_mon())
+            basic_lemma_for_mon_non_zero_model_based_mf(f);
+        else
+            basic_lemma_for_mon_non_zero_model_based_mf(f);
+    }
+    // x = 0 or y = 0 -> xy = 0
+    void basic_lemma_for_mon_non_zero_model_based_rm(const rooted_mon& rm, const factorization& f) {
         TRACE("nla_solver_bl", trace_print_monomial_and_factorization(rm, f, tout););
         SASSERT (!vvr(rm).is_zero());
         int zero_j = -1;
@@ -1174,16 +1195,30 @@ struct solver::imp {
             }
         }
 
-        if (zero_j == -1) {
-            return false;
-        } 
+        if (zero_j == -1) { return; } 
         add_empty_lemma();
         mk_ineq(zero_j, llc::NE);
         mk_ineq(var(rm), llc::EQ);
-
         explain(rm, current_expl());
+        explain(f, current_expl());
         TRACE("nla_solver", print_lemma(tout););
-        return true;
+    }
+
+    void basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f) {
+        TRACE("nla_solver_bl", print_factorization(f, tout););
+        int zero_j = -1;
+        for (auto j : f) {
+            if (vvr(j).is_zero()) {
+                zero_j = var(j);
+                break;
+            }
+        }
+
+        if (zero_j == -1) { return; } 
+        add_empty_lemma();
+        mk_ineq(zero_j, llc::NE);
+        mk_ineq(f.mon()->var(), llc::EQ);
+        TRACE("nla_solver", print_lemma(tout););
     }
 
     bool var_has_positive_lower_bound(lpvar j) const {
@@ -1579,14 +1614,14 @@ struct solver::imp {
     void basic_lemma_for_mon_model_based(const rooted_mon& rm) {
         TRACE("nla_solver_bl", tout << "rm = "; print_rooted_monomial(rm, tout););
         if (vvr(rm).is_zero()) {
-            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+            for (auto factorization : factorization_factory_imp(rm, *this)) {
                 if (factorization.is_empty())
                     continue;
                 basic_lemma_for_mon_zero_model_based(rm, factorization);
                 basic_lemma_for_mon_neutral_model_based(rm, factorization);
             }
         } else {
-            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+            for (auto factorization : factorization_factory_imp(rm, *this)) {
                 if (factorization.is_empty())
                     continue;
                 basic_lemma_for_mon_non_zero_model_based(rm, factorization);
@@ -1598,7 +1633,7 @@ struct solver::imp {
 
     bool basic_lemma_for_mon_derived(const rooted_mon& rm) {
         if (var_is_fixed_to_zero(var(rm))) {
-            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+            for (auto factorization : factorization_factory_imp(rm, *this)) {
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_zero(rm, factorization) ||
@@ -1608,7 +1643,7 @@ struct solver::imp {
                 }
             }
         } else {
-            for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+            for (auto factorization : factorization_factory_imp(rm, *this)) {
                 if (factorization.is_empty())
                     continue;
                 if (basic_lemma_for_mon_non_zero_derived(rm, factorization) ||
@@ -2260,7 +2295,7 @@ struct solver::imp {
               tout << "rm = "; print_product(rm, tout);
               tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
               );
-        for (auto ac : factorization_factory_imp(rm.vars(), *this)) {
+        for (auto ac : factorization_factory_imp(rm, *this)) {
             if (ac.size() != 2)
                 continue;
             order_lemma_on_factorization(rm, ac);
@@ -2599,7 +2634,7 @@ struct solver::imp {
     }
     
     bool find_bfc_on_monomial(const rooted_mon& rm, bfc & bf) {
-        for (auto factorization : factorization_factory_imp(rm.m_vars, *this)) {
+        for (auto factorization : factorization_factory_imp(rm, *this)) {
             if (factorization.size() == 2) {
                 lpvar a = var(factorization[0]);
                 lpvar b = var(factorization[1]);
@@ -2924,23 +2959,23 @@ struct solver::imp {
         return true;
     }
     
-    void test_factorization(unsigned mon_index, unsigned number_of_factorizations) {
-        vector<ineq> lemma;
+    void test_factorization(unsigned /*mon_index*/, unsigned /*number_of_factorizations*/) {
+        //  vector<ineq> lemma;
 
-        unsigned_vector vars = m_monomials[mon_index].vars();
+        // unsigned_vector vars = m_monomials[mon_index].vars();
         
-        factorization_factory_imp fc(vars, // 0 is the index of "abcde"
-                                     *this);
+        // factorization_factory_imp fc(vars, // 0 is the index of "abcde"
+        //                              *this);
      
-        std::cout << "factorizations = of "; print_monomial(m_monomials[mon_index], std::cout) << "\n";
-        unsigned found_factorizations = 0;
-        for (auto f : fc) {
-            if (f.is_empty()) continue;
-            found_factorizations ++;
-            print_factorization(f, std::cout);
-            std::cout << std::endl;
-        }
-        SASSERT(found_factorizations == number_of_factorizations);
+        // std::cout << "factorizations = of "; print_monomial(m_monomials[mon_index], std::cout) << "\n";
+        // unsigned found_factorizations = 0;
+        // for (auto f : fc) {
+        //     if (f.is_empty()) continue;
+        //     found_factorizations ++;
+        //     print_factorization(f, std::cout);
+        //     std::cout << std::endl;
+        // }
+        // SASSERT(found_factorizations == number_of_factorizations);
     }
     
     lbool test_check(
