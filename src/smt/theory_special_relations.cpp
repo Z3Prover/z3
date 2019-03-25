@@ -120,7 +120,7 @@ namespace smt {
         literal eq = mk_eq(t1, t2, false);
         for (auto const& kv : m_relations) {
             relation& r = *kv.m_value;
-            if (!r.new_eq_eh(l, v1, v2)) {
+            if (!r.new_eq_eh(eq, v1, v2)) {
                 set_neg_cycle_conflict(r);
                 break;
             }
