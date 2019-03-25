@@ -115,15 +115,11 @@ namespace smt {
 
     void theory_special_relations::new_eq_eh(theory_var v1, theory_var v2) {
         context& ctx = get_context();
-        app_ref eq(get_manager());
         app* t1 = get_enode(v1)->get_owner();
         app* t2 = get_enode(v2)->get_owner();
-        eq = get_manager().mk_eq(t1, t2);
-        VERIFY(internalize_atom(eq, false));
-        literal l(ctx.get_literal(eq));
-        obj_map<func_decl, relation*>::iterator it = m_relations.begin(), end = m_relations.end();
-        for (; !ctx.inconsistent() && it != end; ++it) {
-            relation& r = *it->m_value;
+        literal eq = mk_eq(t1, t2, false);
+        for (auto const& kv : m_relations) {
+            relation& r = *kv.m_value;
             if (!r.new_eq_eh(l, v1, v2)) {
                 set_neg_cycle_conflict(r);
                 break;
@@ -175,9 +171,8 @@ namespace smt {
 
     literal theory_special_relations::mk_literal(expr* _e) {
         expr_ref e(_e, get_manager());
-        context& ctx = get_context();
         ensure_enode(e);
-        return ctx.get_literal(e);
+        return get_context().get_literal(e);
     }
 
     theory_var theory_special_relations::mk_var(enode* n) {
@@ -520,7 +515,6 @@ namespace smt {
     }
 
     expr_ref theory_special_relations::mk_inj(relation& r, model_generator& mg) {
-      // context& ctx = get_context();
         ast_manager& m = get_manager();
         r.push();
         ensure_strict(r.m_graph);
@@ -545,7 +539,6 @@ namespace smt {
     }
 
     expr_ref theory_special_relations::mk_class(relation& r, model_generator& mg) {
-      //context& ctx = get_context();
         ast_manager& m = get_manager();
         expr_ref result(m);
         func_decl_ref fn(m);

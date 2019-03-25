@@ -17,14 +17,14 @@ Notes:
 
 --*/
 
+#ifndef THEORY_SPECIAL_RELATIONS_H_
+#define THEORY_SPECIAL_RELATIONS_H_
+
 #include "ast/special_relations_decl_plugin.h"
 #include "smt/smt_theory.h"
 #include "smt/theory_diff_logic.h"
 #include "util/union_find.h"
-#include "solver/solver.h"
-
-#ifndef THEORY_SPECIAL_RELATIONS_H_
-#define THEORY_SPECIAL_RELATIONS_H_
+#include "util/rational.h"
 
 namespace smt {
     class theory_special_relations : public theory {
@@ -140,7 +140,7 @@ namespace smt {
         void set_neg_cycle_conflict(relation& r);
         void set_conflict(relation& r);
         lbool  propagate_plo(atom& a);
-        lbool  propagate_po(atom& a); //ASHU: added to modify po solving
+        lbool  propagate_po(atom& a); 
         theory_var mk_var(expr* e);
         void count_children(graph const& g, unsigned_vector& num_children);
         void ensure_strict(graph& g);
