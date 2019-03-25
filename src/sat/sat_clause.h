@@ -19,7 +19,6 @@ Revision History:
 #ifndef SAT_CLAUSE_H_
 #define SAT_CLAUSE_H_
 
-#include "util/small_object_allocator.h"
 #include "util/id_gen.h"
 #include "util/map.h"
 #include "sat/sat_types.h"
