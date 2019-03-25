@@ -1775,7 +1775,7 @@ public:
                 continue;
             }
             w2 = e2.get_weight() + w;
-            for (edge_id e_id2 : m_in_edges[e2.get_target()]) {
+            for (edge_id e_id3 : m_in_edges[e2.get_target()]) {
                 ++m_stats.m_implied_literal_cost;
                 edge const& e3 = m_edges[e_id3];
                 if (e3.is_enabled() || e3.get_source() != src) {
