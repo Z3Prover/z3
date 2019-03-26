@@ -65,7 +65,11 @@ namespace smt {
     }
 
     std::ostream& theory_special_relations::relation::display(theory_special_relations const& th, std::ostream& out) const {
-        out << m_decl->get_name() << ":\n";
+        out << mk_pp(m_decl, th.get_manager());
+        for (unsigned i = 0; i < m_decl->get_num_parameters(); ++i) {
+            th.get_manager().display(out << " ", m_decl->get_parameter(i));
+        }
+        out << ":\n";
         m_graph.display(out);
         out << "explanation: " << m_explanation << "\n";
         m_uf.display(out);

@@ -3608,49 +3608,41 @@ extern "C" {
     /** @name Special relations */
     /*@{*/
     /**
-       \brief declare \c a and \c b are in linear order.
+       \brief declare \c a and \c b are in linear order over a relation indexed by \c id.
 
        \pre a and b are of same type.
+       
 
-       def_API('Z3_mk_sr_lo', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
      */
-    Z3_ast Z3_API Z3_mk_sr_lo(Z3_context c, Z3_ast a, Z3_ast b);
+    Z3_ast Z3_API Z3_mk_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
 
     /**
-       \brief declare \c a and \c b are in partial order.
+       \brief declare \c a and \c b are in partial order over a relation indexed by \c id.
 
        \pre a and b are of same type.
 
-       def_API('Z3_mk_sr_po', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_partial_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
      */
-    Z3_ast Z3_API Z3_mk_sr_po(Z3_context c, Z3_ast a, Z3_ast b);
+    Z3_ast Z3_API Z3_mk_partial_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
 
     /**
-       \brief declare \c a and \c b are already partial ordered.
+       \brief declare \c a and \c b are in piecewise linear order indexed by relation \c id.
 
        \pre a and b are of same type.
 
-       def_API('Z3_mk_sr_po_ao', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_piecewise_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
      */
-    Z3_ast Z3_API Z3_mk_sr_po_ao(Z3_context c, Z3_ast a, Z3_ast b);
+    Z3_ast Z3_API Z3_mk_piecewise_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
 
     /**
-       \brief declare \c a and \c b are in piecewise linear order.
+       \brief declare \c a and \c b are in tree order indexed by \c id.
 
        \pre a and b are of same type.
 
-       def_API('Z3_mk_sr_plo', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+       def_API('Z3_mk_tree_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
      */
-    Z3_ast Z3_API Z3_mk_sr_plo(Z3_context c, Z3_ast a, Z3_ast b);
-
-    /**
-       \brief declare \c a and \c b are in total order.
-
-       \pre a and b are of same type.
-
-       def_API('Z3_mk_sr_to', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
-     */
-    Z3_ast Z3_API Z3_mk_sr_to(Z3_context c, Z3_ast a, Z3_ast b);
+    Z3_ast Z3_API Z3_mk_tree_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
 
     /*@}*/
 

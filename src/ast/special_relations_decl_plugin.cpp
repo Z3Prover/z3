@@ -26,7 +26,6 @@ Revision History:
 special_relations_decl_plugin::special_relations_decl_plugin():
     m_lo("linear-order"),
     m_po("partial-order"),
-    m_po_ao("partial-order-already-ordered"),
     m_plo("piecewise-linear-order"),
     m_to("tree-order")
 {}
@@ -47,7 +46,6 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     symbol name;
     switch(k) {
     case OP_SPECIAL_RELATION_PO: name = m_po; break;
-    case OP_SPECIAL_RELATION_PO_AO: name = m_po_ao; break;
     case OP_SPECIAL_RELATION_LO: name = m_lo; break;
     case OP_SPECIAL_RELATION_PLO: name = m_plo; break;
     case OP_SPECIAL_RELATION_TO: name = m_to; break;
@@ -58,7 +56,6 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
 void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     if (logic == symbol::null) {
         op_names.push_back(builtin_name(m_po.bare_str(), OP_SPECIAL_RELATION_PO));
-        op_names.push_back(builtin_name(m_po_ao.bare_str(), OP_SPECIAL_RELATION_PO_AO));
         op_names.push_back(builtin_name(m_lo.bare_str(), OP_SPECIAL_RELATION_LO));
         op_names.push_back(builtin_name(m_plo.bare_str(), OP_SPECIAL_RELATION_PLO));
         op_names.push_back(builtin_name(m_to.bare_str(), OP_SPECIAL_RELATION_TO));
@@ -68,7 +65,6 @@ void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_name
 sr_property special_relations_util::get_property(func_decl* f) const {
     switch (f->get_decl_kind()) {
     case OP_SPECIAL_RELATION_PO: return sr_po;
-    case OP_SPECIAL_RELATION_PO_AO: return sr_po; // still partial ordered
     case OP_SPECIAL_RELATION_LO: return sr_lo;
     case OP_SPECIAL_RELATION_PLO: return sr_plo;
     case OP_SPECIAL_RELATION_TO: return sr_to;
