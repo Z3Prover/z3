@@ -746,7 +746,7 @@ sig
   val mk_quantifier : context -> Sort.sort list -> Symbol.symbol list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** Create a Quantifier. *)
-  val mk_quantifier : context -> bool -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
+  val mk_quantifier_const : context -> bool -> Expr.expr list -> Expr.expr -> int option -> Pattern.pattern list -> Expr.expr list -> Symbol.symbol option -> Symbol.symbol option -> quantifier
 
   (** A string representation of the quantifier. *)
   val to_string : quantifier -> string
