@@ -583,6 +583,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
             m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
             m().trace_stream() << "[end-of-instance]\n";
+            m().trace_stream().flush();
         }
 
         if (st != BR_DONE && st != BR_FAILED) {

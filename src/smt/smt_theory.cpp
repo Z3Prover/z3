@@ -137,5 +137,56 @@ namespace smt {
     theory::~theory() {
     }
 
+
+    void theory::log_axiom_instantiation(app * r, unsigned axiom_id, unsigned num_bindings, app * const * bindings, unsigned pattern_id, const vector<std::tuple<enode *, enode *>> & used_enodes) {
+        ast_manager & m = get_manager();
+        std::ostream& out = m.trace_stream();
+        symbol const & family_name = m.get_family_name(get_family_id());
+        if (pattern_id == UINT_MAX) {
+            out << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << family_name << "#";
+            if (axiom_id != UINT_MAX)
+                out << axiom_id;
+            for (unsigned i = 0; i < num_bindings; ++i) {
+                out << " #" << bindings[i]->get_id();
+            }
+            if (used_enodes.size() > 0) {
+                out << " ;";
+                for (auto n : used_enodes) {
+                    enode *substituted = std::get<1>(n);
+                    SASSERT(std::get<0>(n) == nullptr);
+                    out << " #" << substituted->get_owner_id();
+                }
+            }
+        } else {
+            SASSERT(axiom_id != UINT_MAX);
+            obj_hashtable<enode> already_visited;
+            for (auto n : used_enodes) {
+                enode *orig = std::get<0>(n);
+                enode *substituted = std::get<1>(n);
+                if (orig != nullptr) {
+                    quantifier_manager::log_justification_to_root(out, orig, already_visited, get_context(), get_manager());
+                    quantifier_manager::log_justification_to_root(out, substituted, already_visited, get_context(), get_manager());
+                }
+            }
+            out << "[new-match] " << static_cast<void *>(nullptr) << " " << family_name << "#" << axiom_id << " " << family_name << "#" << pattern_id;
+            for (unsigned i = 0; i < num_bindings; ++i) {
+                out << " #" << bindings[i]->get_id();
+            }
+            out << " ;";
+            for (auto n : used_enodes) {
+                enode *orig = std::get<0>(n);
+                enode *substituted = std::get<1>(n);
+                if (orig == nullptr) {
+                    out << " #" << substituted->get_owner_id();
+                } else {
+                    out << " (#" << orig->get_owner_id() << " #" << substituted->get_owner_id() << ")";
+                }
+            }
+        }
+        out << "\n";
+        out << "[instance] " << static_cast<void *>(nullptr) << " #" << r->get_id() << "\n";
+        out.flush();
+    }
+
 };
 

@@ -139,7 +139,7 @@ namespace smt {
             expr * acc    = m.mk_app(d, n->get_owner());
             args.push_back(acc);
         }
-        expr * mk       = m.mk_app(c, args.size(), args.c_ptr());
+        expr_ref mk(m.mk_app(c, args.size(), args.c_ptr()), m);
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_eq(n->get_owner(), mk);
