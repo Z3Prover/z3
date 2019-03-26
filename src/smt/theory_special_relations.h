@@ -52,9 +52,9 @@ namespace smt {
                 r.ensure_var(v2);
                 literal_vector ls;
                 ls.push_back(literal(b, false));
-                m_pos = r.m_graph.add_edge(v1, v2, s_integer(1), ls);  // v2 <= v1
+                m_pos = r.m_graph.add_edge(v1, v2, s_integer(0), ls);  // v1 <= v2
                 ls[0] = literal(b, true);
-                m_neg = r.m_graph.add_edge(v2, v1, s_integer(-2), ls); // v1 <= v2 - 1
+                m_neg = r.m_graph.add_edge(v2, v1, s_integer(-1), ls); // v2 + 1 <= v1 
             }
             bool_var var() const { return m_bvar;}
             relation& get_relation() const { return m_relation; }
@@ -80,22 +80,24 @@ namespace smt {
         };
         struct graph : public dl_graph<int_ext> {
             bool add_strict_edge(theory_var v1, theory_var v2, literal_vector const& j) {
-                return enable_edge(add_edge(v1, v2, s_integer(1), j));
+                // v1 + 1 <= v2
+                return enable_edge(add_edge(v1, v2, s_integer(-1), j));
             }
             bool add_non_strict_edge(theory_var v1, theory_var v2, literal_vector const& j) {
-                return enable_edge(add_edge(v1, v2, s_integer(-2), j));
+                // v1 <= v2
+                return enable_edge(add_edge(v1, v2, s_integer(0), j));
             }
         };
 
         typedef union_find<union_find_default_ctx> union_find_t;
 
         struct relation {
-            sr_property           m_property;
-            func_decl*            m_decl;
-            atoms                 m_asserted_atoms;   // set of asserted atoms
-            unsigned              m_asserted_qhead;
-            svector<scope>        m_scopes;
-            graph                 m_graph;
+            sr_property            m_property;
+            func_decl*             m_decl;
+            atoms                  m_asserted_atoms;   // set of asserted atoms
+            unsigned               m_asserted_qhead;
+            svector<scope>         m_scopes;
+            graph                  m_graph;
             union_find_default_ctx m_ufctx;
             union_find_t           m_uf;
             literal_vector         m_explanation;

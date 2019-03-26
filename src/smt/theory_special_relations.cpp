@@ -213,17 +213,21 @@ namespace smt {
             theory_var w;
             // v2 !<= v1 is asserted
             target.insert(a.v2());
-            if (r.m_graph.reachable(a.v1(), visited, target, w)) {
+            if (r.m_graph.reachable(a.v1(), target, visited, w)) {
                 // we already have v1 <= v2
                 continue;
             }
-            target.reset();
-            if (r.m_graph.reachable(a.v2(), target, visited, w)) {
-                // there is a common successor
+            // the nodes visited from v1 become target for v2
+            if (r.m_graph.reachable(a.v2(), visited, target, w)) {
+                // we have the following:
                 // v1 <= w
                 // v2 <= w
                 // v1 !<= v2
-                // -> v1 <= w & v2 <= w & v1 !<= v2 -> v2 <= v1
+                //
+                // enforce the assertion
+                //
+                //   v1 <= w & v2 <= w & v1 !<= v2 -> v2 <= v1
+                //
                 unsigned timestamp = r.m_graph.get_timestamp();
                 r.m_explanation.reset();
                 r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
@@ -297,7 +301,7 @@ namespace smt {
         u_map<unsigned> roots;
         context& ctx = get_context();
         r.m_graph.compute_zero_edge_scc(scc_id);
-        for (unsigned i = 0, j = 0; i < scc_id.size(); ++i) {
+        for (unsigned i = 0, j = 0; !ctx.inconsistent() && i < scc_id.size(); ++i) {
             if (scc_id[i] == -1) {
                 continue;
             }
@@ -635,11 +639,11 @@ namespace smt {
     bool theory_special_relations::is_neighbour_edge(graph const& g, edge_id edge) const {
         CTRACE("special_relations_verbose", g.is_enabled(edge),
               tout << edge << ": " << g.get_source(edge) << " " << g.get_target(edge) << " ";
-              tout << (g.get_assignment(g.get_source(edge)) - g.get_assignment(g.get_target(edge))) << "\n";);
+              tout << (g.get_assignment(g.get_target(edge)) - g.get_assignment(g.get_source(edge))) << "\n";);
 
         return
             g.is_enabled(edge) &&
-            g.get_assignment(g.get_source(edge)) - g.get_assignment(g.get_target(edge)) == s_integer(1);
+            g.get_assignment(g.get_source(edge)) + s_integer(1) == g.get_assignment(g.get_target(edge));
     }
 
     bool theory_special_relations::is_strict_neighbour_edge(graph const& g, edge_id e) const {
@@ -650,7 +654,7 @@ namespace smt {
         unsigned sz = g.get_num_nodes();
         svector<dl_var> nodes;
         num_children.resize(sz, 0);
-        svector<bool>   processed(sz, false);
+        svector<bool> processed(sz, false);
         for (unsigned i = 0; i < sz; ++i) nodes.push_back(i);
         while (!nodes.empty()) {
             dl_var v = nodes.back();
@@ -692,8 +696,8 @@ namespace smt {
         for (unsigned i = 0; i < sz; ++i) {
             bool is_root = true;
             int_vector const& edges = g.get_in_edges(i);
-            for (unsigned j = 0; is_root && j < edges.size(); ++j) {
-                is_root = !g.is_enabled(edges[j]);
+            for (edge_id e_id : edges) {
+                is_root &= !g.is_enabled(e_id);
             }
             if (is_root) {
                 lo[i] = offset;
@@ -739,7 +743,8 @@ namespace smt {
                 init_model_po(*kv.m_value, m);
                 break;
             default:
-                UNREACHABLE(); //ASHU: added to remove warning! Should be supported!
+                // other 28 combinations of 0x1F
+                NOT_IMPLEMENTED_YET();
             }
         }
     }
@@ -770,7 +775,7 @@ namespace smt {
     
     void theory_special_relations::display_atom(std::ostream & out, atom& a) const {
         context& ctx = get_context();
-        expr* e = ctx.bool_var2expr( a.var() );
+        expr* e = ctx.bool_var2expr(a.var());
         out << (a.phase() ? "" : "(not ") << mk_pp(e, get_manager()) << (a.phase() ? "" : ")") << "\n";
     }
     
