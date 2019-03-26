@@ -10353,3 +10353,6 @@ def Range(lo, hi, ctx = None):
     lo = _coerce_seq(lo, ctx)
     hi = _coerce_seq(hi, ctx)
     return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
+
+# Special Relations
+
