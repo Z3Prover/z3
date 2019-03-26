@@ -116,6 +116,8 @@ namespace smt {
 
             bool add_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);
             bool add_non_strict_edge(theory_var v1, theory_var v2, literal_vector const& j);
+            
+            std::ostream& display(theory_special_relations const& sr, std::ostream& out) const;
         };
 
 

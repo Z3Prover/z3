@@ -64,6 +64,17 @@ namespace smt {
         return m_graph.add_non_strict_edge(v1, v2, ls) && m_graph.add_non_strict_edge(v2, v1, ls);
     }
 
+    std::ostream& theory_special_relations::relation::display(theory_special_relations const& th, std::ostream& out) const {
+        out << m_decl->get_name() << ":\n";
+        m_graph.display(out);
+        out << "explanation: " << m_explanation << "\n";
+        m_uf.display(out);
+        for (atom* ap : m_asserted_atoms) {
+            th.display_atom(out, *ap);
+        }
+        return out;
+    }
+
     theory_special_relations::theory_special_relations(ast_manager& m):
         theory(m.mk_family_id("special_relations")),
         m_util(m) {
@@ -94,7 +105,7 @@ namespace smt {
         ctx.set_var_theory(v, get_id());
         atom* a = alloc(atom, v, *r, v0, v1);
         m_atoms.push_back(a);
-        TRACE("special_relations", tout << mk_pp(atm, get_manager()) << " : " << a->v1() << ' ' << a->v2() << ' ' << gate_ctx << "\n";);
+        TRACE("special_relations", tout << mk_pp(atm, get_manager()) << " : bv" << v << " v" << a->v1() << " v" << a->v2() << ' ' << gate_ctx << "\n";);
         m_bool_var2atom.insert(v, a);
         return true;
     }
@@ -291,7 +302,7 @@ namespace smt {
             UNREACHABLE();
             res = l_undef;
         }
-
+        TRACE("special_relations", r.display(*this, tout););
         return res;
     }
 
@@ -754,12 +765,7 @@ namespace smt {
         out << "Theory Special Relations\n";
         display_var2enode(out);
         for (auto const& kv : m_relations) {
-            out << mk_pp(kv.m_value->decl(), get_manager()) << ":\n";
-            kv.m_value->m_graph.display(out);
-            kv.m_value->m_uf.display(out);
-            for (atom* ap : kv.m_value->m_asserted_atoms) {
-                display_atom(out, *ap);
-            }
+            kv.m_value->display(*this, out);
         }
     }
 
