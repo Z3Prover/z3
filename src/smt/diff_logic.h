@@ -683,8 +683,11 @@ private:
     svector<int> m_hybrid_visited, m_hybrid_parent;
 
     bool is_connected(numeral const& gamma, bool zero_edge, edge const& e, unsigned timestamp) const {
-        return (gamma.is_one() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
+        return (gamma.is_zero() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
     }
+
+    int_vector bfs_todo;
+    int_vector dfs_todo;
 
 public:
 
@@ -693,8 +696,8 @@ public:
     bool find_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
         auto zero_edge = true;
         unsigned bfs_head = 0;
-        int_vector bfs_todo;
-        int_vector dfs_todo;
+        bfs_todo.reset();
+        dfs_todo.reset();
         m_hybrid_visited.resize(m_assignment.size(), m_run_counter++);
         m_hybrid_parent.resize(m_assignment.size(), -1);
         bfs_todo.push_back(source);

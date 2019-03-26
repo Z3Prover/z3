@@ -1707,6 +1707,42 @@ namespace z3 {
     */
     inline expr sext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_sign_ext(a.ctx(), i, a)); }
 
+    inline expr sr_lo(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_sr_lo(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr sr_po(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_sr_po(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr sr_po_ao(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_sr_po_ao(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr sr_plo(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_sr_plo(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+    inline expr sr_to(expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = Z3_mk_sr_to(a.ctx(), a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+
+
     template<typename T> class cast_ast;
 
     template<> class cast_ast<ast> {

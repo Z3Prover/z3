@@ -1101,6 +1101,13 @@ typedef enum {
     Z3_OP_BUREM_I,
     Z3_OP_BSMOD_I,
 
+    // Special relations
+    Z3_OP_SPECIAL_RELATION_LO,
+    Z3_OP_SPECIAL_RELATION_PO,
+    Z3_OP_SPECIAL_RELATION_PO_AO,
+    Z3_OP_SPECIAL_RELATION_PLO,
+    Z3_OP_SPECIAL_RELATION_TO,
+
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,
     Z3_OP_PR_TRUE,
@@ -3595,9 +3602,57 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
 
-
     /*@}*/
 
+
+    /** @name Special relations */
+    /*@{*/
+    /**
+       \brief declare \c a and \c b are in linear order.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_sr_lo', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_sr_lo(Z3_context c, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in partial order.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_sr_po', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_sr_po(Z3_context c, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are already partial ordered.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_sr_po_ao', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_sr_po_ao(Z3_context c, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in piecewise linear order.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_sr_plo', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_sr_plo(Z3_context c, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in total order.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_sr_to', AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_sr_to(Z3_context c, Z3_ast a, Z3_ast b);
+
+    /*@}*/
 
     /** @name Quantifiers */
     /*@{*/
