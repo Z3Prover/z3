@@ -40,19 +40,19 @@ class special_relations_decl_plugin : public decl_plugin {
     symbol m_to;
 public:
     special_relations_decl_plugin();
-    virtual ~special_relations_decl_plugin() {}
 
-    virtual decl_plugin * mk_fresh() {
+    ~special_relations_decl_plugin() override {}
+
+    decl_plugin * mk_fresh() override {
         return alloc(special_relations_decl_plugin);
     }
     
-    virtual func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
-                                     unsigned arity, sort * const * domain, sort * range);
+    func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
+                             unsigned arity, sort * const * domain, sort * range) override;
 
-    virtual void get_op_names(svector<builtin_name> & op_names, symbol const & logic);
-
-
-    virtual sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) { return 0; }
+    void get_op_names(svector<builtin_name> & op_names, symbol const & logic) override;
+    
+    sort * mk_sort(decl_kind k, unsigned num_parameters, parameter const * parameters) override { return nullptr; }
 };
 
 enum sr_property {
