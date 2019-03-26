@@ -1056,7 +1056,6 @@ extern "C" {
             switch(_d->get_decl_kind()) {
             case OP_SPECIAL_RELATION_LO : return Z3_OP_SPECIAL_RELATION_LO;
             case OP_SPECIAL_RELATION_PO : return Z3_OP_SPECIAL_RELATION_PO;
-            case OP_SPECIAL_RELATION_PO_AO : return Z3_OP_SPECIAL_RELATION_PO_AO;
             case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
             case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
             default: UNREACHABLE();

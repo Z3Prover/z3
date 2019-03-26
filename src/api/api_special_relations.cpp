@@ -68,11 +68,21 @@ extern "C" {
         Z3_CATCH_RETURN(false);
     }
 #endif
+#define MK_TERN(NAME, FID)                                              \
+    Z3_ast Z3_API NAME(Z3_context c, unsigned index, Z3_ast a, Z3_ast b) { \
+    LOG_ ##NAME(c, index, a, b);                                        \
+    Z3_TRY;                                                             \
+    expr* args[2] = { to_expr(a), to_expr(b) };                         \
+    parameter p(index);                                                 \
+    ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_special_relations_fid(), FID, 1, &p, 2, args); \
+    mk_c(c)->save_ast_trail(a);                                         \
+    RETURN_Z3(of_ast(a));                                               \
+    Z3_CATCH_RETURN(nullptr);                                           \
+}
 
-    MK_BINARY(Z3_mk_sr_lo , mk_c(c)->get_special_relations_fid(), OP_SPECIAL_RELATION_LO, SKIP);
-    MK_BINARY(Z3_mk_sr_po , mk_c(c)->get_special_relations_fid(), OP_SPECIAL_RELATION_PO, SKIP);
-    MK_BINARY(Z3_mk_sr_po_ao,mk_c(c)->get_special_relations_fid(), OP_SPECIAL_RELATION_PO_AO,SKIP);
-    MK_BINARY(Z3_mk_sr_plo, mk_c(c)->get_special_relations_fid(), OP_SPECIAL_RELATION_PLO, SKIP);
-    MK_BINARY(Z3_mk_sr_to , mk_c(c)->get_special_relations_fid(), OP_SPECIAL_RELATION_TO, SKIP);
+    MK_TERN(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO);
+    MK_TERN(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO);
+    MK_TERN(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
+    MK_TERN(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
 
 };
