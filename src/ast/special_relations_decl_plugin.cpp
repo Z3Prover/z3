@@ -17,9 +17,9 @@ Revision History:
 
 --*/
 
-#include<sstream>
-#include"ast.h"
-#include"special_relations_decl_plugin.h"
+#include <sstream>
+#include "ast/ast.h"
+#include "ast/special_relations_decl_plugin.h"
 
 
 
@@ -37,11 +37,11 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
 {
     if (arity != 2) {
         m_manager->raise_exception("special relations should have arity 2");
-        return 0;
+        return nullptr;
     }
     if (domain[0] != domain[1]) {
         m_manager->raise_exception("argument sort missmatch");
-        return 0;
+        return nullptr;
     }
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     symbol name;
