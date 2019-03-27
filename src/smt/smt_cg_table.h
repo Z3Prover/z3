@@ -27,89 +27,6 @@ namespace smt {
 
     typedef std::pair<enode *, bool> enode_bool_pair;
     
-#if 0
-    /**
-       \brief Congruence table.
-    */
-    class cg_table {
-        struct cg_khasher {
-            unsigned operator()(enode const * n) const { return n->get_decl_id(); }
-        };
-
-        struct cg_chasher {
-            unsigned operator()(enode const * n, unsigned idx) const { 
-                return n->get_arg(idx)->get_root()->hash();
-            }
-        };
-
-        struct cg_hash {
-            cg_khasher m_khasher;
-            cg_chasher m_chasher;
-        public:
-            unsigned operator()(enode * n) const;
-        };
-
-        struct cg_eq {
-            bool & m_commutativity; 
-            cg_eq(bool & comm):m_commutativity(comm) {}
-            bool operator()(enode * n1, enode * n2) const;
-        };
-
-        typedef ptr_hashtable<enode, cg_hash, cg_eq> table;
-
-        ast_manager &             m_manager;
-        bool                      m_commutativity; //!< true if the last found congruence used commutativity
-        table                     m_table;
-    public:
-        cg_table(ast_manager & m);
-
-        /**
-           \brief Try to insert n into the table. If the table already
-           contains an element n' congruent to n, then do nothing and
-           return n' and a boolean indicating whether n and n' are congruence
-           modulo commutativity, otherwise insert n and return (n,false).
-        */
-        enode_bool_pair insert(enode * n) {
-            // it doesn't make sense to insert a constant.
-            SASSERT(n->get_num_args() > 0);
-            m_commutativity = false;
-            enode * n_prime = m_table.insert_if_not_there(n); 
-            SASSERT(contains(n));
-            return enode_bool_pair(n_prime, m_commutativity);
-        }
-
-        void erase(enode * n) {
-            SASSERT(n->get_num_args() > 0);
-            m_table.erase(n);
-            SASSERT(!contains(n));
-        }
-
-        bool contains(enode * n) const {
-            return m_table.contains(n);
-        }
-
-        enode * find(enode * n) const {
-            enode * r = 0;
-            return m_table.find(n, r) ? r : 0;
-        }
-
-        bool contains_ptr(enode * n) const {
-            enode * n_prime;
-            return m_table.find(n, n_prime) && n == n_prime;
-        }
-
-        void reset() {
-            m_table.reset();
-        }
-
-        void display(std::ostream & out) const;
-
-        void display_compact(std::ostream & out) const;
-#ifdef Z3DEBUG
-        bool check_invariant() const;
-#endif
-    };
-#else 
     // one table per function symbol
 
     /**
@@ -137,9 +54,6 @@ namespace smt {
         struct cg_binary_hash {
             unsigned operator()(enode * n) const {
                 SASSERT(n->get_num_args() == 2);
-                // too many collisions
-                // unsigned r = 17 + n->get_arg(0)->get_root()->hash();
-                // return r * 31 + n->get_arg(1)->get_root()->hash();
                 return combine_hash(n->get_arg(0)->get_root()->hash(), n->get_arg(1)->get_root()->hash());
             }
         };
@@ -149,23 +63,9 @@ namespace smt {
                 SASSERT(n1->get_num_args() == 2);
                 SASSERT(n2->get_num_args() == 2);
                 SASSERT(n1->get_decl() == n2->get_decl());
-#if 1
                 return 
                     n1->get_arg(0)->get_root() == n2->get_arg(0)->get_root() &&
                     n1->get_arg(1)->get_root() == n2->get_arg(1)->get_root();
-#else
-                bool r = 
-                    n1->get_arg(0)->get_root() == n2->get_arg(0)->get_root() &&
-                    n1->get_arg(1)->get_root() == n2->get_arg(1)->get_root();
-                static unsigned counter = 0;
-                static unsigned failed  = 0;
-                if (!r) 
-                    failed++;
-                counter++;
-                if (counter % 100000 == 0) 
-                    std::cerr << "[cg_eq] " << counter << " " << failed << "\n";
-                return r;
-#endif
             }
         };
 
@@ -249,48 +149,9 @@ namespace smt {
            return n' and a boolean indicating whether n and n' are congruence
            modulo commutativity, otherwise insert n and return (n,false).
         */
-        enode_bool_pair insert(enode * n) {
-            // it doesn't make sense to insert a constant.
-            SASSERT(n->get_num_args() > 0);
-            SASSERT(!m_manager.is_and(n->get_owner()));
-            SASSERT(!m_manager.is_or(n->get_owner()));
-            enode * n_prime;
-            void * t = get_table(n); 
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
-                return enode_bool_pair(n_prime, false);
-            case BINARY:
-                n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
-                return enode_bool_pair(n_prime, false);
-            case BINARY_COMM:
-                m_commutativity = false;
-                n_prime = UNTAG(comm_table*, t)->insert_if_not_there(n);
-                return enode_bool_pair(n_prime, m_commutativity);
-            default:
-                n_prime = UNTAG(table*, t)->insert_if_not_there(n);
-                return enode_bool_pair(n_prime, false);
-            }
-        }
+        enode_bool_pair insert(enode * n);
 
-        void erase(enode * n) {
-            SASSERT(n->get_num_args() > 0);
-            void * t = get_table(n); 
-            switch (static_cast<table_kind>(GET_TAG(t))) {
-            case UNARY:
-                UNTAG(unary_table*, t)->erase(n);
-                break;
-            case BINARY:
-                UNTAG(binary_table*, t)->erase(n);
-                break;
-            case BINARY_COMM:
-                UNTAG(comm_table*, t)->erase(n);
-                break;
-            default:
-                UNTAG(table*, t)->erase(n);
-                break;
-            }
-        }
+        void erase(enode * n);
 
         bool contains(enode * n) const {
             SASSERT(n->get_num_args() > 0);
@@ -343,13 +204,19 @@ namespace smt {
 
         void display(std::ostream & out) const;
 
+        void display_binary(std::ostream& out, void* t) const;
+
+        void display_binary_comm(std::ostream& out, void* t) const;
+
+        void display_unary(std::ostream& out, void* t) const;
+
+        void display_nary(std::ostream& out, void* t) const;
+
         void display_compact(std::ostream & out) const;
-#ifdef Z3DEBUG
+
         bool check_invariant() const;
-#endif
     };
 
-#endif 
 };
 
 #endif /* SMT_CG_TABLE_H_ */

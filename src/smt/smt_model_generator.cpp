@@ -427,14 +427,8 @@ namespace smt {
                       }
                       tout << "\n";
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m_manager) << "\n";);
-                if (m_context->get_last_search_failure() == smt::THEORY) {
-                    // if the theory solvers are incomplete, then we cannot assume the e-graph is close under congruence
-                    if (fi->get_entry(args.c_ptr()) == nullptr)
-                        fi->insert_new_entry(args.c_ptr(), result);
-                }
-                else {
+                if (fi->get_entry(args.c_ptr()) == nullptr)
                     fi->insert_new_entry(args.c_ptr(), result);
-                }
             }
         }
     }
