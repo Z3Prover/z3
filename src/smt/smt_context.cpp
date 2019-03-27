@@ -4478,6 +4478,7 @@ namespace smt {
         }
         recfun::util u(m);
         func_decl_ref_vector recfuns = u.get_rec_funs();
+        std::cout << recfuns << "\n";
         for (func_decl* f : recfuns) {
             auto& def = u.get_def(f);
             expr* rhs = def.get_rhs();

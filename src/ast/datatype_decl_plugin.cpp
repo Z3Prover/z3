@@ -1187,6 +1187,85 @@ namespace datatype {
             }
         }
     }
+
+    sort_ref util::mk_list_datatype(sort* elem, symbol const& name, 
+                                    func_decl_ref& cons, func_decl_ref& is_cons, 
+                                    func_decl_ref& hd, func_decl_ref& tl, 
+                                    func_decl_ref& nil, func_decl_ref& is_nil) {
+
+        accessor_decl* head_tail[2] = {
+            mk_accessor_decl(m, symbol("head"), type_ref(elem)),
+            mk_accessor_decl(m, symbol("tail"), type_ref(0))
+        };
+        constructor_decl* constrs[2] = {
+            mk_constructor_decl(symbol("nil"), symbol("is_nil"), 0, nullptr),
+            mk_constructor_decl(symbol("cons"), symbol("is_cons"), 2, head_tail)
+        };
+        decl::plugin& p = *get_plugin();
+
+        sort_ref_vector sorts(m);
+        datatype_decl * decl = mk_datatype_decl(*this, name, 0, nullptr, 2, constrs);
+        bool is_ok = p.mk_datatypes(1, &decl, 0, nullptr, sorts);
+        del_datatype_decl(decl);
+        
+        if (!is_ok) {
+            return sort_ref(m);
+        }
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 2);
+        nil = cnstrs[0];
+        is_nil = get_constructor_is(cnstrs[0]);
+        cons = cnstrs[1];
+        is_cons = get_constructor_is(cnstrs[1]);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[1]);
+        SASSERT(acc.size() == 2);
+        hd = acc[0];
+        tl = acc[1];
+        return sort_ref(s, m);
+    }
+
+    sort_ref util::mk_pair_datatype(sort* a, sort* b, func_decl_ref& fst, func_decl_ref& snd, func_decl_ref& pair) {
+        type_ref t1(a), t2(b);
+        accessor_decl* fstd = mk_accessor_decl(m, symbol("fst"), t1);
+        accessor_decl* sndd = mk_accessor_decl(m, symbol("snd"), t2);
+        accessor_decl* accd[2] = { fstd, sndd };
+        auto * p = mk_constructor_decl(symbol("pair"), symbol("is-pair"), 2, accd);
+        auto* dt = mk_datatype_decl(*this, symbol("pair"), 0, nullptr, 1, &p);
+        sort_ref_vector sorts(m);
+        VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
+        del_datatype_decl(dt);
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 1);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        SASSERT(acc.size() == 2);
+        fst = acc[0];
+        snd = acc[1];
+        pair = cnstrs[0];
+        return sort_ref(s, m);
+    }
+
+    sort_ref util::mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs) {
+        ptr_vector<accessor_decl> accd;
+        for (auto const& e : elems) {
+            type_ref t(e.second);
+            accd.push_back(mk_accessor_decl(m, e.first, t));
+        }
+        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.c_ptr());
+        auto* dt = mk_datatype_decl(*this, name, 0, nullptr, 1, &tuple);
+        sort_ref_vector sorts(m);
+        VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
+        del_datatype_decl(dt);
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 1);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        for (auto* f : acc) accs.push_back(f);
+        tup = cnstrs[0];
+        return sort_ref(s, m);
+    }
+
 }
 
 datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs) {
