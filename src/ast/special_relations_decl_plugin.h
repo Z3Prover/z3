@@ -26,6 +26,7 @@ Revision History:
 enum special_relations_op_kind {
     OP_SPECIAL_RELATION_LO,
     OP_SPECIAL_RELATION_PO,
+    OP_SPECIAL_RELATION_PO_AO,
     OP_SPECIAL_RELATION_PLO,
     OP_SPECIAL_RELATION_TO,
     LAST_SPECIAL_RELATIONS_OP
@@ -34,6 +35,7 @@ enum special_relations_op_kind {
 class special_relations_decl_plugin : public decl_plugin {
     symbol m_lo;
     symbol m_po;
+    symbol m_po_ao;
     symbol m_plo;
     symbol m_to;
 public:
@@ -78,11 +80,13 @@ public:
 
     bool is_lo(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_LO); }
     bool is_po(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PO); }
+    bool is_po_ao(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PO_AO); }
     bool is_plo(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PLO); }
     bool is_to(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_TO); }
     
     app * mk_lo (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_LO,  arg1, arg2); }
     app * mk_po (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PO,  arg1, arg2); }
+    app * mk_po_ao (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PO_AO,  arg1, arg2); }
     app * mk_plo(expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PLO, arg1, arg2); }
     app * mk_to (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_TO,  arg1, arg2); }
 

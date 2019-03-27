@@ -26,7 +26,11 @@ Notes:
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
 #include "ast/reg_decl_plugins.h"
+#include "ast/datatype_decl_plugin.h"
+#include "ast/recfun_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/rewriter/recfun_replace.h"
+
 
 namespace smt {
 
@@ -610,16 +614,130 @@ namespace smt {
         m.get_model().register_decl(r.decl(), fi);
     }
 
-    void theory_special_relations::init_model_plo(relation& r, model_generator& m) {
-        expr_ref inj = mk_inj(r, m);
-        expr_ref cls = mk_class(r, m);
+    void theory_special_relations::init_model_plo(relation& r, model_generator& mg) {
+        expr_ref inj = mk_inj(r, mg);
+        expr_ref cls = mk_class(r, mg);
         func_interp* fi = alloc(func_interp, get_manager(), 2);
         fi->set_else(get_manager().mk_and(inj, cls));
-        m.get_model().register_decl(r.decl(), fi);
+        mg.get_model().register_decl(r.decl(), fi);
     }
 
+    /**
+       \brief model for a partial order, 
+       is a recursive function that evaluates membership in partial order over
+       a fixed set of edges. It runs in O(e*n^2) where n is the number of vertices and e 
+       number of edges.
+
+       connected1(x, y, v, w, S) = 
+           if x = v then 
+              if y = w then (S, true) else
+              if w in S then (S, false) else
+              connected2(w, y, S u { w }, edges)
+           else (S, false)
+
+       connected2(x, y, S, []) = (S, false)
+       connected2(x, y, S, (u,w)::edges) = 
+           let (S, c) = connected1(x, y, u, w, S) 
+           if c then (S, true) else connected2(x, y, S, edges) 
+          
+     */
+
+
     void theory_special_relations::init_model_po(relation& r, model_generator& mg) {
-        // NOT_IMPLEMENTED_YET();
+        ast_manager& m = get_manager();
+        sort* s = r.m_decl->get_domain(0);
+        context& ctx = get_context();
+        datatype_util dt(m);
+        recfun::util rf(m);
+        recfun::decl::plugin& p = rf.get_plugin();
+        func_decl_ref nil(m), is_nil(m), cons(m), is_cons(m), hd(m), tl(m);        
+        sort_ref listS(dt.mk_list_datatype(s, symbol("List"), cons, is_cons, hd, tl, nil, is_nil), m);
+        func_decl_ref fst(m), snd(m), pair(m);
+        sort_ref tup(dt.mk_pair_datatype(listS, m.mk_bool_sort(), fst, snd, pair), m);
+        sort* dom1[5] = { s, s, listS, s, s };
+        recfun::promise_def c1 = p.mk_def(symbol("connected1"), 5, dom1, tup);
+        sort* dom2[3] = { s, s, listS };
+        recfun::promise_def c2 = p.mk_def(symbol("connected2"), 3, dom2, tup);
+        sort* dom3[2] = { s, listS };
+        recfun::promise_def mem = p.mk_def(symbol("member"), 2, dom3, m.mk_bool_sort());
+        var_ref xV(m.mk_var(1, s), m);
+        var_ref SV(m.mk_var(0, listS), m);
+        var_ref yV(m), vV(m), wV(m);
+
+        expr* x = xV, *S = SV;
+        expr* T = m.mk_true();
+        expr* F = m.mk_false();
+        func_decl* memf = mem.get_def()->get_decl();
+        func_decl* conn1 = c1.get_def()->get_decl();
+        func_decl* conn2 = c2.get_def()->get_decl();
+        expr_ref mem_body(m);
+        mem_body = m.mk_ite(m.mk_app(is_nil, S), 
+                            F,
+                            m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
+                                     T,
+                                     m.mk_app(memf, x, m.mk_app(tl, S))));
+        recfun_replace rep(m);
+        var* vars[2] = { xV, SV };
+        p.set_definition(rep, mem, 2, vars, mem_body);
+
+        xV = m.mk_var(4, s);
+        yV = m.mk_var(3, s);
+        SV = m.mk_var(2, listS);
+        vV = m.mk_var(1, s);
+        wV = m.mk_var(0, s);
+        expr* y = yV, *v = vV, *w = wV;
+        x = xV, S = SV;
+
+        expr_ref ST(m.mk_app(pair, S, T), m);
+        expr_ref SF(m.mk_app(pair, S, F), m);
+
+        expr_ref connected_body(m);
+        connected_body = 
+            m.mk_ite(m.mk_not(m.mk_eq(x, v)), 
+                     SF, 
+                     m.mk_ite(m.mk_eq(y, w), 
+                              ST,
+                              m.mk_ite(m.mk_app(memf, w, S), 
+                                       SF,
+                                       m.mk_app(conn2, w, y, m.mk_app(cons, w, S)))));
+        var* vars2[5] = { xV, yV, SV, vV, wV };
+        p.set_definition(rep, c1, 5, vars2, connected_body);
+
+        xV = m.mk_var(2, s);
+        yV = m.mk_var(1, s);
+        SV = m.mk_var(0, listS);
+        x = xV, y = yV, S = SV;
+        ST = m.mk_app(pair, S, T);
+        SF = m.mk_app(pair, S, F);
+        expr_ref connected_rec_body(m);
+        connected_rec_body = SF;
+                        
+        for (atom* ap : r.m_asserted_atoms) {
+            atom& a = *ap;
+            if (!a.phase()) continue;
+            SASSERT(ctx.get_assignment(a.var()) == l_true);
+            expr* n1 = get_enode(a.v1())->get_root()->get_owner();
+            expr* n2 = get_enode(a.v2())->get_root()->get_owner();
+
+            expr* Sr = connected_rec_body;
+            expr* args[5] = { x, y, m.mk_app(fst, Sr), n1, n2};
+            expr* Sc = m.mk_app(conn1, 5, args);            
+            connected_rec_body = m.mk_ite(m.mk_app(snd, Sr), ST, Sc);
+        }
+        var* vars3[3] = { xV, yV, SV };
+        p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
+
+#if 0
+        // TBD: doesn't terminate with model_evaluator/rewriter 
+
+        // r.m_decl(x,y) -> snd(connected2(x,y,nil))
+
+        func_interp* fi = alloc(func_interp, m, 2);
+        fi->set_else(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_const(nil))));
+        mg.get_model().register_decl(r.decl(), fi);
+#endif
+
+        
     }
 
     /**
