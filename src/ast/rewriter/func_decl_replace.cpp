@@ -86,7 +86,7 @@ expr_ref func_decl_replace::operator()(expr* e) {
             }
         }        
     }
-    return expr_ref(cache.find(e), m);
+    return expr_ref(m_cache.find(e), m);
 }
 
 void func_decl_replace::reset() {

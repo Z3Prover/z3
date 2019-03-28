@@ -22,29 +22,32 @@ Notes:
 
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
+#include "ast/special_relations_decl_plugin.h"
 
 class special_relations_tactic : public tactic {
+    ast_manager& m;
     params_ref m_params;
     
     struct sp_axioms {
         unsigned_vector m_goal_indices;
-        unsigned        m_sp_features;
+        sr_property     m_sp_features;
+        sp_axioms():m_sp_features(sr_none) {}
     };
 
     void collect_feature(goal const& g, unsigned idx, obj_map<func_decl, sp_axioms>& goal_features);
-    void insert(obj_map<func_decl, sp_axioms>& goal_features, func_decl* p, unsigned idx, sr_property p);
+    void insert(obj_map<func_decl, sp_axioms>& goal_features, func_decl* f, unsigned idx, sr_property p);
 
     bool is_transitivity(expr* fml, func_decl_ref& p);
     bool is_anti_symmetry(expr* fml, func_decl_ref& p);
     bool is_left_tree(expr* fml, func_decl_ref& p);
     bool is_right_tree(expr* fml, func_decl_ref& p);
-    bool is_reflexivity(expr* fml, func_decl_ref& p);
+    bool is_reflexive(expr* fml, func_decl_ref& p);
     bool is_total(expr* fml, func_decl_ref& p);
     bool is_symmetric(expr* fml, func_decl_ref& p);
 
 public:
 
-    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()) {}
+    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): m(m), m_params(ref) {}
 
     ~special_relations_tactic() override {}
 

@@ -26,7 +26,6 @@ Revision History:
 enum special_relations_op_kind {
     OP_SPECIAL_RELATION_LO,
     OP_SPECIAL_RELATION_PO,
-    OP_SPECIAL_RELATION_PO_AO,
     OP_SPECIAL_RELATION_PLO,
     OP_SPECIAL_RELATION_TO,
     LAST_SPECIAL_RELATIONS_OP
@@ -35,7 +34,6 @@ enum special_relations_op_kind {
 class special_relations_decl_plugin : public decl_plugin {
     symbol m_lo;
     symbol m_po;
-    symbol m_po_ao;
     symbol m_plo;
     symbol m_to;
 public:
@@ -56,15 +54,17 @@ public:
 };
 
 enum sr_property {
+    sr_none          = 0x00,
     sr_transitive    = 0x01,                              // Rxy & Ryz -> Rxz
     sr_reflexive     = 0x02,                              // Rxx
     sr_antisymmetric = 0x04,                              // Rxy & Ryx -> x = y
     sr_lefttree      = 0x08,                              // Ryx & Rzx -> Ryz | Rzy
     sr_righttree     = 0x10,                              // Rxy & Rxz -> Ryx | Rzy
+    sr_total         = 0x20,                              // Rxy | Ryx
     sr_po            = 0x01 | 0x02 | 0x04,                // partial order
-    sr_lo            = 0x01 | 0x02 | 0x04 | 0x08 | 0x10,  // linear order
-    sr_plo           = 0x01 | 0x02 | 0x04 | 0x20,         // piecewise linear order
     sr_to            = 0x01 | 0x02 | 0x04 | 0x10,         // right-tree
+    sr_plo           = 0x01 | 0x02 | 0x04 | 0x08 | 0x10,  // piecewise linear order
+    sr_lo            = 0x01 | 0x02 | 0x04 | 0x20,         // linear order
 };
 
 class special_relations_util {
@@ -78,15 +78,18 @@ public:
     sr_property get_property(func_decl* f) const;
     sr_property get_property(app* e) const { return get_property(e->get_decl()); }
 
+    func_decl* mk_to_decl(func_decl* f) { parameter p(f); SASSERT(f->get_arity() == 2); return m.mk_func_decl(m_fid, OP_SPECIAL_RELATION_TO, 1, &p, 2, f->get_domain(), f->get_range()); }
+    func_decl* mk_po_decl(func_decl* f) { parameter p(f); SASSERT(f->get_arity() == 2); return m.mk_func_decl(m_fid, OP_SPECIAL_RELATION_PO, 1, &p, 2, f->get_domain(), f->get_range()); }
+    func_decl* mk_plo_decl(func_decl* f) { parameter p(f); SASSERT(f->get_arity() == 2); return m.mk_func_decl(m_fid, OP_SPECIAL_RELATION_PLO, 1, &p, 2, f->get_domain(), f->get_range()); }
+    func_decl* mk_lo_decl(func_decl* f) { parameter p(f); SASSERT(f->get_arity() == 2); return m.mk_func_decl(m_fid, OP_SPECIAL_RELATION_LO, 1, &p, 2, f->get_domain(), f->get_range()); }
+
     bool is_lo(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_LO); }
     bool is_po(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PO); }
-    bool is_po_ao(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PO_AO); }
     bool is_plo(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PLO); }
     bool is_to(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_TO); }
     
     app * mk_lo (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_LO,  arg1, arg2); }
     app * mk_po (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PO,  arg1, arg2); }
-    app * mk_po_ao (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PO_AO,  arg1, arg2); }
     app * mk_plo(expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PLO, arg1, arg2); }
     app * mk_to (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_TO,  arg1, arg2); }
 
