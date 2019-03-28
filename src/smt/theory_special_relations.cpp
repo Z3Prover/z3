@@ -727,16 +727,14 @@ namespace smt {
         var* vars3[3] = { xV, yV, SV };
         p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
 
-#if 0
-        // TBD: doesn't terminate with model_evaluator/rewriter 
-
         // r.m_decl(x,y) -> snd(connected2(x,y,nil))
+        xV = m.mk_var(0, s);
+        yV = m.mk_var(1, s);
+        x = xV, y = yV;
 
         func_interp* fi = alloc(func_interp, m, 2);
-        fi->set_else(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_const(nil))));
+        fi->set_else(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_app(cons, x, m.mk_const(nil)))));
         mg.get_model().register_decl(r.decl(), fi);
-#endif
-
         
     }
 
