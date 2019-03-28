@@ -93,4 +93,5 @@ void func_decl_replace::reset() {
     m_cache.reset();
     m_subst.reset();
     m_refs.reset();
+    m_funs.reset();
 }

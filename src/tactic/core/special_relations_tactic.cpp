@@ -24,23 +24,12 @@ void special_relations_tactic::collect_feature(goal const& g, unsigned idx,
                                                obj_map<func_decl, sp_axioms>& goal_features) {
     expr* f = g.form(idx);
     func_decl_ref p(m);
-    if (is_transitivity(f, p)) {
-        insert(goal_features, p, idx, sr_transitive);
-    }
-    else if (is_anti_symmetry(f, p)) {
-        insert(goal_features, p, idx, sr_antisymmetric);
-    }
-    else if (is_left_tree(f, p)) {
-        insert(goal_features, p, idx, sr_lefttree);
-    }
-    else if (is_right_tree(f, p)) {
-        insert(goal_features, p, idx, sr_righttree);
-    }
-    else if (is_reflexive(f, p)) {
-        insert(goal_features, p, idx, sr_reflexive);
-    }
-    else if (is_total(f, p)) {
-        insert(goal_features, p, idx, sr_total);
+    if (!is_quantifier(f)) return;
+    unsigned index = 0;
+    app_ref_vector patterns(m);
+    if (m_pm.match_quantifier_index(to_quantifier(f), patterns, index)) {
+        p = to_app(patterns.get(0)->get_arg(0))->get_decl();
+        insert(goal_features, p, idx, m_properties[index]);
     }
 }
 
@@ -53,32 +42,68 @@ void special_relations_tactic::insert(obj_map<func_decl, sp_axioms>& goal_featur
 }
 
 
-bool special_relations_tactic::is_transitivity(expr* fml, func_decl_ref& p) {
-    // match Forall x, y, z . p(x,y) & p(y,z) -> p(x,z)
-    return false;
+void special_relations_tactic::initialize() {
+    if (!m_properties.empty()) return;
+    sort_ref A(m);
+    func_decl_ref R(m.mk_func_decl(symbol("R"), A, A, m.mk_bool_sort()), m);
+    var_ref x(m.mk_var(0, A), m);
+    var_ref y(m.mk_var(1, A), m);
+    var_ref z(m.mk_var(2, A), m);
+    expr* _x = x, *_y = y, *_z = z;
+    
+    expr_ref Rxy(m.mk_app(R, _x, y), m);
+    expr_ref Ryz(m.mk_app(R, _y, z), m);
+    expr_ref Rxz(m.mk_app(R, _x, z), m);
+    expr_ref Rxx(m.mk_app(R, _x, x), m);
+    expr_ref Ryx(m.mk_app(R, _y, x), m);
+    expr_ref Rzy(m.mk_app(R, _z, y), m);
+    expr_ref Rzx(m.mk_app(R, _z, x), m);
+    expr_ref nRxy(m.mk_not(Rxy), m);
+    expr_ref nRyx(m.mk_not(Ryx), m);
+    expr_ref nRzx(m.mk_not(Rzx), m);
+    expr_ref nRxz(m.mk_not(Rxz), m);
+
+    sort* As[3] = { A, A, A};
+    symbol xyz[3] = { symbol("x"), symbol("y"), symbol("z") };
+    expr_ref fml(m);
+    quantifier_ref q(m);
+    expr_ref pat(m.mk_pattern(to_app(Rxy)), m);
+    expr* pats[1] = { pat };
+    fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_transitive);
+    
+    fml = Rxx;
+    q = m.mk_forall(1, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_reflexive);
+
+    fml = m.mk_or(nRxy, nRyx, m.mk_eq(x, y));
+    q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_antisymmetric);
+
+    fml = m.mk_or(nRyx, nRzx, Ryz, Rzy);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_lefttree);
+
+    fml = m.mk_or(nRxy, nRxz, Ryx, Rzy);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_righttree);
+
+    fml = m.mk_or(Rxy, Ryx);
+    q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_total);   
 }
-bool special_relations_tactic::is_anti_symmetry(expr* fml, func_decl_ref& p) {
-    return false;
+
+void special_relations_tactic::register_pattern(unsigned index, sr_property p) {
+    SASSERT(index == m_properties.size() + 1);
+    m_properties.push_back(p);
 }
-bool special_relations_tactic::is_left_tree(expr* fml, func_decl_ref& p) {
-    return false;
-}
-bool special_relations_tactic::is_right_tree(expr* fml, func_decl_ref& p) {
-    return false;
-}
-bool special_relations_tactic::is_reflexive(expr* fml, func_decl_ref& p) {
-    return false;
-}
-bool special_relations_tactic::is_total(expr* fml, func_decl_ref& p) {
-    return false;
-}
-bool special_relations_tactic::is_symmetric(expr* fml, func_decl_ref& p) {
-    return false;
-}
+
 
     
 void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & result) {
     tactic_report report("special_relations", *g);
+    initialize();
     obj_map<func_decl, sp_axioms> goal_features;
     unsigned size = g->size();
     for (unsigned idx = 0; idx < size; idx++) {

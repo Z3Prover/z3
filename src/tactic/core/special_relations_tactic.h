@@ -23,10 +23,13 @@ Notes:
 #include "tactic/tactic.h"
 #include "tactic/tactical.h"
 #include "ast/special_relations_decl_plugin.h"
+#include "ast/pattern/expr_pattern_match.h"
 
 class special_relations_tactic : public tactic {
     ast_manager& m;
     params_ref m_params;
+    expr_pattern_match m_pm;
+    svector<sr_property> m_properties;
     
     struct sp_axioms {
         unsigned_vector m_goal_indices;
@@ -36,6 +39,9 @@ class special_relations_tactic : public tactic {
 
     void collect_feature(goal const& g, unsigned idx, obj_map<func_decl, sp_axioms>& goal_features);
     void insert(obj_map<func_decl, sp_axioms>& goal_features, func_decl* f, unsigned idx, sr_property p);
+
+    void initialize();
+    void register_pattern(unsigned index, sr_property);
 
     bool is_transitivity(expr* fml, func_decl_ref& p);
     bool is_anti_symmetry(expr* fml, func_decl_ref& p);
@@ -47,7 +53,7 @@ class special_relations_tactic : public tactic {
 
 public:
 
-    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): m(m), m_params(ref) {}
+    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): m(m), m_params(ref), m_pm(m) {}
 
     ~special_relations_tactic() override {}
 
