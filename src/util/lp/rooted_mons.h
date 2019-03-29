@@ -67,8 +67,8 @@ struct rooted_mon_table {
 
     // A map from m_rms_of_rooted_monomials to a set
     // of sets of m_rms_of_rooted_monomials,
-    // such that for every i and every h in m_proper_factors[i] we have m_rms[i] as a proper factor of m_rms[h]
-    std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_factors;
+    // such that for every i and every h in m_proper_multiples[i] we have m_rms[i] as a proper factor of m_rms[h]
+    std::unordered_map<unsigned, std::unordered_set<unsigned>>       m_proper_multiples;
     // points to m_rms
     svector<unsigned>                                                m_to_refine;
     // maps the indices of the regular monomials to the rooted monomial indices
@@ -121,7 +121,7 @@ struct rooted_mon_table {
         m_vars_key_to_rm_index.clear();
         m_rms.clear();
         m_mons_containing_var.clear();
-        m_proper_factors.clear();
+        m_proper_multiples.clear();
         m_to_refine.clear();
         m_reg_to_rm.clear();
     }
@@ -145,12 +145,12 @@ struct rooted_mon_table {
         return m_mons_containing_var;
     }
 
-    std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_factors() {
-        return m_proper_factors;
+    std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_multiples() {
+        return m_proper_multiples;
     }
 
-    const std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_factors() const {
-        return m_proper_factors;
+    const std::unordered_map<unsigned, std::unordered_set<unsigned>>& proper_multiples() const {
+        return m_proper_multiples;
     }
 
     // here i is the index of a rooted monomial in m_rms
@@ -172,10 +172,10 @@ struct rooted_mon_table {
             intersect_set(p, var_map()[rm[k]]);
         }
         // TRACE("nla_solver", trace_print_rms(p, tout););
-        proper_factors()[i_rm] = p;
+        proper_multiples()[i_rm] = p;
     }
 
-    void fill_proper_factors() {
+    void fill_proper_multiples() {
         for (unsigned i = 0; i < rms().size(); i++) {
             find_rooted_monomials_containing_rm(i);
         }
