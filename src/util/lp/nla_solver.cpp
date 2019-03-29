@@ -859,41 +859,6 @@ struct solver::imp {
         return true;
     }
 
-    void init_abs_val_table() {
-        // register those vars that a factors in a monomial
-        for (auto & p : m_monomials_containing_var) {
-            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
-        }
-        // register monomial vars too
-        for (auto & p : m_var_to_its_monomial) {
-            m_vars_equivalence.register_var_with_abs_val(p.first, vvr(p.first));
-        }
-    }
-
-    // replaces each var with its abs root and sorts the return vector
-    template <typename T>
-    unsigned_vector get_abs_key(const T& m) const {
-        unsigned_vector r;
-        for (unsigned j : m) {
-            r.push_back(m_vars_equivalence.get_abs_root_for_var(abs(vvr(j))));
-        }
-        std::sort(r.begin(), r.end());
-        return r;
-    }
-
-    // For each monomial m = m_monomials[i], where i is in m_to_refine,
-    // try adding the pair (get_abs_key(m), i) to map
-    std::unordered_map<unsigned_vector, unsigned, hash_svector> create_relevant_abs_keys() {
-        std::unordered_map<unsigned_vector, unsigned, hash_svector> r;
-        for (unsigned i : m_to_refine) {
-            unsigned_vector key = get_abs_key(m_monomials[i]);
-            if (contains(r, key))
-                continue;
-            r[key] = i;
-        }
-        return r;
-    }
-
     void basic_sign_lemma_model_based_one_mon(const monomial& m, int product_sign) {
         if (product_sign == 0) {
             TRACE("nla_solver_bl", tout << "zero product sign\n";);
@@ -909,9 +874,6 @@ struct solver::imp {
     }
     
     bool basic_sign_lemma_model_based() {
-        init_abs_val_table();        
-        std::unordered_map<unsigned_vector, unsigned, hash_svector> key_mons =
-            create_relevant_abs_keys();
         unsigned i = random() % m_to_refine.size();
         unsigned ii = i;
         do {
@@ -2237,17 +2199,6 @@ struct solver::imp {
                 TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(rm_i, factor_type::RM), tout); );
             }
         }
-    }
-    
-    vector<factor> factors_with_the_same_abs_val(const factor& c) const {
-        vector<factor> r;
-        std::unordered_set<lpvar> found_vars;
-        std::unordered_set<unsigned> found_rm;
-        TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout););
-        for (lpvar i :  m_vars_equivalence.get_vars_with_the_same_abs_val(vvr(c))) {
-            maybe_add_a_factor(i, c, found_vars, found_rm, r);
-        }
-        return r;
     }
     
     bool order_lemma_on_ac_explore(const rooted_mon& rm, const factorization& ac, unsigned k) {
