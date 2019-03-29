@@ -1591,7 +1591,7 @@ namespace smt2 {
         // parse:
         //    'as' <identifier> <sort> ')'
         //    '_'  <identifier> <num>+ ')'
-        //    'as' <identifier '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
+        //    'as' <identifier> '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
         symbol parse_qualified_identifier_core(bool & has_as) {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_underscore() || curr_id_is_as());
