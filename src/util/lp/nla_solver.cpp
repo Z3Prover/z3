@@ -999,7 +999,7 @@ struct solver::imp {
     
     std::ostream & print_factorization(const factorization& f, std::ostream& out) const {
         if (f.is_mon()){
-            print_monomial(*f.mon(), tout << "is_mon ");
+            print_monomial(*f.mon(), out << "is_mon ");
         } else {
             for (unsigned k = 0; k < f.size(); k++ ) {
                 print_factor(f[k], out);
