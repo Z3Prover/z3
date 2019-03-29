@@ -64,7 +64,6 @@ struct vars_equivalence {
     // If m_tree[v] == -1 then the variable is a root.
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), where k is the parent of v
     vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
-    std::unordered_map<rational, unsigned_vector> m_vars_by_abs_values;
     std::function<rational(lpvar)>                m_vvr;
     
 
@@ -74,15 +73,7 @@ struct vars_equivalence {
     void clear() {
         m_equivs.clear();
         m_tree.clear();
-        m_vars_by_abs_values.clear(); 
     }
-
-    const svector<lpvar>& get_vars_with_the_same_abs_val(const rational& v) const {
-        auto it = m_vars_by_abs_values.find(abs(v));
-        SASSERT (it != m_vars_by_abs_values.end());
-        TRACE("nla_solver", tout << "size of same_abs_vals = " << it->second.size(); );
-        return it->second; 
-    } 
 
     // j itself is also included
     svector<lpvar> eq_vars(lpvar j) const {
@@ -256,38 +247,5 @@ struct vars_equivalence {
             explain(j, exp);
     }
 
-    lpvar get_abs_root_for_var(const rational & v) const {
-        SASSERT(!v.is_neg());
-        lpvar j = *(m_vars_by_abs_values.find(v)->second.begin());
-        SASSERT(abs(m_vvr(j)) == v);
-        return j;
-    }
-
-    void register_var_with_abs_val(unsigned j, const rational& val) {
-        TRACE("nla_vars_eq", tout << "j = " << j;);
-        rational v = abs(val);
-        auto it = m_vars_by_abs_values.find(v);
-        if (it == m_vars_by_abs_values.end()) {
-            unsigned_vector uv;
-            uv.push_back(j);
-            m_vars_by_abs_values[v] = uv;
-        } else {
-            it->second.push_back(j);
-        }
-    }
-
-    vector<rational> get_sorted_abs_vals_from_mon(const monomial& m, int & sign) {
-        sign = 1;
-        vector<rational> abs_vals;
-        for (lpvar j : m) {
-            const rational v = m_vvr(j);
-            abs_vals.push_back(abs(v));
-            if (v.is_neg()) {
-                sign = -sign;
-            }
-        }
-        std::sort(abs_vals.begin(), abs_vals.end());
-        return abs_vals;
-    }
 }; // end of vars_equivalence
 }
