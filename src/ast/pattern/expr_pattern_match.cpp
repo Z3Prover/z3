@@ -102,7 +102,7 @@ expr_pattern_match::instantiate(expr* a, unsigned num_bound, subst& s, expr_ref&
     for (unsigned i = 0; i < num_bound; ++i) {
         b.insert(m_bound_dom[i], m_bound_rng[i]);
     }
-    
+    TRACE("expr_pattern_match", tout << mk_pp(a, m_manager) << " " << num_bound << "\n";);
     inst_proc proc(m_manager, s, b, m_regs);
     for_each_ast(proc, a);
     expr* v = nullptr;
@@ -273,11 +273,7 @@ expr_pattern_match::match(expr* a, unsigned init, subst& s)
             break;
         }
         case CHECK_BOUND:
-            TRACE("expr_pattern_match", 
-                  tout 
-                  << "check bound " 
-                  << pc.m_num_bound << " " << pc.m_reg;
-                  );
+            TRACE("expr_pattern_match", tout << "check bound " << pc.m_num_bound << " " << pc.m_reg << "\n";);
             ok = m_bound_rng[pc.m_num_bound] == m_regs[pc.m_reg];
             break;            
         case BIND:
@@ -418,7 +414,6 @@ expr_pattern_match::initialize(char const * spec_string) {
     for (expr * e : ctx.assertions()) {
         compile(e);
     }
-    TRACE("expr_pattern_match", display(tout); );
 }
 
 unsigned expr_pattern_match::initialize(quantifier* q) {
@@ -444,7 +439,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND:
         out << "bind       ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";
@@ -452,7 +446,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND_AC:
         out << "bind_ac    ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";
@@ -460,7 +453,6 @@ expr_pattern_match::display(std::ostream& out, instr const& pc) const {
         break;
     case BIND_C:
         out << "bind_c     ";
-        out << mk_pp(to_app(pc.m_pat)->get_decl(), m_manager) << " ";
         out << mk_pp(pc.m_pat, m_manager) << "\n";
         out << "next:      " << pc.m_next << "\n";
         out << "offset:    " << pc.m_offset << "\n";

@@ -19,6 +19,8 @@ Notes:
 --*/
 #include "tactic/core/special_relations_tactic.h"
 #include "ast/rewriter/func_decl_replace.h"
+#include "ast/ast_util.h"
+#include "ast/ast_pp.h"
 
 void special_relations_tactic::collect_feature(goal const& g, unsigned idx, 
                                                obj_map<func_decl, sp_axioms>& goal_features) {
@@ -27,7 +29,10 @@ void special_relations_tactic::collect_feature(goal const& g, unsigned idx,
     if (!is_quantifier(f)) return;
     unsigned index = 0;
     app_ref_vector patterns(m);
-    if (m_pm.match_quantifier_index(to_quantifier(f), patterns, index)) {
+    bool is_match = m_pm.match_quantifier_index(to_quantifier(f), patterns, index);
+    TRACE("special_relations", tout << "check " << is_match << " " << mk_pp(f, m) << "\n";
+          if (is_match) tout << patterns << " " << index << "\n";);
+    if (is_match) {
         p = to_app(patterns.get(0)->get_arg(0))->get_decl();
         insert(goal_features, p, idx, m_properties[index]);
     }
@@ -44,8 +49,8 @@ void special_relations_tactic::insert(obj_map<func_decl, sp_axioms>& goal_featur
 
 void special_relations_tactic::initialize() {
     if (!m_properties.empty()) return;
-    sort_ref A(m);
-    func_decl_ref R(m.mk_func_decl(symbol("R"), A, A, m.mk_bool_sort()), m);
+    sort_ref A(m.mk_uninterpreted_sort(symbol("A")), m);
+    func_decl_ref R(m.mk_func_decl(symbol("?R"), A, A, m.mk_bool_sort()), m);
     var_ref x(m.mk_var(0, A), m);
     var_ref y(m.mk_var(1, A), m);
     var_ref z(m.mk_var(2, A), m);
@@ -68,34 +73,51 @@ void special_relations_tactic::initialize() {
     expr_ref fml(m);
     quantifier_ref q(m);
     expr_ref pat(m.mk_pattern(to_app(Rxy)), m);
+    expr_ref pat0(m.mk_pattern(to_app(Rxx)), m);
     expr* pats[1] = { pat };
+    expr* pats0[1] = { pat0 };
+
     fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);
-    
+    fml = m.mk_or(not(Rxy & Ryz), Rxz);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_transitive);
+
     fml = Rxx;
-    q = m.mk_forall(1, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    q = m.mk_forall(1, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats0);
     register_pattern(m_pm.initialize(q), sr_reflexive);
 
     fml = m.mk_or(nRxy, nRyx, m.mk_eq(x, y));
+    q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_antisymmetric);
+    fml = m.mk_or(not(Rxy & Ryx), m.mk_eq(x, y));
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_antisymmetric);
 
     fml = m.mk_or(nRyx, nRzx, Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_lefttree);
+    fml = m.mk_or(not (Ryx & Rzx), Ryz, Rzy);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_lefttree);
 
-    fml = m.mk_or(nRxy, nRxz, Ryx, Rzy);
+    fml = m.mk_or(nRxy, nRxz, Ryz, Rzy);
+    q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
+    register_pattern(m_pm.initialize(q), sr_righttree);
+    fml = m.mk_or(not(Rxy & Rxz), Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_righttree);
 
     fml = m.mk_or(Rxy, Ryx);
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_total);   
+
+    TRACE("special_relations", m_pm.display(tout););
 }
 
 void special_relations_tactic::register_pattern(unsigned index, sr_property p) {
-    SASSERT(index == m_properties.size() + 1);
+    SASSERT(index == m_properties.size());
     m_properties.push_back(p);
 }
 

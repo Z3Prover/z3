@@ -43,17 +43,10 @@ class special_relations_tactic : public tactic {
     void initialize();
     void register_pattern(unsigned index, sr_property);
 
-    bool is_transitivity(expr* fml, func_decl_ref& p);
-    bool is_anti_symmetry(expr* fml, func_decl_ref& p);
-    bool is_left_tree(expr* fml, func_decl_ref& p);
-    bool is_right_tree(expr* fml, func_decl_ref& p);
-    bool is_reflexive(expr* fml, func_decl_ref& p);
-    bool is_total(expr* fml, func_decl_ref& p);
-    bool is_symmetric(expr* fml, func_decl_ref& p);
-
 public:
 
-    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): m(m), m_params(ref), m_pm(m) {}
+    special_relations_tactic(ast_manager & m, params_ref const & ref = params_ref()): 
+        m(m), m_params(ref), m_pm(m) {}
 
     ~special_relations_tactic() override {}
 
@@ -71,8 +64,9 @@ public:
 
 tactic * mk_special_relations_tactic(ast_manager & m, params_ref const & p = params_ref());
 
+
 /*
-  ADD_TACTIC("special_relations", "detect and replace by special relations.", "mk_special_relations_tactic(m, p)")
+  ADD_TACTIC("special-relations", "detect and replace by special relations.", "mk_special_relations_tactic(m, p)")
 */
 
 #endif
