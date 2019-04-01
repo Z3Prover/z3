@@ -460,7 +460,7 @@ namespace smt {
     }
 
     void theory_recfun::display(std::ostream & out) const {
-        out << "recfun{}";
+        out << "recfun{}\n";
     }
 
     void theory_recfun::collect_statistics(::statistics & st) const {

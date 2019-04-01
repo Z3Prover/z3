@@ -30,6 +30,7 @@ static_features::static_features(ast_manager & m):
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
     m_arrfid(m.mk_family_id("array")),
+    m_srfid(m.mk_family_id("special_relations")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
     m_expr_list_sym("expr-list") {
@@ -78,6 +79,7 @@ void static_features::reset() {
     m_has_real                             = false; 
     m_has_bv                               = false;
     m_has_fpa                              = false;
+    m_has_sr                               = false;
     m_has_str                              = false;
     m_has_seq_non_str                      = false;
     m_has_arrays                           = false;
@@ -274,6 +276,8 @@ void static_features::update_core(expr * e) {
         m_has_bv = true;
     if (!m_has_fpa && (m_fpautil.is_float(e) || m_fpautil.is_rm(e)))
         m_has_fpa = true;
+    if (is_app(e) && to_app(e)->get_family_id() == m_srfid) 
+        m_has_sr = true;
     if (!m_has_arrays && m_arrayutil.is_array(e)) 
         m_has_arrays = true;
     if (!m_has_ext_arrays && m_arrayutil.is_array(e) && 
@@ -281,9 +285,8 @@ void static_features::update_core(expr * e) {
         m_has_ext_arrays = true;
     if (!m_has_str && m_sequtil.str.is_string_term(e))
         m_has_str = true;
-    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) {
+    if (!m_has_seq_non_str && m_sequtil.str.is_non_string_sequence(e)) 
         m_has_seq_non_str = true;
-    }
     if (is_app(e)) {
         family_id fid = to_app(e)->get_family_id();
         mark_theory(fid);

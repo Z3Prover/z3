@@ -655,11 +655,11 @@ namespace smt {
         func_decl_ref fst(m), snd(m), pair(m);
         sort_ref tup(dt.mk_pair_datatype(listS, m.mk_bool_sort(), fst, snd, pair), m);
         sort* dom1[5] = { s, s, listS, s, s };
-        recfun::promise_def c1 = p.mk_def(symbol("connected1"), 5, dom1, tup);
+        recfun::promise_def c1 = p.ensure_def(symbol("connected1"), 5, dom1, tup);
         sort* dom2[3] = { s, s, listS };
-        recfun::promise_def c2 = p.mk_def(symbol("connected2"), 3, dom2, tup);
+        recfun::promise_def c2 = p.ensure_def(symbol("connected2"), 3, dom2, tup);
         sort* dom3[2] = { s, listS };
-        recfun::promise_def mem = p.mk_def(symbol("member"), 2, dom3, m.mk_bool_sort());
+        recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom3, m.mk_bool_sort());
         var_ref xV(m.mk_var(1, s), m);
         var_ref SV(m.mk_var(0, listS), m);
         var_ref yV(m), vV(m), wV(m);
@@ -718,7 +718,6 @@ namespace smt {
             SASSERT(ctx.get_assignment(a.var()) == l_true);
             expr* n1 = get_enode(a.v1())->get_root()->get_owner();
             expr* n2 = get_enode(a.v2())->get_root()->get_owner();
-
             expr* Sr = connected_rec_body;
             expr* args[5] = { x, y, m.mk_app(fst, Sr), n1, n2};
             expr* Sc = m.mk_app(conn1, 5, args);            

@@ -955,7 +955,7 @@ namespace smt {
         setup_seq_str(st);
         setup_card();
         setup_fpa();
-        setup_special_relations();
+        if (st.m_has_sr) setup_special_relations();
     }
 
     void setup::setup_unknown(static_features & st) {
@@ -972,6 +972,7 @@ namespace smt {
             setup_card();
             setup_fpa();
             setup_recfuns();
+            if (st.m_has_sr) setup_special_relations();
             return;
         }
 
