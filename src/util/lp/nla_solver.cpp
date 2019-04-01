@@ -1595,12 +1595,39 @@ struct solver::imp {
         return false;
     }
 
-    // none of the factors is zero -> |fc[factor_index]| <= |rm|
+    // if there are no zero factors then |m| >= |m[factor_index]|
+    void generate_pl_on_mon(const monomial& m, unsigned factor_index) {
+        add_empty_lemma();
+        unsigned mon_var = m.var();
+        rational mv = vvr(mon_var);
+        rational sm = rational(rat_sign(mv));
+        mk_ineq(sm, mon_var, llc::LT);
+        for (unsigned fi = 0; fi < m.size(); fi ++) {
+            lpvar j = m[fi];
+            if (fi != factor_index) {
+                mk_ineq(j, llc::EQ);
+            } else {
+                rational jv = vvr(j);
+                rational sj = rational(rat_sign(jv));
+                SASSERT(sm*mv < sj*jv);
+                mk_ineq(sj, j, llc::LT);
+                mk_ineq(sm, mon_var, -sj, j, llc::GE );
+            }
+        }
+        TRACE("nla_solver", print_lemma(tout); );
+    }
+    
+    // none of the factors is zero and the product is not zero
+    // -> |fc[factor_index]| <= |rm|
     void generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index) {
         TRACE("nla_solver", tout << "factor_index = " << factor_index << ", rm = ";
               print_rooted_monomial_with_vars(rm, tout);
               tout << "fc = "; print_factorization(fc, tout);
               tout << "orig mon = "; print_monomial(m_monomials[rm.orig_index()], tout););
+        if (fc.is_mon()) {
+            generate_pl_on_mon(*fc.mon(), factor_index);
+            return;
+        }
         add_empty_lemma();
         int fi = 0;
         rational rmv = vvr(rm);
@@ -1616,7 +1643,7 @@ struct solver::imp {
                 rational sj = rational(rat_sign(jv));
                 SASSERT(sm*rmv < sj*jv);
                 mk_ineq(sj, j, llc::LT);
-                mk_ineq(sm, mon_var, -sj, j, llc::GE);
+                mk_ineq(sm, mon_var, -sj, j, llc::GE );
             }
         }
         if (!fc.is_mon()) {
@@ -1645,23 +1672,21 @@ struct solver::imp {
     }
 
     // x != 0 or y = 0 => |xy| >= |y|
-    bool proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
+    void proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
         rational rmv = abs(vvr(rm));
         if (rmv.is_zero()) {
             SASSERT(has_zero_factor(factorization));
-            return false;
+            return;
         }
         int factor_index = 0;
         for (factor f : factorization) {
             if (abs(vvr(f)) > rmv) {
                 generate_pl(rm, factorization, factor_index);
-                return true;
             }
             factor_index++;
         }
-        return false;
     }
-    // x != 0 or y = 0 => |xy| >= |y|
+     // x != 0 or y = 0 => |xy| >= |y|
     bool proportion_lemma_derived(const rooted_mon& rm, const factorization& factorization) {
         return false;
         rational rmv = abs(vvr(rm));
