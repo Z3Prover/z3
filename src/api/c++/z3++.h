@@ -1707,6 +1707,27 @@ namespace z3 {
     */
     inline expr sext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_sign_ext(a.ctx(), i, a)); }
 
+    typedef Z3_ast Z3_apply_order(Z3_context, unsigned, Z3_ast, Z3_ast);
+ 
+    inline expr apply_order(Z3_apply_order app, unsigned index, expr const& a, expr const& b) {
+        check_context(a, b);
+        Z3_ast r = app(a.ctx(), index, a, b);
+        a.check_error();
+        return expr(a.ctx(), r);
+    }
+    inline expr linear_order(unsigned index, expr const& a, expr const& b) {
+        return apply_order(Z3_mk_linear_order, index, a, b);
+    }
+    inline expr partial_order(unsigned index, expr const& a, expr const& b) {
+        return apply_order(Z3_mk_partial_order, index, a, b);
+    }
+    inline expr piecewise_linear_order(unsigned index, expr const& a, expr const& b) {
+        return apply_order(Z3_mk_piecewise_linear_order, index, a, b);
+    }
+    inline expr tree_order(unsigned index, expr const& a, expr const& b) {
+        return apply_order(Z3_mk_tree_order, index, a, b);
+    }
+
     template<typename T> class cast_ast;
 
     template<> class cast_ast<ast> {

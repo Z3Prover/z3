@@ -66,6 +66,7 @@ void model_core::register_decl(func_decl * d, expr * v) {
 }
 
 void model_core::register_decl(func_decl * d, func_interp * fi) {
+    TRACE("model", tout << "register " << d->get_name() << "\n";);
     SASSERT(d->get_arity() > 0);
     SASSERT(&fi->m() == &m);
     decl2finterp::obj_map_entry * entry = m_finterp.insert_if_not_there2(d, nullptr);
