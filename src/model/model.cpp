@@ -217,6 +217,7 @@ void model::compress() {
             }
         }
         if (removed.empty()) break;
+        TRACE("model", tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
         remove_decls(m_decls, removed);
         remove_decls(m_func_decls, removed);
         remove_decls(m_const_decls, removed);

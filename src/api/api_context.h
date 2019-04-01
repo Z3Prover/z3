@@ -30,6 +30,7 @@ Revision History:
 #include "ast/dl_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "smt/smt_kernel.h"
 #include "smt/params/smt_params.h"
 #include "util/event_handler.h"
@@ -106,6 +107,7 @@ namespace api {
         family_id                  m_pb_fid;
         family_id                  m_fpa_fid;
         family_id                  m_seq_fid;
+        family_id                  m_special_relations_fid;
         datatype_decl_plugin *     m_dt_plugin;
         
         std::string                m_string_buffer; // temporary buffer used to cache strings sent to the "external" world.
@@ -162,6 +164,7 @@ namespace api {
         family_id get_fpa_fid() const { return m_fpa_fid; }
         family_id get_seq_fid() const { return m_seq_fid; }
         datatype_decl_plugin * get_dt_plugin() const { return m_dt_plugin; }
+        family_id get_special_relations_fid() const { return m_special_relations_fid; }
 
         Z3_error_code get_error_code() const { return m_error_code; }
         void reset_error_code();

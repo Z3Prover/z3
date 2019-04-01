@@ -4474,6 +4474,7 @@ namespace smt {
             fi->set_else(bodyr);
             m_model->register_decl(f, fi);
         }
+        TRACE("model", tout << *m_model << "\n";);
     }
 
 };

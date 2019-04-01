@@ -1101,6 +1101,12 @@ typedef enum {
     Z3_OP_BUREM_I,
     Z3_OP_BSMOD_I,
 
+    // Special relations
+    Z3_OP_SPECIAL_RELATION_LO,
+    Z3_OP_SPECIAL_RELATION_PO,
+    Z3_OP_SPECIAL_RELATION_PLO,
+    Z3_OP_SPECIAL_RELATION_TO,
+
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,
     Z3_OP_PR_TRUE,
@@ -3595,9 +3601,49 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_re_full(Z3_context c, Z3_sort re);
 
-
     /*@}*/
 
+
+    /** @name Special relations */
+    /*@{*/
+    /**
+       \brief declare \c a and \c b are in linear order over a relation indexed by \c id.
+
+       \pre a and b are of same type.
+       
+
+       def_API('Z3_mk_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in partial order over a relation indexed by \c id.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_partial_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_partial_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in piecewise linear order indexed by relation \c id.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_piecewise_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_piecewise_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief declare \c a and \c b are in tree order indexed by \c id.
+
+       \pre a and b are of same type.
+
+       def_API('Z3_mk_tree_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_tree_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+
+    /*@}*/
 
     /** @name Quantifiers */
     /*@{*/

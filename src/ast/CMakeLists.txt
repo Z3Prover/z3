@@ -41,6 +41,7 @@ z3_add_component(ast
     reg_decl_plugins.cpp
     seq_decl_plugin.cpp
     shared_occs.cpp
+    special_relations_decl_plugin.cpp
     static_features.cpp
     used_vars.cpp
     well_sorted.cpp

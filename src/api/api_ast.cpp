@@ -1052,6 +1052,17 @@ extern "C" {
             }
         }
 
+        if (mk_c(c)->get_special_relations_fid() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_SPECIAL_RELATION_LO : return Z3_OP_SPECIAL_RELATION_LO;
+            case OP_SPECIAL_RELATION_PO : return Z3_OP_SPECIAL_RELATION_PO;
+            case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
+            case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
+            default: UNREACHABLE();
+            }
+        }
+
+
         if (mk_c(c)->get_bv_fid() == _d->get_family_id()) {
             switch(_d->get_decl_kind()) {
             case OP_BV_NUM: return Z3_OP_BNUM;

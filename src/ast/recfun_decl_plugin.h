@@ -172,6 +172,8 @@ namespace recfun {
                                      unsigned arity, sort * const * domain, sort * range) override;
             
             promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range);
+
+            promise_def ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range);
             
             void set_definition(replace& r, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
             
@@ -222,7 +224,6 @@ namespace recfun {
 
         //<! add a function declaration
         def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range);
-
 
         def& get_def(func_decl* f) {
             SASSERT(m_plugin->has_def(f));

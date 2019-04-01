@@ -364,6 +364,12 @@ namespace datatype {
         decl::plugin* get_plugin() { return m_plugin; }
         void get_defs(sort* s, ptr_vector<def>& defs);
         def const& get_def(sort* s) const;
+        sort_ref mk_list_datatype(sort* elem, symbol const& name,
+                                  func_decl_ref& cons, func_decl_ref& is_cons, 
+                                  func_decl_ref& hd, func_decl_ref& tl, 
+                                  func_decl_ref& nil, func_decl_ref& is_nil);
+        sort_ref mk_pair_datatype(sort* a, sort* b, func_decl_ref& fst, func_decl_ref& snd, func_decl_ref& pair);
+        sort_ref mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs);
     };
 
 };
