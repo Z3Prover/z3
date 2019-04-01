@@ -80,7 +80,7 @@ void special_relations_tactic::initialize() {
     fml = m.mk_or(m.mk_not(Rxy), m.mk_not(Ryz), Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);
-    fml = m.mk_or(not(Rxy & Ryz), Rxz);
+    fml = m.mk_or(mk_not(Rxy & Ryz), Rxz);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_transitive);
 
@@ -91,21 +91,21 @@ void special_relations_tactic::initialize() {
     fml = m.mk_or(nRxy, nRyx, m.mk_eq(x, y));
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_antisymmetric);
-    fml = m.mk_or(not(Rxy & Ryx), m.mk_eq(x, y));
+    fml = m.mk_or(mk_not(Rxy & Ryx), m.mk_eq(x, y));
     q = m.mk_forall(2, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_antisymmetric);
 
     fml = m.mk_or(nRyx, nRzx, Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_lefttree);
-    fml = m.mk_or(not (Ryx & Rzx), Ryz, Rzy);
+    fml = m.mk_or(mk_not (Ryx & Rzx), Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_lefttree);
 
     fml = m.mk_or(nRxy, nRxz, Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_righttree);
-    fml = m.mk_or(not(Rxy & Rxz), Ryz, Rzy);
+    fml = m.mk_or(mk_not(Rxy & Rxz), Ryz, Rzy);
     q = m.mk_forall(3, As, xyz, fml, 0, symbol::null, symbol::null, 1, pats);
     register_pattern(m_pm.initialize(q), sr_righttree);
 

@@ -140,8 +140,7 @@ expr * mk_not(ast_manager & m, expr * arg);
 
 expr_ref mk_not(const expr_ref& e);
 
-inline expr_ref not(const expr_ref& e) { return mk_not(e); }
-inline app_ref not(const app_ref& e) { return app_ref(e.m().mk_not(e), e.m()); }
+inline app_ref mk_not(const app_ref& e) { return app_ref(e.m().mk_not(e), e.m()); }
 
 
 /**
