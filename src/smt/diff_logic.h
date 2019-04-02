@@ -1752,7 +1752,6 @@ public:
 
         find_subsumed1(id, subsumed);
 
-        typename edge_id_vector::const_iterator it, end, it3, end3;
         for (edge_id e_id : m_in_edges[src]) {
             edge const& e2 = m_edges[e_id];
             if (!e2.is_enabled() || e2.get_source() == dst) {

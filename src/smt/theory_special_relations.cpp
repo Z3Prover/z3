@@ -133,7 +133,6 @@ namespace smt {
     }
 
     void theory_special_relations::new_eq_eh(theory_var v1, theory_var v2) {
-        context& ctx = get_context();
         app* t1 = get_enode(v1)->get_owner();
         app* t2 = get_enode(v2)->get_owner();
         literal eq = mk_eq(t1, t2, false);
@@ -282,6 +281,7 @@ namespace smt {
     void theory_special_relations::set_conflict(relation& r) {
         literal_vector const& lits = r.m_explanation;
         context & ctx = get_context();
+        TRACE("special_relations", ctx.display_literals_verbose(tout, lits) << "\n";);
         vector<parameter> params;
         ctx.set_conflict(
             ctx.mk_justification(
@@ -319,22 +319,26 @@ namespace smt {
         int_vector scc_id;
         u_map<unsigned> roots;
         context& ctx = get_context();
+        ast_manager& m = get_manager();
+        (void)m;
         r.m_graph.compute_zero_edge_scc(scc_id);
         for (unsigned i = 0, j = 0; !ctx.inconsistent() && i < scc_id.size(); ++i) {
             if (scc_id[i] == -1) {
                 continue;
             }
-            enode* n = get_enode(i);
+            enode* x = get_enode(i);
             if (roots.find(scc_id[i], j)) {
-                enode* m = get_enode(j);
-                if (n->get_root() != m->get_root()) {
+                enode* y = get_enode(j);
+                if (x->get_root() != y->get_root()) {
                     new_eq = true;
                     unsigned timestamp = r.m_graph.get_timestamp();
                     r.m_explanation.reset();
                     r.m_graph.find_shortest_zero_edge_path(i, j, timestamp, r);
                     r.m_graph.find_shortest_zero_edge_path(j, i, timestamp, r);
-                    eq_justification js(ctx.mk_justification(theory_axiom_justification(get_id(), ctx.get_region(), r.m_explanation.size(), r.m_explanation.c_ptr())));
-                    ctx.assign_eq(n, m, js);
+                    literal_vector const& lits = r.m_explanation;
+                    TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << " ", lits) << "\n";);
+                    eq_justification js(ctx.mk_justification(theory_axiom_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr())));
+                    ctx.assign_eq(x, y, js);
                 }
             }
             else {
@@ -646,7 +650,6 @@ namespace smt {
     void theory_special_relations::init_model_po(relation& r, model_generator& mg) {
         ast_manager& m = get_manager();
         sort* s = r.m_decl->get_domain(0);
-        context& ctx = get_context();
         datatype_util dt(m);
         recfun::util rf(m);
         recfun::decl::plugin& p = rf.get_plugin();
@@ -715,7 +718,7 @@ namespace smt {
         for (atom* ap : r.m_asserted_atoms) {
             atom& a = *ap;
             if (!a.phase()) continue;
-            SASSERT(ctx.get_assignment(a.var()) == l_true);
+            SASSERT(get_context().get_assignment(a.var()) == l_true);
             expr* n1 = get_enode(a.v1())->get_root()->get_owner();
             expr* n2 = get_enode(a.v2())->get_root()->get_owner();
             expr* Sr = connected_rec_body;

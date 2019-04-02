@@ -417,7 +417,7 @@ private:
 
             if (is_num(c)) {
                 rational n(0);
-                unsigned div = 1;
+                rational div(1);
                 while (is_num(c) && !in.eof()) {
                     n = n*rational(10) + rational(c - '0');
                     in.next();
@@ -429,11 +429,11 @@ private:
                     while (is_num(c) && !in.eof()) {
                         n = n*rational(10) + rational(c - '0');
                         in.next();
-                        div *= 10;
+                        div *= rational(10);
                         c = in.ch();
                     }
                 }
-                if (div > 1) n = n / rational(div);
+                if (div > rational(1)) n = n / div;
                 if (neg) n.neg();
                 m_tokens.push_back(asymbol(n, in.line()));
                 IF_VERBOSE(10, verbose_stream() << "num: " << m_tokens.back() << "\n");
