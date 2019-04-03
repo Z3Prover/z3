@@ -2079,7 +2079,7 @@ public:
         for (auto const& mon : poly) {
             SASSERT(!mon.empty());
             if (mon.size() == 1) {
-                term.add_coeff_var(mon.get_coeff(), mon[0]);
+                term.add_var(mon[0]);
             }
             else {
                 // create the expression corresponding to the product.
@@ -2094,7 +2094,7 @@ public:
                 app_ref t(a.mk_mul(mul.size(), mul.c_ptr()), m);
                 VERIFY(internalize_term(t));
                 theory_var w = ctx().get_enode(t)->get_th_var(get_id());
-                term.add_coeff_var(mon.get_coeff(), lp().external_to_local(w));
+                term.add_var(lp().external_to_local(w));
             }
         }
         return term;
