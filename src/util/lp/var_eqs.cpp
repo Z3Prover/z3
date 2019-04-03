@@ -48,6 +48,7 @@ namespace nla {
         unsigned max_i = std::max(v1.index(), v2.index()) + 2;
         m_eqs.reserve(max_i);
         while (m_uf.get_num_vars() <= max_i) m_uf.mk_var();
+        m_trail.push_back(std::make_pair(v1, v2));
         m_uf.merge(v1.index(), v2.index());
         m_uf.merge((~v1).index(), (~v2).index());
         m_eqs[v1.index()].push_back(justified_var(v2, j));
@@ -61,7 +62,7 @@ namespace nla {
             return v;
         }
         unsigned idx = m_uf.find(v.index());
-        return signed_var(idx, from_index()); // 0 is needed to call the right constructor
+        return signed_var(idx, from_index());
     }
 
     void var_eqs::explain(signed_var v1, signed_var v2, lp::explanation& e) const {
