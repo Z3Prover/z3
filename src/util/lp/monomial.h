@@ -18,7 +18,6 @@ namespace nla {
         // fields
         lp::var_index          m_v;
         svector<lp::var_index> m_vs;
-        rational               m_coeff;
     public:
         // constructors
         monomial(lp::var_index v, unsigned sz, lp::var_index const* vs):
@@ -38,7 +37,6 @@ namespace nla {
         svector<lp::var_index>::const_iterator end() const { return m_vs.end(); }
         const svector<lp::var_index> vars() const { return m_vs; }
         bool empty() const { return m_vs.empty(); }
-        const rational& get_coeff() const { return m_coeff; } 
     };
 
     typedef std::unordered_map<lp::var_index, rational> variable_map_type;

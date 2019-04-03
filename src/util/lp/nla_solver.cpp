@@ -21,7 +21,7 @@
 #include <map>
 #include "util/lp/monomial.h"
 #include "util/lp/lp_utils.h"
-#include "util/lp/vars_equivalence.h"
+#include "util/lp/var_eqs.h"
 #include "util/lp/factorization.h"
 #include "util/lp/rooted_mons.h"
 namespace nla {
@@ -34,6 +34,7 @@ bool try_insert(const A& elem, B& collection) {
     collection.insert(elem);
     return true;
 }
+typedef lp::constraint_index lpci;
 
 typedef lp::lconstraint_kind llc;
 struct point {
@@ -85,7 +86,7 @@ struct solver::imp {
     };
 
     //fields    
-    vars_equivalence                                                 m_vars_equivalence;
+    var_eqs                                                          m_vars_equivalence;
     vector<monomial>                                                 m_monomials;
 
     rooted_mon_table                                                 m_rm_table;
@@ -113,7 +114,7 @@ struct solver::imp {
     
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         :
-        m_vars_equivalence([this](unsigned h){return vvr(h);}),
+        m_vars_equivalence(),
         m_lar_solver(s)
         // m_limit(lim),
         // m_params(p)
@@ -193,21 +194,19 @@ struct solver::imp {
     }
 
     // the value of the factor is equal to the value of the variable multiplied
-    // by the flip_sign
-    rational flip_sign(const factor& f) const {
+    // by the canonize_sign
+    rational canonize_sign(const factor& f) const {
         return f.is_var()?
-            flip_sign_of_var(f.index()) : m_rm_table.rms()[f.index()].orig_sign();
+            canonize_sign_of_var(f.index()) : m_rm_table.rms()[f.index()].orig_sign();
     }
 
-    rational flip_sign_of_var(lpvar j) const {
-        rational sign(1);
-        m_vars_equivalence.map_to_root(j, sign);
-        return sign;
+    rational canonize_sign_of_var(lpvar j) const {
+        return m_vars_equivalence.find_sign(j);        
     }
     
     // the value of the rooted monomias is equal to the value of the variable multiplied
-    // by the flip_sign
-    rational flip_sign(const rooted_mon& m) const {
+    // by the canonize_sign
+    rational canonize_sign(const rooted_mon& m) const {
         return m.orig().sign();
     }
     
@@ -269,8 +268,9 @@ struct solver::imp {
         return product_value(m) == m_lar_solver.get_column_value_rational(m.var());
     }
     
-    void explain(const monomial& m, lp::explanation& exp) const {
-        m_vars_equivalence.explain(m, exp);
+    void explain(const monomial& m, lp::explanation& exp) const {       
+        for (lpvar j : m)
+            explain(j, exp);
     }
 
     void explain(const rooted_mon& rm, lp::explanation& exp) const {
@@ -280,9 +280,9 @@ struct solver::imp {
 
     void explain(const factor& f, lp::explanation& exp) const {
         if (f.type() == factor_type::VAR) {
-            m_vars_equivalence.explain(f.index(), exp);
+            explain(f.index(), exp);
         } else {
-            m_vars_equivalence.explain(m_monomials[m_rm_table.rms()[f.index()].orig_index()], exp);
+            explain(m_monomials[m_rm_table.rms()[f.index()].orig_index()], exp);
         }
     }
 
@@ -618,7 +618,7 @@ struct solver::imp {
         svector<lpvar> ret;
         sign = 1;
         for (lpvar v : vars) {
-            unsigned root = m_vars_equivalence.map_to_root(v, sign);
+            unsigned root = m_vars_equivalence.find(v, sign);
             SASSERT(m_vars_equivalence.is_root(root));
             TRACE("nla_solver_eq",
                   print_var(v,tout);
@@ -841,6 +841,7 @@ struct solver::imp {
         return  rat_sign(vvr(m)) != rat_sign(m);
     }
 
+    /*
     unsigned_vector eq_vars(lpvar j) const {
         TRACE("nla_solver_eq", tout << "j = "; print_var(j, tout); tout << "eqs = ";
               for(auto jj : m_vars_equivalence.eq_vars(j)) {
@@ -848,7 +849,7 @@ struct solver::imp {
               });
         return m_vars_equivalence.eq_vars(j);
     }
-
+    */
     // Monomials m and n vars have the same values, up to "sign"
     // Generate a lemma if values of m.var() and n.var() are not the same up to sign
     bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
@@ -1090,7 +1091,7 @@ struct solver::imp {
             if (!(var_has_positive_lower_bound(j) || var_has_negative_upper_bound(j))) {
                 return 0;
             }
-            m_vars_equivalence.map_to_root(j, sign);
+            sign *= m_vars_equivalence.find_sign(j);
         }
         return rat_sign(sign);
     }
@@ -1338,10 +1339,10 @@ struct solver::imp {
 
     bool vars_are_equiv(lpvar a, lpvar b) const {
         SASSERT(abs(vvr(a)) == abs(vvr(b)));
-        return m_vars_equivalence.vars_are_equiv(a, b) ||
-            (var_is_fixed(a) && var_is_fixed(b));
+        return m_vars_equivalence.vars_are_equiv(a, b);
     }
 
+    
     void explain_equiv_vars(lpvar a, lpvar b) {
         SASSERT(abs(vvr(a)) == abs(vvr(b)));
         if (m_vars_equivalence.vars_are_equiv(a, b)) {
@@ -1455,7 +1456,7 @@ struct solver::imp {
         for (auto j : f){
             lpvar var_j = var(j);
             if (not_one == var_j) continue;
-            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : flip_sign(j) * vvr(j));   
+            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : canonize_sign(j) * vvr(j));   
         }
 
         if (not_one == static_cast<lpvar>(-1)) {
@@ -1549,7 +1550,7 @@ struct solver::imp {
         for (auto j : f){
             lpvar var_j = var(j);
             if (not_one == var_j) continue;
-            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : flip_sign(j) * vvr(j));   
+            mk_ineq(var_j, llc::NE, j.is_var()? vvr(j) : canonize_sign(j) * vvr(j));   
         }
 
         if (not_one == static_cast<lpvar>(-1)) {
@@ -1837,8 +1838,40 @@ struct solver::imp {
                 add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
             }
         }
+        collect_equivs_of_fixed_vars();
     }
 
+    void collect_equivs_of_fixed_vars() {
+        std::unordered_map<rational, svector<lpvar> > abs_map;
+        for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
+            if (!var_is_fixed(j))
+                continue;
+            rational v = abs(vvr(j));
+            auto it = abs_map.find(v);
+            if (it == abs_map.end()) {
+                abs_map[v] = svector<lpvar>();
+                abs_map[v].push_back(j);
+            } else {
+                it->second.push_back(j);
+            }
+        }
+        for (auto p : abs_map) {
+            svector<lpvar>& v = p.second;
+            lpvar head = v[0];
+            auto c0 = m_lar_solver.get_column_upper_bound_witness(head);
+            auto c1 = m_lar_solver.get_column_lower_bound_witness(head);
+            for (unsigned k = 1; k < v.size(); k++) {
+                auto c2 = m_lar_solver.get_column_upper_bound_witness(v[k]);
+                auto c3 = m_lar_solver.get_column_lower_bound_witness(v[k]);
+                if (vvr(head) == vvr(v[k]))
+                    m_vars_equivalence.merge_plus(head, v[k], eq_justification({c0, c1, c2, c3}));
+                else 
+                    m_vars_equivalence.merge_minus(head, v[k], eq_justification({c0, c1, c2, c3}));
+            }
+        }
+    }
+    
+    
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
         if (t->size() != 2)
             return;
@@ -1860,16 +1893,18 @@ struct solver::imp {
                 j = p.var();
         }
         SASSERT(j != static_cast<unsigned>(-1));
-        rational sign((seen_minus && seen_plus)? 1 : -1);
-        m_vars_equivalence.add_equiv(i, j, sign, c0, c1);
+        bool sign = (seen_minus && seen_plus)? false : true;
+        if (sign)
+            m_vars_equivalence.merge_minus(i, j, eq_justification({c0, c1}));
+        else 
+            m_vars_equivalence.merge_plus(i, j, eq_justification({c0, c1}));
     }
 
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        SASSERT(m_vars_equivalence.empty());
+        /*       SASSERT(m_vars_equivalence.empty());*/
         collect_equivs();
-        m_vars_equivalence.create_tree();
-        TRACE("nla_solver_details", tout << "number of equivs = " << m_vars_equivalence.size(););
+        /*        TRACE("nla_solver_details", tout << "number of equivs = " << m_vars_equivalence.size(););*/
         
         SASSERT((settings().random_next() % 100) || tables_are_ok());
     }
@@ -1976,7 +2011,6 @@ struct solver::imp {
 
     void clear() {
         m_var_to_its_monomial.clear();
-        m_vars_equivalence.clear();
         m_rm_table.clear();
         m_monomials_containing_var.clear();
         m_lemma_vec->clear();
@@ -2046,14 +2080,14 @@ struct solver::imp {
     }
     
     void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
-        rational a_fs = flip_sign(a);
-        rational b_fs = flip_sign(b);
+        rational a_fs = canonize_sign(a);
+        rational b_fs = canonize_sign(b);
         llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
         mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
     }
 
     void negate_var_factor_relation(const rational& a_sign, lpvar a, const rational& b_sign, const factor& b) {
-        rational b_fs = flip_sign(b);
+        rational b_fs = canonize_sign(b);
         llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
         mk_ineq(a_sign, a, - b_fs*b_sign, var(b), cmp);
     }
@@ -2068,8 +2102,8 @@ struct solver::imp {
                      const factor& b,
                      llc ab_cmp) {
          add_empty_lemma();
-        mk_ineq(rational(c_sign) * flip_sign(c), var(c), llc::LE);
-        mk_ineq(flip_sign(ac), var(ac), -flip_sign(bc), var(bc), ab_cmp);
+        mk_ineq(rational(c_sign) * canonize_sign(c), var(c), llc::LE);
+        mk_ineq(canonize_sign(ac), var(ac), -canonize_sign(bc), var(bc), ab_cmp);
         explain(ac, current_expl());
         explain(a, current_expl());
         explain(bc, current_expl());
@@ -2091,7 +2125,7 @@ struct solver::imp {
         mk_ineq(c_sign, c, llc::LE);
         explain(c, current_expl()); // this explains c == +- d
         negate_var_factor_relation(c_sign, a, d_sign, b);
-        mk_ineq(ac.var(), -flip_sign(bd), var(bd), ab_cmp);
+        mk_ineq(ac.var(), -canonize_sign(bd), var(bd), ab_cmp);
         explain(bd, current_expl());
         explain(b, current_expl());
         explain(d, current_expl());
@@ -2210,7 +2244,7 @@ struct solver::imp {
         SASSERT(abs(vvr(i)) == abs(vvr(c)));
         auto it = m_var_to_its_monomial.find(i);
         if (it == m_var_to_its_monomial.end()) {
-            i = m_vars_equivalence.map_to_root(i);
+            i = m_vars_equivalence.find(i);
             if (try_insert(i, found_vars)) {
                 r.push_back(factor(i, factor_type::VAR));
             }
@@ -2252,7 +2286,7 @@ struct solver::imp {
         TRACE("nla_solver", tout << "orig_sign = " << rm.orig_sign() << "\n";);
         rational sign = rm.orig_sign();
         for(factor f: ab)
-            sign *= flip_sign(f);
+            sign *= canonize_sign(f);
         const rational & fv = vvr(ab[0]) * vvr(ab[1]);
         const rational mv = sign * vvr(m);
         TRACE("nla_solver",
@@ -2348,7 +2382,7 @@ struct solver::imp {
     void order_lemma_on_factor_binomial_explore(const monomial& m, unsigned k) {
         SASSERT(m.size() == 2);
         lpvar c = m[k];
-        lpvar d = m_vars_equivalence.map_to_root(c);
+        lpvar d = m_vars_equivalence.find(c);
         auto it = m_rm_table.var_map().find(d);
         SASSERT(it != m_rm_table.var_map().end());
         for (unsigned bd_i : it->second) {
@@ -2359,7 +2393,7 @@ struct solver::imp {
     }
 
     void order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, const rooted_mon& rm_bd) {
-        factor d(m_vars_equivalence.map_to_root(ac[k]), factor_type::VAR);
+        factor d(m_vars_equivalence.find(ac[k]), factor_type::VAR);
         factor b;
         if (!divide(rm_bd, d, b))
             return;
@@ -2373,7 +2407,7 @@ struct solver::imp {
         int p = (k + 1) % 2;
         lpvar a = ac[p];
         lpvar c = ac[k];
-        SASSERT(m_vars_equivalence.map_to_root(c) == d);
+        SASSERT(m_vars_equivalence.find(c) == d);
         rational acv = vvr(ac);
         rational av = vvr(a);
         rational c_sign = rrat_sign(vvr(c));

@@ -26,11 +26,9 @@ Revision History:
 #include <iomanip>
 #include "util/lp/lp_utils.h"
 #include "util/stopwatch.h"
+#include "util/lp/lp_types.h"
 
 namespace lp {
-typedef unsigned var_index;
-typedef unsigned constraint_index;
-typedef unsigned row_index;
 
 enum class column_type  {
     free_column = 0,

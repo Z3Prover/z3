@@ -32,6 +32,7 @@ z3_add_component(lp
     square_dense_submatrix.cpp
     square_sparse_matrix.cpp
     static_matrix.cpp
+    var_eqs.cpp
   COMPONENT_DEPENDENCIES
     util
     polynomial
