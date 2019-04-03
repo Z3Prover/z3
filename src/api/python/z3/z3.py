@@ -4937,6 +4937,29 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+def TupleSort(name, sorts, ctx = None):
+    """Create a named tuple sort base on a set of underlying sorts
+    Example:
+        >>> pair, mk_pair, (first, second) = TupleSort("pair", [IntSort(), StringSort()])
+    """    
+    tuple = Datatype(name, ctx)
+    projects = [ ('project%d' % i, sorts[i]) for i in range(len(sorts)) ]
+    tuple.declare(name, *projects)
+    tuple = tuple.create()
+    return tuple, tuple.constructor(0), [tuple.accessor(0, i) for i in range(len(sorts))]
+
+def DisjointSum(name, sorts, ctx=None):
+    """Create a named tagged union sort base on a set of underlying sorts
+    Example:
+        >>> sum, ((inject0, extract0), (inject1, extract1)) = DisjointSum("+", [IntSort(), StringSort()])
+    """
+    sum = Datatype(name, ctx)
+    for i in range(len(sorts)):
+        sum.declare("inject%d" % i, ("project%d" % i, sorts[i]))
+    sum = sum.create()
+    return sum, [(sum.constructor(i), sum.accessor(i, 0)) for i in range(len(sorts))]
+    
+    
 def EnumSort(name, values, ctx=None):
     """Return a new enumeration sort named `name` containing the given values.
 
