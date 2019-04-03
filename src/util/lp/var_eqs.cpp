@@ -20,7 +20,6 @@
 
 #include "util/lp/var_eqs.h"
 
-
 namespace nla {
     
 
@@ -40,13 +39,13 @@ namespace nla {
             m_eqs[(~sv.first).index()].pop_back();
             m_eqs[(~sv.second).index()].pop_back();
         }
-        m_trail_lim.shrink(n);
+        m_trail_lim.shrink(m_trail_lim.size() - n);
         m_trail.shrink(old_sz);
         m_ufctx.get_trail_stack().pop_scope(n);
     }
 
     void var_eqs::merge(signed_var v1, signed_var v2, eq_justification const& j) {
-        unsigned max_i = std::max(v1.index(), v2.index()) + 1;
+        unsigned max_i = std::max(v1.index(), v2.index()) + 2;
         m_eqs.reserve(max_i);
         while (m_uf.get_num_vars() <= max_i) m_uf.mk_var();
         m_uf.merge(v1.index(), v2.index());
@@ -62,7 +61,7 @@ namespace nla {
             return v;
         }
         unsigned idx = m_uf.find(v.index());
-        return signed_var(idx);
+        return signed_var(idx, from_index()); // 0 is needed to call the right constructor
     }
 
     void var_eqs::explain(signed_var v1, signed_var v2, lp::explanation& e) const {
@@ -85,7 +84,7 @@ namespace nla {
             auto const& next = m_eqs[v.index()];
             unsigned sz = next.size();
             bool seen_all = true;
-            for (unsigned i = f.m_index; !seen_all && i < sz; ++i) {
+            for (unsigned i = f.m_index; seen_all && i < sz; ++i) {
                 justified_var const& jv = next[i];
                 if (!m_marked[jv.m_var.index()]) {
                     seen_all = false;
@@ -104,6 +103,7 @@ namespace nla {
         for (eq_justification const& j : m_dfs_trail) {
             j.explain(e);
         }
+        m_todo.reset();
         m_dfs_trail.reset();
         for (unsigned idx : m_marked_trail) {
             m_marked[idx] = false;
