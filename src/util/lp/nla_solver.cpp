@@ -34,9 +34,11 @@ bool try_insert(const A& elem, B& collection) {
     collection.insert(elem);
     return true;
 }
+
 typedef lp::constraint_index lpci;
 
 typedef lp::lconstraint_kind llc;
+
 struct point {
     rational x;
     rational y;
@@ -86,7 +88,7 @@ struct solver::imp {
     };
 
     //fields    
-    var_eqs                                                          m_vars_equivalence;
+    var_eqs                                                          m_evars;
     vector<monomial>                                                 m_monomials;
 
     rooted_mon_table                                                 m_rm_table;
@@ -114,7 +116,7 @@ struct solver::imp {
     
     imp(lp::lar_solver& s, reslimit& lim, params_ref const& p)
         :
-        m_vars_equivalence(),
+        m_evars(),
         m_lar_solver(s)
         // m_limit(lim),
         // m_params(p)
@@ -201,7 +203,7 @@ struct solver::imp {
     }
 
     rational canonize_sign_of_var(lpvar j) const {
-        return m_vars_equivalence.find_sign(j);        
+        return m_evars.find(j).rsign();        
     }
     
     // the value of the rooted monomias is equal to the value of the variable multiplied
@@ -222,6 +224,7 @@ struct solver::imp {
     void push() {
         TRACE("nla_solver",);
         m_monomials_counts.push_back(m_monomials.size());
+        m_evars.push();
     }
 
     void deregister_monomial_from_rooted_monomials (const monomial & m, unsigned i){
@@ -247,7 +250,8 @@ struct solver::imp {
             deregister_monomial_from_tables(m_monomials[i], i);
         }
         m_monomials.shrink(new_size);
-        m_monomials_counts.shrink(m_monomials_counts.size() - n);       
+        m_monomials_counts.shrink(m_monomials_counts.size() - n);
+        m_evars.pop(n);
     }
 
     rational mon_value_by_vars(unsigned i) const {
@@ -287,7 +291,7 @@ struct solver::imp {
     }
 
     void explain(lpvar j, lp::explanation& exp) const {
-        m_vars_equivalence.explain(j, exp);
+        m_evars.explain(j, exp);
     }
 
     template <typename T>
@@ -616,17 +620,17 @@ struct solver::imp {
     // 
     svector<lpvar> reduce_monomial_to_rooted(const svector<lpvar> & vars, rational & sign) const {
         svector<lpvar> ret;
-        sign = 1;
+        bool s = false;
         for (lpvar v : vars) {
-            unsigned root = m_vars_equivalence.find(v, sign);
-            SASSERT(m_vars_equivalence.is_root(root));
+            auto root = m_evars.find(v);
+            s ^= root.sign();
             TRACE("nla_solver_eq",
                   print_var(v,tout);
                   tout << " mapped to ";
-
-                  print_var(root, tout););
-            ret.push_back(root);
+                  print_var(root.var(), tout););
+            ret.push_back(root.var());
         }
+        sign = rational(s? -1: 1);
         std::sort(ret.begin(), ret.end());
         return ret;
     }
@@ -844,10 +848,10 @@ struct solver::imp {
     /*
     unsigned_vector eq_vars(lpvar j) const {
         TRACE("nla_solver_eq", tout << "j = "; print_var(j, tout); tout << "eqs = ";
-              for(auto jj : m_vars_equivalence.eq_vars(j)) {
+              for(auto jj : m_evars.eq_vars(j)) {
                   print_var(jj, tout);
               });
-        return m_vars_equivalence.eq_vars(j);
+        return m_evars.eq_vars(j);
     }
     */
     // Monomials m and n vars have the same values, up to "sign"
@@ -1091,7 +1095,7 @@ struct solver::imp {
             if (!(var_has_positive_lower_bound(j) || var_has_negative_upper_bound(j))) {
                 return 0;
             }
-            sign *= m_vars_equivalence.find_sign(j);
+            sign *= m_evars.find(j).rsign();
         }
         return rat_sign(sign);
     }
@@ -1339,13 +1343,13 @@ struct solver::imp {
 
     bool vars_are_equiv(lpvar a, lpvar b) const {
         SASSERT(abs(vvr(a)) == abs(vvr(b)));
-        return m_vars_equivalence.vars_are_equiv(a, b);
+        return m_evars.vars_are_equiv(a, b);
     }
 
     
     void explain_equiv_vars(lpvar a, lpvar b) {
         SASSERT(abs(vvr(a)) == abs(vvr(b)));
-        if (m_vars_equivalence.vars_are_equiv(a, b)) {
+        if (m_evars.vars_are_equiv(a, b)) {
             explain(a, current_expl());
             explain(b, current_expl());
         } else {
@@ -1864,9 +1868,9 @@ struct solver::imp {
                 auto c2 = m_lar_solver.get_column_upper_bound_witness(v[k]);
                 auto c3 = m_lar_solver.get_column_lower_bound_witness(v[k]);
                 if (vvr(head) == vvr(v[k]))
-                    m_vars_equivalence.merge_plus(head, v[k], eq_justification({c0, c1, c2, c3}));
+                    m_evars.merge_plus(head, v[k], eq_justification({c0, c1, c2, c3}));
                 else 
-                    m_vars_equivalence.merge_minus(head, v[k], eq_justification({c0, c1, c2, c3}));
+                    m_evars.merge_minus(head, v[k], eq_justification({c0, c1, c2, c3}));
             }
         }
     }
@@ -1895,16 +1899,16 @@ struct solver::imp {
         SASSERT(j != static_cast<unsigned>(-1));
         bool sign = (seen_minus && seen_plus)? false : true;
         if (sign)
-            m_vars_equivalence.merge_minus(i, j, eq_justification({c0, c1}));
+            m_evars.merge_minus(i, j, eq_justification({c0, c1}));
         else 
-            m_vars_equivalence.merge_plus(i, j, eq_justification({c0, c1}));
+            m_evars.merge_plus(i, j, eq_justification({c0, c1}));
     }
 
     // x is equivalent to y if x = +- y
     void init_vars_equivalence() {
-        /*       SASSERT(m_vars_equivalence.empty());*/
+        /*       SASSERT(m_evars.empty());*/
         collect_equivs();
-        /*        TRACE("nla_solver_details", tout << "number of equivs = " << m_vars_equivalence.size(););*/
+        /*        TRACE("nla_solver_details", tout << "number of equivs = " << m_evars.size(););*/
         
         SASSERT((settings().random_next() % 100) || tables_are_ok());
     }
@@ -1932,7 +1936,7 @@ struct solver::imp {
     bool rm_table_is_ok() const {
         for (const auto & rm : m_rm_table.rms()) {
             for (lpvar j : rm.vars()) {
-                if (!m_vars_equivalence.is_root(j)){
+                if (!m_evars.is_root(j)){
                     TRACE("nla_solver", print_var(j, tout););
                     return false;
                 }
@@ -1945,7 +1949,7 @@ struct solver::imp {
         return vars_table_is_ok() && rm_table_is_ok();
     }
     
-    bool var_is_a_root(lpvar j) const { return m_vars_equivalence.is_root(j); }
+    bool var_is_a_root(lpvar j) const { return m_evars.is_root(j); }
 
     template <typename T>
     bool vars_are_roots(const T& v) const {
@@ -2244,7 +2248,7 @@ struct solver::imp {
         SASSERT(abs(vvr(i)) == abs(vvr(c)));
         auto it = m_var_to_its_monomial.find(i);
         if (it == m_var_to_its_monomial.end()) {
-            i = m_vars_equivalence.find(i);
+            i = m_evars.find(i).var();
             if (try_insert(i, found_vars)) {
                 r.push_back(factor(i, factor_type::VAR));
             }
@@ -2382,7 +2386,7 @@ struct solver::imp {
     void order_lemma_on_factor_binomial_explore(const monomial& m, unsigned k) {
         SASSERT(m.size() == 2);
         lpvar c = m[k];
-        lpvar d = m_vars_equivalence.find(c);
+        lpvar d = m_evars.find(c).var();
         auto it = m_rm_table.var_map().find(d);
         SASSERT(it != m_rm_table.var_map().end());
         for (unsigned bd_i : it->second) {
@@ -2393,7 +2397,7 @@ struct solver::imp {
     }
 
     void order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, const rooted_mon& rm_bd) {
-        factor d(m_vars_equivalence.find(ac[k]), factor_type::VAR);
+        factor d(m_evars.find(ac[k]).var(), factor_type::VAR);
         factor b;
         if (!divide(rm_bd, d, b))
             return;
@@ -2407,7 +2411,7 @@ struct solver::imp {
         int p = (k + 1) % 2;
         lpvar a = ac[p];
         lpvar c = ac[k];
-        SASSERT(m_vars_equivalence.find(c) == d);
+        SASSERT(m_evars.find(c).var() == d);
         rational acv = vvr(ac);
         rational av = vvr(a);
         rational c_sign = rrat_sign(vvr(c));
