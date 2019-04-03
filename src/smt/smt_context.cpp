@@ -86,8 +86,7 @@ namespace smt {
         m_generation(0),
         m_last_search_result(l_undef),
         m_last_search_failure(UNKNOWN),
-        m_searching(false),
-        m_propagating(false) {
+        m_searching(false) {
 
         SASSERT(m_scope_lvl == 0);
         SASSERT(m_base_lvl == 0);
@@ -134,11 +133,10 @@ namespace smt {
 
     /**
        \brief retrieve flag for when cancelation is possible.
-       Cancelation is not safe during propagation at base level because
-       congruences cannot be retracted to a consistent state.
-     */
+    */
+
     bool context::get_cancel_flag() {
-        return !m_manager.limit().inc() && !(at_base_level() && m_propagating);
+        return !m_manager.limit().inc();
     }
 
     void context::updt_params(params_ref const& p) {
@@ -1701,8 +1699,13 @@ namespace smt {
             !m_th_diseq_propagation_queue.empty();
     }
 
+    /**
+       \brief unit propagation.
+       Cancelation is not safe during propagation at base level because
+       congruences cannot be retracted to a consistent state.
+     */
     bool context::propagate() {
-        flet<bool> _prop(m_propagating, true);
+        scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
         TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
