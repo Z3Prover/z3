@@ -91,6 +91,7 @@ namespace nla {
                     f.m_index = i + 1;
                     m_todo.push_back(dfs_frame(jv.m_var, 0));
                     m_dfs_trail.push_back(jv.m_j);
+                    m_marked_trail.push_back(jv.m_var.index());
                     m_marked[jv.m_var.index()] = true;
                 }
             }
@@ -109,6 +110,21 @@ namespace nla {
             m_marked[idx] = false;
         }
         m_marked_trail.reset();
+    }
+
+
+    std::ostream& var_eqs::display(std::ostream& out) const {
+        m_uf.display(out);
+        unsigned idx = 0;
+        for (auto const& edges : m_eqs) {
+            out << signed_var(idx, from_index()) << ": ";
+            for (auto const& jv : edges) {
+                out << jv.m_var << " ";
+            }
+            out << "\n";
+            ++idx;
+        }
+        return out;
     }
 
 }

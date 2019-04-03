@@ -50,7 +50,15 @@ public:
         return m_sv != other.m_sv;
     }
     rational rsign() const { return sign() ? rational::minus_one() : rational::one(); }
+
+    std::ostream& display(std::ostream& out) const {
+        return out << (sign()?"-":"") << var();
+    }
 };
+
+    inline std::ostream& operator<<(std::ostream& out, signed_var const& sv) {
+        return sv.display(out);
+    }
 
 class eq_justification {
     lpci m_cs[4];
@@ -177,5 +185,7 @@ public:
     eq_class equiv_class(signed_var v) { return eq_class(*this, v); }
 
     eq_class equiv_class(lpvar v) { return equiv_class(signed_var(v, false)); }
+
+    std::ostream& display(std::ostream& out) const;
 }; 
 }
