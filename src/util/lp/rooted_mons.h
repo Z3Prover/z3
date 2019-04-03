@@ -54,6 +54,12 @@ struct rooted_mon {
     }
 };
 
+struct hash_svector {
+    size_t operator()(const unsigned_vector & v) const {
+        return svector_hash<unsigned_hash>()(v);
+    }
+};
+
 
 struct rooted_mon_table {
     std::unordered_map<svector<lpvar>,
