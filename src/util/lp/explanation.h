@@ -18,6 +18,8 @@ Revision History:
 
 --*/
 #pragma once
+#include <unordered_set>
+#include "util/lp/lp_utils.h"
 namespace lp {
 class explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
