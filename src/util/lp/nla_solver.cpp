@@ -58,22 +58,6 @@ point operator+(const point& a, const point& b) {
 point operator-(const point& a, const point& b) {
     return point(a.x - b.x, a.y - b.y);
 } 
-
-void divide_by_common_factor(unsigned_vector& a, unsigned_vector& b) {
-    SASSERT(lp::is_non_decreasing(a) && lp::is_non_decreasing(b));
-    unsigned i = 0, j = 0;
-    while (i < a.size() && j < b.size()){
-        if (a[i] == b[j]) {
-            a.erase(a.begin() + i);
-            b.erase(b.begin() + j);
-        } else if (a[i] < b[j]) {
-            i++;
-        } else {
-            j++;
-        }
-    }
-}
-
 struct solver::imp {
     struct bfc {
         lpvar m_x, m_y;
@@ -161,10 +145,10 @@ struct solver::imp {
         return compare_holds(value(t), n.cmp(), n.rs());
     }
 
-    bool an_ineq_holds(const lemma& l) const {
+    bool lemma_holds(const lemma& l) const {
         for(const ineq &i : l.ineqs()) {
-            if (!ineq_holds(i))
-                return false;
+            if (ineq_holds(i))
+                return true;
         }
         return false;
     }
@@ -3126,7 +3110,7 @@ struct solver::imp {
 
     bool no_lemmas_hold() const {
         for (auto & l : * m_lemma_vec) {
-            if (an_ineq_holds(l))
+            if (lemma_holds(l))
                 return false;
         }
         return true;
