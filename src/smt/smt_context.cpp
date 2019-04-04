@@ -1330,10 +1330,11 @@ namespace smt {
         for (; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
             new_eq & entry = m_eq_propagation_queue[i];
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
-            if (inconsistent())
+            if (inconsistent()) {
+                m_eq_propagation_queue.reset();
                 return false;
+            }
         }
-        TRACE("add_eq", tout << m_eq_propagation_queue.size() << " " << i << "\n";);
         m_eq_propagation_queue.reset();
         return true;
     }
