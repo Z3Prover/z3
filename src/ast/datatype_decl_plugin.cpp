@@ -290,6 +290,7 @@ namespace datatype {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                         sort* r = to_sort(parameters[i + 1].get_ast());
+                        TRACE("datatype", tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
                         S.insert(d->params()[i], r->get_num_elements()); 
                     }
                     sort_size ts = d->sort_size()->eval(S);
@@ -693,7 +694,7 @@ namespace datatype {
     }
 
     param_size::size* util::get_sort_size(sort_ref_vector const& params, sort* s) {
-        if (params.empty()) {
+        if (params.empty() && !is_datatype(s)) {
             return param_size::size::mk_offset(s->get_num_elements());
         }
         if (is_datatype(s)) {
@@ -742,6 +743,7 @@ namespace datatype {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
         map<symbol, param_size::size*, symbol_hash_proc, symbol_eq_proc> szs;
 
+        TRACE("datatype", for (auto const& s : names) tout << s << " "; tout << "\n";);
         svector<symbol> todo(names);
         status st;
         while (!todo.empty()) {
@@ -780,6 +782,7 @@ namespace datatype {
             todo.pop_back();
             already_found.insert(s, BLACK);
             if (is_infinite) {
+                TRACE("datatype", tout << "infinite " << s << "\n";);
                 d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
                 continue;
             }
@@ -792,6 +795,7 @@ namespace datatype {
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
+            TRACE("datatype", tout << "set sort size " << s << "\n";);
             d.set_sort_size(param_size::size::mk_plus(s_add));
         }
     }

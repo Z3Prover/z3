@@ -372,7 +372,13 @@ namespace smt {
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
         TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << "\n";);
-        TRACE("datatype_bug", tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << "\n";);
+            TRACE("datatype_bug", 
+                  tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << " ";
+                  tout << m_util.is_datatype(s) << " ";
+                  if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
+                  if (m_util.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
+                  tout << "\n";
+                  );
         if ((get_context().has_quantifiers() || (m_util.is_datatype(s) && !s->is_infinite())) && !is_attached_to_var(n)) {
             mk_var(n);
         }

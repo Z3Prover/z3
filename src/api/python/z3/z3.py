@@ -10379,3 +10379,10 @@ def Range(lo, hi, ctx = None):
 
 # Special Relations
 
+def PartialOrder(n, s):
+    ctx = s.ctx
+    return FuncDeclRef(Z3_mk_partial_order(ctx, n, s.ast), ctx)
+
+def TreeOrder(n, s):
+    ctx = s.ctx
+    return FuncDeclRef(Z3_mk_tree_order(ctx, n, s.ast), ctx)
