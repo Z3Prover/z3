@@ -162,6 +162,10 @@ namespace smt {
         for (auto const& kv : m_relations) {
             if (extract_equalities(*kv.m_value)) {
                 new_equality = true;
+                //return FC_CONTINUE;
+            }
+            if (get_context().inconsistent()) {
+                return FC_CONTINUE;
             }
         }
         if (new_equality) {
@@ -322,7 +326,9 @@ namespace smt {
         ast_manager& m = get_manager();
         (void)m;
         r.m_graph.compute_zero_edge_scc(scc_id);
-        for (unsigned i = 0, j = 0; !ctx.inconsistent() && i < scc_id.size(); ++i) {
+        int start = ctx.get_random_value();
+        for (unsigned idx = 0, j = 0; !ctx.inconsistent() && idx < scc_id.size(); ++idx) {
+            unsigned i = (start + idx) % scc_id.size();
             if (scc_id[i] == -1) {
                 continue;
             }
@@ -336,8 +342,10 @@ namespace smt {
                     r.m_graph.find_shortest_zero_edge_path(i, j, timestamp, r);
                     r.m_graph.find_shortest_zero_edge_path(j, i, timestamp, r);
                     literal_vector const& lits = r.m_explanation;
-                    TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << " ", lits) << "\n";);
-                    eq_justification js(ctx.mk_justification(theory_axiom_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr())));
+                    TRACE("special_relations", ctx.display_literals_verbose(tout << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n", lits) << "\n";);
+                    IF_VERBOSE(20, ctx.display_literals_verbose(verbose_stream() << mk_pp(x->get_owner(), m) << " = " << mk_pp(y->get_owner(), m) << "\n", lits) << "\n";);
+                    eq_justification js(ctx.mk_justification(ext_theory_eq_propagation_justification(get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), 0, nullptr, 
+                                                                                                     x, y)));
                     ctx.assign_eq(x, y, js);
                 }
             }
