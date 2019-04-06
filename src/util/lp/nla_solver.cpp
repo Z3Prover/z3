@@ -2798,6 +2798,19 @@ struct solver::imp {
             monotonicity_lemma_gt(m, prod_val);
     }
 
+    // assert that |j| <= |j|  
+    void var_abs_val_le(lpvar j) {
+        auto s = rational(rat_sign(vvr(j)));
+        mk_ineq(s, j, llc::LT);
+        mk_ineq(s, j, llc::GT, abs(vvr(j)));
+    }
+
+    // assert that |j| >= |j|  
+    void var_abs_val_ge(lpvar j) {
+        auto s = rational(rat_sign(vvr(j)));
+        mk_ineq(s, j, llc::LT);
+        mk_ineq(s, j, llc::LT, abs(vvr(j)));
+    }
     /** \brief enforce that the |m| <= product |m[i]| .
         For each i assert
         sign(m[i])*m[i] < 0 or m[i] > |m[i]|,
@@ -2808,13 +2821,10 @@ struct solver::imp {
         SASSERT(prod_val.is_pos());
         add_empty_lemma();
         for (lpvar j : m) {
-            auto s = rational(rat_sign(vvr(j)));
-            mk_ineq(s, j, llc::LT);
-            mk_ineq(s, j, llc::GT, abs(vvr(j)));
+            var_abs_val_le(j);
         }
         lpvar m_j = m.var();
         auto s = rational(rat_sign(vvr(m_j)));
-        mk_ineq(s, m_j, llc::LT);
         mk_ineq(s, m_j, llc::LE, prod_val);
         TRACE("nla_solver", print_lemma(tout););
     }
@@ -2829,9 +2839,7 @@ struct solver::imp {
         SASSERT(prod_val.is_pos());
         add_empty_lemma();
         for (lpvar j : m) {
-            auto s = rational(rat_sign(vvr(j)));
-            mk_ineq(s, j, llc::LT);
-            mk_ineq(s, j, llc::LT, abs(vvr(j)));
+            var_abs_val_ge(j);
         }
         lpvar m_j = m.var();
         auto s = rational(rat_sign(vvr(m_j)));
