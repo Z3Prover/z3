@@ -65,52 +65,107 @@ namespace nla {
         return signed_var(idx, from_index());
     }
 
-    void var_eqs::explain(signed_var v1, signed_var v2, lp::explanation& e) const {
-    SASSERT(find(v1) == find(v2));
-        unsigned_vector ret;
+    void var_eqs::explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) const {
+        SASSERT(find(v1) == find(v2));
         if (v1 == v2) {
             return;
         }
-        m_todo.push_back(dfs_frame(v1, 0));
-        m_dfs_trail.reset();
+        m_todo.push_back(var_frame(v1, 0));
+        m_jtrail.reset();
         m_marked.reserve(m_eqs.size(), false);
         SASSERT(m_marked_trail.empty());
+        m_marked[v1.index()] = true;
+        m_marked_trail.push_back(v1.index());
         while (true) {
             SASSERT(!m_todo.empty());
-            dfs_frame& f = m_todo.back();
+            var_frame& f = m_todo.back();
+            signed_var v = f.m_var;
+            if (v == v2) {
+                break;
+            }
+            auto const& next = m_eqs[v.index()];
+            bool seen_all = true;
+            unsigned sz = next.size();
+            for (unsigned i = f.m_index; seen_all && i < sz; ++i) {
+                justified_var const& jv = next[i];
+                signed_var v3 = jv.m_var;
+                if (!m_marked[v3.index()]) {
+                    seen_all = false;
+                    f.m_index = i + 1;
+                    m_todo.push_back(var_frame(v3, 0));
+                    m_jtrail.push_back(jv.m_j);
+                    m_marked_trail.push_back(v3.index());
+                    m_marked[v3.index()] = true;
+                }
+            }
+            if (seen_all) {
+                m_todo.pop_back();
+                m_jtrail.pop_back();
+            }
+        }
+        
+        for (eq_justification const& j : m_jtrail) {
+            j.explain(e);
+        }
+        m_stats.m_num_explains += m_jtrail.size();
+        m_stats.m_num_explain_calls++;
+        m_todo.reset();
+        m_jtrail.reset();
+        for (unsigned idx : m_marked_trail) {
+            m_marked[idx] = false;
+        }
+        m_marked_trail.reset();
+
+        // IF_VERBOSE(2, verbose_stream() << (double)m_stats.m_num_explains / m_stats.m_num_explain_calls << "\n");
+    }
+
+    void var_eqs::explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) const {
+        SASSERT(find(v1) == find(v2));
+        if (v1 == v2) {
+            return;
+        }
+        m_todo.push_back(var_frame(v1, 0));
+        m_jtrail.push_back(eq_justification({}));
+        m_marked.reserve(m_eqs.size(), false);
+        SASSERT(m_marked_trail.empty());
+        m_marked[v1.index()] = true;
+        m_marked_trail.push_back(v1.index());
+        unsigned head = 0;
+        for (; ; ++head) {
+            var_frame& f = m_todo[head];
             signed_var v = f.m_var;
             if (v == v2) {
                 break;
             }
             auto const& next = m_eqs[v.index()];
             unsigned sz = next.size();
-            bool seen_all = true;
-            for (unsigned i = f.m_index; seen_all && i < sz; ++i) {
+            for (unsigned i = sz; i-- > 0; ) {
                 justified_var const& jv = next[i];
-                if (!m_marked[jv.m_var.index()]) {
-                    seen_all = false;
-                    f.m_index = i + 1;
-                    m_todo.push_back(dfs_frame(jv.m_var, 0));
-                    m_dfs_trail.push_back(jv.m_j);
-                    m_marked_trail.push_back(jv.m_var.index());
-                    m_marked[jv.m_var.index()] = true;
+                signed_var v3 = jv.m_var;
+                if (!m_marked[v3.index()]) {
+                    m_todo.push_back(var_frame(v3, head));
+                    m_jtrail.push_back(jv.m_j);
+                    m_marked_trail.push_back(v3.index());
+                    m_marked[v3.index()] = true;
                 }
-            }
-            if (seen_all) {
-                m_todo.pop_back();
-                m_dfs_trail.pop_back();
             }
         }
         
-        for (eq_justification const& j : m_dfs_trail) {
-            j.explain(e);
+        while (head != 0) {
+            m_jtrail[head].explain(e);
+            head = m_todo[head].m_index;
+            ++m_stats.m_num_explains;
         }
+        ++m_stats.m_num_explain_calls;
+        
         m_todo.reset();
-        m_dfs_trail.reset();
+        m_jtrail.reset();
         for (unsigned idx : m_marked_trail) {
             m_marked[idx] = false;
         }
         m_marked_trail.reset();
+
+        // IF_VERBOSE(2, verbose_stream() << (double)m_stats.m_num_explains / m_stats.m_num_explain_calls << "\n");
     }
 
 

@@ -88,11 +88,17 @@ class var_eqs {
     };
     typedef svector<justified_var> justified_vars;
 
-    struct dfs_frame {
+    struct var_frame {
         signed_var m_var;
         unsigned   m_index;
-        dfs_frame(signed_var v, unsigned i): m_var(v), m_index(i) {}
+        var_frame(signed_var v, unsigned i): m_var(v), m_index(i) {}
     };
+    struct stats {
+        unsigned m_num_explain_calls;
+        unsigned m_num_explains;
+        stats() { memset(this, 0, sizeof(*this)); }
+    };
+
     typedef std::pair<signed_var, signed_var> signed_var_pair;
 
     union_find_default_ctx  m_ufctx;
@@ -101,14 +107,15 @@ class var_eqs {
     unsigned_vector         m_trail_lim;
     vector<justified_vars>  m_eqs;    // signed_var-index -> justified_var corresponding to edges in a graph used to extract justifications.
 
-    mutable svector<dfs_frame>      m_todo;
+    mutable svector<var_frame>      m_todo;
     mutable svector<bool>           m_marked;
     mutable unsigned_vector         m_marked_trail;
-    mutable svector<eq_justification> m_dfs_trail;
+    mutable svector<eq_justification> m_jtrail;
         
+    mutable stats m_stats;
 public:
     var_eqs();
-
+    
     /**
        \brief push a scope
     */
@@ -148,9 +155,13 @@ public:
        \brief Returns eq_justifications for
        \pre find(v1) == find(v2)
     */
-    void explain(signed_var v1, signed_var v2, lp::explanation& e) const;
-    inline 
-    void explain(lpvar v1, lpvar v2, lp::explanation & e) const {
+    void explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) const;
+    void explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) const;
+
+    inline void explain(signed_var v1, signed_var v2, lp::explanation& e) const {
+        explain_bfs(v1, v2, e);
+    }
+    inline void explain(lpvar v1, lpvar v2, lp::explanation & e) const {
         return explain(signed_var(v1, false), signed_var(v2, false), e);
     }
 
@@ -187,5 +198,8 @@ public:
     eq_class equiv_class(lpvar v) { return equiv_class(signed_var(v, false)); }
 
     std::ostream& display(std::ostream& out) const;
+    
 }; 
+
+    inline std::ostream& operator<<(var_eqs const& ve, std::ostream& out) { return ve.display(out); }
 }
