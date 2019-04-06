@@ -60,15 +60,9 @@ point operator-(const point& a, const point& b) {
 } 
 struct solver::imp {
     struct bfc {
-        lpvar m_x, m_y;
+        factor m_x, m_y;
         bfc() {}
-        bfc(lpvar a, lpvar b) {
-            if (a < b) {
-                m_x = a; m_y = b;
-            } else {
-                m_x = b; m_y = a;
-            }
-        }
+        bfc(const factor& x, const factor& y): m_x(x), m_y(y) {};
     };
 
     //fields    
@@ -163,7 +157,9 @@ struct solver::imp {
 
     rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.orig_index()].var()) * rm.orig_sign(); }
 
-    rational vvr(const factor& f) const { return vvr(var(f)); }
+    rational vvr(const factor& f) const { 
+        return f.is_var()? vvr(f.index()) : vvr(m_rm_table.rms()[f.index()]);
+    }
 
     lpvar var(const factor& f) const {
         return f.is_var()?
@@ -327,7 +323,7 @@ struct solver::imp {
     }
 
     std::ostream& print_bfc(const bfc& m, std::ostream& out) const {
-        out << "( x = "; print_var(m.m_x, out); out <<  ", y = "; print_var(m.m_y, out); out <<  ")";
+        out << "( x = "; print_factor(m.m_x, out); out <<  ", y = "; print_factor(m.m_y, out); out <<  ")";
         return out;
     }
 
@@ -375,7 +371,7 @@ struct solver::imp {
         return out;
     }
 
-    std::ostream& print_explanation(lp::explanation& exp, std::ostream& out) const {
+    std::ostream& print_explanation(const lp::explanation& exp, std::ostream& out) const {
         out << "expl: ";
         for (auto &p : exp) {
             out << "(" << p.second << ")";
@@ -487,10 +483,13 @@ struct solver::imp {
             break;
 
         case llc::EQ:
-            r = explain_lower_bound(t, rs, exp) && explain_upper_bound(t, rs, exp);
+            r = (explain_lower_bound(t, rs, exp) && explain_upper_bound(t, rs, exp)) ||
+                (rs.is_zero() && explain_by_equiv(t, exp));
             break;
         case llc::NE:
             r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);
+            
+            
             break;
         default:
             SASSERT(false);
@@ -500,7 +499,27 @@ struct solver::imp {
             current_expl().add(exp);
             return true;
         }
+        
         return false;
+    }
+
+    /**
+     * \brief
+     if t is an octagon term -+x -+ y try to explain why the term always
+     equal zero
+    */
+    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e) {
+        lpvar i,j;
+        bool sign;
+        if (!is_octagon_term(t, sign, i, j))
+            return false;
+        if (m_evars.find(signed_var(i,false)) != m_evars.find(signed_var(j, sign)))
+            return false;
+            
+        m_evars.explain(signed_var(i,false), signed_var(j, sign), e);
+        TRACE("nla_solver", tout << "explained :"; m_lar_solver.print_term(t, tout););
+        return true;
+            
     }
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs) {
@@ -644,8 +663,10 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }
     lemma& current_lemma() { return m_lemma_vec->back(); }
+    const lemma& current_lemma() const { return m_lemma_vec->back(); }
     vector<ineq>& current_ineqs() { return current_lemma().ineqs(); }
     lp::explanation& current_expl() { return current_lemma().expl(); }
+    const lp::explanation& current_expl() const { return current_lemma().expl(); }
 
     static int rat_sign(const rational& r) {
         return r.is_pos()? 1 : ( r.is_neg()? -1 : 0);
@@ -1405,28 +1426,27 @@ struct solver::imp {
     // use the fact
     // 1 * 1 ... * 1 * x * 1 ... * 1 = x
     bool basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const rooted_mon& rm, const factorization& f) {
-        rational sign = rm.orig().m_sign;
+        rational sign = rm.orig_sign();
+        TRACE("nla_solver_bl", tout << "f = "; print_factorization(f, tout); tout << ", sign = " << sign << '\n'; );
         lpvar not_one = -1;
-
-        TRACE("nla_solver_bl", tout << "f = "; print_factorization(f, tout););
         for (auto j : f){
             TRACE("nla_solver_bl", tout << "j = "; print_factor_with_vars(j, tout););
             auto v = vvr(j);
             if (v == rational(1)) {
                 continue;
             }
-
+            
             if (v == -rational(1)) { 
                 sign = - sign;
                 continue;
             } 
-
+            
             if (not_one == static_cast<lpvar>(-1)) {
                 not_one = var(j);
                 continue;
             }
-
-            // if we are here then there are at least two factors with values different from one and minus one: cannot create the lemma
+            
+            // if we are here then there are at least two factors with absolute values different from one : cannot create the lemma
             return false;
         }
 
@@ -1436,10 +1456,16 @@ struct solver::imp {
                 TRACE("nla_solver", tout << "the whole equal to the factor" << std::endl;);
                 return false;
             }
+        } else {
+            // we have +-ones only in the factorization
+            if (vvr(rm) == sign) {
+                return false;
+            }
         }
+
+        TRACE("nla_solver_bl", tout << "not_one = " << not_one << "\n";);
         
         add_empty_lemma();
-        explain(rm, current_expl());
 
         for (auto j : f){
             lpvar var_j = var(j);
@@ -1452,6 +1478,7 @@ struct solver::imp {
         } else {
             mk_ineq(m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ);
         }
+        explain(rm, current_expl());
         explain(f, current_expl());
         TRACE("nla_solver",
               print_lemma(tout);
@@ -1858,22 +1885,23 @@ struct solver::imp {
             }
         }
     }
-    
-    
-    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
-        if (t->size() != 2)
-            return;
+
+    // returns true iff the term is in a form +-x-+y.
+    // the sign is true iff the term is x+y, -x-y.
+    bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const {
+        if (t.size() != 2)
+            return false;
         bool seen_minus = false;
         bool seen_plus = false;
-        lpvar i = -1, j = -1;
-        for(const auto & p : *t) {
+        i = -1;
+        for(const auto & p : t) {
             const auto & c = p.coeff();
             if (c == 1) {
                 seen_plus = true;
             } else if (c == - 1) {
                 seen_minus = true;
             } else {
-                return;
+                return false;
             }
             if (i == static_cast<lpvar>(-1))
                 i = p.var();
@@ -1881,7 +1909,15 @@ struct solver::imp {
                 j = p.var();
         }
         SASSERT(j != static_cast<unsigned>(-1));
-        bool sign = (seen_minus && seen_plus)? false : true;
+        sign = (seen_minus && seen_plus)? false : true;
+        return true;
+    }
+    
+    void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
+        bool sign;
+        lpvar i, j;
+        if (!is_octagon_term(*t, sign, i, j))
+            return;
         if (sign)
             m_evars.merge_minus(i, j, eq_justification({c0, c1}));
         else 
@@ -2120,7 +2156,7 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }
 
-    std::unordered_set<lpvar> collect_vars(  const lemma& l) {
+    std::unordered_set<lpvar> collect_vars(const lemma& l) const {
         std::unordered_set<lpvar> vars;
         for (const auto& i : current_lemma().ineqs()) {
             for (const auto& p : i.term()) {
@@ -2149,10 +2185,14 @@ struct solver::imp {
     }
 
     void print_lemma(std::ostream& out) {
+        print_specific_lemma(current_lemma(), out);
+    }
+
+    void print_specific_lemma(const lemma& l, std::ostream& out) const {
         static int n = 0;
         out << "lemma:" << ++n << " ";
-        print_ineqs(current_lemma(), out);
-        print_explanation(current_expl(), out);
+        print_ineqs(l, out);
+        print_explanation(l.expl(), out);
         std::unordered_set<lpvar> vars = collect_vars(current_lemma());
         
         for (lpvar j : vars) {
@@ -2758,6 +2798,11 @@ struct solver::imp {
             monotonicity_lemma_gt(m, prod_val);
     }
 
+    /** \brief enforce that the |m| <= product |m[i]| .
+        For each i assert
+        sign(m[i])*m[i] < 0 or m[i] > |m[i]|,
+        and assert sign(m)*m < 0 or |m| <=  product |m[i]|
+    */
     void monotonicity_lemma_gt(const monomial& m, const rational& prod_val) {
         // the abs of the monomial is too large
         SASSERT(prod_val.is_pos());
@@ -2773,7 +2818,12 @@ struct solver::imp {
         mk_ineq(s, m_j, llc::LE, prod_val);
         TRACE("nla_solver", print_lemma(tout););
     }
-
+    
+    /** \brief enforce that the |m| >= product |m[i]| .
+        For each i assert
+        sign(m[i])*m[i] < 0 or m[i] < |m[i]|,
+        and assert sign(m)*m < 0 or |m| >=  product |m[i]|
+    */
     void monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
         // the abs of the monomial is too small
         SASSERT(prod_val.is_pos());
@@ -2790,13 +2840,12 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }
     
-    bool find_bfc_on_monomial(const rooted_mon& rm, bfc & bf) {
+    bool find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf) {
         for (auto factorization : factorization_factory_imp(rm, *this)) {
             if (factorization.size() == 2) {
-                lpvar a = var(factorization[0]);
-                lpvar b = var(factorization[1]);
+                auto a = factorization[0];
+                auto b = factorization[1];
                 if (vvr(rm) != vvr(a) * vvr(b)) {
-                    
                     bf = bfc(a, b);
                     return true;
                 }
@@ -2814,13 +2863,13 @@ struct solver::imp {
                 const monomial & m = m_monomials[rm.orig_index()];
                 j = m.var();
                 rm_found = nullptr;
-                bf.m_x = m[0];
-                bf.m_y = m[1];
+                bf.m_x = factor(m[0]);
+                bf.m_y = factor(m[1]);
                 return true;
             }
                 
             rm_found = &rm;
-            if (find_bfc_on_monomial(rm, bf)) {
+            if (find_bfc_to_refine_on_rmonomial(rm, bf)) {
                 j = m_monomials[rm.orig_index()].var();
                 sign = rm.orig_sign();
                 TRACE("nla_solver", tout << "found bf";
@@ -2848,8 +2897,10 @@ struct solver::imp {
         TRACE("nla_solver", print_lemma(tout););
     }
 
-    bool generate_simple_tangent_lemma(const rooted_mon* rm) {
-        TRACE("nla_solver", tout << "rm:"; print_rooted_monomial_with_vars(*rm, tout) << std::endl; tout << "ls = " << m_lemma_vec->size(););
+    void generate_simple_tangent_lemma(const rooted_mon* rm) {
+        if (rm->size() != 2)
+            return;
+        TRACE("nla_solver", tout << "rm:"; print_rooted_monomial_with_vars(*rm, tout) << std::endl;);
         add_empty_lemma();
         unsigned i_mon = rm->orig_index();
         const monomial & m = m_monomials[i_mon];
@@ -2860,7 +2911,7 @@ struct solver::imp {
         rational sign = rational(rat_sign(mv));
         if (sign != rat_sign(v)) {
             generate_simple_sign_lemma(-sign, m);
-            return true;
+            return;
         }
         bool gt = abs(mv) > abs(v);
         if (gt) {
@@ -2883,23 +2934,21 @@ struct solver::imp {
             mk_ineq(sign, m.var(), llc::GE, v);
         }
         TRACE("nla_solver", print_lemma(tout););
-        return true;
     }
     
-    bool tangent_lemma() {
+    void tangent_lemma() {
         bfc bf;
         lpvar j;
         rational sign;
         const rooted_mon* rm = nullptr;
         
-        if (!find_bfc_to_refine(bf, j, sign, rm)) {
-            if (rm != nullptr)
-                return generate_simple_tangent_lemma(rm);
+        if (find_bfc_to_refine(bf, j, sign, rm)) {
+            tangent_lemma_bf(bf, j, sign, rm);
+        } else {
             TRACE("nla_solver", tout << "cannot find a bfc to refine\n"; );
-            return false;
+            if (rm != nullptr)
+                generate_simple_tangent_lemma(rm);
         }
-        tangent_lemma_bf(bf, j, sign, rm);
-        return true;
     }
 
     void generate_explanations_of_tang_lemma(const rooted_mon& rm, const bfc& bf, lp::explanation& exp) {
@@ -2915,9 +2964,10 @@ struct solver::imp {
         rational correct_mult_val =  xy.x * xy.y;
         rational val = vvr(j) * sign;
         bool below = val < correct_mult_val;
-        TRACE("nla_solver", tout << "below = " << below << std::endl;);
+        TRACE("nla_solver", tout << "rm = " << rm << ", below = " << below << std::endl; );
         get_tang_points(a, b, below, val, xy);
         TRACE("nla_solver", tout << "sign = " << sign << ", tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
+        unsigned lemmas_size_was = m_lemma_vec->size();
         generate_two_tang_lines(bf, xy, sign, j);
         generate_tang_plane(a.x, a.y, bf.m_x, bf.m_y, below, j, sign);
         generate_tang_plane(b.x, b.y, bf.m_x, bf.m_y, below, j, sign);
@@ -2925,25 +2975,23 @@ struct solver::imp {
         if (rm != nullptr) { 
             lp::explanation expl;
             generate_explanations_of_tang_lemma(*rm, bf, expl);
-            for (unsigned i = m_lemma_vec->size() - 3; i < m_lemma_vec->size(); i++) {
+            for (unsigned i = lemmas_size_was; i < m_lemma_vec->size(); i++) {
                 auto &l = (*m_lemma_vec)[i];
                 l.expl().add(expl);
             }
         }
         TRACE("nla_solver",
-         for (unsigned i = m_lemma_vec->size() - 3; i < m_lemma_vec->size(); i++) {
-             auto &l = (*m_lemma_vec)[i];
-             tout << "lemma:";
-             print_ineqs(l, tout);
-             print_explanation(l.expl(), tout);
-         } );
+              for (unsigned i = lemmas_size_was; i < m_lemma_vec->size(); i++) 
+                  print_specific_lemma((*m_lemma_vec)[i], tout); );
     }
 
     void add_empty_lemma() {
         m_lemma_vec->push_back(lemma());
     }
     
-    void generate_tang_plane(const rational & a, const rational& b, lpvar jx, lpvar jy, bool below, lpvar j, const rational& j_sign) {
+    void generate_tang_plane(const rational & a, const rational& b, const factor& x, const factor& y, bool below, lpvar j, const rational& j_sign) {
+        lpvar jx = var(x);
+        lpvar jy = var(y);
         add_empty_lemma();
         negate_relation(jx, a);
         negate_relation(jy, b);
@@ -2975,12 +3023,13 @@ struct solver::imp {
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j) {
         add_empty_lemma();
-        mk_ineq(bf.m_x, llc::NE, xy.x);
-        mk_ineq(sign, j, - xy.x, bf.m_y, llc::EQ);
+        mk_ineq(var(bf.m_x), llc::NE, xy.x);
+        mk_ineq(sign, j, - xy.x, var(bf.m_y), llc::EQ);
         
         add_empty_lemma();
-        mk_ineq(bf.m_y, llc::NE, xy.y);
-        mk_ineq(sign, j, - xy.y, bf.m_x, llc::EQ);
+        mk_ineq(var(bf.m_y), llc::NE, xy.y);
+        mk_ineq(sign, j, - xy.y, var(bf.m_x), llc::EQ);
+        
     }
     // Get two planes tangent to surface z = xy, one at point a,  and another at point b.
     // One can show that these planes still create a cut.
@@ -3105,13 +3154,16 @@ struct solver::imp {
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
         SASSERT(ret != l_false || no_lemmas_hold());
+        
         return ret;
     }
 
     bool no_lemmas_hold() const {
         for (auto & l : * m_lemma_vec) {
-            if (lemma_holds(l))
+            if (lemma_holds(l)) {
+                TRACE("nla_solver", print_specific_lemma(l, tout););
                 return false;
+            }
         }
         return true;
     }
