@@ -2117,7 +2117,7 @@ struct solver::imp {
     }
 
     // |c_sign| = 1, and c*c_sign > 0
-    // ac > bc => ac/|c| > bc/|c|
+    // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
     void generate_ol(const rooted_mon& ac,                     
                      const factor& a,
                      int c_sign,
@@ -2125,9 +2125,11 @@ struct solver::imp {
                      const rooted_mon& bc,
                      const factor& b,
                      llc ab_cmp) {
-         add_empty_lemma();
-        mk_ineq(rational(c_sign) * canonize_sign(c), var(c), llc::LE);
+        add_empty_lemma();
+        rational rc_sign = rational(c_sign);
+        mk_ineq(rc_sign * canonize_sign(c), var(c), llc::LE);
         mk_ineq(canonize_sign(ac), var(ac), -canonize_sign(bc), var(bc), ab_cmp);
+        mk_ineq(canonize_sign(a)*rc_sign, var(a), - canonize_sign(b)*rc_sign, var(b), negate(ab_cmp));
         explain(ac, current_expl());
         explain(a, current_expl());
         explain(bc, current_expl());
@@ -2233,7 +2235,7 @@ struct solver::imp {
         auto bcv = vvr(bc); 
         TRACE("nla_solver", trace_print_ol(ac, a, c, bc, b, tout););
         // Suppose ac >= bc, then ac/|c| >= bc/|c|.
-        // Notice that ac/|c| = a*c_sign , and bd/|c| = b*c_sign, which are correspondingly av_c_s and bv_c_s
+        // Notice that ac/|c| = a*c_sign , and bc/|c| = b*c_sign, which are correspondingly av_c_s and bv_c_s
         if (acv >= bcv && av_c_s < bv_c_s) {
             generate_ol(ac, a, c_sign, c, bc, b, llc::LT);
             return true;
