@@ -116,6 +116,8 @@ struct stats {
     unsigned m_bound_propagations2;
     unsigned m_assert_diseq;
     unsigned m_gomory_cuts;
+    unsigned m_nla_explanations;
+    unsigned m_nla_lemmas;
     stats() { reset(); }
     void reset() {
         memset(this, 0, sizeof(*this));
@@ -2146,9 +2148,11 @@ public:
     lbool check_aftermath_nla(lbool r, const vector<nla::lemma>& lv) {
         switch (r) {
         case l_false: {
+            m_stats.m_nla_lemmas += lv.size();
             for(const nla::lemma & l : lv) {
-                m_lemma = l; //todo avoit the copy
+                m_lemma = l; //todo avoid the copy
                 m_explanation = l.expl();
+                m_stats.m_nla_explanations += l.expl().size();
                 false_case_of_check_nla();
             }
             break;
@@ -3761,7 +3765,8 @@ public:
         st.update("arith-patches", lp().settings().st().m_patches);
         st.update("arith-patches-success", lp().settings().st().m_patches_success);
         st.update("arith-hnf-calls", lp().settings().st().m_hnf_cutter_calls);
-        st.update("arith-hnf-cuts", lp().settings().st().m_hnf_cuts);
+        st.update("nla-explanations", m_stats.m_nla_explanations);
+        st.update("nla-lemmas", m_stats.m_nla_lemmas);
     }        
 };
     
