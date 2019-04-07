@@ -1698,6 +1698,7 @@ struct solver::imp {
         for (factor f : factorization) {
             if (abs(vvr(f)) > rmv) {
                 generate_pl(rm, factorization, factor_index);
+                return;
             }
             factor_index++;
         }
