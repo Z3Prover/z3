@@ -2902,6 +2902,7 @@ struct solver::imp {
     }
 
     void add_abs_bound(lpvar v, llc cmp, rational const& bound) {
+        SASSERT(!vvr(v).is_zero());
         lp::lar_term t;  // t = abs(v)
         t.add_coeff_var(rrat_sign(vvr(v)), v);
 
