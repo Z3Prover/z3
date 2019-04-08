@@ -36,24 +36,22 @@ public:
     factor() {}
     explicit factor(unsigned j) : factor(j, factor_type::VAR) {}
     factor(unsigned i, factor_type t) : m_index(i), m_type(t) {}
-    unsigned index() const {return m_index;}
-    unsigned& index() {return m_index;}
-    factor_type type() const {return m_type;}
-    factor_type& type() {return m_type;}
+    unsigned index() const { return m_index; }
+    unsigned& index() { return m_index; }
+    factor_type type() const { return m_type; }
+    factor_type& type() { return m_type; }
     bool is_var() const { return m_type == factor_type::VAR; }
+    bool operator==(factor const& other) const {
+        return m_index == other.index() && m_type == other.type();
+    }
+    bool operator!=(factor const& other) const {
+        return m_index != other.index() || m_type != other.type();
+    }
 };
-
-inline bool operator==(const factor& a, const factor& b) {
-    return a.index() == b.index() && a.type() == b.type(); 
-}
-
-inline bool operator!=(const factor& a, const factor& b) {
-    return ! (a == b); 
-}
 
 
 class factorization {
-    vector<factor>         m_vars;
+    vector<factor>        m_vars;
     const monomial*       m_mon;
 public:
     factorization(const monomial* m): m_mon(m) {
@@ -77,11 +75,11 @@ public:
 
 struct const_iterator_mon {
     // fields
-    svector<bool>               m_mask;
+    svector<bool>                  m_mask;
     const factorization_factory *  m_ff;
-    bool                        m_full_factorization_returned;
+    bool                           m_full_factorization_returned;
 
-    //typedefs
+    // typedefs
     typedef const_iterator_mon self_type;
     typedef factorization value_type;
     typedef int difference_type;
@@ -109,7 +107,7 @@ struct const_iterator_mon {
 
 struct factorization_factory {
     const svector<lpvar>& m_vars;
-    const monomial* m_monomial;
+    const monomial*       m_monomial;
     // returns true if found
     virtual bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
     virtual const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const = 0;
