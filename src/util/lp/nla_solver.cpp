@@ -529,6 +529,8 @@ struct solver::imp {
         }
         m_lar_solver.subs_term_columns(t);
         current_lemma().push_back(ineq(cmp, t, rs));
+        CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
+        SASSERT(!ineq_holds(ineq(cmp, t, rs)));
     }
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
         lp::lar_term t;
@@ -2048,6 +2050,42 @@ struct solver::imp {
         register_monomials_in_tables();
     }
 
+#if 0
+    void init_to_refine() {
+        m_to_refine.clear();
+        for (auto const & m : m_emons) 
+            if (!check_monomial(m)) 
+                m_to_refine.push_back(m.var());
+
+        TRACE("nla_solver", 
+              tout << m_to_refine.size() << " mons to refine:\n";
+              for (unsigned v : m_to_refine) tout << m_emons.var2monomial(v) << "\n";
+    }
+
+    std::unordered_set<lpvar> collect_vars(  const lemma& l) {
+        std::unordered_set<lpvar> vars;
+        auto insert_j = [&](lpvar j) { 
+            vars.insert(j);
+            auto const* m = m_emons.var2monomial(j);
+            if (m) for (lpvar k : *m) vars.insert(k);
+        };
+
+        for (const auto& i : current_lemma().ineqs()) {
+            for (const auto& p : i.term()) {                
+                insert_j(p.var());
+            }
+        }
+        for (const auto& p : current_expl()) {
+            const auto& c = m_lar_solver.get_constraint(p.second);
+            for (const auto& r : c.coeffs()) {
+                insert_j(r.second);
+            }
+        }
+        return vars;
+    }
+
+#endif
+
     void init_to_refine() {
         m_to_refine.clear();
         for (unsigned i = 0; i < m_monomials.size(); i++) {
@@ -2336,7 +2374,11 @@ struct solver::imp {
         }
     }
     
-    // if gt is true we need to deduce ab <= vvr(b)*a
+    /**
+       \brief Add lemma: 
+           a > 0 & b <= value(b) => sign*ab <= value(b)*a  if value(a) > 0
+           a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
+     */
     void order_lemma_on_ab_gt(const monomial& m, const rational& sign, lpvar a, lpvar b) {
         SASSERT(sign * vvr(m) > vvr(a) * vvr(b));
         add_empty_lemma();
@@ -2360,6 +2402,11 @@ struct solver::imp {
         }
     }
     // we need to deduce ab >= vvr(b)*a
+    /**
+       \brief Add lemma: 
+          a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0
+          a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
+     */
     void order_lemma_on_ab_lt(const monomial& m, const rational& sign, lpvar a, lpvar b) {
         SASSERT(sign * vvr(m) < vvr(a) * vvr(b));
         add_empty_lemma();
@@ -2619,6 +2666,8 @@ struct solver::imp {
         mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
     }
 
+    // a < 0 & b < 0 => a < b
+
     void assert_abs_val_a_le_abs_var_b(
         const rooted_mon& a,
         const rooted_mon& b,
@@ -2788,6 +2837,19 @@ struct solver::imp {
         } while (i != ii);
     }
 
+#if 0
+    void monotonicity_lemma() {
+        auto const& vars = m_rm_table.m_to_refine 
+        unsigned sz = vars.size();
+        unsigned start = random();
+        for (unsigned j = 0; !done() && j < sz; ++j) {
+            unsigned i = (start + j) % sz;
+            monotonicity_lemma(*m_emons.var2monomial(vars[i]));
+        }
+    }
+
+#endif
+
     void monotonicity_lemma(unsigned i_mon) {
         const monomial & m = m_monomials[i_mon];
         SASSERT(!check_monomial(m));
@@ -2801,53 +2863,93 @@ struct solver::imp {
             monotonicity_lemma_gt(m, prod_val);
     }
 
-    // assert that |j| <= |j|  
+    // add |j| <= |vvr(j)|  
     void var_abs_val_le(lpvar j) {
         auto s = rational(rat_sign(vvr(j)));
         mk_ineq(s, j, llc::LT);
         mk_ineq(s, j, llc::GT, abs(vvr(j)));
     }
 
-    // assert that |j| >= |j|  
+    // assert that |j| >= |vvr(j)|
     void var_abs_val_ge(lpvar j) {
         auto s = rational(rat_sign(vvr(j)));
         mk_ineq(s, j, llc::LT);
         mk_ineq(s, j, llc::LT, abs(vvr(j)));
     }
-    /** \brief enforce that the |m| <= product |m[i]| .
-        For each i assert
-        sign(m[i])*m[i] < 0 or m[i] > |m[i]|,
-        and assert sign(m)*m < 0 or |m| <=  product |m[i]|
+
+
+    /**
+       \brief Add |v| ~ |bound|
+       where ~ is <, <=, >, >=, 
+       and bound = vvr(v)
+
+          |v| > |bound| 
+        <=> 
+          (v < 0 or v > |bound|) & (v > 0 or -v > |bound|)        
+        => Let s be the sign of vvr(v)
+          (s*v < 0 or s*v > |bound|)         
+
+          |v| < |bound|
+        <=>
+          v < |bound| & -v < |bound| 
+         => Let s be the sign of vvr(v)
+          s*v < |bound|
+
+     */
+
+    void add_abs_bound(lpvar v, llc cmp) {
+        add_abs_bound(v, cmp, vvr(v));
+    }
+
+    void add_abs_bound(lpvar v, llc cmp, rational const& bound) {
+        lp::lar_term t;  // t = abs(v)
+        t.add_coeff_var(rrat_sign(vvr(v)), v);
+
+        switch (cmp) {
+        case llc::GT:
+        case llc::GE:  // negate abs(v) >= 0
+            mk_ineq(t, llc::LT, rational(0));
+            break;
+        case llc::LT:
+        case llc::LE:
+            break;
+        default:
+            UNREACHABLE();
+            break;
+        }
+        mk_ineq(t, cmp, abs(bound));
+    }
+
+    /** \brief enforce the inequality |m| <= product |m[i]| .
+        by enforcing lemma:
+           /\_i |m[i]| <= |vvr(m[i])| => |m| <= |product_i vvr(m[i])|
+        <=>
+           \/_i |m[i]| > |vvr(m[i])} or |m| <= |product_i vvr(m[i])|
     */
+
     void monotonicity_lemma_gt(const monomial& m, const rational& prod_val) {
-        // the abs of the monomial is too large
-        SASSERT(prod_val.is_pos());
         add_empty_lemma();
         for (lpvar j : m) {
-            var_abs_val_le(j);
+            add_abs_bound(j, llc::GT);
         }
         lpvar m_j = m.var();
-        auto s = rational(rat_sign(vvr(m_j)));
-        mk_ineq(s, m_j, llc::LE, prod_val);
+        add_abs_bound(m_j, llc::LE, prod_val);
         TRACE("nla_solver", print_lemma(tout););
     }
     
-    /** \brief enforce that the |m| >= product |m[i]| .
-        For each i assert
-        sign(m[i])*m[i] < 0 or m[i] < |m[i]|,
-        and assert sign(m)*m < 0 or |m| >=  product |m[i]|
+    /** \brief enforce the inequality |m| >= product |m[i]| .
+
+           /\_i |m[i]| >= |vvr(m[i])| => |m| >= |product_i vvr(m[i])|
+        <=>
+           \/_i |m[i]| < |vvr(m[i])} or |m| >= |product_i vvr(m[i])|
     */
     void monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
-        // the abs of the monomial is too small
-        SASSERT(prod_val.is_pos());
         add_empty_lemma();
         for (lpvar j : m) {
-            var_abs_val_ge(j);
+            add_abs_bound(j, llc::LT);
         }
         lpvar m_j = m.var();
-        auto s = rational(rat_sign(vvr(m_j)));
-        mk_ineq(s, m_j, llc::LT);
-        mk_ineq(s, m_j, llc::GE, prod_val);
+        add_abs_bound(m_j, llc::GE, prod_val);
         TRACE("nla_solver", print_lemma(tout););
     }
     
@@ -3164,8 +3266,6 @@ struct solver::imp {
         TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemma_vec->size() << "\n";);
         IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
         CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
-        SASSERT(ret != l_false || no_lemmas_hold());
-        
         return ret;
     }
 
