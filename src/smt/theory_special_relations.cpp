@@ -97,9 +97,41 @@ namespace smt {
         return alloc(theory_special_relations, new_ctx->get_manager());
     }
 
+    /**
+       \brief for term := next(next(a,b),c) for relation f
+       assert f(term,c) or term != c
+       assert f(term,c) or term != next(a,b)
+       assert f(term,c) or term != b
+       assert f(term,c) or term != a
+     */
+    bool theory_special_relations::internalize_term(app * term) {
+        if (m_util.is_next(term)) {
+            return false;
+        }
+        mk_var(term);
+        context& ctx = get_context();
+        ast_manager& m = get_manager();
+        func_decl* f = to_func_decl(term->get_decl()->get_parameter(0).get_ast());
+        expr* src = term->get_arg(0);
+        expr* dst = term->get_arg(1);
+        expr_ref f_rel(m.mk_app(f, src, dst), m);
+        literal f_lit = ctx.get_literal(f_rel);
+        src = term;
+        while (m_util.is_next(src)) {
+            dst = to_app(src)->get_arg(1);
+            src = to_app(src)->get_arg(0);
+            ctx.mk_th_axiom(get_id(), f_lit, ~mk_eq(term, src, false));
+            ctx.mk_th_axiom(get_id(), f_lit, ~mk_eq(term, dst, false));
+        }
+        return true;
+    }
+
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
         SASSERT(m_util.is_special_relation(atm));
         relation* r = 0;
+        if (m_util.is_next(atm)) {
+            return internalize_term(atm);
+        }
         ast_manager& m = get_manager();
         if (!m_relations.find(atm->get_decl(), r)) {
             r = alloc(relation, m_util.get_property(atm), atm->get_decl());
@@ -267,28 +299,27 @@ namespace smt {
         // Ensure that  TC(R)xy -> Rxz1 Rz1z2 .. Rzky
         //
         // if not Rxy and no path in graph:
-        // Find z reachable from x and u that an creach y, such that not Ruz is not forced
-        //    introduce Ruy
-        // If no such element for infinite domains, then introduce z
-        //    Rxz & Rzy
-        // For finite domains extract conflict.
-        // TBD: 
-        // - infinite/large domain version is naive. 
-        //   It could be made fair by finding cut-points between x and y
-        //   quantified axioms could prevent 
+        // Introduce next(x,y), such that
+        // TC(R)(x,y) => R(x,y) or TR(R)(next(x,y),y) & R(x,next(x,y))
+        //
+        // next(x,y) is fresh unless R(x,y) is true:
+        // R(x,y) or x != next(x,y)
+        // R(x,y) or y != next(x,y)
         // 
         unsigned sz = r.m_asserted_atoms.size();
         for (unsigned i = 0; i < sz; ++i) {
             atom& a = *r.m_asserted_atoms[i];
             if (a.phase()) {
                 bool_var bv = a.var();
-                TRACE("special_relations", tout << bv << " is positive\n";);
                 expr* arg1 = get_expr(a.v1());
                 expr* arg2 = get_expr(a.v2());
 
                 // we need reachability in the R graph not R* graph
                 theory_var r1 = get_representative(a.v1());
                 theory_var r2 = get_representative(a.v2());
+                if (r.m_property == sr_trc && r1 == r2) {
+                    continue;
+                }
                 if (r_graph.can_reach(r1, r2)) {
                     TRACE("special_relations", 
                           tout << a.v1() << ": " << mk_pp(arg1, m) << " -> " 
@@ -307,7 +338,18 @@ namespace smt {
                     // whenever f(n1, n2) is asserted.
                     break;
                 case l_false: {
+                    //
+                    // Add the axioms:
+                    //  TC(R)(x,y) => R(x,y) or TC(R)(next(x,y),y) 
+                    //  TC(R)(x,y) => R(x,y) or R(x,next(x,y))
+                    // R(x,y) or next(x,y) != x
+                    // R(x,y) or next(x,y) != y, 
+                    // and recursively on all next subterms of x.
+                    // Add the literal R(next(x,y),y) - set case split preference to true.
+                    //
                     // TBD: perhaps replace by recursion unfolding similar to theory_rec_fun
+                    //
+                    
                     expr_ref next(m.mk_app(m_util.mk_next(f), arg1, arg2), m);
                     expr_ref a2next(m.mk_app(f, arg1, next), m);
                     expr_ref next2b(m.mk_app(tcf, next, arg2), m);
@@ -1072,6 +1114,10 @@ namespace smt {
         }
     }
 
+    bool theory_special_relations::has_quantifiers() {
+        return get_context().has_quantifiers();
+    }
+
     void theory_special_relations::init_model(model_generator & m) {
         for (auto const& kv : m_relations) {
             switch (kv.m_value->m_property) {
@@ -1088,8 +1134,16 @@ namespace smt {
                 init_model_po(*kv.m_value, m, true);
                 break;
             case sr_tc:
+                if (has_quantifiers()) {
+                    // model construction for transitive relation is reserved for quantified formulas where
+                    // TC(R) may be needed to perform MBQI
+                    init_model_po(*kv.m_value, m, true);
+                }
                 break;
             case sr_trc:
+                if (has_quantifiers()) {
+                    init_model_po(*kv.m_value, m, true);
+                }
                 break;
             default:
                 // other 28 combinations of 0x1F

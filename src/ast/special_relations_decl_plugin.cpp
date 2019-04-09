@@ -45,6 +45,9 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     if (!range) {
         range = m_manager->mk_bool_sort();
     }
+    if (!m_manager->is_bool(range) && k != OP_SPECIAL_RELATION_NEXT) {
+        m_manager->raise_exception("range type is expected to be Boolean for special relations");
+    }
     func_decl_info info(m_family_id, k, num_parameters, parameters);
     symbol name;
     switch(k) {
@@ -67,6 +70,8 @@ void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_name
         op_names.push_back(builtin_name(m_to.bare_str(), OP_SPECIAL_RELATION_TO));
         op_names.push_back(builtin_name(m_tc.bare_str(), OP_SPECIAL_RELATION_TC));
         op_names.push_back(builtin_name(m_trc.bare_str(), OP_SPECIAL_RELATION_TRC));
+        // next is an internal skolem function used for unfolding a relation R to satisfy a relation that
+        // is asserted for the transitive closure of R.
     }
 }
 

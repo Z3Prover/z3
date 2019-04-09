@@ -172,6 +172,7 @@ namespace smt {
 
         void collect_asserted_po_atoms(vector< std::pair<bool_var,bool> >& atoms) const;
         void display_atom(std::ostream & out, atom& a) const;
+        bool has_quantifiers();
 
     public:
         theory_special_relations(ast_manager& m);
@@ -179,7 +180,7 @@ namespace smt {
 
         theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app * atom, bool gate_ctx) override;
-        bool internalize_term(app * term) override { return false; }
+        bool internalize_term(app * term) override;
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         bool use_diseqs() const override { return false; }
