@@ -875,6 +875,18 @@ typedef enum
       - Z3_OP_PB_EQ: Generalized Pseudo-Boolean equality constraint.
               Example  2*x + 1*y + 2*z + 1*u = 4
 
+       - Z3_OP_SPECIAL_RELATION_LO: A relation that is a total linear order
+
+       - Z3_OP_SPECIAL_RELATION_PO: A relation that is a partial order
+
+       - Z3_OP_SPECIAL_RELATION_PLO: A relation that is a piecewise linear order
+
+       - Z3_OP_SPECIAL_RELATION_TO: A relation that is a tree order
+
+       - Z3_OP_SPECIAL_RELATION_TC: Transitive closure of a relation
+
+       - Z3_OP_SPECIAL_RELATION_TRC: Transitive reflexive closure of a relation
+
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN: Floating-point rounding mode RNE
 
       - Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY: Floating-point rounding mode RNA
@@ -1101,12 +1113,6 @@ typedef enum {
     Z3_OP_BUREM_I,
     Z3_OP_BSMOD_I,
 
-    // Special relations
-    Z3_OP_SPECIAL_RELATION_LO,
-    Z3_OP_SPECIAL_RELATION_PO,
-    Z3_OP_SPECIAL_RELATION_PLO,
-    Z3_OP_SPECIAL_RELATION_TO,
-
     // Proofs
     Z3_OP_PR_UNDEF = 0x500,
     Z3_OP_PR_TRUE,
@@ -1216,8 +1222,17 @@ typedef enum {
     Z3_OP_PB_GE,
     Z3_OP_PB_EQ,
 
+    // Special relations
+    Z3_OP_SPECIAL_RELATION_LO = 0xa000,
+    Z3_OP_SPECIAL_RELATION_PO,
+    Z3_OP_SPECIAL_RELATION_PLO,
+    Z3_OP_SPECIAL_RELATION_TO,
+    Z3_OP_SPECIAL_RELATION_TC,
+    Z3_OP_SPECIAL_RELATION_TRC,
+
+
     // Floating-Point Arithmetic
-    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN,
+    Z3_OP_FPA_RM_NEAREST_TIES_TO_EVEN = 0xb000,
     Z3_OP_FPA_RM_NEAREST_TIES_TO_AWAY,
     Z3_OP_FPA_RM_TOWARD_POSITIVE,
     Z3_OP_FPA_RM_TOWARD_NEGATIVE,
@@ -3642,6 +3657,20 @@ extern "C" {
        def_API('Z3_mk_tree_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_tree_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+
+    /**
+       \brief create transitive closure of binary relation.
+
+       def_API('Z3_mk_transitive_closure', FUNC_DECL ,(_in(CONTEXT), _in(FUNC_DECL)))
+     */
+    Z3_func_decl Z3_API Z3_mk_transitive_closure(Z3_context c,Z3_func_decl f);
+
+    /**
+       \brief create transitive reflexive closure of binary relation.
+
+       def_API('Z3_mk_transitive_reflexive_closure', FUNC_DECL ,(_in(CONTEXT), _in(FUNC_DECL)))
+     */
+    Z3_func_decl Z3_API Z3_mk_transitive_reflexive_closure(Z3_context c,Z3_func_decl f);
 
     /*@}*/
 

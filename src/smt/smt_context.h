@@ -301,6 +301,10 @@ namespace smt {
             return m_expr2bool_var[n->get_id()];
         }
 
+        bool_var get_bool_var(enode const * n) const {
+            return get_bool_var(n->get_owner());
+        }
+
         bool_var get_bool_var_of_id(unsigned id) const {
             return m_expr2bool_var[id];
         }

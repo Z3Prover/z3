@@ -130,6 +130,7 @@ namespace smt {
         unsigned_vector                m_atoms_lim;
         obj_map<func_decl, relation*>  m_relations;
         bool_var2atom                  m_bool_var2atom;
+        bool                           m_can_propagate;
         
 
         void del_atoms(unsigned old_size);
@@ -138,6 +139,8 @@ namespace smt {
         lbool final_check_lo(relation& r);
         lbool final_check_plo(relation& r);
         lbool final_check_to(relation& r);
+        lbool final_check_tc(relation& r);
+        lbool final_check_trc(relation& r);
         lbool propagate(relation& r);
         lbool enable(atom& a);
         bool  extract_equalities(relation& r);
@@ -145,6 +148,8 @@ namespace smt {
         void set_conflict(relation& r);
         lbool  propagate_plo(atom& a);
         lbool  propagate_po(atom& a); 
+        lbool  propagate_tc(atom& a); 
+        lbool  propagate_trc(atom& a); 
         theory_var mk_var(expr* e);
         void count_children(graph const& g, unsigned_vector& num_children);
         void ensure_strict(graph& g);
@@ -155,7 +160,7 @@ namespace smt {
         expr_ref mk_interval(relation& r, model_generator& mg, unsigned_vector & lo, unsigned_vector& hi);
         void init_model_lo(relation& r, model_generator& m);
         void init_model_to(relation& r, model_generator& m);
-        void init_model_po(relation& r, model_generator& m);
+        void init_model_po(relation& r, model_generator& m, bool is_reflexive);
         void init_model_plo(relation& r, model_generator& m);
         bool is_neighbour_edge(graph const& g, edge_id id) const;
         bool is_strict_neighbour_edge(graph const& g, edge_id id) const;
@@ -174,7 +179,7 @@ namespace smt {
 
         theory * mk_fresh(context * new_ctx) override;
         bool internalize_atom(app * atom, bool gate_ctx) override;
-        bool internalize_term(app * term) override { UNREACHABLE(); return false; }
+        bool internalize_term(app * term) override { return false; }
         void new_eq_eh(theory_var v1, theory_var v2) override;
         void new_diseq_eh(theory_var v1, theory_var v2) override {}
         bool use_diseqs() const override { return false; }
@@ -189,8 +194,8 @@ namespace smt {
         void collect_statistics(::statistics & st) const override;
         model_value_proc * mk_value(enode * n, model_generator & mg) override;
         void init_model(model_generator & m) override;
-        bool can_propagate() override { return false; }
-        void propagate() override {}
+        bool can_propagate() override { return m_can_propagate; }
+        void propagate() override;
         void display(std::ostream & out) const override;
    
     };

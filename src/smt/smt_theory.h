@@ -66,6 +66,13 @@ namespace smt {
             m_var2enode.push_back(n);
             return v;
         }
+
+        theory_var get_th_var(expr* e) const;
+
+        theory_var get_th_var(enode* n) const {
+            return n->get_th_var(get_id());
+        }
+
         
     public:
         /**
@@ -315,6 +322,10 @@ namespace smt {
         enode * get_enode(theory_var v) const {
             SASSERT(v < static_cast<int>(m_var2enode.size()));
             return m_var2enode[v];
+        }
+
+        app * get_expr(theory_var v) const {
+            return get_enode(v)->get_owner();
         }
 
         /**

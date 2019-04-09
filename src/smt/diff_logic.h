@@ -468,8 +468,9 @@ public:
     // That is init_var receives the id as an argument.
     void init_var(dl_var v) {
         TRACE("diff_logic_bug", tout << "init_var " << v << "\n";);
-        SASSERT(static_cast<unsigned>(v) >= m_out_edges.size() ||
-                m_out_edges[v].empty());
+        if (static_cast<unsigned>(v) < m_out_edges.size() && (!m_out_edges[v].empty() || !m_in_edges[v].empty())) {
+            return;
+        }
         SASSERT(check_invariant());
         while (static_cast<unsigned>(v) >= m_out_edges.size()) {
             m_assignment .push_back(numeral());
@@ -649,6 +650,10 @@ public:
     }
 
     bool can_reach(dl_var src, dl_var dst) {
+        if (static_cast<unsigned>(src) >= m_out_edges.size() ||
+            static_cast<unsigned>(dst) >= m_out_edges.size()) {
+            return false;
+        }            
         uint_set target, visited;
         target.insert(dst);
         return reachable(src, target, visited, dst);

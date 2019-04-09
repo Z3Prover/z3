@@ -27,47 +27,7 @@ Revision History:
 
 extern "C" {
 
-#if 0
-    bool Z3_API Z3_is_sr_lo(Z3_context c, Z3_ast s) {
-        Z3_TRY;
-        LOG_Z3_is_sr_lo(c, s);
-        RESET_ERROR_CODE();
-        RETURN_Z3(mk_c(c)->sr_util().is_lo( to_expr(s) ));
-        Z3_CATCH_RETURN(false);
-    }
 
-    bool Z3_API Z3_is_sr_po(Z3_context c, Z3_ast s) {
-        Z3_TRY;
-        LOG_Z3_is_sr_po(c, s);
-        RESET_ERROR_CODE();
-        RETURN_Z3(mk_c(c)->sr_util().is_po( to_expr(s) ));
-        Z3_CATCH_RETURN(false);
-    }
-
-    bool Z3_API Z3_is_sr_po_ao(Z3_context c, Z3_ast s) {
-        Z3_TRY;
-        LOG_Z3_is_sr_po_ao(c, s);
-        RESET_ERROR_CODE();
-        RETURN_Z3(mk_c(c)->sr_util().is_po_ao( to_expr(s) ));
-        Z3_CATCH_RETURN(false);
-    }
-
-    bool Z3_API Z3_is_sr_plo(Z3_context c, Z3_ast s) {
-        Z3_TRY;
-        LOG_Z3_is_sr_plo(c, s);
-        RESET_ERROR_CODE();
-        RETURN_Z3(mk_c(c)->sr_util().is_plo( to_expr(s) ));
-        Z3_CATCH_RETURN(false);
-    }
-
-    bool Z3_API Z3_is_sr_to(Z3_context c, Z3_ast s) {
-        Z3_TRY;
-        LOG_Z3_is_sr_to(c, s);
-        RESET_ERROR_CODE();
-        RETURN_Z3(mk_c(c)->sr_util().is_to( to_expr(s) ));
-        Z3_CATCH_RETURN(false);
-    }
-#endif
 #define MK_TERN(NAME, FID)                                              \
     Z3_ast Z3_API NAME(Z3_context c, unsigned index, Z3_ast a, Z3_ast b) { \
     LOG_ ##NAME(c, index, a, b);                                        \
@@ -85,4 +45,22 @@ extern "C" {
     MK_TERN(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
     MK_TERN(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
 
+
+#define MK_DECL(NAME, FID)                                      \
+    Z3_func_decl Z3_API NAME(Z3_context c,Z3_func_decl f) {     \
+    Z3_TRY;                                                     \
+    LOG_ ##NAME(c, f);                                          \
+    RESET_ERROR_CODE();                                         \
+    ast_manager & m = mk_c(c)->m();                             \
+    func_decl* _f      = to_func_decl(f);                       \
+    parameter param(_f);                                                \
+    sort* domain[2] = { _f->get_domain(0), _f->get_domain(1) };         \
+    func_decl * d = m.mk_func_decl(mk_c(c)->get_special_relations_fid(), FID, 1, &param, 2, domain); \
+    mk_c(c)->save_ast_trail(d);                                         \
+    RETURN_Z3(of_func_decl(d));                                         \
+    Z3_CATCH_RETURN(nullptr);                                           \
+}
+
+    MK_DECL(Z3_mk_transitive_closure, OP_SPECIAL_RELATION_TC);
+    MK_DECL(Z3_mk_transitive_reflexive_closure, OP_SPECIAL_RELATION_TRC);
 };

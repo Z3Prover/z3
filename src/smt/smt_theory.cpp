@@ -188,5 +188,9 @@ namespace smt {
         out.flush();
     }
 
+    theory_var theory::get_th_var(expr* e) const {
+        return get_th_var(get_context().get_enode(e));
+    }
+
 };
 

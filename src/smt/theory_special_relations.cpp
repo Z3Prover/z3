@@ -85,7 +85,8 @@ namespace smt {
 
     theory_special_relations::theory_special_relations(ast_manager& m):
         theory(m.mk_family_id("special_relations")),
-        m_util(m) {
+        m_util(m),
+        m_can_propagate(false) {
     }
 
     theory_special_relations::~theory_special_relations() {
@@ -99,6 +100,7 @@ namespace smt {
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
         SASSERT(m_util.is_special_relation(atm));
         relation* r = 0;
+        ast_manager& m = get_manager();
         if (!m_relations.find(atm->get_decl(), r)) {
             r = alloc(relation, m_util.get_property(atm), atm->get_decl());
             m_relations.insert(atm->get_decl(), r);
@@ -113,7 +115,7 @@ namespace smt {
         ctx.set_var_theory(v, get_id());
         atom* a = alloc(atom, v, *r, v0, v1);
         m_atoms.push_back(a);
-        TRACE("special_relations", tout << mk_pp(atm, get_manager()) << " : bv" << v << " v" << a->v1() << " v" << a->v2() << ' ' << gate_ctx << "\n";);
+        TRACE("special_relations", tout << mk_pp(atm, m) << " : bv" << v << " v" << a->v1() << " v" << a->v2() << ' ' << gate_ctx << "\n";);
         m_bool_var2atom.insert(v, a);
         return true;
     }
@@ -127,14 +129,15 @@ namespace smt {
         theory_var v = n->get_th_var(get_id());
         if (null_theory_var == v) {
             v = theory::mk_var(n);
+            TRACE("special_relations", tout << "v" << v << " := " << mk_pp(e, get_manager()) << "\n";);
             ctx.attach_th_var(n, this, v);
         }
         return v;
     }
 
     void theory_special_relations::new_eq_eh(theory_var v1, theory_var v2) {
-        app* t1 = get_enode(v1)->get_owner();
-        app* t2 = get_enode(v2)->get_owner();
+        app* t1 = get_expr(v1);
+        app* t2 = get_expr(v2);
         literal eq = mk_eq(t1, t2, false);
         for (auto const& kv : m_relations) {
             relation& r = *kv.m_value;
@@ -162,7 +165,6 @@ namespace smt {
         for (auto const& kv : m_relations) {
             if (extract_equalities(*kv.m_value)) {
                 new_equality = true;
-                //return FC_CONTINUE;
             }
             if (get_context().inconsistent()) {
                 return FC_CONTINUE;
@@ -222,6 +224,137 @@ namespace smt {
             }
         }
         return res;
+    }
+
+
+    lbool theory_special_relations::final_check_tc(relation& r) {
+        //
+        // Ensure that Rxy -> TC(R)xy
+        //
+        func_decl* tcf = r.decl();
+        func_decl* f = to_func_decl(tcf->get_parameter(0).get_ast());
+        context& ctx = get_context();
+        ast_manager& m = get_manager();
+        bool new_assertion = false;
+        graph r_graph;
+        for (enode* n : ctx.enodes_of(f)) {
+            literal lit = ctx.enode2literal(n);
+            if (l_true == ctx.get_assignment(lit)) {
+                expr* e = ctx.bool_var2expr(lit.var());
+                expr* arg1 = to_app(e)->get_arg(0);
+                expr* arg2 = to_app(e)->get_arg(1);
+                expr_ref tc_app(m.mk_app(tcf, arg1, arg2), m);
+                enode* tcn = ensure_enode(tc_app);
+                if (ctx.get_assignment(tcn) != l_true) {
+                    literal consequent = ctx.get_literal(tc_app);
+                    justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), 1, &lit, consequent));
+                    TRACE("special_relations", tout << "propagate: " << tc_app << "\n";);
+                    ctx.assign(consequent, j);
+                    new_assertion = true;
+                }
+                else {
+                    theory_var v1 = get_representative(get_th_var(arg1));
+                    theory_var v2 = get_representative(get_th_var(arg2));
+                    r_graph.init_var(v1);
+                    r_graph.init_var(v2);
+                    literal_vector ls;
+                    r_graph.enable_edge(r_graph.add_edge(v1, v2, s_integer(0), ls));
+                }
+            }
+        }
+
+        //
+        // Ensure that  TC(R)xy -> Rxz1 Rz1z2 .. Rzky
+        //
+        // if not Rxy and no path in graph:
+        // Find z reachable from x and u that an creach y, such that not Ruz is not forced
+        //    introduce Ruy
+        // If no such element for infinite domains, then introduce z
+        //    Rxz & Rzy
+        // For finite domains extract conflict.
+        // TBD: 
+        // - infinite/large domain version is naive. 
+        //   It could be made fair by finding cut-points between x and y
+        //   quantified axioms could prevent 
+        // 
+        unsigned sz = r.m_asserted_atoms.size();
+        for (unsigned i = 0; i < sz; ++i) {
+            atom& a = *r.m_asserted_atoms[i];
+            if (a.phase()) {
+                bool_var bv = a.var();
+                TRACE("special_relations", tout << bv << " is positive\n";);
+                expr* arg1 = get_expr(a.v1());
+                expr* arg2 = get_expr(a.v2());
+
+                // we need reachability in the R graph not R* graph
+                theory_var r1 = get_representative(a.v1());
+                theory_var r2 = get_representative(a.v2());
+                if (r_graph.can_reach(r1, r2)) {
+                    TRACE("special_relations", 
+                          tout << a.v1() << ": " << mk_pp(arg1, m) << " -> " 
+                          << a.v2() << ": " << mk_pp(arg2, m) << " is positive reachable\n";
+                          r.m_graph.display(tout);
+                          );
+                    continue;
+                }
+                expr_ref f_app(m.mk_app(f, arg1, arg2), m);                
+                enode* fn = ensure_enode(f_app);
+                literal f_lit = ctx.get_literal(f_app);
+                switch (ctx.get_assignment(f_lit)) {
+                case l_true:
+                    UNREACHABLE(); 
+                    // it should already be the case that v1 and reach v2 in the graph.
+                    // whenever f(n1, n2) is asserted.
+                    break;
+                case l_false: {
+                    // TBD: perhaps replace by recursion unfolding similar to theory_rec_fun
+                    expr_ref next(m.mk_app(m_util.mk_next(f), arg1, arg2), m);
+                    expr_ref a2next(m.mk_app(f, arg1, next), m);
+                    expr_ref next2b(m.mk_app(tcf, next, arg2), m);
+                    expr_ref next_b(m.mk_app(f, next, arg2), m);
+                    ensure_enode(a2next);
+                    ensure_enode(next2b);
+                    ensure_enode(next_b);
+                    literal next2b_l = ctx.get_literal(next2b);
+                    literal a2next_l = ctx.get_literal(a2next);
+                    if (ctx.get_assignment(next2b_l) == l_true && ctx.get_assignment(a2next_l) == l_true) {
+                        break;
+                    }
+                    ctx.mk_th_axiom(get_id(), ~literal(bv), f_lit, a2next_l);
+                    ctx.mk_th_axiom(get_id(), ~literal(bv), f_lit, next2b_l);
+                    expr* nxt = next;
+                    while (m_util.is_next(nxt)) {
+                        expr* left  = to_app(nxt)->get_arg(0);
+                        expr* right = to_app(nxt)->get_arg(1);
+                        ctx.assign(~mk_eq(next, left,  false), nullptr);
+                        ctx.assign(~mk_eq(next, right, false), nullptr);
+                        nxt = left;
+                    }
+                    ctx.set_true_first_flag(ctx.get_literal(next_b).var());
+                    new_assertion = true;
+                    break;
+                }
+                case l_undef:
+                    ctx.set_true_first_flag(bv);
+                    TRACE("special_relations", tout << f_app << " is undefined\n";);
+                    new_assertion = true;
+                    break;
+                }
+            }
+        }
+        if (new_assertion) {
+            TRACE("special_relations", tout << "new assertion\n";);
+            return l_false;
+        }
+        return final_check_po(r);
+    }
+
+    lbool theory_special_relations::final_check_trc(relation& r) {
+        //
+        // reflexivity is enforced from propagation.
+        // enforce transitivity.
+        //
+        return final_check_tc(r);
     }
 
     lbool theory_special_relations::final_check_to(relation& r) {
@@ -310,15 +443,29 @@ namespace smt {
         case sr_to:
             res = final_check_to(r);
             break;
+        case sr_tc:
+            res = final_check_tc(r);
+            break;
+        case sr_trc:
+            res = final_check_trc(r);
+            break;
         default:
             UNREACHABLE();
             res = l_undef;
+            break;
         }
-        TRACE("special_relations", r.display(*this, tout););
+        TRACE("special_relations", r.display(*this, tout << res << "\n"););
         return res;
     }
 
     bool theory_special_relations::extract_equalities(relation& r) {
+        switch (r.m_property) {
+        case sr_tc:
+        case sr_trc:
+            return false;
+        default:
+            break;
+        }
         bool new_eq = false;
         int_vector scc_id;
         u_map<unsigned> roots;
@@ -374,12 +521,45 @@ namespace smt {
     
     lbool theory_special_relations::propagate_po(atom& a) {
         lbool res = l_true;
-        relation& r = a.get_relation();
         if (a.phase()) {
+            relation& r = a.get_relation();
             r.m_uf.merge(a.v1(), a.v2());
             res = enable(a);
         }
         return res;
+    }
+
+    /**
+       \brief ensure that reflexivity is enforce for Transitive Reflexive closures 
+          !TRC(R)xy => x != y
+     */
+    lbool theory_special_relations::propagate_trc(atom& a) {
+        lbool res = l_true;
+        if (a.phase()) {
+            VERIFY(a.enable());
+            relation& r = a.get_relation();
+            r.m_uf.merge(a.v1(), a.v2());
+        }
+        else {
+            literal lit(a.var(), true);
+            context& ctx = get_context();
+            expr* arg1 = get_expr(a.v1());
+            expr* arg2 = get_expr(a.v2());
+            literal consequent = ~mk_eq(arg1, arg2, false);
+            justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), 1, &lit, consequent));
+            ctx.assign(consequent, j);
+            res = l_false;
+        }
+        return res;
+    }
+
+    lbool theory_special_relations::propagate_tc(atom& a) {
+        if (a.phase()) {
+            VERIFY(a.enable());
+            relation& r = a.get_relation();
+            r.m_uf.merge(a.v1(), a.v2());
+        }
+        return l_true;
     }
 
     lbool theory_special_relations::final_check_po(relation& r) {
@@ -392,6 +572,7 @@ namespace smt {
                 unsigned timestamp = r.m_graph.get_timestamp();
                 bool found_path = r.m_graph.find_shortest_reachable_path(a.v1(), a.v2(), timestamp, r);
                 if (found_path) {
+                    TRACE("special_relations", tout << "check po conflict\n";);
                     r.m_explanation.push_back(a.explanation());
                     set_conflict(r);
                     return l_false;
@@ -399,6 +580,15 @@ namespace smt {
             }
         }
         return l_true;
+    }
+
+    void theory_special_relations::propagate() {
+        if (m_can_propagate) {
+            for (auto const& kv : m_relations) {
+                propagate(*kv.m_value);
+            }
+            m_can_propagate = false;
+        }
     }
 
     lbool theory_special_relations::propagate(relation& r) {
@@ -414,6 +604,12 @@ namespace smt {
                 break;
             case sr_po:
                 res = propagate_po(a);
+                break;
+            case sr_tc:
+                res = propagate_trc(a);
+                break;
+            case sr_trc:
+                res = propagate_tc(a);
                 break;
             default:
                 if (a.phase()) {
@@ -439,9 +635,11 @@ namespace smt {
         atom* a = m_bool_var2atom[v];
         a->set_phase(is_true);
         a->get_relation().m_asserted_atoms.push_back(a);
+        m_can_propagate = true;
     }
 
     void theory_special_relations::push_scope_eh() {
+        theory::push_scope_eh();
         for (auto const& kv : m_relations) {
             kv.m_value->push();
         }
@@ -455,6 +653,7 @@ namespace smt {
         unsigned new_lvl = m_atoms_lim.size() - num_scopes;
         del_atoms(m_atoms_lim[new_lvl]);
         m_atoms_lim.shrink(new_lvl);
+        theory::pop_scope_eh(num_scopes);
     }
 
     void theory_special_relations::del_atoms(unsigned old_size) {
@@ -562,7 +761,7 @@ namespace smt {
         func_interp* fi = alloc(func_interp, m, 1);
         for (unsigned i = 0; i < sz; ++i) {
             s_integer val = r.m_graph.get_assignment(i);
-            expr* arg = get_enode(i)->get_owner();
+            expr* arg = get_expr(i);
             fi->insert_new_entry(&arg, arith.mk_numeral(val.to_rational(), true));
         }
         TRACE("special_relations", r.m_graph.display(tout););
@@ -584,7 +783,7 @@ namespace smt {
         unsigned sz = r.m_graph.get_num_nodes();
         for (unsigned i = 0; i < sz; ++i) {
             unsigned val = r.m_uf.find(i);
-            expr* arg = get_enode(i)->get_owner();
+            expr* arg = get_expr(i);
             fi->insert_new_entry(&arg, arith.mk_numeral(rational(val), true));
         }
         fi->set_else(arith.mk_numeral(rational(0), true));
@@ -606,7 +805,7 @@ namespace smt {
         hifn = m.mk_fresh_func_decl("hi", 1, ty, arith.mk_int());
         unsigned sz = g.get_num_nodes();
         for (unsigned i = 0; i < sz; ++i) {
-            expr* arg = get_enode(i)->get_owner();
+            expr* arg = get_expr(i);
             lofi->insert_new_entry(&arg, arith.mk_numeral(rational(lo[i]), true));
             hifi->insert_new_entry(&arg, arith.mk_numeral(rational(hi[i]), true));
         }
@@ -655,7 +854,7 @@ namespace smt {
      */
 
 
-    void theory_special_relations::init_model_po(relation& r, model_generator& mg) {
+    void theory_special_relations::init_model_po(relation& r, model_generator& mg, bool is_reflexive) {
         ast_manager& m = get_manager();
         sort* s = r.m_decl->get_domain(0);
         datatype_util dt(m);
@@ -735,6 +934,7 @@ namespace smt {
             connected_rec_body = m.mk_ite(m.mk_app(snd, Sr), ST, Sc);
         }
         var* vars3[3] = { xV, yV, SV };
+		IF_VERBOSE(0, verbose_stream() << connected_rec_body << "\n");
         p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
 
         // r.m_decl(x,y) -> snd(connected2(x,y,nil))
@@ -743,7 +943,11 @@ namespace smt {
         x = xV, y = yV;
 
         func_interp* fi = alloc(func_interp, m, 2);
-        fi->set_else(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_app(cons, x, m.mk_const(nil)))));
+        expr_ref pred(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_app(cons, y, m.mk_const(nil)))), m);
+        if (is_reflexive) {
+            pred = m.mk_or(pred, m.mk_eq(x, y));
+        }
+        fi->set_else(pred);
         mg.get_model().register_decl(r.decl(), fi);
         
     }
@@ -881,7 +1085,11 @@ namespace smt {
                 init_model_to(*kv.m_value, m);
                 break;
             case sr_po:
-                init_model_po(*kv.m_value, m);
+                init_model_po(*kv.m_value, m, true);
+                break;
+            case sr_tc:
+                break;
+            case sr_trc:
                 break;
             default:
                 // other 28 combinations of 0x1F
