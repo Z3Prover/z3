@@ -459,6 +459,8 @@ namespace datatype {
                 func_decl_ref f = c->instantiate(new_sort);
                 const unsigned num_args = f->get_arity();
                 if (num_args == 0) continue;
+
+                // log constructor with quantified variables as arguments
                 for (unsigned i = 0; i < num_args; ++i) {
                     m_manager->trace_stream() << "[mk-var] " << family_name << "#" << m_id_counter << " " << i << "\n";
                     ++m_id_counter;
@@ -470,6 +472,8 @@ namespace datatype {
                 }
                 m_manager->trace_stream() << "\n";
                 ++m_id_counter;
+
+                // axioms for all accessors are generated when a constructor is applied => use constructor as pattern
                 m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " pattern " << family_name << "#" << constructor_id << "\n";
                 ++m_id_counter;
                 m_axiom_bases.insert(f->get_name(), constructor_id + 4);
@@ -478,6 +482,8 @@ namespace datatype {
                     var_sorts << " (;" << a->range()->get_name() << ")";
                 }
                 std::string var_description = var_sorts.str();
+
+                // create axioms: the ith accessor returns the ith argument of the constructor
                 unsigned i = 0;
                 for (accessor const* a : *c) {
                     func_decl_ref acc = a->instantiate(new_sort);
