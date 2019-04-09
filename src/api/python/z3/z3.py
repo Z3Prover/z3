@@ -10379,10 +10379,16 @@ def Range(lo, hi, ctx = None):
 
 # Special Relations
 
-def PartialOrder(n, s):
-    ctx = s.ctx
-    return FuncDeclRef(Z3_mk_partial_order(ctx, n, s.ast), ctx)
+def TransitiveClosure(f):
+    """Given a binary relation R, such that the two arguments have the same sort
+    create the transitive closure relation R+.
+    The transitive closure R+ is a new relation.
+    """
+    return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
-def TreeOrder(n, s):
-    ctx = s.ctx
-    return FuncDeclRef(Z3_mk_tree_order(ctx, n, s.ast), ctx)
+def TransitiveReflexiveClosure(f):
+    """Given a binary relation R, such that the two arguments have the same sort
+    create the transitive reflexive closure relation R*.
+    The transitive reflexive closure R* is a new relation.
+    """
+    return FuncDeclRef(Z3_mk_transitive_reflexive_closure(f.ctx_ref(), f.ast), f.ctx)

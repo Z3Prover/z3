@@ -3661,16 +3661,24 @@ extern "C" {
     /**
        \brief create transitive closure of binary relation.
 
+       \pre f is a binary relation, such that the two arguments have the same sorts.
+
+       The resulting relation f+ represents the transitive closure of f.
+
        def_API('Z3_mk_transitive_closure', FUNC_DECL ,(_in(CONTEXT), _in(FUNC_DECL)))
      */
-    Z3_func_decl Z3_API Z3_mk_transitive_closure(Z3_context c,Z3_func_decl f);
+    Z3_func_decl Z3_API Z3_mk_transitive_closure(Z3_context c, Z3_func_decl f);
 
     /**
        \brief create transitive reflexive closure of binary relation.
 
+       \pre f is a binary relation, such that the two arguments have the same sorts.
+
+       The resulting relation f* represents the transitive-reflexive closure of f.
+
        def_API('Z3_mk_transitive_reflexive_closure', FUNC_DECL ,(_in(CONTEXT), _in(FUNC_DECL)))
      */
-    Z3_func_decl Z3_API Z3_mk_transitive_reflexive_closure(Z3_context c,Z3_func_decl f);
+    Z3_func_decl Z3_API Z3_mk_transitive_reflexive_closure(Z3_context c, Z3_func_decl f);
 
     /*@}*/
 
