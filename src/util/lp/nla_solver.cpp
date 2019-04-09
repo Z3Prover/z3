@@ -1856,7 +1856,7 @@ struct solver::imp {
                 add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
             }
         }
-        collect_equivs_of_fixed_vars();
+        // collect_equivs_of_fixed_vars();
     }
 
     void collect_equivs_of_fixed_vars() {
