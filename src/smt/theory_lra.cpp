@@ -2089,31 +2089,31 @@ public:
 
     nla::lemma m_lemma;
  
-    lp::lar_term mk_term(nla::polynomial const& poly) {
-        lp::lar_term term;
-        for (auto const& mon : poly) {
-            SASSERT(!mon.empty());
-            if (mon.size() == 1) {
-                term.add_var(mon[0]);
-            }
-            else {
-                // create the expression corresponding to the product.
-                // internalize it.
-                // extract the theory var representing the product.
-                // convert the theory var back to lpvar
-                expr_ref_vector mul(m);
-                for (lpvar v : mon) {
-                    theory_var w = lp().local_to_external(v);
-                    mul.push_back(get_enode(w)->get_owner());
-                }
-                app_ref t(a.mk_mul(mul.size(), mul.c_ptr()), m);
-                VERIFY(internalize_term(t));
-                theory_var w = ctx().get_enode(t)->get_th_var(get_id());
-                term.add_var(lp().external_to_local(w));
-            }
-        }
-        return term;
-    }
+    // lp::lar_term mk_term(nla::polynomial const& poly) {
+    //     lp::lar_term term;
+    //     for (auto const& mon : poly) {
+    //         SASSERT(!mon.empty());
+    //         if (mon.size() == 1) {
+    //             term.add_var(mon[0]);
+    //         }
+    //         else {
+    //             // create the expression corresponding to the product.
+    //             // internalize it.
+    //             // extract the theory var representing the product.
+    //             // convert the theory var back to lpvar
+    //             expr_ref_vector mul(m);
+    //             for (lpvar v : mon) {
+    //                 theory_var w = lp().local_to_external(v);
+    //                 mul.push_back(get_enode(w)->get_owner());
+    //             }
+    //             app_ref t(a.mk_mul(mul.size(), mul.c_ptr()), m);
+    //             VERIFY(internalize_term(t));
+    //             theory_var w = ctx().get_enode(t)->get_th_var(get_id());
+    //             term.add_var(lp().external_to_local(w));
+    //         }
+    //     }
+    //     return term;
+    // }
 
     void false_case_of_check_nla() {
         literal_vector core;
