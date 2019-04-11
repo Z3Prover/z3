@@ -23,6 +23,7 @@ z3_add_component(lp
     lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
+    nla_core.cpp
     nla_solver.cpp
     nra_solver.cpp
     permutation_matrix.cpp
