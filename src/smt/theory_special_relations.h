@@ -175,7 +175,7 @@ namespace smt {
 
         literal mk_literal(expr* _e);
         enode* ensure_enode(expr* e);
-        theory_var mk_var(enode* n);
+        theory_var mk_var(enode* n) override;
 
         void collect_asserted_po_atoms(vector< std::pair<bool_var,bool> >& atoms) const;
         void display_atom(std::ostream & out, atom& a) const;

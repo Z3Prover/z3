@@ -336,7 +336,7 @@ namespace smt {
                     continue;
                 }
                 expr_ref f_app(m.mk_app(f, arg1, arg2), m);                
-                enode* fn = ensure_enode(f_app);
+                ensure_enode(f_app);
                 literal f_lit = ctx.get_literal(f_app);
                 switch (ctx.get_assignment(f_lit)) {
                 case l_true:
@@ -984,7 +984,7 @@ Take 2:
             expr* A = AV, *dst = dstV, *S = SV;
             expr_ref connected_body(m);
 
-            connected_body = m.mk_app(pair, nilc, S);
+            connected_body = m.mk_app(pair, nilc.get(), S);
 
             for (atom* ap : r.m_asserted_atoms) {
                 atom& a = *ap;
@@ -996,8 +996,8 @@ Take 2:
                 expr* args[5] = { x, y, A, S, cb };
                 connected_body = m.mk_app(nextf, 5, args);
             }
-            expr_ref Ap(m.mk_app(fst, connected_body), m);
-            expr_ref Sp(m.mk_app(snd, connected_body), m);
+            expr_ref Ap(m.mk_app(fst, connected_body.get()), m);
+            expr_ref Sp(m.mk_app(snd, connected_body.get()), m);
 
             connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
                                       m.mk_ite(m.mk_app(memf, dst, Ap), T,
