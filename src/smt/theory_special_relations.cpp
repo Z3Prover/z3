@@ -893,6 +893,16 @@ namespace smt {
            let (S, c) = connected1(x, y, u, w, S) 
            if c then (S, true) else connected2(x, y, S, edges) 
           
+
+Take 2:
+       connected(A, dst, S) = 
+               if A = nil then false else
+               if member(dst, A) then true else
+               let (A',S') = next1(a1, b1, A, next1(a2, b2, A, ... S, (nil, nil)))
+               connected(A', dst, S')
+
+       next1(a, b, A, S, (A',S')) = 
+              if member(a, A) and not member(b, S) then (cons(b, A'), cons(b, S')) else (A',S')
      */
 
 
@@ -905,40 +915,117 @@ namespace smt {
         func_decl_ref nil(m), is_nil(m), cons(m), is_cons(m), hd(m), tl(m);        
         sort_ref listS(dt.mk_list_datatype(s, symbol("List"), cons, is_cons, hd, tl, nil, is_nil), m);
         func_decl_ref fst(m), snd(m), pair(m);
+
+        expr* T = m.mk_true();
+        expr* F = m.mk_false();
+
+        func_decl* memf, *nextf, *connectedf;
+
+        {
+            sort* dom[2] = { s, listS };
+            recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom, m.mk_bool_sort());
+            memf = mem.get_def()->get_decl();
+            
+            var_ref xV(m.mk_var(1, s), m);
+            var_ref SV(m.mk_var(0, listS), m);
+            var_ref yV(m), vV(m), wV(m);
+            
+            expr* x = xV, *S = SV;
+            expr_ref mem_body(m);
+            mem_body = m.mk_ite(m.mk_app(is_nil, S), 
+                                F,
+                                m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
+                                         T,
+                                         m.mk_app(memf, x, m.mk_app(tl, S))));            
+            recfun_replace rep(m);
+            var* vars[2] = { xV, SV };
+            p.set_definition(rep, mem, 2, vars, mem_body);
+        }
+        
+
+#if 1
+        sort_ref tup(dt.mk_pair_datatype(listS, listS, fst, snd, pair), m);
+
+        {
+            sort* dom[5] = { s, s, listS, listS, tup };
+            recfun::promise_def nxt = p.ensure_def(symbol("next"), 5, dom, tup);
+            nextf = nxt.get_def()->get_decl();
+            
+            expr_ref next_body(m);
+            var_ref aV(m.mk_var(4, s), m);
+            var_ref bV(m.mk_var(3, s), m);
+            var_ref AV(m.mk_var(2, listS), m);
+            var_ref SV(m.mk_var(1, listS), m);
+            var_ref tupV(m.mk_var(0, tup), m);
+            expr* a = aV, *b = bV, *A = AV, *S = SV, *t = tupV;
+            next_body = m.mk_ite(m.mk_and(m.mk_app(memf, a, A), m.mk_not(m.mk_app(memf, b, S))), 
+                                 m.mk_app(pair, m.mk_app(cons, b, m.mk_app(fst, t)), m.mk_app(cons, b, m.mk_app(snd, t))),
+                                 t);
+
+            recfun_replace rep(m);
+            var* vars[5] = { aV, bV, AV, SV, tupV };
+            p.set_definition(rep, nxt, 5, vars, next_body);
+        }
+
+        {
+            sort* dom[3] = { listS, s, listS };
+            recfun::promise_def connected = p.ensure_def(symbol("connected"), 3, dom, m.mk_bool_sort());
+            connectedf = connected.get_def()->get_decl();
+            var_ref AV(m.mk_var(2, listS), m);
+            var_ref dstV(m.mk_var(1, s), m);
+            var_ref SV(m.mk_var(0, listS), m);
+            expr* A = AV, *dst = dstV, *S = SV;
+            expr_ref connected_body(m);
+
+            connected_body = m.mk_app(pair, m.mk_const(nil), m.mk_const(nil));
+
+            for (atom* ap : r.m_asserted_atoms) {
+                atom& a = *ap;
+                if (!a.phase()) continue;
+                SASSERT(get_context().get_assignment(a.var()) == l_true);
+                expr* x = get_enode(a.v1())->get_root()->get_owner();
+                expr* y = get_enode(a.v2())->get_root()->get_owner();
+                expr* cb = connected_body;
+                expr* args[5] = { x, y, A, S, cb };
+                connected_body = m.mk_app(nextf, 5, args);
+            }
+            
+            recfun_replace rep(m);
+            var* vars[3] = { AV, dstV, SV };
+            p.set_definition(rep, connected, 3, vars, connected_body);            
+        }
+
+        {
+            var_ref xV(m.mk_var(0, s), m);
+            var_ref yV(m.mk_var(1, s), m);
+            expr* x = xV, *y = yV;
+            
+            func_interp* fi = alloc(func_interp, m, 2);
+            expr_ref pred(m.mk_app(connectedf, m.mk_app(cons, x, m.mk_const(nil)), y, m.mk_const(nil)), m);
+            if (is_reflexive) {
+                pred = m.mk_or(pred, m.mk_eq(x, y));
+            }
+            fi->set_else(pred);
+            mg.get_model().register_decl(r.decl(), fi);
+        }
+
+#else
         sort_ref tup(dt.mk_pair_datatype(listS, m.mk_bool_sort(), fst, snd, pair), m);
         sort* dom1[5] = { s, s, listS, s, s };
         recfun::promise_def c1 = p.ensure_def(symbol("connected1"), 5, dom1, tup);
         sort* dom2[3] = { s, s, listS };
         recfun::promise_def c2 = p.ensure_def(symbol("connected2"), 3, dom2, tup);
-        sort* dom3[2] = { s, listS };
-        recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom3, m.mk_bool_sort());
-        var_ref xV(m.mk_var(1, s), m);
-        var_ref SV(m.mk_var(0, listS), m);
-        var_ref yV(m), vV(m), wV(m);
 
-        expr* x = xV, *S = SV;
-        expr* T = m.mk_true();
-        expr* F = m.mk_false();
-        func_decl* memf = mem.get_def()->get_decl();
         func_decl* conn1 = c1.get_def()->get_decl();
         func_decl* conn2 = c2.get_def()->get_decl();
-        expr_ref mem_body(m);
-        mem_body = m.mk_ite(m.mk_app(is_nil, S), 
-                            F,
-                            m.mk_ite(m.mk_eq(m.mk_app(hd, S), x), 
-                                     T,
-                                     m.mk_app(memf, x, m.mk_app(tl, S))));
-        recfun_replace rep(m);
-        var* vars[2] = { xV, SV };
-        p.set_definition(rep, mem, 2, vars, mem_body);
-
-        xV = m.mk_var(4, s);
-        yV = m.mk_var(3, s);
-        SV = m.mk_var(2, listS);
-        vV = m.mk_var(1, s);
-        wV = m.mk_var(0, s);
+        
+        var_ref xV(m.mk_var(4, s), m);
+        var_ref yV(m.mk_var(3, s), m);
+        var_ref SV(m.mk_var(2, listS), m);
+        var_ref vV(m.mk_var(1, s), m);
+        var_ref wV(m.mk_var(0, s), m);
         expr* y = yV, *v = vV, *w = wV;
-        x = xV, S = SV;
+        expr* x = xV, *S = SV;
 
         expr_ref ST(m.mk_app(pair, S, T), m);
         expr_ref SF(m.mk_app(pair, S, F), m);
@@ -952,8 +1039,11 @@ namespace smt {
                               m.mk_ite(m.mk_app(memf, w, S), 
                                        SF,
                                        m.mk_app(conn2, w, y, m.mk_app(cons, w, S)))));
-        var* vars2[5] = { xV, yV, SV, vV, wV };
-        p.set_definition(rep, c1, 5, vars2, connected_body);
+        {
+            var* vars2[5] = { xV, yV, SV, vV, wV };
+            recfun_replace rep(m);
+            p.set_definition(rep, c1, 5, vars2, connected_body);
+        }
 
         xV = m.mk_var(2, s);
         yV = m.mk_var(1, s);
@@ -975,9 +1065,11 @@ namespace smt {
             expr* Sc = m.mk_app(conn1, 5, args);            
             connected_rec_body = m.mk_ite(m.mk_app(snd, Sr), ST, Sc);
         }
-        var* vars3[3] = { xV, yV, SV };
-		IF_VERBOSE(0, verbose_stream() << connected_rec_body << "\n");
-        p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
+        {
+            var* vars3[3] = { xV, yV, SV };
+            recfun_replace rep(m);
+            p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
+        }
 
         // r.m_decl(x,y) -> snd(connected2(x,y,nil))
         xV = m.mk_var(0, s);
@@ -991,6 +1083,8 @@ namespace smt {
         }
         fi->set_else(pred);
         mg.get_model().register_decl(r.decl(), fi);
+
+#endif
         
     }
 
