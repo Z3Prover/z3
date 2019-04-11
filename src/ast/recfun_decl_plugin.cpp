@@ -238,6 +238,7 @@ namespace recfun {
                 while (! stack.empty()) {
                     expr * e = stack.back();
                     stack.pop_back();
+                    TRACEFN("unfold: " << mk_pp(e, m));
 
                     if (m.is_ite(e)) {
                         // need to do a case split on `e`, forking the search space
@@ -257,6 +258,7 @@ namespace recfun {
             if (b.to_split != nullptr) {
                 // split one `ite`, which will lead to distinct (sets of) cases
                 app * ite = b.to_split->ite;
+                TRACEFN("split: " << mk_pp(ite, m));
                 expr* c = nullptr, *th = nullptr, *el = nullptr;
                 VERIFY(m.is_ite(ite, c, th, el));
 
@@ -287,6 +289,7 @@ namespace recfun {
                 
                 // substitute, to get rid of `ite` terms
                 expr_ref case_rhs = subst(rhs);
+                TRACEFN("case_rhs: " << case_rhs);
                 for (unsigned i = 0; i < conditions.size(); ++i) {
                     conditions[i] = subst(conditions.get(i));
                 }
