@@ -432,12 +432,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
 #endif
             else {
-                if (m.is_ite(f)) {
-                    new_t = m.mk_app(f, args.size(), args.c_ptr());
-                }
-                else {
-                    new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());
-                }
+                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());                
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
