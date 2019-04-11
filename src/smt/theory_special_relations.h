@@ -92,6 +92,8 @@ namespace smt {
         typedef union_find<union_find_default_ctx> union_find_t;
 
         struct relation {
+            ast_manager&           m;
+            func_decl_ref          m_next;
             sr_property            m_property;
             func_decl*             m_decl;
             atoms                  m_asserted_atoms;   // set of asserted atoms
@@ -102,9 +104,14 @@ namespace smt {
             union_find_t           m_uf;
             literal_vector         m_explanation;
 
-            relation(sr_property p, func_decl* d): m_property(p), m_decl(d), m_asserted_qhead(0), m_uf(m_ufctx) {}
+            relation(sr_property p, func_decl* d, ast_manager& m): m(m), m_next(m), m_property(p), m_decl(d), m_asserted_qhead(0), m_uf(m_ufctx) {}
 
             func_decl* decl() { return m_decl; }
+
+            app_ref   next(expr* a, expr* b) { return app_ref(m.mk_app(next(), a, b), m); }
+            bool       is_next(expr* n) { return is_app(n) && next() == to_app(n)->get_decl(); }
+            func_decl* next();
+
             void push();
             void pop(unsigned num_scopes);
             void ensure_var(theory_var v);
@@ -172,7 +179,7 @@ namespace smt {
 
         void collect_asserted_po_atoms(vector< std::pair<bool_var,bool> >& atoms) const;
         void display_atom(std::ostream & out, atom& a) const;
-        bool has_quantifiers();
+        void internalize_next(func_decl* f, app * term);
 
     public:
         theory_special_relations(ast_manager& m);

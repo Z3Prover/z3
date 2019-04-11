@@ -108,7 +108,7 @@ namespace recfun {
         expr_ref            m_rhs;  //!< definition
         family_id           m_fid;
 
-        def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range);
+        def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range, bool is_generated);
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
         void compute_cases(replace& subst, is_immediate_pred &, 
@@ -147,6 +147,7 @@ namespace recfun {
         class plugin : public decl_plugin {
             typedef obj_map<func_decl, def*> def_map;
             typedef obj_map<func_decl, case_def*> case_def_map;
+            
 
             mutable scoped_ptr<util> m_util;
             def_map                  m_defs;       // function->def
@@ -171,9 +172,9 @@ namespace recfun {
             func_decl * mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters, 
                                      unsigned arity, sort * const * domain, sort * range) override;
             
-            promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range);
+            promise_def mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated = false);
 
-            promise_def ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range);
+            promise_def ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated = false);
             
             void set_definition(replace& r, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs);
             
@@ -216,6 +217,7 @@ namespace recfun {
         bool is_case_pred(expr * e) const { return is_app_of(e, m_fid, OP_FUN_CASE_PRED); }
         bool is_defined(expr * e) const { return is_app_of(e, m_fid, OP_FUN_DEFINED); }
         bool is_defined(func_decl* f) const { return is_decl_of(f, m_fid, OP_FUN_DEFINED); }
+        bool is_generated(func_decl* f) const { return is_defined(f) && f->get_parameter(0).get_int() == 1; }
         bool is_depth_limit(expr * e) const { return is_app_of(e, m_fid, OP_DEPTH_LIMIT); }
         bool owns_app(app * e) const { return e->get_family_id() == m_fid; }
 
@@ -223,7 +225,7 @@ namespace recfun {
         bool has_defs() const { return m_plugin->has_defs(); }
 
         //<! add a function declaration
-        def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range);
+        def * decl_fun(symbol const & s, unsigned n_args, sort *const * args, sort * range, bool is_generated);
 
         def& get_def(func_decl* f) {
             SASSERT(m_plugin->has_def(f));

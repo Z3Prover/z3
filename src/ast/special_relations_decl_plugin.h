@@ -30,7 +30,6 @@ enum special_relations_op_kind {
     OP_SPECIAL_RELATION_TO,
     OP_SPECIAL_RELATION_TC,
     OP_SPECIAL_RELATION_TRC,
-    OP_SPECIAL_RELATION_NEXT,
     LAST_SPECIAL_RELATIONS_OP
 };
 
@@ -95,12 +94,6 @@ public:
     func_decl* mk_lo_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_LO); }
     func_decl* mk_tc_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_TC); }
     func_decl* mk_trc_decl(func_decl* f) { return mk_rel_decl(f, OP_SPECIAL_RELATION_TRC); }
-    func_decl* mk_next(func_decl* f) { 
-        sort* s = f->get_domain(0);
-        sort* domain[2] = { s, s };
-        parameter p(f); SASSERT(f->get_arity() == 2); 
-        return m.mk_func_decl(m_fid, OP_SPECIAL_RELATION_NEXT, 1, &p, 2, domain, s);
-    }
 
     bool is_lo(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_LO); }
     bool is_po(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_PO); }
@@ -108,7 +101,6 @@ public:
     bool is_to(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_TO); }
     bool is_tc(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_TC); }
     bool is_trc(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_TRC); }
-    bool is_next(expr const * e) const { return is_app_of(e, m_fid, OP_SPECIAL_RELATION_NEXT); }
     
     app * mk_lo (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_LO,  arg1, arg2); }
     app * mk_po (expr * arg1, expr * arg2) { return m.mk_app( m_fid, OP_SPECIAL_RELATION_PO,  arg1, arg2); }

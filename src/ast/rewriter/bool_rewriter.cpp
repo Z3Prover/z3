@@ -24,6 +24,7 @@ void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
     m_flat                 = p.flat();
     m_elim_and             = p.elim_and();
+    m_elim_ite             = p.elim_ite();
     m_local_ctx            = p.local_ctx();
     m_local_ctx_limit      = p.local_ctx_limit();
     m_blast_distinct       = p.blast_distinct();
@@ -797,48 +798,52 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
                 result = c;
                 return BR_DONE;
             }
-            mk_or(c, e, result);
-            return BR_DONE;
+            if (m_elim_ite) {
+                mk_or(c, e, result);
+                return BR_DONE;
+            }
         }
         if (m().is_false(t)) {
             if (m().is_true(e)) {
                 mk_not(c, result);
                 return BR_DONE;
             }
-            expr_ref tmp(m());
-            mk_not(c, tmp);
-            mk_and(tmp, e, result);
-            return BR_DONE;
+            if (m_elim_ite) {
+                expr_ref tmp(m());
+                mk_not(c, tmp);
+                mk_and(tmp, e, result);
+                return BR_DONE;
+            }
         }
-        if (m().is_true(e)) {
+        if (m().is_true(e) && m_elim_ite) {            
             expr_ref tmp(m());
             mk_not(c, tmp);
             mk_or(tmp, t, result);
             return BR_DONE;
         }
-        if (m().is_false(e)) {
+        if (m().is_false(e) && m_elim_ite) {
             mk_and(c, t, result);
             return BR_DONE;
         }
-        if (c == e) {
+        if (c == e && m_elim_ite) {
             mk_and(c, t, result);
             return BR_DONE;
         }
-        if (c == t) {
+        if (c == t && m_elim_ite) {
             mk_or(c, e, result);
             return BR_DONE;
         }
-        if (m().is_complement_core(t, e)) { // t = not(e)
+        if (m().is_complement_core(t, e) && m_elim_ite) { // t = not(e)
             mk_eq(c, t, result);
             return BR_DONE;
         }
-        if (m().is_complement_core(e, t)) { // e = not(t)
+        if (m().is_complement_core(e, t) && m_elim_ite) { // e = not(t)
             mk_eq(c, t, result);
             return BR_DONE;
         }
     }
 
-    if (m().is_ite(t) && m_ite_extra_rules) {
+    if (m().is_ite(t) && m_ite_extra_rules && m_elim_ite) {
         // (ite c1 (ite c2 t1 t2) t1) ==> (ite (and c1 (not c2)) t2 t1)
         if (e == to_app(t)->get_arg(1)) {
             expr_ref not_c2(m());
@@ -891,7 +896,7 @@ br_status bool_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & re
         }
     }
 
-    if (m().is_ite(e) && m_ite_extra_rules) {
+    if (m().is_ite(e) && m_ite_extra_rules && m_elim_ite) {
         // (ite c1 t1 (ite c2 t1 t2)) ==> (ite (or c1 c2)        t1 t2)
         if (t == to_app(e)->get_arg(1)) {
             expr_ref new_c(m());

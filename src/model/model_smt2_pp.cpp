@@ -196,7 +196,7 @@ static void pp_funs(std::ostream & out, ast_printer_context & ctx, model_core co
     sort_fun_decls(m, md, func_decls);
     for (unsigned i = 0; i < func_decls.size(); i++) {
         func_decl * f     = func_decls[i]; 
-        if (recfun_util.is_defined(f)) {
+        if (recfun_util.is_defined(f) && !recfun_util.is_generated(f)) {
             continue;
         }
         func_interp * f_i = md.get_func_interp(f);

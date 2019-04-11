@@ -34,6 +34,15 @@ Notes:
 
 namespace smt {
 
+    func_decl* theory_special_relations::relation::next() {
+        if (!m_next) {
+            sort* s = decl()->get_domain(0);
+            sort* domain[2] = {s, s};
+            m_next = m.mk_fresh_func_decl("next", "", 2, domain, s);
+        }
+        return m_next;
+    }
+
     void theory_special_relations::relation::push() {
         m_scopes.push_back(scope());
         scope& s = m_scopes.back();
@@ -104,37 +113,35 @@ namespace smt {
        assert f(term,c) or term != b
        assert f(term,c) or term != a
      */
-    bool theory_special_relations::internalize_term(app * term) {
-        if (m_util.is_next(term)) {
-            return false;
-        }
-        mk_var(term);
+    void theory_special_relations::internalize_next(func_decl* f, app* term) {
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        func_decl* f = to_func_decl(term->get_decl()->get_parameter(0).get_ast());
+        func_decl* nxt = term->get_decl();
         expr* src = term->get_arg(0);
         expr* dst = term->get_arg(1);
         expr_ref f_rel(m.mk_app(f, src, dst), m);
+        ensure_enode(term);
+        ensure_enode(f_rel);
         literal f_lit = ctx.get_literal(f_rel);
         src = term;
-        while (m_util.is_next(src)) {
+        while (to_app(src)->get_decl() == nxt) {
             dst = to_app(src)->get_arg(1);
             src = to_app(src)->get_arg(0);
             ctx.mk_th_axiom(get_id(), f_lit, ~mk_eq(term, src, false));
             ctx.mk_th_axiom(get_id(), f_lit, ~mk_eq(term, dst, false));
         }
-        return true;
+    }
+
+    bool theory_special_relations::internalize_term(app * term) {
+        return false;
     }
 
     bool theory_special_relations::internalize_atom(app * atm, bool gate_ctx) {
         SASSERT(m_util.is_special_relation(atm));
         relation* r = 0;
-        if (m_util.is_next(atm)) {
-            return internalize_term(atm);
-        }
         ast_manager& m = get_manager();
         if (!m_relations.find(atm->get_decl(), r)) {
-            r = alloc(relation, m_util.get_property(atm), atm->get_decl());
+            r = alloc(relation, m_util.get_property(atm), atm->get_decl(), m);
             m_relations.insert(atm->get_decl(), r);
             for (unsigned i = 0; i < m_atoms_lim.size(); ++i) r->push();
         }
@@ -350,7 +357,8 @@ namespace smt {
                     // TBD: perhaps replace by recursion unfolding similar to theory_rec_fun
                     //
                     
-                    expr_ref next(m.mk_app(m_util.mk_next(f), arg1, arg2), m);
+                    app_ref next(r.next(arg1, arg2), m);
+                    internalize_next(f, next);
                     expr_ref a2next(m.mk_app(f, arg1, next), m);
                     expr_ref next2b(m.mk_app(tcf, next, arg2), m);
                     expr_ref next_b(m.mk_app(f, next, arg2), m);
@@ -365,7 +373,7 @@ namespace smt {
                     ctx.mk_th_axiom(get_id(), ~literal(bv), f_lit, a2next_l);
                     ctx.mk_th_axiom(get_id(), ~literal(bv), f_lit, next2b_l);
                     expr* nxt = next;
-                    while (m_util.is_next(nxt)) {
+                    while (r.is_next(nxt)) {
                         expr* left  = to_app(nxt)->get_arg(0);
                         expr* right = to_app(nxt)->get_arg(1);
                         ctx.assign(~mk_eq(next, left,  false), nullptr);
@@ -896,9 +904,9 @@ namespace smt {
 
 Take 2:
        connected(A, dst, S) = 
-               if A = nil then false else
-               if member(dst, A) then true else
-               let (A',S') = next1(a1, b1, A, next1(a2, b2, A, ... S, (nil, nil)))
+               let (A',S') = next1(a1, b1, A, next1(a2, b2, A, ... S, (nil, S)))
+               if A' = nil then false else
+               if member(dst, A') then true else
                connected(A', dst, S')
 
        next1(a, b, A, S, (A',S')) = 
@@ -915,6 +923,7 @@ Take 2:
         func_decl_ref nil(m), is_nil(m), cons(m), is_cons(m), hd(m), tl(m);        
         sort_ref listS(dt.mk_list_datatype(s, symbol("List"), cons, is_cons, hd, tl, nil, is_nil), m);
         func_decl_ref fst(m), snd(m), pair(m);
+        expr_ref nilc(m.mk_const(nil), m);
 
         expr* T = m.mk_true();
         expr* F = m.mk_false();
@@ -923,7 +932,7 @@ Take 2:
 
         {
             sort* dom[2] = { s, listS };
-            recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom, m.mk_bool_sort());
+            recfun::promise_def mem = p.ensure_def(symbol("member"), 2, dom, m.mk_bool_sort(), true);
             memf = mem.get_def()->get_decl();
             
             var_ref xV(m.mk_var(1, s), m);
@@ -941,14 +950,12 @@ Take 2:
             var* vars[2] = { xV, SV };
             p.set_definition(rep, mem, 2, vars, mem_body);
         }
-        
 
-#if 1
         sort_ref tup(dt.mk_pair_datatype(listS, listS, fst, snd, pair), m);
 
         {
             sort* dom[5] = { s, s, listS, listS, tup };
-            recfun::promise_def nxt = p.ensure_def(symbol("next"), 5, dom, tup);
+            recfun::promise_def nxt = p.ensure_def(symbol("next"), 5, dom, tup, true);
             nextf = nxt.get_def()->get_decl();
             
             expr_ref next_body(m);
@@ -969,7 +976,7 @@ Take 2:
 
         {
             sort* dom[3] = { listS, s, listS };
-            recfun::promise_def connected = p.ensure_def(symbol("connected"), 3, dom, m.mk_bool_sort());
+            recfun::promise_def connected = p.ensure_def(symbol("connected"), 3, dom, m.mk_bool_sort(), true);
             connectedf = connected.get_def()->get_decl();
             var_ref AV(m.mk_var(2, listS), m);
             var_ref dstV(m.mk_var(1, s), m);
@@ -977,7 +984,7 @@ Take 2:
             expr* A = AV, *dst = dstV, *S = SV;
             expr_ref connected_body(m);
 
-            connected_body = m.mk_app(pair, m.mk_const(nil), m.mk_const(nil));
+            connected_body = m.mk_app(pair, nilc, S);
 
             for (atom* ap : r.m_asserted_atoms) {
                 atom& a = *ap;
@@ -989,7 +996,14 @@ Take 2:
                 expr* args[5] = { x, y, A, S, cb };
                 connected_body = m.mk_app(nextf, 5, args);
             }
+            expr_ref Ap(m.mk_app(fst, connected_body), m);
+            expr_ref Sp(m.mk_app(snd, connected_body), m);
+
+            connected_body = m.mk_ite(m.mk_eq(Ap, nilc), F, 
+                                      m.mk_ite(m.mk_app(memf, dst, Ap), T,
+                                               m.mk_app(connectedf, Ap, dst, Sp)));
             
+            TRACE("special_relations", tout << connected_body << "\n";);
             recfun_replace rep(m);
             var* vars[3] = { AV, dstV, SV };
             p.set_definition(rep, connected, 3, vars, connected_body);            
@@ -1001,91 +1015,14 @@ Take 2:
             expr* x = xV, *y = yV;
             
             func_interp* fi = alloc(func_interp, m, 2);
-            expr_ref pred(m.mk_app(connectedf, m.mk_app(cons, x, m.mk_const(nil)), y, m.mk_const(nil)), m);
+            expr_ref consx(m.mk_app(cons, x, nilc), m);
+            expr_ref pred(m.mk_app(connectedf, consx, y, consx), m); 
             if (is_reflexive) {
                 pred = m.mk_or(pred, m.mk_eq(x, y));
             }
             fi->set_else(pred);
             mg.get_model().register_decl(r.decl(), fi);
-        }
-
-#else
-        sort_ref tup(dt.mk_pair_datatype(listS, m.mk_bool_sort(), fst, snd, pair), m);
-        sort* dom1[5] = { s, s, listS, s, s };
-        recfun::promise_def c1 = p.ensure_def(symbol("connected1"), 5, dom1, tup);
-        sort* dom2[3] = { s, s, listS };
-        recfun::promise_def c2 = p.ensure_def(symbol("connected2"), 3, dom2, tup);
-
-        func_decl* conn1 = c1.get_def()->get_decl();
-        func_decl* conn2 = c2.get_def()->get_decl();
-        
-        var_ref xV(m.mk_var(4, s), m);
-        var_ref yV(m.mk_var(3, s), m);
-        var_ref SV(m.mk_var(2, listS), m);
-        var_ref vV(m.mk_var(1, s), m);
-        var_ref wV(m.mk_var(0, s), m);
-        expr* y = yV, *v = vV, *w = wV;
-        expr* x = xV, *S = SV;
-
-        expr_ref ST(m.mk_app(pair, S, T), m);
-        expr_ref SF(m.mk_app(pair, S, F), m);
-
-        expr_ref connected_body(m);
-        connected_body = 
-            m.mk_ite(m.mk_not(m.mk_eq(x, v)), 
-                     SF, 
-                     m.mk_ite(m.mk_eq(y, w), 
-                              ST,
-                              m.mk_ite(m.mk_app(memf, w, S), 
-                                       SF,
-                                       m.mk_app(conn2, w, y, m.mk_app(cons, w, S)))));
-        {
-            var* vars2[5] = { xV, yV, SV, vV, wV };
-            recfun_replace rep(m);
-            p.set_definition(rep, c1, 5, vars2, connected_body);
-        }
-
-        xV = m.mk_var(2, s);
-        yV = m.mk_var(1, s);
-        SV = m.mk_var(0, listS);
-        x = xV, y = yV, S = SV;
-        ST = m.mk_app(pair, S, T);
-        SF = m.mk_app(pair, S, F);
-        expr_ref connected_rec_body(m);
-        connected_rec_body = SF;
-                        
-        for (atom* ap : r.m_asserted_atoms) {
-            atom& a = *ap;
-            if (!a.phase()) continue;
-            SASSERT(get_context().get_assignment(a.var()) == l_true);
-            expr* n1 = get_enode(a.v1())->get_root()->get_owner();
-            expr* n2 = get_enode(a.v2())->get_root()->get_owner();
-            expr* Sr = connected_rec_body;
-            expr* args[5] = { x, y, m.mk_app(fst, Sr), n1, n2};
-            expr* Sc = m.mk_app(conn1, 5, args);            
-            connected_rec_body = m.mk_ite(m.mk_app(snd, Sr), ST, Sc);
-        }
-        {
-            var* vars3[3] = { xV, yV, SV };
-            recfun_replace rep(m);
-            p.set_definition(rep, c2, 3, vars3, connected_rec_body); 
-        }
-
-        // r.m_decl(x,y) -> snd(connected2(x,y,nil))
-        xV = m.mk_var(0, s);
-        yV = m.mk_var(1, s);
-        x = xV, y = yV;
-
-        func_interp* fi = alloc(func_interp, m, 2);
-        expr_ref pred(m.mk_app(snd, m.mk_app(conn2, x, y, m.mk_app(cons, y, m.mk_const(nil)))), m);
-        if (is_reflexive) {
-            pred = m.mk_or(pred, m.mk_eq(x, y));
-        }
-        fi->set_else(pred);
-        mg.get_model().register_decl(r.decl(), fi);
-
-#endif
-        
+        }        
     }
 
     /**
@@ -1208,10 +1145,6 @@ Take 2:
         }
     }
 
-    bool theory_special_relations::has_quantifiers() {
-        return get_context().has_quantifiers();
-    }
-
     void theory_special_relations::init_model(model_generator & m) {
         for (auto const& kv : m_relations) {
             switch (kv.m_value->m_property) {
@@ -1228,16 +1161,10 @@ Take 2:
                 init_model_po(*kv.m_value, m, true);
                 break;
             case sr_tc:
-                if (has_quantifiers()) {
-                    // model construction for transitive relation is reserved for quantified formulas where
-                    // TC(R) may be needed to perform MBQI
-                    init_model_po(*kv.m_value, m, true);
-                }
+                init_model_po(*kv.m_value, m, true);                
                 break;
             case sr_trc:
-                if (has_quantifiers()) {
-                    init_model_po(*kv.m_value, m, true);
-                }
+                init_model_po(*kv.m_value, m, true);                
                 break;
             default:
                 // other 28 combinations of 0x1F

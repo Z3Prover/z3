@@ -170,7 +170,11 @@ struct model::top_sort : public ::top_sort<func_decl> {
 
     top_sort(ast_manager& m):
         m_rewrite(m)
-    {}
+    {
+        params_ref p;
+        p.set_bool("elim_ite", false);
+        m_rewrite.updt_params(p);
+    }
 
     void add_occurs(func_decl* f) {
         m_occur_count.insert(f, occur_count(f) + 1);
@@ -428,7 +432,12 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
 #endif
             else {
-                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());
+                if (m.is_ite(f)) {
+                    new_t = m.mk_app(f, args.size(), args.c_ptr());
+                }
+                else {
+                    new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());
+                }
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
@@ -443,7 +452,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             break;
         }
     }
-
+    
     ts.m_rewrite(cache[e], new_t);
     return new_t;
 }
