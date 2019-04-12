@@ -21,10 +21,12 @@ Revision History:
 #include<sstream>
 
 #ifdef _WINDOWS
+#if defined(_MSC_VER)
 #pragma float_control( except, on )   // exception semantics; this does _not_ mean that exceptions are enabled (we want them off!)
 #pragma float_control( precise, on )  // precise semantics (no guessing!)
 #pragma fp_contract(off)              // contractions off (`contraction' means x*y+z is turned into a fused-mul-add).
 #pragma fenv_access(on)               // fpu environment sensitivity (needed to be allowed to make FPU mode changes).
+#endif
 #else
 #include<fenv.h>
 #endif
@@ -267,6 +269,9 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
     // IA64 (Itanium) will do it, if contractions are on.
     o.value = x.value * y.value + z.value;
 #else
+#if defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
+    o.value = ::fma(x.value, y.value, z.value);
+#else
 #if defined(_WINDOWS)
 #if _MSC_VER >= 1800
     o.value = ::fma(x.value, y.value, z.value);
@@ -281,6 +286,7 @@ void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf co
 #else
     // Linux, macOS
     o.value = ::fma(x.value, y.value, z.value);
+#endif
 #endif
 #endif
 }
@@ -306,7 +312,10 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     // According to the Intel Architecture manual, the x87-instruction FRNDINT is the
     // same in 32-bit and 64-bit mode. The _mm_round_* intrinsics are SSE4 extensions.
 #ifdef _WINDOWS
-#if defined(USE_INTRINSICS) && \
+#if defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
+    o.value = nearbyint(x.value);
+#else
+  #if defined(USE_INTRINSICS) &&                                           \
     (defined(_WINDOWS) && (defined(__AVX__) || defined(_M_X64))) || \
     (!defined(_WINDOWS) && defined(__SSE4_1__))
     switch (rm) {
@@ -320,7 +329,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
     default:
         UNREACHABLE(); // Unknown rounding mode.
     }
-#else
+  #else
     double xv = x.value;
     double & ov = o.value;
 
@@ -329,6 +338,7 @@ void hwf_manager::round_to_integral(mpf_rounding_mode rm, hwf const & x, hwf & o
         frndint
         fstp    ov // Store result away.
     }
+  #endif
 #endif
 #else
     // Linux, macOS.

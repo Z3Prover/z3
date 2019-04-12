@@ -39,6 +39,10 @@ Revision History:
 #include "util/file_path.h"
 #include "shell/lp_frontend.h"
 
+#if defined( _WINDOWS ) && defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
+#include <crtdbg.h>
+#endif
+
 typedef enum { IN_UNSPECIFIED, IN_SMTLIB_2, IN_DATALOG, IN_DIMACS, IN_WCNF, IN_OPB, IN_LP, IN_Z3_LOG, IN_MPS } input_kind;
 
 static std::string  g_aux_input_file;
