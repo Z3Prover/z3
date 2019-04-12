@@ -104,9 +104,7 @@ struct core {
     std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
     tangents                                                         m_tangents;
     basics                                                            m_basics;
-    // methods
-    unsigned find_monomial(const unsigned_vector& k) const;
-    core(lp::lar_solver& s, reslimit& lim, params_ref const& p);
+    core(lp::lar_solver& s);
     
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
     
