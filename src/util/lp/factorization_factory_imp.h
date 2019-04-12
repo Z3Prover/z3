@@ -21,7 +21,7 @@
 #include "util/lp/factorization.h"
 namespace nla {
 struct core;
-class rooted_mon;
+struct rooted_mon;
 struct factorization_factory_imp: factorization_factory {
     const core&  m_core;
     const monomial *m_mon;
