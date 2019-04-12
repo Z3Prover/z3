@@ -2255,7 +2255,7 @@ class MLComponent(Component):
             for m in self.modules:
                 ff = os.path.join(src_dir, m + '.ml')
                 ft = os.path.join(self.sub_dir, m + '.cmx')
-                out.write('%s: %s %s\n' % (ft, ff, cmos))
+                out.write('%s: %s %s %s\n' % (ft, ff, cmos, cmxs))
                 out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLOPTF, self.sub_dir, ft, ff))
                 cmxs = cmxs + ' ' + ft
 
