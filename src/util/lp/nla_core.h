@@ -22,8 +22,19 @@
 #include "util/lp/lp_types.h"
 #include "util/lp/var_eqs.h"
 #include "util/lp/rooted_mons.h"
-
+#include "util/lp/nla_tangent_lemmas.h"
+#include "util/lp/nla_basics_lemmas.h"
 namespace nla {
+
+template <typename A, typename B>
+bool try_insert(const A& elem, B& collection) {
+    auto it = collection.find(elem);
+    if (it != collection.end())
+        return false;
+    collection.insert(elem);
+    return true;
+}
+
 typedef lp::constraint_index lpci;
 typedef lp::lconstraint_kind llc;
 
@@ -91,7 +102,9 @@ struct core {
     vector<lemma> *                                                  m_lemma_vec;
     unsigned_vector                                                  m_to_refine;
     std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
-    
+    tangents                                                         m_tangents;
+    basics                                                            m_basics;
+    // methods
     unsigned find_monomial(const unsigned_vector& k) const;
     core(lp::lar_solver& s, reslimit& lim, params_ref const& p);
     
@@ -246,9 +259,6 @@ struct core {
     // 
     monomial_coeff canonize_monomial(monomial const& m) const;
 
-    // the value of the i-th monomial has to be equal to the value of the k-th monomial modulo sign
-    // but it is not the case in the model
-    void generate_sign_lemma(const monomial& m, const monomial& n, const rational& sign);
     lemma& current_lemma();
     const lemma& current_lemma() const;
     vector<ineq>& current_ineqs();
@@ -256,10 +266,6 @@ struct core {
     const lp::explanation& current_expl() const;
 
     int vars_sign(const svector<lpvar>& v);
-
-    void negate_strict_sign(lpvar j);
-    
-    void generate_strict_case_zero_lemma(const monomial& m, unsigned zero_j, int sign_of_zj);
 
     bool has_upper_bound(lpvar j) const; 
 
@@ -270,20 +276,6 @@ struct core {
     
     
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;
-    
-    // try to find a variable j such that vvr(j) = 0
-    // and the bounds on j contain 0 as an inner point
-    lpvar find_best_zero(const monomial& m, unsigned_vector & fixed_zeros) const;
-
-    bool try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const;
-
-    void get_non_strict_sign(lpvar j, int& sign) const;
-
-    void add_trival_zero_lemma(lpvar zero_j, const monomial& m);
-    
-    void generate_zero_lemmas(const monomial& m);
-
-    void add_fixed_zero_lemma(const monomial& m, lpvar j);
     
     int rat_sign(const monomial& m) const;
     inline int rat_sign(lpvar j) const { return nla::rat_sign(vvr(j)); }
@@ -296,18 +288,6 @@ struct core {
     */
     // Monomials m and n vars have the same values, up to "sign"
     // Generate a lemma if values of m.var() and n.var() are not the same up to sign
-    bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign);
-
-    void basic_sign_lemma_model_based_one_mon(const monomial& m, int product_sign);
-    
-    bool basic_sign_lemma_model_based();
-    bool basic_sign_lemma_on_mon(unsigned i, std::unordered_set<unsigned> & explore);
-
-    /**
-     * \brief <generate lemma by using the fact that -ab = (-a)b) and
-     -ab = a(-b)
-    */
-    bool basic_sign_lemma(bool derived);
 
     bool var_is_fixed_to_zero(lpvar j) const;
     bool var_is_fixed_to_val(lpvar j, const rational& v) const;
@@ -328,8 +308,6 @@ struct core {
 
     const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
 
-    bool basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f);
-
     void explain_existing_lower_bound(lpvar j);
 
     void explain_existing_upper_bound(lpvar j);
@@ -338,19 +316,12 @@ struct core {
 
     int get_derived_sign(const rooted_mon& rm, const factorization& f) const;
     // here we use the fact xy = 0 -> x = 0 or y = 0
-    void basic_lemma_for_mon_zero_model_based(const rooted_mon& rm, const factorization& f);
-
     void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const;
 
     void explain_var_separated_from_zero(lpvar j);
 
     void explain_fixed_var(lpvar j);
     // x = 0 or y = 0 -> xy = 0
-    void basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, const factorization& f);
-    // x = 0 or y = 0 -> xy = 0
-    void basic_lemma_for_mon_non_zero_model_based_rm(const rooted_mon& rm, const factorization& f);
-
-    void basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f);
 
     bool var_has_positive_lower_bound(lpvar j) const;
 
@@ -358,15 +329,6 @@ struct core {
     
     bool var_is_separated_from_zero(lpvar j) const;
     
-    // x = 0 or y = 0 -> xy = 0
-    bool basic_lemma_for_mon_non_zero_derived(const rooted_mon& rm, const factorization& f);
-
-    // use the fact that
-    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-    bool basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const rooted_mon& rm, const factorization& f);
-    // use the fact that
-    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-    bool basic_lemma_for_mon_neutral_monomial_to_factor_model_based_fm(const monomial& m);
 
     bool vars_are_equiv(lpvar a, lpvar b) const;
 
@@ -374,61 +336,19 @@ struct core {
     void explain_equiv_vars(lpvar a, lpvar b);
     // use the fact that
     // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-    bool basic_lemma_for_mon_neutral_monomial_to_factor_derived(const rooted_mon& rm, const factorization& f);
-
-    // use the fact
-    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-    bool basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const rooted_mon& rm, const factorization& f);
-    // use the fact
-    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-    bool basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based_fm(const monomial& m);
-    // use the fact
-    // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-    bool basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(const rooted_mon& rm, const factorization& f);
-    void basic_lemma_for_mon_neutral_model_based(const rooted_mon& rm, const factorization& f);
-    
-    bool basic_lemma_for_mon_neutral_derived(const rooted_mon& rm, const factorization& factorization);
-
     void explain(const factorization& f, lp::explanation& exp);
 
     bool has_zero_factor(const factorization& factorization) const;
 
-    // if there are no zero factors then |m| >= |m[factor_index]|
-    void generate_pl_on_mon(const monomial& m, unsigned factor_index);
-    
-    // none of the factors is zero and the product is not zero
-    // -> |fc[factor_index]| <= |rm|
-    void generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index);   
 
     template <typename T>
     bool has_zero(const T& product) const;
 
     template <typename T>
     bool mon_has_zero(const T& product) const;
-
-    // x != 0 or y = 0 => |xy| >= |y|
-    void proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization);
-    // x != 0 or y = 0 => |xy| >= |y|
-    bool proportion_lemma_derived(const rooted_mon& rm, const factorization& factorization);
-
-    void basic_lemma_for_mon_model_based(const rooted_mon& rm);
-
-    bool basic_lemma_for_mon_derived(const rooted_mon& rm);
-    
-    // Use basic multiplication properties to create a lemma
-    // for the given monomial.
-    // "derived" means derived from constraints - the alternative is model based
-    void basic_lemma_for_mon(const rooted_mon& rm, bool derived);
-
     void init_rm_to_refine();
-
     lp::lp_settings& settings();
-    
     unsigned random();
-    
-    // use basic multiplication properties to create a lemma
-    bool basic_lemma(bool derived);
-
     void map_monomial_vars_to_monomial_indices(unsigned i);
 
     void map_vars_to_monomials();

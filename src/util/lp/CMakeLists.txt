@@ -7,6 +7,7 @@ z3_add_component(lp
     dense_matrix.cpp
     eta_matrix.cpp
     factorization.cpp
+    factorization_factory_imp.cpp
     gomory.cpp
     indexed_vector.cpp
     int_solver.cpp
@@ -23,6 +24,7 @@ z3_add_component(lp
     lp_utils.cpp
     matrix.cpp
     mon_eq.cpp
+    nla_basics_lemmas.cpp
     nla_core.cpp
     nla_solver.cpp
     nra_solver.cpp
