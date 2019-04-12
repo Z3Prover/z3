@@ -220,6 +220,5 @@ void tangents::get_tang_points(point &a, point &b, bool below, const rational& v
     push_tang_points(a, b, xy, below, correct_val, val);
     TRACE("nla_solver", tout << "pushed a = "; print_point(a, tout); tout << "\npushed b = "; print_point(b, tout); tout << std::endl;);
 }
-
 }
 
