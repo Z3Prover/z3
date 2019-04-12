@@ -21,25 +21,6 @@ Revision History:
 #include "util/lp/factorization_factory_imp.h"
 namespace nla {
 
-
-point operator+(const point& a, const point& b) {
-    return point(a.x + b.x, a.y + b.y);
-} 
-
-point operator-(const point& a, const point& b) {
-    return point(a.x - b.x, a.y - b.y);
-} 
-unsigned core::find_monomial(const unsigned_vector& k) const {
-    TRACE("nla_solver_find", tout << "k = "; print_product_with_vars(k, tout););
-    auto it = m_mkeys.find(k);
-    if (it == m_mkeys.end()) {
-        TRACE("nla_solver", tout << "not found";);
-        return -1;
-    }
-    TRACE("nla_solver", tout << "found " << it->second << ", mon = "; print_monomial_with_vars(m_monomials[it->second], tout););
-    return it->second;
-}
-    
 core::core(lp::lar_solver& s) :
     m_evars(),
     m_lar_solver(s),
