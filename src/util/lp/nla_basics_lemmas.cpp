@@ -101,7 +101,7 @@ void basics::basic_sign_lemma_model_based_one_mon(const monomial& m, int product
 }
     
 bool basics::basic_sign_lemma_model_based() {
-    unsigned i = random() % c().m_to_refine.size();
+    unsigned i = c().random() % c().m_to_refine.size();
     unsigned ii = i;
     do {
         const monomial& m = c().m_monomials[c().m_to_refine[i]];
@@ -267,7 +267,7 @@ bool basics::basic_lemma(bool derived) {
     c().init_rm_to_refine();
     const auto& rm_ref = c().m_rm_table.to_refine();
     TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
-    unsigned start = random() % rm_ref.size();
+    unsigned start = c().random() % rm_ref.size();
     unsigned i = start;
     do {
         const rooted_mon& r = c().m_rm_table.rms()[rm_ref[i]];
