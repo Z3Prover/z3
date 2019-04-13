@@ -373,7 +373,4 @@ static app_ref plus(ast_manager& m, expr* a, int i) {
     return app_ref(arith.mk_add(a, arith.mk_int(i)), m);
 }
 
-app_ref operator+(expr_ref& a, expr* b) { return plus(a.m(), a, b); }
-app_ref operator+(app_ref& a, expr* b) { return plus(a.m(), a, b); }
-app_ref operator+(expr_ref& a, int i) { return plus(a.m(), a, i); }
-app_ref operator+(app_ref& a, int i) { return plus(a.m(), a, i); }
+app_ref operator+(expr_ref& a, expr_ref& b) { return plus(a.m(), a, b); }

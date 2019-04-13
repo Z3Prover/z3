@@ -35,8 +35,7 @@ Q: Is this sufficient? Axiom A1 could be adjusted to add new elements i' until t
 This is quite bad when k is very large. Instead rely on stably infiniteness or other domain properties of the theories.
 
 When A is finite domain, or there are quantifiers there could be constraints that force domain sizes so domain sizes may have 
-to be enforced. A succinct way would be through domain comprehension assertions. Thus, if we have 
-S[i1],.., S[ik], !S[j1],...,!S[jl] asserted on integer domain i, then 
+to be enforced. A succinct way would be through domain comprehension assertions. 
 
 Finite domains:
 
@@ -52,6 +51,8 @@ Finite domains:
     ~Size(S, m) is negative on all occurrences, S is finite domain
     ---------------------------------------------------------------
                      Size(S, n) n fresh.
+
+    Model construction for infinite domains when all Size(S, m) are negative for S.
 
  */
 

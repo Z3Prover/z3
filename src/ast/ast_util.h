@@ -120,10 +120,7 @@ inline app_ref operator|(expr_ref& a, expr* b) { return app_ref(a.m().mk_or(a, b
 inline app_ref operator|(app_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
 inline app_ref operator|(var_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
 inline app_ref operator|(quantifier_ref& a,  expr* b) { return app_ref(a.m().mk_or(a, b), a.m()); }
-app_ref operator+(expr_ref& a, expr* b);
-app_ref operator+(app_ref& a, expr* b);
-app_ref operator+(expr_ref& a, int i);
-app_ref operator+(app_ref& a, int i);
+app_ref operator+(expr_ref& a, expr_ref& b);
 
 /**
    Return (or args[0] ... args[num_args-1]) if num_args >= 2
