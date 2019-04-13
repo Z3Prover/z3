@@ -368,9 +368,7 @@ static app_ref plus(ast_manager& m, expr* a, expr* b) {
     return app_ref(arith.mk_add(a, b), m);
 }
 
-static app_ref plus(ast_manager& m, expr* a, int i) {
-    arith_util arith(m);
-    return app_ref(arith.mk_add(a, arith.mk_int(i)), m);
-}
 
-app_ref operator+(expr_ref& a, expr_ref& b) { return plus(a.m(), a, b); }
+app_ref operator+(expr_ref& a, expr_ref& b) { 
+    return plus(a.m(), a.get(), b.get()); 
+}
