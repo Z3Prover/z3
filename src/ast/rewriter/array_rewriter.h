@@ -69,6 +69,20 @@ public:
     br_status mk_set_difference(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_set_subset(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_eq_core(expr * lhs, expr * rhs, expr_ref & result);
+
+    expr_ref mk_set_difference(expr* a, expr* b) {
+        expr_ref result(m());
+        mk_set_difference(a, b, result);
+        return result;
+    }
+
+    expr_ref mk_set_intersect(expr* a, expr* b) {
+        expr_ref result(m());
+        expr* args[2] = { a, b };
+        mk_set_intersect(2, args, result);
+        return result;
+    }
+
 };
 
 #endif

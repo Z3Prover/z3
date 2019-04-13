@@ -388,9 +388,9 @@ namespace smt {
                     r = assert_delayed_axioms();
             }
         }
-        TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
         if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
+        CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;
     }
 

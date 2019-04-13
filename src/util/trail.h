@@ -43,6 +43,12 @@ public:
         m_old_value(value) {
     }
 
+    value_trail(T & value, T const& new_value):
+        m_value(value),
+        m_old_value(value) {
+        m_value = new_value;
+    }
+
     ~value_trail() override {
     }
 

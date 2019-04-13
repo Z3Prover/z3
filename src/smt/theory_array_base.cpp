@@ -602,6 +602,7 @@ namespace smt {
         collect_defaults();
         collect_selects();
         propagate_selects();
+        if (m_bapa) m_bapa->init_model();
     }
 
     /**
