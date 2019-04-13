@@ -411,6 +411,7 @@ private:
                     }
                     m_buffer.push_back(0);
                     m_tokens.push_back(asymbol(symbol(m_buffer.c_ptr()), in.line()));
+                    IF_VERBOSE(10, verbose_stream() << "tok: " << m_tokens.back() << "\n");
                     continue;
                 }
             }
