@@ -25,13 +25,8 @@
 namespace nla {
 struct core;
 struct order: common {
-
-    // fields
-    core * m_core;
     core& _() { return *m_core; }
     const core& _() const { return *m_core; }
-    core& c() { return *m_core; }
-    const core& c() const { return *m_core; }
     //constructor
     order(core *c) : common(c) {}
     bool order_lemma_on_ac_and_bc_and_factors(const rooted_mon& ac,

@@ -45,9 +45,6 @@ struct tangents: common {
         }
     };
     
-    core* m_core;
-    core& c() { return *m_core; }
-    const core& c() const { return *m_core; }
     tangents(core *core);
 
     void generate_simple_tangent_lemma(const rooted_mon* rm);
