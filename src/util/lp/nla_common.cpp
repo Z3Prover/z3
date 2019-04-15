@@ -123,5 +123,9 @@ bool common::check_monomial(const monomial& m) const {
     return c().check_monomial(m);
 }
 
+unsigned common::random() {
+    return c().random();
+}
+
 }
 

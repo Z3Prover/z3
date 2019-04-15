@@ -85,6 +85,6 @@ struct common {
     std::ostream& print_rooted_monomial(const rooted_mon &, std::ostream& out) const;
     std::ostream& print_rooted_monomial_with_vars(const rooted_mon&, std::ostream& out) const;
     bool check_monomial(const monomial&) const;
-    
+    unsigned random();
 };
 }
