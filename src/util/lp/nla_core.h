@@ -184,6 +184,20 @@ struct core {
     void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const;
     void print_monomial_stats(const monomial& m, std::ostream& out);    
     void print_stats(std::ostream& out);
+    std::ostream& print_lemma(std::ostream& out) const;
+
+    void print_specific_lemma(const lemma& l, std::ostream& out) const;
+    
+
+    void trace_print_ol(const rooted_mon& ac,
+                        const factor& a,
+                        const factor& c,
+                        const rooted_mon& bc,
+                        const factor& b,
+                        std::ostream& out);
+    void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
+                                  std::ostream& out) const;
+
         
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
@@ -314,35 +328,17 @@ struct core {
     
     void init_search();
 
-#if 0
-    void init_to_refine();
-#endif
     void init_to_refine();
 
     bool divide(const rooted_mon& bc, const factor& c, factor & b) const;
 
-    void negate_factor_equality(const factor& c,
-                                const factor& d);
+    void negate_factor_equality(const factor& c, const factor& d);
     
     void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
 
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
-    std::ostream& print_lemma(std::ostream& out) const;
-
-    void print_specific_lemma(const lemma& l, std::ostream& out) const;
-    
-
-    void trace_print_ol(const rooted_mon& ac,
-                        const factor& a,
-                        const factor& c,
-                        const rooted_mon& bc,
-                        const factor& b,
-                        std::ostream& out);
-    
     bool rm_check(const rooted_mon&) const;
-    void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
-                              std::ostream& out) const;
     std::vector<rational> get_sorted_key(const rooted_mon& rm) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
     bool uniform_le(const std::vector<rational>& a,
@@ -350,18 +346,11 @@ struct core {
                     unsigned & strict_i) const;
     vector<std::pair<rational, lpvar>> get_sorted_key_with_vars(const rooted_mon& a) const;
     void negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict);
-
     void negate_abs_a_lt_abs_b(lpvar a, lpvar b);
-    void assert_abs_val_a_le_abs_var_b(    const rooted_mon& a,    const rooted_mon& b,    bool strict);
+    void assert_abs_val_a_le_abs_var_b(const rooted_mon& a, const rooted_mon& b,    bool strict);
 
-    // strict version
-    void generate_monl_strict(const rooted_mon& a,
-                              const rooted_mon& b,
-                              unsigned strict);
-
-    // not a strict version
-    void generate_monl(const rooted_mon& a,
-                       const rooted_mon& b);
+    void generate_monl_strict(const rooted_mon& a, const rooted_mon& b,  unsigned strict);
+    void generate_monl(const rooted_mon& a, const rooted_mon& b);
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
     bool monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
