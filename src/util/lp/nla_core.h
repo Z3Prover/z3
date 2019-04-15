@@ -38,6 +38,9 @@ bool try_insert(const A& elem, B& collection) {
 
 typedef lp::constraint_index lpci;
 typedef lp::lconstraint_kind llc;
+typedef lp::constraint_index     lpci;
+typedef lp::explanation          expl_set;
+typedef lp::var_index            lpvar;
 
 inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
 inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }
@@ -69,25 +72,8 @@ public:
     bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
 };
 
-struct point {
-    rational x;
-    rational y;
-    point(const rational& a, const rational& b): x(a), y(b) {}
-    point() {}
-    point& operator*=(rational a) {
-        x *= a;
-        y *= a;
-        return *this;
-    } 
-};
 
 struct core {
-    struct bfc {
-        factor m_x, m_y;
-        bfc() {}
-        bfc(const factor& x, const factor& y): m_x(x), m_y(y) {};
-    };
-
     //fields    
     var_eqs                                                          m_evars;
     vector<monomial>                                                 m_monomials;
@@ -107,7 +93,6 @@ struct core {
     basics                                                           m_basics;
     order                                                           m_order;
     // methods
-    unsigned find_monomial(const unsigned_vector& k) const;
     core(lp::lar_solver& s);
     
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
@@ -165,76 +150,56 @@ struct core {
     bool check_monomial(const monomial& m) const;
     
     void explain(const monomial& m, lp::explanation& exp) const;
-
     void explain(const rooted_mon& rm, lp::explanation& exp) const;
-
     void explain(const factor& f, lp::explanation& exp) const;
-
     void explain(lpvar j, lp::explanation& exp) const;
+    void explain_existing_lower_bound(lpvar j);
+    void explain_existing_upper_bound(lpvar j);    
+    void explain_separation_from_zero(lpvar j);
+    void explain_var_separated_from_zero(lpvar j);
+    void explain_fixed_var(lpvar j);
 
+
+    std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
+    std::ostream & print_var(lpvar j, std::ostream & out) const;
+    std::ostream & print_monomials(std::ostream & out) const;    
+    std::ostream & print_ineqs(const lemma& l, std::ostream & out) const;    
+    std::ostream & print_factorization(const factorization& f, std::ostream& out) const;
     template <typename T>
     std::ostream& print_product(const T & m, std::ostream& out) const;
-
     std::ostream & print_factor(const factor& f, std::ostream& out) const;
-
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
-
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const;
-
-    std::ostream& print_point(const point &a, std::ostream& out) const;
-    
-    std::ostream& print_tangent_domain(const point &a, const point &b, std::ostream& out) const;
-
     std::ostream& print_bfc(const bfc& m, std::ostream& out) const;
-
     std::ostream& print_monomial(unsigned i, std::ostream& out) const;
-
     std::ostream& print_monomial_with_vars(unsigned i, std::ostream& out) const;
-
     template <typename T>
     std::ostream& print_product_with_vars(const T& m, std::ostream& out) const;
-
     std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const;
-
     std::ostream& print_rooted_monomial(const rooted_mon& rm, std::ostream& out) const;
-
     std::ostream& print_rooted_monomial_with_vars(const rooted_mon& rm, std::ostream& out) const;
-
     std::ostream& print_explanation(const lp::explanation& exp, std::ostream& out) const;
-
-    bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-    bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
-
-    bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-
-    bool explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
-    
-    // return true iff the negation of the ineq can be derived from the constraints
-    bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs);
-
-    /**
-     * \brief
-     if t is an octagon term -+x -+ y try to explain why the term always
-     equal zero
-    */
-    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e);
+    template <typename T>
+    void trace_print_rms(const T& p, std::ostream& out);
+    void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const;
+    void print_monomial_stats(const monomial& m, std::ostream& out);    
+    void print_stats(std::ostream& out);
+        
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-
     void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
-
     void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp);
-
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp);
-
     void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs);
-
     void mk_ineq(lpvar j, lpvar k, llc cmp, const rational& rs);
-
     void mk_ineq(lpvar j, llc cmp, const rational& rs);
-
     void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs);
+    void mk_ineq(const rational& a, lpvar j, llc cmp);
+    void mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l);
+    void mk_ineq(lpvar j, llc cmp);
+    
+    
     void maybe_add_a_factor(lpvar i,
                             const factor& c,
                             std::unordered_set<lpvar>& found_vars,
@@ -243,25 +208,10 @@ struct core {
 
     llc apply_minus(llc cmp);
     
-    void mk_ineq(const rational& a, lpvar j, llc cmp);
-
-    void mk_ineq(lpvar j, lpvar k, llc cmp, lemma& l);
-
-    void mk_ineq(lpvar j, llc cmp);
-    
-    // the monomials should be equal by modulo sign but this is not so in the model
     void fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign);
 
-    // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
-    // Also sorts the result.
-    // 
     svector<lpvar> reduce_monomial_to_rooted(const svector<lpvar> & vars, rational & sign) const;
 
-
-    // Replaces definition m_v = v1* .. * vn by
-    // m_v = coeff * w1 * ... * wn, where w1, .., wn are canonical
-    // representatives, which are the roots of the equivalence tree, under current equations.
-    // 
     monomial_coeff canonize_monomial(monomial const& m) const;
 
     lemma& current_lemma();
@@ -271,62 +221,30 @@ struct core {
     const lp::explanation& current_expl() const;
 
     int vars_sign(const svector<lpvar>& v);
-
     bool has_upper_bound(lpvar j) const; 
-
     bool has_lower_bound(lpvar j) const; 
     const rational& get_upper_bound(unsigned j) const;
-
-    const rational& get_lower_bound(unsigned j) const;
-    
+    const rational& get_lower_bound(unsigned j) const;    
     
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;
     
     int rat_sign(const monomial& m) const;
     inline int rat_sign(lpvar j) const { return nla::rat_sign(vvr(j)); }
 
-    // Returns true if the monomial sign is incorrect
     bool sign_contradiction(const monomial& m) const;
-
-    /*
-      unsigned_vector eq_vars(lpvar j) const;
-    */
-    // Monomials m and n vars have the same values, up to "sign"
-    // Generate a lemma if values of m.var() and n.var() are not the same up to sign
 
     bool var_is_fixed_to_zero(lpvar j) const;
     bool var_is_fixed_to_val(lpvar j, const rational& v) const;
 
     bool var_is_fixed(lpvar j) const;
-    
-    std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
-
-    std::ostream & print_var(lpvar j, std::ostream & out) const;
-
-    std::ostream & print_monomials(std::ostream & out) const;    
-
-    std::ostream & print_ineqs(const lemma& l, std::ostream & out) const;
-    
-    std::ostream & print_factorization(const factorization& f, std::ostream& out) const;
-    
+        
     bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
 
     const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
 
-    void explain_existing_lower_bound(lpvar j);
-
-    void explain_existing_upper_bound(lpvar j);
-    
-    void explain_separation_from_zero(lpvar j);
 
     int get_derived_sign(const rooted_mon& rm, const factorization& f) const;
-    // here we use the fact xy = 0 -> x = 0 or y = 0
-    void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const;
 
-    void explain_var_separated_from_zero(lpvar j);
-
-    void explain_fixed_var(lpvar j);
-    // x = 0 or y = 0 -> xy = 0
 
     bool var_has_positive_lower_bound(lpvar j) const;
 
@@ -339,12 +257,20 @@ struct core {
 
     
     void explain_equiv_vars(lpvar a, lpvar b);
-    // use the fact that
-    // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
     void explain(const factorization& f, lp::explanation& exp);
+    bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
+
+    bool explain_lower_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
+
+    bool explain_coeff_lower_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
+
+    bool explain_coeff_upper_bound(const lp::lar_term::ival& p, rational& bound, lp::explanation& e) const;
+    
+    bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs);
+
+    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e);
 
     bool has_zero_factor(const factorization& factorization) const;
-
 
     template <typename T>
     bool has_zero(const T& product) const;
@@ -363,13 +289,10 @@ struct core {
 
     void collect_equivs_of_fixed_vars();
 
-    // returns true iff the term is in a form +-x-+y.
-    // the sign is true iff the term is x+y, -x-y.
     bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const;
     
     void add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1);
 
-    // x is equivalent to y if x = +- y
     void init_vars_equivalence();
 
     bool vars_table_is_ok() const;
@@ -385,13 +308,6 @@ struct core {
 
     void register_monomial_in_tables(unsigned i_mon);
 
-    template <typename T>
-    void trace_print_rms(const T& p, std::ostream& out);
-
-    void print_monomial_stats(const monomial& m, std::ostream& out);
-    
-    void print_stats(std::ostream& out);
-        
     void register_monomials_in_tables();
 
     void clear();
@@ -440,7 +356,7 @@ struct core {
 
     // strict version
     void generate_monl_strict(const rooted_mon& a,
-                              const rooted_mon& b,
+                              const rooted_mon& b,
                               unsigned strict);
 
     // not a strict version
@@ -448,108 +364,23 @@ struct core {
                        const rooted_mon& b);
     
     bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
-
     bool monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
-
     bool monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
     bool monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted);
-    
     bool  monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms);
-    
     void monotonicity_lemma();
-
-#if 0
-    void monotonicity_lemma();
-
-#endif
-
     void monotonicity_lemma(unsigned i_mon);
-
-    // add |j| <= |vvr(j)|  
-    void var_abs_val_le(lpvar j);
-
-    // assert that |j| >= |vvr(j)|
-    void var_abs_val_ge(lpvar j);
-
-
-    /**
-       \brief Add |v| ~ |bound|
-       where ~ is <, <=, >, >=, 
-       and bound = vvr(v)
-
-       |v| > |bound| 
-       <=> 
-       (v < 0 or v > |bound|) & (v > 0 or -v > |bound|)        
-       => Let s be the sign of vvr(v)
-       (s*v < 0 or s*v > |bound|)         
-
-       |v| < |bound|
-       <=>
-       v < |bound| & -v < |bound| 
-       => Let s be the sign of vvr(v)
-       s*v < |bound|
-
-    */
-
     void add_abs_bound(lpvar v, llc cmp);
-
     void add_abs_bound(lpvar v, llc cmp, rational const& bound);
 
-    /** \brief enforce the inequality |m| <= product |m[i]| .
-        by enforcing lemma:
-        /\_i |m[i]| <= |vvr(m[i])| => |m| <= |product_i vvr(m[i])|
-        <=>
-        \/_i |m[i]| > |vvr(m[i])} or |m| <= |product_i vvr(m[i])|
-    */
-
-    void monotonicity_lemma_gt(const monomial& m, const rational& prod_val);
-    
-    /** \brief enforce the inequality |m| >= product |m[i]| .
-
-        /\_i |m[i]| >= |vvr(m[i])| => |m| >= |product_i vvr(m[i])|
-        <=>
-        \/_i |m[i]| < |vvr(m[i])} or |m| >= |product_i vvr(m[i])|
-    */
-    void monotonicity_lemma_lt(const monomial& m, const rational& prod_val);
-    
+    void monotonicity_lemma_gt(const monomial& m, const rational& prod_val);    
+    void monotonicity_lemma_lt(const monomial& m, const rational& prod_val);    
     bool  find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf);
     
     bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found);
     void generate_simple_sign_lemma(const rational& sign, const monomial& m);
 
-    void generate_simple_tangent_lemma(const rooted_mon* rm);
-    
-    void tangent_lemma();
-
-    void generate_explanations_of_tang_lemma(const rooted_mon& rm, const bfc& bf, lp::explanation& exp);
-    
-    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const rooted_mon* rm);
-    void generate_tang_plane(const rational & a, const rational& b, const factor& x, const factor& y, bool below, lpvar j, const rational& j_sign);  
-
     void negate_relation(unsigned j, const rational& a);
-    
-    void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j);
-    // Get two planes tangent to surface z = xy, one at point a,  and another at point b.
-    // One can show that these planes still create a cut.
-    void get_initial_tang_points(point &a, point &b, const point& xy,
-                                 bool below) const;
-
-    void push_tang_point(point &a, const point& xy, bool below, const rational& correct_val, const rational& val) const;
-    
-    void push_tang_points(point &a, point &b, const point& xy, bool below, const rational& correct_val, const rational& val) const;
-
-    rational tang_plane(const point& a, const point& x) const;
-
-    bool  plane_is_correct_cut(const point& plane,
-                               const point& xy,
-                               const rational & correct_val,                             
-                               const rational & val,
-                               bool below) const;
-
-    // "below" means that the val is below the surface xy 
-    void get_tang_points(point &a, point &b, bool below, const rational& val,
-                         const point& xy) const;
-
     bool  conflict_found() const;
     lbool  inner_check(bool derived);
     
@@ -562,3 +393,4 @@ struct core {
     lbool  test_check(vector<lemma>& l);
 };  // end of core
 } // end of namespace nla
+
