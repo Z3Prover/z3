@@ -21,11 +21,8 @@
 #include "util/lp/nla_core.h"
 #include "util/lp/factorization_factory_imp.h"
 namespace nla {
-template <typename T> rational basics::vvr(T const& t) const { return m_core->vvr(t); }
-rational basics::vvr(lpvar t) const { return m_core->vvr(t); }
-template <typename T> lpvar basics::var(T const& t) const { return m_core->var(t); }
 
-basics::basics(core * c) : m_core(c) {}
+basics::basics(core * c) : common(c) {}
 // Monomials m and n vars have the same values, up to "sign"
 // Generate a lemma if values of m.var() and n.var() are not the same up to sign
 bool basics::basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
@@ -225,7 +222,6 @@ void basics::add_fixed_zero_lemma(const monomial& m, lpvar j) {
     c().mk_ineq(m.var(), llc::EQ);
     TRACE("nla_solver", c().print_lemma(tout););
 }
-void basics::add_empty_lemma() { c().add_empty_lemma(); }
 void basics::negate_strict_sign(lpvar j) {
     TRACE("nla_solver_details", c().print_var(j, tout););
     if (!vvr(j).is_zero()) {
@@ -845,11 +841,5 @@ void basics::basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, cons
         basic_lemma_for_mon_non_zero_model_based_mf(f);
 }
 
-bool basics::done() const { return c().done(); }
-
-template <typename T> void basics::explain(const T& t) {
-    c().explain(t, c().current_expl());
-}
-template void basics::explain<monomial>(const monomial& t);
 
 }

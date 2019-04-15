@@ -24,6 +24,7 @@
 #include "util/lp/rooted_mons.h"
 #include "util/lp/nla_tangent_lemmas.h"
 #include "util/lp/nla_basics_lemmas.h"
+#include "util/lp/nla_order_lemmas.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -103,7 +104,10 @@ struct core {
     unsigned_vector                                                  m_to_refine;
     std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
     tangents                                                         m_tangents;
-    basics                                                            m_basics;
+    basics                                                           m_basics;
+    order                                                           m_order;
+    // methods
+    unsigned find_monomial(const unsigned_vector& k) const;
     core(lp::lar_solver& s);
     
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
@@ -231,9 +235,12 @@ struct core {
     void mk_ineq(lpvar j, llc cmp, const rational& rs);
 
     void mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs);
+    void maybe_add_a_factor(lpvar i,
+                            const factor& c,
+                            std::unordered_set<lpvar>& found_vars,
+                            std::unordered_set<unsigned>& found_rm,
+                            vector<factor> & r) const;
 
-    llc negate(llc cmp);
-    
     llc apply_minus(llc cmp);
     
     void mk_ineq(const rational& a, lpvar j, llc cmp);
@@ -403,31 +410,9 @@ struct core {
     
     void negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b);
 
-    void negate_var_factor_relation(const rational& a_sign, lpvar a, const rational& b_sign, const factor& b);
-
-    // |c_sign| = 1, and c*c_sign > 0
-    // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
-    void generate_ol(const rooted_mon& ac,                     
-                     const factor& a,
-                     int c_sign,
-                     const factor& c,
-                     const rooted_mon& bc,
-                     const factor& b,
-                     llc ab_cmp);
-
-    void generate_mon_ol(const monomial& ac,                     
-                         lpvar a,
-                         const rational& c_sign,
-                         lpvar c,
-                         const rooted_mon& bd,
-                         const factor& b,
-                         const rational& d_sign,
-                         lpvar d,
-                         llc ab_cmp);
-
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
-    void print_lemma(std::ostream& out);
+    std::ostream& print_lemma(std::ostream& out) const;
 
     void print_specific_lemma(const lemma& l, std::ostream& out) const;
     
@@ -439,52 +424,7 @@ struct core {
                         const factor& b,
                         std::ostream& out);
     
-    bool order_lemma_on_ac_and_bc_and_factors(const rooted_mon& ac,
-                                              const factor& a,
-                                              const factor& c,
-                                              const rooted_mon& bc,
-                                              const factor& b);
-    
-    // a >< b && c > 0  => ac >< bc
-    // a >< b && c < 0  => ac <> bc
-    // ac[k] plays the role of c   
-    bool order_lemma_on_ac_and_bc(const rooted_mon& rm_ac,
-                                  const factorization& ac_f,
-                                  unsigned k,
-                                  const rooted_mon& rm_bd);
-    void maybe_add_a_factor(lpvar i,
-                            const factor& c,
-                            std::unordered_set<lpvar>& found_vars,
-                            std::unordered_set<unsigned>& found_rm,
-                            vector<factor> & r) const;
-    
-    bool order_lemma_on_ac_explore(const rooted_mon& rm, const factorization& ac, unsigned k);
-
-    void order_lemma_on_factorization(const rooted_mon& rm, const factorization& ab);
-    
-    /**
-       \brief Add lemma: 
-       a > 0 & b <= value(b) => sign*ab <= value(b)*a  if value(a) > 0
-       a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
-    */
-    void order_lemma_on_ab_gt(const monomial& m, const rational& sign, lpvar a, lpvar b);
-    // we need to deduce ab >= vvr(b)*a
-    /**
-       \brief Add lemma: 
-       a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0
-       a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
-    */
-    void order_lemma_on_ab_lt(const monomial& m, const rational& sign, lpvar a, lpvar b);
-    void order_lemma_on_ab(const monomial& m, const rational& sign, lpvar a, lpvar b, bool gt);
     bool rm_check(const rooted_mon&) const;
-    void order_lemma_on_factor_binomial_explore(const monomial& m, unsigned k);
-    void order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, const rooted_mon& rm_bd);
-    void order_lemma_on_binomial_ac_bd(const monomial& ac, unsigned k, const rooted_mon& bd, const factor& b, lpvar d);
-    void order_lemma_on_binomial_k(const monomial& m, lpvar k, bool gt);
-    void order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, int sign);
-    void order_lemma_on_binomial(const monomial& ac);
-    void order_lemma_on_rmonomial(const rooted_mon& rm);
-    void order_lemma();
     void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
                               std::ostream& out) const;
     std::vector<rational> get_sorted_key(const rooted_mon& rm) const;
@@ -500,7 +440,7 @@ struct core {
 
     // strict version
     void generate_monl_strict(const rooted_mon& a,
-                              const rooted_mon& b,
+                              const rooted_mon& b,
                               unsigned strict);
 
     // not a strict version
