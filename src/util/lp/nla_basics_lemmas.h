@@ -27,9 +27,6 @@
 namespace nla {
 struct core;
 struct basics: common {
-    core* m_core;
-    core& c() { return *m_core; }
-    const core& c() const { return *m_core; }
     basics(core *core);
     bool basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign);
 
