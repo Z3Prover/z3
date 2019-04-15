@@ -25,7 +25,8 @@ core::core(lp::lar_solver& s) :
     m_evars(),
     m_lar_solver(s),
     m_tangents(this),
-    m_basics(this) {
+    m_basics(this),
+    m_order(this) {
 }
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -190,6 +191,8 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     }
     return out;
 }
+template std::ostream& core::print_product<monomial>(const monomial & m, std::ostream& out) const;
+template std::ostream& core::print_product<rooted_mon>(const rooted_mon & m, std::ostream& out) const;
 
 std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
@@ -478,19 +481,6 @@ void core:: mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
     mk_ineq(t, cmp, rs);
 }
 
-llc negate(llc cmp) {
-    switch(cmp) {
-    case llc::LE: return llc::GT;
-    case llc::LT: return llc::GE;
-    case llc::GE: return llc::LT;
-    case llc::GT: return llc::LE;
-    case llc::EQ: return llc::NE;
-    case llc::NE: return llc::EQ;
-    default: SASSERT(false);
-    };
-    return cmp; // not reachable
-}
-    
 llc apply_minus(llc cmp) {
     switch(cmp) {
     case llc::LE: return llc::GE;
@@ -632,84 +622,6 @@ bool core::zero_is_an_inner_point_of_bounds(lpvar j) const {
     return true;
 }
     
-
-bool core:: try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const {
-    SASSERT(sign);
-    if (has_lower_bound(j) && get_lower_bound(j) >= rational(0))
-        return true;
-    if (has_upper_bound(j) && get_upper_bound(j) <= rational(0)) {
-        sign = -sign;
-        return true;
-    }
-    sign = 0;
-    return false;
-}
-
-void core:: get_non_strict_sign(lpvar j, int& sign) const {
-    const rational & v = vvr(j);
-    if (v.is_zero()) {
-        try_get_non_strict_sign_from_bounds(j, sign);
-    } else {
-        sign *= nla::rat_sign(v);
-    }
-}
-
-
-void core:: add_trival_zero_lemma(lpvar zero_j, const monomial& m) {
-    add_empty_lemma();
-    mk_ineq(zero_j, llc::NE);
-    mk_ineq(m.var(), llc::EQ);
-    TRACE("nla_solver", print_lemma(tout););            
-}
-    
-void core:: generate_zero_lemmas(const monomial& m) {
-    SASSERT(!vvr(m).is_zero() && product_value(m).is_zero());
-    int sign = nla::rat_sign(vvr(m));
-    unsigned_vector fixed_zeros;
-    lpvar zero_j = find_best_zero(m, fixed_zeros);
-    SASSERT(is_set(zero_j));
-    unsigned zero_power = 0;
-    for (unsigned j : m){
-        if (j == zero_j) {
-            zero_power++;
-            continue;
-        }
-        get_non_strict_sign(j, sign);
-        if(sign == 0)
-            break;
-    }
-    if (sign && is_even(zero_power))
-        sign = 0;
-    TRACE("nla_solver_details", tout << "zero_j = " << zero_j << ", sign = " << sign << "\n";);
-    if (sign == 0) { // have to generate a non-convex lemma
-        add_trival_zero_lemma(zero_j, m);
-    } else { 
-        generate_strict_case_zero_lemma(m, zero_j, sign);
-    }
-    for (lpvar j : fixed_zeros)
-        add_fixed_zero_lemma(m, j);
-}
-
-void core:: add_fixed_zero_lemma(const monomial& m, lpvar j) {
-    add_empty_lemma();
-    explain_fixed_var(j);
-    mk_ineq(m.var(), llc::EQ);
-    TRACE("nla_solver", print_lemma(tout););
-}
-
-llc core::negate(llc cmp) {
-    switch(cmp) {
-    case llc::LE: return llc::GT;
-    case llc::LT: return llc::GE;
-    case llc::GE: return llc::LT;
-    case llc::GT: return llc::LE;
-    case llc::EQ: return llc::NE;
-    case llc::NE: return llc::EQ;
-    default: SASSERT(false);
-    };
-    return cmp; // not reachable
-}
-
 int core::rat_sign(const monomial& m) const {
     int sign = 1;
     for (lpvar j : m) {
@@ -1890,54 +1802,6 @@ void core::negate_factor_relation(const rational& a_sign, const factor& a, const
     mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
 }
 
-void core::negate_var_factor_relation(const rational& a_sign, lpvar a, const rational& b_sign, const factor& b) {
-    rational b_fs = canonize_sign(b);
-    llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
-    mk_ineq(a_sign, a, - b_fs*b_sign, var(b), cmp);
-}
-
-// |c_sign| = 1, and c*c_sign > 0
-// ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
-void core::generate_ol(const rooted_mon& ac,                     
-                       const factor& a,
-                       int c_sign,
-                       const factor& c,
-                       const rooted_mon& bc,
-                       const factor& b,
-                       llc ab_cmp) {
-    add_empty_lemma();
-    rational rc_sign = rational(c_sign);
-    mk_ineq(rc_sign * canonize_sign(c), var(c), llc::LE);
-    mk_ineq(canonize_sign(ac), var(ac), -canonize_sign(bc), var(bc), ab_cmp);
-    mk_ineq(canonize_sign(a)*rc_sign, var(a), - canonize_sign(b)*rc_sign, var(b), negate(ab_cmp));
-    explain(ac, current_expl());
-    explain(a, current_expl());
-    explain(bc, current_expl());
-    explain(b, current_expl());
-    explain(c, current_expl());
-    TRACE("nla_solver", print_lemma(tout););
-}
-
-void core::generate_mon_ol(const monomial& ac,                     
-                           lpvar a,
-                           const rational& c_sign,
-                           lpvar c,
-                           const rooted_mon& bd,
-                           const factor& b,
-                           const rational& d_sign,
-                           lpvar d,
-                           llc ab_cmp) {
-    add_empty_lemma();
-    mk_ineq(c_sign, c, llc::LE);
-    explain(c, current_expl()); // this explains c == +- d
-    negate_var_factor_relation(c_sign, a, d_sign, b);
-    mk_ineq(ac.var(), -canonize_sign(bd), var(bd), ab_cmp);
-    explain(bd, current_expl());
-    explain(b, current_expl());
-    explain(d, current_expl());
-    TRACE("nla_solver", print_lemma(tout););
-}
-
 std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     std::unordered_set<lpvar> vars;
     for (const auto& i : current_lemma().ineqs()) {
@@ -1966,8 +1830,9 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     return vars;
 }
 
-void core::print_lemma(std::ostream& out) {
+std::ostream& core::print_lemma(std::ostream& out) const {
     print_specific_lemma(current_lemma(), out);
+    return out;
 }
 
 void core::print_specific_lemma(const lemma& l, std::ostream& out) const {
@@ -2001,51 +1866,6 @@ void core::trace_print_ol(const rooted_mon& ac,
     print_factor_with_vars(c, out);
 }
     
-bool core:: order_lemma_on_ac_and_bc_and_factors(const rooted_mon& ac,
-                                                 const factor& a,
-                                                 const factor& c,
-                                                 const rooted_mon& bc,
-                                                 const factor& b) {
-    auto cv = vvr(c); 
-    int c_sign = nla::rat_sign(cv);
-    SASSERT(c_sign != 0);
-    auto av_c_s = vvr(a)*rational(c_sign);
-    auto bv_c_s = vvr(b)*rational(c_sign);        
-    auto acv = vvr(ac); 
-    auto bcv = vvr(bc); 
-    TRACE("nla_solver", trace_print_ol(ac, a, c, bc, b, tout););
-    // Suppose ac >= bc, then ac/|c| >= bc/|c|.
-    // Notice that ac/|c| = a*c_sign , and bc/|c| = b*c_sign, which are correspondingly av_c_s and bv_c_s
-    if (acv >= bcv && av_c_s < bv_c_s) {
-        generate_ol(ac, a, c_sign, c, bc, b, llc::LT);
-        return true;
-    } else if (acv <= bcv && av_c_s > bv_c_s) {
-        generate_ol(ac, a, c_sign, c, bc, b, llc::GT);
-        return true;
-    }
-    return false;
-}
-    
-// a >< b && c > 0  => ac >< bc
-// a >< b && c < 0  => ac <> bc
-// ac[k] plays the role of c   
-bool core:: order_lemma_on_ac_and_bc(const rooted_mon& rm_ac,
-                                     const factorization& ac_f,
-                                     unsigned k,
-                                     const rooted_mon& rm_bd) {
-    TRACE("nla_solver",   tout << "rm_ac = ";
-          print_rooted_monomial(rm_ac, tout);
-          tout << "\nrm_bd = ";
-          print_rooted_monomial(rm_bd, tout);
-          tout << "\nac_f[k] = ";
-          print_factor_with_vars(ac_f[k], tout););
-    factor b;
-    if (!divide(rm_bd, ac_f[k], b)){
-        return false;
-    }
-
-    return order_lemma_on_ac_and_bc_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b);
-}
 void core::maybe_add_a_factor(lpvar i,
                               const factor& c,
                               std::unordered_set<lpvar>& found_vars,
@@ -2070,242 +1890,6 @@ void core::maybe_add_a_factor(lpvar i,
     }
 }
     
-bool core:: order_lemma_on_ac_explore(const rooted_mon& rm, const factorization& ac, unsigned k) {
-    const factor c = ac[k];
-    TRACE("nla_solver", tout << "c = "; print_factor_with_vars(c, tout); );
-    if (c.is_var()) {
-        TRACE("nla_solver", tout << "var(c) = " << var(c););
-        for (unsigned rm_bc : m_rm_table.var_map()[c.index()]) {
-            TRACE("nla_solver", );
-            if (order_lemma_on_ac_and_bc(rm ,ac, k, m_rm_table.rms()[rm_bc])) {
-                return true;
-            }
-        }
-    } else {
-        for (unsigned rm_bc : m_rm_table.proper_multiples()[c.index()]) {
-            if (order_lemma_on_ac_and_bc(rm , ac, k, m_rm_table.rms()[rm_bc])) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-void core::order_lemma_on_factorization(const rooted_mon& rm, const factorization& ab) {
-    const monomial& m = m_monomials[rm.orig_index()];
-    TRACE("nla_solver", tout << "orig_sign = " << rm.orig_sign() << "\n";);
-    rational sign = rm.orig_sign();
-    for(factor f: ab)
-        sign *= canonize_sign(f);
-    const rational & fv = vvr(ab[0]) * vvr(ab[1]);
-    const rational mv = sign * vvr(m);
-    TRACE("nla_solver",
-          tout << "ab.size()=" << ab.size() << "\n";
-          tout << "we should have sign*vvr(m):" << mv << "=(" << sign << ")*(" << vvr(m) <<") to be equal to " << " vvr(ab[0])*vvr(ab[1]):" << fv << "\n";);
-    if (mv == fv)
-        return;
-    bool gt = mv > fv;
-    TRACE("nla_solver_f", tout << "m="; print_monomial_with_vars(m, tout); tout << "\nfactorization="; print_factorization(ab, tout););
-    for (unsigned j = 0, k = 1; j < 2; j++, k--) {
-        order_lemma_on_ab(m, sign, var(ab[k]), var(ab[j]), gt);
-        explain(ab, current_expl()); explain(m, current_expl());
-        explain(rm, current_expl());
-        TRACE("nla_solver", print_lemma(tout););
-        order_lemma_on_ac_explore(rm, ab, j);
-    }
-}
-    
-/**
-   \brief Add lemma: 
-   a > 0 & b <= value(b) => sign*ab <= value(b)*a  if value(a) > 0
-   a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
-*/
-void core::order_lemma_on_ab_gt(const monomial& m, const rational& sign, lpvar a, lpvar b) {
-    SASSERT(sign * vvr(m) > vvr(a) * vvr(b));
-    add_empty_lemma();
-    if (vvr(a).is_pos()) {
-        TRACE("nla_solver", tout << "a is pos\n";);
-        //negate a > 0
-        mk_ineq(a, llc::LE);
-        // negate b <= vvr(b)
-        mk_ineq(b, llc::GT, vvr(b));
-        // ab <= vvr(b)a
-        mk_ineq(sign, m.var(), -vvr(b), a, llc::LE);
-    } else {
-        TRACE("nla_solver", tout << "a is neg\n";);
-        SASSERT(vvr(a).is_neg());
-        //negate a < 0
-        mk_ineq(a, llc::GE);
-        // negate b >= vvr(b)
-        mk_ineq(b, llc::LT, vvr(b));
-        // ab <= vvr(b)a
-        mk_ineq(sign, m.var(), -vvr(b), a, llc::LE);
-    }
-}
-// we need to deduce ab >= vvr(b)*a
-/**
-   \brief Add lemma: 
-   a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0
-   a < 0 & b <= value(b) => sign*ab >= value(b)*a if value(a) < 0
-*/
-void core::order_lemma_on_ab_lt(const monomial& m, const rational& sign, lpvar a, lpvar b) {
-    SASSERT(sign * vvr(m) < vvr(a) * vvr(b));
-    add_empty_lemma();
-    if (vvr(a).is_pos()) {
-        //negate a > 0
-        mk_ineq(a, llc::LE);
-        // negate b >= vvr(b)
-        mk_ineq(b, llc::LT, vvr(b));
-        // ab <= vvr(b)a
-        mk_ineq(sign, m.var(), -vvr(b), a, llc::GE);
-    } else {
-        SASSERT(vvr(a).is_neg());
-        //negate a < 0
-        mk_ineq(a, llc::GE);
-        // negate b <= vvr(b)
-        mk_ineq(b, llc::GT, vvr(b));
-        // ab >= vvr(b)a
-        mk_ineq(sign, m.var(), -vvr(b), a, llc::GE);
-    }
-}
-
-
-void core::order_lemma_on_ab(const monomial& m, const rational& sign, lpvar a, lpvar b, bool gt) {
-    if (gt)
-        order_lemma_on_ab_gt(m, sign, a, b);
-    else 
-        order_lemma_on_ab_lt(m, sign, a, b);
-}
- 
-// void core::order_lemma_on_ab(const monomial& m, const rational& sign, lpvar a, lpvar b, bool gt) {
-//     add_empty_lemma();
-//     if (gt) {
-//         if (vvr(a).is_pos()) {
-//             //negate a > 0
-//             mk_ineq(a, llc::LE);
-//             // negate b >= vvr(b)
-//             mk_ineq(b, llc::LT, vvr(b));
-//             // ab <= vvr(b)a
-//             mk_ineq(sign, m.var(), -vvr(b), a, llc::LE);
-//         } else {
-//             SASSERT(vvr(a).is_neg());
-//             //negate a < 0
-//             mk_ineq(a, llc::GE);
-//             // negate b <= vvr(b)
-//             mk_ineq(b, llc::GT, vvr(b));
-//             // ab < vvr(b)a
-//             mk_ineq(sign, m.var(), -vvr(b), a, llc::LE);  }
-//     }
-// }
-
-void core::order_lemma_on_factor_binomial_explore(const monomial& m, unsigned k) {
-    SASSERT(m.size() == 2);
-    lpvar c = m[k];
-    lpvar d = m_evars.find(c).var();
-    auto it = m_rm_table.var_map().find(d);
-    SASSERT(it != m_rm_table.var_map().end());
-    for (unsigned bd_i : it->second) {
-        order_lemma_on_factor_binomial_rm(m, k, m_rm_table.rms()[bd_i]);
-        if (done())
-            break;
-    }        
-}
-
-void core::order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, const rooted_mon& rm_bd) {
-    factor d(m_evars.find(ac[k]).var(), factor_type::VAR);
-    factor b;
-    if (!divide(rm_bd, d, b))
-        return;
-    order_lemma_on_binomial_ac_bd(ac, k, rm_bd, b, d.index());
-}
-
-void core::order_lemma_on_binomial_ac_bd(const monomial& ac, unsigned k, const rooted_mon& bd, const factor& b, lpvar d) {
-    TRACE("nla_solver",  print_monomial(ac, tout << "ac=");
-          print_rooted_monomial(bd, tout << "\nrm=");
-          print_factor(b, tout << ", b="); print_var(d, tout << ", d=") << "\n";);
-    int p = (k + 1) % 2;
-    lpvar a = ac[p];
-    lpvar c = ac[k];
-    SASSERT(m_evars.find(c).var() == d);
-    rational acv = vvr(ac);
-    rational av = vvr(a);
-    rational c_sign = rrat_sign(vvr(c));
-    rational d_sign = rrat_sign(vvr(d));
-    rational bdv = vvr(bd);
-    rational bv = vvr(b);
-    auto av_c_s = av*c_sign; auto bv_d_s = bv*d_sign;
-
-    // suppose ac >= bd, then ac/|c| >= bd/|d|.
-    // Notice that ac/|c| = a*c_sign , and bd/|d| = b*d_sign
-    if (acv >= bdv && av_c_s < bv_d_s)
-        generate_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT);
-    else if (acv <= bdv && av_c_s > bv_d_s)
-        generate_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::GT);
-        
-}
-    
-void core::order_lemma_on_binomial_k(const monomial& m, lpvar k, bool gt) {
-    SASSERT(gt == (vvr(m) > vvr(m[0]) * vvr(m[1])));
-    unsigned p = (k + 1) % 2;
-    order_lemma_on_binomial_sign(m, m[k], m[p], gt? 1: -1);
-}
-// sign it the sign of vvr(m) - vvr(m[0]) * vvr(m[1])
-// m = xy
-// and val(m) != val(x)*val(y)
-// y > 0 and x = a, then xy >= ay
-void core::order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, int sign) {
-    SASSERT(!mon_has_zero(ac));
-    int sy = rat_sign(y);
-    add_empty_lemma();
-    mk_ineq(y, sy == 1? llc::LE : llc::GE); // negate sy
-    mk_ineq(x, sy*sign == 1? llc::GT:llc::LT , vvr(x)); // assert x <= vvr(x) if x > 0
-    mk_ineq(ac.var(), - vvr(x), y, sign == 1?llc::LE:llc::GE);
-    TRACE("nla_solver", print_lemma(tout););
-}
-
-void core::order_lemma_on_binomial(const monomial& ac) {
-    TRACE("nla_solver", print_monomial(ac, tout););
-    SASSERT(!check_monomial(ac) && ac.size() == 2);
-    const rational & mult_val = vvr(ac[0]) * vvr(ac[1]);
-    const rational acv = vvr(ac);
-    bool gt = acv > mult_val;
-    for (unsigned k = 0; k < 2; k++) {
-        order_lemma_on_binomial_k(ac, k, gt);
-        order_lemma_on_factor_binomial_explore(ac, k);
-    }
-}
-// a > b && c > 0 => ac > bc
-void core::order_lemma_on_rmonomial(const rooted_mon& rm) {
-    TRACE("nla_solver_details",
-          tout << "rm = "; print_product(rm, tout);
-          tout << ", orig = "; print_monomial(m_monomials[rm.orig_index()], tout);
-          );
-    for (auto ac : factorization_factory_imp(rm, *this)) {
-        if (ac.size() != 2)
-            continue;
-        if (ac.is_mon())
-            order_lemma_on_binomial(*ac.mon());
-        else
-            order_lemma_on_factorization(rm, ac);
-        if (done())
-            break;
-    }
-}
-    
-void core::order_lemma() {
-    TRACE("nla_solver", );
-    init_rm_to_refine();
-    const auto& rm_ref = m_rm_table.to_refine();
-    unsigned start = random() % rm_ref.size();
-    unsigned i = start;
-    do {
-        const rooted_mon& rm = m_rm_table.rms()[rm_ref[i]];
-        order_lemma_on_rmonomial(rm);
-        if (++i == rm_ref.size()) {
-            i = 0;
-        }
-    } while(i != start && !done());
-}
 
 std::vector<rational> core::get_sorted_key(const rooted_mon& rm) const {
     std::vector<rational> r;
@@ -2964,7 +2548,7 @@ lbool core:: inner_check(bool derived) {
         if (derived) continue;
         TRACE("nla_solver", tout << "passed derived and basic lemmas\n";);
         if (search_level == 1) {
-            order_lemma();
+            m_order.order_lemma();
         } else { // search_level == 2
             monotonicity_lemma();
             tangent_lemma();

@@ -23,9 +23,8 @@
 namespace nla {
 template <typename T> rational tangents::vvr(T const& t) const { return m_core->vvr(t); }
 template <typename T> lpvar tangents::var(T const& t) const { return m_core->var(t); }
-void tangents::add_empty_lemma() { c().add_empty_lemma(); }
 
-tangents::tangents(core * c) : m_core(c) {}
+tangents::tangents(core * c) : common(c) {}
 std::ostream& tangents::print_point(const point &a, std::ostream& out) const {
     out << "(" << a.x <<  ", " << a.y << ")";
     return out;
