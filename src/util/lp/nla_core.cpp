@@ -2194,26 +2194,7 @@ bool core:: no_lemmas_hold() const {
     return true;
 }
     
-void core::test_factorization(unsigned /*mon_index*/, unsigned /*number_of_factorizations*/) {
-    //  vector<ineq> lemma;
-
-    // unsigned_vector vars = m_monomials[mon_index].vars();
-        
-    // factorization_factory_imp fc(vars, // 0 is the index of "abcde"
-    //                              *this);
-     
-    // std::cout << "factorizations = of "; print_monomial(m_monomials[mon_index], std::cout) << "\n";
-    // unsigned found_factorizations = 0;
-    // for (auto f : fc) {
-    //     if (f.is_empty()) continue;
-    //     found_factorizations ++;
-    //     print_factorization(f, std::cout);
-    //     std::cout << std::endl;
-    // }
-    // SASSERT(found_factorizations == number_of_factorizations);
-}
-    
-lbool core:: test_check(
+lbool core::test_check(
     vector<lemma>& l) {
     m_lar_solver.set_status(lp::lp_status::OPTIMAL);
     return check(l);
