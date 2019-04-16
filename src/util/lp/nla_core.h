@@ -354,8 +354,6 @@ struct core {
 
     bool  no_lemmas_hold() const;
     
-    void test_factorization(unsigned /*mon_index*/, unsigned /*number_of_factorizations*/);
-    
     lbool  test_check(vector<lemma>& l);
 };  // end of core
 } // end of namespace nla

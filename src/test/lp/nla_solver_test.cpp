@@ -67,43 +67,6 @@ void create_abcde(solver & nla,
     nla.add_monomial(lp_be, vec.size(), vec.begin());
 }
 
-void test_factorization() {
-    lp::lar_solver s;
-    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
-        abcde = 5, ac = 6, bde = 7, acd = 8, be = 9;
-    lpvar lp_a = s.add_named_var(a, true, "a");
-    lpvar lp_b = s.add_named_var(b, true, "b");
-    lpvar lp_c = s.add_named_var(c, true, "c");
-    lpvar lp_d = s.add_named_var(d, true, "d");
-    lpvar lp_e = s.add_named_var(e, true, "e");
-    lpvar lp_abcde = s.add_named_var(abcde, true, "abcde");
-    lpvar lp_ac = s.add_named_var(ac, true, "ac");
-    lpvar lp_bde = s.add_named_var(bde, true, "bde");
-    lpvar lp_acd = s.add_named_var(acd, true, "acd");
-    lpvar lp_be = s.add_named_var(be, true, "be");
-    
-    solver nla(s);
-    
-    create_abcde(nla,
-                 lp_a,
-                 lp_b,
-                 lp_c,
-                 lp_d,
-                 lp_e,
-                 lp_abcde,
-                 lp_ac,
-                 lp_bde,
-                 lp_acd,
-                 lp_be);
-    nla.get_core()->register_monomials_in_tables();
-    nla.get_core()->print_monomials(std::cout);
-    nla.get_core()->test_factorization(1, // 0 is the index of monomial abcde
-                                   1); // 3 is the number of expected factorizations
-    nla.get_core()->test_factorization(0, // 0 is the index of monomial abcde
-                                   3); // 3 is the number of expected factorizations
-
-    
-}
 
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     std::cout << "test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0\n";
