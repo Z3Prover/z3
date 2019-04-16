@@ -621,7 +621,7 @@ namespace smt {
             if (!ctx.is_relevant(n))
                 continue;
             
-            if (is_store(n) || is_const(n) || is_default(n))
+            if (is_store(n) || is_const(n) || is_default(n) || is_set_has_size(n))
                 return false;
         }
         return true;

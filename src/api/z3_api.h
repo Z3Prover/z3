@@ -3106,6 +3106,14 @@ extern "C" {
        def_API('Z3_mk_as_array', AST, (_in(CONTEXT), _in(FUNC_DECL)))
      */
     Z3_ast Z3_API Z3_mk_as_array(Z3_context c, Z3_func_decl f);
+
+    /**
+       \brief Create predicate that holds if Boolean array \c set has \c k elements set to true.       
+
+       def_API('Z3_mk_set_has_size', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_set_has_size(Z3_context c, Z3_ast set, Z3_ast k);
+
     /*@}*/
 
     /** @name Sets */
