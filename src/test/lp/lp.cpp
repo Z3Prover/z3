@@ -55,6 +55,18 @@
 #include "util/lp/general_matrix.h"
 #include "util/lp/bound_propagator.h"
 #include "util/lp/nla_solver.h"
+namespace nla {
+void test_factorization();
+void test_order_lemma();
+void test_monotone_lemma();
+void test_basic_sign_lemma();
+void test_tangent_lemma();
+void test_basic_lemma_for_mon_zero_from_monomial_to_factors();
+void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
+void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
+void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
+}
+
 namespace lp {
 unsigned seed = 1;
 
@@ -3557,11 +3569,11 @@ void test_gomory_cut() {
 }
 
 void test_nla_factorization() {
-    nla::solver::test_factorization();
+    nla::test_factorization();
 }
 
 void test_nla_order_lemma() {
-    nla::solver::test_order_lemma();
+    nla::test_order_lemma();
 }
 
 void test_lp_local(int argn, char**argv) {
@@ -3597,49 +3609,49 @@ void test_lp_local(int argn, char**argv) {
     
     if (args_parser.option_is_used("-nla_monot")) {
 #ifdef Z3DEBUG
-        nla::solver::test_monotone_lemma();
+        nla::test_monotone_lemma();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_bsl")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_sign_lemma();
+        nla::test_basic_sign_lemma();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_tan")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_tangent_lemma();
+        nla::test_tangent_lemma();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_blfmz_mf")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_zero_from_monomial_to_factors();
+        nla::test_basic_lemma_for_mon_zero_from_monomial_to_factors();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_blfmz_fm")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_zero_from_factors_to_monomial();
+        nla::test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_blnt_mf")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
+        nla::test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 #endif
         return finalize(0);
     }
 
     if (args_parser.option_is_used("-nla_blnt_fm")) { 
 #ifdef Z3DEBUG
-        nla::solver::test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
+        nla::test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 #endif
         return finalize(0);
     }
