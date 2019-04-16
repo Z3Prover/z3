@@ -56,7 +56,6 @@
 #include "util/lp/bound_propagator.h"
 #include "util/lp/nla_solver.h"
 namespace nla {
-void test_factorization();
 void test_order_lemma();
 void test_monotone_lemma();
 void test_basic_sign_lemma();
@@ -1910,7 +1909,6 @@ void test_replace_column() {
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-nla_blfmz_mf", "test_basic_lemma_for_mon_zero_from_factor_to_monomial");
     parser.add_option_with_help_string("-nla_blfmz_fm", "test_basic_lemma_for_mon_zero_from_monomials_to_factor");
-    parser.add_option_with_help_string("-nla_fact", "test nla_solver factorization");
     parser.add_option_with_help_string("-nla_order", "test nla_solver order lemma");
     parser.add_option_with_help_string("-nla_monot", "test nla_solver order lemma");
     parser.add_option_with_help_string("-nla_tan", "test_tangent_lemma");
@@ -3568,10 +3566,6 @@ void test_gomory_cut() {
     test_gomory_cut_1();
 }
 
-void test_nla_factorization() {
-    nla::test_factorization();
-}
-
 void test_nla_order_lemma() {
     nla::test_order_lemma();
 }
@@ -3592,13 +3586,6 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
     
-    if (args_parser.option_is_used("-nla_fact")) {
-#ifdef Z3DEBUG
-        test_nla_factorization();
-#endif
-        return finalize(0);
-    }
-
     if (args_parser.option_is_used("-nla_order")) {
 #ifdef Z3DEBUG
         test_nla_order_lemma();
