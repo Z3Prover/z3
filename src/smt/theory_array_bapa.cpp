@@ -400,9 +400,9 @@ namespace smt {
         imp(theory_array_full& th):
             m(th.get_manager()),
             th(th),
-            m_rw(m),
             m_arith(m),
             m_autil(m),
+            m_rw(m),
             m_arith_value(m),
             m_pinned(m)
         {
