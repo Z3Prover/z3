@@ -25,6 +25,7 @@
 #include "util/lp/nla_tangent_lemmas.h"
 #include "util/lp/nla_basics_lemmas.h"
 #include "util/lp/nla_order_lemmas.h"
+#include "util/lp/nla_monotone_lemmas.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -92,6 +93,7 @@ struct core {
     tangents                                                         m_tangents;
     basics                                                           m_basics;
     order                                                           m_order;
+    monotone                                                        m_monotone;
     // methods
     core(lp::lar_solver& s);
     
@@ -195,8 +197,6 @@ struct core {
                         const rooted_mon& bc,
                         const factor& b,
                         std::ostream& out);
-    void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
-                                  std::ostream& out) const;
 
         
     
@@ -287,9 +287,6 @@ struct core {
     bool has_zero_factor(const factorization& factorization) const;
 
     template <typename T>
-    bool has_zero(const T& product) const;
-
-    template <typename T>
     bool mon_has_zero(const T& product) const;
     void init_rm_to_refine();
     lp::lp_settings& settings();
@@ -339,31 +336,11 @@ struct core {
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
     bool rm_check(const rooted_mon&) const;
-    std::vector<rational> get_sorted_key(const rooted_mon& rm) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
-    bool uniform_le(const std::vector<rational>& a,
-                    const std::vector<rational>& b,
-                    unsigned & strict_i) const;
-    vector<std::pair<rational, lpvar>> get_sorted_key_with_vars(const rooted_mon& a) const;
-    void negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict);
-    void negate_abs_a_lt_abs_b(lpvar a, lpvar b);
-    void assert_abs_val_a_le_abs_var_b(const rooted_mon& a, const rooted_mon& b,    bool strict);
 
-    void generate_monl_strict(const rooted_mon& a, const rooted_mon& b,  unsigned strict);
-    void generate_monl(const rooted_mon& a, const rooted_mon& b);
-    
-    bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
-    bool monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
-    bool monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm);
-    bool monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted);
-    bool  monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms);
-    void monotonicity_lemma();
-    void monotonicity_lemma(unsigned i_mon);
     void add_abs_bound(lpvar v, llc cmp);
     void add_abs_bound(lpvar v, llc cmp, rational const& bound);
 
-    void monotonicity_lemma_gt(const monomial& m, const rational& prod_val);    
-    void monotonicity_lemma_lt(const monomial& m, const rational& prod_val);    
     bool  find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf);
     
     bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found);
