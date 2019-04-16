@@ -663,19 +663,19 @@ public:
         visited.reset();
         svector<dl_var> nodes;
         nodes.push_back(start);
-        for (dl_var n : nodes) {
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            dl_var n = nodes[i];
             if (visited.contains(n)) continue;
             visited.insert(n);
             edge_id_vector & edges = m_out_edges[n];
             for (edge_id e_id : edges) {
-                edge & e     = m_edges[e_id];
-                if (e.is_enabled()) {
-                    dst = e.get_target();
-                    if (target.contains(dst)) {
-                        return true;
-                    }
-                    nodes.push_back(dst);
+                edge & e = m_edges[e_id];
+                if (!e.is_enabled()) continue;
+                dst = e.get_target();
+                if (target.contains(dst)) {
+                    return true;
                 }
+                nodes.push_back(dst);
             }
         }
         return false;

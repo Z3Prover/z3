@@ -3627,36 +3627,30 @@ extern "C" {
        \pre a and b are of same type.
        
 
-       def_API('Z3_mk_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+       def_API('Z3_mk_linear_order', FUNC_DECL ,(_in(CONTEXT), _in(SORT), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+    Z3_func_decl Z3_API Z3_mk_linear_order(Z3_context c, Z3_sort a, unsigned id);
 
     /**
-       \brief declare \c a and \c b are in partial order over a relation indexed by \c id.
+       \brief create a partial ordering relation over signature \c a and index \c id.
 
-       \pre a and b are of same type.
-
-       def_API('Z3_mk_partial_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+       def_API('Z3_mk_partial_order', FUNC_DECL ,(_in(CONTEXT), _in(SORT), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_partial_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+    Z3_func_decl Z3_API Z3_mk_partial_order(Z3_context c, Z3_sort a, unsigned id);
 
     /**
-       \brief declare \c a and \c b are in piecewise linear order indexed by relation \c id.
+       \brief create a piecewise linear ordering relation over signature \c a and index \c id.
 
-       \pre a and b are of same type.
-
-       def_API('Z3_mk_piecewise_linear_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+       def_API('Z3_mk_piecewise_linear_order', FUNC_DECL ,(_in(CONTEXT), _in(SORT), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_piecewise_linear_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+    Z3_func_decl Z3_API Z3_mk_piecewise_linear_order(Z3_context c, Z3_sort a, unsigned id);
 
     /**
-       \brief declare \c a and \c b are in tree order indexed by \c id.
+       \brief create a tree ordering lreation over signature \c a identified using index \c id.
 
-       \pre a and b are of same type.
-
-       def_API('Z3_mk_tree_order', AST ,(_in(CONTEXT), _in(UINT), _in(AST), _in(AST)))
+       def_API('Z3_mk_tree_order', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
      */
-    Z3_ast Z3_API Z3_mk_tree_order(Z3_context c, unsigned id, Z3_ast a, Z3_ast b);
+    Z3_func_decl Z3_API Z3_mk_tree_order(Z3_context c, Z3_sort a, unsigned id);
 
     /**
        \brief create transitive closure of binary relation.

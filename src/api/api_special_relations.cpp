@@ -28,22 +28,22 @@ Revision History:
 extern "C" {
 
 
-#define MK_TERN(NAME, FID)                                              \
-    Z3_ast Z3_API NAME(Z3_context c, unsigned index, Z3_ast a, Z3_ast b) { \
-    LOG_ ##NAME(c, index, a, b);                                        \
+#define MK_SPECIAL_R(NAME, FID)                                              \
+    Z3_func_decl Z3_API NAME(Z3_context c, Z3_sort s, unsigned index) { \
+        LOG_ ##NAME(c, s, index);                                       \
     Z3_TRY;                                                             \
-    expr* args[2] = { to_expr(a), to_expr(b) };                         \
     parameter p(index);                                                 \
-    ast* a = mk_c(c)->m().mk_app(mk_c(c)->get_special_relations_fid(), FID, 1, &p, 2, args); \
-    mk_c(c)->save_ast_trail(a);                                         \
-    RETURN_Z3(of_ast(a));                                               \
+    sort* domain[2] = { to_sort(s), to_sort(s) };                       \
+    func_decl* f = mk_c(c)->m().mk_func_decl(mk_c(c)->get_special_relations_fid(), FID, 1, &p, 2, domain, mk_c(c)->m().mk_bool_sort()); \
+    mk_c(c)->save_ast_trail(f);                                         \
+    RETURN_Z3(of_func_decl(f));                                         \
     Z3_CATCH_RETURN(nullptr);                                           \
 }
 
-    MK_TERN(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO);
-    MK_TERN(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO);
-    MK_TERN(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
-    MK_TERN(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
+    MK_SPECIAL_R(Z3_mk_linear_order, OP_SPECIAL_RELATION_LO);
+    MK_SPECIAL_R(Z3_mk_partial_order, OP_SPECIAL_RELATION_PO);
+    MK_SPECIAL_R(Z3_mk_piecewise_linear_order, OP_SPECIAL_RELATION_PLO);
+    MK_SPECIAL_R(Z3_mk_tree_order, OP_SPECIAL_RELATION_TO);
 
 
 #define MK_DECL(NAME, FID)                                      \

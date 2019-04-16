@@ -127,9 +127,6 @@ namespace smt {
             std::ostream& display(theory_special_relations const& sr, std::ostream& out) const;
         };
 
-
-
-
         typedef u_map<atom*>     bool_var2atom;
 
         special_relations_util         m_util;

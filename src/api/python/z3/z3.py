@@ -10379,6 +10379,18 @@ def Range(lo, hi, ctx = None):
 
 # Special Relations
 
+def PartialOrder(a, index):
+    return FuncDeclRef(Z3_mk_partial_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def LinearOrder(a, index):
+    return FuncDeclRef(Z3_mk_linear_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def TreeOrder(a, index):
+    return FuncDeclRef(Z3_mk_tree_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def PiecewiseLinearOrder(a, index):
+    return FuncDeclRef(Z3_mk_piecewise_linear_order(a.ctx_ref(), a.ast, index), a.ctx);
+
 def TransitiveClosure(f):
     """Given a binary relation R, such that the two arguments have the same sort
     create the transitive closure relation R+.

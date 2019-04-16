@@ -20,16 +20,14 @@ Notes:
 
 #include <fstream>
 
-#include "smt/smt_context.h"
-#include "smt/theory_arith.h"
-#include "smt/theory_special_relations.h"
-#include "smt/smt_solver.h"
-#include "solver/solver.h"
 #include "ast/reg_decl_plugins.h"
 #include "ast/datatype_decl_plugin.h"
 #include "ast/recfun_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/recfun_replace.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "smt/theory_special_relations.h"
 
 
 namespace smt {
@@ -411,19 +409,22 @@ namespace smt {
         uint_set visited, target;
         for (atom* ap : r.m_asserted_atoms) {
             atom& a = *ap;
-            if (a.phase() || r.m_uf.find(a.v1()) != r.m_uf.find(a.v2())) {
+            if (a.phase()) {
                 continue;
             }
+            TRACE("special_relations", tout << a.v1() << " !<= " << a.v2() << "\n";);
             target.reset();
             theory_var w;
-            // v2 !<= v1 is asserted
-            target.insert(a.v2());
-            if (r.m_graph.reachable(a.v1(), target, visited, w)) {
-                // we already have v1 <= v2
+            // v1 !<= v2 is asserted
+            target.insert(a.v1());
+            if (r.m_graph.reachable(a.v2(), target, visited, w)) {
+                // we already have v2 <= v1
+                TRACE("special_relations", tout << "already: " << a.v2() << " <= " << a.v1() << "\n";);
                 continue;
             }
             // the nodes visited from v1 become target for v2
             if (r.m_graph.reachable(a.v2(), visited, target, w)) {
+                //
                 // we have the following:
                 // v1 <= w
                 // v2 <= w
@@ -437,6 +438,7 @@ namespace smt {
                 r.m_explanation.reset();
                 r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
                 r.m_graph.find_shortest_reachable_path(a.v2(), w, timestamp, r);
+                TRACE("special_relations", tout << "added edge\n";);
                 r.m_explanation.push_back(a.explanation());
                 literal_vector const& lits = r.m_explanation;
                 if (!r.m_graph.add_non_strict_edge(a.v2(), a.v1(), lits)) {
@@ -444,6 +446,18 @@ namespace smt {
                     return l_false;
                 }
             }
+            target.reset();
+            visited.reset();
+            target.insert(a.v2());
+            if (r.m_graph.reachable(a.v1(), target, visited, w)) {
+                // we have v1 <= v2
+                unsigned timestamp = r.m_graph.get_timestamp();
+                r.m_explanation.reset();
+                r.m_graph.find_shortest_reachable_path(a.v1(), w, timestamp, r);
+                r.m_explanation.push_back(a.explanation());
+                set_conflict(r);                
+            }
+
         }
         return l_true;
     }
@@ -743,24 +757,26 @@ namespace smt {
         TRACE("special_relations", g.display(tout););
     }
 
+    /**
+       src1 <= i, src2 <= i, src1 != src2 => src1 !<= src2
+     */
+
     void theory_special_relations::ensure_tree(graph& g) {
         unsigned sz = g.get_num_nodes();
         for (unsigned i = 0; i < sz; ++i) {
             int_vector const& edges = g.get_in_edges(i);
             for (unsigned j = 0; j < edges.size(); ++j) {
                 edge_id e1 = edges[j];
-                if (g.is_enabled(e1)) {
-                    SASSERT (i == g.get_target(e1));
-                    dl_var src1 = g.get_source(e1);
-                    for (unsigned k = j + 1; k < edges.size(); ++k) {
-                        edge_id e2 = edges[k];
-                        if (g.is_enabled(e2)) {
-                            dl_var src2 = g.get_source(e2);
-                            if (get_enode(src1)->get_root() != get_enode(src2)->get_root() && 
-                                disconnected(g, src1, src2)) {
-                                VERIFY(g.add_strict_edge(src1, src2, literal_vector()));
-                            }
-                        }
+                if (!g.is_enabled(e1)) continue;
+                SASSERT (i == g.get_target(e1));
+                dl_var src1 = g.get_source(e1);
+                for (unsigned k = j + 1; k < edges.size(); ++k) {
+                    edge_id e2 = edges[k];
+                    if (!g.is_enabled(e2)) continue;
+                    dl_var src2 = g.get_source(e2);
+                    if (get_enode(src1)->get_root() != get_enode(src2)->get_root() && 
+                        disconnected(g, src1, src2)) {
+                        VERIFY(g.add_strict_edge(src1, src2, literal_vector()));
                     }
                 }
             }
@@ -889,20 +905,6 @@ namespace smt {
        a fixed set of edges. It runs in O(e*n^2) where n is the number of vertices and e 
        number of edges.
 
-       connected1(x, y, v, w, S) = 
-           if x = v then 
-              if y = w then (S, true) else
-              if w in S then (S, false) else
-              connected2(w, y, S u { w }, edges)
-           else (S, false)
-
-       connected2(x, y, S, []) = (S, false)
-       connected2(x, y, S, (u,w)::edges) = 
-           let (S, c) = connected1(x, y, u, w, S) 
-           if c then (S, true) else connected2(x, y, S, edges) 
-          
-
-Take 2:
        connected(A, dst, S) = 
                let (A',S') = next1(a1, b1, A, next1(a2, b2, A, ... S, (nil, S)))
                if A' = nil then false else
