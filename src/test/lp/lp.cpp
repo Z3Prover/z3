@@ -3030,21 +3030,21 @@ void test_rationals_no_numeric_pairs_plus() {
 void test_rationals() {
     stopwatch sw;
 
-    vector<mpq> c;
+    vector<rational> c;
     for (unsigned j = 0; j < 10; j ++)
-        c.push_back(mpq(my_random()%100, 1 + my_random()%100)); 
+        c.push_back(rational(my_random()%100, 1 + my_random()%100)); 
 
     
     
-    vector<numeric_pair<mpq>> x;
+    vector<numeric_pair<rational>> x;
     for (unsigned j = 0; j < 10; j ++)
-        x.push_back(mpq(my_random()%100, 1 + my_random()%100 )); 
+        x.push_back(numeric_pair<rational>(rational(my_random()%100, 1 + my_random()%100 ))); 
 
     std::cout << "x = ";
     print_vector(x, std::cout);
     
     unsigned k = 1000000;
-    numeric_pair<mpq> r=zero_of_type<numeric_pair<mpq>>();
+    numeric_pair<rational> r=zero_of_type<numeric_pair<rational>>();
     sw.start();
     
     for (unsigned j = 0; j < k; j++) {
@@ -3118,26 +3118,26 @@ void test_gomory_cut_0() {
         [](unsigned j) { // lower_bound
             if (j == 1) {
                 lp_assert(false); //unlimited from below
-                return 0;
+                return impq(0);
             }
             if (j == 2)
-                return 0;
+                return impq(0);
             if (j == 3)
-                return 3;
+                return impq(3);
             lp_assert(false);
-            return 0;
+            return impq(0);
         },
         [](unsigned j) { // upper
             if (j == 1) {
                 lp_assert(false); //unlimited from above
-                return 0;
+                return impq(0);
             }
             if (j == 2)
-                return 0;
+                return impq(0);
             if (j == 3)
-                return 10;
+                return impq(10);
             lp_assert(false);
-            return 0;
+            return impq(0);
         },
         [] (unsigned) { return 0; },
         [] (unsigned) { return 0; }
@@ -3190,25 +3190,25 @@ void test_gomory_cut_1() {
         [](unsigned j) { // lower_bound
             if (j == 1) {
                 lp_assert(false); //unlimited from below
-                return 0;
+                return impq(0);
             }
             if (j == 2)
-                return 1;
+                return impq(1);
             if (j == 3)
-                return 1;
+                return impq(1);
             lp_assert(false);
-            return 0;
+            return impq(0);
         },
         [](unsigned j) { // upper
             if (j == 1) {
-                return -2;
+                return impq(-2);
             }
             if (j == 2)
-                return 3333;
+                return impq(3333);
             if (j == 3)
-                return 10000;
+                return impq(10000);
             lp_assert(false);
-            return 0;
+            return impq(0);
         },
         [] (unsigned) { return 0; },
         [] (unsigned) { return 0; }
