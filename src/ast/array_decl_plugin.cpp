@@ -605,7 +605,6 @@ bool array_recognizers::is_const(expr* e, expr*& v) const {
 }
 
 bool array_recognizers::is_store_ext(expr* _e, expr_ref& a, expr_ref_vector& args, expr_ref& value) {
-    ast_manager& m = a.m();
     if (is_store(_e)) {
         app* e = to_app(_e);
         a = e->get_arg(0);

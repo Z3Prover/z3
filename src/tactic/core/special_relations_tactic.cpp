@@ -135,7 +135,6 @@ void special_relations_tactic::operator()(goal_ref const & g, goal_ref_buffer & 
     func_decl_replace replace(m);
     unsigned_vector to_delete;
     for(auto const& kv : goal_features) {
-        func_decl* sp = nullptr;
         sr_property feature = kv.m_value.m_sp_features;
         switch (feature) {
         case sr_po:
