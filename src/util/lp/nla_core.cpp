@@ -26,7 +26,8 @@ core::core(lp::lar_solver& s) :
     m_lar_solver(s),
     m_tangents(this),
     m_basics(this),
-    m_order(this) {
+    m_order(this),
+    m_monotone(this) {
 }
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1324,14 +1325,6 @@ bool core:: has_zero_factor(const factorization& factorization) const {
     return false;
 }
 
-template <typename T>
-bool core:: has_zero(const T& product) const {
-    for (const rational & t : product) {
-        if (t.is_zero())
-            return true;
-    }
-    return false;
-}
 
 template <typename T>
 bool core:: mon_has_zero(const T& product) const {
@@ -1342,96 +1335,7 @@ bool core:: mon_has_zero(const T& product) const {
     return false;
 }
 
-// x != 0 or y = 0 => |xy| >= |y|
-void core::proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
-    rational rmv = abs(vvr(rm));
-    if (rmv.is_zero()) {
-        SASSERT(has_zero_factor(factorization));
-        return;
-    }
-    int factor_index = 0;
-    for (factor f : factorization) {
-        if (abs(vvr(f)) > rmv) {
-            generate_pl(rm, factorization, factor_index);
-            return;
-        }
-        factor_index++;
-    }
-}
-// x != 0 or y = 0 => |xy| >= |y|
-bool core:: proportion_lemma_derived(const rooted_mon& rm, const factorization& factorization) {
-    return false;
-    rational rmv = abs(vvr(rm));
-    if (rmv.is_zero()) {
-        SASSERT(has_zero_factor(factorization));
-        return false;
-    }
-    int factor_index = 0;
-    for (factor f : factorization) {
-        if (abs(vvr(f)) > rmv) {
-            generate_pl(rm, factorization, factor_index);
-            return true;
-        }
-        factor_index++;
-    }
-    return false;
-}
-
-void core::basic_lemma_for_mon_model_based(const rooted_mon& rm) {
-    TRACE("nla_solver_bl", tout << "rm = "; print_rooted_monomial(rm, tout););
-    if (vvr(rm).is_zero()) {
-        for (auto factorization : factorization_factory_imp(rm, *this)) {
-            if (factorization.is_empty())
-                continue;
-            basic_lemma_for_mon_zero_model_based(rm, factorization);
-            basic_lemma_for_mon_neutral_model_based(rm, factorization);
-        }
-    } else {
-        for (auto factorization : factorization_factory_imp(rm, *this)) {
-            if (factorization.is_empty())
-                continue;
-            basic_lemma_for_mon_non_zero_model_based(rm, factorization);
-            basic_lemma_for_mon_neutral_model_based(rm, factorization);
-            proportion_lemma_model_based(rm, factorization) ;
-        }
-    }
-}
-
-bool core:: basic_lemma_for_mon_derived(const rooted_mon& rm) {
-    if (var_is_fixed_to_zero(var(rm))) {
-        for (auto factorization : factorization_factory_imp(rm, *this)) {
-            if (factorization.is_empty())
-                continue;
-            if (basic_lemma_for_mon_zero(rm, factorization) ||
-                basic_lemma_for_mon_neutral_derived(rm, factorization)) {
-                explain(factorization, current_expl());
-                return true;
-            }
-        }
-    } else {
-        for (auto factorization : factorization_factory_imp(rm, *this)) {
-            if (factorization.is_empty())
-                continue;
-            if (basic_lemma_for_mon_non_zero_derived(rm, factorization) ||
-                basic_lemma_for_mon_neutral_derived(rm, factorization) ||
-                proportion_lemma_derived(rm, factorization)) {
-                explain(factorization, current_expl());
-                return true;
-            }
-        }
-    }
-    return false;
-}
-    
-// Use basic multiplication properties to create a lemma
-// for the given monomial.
-// "derived" means derived from constraints - the alternative is model based
-void core::basic_lemma_for_mon(const rooted_mon& rm, bool derived) {
-    if (derived)
-        basic_lemma_for_mon_derived(rm);
-    else
-        basic_lemma_for_mon_model_based(rm);
-}
+template bool core::mon_has_zero<monomial>(const monomial& product) const;
 
 void core::init_rm_to_refine() {
     if (!m_rm_table.to_refine().empty())
@@ -1891,26 +1795,6 @@ void core::maybe_add_a_factor(lpvar i,
 }
     
 
-std::vector<rational> core::get_sorted_key(const rooted_mon& rm) const {
-    std::vector<rational> r;
-    for (unsigned j : rm.vars()) {
-        r.push_back(abs(vvr(j)));
-    }
-    std::sort(r.begin(), r.end());
-    return r;
-}
-
-void core::print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
-                                std::ostream& out) const {
-    out << "Monotone array :\n";
-    for (const auto & t : lex_sorted ){
-        out << "(";
-        print_vector(t.first, out);
-        out << "), rm[" << t.second << "]" << std::endl;
-    }
-    out <<  "}";
-}
-    
 // Returns rooted monomials by arity
 std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
     std::unordered_map<unsigned, unsigned_vector> m;
@@ -1926,267 +1810,11 @@ std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
 }
 
     
-bool core::uniform_le(const std::vector<rational>& a,
-                       const std::vector<rational>& b,
-                       unsigned & strict_i) const {
-    SASSERT(a.size() == b.size());
-    strict_i = -1;
-    bool z_b = false;
-        
-    for (unsigned i = 0; i < a.size(); i++) {
-        if (a[i] > b[i]){
-            return false;
-        }
-            
-        SASSERT(!a[i].is_neg());
-        if (a[i] < b[i]){
-            strict_i = i;
-        } else if (b[i].is_zero()) {
-            z_b = true;
-        }
-    }
-    if (z_b) {strict_i = -1;}
-    return true;
-}
-
-vector<std::pair<rational, lpvar>> core::get_sorted_key_with_vars(const rooted_mon& a) const {
-    vector<std::pair<rational, lpvar>> r;
-    for (lpvar j : a.vars()) {
-        r.push_back(std::make_pair(abs(vvr(j)), j));
-    }
-    std::sort(r.begin(), r.end(), [](const std::pair<rational, lpvar>& a,
-                                     const std::pair<rational, lpvar>& b) {
-                                      return
-                                          a.first < b.first ||
-                                                    (a.first == b.first &&
-                                                     a.second < b.second);
-                                  });
-    return r;
-} 
-
-void core::negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict) {
-    rational av = vvr(a);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(b);
-    rational bs = rational(nla::rat_sign(bv));
-    TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
-    SASSERT(as*av <= bs*bv);
-    llc mod_s = strict? (llc::LE): (llc::LT);
-    mk_ineq(as, a, mod_s); // |a| <= 0 || |a| < 0
-    if (a != b) {
-        mk_ineq(bs, b, mod_s); // |b| <= 0 || |b| < 0
-        mk_ineq(as, a, -bs, b, llc::GT); // negate |aj| <= |bj|
-    }
-}
-
-void core::negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
-    rational av = vvr(a);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(b);
-    rational bs = rational(nla::rat_sign(bv));
-    TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
-    SASSERT(as*av < bs*bv);
-    mk_ineq(as, a, llc::LT); // |aj| < 0
-    mk_ineq(bs, b, llc::LT); // |bj| < 0
-    mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
-}
-
-// a < 0 & b < 0 => a < b
-
-void core::assert_abs_val_a_le_abs_var_b(
-    const rooted_mon& a,
-    const rooted_mon& b,
-    bool strict) {
-    lpvar aj = var(a);
-    lpvar bj = var(b);
-    rational av = vvr(aj);
-    rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(bj);
-    rational bs = rational(nla::rat_sign(bv));
-    //        TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
-    mk_ineq(as, aj, llc::LT); // |aj| < 0
-    mk_ineq(bs, bj, llc::LT); // |bj| < 0
-    mk_ineq(as, aj, -bs, bj, strict? llc::LT : llc::LE); // |aj| < |bj|
-}
-
-// strict version
-void core::generate_monl_strict(const rooted_mon& a,
-                                const rooted_mon& b,
-                                unsigned strict) {
-    add_empty_lemma();
-    auto akey = get_sorted_key_with_vars(a);
-    auto bkey = get_sorted_key_with_vars(b);
-    SASSERT(akey.size() == bkey.size());
-    for (unsigned i = 0; i < akey.size(); i++) {
-        if (i != strict) {
-            negate_abs_a_le_abs_b(akey[i].second, bkey[i].second, true);
-        } else {
-            mk_ineq(b[i], llc::EQ);
-            negate_abs_a_lt_abs_b(akey[i].second, bkey[i].second);
-        }
-    }
-    assert_abs_val_a_le_abs_var_b(a, b, true);
-    explain(a, current_expl());
-    explain(b, current_expl());
-    TRACE("nla_solver", print_lemma(tout););
-}
-
-// not a strict version
-void core::generate_monl(const rooted_mon& a,
-                         const rooted_mon& b) {
-    TRACE("nla_solver", tout <<
-          "a = "; print_rooted_monomial_with_vars(a, tout) << "\n:";
-          tout << "b = "; print_rooted_monomial_with_vars(a, tout) << "\n:";);
-    add_empty_lemma();
-    auto akey = get_sorted_key_with_vars(a);
-    auto bkey = get_sorted_key_with_vars(b);
-    SASSERT(akey.size() == bkey.size());
-    for (unsigned i = 0; i < akey.size(); i++) {
-        negate_abs_a_le_abs_b(akey[i].second, bkey[i].second, false);
-    }
-    assert_abs_val_a_le_abs_var_b(a, b, false);
-    explain(a, current_expl());
-    explain(b, current_expl());
-    TRACE("nla_solver", print_lemma(tout););
-}
-    
-bool core:: monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
-    const rational v = abs(vvr(rm));
-    const auto& key = lex_sorted[i].first;
-    TRACE("nla_solver", tout << "rm = ";
-          print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
-    for (unsigned k = i + 1; k < lex_sorted.size(); k++) {
-        const auto& p = lex_sorted[k];
-        const rooted_mon& rmk = m_rm_table.rms()[p.second];
-        const rational vk = abs(vvr(rmk));
-        TRACE("nla_solver", tout << "rmk = ";
-              print_rooted_monomial_with_vars(rmk, tout);
-              tout << "\n";
-              tout << "vk = " << vk << std::endl;);
-        if (vk > v) continue;
-        unsigned strict;
-        if (uniform_le(key, p.first, strict)) {
-            if (static_cast<int>(strict) != -1 && !has_zero(key)) {
-                generate_monl_strict(rm, rmk, strict);
-                return true;
-            } else {
-                if (vk < v) {
-                    generate_monl(rm, rmk);
-                    return true;
-                }
-            }
-        }
-            
-    }
-    return false;
-}
-
-bool core:: monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
-    const rational v = abs(vvr(rm));
-    const auto& key = lex_sorted[i].first;
-    TRACE("nla_solver", tout << "rm = ";
-          print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
-        
-    for (unsigned k = i; k-- > 0;) {
-        const auto& p = lex_sorted[k];
-        const rooted_mon& rmk = m_rm_table.rms()[p.second];
-        const rational vk = abs(vvr(rmk));
-        TRACE("nla_solver", tout << "rmk = ";
-              print_rooted_monomial_with_vars(rmk, tout);
-              tout << "\n";
-              tout << "vk = " << vk << std::endl;);
-        if (vk < v) continue;
-        unsigned strict;
-        if (uniform_le(p.first, key, strict)) {
-            TRACE("nla_solver", tout << "strict = " << strict << std::endl;);
-            if (static_cast<int>(strict) != -1) {
-                generate_monl_strict(rmk, rm, strict);
-                return true;
-            } else {
-                SASSERT(key == p.first); 
-                if (vk < v) {
-                    generate_monl(rmk, rm);
-                    return true;
-                }
-            }
-        }
-            
-    }
-    return false;
-}
-
-bool core:: monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
-    return monotonicity_lemma_on_lex_sorted_rm_upper(lex_sorted, i, rm)
-        || monotonicity_lemma_on_lex_sorted_rm_lower(lex_sorted, i, rm);
-}
 
 bool core:: rm_check(const rooted_mon& rm) const {
     return check_monomial(m_monomials[rm.orig_index()]);
 }
     
-bool core::monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted) {
-    for (unsigned i = 0; i < lex_sorted.size(); i++) {
-        unsigned rmi = lex_sorted[i].second;
-        const rooted_mon& rm = m_rm_table.rms()[rmi];
-        TRACE("nla_solver", print_rooted_monomial(rm, tout); tout << "\n, rm_check = " << rm_check(rm); tout << std::endl;); 
-        if ((!rm_check(rm)) && monotonicity_lemma_on_lex_sorted_rm(lex_sorted, i, rm))
-            return true;
-    }
-    return false;
-}
-    
-bool core:: monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms) { 
-    vector<std::pair<std::vector<rational>, unsigned>> lex_sorted;
-    for (unsigned i : rms) {
-        lex_sorted.push_back(std::make_pair(get_sorted_key(m_rm_table.rms()[i]), i));
-    }
-    std::sort(lex_sorted.begin(), lex_sorted.end(),
-              [](const std::pair<std::vector<rational>, unsigned> &a,
-                 const std::pair<std::vector<rational>, unsigned> &b) {
-                  return a.first < b.first;
-              });
-    TRACE("nla_solver", print_monotone_array(lex_sorted, tout););
-    return monotonicity_lemma_on_lex_sorted(lex_sorted);
-}
-    
-void core::monotonicity_lemma() {
-    unsigned i = random()%m_rm_table.m_to_refine.size();
-    unsigned ii = i;
-    do {
-        unsigned rm_i = m_rm_table.m_to_refine[i];
-        monotonicity_lemma(m_rm_table.rms()[rm_i].orig_index());
-        if (done()) return;
-        i++;
-        if (i == m_rm_table.m_to_refine.size())
-            i = 0;
-    } while (i != ii);
-}
-
-#if 0
-void core::monotonicity_lemma() {
-    auto const& vars = m_rm_table.m_to_refine 
-        unsigned sz = vars.size();
-    unsigned start = random();
-    for (unsigned j = 0; !done() && j < sz; ++j) {
-        unsigned i = (start + j) % sz;
-        monotonicity_lemma(*m_emons.var2monomial(vars[i]));
-    }
-}
-
-#endif
-
-void core::monotonicity_lemma(unsigned i_mon) {
-    const monomial & m = m_monomials[i_mon];
-    SASSERT(!check_monomial(m));
-    if (mon_has_zero(m))
-        return;
-    const rational prod_val = abs(product_value(m));
-    const rational m_val = abs(vvr(m));
-    if (m_val < prod_val)
-        monotonicity_lemma_lt(m, prod_val);
-    else if (m_val > prod_val)
-        monotonicity_lemma_gt(m, prod_val);
-}
 
 
 /**
@@ -2239,31 +1867,6 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
     \/_i |m[i]| > |vvr(m[i])} or |m| <= |product_i vvr(m[i])|
 */
 
-void core::monotonicity_lemma_gt(const monomial& m, const rational& prod_val) {
-    add_empty_lemma();
-    for (lpvar j : m) {
-        add_abs_bound(j, llc::GT);
-    }
-    lpvar m_j = m.var();
-    add_abs_bound(m_j, llc::LE, prod_val);
-    TRACE("nla_solver", print_lemma(tout););
-}
-    
-/** \brief enforce the inequality |m| >= product |m[i]| .
-
-    /\_i |m[i]| >= |vvr(m[i])| => |m| >= |product_i vvr(m[i])|
-    <=>
-    \/_i |m[i]| < |vvr(m[i])} or |m| >= |product_i vvr(m[i])|
-*/
-void core::monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
-    add_empty_lemma();
-    for (lpvar j : m) {
-        add_abs_bound(j, llc::LT);
-    }
-    lpvar m_j = m.var();
-    add_abs_bound(m_j, llc::GE, prod_val);
-    TRACE("nla_solver", print_lemma(tout););
-}
     
 bool core:: find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf) {
     for (auto factorization : factorization_factory_imp(rm, *this)) {
@@ -2550,8 +2153,8 @@ lbool core:: inner_check(bool derived) {
         if (search_level == 1) {
             m_order.order_lemma();
         } else { // search_level == 2
-            monotonicity_lemma();
-            tangent_lemma();
+            m_monotone. monotonicity_lemma();
+            m_tangents.tangent_lemma();
         }
     }
     return m_lemma_vec->empty()? l_undef : l_false;
