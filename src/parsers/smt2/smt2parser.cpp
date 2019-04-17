@@ -482,7 +482,7 @@ namespace smt2 {
             if (context[0]) msg += ": ";
             msg += "unknown sort '";
             msg += id.str() + "'";
-            throw parser_exception(msg.c_str());
+            throw parser_exception(std::move(msg));
         }
 
         void consume_sexpr() {
@@ -1591,7 +1591,7 @@ namespace smt2 {
         // parse:
         //    'as' <identifier> <sort> ')'
         //    '_'  <identifier> <num>+ ')'
-        //    'as' <identifier '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
+        //    'as' <identifier> '(' '_' <identifier> (<num>|<func-decl-ref>)+ ')' <sort> ')'
         symbol parse_qualified_identifier_core(bool & has_as) {
             SASSERT(curr_is_identifier());
             SASSERT(curr_id_is_underscore() || curr_id_is_as());
@@ -1633,7 +1633,7 @@ namespace smt2 {
         void unknown_var_const_name(symbol id) {
             std::string msg = "unknown constant/variable '";
             msg += id.str() + "'";
-            throw parser_exception(msg.c_str());
+            throw parser_exception(std::move(msg));
         }
 
         rational m_last_bv_numeral; // for bv, bvbin, bvhex
@@ -2431,7 +2431,7 @@ namespace smt2 {
                 buffer << "invalid function definition, sort mismatch. Expcected "
                        << mk_pp(f->get_range(), m()) << " but function body has sort "
                        << mk_pp(m().get_sort(body), m());
-                throw parser_exception(buffer.str().c_str());
+                throw parser_exception(buffer.str());
             }
             m_ctx.insert_rec_fun(f, bindings, ids, body);
         }
@@ -2677,6 +2677,7 @@ namespace smt2 {
             m_ctx.regular_stream() << "(";
             expr ** expr_it  = expr_stack().c_ptr() + spos;
             expr ** expr_end = expr_it + m_cached_strings.size();
+            // md->compress();
             for (unsigned i = 0; expr_it < expr_end; expr_it++, i++) {
                 model::scoped_model_completion _scm(md, true);
                 expr_ref v = (*md)(*expr_it);

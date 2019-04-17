@@ -383,8 +383,9 @@ namespace smt {
         return m_imp->next_decision();
     }        
 
-    void kernel::display(std::ostream & out) const {
+    std::ostream& kernel::display(std::ostream & out) const {
         m_imp->display(out);
+        return out;
     }
 
     void kernel::collect_statistics(::statistics & st) const {

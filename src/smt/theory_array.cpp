@@ -297,6 +297,12 @@ namespace smt {
 
     void theory_array::new_eq_eh(theory_var v1, theory_var v2) {
         m_find.merge(v1, v2);
+#if 0
+        if (is_lambda(get_enode(v1)->get_owner()) ||
+            is_lambda(get_enode(v2)->get_owner())) {
+            instantiate_extensionality(get_enode(v1), get_enode(v2));       
+        }
+#endif
     }
 
     void theory_array::new_diseq_eh(theory_var v1, theory_var v2) {
@@ -382,9 +388,9 @@ namespace smt {
                     r = assert_delayed_axioms();
             }
         }
-        TRACE("array", tout << "m_found_unsupported_op: " << m_found_unsupported_op << " " << r << "\n";);
         if (r == FC_DONE && m_found_unsupported_op && !get_context().get_fparams().m_array_fake_support) 
             r = FC_GIVEUP;
+        CTRACE("array", r != FC_DONE || m_found_unsupported_op, tout << r << "\n";);
         return r;
     }
 

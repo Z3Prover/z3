@@ -28,7 +28,7 @@ Notes:
 #include "util/uint_set.h"
 #include "util/gparams.h"
 
-const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
+static const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
 
 struct pb2bv_rewriter::imp {
@@ -161,12 +161,16 @@ struct pb2bv_rewriter::imp {
             }
 
             if (m_pb_solver == "segmented") {
-                expr_ref result(m);
                 switch (is_le) {
                 case l_true:  return mk_seg_le(k);
                 case l_false: return mk_seg_ge(k);
                 case l_undef: break;
                 }
+            }
+
+            if (m_pb_solver == "binary_merge") {
+                expr_ref result = binary_merge(is_le, k);
+                if (result) return result;
             }
 
             // fall back to divide and conquer encoding.
@@ -492,6 +496,37 @@ struct pb2bv_rewriter::imp {
             }
             TRACE("pb", tout << "bound: " << bound << " Carry: " << carry << " result: " << result << "\n";);
             return true;
+        }
+
+        /**
+           \brief binary merge encoding.
+        */
+        expr_ref binary_merge(lbool is_le, rational const& k) {
+            expr_ref result(m);
+            unsigned_vector coeffs;
+            for (rational const& c : m_coeffs) {
+                if (c.is_unsigned()) {
+                    coeffs.push_back(c.get_unsigned());
+                }
+                else {
+                    return result;
+                }
+            }
+            if (!k.is_unsigned()) {
+                return result;
+            }
+            switch (is_le) {
+            case l_true: 
+                result = m_sort.le(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            case l_false:
+                result = m_sort.ge(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            case l_undef:
+                result = m_sort.eq(k.get_unsigned(), coeffs.size(), coeffs.c_ptr(), m_args.c_ptr());
+                break;
+            }
+            return result;
         }
 
         /**

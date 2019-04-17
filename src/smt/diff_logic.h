@@ -228,10 +228,7 @@ class dl_graph {
         int n = m_out_edges.size();
         for (dl_var id = 0; id < n; id++) {
             const edge_id_vector & e_ids = m_out_edges[id];
-            edge_id_vector::const_iterator it  = e_ids.begin();
-            edge_id_vector::const_iterator end = e_ids.end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : e_ids) {
                 SASSERT(static_cast<unsigned>(e_id) <= m_edges.size());
                 const edge & e = m_edges[e_id];
                 SASSERT(e.get_source() == id);
@@ -239,10 +236,7 @@ class dl_graph {
         }
         for (dl_var id = 0; id < n; id++) {
             const edge_id_vector & e_ids = m_in_edges[id];
-            edge_id_vector::const_iterator it  = e_ids.begin();
-            edge_id_vector::const_iterator end = e_ids.end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : e_ids) {
                 SASSERT(static_cast<unsigned>(e_id) <= m_edges.size());
                 const edge & e = m_edges[e_id];
                 SASSERT(e.get_target() == id);
@@ -296,6 +290,9 @@ public:
 
     numeral const& get_weight(edge_id id) const { return m_edges[id].get_weight(); }
 
+    edge_id_vector const& get_out_edges(dl_var v) const { return m_out_edges[v]; }
+
+    edge_id_vector const& get_in_edges(dl_var v) const { return m_in_edges[v]; }
 
 private:
     // An assignment is almost feasible if all but edge with idt edge are feasible.
@@ -327,17 +324,16 @@ private:
     // Store in gamma the normalized weight. The normalized weight is given
     // by the formula  
     // m_assignment[e.get_source()] - m_assignment[e.get_target()] + e.get_weight()
-    void set_gamma(const edge & e, numeral & gamma) {
+    numeral& set_gamma(const edge & e, numeral & gamma) {
         gamma  = m_assignment[e.get_source()];
         gamma -= m_assignment[e.get_target()];
         gamma += e.get_weight();
+        return gamma;
     }
 
     void reset_marks() {
-        dl_var_vector::iterator it  = m_visited.begin();
-        dl_var_vector::iterator end = m_visited.end();
-        for (; it != end; ++it) {
-            m_mark[*it] = DL_UNMARKED;
+        for (dl_var v : m_visited) {
+            m_mark[v] = DL_UNMARKED;
         }
         m_visited.reset();
     }
@@ -378,7 +374,7 @@ private:
         TRACE("arith", tout << id << "\n";);
 
         dl_var source = target;
-        for(;;) {
+        while (true) {
             ++m_stats.m_propagation_cost;
             if (m_mark[root] != DL_UNMARKED) {
                 // negative cycle was found
@@ -389,10 +385,7 @@ private:
                 return false;
             }
             
-            typename edge_id_vector::iterator it  = m_out_edges[source].begin();
-            typename edge_id_vector::iterator end = m_out_edges[source].end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : m_out_edges[source]) {
                 edge & e     = m_edges[e_id];
                 SASSERT(e.get_source() == source);
                 if (!e.is_enabled()) {
@@ -442,10 +435,7 @@ private:
         dl_var src = e->get_source();
         dl_var dst = e->get_target();
         numeral w = e->get_weight();
-        typename edge_id_vector::iterator it  = m_out_edges[src].begin();
-        typename edge_id_vector::iterator end = m_out_edges[src].end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : m_out_edges[src]) {
             edge const& e2 = m_edges[e_id];
             if (e2.get_target() == dst && 
                 e2.is_enabled() && // or at least not be inconsistent with current choices
@@ -478,8 +468,9 @@ public:
     // That is init_var receives the id as an argument.
     void init_var(dl_var v) {
         TRACE("diff_logic_bug", tout << "init_var " << v << "\n";);
-        SASSERT(static_cast<unsigned>(v) >= m_out_edges.size() ||
-                m_out_edges[v].empty());
+        if (static_cast<unsigned>(v) < m_out_edges.size() && (!m_out_edges[v].empty() || !m_in_edges[v].empty())) {
+            return;
+        }
         SASSERT(check_invariant());
         while (static_cast<unsigned>(v) >= m_out_edges.size()) {
             m_assignment .push_back(numeral());
@@ -595,10 +586,7 @@ public:
             //
             // search for edges that can reduce size of negative cycle.
             //
-            typename edge_id_vector::iterator it = m_out_edges[src].begin();
-            typename edge_id_vector::iterator end = m_out_edges[src].end();            
-            for (; it != end; ++it) {
-                edge_id e_id2 = *it;
+            for (edge_id e_id2 : m_out_edges[src]) {
                 edge const& e2 = m_edges[e_id2];
                 dl_var src2 = e2.get_target();                
                 if (e_id2 == e_id || !e2.is_enabled()) {
@@ -659,6 +647,125 @@ public:
             edge const& e = m_edges[edges[i]];
             f(e.get_explanation());
         }
+    }
+
+    bool can_reach(dl_var src, dl_var dst) {
+        if (static_cast<unsigned>(src) >= m_out_edges.size() ||
+            static_cast<unsigned>(dst) >= m_out_edges.size()) {
+            return false;
+        }            
+        uint_set target, visited;
+        target.insert(dst);
+        return reachable(src, target, visited, dst);
+    }
+
+    bool reachable(dl_var start, uint_set const& target, uint_set& visited, dl_var& dst) {
+        visited.reset();
+        svector<dl_var> nodes;
+        nodes.push_back(start);
+        for (unsigned i = 0; i < nodes.size(); ++i) {
+            dl_var n = nodes[i];
+            if (visited.contains(n)) continue;
+            visited.insert(n);
+            edge_id_vector & edges = m_out_edges[n];
+            for (edge_id e_id : edges) {
+                edge & e = m_edges[e_id];
+                if (!e.is_enabled()) continue;
+                dst = e.get_target();
+                if (target.contains(dst)) {
+                    return true;
+                }
+                nodes.push_back(dst);
+            }
+        }
+        return false;
+    }
+
+private:
+    svector<int> m_freq_hybrid;
+    int m_total_count = 0;
+    int m_run_counter = -1;
+    svector<int> m_hybrid_visited, m_hybrid_parent;
+
+    bool is_connected(numeral const& gamma, bool zero_edge, edge const& e, unsigned timestamp) const {
+        return (gamma.is_zero() || (!zero_edge && gamma.is_neg())) && e.get_timestamp() < timestamp;
+    }
+
+    int_vector bfs_todo;
+    int_vector dfs_todo;
+
+public:
+
+
+    template<typename Functor>
+    bool find_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        auto zero_edge = true;
+        unsigned bfs_head = 0;
+        bfs_todo.reset();
+        dfs_todo.reset();
+        m_hybrid_visited.resize(m_assignment.size(), m_run_counter++);
+        m_hybrid_parent.resize(m_assignment.size(), -1);
+        bfs_todo.push_back(source);
+        m_hybrid_parent[source] = -1;
+        m_hybrid_visited[source] = m_run_counter;
+        numeral gamma;
+        while (bfs_head < bfs_todo.size() || !dfs_todo.empty()) {
+            m_total_count++;
+            dl_var v;
+            if (!dfs_todo.empty()) {
+                v = dfs_todo.back();
+                dfs_todo.pop_back();
+            } 
+            else {
+                v = bfs_todo[bfs_head++];
+            }
+
+            edge_id_vector & edges = m_out_edges[v];
+            for (edge_id e_id : edges) {
+                edge & e     = m_edges[e_id];
+                SASSERT(e.get_source() == v);
+                if (!e.is_enabled()) {
+                    continue;
+                }
+                set_gamma(e, gamma);
+                if (is_connected(gamma, zero_edge, e, timestamp)) {
+                    dl_var curr_target = e.get_target();
+                    if (curr_target == target) {
+                        f(e.get_explanation());
+                        m_freq_hybrid[e_id]++;
+                        while (true) {
+                            int p = m_hybrid_parent[v];
+                            if (p == -1)
+                                return true;
+
+                            edge_id eid;
+                            bool ret = get_edge_id(p, v, eid);
+                            if (eid == null_edge_id || !ret) {
+                                return true;
+                            }
+                            else {
+                                edge & e = m_edges[eid];
+                                f(e.get_explanation());
+                                m_freq_hybrid[eid]++;
+                                v = p;
+                            }
+                        }
+                    }
+                    else if (m_hybrid_visited[curr_target] != m_run_counter) {
+                        if (m_freq_hybrid[e_id] > 1) {                            
+                            dfs_todo.push_back(curr_target);
+                        } 
+                        else {
+                            bfs_todo.push_back(curr_target);                            
+                        }
+                        m_hybrid_visited[curr_target] = m_run_counter;                        
+                        m_hybrid_parent[curr_target] = v;
+                    }
+                }
+            }
+        }
+        return false;
+
     }
 
     // 
@@ -795,10 +902,8 @@ public:
         SASSERT(is_feasible());
         if (!m_assignment[v].is_zero()) {
             numeral k = m_assignment[v];
-            typename assignment::iterator it  = m_assignment.begin();
-            typename assignment::iterator end = m_assignment.end();
-            for (; it != end; ++it) {
-                *it -= k;
+            for (auto& a : m_assignment) {
+                a -= k;
             }
             SASSERT(is_feasible());
         }
@@ -853,10 +958,7 @@ public:
 
     void display_agl(std::ostream & out) const {
         uint_set vars;
-        typename edges::const_iterator it  = m_edges.begin();
-        typename edges::const_iterator end = m_edges.end();
-        for (; it != end; ++it) {
-            edge const& e = *it;
+        for (edge const& e : m_edges) {
             if (e.is_enabled()) {
                 vars.insert(e.get_source());
                 vars.insert(e.get_target());
@@ -870,9 +972,7 @@ public:
                 out << "\"" << v << "\" [label=\"" << v << ":" << m_assignment[v] << "\"]\n";
             }
         }
-        it = m_edges.begin();
-        for (; it != end; ++it) {
-            edge const& e = *it;
+        for (edge const& e : m_edges) {
             if (e.is_enabled()) {
                 out << "\"" << e.get_source() << "\"->\"" << e.get_target() << "\"[label=\"" << e.get_weight() << "\"]\n";
             }
@@ -888,22 +988,19 @@ public:
     }
 
     void display_edges(std::ostream & out) const {
-        typename edges::const_iterator it  = m_edges.begin();
-        typename edges::const_iterator end = m_edges.end();
-        for (; it != end; ++it) {
-            edge const& e = *it;
+        for (edge const& e : m_edges) {
             if (e.is_enabled()) {
                 display_edge(out, e);
             }
         }
     }
 
-    void display_edge(std::ostream & out, edge_id id) const {
-        display_edge(out, m_edges[id]);
+    std::ostream& display_edge(std::ostream & out, edge_id id) const {
+        return display_edge(out, m_edges[id]);
     }
 
-    void display_edge(std::ostream & out, const edge & e) const {
-        out << e.get_explanation() << " (<= (- $" << e.get_target() << " $" << e.get_source() << ") " << e.get_weight() << ") " << e.get_timestamp() << "\n";
+    std::ostream& display_edge(std::ostream & out, const edge & e) const {
+        return out << e.get_explanation() << " (<= (- $" << e.get_target() << " $" << e.get_source() << ") " << e.get_weight() << ") " << e.get_timestamp() << "\n";
     }
 
     template<typename FilterAssignmentProc>
@@ -920,11 +1017,8 @@ public:
     // If there is such edge, then the weight is stored in w and the explanation in ex.
     bool get_edge_weight(dl_var source, dl_var target, numeral & w, explanation & ex) {
         edge_id_vector & edges = m_out_edges[source];
-        typename edge_id_vector::iterator it  = edges.begin();
-        typename edge_id_vector::iterator end = edges.end();
         bool found = false;
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : edges) {
             edge & e     = m_edges[e_id];
             if (e.is_enabled() && e.get_target() == target && (!found || e.get_weight() < w)) {
                 w     = e.get_weight();
@@ -939,12 +1033,10 @@ public:
     // If there is such edge, return its edge_id in parameter id.
     bool get_edge_id(dl_var source, dl_var target, edge_id & id) const {
         edge_id_vector const & edges = m_out_edges[source];
-        typename edge_id_vector::const_iterator it  = edges.begin();
-        typename edge_id_vector::const_iterator end = edges.end();
-        for (; it != end; ++it) {
-            id = *it;
-            edge const & e = m_edges[id];
+        for (edge_id e_id : edges) {
+            edge const & e = m_edges[e_id];
             if (e.get_target() == target) {
+                id = e_id;
                 return true;
             }
         }
@@ -958,18 +1050,14 @@ public:
     void get_neighbours_undirected(dl_var current, svector<dl_var> & neighbours) {
         neighbours.reset();
         edge_id_vector & out_edges = m_out_edges[current];
-        typename edge_id_vector::iterator it = out_edges.begin(), end = out_edges.end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : out_edges) {
             edge & e     = m_edges[e_id];
             SASSERT(e.get_source() == current);
             dl_var neighbour = e.get_target();
             neighbours.push_back(neighbour);
         }
         edge_id_vector & in_edges = m_in_edges[current];
-        typename edge_id_vector::iterator it2 = in_edges.begin(), end2 = in_edges.end();
-        for (; it2 != end2; ++it2) {
-            edge_id e_id = *it2;
+        for (edge_id e_id : in_edges) {
             edge & e     = m_edges[e_id];
             SASSERT(e.get_target() == current);
             dl_var neighbour = e.get_source();
@@ -1052,10 +1140,7 @@ public:
     template<typename Functor>
     void enumerate_edges(dl_var source, dl_var target, Functor& f) {
         edge_id_vector & edges = m_out_edges[source];
-        typename edge_id_vector::iterator it  = edges.begin();
-        typename edge_id_vector::iterator end = edges.end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : edges) {
             edge const& e = m_edges[e_id];
             if (e.get_target() == target) {
                 f(e.get_weight(), e.get_explanation());
@@ -1112,10 +1197,7 @@ public:
         m_roots.push_back(v);
         numeral gamma;
         edge_id_vector & edges = m_out_edges[v];
-        typename edge_id_vector::iterator it  = edges.begin();
-        typename edge_id_vector::iterator end = edges.end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : edges) {
             edge & e     = m_edges[e_id];
             if (!e.is_enabled()) {
                 continue;
@@ -1165,20 +1247,11 @@ public:
         m_dfs_time[v] = 0;
         succ.push_back(v);
         numeral gamma;
-        for (unsigned i = 0; i < succ.size(); ++i) {
-            v = succ[i];
-            edge_id_vector & edges = m_out_edges[v];
-            typename edge_id_vector::iterator it  = edges.begin();
-            typename edge_id_vector::iterator end = edges.end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
-                edge & e     = m_edges[e_id];
-                if (!e.is_enabled()) {
-                    continue;
-                }
-                SASSERT(e.get_source() == v);
-                set_gamma(e, gamma);
-                if (gamma.is_zero()) {
+        for (dl_var w : succ) {
+            for (edge_id e_id : m_out_edges[w]) {
+                edge & e = m_edges[e_id];
+                if (e.is_enabled() && set_gamma(e, gamma).is_zero()) {
+                    SASSERT(e.get_source() == w);
                     dl_var target = e.get_target();
                     if (m_dfs_time[target] == -1) {
                         succ.push_back(target);
@@ -1269,50 +1342,57 @@ private:
             m_edge_id(e) {
         }
     };
-
+    
 public:
     // Find the shortest path from source to target using (normalized) zero edges with timestamp less than the given timestamp.
     // The functor f is applied on every explanation attached to the edges in the shortest path.
     // Return true if the path exists, false otherwise.
+    
+    
+    // Return true if the path exists, false otherwise.
     template<typename Functor>
     bool find_shortest_zero_edge_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        return find_shortest_path_aux(source, target, timestamp, f, true);
+    }
+
+    template<typename Functor>
+    bool find_shortest_reachable_path(dl_var source, dl_var target, unsigned timestamp, Functor & f) {
+        return find_shortest_path_aux(source, target, timestamp, f, false);
+    }
+
+    template<typename Functor>
+    bool find_shortest_path_aux(dl_var source, dl_var target, unsigned timestamp, Functor & f, bool zero_edge) {
         svector<bfs_elem> bfs_todo;
-        svector<char>     bfs_mark;
+        svector<bool>     bfs_mark;
         bfs_mark.resize(m_assignment.size(), false);
         
         bfs_todo.push_back(bfs_elem(source, -1, null_edge_id));
         bfs_mark[source] = true;
         
-        unsigned  m_head = 0;
         numeral gamma;
-        while (m_head < bfs_todo.size()) {
-            bfs_elem & curr = bfs_todo[m_head];
-            int parent_idx  = m_head;
-            m_head++;
-            dl_var  v = curr.m_var;
+        for (unsigned head = 0; head < bfs_todo.size(); ++head) {
+            bfs_elem & curr = bfs_todo[head];
+            int parent_idx  = head;
+            dl_var v = curr.m_var;
             TRACE("dl_bfs", tout << "processing: " << v << "\n";);
             edge_id_vector & edges = m_out_edges[v];
-            typename edge_id_vector::iterator it  = edges.begin();
-            typename edge_id_vector::iterator end = edges.end();
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : edges) {
                 edge & e     = m_edges[e_id];
                 SASSERT(e.get_source() == v);
                 if (!e.is_enabled()) {
                     continue;
                 }
                 set_gamma(e, gamma);
-                TRACE("dl_bfs", tout << "processing edge: "; display_edge(tout, e); tout << "gamma: " << gamma << "\n";);
-                if (gamma.is_zero() && e.get_timestamp() < timestamp) {
+                TRACE("dl_bfs", display_edge(tout << "processing edge: ", e) << " gamma: " << gamma << "\n";);
+                if (is_connected(gamma, zero_edge, e, timestamp)) {
                     dl_var curr_target = e.get_target();
-                    TRACE("dl_bfs", tout << "curr_target: " << curr_target << 
-                          ", mark: " << static_cast<int>(bfs_mark[curr_target]) << "\n";);
+                    TRACE("dl_bfs", tout << "curr_target: " << curr_target << ", mark: " << bfs_mark[curr_target] << "\n";);
                     if (curr_target == target) {
                         TRACE("dl_bfs", tout << "found path\n";);
                         TRACE("dl_eq_bug", tout << "path: " << source << " --> " << target << "\n";
                               display_edge(tout, e);
                               int tmp_parent_idx = parent_idx;
-                              for (;;) {
+                              while (true) {
                                   bfs_elem & curr = bfs_todo[tmp_parent_idx];
                                   if (curr.m_edge_id == null_edge_id) {
                                       break;
@@ -1322,11 +1402,10 @@ public:
                                       display_edge(tout, e);
                                       tmp_parent_idx = curr.m_parent_idx;
                                   }
-                                  tout.flush();
                               });
                         TRACE("dl_eq_bug", display_edge(tout, e););
                         f(e.get_explanation());
-                        for (;;) {
+                        while (true) {
                             SASSERT(parent_idx >= 0);
                             bfs_elem & curr = bfs_todo[parent_idx];
                             if (curr.m_edge_id == null_edge_id) {
@@ -1340,11 +1419,9 @@ public:
                             }
                         }
                     }
-                    else {
-                        if (!bfs_mark[curr_target]) {
-                            bfs_todo.push_back(bfs_elem(curr_target, parent_idx, e_id));
-                            bfs_mark[curr_target] = true;
-                        }
+                    else if (!bfs_mark[curr_target]) {
+                        bfs_todo.push_back(bfs_elem(curr_target, parent_idx, e_id));
+                        bfs_mark[curr_target] = true;
                     }
                 }
             }
@@ -1430,8 +1507,7 @@ private:
 
     numeral get_reduced_weight(dfs_state& state, dl_var n, edge const& e) {
         numeral gamma;
-        set_gamma(e, gamma);
-        return state.m_delta[n] + gamma;
+        return state.m_delta[n] + set_gamma(e, gamma);
     }
 
     template<bool is_fw>
@@ -1477,11 +1553,7 @@ private:
             }
             TRACE("diff_logic", tout << "source: " << source << "\n";);
   
-            typename edge_id_vector::const_iterator it  = edges[source].begin();
-            typename edge_id_vector::const_iterator end = edges[source].end();
-
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : edges[source]) {
                 edge const& e = m_edges[e_id];
 
                 if (&e == &e_init) {
@@ -1569,11 +1641,9 @@ private:
                 tout << "\n";
             });
 
-        typename heap<typename dfs_state::hp_lt>::const_iterator it  = state.m_heap.begin();
-        typename heap<typename dfs_state::hp_lt>::const_iterator end = state.m_heap.end();
-        for (; it != end; ++it) {
-            SASSERT(m_mark[*it] != DL_PROP_UNMARKED);
-            m_mark[*it] = DL_PROP_UNMARKED;;
+        for (auto & s : state.m_heap) {
+            SASSERT(m_mark[s] != DL_PROP_UNMARKED);
+            m_mark[s] = DL_PROP_UNMARKED;;
         }
         state.m_heap.reset();
         SASSERT(marks_are_clear());
@@ -1592,11 +1662,8 @@ private:
 
         for (unsigned i = 0; i < src.m_visited.size(); ++i) {
             dl_var c = src.m_visited[i];
-            typename edge_id_vector::const_iterator it  = edges[c].begin();
-            typename edge_id_vector::const_iterator end = edges[c].end();
             numeral n1 = n0 + src.m_delta[c] - m_assignment[c];
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : edges[c]) {
                 edge const& e1 = m_edges[e_id];
                 SASSERT(c == e1.get_source());
                 if (e1.is_enabled()) {
@@ -1644,13 +1711,10 @@ public:
         edge_id_vector& out_edges = m_out_edges[src];
         edge_id_vector& in_edges  = m_in_edges[dst];
         numeral w = e1.get_weight();
-        typename edge_id_vector::const_iterator it, end;
 
         if (out_edges.size() < in_edges.size()) {
-            end = out_edges.end();
-            for (it = out_edges.begin(); it != end; ++it) {
+            for (edge_id e_id : out_edges) {
                 ++m_stats.m_implied_literal_cost;
-                edge_id e_id = *it;
                 edge const& e2 = m_edges[e_id];
                 if (e_id != id && !e2.is_enabled() && e2.get_target() == dst && e2.get_weight() >= w) {
                     subsumed.push_back(e_id);
@@ -1659,10 +1723,8 @@ public:
             }
         }
         else {
-            end = in_edges.end();
-            for (it = in_edges.begin(); it != end; ++it) {
+            for (edge_id e_id : in_edges) {
                 ++m_stats.m_implied_literal_cost;
-                edge_id e_id = *it;
                 edge const& e2 = m_edges[e_id];
                 if (e_id != id && !e2.is_enabled() && e2.get_source() == src && e2.get_weight() >= w) {
                     subsumed.push_back(e_id);
@@ -1695,21 +1757,14 @@ public:
 
         find_subsumed1(id, subsumed);
 
-        typename edge_id_vector::const_iterator it, end, it3, end3;
-        it  = m_in_edges[src].begin();
-        end = m_in_edges[src].end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : m_in_edges[src]) {
             edge const& e2 = m_edges[e_id];
             if (!e2.is_enabled() || e2.get_source() == dst) {
                 continue;
             }
             w2 = e2.get_weight() + w;
-            it3 = m_out_edges[e2.get_source()].begin();
-            end3 = m_out_edges[e2.get_source()].end();
-            for (; it3 != end3; ++it3) {
+            for (edge_id e_id3 : m_out_edges[e2.get_source()]) {
                 ++m_stats.m_implied_literal_cost;
-                edge_id e_id3 = *it3;
                 edge const& e3 = m_edges[e_id3];
                 if (e3.is_enabled() || e3.get_target() != dst) {
                     continue;
@@ -1720,21 +1775,15 @@ public:
                 }
             }
         }
-        it  = m_out_edges[dst].begin();
-        end = m_out_edges[dst].end();
-        for (; it != end; ++it) {
-            edge_id e_id = *it;
+        for (edge_id e_id : m_out_edges[dst]) {
             edge const& e2 = m_edges[e_id];
 
             if (!e2.is_enabled() || e2.get_target() == src) {
                 continue;
             }
             w2 = e2.get_weight() + w;
-            it3 = m_in_edges[e2.get_target()].begin();
-            end3 = m_in_edges[e2.get_target()].end();
-            for (; it3 != end3; ++it3) {
+            for (edge_id e_id3 : m_in_edges[e2.get_target()]) {
                 ++m_stats.m_implied_literal_cost;
-                edge_id e_id3 = *it3;
                 edge const& e3 = m_edges[e_id3];
                 if (e3.is_enabled() || e3.get_source() != src) {
                     continue;
@@ -1783,11 +1832,7 @@ public:
             m_mark[v] = DL_PROCESSED;
             TRACE("diff_logic", tout << v << "\n";);
 
-            typename edge_id_vector::iterator it  = m_out_edges[v].begin();
-            typename edge_id_vector::iterator end = m_out_edges[v].end();
-
-            for (; it != end; ++it) {
-                edge_id e_id = *it;
+            for (edge_id e_id : m_out_edges[v]) {
                 edge const& e = m_edges[e_id];
                 if (!e.is_enabled() || e.get_timestamp() > timestamp) {
                     continue;

@@ -85,6 +85,15 @@ std::ostream& lar_solver::print_implied_bound(const implied_bound& be, std::ostr
     out << "end of implied bound" << std::endl;
     return out;
 }
+
+std::ostream& lar_solver::print_values(std::ostream& out) const {
+    for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
+        const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[i];
+        out << this->get_column_name(i) << " -> " << rp << "\n";
+    }
+    return out;
+}
+
     
 bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, const vector<std::pair<mpq, unsigned>> & explanation) const {
     std::unordered_map<unsigned, mpq> coeff_map;
@@ -261,9 +270,9 @@ void lar_solver::propagate_bounds_for_touched_rows(bound_propagator & bp) {
     }
 }
 
-lp_status lar_solver::get_status() const { return m_status;}
+lp_status lar_solver::get_status() const { return m_status; }
 
-void lar_solver::set_status(lp_status s) {m_status = s;}
+void lar_solver::set_status(lp_status s) { m_status = s; }
 
 lp_status lar_solver::find_feasible_solution() {
     m_settings.st().m_make_feasible++;
@@ -337,13 +346,12 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
 
     
 void lar_solver::pop(unsigned k) {
-    TRACE("arith_int", tout << "pop" << std::endl;);
+    TRACE("int_solver", tout << "pop" << std::endl;);
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
 
     m_infeasible_column_index.pop(k);
     unsigned n = m_columns_to_ul_pairs.peek_size(k);
     m_var_register.shrink(n);
-    TRACE("arith_int", tout << "pop" << std::endl;);
     if (m_settings.use_tableau()) {
         pop_tableau();
     }
@@ -395,12 +403,15 @@ bool lar_solver::maximize_term_on_tableau(const lar_term & term,
 
     m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::FEASIBLE);
     m_mpq_lar_core_solver.solve();
-    if (m_mpq_lar_core_solver.m_r_solver.get_status() == lp_status::UNBOUNDED)
+    lp_status st = m_mpq_lar_core_solver.m_r_solver.get_status();
+    TRACE("lar_solver", tout << st << "\n";);
+    if (st == lp_status::UNBOUNDED) {
         return false;
-
-    term_max = term.apply(m_mpq_lar_core_solver.m_r_x);
-
-    return true;
+    }
+    else {
+        term_max = term.apply(m_mpq_lar_core_solver.m_r_x);        
+        return true;
+    }
 }
 
 bool lar_solver::costs_are_zeros_for_r_solver() const {
@@ -442,8 +453,10 @@ void lar_solver::set_costs_to_zero(const lar_term& term) {
     lp_assert(costs_are_zeros_for_r_solver());
 }
 
-void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
-        
+void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {        
+    TRACE("lar_solver", print_term(term, tout << "prepare: ") << "\n";);
+    if (move_non_basic_columns_to_bounds())
+        find_feasible_solution();
     auto & rslv = m_mpq_lar_core_solver.m_r_solver;
     rslv.m_using_infeas_costs = false;
     lp_assert(costs_are_zeros_for_r_solver());
@@ -459,33 +472,91 @@ void lar_solver::prepare_costs_for_r_solver(const lar_term & term) {
     }
     lp_assert(rslv.reduced_costs_are_correct_tableau());
 }
+
+bool lar_solver::move_non_basic_columns_to_bounds() {
+    auto & lcs = m_mpq_lar_core_solver;
+    bool change = false;
+    for (unsigned j : lcs.m_r_nbasis) {
+        if (move_non_basic_column_to_bounds(j))
+            change = true;
+    }
+
+    if (settings().simplex_strategy() == simplex_strategy_enum::tableau_costs)
+        update_x_and_inf_costs_for_columns_with_changed_bounds_tableau();
+    return change;
+}
+
+bool lar_solver::move_non_basic_column_to_bounds(unsigned j) {
+    auto & lcs = m_mpq_lar_core_solver;
+    auto & val = lcs.m_r_x[j];
+    switch (lcs.m_column_types()[j]) {
+    case column_type::boxed:
+        if (val != lcs.m_r_lower_bounds()[j] && val != lcs.m_r_upper_bounds()[j]) {
+            if (m_settings.random_next() % 2 == 0)
+                set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
+            else
+                set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+            return true;
+        }
+        break;
+    case column_type::lower_bound:
+        if (val != lcs.m_r_lower_bounds()[j]) {
+            set_value_for_nbasic_column(j, lcs.m_r_lower_bounds()[j]);
+            return true;
+        }
+        break;
+    case column_type::upper_bound:
+        if (val != lcs.m_r_upper_bounds()[j]) {
+            set_value_for_nbasic_column(j, lcs.m_r_upper_bounds()[j]);
+            return true;
+        }
+        break;
+    default:
+        if (is_int(j) && !val.is_int()) {
+            set_value_for_nbasic_column(j, impq(floor(val)));
+            return true;
+        }
+        break;
+    }
+    return false;
+}
+
+void lar_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
+    lp_assert(!is_base(j));
+    auto & x = m_mpq_lar_core_solver.m_r_x[j];
+    auto delta = new_val - x;
+    x = new_val;
+    change_basic_columns_dependend_on_a_given_nb_column(j, delta);
+}
+
     
 bool lar_solver::maximize_term_on_corrected_r_solver(lar_term & term,
                                                      impq &term_max) {
     settings().backup_costs = false;
+    bool ret = false;
+    TRACE("lar_solver", print_term(term, tout << "maximize: ") << "\n"; print_constraints(tout); tout << ", strategy = " << (int)settings().simplex_strategy() << "\n";);
     switch (settings().simplex_strategy()) {
+        
     case simplex_strategy_enum::tableau_rows:
         prepare_costs_for_r_solver(term);
         settings().simplex_strategy() = simplex_strategy_enum::tableau_costs;
-        {
-            bool ret = maximize_term_on_tableau(term, term_max);
-            settings().simplex_strategy() = simplex_strategy_enum::tableau_rows;
-            set_costs_to_zero(term);
-            m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
-            return ret;
-        }
+        ret = maximize_term_on_tableau(term, term_max);
+        settings().simplex_strategy() = simplex_strategy_enum::tableau_rows;
+        set_costs_to_zero(term);
+        m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
+        return ret;
+        
     case simplex_strategy_enum::tableau_costs:
         prepare_costs_for_r_solver(term);
-        {
-            bool ret = maximize_term_on_tableau(term, term_max);
-            set_costs_to_zero(term);
-            m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
-            return ret;
-        }
-            
+        ret = maximize_term_on_tableau(term, term_max);
+        set_costs_to_zero(term);
+        m_mpq_lar_core_solver.m_r_solver.set_status(lp_status::OPTIMAL);
+        return ret;
+                    
     case simplex_strategy_enum::lu:
         lp_assert(false); // not implemented
         return false;
+
     default:
         lp_unreachable(); // wrong mode
     }
@@ -497,23 +568,24 @@ bool lar_solver::remove_from_basis(unsigned j) {
     return m_mpq_lar_core_solver.m_r_solver.remove_from_basis(j);
 }
 
-lar_term lar_solver::get_term_to_maximize(unsigned ext_j) const {
-    unsigned local_j;
-    if (m_var_register.external_is_used(ext_j, local_j)) {
-        lar_term r;
-        r. add_monomial(one_of_type<mpq>(), local_j);
-        return r;
+lar_term lar_solver::get_term_to_maximize(unsigned j_or_term) const {
+    if (is_term(j_or_term)) {
+        return get_term(j_or_term);
     }
-    if (!is_term(ext_j) || adjust_term_index(ext_j) >= m_terms.size())
-        return lar_term(); // return an empty term
-    return get_term(ext_j);
+    if (j_or_term < m_mpq_lar_core_solver.m_r_x.size()) {
+        lar_term r;
+        r.add_monomial(one_of_type<mpq>(), j_or_term);
+        return r;
+    } 
+    return lar_term(); // return an empty term
 }
 
-lp_status lar_solver::maximize_term(unsigned ext_j,
+lp_status lar_solver::maximize_term(unsigned j_or_term,
                                impq &term_max) {
+    TRACE("lar_solver", print_values(tout););
     bool was_feasible = m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis();
     impq prev_value;
-    lar_term term = get_term_to_maximize(ext_j);
+    lar_term term = get_term_to_maximize(j_or_term);
     if (term.is_empty()) {
         return lp_status::UNBOUNDED;
     }
@@ -559,7 +631,12 @@ lp_status lar_solver::maximize_term(unsigned ext_j,
         term_max = prev_value;
         m_mpq_lar_core_solver.m_r_x = backup;
     }
-    return term_max == opt_val? lp_status::OPTIMAL :lp_status::FEASIBLE;
+    TRACE("lar_solver", print_values(tout););
+    if (term_max == opt_val) {
+        set_status(lp_status::OPTIMAL);
+        return lp_status::OPTIMAL;
+    }
+    return lp_status::FEASIBLE;
 }
     
 
@@ -945,7 +1022,6 @@ bool lar_solver::all_constraints_hold() const {
 }
 
 bool lar_solver::constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const {
-    return true;
     mpq left_side_val = get_left_side_val(constr, var_map);
     switch (constr.m_kind) {
     case LE: return left_side_val <= constr.m_right_side;
@@ -1186,6 +1262,7 @@ void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values)
                 break;
             }
                     
+            TRACE("get_model", tout << get_column_name(i) << " := " << x << "\n";);
             variable_values[i] = x;
         }
     } while (i != m_mpq_lar_core_solver.m_r_x.size());

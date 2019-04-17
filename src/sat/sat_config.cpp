@@ -191,18 +191,14 @@ namespace sat {
 
         // PB parameters
         s = p.pb_solver();
-        if (s == symbol("circuit")) 
-            m_pb_solver = PB_CIRCUIT;
-        else if (s == symbol("sorting")) 
-            m_pb_solver = PB_SORTING;
-        else if (s == symbol("totalizer")) 
-            m_pb_solver = PB_TOTALIZER;
-        else if (s == symbol("solver")) 
-            m_pb_solver = PB_SOLVER;
-        else if (s == symbol("segmented")) 
-            m_pb_solver = PB_SEGMENTED;
-        else 
-            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented");
+        if (s != symbol("circuit") &&
+            s != symbol("sorting") && 
+            s != symbol("totalizer") && 
+            s != symbol("solver") &&
+            s != symbol("segmented") &&
+            s != symbol("binary_merge")) {
+            throw sat_param_exception("invalid PB solver: solver, totalizer, circuit, sorting, segmented, binary_merge");
+        }
 
         s = p.pb_resolve();
         if (s == "cardinality") 

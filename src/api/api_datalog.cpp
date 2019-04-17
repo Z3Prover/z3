@@ -24,6 +24,7 @@ Revision History:
 #include "api/api_stats.h"
 #include "muz/fp/datalog_parser.h"
 #include "util/cancel_eh.h"
+#include "util/scoped_ctrl_c.h"
 #include "util/scoped_timer.h"
 #include "muz/fp/dl_cmds.h"
 #include "cmd_context/cmd_context.h"
@@ -280,11 +281,13 @@ extern "C" {
         lbool r = l_undef;
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_fixedpoint(d)->m_params.get_bool("ctrl_c", true);
         {
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             cancel_eh<reslimit> eh(mk_c(c)->m().limit());
             api::context::set_interruptable si(*(mk_c(c)), eh);        
             scoped_timer timer(timeout, &eh);
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             try {
                 r = to_fixedpoint_ref(d)->ctx().query(to_expr(q));
             }

@@ -609,6 +609,10 @@ def _to_sort_ref(s, ctx):
         return FPSortRef(s, ctx)
     elif k == Z3_ROUNDING_MODE_SORT:
         return FPRMSortRef(s, ctx)
+    elif k == Z3_RE_SORT:
+        return ReSortRef(s, ctx)
+    elif k == Z3_SEQ_SORT:
+        return SeqSortRef(s, ctx)
     return SortRef(s, ctx)
 
 def _sort(ctx, a):
@@ -3837,7 +3841,7 @@ def Extract(high, low, a):
     >>> Extract(6, 2, x).sort()
     BitVec(5)
     >>> simplify(Extract(StringVal("abcd"),2,1))
-    c
+    "c"
     """
     if isinstance(high, str):
         high = StringVal(high)
@@ -4500,6 +4504,11 @@ def Ext(a, b):
         _z3_assert(is_array(a) and is_array(b), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
+def SetHasSize(a, k):
+    ctx = a.ctx
+    k = _py2expr(k, ctx)
+    return _to_expr_ref(Z3_mk_set_has_size(ctx.ref(), a.as_ast(), k.as_ast()), ctx)
+
 def is_select(a):
     """Return `True` if `a` is a Z3 array select application.
 
@@ -4933,6 +4942,29 @@ class DatatypeRef(ExprRef):
         """Return the datatype sort of the datatype expression `self`."""
         return DatatypeSortRef(Z3_get_sort(self.ctx_ref(), self.as_ast()), self.ctx)
 
+def TupleSort(name, sorts, ctx = None):
+    """Create a named tuple sort base on a set of underlying sorts
+    Example:
+        >>> pair, mk_pair, (first, second) = TupleSort("pair", [IntSort(), StringSort()])
+    """    
+    tuple = Datatype(name, ctx)
+    projects = [ ('project%d' % i, sorts[i]) for i in range(len(sorts)) ]
+    tuple.declare(name, *projects)
+    tuple = tuple.create()
+    return tuple, tuple.constructor(0), [tuple.accessor(0, i) for i in range(len(sorts))]
+
+def DisjointSum(name, sorts, ctx=None):
+    """Create a named tagged union sort base on a set of underlying sorts
+    Example:
+        >>> sum, ((inject0, extract0), (inject1, extract1)) = DisjointSum("+", [IntSort(), StringSort()])
+    """
+    sum = Datatype(name, ctx)
+    for i in range(len(sorts)):
+        sum.declare("inject%d" % i, ("project%d" % i, sorts[i]))
+    sum = sum.create()
+    return sum, [(sum.constructor(i), sum.accessor(i, 0)) for i in range(len(sorts))]
+    
+    
 def EnumSort(name, values, ctx=None):
     """Return a new enumeration sort named `name` containing the given values.
 
@@ -9908,6 +9940,9 @@ class SeqSortRef(SortRef):
         False
         """
         return Z3_is_string_sort(self.ctx_ref(), self.ast)
+
+    def basis(self):
+        return _to_sort_ref(Z3_get_seq_sort_basis(self.ctx_ref(), self.ast), self.ctx)
         
 
 def StringSort(ctx=None):
@@ -9941,6 +9976,11 @@ class SeqRef(ExprRef):
         return Concat(other, self)
 
     def __getitem__(self, i):
+        if _is_int(i):
+            i = IntVal(i, self.ctx)
+        return SeqRef(Z3_mk_seq_nth(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
+
+    def at(self, i):
         if _is_int(i):
             i = IntVal(i, self.ctx)
         return SeqRef(Z3_mk_seq_at(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
@@ -10006,7 +10046,7 @@ def is_string_value(a):
 def StringVal(s, ctx=None):
     """create a string expression"""
     ctx = _get_ctx(ctx)
-    return SeqRef(Z3_mk_string(ctx.ref(), s), ctx)
+    return SeqRef(Z3_mk_lstring(ctx.ref(), len(s), s), ctx)
 
 def String(name, ctx=None):
     """Return a string constant named `name`. If `ctx=None`, then the global context is used.
@@ -10039,10 +10079,10 @@ def Empty(s):
     True
     >>> e3 = Empty(SeqSort(IntSort()))
     >>> print(e3)
-    seq.empty
+    Empty(Seq(Int))
     >>> e4 = Empty(ReSort(SeqSort(IntSort())))
     >>> print(e4)
-    re.empty
+    Empty(ReSort(Seq(Int)))
     """
     if isinstance(s, SeqSortRef):
        return SeqRef(Z3_mk_seq_empty(s.ctx_ref(), s.ast), s.ctx)
@@ -10054,10 +10094,10 @@ def Full(s):
     """Create the regular expression that accepts the universal language
     >>> e = Full(ReSort(SeqSort(IntSort())))
     >>> print(e)
-    re.all
+    Full(ReSort(Seq(Int)))
     >>> e1 = Full(ReSort(StringSort()))
     >>> print(e1)
-    re.all
+    Full(ReSort(String))
     """
     if isinstance(s, ReSortRef):
        return ReRef(Z3_mk_re_full(s.ctx_ref(), s.ast), s.ctx)
@@ -10119,7 +10159,7 @@ def Replace(s, src, dst):
     """Replace the first occurrence of 'src' by 'dst' in 's'
     >>> r = Replace("aaa", "a", "b")
     >>> simplify(r)
-    baa
+    "baa"
     """
     ctx = _get_ctx2(dst, s)
     if ctx is None and is_expr(src):
@@ -10147,7 +10187,16 @@ def IndexOf(s, substr, offset):
     substr = _coerce_seq(substr, ctx)
     if _is_int(offset):
         offset = IntVal(offset, ctx)
-    return SeqRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
+    return ArithRef(Z3_mk_seq_index(s.ctx_ref(), s.as_ast(), substr.as_ast(), offset.as_ast()), s.ctx)
+
+def LastIndexOf(s, substr):
+    """Retrieve the last index of substring within a string"""
+    ctx = None
+    ctx = _get_ctx2(s, substr, ctx)
+    s = _coerce_seq(s, ctx)
+    substr = _coerce_seq(substr, ctx)
+    return ArithRef(Z3_mk_seq_last_index(s.ctx_ref(), s.as_ast(), substr.as_ast()), s.ctx)
+    
 
 def Length(s):
     """Obtain the length of a sequence 's'
@@ -10198,6 +10247,8 @@ def Re(s, ctx=None):
 class ReSortRef(SortRef):
     """Regular expression sort."""
 
+    def basis(self):
+        return _to_sort_ref(Z3_get_re_sort_basis(self.ctx_ref(), self.ast), self.ctx)
 
 def ReSort(s):
     if is_ast(s):
@@ -10213,7 +10264,6 @@ class ReRef(ExprRef):
 
     def __add__(self, other):
         return Union(self, other)
-
 
 def is_re(s):
     return isinstance(s, ReRef)
@@ -10250,6 +10300,23 @@ def Union(*args):
     for i in range(sz):
         v[i] = args[i].as_ast()
     return ReRef(Z3_mk_re_union(ctx.ref(), sz, v), ctx)
+
+def Intersect(*args):
+    """Create intersection of regular expressions.
+    >>> re = Intersect(Re("a"), Re("b"), Re("c"))
+    """
+    args = _get_args(args)
+    sz = len(args)
+    if __debug__:
+        _z3_assert(sz > 0, "At least one argument expected.")
+        _z3_assert(all([is_re(a) for a in args]), "All arguments must be regular expressions.")
+    if sz == 1:
+        return args[0]
+    ctx = args[0].ctx
+    v = (Ast * sz)()
+    for i in range(sz):
+        v[i] = args[i].as_ast()
+    return ReRef(Z3_mk_re_intersect(ctx.ref(), sz, v), ctx)
 
 def Plus(re):
     """Create the regular expression accepting one or more repetitions of argument.
@@ -10302,3 +10369,37 @@ def Loop(re, lo, hi=0):
     False
     """
     return ReRef(Z3_mk_re_loop(re.ctx_ref(), re.as_ast(), lo, hi), re.ctx)
+
+def Range(lo, hi, ctx = None):
+    """Create the range regular expression over two sequences of length 1
+    >>> range = Range("a","z")
+    >>> print(simplify(InRe("b", range)))
+    True
+    >>> print(simplify(InRe("bb", range)))
+    False
+    """
+    lo = _coerce_seq(lo, ctx)
+    hi = _coerce_seq(hi, ctx)
+    return ReRef(Z3_mk_re_range(lo.ctx_ref(), lo.ast, hi.ast), lo.ctx)
+
+# Special Relations
+
+def PartialOrder(a, index):
+    return FuncDeclRef(Z3_mk_partial_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def LinearOrder(a, index):
+    return FuncDeclRef(Z3_mk_linear_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def TreeOrder(a, index):
+    return FuncDeclRef(Z3_mk_tree_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def PiecewiseLinearOrder(a, index):
+    return FuncDeclRef(Z3_mk_piecewise_linear_order(a.ctx_ref(), a.ast, index), a.ctx);
+
+def TransitiveClosure(f):
+    """Given a binary relation R, such that the two arguments have the same sort
+    create the transitive closure relation R+.
+    The transitive closure R+ is a new relation.
+    """
+    return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
+

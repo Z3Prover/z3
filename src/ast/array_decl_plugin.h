@@ -51,6 +51,7 @@ enum array_op_kind {
     OP_SET_DIFFERENCE,
     OP_SET_COMPLEMENT,
     OP_SET_SUBSET,
+    OP_SET_HAS_SIZE,
     OP_AS_ARRAY, // used for model construction
     LAST_ARRAY_OP
 };
@@ -68,6 +69,7 @@ class array_decl_plugin : public decl_plugin {
     symbol m_set_subset_sym;
     symbol m_array_ext_sym;
     symbol m_as_array_sym;
+    symbol m_set_has_size_sym;
 
     bool check_set_arguments(unsigned arity, sort * const * domain);
 
@@ -94,6 +96,8 @@ class array_decl_plugin : public decl_plugin {
     func_decl * mk_set_subset(unsigned arity, sort * const * domain);
 
     func_decl * mk_as_array(func_decl * f);
+
+    func_decl* mk_set_has_size(unsigned arity, sort * const* domain);
 
     bool is_array_sort(sort* s) const;
  public:
@@ -144,14 +148,20 @@ public:
     bool is_map(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
+    bool is_set_has_size(expr* e) const { return is_app_of(e, m_fid, OP_SET_HAS_SIZE); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
     bool is_store(func_decl* f) const { return is_decl_of(f, m_fid, OP_STORE); }
     bool is_const(func_decl* f) const { return is_decl_of(f, m_fid, OP_CONST_ARRAY); }
     bool is_map(func_decl* f) const { return is_decl_of(f, m_fid, OP_ARRAY_MAP); }
     bool is_as_array(func_decl* f) const { return is_decl_of(f, m_fid, OP_AS_ARRAY); }
+    bool is_set_has_size(func_decl* f) const { return is_decl_of(f, m_fid, OP_SET_HAS_SIZE); }
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
+
+    bool is_const(expr* e, expr*& v) const;
+
+    bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 };
 
 class array_util : public array_recognizers {
@@ -183,6 +193,10 @@ public:
     }
     app * mk_full_set(sort * s) {
         return mk_const_array(s, m_manager.mk_true());
+    }
+
+    app* mk_has_size(expr* set, expr* n) {
+        return m_manager.mk_app(m_fid, OP_SET_HAS_SIZE, set, n);
     }
 
     func_decl * mk_array_ext(sort* domain, unsigned i);

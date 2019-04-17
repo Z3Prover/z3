@@ -42,8 +42,8 @@ namespace sat {
         m_checkpoint_enabled(true),
         m_config(p),
         m_par(nullptr),
-        m_cls_allocator_idx(false),
         m_drat(*this),
+        m_cls_allocator_idx(false),
         m_cleaner(*this),
         m_simplifier(*this, p),
         m_scc(*this, p),
@@ -1608,6 +1608,7 @@ namespace sat {
                 if (inconsistent()) break;
                 assign_scoped(lit);
             }
+            propagate(false);
             TRACE("sat",
                   for (literal a : m_assumptions) {
                       index_set s;
@@ -2507,13 +2508,12 @@ namespace sat {
         TRACE("sat_lemma", tout << "new lemma size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
 
         unsigned new_scope_lvl       = 0;
-        bool sub_min = false, res_min = false;
         if (!m_lemma.empty()) {
             if (m_config.m_minimize_lemmas) {
-                res_min = minimize_lemma();
+                minimize_lemma();
                 reset_lemma_var_marks();
                 if (m_config.m_dyn_sub_res)
-                    sub_min = dyn_sub_res();
+                    dyn_sub_res();
                 TRACE("sat_lemma", tout << "new lemma (after minimization) size: " << m_lemma.size() << "\n" << m_lemma << "\n";);
             }
             else

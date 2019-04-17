@@ -624,7 +624,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             if (m.get_sort(args[i]) != r->get_domain(i)) {
                 std::ostringstream buffer;
                 buffer << "Argument " << mk_pp(args[i], m) << " at position " << i << " does not match declaration " << mk_pp(r, m);
-                m.raise_exception(buffer.str().c_str());
+                m.raise_exception(buffer.str());
                 return nullptr;
             }
         }

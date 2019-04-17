@@ -38,5 +38,18 @@ namespace Microsoft.Z3
             Debug.Assert(ctx != null);
         }
         #endregion	
+
+        /// <summary> Single argument select </summary>
+        public Expr this[Expr index] 
+        {
+            get { return Context.MkSelect(this, index); }
+        }
+
+        /// <summary> Multi argument select </summary>
+        public Expr this[IEnumerable<Expr> index] 
+        {
+            get { return Context.MkSelect(this, index.ToArray()); }
+        }
+
     }
 }

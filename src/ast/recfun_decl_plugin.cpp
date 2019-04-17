@@ -50,7 +50,7 @@ namespace recfun {
     }
 
     def::def(ast_manager &m, family_id fid, symbol const & s,
-             unsigned arity, sort* const * domain, sort* range)
+             unsigned arity, sort* const * domain, sort* range, bool is_generated)
         :   m(m), m_name(s),
             m_domain(m, arity, domain), 
             m_range(range, m), m_vars(m), m_cases(),
@@ -59,7 +59,8 @@ namespace recfun {
             m_fid(fid)
     {
         SASSERT(arity == get_arity());        
-        func_decl_info info(fid, OP_FUN_DEFINED);
+        parameter p(is_generated);
+        func_decl_info info(fid, OP_FUN_DEFINED, 1, &p);
         m_decl = m.mk_func_decl(s, arity, domain, range, info);
     }
 
@@ -238,6 +239,7 @@ namespace recfun {
                 while (! stack.empty()) {
                     expr * e = stack.back();
                     stack.pop_back();
+                    TRACEFN("unfold: " << mk_pp(e, m));
 
                     if (m.is_ite(e)) {
                         // need to do a case split on `e`, forking the search space
@@ -257,6 +259,7 @@ namespace recfun {
             if (b.to_split != nullptr) {
                 // split one `ite`, which will lead to distinct (sets of) cases
                 app * ite = b.to_split->ite;
+                TRACEFN("split: " << mk_pp(ite, m));
                 expr* c = nullptr, *th = nullptr, *el = nullptr;
                 VERIFY(m.is_ite(ite, c, th, el));
 
@@ -287,6 +290,7 @@ namespace recfun {
                 
                 // substitute, to get rid of `ite` terms
                 expr_ref case_rhs = subst(rhs);
+                TRACEFN("case_rhs: " << case_rhs);
                 for (unsigned i = 0; i < conditions.size(); ++i) {
                     conditions[i] = subst(conditions.get(i));
                 }
@@ -312,9 +316,10 @@ namespace recfun {
     util::~util() {
     }
 
-    def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range) {
-        return alloc(def, m(), m_fid, name, n, domain, range);
+    def * util::decl_fun(symbol const& name, unsigned n, sort *const * domain, sort * range, bool is_generated) {
+        return alloc(def, m(), m_fid, name, n, domain, range, is_generated);
     }
+
 
     void util::set_definition(replace& subst, promise_def & d, unsigned n_vars, var * const * vars, expr * rhs) {
         d.set_definition(subst, n_vars, vars, rhs);
@@ -382,9 +387,19 @@ namespace recfun {
             return *(m_util.get());
         }
 
-        promise_def plugin::mk_def(symbol const& name, unsigned n, sort *const * params, sort * range) {
-            def* d = u().decl_fun(name, n, params, range);
-            SASSERT(! m_defs.contains(d->get_decl()));
+        promise_def plugin::mk_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
+            def* d = u().decl_fun(name, n, params, range, is_generated);
+            SASSERT(!m_defs.contains(d->get_decl()));
+            m_defs.insert(d->get_decl(), d);
+            return promise_def(&u(), d);
+        }
+
+        promise_def plugin::ensure_def(symbol const& name, unsigned n, sort *const * params, sort * range, bool is_generated) {
+            def* d = u().decl_fun(name, n, params, range, is_generated);
+            def* d2 = nullptr;
+            if (m_defs.find(d->get_decl(), d2)) {
+                dealloc(d2);
+            }
             m_defs.insert(d->get_decl(), d);
             return promise_def(&u(), d);
         }

@@ -263,9 +263,7 @@ template <typename T, typename X> void lp_primal_simplex<T, X>::solve_with_total
 
 
 template <typename T, typename X> lp_primal_simplex<T, X>::~lp_primal_simplex() {
-    if (m_core_solver != nullptr) {
-        delete m_core_solver;
-    }
+    delete m_core_solver;
 }
 
 template <typename T, typename X> bool lp_primal_simplex<T, X>::bounds_hold(std::unordered_map<std::string, T> const & solution) {

@@ -53,6 +53,47 @@ namespace Microsoft.Z3
             }
         }
 
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(string name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(string name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(string name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(string name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(string name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(Symbol name, bool value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(Symbol name, uint value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(Symbol name, double value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(Symbol name, string value) { Parameters = Context.MkParams().Add(name, value); }
+	/// <summary>
+	/// Sets parameter on the optimize solver
+	/// </summary>
+	public void Set(Symbol name, Symbol value) { Parameters = Context.MkParams().Add(name, value); }
+
         /// <summary>
         /// Retrieves parameter descriptions for Optimize solver.
         /// </summary>

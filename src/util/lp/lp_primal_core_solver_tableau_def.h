@@ -35,6 +35,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_tableau(entering, t);
     if (leaving == -1) {
+        TRACE("lar_solver", tout << "nothing leaving " << entering << "\n";);
         this->set_status(lp_status::UNBOUNDED);
         return;
     }
@@ -117,6 +118,7 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         }
         else 
             one_iteration_tableau();
+        TRACE("lar_solver", tout << "one iteration tableau " << this->get_status() << "\n";);
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum
         case lp_status::INFEASIBLE:

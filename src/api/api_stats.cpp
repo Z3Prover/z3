@@ -34,7 +34,7 @@ extern "C" {
         result = buffer.str();
         SASSERT(result.size() > 0);
         result.resize(result.size()-1);
-        return mk_c(c)->mk_external_string(result);
+        return mk_c(c)->mk_external_string(std::move(result));
         Z3_CATCH_RETURN("");
     }
 

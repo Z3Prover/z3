@@ -71,6 +71,11 @@ public:
         m_suspend = r.m_suspend;
         r.m_suspend = true;
     }
+
+    scoped_suspend_rlimit(reslimit& r, bool do_suspend): m_limit(r) {
+        m_suspend = r.m_suspend;
+        r.m_suspend |= do_suspend;
+    }
     ~scoped_suspend_rlimit() {
         m_limit.m_suspend = m_suspend;
     }

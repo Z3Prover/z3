@@ -19,6 +19,7 @@ z3_add_component(rewriter
     factor_equivs.cpp
     factor_rewriter.cpp
     fpa_rewriter.cpp
+    func_decl_replace.cpp
     hoist_rewriter.cpp
     inj_axiom.cpp
     label_rewriter.cpp

@@ -549,9 +549,14 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
+        unsigned k2 = k.get_unsigned();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_at_least(sat::null_bool_var, lits, k.get_unsigned());
+            if (sign) {
+                for (sat::literal& l : lits) l.neg();
+                k2 = lits.size() + 1 - k2;
+            }
+            m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
             sat::bool_var v = m_solver.add_var(true);
@@ -571,14 +576,19 @@ struct goal2sat::imp {
         for (sat::literal& l : lits) {
             l.neg();
         }
+        unsigned k2 = lits.size() - k.get_unsigned();
         if (root && m_solver.num_user_scopes() == 0) {
             m_result_stack.reset();
-            m_ext->add_at_least(sat::null_bool_var, lits, lits.size() - k.get_unsigned());
+            if (sign) {
+                for (sat::literal& l : lits) l.neg();
+                k2 = lits.size() + 1 - k2;
+            }
+            m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
             sat::bool_var v = m_solver.add_var(true);
             sat::literal lit(v, false);
-            m_ext->add_at_least(v, lits, lits.size() - k.get_unsigned());
+            m_ext->add_at_least(v, lits, k2);
             m_cache.insert(t, lit);
             if (sign) lit.neg();
             push_result(root, lit, t->get_num_args());
@@ -1002,7 +1012,6 @@ void sat2goal::mc::operator()(model_ref & md) {
     // create a SAT model using md
     sat::model sat_md;
     expr_ref val(m);
-    VERIFY(!m_var2expr.empty());
     for (expr * atom : m_var2expr) {
         if (!atom) {
             sat_md.push_back(l_undef);

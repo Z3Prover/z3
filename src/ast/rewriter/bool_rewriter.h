@@ -59,6 +59,7 @@ class bool_rewriter {
     bool           m_ite_extra_rules;
     unsigned       m_local_ctx_limit;
     unsigned       m_local_ctx_cost;
+    bool           m_elim_ite;
 
     br_status mk_flat_and_core(unsigned num_args, expr * const * args, expr_ref & result);
     br_status mk_flat_or_core(unsigned num_args, expr * const * args, expr_ref & result);

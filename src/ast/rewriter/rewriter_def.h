@@ -80,27 +80,42 @@ void rewriter_tpl<Config>::process_var(var * v) {
 
 template<typename Config>
 template<bool ProofGen>
-void rewriter_tpl<Config>::process_const(app * t) {
+bool rewriter_tpl<Config>::process_const(app * t0) {
+    app_ref t(t0, m());
+    bool retried = false;
+ retry:
     SASSERT(t->get_num_args() == 0);
     br_status st = m_cfg.reduce_app(t->get_decl(), 0, nullptr, m_r, m_pr);
     SASSERT(st != BR_DONE || m().get_sort(m_r) == m().get_sort(t));
-    SASSERT(st == BR_FAILED || st == BR_DONE);
-    if (st == BR_DONE) {
+    switch (st) {
+    case BR_FAILED:
+        if (!retried) {
+            result_stack().push_back(t);
+            if (ProofGen)
+                result_pr_stack().push_back(nullptr); // implicit reflexivity
+            return true;
+        }
+        m_r = t;
+        // fall through
+    case BR_DONE:
         result_stack().push_back(m_r.get());
         if (ProofGen) {
             if (m_pr)
                 result_pr_stack().push_back(m_pr);
             else
-                result_pr_stack().push_back(m().mk_rewrite(t, m_r));
+                result_pr_stack().push_back(m().mk_rewrite(t0, m_r));
             m_pr = nullptr;
         }
         m_r = nullptr;
-        set_new_child_flag(t);
-    }
-    else {
-        result_stack().push_back(t);
-        if (ProofGen)
-            result_pr_stack().push_back(nullptr); // implicit reflexivity
+        set_new_child_flag(t0);
+        return true;
+    default: 
+        if (is_app(m_r) && to_app(m_r)->get_num_args() == 0) {
+            t = to_app(m_r);
+            retried = true;
+            goto retry;
+        }
+        return false;
     }
 }
 
@@ -115,6 +130,7 @@ void rewriter_tpl<Config>::process_const(app * t) {
 template<typename Config>
 template<bool ProofGen>
 bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
+ // retry:
     TRACE("rewriter_visit", tout << "visiting\n" << mk_ismt2_pp(t, m()) << "\n";);
     expr *  new_t = nullptr;
     proof * new_t_pr = nullptr;
@@ -164,15 +180,14 @@ bool rewriter_tpl<Config>::visit(expr * t, unsigned max_depth) {
     switch (t->get_kind()) {
     case AST_APP:
         if (to_app(t)->get_num_args() == 0) {
-            process_const<ProofGen>(to_app(t));
-            return true;
+            if (process_const<ProofGen>(to_app(t))) 
+                return true; 
+            t = m_r;
         }
-        else {
-            if (max_depth != RW_UNBOUNDED_DEPTH)
-                max_depth--;
-            push_frame(t, c, max_depth);
-            return false;
-        }
+        if (max_depth != RW_UNBOUNDED_DEPTH)
+            max_depth--;
+        push_frame(t, c, max_depth);
+        return false;        
     case AST_VAR:
         process_var<ProofGen>(to_var(t));
         return true;
@@ -224,7 +239,7 @@ bool rewriter_tpl<Config>::constant_fold(app * t, frame & fr) {
 template<typename Config>
 template<bool ProofGen>
 void rewriter_tpl<Config>::process_app(app * t, frame & fr) {
-    SASSERT(t->get_num_args() > 0);
+    // SASSERT(t->get_num_args() > 0);
     SASSERT(!frame_stack().empty());
     switch (fr.m_state) {
     case PROCESS_CHILDREN: {

@@ -22,81 +22,6 @@ Revision History:
 
 namespace smt {
 
-#if 0
-    unsigned cg_table::cg_hash::operator()(enode * n) const {
-        if (n->is_commutative()) {
-            return  combine_hash(n->get_decl_id(), 
-                                 n->get_arg(0)->get_root()->hash() *
-                                 n->get_arg(1)->get_root()->hash());
-        }
-        else {
-            unsigned num = n->get_num_args();
-            switch (num) {
-            case 0: UNREACHABLE(); return 0;
-            case 1: 
-                return combine_hash(n->get_decl_id(), n->get_arg(0)->get_root()->hash());
-            case 2: {
-                unsigned a = n->get_decl_id();
-                unsigned b = n->get_arg(0)->get_root()->hash();
-                unsigned c = n->get_arg(1)->get_root()->hash();
-                mix(a,b,c);
-                return c;
-            }
-            default:
-                return get_composite_hash<enode *, cg_khasher, cg_chasher>(n, n->get_num_args(), m_khasher, m_chasher);
-            }
-        }
-    }
-
-    bool cg_table::cg_eq::operator()(enode * n1, enode * n2) const {
-#if 0
-        static unsigned counter = 0;
-        static unsigned failed  = 0;
-        bool r = congruent(n1, n2, m_commutativity);
-        if (!r) 
-            failed++;
-        counter++;
-        if (counter % 100000 == 0) 
-            std::cout << "cg_eq: " << counter << " " << failed << "\n";
-        return r;
-#else
-        return congruent(n1, n2, m_commutativity);
-#endif
-    }
-    
-    cg_table::cg_table(ast_manager & m):
-        m_manager(m),
-        m_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, cg_hash(), cg_eq(m_commutativity)) {
-    }
-    
-    void cg_table::display(std::ostream & out) const {
-        out << "congruence table:\n";
-        for (enode * n : m_table) {
-            out << mk_pp(n->get_owner(), m_manager) << "\n";
-        }
-    }
-
-    void cg_table::display_compact(std::ostream & out) const {
-        if (!m_table.empty()) {
-            out << "congruence table:\n";
-            for (enode * n : m_table) {
-                out << "#" << n->get_owner()->get_id() << " ";
-            }
-            out << "\n";
-        }
-    }
-
-#ifdef Z3DEBUG
-    bool cg_table::check_invariant() const {
-        for (enode * n : m_table) {
-            CTRACE("cg_table", !contains_ptr(n), tout << "#" << n->get_owner_id() << "\n";);
-            SASSERT(contains_ptr(n));
-        }
-        return true;
-    }
-#endif
-
-#else
     // one table per func_decl implementation
     unsigned cg_table::cg_hash::operator()(enode * n) const {
         SASSERT(n->get_decl()->is_flat_associative() || n->get_num_args() >= 3);
@@ -222,18 +147,116 @@ namespace smt {
     }
 
     void cg_table::display(std::ostream & out) const {
+        for (auto const& kv : m_func_decl2id) {
+            void * t = m_tables[kv.m_value];
+            out << mk_pp(kv.m_key, m_manager) << ": ";
+            switch (GET_TAG(t)) {
+            case UNARY: 
+                display_unary(out, t);
+                break;            
+            case BINARY: 
+                display_binary(out, t);
+                break;
+            case BINARY_COMM: 
+                display_binary_comm(out, t);
+                break;            
+            case NARY: 
+                display_nary(out, t);
+                break;
+            }
+        }        
     }
+
+    void cg_table::display_binary(std::ostream& out, void* t) const {
+        binary_table* tb = UNTAG(binary_table*, t);
+        out << "b ";
+        for (enode* n : *tb) {
+            out << n->get_owner_id() << " " << cg_binary_hash()(n) << " ";
+        }
+        out << "\n";
+    }
+    
+    void cg_table::display_binary_comm(std::ostream& out, void* t) const {
+        comm_table* tb = UNTAG(comm_table*, t);
+        out << "bc ";
+        for (enode* n : *tb) {
+            out << n->get_owner_id() << " ";
+        }
+        out << "\n";
+    }
+    
+    void cg_table::display_unary(std::ostream& out, void* t) const {
+        unary_table* tb = UNTAG(unary_table*, t);
+        out << "un ";
+        for (enode* n : *tb) {
+            out << n->get_owner_id() << " ";
+        }
+        out << "\n";
+    }
+    
+    void cg_table::display_nary(std::ostream& out, void* t) const {
+        table* tb = UNTAG(table*, t);
+        out << "nary ";
+        for (enode* n : *tb) {
+            out << n->get_owner_id() << " ";
+        }
+        out << "\n";
+    }
+
+
+    enode_bool_pair cg_table::insert(enode * n) {
+        // it doesn't make sense to insert a constant.
+        SASSERT(n->get_num_args() > 0);
+        SASSERT(!m_manager.is_and(n->get_owner()));
+        SASSERT(!m_manager.is_or(n->get_owner()));
+        enode * n_prime;
+        void * t = get_table(n); 
+        switch (static_cast<table_kind>(GET_TAG(t))) {
+        case UNARY:
+            n_prime = UNTAG(unary_table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, false);
+        case BINARY:
+            n_prime = UNTAG(binary_table*, t)->insert_if_not_there(n);
+            TRACE("cg_table", tout << "insert: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " inserted: " << (n == n_prime) << " " << n_prime->get_owner_id() << "\n";
+                  display_binary(tout, t); tout << "contains_ptr: " << contains_ptr(n) << "\n";); 
+            return enode_bool_pair(n_prime, false);
+        case BINARY_COMM:
+            m_commutativity = false;
+            n_prime = UNTAG(comm_table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, m_commutativity);
+        default:
+            n_prime = UNTAG(table*, t)->insert_if_not_there(n);
+            return enode_bool_pair(n_prime, false);
+        }
+    }
+
+    void cg_table::erase(enode * n) {
+        SASSERT(n->get_num_args() > 0);
+        void * t = get_table(n); 
+        switch (static_cast<table_kind>(GET_TAG(t))) {
+        case UNARY:
+            UNTAG(unary_table*, t)->erase(n);
+            break;
+        case BINARY:
+            TRACE("cg_table", tout << "erase: " << n->get_owner_id() << " " << cg_binary_hash()(n) << " contains: " << contains_ptr(n) << "\n";);
+            UNTAG(binary_table*, t)->erase(n);
+            break;
+        case BINARY_COMM:
+            UNTAG(comm_table*, t)->erase(n);
+            break;
+        default:
+            UNTAG(table*, t)->erase(n);
+            break;
+        }
+    }
+
 
     void cg_table::display_compact(std::ostream & out) const {
     }
 
-#ifdef Z3DEBUG
     bool cg_table::check_invariant() const {
         return true;
     }
-#endif
-
-#endif
 
 };
 

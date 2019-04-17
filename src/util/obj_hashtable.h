@@ -222,10 +222,8 @@ public:
 */
 template<typename Key, typename Value>
 void reset_dealloc_values(obj_map<Key, Value*> & m) {
-    typename obj_map<Key, Value*>::iterator it  = m.begin();
-    typename obj_map<Key, Value*>::iterator end = m.end();
-    for (; it != end; ++it) {
-        dealloc(it->m_value);
+    for (auto & kv : m) {
+        dealloc(kv.m_value);
     }
     m.reset();
 }

@@ -174,7 +174,11 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
+#ifdef _NO_OMP_
+# define is_threaded() false
+#else
 bool is_threaded();
+#endif
 
   
 #define IF_VERBOSE(LVL, CODE) {                                 \

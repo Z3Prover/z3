@@ -101,6 +101,7 @@ namespace api {
         m_datalog_fid = m().mk_family_id("datalog_relation");
         m_fpa_fid   = m().mk_family_id("fpa");
         m_seq_fid   = m().mk_family_id("seq");
+        m_special_relations_fid   = m().mk_family_id("special_relations");
         m_dt_plugin = static_cast<datatype_decl_plugin*>(m().get_plugin(m_dt_fid));
     
         install_tactics(*this);
@@ -155,8 +156,6 @@ namespace api {
         m_error_code = Z3_OK; 
     }
 
-
-
     void context::check_searching() {
         if (m_searching) { 
             set_error_code(Z3_INVALID_USAGE, "cannot use function while searching"); // TBD: error code could be fixed.
@@ -168,8 +167,8 @@ namespace api {
         return const_cast<char *>(m_string_buffer.c_str());
     }
     
-    char * context::mk_external_string(std::string const & str) {
-        m_string_buffer = str;
+    char * context::mk_external_string(std::string && str) {
+        m_string_buffer = std::move(str);
         return const_cast<char *>(m_string_buffer.c_str());
     }
 
@@ -466,16 +465,10 @@ extern "C" {
         }
     }
 
-
     Z3_API char const * Z3_get_error_msg(Z3_context c, Z3_error_code err) {
         LOG_Z3_get_error_msg(c, err);
         return _get_error_msg(c, err);
     }
-
-    Z3_API char const * Z3_get_error_msg_ex(Z3_context c, Z3_error_code err) {
-        return Z3_get_error_msg(c, err);
-    }
-
 
     void Z3_API Z3_set_ast_print_mode(Z3_context c, Z3_ast_print_mode mode) {
         Z3_TRY;

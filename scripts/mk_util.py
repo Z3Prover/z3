@@ -102,7 +102,7 @@ STATIC_BIN=False
 VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
-VER_REVISION=None
+VER_TWEAK=None
 PREFIX=sys.prefix
 GMP=False
 VS_PAR=False
@@ -553,22 +553,22 @@ def find_c_compiler():
     raise MKException('C compiler was not found. Try to set the environment variable CC with the C compiler available in your system.')
 
 def set_version(major, minor, build, revision):
-    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION, GIT_DESCRIBE
+    global VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK, GIT_DESCRIBE
     VER_MAJOR = major
     VER_MINOR = minor
     VER_BUILD = build
-    VER_REVISION = revision
+    VER_TWEAK = revision
     if GIT_DESCRIBE:
         branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
-        VER_REVISION = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
+        VER_TWEAK = int(check_output(['git', 'rev-list', '--count', 'HEAD']))
 
 def get_version():
-    return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION)
+    return (VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK)
 
 def get_version_string(n):
     if n == 3:
         return "{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD)
-    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_REVISION)
+    return "{}.{}.{}.{}".format(VER_MAJOR,VER_MINOR,VER_BUILD,VER_TWEAK)
 
 def build_static_lib():
     return STATIC_LIB
@@ -1783,7 +1783,7 @@ class DotNetDLLComponent(Component):
                             { 'VER_MAJOR': str(major),
                               'VER_MINOR': str(minor),
                               'VER_BUILD': str(build),
-                              'VER_REVISION': str(revision),
+                              'VER_TWEAK': str(revision),
                             }
                            )
         else:
@@ -1889,20 +1889,12 @@ class DotNetCoreDLLComponent(Component):
             key = "<AssemblyOriginatorKeyFile>%s</AssemblyOriginatorKeyFile>" % self.key_file
             key += "\n<SignAssembly>true</SignAssembly>"
 
-        if VS_X64:
-            platform = 'x64'
-        elif VS_ARM:
-            platform = 'ARM'
-        else:
-            platform = 'x86'
-
         version = get_version_string(3)
 
         core_csproj_str = """<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard1.4</TargetFramework>
-    <PlatformTarget>%s</PlatformTarget>    
     <DefineConstants>$(DefineConstants);DOTNET_CORE</DefineConstants>
     <DebugType>portable</DebugType>
     <AssemblyName>Microsoft.Z3</AssemblyName>
@@ -1923,7 +1915,7 @@ class DotNetCoreDLLComponent(Component):
     <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
   </ItemGroup>
 
-</Project>""" % (platform, version, key, self.to_src_dir)
+</Project>""" % (version, key, self.to_src_dir)
 
         mk_dir(os.path.join(BUILD_DIR, 'dotnet'))
         csproj = os.path.join('dotnet', 'z3.csproj')
@@ -2230,7 +2222,7 @@ class MLComponent(Component):
             else:
                 prefix_lib = '-L' + PREFIX + '/lib'
             substitutions = { 'LEXTRA': prefix_lib,
-                              'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_REVISION) }
+                              'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
 
             configure_file(os.path.join(self.src_dir, 'META.in'),
                            os.path.join(BUILD_DIR, self.sub_dir, 'META'),
@@ -2263,7 +2255,7 @@ class MLComponent(Component):
             for m in self.modules:
                 ff = os.path.join(src_dir, m + '.ml')
                 ft = os.path.join(self.sub_dir, m + '.cmx')
-                out.write('%s: %s %s\n' % (ft, ff, cmos))
+                out.write('%s: %s %s %s\n' % (ft, ff, cmos, cmxs))
                 out.write('\t%s -I %s -o %s -c %s\n' % (OCAMLOPTF, self.sub_dir, ft, ff))
                 cmxs = cmxs + ' ' + ft
 
@@ -2725,7 +2717,7 @@ def mk_config():
                 'SLINK_FLAGS=/nologo /LDd\n' % static_opt)
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2734,7 +2726,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
+                    'CXXFLAGS=/c /Zi /nologo /W3 /WX- /Od /Oy- /D WIN32 /D _DEBUG /D Z3DEBUG /D _CONSOLE /D _TRACE /D _WINDOWS /Gm- /EHsc /RTC1 /GS /Gd /arch:SSE2 %s %s\n' % (extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (link_extra_opt, maybe_disable_dynamic_base, link_extra_opt))
@@ -2750,7 +2742,7 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
@@ -2759,7 +2751,7 @@ def mk_config():
                 exit(1)
             else:
                 config.write(
-                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /fp:precise /Zc:wchar_t /Zc:forScope /Gd /analyze- /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/nologo /c%s /Zi /W3 /WX- /O2 /Oy- /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _CONSOLE /D _WINDOWS /D ASYNC_COMMANDS /Gm- /EHsc /GS /Gd /arch:SSE2 %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
                     'LINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 /DYNAMICBASE /NXCOMPAT %s\n'
                     'SLINK_EXTRA_FLAGS=/link%s /DEBUG /MACHINE:X86 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 /OPT:REF /OPT:ICF /TLBID:1 %s %s\n' % (LTCG, link_extra_opt, LTCG, maybe_disable_dynamic_base, link_extra_opt))
@@ -2832,24 +2824,18 @@ def mk_config():
             CXXFLAGS       = '%s -D_LINUX_' % CXXFLAGS
             OS_DEFINES     = '-D_LINUX_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'NetBSD':
             CXXFLAGS       = '%s -D_NETBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_NETBSD_'
             SO_EXT         = '.so'
-            LDFLAGS        = '%s -lrt' % LDFLAGS
             SLIBFLAGS      = '-shared'
-            SLIBEXTRAFLAGS = '%s -lrt' % SLIBEXTRAFLAGS
         elif sysname == 'OpenBSD':
             CXXFLAGS       = '%s -D_OPENBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_OPENBSD_'
@@ -2909,7 +2895,7 @@ def mk_config():
         config.write('SO_EXT=%s\n' % SO_EXT)
         config.write('SLINK=%s\n' % CXX)
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
-        config.write('SLINK_EXTRA_FLAGS=%s\n' % SLIBEXTRAFLAGS)
+        config.write('SLINK_EXTRA_FLAGS=-lpthread %s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
         config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
@@ -3068,7 +3054,7 @@ def update_version():
     major = VER_MAJOR
     minor = VER_MINOR
     build = VER_BUILD
-    revision = VER_REVISION
+    revision = VER_TWEAK
     if major is None or minor is None or build is None or revision is None:
         raise MKException("set_version(major, minor, build, revision) must be used before invoking update_version()")
     if not ONLY_MAKEFILES:

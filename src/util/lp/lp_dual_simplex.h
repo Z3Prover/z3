@@ -34,9 +34,7 @@ class lp_dual_simplex: public lp_solver<T, X> {
     vector<bool>  m_can_enter_basis;
 public:
     ~lp_dual_simplex() override {
-        if (m_core_solver != nullptr) {
-            delete m_core_solver;
-        }
+        delete m_core_solver;
     }
 
     lp_dual_simplex() : m_core_solver(nullptr) {}

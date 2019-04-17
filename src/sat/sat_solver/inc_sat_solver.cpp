@@ -300,11 +300,6 @@ public:
         sat_params p1(p);
         m_params.set_bool("keep_cardinality_constraints", p1.cardinality_solver());
         m_params.set_sym("pb.solver", p1.pb_solver());
-
-        m_params.set_bool("keep_pb_constraints", m_solver.get_config().m_pb_solver == sat::PB_SOLVER);
-        m_params.set_bool("pb_num_system", m_solver.get_config().m_pb_solver == sat::PB_SORTING);
-        m_params.set_bool("pb_totalizer", m_solver.get_config().m_pb_solver == sat::PB_TOTALIZER);
-
         m_params.set_bool("xor_solver", p1.xor_solver());
         m_solver.updt_params(m_params);
         m_solver.set_incremental(is_incremental() && !override_incremental());
@@ -884,6 +879,7 @@ private:
             mdl = nullptr;
             return;
         }
+        TRACE("sat", m_solver.display_model(tout););
         sat::model const & ll_m = m_solver.get_model();
         mdl = alloc(model, m);
         for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
@@ -904,11 +900,9 @@ private:
         }
 
         if (m_sat_mc) {
-            // IF_VERBOSE(0, m_sat_mc->display(verbose_stream() << "satmc\n"););
             (*m_sat_mc)(mdl);
         }
         if (m_mcs.back()) {            
-            //IF_VERBOSE(0, m_mc0->display(verbose_stream() << "mc0\n"););
             (*m_mcs.back())(mdl);
         }
         TRACE("sat", model_smt2_pp(tout, m, *mdl, 0););        

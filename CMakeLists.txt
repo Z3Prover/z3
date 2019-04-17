@@ -1,17 +1,8 @@
 # Enforce some CMake policies
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.4)
+
 if (POLICY CMP0054)
-  # FIXME: This is horrible. With the old behaviour,
-  # quoted strings like "MSVC" in if() conditionals
-  # get implicitly dereferenced. The NEW behaviour
-  # doesn't do this but CMP0054 was only introduced
-  # in CMake 3.1 and we support lower versions as the
-  # minimum. We could set NEW here but it would be very
-  # confusing to use NEW for some builds and OLD for others
-  # which could lead to some subtle bugs. Instead when the
-  # minimum version is 3.1 change this policy to NEW and remove
-  # the hacks in place to work around it.
-  cmake_policy(SET CMP0054 OLD)
+  cmake_policy(SET CMP0054 NEW)
 endif()
 
 if (POLICY CMP0042)
@@ -21,13 +12,6 @@ endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
 project(Z3 CXX)
-
-if ("${CMAKE_VERSION}" VERSION_LESS "3.4")
-  # FIXME: Drop this when we upgrade to newer CMake versions.
-  # HACK: Although we don't need C language support if it is not
-  # enabled CMake's `FindThreads` module fails in old CMake versions.
-  enable_language(C)
-endif()
 
 ################################################################################
 # Project version
@@ -189,7 +173,6 @@ endif()
 # Note for some reason we have to leave off ``-D`` here otherwise
 # we get ``-D-DZ3DEBUG`` passed to the compiler
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:Z3DEBUG>)
-list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:LEAN_DEBUG>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Release>:_EXTERNAL_RELEASE>)
 list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEASE>)
 
@@ -273,45 +256,6 @@ list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
 )
 
 ################################################################################
-# Linux specific configuration
-################################################################################
-if ("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
-  # Try to detect if it is necessary to link against librt.
-  # Note that glibc < 2.17 required librt to be linked to use clock_gettime()
-  # and friends.
-  set(CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE
-    "
-    #include <time.h>
-    int main() {
-      timespec res;
-      int result = clock_gettime(CLOCK_REALTIME, &res);
-      return result == 0;
-    }
-    "
-  )
-  check_cxx_source_compiles(
-    "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-    CLOCK_GETTIME_NO_REQUIRE_LIBRT
-  )
-  if (NOT CLOCK_GETTIME_NO_REQUIRE_LIBRT)
-    # Try again with librt
-    message(STATUS "Failed to link against clock_gettime(), trying with librt")
-    set(CMAKE_REQUIRED_LIBRARIES_OLD "${CMAKE_REQUIRED_LIBRARIES}")
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES} rt")
-    check_cxx_source_compiles(
-      "${CLOCK_GETTIME_REQUIRES_LIBRT_TEST_CODE}"
-      CLOCK_GETTIME_REQUIRES_LIBRT
-    )
-    set(CMAKE_REQUIRED_LIBRARIES "${CMAKE_REQUIRED_LIBRARIES_OLD}")
-    if (CLOCK_GETTIME_REQUIRES_LIBRT)
-      list(APPEND Z3_DEPENDENT_LIBS "rt")
-    else()
-      message(FATAL_ERROR "Failed to link against clock_gettime()")
-    endif()
-  endif()
-endif()
-
-################################################################################
 # GNU multiple precision library support
 ################################################################################
 option(USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
@@ -392,12 +336,11 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
       list(APPEND Z3_DEPENDENT_LIBS "iomp5")
     endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-    # FIXME: Remove "x.." when CMP0054 is set to NEW
   elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
     # Intel's compiler requires linking with libiomp5 
     list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
-  elseif ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+  elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
     message(FATAL_ERROR "Unknown compiler ${CMAKE_CXX_COMPILER_ID}")
@@ -408,17 +351,6 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   endif()
   unset(SSE_FLAGS)
 endif()
-
-
-
-# FIXME: Remove "x.." when CMP0054 is set to NEW
-if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
-  # This is the default for MSVC already but to replicate the
-  # python/Makefile build system behaviour this flag is set
-  # explicitly.
-  z3_add_cxx_flag("/fp:precise" REQUIRED)
-endif()
-# There doesn't seem to be an equivalent for clang/gcc
 
 ################################################################################
 # Threading support
@@ -533,8 +465,7 @@ endif()
 ################################################################################
 # MSVC specific flags inherited from old build system
 ################################################################################
-# FIXME: Remove "x.." when CMP0054 is set to NEW
-if ("x${CMAKE_CXX_COMPILER_ID}" STREQUAL "xMSVC")
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
   include(${CMAKE_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
 endif()
 

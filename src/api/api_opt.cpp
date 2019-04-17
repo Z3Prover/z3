@@ -18,6 +18,7 @@ Revision History:
 #include<iostream>
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
+#include "util/scoped_ctrl_c.h"
 #include "util/file_path.h"
 #include "parsers/smt2/smt2parser.h"
 #include "opt/opt_context.h"
@@ -148,8 +149,10 @@ extern "C" {
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         unsigned timeout = to_optimize_ptr(o)->get_params().get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit = to_optimize_ptr(o)->get_params().get_uint("rlimit", mk_c(c)->get_rlimit());
+        bool     use_ctrl_c  = to_optimize_ptr(o)->get_params().get_bool("ctrl_c", true);
         api::context::set_interruptable si(*(mk_c(c)), eh);        
         {
+            scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {

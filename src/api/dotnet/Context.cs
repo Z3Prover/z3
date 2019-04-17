@@ -2079,6 +2079,7 @@ namespace Microsoft.Z3
             return Expr.Create(this, Native.Z3_mk_select_n(nCtx, a.NativeObject, AST.ArrayLength(args), AST.ArrayToNative(args)));
         }
 
+
         /// <summary>
         /// Array update.
         /// </summary>
@@ -2454,12 +2455,23 @@ namespace Microsoft.Z3
         /// <summary>
         /// Retrieve sequence of length one at index.
         /// </summary>
-        public SeqExpr MkAt(SeqExpr s, IntExpr index)
+        public SeqExpr MkAt(SeqExpr s, Expr index)
         {
             Debug.Assert(s != null);
             Debug.Assert(index != null);
             CheckContextMatch(s, index);
             return new SeqExpr(this, Native.Z3_mk_seq_at(nCtx, s.NativeObject, index.NativeObject));
+        }
+
+        /// <summary>
+        /// Retrieve element at index.
+        /// </summary>
+        public SeqExpr MkNth(SeqExpr s, Expr index)
+        {
+            Debug.Assert(s != null);
+            Debug.Assert(index != null);
+            CheckContextMatch(s, index);
+            return new SeqExpr(this, Native.Z3_mk_seq_nth(nCtx, s.NativeObject, index.NativeObject));
         }
 
         /// <summary>
