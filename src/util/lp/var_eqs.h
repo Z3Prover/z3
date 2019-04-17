@@ -24,41 +24,6 @@
 #include "util/rational.h"
 #include "util/lp/explanation.h"
 namespace nla {
-    
-typedef lp::var_index lpvar;
-typedef lp::constraint_index lpci;
-struct from_index{};
-
-class signed_var {
-    unsigned m_sv;
-public:
-    // constructor, sign = true means minus
-    signed_var(lpvar v, bool sign): m_sv((v << 1) + (sign ? 1 : 0)) {}
-    // constructor
-    signed_var(unsigned sv, from_index): m_sv(sv) {}
-    bool sign() const { return 0 != (m_sv & 0x1); }
-    lpvar var() const { return m_sv >> 1; }
-    unsigned index() const { return m_sv; }        
-    void neg() { m_sv = m_sv ^ 1; }
-    friend signed_var operator~(signed_var const& sv) {
-        return signed_var(sv.var(), !sv.sign());
-    }
-    bool operator==(signed_var const& other) const {
-        return m_sv == other.m_sv;
-    }
-    bool operator!=(signed_var const& other) const {
-        return m_sv != other.m_sv;
-    }
-    rational rsign() const { return sign() ? rational::minus_one() : rational::one(); }
-
-    std::ostream& display(std::ostream& out) const {
-        return out << (sign()?"-":"") << var();
-    }
-};
-
-    inline std::ostream& operator<<(std::ostream& out, signed_var const& sv) {
-        return sv.display(out);
-    }
 
 class eq_justification {
     lpci m_cs[4];
@@ -79,6 +44,16 @@ public:
                 e.add(c);
     }
 };
+
+ class var_eqs_merge_handler {
+ public:
+     virtual void merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
+
+     virtual void after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
+
+     virtual void unmerge_eh(signed_var r2, signed_var r1) = 0;;        
+
+ };
 
 class var_eqs {
     struct justified_var {
@@ -101,12 +76,14 @@ class var_eqs {
 
     typedef std::pair<signed_var, signed_var> signed_var_pair;
 
-    union_find_default_ctx  m_ufctx;
-    union_find<>            m_uf;
+    var_eqs_merge_handler*  m_merge_handler;    
+    union_find<var_eqs>         m_uf;
     svector<signed_var_pair>    m_trail;
     unsigned_vector         m_trail_lim;
     vector<justified_vars>  m_eqs;    // signed_var-index -> justified_var corresponding to edges in a graph used to extract justifications.
 
+    typedef trail_stack<var_eqs>    trail_stack_t;       
+    trail_stack_t                   m_stack;
     mutable svector<var_frame>      m_todo;
     mutable svector<bool>           m_marked;
     mutable unsigned_vector         m_marked_trail;
@@ -197,8 +174,32 @@ public:
 
     eq_class equiv_class(lpvar v) { return equiv_class(signed_var(v, false)); }
 
+
     std::ostream& display(std::ostream& out) const;
-    
+
+    // union find event handlers
+    void set_merge_handler(var_eqs_merge_handler* mh) { m_merge_handler = mh; }
+
+    trail_stack_t& get_trail_stack() { return m_stack; }
+
+    void unmerge_eh(unsigned i, unsigned j) { 
+        if (m_merge_handler) {
+            m_merge_handler->unmerge_eh(signed_var(i, from_index_dummy()), signed_var(j, from_index_dummy())); 
+        }
+    }
+    void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {
+        if (m_merge_handler) {
+            m_merge_handler->merge_eh(signed_var(r2, from_index_dummy()), signed_var(r1, from_index_dummy()), signed_var(v2, from_index_dummy()), signed_var(v1, from_index_dummy())); 
+        }
+    }
+
+    void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {
+        if (m_merge_handler) {
+            m_merge_handler->after_merge_eh(signed_var(r2, from_index_dummy()), signed_var(r1, from_index_dummy()), signed_var(v2, from_index_dummy()), signed_var(v1, from_index_dummy())); 
+        }
+    }
+
+
 }; 
 
     inline std::ostream& operator<<(var_eqs const& ve, std::ostream& out) { return ve.display(out); }
