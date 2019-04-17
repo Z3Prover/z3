@@ -35,9 +35,21 @@ namespace nla {
         unsigned operator[](unsigned idx) const { return m_vs[idx]; }
         svector<lp::var_index>::const_iterator begin() const { return m_vs.begin(); }
         svector<lp::var_index>::const_iterator end() const { return m_vs.end(); }
-        const svector<lp::var_index> vars() const { return m_vs; }
+        const svector<lp::var_index>& vars() const { return m_vs; }
         bool empty() const { return m_vs.empty(); }
+
+        std::ostream& display(std::ostream& out) const {
+            out << "v" << var() << " := ";
+            for (auto v : *this) {
+                out << "v" << v << " ";
+            }
+            return out;
+        }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, monomial const& m) {
+        return m.display(out);
+    }
 
     typedef std::unordered_map<lp::var_index, rational> variable_map_type;
     
