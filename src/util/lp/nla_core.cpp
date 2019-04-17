@@ -27,7 +27,8 @@ core::core(lp::lar_solver& s) :
     m_tangents(this),
     m_basics(this),
     m_order(this),
-    m_monotone(this) {
+    m_monotone(this),
+    m_emons(m_evars) {
 }
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
@@ -1608,25 +1609,24 @@ void core::init_search() {
     register_monomials_in_tables();
 }
 
-#if 0
-void init_to_refine() {
+void core::init_to_refine() {
     m_to_refine.clear();
     for (auto const & m : m_emons) 
         if (!check_monomial(m)) 
             m_to_refine.push_back(m.var());
     
     TRACE("nla_solver", 
-          tout << m_to_refine.size() << " mons to refine:\n");
-    for (unsigned v : m_to_refine) tout << m_emons.var2monomial(v) << "\n";
+          tout << m_to_refine.size() << " mons to refine:\n";
+          for (unsigned v : m_to_refine) tout << m_emons.var2monomial(v) << "\n";);
 }
-
-std::unordered_set<lpvar> collect_vars(  const lemma& l) {
+        
+std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     std::unordered_set<lpvar> vars;
     auto insert_j = [&](lpvar j) { 
-                        vars.insert(j);
-                        auto const* m = m_emons.var2monomial(j);
-                        if (m) for (lpvar k : *m) vars.insert(k);
-                    };
+        vars.insert(j);
+        auto const* m = m_emons.var2monomial(j);
+        if (m) for (lpvar k : *m) vars.insert(k);
+    };
     
     for (const auto& i : current_lemma().ineqs()) {
         for (const auto& p : i.term()) {                
@@ -1640,21 +1640,6 @@ std::unordered_set<lpvar> collect_vars(  const lemma& l) {
         }
     }
     return vars;
-}
-#endif
-
-void core::init_to_refine() {
-    m_to_refine.clear();
-    for (unsigned i = 0; i < m_monomials.size(); i++) {
-        if (!check_monomial(m_monomials[i]))
-            m_to_refine.push_back(i);
-    }
-    TRACE("nla_solver",
-          tout << m_to_refine.size() << " mons to refine:\n";
-          for (unsigned i: m_to_refine) {
-              print_monomial_with_vars(m_monomials[i], tout);
-          }
-          );
 }
 
 bool core:: divide(const rooted_mon& bc, const factor& c, factor & b) const {
@@ -1704,34 +1689,6 @@ void core::negate_factor_relation(const rational& a_sign, const factor& a, const
     rational b_fs = canonize_sign(b);
     llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
     mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
-}
-
-std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
-    std::unordered_set<lpvar> vars;
-    for (const auto& i : current_lemma().ineqs()) {
-        for (const auto& p : i.term()) {
-            lpvar j = p.var();
-            vars.insert(j);
-            auto it = m_var_to_its_monomial.find(j);
-            if (it != m_var_to_its_monomial.end()) {
-                for (lpvar k : m_monomials[it->second])
-                    vars.insert(k);
-            }
-        }
-    }
-    for (const auto& p : current_expl()) {
-        const auto& c = m_lar_solver.get_constraint(p.second);
-        for (const auto& r : c.coeffs()) {
-            lpvar j = r.second;
-            vars.insert(j);
-            auto it = m_var_to_its_monomial.find(j);
-            if (it != m_var_to_its_monomial.end()) {
-                for (lpvar k : m_monomials[it->second])
-                    vars.insert(k);
-            }
-        }
-    }
-    return vars;
 }
 
 std::ostream& core::print_lemma(std::ostream& out) const {

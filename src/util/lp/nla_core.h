@@ -26,6 +26,7 @@
 #include "util/lp/nla_basics_lemmas.h"
 #include "util/lp/nla_order_lemmas.h"
 #include "util/lp/nla_monotone_lemmas.h"
+#include "util/lp/emonomials.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -79,7 +80,6 @@ struct core {
     var_eqs                                                          m_evars;
     vector<monomial>                                                 m_monomials;
 
-    rooted_mon_table                                                 m_rm_table;
     // this field is used for the push/pop operations
     unsigned_vector                                                  m_monomials_counts;
     lp::lar_solver&                                                  m_lar_solver;
@@ -94,6 +94,7 @@ struct core {
     basics                                                           m_basics;
     order                                                           m_order;
     monotone                                                        m_monotone;
+    emonomials                                                       m_emons;
     // methods
     core(lp::lar_solver& s);
     
@@ -115,7 +116,7 @@ struct core {
 
     rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.orig_index()].var()) * rm.orig_sign(); }
 
-    rational vvr(const factor& f) const {  return f.is_var()? vvr(f.index()) : vvr(m_rm_table.rms()[f.index()]); }
+   rational vvr(const factor& f) const {  return f.is_var()? vvr(f.index()) : vvr(m_rm_table.rms()[f.index()]); }
 
     lpvar var(const factor& f) const { return f.is_var()? f.index() : var(m_rm_table.rms()[f.index()]); }
 
