@@ -26,8 +26,7 @@ special_relations_decl_plugin::special_relations_decl_plugin():
     m_po("partial-order"),
     m_plo("piecewise-linear-order"),
     m_to("tree-order"),
-    m_tc("transitive-closure"),
-    m_trc("transitive-reflexive-closure")
+    m_tc("transitive-closure")
 {}
     
 func_decl * special_relations_decl_plugin::mk_func_decl(
@@ -56,7 +55,6 @@ func_decl * special_relations_decl_plugin::mk_func_decl(
     case OP_SPECIAL_RELATION_PLO: name = m_plo; break;
     case OP_SPECIAL_RELATION_TO: name = m_to; break;
     case OP_SPECIAL_RELATION_TC: name = m_tc; break;
-    case OP_SPECIAL_RELATION_TRC: name = m_trc; break;
     }
     return m_manager->mk_func_decl(name, arity, domain, range, info);
 }
@@ -68,7 +66,6 @@ void special_relations_decl_plugin::get_op_names(svector<builtin_name> & op_name
         op_names.push_back(builtin_name(m_plo.bare_str(), OP_SPECIAL_RELATION_PLO));
         op_names.push_back(builtin_name(m_to.bare_str(), OP_SPECIAL_RELATION_TO));
         op_names.push_back(builtin_name(m_tc.bare_str(), OP_SPECIAL_RELATION_TC));
-        op_names.push_back(builtin_name(m_trc.bare_str(), OP_SPECIAL_RELATION_TRC));
     }
 }
 
@@ -79,7 +76,6 @@ sr_property special_relations_util::get_property(func_decl* f) const {
     case OP_SPECIAL_RELATION_PLO: return sr_plo;
     case OP_SPECIAL_RELATION_TO: return sr_to;
     case OP_SPECIAL_RELATION_TC: return sr_tc;
-    case OP_SPECIAL_RELATION_TRC: return sr_trc;
     default:
         UNREACHABLE();
         return sr_po;

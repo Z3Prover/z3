@@ -1,4 +1,19 @@
-/**
+/*++
+Copyright (c) 2019 Microsoft Corporation
+
+Module Name:
+
+    theory_array_bapa.cpp
+
+Abstract:
+
+   Saturation procedure for BAPA predicates.
+   Assume there is a predicate
+
+           Size(S, n)   for S : Array(T, Bool) and n : Int
+
+   The predicate is true if S is a set of size n.
+
 
                  Size(S, n), Size(T, m)      
           S, T are intersecting. n != m or S != T
@@ -53,6 +68,12 @@ Finite domains:
                      Size(S, n) n fresh.
 
     Model construction for infinite domains when all Size(S, m) are negative for S.
+
+Author:
+
+    Nikolaj Bjorner 2019-04-13
+
+Revision History:
 
  */
 
@@ -470,8 +491,12 @@ namespace smt {
     };
 
     theory_array_bapa::theory_array_bapa(theory_array_full& th) { m_imp = alloc(imp, th);  }
+
     theory_array_bapa::~theory_array_bapa() { dealloc(m_imp); }
+
     void theory_array_bapa::internalize_size(app* term) { m_imp->internalize_size(term); }
+
     final_check_status theory_array_bapa::final_check() { return m_imp->final_check(); }
+
     void theory_array_bapa::init_model() { m_imp->init_model(); }
 }

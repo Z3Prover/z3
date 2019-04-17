@@ -1059,7 +1059,6 @@ extern "C" {
             case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
             case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
             case OP_SPECIAL_RELATION_TC : return Z3_OP_SPECIAL_RELATION_TC;
-            case OP_SPECIAL_RELATION_TRC : return Z3_OP_SPECIAL_RELATION_TRC;
             default: UNREACHABLE();
             }
         }

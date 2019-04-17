@@ -322,9 +322,6 @@ namespace smt {
                 // we need reachability in the R graph not R* graph
                 theory_var r1 = get_representative(a.v1());
                 theory_var r2 = get_representative(a.v2());
-                if (r.m_property == sr_trc && r1 == r2) {
-                    continue;
-                }
                 if (r_graph.can_reach(r1, r2)) {
                     TRACE("special_relations", 
                           tout << a.v1() << ": " << mk_pp(arg1, m) << " -> " 
@@ -397,13 +394,6 @@ namespace smt {
         return final_check_po(r);
     }
 
-    lbool theory_special_relations::final_check_trc(relation& r) {
-        //
-        // reflexivity is enforced from propagation.
-        // enforce transitivity.
-        //
-        return final_check_tc(r);
-    }
 
     lbool theory_special_relations::final_check_to(relation& r) {
         uint_set visited, target;
@@ -510,9 +500,6 @@ namespace smt {
         case sr_tc:
             res = final_check_tc(r);
             break;
-        case sr_trc:
-            res = final_check_trc(r);
-            break;
         default:
             UNREACHABLE();
             res = l_undef;
@@ -525,7 +512,6 @@ namespace smt {
     bool theory_special_relations::extract_equalities(relation& r) {
         switch (r.m_property) {
         case sr_tc:
-        case sr_trc:
             return false;
         default:
             break;
@@ -593,30 +579,6 @@ namespace smt {
         return res;
     }
 
-    /**
-       \brief ensure that reflexivity is enforce for Transitive Reflexive closures 
-          !TRC(R)xy => x != y
-     */
-    lbool theory_special_relations::propagate_trc(atom& a) {
-        lbool res = l_true;
-        if (a.phase()) {
-            VERIFY(a.enable());
-            relation& r = a.get_relation();
-            r.m_uf.merge(a.v1(), a.v2());
-        }
-        else {
-            literal lit(a.var(), true);
-            context& ctx = get_context();
-            expr* arg1 = get_expr(a.v1());
-            expr* arg2 = get_expr(a.v2());
-            literal consequent = ~mk_eq(arg1, arg2, false);
-            justification* j = ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), 1, &lit, consequent));
-            ctx.assign(consequent, j);
-            res = l_false;
-        }
-        return res;
-    }
-
     lbool theory_special_relations::propagate_tc(atom& a) {
         if (a.phase()) {
             VERIFY(a.enable());
@@ -670,9 +632,6 @@ namespace smt {
                 res = propagate_po(a);
                 break;
             case sr_tc:
-                res = propagate_trc(a);
-                break;
-            case sr_trc:
                 res = propagate_tc(a);
                 break;
             default:
@@ -1163,9 +1122,6 @@ namespace smt {
                 init_model_po(*kv.m_value, m, true);
                 break;
             case sr_tc:
-                init_model_po(*kv.m_value, m, true);                
-                break;
-            case sr_trc:
                 init_model_po(*kv.m_value, m, true);                
                 break;
             default:

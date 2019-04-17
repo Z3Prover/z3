@@ -144,7 +144,6 @@ namespace smt {
         lbool final_check_plo(relation& r);
         lbool final_check_to(relation& r);
         lbool final_check_tc(relation& r);
-        lbool final_check_trc(relation& r);
         lbool propagate(relation& r);
         lbool enable(atom& a);
         bool  extract_equalities(relation& r);
@@ -153,7 +152,6 @@ namespace smt {
         lbool  propagate_plo(atom& a);
         lbool  propagate_po(atom& a); 
         lbool  propagate_tc(atom& a); 
-        lbool  propagate_trc(atom& a); 
         theory_var mk_var(expr* e);
         void count_children(graph const& g, unsigned_vector& num_children);
         void ensure_strict(graph& g);
