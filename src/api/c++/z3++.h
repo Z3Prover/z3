@@ -637,10 +637,6 @@ namespace z3 {
             Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
         }
 
-        func_decl transitive_reflexive_closure(func_decl const& f) {
-            Z3_func_decl tc = Z3_mk_transitive_reflexive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
-        }
-
         bool is_const() const { return arity() == 0; }
 
         expr operator()() const;

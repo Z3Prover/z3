@@ -10403,9 +10403,3 @@ def TransitiveClosure(f):
     """
     return FuncDeclRef(Z3_mk_transitive_closure(f.ctx_ref(), f.ast), f.ctx)
 
-def TransitiveReflexiveClosure(f):
-    """Given a binary relation R, such that the two arguments have the same sort
-    create the transitive reflexive closure relation R*.
-    The transitive reflexive closure R* is a new relation.
-    """
-    return FuncDeclRef(Z3_mk_transitive_reflexive_closure(f.ctx_ref(), f.ast), f.ctx)
