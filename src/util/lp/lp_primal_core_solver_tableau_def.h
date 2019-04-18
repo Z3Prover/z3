@@ -115,9 +115,9 @@ unsigned lp_primal_core_solver<T, X>::solve_with_tableau() {
         }
         if (this->m_settings.use_tableau_rows()) {
             one_iteration_tableau_rows();
-        }
-        else 
+        } else {
             one_iteration_tableau();
+        }
         TRACE("lar_solver", tout << "one iteration tableau " << this->get_status() << "\n";);
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum
