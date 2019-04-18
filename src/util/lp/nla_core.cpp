@@ -2165,7 +2165,7 @@ lbool core:: check(vector<lemma>& l_vec) {
     TRACE("nla_solver", tout << "calls = " << settings().st().m_nla_calls << "\n";);
     m_lemma_vec =  &l_vec;
     if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
-        TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << lp_status_to_string(m_lar_solver.get_status()) << "\n";);
+        TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
         return l_undef;
     }
 

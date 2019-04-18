@@ -246,25 +246,30 @@ lia_move int_solver::find_cube() {
     TRACE("cube",
           for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
               display_column(tout, j);
-          m_lar_solver->print_terms(tout);
+          m_lar_solver->print_constraints(tout);
           );
     
-    lar_solver::scoped_push _sp(*m_lar_solver);
+    m_lar_solver->push();
     if (!tighten_terms_for_cube()) {
+        m_lar_solver->pop();
         return lia_move::undef;
     }
 
     lp_status st = m_lar_solver->find_feasible_solution();
     if (st != lp_status::FEASIBLE && st != lp_status::OPTIMAL) {
         TRACE("cube", tout << "cannot find a feasiblie solution";);
-        _sp.pop();
+        m_lar_solver->pop();
         m_lar_solver->move_non_basic_columns_to_bounds();
         find_feasible_solution();
         // it can happen that we found an integer solution here
         return !m_lar_solver->r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
     }
-    _sp.pop();
+    m_lar_solver->x_shifted_in_cube() = true;
+    m_lar_solver->pop();
     m_lar_solver->round_to_integer_solution();
+    m_lar_solver->set_status(lp_status::FEASIBLE);
+    lp_assert(is_feasible());
+    TRACE("cube", tout << "success";);
     settings().st().m_cube_success++;
     return lia_move::sat;
 }

@@ -88,6 +88,9 @@ class lar_solver : public column_namer {
 #endif
     
     //////////////////// fields //////////////////////////
+    // it is set to true when during the cube heuristic the column values got shifted
+    // and in this case the tableau becames invalid
+    bool                                                m_x_shifted_in_cube;
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
@@ -110,6 +113,10 @@ public:
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
+    // end of fields
+
+    bool x_shifted_in_cube() const { return m_x_shifted_in_cube; }
+    bool& x_shifted_in_cube() { return m_x_shifted_in_cube; }
 
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
@@ -341,15 +348,6 @@ public:
     
     void pop(unsigned k);
 
-    class scoped_push {
-        lar_solver& m_solver;
-        bool m_pop;
-    public:
-        scoped_push(lar_solver& s):m_solver(s), m_pop(true) { s.push(); }
-        ~scoped_push() { if (m_pop) m_solver.pop(); }
-        void pop() { SASSERT(m_pop); m_solver.pop(); m_pop = false; }
-    };
-    
     vector<constraint_index> get_all_constraint_indices() const;
 
     bool maximize_term_on_tableau(const lar_term & term,
@@ -646,5 +644,7 @@ public:
     lar_term get_term_to_maximize(unsigned ext_j) const;
     void set_cut_strategy(unsigned cut_frequency);
     bool sum_first_coords(const lar_term& t, mpq & val) const;
+    void fix_Ax_b();
+    void fix_Ax_b_on_row(unsigned);
 };
 }

@@ -27,7 +27,8 @@ void clear() {lp_assert(false); // not implemented
 }
 
 
-lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
+lar_solver::lar_solver() : m_x_shifted_in_cube(false),
+                           m_status(lp_status::UNKNOWN),
                            m_infeasible_column(-1),
                            m_mpq_lar_core_solver(m_settings, *this),
                            m_int_solver(nullptr),
@@ -356,7 +357,6 @@ void lar_solver::shrink_inf_set_after_pop(unsigned n, int_set & set) {
 
     
 void lar_solver::pop(unsigned k) {
-    TRACE("int_solver", tout << "pop" << std::endl;);
     TRACE("lar_solver", tout << "k = " << k << std::endl;);
 
     m_infeasible_column.pop(k);
@@ -377,7 +377,6 @@ void lar_solver::pop(unsigned k) {
               (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         
         
-    lp_assert(ax_is_correct());
     m_constraint_count.pop(k);
     for (unsigned i = m_constraint_count; i < m_constraints.size(); i++)
         delete m_constraints[i];
@@ -396,6 +395,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
+    lp_assert(x_shifted_in_cube() || ax_is_correct());
     set_status(lp_status::UNKNOWN);
 }
     
@@ -757,13 +757,16 @@ bool lar_solver::row_is_correct(unsigned i) const {
     for (const auto & c : A_r().m_rows[i]) {
         r += c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
     }
+    CTRACE("lar_solver", !is_zero(r), tout << "incorrect row " << i << ": "; print_row(A_r().m_rows[i], tout);
+           tout << ", the value is " << r << "\n";);
     return is_zero(r);
 }
     
 bool lar_solver::ax_is_correct() const {
     for (unsigned i = 0; i < A_r().row_count(); i++) {
-        if (!row_is_correct(i))
+        if (!row_is_correct(i)) {
             return false;
+        }
     }
     return true;
 }
@@ -851,8 +854,27 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
     }
 }
 
+void lar_solver::fix_Ax_b_on_row(unsigned i) {
+    unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
+    auto& v = m_mpq_lar_core_solver.m_r_x[bj];
+    v = zero_of_type<numeric_pair<mpq>>();
+    for (const auto & c : A_r().m_rows[i]) {
+        if (c.var() != bj) 
+            v -= c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
+    }
+}
+void lar_solver::fix_Ax_b() {
+    for (unsigned i = 0; i < A_r().row_count(); i++) {
+        fix_Ax_b_on_row(i);
+    }
+    lp_assert(ax_is_correct());
+}
     
 void lar_solver::solve_with_core_solver() {
+    if (x_shifted_in_cube()) {
+        fix_Ax_b();
+        x_shifted_in_cube() = false;
+    }
     if (!use_tableau())
         add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
     if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
@@ -1017,6 +1039,12 @@ bool lar_solver::all_constraints_hold() const {
     
     for (unsigned i = 0; i < m_constraints.size(); i++) {
         if (!constraint_holds(*m_constraints[i], var_map)) {
+            TRACE("lar_solver",
+                  tout << "i = " << i << "; ";
+                  print_constraint(m_constraints[i], tout) << "\n";
+                  for(auto p : m_constraints[i]->coeffs()) {
+                      m_mpq_lar_core_solver.m_r_solver.print_column_info(p.second, tout);
+                  });
             return false;
         }
     }
@@ -2221,10 +2249,10 @@ void lar_solver::round_to_integer_solution() {
     for (unsigned j = 0; j < column_count(); j++) {
         if (!column_is_int(j)) continue;
         if (column_corresponds_to_term(j)) continue;
-        TRACE("cube", m_int_solver->display_column(tout, j););
         impq& v =  m_mpq_lar_core_solver.m_r_x[j];
         if (v.is_int())
             continue;
+        TRACE("cube", m_int_solver->display_column(tout, j););
         impq flv = impq(floor(v));
         auto del = flv - v; // del is negative
         if (del < - impq(mpq(1, 2))) {
@@ -2233,6 +2261,7 @@ void lar_solver::round_to_integer_solution() {
         } else {
             v = flv;
         }
+        TRACE("cube", tout << "new val = " << v << "\n";);
     }
 }
 // return true if all y coords are zeroes
