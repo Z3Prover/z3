@@ -252,13 +252,11 @@ public:
     }
     
     bool below_bound(const X & x, const X & bound) const {
-        if (precise()) return x < bound;
-        return below_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return precise()? x < bound : below_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
     }
 
     bool above_bound(const X & x, const X & bound) const {
-        if (precise()) return x > bound;
-        return above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
+        return precise()? x > bound : above_bound_numeric<X>(x, bound, m_settings.primal_feasibility_tolerance);
     }
 
     bool x_below_low_bound(unsigned p) const {
