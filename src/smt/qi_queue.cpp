@@ -216,8 +216,10 @@ namespace smt {
         if (m_manager.is_true(s_instance)) {
             TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m_manager););
 
-            if (m_manager.has_trace_stream())
+            if (m_manager.has_trace_stream()) {
+                display_instance_profile(f, q, num_bindings, bindings, pr->get_id(), generation);
                 m_manager.trace_stream() << "[end-of-instance]\n";
+            }
 
             return;
         }
