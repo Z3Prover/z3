@@ -24,15 +24,6 @@
 
 namespace nla {
 
-    void emonomials::inc_canonical() {
-        ++m_canonical;
-        if (m_canonical == 0) {
-            for (auto& svt : m_canonized) {
-                svt.m_canonical = 0;
-            }
-            ++m_canonical;
-        }
-    }
 
     void emonomials::inc_visited() const {
         ++m_visited;
@@ -55,11 +46,12 @@ namespace nla {
         unsigned old_sz = m_lim[m_lim.size() - n];
         for (unsigned i = m_monomials.size(); i-- > old_sz; ) {
             monomial const& m = m_monomials[i];
+            remove_cg(i, m);
             m_var2index[m.var()] = UINT_MAX;
             lpvar last_var = UINT_MAX;
             for (lpvar v : m.vars()) {
                 if (v != last_var) {
-                    remove_var2monomials(v, i);
+                    remove_cell(m_use_lists[v], i);
                     last_var = v;
                 }
             }
@@ -70,9 +62,9 @@ namespace nla {
         m_lim.shrink(m_lim.size() - n);
     }
 
-    void emonomials::remove_var2monomials(lpvar v, unsigned mIndex) {
-        cell*& cur_head = m_use_lists[v].m_head;
-        cell*& cur_tail = m_use_lists[v].m_tail;
+    void emonomials::remove_cell(head_tail& v, unsigned mIndex) {
+        cell*& cur_head = v.m_head;
+        cell*& cur_tail = v.m_tail;
         cell* old_head = cur_head->m_next;
         if (old_head == cur_head) {
             cur_head = nullptr;
@@ -84,23 +76,21 @@ namespace nla {
         }
     }
 
-    void emonomials::insert_var2monomials(lpvar v, unsigned mIndex) {
-        m_use_lists.reserve(v + 1);
-        cell*& cur_head = m_use_lists[v].m_head;
-        cell*& cur_tail = m_use_lists[v].m_tail;
+    void emonomials::insert_cell(head_tail& v, unsigned mIndex) {
+        cell*& cur_head = v.m_head;
+        cell*& cur_tail = v.m_tail;
         cell* new_head = new (m_region) cell(mIndex, cur_head);
         cur_head = new_head;
         if (!cur_tail) cur_tail = new_head;
         cur_tail->m_next = new_head;
     }
 
-    void emonomials::merge_var2monomials(lpvar root, lpvar other) {
-        if (root == other) return;
-        m_use_lists.reserve(std::max(root, other) + 1);
-        cell*& root_head = m_use_lists[root].m_head;
-        cell*& root_tail = m_use_lists[root].m_tail;
-        cell* other_head = m_use_lists[other].m_head;
-        cell* other_tail = m_use_lists[other].m_tail;
+    void emonomials::merge_cells(head_tail& root, head_tail& other) {
+        if (&root == &other) return;
+        cell*& root_head = root.m_head;
+        cell*& root_tail = root.m_tail;
+        cell* other_head = other.m_head;
+        cell* other_tail = other.m_tail;
         if (root_head == nullptr) {
             root_head = other_head;
             root_tail = other_tail;
@@ -116,12 +106,12 @@ namespace nla {
         }
     }
 
-    void emonomials::unmerge_var2monomials(lpvar root, lpvar other) {
-        if (root == other) return;
-        cell*& root_head = m_use_lists[root].m_head;
-        cell*& root_tail = m_use_lists[root].m_tail;
-        cell* other_head = m_use_lists[other].m_head;
-        cell* other_tail = m_use_lists[other].m_tail;
+    void emonomials::unmerge_cells(head_tail& root, head_tail& other) {
+        if (&root == &other) return;
+        cell*& root_head = root.m_head;
+        cell*& root_tail = root.m_tail;
+        cell* other_head = other.m_head;
+        cell* other_tail = other.m_tail;
         if (other_head == nullptr) {
             // no-op
         }
@@ -142,6 +132,112 @@ namespace nla {
         return m_use_lists[v].m_head;
     }
 
+    signed_vars const* emonomials::find_canonical(svector<lpvar> const& vars) const { 
+        // find a unique key for dummy monomial
+        lpvar v = m_var2index.size();
+        for (unsigned i = 0; i < m_var2index.size(); ++i) {
+            if (m_var2index[i] == UINT_MAX) {
+                v = i;
+                break;
+            }
+        }
+        unsigned idx = m_monomials.size();
+        m_monomials.push_back(monomial(v, vars.size(), vars.c_ptr()));
+        m_canonized.push_back(signed_vars_ts(v, idx));
+        m_var2index.setx(v, idx, UINT_MAX);
+        do_canonize(m_monomials[idx]);
+        signed_vars const* result = nullptr;
+        lpvar w; 
+        if (m_cg_table.find(v, w)) {
+            SASSERT(w != v);
+            result = &m_canonized[m_var2index[w]];
+        }
+        m_var2index[v] = UINT_MAX;
+        m_monomials.pop_back();
+        m_canonized.pop_back(); // NB. relies on the pointer m_canonized not to change.
+        return result;
+    }
+
+
+    void emonomials::remove_cg(lpvar v) {
+        cell* c = m_use_lists[v].m_head;
+        cell* first = c;
+        inc_visited();
+        do {
+            unsigned idx = c->m_index;
+            c = c->m_next;
+            monomial const& m = m_monomials[idx];
+            if (!is_visited(m)) {
+                set_visited(m);
+                remove_cg(idx, m);
+            }
+        }
+        while (c != first);
+    }
+
+    void emonomials::remove_cg(unsigned idx, monomial const& m) {
+        signed_vars_ts& sv = m_canonized[idx];
+        unsigned next = sv.m_next;
+        unsigned prev = sv.m_prev;
+        
+        lpvar u = m.var(), w;
+        // equivalence class of u:
+        if (m_cg_table.find(u, w) && w == u) {
+            m_cg_table.erase(u);
+            // insert other representative:
+            if (prev != idx) {
+                m_cg_table.insert(m_monomials[prev].var());
+            }
+        }
+        if (prev != idx) {
+            m_canonized[next].m_prev = prev;
+            m_canonized[prev].m_next = next;
+            sv.m_next = idx;
+            sv.m_prev = idx;
+        }
+    }
+
+    /**
+       \brief insert canonized monomials using v into a congruence table.
+       Prior to insertion, the monomials are canonized according to the current
+       variable equivalences. The canonized monomials (signed_vars) are considered
+       in the same equivalence class if they have the same set of representative
+       variables. Their signs may differ.       
+    */
+    void emonomials::insert_cg(lpvar v) {
+        cell* c = m_use_lists[v].m_head;
+        cell* first = c;
+        inc_visited();
+        do {
+            unsigned idx = c->m_index;
+            c = c->m_next;
+            monomial const& m = m_monomials[idx];
+            if (!is_visited(m)) {
+                set_visited(m);
+                insert_cg(idx, m);
+            }
+        }
+        while (c != first);
+    }
+
+    void emonomials::insert_cg(unsigned idx, monomial const& m) {
+        canonize(m);
+        lpvar v = m.var(), w;
+        if (m_cg_table.find(v, w)) {
+            SASSERT(w != v);
+            unsigned idxr = m_var2index[w];
+            // Insert idx to the right of idxr
+            m_canonized[idx].m_prev  = idxr;
+            m_canonized[idx].m_next  = m_canonized[idxr].m_next;
+            m_canonized[idxr].m_next = idx;
+        }
+        else {
+            m_cg_table.insert(v);
+            SASSERT(m_canonized[idx].m_next == idx);
+            SASSERT(m_canonized[idx].m_prev == idx);
+        }        
+    }
+
     void emonomials::set_visited(monomial const& m) const {
         m_canonized[m_var2index[m.var()]].m_visited = m_visited;
     }
@@ -150,48 +246,40 @@ namespace nla {
         return m_visited == m_canonized[m_var2index[m.var()]].m_visited;
     }
 
-
     /**
        \brief insert a new monomial.
 
        Assume that the variables are canonical, that is, not equal in current
-       context so another variable. To support equal in current context we
-       could track sign information in monomials, or ensure that insert_var2monomials 
-       works on the equivalence class roots.
+       context so another variable. The monomial is inserted into a congruence
+       class of equal up-to var_eqs monomials.
      */
     void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
         unsigned idx = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
-        m_canonized.push_back(signed_vars_ts());
+        m_canonized.push_back(signed_vars_ts(v, idx));
         lpvar last_var = UINT_MAX;
         for (unsigned i = 0; i < sz; ++i) {
             lpvar w = vs[i];
             SASSERT(m_ve.is_root(w));
             if (w != last_var) {
-                insert_var2monomials(w, idx);
+                m_use_lists.reserve(w + 1);
+                insert_cell(m_use_lists[w], idx);
                 last_var = w; 
             }
         }
         SASSERT(m_ve.is_root(v));
         m_var2index.setx(v, idx, UINT_MAX);
+        insert_cg(idx, m_monomials[idx]);
     }
 
-    signed_vars const& emonomials::canonize(monomial const& mon) const {
+    void emonomials::do_canonize(monomial const& mon) const {
         unsigned index = m_var2index[mon.var()];
-        if (m_canonized[index].m_canonical != m_canonical) {        
-            m_vars.reset();
-            bool sign = false;
-            for (lpvar v : mon) {
-                signed_var sv = m_ve.find(v);
-                m_vars.push_back(sv.var());
-                sign ^= sv.sign();
-            }
-            m_canonized[index].set_vars(m_vars.size(), m_vars.c_ptr());
-            m_canonized[index].set_sign(sign);
-            m_canonized[index].set_var(mon.var());
-            m_canonized[index].m_canonical = m_canonical;
+        signed_vars& svs = m_canonized[index];
+        svs.reset();
+        for (lpvar v : mon) {
+            svs.push_var(m_ve.find(v));
         }
-        return m_canonized[index];
+        svs.done_push();
     }
 
     bool emonomials::canonize_divides(monomial const& m1, monomial const& m2) const {
@@ -242,21 +330,22 @@ namespace nla {
     }
 
     void emonomials::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-        if (!r2.sign() && m_ve.find(~r2) != m_ve.find(r1)) {
-            merge_var2monomials(r2.var(), r1.var());
-        }        
-        inc_canonical();
+        // no-op
     }
 
     void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-        // skip
+        if (!r2.sign() && m_ve.find(~r2) != m_ve.find(r1)) {
+            m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
+            rehash_cg(r1.var()); 
+            merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
+        }   
     }
 
     void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
         if (!r2.sign() && m_ve.find(~r2) != m_ve.find(r1)) {
-            unmerge_var2monomials(r2.var(), r1.var());            
+            unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
+            rehash_cg(r1.var());
         }        
-        inc_canonical();
     }
 
    std::ostream& emonomials::display(std::ostream& out) const {

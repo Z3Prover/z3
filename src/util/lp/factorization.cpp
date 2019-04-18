@@ -24,26 +24,26 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     std::sort(j_vars.begin(), j_vars.end());
 
     if (k_vars.size() == 1) {
-        k.index() = k_vars[0];
+        k.var() = k_vars[0];
         k.type() = factor_type::VAR;
     } else {
         unsigned i;
         if (!m_ff->find_rm_monomial_of_vars(k_vars, i)) {
             return false;
         }
-        k.index() = i;
+        k.var() = i;
         k.type() = factor_type::RM;
     }
 
     if (j_vars.size() == 1) {
-        j.index() = j_vars[0];
+        j.var() = j_vars[0];
         j.type() = factor_type::VAR;
     } else {
         unsigned i;
         if (!m_ff->find_rm_monomial_of_vars(j_vars, i)) {
             return false;
         }
-        j.index() = i;
+        j.var() = i;
         j.type() = factor_type::RM;
     }
     return true;

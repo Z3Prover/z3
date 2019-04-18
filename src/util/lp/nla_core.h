@@ -21,7 +21,6 @@
 #include "util/lp/factorization.h"
 #include "util/lp/lp_types.h"
 #include "util/lp/var_eqs.h"
-#include "util/lp/rooted_mons.h"
 #include "util/lp/nla_tangent_lemmas.h"
 #include "util/lp/nla_basics_lemmas.h"
 #include "util/lp/nla_order_lemmas.h"
@@ -38,8 +37,8 @@ bool try_insert(const A& elem, B& collection) {
     return true;
 }
 
-typedef lp::constraint_index lpci;
-typedef lp::lconstraint_kind llc;
+typedef lp::constraint_index     lpci;
+typedef lp::lconstraint_kind     llc;
 typedef lp::constraint_index     lpci;
 typedef lp::explanation          expl_set;
 typedef lp::var_index            lpvar;
@@ -75,29 +74,20 @@ public:
 };
 
 
-struct core {
-    //fields    
-    var_eqs                                                          m_evars;
-    vector<monomial>                                                 m_monomials;
+class core {
+public:
+    var_eqs                  m_evars;
+    emonomials               m_emons;
+    lp::lar_solver           m_lar_solver;
+    vector<lemma> *          m_lemma_vec;
+    svector<lpvar>           m_to_refine;
+    tangents                 m_tangents;
+    basics                   m_basics;
+    order                    m_order;
+    monotone                 m_monotone;
 
-    // this field is used for the push/pop operations
-    unsigned_vector                                                  m_monomials_counts;
-    lp::lar_solver&                                                  m_lar_solver;
-    std::unordered_map<lpvar, svector<lpvar>>                        m_monomials_containing_var;
-    
-    // m_var_to_its_monomial[m_monomials[i].var()] = i
-    std::unordered_map<lpvar, unsigned>                              m_var_to_its_monomial;
-    vector<lemma> *                                                  m_lemma_vec;
-    unsigned_vector                                                  m_to_refine;
-    std::unordered_map<unsigned_vector, unsigned, hash_svector>      m_mkeys; // the key is the sorted vars of a monomial 
-    tangents                                                         m_tangents;
-    basics                                                           m_basics;
-    order                                                           m_order;
-    monotone                                                        m_monotone;
-    emonomials                                                       m_emons;
-    // methods
     core(lp::lar_solver& s);
-    
+
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
     
     rational value(const lp::lar_term& r) const;
@@ -112,13 +102,13 @@ struct core {
 
     lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
     
-    lpvar var(const rooted_mon& rm) const {return m_monomials[rm.orig_index()].var(); }
+    lpvar var(signed_vars const& sv) const { return sv.var(); }
 
-    rational vvr(const rooted_mon& rm) const { return vvr(m_monomials[rm.orig_index()].var()) * rm.orig_sign(); }
+    rational vvr(const signed_vars& rm) const { return vvr(m_emons[rm.var()]); } // NB: removed multiplication with sign.
 
-   rational vvr(const factor& f) const {  return f.is_var()? vvr(f.index()) : vvr(m_rm_table.rms()[f.index()]); }
+    rational vvr(const factor& f) const {  return f.is_var()? vvr(f.var()) : vvr(m_emons[f.var()]); }
 
-    lpvar var(const factor& f) const { return f.is_var()? f.index() : var(m_rm_table.rms()[f.index()]); }
+    lpvar var(const factor& f) const { return f.var(); }
 
     svector<lpvar> sorted_vars(const factor& f) const;
     bool done() const;
@@ -132,17 +122,16 @@ struct core {
     
     // the value of the rooted monomias is equal to the value of the variable multiplied
     // by the canonize_sign
-    rational canonize_sign(const rooted_mon& m) const;
+    rational canonize_sign(const signed_vars& m) const;
     
-    // returns the monomial index
-    unsigned add(lpvar v, unsigned sz, lpvar const* vs);
-    
-    void push();
 
-    void deregister_monomial_from_rooted_monomials (const monomial & m, unsigned i);
+    void deregister_monomial_from_signed_varsomials (const monomial & m, unsigned i);
 
     void deregister_monomial_from_tables(const monomial & m, unsigned i);
-     
+
+    // returns the monomial index
+    void add(lpvar v, unsigned sz, lpvar const* vs);   
+    void push();     
     void pop(unsigned n);
 
     rational mon_value_by_vars(unsigned i) const;
@@ -153,7 +142,7 @@ struct core {
     bool check_monomial(const monomial& m) const;
     
     void explain(const monomial& m, lp::explanation& exp) const;
-    void explain(const rooted_mon& rm, lp::explanation& exp) const;
+    void explain(const signed_vars& rm, lp::explanation& exp) const;
     void explain(const factor& f, lp::explanation& exp) const;
     void explain(lpvar j, lp::explanation& exp) const;
     void explain_existing_lower_bound(lpvar j);
@@ -179,12 +168,10 @@ struct core {
     template <typename T>
     std::ostream& print_product_with_vars(const T& m, std::ostream& out) const;
     std::ostream& print_monomial_with_vars(const monomial& m, std::ostream& out) const;
-    std::ostream& print_rooted_monomial(const rooted_mon& rm, std::ostream& out) const;
-    std::ostream& print_rooted_monomial_with_vars(const rooted_mon& rm, std::ostream& out) const;
     std::ostream& print_explanation(const lp::explanation& exp, std::ostream& out) const;
     template <typename T>
     void trace_print_rms(const T& p, std::ostream& out);
-    void trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const;
+    void trace_print_monomial_and_factorization(const signed_vars& rm, const factorization& f, std::ostream& out) const;
     void print_monomial_stats(const monomial& m, std::ostream& out);    
     void print_stats(std::ostream& out);
     std::ostream& print_lemma(std::ostream& out) const;
@@ -192,10 +179,10 @@ struct core {
     void print_specific_lemma(const lemma& l, std::ostream& out) const;
     
 
-    void trace_print_ol(const rooted_mon& ac,
+    void trace_print_ol(const signed_vars& ac,
                         const factor& a,
                         const factor& c,
-                        const rooted_mon& bc,
+                        const signed_vars& bc,
                         const factor& b,
                         std::ostream& out);
 
@@ -258,7 +245,7 @@ struct core {
     const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
 
 
-    int get_derived_sign(const rooted_mon& rm, const factorization& f) const;
+    int get_derived_sign(const signed_vars& rm, const factorization& f) const;
 
 
     bool var_has_positive_lower_bound(lpvar j) const;
@@ -289,7 +276,7 @@ struct core {
 
     template <typename T>
     bool mon_has_zero(const T& product) const;
-    void init_rm_to_refine();
+    void init_rm_to_refine() { NOT_IMPLEMENTED_YET(); }
     lp::lp_settings& settings();
     unsigned random();
     void map_monomial_vars_to_monomial_indices(unsigned i);
@@ -328,7 +315,7 @@ struct core {
 
     void init_to_refine();
 
-    bool divide(const rooted_mon& bc, const factor& c, factor & b) const;
+    bool divide(const signed_vars& bc, const factor& c, factor & b) const;
 
     void negate_factor_equality(const factor& c, const factor& d);
     
@@ -336,15 +323,15 @@ struct core {
 
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
-    bool rm_check(const rooted_mon&) const;
+    bool rm_check(const signed_vars&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
     void add_abs_bound(lpvar v, llc cmp);
     void add_abs_bound(lpvar v, llc cmp, rational const& bound);
 
-    bool  find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf);
+    bool  find_bfc_to_refine_on_rmonomial(const signed_vars& rm, bfc & bf);
     
-    bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found);
+    bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const signed_vars*& rm_found);
     void generate_simple_sign_lemma(const rational& sign, const monomial& m);
 
     void negate_relation(unsigned j, const rational& a);

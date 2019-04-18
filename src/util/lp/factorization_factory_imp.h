@@ -20,15 +20,16 @@
 #pragma once
 #include "util/lp/factorization.h"
 namespace nla {
-struct core;
-struct rooted_mon;
-struct factorization_factory_imp: factorization_factory {
-    const core&  m_core;
-    const monomial *m_mon;
-    const rooted_mon& m_rm;
+    class  core;
+    class signed_vars;
+
+    struct factorization_factory_imp: factorization_factory {
+        const core&  m_core;
+        const monomial & m_mon;
+        const signed_vars& m_rm;
         
-    factorization_factory_imp(const rooted_mon& rm, const core& s);
-    bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
-    const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
-};
+        factorization_factory_imp(const signed_vars& rm, const core& s);
+        bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
+        const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
+    };
 }

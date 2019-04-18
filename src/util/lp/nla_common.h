@@ -22,9 +22,11 @@
 #include "util/lp/nla_defs.h"
 #include "util/lp/lar_term.h"
 #include "util/lp/monomial.h"
+#include "util/lp/emonomials.h"
 #include "util/lp/factorization.h"
-#include "util/lp/rooted_mons.h"
 namespace nla {
+
+
 inline llc negate(llc cmp) {
     switch(cmp) {
     case llc::LE: return llc::GT;
@@ -38,7 +40,7 @@ inline llc negate(llc cmp) {
     return cmp; // not reachable
 }
 
-struct core;
+class core;
 struct common {
     core* m_core;
     common(core* c): m_core(c) {}
@@ -82,8 +84,8 @@ struct common {
     std::ostream& print_var(lpvar, std::ostream& out) const;
     
     std::ostream& print_monomial(const monomial & m, std::ostream& out) const;
-    std::ostream& print_rooted_monomial(const rooted_mon &, std::ostream& out) const;
-    std::ostream& print_rooted_monomial_with_vars(const rooted_mon&, std::ostream& out) const;
+    std::ostream& print_rooted_monomial(const signed_vars &, std::ostream& out) const;
+    std::ostream& print_rooted_monomial_with_vars(const signed_vars&, std::ostream& out) const;
     bool check_monomial(const monomial&) const;
     unsigned random();
 };

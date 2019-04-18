@@ -28,8 +28,8 @@
 namespace nla {
 
 // returns the monomial index
-unsigned solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
-    return m_core->add(v, sz, vs);
+void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
+    m_core->add(v, sz, vs);
 }
 
 bool solver::need_check() { return true; }
