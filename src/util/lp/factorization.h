@@ -30,22 +30,22 @@ typedef unsigned lpvar;
 enum class factor_type { VAR, RM }; // RM stands for rooted monomial 
 
 class factor {
-    unsigned     m_index;
+    unsigned     m_var;
     factor_type  m_type;
 public:
     factor() {}
     explicit factor(unsigned j) : factor(j, factor_type::VAR) {}
-    factor(unsigned i, factor_type t) : m_index(i), m_type(t) {}
-    unsigned index() const { return m_index; }
-    unsigned& index() { return m_index; }
+    factor(unsigned i, factor_type t) : m_var(i), m_type(t) {}
+    unsigned var() const { return m_var; }
+    unsigned& var() { return m_var; }
     factor_type type() const { return m_type; }
     factor_type& type() { return m_type; }
     bool is_var() const { return m_type == factor_type::VAR; }
     bool operator==(factor const& other) const {
-        return m_index == other.index() && m_type == other.type();
+        return m_var == other.var() && m_type == other.type();
     }
     bool operator!=(factor const& other) const {
-        return m_index != other.index() || m_type != other.type();
+        return m_var != other.var() || m_type != other.type();
     }
 };
 
