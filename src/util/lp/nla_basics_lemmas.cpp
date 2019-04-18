@@ -23,12 +23,13 @@
 namespace nla {
 
 basics::basics(core * c) : common(c) {}
+
 // Monomials m and n vars have the same values, up to "sign"
 // Generate a lemma if values of m.var() and n.var() are not the same up to sign
 bool basics::basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n, const rational& sign) {
-    if (vvr(m) == vvr(n) *sign)
+    if (vvr(m) == vvr(n) * sign)
         return false;
-    TRACE("nla_solver", tout << "sign contradiction:\nm = "; c().print_monomial_with_vars(m, tout); tout << "n= "; c().print_monomial_with_vars(n, tout); tout << "sign: " << sign << "\n";);
+    TRACE("nla_solver", tout << "sign contradiction:\nm = " << m << "n= " << n << "sign: " << sign << "\n";);
     generate_sign_lemma(m, n, sign);
     return true;
 }
@@ -40,17 +41,18 @@ void basics::generate_zero_lemmas(const monomial& m) {
     lpvar zero_j = find_best_zero(m, fixed_zeros);
     SASSERT(is_set(zero_j));
     unsigned zero_power = 0;
-    for (unsigned j : m){
+    for (lpvar j : m){
         if (j == zero_j) {
             zero_power++;
             continue;
         }
         get_non_strict_sign(j, sign);
-        if(sign == 0)
+        if (sign == 0)
             break;
     }
-    if (sign && is_even(zero_power))
+    if (sign && is_even(zero_power)) {
         sign = 0;
+    }
     TRACE("nla_solver_details", tout << "zero_j = " << zero_j << ", sign = " << sign << "\n";);
     if (sign == 0) { // have to generate a non-convex lemma
         add_trival_zero_lemma(zero_j, m);
@@ -98,10 +100,10 @@ void basics::basic_sign_lemma_model_based_one_mon(const monomial& m, int product
 }
     
 bool basics::basic_sign_lemma_model_based() {
-    unsigned i = c().random() % c().m_to_refine.size();
-    unsigned ii = i;
-    do {
-        const monomial& m = c().m_monomials[c().m_to_refine[i]];
+    unsigned start = c().random();
+    unsigned sz = c().m_to_refine.size();
+    for (unsigned i = sz; i-- > 0; ) {
+        monomial const& m = c().m_emons[c().m_to_refine[(start + i) % sz]];
         int mon_sign = nla::rat_sign(vvr(m));
         int product_sign = c().rat_sign(m);
         if (mon_sign != product_sign) {
@@ -109,47 +111,26 @@ bool basics::basic_sign_lemma_model_based() {
             if (c().done())
                 return true;
         }
-        i++;
-        if (i == c().m_to_refine.size())
-            i = 0;
-    } while (i != ii);
+    }
     return c().m_lemma_vec->size() > 0;
 }
 
     
-bool basics::basic_sign_lemma_on_mon(unsigned i, std::unordered_set<unsigned> & explored){
-    const monomial& m = c().m_monomials[i];
-    TRACE("nla_solver_details", tout << "i = " << i << ", mon = "; c().print_monomial_with_vars(m, tout););
-    const index_with_sign&  rm_i_s = c().m_rm_table.get_rooted_mon(i);
-    unsigned k = rm_i_s.index();
-    if (!try_insert(k, explored))
+bool basics::basic_sign_lemma_on_mon(lpvar v, std::unordered_set<unsigned> & explored){
+    if (!try_insert(v, explored)) {
         return false;
-
-    const auto& mons_to_explore = c().m_rm_table.rms()[k].m_mons;
-    TRACE("nla_solver", tout << "rm = "; c().print_rooted_monomial_with_vars(c().m_rm_table.rms()[k], tout) << "\n";);
-        
-    for (index_with_sign i_s : mons_to_explore) {
-        TRACE("nla_solver", tout << "i_s = (" << i_s.index() << "," << i_s.sign() << ")\n";
-              c().print_monomial_with_vars(c().m_monomials[i_s.index()], tout << "m = ") << "\n";
-              {
-                  for (lpvar j : c().m_monomials[i_s.index()] ) {
-                      lpvar rj = c().m_evars.find(j).var();
-                      if (j == rj)
-                          tout << "rj = j ="  << j << "\n";
-                      else {
-                          lp::explanation e;
-                          c().m_evars.explain(j, e);
-                          tout << "j = " << j << ", e = "; c().print_explanation(e, tout) << "\n";
-                      }
-                  }
-              }
-              );
-        unsigned n = i_s.index();
-        if (n == i) continue;
-        if (basic_sign_lemma_on_two_monomials(m, c().m_monomials[n], rm_i_s.sign()*i_s.sign()))
-            if(done())
-                return true;
     }
+
+    const monomial& m_v = c().m_emons[v];
+    signed_vars const& sv_v = c().m_emons.canonical[v];
+    TRACE("nla_solver_details", tout << "mon = " << m_v;);
+
+    for (auto const& m_w : c().m_emons.enum_sign_equiv_monomials(v)) {
+        signed_vars const& sv_w = c().m_emons.canonical[m_w];
+        if (m_v.var() != m_w.var() && basic_sign_lemma_on_two_monomials(m_v, m_w, sv_v.rsign() * sv_w.rsign()) && done()) 
+            return true;
+    }
+
     TRACE("nla_solver_details", tout << "return false\n";);
     return false;
 }
@@ -163,7 +144,7 @@ bool basics::basic_sign_lemma(bool derived) {
         return basic_sign_lemma_model_based();
 
     std::unordered_set<unsigned> explored;
-    for (unsigned i : c().m_to_refine){
+    for (lpvar i : c().m_to_refine){
         if (basic_sign_lemma_on_mon(i, explored))
             return true;
     }
@@ -241,7 +222,10 @@ void basics::negate_strict_sign(lpvar j) {
 
 // here we use the fact
 // xy = 0 -> x = 0 or y = 0
-bool basics::basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization& f) {
+bool basics::basic_lemma_for_mon_zero(const signed_vars& rm, const factorization& f) {
+    NOT_IMPLEMENTED_YET();
+    return true;
+#if 0
     TRACE("nla_solver", c().trace_print_monomial_and_factorization(rm, f, tout););
     add_empty_lemma();
     c().explain_fixed_var(var(rm));
@@ -253,6 +237,7 @@ bool basics::basic_lemma_for_mon_zero(const rooted_mon& rm, const factorization&
     explain(rm);
     TRACE("nla_solver", c().print_lemma(tout););
     return true;
+#endif
 }
 // use basic multiplication properties to create a lemma
 bool basics::basic_lemma(bool derived) {
@@ -261,31 +246,27 @@ bool basics::basic_lemma(bool derived) {
     if (derived)
         return false;
     c().init_rm_to_refine();
-    const auto& rm_ref = c().m_rm_table.to_refine();
+    const auto& rm_ref = c().m_to_refine;
     TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
-    unsigned start = c().random() % rm_ref.size();
-    unsigned i = start;
-    do {
-        const rooted_mon& r = c().m_rm_table.rms()[rm_ref[i]];
-        SASSERT (!c().check_monomial(c().m_monomials[r.orig_index()]));
+    unsigned start = c().random();
+    for (unsigned j = rm_ref.size(); j-- > 0; ) {
+        const signed_vars& r = c().m_emons.canonical[(j + start) % rm_ref.size()];
+        SASSERT (!c().check_monomial(c().m_emons[r.var()]));
         basic_lemma_for_mon(r, derived);
-        if (++i == rm_ref.size()) {
-            i = 0;
-        }
-    } while(i != start && !done());
+    } 
         
     return false;
 }
 // Use basic multiplication properties to create a lemma
 // for the given monomial.
 // "derived" means derived from constraints - the alternative is model based
-void basics::basic_lemma_for_mon(const rooted_mon& rm, bool derived) {
+void basics::basic_lemma_for_mon(const signed_vars& rm, bool derived) {
     if (derived)
         basic_lemma_for_mon_derived(rm);
     else
         basic_lemma_for_mon_model_based(rm);
 }
-bool basics::basic_lemma_for_mon_derived(const rooted_mon& rm) {
+bool basics::basic_lemma_for_mon_derived(const signed_vars& rm) {
     if (c().var_is_fixed_to_zero(var(rm))) {
         for (auto factorization : factorization_factory_imp(rm, c())) {
             if (factorization.is_empty())
@@ -311,7 +292,7 @@ bool basics::basic_lemma_for_mon_derived(const rooted_mon& rm) {
     return false;
 }
 // x = 0 or y = 0 -> xy = 0
-bool basics::basic_lemma_for_mon_non_zero_derived(const rooted_mon& rm, const factorization& f) {
+bool basics::basic_lemma_for_mon_non_zero_derived(const signed_vars& rm, const factorization& f) {
     TRACE("nla_solver", c().trace_print_monomial_and_factorization(rm, f, tout););
     if (! c().var_is_separated_from_zero(var(rm)))
         return false; 
@@ -335,10 +316,10 @@ bool basics::basic_lemma_for_mon_non_zero_derived(const rooted_mon& rm, const fa
 }
 // use the fact that
 // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_derived(const rooted_mon& rm, const factorization& f) {
+bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_derived(const signed_vars& rm, const factorization& f) {
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout););
 
-    lpvar mon_var =  c().m_monomials[rm.orig_index()].var();
+    lpvar mon_var =  c().m_emons[rm.var()].var();
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
     const auto & mv = vvr(mon_var);
@@ -395,9 +376,9 @@ bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_derived(const rooted
 }
 // use the fact
 // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(const rooted_mon& rm, const factorization& f) {
+bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(const signed_vars& rm, const factorization& f) {
     return false;
-    rational sign = rm.orig().m_sign;
+    rational sign = c().m_emons.orig_sign(rm);
     lpvar not_one = -1;
 
     TRACE("nla_solver", tout << "f = ";  c().print_factorization(f, tout););
@@ -432,17 +413,17 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(const 
     }
 
     if (not_one == static_cast<lpvar>(-1)) {
-        c().mk_ineq( c().m_monomials[rm.orig_index()].var(), llc::EQ, sign);
+        c().mk_ineq( c().m_emons[rm.var()].var(), llc::EQ, sign);
     } else {
-        c().mk_ineq( c().m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ);
+        c().mk_ineq( c().m_emons[rm.var()].var(), -sign, not_one, llc::EQ);
     }
     TRACE("nla_solver",
-          tout << "rm = ";  c().print_rooted_monomial_with_vars(rm, tout);
-           c().print_lemma(tout););
+          tout << "rm = " << rm;
+          c().print_lemma(tout););
     return true;
 }
 
-bool basics::basic_lemma_for_mon_neutral_derived(const rooted_mon& rm, const factorization& factorization) {
+bool basics::basic_lemma_for_mon_neutral_derived(const signed_vars& rm, const factorization& factorization) {
     return
         basic_lemma_for_mon_neutral_monomial_to_factor_derived(rm, factorization) || 
         basic_lemma_for_mon_neutral_from_factors_to_monomial_derived(rm, factorization);
@@ -450,7 +431,7 @@ bool basics::basic_lemma_for_mon_neutral_derived(const rooted_mon& rm, const fac
 }
 
 // x != 0 or y = 0 => |xy| >= |y|
-void basics::proportion_lemma_model_based(const rooted_mon& rm, const factorization& factorization) {
+void basics::proportion_lemma_model_based(const signed_vars& rm, const factorization& factorization) {
     rational rmv = abs(vvr(rm));
     if (rmv.is_zero()) {
         SASSERT(c().has_zero_factor(factorization));
@@ -466,7 +447,7 @@ void basics::proportion_lemma_model_based(const rooted_mon& rm, const factorizat
     }
 }
 // x != 0 or y = 0 => |xy| >= |y|
-bool basics::proportion_lemma_derived(const rooted_mon& rm, const factorization& factorization) {
+bool basics::proportion_lemma_derived(const signed_vars& rm, const factorization& factorization) {
     return false;
     rational rmv = abs(vvr(rm));
     if (rmv.is_zero()) {
@@ -507,11 +488,11 @@ void basics::generate_pl_on_mon(const monomial& m, unsigned factor_index) {
     
 // none of the factors is zero and the product is not zero
 // -> |fc[factor_index]| <= |rm|
-void basics::generate_pl(const rooted_mon& rm, const factorization& fc, int factor_index) {
+void basics::generate_pl(const signed_vars& rm, const factorization& fc, int factor_index) {
     TRACE("nla_solver", tout << "factor_index = " << factor_index << ", rm = ";
-          c().print_rooted_monomial_with_vars(rm, tout);
+          tout << rm;
           tout << "fc = "; c().print_factorization(fc, tout);
-          tout << "orig mon = "; c().print_monomial(c().m_monomials[rm.orig_index()], tout););
+          tout << "orig mon = "; c().print_monomial(c().m_emons[rm.var()], tout););
     if (fc.is_mon()) {
         generate_pl_on_mon(*fc.mon(), factor_index);
         return;
@@ -541,7 +522,7 @@ void basics::generate_pl(const rooted_mon& rm, const factorization& fc, int fact
     TRACE("nla_solver", c().print_lemma(tout); );
 }   
 // here we use the fact xy = 0 -> x = 0 or y = 0
-void basics::basic_lemma_for_mon_zero_model_based(const rooted_mon& rm, const factorization& f) {        
+void basics::basic_lemma_for_mon_zero_model_based(const signed_vars& rm, const factorization& f) {        
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout););
     SASSERT(vvr(rm).is_zero()&& ! c().rm_check(rm));
     add_empty_lemma();
@@ -562,8 +543,8 @@ void basics::basic_lemma_for_mon_zero_model_based(const rooted_mon& rm, const fa
     TRACE("nla_solver", c().print_lemma(tout););
 }
 
-void basics::basic_lemma_for_mon_model_based(const rooted_mon& rm) {
-    TRACE("nla_solver_bl", tout << "rm = "; c().print_rooted_monomial(rm, tout););
+void basics::basic_lemma_for_mon_model_based(const signed_vars& rm) {
+    TRACE("nla_solver_bl", tout << "rm = " << rm;);
     if (vvr(rm).is_zero()) {
         for (auto factorization : factorization_factory_imp(rm, c())) {
             if (factorization.is_empty())
@@ -682,10 +663,10 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based_fm
 
 // use the fact that
 // |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const rooted_mon& rm, const factorization& f) {
+bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const signed_vars& rm, const factorization& f) {
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout););
 
-    lpvar mon_var = c().m_monomials[rm.orig_index()].var();
+    lpvar mon_var = c().m_emons[rm.var()].var();
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
     const auto & mv = vvr(mon_var);
@@ -740,7 +721,7 @@ bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const ro
     return true;
 }
 
-void basics::basic_lemma_for_mon_neutral_model_based(const rooted_mon& rm, const factorization& f) {
+void basics::basic_lemma_for_mon_neutral_model_based(const signed_vars& rm, const factorization& f) {
     if (f.is_mon()) {
         basic_lemma_for_mon_neutral_monomial_to_factor_model_based_fm(*f.mon());
         basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based_fm(*f.mon());
@@ -752,8 +733,8 @@ void basics::basic_lemma_for_mon_neutral_model_based(const rooted_mon& rm, const
 }
 // use the fact
 // 1 * 1 ... * 1 * x * 1 ... * 1 = x
-bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const rooted_mon& rm, const factorization& f) {
-    rational sign = rm.orig_sign();
+bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const signed_vars& rm, const factorization& f) {
+    rational sign = c().m_emons.orig_sign(rm);
     TRACE("nla_solver_bl", tout << "f = "; c().print_factorization(f, tout); tout << ", sign = " << sign << '\n'; );
     lpvar not_one = -1;
     for (auto j : f){
@@ -801,15 +782,15 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(co
     }
 
     if (not_one == static_cast<lpvar>(-1)) {
-        c().mk_ineq(c().m_monomials[rm.orig_index()].var(), llc::EQ, sign);
+        c().mk_ineq(rm.var(), llc::EQ, sign);
     } else {
-        c().mk_ineq(c().m_monomials[rm.orig_index()].var(), -sign, not_one, llc::EQ);
+        c().mk_ineq(rm.var(), -sign, not_one, llc::EQ);
     }
     explain(rm);
     explain(f);
     TRACE("nla_solver",
           c().print_lemma(tout);
-          tout << "rm = "; c().print_rooted_monomial_with_vars(rm, tout);
+          tout << "rm = " << rm;
           );
     return true;
 }
@@ -833,7 +814,7 @@ void basics::basic_lemma_for_mon_non_zero_model_based_mf(const factorization& f)
 }
 
 // x = 0 or y = 0 -> xy = 0
-void basics::basic_lemma_for_mon_non_zero_model_based(const rooted_mon& rm, const factorization& f) {
+void basics::basic_lemma_for_mon_non_zero_model_based(const signed_vars& rm, const factorization& f) {
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout););
     if (f.is_mon())
         basic_lemma_for_mon_non_zero_model_based_mf(f);

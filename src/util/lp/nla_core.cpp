@@ -79,75 +79,46 @@ bool core::lemma_holds(const lemma& l) const {
     
 svector<lpvar> core::sorted_vars(const factor& f) const {
     if (f.is_var()) {
-        svector<lpvar> r; r.push_back(f.index());
+        svector<lpvar> r; r.push_back(f.var());
         return r;
     }
     TRACE("nla_solver", tout << "nv";);
-    return m_rm_table.rms()[f.index()].vars();
+    return m_emons.canonical[f.var()].vars();
 }
 
 // the value of the factor is equal to the value of the variable multiplied
 // by the canonize_sign
 rational core::canonize_sign(const factor& f) const {
     return f.is_var()?
-        canonize_sign_of_var(f.index()) : m_rm_table.rms()[f.index()].orig_sign();
+        canonize_sign_of_var(f.var()) : m_emons.canonical[f.var()].rsign();
 }
 
 rational core::canonize_sign_of_var(lpvar j) const {
     return m_evars.find(j).rsign();        
 }
     
-// the value of the rooted monomias is equal to the value of the variable multiplied
-// by the canonize_sign
-rational core::canonize_sign(const rooted_mon& m) const {
-    return m.orig().sign();
+rational core::canonize_sign(const signed_vars& m) const {
+    NOT_IMPLEMENTED_YET();
+    return rational::one();
 }
+
     
 // returns the monomial index
-unsigned core::add(lpvar v, unsigned sz, lpvar const* vs) {
-    m_monomials.push_back(monomial(v, sz, vs));
-    TRACE("nla_solver", print_monomial(m_monomials.back(), tout););
-    const auto & m = m_monomials.back();
-    SASSERT(m_mkeys.find(m.vars()) == m_mkeys.end());
-    return m_mkeys[m.vars()] = m_monomials.size() - 1;
+void core::add(lpvar v, unsigned sz, lpvar const* vs) {
+    m_emons.add(v, sz, vs);
 }
     
 void core::push() {
     TRACE("nla_solver",);
-    m_monomials_counts.push_back(m_monomials.size());
-    m_evars.push();
+    m_emons.push();
 }
 
-void core::deregister_monomial_from_rooted_monomials (const monomial & m, unsigned i){
-    rational sign = rational(1);
-    svector<lpvar> vars = reduce_monomial_to_rooted(m.vars(), sign);
-    NOT_IMPLEMENTED_YET();
-}
-
-void core::deregister_monomial_from_tables(const monomial & m, unsigned i){
-    TRACE("nla_solver", tout << "m = "; print_monomial(m, tout););
-    m_mkeys.erase(m.vars());
-    deregister_monomial_from_rooted_monomials(m, i);     
-}
      
 void core::pop(unsigned n) {
-    TRACE("nla_solver", tout << "n = " << n <<
-          " , m_monomials_counts.size() = " << m_monomials_counts.size() << ", m_monomials.size() = " << m_monomials.size() << "\n"; );
-    if (n == 0) return;
-    unsigned new_size = m_monomials_counts[m_monomials_counts.size() - n];
-    TRACE("nla_solver", tout << "new_size = " << new_size << "\n"; );
-        
-    for (unsigned i = m_monomials.size(); i-- > new_size; ){
-        deregister_monomial_from_tables(m_monomials[i], i);
-    }
-    m_monomials.shrink(new_size);
-    m_monomials_counts.shrink(m_monomials_counts.size() - n);
-    m_evars.pop(n);
+    TRACE("nla_solver", tout << "n = " << n << "\n";);
+    m_emons.pop(n);
 }
 
-rational core::mon_value_by_vars(unsigned i) const {
-    return product_value(m_monomials[i]);
-}
 template <typename T>
 rational core::product_value(const T & m) const {
     rational r(1);
@@ -168,16 +139,15 @@ void core::explain(const monomial& m, lp::explanation& exp) const {
         explain(j, exp);
 }
 
-void core::explain(const rooted_mon& rm, lp::explanation& exp) const {
-    auto & m = m_monomials[rm.orig_index()];
-    explain(m, exp);
+void core::explain(const signed_vars& rm, lp::explanation& exp) const {
+    explain(m_emons[rm.var()], exp);
 }
 
 void core::explain(const factor& f, lp::explanation& exp) const {
     if (f.type() == factor_type::VAR) {
-        explain(f.index(), exp);
+        explain(f.var(), exp);
     } else {
-        explain(m_monomials[m_rm_table.rms()[f.index()].orig_index()], exp);
+        explain(m_emons[f.var()], exp);
     }
 }
 
@@ -187,22 +157,23 @@ void core::explain(lpvar j, lp::explanation& exp) const {
 
 template <typename T>
 std::ostream& core::print_product(const T & m, std::ostream& out) const {
-    for (unsigned k = 0; k < m.size(); k++) {
-        out << "(" << m_lar_solver.get_variable_name(m[k]) << "=" << vvr(m[k]) << ")";
-        if (k + 1 < m.size()) out << "*";
+    bool first = true;
+    for (lpvar v : m) {
+        if (!first) out << "*"; else first = false;
+        out << "(" << m_lar_solver.get_variable_name(v) << "=" << vvr(v) << ")";
     }
     return out;
 }
 template std::ostream& core::print_product<monomial>(const monomial & m, std::ostream& out) const;
-template std::ostream& core::print_product<rooted_mon>(const rooted_mon & m, std::ostream& out) const;
+template std::ostream& core::print_product<signed_vars>(const signed_vars & m, std::ostream& out) const;
 
 std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
         out << "VAR,  ";
-        print_var(f.index(), out);
+        print_var(f.var(), out);
     } else {
         out << "PROD, ";
-        print_product(m_rm_table.rms()[f.index()].vars(), out);
+        print_product(m_emons.canonical[f.var()].vars(), out);
     }
     out << "\n";
     return out;
@@ -210,10 +181,10 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
 
 std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
-        print_var(f.index(), out);
+        print_var(f.var(), out);
     } else {
-        out << " RM = "; print_rooted_monomial_with_vars(m_rm_table.rms()[f.index()], out);
-        out << "\n orig mon = "; print_monomial_with_vars(m_monomials[m_rm_table.rms()[f.index()].orig_index()], out);
+        out << " RM = " << m_emons.canonical[f.var()];
+        out << "\n orig mon = " << m_emons[f.var()];
     }
     return out;
 }
@@ -241,11 +212,11 @@ std::ostream& core::print_bfc(const bfc& m, std::ostream& out) const {
 }
 
 std::ostream& core::print_monomial(unsigned i, std::ostream& out) const {
-    return print_monomial(m_monomials[i], out);
+    return print_monomial(m_emons[i], out);
 }
 
-std::ostream& core::print_monomial_with_vars(unsigned i, std::ostream& out) const {
-    return print_monomial_with_vars(m_monomials[i], out);
+std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
+    return print_monomial_with_vars(m_emons[v], out);
 }
 
 template <typename T>
@@ -260,27 +231,9 @@ std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const
 
 std::ostream& core::print_monomial_with_vars(const monomial& m, std::ostream& out) const {
     out << "["; print_var(m.var(), out) << "]\n";
-    for(lpvar j: m)
+    for (lpvar j: m)
         print_var(j, out);
     out << ")\n";
-    return out;
-}
-
-std::ostream& core::print_rooted_monomial(const rooted_mon& rm, std::ostream& out) const {
-    out << "vars = "; 
-    print_product(rm.vars(), out);
-    out << "\n orig = "; print_monomial(m_monomials[rm.orig_index()], out);
-    out << ", orig sign = " << rm.orig_sign() << "\n";
-    return out;
-}
-
-std::ostream& core::print_rooted_monomial_with_vars(const rooted_mon& rm, std::ostream& out) const {
-    out << "vars = "; 
-    print_product(rm.vars(), out);
-    out << "\n orig = "; print_monomial_with_vars(m_monomials[rm.orig_index()], out);
-    out << ", orig sign = " << rm.orig_sign() << "\n";
-    out << ", vvr(rm) = " << vvr(rm) << "\n";
-        
     return out;
 }
 
@@ -400,13 +353,12 @@ bool core:: explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
             (rs.is_zero() && explain_by_equiv(t, exp));
         break;
     case llc::NE:
-        r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);
-            
-            
+        // TBD - NB: does this work for Reals?
+        r = explain_lower_bound(t, rs + rational(1), exp) || explain_upper_bound(t, rs - rational(1), exp);           
         break;
     default:
-        SASSERT(false);
-        r = false;
+        UNREACHABLE();
+        return false;
     }
     if (r) {
         current_expl().add(exp);
@@ -426,10 +378,10 @@ bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) {
     bool sign;
     if (!is_octagon_term(t, sign, i, j))
         return false;
-    if (m_evars.find(signed_var(i,false)) != m_evars.find(signed_var(j, sign)))
+    if (m_evars.find(signed_var(i, false)) != m_evars.find(signed_var(j, sign)))
         return false;
             
-    m_evars.explain(signed_var(i,false), signed_var(j, sign), e);
+    m_evars.explain(signed_var(i, false), signed_var(j, sign), e);
     TRACE("nla_solver", tout << "explained :"; m_lar_solver.print_term(t, tout););
     return true;
             
@@ -437,13 +389,12 @@ bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) {
     
 void core::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs) {
     TRACE("nla_solver_details", m_lar_solver.print_term(t, tout << "t = "););
-    if (explain_ineq(t, cmp, rs)) {
-        return;
+    if (!explain_ineq(t, cmp, rs)) {
+        m_lar_solver.subs_term_columns(t);
+        current_lemma().push_back(ineq(cmp, t, rs));
+        CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
+        SASSERT(!ineq_holds(ineq(cmp, t, rs)));
     }
-    m_lar_solver.subs_term_columns(t);
-    current_lemma().push_back(ineq(cmp, t, rs));
-    CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
-    SASSERT(!ineq_holds(ineq(cmp, t, rs)));
 }
 
 void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
@@ -781,9 +732,8 @@ std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
 }
 
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
-    auto it = m_var_to_its_monomial.find(j);
-    if (it != m_var_to_its_monomial.end()) {
-        print_monomial(m_monomials[it->second], out);
+    if (m_emons.is_monomial_var(j)) {
+        print_monomial(m_emons[j], out);
         out << " = " << vvr(j);;
     }
         
@@ -792,7 +742,7 @@ std::ostream & core::print_var(lpvar j, std::ostream & out) const {
 }
 
 std::ostream & core::print_monomials(std::ostream & out) const {
-    for (auto &m : m_monomials) {
+    for (auto &m : m_emons) {
         print_monomial_with_vars(m, out);
     }
     return out;
@@ -835,23 +785,13 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     
 bool core:: find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
     SASSERT(vars_are_roots(vars));
-    auto it = m_rm_table.vars_key_to_rm_index().find(vars);
-    if (it == m_rm_table.vars_key_to_rm_index().end()) {
-        return false;
-    }
-        
-    i = it->second;
-    TRACE("nla_solver",);
-        
-    SASSERT(lp::vectors_are_equal_(vars, m_rm_table.rms()[i].vars()));
-    return true;
+    signed_vars const* sv = m_emons.find_canonical(vars);
+    return sv && (i = sv->var(), true);
 }
 
 const monomial* core::find_monomial_of_vars(const svector<lpvar>& vars) const {
-    unsigned i;
-    if (!find_rm_monomial_of_vars(vars, i))
-        return nullptr;
-    return &m_monomials[m_rm_table.rms()[i].orig_index()];
+    signed_vars const* sv = m_emons.find_canonical(vars);
+    return sv ? &m_emons[sv->var()] : nullptr;
 }
 
 
@@ -873,8 +813,8 @@ void core::explain_separation_from_zero(lpvar j) {
         explain_existing_upper_bound(j);
 }
 
-int core::get_derived_sign(const rooted_mon& rm, const factorization& f) const {
-    rational sign = rm.orig_sign(); // this is the flip sign of the variable var(rm)
+int core::get_derived_sign(const signed_vars& rm, const factorization& f) const {
+    rational sign = rm.rsign(); // this is the flip sign of the variable var(rm)
     SASSERT(!sign.is_zero());
     for (const factor& fc: f) {
         lpvar j = var(fc);
@@ -885,12 +825,12 @@ int core::get_derived_sign(const rooted_mon& rm, const factorization& f) const {
     }
     return nla::rat_sign(sign);
 }
-void core::trace_print_monomial_and_factorization(const rooted_mon& rm, const factorization& f, std::ostream& out) const {
+void core::trace_print_monomial_and_factorization(const signed_vars& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
-    print_product(rm.m_vars, out);
+    print_product(rm.vars(), out);
     out << "\n";
         
-    print_monomial(rm.orig_index(), out << "mon:  ") << "\n";
+    print_monomial(rm.var(), out << "mon:  ") << "\n";
     out << "value: " << vvr(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
 }
@@ -1338,13 +1278,6 @@ bool core:: mon_has_zero(const T& product) const {
 
 template bool core::mon_has_zero<monomial>(const monomial& product) const;
 
-void core::init_rm_to_refine() {
-    if (!m_rm_table.to_refine().empty())
-        return;
-    std::unordered_set<unsigned> ref;
-    ref.insert(m_to_refine.begin(), m_to_refine.end());
-    m_rm_table.init_to_refine(ref);
-}
 
 lp::lp_settings& core::settings() {
     return m_lar_solver.settings();
@@ -1352,53 +1285,6 @@ lp::lp_settings& core::settings() {
     
 unsigned core::random() { return settings().random_next(); }
     
-// use basic multiplication properties to create a lemma
-bool core:: basic_lemma(bool derived) {
-    if (basic_sign_lemma(derived))
-        return true;
-    if (derived)
-        return false;
-    init_rm_to_refine();
-    const auto& rm_ref = m_rm_table.to_refine();
-    TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
-    unsigned start = random() % rm_ref.size();
-    unsigned i = start;
-    do {
-        const rooted_mon& r = m_rm_table.rms()[rm_ref[i]];
-        SASSERT (!check_monomial(m_monomials[r.orig_index()]));
-        basic_lemma_for_mon(r, derived);
-        if (++i == rm_ref.size()) {
-            i = 0;
-        }
-    } while(i != start && !done());
-        
-    return false;
-}
-
-void core::map_monomial_vars_to_monomial_indices(unsigned i) {
-    const monomial& m = m_monomials[i];
-    for (lpvar j : m.vars()) {
-        auto it = m_monomials_containing_var.find(j);
-        if (it == m_monomials_containing_var.end()) {
-            unsigned_vector ms;
-            ms.push_back(i);
-            m_monomials_containing_var[j] = ms;
-        }
-        else {
-            it->second.push_back(i);
-        }
-    }
-}
-
-void core::map_vars_to_monomials() {
-    for (unsigned i = 0; i < m_monomials.size(); i++) {
-        const monomial& m = m_monomials[i];
-        lpvar v = m.var();
-        SASSERT(m_var_to_its_monomial.find(v) == m_var_to_its_monomial.end());
-        m_var_to_its_monomial[v] = i;
-        map_monomial_vars_to_monomial_indices(i);
-    }
-}
 
 // we look for octagon constraints here, with a left part  +-x +- y 
 void core::collect_equivs() {
@@ -1494,38 +1380,6 @@ void core::init_vars_equivalence() {
         
     SASSERT((settings().random_next() % 100) || tables_are_ok());
 }
-
-bool core:: vars_table_is_ok() const {
-    for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
-        auto it = m_var_to_its_monomial.find(j);
-        if (it != m_var_to_its_monomial.end()
-            && m_monomials[it->second].var() != j) {
-            TRACE("nla_solver", tout << "j = ";
-                  print_var(j, tout););
-            return false;
-        }
-    }
-    for (unsigned i = 0; i < m_monomials.size(); i++){
-        const monomial& m = m_monomials[i];
-        lpvar j = m.var();
-        if (m_var_to_its_monomial.find(j) == m_var_to_its_monomial.end()){
-            return false;
-        }
-    }
-    return true;
-}
-
-bool core:: rm_table_is_ok() const {
-    for (const auto & rm : m_rm_table.rms()) {
-        for (lpvar j : rm.vars()) {
-            if (!m_evars.is_root(j)){
-                TRACE("nla_solver", print_var(j, tout););
-                return false;
-            }
-        }
-    }
-    return true;
-}
     
 bool core:: tables_are_ok() const {
     return vars_table_is_ok() && rm_table_is_ok();
@@ -1543,26 +1397,14 @@ bool core:: vars_are_roots(const T& v) const {
 }
 
 
-void core::register_monomial_in_tables(unsigned i_mon) {
-    const monomial& m = m_monomials[i_mon];
-    monomial_coeff mc = canonize_monomial(m);
-    TRACE("nla_solver_rm", tout << "i_mon = " << i_mon << ", mon = ";
-          print_monomial(m_monomials[i_mon], tout);
-          tout << "\nmc = ";
-          print_product(mc.vars(), tout);
-          );
-    m_rm_table.register_key_mono_in_rooted_monomials(mc, i_mon);        
-}
 
 template <typename T>
 void core::trace_print_rms(const T& p, std::ostream& out) {
-    out << "p = {";
+    out << "p = {\n";
     for (auto j : p) {
-        out << "\nj = " << j <<
-            ", rm = ";
-        print_rooted_monomial(m_rm_table.rms()[j], out);
+        out << "j = " << j << ", rm = " << m_emons.canonical[j] << "\n";
     }
-    out << "\n}";
+    out << "}";
 }
 
 void core::print_monomial_stats(const monomial& m, std::ostream& out) {
@@ -1572,8 +1414,8 @@ void core::print_monomial_stats(const monomial& m, std::ostream& out) {
         if (abs(vvr(mc.vars()[i])) == rational(1)) {
             auto vv = mc.vars();
             vv.erase(vv.begin()+i);
-            auto it = m_rm_table.vars_key_to_rm_index().find(vv);
-            if (it == m_rm_table.vars_key_to_rm_index().end()) {
+            signed_vars const* sv = m_emons.find_canonical(vv);
+            if (!sv) {
                 out << "nf length" << vv.size() << "\n"; ;
             }
         }
@@ -1581,32 +1423,16 @@ void core::print_monomial_stats(const monomial& m, std::ostream& out) {
 }
     
 void core::print_stats(std::ostream& out) {
-    // for (const auto& m : m_monomials) 
-    //     print_monomial_stats(m, out);
-    m_rm_table.print_stats(out);
 }
         
-void core::register_monomials_in_tables() {
-    for (unsigned i = 0; i < m_monomials.size(); i++) 
-        register_monomial_in_tables(i);
-
-    m_rm_table.fill_rooted_monomials_containing_var();
-    m_rm_table.fill_proper_multiples();
-    TRACE("nla_solver_rm", print_stats(tout););
-}
 
 void core::clear() {
-    m_var_to_its_monomial.clear();
-    m_rm_table.clear();
-    m_monomials_containing_var.clear();
     m_lemma_vec->clear();
 }
     
 void core::init_search() {
     clear();
-    map_vars_to_monomials();
     init_vars_equivalence();
-    register_monomials_in_tables();
 }
 
 void core::init_to_refine() {
@@ -1617,15 +1443,16 @@ void core::init_to_refine() {
     
     TRACE("nla_solver", 
           tout << m_to_refine.size() << " mons to refine:\n";
-          for (unsigned v : m_to_refine) tout << m_emons.var2monomial(v) << "\n";);
+          for (lpvar v : m_to_refine) tout << m_emons[v] << "\n";);
 }
         
 std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     std::unordered_set<lpvar> vars;
     auto insert_j = [&](lpvar j) { 
         vars.insert(j);
-        auto const* m = m_emons.var2monomial(j);
-        if (m) for (lpvar k : *m) vars.insert(k);
+        if (m_emons.is_monomial_var(j)) {
+            for (lpvar k : m_emons[j]) vars.insert(k);
+        }
     };
     
     for (const auto& i : current_lemma().ineqs()) {
@@ -1642,7 +1469,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     return vars;
 }
 
-bool core:: divide(const rooted_mon& bc, const factor& c, factor & b) const {
+bool core::divide(const signed_vars& bc, const factor& c, factor & b) const {
     svector<lpvar> c_vars = sorted_vars(c);
     TRACE("nla_solver_div",
           tout << "c_vars = ";
@@ -1659,12 +1486,12 @@ bool core:: divide(const rooted_mon& bc, const factor& c, factor & b) const {
         b = factor(b_vars[0]);
         return true;
     }
-    auto it = m_rm_table.vars_key_to_rm_index().find(b_vars);
-    if (it == m_rm_table.vars_key_to_rm_index().end()) {
+    signed_vars const* sv = m_emons.find_canonical(b_vars);
+    if (!sv) {
         TRACE("nla_solver_div", tout << "not in rooted";);
         return false;
     }
-    b = factor(it->second, factor_type::RM);
+    b = factor(sv->var(), factor_type::RM);
     TRACE("nla_solver_div", tout << "success div:"; print_factor(b, tout););
     return true;
 }
@@ -1709,17 +1536,15 @@ void core::print_specific_lemma(const lemma& l, std::ostream& out) const {
 }
     
 
-void core::trace_print_ol(const rooted_mon& ac,
+void core::trace_print_ol(const signed_vars& ac,
                           const factor& a,
                           const factor& c,
-                          const rooted_mon& bc,
+                          const signed_vars& bc,
                           const factor& b,
                           std::ostream& out) {
-    out << "ac = ";
-    print_rooted_monomial_with_vars(ac, out);
-    out << "\nbc = ";
-    print_rooted_monomial_with_vars(bc, out);
-    out << "\na = ";
+    out << "ac = " << ac << "\n";
+    out << "bc = " << bc << "\n";
+    out << "a = ";
     print_factor_with_vars(a, out);
     out << ", \nb = ";
     print_factor_with_vars(b, out);
@@ -1733,20 +1558,15 @@ void core::maybe_add_a_factor(lpvar i,
                               std::unordered_set<unsigned>& found_rm,
                               vector<factor> & r) const {
     SASSERT(abs(vvr(i)) == abs(vvr(c)));
-    auto it = m_var_to_its_monomial.find(i);
-    if (it == m_var_to_its_monomial.end()) {
+    if (!m_emons.is_monomial_var(i)) {
         i = m_evars.find(i).var();
         if (try_insert(i, found_vars)) {
             r.push_back(factor(i, factor_type::VAR));
         }
     } else {
-        SASSERT(m_monomials[it->second].var() == i && abs(vvr(m_monomials[it->second])) == abs(vvr(c)));
-        const index_with_sign & i_s = m_rm_table.get_rooted_mon(it->second);
-        unsigned rm_i = i_s.index();
-        //                SASSERT(abs(vvr(m_rm_table.rms()[i])) == abs(vvr(c)));
-        if (try_insert(rm_i, found_rm)) {
-            r.push_back(factor(rm_i, factor_type::RM));
-            TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(rm_i, factor_type::RM), tout); );
+        if (try_insert(i, found_rm)) {
+            r.push_back(factor(i, factor_type::RM));
+            TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
         }
     }
 }
@@ -1755,21 +1575,21 @@ void core::maybe_add_a_factor(lpvar i,
 // Returns rooted monomials by arity
 std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
     std::unordered_map<unsigned, unsigned_vector> m;
-    for (unsigned i = 0; i < m_rm_table.rms().size(); i++ ) {
-        unsigned arity = m_rm_table.rms()[i].vars().size();
+    for (auto const& mon : m_emons) {
+        unsigned arity = mon.vars().size();
         auto it = m.find(arity);
         if (it == m.end()) {
             it = m.insert(it, std::make_pair(arity, unsigned_vector()));
         }
-        it->second.push_back(i);
+        it->second.push_back(mon.var());
     }
     return m;
 }
 
     
 
-bool core:: rm_check(const rooted_mon& rm) const {
-    return check_monomial(m_monomials[rm.orig_index()]);
+bool core::rm_check(const signed_vars& rm) const {
+    return check_monomial(m_emons[rm.var()]);
 }
     
 
@@ -1817,6 +1637,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
     mk_ineq(t, cmp, abs(bound));
 }
 
+// NB - move this comment to monotonicity or appropriate.
 /** \brief enforce the inequality |m| <= product |m[i]| .
     by enforcing lemma:
     /\_i |m[i]| <= |vvr(m[i])| => |m| <= |product_i vvr(m[i])|
@@ -1825,7 +1646,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
 */
 
     
-bool core:: find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf) {
+bool core::find_bfc_to_refine_on_rmonomial(const signed_vars& rm, bfc & bf) {
     for (auto factorization : factorization_factory_imp(rm, *this)) {
         if (factorization.size() == 2) {
             auto a = factorization[0];
@@ -1839,13 +1660,14 @@ bool core:: find_bfc_to_refine_on_rmonomial(const rooted_mon& rm, bfc & bf) {
     return false;
 }
     
-bool core:: find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_mon*& rm_found){
-    for (unsigned i: m_rm_table.to_refine()) {
-        const auto& rm = m_rm_table.rms()[i]; 
-        SASSERT (!check_monomial(m_monomials[rm.orig_index()]));
+bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const signed_vars*& rm_found){
+    rm_found = nullptr;
+    for (unsigned i: m_to_refine) {
+        const auto& rm = m_emons.canonical[i];
+        SASSERT (!check_monomial(m_emons[rm.var()]));
         if (rm.size() == 2) {
             sign = rational(1);
-            const monomial & m = m_monomials[rm.orig_index()];
+            const monomial & m = m_emons[rm.var()];
             j = m.var();
             rm_found = nullptr;
             bf.m_x = factor(m[0]);
@@ -1855,10 +1677,10 @@ bool core:: find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const rooted_m
                 
         rm_found = &rm;
         if (find_bfc_to_refine_on_rmonomial(rm, bf)) {
-            j = m_monomials[rm.orig_index()].var();
-            sign = rm.orig_sign();
+            j = rm.var();
+            sign = rm.rsign();
             TRACE("nla_solver", tout << "found bf";
-                  tout << ":rm:"; print_rooted_monomial(rm, tout) << "\n";
+                  tout << ":rm:" << rm << "\n";
                   tout << "bf:"; print_bfc(bf, tout);
                   tout << ", product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
                   tout << ", j == "; print_var(j, tout) << "\n";);
@@ -2159,3 +1981,10 @@ lbool core::test_check(
 template rational core::product_value<monomial>(const monomial & m) const;
 
 } // end of nla
+
+
+#if 0
+rational core::mon_value_by_vars(unsigned i) const {
+    return product_value(m_monomials[i]);
+}
+#endif

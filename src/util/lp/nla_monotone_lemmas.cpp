@@ -19,7 +19,7 @@
   --*/
 #include "util/lp/nla_basics_lemmas.h"
 #include "util/lp/nla_core.h"
-#include "util/lp/factorization_factory_imp.h"
+// #include "util/lp/factorization_factory_imp.h"
 namespace nla {
 
 monotone::monotone(core * c) : common(c) {}
@@ -33,18 +33,15 @@ void monotone::print_monotone_array(const vector<std::pair<std::vector<rational>
     }
     out <<  "}";
 }
-bool monotone::monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+bool monotone::monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const signed_vars& rm) {
     const rational v = abs(vvr(rm));
     const auto& key = lex_sorted[i].first;
-    TRACE("nla_solver", tout << "rm = ";
-          print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
+    TRACE("nla_solver", tout << "rm = " << rm << "i = " << i << std::endl;);
     for (unsigned k = i + 1; k < lex_sorted.size(); k++) {
         const auto& p = lex_sorted[k];
-        const rooted_mon& rmk = c().m_rm_table.rms()[p.second];
+        const signed_vars& rmk = c().m_emons.canonical[p.second];
         const rational vk = abs(vvr(rmk));
-        TRACE("nla_solver", tout << "rmk = ";
-              print_rooted_monomial_with_vars(rmk, tout);
-              tout << "\n";
+        TRACE("nla_solver", tout << "rmk = " << rmk << "\n";
               tout << "vk = " << vk << std::endl;);
         if (vk > v) continue;
         unsigned strict;
@@ -64,19 +61,16 @@ bool monotone::monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<
     return false;
 }
 
-bool monotone::monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+bool monotone::monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const signed_vars& rm) {
     const rational v = abs(vvr(rm));
     const auto& key = lex_sorted[i].first;
-    TRACE("nla_solver", tout << "rm = ";
-          print_rooted_monomial_with_vars(rm, tout); tout << "i = " << i << std::endl;);
+    TRACE("nla_solver", tout << "rm = " << rm << "i = " << i << std::endl;);
         
     for (unsigned k = i; k-- > 0;) {
         const auto& p = lex_sorted[k];
-        const rooted_mon& rmk = c().m_rm_table.rms()[p.second];
+        const signed_vars& rmk = c().m_emons.canonical[p.second];
         const rational vk = abs(vvr(rmk));
-        TRACE("nla_solver", tout << "rmk = ";
-              print_rooted_monomial_with_vars(rmk, tout);
-              tout << "\n";
+        TRACE("nla_solver", tout << "rmk = " << rmk << "\n";
               tout << "vk = " << vk << std::endl;);
         if (vk < v) continue;
         unsigned strict;
@@ -98,22 +92,22 @@ bool monotone::monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<
     return false;
 }
 
-bool monotone::monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const rooted_mon& rm) {
+bool monotone::monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const signed_vars& rm) {
     return monotonicity_lemma_on_lex_sorted_rm_upper(lex_sorted, i, rm)
         || monotonicity_lemma_on_lex_sorted_rm_lower(lex_sorted, i, rm);
 }
 bool monotone::monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted) {
     for (unsigned i = 0; i < lex_sorted.size(); i++) {
         unsigned rmi = lex_sorted[i].second;
-        const rooted_mon& rm = c().m_rm_table.rms()[rmi];
-        TRACE("nla_solver", print_rooted_monomial(rm, tout); tout << "\n, rm_check = " << c().rm_check(rm); tout << std::endl;); 
+        const signed_vars& rm = c().m_emons.canonical[rmi];
+        TRACE("nla_solver", tout << rm << "\n, rm_check = " << c().rm_check(rm); tout << std::endl;); 
         if ((!c().rm_check(rm)) && monotonicity_lemma_on_lex_sorted_rm(lex_sorted, i, rm))
             return true;
     }
     return false;
 }
 
-vector<std::pair<rational, lpvar>> monotone::get_sorted_key_with_vars(const rooted_mon& a) const {
+vector<std::pair<rational, lpvar>> monotone::get_sorted_key_with_vars(const signed_vars& a) const {
     vector<std::pair<rational, lpvar>> r;
     for (lpvar j : a.vars()) {
         r.push_back(std::make_pair(abs(vvr(j)), j));
@@ -143,8 +137,8 @@ void monotone::negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict) {
 }
 
 // strict version
-void monotone::generate_monl_strict(const rooted_mon& a,
-                                const rooted_mon& b,
+void monotone::generate_monl_strict(const signed_vars& a,
+                                const signed_vars& b,
                                 unsigned strict) {
     add_empty_lemma();
     auto akey = get_sorted_key_with_vars(a);
@@ -165,8 +159,8 @@ void monotone::generate_monl_strict(const rooted_mon& a,
 }
 
 void monotone::assert_abs_val_a_le_abs_var_b(
-    const rooted_mon& a,
-    const rooted_mon& b,
+    const signed_vars& a,
+    const signed_vars& b,
     bool strict) {
     lpvar aj = var(a);
     lpvar bj = var(b);
@@ -194,11 +188,11 @@ void monotone::negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
 
 
 // not a strict version
-void monotone::generate_monl(const rooted_mon& a,
-                         const rooted_mon& b) {
-    TRACE("nla_solver", tout <<
-          "a = "; print_rooted_monomial_with_vars(a, tout) << "\n:";
-          tout << "b = "; print_rooted_monomial_with_vars(a, tout) << "\n:";);
+void monotone::generate_monl(const signed_vars& a,
+                         const signed_vars& b) {
+    TRACE("nla_solver", 
+          tout << "a = " << a << "\n:";
+          tout << "b = " << b << "\n:";);
     add_empty_lemma();
     auto akey = get_sorted_key_with_vars(a);
     auto bkey = get_sorted_key_with_vars(b);
@@ -212,7 +206,7 @@ void monotone::generate_monl(const rooted_mon& a,
     TRACE("nla_solver", print_lemma(tout););
 }
 
-std::vector<rational> monotone::get_sorted_key(const rooted_mon& rm) const {
+std::vector<rational> monotone::get_sorted_key(const signed_vars& rm) const {
     std::vector<rational> r;
     for (unsigned j : rm.vars()) {
         r.push_back(abs(vvr(j)));
@@ -224,7 +218,7 @@ std::vector<rational> monotone::get_sorted_key(const rooted_mon& rm) const {
 bool monotone::monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms) { 
     vector<std::pair<std::vector<rational>, unsigned>> lex_sorted;
     for (unsigned i : rms) {
-        lex_sorted.push_back(std::make_pair(get_sorted_key(c().m_rm_table.rms()[i]), i));
+        lex_sorted.push_back(std::make_pair(get_sorted_key(c().m_emons.canonical[i]), i));
     }
     std::sort(lex_sorted.begin(), lex_sorted.end(),
               [](const std::pair<std::vector<rational>, unsigned> &a,
@@ -237,10 +231,10 @@ bool monotone::monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rm
     
 void monotone::monotonicity_lemma() {
     unsigned shift = random();
-    unsigned size = c().m_rm_table.m_to_refine.size();
+    unsigned size = c().m_to_refine.size();
     for(unsigned i = 0; i < size && !done(); i++) { 
-        unsigned rm_i = c().m_rm_table.m_to_refine[(i + shift)% size];
-        monotonicity_lemma(c().m_rm_table.rms()[rm_i].orig_index());
+        lpvar v = c().m_to_refine[(i + shift) % size];
+        monotonicity_lemma(c().m_emons[v]);
     }
 }
 
@@ -257,8 +251,7 @@ void monotone::monotonicity_lemma() {
 
 #endif
 
-void monotone::monotonicity_lemma(unsigned i_mon) {
-    const monomial & m = c().m_monomials[i_mon];
+void monotone::monotonicity_lemma(monomial const& m) {
     SASSERT(!check_monomial(m));
     if (c().mon_has_zero(m))
         return;
