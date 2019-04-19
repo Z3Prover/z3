@@ -97,13 +97,10 @@ rational core::canonize_sign_of_var(lpvar j) const {
     return m_evars.find(j).rsign();        
 }
     
-rational core::canonize_sign(const signed_vars& m) const {
-    NOT_IMPLEMENTED_YET();
-    return rational::one();
+rational core::canonize_sign(const smon& m) const {
+    return m.rsign();
 }
 
-    
-// returns the monomial index
 void core::add(lpvar v, unsigned sz, lpvar const* vs) {
     m_emons.add(v, sz, vs);
 }
@@ -139,7 +136,7 @@ void core::explain(const monomial& m, lp::explanation& exp) const {
         explain(j, exp);
 }
 
-void core::explain(const signed_vars& rm, lp::explanation& exp) const {
+void core::explain(const smon& rm, lp::explanation& exp) const {
     explain(m_emons[rm.var()], exp);
 }
 
@@ -165,7 +162,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     return out;
 }
 template std::ostream& core::print_product<monomial>(const monomial & m, std::ostream& out) const;
-template std::ostream& core::print_product<signed_vars>(const signed_vars & m, std::ostream& out) const;
+template std::ostream& core::print_product<smon>(const smon & m, std::ostream& out) const;
 
 std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
@@ -781,12 +778,12 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     
 bool core:: find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
     SASSERT(vars_are_roots(vars));
-    signed_vars const* sv = m_emons.find_canonical(vars);
+    smon const* sv = m_emons.find_canonical(vars);
     return sv && (i = sv->var(), true);
 }
 
 const monomial* core::find_monomial_of_vars(const svector<lpvar>& vars) const {
-    signed_vars const* sv = m_emons.find_canonical(vars);
+    smon const* sv = m_emons.find_canonical(vars);
     return sv ? &m_emons[sv->var()] : nullptr;
 }
 
@@ -809,7 +806,7 @@ void core::explain_separation_from_zero(lpvar j) {
         explain_existing_upper_bound(j);
 }
 
-int core::get_derived_sign(const signed_vars& rm, const factorization& f) const {
+int core::get_derived_sign(const smon& rm, const factorization& f) const {
     rational sign = rm.rsign(); // this is the flip sign of the variable var(rm)
     SASSERT(!sign.is_zero());
     for (const factor& fc: f) {
@@ -821,7 +818,7 @@ int core::get_derived_sign(const signed_vars& rm, const factorization& f) const 
     }
     return nla::rat_sign(sign);
 }
-void core::trace_print_monomial_and_factorization(const signed_vars& rm, const factorization& f, std::ostream& out) const {
+void core::trace_print_monomial_and_factorization(const smon& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
     print_product(rm.vars(), out);
     out << "\n";
@@ -1410,7 +1407,7 @@ void core::print_monomial_stats(const monomial& m, std::ostream& out) {
         if (abs(vvr(mc.vars()[i])) == rational(1)) {
             auto vv = mc.vars();
             vv.erase(vv.begin()+i);
-            signed_vars const* sv = m_emons.find_canonical(vv);
+            smon const* sv = m_emons.find_canonical(vv);
             if (!sv) {
                 out << "nf length" << vv.size() << "\n"; ;
             }
@@ -1439,7 +1436,7 @@ void core::init_to_refine() {
     
     TRACE("nla_solver", 
           tout << m_to_refine.size() << " mons to refine:\n";
-          for (lpvar v : m_to_refine) tout << m_emons[v] << "\n";);
+          for (lpvar v : m_to_refine) tout << pp_mon(*this, m_emons[v]) << "\n";);
 }
         
 std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
@@ -1465,7 +1462,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     return vars;
 }
 
-bool core::divide(const signed_vars& bc, const factor& c, factor & b) const {
+bool core::divide(const smon& bc, const factor& c, factor & b) const {
     svector<lpvar> c_vars = sorted_vars(c);
     TRACE("nla_solver_div",
           tout << "c_vars = ";
@@ -1482,7 +1479,7 @@ bool core::divide(const signed_vars& bc, const factor& c, factor & b) const {
         b = factor(b_vars[0], factor_type::VAR);
         return true;
     }
-    signed_vars const* sv = m_emons.find_canonical(b_vars);
+    smon const* sv = m_emons.find_canonical(b_vars);
     if (!sv) {
         TRACE("nla_solver_div", tout << "not in rooted";);
         return false;
@@ -1532,10 +1529,10 @@ void core::print_specific_lemma(const lemma& l, std::ostream& out) const {
 }
     
 
-void core::trace_print_ol(const signed_vars& ac,
+void core::trace_print_ol(const smon& ac,
                           const factor& a,
                           const factor& c,
-                          const signed_vars& bc,
+                          const smon& bc,
                           const factor& b,
                           std::ostream& out) {
     out << "ac = " << ac << "\n";
@@ -1584,7 +1581,7 @@ std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
 
     
 
-bool core::rm_check(const signed_vars& rm) const {
+bool core::rm_check(const smon& rm) const {
     return check_monomial(m_emons[rm.var()]);
 }
     
@@ -1642,7 +1639,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
 */
 
     
-bool core::find_bfc_to_refine_on_rmonomial(const signed_vars& rm, bfc & bf) {
+bool core::find_bfc_to_refine_on_rmonomial(const smon& rm, bfc & bf) {
     for (auto factorization : factorization_factory_imp(rm, *this)) {
         if (factorization.size() == 2) {
             auto a = factorization[0];
@@ -1656,7 +1653,7 @@ bool core::find_bfc_to_refine_on_rmonomial(const signed_vars& rm, bfc & bf) {
     return false;
 }
     
-bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const signed_vars*& rm_found){
+bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const smon*& rm_found){
     rm_found = nullptr;
     for (unsigned i: m_to_refine) {
         const auto& rm = m_emons.canonical[i];
@@ -1975,7 +1972,6 @@ lbool core::test_check(
     return check(l);
 }
 template rational core::product_value<monomial>(const monomial & m) const;
-
 } // end of nla
 
 

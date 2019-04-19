@@ -132,7 +132,8 @@ namespace nla {
         return m_use_lists[v].m_head;
     }
 
-    signed_vars const* emonomials::find_canonical(svector<lpvar> const& vars) const { 
+    smon const* emonomials::find_canonical(svector<lpvar> const& vars) const {
+        SASSERT(m_ve.is_root(vars));
         // find a unique key for dummy monomial
         lpvar v = m_var2index.size();
         for (unsigned i = 0; i < m_var2index.size(); ++i) {
@@ -143,10 +144,10 @@ namespace nla {
         }
         unsigned idx = m_monomials.size();
         m_monomials.push_back(monomial(v, vars.size(), vars.c_ptr()));
-        m_canonized.push_back(signed_vars_ts(v, idx));
+        m_canonized.push_back(smon_ts(v, idx));
         m_var2index.setx(v, idx, UINT_MAX);
         do_canonize(m_monomials[idx]);
-        signed_vars const* result = nullptr;
+        smon const* result = nullptr;
         lpvar w; 
         if (m_cg_table.find(v, w)) {
             SASSERT(w != v);
@@ -179,7 +180,7 @@ namespace nla {
     }
 
     void emonomials::remove_cg(unsigned idx, monomial const& m) {
-        signed_vars_ts& sv = m_canonized[idx];
+        smon_ts& sv = m_canonized[idx];
         unsigned next = sv.m_next;
         unsigned prev = sv.m_prev;
         
@@ -203,7 +204,7 @@ namespace nla {
     /**
        \brief insert canonized monomials using v into a congruence table.
        Prior to insertion, the monomials are canonized according to the current
-       variable equivalences. The canonized monomials (signed_vars) are considered
+       variable equivalences. The canonized monomials (smon) are considered
        in the same equivalence class if they have the same set of representative
        variables. Their signs may differ.       
     */
@@ -258,13 +259,13 @@ namespace nla {
        \brief insert a new monomial.
 
        Assume that the variables are canonical, that is, not equal in current
-       context so another variable. The monomial is inserted into a congruence
+       context to another variable. The monomial is inserted into a congruence
        class of equal up-to var_eqs monomials.
      */
     void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
         unsigned idx = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
-        m_canonized.push_back(signed_vars_ts(v, idx));
+        m_canonized.push_back(smon_ts(v, idx));
         lpvar last_var = UINT_MAX;
         for (unsigned i = 0; i < sz; ++i) {
             lpvar w = vs[i];
@@ -282,7 +283,7 @@ namespace nla {
 
     void emonomials::do_canonize(monomial const& mon) const {
         unsigned index = m_var2index[mon.var()];
-        signed_vars& svs = m_canonized[index];
+        smon& svs = m_canonized[index];
         svs.reset();
         for (lpvar v : mon) {
             svs.push_var(m_ve.find(v));
@@ -292,8 +293,8 @@ namespace nla {
 
     bool emonomials::canonize_divides(monomial const& m1, monomial const& m2) const {
         if (m1.size() > m2.size()) return false;
-        signed_vars const& s1 = canonize(m1);
-        signed_vars const& s2 = canonize(m2);
+        smon const& s1 = canonize(m1);
+        smon const& s2 = canonize(m2);
         unsigned sz1 = s1.size(), sz2 = s2.size();
         unsigned i = 0, j = 0;
         while (true) {
