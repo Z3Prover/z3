@@ -88,7 +88,8 @@ class lar_solver : public column_namer {
 #endif
     
     //////////////////// fields //////////////////////////
-    vector<unsigned>                                    m_cube_rounded_rows;
+    std::unordered_set<unsigned>                         m_cube_rounded_columns;
+    std::unordered_set<unsigned>                         m_cube_rounded_rows;
     lp_settings                                         m_settings;
     lp_status                                           m_status;
     stacked_value<simplex_strategy_enum>                m_simplex_strategy;
@@ -641,5 +642,6 @@ public:
     bool sum_first_coords(const lar_term& t, mpq & val) const;
     void fix_Ax_b_on_rounded_rows();
     void fix_Ax_b_on_rounded_row(unsigned);
+    void collect_rounded_rows_to_fix();
 };
 }
