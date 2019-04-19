@@ -46,16 +46,11 @@ bool lar_solver::get_track_pivoted_rows() const {
 
 
 lar_solver::~lar_solver(){
-    TRACE("lar_solver", tout << "~enter\n";);
-    for (auto c : m_constraints) {
-        TRACE("lar_solver", tout << c << "\n";);
+    for (auto c : m_constraints)
         delete c;
-    }
+
     for (auto t : m_terms)
         delete t;
-
-    TRACE("lar_solver", tout << "~exit\n";);
-    
 }
 
 bool lar_solver::is_term(var_index j) const {
