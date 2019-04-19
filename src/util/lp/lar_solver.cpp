@@ -875,6 +875,8 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
 }
 
 void lar_solver::fix_Ax_b_on_rounded_row(unsigned i) {
+	if (A_r().m_rows[i].size() <= i)
+		return;
     unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
     auto& v = m_mpq_lar_core_solver.m_r_x[bj];
     v = zero_of_type<numeric_pair<mpq>>();
