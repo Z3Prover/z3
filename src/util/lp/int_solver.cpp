@@ -264,7 +264,6 @@ lia_move int_solver::find_cube() {
         // it can happen that we found an integer solution here
         return !m_lar_solver->r_basis_has_inf_int()? lia_move::sat: lia_move::undef;
     }
-    m_lar_solver->x_shifted_in_cube() = true;
     m_lar_solver->pop();
     m_lar_solver->round_to_integer_solution();
     m_lar_solver->set_status(lp_status::FEASIBLE);
