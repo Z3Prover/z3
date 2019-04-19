@@ -210,7 +210,12 @@ namespace nla {
         /**
            \brief obtain the representative canonized monomial up to sign.
         */
-        signed_vars const& rep(signed_vars const& sv) const { return m_canonized[m_var2index[m_cg_table[sv.var()]]]; }
+        //signed_vars const& rep(signed_vars const& sv) const { return m_canonized[m_var2index[m_cg_table[sv.var()]]]; }
+        signed_vars const& rep(signed_vars const& sv) const {
+            unsigned j = -1;
+            m_cg_table.find(sv.var(), j);
+            return m_canonized[m_var2index[j]];
+        }
 
         /**
            \brief the original sign is defined as a sign of the equivalence class representative.
