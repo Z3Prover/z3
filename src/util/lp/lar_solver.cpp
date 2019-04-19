@@ -27,8 +27,7 @@ void clear() {lp_assert(false); // not implemented
 }
 
 
-lar_solver::lar_solver() : m_x_shifted_in_cube(false),
-                           m_status(lp_status::UNKNOWN),
+lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_infeasible_column(-1),
                            m_mpq_lar_core_solver(m_settings, *this),
                            m_int_solver(nullptr),
@@ -398,7 +397,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-    lp_assert(x_shifted_in_cube() || ax_is_correct());
+    lp_assert(m_cube_rounded_rows.size() != 0 || ax_is_correct());
     set_status(lp_status::UNKNOWN);
 }
     
@@ -875,7 +874,7 @@ void lar_solver::update_x_and_inf_costs_for_columns_with_changed_bounds_tableau(
     }
 }
 
-void lar_solver::fix_Ax_b_on_row(unsigned i) {
+void lar_solver::fix_Ax_b_on_rounded_row(unsigned i) {
     unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
     auto& v = m_mpq_lar_core_solver.m_r_x[bj];
     v = zero_of_type<numeric_pair<mpq>>();
@@ -884,18 +883,16 @@ void lar_solver::fix_Ax_b_on_row(unsigned i) {
             v -= c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
     }
 }
-void lar_solver::fix_Ax_b() {
-    for (unsigned i = 0; i < A_r().row_count(); i++) {
-        fix_Ax_b_on_row(i);
+void lar_solver::fix_Ax_b_on_rounded_rows() {
+    for (unsigned i : m_cube_rounded_rows) {
+        fix_Ax_b_on_rounded_row(i);
     }
+    m_cube_rounded_rows.clear();
     lp_assert(ax_is_correct());
 }
     
 void lar_solver::solve_with_core_solver() {
-    if (x_shifted_in_cube()) {
-        fix_Ax_b();
-        x_shifted_in_cube() = false;
-    }
+    fix_Ax_b_on_rounded_rows();
     if (!use_tableau())
         add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
     if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
