@@ -138,7 +138,6 @@ void order::negate_var_factor_relation(const rational& a_sign, lpvar a, const ra
 
 void order::order_lemma() {
     TRACE("nla_solver", );
-    c().init_rm_to_refine();
     const auto& rm_ref = c().m_to_refine;
     unsigned start = random();
     unsigned sz = rm_ref.size();

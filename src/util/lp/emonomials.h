@@ -305,27 +305,37 @@ namespace nla {
         */
         class sign_equiv_monomials_it {
             emonomials const& m;
-            unsigned m_index;
-            bool     m_touched;
+            unsigned          m_index;
+            bool              m_touched;
         public:
-            sign_equiv_monomials_it(emonomials const& m, unsigned idx, bool at_end): m(m), m_index(idx), m_touched(at_end) {}
+            sign_equiv_monomials_it(emonomials const& m, unsigned idx, bool at_end): 
+                m(m), m_index(idx), m_touched(at_end) {}
+
             monomial const& operator*() { return m.m_monomials[m_index]; }
+
             sign_equiv_monomials_it& operator++() { 
                 m_touched = true; 
                 m_index = m.m_canonized[m_index].m_next; 
                 return *this; 
             }
-            sign_equiv_monomials_it operator++(int) { sign_equiv_monomials_it tmp = *this; ++*this; return tmp; }
+
+            sign_equiv_monomials_it operator++(int) { 
+                sign_equiv_monomials_it tmp = *this; 
+                ++*this; 
+                return tmp; 
+            }
+
             bool operator==(sign_equiv_monomials_it const& other) const { 
                 return m_index == other.m_index && m_touched == other.m_touched; 
             }
+
             bool operator!=(sign_equiv_monomials_it const& other) const { 
                 return m_index != other.m_index || m_touched != other.m_touched; 
             }
         };
 
         class sign_equiv_monomials {
-            emonomials& em;
+            emonomials&     em;
             monomial const& m;
             unsigned index() const { return em.m_var2index[m.var()]; }
         public:
