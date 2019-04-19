@@ -228,15 +228,16 @@ namespace nla {
     }
 
     void emonomials::insert_cg(unsigned idx, monomial const& m) {
-        canonize(m);
+        do_canonize(m);
         lpvar v = m.var(), w;
         if (m_cg_table.find(v, w)) {
             SASSERT(w != v);
             unsigned idxr = m_var2index[w];
-            // Insert idx to the right of idxr
-            m_canonized[idx].m_prev  = idxr;
-            m_canonized[idx].m_next  = m_canonized[idxr].m_next;
-            m_canonized[idxr].m_next = idx;
+            unsigned idxl = m_canonized[idxr].m_next;
+            m_canonized[idx].m_next  = idxr;
+            m_canonized[idx].m_prev  = idxl;
+            m_canonized[idxr].m_prev = idx;
+            m_canonized[idxl].m_next = idx;
         }
         else {
             m_cg_table.insert(v);

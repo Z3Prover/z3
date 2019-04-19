@@ -276,7 +276,6 @@ public:
 
     template <typename T>
     bool mon_has_zero(const T& product) const;
-    void init_rm_to_refine() { NOT_IMPLEMENTED_YET(); }
     lp::lp_settings& settings();
     unsigned random();
     void map_monomial_vars_to_monomial_indices(unsigned i);

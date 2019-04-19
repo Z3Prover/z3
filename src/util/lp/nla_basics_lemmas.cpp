@@ -245,13 +245,14 @@ bool basics::basic_lemma(bool derived) {
         return true;
     if (derived)
         return false;
-    c().init_rm_to_refine();
     const auto& rm_ref = c().m_to_refine;
     TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
     unsigned start = c().random();
-    for (unsigned j = rm_ref.size(); j-- > 0; ) {
-        const signed_vars& r = c().m_emons.canonical[(j + start) % rm_ref.size()];
-        SASSERT (!c().check_monomial(c().m_emons[r.var()]));
+    unsigned sz = rm_ref.size();
+    for (unsigned j = 0; j < sz; ++j) {
+        lpvar v = rm_ref[(j + start) % rm_ref.size()];
+        const signed_vars& r = c().m_emons.canonical[v];
+        SASSERT (!c().check_monomial(c().m_emons[v]));
         basic_lemma_for_mon(r, derived);
     } 
         
