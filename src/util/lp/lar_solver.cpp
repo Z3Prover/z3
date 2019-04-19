@@ -394,7 +394,7 @@ void lar_solver::pop(unsigned k) {
     m_settings.simplex_strategy() = m_simplex_strategy;
     lp_assert(sizes_are_correct());
     lp_assert((!m_settings.use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
-    lp_assert(m_cube_rounded_columns.size() == 0 || ax_is_correct());
+    lp_assert(m_cube_rounded_columns.size() != 0 || ax_is_correct());
     set_status(lp_status::UNKNOWN);
 }
     
@@ -890,7 +890,8 @@ void lar_solver::fix_Ax_b_on_rounded_rows() {
 }
     
 void lar_solver::solve_with_core_solver() {
-    fix_Ax_b_on_rounded_rows();
+    if (m_cube_rounded_columns.size() != 0)
+        fix_Ax_b_on_rounded_rows();
     if (!use_tableau())
         add_last_rows_to_lu(m_mpq_lar_core_solver.m_r_solver);
     if (m_mpq_lar_core_solver.need_to_presolve_with_double_solver()) {
