@@ -24,27 +24,23 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
     std::sort(j_vars.begin(), j_vars.end());
 
     if (k_vars.size() == 1) {
-        k.var() = k_vars[0];
-        k.type() = factor_type::VAR;
+        k.set(k_vars[0], factor_type::VAR);
     } else {
         unsigned i;
         if (!m_ff->find_rm_monomial_of_vars(k_vars, i)) {
             return false;
         }
-        k.var() = i;
-        k.type() = factor_type::RM;
+        k.set(i, factor_type::RM);
     }
 
     if (j_vars.size() == 1) {
-        j.var() = j_vars[0];
-        j.type() = factor_type::VAR;
+        j.set(j_vars[0], factor_type::VAR);
     } else {
         unsigned i;
         if (!m_ff->find_rm_monomial_of_vars(j_vars, i)) {
             return false;
         }
-        j.var() = i;
-        j.type() = factor_type::RM;
+        j.set(i, factor_type::RM);
     }
     return true;
 }
@@ -90,22 +86,10 @@ bool const_iterator_mon::operator==(const const_iterator_mon::self_type &other) 
         m_full_factorization_returned == other.m_full_factorization_returned &&
         m_mask == other.m_mask;
 }
+
 bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) const { return !(*this == other); }
             
 factorization const_iterator_mon::create_binary_factorization(factor j, factor k) const {
-    // todo : the current explanation is an overkill
-    // std::function<void (expl_set&)> explain = [&](expl_set& exp){
-    //                                               const imp & impl = m_ff->m_impf;
-    //                                               unsigned mon_index = 0;
-    //                                               if (impl.m_var_to_its_monomial.find(k, mon_index)) {
-    //                                                   impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
-    //                                               }
-    //                                               if (impl.m_var_to_its_monomial.find(j, mon_index)) {
-    //                                                   impl.add_explanation_of_reducing_to_rooted_monomial(impl.m_monomials[mon_index], exp);
-    //                                               }
-
-    //                                               impl.add_explanation_of_reducing_to_rooted_monomial(m_ff->m_mon, exp);
-    //                                           };
     factorization f(nullptr);
     f.push_back(j);
     f.push_back(k);  

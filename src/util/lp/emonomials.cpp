@@ -233,7 +233,7 @@ namespace nla {
         if (m_cg_table.find(v, w)) {
             SASSERT(w != v);
             unsigned idxr = m_var2index[w];
-            unsigned idxl = m_canonized[idxr].m_next;
+            unsigned idxl = m_canonized[idxr].m_prev;
             m_canonized[idx].m_next  = idxr;
             m_canonized[idx].m_prev  = idxl;
             m_canonized[idxr].m_prev = idx;
@@ -324,13 +324,22 @@ namespace nla {
 
     // yes, assume that monomials are non-empty.
     emonomials::pf_iterator::pf_iterator(emonomials const& m, monomial const& mon, bool at_end):
-        m(m), m_mon(mon), m_it(iterator(m, m.head(mon[0]), at_end)), m_end(iterator(m, m.head(mon[0]), true)) {
+        m(m), m_mon(&mon), m_it(iterator(m, m.head(mon[0]), at_end)), m_end(iterator(m, m.head(mon[0]), true)) {
+        fast_forward();
+    }
+
+    emonomials::pf_iterator::pf_iterator(emonomials const& m, lpvar v, bool at_end):
+        m(m), m_mon(nullptr), m_it(iterator(m, m.head(v), at_end)), m_end(iterator(m, m.head(v), true)) {
         fast_forward();
     }
 
     void emonomials::pf_iterator::fast_forward() {
         for (; m_it != m_end; ++m_it) {
-            if (m_mon.var() != (*m_it).var() && m.canonize_divides(m_mon, *m_it) && !m.is_visited(*m_it)) {
+            if (m_mon && m_mon->var() != (*m_it).var() && m.canonize_divides(*m_mon, *m_it) && !m.is_visited(*m_it)) {
+                m.set_visited(*m_it);
+                break;
+            }
+            if (!m_mon && !m.is_visited(*m_it)) {
                 m.set_visited(*m_it);
                 break;
             }

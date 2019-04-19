@@ -276,7 +276,7 @@ void order::order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, co
 }
 
 void order::order_lemma_on_binomial_ac_bd(const monomial& ac, unsigned k, const signed_vars& bd, const factor& b, lpvar d) {
-    TRACE("nla_solver",  print_monomial(ac, tout << "ac=");
+    TRACE("nla_solver",  tout << "ac=" << pp_mon(c(), ac);
           tout << "\nrm=" << bd;
           print_factor(b, tout << ", b="); print_var(d, tout << ", d=") << "\n";);
     int p = (k + 1) % 2;
@@ -312,7 +312,7 @@ void order::order_lemma_on_factor_binomial_explore(const monomial& m, unsigned k
 }
 
 void order::order_lemma_on_binomial(const monomial& ac) {
-    TRACE("nla_solver", print_monomial(ac, tout););
+    TRACE("nla_solver", tout << pp_mon(c(), ac););
     SASSERT(!check_monomial(ac) && ac.size() == 2);
     const rational & mult_val = vvr(ac[0]) * vvr(ac[1]);
     const rational acv = vvr(ac);

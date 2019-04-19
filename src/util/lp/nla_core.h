@@ -151,7 +151,6 @@ public:
     void explain_var_separated_from_zero(lpvar j);
     void explain_fixed_var(lpvar j);
 
-
     std::ostream & print_ineq(const ineq & in, std::ostream & out) const;
     std::ostream & print_var(lpvar j, std::ostream & out) const;
     std::ostream & print_monomials(std::ostream & out) const;    
@@ -163,7 +162,6 @@ public:
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const;
     std::ostream& print_bfc(const bfc& m, std::ostream& out) const;
-    std::ostream& print_monomial(unsigned i, std::ostream& out) const;
     std::ostream& print_monomial_with_vars(unsigned i, std::ostream& out) const;
     template <typename T>
     std::ostream& print_product_with_vars(const T& m, std::ostream& out) const;
@@ -343,5 +341,15 @@ public:
     
     lbool  test_check(vector<lemma>& l);
 };  // end of core
+
+    struct pp_mon {
+        core const& c;
+        monomial const& m;
+        pp_mon(core const& c, monomial const& m): c(c), m(m) {}
+        pp_mon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
+
 } // end of namespace nla
 

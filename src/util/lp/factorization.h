@@ -30,16 +30,14 @@ typedef unsigned lpvar;
 enum class factor_type { VAR, RM }; // RM stands for rooted monomial 
 
 class factor {
-    unsigned     m_var;
+    lpvar        m_var;
     factor_type  m_type;
 public:
-    factor() {}
-    explicit factor(unsigned j) : factor(j, factor_type::VAR) {}
-    factor(unsigned i, factor_type t) : m_var(i), m_type(t) {}
+    factor(): m_var(UINT_MAX), m_type(factor_type::VAR) {}
+    explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t) {}
     unsigned var() const { return m_var; }
-    unsigned& var() { return m_var; }
     factor_type type() const { return m_type; }
-    factor_type& type() { return m_type; }
+    void set(lpvar v, factor_type t) { m_var = v; m_type = t; }
     bool is_var() const { return m_type == factor_type::VAR; }
     bool operator==(factor const& other) const {
         return m_var == other.var() && m_type == other.type();
@@ -51,12 +49,12 @@ public:
 
 
 class factorization {
-    vector<factor>        m_vars;
+    svector<factor>       m_vars;
     const monomial*       m_mon;
 public:
     factorization(const monomial* m): m_mon(m) {
         if (m != nullptr) {
-            for(lpvar j : *m)
+            for (lpvar j : *m)
                 m_vars.push_back(factor(j, factor_type::VAR));
         }
     }
@@ -66,7 +64,7 @@ public:
     size_t size() const { return m_vars.size(); }
     const factor* begin() const { return m_vars.begin(); }
     const factor* end() const { return m_vars.end(); }
-    void push_back(factor v) {
+    void push_back(factor const& v) {
         SASSERT(!is_mon());
         m_vars.push_back(v);
     }
@@ -122,7 +120,7 @@ struct factorization_factory {
         // repeating a pair twice, that is why m_mask is shorter by one then m_vars
         
         return
-            m_vars.size() != 2?
+            m_vars.size() != 2 ?
             svector<bool>(m_vars.size() - 1, false)
             :
             svector<bool>(1, true); // init mask as in the end() since the full iteration will do the job

@@ -182,7 +182,8 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
 std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) const {
     if (f.is_var()) {
         print_var(f.var(), out);
-    } else {
+    } 
+    else {
         out << " RM = " << m_emons.canonical[f.var()];
         out << "\n orig mon = " << m_emons[f.var()];
     }
@@ -191,8 +192,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 
 std::ostream& core::print_monomial(const monomial& m, std::ostream& out) const {
     out << "( [" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << vvr(m.var()) << " = ";
-    print_product(m.vars(), out);
-    out << ")\n";
+    print_product(m.vars(), out) << ")\n";
     return out;
 }
 
@@ -207,13 +207,9 @@ std::ostream& core::print_tangent_domain(const point &a, const point &b, std::os
 }
 
 std::ostream& core::print_bfc(const bfc& m, std::ostream& out) const {
-    out << "( x = "; print_factor(m.m_x, out); out <<  ", y = "; print_factor(m.m_y, out); out <<  ")";
-    return out;
+    return out << "( x = "; print_factor(m.m_x, out); out <<  ", y = "; print_factor(m.m_y, out); out <<  ")";
 }
 
-std::ostream& core::print_monomial(unsigned i, std::ostream& out) const {
-    return print_monomial(m_emons[i], out);
-}
 
 std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
     return print_monomial_with_vars(m_emons[v], out);
@@ -221,8 +217,7 @@ std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
 
 template <typename T>
 std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const {
-    print_product(m, out);
-    out << '\n';
+    print_product(m, out) << "\n";
     for (unsigned k = 0; k < m.size(); k++) {
         print_var(m[k], out);
     }
@@ -772,8 +767,9 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
     
 std::ostream & core::print_factorization(const factorization& f, std::ostream& out) const {
     if (f.is_mon()){
-        print_monomial(*f.mon(), out << "is_mon ");
-    } else {
+        out << "is_mon " << pp_mon(*this, *f.mon());
+    } 
+    else {
         for (unsigned k = 0; k < f.size(); k++ ) {
             print_factor(f[k], out);
             if (k < f.size() - 1)
@@ -830,7 +826,7 @@ void core::trace_print_monomial_and_factorization(const signed_vars& rm, const f
     print_product(rm.vars(), out);
     out << "\n";
         
-    print_monomial(rm.var(), out << "mon:  ") << "\n";
+    out << "mon:  " << pp_mon(*this, rm.var()) << "\n";
     out << "value: " << vvr(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
 }
@@ -1483,7 +1479,7 @@ bool core::divide(const signed_vars& bc, const factor& c, factor & b) const {
     TRACE("nla_solver_div", tout << "b_vars = "; print_product(b_vars, tout););
     SASSERT(b_vars.size() > 0);
     if (b_vars.size() == 1) {
-        b = factor(b_vars[0]);
+        b = factor(b_vars[0], factor_type::VAR);
         return true;
     }
     signed_vars const* sv = m_emons.find_canonical(b_vars);
@@ -1670,8 +1666,8 @@ bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const signed_va
             const monomial & m = m_emons[rm.var()];
             j = m.var();
             rm_found = nullptr;
-            bf.m_x = factor(m[0]);
-            bf.m_y = factor(m[1]);
+            bf.m_x = factor(m[0], factor_type::VAR);
+            bf.m_y = factor(m[1], factor_type::VAR);
             return true;
         }
                 

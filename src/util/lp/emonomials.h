@@ -271,13 +271,15 @@ namespace nla {
         */
         class pf_iterator {
             emonomials const& m;
-            monomial const&   m_mon; // canonized monomial
+            monomial const*   m_mon; // monomial
+            lpvar             m_var;
             iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that are not factors.
             iterator          m_end;
 
             void fast_forward();
         public:
             pf_iterator(emonomials const& m, monomial const& mon, bool at_end);
+            pf_iterator(emonomials const& m, lpvar v, bool at_end);
             monomial const& operator*() { return *m_it; }
             pf_iterator& operator++() { ++m_it; fast_forward(); return *this; }
             pf_iterator operator++(int) { pf_iterator tmp = *this; ++*this; return tmp; }
@@ -287,15 +289,17 @@ namespace nla {
 
         class factors_of {
             emonomials const& m;
-            monomial const& mon;
+            monomial const* mon;
+            lpvar           m_var;
         public:
-            factors_of(emonomials const& m, monomial const& mon): m(m), mon(mon) {}
-            pf_iterator begin() { return pf_iterator(m, mon, false); }
-            pf_iterator end() { return pf_iterator(m, mon, true); }
+            factors_of(emonomials const& m, monomial const& mon): m(m), mon(&mon), m_var(UINT_MAX) {}
+            factors_of(emonomials const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
+            pf_iterator begin() { if (mon) return pf_iterator(m, *mon, false); return pf_iterator(m, m_var, false); }
+            pf_iterator end() { if (mon) return pf_iterator(m, *mon, true); return pf_iterator(m, m_var, true); }
         };
 
         factors_of get_factors_of(monomial const& m) const { inc_visited(); return factors_of(*this, m); }
-        factors_of get_factors_of(lpvar v) const { return get_factors_of(var2monomial(v)); }
+        factors_of get_factors_of(lpvar v) const { inc_visited(); return factors_of(*this, v); }
        
         signed_vars const* find_canonical(svector<lpvar> const& vars) const;
 
