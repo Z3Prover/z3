@@ -161,6 +161,9 @@ namespace nla {
 
     void emonomials::remove_cg(lpvar v) {
         cell* c = m_use_lists[v].m_head;
+        if (c == nullptr) {
+            return;
+        }
         cell* first = c;
         inc_visited();
         do {
@@ -206,6 +209,10 @@ namespace nla {
     */
     void emonomials::insert_cg(lpvar v) {
         cell* c = m_use_lists[v].m_head;
+        if (c == nullptr) {
+            return;
+        }
+
         cell* first = c;
         inc_visited();
         do {

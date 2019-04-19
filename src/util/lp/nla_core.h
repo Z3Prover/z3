@@ -77,14 +77,14 @@ public:
 class core {
 public:
     var_eqs                  m_evars;
-    emonomials               m_emons;
-    lp::lar_solver           m_lar_solver;
+    lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
     svector<lpvar>           m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
+    emonomials               m_emons;
 
     core(lp::lar_solver& s);
 
