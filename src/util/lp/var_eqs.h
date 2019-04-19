@@ -123,6 +123,13 @@ public:
         signed_var sv = find(signed_var(j, false));
         return sv.var() == j;            
     }
+    inline bool is_root(svector<lpvar> v) const {
+        for (lpvar j : v)
+            if (! is_root(j))
+                return false;
+        return true;
+    }
+
     bool vars_are_equiv(lpvar j, lpvar k) const {
         signed_var sj = find(signed_var(j, false));
         signed_var sk = find(signed_var(k, false));

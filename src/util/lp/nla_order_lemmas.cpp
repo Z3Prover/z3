@@ -29,10 +29,10 @@ namespace nla {
 // a >< b && c < 0  => ac <> bc
 // ac[k] plays the role of c   
 
-bool order::order_lemma_on_ac_and_bc(const signed_vars& rm_ac,
+bool order::order_lemma_on_ac_and_bc(const smon& rm_ac,
                                      const factorization& ac_f,
                                      unsigned k,
-                                     const signed_vars& rm_bd) {
+                                     const smon& rm_bd) {
     TRACE("nla_solver", 
           tout << "rm_ac = " << rm_ac << "\n";
           tout << "rm_bd = " << rm_bd << "\n";
@@ -44,7 +44,7 @@ bool order::order_lemma_on_ac_and_bc(const signed_vars& rm_ac,
         order_lemma_on_ac_and_bc_and_factors(rm_ac, ac_f[(k + 1) % 2], ac_f[k], rm_bd, b);
 }
 
-bool order::order_lemma_on_ac_explore(const signed_vars& rm, const factorization& ac, unsigned k) {
+bool order::order_lemma_on_ac_explore(const smon& rm, const factorization& ac, unsigned k) {
     const factor c = ac[k];
     TRACE("nla_solver", tout << "c = "; _().print_factor_with_vars(c, tout); );
     if (c.is_var()) {
@@ -65,7 +65,7 @@ bool order::order_lemma_on_ac_explore(const signed_vars& rm, const factorization
     return false;
 }
 
-void order::order_lemma_on_factorization(const signed_vars& rm, const factorization& ab) {
+void order::order_lemma_on_factorization(const smon& rm, const factorization& ab) {
     const monomial& m = _().m_emons[rm.var()];
     TRACE("nla_solver", tout << "orig_sign = " << _().m_emons.orig_sign(rm) << "\n";);
     rational sign = _().m_emons.orig_sign(rm);
@@ -90,11 +90,11 @@ void order::order_lemma_on_factorization(const signed_vars& rm, const factorizat
 }
 // |c_sign| = 1, and c*c_sign > 0
 // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
-void order::generate_ol(const signed_vars& ac,                     
+void order::generate_ol(const smon& ac,                     
                        const factor& a,
                        int c_sign,
                        const factor& c,
-                       const signed_vars& bc,
+                       const smon& bc,
                        const factor& b,
                        llc ab_cmp) {
     add_empty_lemma();
@@ -114,7 +114,7 @@ void order::generate_mon_ol(const monomial& ac,
                            lpvar a,
                            const rational& c_sign,
                            lpvar c,
-                           const signed_vars& bd,
+                           const smon& bd,
                            const factor& b,
                            const rational& d_sign,
                            lpvar d,
@@ -142,15 +142,15 @@ void order::order_lemma() {
     unsigned start = random();
     unsigned sz = rm_ref.size();
     for (unsigned i = sz; i-- > 0 && !done(); ) {        
-        const signed_vars& rm = c().m_emons.canonical[rm_ref[(i + start) % sz]];
+        const smon& rm = c().m_emons.canonical[rm_ref[(i + start) % sz]];
         order_lemma_on_rmonomial(rm);
     }
 }
 
-bool order::order_lemma_on_ac_and_bc_and_factors(const signed_vars& ac,
+bool order::order_lemma_on_ac_and_bc_and_factors(const smon& ac,
                                                  const factor& a,
                                                  const factor& c,
-                                                 const signed_vars& bc,
+                                                 const smon& bc,
                                                  const factor& b) {
     auto cv = vvr(c); 
     int c_sign = nla::rat_sign(cv);
@@ -232,10 +232,10 @@ void order::order_lemma_on_ab(const monomial& m, const rational& sign, lpvar a, 
         order_lemma_on_ab_lt(m, sign, a, b);
 }
 // a > b && c > 0 => ac > bc
-void order::order_lemma_on_rmonomial(const signed_vars& rm) {
+void order::order_lemma_on_rmonomial(const smon& rm) {
     TRACE("nla_solver_details",
           tout << "rm = "; print_product(rm, tout);
-          tout << ", orig = " << c().m_emons[rm.var()] << "\n";
+          tout << ", orig = " << pp_mon(c(), c().m_emons[rm.var()]);
           );
     for (auto ac : factorization_factory_imp(rm, c())) {
         if (ac.size() != 2)
@@ -267,7 +267,7 @@ void order::order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, i
     TRACE("nla_solver", print_lemma(tout););
 }
 void order::order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, const monomial& bd) {
-    signed_vars const& rm_bd = _().m_emons.canonical[bd];
+    smon const& rm_bd = _().m_emons.canonical[bd];
     factor d(_().m_evars.find(ac[k]).var(), factor_type::VAR);
     factor b;
     if (_().divide(rm_bd, d, b)) {
@@ -275,7 +275,7 @@ void order::order_lemma_on_factor_binomial_rm(const monomial& ac, unsigned k, co
     }
 }
 
-void order::order_lemma_on_binomial_ac_bd(const monomial& ac, unsigned k, const signed_vars& bd, const factor& b, lpvar d) {
+void order::order_lemma_on_binomial_ac_bd(const monomial& ac, unsigned k, const smon& bd, const factor& b, lpvar d) {
     TRACE("nla_solver",  tout << "ac=" << pp_mon(c(), ac);
           tout << "\nrm=" << bd;
           print_factor(b, tout << ", b="); print_var(d, tout << ", d=") << "\n";);

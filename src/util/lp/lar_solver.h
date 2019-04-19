@@ -246,6 +246,7 @@ public:
 
     void clear();
     lar_solver();
+
     void set_track_pivoted_rows(bool v);
 
     bool get_track_pivoted_rows() const;

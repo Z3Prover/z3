@@ -33,7 +33,7 @@ std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std
     out << "("; print_point(a, out);  out <<  ", "; print_point(b, out); out <<  ")";
     return out;
 }
-void tangents::generate_simple_tangent_lemma(const signed_vars* rm) {
+void tangents::generate_simple_tangent_lemma(const smon* rm) {
     if (rm->size() != 2)
         return;
     TRACE("nla_solver", tout << "rm:" << *rm << std::endl;);
@@ -73,7 +73,7 @@ void tangents::tangent_lemma() {
     bfc bf;
     lpvar j;
     rational sign;
-    const signed_vars* rm = nullptr;
+    const smon* rm = nullptr;
         
     if (c().find_bfc_to_refine(bf, j, sign, rm)) {
         tangent_lemma_bf(bf, j, sign, rm);
@@ -84,7 +84,7 @@ void tangents::tangent_lemma() {
     }
 }
 
-void tangents::generate_explanations_of_tang_lemma(const signed_vars& rm, const bfc& bf, lp::explanation& exp) {
+void tangents::generate_explanations_of_tang_lemma(const smon& rm, const bfc& bf, lp::explanation& exp) {
     // here we repeat the same explanation for each lemma
     c().explain(rm, exp);
     c().explain(bf.m_x, exp);
@@ -112,7 +112,7 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
     t.add_coeff_var( j_sign, j);
     c().mk_ineq(t, sbelow? llc::GT : llc::LT, - a*b);
 }  
-void tangents::tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const signed_vars* rm){
+void tangents::tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const smon* rm){
     point a, b;
     point xy (vvr(bf.m_x), vvr(bf.m_y));
     rational correct_mult_val =  xy.x * xy.y;

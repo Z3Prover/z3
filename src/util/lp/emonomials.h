@@ -31,12 +31,12 @@ namespace nla {
        \brief class used to summarize the coefficients to a monomial after
        canonization with respect to current equalities.
     */
-    class signed_vars {
+    class smon {
         lpvar           m_var; // variable representing original monomial
         svector<lpvar>  m_vars;
         bool            m_sign;
     public:
-        signed_vars(lpvar v) : m_var(v), m_sign(false) {}
+        smon(lpvar v) : m_var(v), m_sign(false) {}
         lpvar var() const { return m_var; }
         svector<lpvar> const& vars() const { return m_vars; }
         svector<lp::var_index>::const_iterator begin() const { return vars().begin(); }
@@ -58,7 +58,7 @@ namespace nla {
         }
     };
 
-    inline std::ostream& operator<<(std::ostream& out, signed_vars const& m) { return m.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, smon const& m) { return m.display(out); }
 
 
     class emonomials : public var_eqs_merge_handler {
@@ -86,9 +86,9 @@ namespace nla {
         /**
            \brief private fields used by emonomials for maintaining state of canonized monomials.
         */
-        class signed_vars_ts : public signed_vars {
+        class smon_ts : public smon {
         public:
-            signed_vars_ts(lpvar v, unsigned idx): signed_vars(v), m_next(idx), m_prev(idx), m_visited(0) {}
+            smon_ts(lpvar v, unsigned idx): smon(v), m_next(idx), m_prev(idx), m_visited(0) {}
             unsigned m_next;                    // next congruent node.
             unsigned m_prev;                    // previous congruent node
             mutable unsigned m_visited;
@@ -120,7 +120,7 @@ namespace nla {
         unsigned_vector                 m_lim;           // backtracking point
         mutable unsigned                m_visited;       // timestamp of visited monomials during pf_iterator
         region                          m_region;        // region for allocating linked lists
-        mutable vector<signed_vars_ts>  m_canonized;     // canonized versions of signed variables
+        mutable vector<smon_ts>  m_canonized;     // canonized versions of signed variables
         mutable svector<head_tail>      m_use_lists;     // use list of monomials where variables occur.
         hash_canonical                  m_cg_hash;
         eq_canonical                    m_cg_eq;
@@ -189,14 +189,14 @@ namespace nla {
         /**
            \brief retrieve canonized monomial corresponding to variable v from definition v := vs
         */
-        signed_vars const& var2canonical(lpvar v) const { return canonize(var2monomial(v)); }
+        smon const& var2canonical(lpvar v) const { return canonize(var2monomial(v)); }
         
         class canonical {
             emonomials& m;
         public:
             canonical(emonomials& m): m(m) {}
-            signed_vars const& operator[](lpvar v) const { return m.var2canonical(v); }
-            signed_vars const& operator[](monomial const& mon) const { return m.var2canonical(mon.var()); }
+            smon const& operator[](lpvar v) const { return m.var2canonical(v); }
+            smon const& operator[](monomial const& mon) const { return m.var2canonical(mon.var()); }
         };
 
         canonical canonical;
@@ -205,13 +205,13 @@ namespace nla {
            \brief obtain a canonized signed monomial
            corresponding to current equivalence class.
         */
-        signed_vars const& canonize(monomial const& m) const { return m_canonized[m_var2index[m.var()]]; }
+        smon const& canonize(monomial const& m) const { return m_canonized[m_var2index[m.var()]]; }
 
         /**
            \brief obtain the representative canonized monomial up to sign.
         */
-        //signed_vars const& rep(signed_vars const& sv) const { return m_canonized[m_var2index[m_cg_table[sv.var()]]]; }
-        signed_vars const& rep(signed_vars const& sv) const {
+        //smon const& rep(smon const& sv) const { return m_canonized[m_var2index[m_cg_table[sv.var()]]]; }
+        smon const& rep(smon const& sv) const {
             unsigned j = -1;
             m_cg_table.find(sv.var(), j);
             return m_canonized[m_var2index[j]];
@@ -220,7 +220,7 @@ namespace nla {
         /**
            \brief the original sign is defined as a sign of the equivalence class representative.
         */
-        rational orig_sign(signed_vars const& sv) const { return rep(sv).rsign(); }           
+        rational orig_sign(smon const& sv) const { return rep(sv).rsign(); }           
 
         /**
            \brief determine if m1 divides m2 over the canonization obtained from merged variables.
@@ -301,7 +301,7 @@ namespace nla {
         factors_of get_factors_of(monomial const& m) const { inc_visited(); return factors_of(*this, m); }
         factors_of get_factors_of(lpvar v) const { inc_visited(); return factors_of(*this, v); }
        
-        signed_vars const* find_canonical(svector<lpvar> const& vars) const;
+        smon const* find_canonical(svector<lpvar> const& vars) const;
 
         /**
            \brief iterator over sign equivalent monomials.
@@ -350,7 +350,7 @@ namespace nla {
 
         sign_equiv_monomials enum_sign_equiv_monomials(monomial const& m) { return sign_equiv_monomials(*this, m); }
         sign_equiv_monomials enum_sign_equiv_monomials(lpvar v) { return enum_sign_equiv_monomials((*this)[v]); }
-        sign_equiv_monomials enum_sign_equiv_monomials(signed_vars const& sv) { return enum_sign_equiv_monomials(sv.var()); }
+        sign_equiv_monomials enum_sign_equiv_monomials(smon const& sv) { return enum_sign_equiv_monomials(sv.var()); }
 
         /**
            \brief display state of emonomials
