@@ -24,15 +24,12 @@ namespace nla {
 template <typename T> rational tangents::vvr(T const& t) const { return m_core->vvr(t); }
 
 tangents::tangents(core * c) : common(c) {}
-std::ostream& tangents::print_point(const point &a, std::ostream& out) const {
-    out << "(" << a.x <<  ", " << a.y << ")";
-    return out;
-}
+
     
 std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std::ostream& out) const {
-    out << "("; print_point(a, out);  out <<  ", "; print_point(b, out); out <<  ")";
-    return out;
+    return out << "(" << a <<  ", " << b << ")";
 }
+
 void tangents::generate_simple_tangent_lemma(const smon* rm) {
     if (rm->size() != 2)
         return;
@@ -172,7 +169,7 @@ void tangents::push_tang_point(point &a, const point& xy, bool below, const rati
     while (steps--) {
         del *= rational(2);
         point na = xy + del;
-        TRACE("nla_solver", tout << "del = "; print_point(del, tout); tout << std::endl;);
+        TRACE("nla_solver", tout << "del = " << del << std::endl;);
         if (!plane_is_correct_cut(na, xy, correct_val, val, below)) {
             TRACE("nla_solver_tp", tout << "exit";tout << std::endl;);
             return;
@@ -208,14 +205,14 @@ void tangents::get_tang_points(point &a, point &b, bool below, const rational& v
                            const point& xy) const {
     get_initial_tang_points(a, b, xy, below);
     auto correct_val = xy.x * xy.y;
-    TRACE("nla_solver", tout << "xy = "; print_point(xy, tout); tout << ", correct val = " << xy.x * xy.y;
+    TRACE("nla_solver", tout << "xy = " << xy << ", correct val = " << xy.x * xy.y;
           tout << "\ntang points:"; print_tangent_domain(a, b, tout);tout << std::endl;);
     TRACE("nla_solver", tout << "tang_plane(a, xy) = " << tang_plane(a, xy) << " , val = " << val;
           tout << "\ntang_plane(b, xy) = " << tang_plane(b, xy); tout << std::endl;);
     SASSERT(plane_is_correct_cut(a, xy, correct_val, val, below));
     SASSERT(plane_is_correct_cut(b, xy, correct_val, val, below));
     push_tang_points(a, b, xy, below, correct_val, val);
-    TRACE("nla_solver", tout << "pushed a = "; print_point(a, tout); tout << "\npushed b = "; print_point(b, tout); tout << std::endl;);
+    TRACE("nla_solver", tout << "pushed a = " << a << "\npushed b = " << b << std::endl;);
 }
 }
 
