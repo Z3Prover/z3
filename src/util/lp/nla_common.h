@@ -46,6 +46,9 @@ struct common {
     common(core* c): m_core(c) {}
     core& c() { return *m_core; }
     const core& c() const { return *m_core; }
+    core& _() { return *m_core; }
+    const core& _() const { return *m_core; }
+
     template <typename T> rational vvr(T const& t) const;
     rational vvr(lpvar) const;
     template <typename T> lpvar var(T const& t) const;
