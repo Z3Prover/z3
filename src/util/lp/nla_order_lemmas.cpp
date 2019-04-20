@@ -37,7 +37,7 @@ void order::order_lemma() {
 
 void order::order_lemma_on_rmonomial(const smon& rm) {
     TRACE("nla_solver_details",
-          tout << "rm = " << rm << ", orig = " << c().m_emons[rm];);
+          tout << "rm = " << rm << ", orig = " << pp_mon(c(), c().m_emons[rm]););
 
     for (auto ac : factorization_factory_imp(rm, c())) {
         if (ac.size() != 2)
