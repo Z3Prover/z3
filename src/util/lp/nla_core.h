@@ -351,5 +351,21 @@ public:
 
     inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
 
+    struct pp_fac {
+        core const& c;
+        factor const& f;
+        pp_fac(core const& c, factor const& f): c(c), f(f) {}
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, pp_fac const& f) { return f.c.print_factor(f.f, out); }
+
+    struct pp_var {
+        core const& c;
+        lpvar v;
+        pp_var(core const& c, lpvar v): c(c), v(v) {}
+    };
+
+    inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
+
 } // end of namespace nla
 
