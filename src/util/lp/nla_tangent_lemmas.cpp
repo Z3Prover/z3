@@ -40,7 +40,7 @@ void tangents::generate_simple_tangent_lemma(const smon* rm) {
     m_core->add_empty_lemma();
     const monomial & m = c().m_emons[rm->var()];
     const rational v = c().product_value(m);
-    const rational& mv = vvr(m);
+    const rational mv = vvr(m);
     SASSERT(mv != v);
     SASSERT(!mv.is_zero() && !v.is_zero());
     rational sign = rational(nla::rat_sign(mv));
@@ -51,7 +51,7 @@ void tangents::generate_simple_tangent_lemma(const smon* rm) {
     bool gt = abs(mv) > abs(v);
     if (gt) {
         for (lpvar j : m) {
-            const rational & jv = vvr(j);
+            const rational jv = vvr(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT);
             c().mk_ineq(js, j, llc::GT, jv);
@@ -59,7 +59,7 @@ void tangents::generate_simple_tangent_lemma(const smon* rm) {
         c().mk_ineq(sign, rm->var(), llc::LE, std::max(v, rational(-1)));
     } else {
         for (lpvar j : m) {
-            const rational & jv = vvr(j);
+            const rational jv = vvr(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT, std::max(jv, rational(0)));
         }

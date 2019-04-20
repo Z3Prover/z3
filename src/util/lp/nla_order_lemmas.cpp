@@ -54,7 +54,7 @@ void order::order_lemma_on_rmonomial(const smon& rm) {
 void order::order_lemma_on_binomial(const monomial& ac) {
     TRACE("nla_solver", tout << pp_mon(c(), ac););
     SASSERT(!check_monomial(ac) && ac.size() == 2);
-    const rational & mult_val = vvr(ac[0]) * vvr(ac[1]);
+    const rational mult_val = vvr(ac[0]) * vvr(ac[1]);
     const rational acv = vvr(ac);
     bool gt = acv > mult_val;
     for (unsigned k = 0; k < 2; k++) {
@@ -182,7 +182,7 @@ void order::order_lemma_on_factorization(const smon& rm, const factorization& ab
     rational sign = _().m_emons.orig_sign(rm);
     for (factor f: ab)
         sign *= _().canonize_sign(f);
-    const rational & fv = vvr(ab[0]) * vvr(ab[1]);
+    const rational fv = vvr(ab[0]) * vvr(ab[1]);
     const rational mv = sign * vvr(m);
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
