@@ -184,6 +184,8 @@ namespace nla {
 
         monomial const& operator[](lpvar v) const { return var2monomial(v); }
 
+        monomial const& operator[](smon const& m) const { return var2monomial(m.var()); }
+
         bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 
         /**

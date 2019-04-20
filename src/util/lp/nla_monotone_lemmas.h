@@ -20,16 +20,18 @@
 #pragma once
 namespace nla {
 class core;
-struct monotone: common {    
+class monotone : common {    
+public:
     monotone(core *core);
-    void print_monotone_array(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted,
-                                  std::ostream& out) const;
-    bool monotonicity_lemma_on_lex_sorted_rm_upper(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const smon& rm);
-    bool monotonicity_lemma_on_lex_sorted_rm_lower(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const smon& rm);
-    bool monotonicity_lemma_on_lex_sorted_rm(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted, unsigned i, const smon& rm);
-    bool monotonicity_lemma_on_lex_sorted(const vector<std::pair<std::vector<rational>, unsigned>>& lex_sorted);
-    bool  monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms);
     void monotonicity_lemma();
+private:
+    typedef vector<std::pair<std::vector<rational>, unsigned>> monotone_array_t;
+    void print_monotone_array(const monotone_array_t& lex_sorted, std::ostream& out) const;
+    bool monotonicity_lemma_on_lex_sorted_rm_upper(const monotone_array_t& lex_sorted, unsigned i, const smon& rm);
+    bool monotonicity_lemma_on_lex_sorted_rm_lower(const monotone_array_t& lex_sorted, unsigned i, const smon& rm);
+    bool monotonicity_lemma_on_lex_sorted_rm(const monotone_array_t& lex_sorted, unsigned i, const smon& rm);
+    bool monotonicity_lemma_on_lex_sorted(const monotone_array_t& lex_sorted);
+    bool  monotonicity_lemma_on_rms_of_same_arity(const unsigned_vector& rms);
     void monotonicity_lemma(monomial const& m);
     void monotonicity_lemma_gt(const monomial& m, const rational& prod_val);    
     void monotonicity_lemma_lt(const monomial& m, const rational& prod_val);    
