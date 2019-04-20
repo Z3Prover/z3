@@ -76,7 +76,7 @@ bool basics::try_get_non_strict_sign_from_bounds(lpvar j, int& sign) const {
 }
 
 void basics::get_non_strict_sign(lpvar j, int& sign) const {
-    const rational & v = vvr(j);
+    const rational v = vvr(j);
     if (v.is_zero()) {
         try_get_non_strict_sign_from_bounds(j, sign);
     } else {
@@ -323,8 +323,8 @@ bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_derived(const smon& 
     lpvar mon_var =  c().m_emons[rm.var()].var();
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
-    const auto & mv = vvr(mon_var);
-    const auto  abs_mv = abs(mv);
+    const auto mv = vvr(mon_var);
+    const auto abs_mv = abs(mv);
         
     if (abs_mv == rational::zero()) {
         return false;
@@ -570,8 +570,8 @@ bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based_fm(const
     TRACE("nla_solver_bl", c().print_monomial(m, tout););
 
     lpvar mon_var = m.var();
-    const auto & mv = vvr(mon_var);
-    const auto  abs_mv = abs(mv);
+    const auto mv = vvr(mon_var);
+    const auto abs_mv = abs(mv);
     if (abs_mv == rational::zero()) {
         return false;
     }
@@ -670,8 +670,8 @@ bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const sm
     lpvar mon_var = c().m_emons[rm.var()].var();
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
-    const auto & mv = vvr(mon_var);
-    const auto  abs_mv = abs(mv);
+    const auto mv = vvr(mon_var);
+    const auto abs_mv = abs(mv);
         
     if (abs_mv == rational::zero()) {
         return false;
