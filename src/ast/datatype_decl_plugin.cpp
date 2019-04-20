@@ -494,8 +494,8 @@ namespace datatype {
                     out << "[mk-app] " << family_name << "#" << m_id_counter << " = " << family_name << "#" << constructor_id - num_args + i 
                         << " " << family_name << "#" << m_id_counter - 1 << "\n";
                     ++m_id_counter;
-                    out << "[mk-quant] " << family_name << "#" << m_id_counter << " constructor_accessor_axiom " << family_name << "#" << constructor_id + 1
-                        << " " << family_name << "#" << m_id_counter - 1 << "\n";
+                    out << "[mk-quant] " << family_name << "#" << m_id_counter << " constructor_accessor_axiom " << num_args << " " << family_name
+                        << "#" << constructor_id + 1 << " " << family_name << "#" << m_id_counter - 1 << "\n";
                     out << "[attach-var-names] " << family_name << "#" << m_id_counter << var_description << "\n";
                     ++m_id_counter;
                     ++i;
