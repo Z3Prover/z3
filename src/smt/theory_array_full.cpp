@@ -250,7 +250,7 @@ namespace smt {
             return theory_array::internalize_term(n);
         }
 
-        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n) && !is_set_has_size(n)) {
+        if (!is_const(n) && !is_default(n)  && !is_map(n) && !is_as_array(n) && !is_set_has_size(n) && !is_set_card(n)) {
             if (!is_array_ext(n))
                 found_unsupported_op(n);
             return false;
@@ -274,11 +274,11 @@ namespace smt {
                 mk_var(arg0);
             }
         }
-        else if (is_set_has_size(n)) {
+        else if (is_set_has_size(n) || is_set_card(n)) {
             if (!m_bapa) {
                 m_bapa = alloc(theory_array_bapa, *this);
             }
-            m_bapa->internalize_size(n);
+            m_bapa->internalize_term(n);
         }
 
         enode* node = ctx.get_enode(n);

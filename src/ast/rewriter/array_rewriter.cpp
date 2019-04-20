@@ -69,14 +69,15 @@ br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
         st = mk_set_difference(args[0], args[1], result);
         break;
     default:
-        return BR_FAILED;
+        st = BR_FAILED;
+        break;
     }
-    TRACE("array_rewriter", tout << mk_pp(f, m()) << "\n";
-          for (unsigned i = 0; i < num_args; ++i) {
-              tout << mk_pp(args[i], m()) << "\n";
-          }
-          tout << "\n --> " << result << "\n";
-          );
+    CTRACE("array_rewriter", st != BR_FAILED, 
+           tout << mk_pp(f, m()) << "\n";
+           for (unsigned i = 0; i < num_args; ++i) {
+               tout << mk_pp(args[i], m()) << "\n";
+           }
+           tout << "\n --> " << result << "\n";);
     return st;
 }
 
