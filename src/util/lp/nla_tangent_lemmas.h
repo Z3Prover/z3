@@ -24,8 +24,8 @@
 #include "util/lp/nla_common.h"
 
 namespace nla {
-class core;
-struct tangents: common {   
+    class core;
+
     struct point {
         rational x;
         rational y;
@@ -44,12 +44,17 @@ struct tangents: common {
             return point(x - b.x, y - b.y);
         }
     };
-    
-    tangents(core *core);
 
-    void generate_simple_tangent_lemma(const smon* rm);
-    
+    inline std::ostream& operator<<(std::ostream& out, point const& a) { return out << "(" << a.x <<  ", " << a.y << ")"; }
+
+
+class tangents : common {   
+public:
+    tangents(core *core);
     void tangent_lemma();
+private:
+
+    void generate_simple_tangent_lemma(const smon* rm);    
 
     void generate_explanations_of_tang_lemma(const smon& rm, const bfc& bf, lp::explanation& exp);
     
