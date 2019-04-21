@@ -120,7 +120,7 @@ bool monotone::monotonicity_lemma_on_lex_sorted(const monotone_array_t& lex_sort
 
 vector<std::pair<rational, lpvar>> monotone::get_sorted_key_with_vars(const smon& a) const {
     vector<std::pair<rational, lpvar>> r;
-    for (lpvar j : a.vars()) {
+    for (lpvar j : a.rvars()) {
         r.push_back(std::make_pair(abs(vvr(j)), j));
     }
     std::sort(r.begin(), r.end(), [](const std::pair<rational, lpvar>& a,
@@ -220,7 +220,7 @@ void monotone::generate_monl(const smon& a,
 
 std::vector<rational> monotone::get_sorted_key(const smon& rm) const {
     std::vector<rational> r;
-    for (unsigned j : rm.vars()) {
+    for (unsigned j : rm.rvars()) {
         r.push_back(abs(vvr(j)));
     }
     std::sort(r.begin(), r.end());
