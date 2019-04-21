@@ -83,7 +83,7 @@ svector<lpvar> core::sorted_vars(const factor& f) const {
         return r;
     }
     TRACE("nla_solver", tout << "nv";);
-    return m_emons.canonical[f.var()].vars();
+    return m_emons.canonical[f.var()].rvars();
 }
 
 // the value of the factor is equal to the value of the variable multiplied
@@ -170,7 +170,7 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
         print_var(f.var(), out);
     } else {
         out << "PROD, ";
-        print_product(m_emons.canonical[f.var()].vars(), out);
+        print_product(m_emons.canonical[f.var()].rvars(), out);
     }
     out << "\n";
     return out;
@@ -820,7 +820,7 @@ int core::get_derived_sign(const smon& rm, const factorization& f) const {
 }
 void core::trace_print_monomial_and_factorization(const smon& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
-    print_product(rm.vars(), out);
+    print_product(rm.rvars(), out);
     out << "\n";
         
     out << "mon:  " << pp_mon(*this, rm.var()) << "\n";
@@ -1468,11 +1468,11 @@ bool core::divide(const smon& bc, const factor& c, factor & b) const {
           tout << "c_vars = ";
           print_product(c_vars, tout);
           tout << "\nbc_vars = ";
-          print_product(bc.vars(), tout););
-    if (!lp::is_proper_factor(c_vars, bc.vars()))
+          print_product(bc.rvars(), tout););
+    if (!lp::is_proper_factor(c_vars, bc.rvars()))
         return false;
             
-    auto b_vars = lp::vector_div(bc.vars(), c_vars);
+    auto b_vars = lp::vector_div(bc.rvars(), c_vars);
     TRACE("nla_solver_div", tout << "b_vars = "; print_product(b_vars, tout););
     SASSERT(b_vars.size() > 0);
     if (b_vars.size() == 1) {

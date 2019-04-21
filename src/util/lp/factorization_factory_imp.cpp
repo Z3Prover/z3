@@ -22,7 +22,7 @@
 namespace nla {
         
 factorization_factory_imp::factorization_factory_imp(const smon& rm, const core& s) :
-    factorization_factory(rm.vars(), &s.m_emons[rm.var()]),
+    factorization_factory(rm.rvars(), &s.m_emons[rm.var()]),
     m_core(s), m_mon(s.m_emons[rm.var()]), m_rm(rm) { }
         
 bool factorization_factory_imp::find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
