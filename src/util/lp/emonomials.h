@@ -47,9 +47,9 @@ public:
     unsigned& prev() { return m_prev; }
     unsigned visited() const { return m_visited; }
     unsigned& visited() { return m_visited; }
-    svector<lpvar> const& vars() const { return m_rvars; }
-    svector<lp::var_index>::const_iterator begin() const { return vars().begin(); }
-    svector<lp::var_index>::const_iterator end() const { return vars().end(); }
+    svector<lpvar> const& rvars() const { return m_rvars; }
+    svector<lp::var_index>::const_iterator begin() const { return rvars().begin(); }
+    svector<lp::var_index>::const_iterator end() const { return rvars().end(); }
     unsigned size() const { return m_rvars.size(); }
     lpvar operator[](unsigned i) const { return m_rvars[i]; }
     bool sign() const { return m_rsign; }
@@ -97,7 +97,7 @@ class emonomials : public var_eqs_merge_handler {
         hash_canonical(emonomials& em): em(em) {}
             
         unsigned operator()(lpvar v) const {
-            auto const& vec = em.m_canonized[em.m_var2index[v]].vars();
+            auto const& vec = em.m_canonized[em.m_var2index[v]].rvars();
             return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
         }
     };
@@ -112,8 +112,8 @@ class emonomials : public var_eqs_merge_handler {
         emonomials& em;
         eq_canonical(emonomials& em): em(em) {}
         bool operator()(lpvar u, lpvar v) const {
-            auto const& uvec = em.m_canonized[em.m_var2index[u]].vars();
-            auto const& vvec = em.m_canonized[em.m_var2index[v]].vars();
+            auto const& uvec = em.m_canonized[em.m_var2index[u]].rvars();
+            auto const& vvec = em.m_canonized[em.m_var2index[v]].rvars();
             return uvec == vvec;
         }
     };
