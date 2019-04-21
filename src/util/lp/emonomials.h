@@ -31,34 +31,43 @@ namespace nla {
        \brief class used to summarize the coefficients to a monomial after
        canonization with respect to current equalities.
     */
-    class smon {
-        lpvar           m_var; // variable representing original monomial
-        svector<lpvar>  m_vars;
-        bool            m_sign;
-    public:
-        smon(lpvar v) : m_var(v), m_sign(false) {}
-        lpvar var() const { return m_var; }
-        svector<lpvar> const& vars() const { return m_vars; }
-        svector<lp::var_index>::const_iterator begin() const { return vars().begin(); }
-        svector<lp::var_index>::const_iterator end() const { return vars().end(); }
-        unsigned size() const { return m_vars.size(); }
-        lpvar operator[](unsigned i) const { return m_vars[i]; }
-        bool sign() const { return m_sign; }
-        rational rsign() const { return rational(m_sign ? -1 : 1); }
-        void reset() { m_sign = false; m_vars.reset(); }
-        void push_var(signed_var sv) { m_sign ^= sv.sign(); m_vars.push_back(sv.var()); }
-        void done_push() {
-            std::sort(m_vars.begin(), m_vars.end());
-        }
-        std::ostream& display(std::ostream& out) const {
-            out << "v" << var() << " := ";
-            if (sign()) out << "- ";
-            for (lpvar v : vars()) out << "v" << v << " ";
-            return out;
-        }
-    };
+class smon  {
+    lpvar           m_var; // variable representing original monomial
+    svector<lpvar>  m_vars;
+    bool            m_sign;
+    unsigned m_next;                    // next congruent node.
+    unsigned m_prev;                    // previous congruent node
+    mutable unsigned m_visited;
+public:
+    smon(lpvar v, unsigned idx): m_var(v), m_sign(false), m_next(idx), m_prev(idx), m_visited(0) {}
+            lpvar var() const { return m_var; }
+    unsigned next() const { return m_next; }
+    unsigned& next() { return m_next; }
+    unsigned prev() const { return m_prev; }
+    unsigned& prev() { return m_prev; }
+    unsigned visited() const { return m_visited; }
+    unsigned& visited() { return m_visited; }
+    svector<lpvar> const& vars() const { return m_vars; }
+    svector<lp::var_index>::const_iterator begin() const { return vars().begin(); }
+    svector<lp::var_index>::const_iterator end() const { return vars().end(); }
+    unsigned size() const { return m_vars.size(); }
+    lpvar operator[](unsigned i) const { return m_vars[i]; }
+    bool sign() const { return m_sign; }
+    rational rsign() const { return rational(m_sign ? -1 : 1); }
+    void reset() { m_sign = false; m_vars.reset(); }
+    void push_var(signed_var sv) { m_sign ^= sv.sign(); m_vars.push_back(sv.var()); }
+    void done_push() {
+        std::sort(m_vars.begin(), m_vars.end());
+    }
+    std::ostream& display(std::ostream& out) const {
+        out << "v" << var() << " := ";
+        if (sign()) out << "- ";
+        for (lpvar v : vars()) out << "v" << v << " ";
+        return out;
+    }
+};
 
-    inline std::ostream& operator<<(std::ostream& out, smon const& m) { return m.display(out); }
+inline std::ostream& operator<<(std::ostream& out, smon const& m) { return m.display(out); }
 
 
     class emonomials : public var_eqs_merge_handler {
@@ -81,28 +90,21 @@ namespace nla {
             cell* m_head;
             cell* m_tail;
         };
-
-
-        /**
-           \brief private fields used by emonomials for maintaining state of canonized monomials.
-        */
-        class smon_ts : public smon {
-        public:
-            smon_ts(lpvar v, unsigned idx): smon(v), m_next(idx), m_prev(idx), m_visited(0) {}
-            unsigned m_next;                    // next congruent node.
-            unsigned m_prev;                    // previous congruent node
-            mutable unsigned m_visited;
-        };
-
         struct hash_canonical {
             emonomials& em;
             hash_canonical(emonomials& em): em(em) {}
-
+            
             unsigned operator()(lpvar v) const {
                 auto const& vec = em.m_canonized[em.m_var2index[v]].vars();
                 return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
             }
         };
+        
+
+
+        /**
+           \brief private fields used by emonomials for maintaining state of canonized monomials.
+        */
 
         struct eq_canonical {
             emonomials& em;
@@ -120,7 +122,7 @@ namespace nla {
         unsigned_vector                 m_lim;           // backtracking point
         mutable unsigned                m_visited;       // timestamp of visited monomials during pf_iterator
         region                          m_region;        // region for allocating linked lists
-        mutable vector<smon_ts>  m_canonized;     // canonized versions of signed variables
+        mutable vector<smon>  m_canonized;     // canonized versions of signed variables
         mutable svector<head_tail>      m_use_lists;     // use list of monomials where variables occur.
         hash_canonical                  m_cg_hash;
         eq_canonical                    m_cg_eq;
@@ -274,7 +276,6 @@ namespace nla {
         class pf_iterator {
             emonomials const& m;
             monomial const*   m_mon; // monomial
-            lpvar             m_var;
             iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that are not factors.
             iterator          m_end;
 
@@ -321,7 +322,7 @@ namespace nla {
 
             sign_equiv_monomials_it& operator++() { 
                 m_touched = true; 
-                m_index = m.m_canonized[m_index].m_next; 
+                m_index = m.m_canonized[m_index].next(); 
                 return *this; 
             }
 
