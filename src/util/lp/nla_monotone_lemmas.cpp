@@ -48,7 +48,7 @@ void monotone::print_monotone_array(const monotone_array_t& lex_sorted,
 bool monotone::monotonicity_lemma_on_lex_sorted_rm_upper(const monotone_array_t& lex_sorted, unsigned i, const smon& rm) {
     const rational v = abs(vvr(rm));
     const auto& key = lex_sorted[i].first;
-    TRACE("nla_solver", tout << "rm = " << rm << "i = " << i << std::endl;);
+    TRACE("nla_solver", tout << "rm = " << rm << ", i = " << i << std::endl;);
     for (unsigned k = i + 1; k < lex_sorted.size(); k++) {
         const auto& p = lex_sorted[k];
         const smon& rmk = c().m_emons.canonical[p.second];
