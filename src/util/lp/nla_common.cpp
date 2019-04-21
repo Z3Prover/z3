@@ -107,12 +107,6 @@ std::ostream& common::print_monomial(const monomial & m, std::ostream& out) cons
     return c().print_monomial(m, out);
 }
 
-//std::ostream& common::print_rooted_monomial(const smon& rm, std::ostream& out) const {
-//    return c().print_rooted_monomial(rm, out);
-//}
-//std::ostream& common::print_rooted_monomial_with_vars(const smon& rm, std::ostream& out) const {
-//        return c().print_rooted_monomial_with_vars(rm, out);
-//}
 std::ostream& common::print_factor(const factor & f, std::ostream& out) const {
     return c().print_factor(f, out);
 }
