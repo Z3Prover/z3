@@ -29,7 +29,7 @@ namespace nla {
         ++m_visited;
         if (m_visited == 0) {
             for (auto& svt : m_canonized) {
-                svt.m_visited = 0;
+                svt.visited() = 0;
             }
             ++m_visited;
         }
@@ -144,7 +144,7 @@ namespace nla {
         }
         unsigned idx = m_monomials.size();
         m_monomials.push_back(monomial(v, vars.size(), vars.c_ptr()));
-        m_canonized.push_back(smon_ts(v, idx));
+        m_canonized.push_back(smon(v, idx));
         m_var2index.setx(v, idx, UINT_MAX);
         do_canonize(m_monomials[idx]);
         smon const* result = nullptr;
@@ -180,9 +180,9 @@ namespace nla {
     }
 
     void emonomials::remove_cg(unsigned idx, monomial const& m) {
-        smon_ts& sv = m_canonized[idx];
-        unsigned next = sv.m_next;
-        unsigned prev = sv.m_prev;
+        smon& sv = m_canonized[idx];
+        unsigned next = sv.next();
+        unsigned prev = sv.prev();
         
         lpvar u = m.var(), w;
         // equivalence class of u:
@@ -194,10 +194,10 @@ namespace nla {
             }
         }
         if (prev != idx) {
-            m_canonized[next].m_prev = prev;
-            m_canonized[prev].m_next = next;
-            sv.m_next = idx;
-            sv.m_prev = idx;
+            m_canonized[next].prev() = prev;
+            m_canonized[prev].next() = next;
+            sv.next() = idx;
+            sv.prev() = idx;
         }
     }
 
@@ -234,25 +234,25 @@ namespace nla {
         if (m_cg_table.find(v, w)) {
             SASSERT(w != v);
             unsigned idxr = m_var2index[w];
-            unsigned idxl = m_canonized[idxr].m_prev;
-            m_canonized[idx].m_next  = idxr;
-            m_canonized[idx].m_prev  = idxl;
-            m_canonized[idxr].m_prev = idx;
-            m_canonized[idxl].m_next = idx;
+            unsigned idxl = m_canonized[idxr].prev();
+            m_canonized[idx].next()  = idxr;
+            m_canonized[idx].prev()  = idxl;
+            m_canonized[idxr].prev() = idx;
+            m_canonized[idxl].next() = idx;
         }
         else {
             m_cg_table.insert(v);
-            SASSERT(m_canonized[idx].m_next == idx);
-            SASSERT(m_canonized[idx].m_prev == idx);
+            SASSERT(m_canonized[idx].next() == idx);
+            SASSERT(m_canonized[idx].prev() == idx);
         }        
     }
 
     void emonomials::set_visited(monomial const& m) const {
-        m_canonized[m_var2index[m.var()]].m_visited = m_visited;
+        m_canonized[m_var2index[m.var()]].visited() = m_visited;
     }
 
     bool emonomials::is_visited(monomial const& m) const {
-        return m_visited == m_canonized[m_var2index[m.var()]].m_visited;
+        return m_visited == m_canonized[m_var2index[m.var()]].visited();
     }
 
     /**
@@ -265,7 +265,7 @@ namespace nla {
     void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
         unsigned idx = m_monomials.size();
         m_monomials.push_back(monomial(v, sz, vs));
-        m_canonized.push_back(smon_ts(v, idx));
+        m_canonized.push_back(smon(v, idx));
         lpvar last_var = UINT_MAX;
         for (unsigned i = 0; i < sz; ++i) {
             lpvar w = vs[i];
