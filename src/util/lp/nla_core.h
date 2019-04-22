@@ -102,9 +102,9 @@ public:
 
     lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
     
-    lpvar var(smon const& sv) const { return sv.var(); }
+    lpvar var(monomial const& sv) const { return sv.var(); }
 
-    rational vvr(const smon& rm) const { return rm.rsign()*vvr(m_emons[rm.var()]); }
+    rational vvr_rooted(const monomial& m) const { return m.rsign()*vvr(m.var()); }
 
     rational vvr(const factor& f) const {  return f.is_var()? vvr(f.var()) : vvr(m_emons[f.var()]); }
 
@@ -122,10 +122,10 @@ public:
     
     // the value of the rooted monomias is equal to the value of the m.var() variable multiplied
     // by the canonize_sign
-    rational canonize_sign(const smon& m) const;
+    rational canonize_sign(const monomial& m) const;
     
 
-    void deregister_monomial_from_smonomials (const monomial & m, unsigned i);
+    void deregister_monomial_from_monomialomials (const monomial & m, unsigned i);
 
     void deregister_monomial_from_tables(const monomial & m, unsigned i);
 
@@ -135,14 +135,12 @@ public:
     void pop(unsigned n);
 
     rational mon_value_by_vars(unsigned i) const;
-    template <typename T>
-    rational product_value(const T & m) const;
+    rational product_value(const unsigned_vector & m) const;
     
     // return true iff the monomial value is equal to the product of the values of the factors
     bool check_monomial(const monomial& m) const;
     
     void explain(const monomial& m, lp::explanation& exp) const;
-    void explain(const smon& rm, lp::explanation& exp) const;
     void explain(const factor& f, lp::explanation& exp) const;
     void explain(lpvar j, lp::explanation& exp) const;
     void explain_existing_lower_bound(lpvar j);
@@ -169,7 +167,7 @@ public:
     std::ostream& print_explanation(const lp::explanation& exp, std::ostream& out) const;
     template <typename T>
     void trace_print_rms(const T& p, std::ostream& out);
-    void trace_print_monomial_and_factorization(const smon& rm, const factorization& f, std::ostream& out) const;
+    void trace_print_monomial_and_factorization(const monomial& rm, const factorization& f, std::ostream& out) const;
     void print_monomial_stats(const monomial& m, std::ostream& out);    
     void print_stats(std::ostream& out);
     std::ostream& print_lemma(std::ostream& out) const;
@@ -177,10 +175,10 @@ public:
     void print_specific_lemma(const lemma& l, std::ostream& out) const;
     
 
-    void trace_print_ol(const smon& ac,
+    void trace_print_ol(const monomial& ac,
                         const factor& a,
                         const factor& c,
-                        const smon& bc,
+                        const monomial& bc,
                         const factor& b,
                         std::ostream& out);
 
@@ -243,7 +241,7 @@ public:
     const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
 
 
-    int get_derived_sign(const smon& rm, const factorization& f) const;
+    int get_derived_sign(const monomial& rm, const factorization& f) const;
 
 
     bool var_has_positive_lower_bound(lpvar j) const;
@@ -312,7 +310,7 @@ public:
 
     void init_to_refine();
 
-    bool divide(const smon& bc, const factor& c, factor & b) const;
+    bool divide(const monomial& bc, const factor& c, factor & b) const;
 
     void negate_factor_equality(const factor& c, const factor& d);
     
@@ -320,15 +318,15 @@ public:
 
     std::unordered_set<lpvar> collect_vars(const lemma& l) const;
 
-    bool rm_check(const smon&) const;
+    bool rm_check(const monomial&) const;
     std::unordered_map<unsigned, unsigned_vector> get_rm_by_arity();
 
     void add_abs_bound(lpvar v, llc cmp);
     void add_abs_bound(lpvar v, llc cmp, rational const& bound);
 
-    bool  find_bfc_to_refine_on_rmonomial(const smon& rm, bfc & bf);
+    bool  find_bfc_to_refine_on_rmonomial(const monomial& rm, bfc & bf);
     
-    bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const smon*& rm_found);
+    bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*& rm_found  );
     void generate_simple_sign_lemma(const rational& sign, const monomial& m);
 
     void negate_relation(unsigned j, const rational& a);

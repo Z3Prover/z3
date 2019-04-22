@@ -21,14 +21,13 @@
 #include "util/lp/factorization.h"
 namespace nla {
     class  core;
-    class smon;
 
     struct factorization_factory_imp: factorization_factory {
         const core&  m_core;
         const monomial & m_mon;
-        const smon& m_rm;
+        const monomial& m_rm;
         
-        factorization_factory_imp(const smon& rm, const core& s);
+        factorization_factory_imp(const monomial& rm, const core& s);
         bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
         const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
     };

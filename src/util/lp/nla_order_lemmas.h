@@ -31,23 +31,23 @@ public:
     
 private:
 
-    bool order_lemma_on_ac_and_bc_and_factors(const smon& ac,
+    bool order_lemma_on_ac_and_bc_and_factors(const monomial& ac,
                                               const factor& a,
                                               const factor& c,
-                                              const smon& bc,
+                                              const monomial& bc,
                                               const factor& b);
     
     // a >< b && c > 0  => ac >< bc
     // a >< b && c < 0  => ac <> bc
     // ac[k] plays the role of c   
-    bool order_lemma_on_ac_and_bc(const smon& rm_ac,
+    bool order_lemma_on_ac_and_bc(const monomial& rm_ac,
                                   const factorization& ac_f,
                                   bool k,
-                                  const smon& rm_bd);
+                                  const monomial& rm_bd);
     
-    bool order_lemma_on_ac_explore(const smon& rm, const factorization& ac, bool k);
+    bool order_lemma_on_ac_explore(const monomial& rm, const factorization& ac, bool k);
 
-    void order_lemma_on_factorization(const smon& rm, const factorization& ab);
+    void order_lemma_on_factorization(const monomial& rm, const factorization& ab);
     
     /**
        \brief Add lemma: 
@@ -65,18 +65,18 @@ private:
     void order_lemma_on_ab(const monomial& m, const rational& sign, lpvar a, lpvar b, bool gt);
     void order_lemma_on_factor_binomial_explore(const monomial& m, bool k);
     void order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const monomial& bd);
-    void order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const smon& bd, const factor& b, lpvar d);
+    void order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const monomial& bd, const factor& b, lpvar d);
     void order_lemma_on_binomial_k(const monomial& m, bool k, bool gt);
     void order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, int sign);
     void order_lemma_on_binomial(const monomial& ac);
-    void order_lemma_on_rmonomial(const smon& rm);
+    void order_lemma_on_rmonomial(const monomial& rm);
     // |c_sign| = 1, and c*c_sign > 0
     // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
-    void generate_ol(const smon& ac,                     
+    void generate_ol(const monomial& ac,                     
                      const factor& a,
                      int c_sign,
                      const factor& c,
-                     const smon& bc,
+                     const monomial& bc,
                      const factor& b,
                      llc ab_cmp);
 
@@ -84,7 +84,7 @@ private:
                          lpvar a,
                          const rational& c_sign,
                          lpvar c,
-                         const smon& bd,
+                         const monomial& bd,
                          const factor& b,
                          const rational& d_sign,
                          lpvar d,

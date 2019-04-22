@@ -54,7 +54,7 @@ class factorization {
 public:
     factorization(const monomial* m): m_mon(m) {
         if (m != nullptr) {
-            for (lpvar j : *m)
+            for (lpvar j : m->vars())
                 m_vars.push_back(factor(j, factor_type::VAR));
         }
     }
