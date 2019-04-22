@@ -54,11 +54,11 @@ public:
     void tangent_lemma();
 private:
 
-    void generate_simple_tangent_lemma(const smon* rm);    
+    void generate_simple_tangent_lemma(const monomial&);    
 
-    void generate_explanations_of_tang_lemma(const smon& rm, const bfc& bf, lp::explanation& exp);
+    void generate_explanations_of_tang_lemma(const monomial& rm, const bfc& bf, lp::explanation& exp);
     
-    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const smon* rm);
+    void tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const monomial* rm);
     void generate_tang_plane(const rational & a, const rational& b, const factor& x, const factor& y, bool below, lpvar j, const rational& j_sign);
     
     void generate_two_tang_lines(const bfc & bf, const point& xy, const rational& sign, lpvar j);

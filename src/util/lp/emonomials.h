@@ -27,51 +27,6 @@
 
 namespace nla {
 
-    /**
-       \brief class used to summarize the coefficients to a monomial after
-       canonization with respect to current equalities.
-    */
-class smon  {
-    lpvar           m_var; // variable representing original monomial
-    svector<lpvar>  m_rvars;
-    bool            m_rsign;
-    unsigned m_next;                    // next congruent node.
-    unsigned m_prev;                    // previous congruent node
-    mutable unsigned m_visited;
-public:
-    smon(lpvar v, unsigned idx): m_var(v), m_rsign(false), m_next(idx), m_prev(idx), m_visited(0) {}
-            lpvar var() const { return m_var; }
-    unsigned next() const { return m_next; }
-    unsigned& next() { return m_next; }
-    unsigned prev() const { return m_prev; }
-    unsigned& prev() { return m_prev; }
-    unsigned visited() const { return m_visited; }
-    unsigned& visited() { return m_visited; }
-    svector<lpvar> const& rvars() const { return m_rvars; }
-    svector<lp::var_index>::const_iterator begin() const { return rvars().begin(); }
-    svector<lp::var_index>::const_iterator end() const { return rvars().end(); }
-    unsigned size() const { return m_rvars.size(); }
-    lpvar operator[](unsigned i) const { return m_rvars[i]; }
-    bool sign() const { return m_rsign; }
-    rational rsign() const { return rational(m_rsign ? -1 : 1); }
-    void reset() { m_rsign = false; m_rvars.reset(); }
-    void push_var(signed_var sv) { m_rsign ^= sv.sign(); m_rvars.push_back(sv.var()); }
-    void done_push() {
-        std::sort(m_rvars.begin(), m_rvars.end());
-    }
-    std::ostream& display(std::ostream& out) const {
-        // out << "v" << var() << " := ";
-        // if (sign()) out << "- ";
-        // for (lpvar v : vars()) out << "v" << v << " ";
-        SASSERT(false);
-        return out;
-    }
-
-};
-
-inline std::ostream& operator<<(std::ostream& out, smon const& m) { return m.display(out); }
-
-
 class emonomials : public var_eqs_merge_handler {
 
     /**
@@ -97,7 +52,7 @@ class emonomials : public var_eqs_merge_handler {
         hash_canonical(emonomials& em): em(em) {}
             
         unsigned operator()(lpvar v) const {
-            auto const& vec = em.m_canonized[em.m_var2index[v]].rvars();
+            auto const& vec = em.m_monomials[em.m_var2index[v]].rvars();
             return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
         }
     };
@@ -112,8 +67,8 @@ class emonomials : public var_eqs_merge_handler {
         emonomials& em;
         eq_canonical(emonomials& em): em(em) {}
         bool operator()(lpvar u, lpvar v) const {
-            auto const& uvec = em.m_canonized[em.m_var2index[u]].rvars();
-            auto const& vvec = em.m_canonized[em.m_var2index[v]].rvars();
+            auto const& uvec = em.m_monomials[em.m_var2index[u]].rvars();
+            auto const& vvec = em.m_monomials[em.m_var2index[v]].rvars();
             return uvec == vvec;
         }
     };
@@ -124,7 +79,6 @@ class emonomials : public var_eqs_merge_handler {
     unsigned_vector                 m_lim;           // backtracking point
     mutable unsigned                m_visited;       // timestamp of visited monomials during pf_iterator
     region                          m_region;        // region for allocating linked lists
-    mutable vector<smon>  m_canonized;     // canonized versions of signed variables
     mutable svector<head_tail>      m_use_lists;     // use list of monomials where variables occur.
     hash_canonical                  m_cg_hash;
     eq_canonical                    m_cg_eq;
@@ -139,16 +93,16 @@ class emonomials : public var_eqs_merge_handler {
 
     void remove_cg(lpvar v);
     void insert_cg(lpvar v);
-    void insert_cg(unsigned idx, monomial const& m);
-    void remove_cg(unsigned idx, monomial const& m);
+    void insert_cg(unsigned idx, monomial & m);
+    void remove_cg(unsigned idx, monomial & m);
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
 
-    void do_canonize(monomial const& m) const; 
+    void do_canonize(monomial& m) const; 
 
     cell* head(lpvar v) const;
-    void set_visited(monomial const& m) const;
+    void set_visited(monomial& m) const;
     bool is_visited(monomial const& m) const;
-        
+     
 public:
     /**
        \brief emonomials builds on top of var_eqs.
@@ -160,8 +114,7 @@ public:
         m_visited(0), 
         m_cg_hash(*this),
         m_cg_eq(*this),
-        m_cg_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_cg_hash, m_cg_eq),
-        canonical(*this) { 
+        m_cg_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_cg_hash, m_cg_eq) { 
         m_ve.set_merge_handler(this); 
     }
 
@@ -184,59 +137,23 @@ public:
     /**
        \brief retrieve monomial corresponding to variable v from definition v := vs
     */
-    monomial const& var2monomial(lpvar v) const { SASSERT(is_monomial_var(v)); return m_monomials[m_var2index[v]]; }
-
-    monomial const& operator[](lpvar v) const { return var2monomial(v); }
-
-    monomial const& operator[](smon const& m) const { return var2monomial(m.var()); }
-
-    bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
-
-    /**
-       \brief retrieve canonized monomial corresponding to variable v from definition v := vs
-    */
-    smon const& var2canonical(lpvar v) const { return canonize(var2monomial(v)); }
-        
-    class canonical {
-        emonomials& m;
-    public:
-        canonical(emonomials& m): m(m) {}
-        smon const& operator[](lpvar v) const { return m.var2canonical(v); }
-        smon const& operator[](monomial const& mon) const { return m.var2canonical(mon.var()); }
-    };
-
-    canonical canonical;
-        
-    /**
-       \brief obtain a canonized signed monomial
-       corresponding to current equivalence class.
-    */
-    smon const& canonize(monomial const& m) const { return m_canonized[m_var2index[m.var()]]; }
-
+    monomial const& operator[](lpvar v) const { return m_monomials[m_var2index[v]]; }
+    monomial & operator[](lpvar v) { return m_monomials[m_var2index[v]]; }
+                                                                           
     /**
        \brief obtain the representative canonized monomial up to sign.
     */
-    //smon const& rep(smon const& sv) const { return m_canonized[m_var2index[m_cg_table[sv.var()]]]; }
-    smon const& rep(smon const& sv) const {
+
+    monomial const& rep(monomial const& sv) const {
         unsigned j = -1;
         m_cg_table.find(sv.var(), j);
-        return m_canonized[m_var2index[j]];
+        return m_monomials[m_var2index[j]];
     }
-
-    /**
-       \brief the original sign is defined as a sign of the equivalence class representative.
-    */
-    rational orig_sign(smon const& sv) const { return rep(sv).rsign(); }           
 
     /**
        \brief determine if m1 divides m2 over the canonization obtained from merged variables.
     */
-    bool canonize_divides(monomial const& m1, monomial const& m2) const;
-
-    /**
-       \brief produce explanation for monomial canonization.
-    */
-    void explain_canonized(monomial const& m, lp::explanation& exp);
+    bool canonize_divides(monomial & m1, monomial& m2) const;
 
     /**
        \brief iterator over monomials that are declared.
@@ -253,7 +170,7 @@ public:
         bool        m_touched;            
     public:
         iterator(emonomials const& m, cell* c, bool at_end): m(m), m_cell(c), m_touched(at_end || c == nullptr) {}
-        monomial const& operator*() { return m.m_monomials[m_cell->m_index]; }
+        monomial & operator*() { return m.m_monomials[m_cell->m_index]; }
         iterator& operator++() { m_touched = true; m_cell = m_cell->m_next; return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
         bool operator==(iterator const& other) const { return m_cell == other.m_cell && m_touched == other.m_touched; }
@@ -277,15 +194,15 @@ public:
     */
     class pf_iterator {
         emonomials const& m;
-        monomial const*   m_mon; // monomial
+        monomial *   m_mon; // monomial
         iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that are not factors.
         iterator          m_end;
 
         void fast_forward();
     public:
-        pf_iterator(emonomials const& m, monomial const& mon, bool at_end);
+        pf_iterator(emonomials const& m, monomial& mon, bool at_end);
         pf_iterator(emonomials const& m, lpvar v, bool at_end);
-        monomial const& operator*() { return *m_it; }
+        monomial & operator*() { return *m_it; }
         pf_iterator& operator++() { ++m_it; fast_forward(); return *this; }
         pf_iterator operator++(int) { pf_iterator tmp = *this; ++*this; return tmp; }
         bool operator==(pf_iterator const& other) const { return m_it == other.m_it; }
@@ -294,19 +211,19 @@ public:
 
     class factors_of {
         emonomials const& m;
-        monomial const* mon;
+        monomial * mon;
         lpvar           m_var;
     public:
-        factors_of(emonomials const& m, monomial const& mon): m(m), mon(&mon), m_var(UINT_MAX) {}
+        factors_of(emonomials const& m, monomial & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
         factors_of(emonomials const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
         pf_iterator begin() { if (mon) return pf_iterator(m, *mon, false); return pf_iterator(m, m_var, false); }
         pf_iterator end() { if (mon) return pf_iterator(m, *mon, true); return pf_iterator(m, m_var, true); }
     };
 
-    factors_of get_factors_of(monomial const& m) const { inc_visited(); return factors_of(*this, m); }
+    factors_of get_factors_of(monomial& m) const { inc_visited(); return factors_of(*this, m); }
     factors_of get_factors_of(lpvar v) const { inc_visited(); return factors_of(*this, v); }
        
-    smon const* find_canonical(svector<lpvar> const& vars) const;
+    monomial const* find_canonical(svector<lpvar> const& vars) const;
 
     /**
        \brief iterator over sign equivalent monomials.
@@ -324,7 +241,7 @@ public:
 
         sign_equiv_monomials_it& operator++() { 
             m_touched = true; 
-            m_index = m.m_canonized[m_index].next(); 
+            m_index = m.m_monomials[m_index].next(); 
             return *this; 
         }
 
@@ -355,8 +272,6 @@ public:
 
     sign_equiv_monomials enum_sign_equiv_monomials(monomial const& m) { return sign_equiv_monomials(*this, m); }
     sign_equiv_monomials enum_sign_equiv_monomials(lpvar v) { return enum_sign_equiv_monomials((*this)[v]); }
-    sign_equiv_monomials enum_sign_equiv_monomials(smon const& sv) { return enum_sign_equiv_monomials(sv.var()); }
-
     /**
        \brief display state of emonomials
     */
@@ -373,6 +288,7 @@ public:
 
     void unmerge_eh(signed_var r2, signed_var r1) override;        
 
+    bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 };
 
 inline std::ostream& operator<<(std::ostream& out, emonomials const& m) { return m.display(out); }
