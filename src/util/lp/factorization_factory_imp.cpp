@@ -21,7 +21,7 @@
 #include "util/lp/nla_core.h"
 namespace nla {
         
-factorization_factory_imp::factorization_factory_imp(const smon& rm, const core& s) :
+factorization_factory_imp::factorization_factory_imp(const monomial& rm, const core& s) :
     factorization_factory(rm.rvars(), &s.m_emons[rm.var()]),
     m_core(s), m_mon(s.m_emons[rm.var()]), m_rm(rm) { }
         

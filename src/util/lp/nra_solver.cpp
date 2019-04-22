@@ -13,7 +13,8 @@
 
 namespace nra {
 
-typedef nla::monomial mon_eq;
+typedef nla::mon_eq mon_eq;
+
 typedef nla::variable_map_type variable_map_type;
     struct solver::imp {
         lp::lar_solver&      s;
@@ -136,7 +137,7 @@ typedef nla::variable_map_type variable_map_type;
         void add_monomial_eq(mon_eq const& m) {
             polynomial::manager& pm = m_nlsat->pm();
             svector<polynomial::var> vars;
-            for (auto v : m) {
+            for (auto v : m.vars()) {
                 vars.push_back(lp2nl(v));
             }
             polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.c_ptr()), pm);
@@ -227,7 +228,7 @@ typedef nla::variable_map_type variable_map_type;
         std::ostream& display(std::ostream& out) const {
             for (auto m : m_monomials) {
                 out << "v" << m.var() << " = ";
-                for (auto v : m) {
+                for (auto v : m.vars()) {
                     out << "v" << v << " ";
                 }
                 out << "\n";
