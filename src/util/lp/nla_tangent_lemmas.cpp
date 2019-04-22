@@ -30,13 +30,12 @@ std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std
     return out << "(" << a <<  ", " << b << ")";
 }
 
-void tangents::generate_simple_tangent_lemma(const smon* rm) {
-    if (rm->size() != 2)
+void tangents::generate_simple_tangent_lemma(const monomial& m) {
+    if (m.size() != 2)
         return;
-    TRACE("nla_solver", tout << "rm:" << *rm << std::endl;);
-    m_core->add_empty_lemma();
-    const monomial & m = c().m_emons[rm->var()];
-    const rational v = c().product_value(m);
+    TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
+    c().add_empty_lemma();
+    const rational v = c().product_value(m.vars());
     const rational mv = vvr(m);
     SASSERT(mv != v);
     SASSERT(!mv.is_zero() && !v.is_zero());
@@ -47,15 +46,15 @@ void tangents::generate_simple_tangent_lemma(const smon* rm) {
     }
     bool gt = abs(mv) > abs(v);
     if (gt) {
-        for (lpvar j : m) {
+        for (lpvar j : m.vars()) {
             const rational jv = vvr(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT);
             c().mk_ineq(js, j, llc::GT, jv);
         }
-        c().mk_ineq(sign, rm->var(), llc::LE, std::max(v, rational(-1)));
+        c().mk_ineq(sign, m.var(), llc::LE, std::max(v, rational(-1)));
     } else {
-        for (lpvar j : m) {
+        for (lpvar j : m.vars()) {
             const rational jv = vvr(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT, std::max(jv, rational(0)));
@@ -70,18 +69,18 @@ void tangents::tangent_lemma() {
     bfc bf;
     lpvar j;
     rational sign;
-    const smon* rm = nullptr;
+    const monomial* rm = nullptr;
         
     if (c().find_bfc_to_refine(bf, j, sign, rm)) {
         tangent_lemma_bf(bf, j, sign, rm);
     } else {
         TRACE("nla_solver", tout << "cannot find a bfc to refine\n"; );
         if (rm != nullptr)
-            generate_simple_tangent_lemma(rm);
+            generate_simple_tangent_lemma(*rm);
     }
 }
 
-void tangents::generate_explanations_of_tang_lemma(const smon& rm, const bfc& bf, lp::explanation& exp) {
+void tangents::generate_explanations_of_tang_lemma(const monomial& rm, const bfc& bf, lp::explanation& exp) {
     // here we repeat the same explanation for each lemma
     c().explain(rm, exp);
     c().explain(bf.m_x, exp);
@@ -109,7 +108,7 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
     t.add_coeff_var( j_sign, j);
     c().mk_ineq(t, sbelow? llc::GT : llc::LT, - a*b);
 }  
-void tangents::tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const smon* rm){
+void tangents::tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const monomial* rm){
     point a, b;
     point xy (vvr(bf.m_x), vvr(bf.m_y));
     rational correct_mult_val =  xy.x * xy.y;
