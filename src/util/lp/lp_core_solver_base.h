@@ -573,7 +573,7 @@ public:
     }
 
     std::ostream& print_column_info(unsigned j, std::ostream & out) const {
-        out << "j = " << j << ",\tname = "<< column_name(j) << "\t";
+        out << "[" << j << "],\tname = "<< column_name(j) << "\t";
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
