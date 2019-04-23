@@ -57,7 +57,7 @@ void basics::generate_zero_lemmas(const monomial& m) {
     TRACE("nla_solver_details", tout << "zero_j = " << zero_j << ", sign = " << sign << "\n";);
     if (sign == 0) { // have to generate a non-convex lemma
         add_trival_zero_lemma(zero_j, m);
-    } else { 
+    } else { // here we know the sign of zero_j
         generate_strict_case_zero_lemma(m, zero_j, sign);
     }
     for (lpvar j : fixed_zeros)
@@ -88,7 +88,7 @@ void basics::get_non_strict_sign(lpvar j, int& sign) const {
 
 void basics::basic_sign_lemma_model_based_one_mon(const monomial& m, int product_sign) {
     if (product_sign == 0) {
-        TRACE("nla_solver_bl", tout << "zero product sign\n";);
+        TRACE("nla_solver_bl", tout << "zero product sign: " << pp_mon(_(), m)<< "\n"; );
         generate_zero_lemmas(m);
     } else {
         add_empty_lemma();
@@ -188,7 +188,7 @@ void basics::generate_strict_case_zero_lemma(const monomial& m, unsigned zero_j,
     // we know all the signs
     add_empty_lemma();
     c().mk_ineq(zero_j, (sign_of_zj == 1? llc::GT : llc::LT));
-    for (unsigned j : m.rvars()){
+    for (unsigned j : m.vars()){
         if (j != zero_j) {
             negate_strict_sign(j);
         }
@@ -203,7 +203,7 @@ void basics::add_fixed_zero_lemma(const monomial& m, lpvar j) {
     TRACE("nla_solver", c().print_lemma(tout););
 }
 void basics::negate_strict_sign(lpvar j) {
-    TRACE("nla_solver_details", c().print_var(j, tout););
+    TRACE("nla_solver_details", tout << pp_var(c(), j) << "\n";);
     if (!vvr(j).is_zero()) {
         int sign = nla::rat_sign(vvr(j));
         c().mk_ineq(j, (sign == 1? llc::LE : llc::GE));
@@ -494,7 +494,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monomial& rm, const fact
 }
 
 void basics::basic_lemma_for_mon_model_based(const monomial& rm) {
-    TRACE("nla_solver_bl", tout << "rm = " << rm;);
+    TRACE("nla_solver_bl", tout << "rm = " << pp_mon(_(), rm) << "\n";);
     if (vvr(rm).is_zero()) {
         for (auto factorization : factorization_factory_imp(rm, c())) {
             if (factorization.is_empty())
