@@ -311,23 +311,23 @@ namespace nla {
 
 // yes, assume that monomials are non-empty.
     emonomials::pf_iterator::pf_iterator(emonomials const& m, monomial & mon, bool at_end):
-        m(m), m_mon(&mon), m_it(iterator(m, m.head(mon.vars()[0]), at_end)), m_end(iterator(m, m.head(mon.vars()[0]), true)) {
+        m_em(m), m_mon(&mon), m_it(iterator(m, m.head(mon.vars()[0]), at_end)), m_end(iterator(m, m.head(mon.vars()[0]), true)) {
         fast_forward();
     }
 
     emonomials::pf_iterator::pf_iterator(emonomials const& m, lpvar v, bool at_end):
-        m(m), m_mon(nullptr), m_it(iterator(m, m.head(v), at_end)), m_end(iterator(m, m.head(v), true)) {
+        m_em(m), m_mon(nullptr), m_it(iterator(m, m.head(v), at_end)), m_end(iterator(m, m.head(v), true)) {
         fast_forward();
     }
 
     void emonomials::pf_iterator::fast_forward() {
         for (; m_it != m_end; ++m_it) {
-            if (m_mon && m_mon->var() != (*m_it).var() && m.canonize_divides(*m_mon, *m_it) && !m.is_visited(*m_it)) {
-                m.set_visited(*m_it);
+            if (m_mon && m_mon->var() != (*m_it).var() && m_em.canonize_divides(*m_mon, *m_it) && !m_em.is_visited(*m_it)) {
+                m_em.set_visited(*m_it);
                 break;
             }
-            if (!m_mon && !m.is_visited(*m_it)) {
-                m.set_visited(*m_it);
+            if (!m_mon && !m_em.is_visited(*m_it)) {
+                m_em.set_visited(*m_it);
                 break;
             }
         }
