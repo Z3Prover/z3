@@ -141,7 +141,7 @@ public:
     monomial & operator[](lpvar v) { return m_monomials[m_var2index[v]]; }
                                                                            
     /**
-       \brief obtain the representative canonized monomial up to sign.
+       \brief obtain the representative canonized monomial 
     */
 
     monomial const& rep(monomial const& sv) const {
@@ -193,9 +193,9 @@ public:
        \brief retrieve monomials m' where m is a proper factor of modulo current equalities.
     */
     class pf_iterator {
-        emonomials const& m;
+        emonomials const& m_em;
         monomial *   m_mon; // monomial
-        iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that are not factors.
+        iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that do not have m as a factor
         iterator          m_end;
 
         void fast_forward();
@@ -209,19 +209,19 @@ public:
         bool operator!=(pf_iterator const& other) const { return m_it != other.m_it; }
     };
 
-    class factors_of {
+    class products_of {
         emonomials const& m;
         monomial * mon;
         lpvar           m_var;
     public:
-        factors_of(emonomials const& m, monomial & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
-        factors_of(emonomials const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
+        products_of(emonomials const& m, monomial & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
+        products_of(emonomials const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
         pf_iterator begin() { if (mon) return pf_iterator(m, *mon, false); return pf_iterator(m, m_var, false); }
         pf_iterator end() { if (mon) return pf_iterator(m, *mon, true); return pf_iterator(m, m_var, true); }
     };
 
-    factors_of get_factors_of(monomial& m) const { inc_visited(); return factors_of(*this, m); }
-    factors_of get_factors_of(lpvar v) const { inc_visited(); return factors_of(*this, v); }
+    products_of get_products_of(monomial& m) const { inc_visited(); return products_of(*this, m); }
+    products_of get_products_of(lpvar v) const { inc_visited(); return products_of(*this, v); }
        
     monomial const* find_canonical(svector<lpvar> const& vars) const;
 
