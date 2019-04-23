@@ -108,7 +108,7 @@ void order::order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const 
 
 void order::order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const monomial& bd, const factor& b, lpvar d) {
     TRACE("nla_solver",  
-          tout << "ac=" << pp_mon(c(), ac) << "\nrm= " << bd << ", b= " << pp_fac(c(), b) << ", d= " << pp_var(c(), d) << "\n";);
+          tout << "ac=" << pp_mon(_(), ac) << "\nrm= " << pp_mon(_(), bd) << ", b= " << pp_fac(_(), b) << ", d= " << pp_var(_(), d) << "\n";);
     bool p = !k;
     lpvar a = ac.vars()[p];
     lpvar c = ac.vars()[k];
