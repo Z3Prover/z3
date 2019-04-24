@@ -474,7 +474,8 @@ namespace Microsoft.Z3
 	    public uint n_vars;
             public uint n_clauses;
             public uint n_cells;
-            public float itau;
+            public float v_itau;
+            public float c_itau;
             public int[] C_idxs;
             public int[] L_idxs;
             public Single[] pi_march_ps;
@@ -505,8 +506,8 @@ namespace Microsoft.Z3
              n.n_vars = p.n_vars;
              n.n_clauses = p.n_clauses;
              n.n_cells = p.n_cells;
-             n.itau = p.itau;
-             Console.WriteLine($"cells: {n.n_cells} vars: {n.n_vars} clauses: {n.n_clauses}");
+             n.v_itau = p.v_itau;
+             n.c_itau = p.c_itau;
              n.C_idxs = new int[n.n_cells];
              n.L_idxs = new int[n.n_cells];             
              Marshal.Copy(p.C_idxs, n.C_idxs, 0, (int)n.n_cells);

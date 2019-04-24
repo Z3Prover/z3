@@ -1655,7 +1655,7 @@ namespace sat {
         return result;
     }
 
-    void lookahead::get_clauses(literal_vector& clauses) {
+    void lookahead::get_clauses(literal_vector& clauses, unsigned max_clause_size) {
         // push binary clauses
         unsigned num_lits = m_s.num_vars() * 2;
         for (unsigned idx = 0; idx < num_lits; ++idx) {
@@ -1696,6 +1696,7 @@ namespace sat {
             for (nary* n : m_nary[u.index()]) {
                 if (sz-- == 0) break;
                 unsigned sz0 = clauses.size();
+                if (n->size() > max_clause_size) continue;
                 for (literal lit : *n) {
                     if (is_true(lit)) {
                         clauses.shrink(sz0);

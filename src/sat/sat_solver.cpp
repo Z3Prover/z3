@@ -27,6 +27,7 @@ Revision History:
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
+#include "sat/sat_ddfw.h"
 #ifdef _MSC_VER
 # include <xmmintrin.h>
 #endif
@@ -80,6 +81,7 @@ namespace sat {
         m_local_search            = nullptr;
         m_neuro_state             = nullptr;
         m_neuro_predictor         = nullptr;
+        m_ddfw_search             = nullptr;
         m_mc.set_solver(this);
     }
 
@@ -1170,6 +1172,9 @@ namespace sat {
         IF_VERBOSE(2, verbose_stream() << "(sat.solver)\n";);
         SASSERT(at_base_lvl());
 
+        if (m_config.m_ddfw_search) {
+            return do_ddfw_search(num_lits, lits);
+        }
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
@@ -1267,6 +1272,20 @@ namespace sat {
         lbool r = srch.check(num_lits, lits, nullptr);
         m_model = srch.get_model();
         m_local_search = nullptr;
+        dealloc(&srch);
+        return r;
+    }
+
+    lbool solver::do_ddfw_search(unsigned num_lits, literal const* lits) {
+        scoped_limits scoped_rl(rlimit());
+        SASSERT(!m_local_search);
+        m_ddfw_search = alloc(ddfw);
+        ddfw& srch = *m_ddfw_search;
+        srch.add(*this);
+        scoped_rl.push_child(&srch.rlimit());
+        lbool r = srch.check();
+        // m_model = srch.get_model();
+        m_ddfw_search = nullptr;
         dealloc(&srch);
         return r;
     }
@@ -1704,7 +1723,7 @@ namespace sat {
         unsigned num_lits = 2*nv;
 
         literal_vector clauses;
-        lh.get_clauses(clauses);
+        lh.get_clauses(clauses, m_max_size);
         for (literal lit : clauses) {
             if (lit != null_literal) {
                 init_var(lit.var());
@@ -2773,6 +2792,7 @@ namespace sat {
             TRACE("sat", tout << "unique max " << js << " " << m_not_l << "\n";);
             pop_reinit(m_scope_lvl - m_conflict_lvl + 1);
             m_force_conflict_analysis = true;
+            ++m_stats.m_backtracks;
             return l_undef;
         }
         m_force_conflict_analysis = false;

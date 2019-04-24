@@ -627,7 +627,7 @@ namespace sat {
            \brief retrieve clauses as one vector of literals.
            clauses are separated by null-literal
         */
-        void get_clauses(literal_vector& clauses);
+        void get_clauses(literal_vector& clauses, unsigned max_clause_size);
 
         sat::config const& get_config() const { return m_s.get_config(); }
               

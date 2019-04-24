@@ -184,6 +184,7 @@ namespace sat {
 
         class lookahead*        m_cuber;
         class local_search*     m_local_search;
+        class ddfw*             m_ddfw_search;
 
         void *                  m_neuro_state;
         neuro_predictor*        m_neuro_predictor;
@@ -207,6 +208,7 @@ namespace sat {
         friend class parallel;
         friend class lookahead;
         friend class local_search;
+        friend class ddfw;
         friend class unit_walk;
         friend struct mk_stat;
         friend class elim_vars;
@@ -527,6 +529,7 @@ namespace sat {
         void exchange_par();
         lbool check_par(unsigned num_lits, literal const* lits);
         lbool do_local_search(unsigned num_lits, literal const* lits);
+        lbool do_ddfw_search(unsigned num_lits, literal const* lits);
         lbool do_unit_walk();
 
         // -----------------------

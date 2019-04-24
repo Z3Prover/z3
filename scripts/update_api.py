@@ -396,7 +396,7 @@ def mk_dotnet(dotnet):
     dotnet.write('        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 0)]\n')
     dotnet.write('        public struct NeuroPredict {\n')
     dotnet.write('          public uint n_vars, n_clauses, n_cells;\n')
-    dotnet.write('          public Single itau;\n')
+    dotnet.write('          public Single v_itau, c_itau;\n')
     dotnet.write('          public IntPtr C_idxs, L_idxs, pi_march_ps, pi_core_var_ps, pi_core_clause_ps, pi_model_ps;\n')
     dotnet.write('        }\n')
     dotnet.write('        [UnmanagedFunctionPointer(CallingConvention.Cdecl)]\n')
