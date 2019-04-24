@@ -64,11 +64,11 @@ struct vars_equivalence {
     // If m_tree[v] == -1 then the variable is a root.
     // if m_tree[v] is not equal to -1 then m_equivs[m_tree[v]] = (k, v) or (v, k), where k is the parent of v
     vector<equiv>                                 m_equivs;         // all equivalences extracted from constraints
-    std::function<rational(lpvar)>                m_vvr;
+    std::function<rational(lpvar)>                m_val;
     
 
     // constructor
-    vars_equivalence(std::function<rational(lpvar)> vvr) : m_vvr(vvr) {}
+    vars_equivalence(std::function<rational(lpvar)> val) : m_val(val) {}
     
     void clear() {
         m_equivs.clear();

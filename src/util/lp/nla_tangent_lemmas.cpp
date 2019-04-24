@@ -21,7 +21,7 @@
 #include "util/lp/nla_core.h"
 
 namespace nla {
-template <typename T> rational tangents::vvr(T const& t) const { return m_core->vvr(t); }
+template <typename T> rational tangents::val(T const& t) const { return m_core->val(t); }
 
 tangents::tangents(core * c) : common(c) {}
 
@@ -36,7 +36,7 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
     TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
     c().add_empty_lemma();
     const rational v = c().product_value(m.vars());
-    const rational mv = vvr(m);
+    const rational mv = val(m);
     SASSERT(mv != v);
     SASSERT(!mv.is_zero() && !v.is_zero());
     rational sign = rational(nla::rat_sign(mv));
@@ -47,7 +47,7 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
     bool gt = abs(mv) > abs(v);
     if (gt) {
         for (lpvar j : m.vars()) {
-            const rational jv = vvr(j);
+            const rational jv = val(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT);
             c().mk_ineq(js, j, llc::GT, jv);
@@ -55,7 +55,7 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
         c().mk_ineq(sign, m.var(), llc::LE, std::max(v, rational(-1)));
     } else {
         for (lpvar j : m.vars()) {
-            const rational jv = vvr(j);
+            const rational jv = val(j);
             rational js = rational(nla::rat_sign(jv));
             c().mk_ineq(js, j, llc::LT, std::max(jv, rational(0)));
         }
@@ -95,11 +95,11 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
     c().negate_relation(jy, b);
     bool sbelow = j_sign.is_pos()? below: !below;
 #if Z3DEBUG
-    int mult_sign = nla::rat_sign(a - vvr(jx))*nla::rat_sign(b - vvr(jy));
+    int mult_sign = nla::rat_sign(a - val(jx))*nla::rat_sign(b - val(jy));
     SASSERT((mult_sign == 1) == sbelow);
     // If "mult_sign is 1"  then (a - x)(b-y) > 0 and ab - bx - ay + xy > 0
     // or -ab + bx + ay < xy or -ay - bx + xy > -ab
-    // j_sign*vvr(j) stands for xy. So, finally we have  -ay - bx + j_sign*j > - ab
+    // j_sign*val(j) stands for xy. So, finally we have  -ay - bx + j_sign*j > - ab
 #endif
 
     lp::lar_term t;
@@ -110,12 +110,12 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
 }  
 void tangents::tangent_lemma_bf(const bfc& bf, lpvar j, const rational& sign, const monomial* rm){
     point a, b;
-    point xy (vvr(bf.m_x), vvr(bf.m_y));
+    point xy (val(bf.m_x), val(bf.m_y));
     rational correct_mult_val =  xy.x * xy.y;
-    rational val = vvr(j) * sign;
-    bool below = val < correct_mult_val;
+    rational v = val(j) * sign;
+    bool below = v < correct_mult_val;
     TRACE("nla_solver", tout << "rm = " << rm << ", below = " << below << std::endl; );
-    get_tang_points(a, b, below, val, xy);
+    get_tang_points(a, b, below, v, xy);
     TRACE("nla_solver", tout << "sign = " << sign << ", tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
     unsigned lemmas_size_was = c().m_lemma_vec->size();
     generate_two_tang_lines(bf, xy, sign, j);

@@ -55,7 +55,7 @@ private:
        a < 0 & b >= value(b) => sign*ab <= value(b)*a  if value(a) < 0
     */
     void order_lemma_on_ab_gt(const monomial& m, const rational& sign, lpvar a, lpvar b);
-    // we need to deduce ab >= vvr(b)*a
+    // we need to deduce ab >= val(b)*a
     /**
        \brief Add lemma: 
        a > 0 & b >= value(b) => sign*ab >= value(b)*a if value(a) > 0

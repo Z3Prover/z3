@@ -80,7 +80,7 @@ private:
                                const rational & correct_val,                             
                                const rational & val,
                                bool below) const;
-    template <typename T> rational vvr(T const& t) const;
+    template <typename T> rational val(T const& t) const;
     template <typename T> lpvar var(T const& t) const { return t.var(); }
 }; // end of tangents
 }

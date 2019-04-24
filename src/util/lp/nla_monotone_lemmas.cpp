@@ -36,9 +36,9 @@ void monotone::monotonicity_lemma() {
 
 
 void monotone::negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict) {
-    rational av = vvr(a);
+    rational av = val(a);
     rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(b);
+    rational bv = val(b);
     rational bs = rational(nla::rat_sign(bv));
     TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
     SASSERT(as*av <= bs*bv);
@@ -56,9 +56,9 @@ void monotone::assert_abs_val_a_le_abs_var_b(
     bool strict) {
     lpvar aj = var(a);
     lpvar bj = var(b);
-    rational av = vvr(aj);
+    rational av = val(aj);
     rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(bj);
+    rational bv = val(bj);
     rational bs = rational(nla::rat_sign(bv));
     //        TRACE("nla_solver", tout << "rmv = " << rmv << ", jv = " << jv << "\n";);
     mk_ineq(as, aj, llc::LT); // |aj| < 0
@@ -67,9 +67,9 @@ void monotone::assert_abs_val_a_le_abs_var_b(
 }
 
 void monotone::negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
-    rational av = vvr(a);
+    rational av = val(a);
     rational as = rational(nla::rat_sign(av));
-    rational bv = vvr(b);
+    rational bv = val(b);
     rational bs = rational(nla::rat_sign(bv));
     TRACE("nla_solver", tout << "av = " << av << ", bv = " << bv << "\n";);
     SASSERT(as*av < bs*bv);
@@ -83,7 +83,7 @@ void monotone::monotonicity_lemma(monomial const& m) {
     if (c().mon_has_zero(m.vars()))
         return;
     const rational prod_val = abs(c().product_value(m.vars()));
-    const rational m_val = abs(vvr(m));
+    const rational m_val = abs(val(m));
     if (m_val < prod_val)
         monotonicity_lemma_lt(m, prod_val);
     else if (m_val > prod_val)
@@ -102,9 +102,9 @@ void monotone::monotonicity_lemma_gt(const monomial& m, const rational& prod_val
     
 /** \brief enforce the inequality |m| >= product |m[i]| .
 
-    /\_i |m[i]| >= |vvr(m[i])| => |m| >= |product_i vvr(m[i])|
+    /\_i |m[i]| >= |val(m[i])| => |m| >= |product_i val(m[i])|
     <=>
-    \/_i |m[i]| < |vvr(m[i])} or |m| >= |product_i vvr(m[i])|
+    \/_i |m[i]| < |val(m[i])} or |m| >= |product_i val(m[i])|
 */
 void monotone::monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
     add_empty_lemma();
