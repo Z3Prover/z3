@@ -51,6 +51,7 @@ struct common {
 
     template <typename T> rational val(T const& t) const;
     rational val(lpvar) const;
+    rational rval(const monomial&) const;
     template <typename T> lpvar var(T const& t) const;
     bool done() const;
     template <typename T> void explain(const T&);

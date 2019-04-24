@@ -66,7 +66,6 @@ private:
     void order_lemma_on_factor_binomial_explore(const monomial& m, bool k);
     void order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const monomial& bd);
     void order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const monomial& bd, const factor& b, lpvar d);
-    void order_lemma_on_binomial_k(const monomial& m, bool k, bool gt);
     void order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, int sign);
     void order_lemma_on_binomial(const monomial& ac);
     void order_lemma_on_rmonomial(const monomial& rm);
