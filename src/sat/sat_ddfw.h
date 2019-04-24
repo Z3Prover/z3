@@ -45,7 +45,16 @@ namespace sat {
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
         };
+
+        struct config {
+            config() { reset(); }
+            unsigned m_use_reward_zero;
+            void reset() {
+                m_use_reward_zero = 15;
+            }
+        };
         
+        config           m_config;
         reslimit         m_limit;
         clause_allocator m_alloc;
         clause_vector    m_clause_db;     

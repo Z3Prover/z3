@@ -39,7 +39,7 @@ namespace sat {
         m_shifts = 0;
         while (m_limit.inc() && min_sz > 0) {
             bool_var v = pick_var();
-            if (m_reward[v] > 0 || m_reward[v] == 0 && m_rand(100) <= 15) {
+            if (m_reward[v] > 0 || m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero) {
                 flip(v);
                 if (m_unsat.size() < min_sz) {
                     min_sz = m_unsat.size();
