@@ -168,7 +168,7 @@ void order::generate_mon_ol(const monomial& ac,
     add_empty_lemma();
     mk_ineq(c_sign, c, llc::LE);
     explain(c); // this explains c == +- d
-    negate_var_factor_relation(c_sign, a, d_sign, b);
+    mk_ineq(c_sign, a, -d_sign, b.var(), negate(ab_cmp));
     mk_ineq(ac.var(), rational(-1), var(bd), ab_cmp);
     explain(bd);
     explain(b);
@@ -262,14 +262,6 @@ void order::generate_ol(const monomial& ac,
     explain(c);
     TRACE("nla_solver", _().print_lemma(tout););
 }
-
-
-void order::negate_var_factor_relation(const rational& a_sign, lpvar a, const rational& b_sign, const factor& b) {
-    rational b_fs = canonize_sign(b);
-    llc cmp = a_sign*val(a) < b_sign*val(b)? llc::GE : llc::LE;
-    mk_ineq(a_sign, a, - b_fs*b_sign, var(b), cmp);
-}
-
 
 bool order::order_lemma_on_ac_and_bc_and_factors(const monomial& ac,
                                                  const factor& a,
