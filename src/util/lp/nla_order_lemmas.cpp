@@ -63,21 +63,17 @@ void order::order_lemma_on_rmonomial(const monomial& m) {
 void order::order_lemma_on_binomial(const monomial& ac) {
     TRACE("nla_solver", tout << pp_rmon(c(), ac););
     SASSERT(!check_monomial(ac) && ac.size() == 2);
-    const rational mult_val = val(ac.rvars()[0]) * val(ac.rvars()[1]);
-    const rational acv = val(ac)*ac.rsign();
+    const rational mult_val = val(ac.vars()[0]) * val(ac.vars()[1]);
+    const rational acv = val(ac);
     bool gt = acv > mult_val;
     bool k = false;
     do {
-        order_lemma_on_binomial_k(ac, k, gt);
+        order_lemma_on_binomial_sign(ac, ac.vars()[k], ac.vars()[!k], gt? 1: -1);
         order_lemma_on_factor_binomial_explore(ac, k);
         k = !k; 
     } while (k);
 }
 
-void order::order_lemma_on_binomial_k(const monomial& m, bool k, bool gt) {
-    SASSERT(gt == (val(m) > val(m.vars()[0]) * val(m.vars()[1])));
-    order_lemma_on_binomial_sign(m, m.vars()[k], m.vars()[!k], gt ? 1: -1);
-}
 
 /**
 \brief
@@ -97,9 +93,8 @@ void order::order_lemma_on_binomial_sign(const monomial& xy, lpvar x, lpvar y, i
     mk_ineq(xy.var(), - val(x), y, sign == 1    ? llc::LE : llc::GE);
     TRACE("nla_solver", print_lemma(tout););
 }
-// m's size is 2 and m = m[k]a[!k] if k is false and m = m[!k]a[k] if k is true
-// We look for monomials of form m[k]d and see if we can create an order lemma for
-// m and  m[k]d
+
+// We look for monomials e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
 void order::order_lemma_on_factor_binomial_explore(const monomial& m, bool k) {
     SASSERT(m.size() == 2);
     lpvar c = m.vars()[k];
@@ -111,8 +106,10 @@ void order::order_lemma_on_factor_binomial_explore(const monomial& m, bool k) {
     }
 }
 
+// ac is a binomial
+// create order lemma on monomials bd where d is equivalent to ac[k]
 void order::order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const monomial& bd) {
-    TRACE("nla_solver", tout << "bd=" << pp_mon(_(), bd) << "\n";);
+    TRACE("nla_solver", tout << "bd=" << pp_rmon(_(), bd) << "\n";);
     factor d(_().m_evars.find(ac.vars()[k]).var(), factor_type::VAR);
     factor b;
     if (c().divide(bd, d, b)) {
@@ -120,11 +117,11 @@ void order::order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const 
     }
 }
 
+// suppose ac >= bd and |c| = |d| => then ac/|c| >= bd/|d|
 void order::order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const monomial& bd, const factor& b, lpvar d) {
     TRACE("nla_solver",  
-          tout << "ac=" << pp_mon(_(), ac) << "\nrm= " << pp_mon(_(), bd) << ", b= " << pp_fac(_(), b) << ", d= " << pp_var(_(), d) << "\n";);
-    bool p = !k;
-    lpvar a = ac.vars()[p];
+          tout << "ac=" << pp_rmon(_(), ac) << "\nrm= " << pp_rmon(_(), bd) << ", b= " << pp_fac(_(), b) << ", d= " << pp_var(_(), d) << "\n";);
+    lpvar a = ac.vars()[!k];
     lpvar c = ac.vars()[k];
     SASSERT(_().m_evars.find(c).var() == d);
     rational acv = val(ac);
@@ -133,10 +130,9 @@ void order::order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const mono
     rational d_sign = rrat_sign(val(d));
     rational bdv = val(bd);
     rational bv = val(b);
+    // Notice that ac/|c| = a*c_sign , and bd/|d| = b*d_sign
     auto av_c_s = av*c_sign; auto bv_d_s = bv*d_sign;
 
-    // suppose ac >= bd, then ac/|c| >= bd/|d|.
-    // Notice that ac/|c| = a*c_sign , and bd/|d| = b*d_sign
     if (acv >= bdv && av_c_s < bv_d_s)
         generate_mon_ol(ac, a, c_sign, c, bd, b, d_sign, d, llc::LT);
     else if (acv <= bdv && av_c_s > bv_d_s)
@@ -144,8 +140,11 @@ void order::order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const mono
         
 }
 
-// TBD: document what lemma is created here.
-
+// |c_sign| = 1, and c*c_sign > 0
+// |d_sign| = 1, and d*d_sign > 0
+// c and d are equivalent |c| == |d|
+// ac > bd => ac/|c| > bd/|d| => a*c_sign > b*d_sign
+// but the last inequality does not hold
 void order::generate_mon_ol(const monomial& ac,                     
                            lpvar a,
                            const rational& c_sign,
@@ -155,11 +154,22 @@ void order::generate_mon_ol(const monomial& ac,
                            const rational& d_sign,
                            lpvar d,
                            llc ab_cmp) {
+    SASSERT(
+        (ab_cmp == llc::LT || ab_cmp == llc::GT) &&
+        (
+            (ab_cmp != llc::LT ||
+             (val(ac) >= val(bd) && val(a)*c_sign < val(b)*d_sign))
+            ||
+            (ab_cmp != llc::GT ||
+             (val(ac) <= val(bd) && val(a)*c_sign > val(b)*d_sign))
+         )
+            );
+    
     add_empty_lemma();
     mk_ineq(c_sign, c, llc::LE);
     explain(c); // this explains c == +- d
     negate_var_factor_relation(c_sign, a, d_sign, b);
-    mk_ineq(ac.var(), -canonize_sign(bd), var(bd), ab_cmp);
+    mk_ineq(ac.var(), rational(-1), var(bd), ab_cmp);
     explain(bd);
     explain(b);
     explain(d);

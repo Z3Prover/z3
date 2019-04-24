@@ -100,6 +100,8 @@ public:
 
     rational val(const monomial& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
 
+    rational rval(const monomial& m) const { return val(m)*m.rsign(); }
+
     lpvar var(monomial const& sv) const { return sv.var(); }
 
     rational val_rooted(const monomial& m) const { return m.rsign()*val(m.var()); }
