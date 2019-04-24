@@ -88,6 +88,5 @@ private:
                          const rational& d_sign,
                          lpvar d,
                          llc ab_cmp);
-    void negate_var_factor_relation(const rational& a_sign, lpvar a, const rational& b_sign, const factor& b);
 };
 }
