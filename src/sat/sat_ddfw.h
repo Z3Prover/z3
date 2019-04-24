@@ -48,18 +48,21 @@ namespace sat {
         
         reslimit         m_limit;
         clause_allocator m_alloc;
-        clause_vector   m_clause_db;     
+        clause_vector    m_clause_db;     
         svector<clause_info> m_clauses;
-        svector<int>    m_reward; // per var break count
-        svector<bool>   m_values;
-        heap<lt>        m_heap;
+        svector<int>     m_reward; // per var break count
+        svector<bool>    m_values;
+        heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
         indexed_uint_set m_unsat;
+        indexed_uint_set m_reward_set;
+        unsigned         m_reward_sum;
         random_gen       m_rand;
         unsigned         m_plateau_counter;
         unsigned         m_plateau_inc;
         unsigned         m_plateau_lim;
         bool             m_reinit_phase;
+        unsigned         m_flips, m_shifts;
 
         bool is_true(literal lit) const { return m_values[lit.var()] != lit.sign(); }
 
@@ -69,7 +72,13 @@ namespace sat {
 
         inline bool is_true(unsigned idx) const { return m_clauses[idx].is_true(); }
 
-        unsigned select_max_same_sign(clause const& c);
+        unsigned select_max_same_sign(unsigned cf_idx);
+
+        void inc_reward(literal lit, int inc);
+
+        void dec_reward(literal lit, int inc);
+
+        bool_var pick_var();
 
         void flip(bool_var v);
 

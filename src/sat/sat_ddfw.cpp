@@ -22,6 +22,8 @@
 #include "sat/sat_ddfw.h"
 #include "sat/sat_solver.h"
 
+#define USE_REWARD_SET 0
+
 namespace sat {
 
     ddfw::~ddfw() {
@@ -33,33 +35,46 @@ namespace sat {
     lbool ddfw::check() {
         init();
         unsigned min_sz = m_unsat.size();
-        unsigned flips = 0, shifts = 0;
-        while (!m_unsat.empty() && m_limit.inc()) {
-            // display(verbose_stream());
-            bool_var v = m_heap.min_value();
-            IF_VERBOSE(0, verbose_stream() << "reward: " << m_reward[v] << "\n");
+        m_flips = 0; 
+        m_shifts = 0;
+        while (m_limit.inc() && min_sz > 0) {
+            bool_var v = pick_var();
             if (m_reward[v] > 0 || m_reward[v] == 0 && m_rand(100) <= 15) {
-                IF_VERBOSE(0, verbose_stream() << "flip " << v << " " << m_reward[v] << "\n");
                 flip(v);
-                ++flips;
                 if (m_unsat.size() < min_sz) {
                     m_plateau_counter = 0;
                     min_sz = m_unsat.size();
-                    IF_VERBOSE(1, verbose_stream() << "flips: " << flips << " unsat: " << min_sz << " shifts: " << shifts << "\n");
-                    if (min_sz == 0) {
-                        return l_true;
-                    }
+                    IF_VERBOSE(0, verbose_stream() << "flips: " << m_flips << " unsat: " << min_sz << " shifts: " << m_shifts << "\n");
                 }
                 else if (should_reinit_weights()) {
                     do_reinit_weights();
                 }
             }
             else {
-                ++shifts;
+                // IF_VERBOSE(0, verbose_stream() << "shift: " << v << ": " << m_reward[v] << "\n");
                 shift_weights();
             }
         } 
+        if (min_sz == 0) {
+            return l_true;
+        }
         return l_undef;
+    }
+
+    bool_var ddfw::pick_var() {
+#if USE_REWARD_SET
+        double lim = (m_rand()/(1.0 + (double)m_rand.max_value())) * (m_reward_sum + m_reward_set.size()); 
+        // sorted?
+        for (unsigned v : m_reward_set) {
+            lim -= m_reward[v] + 1;
+            if (lim <= 0) {
+                return v;
+            }
+        }
+        return m_rand(m_reward.size());
+#else
+        return m_heap.min_value();
+#endif
     }
 
     void ddfw::add(unsigned n, literal const* c) {        
@@ -94,7 +109,6 @@ namespace sat {
         }        
     }
 
-
     void ddfw::init() {
         m_values.reserve(m_reward.size());
         for (unsigned v = 0; v < m_reward.size(); ++v) {
@@ -124,31 +138,26 @@ namespace sat {
     }
 
     void ddfw::flip(bool_var v) {
+        ++m_flips;
         literal lit = literal(v, !m_values[v]);
         SASSERT(is_true(lit));
         for (unsigned cls_idx : m_use_list[lit.index()]) {
             clause_info& ci = m_clauses[cls_idx];
             ci.del(lit);
             unsigned w = ci.m_weight;
-            IF_VERBOSE(0, verbose_stream() << "del: " << get_clause(cls_idx) << " " << w << "\n");
             // cls becomes false: flip any variable in clause to receive reward w
             if (ci.m_num_trues == 0) {
                 m_unsat.insert(cls_idx);
-                clause const& c = get_clause(cls_idx);
-                for (literal l : c) {
-                    m_reward[l.var()] += w;
-                    m_heap.increased(l.var());
+                for (literal l : get_clause(cls_idx)) {
+                    inc_reward(l, w);
                 }
-                m_reward[lit.var()] += w;
-                m_heap.increased(lit.var());
+                inc_reward(lit, w);
             }
             // cls has single true literal, set the penalty of flipping l to w.
-            if (ci.m_num_trues == 1) {
+            else if (ci.m_num_trues == 1) {
                 literal l = to_literal(ci.m_trues);
-                IF_VERBOSE(0, verbose_stream() << "pivot " << l << "\n");
                 SASSERT(is_true(l));
-                m_reward[l.var()] -= w;
-                m_heap.decreased(l.var());
+                dec_reward(l, w);
             }
         }
         lit.neg();
@@ -159,33 +168,29 @@ namespace sat {
             // the clause used to have a single true (pivot) literal, now it has two.
             // Then the previous pivot is no longer penalized for flipping.
             if (ci.m_num_trues == 1) {
-                literal l = to_literal(ci.m_trues);
-                m_reward[l.var()] += w;
-                m_heap.increased(l.var());
+                inc_reward(to_literal(ci.m_trues), w);
+            }
+            else if (ci.m_num_trues == 0) {
+                m_unsat.remove(cls_idx);   
+                for (literal l : get_clause(cls_idx)) {
+                    dec_reward(l, w);
+                }
+                dec_reward(lit, w);
             }
             ci.add(lit);
-            IF_VERBOSE(0, verbose_stream() << "add: " << get_clause(cls_idx) << " " << ci.m_weight << "\n");
-            if (ci.m_num_trues == 1) {
-                m_unsat.remove(cls_idx);   
-                clause const& c = get_clause(cls_idx);
-                for (literal l : c) {
-                    m_reward[l.var()] -= w;
-                    m_heap.decreased(l.var());
-                }
-                m_reward[lit.var()] -= w;
-                m_heap.decreased(lit.var());
-            }
         }
-        DEBUG_CODE(invariant(););
+        //DEBUG_CODE(invariant(););
     }
 
     bool ddfw::should_reinit_weights() {
-        m_plateau_counter += 1;
+        m_plateau_counter++;
         return m_plateau_counter > m_plateau_lim;
     }
 
     void ddfw::do_reinit_weights() {
-        IF_VERBOSE(0, verbose_stream() << "reinit weights\n");
+        unsigned np = 0;
+        for (int r : m_reward) if (r > 0) np++;
+        IF_VERBOSE(0, verbose_stream() << "reinit weights np: " << np << " vars: " << m_reward.size() << " flips: " << m_flips << " shifts: " << m_shifts << "\n");
         m_plateau_counter = 0;
         m_plateau_lim += m_plateau_inc;
         if (m_reinit_phase) {
@@ -208,110 +213,138 @@ namespace sat {
     }
 
     void ddfw::init_rewards() {
-        m_heap.clear();
-        for (int& r : m_reward) {
-            r = 0;
+#if USE_REWARD_SET
+        m_reward_set.reset();
+        m_reward_sum = 0;
+        for (unsigned v = 0; v < m_reward.size(); ++v) {
+            m_reward[v] = 0;
+            m_reward_set.insert(v);
         }        
+#else
+        m_heap.clear();
+        m_heap.reserve(m_reward.size());
+        for (unsigned v = 0; v < m_reward.size(); ++v) {
+            m_reward[v] = 0;
+            m_heap.insert(v);
+        }
+#endif
         unsigned sz = m_clauses.size();
         for (unsigned i = 0; i < sz; ++i) {
             auto const& ci = m_clauses[i];
-            clause const& c = *m_clause_db[i];
-            if (!ci.is_true()) {
-                for (literal lit : c) {
-                    m_reward[lit.var()] += ci.m_weight;
+            if (ci.m_num_trues == 0) {
+                for (literal lit : get_clause(i)) {
+                    inc_reward(lit, ci.m_weight);
                 }
             }
-            if (ci.m_num_trues == 1) {
-                literal lit = to_literal(ci.m_trues);
-                m_reward[lit.var()] -= ci.m_weight;
+            else if (ci.m_num_trues == 1) {
+                dec_reward(to_literal(ci.m_trues), ci.m_weight);
             }
         }
-        m_heap.reserve(m_reward.size());
-        for (unsigned v = 0; v < m_reward.size(); ++v) {
-            m_heap.insert(v);
-        }
-        DEBUG_CODE(invariant(););
+        //DEBUG_CODE(invariant(););
     }
 
-    unsigned ddfw::select_max_same_sign(clause const& c) {
-        unsigned start = m_rand();
+    unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
+        clause const& c = get_clause(cf_idx);
         unsigned sz = c.size();
-        unsigned max_weight = 1;
+        unsigned max_weight = 2;
         unsigned cp = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
         unsigned cr = UINT_MAX; // clause in reserve
         unsigned n = 1, m = 1;
-        // IF_VERBOSE(0, verbose_stream() << "clause size " << sz << "\n");
-        for (unsigned i = 0; i < sz; ++i) {
-            literal lit = c[(start + i) % sz];
+        for (literal lit : c) {
             auto const& cls = m_use_list[lit.index()];
-            // IF_VERBOSE(0, verbose_stream() << "use list size: " << cls.size() << " " << cp << " " << cr << "\n");
-            unsigned st = m_rand();
-            unsigned n_cls = cls.size();
-            for (unsigned j = 0; j < n_cls; ++j) {
-                unsigned cn_idx = cls[(st + j) % n_cls];
+            for (unsigned cn_idx : cls) {
                 auto& cn = m_clauses[cn_idx];
                 unsigned wn = cn.m_weight;
-                // IF_VERBOSE(0, verbose_stream() << cn_idx << " " << cn.is_true() << " weight: " << wn << "\n");
                 if (cn.is_true()) {
                     if (wn > max_weight) {
                         cp = cn_idx;
                         max_weight = wn;
-                        n = 1;
+                        n = 2;
                     }
-                    else if (wn == max_weight) {
-                        ++n;
-                        if ((m_rand() % n) == 0) {
-                            cp = cn_idx;
-                        }
+                    else if (wn == max_weight && (m_rand() % (n++)) == 0) {
+                        cp = cn_idx;
                     }
                 }
-                else if (cp == UINT_MAX && wn >= 2) {
-                    if ((m_rand() % m) == 0) {
-                        cr = cn_idx;
-                    }
-                    ++m;
+                else if (cp == UINT_MAX && cn_idx != cf_idx && wn >= 2 && (m_rand() % (m++)) == 0) {
+                    cr = cn_idx;
                 }
             }
         }
-        SASSERT(cp != UINT_MAX || cr != UINT_MAX);
         return cp != UINT_MAX ? cp : cr;
     }
 
+    void ddfw::inc_reward(literal lit, int inc) {
+        int& r = m_reward[lit.var()];
+        r += inc;
+#if USE_REWARD_SET
+        if (r >= 0 && r < inc) {
+            m_reward_set.insert(lit.var());
+            m_reward_sum += r;
+        }
+        else if (r >= 0) {
+            m_reward_sum += inc;
+        }
+#else
+        m_heap.decreased(lit.var());
+#endif
+    }
+    
+    void ddfw::dec_reward(literal lit, int inc) {
+        int& r = m_reward[lit.var()];
+        r -= inc;
+#if USE_REWARD_SET
+        if (r < 0 && r + inc >= 0) {
+            m_reward_set.remove(lit.var());
+            m_reward_sum -= (r + inc);
+        }
+        else if (r >= 0) {
+            m_reward_sum -= inc;
+        }
+#else
+        m_heap.increased(lit.var());        
+#endif
+    }
+
     void ddfw::shift_weights() {
-        IF_VERBOSE(0, verbose_stream() << "shift weights\n");
+        ++m_shifts;
+        unsigned shifted = 0;
         for (unsigned cf_idx : m_unsat) {
             auto& cf = m_clauses[cf_idx];
             SASSERT(!cf.is_true());
-            unsigned cn_idx = select_max_same_sign(get_clause(cf_idx));
+            unsigned cn_idx = select_max_same_sign(cf_idx);
+            if (cn_idx == UINT_MAX || cf_idx == cn_idx) {
+                continue;
+            }
             auto& cn = m_clauses[cn_idx];
+            ++shifted;
             unsigned wn = cn.m_weight;
             SASSERT(wn >= 2);
             unsigned inc = (wn > 2) ? 2 : 1; 
-            SASSERT(wn - inc >= 1);
+            SASSERT(wn - inc >= 1);            
             cf.m_weight += inc;
             cn.m_weight -= inc;
             for (literal lit : get_clause(cf_idx)) {
-                m_reward[lit.var()] += inc;
-                m_heap.increased(lit.var());
+                inc_reward(lit, inc);
             }
             if (cn.m_num_trues == 0) {
                 for (literal lit : get_clause(cn_idx)) {
-                    m_reward[lit.var()] -= inc;
-                    m_heap.decreased(lit.var());
+                    dec_reward(lit, inc);
                 }
             }
-            if (cn.m_num_trues == 1) {
-                literal lit = to_literal(cn.m_trues);
-                m_reward[lit.var()] += inc;
-                m_heap.increased(lit.var());                
+            else if (cn.m_num_trues == 1) {
+                inc_reward(to_literal(cn.m_trues), inc);
             }
         }
+        if (shifted == 0) {
+            do_reinit_weights();
+        }
+        // IF_VERBOSE(0, verbose_stream() << "shift weights " << m_unsat.size() << ": " << shifted << "\n");
     }
 
     std::ostream& ddfw::display(std::ostream& out) const {
         unsigned num_cls = m_clauses.size();
         for (unsigned i = 0; i < num_cls; ++i) {
-            out << *m_clause_db[i] << " ";
+            out << get_clause(i) << " ";
             auto const& ci = m_clauses[i];
             out << ci.m_num_trues << " " << ci.m_weight << "\n";
         }
@@ -323,7 +356,6 @@ namespace sat {
     }
 
     void ddfw::invariant() {
-        IF_VERBOSE(0, verbose_stream() << "invariant\n");
         unsigned num_vars = m_reward.size();
         for (unsigned v = 0; v < num_vars; ++v) {
             int reward = 0;

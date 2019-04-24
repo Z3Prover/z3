@@ -258,13 +258,11 @@ void parse_cmd_line_args(int argc, char ** argv) {
                 enable_trace(opt_arg);
             }
 #endif
-#ifdef Z3DEBUG
             else if (strcmp(opt_name, "dbg") == 0) {
                 if (!opt_arg)
                     error("option argument (-dbg:tag) is missing.");
                 enable_debug(opt_arg);
             }
-#endif
             else if (strcmp(opt_name, "memory") == 0) {
                 if (!opt_arg)
                     error("option argument (-memory:val) is missing.");
