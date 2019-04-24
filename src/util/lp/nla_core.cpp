@@ -48,7 +48,7 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
     for (const auto & t : r.coeffs()) {
-        ret += t.second * vvr(t.first);
+        ret += t.second * val(t.first);
     }
     return ret;
 }
@@ -151,7 +151,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first) out << "*"; else first = false;
-        out << "(" << m_lar_solver.get_variable_name(v) << "=" << vvr(v) << ")";
+        out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
     }
     return out;
 }
@@ -180,7 +180,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 }
 
 std::ostream& core::print_monomial(const monomial& m, std::ostream& out) const {
-    out << "( [" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << vvr(m.var()) << " = ";
+    out << "( [" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     print_product(m.vars(), out) << ")\n";
     return out;
 }
@@ -497,7 +497,7 @@ const lp::explanation& core::current_expl() const { return current_lemma().expl(
 int core::vars_sign(const svector<lpvar>& v) {
     int sign = 1;
     for (lpvar j : v) {
-        sign *= nla::rat_sign(vvr(j));
+        sign *= nla::rat_sign(val(j));
         if (sign == 0) 
             return 0;
     }
@@ -562,7 +562,7 @@ bool core::zero_is_an_inner_point_of_bounds(lpvar j) const {
 int core::rat_sign(const monomial& m) const {
     int sign = 1;
     for (lpvar j : m.vars()) {
-        auto v = vvr(j);
+        auto v = val(j);
         if (v.is_neg()) {
             sign = - sign;
             continue;
@@ -577,8 +577,8 @@ int core::rat_sign(const monomial& m) const {
 }
 
 // Returns true if the monomial sign is incorrect
-bool core:: sign_contradiction(const monomial& m) const {
-    return  nla::rat_sign(vvr(m)) != rat_sign(m);
+bool core::sign_contradiction(const monomial& m) const {
+    return  nla::rat_sign(val(m)) != rat_sign(m);
 }
 
 /*
@@ -718,7 +718,7 @@ std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
     if (m_emons.is_monomial_var(j)) {
         print_monomial(m_emons[j], out);
-        out << " = " << vvr(j);;
+        out << " = " << val(j);;
     }
         
     m_lar_solver.print_column_info(j, out) <<";";
@@ -791,8 +791,8 @@ void core::explain_existing_upper_bound(lpvar j) {
 }
     
 void core::explain_separation_from_zero(lpvar j) {
-    SASSERT(!vvr(j).is_zero());
-    if (vvr(j).is_pos())
+    SASSERT(!val(j).is_zero());
+    if (val(j).is_pos())
         explain_existing_lower_bound(j);
     else
         explain_existing_upper_bound(j);
@@ -816,7 +816,7 @@ void core::trace_print_monomial_and_factorization(const monomial& rm, const fact
     out << "\n";
         
     out << "mon:  " << pp_mon(*this, rm.var()) << "\n";
-    out << "value: " << vvr(rm) << "\n";
+    out << "value: " << val(rm) << "\n";
     print_factorization(f, out << "fact: ") << "\n";
 }
 
@@ -906,93 +906,14 @@ bool core:: basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const roo
         }
     }
 
-    if (not_one_j == static_cast<lpvar>(-1)) {
-        return false;
-    } 
-
-    add_empty_lemma();
-    // mon_var = 0
-    mk_ineq(mon_var, llc::EQ);
-        
-    // negate abs(jl) == abs()
-    if (vvr(jl) == - vvr(mon_var))
-        mk_ineq(jl, mon_var, llc::NE, current_lemma());   
-    else  // jl == mon_var
-        mk_ineq(jl, -rational(1), mon_var, llc::NE);   
-
-    // not_one_j = 1
-    mk_ineq(not_one_j, llc::EQ,  rational(1));   
-        
-    // not_one_j = -1
-    mk_ineq(not_one_j, llc::EQ, -rational(1));
-    explain(rm, current_expl());
-    explain(f, current_expl());
-
-    TRACE("nla_solver", print_lemma(tout); );
-    return true;
-}
-// use the fact that
-// |xabc| = |x| and x != 0 -> |a| = |b| = |c| = 1 
-bool core:: basic_lemma_for_mon_neutral_monomial_to_factor_model_based_fm(const monomial& m) {
-    TRACE("nla_solver_bl", print_monomial(m, tout););
-
-    lpvar mon_var = m.var();
-    const auto & mv = vvr(mon_var);
-    const auto  abs_mv = abs(mv);
-    if (abs_mv == rational::zero()) {
-        return false;
-    }
-    lpvar jl = -1;
-    for (auto j : m ) {
-        if (abs(vvr(j)) == abs_mv) {
-            jl = j;
-            break;
-        }
-    }
-    if (jl == static_cast<lpvar>(-1))
-        return false;
-    lpvar not_one_j = -1;
-    for (auto j : m ) {
-        if (j == jl) {
-            continue;
-        }
-        if (abs(vvr(j)) != rational(1)) {
-            not_one_j = j;
-            break;
-        }
-    }
-
-    if (not_one_j == static_cast<lpvar>(-1)) {
-        return false;
-    } 
-
-    add_empty_lemma();
-    // mon_var = 0
-    mk_ineq(mon_var, llc::EQ);
-        
-    // negate abs(jl) == abs()
-    if (vvr(jl) == - vvr(mon_var))
-        mk_ineq(jl, mon_var, llc::NE, current_lemma());   
-    else  // jl == mon_var
-        mk_ineq(jl, -rational(1), mon_var, llc::NE);   
-
-    // not_one_j = 1
-    mk_ineq(not_one_j, llc::EQ,  rational(1));   
-        
-    // not_one_j = -1
-    mk_ineq(not_one_j, llc::EQ, -rational(1));
-    TRACE("nla_solver", print_lemma(tout); );
-    return true;
-}
-
-bool core:: vars_are_equiv(lpvar a, lpvar b) const {
-    SASSERT(abs(vvr(a)) == abs(vvr(b)));
+bool core::vars_are_equiv(lpvar a, lpvar b) const {
+    SASSERT(abs(val(a)) == abs(val(b)));
     return m_evars.vars_are_equiv(a, b);
 }
 
     
 void core::explain_equiv_vars(lpvar a, lpvar b) {
-    SASSERT(abs(vvr(a)) == abs(vvr(b)));
+    SASSERT(abs(val(a)) == abs(val(b)));
     if (m_evars.vars_are_equiv(a, b)) {
         explain(a, current_expl());
         explain(b, current_expl());
@@ -1245,7 +1166,7 @@ void core::explain(const factorization& f, lp::explanation& exp) {
 
 bool core:: has_zero_factor(const factorization& factorization) const {
     for (factor f : factorization) {
-        if (vvr(f).is_zero())
+        if (val(f).is_zero())
             return true;
     }
     return false;
@@ -1255,7 +1176,7 @@ bool core:: has_zero_factor(const factorization& factorization) const {
 template <typename T>
 bool core:: mon_has_zero(const T& product) const {
     for (lpvar j: product) {
-        if (vvr(j).is_zero())
+        if (val(j).is_zero())
             return true;
     }
     return false;
@@ -1292,7 +1213,7 @@ void core::collect_equivs_of_fixed_vars() {
     for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
         if (!var_is_fixed(j))
             continue;
-        rational v = abs(vvr(j));
+        rational v = abs(val(j));
         auto it = abs_map.find(v);
         if (it == abs_map.end()) {
             abs_map[v] = svector<lpvar>();
@@ -1309,10 +1230,10 @@ void core::collect_equivs_of_fixed_vars() {
         for (unsigned k = 1; k < v.size(); k++) {
             auto c2 = m_lar_solver.get_column_upper_bound_witness(v[k]);
             auto c3 = m_lar_solver.get_column_lower_bound_witness(v[k]);
-            if (vvr(head) == vvr(v[k])) {
+            if (val(head) == val(v[k])) {
                 m_evars.merge_plus(head, v[k], eq_justification({c0, c1, c2, c3}));
             } else {
-                SASSERT(vvr(head) == -vvr(v[k]));
+                SASSERT(val(head) == -val(v[k]));
                 m_evars.merge_minus(head, v[k], eq_justification({c0, c1, c2, c3}));
             }
         }
@@ -1396,7 +1317,7 @@ void core::print_monomial_stats(const monomial& m, std::ostream& out) {
     if (m.size() == 2) return;
     monomial_coeff mc = canonize_monomial(m);
     for(unsigned i = 0; i < mc.vars().size(); i++){
-        if (abs(vvr(mc.vars()[i])) == rational(1)) {
+        if (abs(val(mc.vars()[i])) == rational(1)) {
             auto vv = mc.vars();
             vv.erase(vv.begin()+i);
             monomial const* sv = m_emons.find_canonical(vv);
@@ -1488,7 +1409,7 @@ void core::negate_factor_equality(const factor& c,
         return;
     lpvar i = var(c);
     lpvar j = var(d);
-    auto iv = vvr(i), jv = vvr(j);
+    auto iv = val(i), jv = val(j);
     SASSERT(abs(iv) == abs(jv));
     if (iv == jv) {
         mk_ineq(i, -rational(1), j, llc::NE);
@@ -1500,7 +1421,7 @@ void core::negate_factor_equality(const factor& c,
 void core::negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
     rational a_fs = canonize_sign(a);
     rational b_fs = canonize_sign(b);
-    llc cmp = a_sign*vvr(a) < b_sign*vvr(b)? llc::GE : llc::LE;
+    llc cmp = a_sign*val(a) < b_sign*val(b)? llc::GE : llc::LE;
     mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
 }
 
@@ -1543,7 +1464,7 @@ void core::maybe_add_a_factor(lpvar i,
                               std::unordered_set<lpvar>& found_vars,
                               std::unordered_set<unsigned>& found_rm,
                               vector<factor> & r) const {
-    SASSERT(abs(vvr(i)) == abs(vvr(c)));
+    SASSERT(abs(val(i)) == abs(val(c)));
     if (!m_emons.is_monomial_var(i)) {
         i = m_evars.find(i).var();
         if (try_insert(i, found_vars)) {
@@ -1583,30 +1504,30 @@ bool core::rm_check(const monomial& rm) const {
 /**
    \brief Add |v| ~ |bound|
    where ~ is <, <=, >, >=, 
-   and bound = vvr(v)
+   and bound = val(v)
 
    |v| > |bound| 
    <=> 
    (v < 0 or v > |bound|) & (v > 0 or -v > |bound|)        
-   => Let s be the sign of vvr(v)
+   => Let s be the sign of val(v)
    (s*v < 0 or s*v > |bound|)         
 
    |v| < |bound|
    <=>
    v < |bound| & -v < |bound| 
-   => Let s be the sign of vvr(v)
+   => Let s be the sign of val(v)
    s*v < |bound|
 
 */
 
 void core::add_abs_bound(lpvar v, llc cmp) {
-    add_abs_bound(v, cmp, vvr(v));
+    add_abs_bound(v, cmp, val(v));
 }
 
 void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
-    SASSERT(!vvr(v).is_zero());
+    SASSERT(!val(v).is_zero());
     lp::lar_term t;  // t = abs(v)
-    t.add_coeff_var(rrat_sign(vvr(v)), v);
+    t.add_coeff_var(rrat_sign(val(v)), v);
 
     switch (cmp) {
     case llc::GT:
@@ -1626,9 +1547,9 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
 // NB - move this comment to monotonicity or appropriate.
 /** \brief enforce the inequality |m| <= product |m[i]| .
     by enforcing lemma:
-    /\_i |m[i]| <= |vvr(m[i])| => |m| <= |product_i vvr(m[i])|
+    /\_i |m[i]| <= |val(m[i])| => |m| <= |product_i val(m[i])|
     <=>
-    \/_i |m[i]| > |vvr(m[i])} or |m| <= |product_i vvr(m[i])|
+    \/_i |m[i]| > |val(m[i])} or |m| <= |product_i val(m[i])|
 */
 
     
@@ -1637,7 +1558,7 @@ bool core::find_bfc_to_refine_on_rmonomial(const monomial& rm, bfc & bf) {
         if (factorization.size() == 2) {
             auto a = factorization[0];
             auto b = factorization[1];
-            if (vvr(rm) != vvr(a) * vvr(b)) {
+            if (val(rm) != val(a) * val(b)) {
                 bf = bfc(a, b);
                 return true;
             }
@@ -1668,7 +1589,7 @@ bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*
             TRACE("nla_solver", tout << "found bf";
                   tout << ":rm:" << rm << "\n";
                   tout << "bf:"; print_bfc(bf, tout);
-                  tout << ", product = " << vvr(rm) << ", but should be =" << vvr(bf.m_x)*vvr(bf.m_y);
+                  tout << ", product = " << val(rm) << ", but should be =" << val(bf.m_x)*val(bf.m_y);
                   tout << ", j == "; print_var(j, tout) << "\n";);
             return true;
         } 
@@ -1679,10 +1600,10 @@ bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*
 void core::generate_simple_sign_lemma(const rational& sign, const monomial& m) {
     SASSERT(sign == nla::rat_sign(product_value(m.vars())));
     for (lpvar j : m.vars()) {
-        if (vvr(j).is_pos()) {
+        if (val(j).is_pos()) {
             mk_ineq(j, llc::LE);
         } else {
-            SASSERT(vvr(j).is_neg());
+            SASSERT(val(j).is_neg());
             mk_ineq(j, llc::GE);
         }
     }
@@ -1805,8 +1726,8 @@ void core::generate_tang_plane(const rational & a, const rational& b, const fact
 }  
 
 void core::negate_relation(unsigned j, const rational& a) {
-    SASSERT(vvr(j) != a);
-    if (vvr(j) < a) {
+    SASSERT(val(j) != a);
+    if (val(j) < a) {
         mk_ineq(j, llc::GE, a);
     }
     else {
