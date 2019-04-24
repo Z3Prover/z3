@@ -199,14 +199,12 @@ std::ostream& core::print_bfc(const bfc& m, std::ostream& out) const {
     return out << "( x = "; print_factor(m.m_x, out); out <<  ", y = "; print_factor(m.m_y, out); out <<  ")";
 }
 
-
 std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
     return print_monomial_with_vars(m_emons[v], out);
 }
-
 template <typename T>
 std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const {
-    print_product(m.vars(), out) << "\n";
+    print_product(m, out) << "\n";
     for (unsigned k = 0; k < m.size(); k++) {
         print_var(m[k], out);
     }
@@ -215,9 +213,9 @@ std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const
 
 std::ostream& core::print_monomial_with_vars(const monomial& m, std::ostream& out) const {
     out << "["; print_var(m.var(), out) << "]\n";
-    for (lpvar j: m.vars())
-        print_var(j, out);
-    out << ")\n";
+    out << "vars:"; print_product_with_vars(m.vars(), out) << "\n";
+    out << "rvars:"; print_product_with_vars(m.rvars(), out) << "\n";
+    out << "rsign:" << m.rsign() << "\n";
     return out;
 }
 

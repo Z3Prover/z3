@@ -61,10 +61,10 @@ void order::order_lemma_on_rmonomial(const monomial& m) {
 // a > b && c > 0 => ac > bc,
 // with either variable of ac playing the role of c
 void order::order_lemma_on_binomial(const monomial& ac) {
-    TRACE("nla_solver", tout << pp_mon(c(), ac););
+    TRACE("nla_solver", tout << pp_rmon(c(), ac););
     SASSERT(!check_monomial(ac) && ac.size() == 2);
-    const rational mult_val = val(ac.vars()[0]) * val(ac.vars()[1]);
-    const rational acv = val(ac);
+    const rational mult_val = val(ac.rvars()[0]) * val(ac.rvars()[1]);
+    const rational acv = val(ac)*ac.rsign();
     bool gt = acv > mult_val;
     bool k = false;
     do {
