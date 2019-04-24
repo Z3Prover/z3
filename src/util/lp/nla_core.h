@@ -338,30 +338,36 @@ public:
     lbool  test_check(vector<lemma>& l);
 };  // end of core
 
-    struct pp_mon {
-        core const& c;
-        monomial const& m;
-        pp_mon(core const& c, monomial const& m): c(c), m(m) {}
-        pp_mon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
-    };
+struct pp_mon {
+    core const& c;
+    monomial const& m;
+    pp_mon(core const& c, monomial const& m): c(c), m(m) {}
+    pp_mon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
+};
+struct pp_rmon {
+    core const& c;
+    monomial const& m;
+    pp_rmon(core const& c, monomial const& m): c(c), m(m) {}
+    pp_rmon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
+};
+inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
+inline std::ostream& operator<<(std::ostream& out, pp_rmon const& p) { return p.c.print_monomial_with_vars(p.m, out); }
 
-    inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
+struct pp_fac {
+    core const& c;
+    factor const& f;
+    pp_fac(core const& c, factor const& f): c(c), f(f) {}
+};
 
-    struct pp_fac {
-        core const& c;
-        factor const& f;
-        pp_fac(core const& c, factor const& f): c(c), f(f) {}
-    };
+inline std::ostream& operator<<(std::ostream& out, pp_fac const& f) { return f.c.print_factor(f.f, out); }
 
-    inline std::ostream& operator<<(std::ostream& out, pp_fac const& f) { return f.c.print_factor(f.f, out); }
+struct pp_var {
+    core const& c;
+    lpvar v;
+    pp_var(core const& c, lpvar v): c(c), v(v) {}
+};
 
-    struct pp_var {
-        core const& c;
-        lpvar v;
-        pp_var(core const& c, lpvar v): c(c), v(v) {}
-    };
-
-    inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
+inline std::ostream& operator<<(std::ostream& out, pp_var const& v) { return v.c.print_var(v.v, out); }
 
 } // end of namespace nla
 
