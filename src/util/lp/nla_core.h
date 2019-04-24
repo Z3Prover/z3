@@ -96,17 +96,15 @@ public:
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
   
-    rational vvr(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
+    rational val(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
 
-    rational vvr(const monomial& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
+    rational val(const monomial& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
 
-    lp::impq vv(lpvar j) const { return m_lar_solver.get_column_value(j); }
-    
     lpvar var(monomial const& sv) const { return sv.var(); }
 
-    rational vvr_rooted(const monomial& m) const { return m.rsign()*vvr(m.var()); }
+    rational val_rooted(const monomial& m) const { return m.rsign()*val(m.var()); }
 
-    rational vvr(const factor& f) const {  return f.is_var()? vvr(f.var()) : vvr(m_emons[f.var()]); }
+    rational val(const factor& f) const {  return f.is_var()? val(f.var()) : val(m_emons[f.var()]); }
 
     lpvar var(const factor& f) const { return f.var(); }
 
@@ -227,7 +225,7 @@ public:
     bool zero_is_an_inner_point_of_bounds(lpvar j) const;
     
     int rat_sign(const monomial& m) const;
-    inline int rat_sign(lpvar j) const { return nla::rat_sign(vvr(j)); }
+    inline int rat_sign(lpvar j) const { return nla::rat_sign(val(j)); }
 
     bool sign_contradiction(const monomial& m) const;
 
