@@ -364,6 +364,11 @@ public:
         SASSERT(!contains(x));
     }
 
+    unsigned elem_at(unsigned index) {
+        SASSERT(index < m_size);
+        return m_elems[index];
+    }
+
     bool contains(unsigned x) const { return x < m_index.size() && m_index[x] < m_size && m_elems[m_index[x]] == x; }
     void reset() { m_size = 0; }
     bool empty() const { return m_size == 0; }    

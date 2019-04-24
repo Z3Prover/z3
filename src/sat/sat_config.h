@@ -119,6 +119,7 @@ namespace sat {
         unsigned           m_max_conflicts;
         unsigned           m_num_threads;
         bool               m_ddfw_search;
+        bool               m_prob_search;
         unsigned           m_local_search_threads;
         bool               m_local_search;
         local_search_mode  m_local_search_mode;

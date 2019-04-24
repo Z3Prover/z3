@@ -21,6 +21,7 @@ z3_add_component(sat
     sat_model_converter.cpp
     sat_mus.cpp
     sat_parallel.cpp
+    sat_prob.cpp
     sat_probing.cpp
     sat_scc.cpp
     sat_simplifier.cpp

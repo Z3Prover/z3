@@ -42,7 +42,6 @@ namespace sat {
             if (m_reward[v] > 0 || m_reward[v] == 0 && m_rand(100) <= 15) {
                 flip(v);
                 if (m_unsat.size() < min_sz) {
-                    m_plateau_counter = 0;
                     min_sz = m_unsat.size();
                     IF_VERBOSE(0, verbose_stream() << "flips: " << m_flips << " unsat: " << min_sz << " shifts: " << m_shifts << "\n");
                 }
@@ -131,10 +130,10 @@ namespace sat {
         init_rewards();
 
         // initialize plateau toggles
-        m_plateau_counter = 0;
-        m_plateau_inc = 1 + (m_values.size()/10);
-        m_plateau_lim = 2*m_plateau_inc;
-        m_reinit_phase = false;
+        m_reinit_count = 0;
+        m_reinit_inc = 10000;
+        m_reinit_next = m_reinit_inc;
+        m_reinit_next_reset = 1;
     }
 
     void ddfw::flip(bool_var v) {
@@ -183,17 +182,14 @@ namespace sat {
     }
 
     bool ddfw::should_reinit_weights() {
-        m_plateau_counter++;
-        return m_plateau_counter > m_plateau_lim;
+        return m_flips > m_reinit_next;
     }
 
     void ddfw::do_reinit_weights() {
         unsigned np = 0;
         for (int r : m_reward) if (r > 0) np++;
-        IF_VERBOSE(0, verbose_stream() << "reinit weights np: " << np << " vars: " << m_reward.size() << " flips: " << m_flips << " shifts: " << m_shifts << "\n");
-        m_plateau_counter = 0;
-        m_plateau_lim += m_plateau_inc;
-        if (m_reinit_phase) {
+        IF_VERBOSE(0, verbose_stream() << "reinit weights np: " << np << " vars: " << m_reward.size() << " flips: " << m_flips << " shifts: " << m_shifts << " " << m_reinit_count << " " << m_reinit_next_reset << "\n");
+        if (m_reinit_count < m_reinit_next_reset) {
             for (auto& ci : m_clauses) {
                 ci.m_weight += 1;                
             }
@@ -207,9 +203,11 @@ namespace sat {
                     ci.m_weight = 3;
                 }                
             }
+            m_reinit_next_reset += m_reinit_count;
         }
-        init_rewards();       
-        m_reinit_phase = !m_reinit_phase;
+        init_rewards();   
+        ++m_reinit_count;
+        m_reinit_next += m_reinit_count * m_reinit_inc;
     }
 
     void ddfw::init_rewards() {

@@ -28,6 +28,7 @@ Revision History:
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_ddfw.h"
+#include "sat/sat_prob.h"
 #ifdef _MSC_VER
 # include <xmmintrin.h>
 #endif
@@ -82,6 +83,7 @@ namespace sat {
         m_neuro_state             = nullptr;
         m_neuro_predictor         = nullptr;
         m_ddfw_search             = nullptr;
+        m_prob_search             = nullptr;
         m_mc.set_solver(this);
     }
 
@@ -1175,6 +1177,9 @@ namespace sat {
         if (m_config.m_ddfw_search) {
             return do_ddfw_search(num_lits, lits);
         }
+        if (m_config.m_prob_search) {
+            return do_prob_search(num_lits, lits);
+        }
         if (m_config.m_local_search) {
             return do_local_search(num_lits, lits);
         }
@@ -1286,6 +1291,20 @@ namespace sat {
         lbool r = srch.check();
         // m_model = srch.get_model();
         m_ddfw_search = nullptr;
+        dealloc(&srch);
+        return r;
+    }
+
+    lbool solver::do_prob_search(unsigned num_lits, literal const* lits) {
+        scoped_limits scoped_rl(rlimit());
+        SASSERT(!m_prob_search);
+        m_prob_search = alloc(prob);
+        prob& srch = *m_prob_search;
+        srch.add(*this);
+        scoped_rl.push_child(&srch.rlimit());
+        lbool r = srch.check();
+        // m_model = srch.get_model();
+        m_prob_search = nullptr;
         dealloc(&srch);
         return r;
     }
