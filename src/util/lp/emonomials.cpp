@@ -143,7 +143,7 @@ namespace nla {
             }
         }
         unsigned idx = m_monomials.size();
-        m_monomials.push_back(monomial(v, vars.size(), vars.c_ptr(), idx));
+        m_monomials.push_back(monomial(v, vars, idx));
         m_var2index.setx(v, idx, UINT_MAX);
         do_canonize(m_monomials[idx]);
         monomial const* result = nullptr;
