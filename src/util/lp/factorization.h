@@ -104,7 +104,7 @@ struct const_iterator_mon {
 };
 
 struct factorization_factory {
-    const svector<lpvar>& m_vars;
+    const svector<lpvar>  m_vars;
     const monomial*       m_monomial;
     // returns true if found
     virtual bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
