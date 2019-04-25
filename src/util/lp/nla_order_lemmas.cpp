@@ -187,8 +187,8 @@ bool order::order_lemma_on_ac_and_bc(const monomial& rm_ac,
                                      bool k,
                                      const monomial& rm_bd) {
     TRACE("nla_solver", 
-          tout << "rm_ac = " << rm_ac << "\n";
-          tout << "rm_bd = " << rm_bd << "\n";
+          tout << "rm_ac = " << pp_rmon(_(), rm_ac) << "\n";
+          tout << "rm_bd = " << pp_rmon(_(), rm_bd) << "\n";
           tout << "ac_f[k] = ";
           c().print_factor_with_vars(ac_f[k], tout););
     factor b;

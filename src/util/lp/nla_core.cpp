@@ -173,8 +173,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
         print_var(f.var(), out);
     } 
     else {
-        out << " RM = " << m_emons[f.var()];
-        out << "\n orig mon = " << m_emons[f.var()];
+        out << " RM = " << pp_rmon(*this, m_emons[f.var()]);
     }
     return out;
 }
@@ -1447,8 +1446,8 @@ void core::trace_print_ol(const monomial& ac,
                           const monomial& bc,
                           const factor& b,
                           std::ostream& out) {
-    out << "ac = " << ac << "\n";
-    out << "bc = " << bc << "\n";
+    out << "ac = " << pp_mon(*this, ac) << "\n";
+    out << "bc = " << pp_mon(*this, bc) << "\n";
     out << "a = ";
     print_factor_with_vars(a, out);
     out << ", \nb = ";
@@ -1585,7 +1584,7 @@ bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*
             j = rm.var();
             sign = rm.rsign();
             TRACE("nla_solver", tout << "found bf";
-                  tout << ":rm:" << rm << "\n";
+                  tout << ":rm:" << pp_rmon(*this, rm) << "\n";
                   tout << "bf:"; print_bfc(bf, tout);
                   tout << ", product = " << val(rm) << ", but should be =" << val(bf.m_x)*val(bf.m_y);
                   tout << ", j == "; print_var(j, tout) << "\n";);

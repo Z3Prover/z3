@@ -740,7 +740,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(co
     explain(f);
     TRACE("nla_solver",
           c().print_lemma(tout);
-          tout << "rm = " << rm;
+          tout << "rm = " << pp_rmon(c(), rm);
           );
     return true;
 }
