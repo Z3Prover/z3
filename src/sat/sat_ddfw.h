@@ -48,9 +48,11 @@ namespace sat {
 
         struct config {
             config() { reset(); }
-            unsigned m_use_reward_zero;
+            unsigned m_use_reward_zero_pct;
+            bool     m_use_heap;
             void reset() {
-                m_use_reward_zero = 15;
+                m_use_reward_zero_pct = 15;
+                m_use_heap = true;
             }
         };
         
@@ -95,7 +97,7 @@ namespace sat {
 
         bool should_reinit_weights();
         
-        void do_reinit_weights();
+        void do_reinit_weights(bool force);
 
         void init();
 

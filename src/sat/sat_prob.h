@@ -38,7 +38,22 @@ namespace sat {
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
         };
+
+        struct config {
+            unsigned m_prob_random_init;
+            unsigned m_restart_offset;
+            double   m_cb;
+            double   m_eps;
+            config() { reset(); }
+            void reset() {
+                m_prob_random_init = 4;
+                m_restart_offset = 1000000;
+                m_cb = 2.85;
+                m_eps = 0.9;
+            }
+        };
         
+        config           m_config;
         reslimit         m_limit;
         clause_allocator m_alloc;
         clause_vector    m_clause_db;     
@@ -56,19 +71,15 @@ namespace sat {
         uint64_t         m_flips;
         uint64_t         m_next_restart;
         unsigned         m_restart_count;
-        unsigned         m_restart_offset;
         stopwatch        m_stopwatch;
 
 
-        // constants
-        double           m_cb;
-        double           m_eps;
 
         class use_list {
             prob& p;
             unsigned i;
         public:
-            use_list(prob& ps, literal lit):
+            use_list(prob& p, literal lit):
                 p(p), i(lit.index()) {}
             unsigned const* begin() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i]; }
             unsigned const* end() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i+1]; }
@@ -102,7 +113,11 @@ namespace sat {
 
         void init_best_values();
 
+        void init_near_best_values();
+
         void init_clauses();
+
+        void auto_config();
 
         void init_probs();
 

@@ -1175,12 +1175,15 @@ namespace sat {
         SASSERT(at_base_lvl());
 
         if (m_config.m_ddfw_search) {
+            m_cleaner(true);
             return do_ddfw_search(num_lits, lits);
         }
         if (m_config.m_prob_search) {
+            m_cleaner(true);
             return do_prob_search(num_lits, lits);
         }
         if (m_config.m_local_search) {
+            m_cleaner(true);
             return do_local_search(num_lits, lits);
         }
         if ((m_config.m_num_threads > 1 || m_config.m_local_search_threads > 0 || m_config.m_unit_walk_threads > 0) && !m_par) {

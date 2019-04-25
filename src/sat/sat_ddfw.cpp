@@ -22,8 +22,6 @@
 #include "sat/sat_ddfw.h"
 #include "sat/sat_solver.h"
 
-#define USE_REWARD_SET 0
-
 namespace sat {
 
     ddfw::~ddfw() {
@@ -39,18 +37,17 @@ namespace sat {
         m_shifts = 0;
         while (m_limit.inc() && min_sz > 0) {
             bool_var v = pick_var();
-            if (m_reward[v] > 0 || m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero) {
+            if (m_reward[v] > 0 || (m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
                 flip(v);
                 if (m_unsat.size() < min_sz) {
                     min_sz = m_unsat.size();
                     IF_VERBOSE(0, verbose_stream() << "flips: " << m_flips << " unsat: " << min_sz << " shifts: " << m_shifts << "\n");
                 }
                 else if (should_reinit_weights()) {
-                    do_reinit_weights();
+                    do_reinit_weights(false);
                 }
             }
             else {
-                // IF_VERBOSE(0, verbose_stream() << "shift: " << v << ": " << m_reward[v] << "\n");
                 shift_weights();
             }
         } 
@@ -61,19 +58,20 @@ namespace sat {
     }
 
     bool_var ddfw::pick_var() {
-#if USE_REWARD_SET
-        double lim = (m_rand()/(1.0 + (double)m_rand.max_value())) * (m_reward_sum + m_reward_set.size()); 
-        // sorted?
-        for (unsigned v : m_reward_set) {
-            lim -= m_reward[v] + 1;
-            if (lim <= 0) {
-                return v;
-            }
+        if (m_config.m_use_heap) {
+            return m_heap.min_value();
         }
-        return m_rand(m_reward.size());
-#else
-        return m_heap.min_value();
-#endif
+        else {
+            double lim = (m_rand()/(1.0 + (double)m_rand.max_value())) * (m_reward_sum + m_reward_set.size()); 
+            // sorted?
+            for (unsigned v : m_reward_set) {
+                lim -= m_reward[v] + 1;
+                if (lim <= 0) {
+                    return v;
+                }
+            }
+            return m_rand(m_reward.size());
+        }
     }
 
     void ddfw::add(unsigned n, literal const* c) {        
@@ -89,6 +87,10 @@ namespace sat {
     }
 
     void ddfw::add(solver const& s) {
+        unsigned trail_sz = s.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
+            add(1, s.m_trail.c_ptr() + i);
+        }
         unsigned sz = s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
             literal l1 = ~to_literal(l_idx);
@@ -129,7 +131,7 @@ namespace sat {
         }
         init_rewards();
 
-        // initialize plateau toggles
+        // initialize reinit toggles
         m_reinit_count = 0;
         m_reinit_inc = 10000;
         m_reinit_next = m_reinit_inc;
@@ -139,45 +141,50 @@ namespace sat {
     void ddfw::flip(bool_var v) {
         ++m_flips;
         literal lit = literal(v, !m_values[v]);
+        literal nlit = ~lit;
         SASSERT(is_true(lit));
         for (unsigned cls_idx : m_use_list[lit.index()]) {
             clause_info& ci = m_clauses[cls_idx];
             ci.del(lit);
             unsigned w = ci.m_weight;
             // cls becomes false: flip any variable in clause to receive reward w
-            if (ci.m_num_trues == 0) {
+            switch (ci.m_num_trues) {
+            case 0:
                 m_unsat.insert(cls_idx);
                 for (literal l : get_clause(cls_idx)) {
                     inc_reward(l, w);
                 }
                 inc_reward(lit, w);
-            }
-            // cls has single true literal, set the penalty of flipping l to w.
-            else if (ci.m_num_trues == 1) {
-                literal l = to_literal(ci.m_trues);
-                SASSERT(is_true(l));
-                dec_reward(l, w);
+                break;
+            case 1:
+                dec_reward(to_literal(ci.m_trues), w);
+                break;
+            default:
+                break;
             }
         }
-        lit.neg();
-        m_values[v] = !m_values[v];
-        for (unsigned cls_idx : m_use_list[lit.index()]) {
+        for (unsigned cls_idx : m_use_list[nlit.index()]) {
             clause_info& ci = m_clauses[cls_idx];             
             unsigned w = ci.m_weight;
             // the clause used to have a single true (pivot) literal, now it has two.
             // Then the previous pivot is no longer penalized for flipping.
-            if (ci.m_num_trues == 1) {
-                inc_reward(to_literal(ci.m_trues), w);
-            }
-            else if (ci.m_num_trues == 0) {
+            switch (ci.m_num_trues) {
+            case 0:
                 m_unsat.remove(cls_idx);   
                 for (literal l : get_clause(cls_idx)) {
                     dec_reward(l, w);
                 }
-                dec_reward(lit, w);
+                dec_reward(nlit, w);
+                break;
+            case 1:
+                inc_reward(to_literal(ci.m_trues), w);
+                break;
+            default:
+                break;
             }
-            ci.add(lit);
+            ci.add(nlit);
         }
+        m_values[v] = !m_values[v];
         //DEBUG_CODE(invariant(););
     }
 
@@ -185,11 +192,16 @@ namespace sat {
         return m_flips > m_reinit_next;
     }
 
-    void ddfw::do_reinit_weights() {
+    void ddfw::do_reinit_weights(bool force) {
         unsigned np = 0;
         for (int r : m_reward) if (r > 0) np++;
-        IF_VERBOSE(0, verbose_stream() << "reinit weights np: " << np << " vars: " << m_reward.size() << " flips: " << m_flips << " shifts: " << m_shifts << " " << m_reinit_count << " " << m_reinit_next_reset << "\n");
-        if (m_reinit_count < m_reinit_next_reset) {
+        IF_VERBOSE(0, verbose_stream() 
+                   << "reinit weights np: " << np 
+                   << " vars: "   << m_reward.size() 
+                   << " flips: "  << m_flips 
+                   << " shifts: " << m_shifts << "\n");
+
+        if (!force && m_reinit_count < m_reinit_next_reset) {
             for (auto& ci : m_clauses) {
                 ci.m_weight += 1;                
             }
@@ -211,34 +223,38 @@ namespace sat {
     }
 
     void ddfw::init_rewards() {
-#if USE_REWARD_SET
-        m_reward_set.reset();
-        m_reward_sum = 0;
-        for (unsigned v = 0; v < m_reward.size(); ++v) {
-            m_reward[v] = 0;
-            m_reward_set.insert(v);
-        }        
-#else
-        m_heap.clear();
-        m_heap.reserve(m_reward.size());
-        for (unsigned v = 0; v < m_reward.size(); ++v) {
-            m_reward[v] = 0;
-            m_heap.insert(v);
+        if (m_config.m_use_heap) {
+            m_heap.clear();
+            m_heap.reserve(m_reward.size());
+            for (unsigned v = 0; v < m_reward.size(); ++v) {
+                m_reward[v] = 0;
+                m_heap.insert(v);
+            }
         }
-#endif
+        else {
+            m_reward_set.reset();
+            m_reward_sum = 0;
+            for (unsigned v = 0; v < m_reward.size(); ++v) {
+                m_reward[v] = 0;
+                m_reward_set.insert(v);
+            }        
+        }
         unsigned sz = m_clauses.size();
         for (unsigned i = 0; i < sz; ++i) {
             auto const& ci = m_clauses[i];
-            if (ci.m_num_trues == 0) {
+            switch (ci.m_num_trues) {
+            case 0:
                 for (literal lit : get_clause(i)) {
                     inc_reward(lit, ci.m_weight);
                 }
-            }
-            else if (ci.m_num_trues == 1) {
+                break;
+            case 1:
                 dec_reward(to_literal(ci.m_trues), ci.m_weight);
+                break;
+            default:
+                break;
             }
         }
-        //DEBUG_CODE(invariant(););
     }
 
     unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
@@ -274,33 +290,35 @@ namespace sat {
     void ddfw::inc_reward(literal lit, int inc) {
         int& r = m_reward[lit.var()];
         r += inc;
-#if USE_REWARD_SET
-        if (r >= 0 && r < inc) {
-            m_reward_set.insert(lit.var());
-            m_reward_sum += r;
+        if (m_config.m_use_heap) {
+            m_heap.decreased(lit.var());
         }
-        else if (r >= 0) {
-            m_reward_sum += inc;
+        else {
+            if (r >= 0 && r < inc) {
+                m_reward_set.insert(lit.var());
+                m_reward_sum += r;
+            }
+            else if (r >= 0) {
+                m_reward_sum += inc;
+            }
         }
-#else
-        m_heap.decreased(lit.var());
-#endif
     }
     
     void ddfw::dec_reward(literal lit, int inc) {
         int& r = m_reward[lit.var()];
         r -= inc;
-#if USE_REWARD_SET
-        if (r < 0 && r + inc >= 0) {
-            m_reward_set.remove(lit.var());
-            m_reward_sum -= (r + inc);
+        if (m_config.m_use_heap) {
+            m_heap.increased(lit.var());        
         }
-        else if (r >= 0) {
-            m_reward_sum -= inc;
+        else {
+            if (r < 0 && r + inc >= 0) {
+                m_reward_set.remove(lit.var());
+                m_reward_sum -= (r + inc);
+            }
+            else if (r >= 0) {
+                m_reward_sum -= inc;
+            }
         }
-#else
-        m_heap.increased(lit.var());        
-#endif
     }
 
     void ddfw::shift_weights() {
@@ -314,7 +332,9 @@ namespace sat {
                 continue;
             }
             auto& cn = m_clauses[cn_idx];
-            ++shifted;
+            if (cn.m_num_trues == 0) {
+                continue;
+            }
             unsigned wn = cn.m_weight;
             SASSERT(wn >= 2);
             unsigned inc = (wn > 2) ? 2 : 1; 
@@ -323,18 +343,25 @@ namespace sat {
             cn.m_weight -= inc;
             for (literal lit : get_clause(cf_idx)) {
                 inc_reward(lit, inc);
+                if (m_reward[lit.var()] > 0) shifted++;
             }
-            if (cn.m_num_trues == 0) {
+            switch (cn.m_num_trues) {
+            case 0:
                 for (literal lit : get_clause(cn_idx)) {
                     dec_reward(lit, inc);
                 }
+                break;
+            case 1: {
+                literal lit = to_literal(cn.m_trues);
+                inc_reward(lit, inc);
+                break;
             }
-            else if (cn.m_num_trues == 1) {
-                inc_reward(to_literal(cn.m_trues), inc);
+            default:
+                break;
             }
         }
         if (shifted == 0) {
-            do_reinit_weights();
+            do_reinit_weights(true);
         }
         // IF_VERBOSE(0, verbose_stream() << "shift weights " << m_unsat.size() << ": " << shifted << "\n");
     }

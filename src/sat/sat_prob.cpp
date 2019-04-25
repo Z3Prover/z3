@@ -33,7 +33,7 @@ namespace sat {
         init();
         while (m_limit.inc() && m_best_min_unsat > 0) {
             if (should_restart()) do_restart();
-            flip();
+            else flip();
         } 
         if (m_best_min_unsat == 0) {
             return l_true;
@@ -121,6 +121,10 @@ namespace sat {
     }
 
     void prob::add(solver const& s) {
+        unsigned trail_sz = s.init_trail_size();
+        for (unsigned i = 0; i < trail_sz; ++i) {
+            add(1, s.m_trail.c_ptr() + i);
+        }
         unsigned sz = s.m_watches.size();
         for (unsigned l_idx = 0; l_idx < sz; ++l_idx) {
             literal l1 = ~to_literal(l_idx);
@@ -159,26 +163,26 @@ namespace sat {
     }
 
     void prob::init_clauses() {
-        m_stopwatch.start();
         for (unsigned& b : m_breaks) {
             b = 0;
         }
         m_unsat.reset();
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause_info& info = m_clauses[i];
-            info.m_num_trues = 0;
-            info.m_trues = 0;
-            for (literal lit : get_clause(i)) {
+            clause_info& ci = m_clauses[i];
+            ci.m_num_trues = 0;
+            ci.m_trues = 0;
+            clause const& c = get_clause(i);
+            for (literal lit : c) {
                 if (is_true(lit)) {
-                    info.add(lit);
+                    ci.add(lit);
                 }
             }
-            switch (info.m_num_trues) {
+            switch (ci.m_num_trues) {
             case 0:
                 m_unsat.insert(i);
                 break;
             case 1:
-                inc_break(to_literal(info.m_trues));
+                inc_break(to_literal(ci.m_trues));
                 break;
             default:
                 break;
@@ -186,9 +190,19 @@ namespace sat {
         }
     }
 
+    void prob::auto_config() {
+        // TBD: set cb and eps
+    }
+
     void prob::log() {
-        double kflips_per_sec = m_flips / (1000.0 * m_stopwatch.get_current_seconds());
-        IF_VERBOSE(0, verbose_stream() << (m_flips/1000) << " kflips " << m_best_min_unsat << " unsat " << kflips_per_sec << " kflips/sec. \n");
+        double sec = m_stopwatch.get_current_seconds();
+        double kflips_per_sec = m_flips / (1000.0 * sec);
+        IF_VERBOSE(0, verbose_stream() 
+                   << sec << " sec. "
+                   << (m_flips/1000)   << " kflips " 
+                   << m_best_min_unsat << " unsat " 
+                   << kflips_per_sec   << " kflips/sec "
+                   << m_restart_count  << " restarts\n");
     }
 
     void prob::init() {
@@ -198,9 +212,9 @@ namespace sat {
         init_probs();
         save_best_values();
         m_restart_count = 1;
-        m_restart_offset = 100000;
         m_flips = 0; 
-        m_next_restart = m_restart_offset;
+        m_next_restart = m_config.m_restart_offset;
+        m_stopwatch.start();
     }
 
     void prob::init_random_values() {
@@ -215,15 +229,16 @@ namespace sat {
         }
     }
 
-#if 0
     void prob::init_near_best_values() {
         for (unsigned v = 0; v < m_values.size(); ++v) {
-            if (m_rand(100) < 99) {
+            if (m_rand(100) < m_config.m_prob_random_init) {
+                m_values[v] = !m_best_values[v];
+            }
+            else {
                 m_values[v] = m_best_values[v];
             }
         }
     }
-#endif
 
     void prob::init_probs() {
         unsigned max_num_occ = 0;
@@ -231,11 +246,9 @@ namespace sat {
             max_num_occ = std::max(max_num_occ, ul.size());
         }
         // vodoo from prob-sat
-        m_cb = 2.85;
-        m_eps = 0.9;
         m_prob_break.reserve(max_num_occ+1);
         for (int i = 0; i <= static_cast<int>(max_num_occ); ++i) {
-            m_prob_break[i] = pow(m_cb, -i);
+            m_prob_break[i] = pow(m_config.m_cb, -i);
         }
     }
 
@@ -243,23 +256,16 @@ namespace sat {
     void prob::do_restart() {
         reinit_values();
         init_clauses();
-        m_next_restart += m_restart_offset*get_luby(m_restart_count++);
-        IF_VERBOSE(0, verbose_stream() << m_next_restart << "\n");
+        m_next_restart += m_config.m_restart_offset*get_luby(m_restart_count++);
         log();
     }
 
     bool prob::should_restart() {
-        // return false;
         return m_flips >= m_next_restart;
     }
 
     void prob::reinit_values() {
-        if (m_restart_count % 2 == 0) {
-            init_best_values();
-        }
-        else {
-            init_random_values();
-        }
+        init_near_best_values();        
     }
 
     std::ostream& prob::display(std::ostream& out) const {
