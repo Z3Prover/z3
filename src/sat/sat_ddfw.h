@@ -73,7 +73,8 @@ namespace sat {
         unsigned         m_reinit_next;
         unsigned         m_reinit_next_reset;
         unsigned         m_reinit_count;
-        unsigned         m_flips, m_shifts;
+        unsigned         m_flips, m_shifts, m_min_sz;
+        stopwatch        m_stopwatch;
 
         bool is_true(literal lit) const { return m_values[lit.var()] != lit.sign(); }
 
@@ -98,6 +99,8 @@ namespace sat {
         bool should_reinit_weights();
         
         void do_reinit_weights(bool force);
+
+        void log();
 
         void init();
 

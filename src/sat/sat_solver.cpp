@@ -1209,6 +1209,7 @@ namespace sat {
             if (m_config.m_unit_walk) {
                 return do_unit_walk();
             }
+
             if (m_config.m_gc_burst) {
                 // force gc
                 m_conflicts_since_gc = m_gc_threshold + 1;

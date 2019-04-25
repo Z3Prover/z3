@@ -32,16 +32,13 @@ namespace sat {
 
     lbool ddfw::check() {
         init();
-        unsigned min_sz = m_unsat.size();
-        m_flips = 0; 
-        m_shifts = 0;
-        while (m_limit.inc() && min_sz > 0) {
+        while (m_limit.inc() && m_min_sz > 0) {
             bool_var v = pick_var();
             if (m_reward[v] > 0 || (m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
                 flip(v);
-                if (m_unsat.size() < min_sz) {
-                    min_sz = m_unsat.size();
-                    IF_VERBOSE(0, verbose_stream() << "flips: " << m_flips << " unsat: " << min_sz << " shifts: " << m_shifts << "\n");
+                if (m_unsat.size() < m_min_sz) {
+                    m_min_sz = m_unsat.size();
+                    log();
                 }
                 else if (should_reinit_weights()) {
                     do_reinit_weights(false);
@@ -51,10 +48,22 @@ namespace sat {
                 shift_weights();
             }
         } 
-        if (min_sz == 0) {
+        if (m_min_sz == 0) {
             return l_true;
         }
         return l_undef;
+    }
+
+    void ddfw::log() {
+        double sec = m_stopwatch.get_current_seconds();
+        double kflips_per_sec = m_flips / (1000.0 * sec);
+        IF_VERBOSE(0, verbose_stream() 
+                   << " unsat "   << m_min_sz
+                   << " kflips/sec " << kflips_per_sec
+                   << " vars: "   << m_reward.size() 
+                   << " flips: "  << m_flips 
+                   << " shifts: " << m_shifts << "\n");
+
     }
 
     bool_var ddfw::pick_var() {
@@ -131,11 +140,15 @@ namespace sat {
         }
         init_rewards();
 
-        // initialize reinit toggles
         m_reinit_count = 0;
         m_reinit_inc = 10000;
         m_reinit_next = m_reinit_inc;
         m_reinit_next_reset = 1;
+
+        m_min_sz = m_unsat.size();
+        m_flips = 0; 
+        m_shifts = 0;
+        m_stopwatch.start();
     }
 
     void ddfw::flip(bool_var v) {
@@ -193,13 +206,7 @@ namespace sat {
     }
 
     void ddfw::do_reinit_weights(bool force) {
-        unsigned np = 0;
-        for (int r : m_reward) if (r > 0) np++;
-        IF_VERBOSE(0, verbose_stream() 
-                   << "reinit weights np: " << np 
-                   << " vars: "   << m_reward.size() 
-                   << " flips: "  << m_flips 
-                   << " shifts: " << m_shifts << "\n");
+        log();
 
         if (!force && m_reinit_count < m_reinit_next_reset) {
             for (auto& ci : m_clauses) {
@@ -215,7 +222,9 @@ namespace sat {
                     ci.m_weight = 3;
                 }                
             }
-            m_reinit_next_reset += m_reinit_count;
+            if (!force) {
+                m_reinit_next_reset += m_reinit_count;
+            }            
         }
         init_rewards();   
         ++m_reinit_count;
@@ -351,11 +360,9 @@ namespace sat {
                     dec_reward(lit, inc);
                 }
                 break;
-            case 1: {
-                literal lit = to_literal(cn.m_trues);
-                inc_reward(lit, inc);
+            case 1: 
+                inc_reward(to_literal(cn.m_trues), inc);
                 break;
-            }
             default:
                 break;
             }
@@ -363,7 +370,6 @@ namespace sat {
         if (shifted == 0) {
             do_reinit_weights(true);
         }
-        // IF_VERBOSE(0, verbose_stream() << "shift weights " << m_unsat.size() << ": " << shifted << "\n");
     }
 
     std::ostream& ddfw::display(std::ostream& out) const {
@@ -388,6 +394,7 @@ namespace sat {
             for (unsigned j : m_use_list[lit.index()]) {
                 clause_info const& ci = m_clauses[j];
                 if (ci.m_num_trues == 1) {
+                    SASSERT(lit == to_literal(ci.m_trues));
                     reward -= ci.m_weight;
                 }
             }
