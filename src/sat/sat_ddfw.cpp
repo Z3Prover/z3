@@ -266,34 +266,47 @@ namespace sat {
         }
     }
 
+    /**
+       \brief Filter on whether to select a satisfied clause 
+       1. with some probabily prefer higher weight to lesser weight.
+       2. take into account number of trues
+       3. select multiple clauses instead of just one per clause in unsat.
+     */
+
+    bool ddfw::increase_weight(unsigned cl_idx, unsigned weight, unsigned num_trues) {
+#if 0
+        if (cl_idx == UINT_MAX) return true;
+        m_clauses[cl_idx].m_num_trues;
+        m_clauses[cl_idx].m_weight;
+        m_rand();
+#endif
+        return true;
+    }
+
     unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
         clause const& c = get_clause(cf_idx);
         unsigned sz = c.size();
         unsigned max_weight = 2;
-        unsigned cp = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
-        unsigned cr = UINT_MAX; // clause in reserve
-        unsigned n = 1, m = 1;
+        unsigned cl = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
+        unsigned n = 1;
         for (literal lit : c) {
             auto const& cls = m_use_list[lit.index()];
             for (unsigned cn_idx : cls) {
                 auto& cn = m_clauses[cn_idx];
-                unsigned wn = cn.m_weight;
-                if (cn.is_true()) {
-                    if (wn > max_weight) {
-                        cp = cn_idx;
+                if (cn.m_num_trues > 0) {
+                    unsigned wn = cn.m_weight;
+                    if (wn > max_weight && increase_weight(cl, wn, cn.m_num_trues)) {
+                        cl = cn_idx;
                         max_weight = wn;
                         n = 2;
                     }
-                    else if (wn == max_weight && (m_rand() % (n++)) == 0) {
-                        cp = cn_idx;
+                    else if (wn == max_weight && increase_weight(cl, wn, cn.m_num_trues) && (m_rand() % (n++)) == 0) {
+                        cl = cn_idx;
                     }
-                }
-                else if (cp == UINT_MAX && cn_idx != cf_idx && wn >= 2 && (m_rand() % (m++)) == 0) {
-                    cr = cn_idx;
                 }
             }
         }
-        return cp != UINT_MAX ? cp : cr;
+        return cl;
     }
 
     void ddfw::inc_reward(literal lit, int inc) {
@@ -332,18 +345,19 @@ namespace sat {
 
     void ddfw::shift_weights() {
         ++m_shifts;
-        unsigned shifted = 0;
         for (unsigned cf_idx : m_unsat) {
             auto& cf = m_clauses[cf_idx];
             SASSERT(!cf.is_true());
             unsigned cn_idx = select_max_same_sign(cf_idx);
-            if (cn_idx == UINT_MAX || cf_idx == cn_idx) {
-                continue;
+            while (cn_idx == UINT_MAX) {
+                unsigned idx = (m_rand() * m_rand()) % m_clauses.size();
+                auto & cn = m_clauses[idx];
+                if (cn.is_true() && cn.m_weight >= 2) {
+                    cn_idx = idx;
+                }
             }
-            auto& cn = m_clauses[cn_idx];
-            if (cn.m_num_trues == 0) {
-                continue;
-            }
+            auto & cn = m_clauses[cn_idx];
+            SASSERT(cn.is_true());
             unsigned wn = cn.m_weight;
             SASSERT(wn >= 2);
             unsigned inc = (wn > 2) ? 2 : 1; 
@@ -352,23 +366,10 @@ namespace sat {
             cn.m_weight -= inc;
             for (literal lit : get_clause(cf_idx)) {
                 inc_reward(lit, inc);
-                if (m_reward[lit.var()] > 0) shifted++;
             }
-            switch (cn.m_num_trues) {
-            case 0:
-                for (literal lit : get_clause(cn_idx)) {
-                    dec_reward(lit, inc);
-                }
-                break;
-            case 1: 
+            if (cn.m_num_trues == 1) {
                 inc_reward(to_literal(cn.m_trues), inc);
-                break;
-            default:
-                break;
             }
-        }
-        if (shifted == 0) {
-            do_reinit_weights(true);
         }
     }
 

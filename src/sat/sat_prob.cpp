@@ -191,6 +191,49 @@ namespace sat {
     }
 
     void prob::auto_config() {
+        unsigned max_len = 0;
+        for (clause* cp : m_clause_db) {
+            max_len = std::max(max_len, cp->size());
+        }
+        switch (max_len) {
+        case 0: case 1: case 2: case 3: m_config.m_cb = 2.5; break;
+        case 4: m_config.m_cb = 2.85; break;
+        case 5: m_config.m_cb = 3.7; break;
+        case 6: m_config.m_cb = 5.1; break;
+        default: m_config.m_cb = 5.4; break;
+        }
+
+  eps = 0;
+  score = start;
+  for (i = 0; score; i++) {
+    assert (i < 100000);
+    LOG ("exp2(-%d) = %g", i, score);
+    PUSH (yals->exp.table.two, score);
+    eps = score;
+    score *= .5;
+  }
+  assert (eps > 0);
+  assert (i == COUNT (yals->exp.table.two));
+  yals->exp.max.two = i;
+  yals->exp.eps.two = eps;
+  yals_msg (yals, 1, "exp2(<= %d) = %g", -i, eps);
+
+  invcb = 1.0 / cb;
+  assert (invcb < 1.0);
+  score = start;
+  eps = 0.0;
+  for (i = 0; score; i++) {
+    assert (i < 1000000);
+    LOG ("pow(%f,-%d) = %g", cb, i, score);
+    PUSH (yals->exp.table.cb, score);
+    eps = score;
+    score *= invcb;
+  }
+  assert (eps > 0);
+  assert (i == COUNT (yals->exp.table.cb));
+  yals->exp.max.cb = i;
+  yals->exp.eps.cb = eps;
+  yals_msg (yals, 1, "pow(%f,(<= %d)) = %g", cb, -i, eps);
         // TBD: set cb and eps
     }
 
