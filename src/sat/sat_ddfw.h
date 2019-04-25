@@ -98,7 +98,7 @@ namespace sat {
 
         bool should_reinit_weights();
 
-        bool increase_weight(unsigned cl_idx, unsigned weight, unsigned num_trues);
+        bool select_clause(unsigned cl_idx, unsigned weight, unsigned num_trues);
         
         void do_reinit_weights(bool force);
 

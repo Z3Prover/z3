@@ -204,7 +204,15 @@ namespace sat {
         default: m_config.m_cb = 5.4; break;
         }
 
-        // TBD: set eps
+        unsigned max_num_occ = 0;
+        for (auto const& ul : m_use_list) {
+            max_num_occ = std::max(max_num_occ, ul.size());
+        }
+        // vodoo from prob-sat
+        m_prob_break.reserve(max_num_occ+1);
+        for (int i = 0; i <= static_cast<int>(max_num_occ); ++i) {
+            m_prob_break[i] = pow(m_config.m_cb, -i);
+        }
     }
 
     void prob::log() {
@@ -222,7 +230,7 @@ namespace sat {
         flatten_use_list();
         init_random_values();
         init_clauses();
-        init_probs();
+        auto_config();
         save_best_values();
         m_restart_count = 1;
         m_flips = 0; 
@@ -252,19 +260,6 @@ namespace sat {
             }
         }
     }
-
-    void prob::init_probs() {
-        unsigned max_num_occ = 0;
-        for (auto const& ul : m_use_list) {
-            max_num_occ = std::max(max_num_occ, ul.size());
-        }
-        // vodoo from prob-sat
-        m_prob_break.reserve(max_num_occ+1);
-        for (int i = 0; i <= static_cast<int>(max_num_occ); ++i) {
-            m_prob_break[i] = pow(m_config.m_cb, -i);
-        }
-    }
-
 
     void prob::do_restart() {
         reinit_values();

@@ -208,7 +208,8 @@ namespace sat {
     void ddfw::do_reinit_weights(bool force) {
         log();
 
-        if (!force && m_reinit_count < m_reinit_next_reset) {
+        if (!force && m_reinit_count % 2 == 0) { 
+            //  TBD have other strategies: m_reinit_count < m_reinit_next_reset
             for (auto& ci : m_clauses) {
                 ci.m_weight += 1;                
             }
@@ -273,7 +274,7 @@ namespace sat {
        3. select multiple clauses instead of just one per clause in unsat.
      */
 
-    bool ddfw::increase_weight(unsigned cl_idx, unsigned weight, unsigned num_trues) {
+    bool ddfw::select_clause(unsigned cl_idx, unsigned weight, unsigned num_trues) {
 #if 0
         if (cl_idx == UINT_MAX) return true;
         m_clauses[cl_idx].m_num_trues;
@@ -295,12 +296,12 @@ namespace sat {
                 auto& cn = m_clauses[cn_idx];
                 if (cn.m_num_trues > 0) {
                     unsigned wn = cn.m_weight;
-                    if (wn > max_weight && increase_weight(cl, wn, cn.m_num_trues)) {
+                    if (wn > max_weight && select_clause(cl, wn, cn.m_num_trues)) {
                         cl = cn_idx;
                         max_weight = wn;
                         n = 2;
                     }
-                    else if (wn == max_weight && increase_weight(cl, wn, cn.m_num_trues) && (m_rand() % (n++)) == 0) {
+                    else if (wn == max_weight && select_clause(cl, wn, cn.m_num_trues) && (m_rand() % (n++)) == 0) {
                         cl = cn_idx;
                     }
                 }

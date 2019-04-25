@@ -119,8 +119,6 @@ namespace sat {
 
         void auto_config();
 
-        void init_probs();
-
         bool should_restart();
 
         void do_restart();
