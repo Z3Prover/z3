@@ -28,7 +28,7 @@
 namespace nla {
 
 class emonomials : public var_eqs_merge_handler {
-
+    mutable svector<lpvar> m_find_key;
     /**
        \brief singly-lined cyclic list of monomial indices where variable occurs.
        Each variable points to the head and tail of the cyclic list.
@@ -52,7 +52,7 @@ class emonomials : public var_eqs_merge_handler {
         hash_canonical(emonomials& em): em(em) {}
             
         unsigned operator()(lpvar v) const {
-            auto const& vec = em.m_monomials[em.m_var2index[v]].rvars();
+            auto const& vec = v != UINT_MAX? em.m_monomials[em.m_var2index[v]].rvars() : em.m_find_key;
             return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
         }
     };
@@ -67,8 +67,8 @@ class emonomials : public var_eqs_merge_handler {
         emonomials& em;
         eq_canonical(emonomials& em): em(em) {}
         bool operator()(lpvar u, lpvar v) const {
-            auto const& uvec = em.m_monomials[em.m_var2index[u]].rvars();
-            auto const& vvec = em.m_monomials[em.m_var2index[v]].rvars();
+            auto const& uvec = u != UINT_MAX? em.m_monomials[em.m_var2index[u]].rvars(): em.m_find_key;
+            auto const& vvec = v != UINT_MAX? em.m_monomials[em.m_var2index[v]].rvars(): em.m_find_key;
             return uvec == vvec;
         }
     };

@@ -96,9 +96,12 @@ void order::order_lemma_on_binomial_sign(const monomial& xy, lpvar x, lpvar y, i
 
 // We look for monomials e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
 void order::order_lemma_on_factor_binomial_explore(const monomial& m, bool k) {
-    SASSERT(m.size() == 2);
+    TRACE("nla_solver", tout << "m = " <<  pp_rmon(c(), m););
+    SASSERT(m.size() == 2);    
     lpvar c = m.vars()[k];
+    
     for (monomial const& m2 : _().m_emons.get_products_of(c)) {
+        TRACE("nla_solver", tout << "m2 = " << pp_rmon(_(), m2););
         order_lemma_on_factor_binomial_rm(m, k, m2);
         if (done()) {
             break;
@@ -109,7 +112,11 @@ void order::order_lemma_on_factor_binomial_explore(const monomial& m, bool k) {
 // ac is a binomial
 // create order lemma on monomials bd where d is equivalent to ac[k]
 void order::order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const monomial& bd) {
-    TRACE("nla_solver", tout << "bd=" << pp_rmon(_(), bd) << "\n";);
+    TRACE("nla_solver",
+          tout << "ac=" << pp_rmon(_(), ac) << "\n";
+          tout << "k=" << k << "\n";
+          tout << "bd=" << pp_rmon(_(), bd) << "\n";
+          );
     factor d(_().m_evars.find(ac.vars()[k]).var(), factor_type::VAR);
     factor b;
     if (c().divide(bd, d, b)) {
