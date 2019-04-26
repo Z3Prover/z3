@@ -134,26 +134,13 @@ namespace nla {
 
     monomial const* emonomials::find_canonical(svector<lpvar> const& vars) const {
         SASSERT(m_ve.is_root(vars));
-        // find a unique key for dummy monomial
-        lpvar v = m_var2index.size();
-        for (unsigned i = 0; i < m_var2index.size(); ++i) {
-            if (m_var2index[i] == UINT_MAX) {
-                v = i;
-                break;
-            }
-        }
-        unsigned idx = m_monomials.size();
-        m_monomials.push_back(monomial(v, vars, idx));
-        m_var2index.setx(v, idx, UINT_MAX);
-        do_canonize(m_monomials[idx]);
+        m_find_key = vars;
+        std::sort(m_find_key.begin(), m_find_key.end());
         monomial const* result = nullptr;
-        lpvar w; 
-        if (m_cg_table.find(v, w)) {
-            SASSERT(w != v);
+        lpvar w;
+        if (m_cg_table.find(UINT_MAX, w)) {
             result = &m_monomials[m_var2index[w]];
         }
-        m_var2index[v] = UINT_MAX;
-        m_monomials.pop_back();
         return result;
     }
 
