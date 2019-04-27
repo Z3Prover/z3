@@ -3256,16 +3256,6 @@ sig
       The query is unsatisfiable if there are no derivations satisfying any of the relations. *)
   val query_r : fixedpoint -> FuncDecl.func_decl list -> Solver.status
 
-  (** Creates a backtracking point.
-      {!pop} *)
-  val push : fixedpoint -> unit
-
-  (** Backtrack one backtracking point.
-
-      Note that an exception is thrown if Pop is called without a corresponding [Push]</remarks>
-      {!push} *)
-  val pop : fixedpoint -> unit
-
   (** Update named rule into in the fixedpoint solver. *)
   val update_rule : fixedpoint -> Expr.expr -> Symbol.symbol -> unit
 

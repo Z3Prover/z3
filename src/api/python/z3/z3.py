@@ -7047,14 +7047,6 @@ class Fixedpoint(Z3PPObject):
             r = Z3_fixedpoint_query_from_lvl (self.ctx.ref(), self.fixedpoint, query.as_ast(), lvl)
         return CheckSatResult(r)
 
-    def push(self):
-        """create a backtracking point for added rules, facts and assertions"""
-        Z3_fixedpoint_push(self.ctx.ref(), self.fixedpoint)
-
-    def pop(self):
-        """restore to previously created backtracking point"""
-        Z3_fixedpoint_pop(self.ctx.ref(), self.fixedpoint)
-
     def update_rule(self, head, body, name):
         """update rule"""
         if name is None:
