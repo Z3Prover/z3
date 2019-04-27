@@ -72,8 +72,7 @@ namespace sat {
         uint64_t         m_next_restart;
         unsigned         m_restart_count;
         stopwatch        m_stopwatch;
-
-
+        model            m_model;
 
         class use_list {
             prob& p;
@@ -127,6 +126,8 @@ namespace sat {
 
         void log();
 
+        void add(unsigned sz, literal const* c);
+
     public:
         prob() {}
 
@@ -134,11 +135,13 @@ namespace sat {
 
         lbool check();
 
+        void set_seed(unsigned n) { m_rand.set_seed(n); }
+
         reslimit& rlimit() { return m_limit; }
 
-        void add(unsigned sz, literal const* c);
-
         void add(solver const& s);
+
+        model& get_model() { return m_model; }
        
         std::ostream& display(std::ostream& out) const;
     };

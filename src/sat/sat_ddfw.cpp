@@ -17,10 +17,18 @@
   
      http://www.ict.griffith.edu.au/~johnt/publications/CP2006raouf.pdf
 
+
+  Todo:
+  - rephase strategy
+  - replace heap by probabilistic priority queue
+  - experiment with backoff schemes for restarts
+  - import phases from CDCL
+  - export reward priorities
   --*/
 
 #include "sat/sat_ddfw.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_params.hpp"
 
 namespace sat {
 
@@ -37,10 +45,10 @@ namespace sat {
             if (m_reward[v] > 0 || (m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
                 flip(v);
                 if (m_unsat.size() < m_min_sz) {
-                    m_min_sz = m_unsat.size();
-                    log();
+                    save_best_values();
                 }
                 else if (should_reinit_weights()) {
+                    invariant();
                     do_reinit_weights(false);
                 }
             }
@@ -62,6 +70,8 @@ namespace sat {
                    << " kflips/sec " << kflips_per_sec
                    << " vars: "   << m_reward.size() 
                    << " flips: "  << m_flips 
+                   << " reinits: " << m_reinit_count
+                   << " unsat_vars " << m_unsat_vars.size()
                    << " shifts: " << m_shifts << "\n");
 
     }
@@ -71,15 +81,24 @@ namespace sat {
             return m_heap.min_value();
         }
         else {
-            double lim = (m_rand()/(1.0 + (double)m_rand.max_value())) * (m_reward_sum + m_reward_set.size()); 
-            // sorted?
-            for (unsigned v : m_reward_set) {
-                lim -= m_reward[v] + 1;
-                if (lim <= 0) {
-                    return v;
+            double sum = 0;
+            for (bool_var v : m_unsat_vars) {
+                int r = m_reward[v];
+                if (r > 0) {
+                    sum += r;
                 }
             }
-            return m_rand(m_reward.size());
+            double lim = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum;
+            for (bool_var v : m_unsat_vars) {
+                int r = m_reward[v];
+                if (r > 0) {
+                    lim -= r;
+                    if (lim <= 0) {
+                        return v;
+                    }
+                }
+            }
+            return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
         }
     }
 
@@ -121,20 +140,25 @@ namespace sat {
 
     void ddfw::init() {
         m_values.reserve(m_reward.size());
+        m_make_count.reserve(m_reward.size(), 0);
         for (unsigned v = 0; v < m_reward.size(); ++v) {
             m_values[v] = (m_rand() % 2 == 0);
         }
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
             clause_info& info = m_clauses[i];
+            clause const& c = get_clause(i);
             info.m_num_trues = 0;
-            info.m_weight = 2;
+            info.m_weight = m_config.m_init_clause_weight;
             info.m_trues = 0;
-            for (literal lit : get_clause(i)) {
+            for (literal lit : c) {
                 if (is_true(lit)) {
                     info.add(lit);
                 }
             }
             if (!info.is_true()) {
+                if (c.contains(literal(19579, true)) || c.contains(literal(19579, false))) {
+                    IF_VERBOSE(0, verbose_stream() << c << "\n");
+                }
                 m_unsat.insert(i);
             }
         }
@@ -162,13 +186,20 @@ namespace sat {
             unsigned w = ci.m_weight;
             // cls becomes false: flip any variable in clause to receive reward w
             switch (ci.m_num_trues) {
-            case 0:
+            case 0: {
                 m_unsat.insert(cls_idx);
-                for (literal l : get_clause(cls_idx)) {
+                clause const& c = get_clause(cls_idx);
+                if (c.contains(literal(19579, true)) || c.contains(literal(19579, false))) {
+                    IF_VERBOSE(0, verbose_stream() << "add " << lit << " " << cls_idx << ": " << c << "\n");
+                }
+                VERIFY(c.contains(lit));
+                for (literal l : c) {
                     inc_reward(l, w);
+                    inc_make(l);
                 }
                 inc_reward(lit, w);
                 break;
+                }
             case 1:
                 dec_reward(to_literal(ci.m_trues), w);
                 break;
@@ -182,13 +213,23 @@ namespace sat {
             // the clause used to have a single true (pivot) literal, now it has two.
             // Then the previous pivot is no longer penalized for flipping.
             switch (ci.m_num_trues) {
-            case 0:
+            case 0: {
                 m_unsat.remove(cls_idx);   
-                for (literal l : get_clause(cls_idx)) {
+                clause const& c = get_clause(cls_idx);
+                if (c.contains(literal(19579, true)) || c.contains(literal(19579, false))) {
+                    IF_VERBOSE(0, verbose_stream() << "del " << nlit << " " << cls_idx << ": " << c << "\n");
+                }
+                VERIFY(c.contains(nlit));
+                for (literal l : c) {
                     dec_reward(l, w);
+                    dec_make(l);
+                }
+                for (literal l : c) {
+                    if (m_make_count[l.var()] == 0) VERIFY(!m_unsat_vars.contains(l.var())); 
                 }
                 dec_reward(nlit, w);
                 break;
+            }
             case 1:
                 inc_reward(to_literal(ci.m_trues), w);
                 break;
@@ -198,7 +239,6 @@ namespace sat {
             ci.add(nlit);
         }
         m_values[v] = !m_values[v];
-        //DEBUG_CODE(invariant(););
     }
 
     bool ddfw::should_reinit_weights() {
@@ -217,10 +257,10 @@ namespace sat {
         else {
             for (auto& ci : m_clauses) {
                 if (ci.is_true()) {
-                    ci.m_weight = 2;
+                    ci.m_weight = m_config.m_init_clause_weight;
                 }
                 else {
-                    ci.m_weight = 3;
+                    ci.m_weight = m_config.m_init_clause_weight + 1;
                 }                
             }
             if (!force) {
@@ -242,12 +282,7 @@ namespace sat {
             }
         }
         else {
-            m_reward_set.reset();
-            m_reward_sum = 0;
-            for (unsigned v = 0; v < m_reward.size(); ++v) {
-                m_reward[v] = 0;
-                m_reward_set.insert(v);
-            }        
+            // inc_make below.
         }
         unsigned sz = m_clauses.size();
         for (unsigned i = 0; i < sz; ++i) {
@@ -256,6 +291,7 @@ namespace sat {
             case 0:
                 for (literal lit : get_clause(i)) {
                     inc_reward(lit, ci.m_weight);
+                    inc_make(lit);
                 }
                 break;
             case 1:
@@ -267,19 +303,26 @@ namespace sat {
         }
     }
 
+    void ddfw::save_best_values() {
+        m_model.reserve(m_values.size());
+        for (unsigned i = 0; i < m_values.size(); ++i) {
+            m_model[i] = to_lbool(m_values[i]);
+        }
+        m_min_sz = m_unsat.size();
+    }
+
     /**
        \brief Filter on whether to select a satisfied clause 
-       1. with some probabily prefer higher weight to lesser weight.
+       1. with some probability prefer higher weight to lesser weight.
        2. take into account number of trues
        3. select multiple clauses instead of just one per clause in unsat.
      */
 
-    bool ddfw::select_clause(unsigned cl_idx, unsigned weight, unsigned num_trues) {
+    bool ddfw::select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues) {
 #if 0
-        if (cl_idx == UINT_MAX) return true;
-        m_clauses[cl_idx].m_num_trues;
-        m_clauses[cl_idx].m_weight;
-        m_rand();
+        if (weight < max_weight) return false;
+        if (weight > max_weight) return true;
+        if (max_trues < num_trues) return true;
 #endif
         return true;
     }
@@ -288,21 +331,26 @@ namespace sat {
         clause const& c = get_clause(cf_idx);
         unsigned sz = c.size();
         unsigned max_weight = 2;
+        unsigned max_trues = 0;
         unsigned cl = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
         unsigned n = 1;
         for (literal lit : c) {
             auto const& cls = m_use_list[lit.index()];
             for (unsigned cn_idx : cls) {
                 auto& cn = m_clauses[cn_idx];
-                if (cn.m_num_trues > 0) {
+                unsigned num_trues = cn.m_num_trues;
+                if (num_trues > 0) {
                     unsigned wn = cn.m_weight;
-                    if (wn > max_weight && select_clause(cl, wn, cn.m_num_trues)) {
+                    if (wn > max_weight && select_clause(max_weight, max_trues, wn, num_trues)) {
                         cl = cn_idx;
                         max_weight = wn;
+                        max_trues = num_trues;
                         n = 2;
                     }
-                    else if (wn == max_weight && select_clause(cl, wn, cn.m_num_trues) && (m_rand() % (n++)) == 0) {
+                    else if (wn == max_weight && select_clause(max_weight, max_trues, wn, num_trues) && (m_rand() % (n++)) == 0) {
                         cl = cn_idx;
+                        max_weight = wn;
+                        max_trues = num_trues;
                     }
                 }
             }
@@ -316,15 +364,6 @@ namespace sat {
         if (m_config.m_use_heap) {
             m_heap.decreased(lit.var());
         }
-        else {
-            if (r >= 0 && r < inc) {
-                m_reward_set.insert(lit.var());
-                m_reward_sum += r;
-            }
-            else if (r >= 0) {
-                m_reward_sum += inc;
-            }
-        }
     }
     
     void ddfw::dec_reward(literal lit, int inc) {
@@ -332,15 +371,6 @@ namespace sat {
         r -= inc;
         if (m_config.m_use_heap) {
             m_heap.increased(lit.var());        
-        }
-        else {
-            if (r < 0 && r + inc >= 0) {
-                m_reward_set.remove(lit.var());
-                m_reward_sum -= (r + inc);
-            }
-            else if (r >= 0) {
-                m_reward_sum -= inc;
-            }
         }
     }
 
@@ -372,6 +402,7 @@ namespace sat {
                 inc_reward(to_literal(cn.m_trues), inc);
             }
         }
+        // DEBUG_CODE(invariant(););
     }
 
     std::ostream& ddfw::display(std::ostream& out) const {
@@ -385,10 +416,28 @@ namespace sat {
         for (unsigned v = 0; v < num_vars; ++v) {
             out << v << ": " << m_reward[v] << "\n";
         }
+        out << "unsat vars: ";
+        for (bool_var v : m_unsat_vars) {
+            out << v << " ";
+        }
+        out << "\n";
         return out;
     }
 
     void ddfw::invariant() {
+        // every variable in unsat vars is in a false clause.
+        for (bool_var v : m_unsat_vars) {
+            bool found = false;
+            for (unsigned cl : m_unsat) {
+                for (literal lit : get_clause(cl)) {
+                    if (lit.var() == v) { found = true; break; }
+                }
+                if (found) break;
+            }
+            if (!found) IF_VERBOSE(0, verbose_stream() << "unsat var not found: " << v << "\n"; );
+            VERIFY(found);
+        }
+        return;
         unsigned num_vars = m_reward.size();
         for (unsigned v = 0; v < num_vars; ++v) {
             int reward = 0;
@@ -412,7 +461,28 @@ namespace sat {
         for (auto const& ci : m_clauses) {
             SASSERT(ci.m_weight > 0);
         }
+        for (unsigned i = 0; i < m_clauses.size(); ++i) {
+            clause_info const& ci = m_clauses[i];
+            bool found = false;
+            for (literal lit : get_clause(i)) {
+                if (is_true(lit)) found = true;
+            }
+            SASSERT(ci.is_true() == found);
+            SASSERT(found == !m_unsat.contains(i));
+        }
+        // every variable in a false clause is in unsat vars
+        for (unsigned cl : m_unsat) {
+            for (literal lit : get_clause(cl)) {
+                SASSERT(m_unsat_vars.contains(lit.var()));
+            }
+        }
     }
 
+    void ddfw::updt_params(params_ref const& _p) {
+        sat_params p(_p);
+        m_config.m_init_clause_weight = p.ddfw_init_clause_weight();
+        m_config.m_use_reward_zero_pct = p.ddfw_use_reward_pct();
+    }
+    
 }
 

@@ -377,8 +377,13 @@ public:
     typedef  unsigned_vector::const_iterator iterator;
     iterator begin() const { return m_elems.begin(); }
     iterator end() const { return m_elems.begin() + m_size; }
-
+    
 };
+
+inline std::ostream& operator<<(std::ostream& out, indexed_uint_set const& s) {
+    for (unsigned i : s) out << i << " ";
+    return out;
+}
 
 #endif /* UINT_SET_H_ */
 

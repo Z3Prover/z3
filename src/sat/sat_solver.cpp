@@ -1290,6 +1290,8 @@ namespace sat {
         SASSERT(!m_local_search);
         m_ddfw_search = alloc(ddfw);
         ddfw& srch = *m_ddfw_search;
+        srch.set_seed(m_config.m_random_seed);
+        srch.updt_params(m_params);
         srch.add(*this);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check();
@@ -1306,6 +1308,7 @@ namespace sat {
         prob& srch = *m_prob_search;
         srch.add(*this);
         scoped_rl.push_child(&srch.rlimit());
+        srch.set_seed(m_config.m_random_seed);
         lbool r = srch.check();
         // m_model = srch.get_model();
         m_prob_search = nullptr;

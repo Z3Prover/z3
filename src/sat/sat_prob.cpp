@@ -46,7 +46,6 @@ namespace sat {
         flip(v);
         if (m_unsat.size() < m_best_min_unsat) {
             save_best_values();
-            log();
         }
     }
 
@@ -64,7 +63,7 @@ namespace sat {
         do {
             lim -= m_probs[--i];
         }
-        while (lim > 0 && i > 0);
+        while (lim >= 0 && i > 0);
         return c[i].var();
     }
 
@@ -147,8 +146,10 @@ namespace sat {
     void prob::save_best_values() {
         m_best_min_unsat = m_unsat.size();
         m_best_values.reserve(m_values.size());
+        m_model.reserve(m_values.size());
         for (unsigned i = 0; i < m_values.size(); ++i) {
             m_best_values[i] = m_values[i];
+            m_model[i] = to_lbool(m_values[i]);
         }
     }
     

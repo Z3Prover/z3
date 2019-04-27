@@ -25,6 +25,7 @@
 #include "util/heap.h"
 #include "util/rlimit.h"
 #include "sat/sat_clause.h"
+#include "util/params.h"
 
 namespace sat {
     class solver;
@@ -49,8 +50,10 @@ namespace sat {
         struct config {
             config() { reset(); }
             unsigned m_use_reward_zero_pct;
+            unsigned m_init_clause_weight;
             bool     m_use_heap;
             void reset() {
+                m_init_clause_weight = 20;
                 m_use_reward_zero_pct = 15;
                 m_use_heap = true;
             }
@@ -66,8 +69,8 @@ namespace sat {
         heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
         indexed_uint_set m_unsat;
-        indexed_uint_set m_reward_set;
-        unsigned         m_reward_sum;
+        unsigned_vector  m_make_count;  // number of unsat clauses that become true if variable is flipped
+        indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
         unsigned         m_reinit_inc;
         unsigned         m_reinit_next;
@@ -75,6 +78,7 @@ namespace sat {
         unsigned         m_reinit_count;
         unsigned         m_flips, m_shifts, m_min_sz;
         stopwatch        m_stopwatch;
+        model            m_model;
 
         bool is_true(literal lit) const { return m_values[lit.var()] != lit.sign(); }
 
@@ -86,9 +90,18 @@ namespace sat {
 
         unsigned select_max_same_sign(unsigned cf_idx);
 
+        void inc_make(literal lit) { bool_var v = lit.var(); m_make_count[v]++; 
+            if (v == 19579) IF_VERBOSE(0, verbose_stream() << "inc " << v << " " << m_make_count[v] << "\n");
+            if (m_make_count[v] == 1) { VERIFY(!m_unsat_vars.contains(v)); m_unsat_vars.insert(v); VERIFY(m_unsat_vars.contains(v)); } }
+
+        void dec_make(literal lit) { bool_var v = lit.var(); VERIFY(m_unsat_vars.contains(v)); if (v == 19579) IF_VERBOSE(0, verbose_stream() << "dec: " << v << " " << m_make_count[v] << "\n");
+            SASSERT(m_make_count[v] > 0); m_make_count[v]--; if (m_make_count[v] == 0) { m_unsat_vars.remove(v); VERIFY(!m_unsat_vars.contains(v)); } }
+
         void inc_reward(literal lit, int inc);
 
         void dec_reward(literal lit, int inc);
+
+        void save_best_values();
 
         bool_var pick_var();
 
@@ -98,7 +111,7 @@ namespace sat {
 
         bool should_reinit_weights();
 
-        bool select_clause(unsigned cl_idx, unsigned weight, unsigned num_trues);
+        bool select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues);
         
         void do_reinit_weights(bool force);
 
@@ -110,16 +123,23 @@ namespace sat {
 
         void invariant();
 
+        void add(unsigned sz, literal const* c);
+
     public:
+
         ddfw(): m_heap(10, m_reward) {}
 
         ~ddfw();
 
         lbool check();
 
+        void updt_params(params_ref const& p);
+
+        model const& get_model() const { return m_model; }
+
         reslimit& rlimit() { return m_limit; }
 
-        void add(unsigned sz, literal const* c);
+        void set_seed(unsigned n) { m_rand.set_seed(n); }
 
         void add(solver const& s);
        
