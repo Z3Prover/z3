@@ -2033,10 +2033,8 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
 
     // TODO: display uninterpreted sort decls, and datatype decls.
 
-    unsigned num_decls = decls.get_num_decls();
-    func_decl * const * fs = decls.get_func_decls();
-    for (unsigned i = 0; i < num_decls; i++) {
-        display(out, fs[i]);
+    for (func_decl* f : decls.get_func_decls()) {
+        display(out, f);
         out << std::endl;
     }
 

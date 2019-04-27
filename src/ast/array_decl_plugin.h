@@ -164,6 +164,8 @@ public:
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
+    func_decl * get_map_func_decl(func_decl* f) const;
+    func_decl * get_map_func_decl(expr* e) const { return get_map_func_decl(to_app(e)->get_decl()); }
 
     bool is_const(expr* e, expr*& v) const;
 
@@ -190,6 +192,16 @@ public:
         parameter p(f);
         return m_manager.mk_app(m_fid, OP_ARRAY_MAP, 1, &p, num_args, args);
     }
+
+    expr * mk_map_assoc(func_decl * f, unsigned num_args, expr * const * args) {
+        expr* r = args[0];
+        for (unsigned i = 1; i < num_args; ++i) {
+            expr* es[2] = { r, args[i] };
+            r = mk_map(f, 2, es);
+        }
+        return r;
+    }
+
     app * mk_const_array(sort * s, expr * v) {
         parameter param(s);
         return m_manager.mk_app(m_fid, OP_CONST_ARRAY, 1, &param, 1, &v);
@@ -199,6 +211,18 @@ public:
     }
     app * mk_full_set(sort * s) {
         return mk_const_array(s, m_manager.mk_true());
+    }
+
+    app * mk_setminus(expr* s1, expr* s2) {
+        return m_manager.mk_app(m_fid, OP_SET_DIFFERENCE, s1, s2);
+    }
+
+    app * mk_intersection(expr* s1, expr* s2) {
+        return m_manager.mk_app(m_fid, OP_SET_INTERSECT, s1, s2);
+    }
+
+    app * mk_union(expr* s1, expr* s2) {
+        return m_manager.mk_app(m_fid, OP_SET_UNION, s1, s2);
     }
 
     app* mk_has_size(expr* set, expr* n) {

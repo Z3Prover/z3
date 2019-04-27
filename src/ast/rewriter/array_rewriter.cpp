@@ -45,10 +45,7 @@ br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
         st = mk_store_core(num_args, args, result);
         break;
     case OP_ARRAY_MAP:
-        SASSERT(f->get_num_parameters() == 1);
-        SASSERT(f->get_parameter(0).is_ast());
-        SASSERT(is_func_decl(f->get_parameter(0).get_ast()));
-        st = mk_map_core(to_func_decl(f->get_parameter(0).get_ast()), num_args, args, result);
+        st = mk_map_core(m_util.get_map_func_decl(f), num_args, args, result);
         break;
     case OP_SET_UNION:
         st = mk_set_union(num_args, args, result);
@@ -242,6 +239,14 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     return BR_FAILED;
 }
 
+sort_ref array_rewriter::get_map_array_sort(func_decl* f, unsigned num_args, expr* const* args) {
+    sort* s0 = m().get_sort(args[0]);
+    unsigned sz = get_array_arity(s0);
+    ptr_vector<sort> domain;
+    for (unsigned i = 0; i < sz; ++i) domain.push_back(get_array_domain(s0, i));
+    return sort_ref(m_util.mk_array_sort(sz, domain.c_ptr(), f->get_range()), m());
+}
+
 br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result) {
 
     app* store_expr = nullptr;
@@ -292,11 +297,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         }
         else {
             expr_ref value(m().mk_app(f, values.size(), values.c_ptr()), m());
-            sort* s0 = m().get_sort(args[0]);
-            unsigned sz = get_array_arity(s0);
-            ptr_vector<sort> domain;
-            for (unsigned i = 0; i < sz; ++i) domain.push_back(get_array_domain(s0, i));
-            sort_ref s(m_util.mk_array_sort(sz, domain.c_ptr(), m().get_sort(value)), m());
+            sort_ref s = get_map_array_sort(f, num_args, args);
             result = m_util.mk_const_array(s, value);
         }
         return BR_REWRITE2;
@@ -336,6 +337,75 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         result = m().update_quantifier(lam, result);
         return BR_REWRITE3;        
     }
+
+    if (m().is_and(f)) {
+        ast_mark mark;
+        ptr_buffer<expr> es;
+        bool change = false;
+        unsigned j = 0;
+        es.append(num_args, args);
+        for (unsigned i = 0; i < es.size(); ++i) {
+            expr* e = es[i];
+            if (mark.is_marked(e)) {
+                change = true;
+            }
+            else if (m_util.is_map(e) && m().is_and(m_util.get_map_func_decl(e))) {
+                mark.mark(e, true);                
+                es.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else {
+                mark.mark(e, true);
+                es[j++] = es[i];
+            }
+        }
+        es.shrink(j);
+        for (expr* e : es) {
+            if (m().is_not(e, e) && mark.is_marked(e)) {
+                sort_ref s = get_map_array_sort(f, num_args, args);
+                result = m_util.mk_const_array(s, m().mk_false());
+                return BR_DONE;
+            }
+        }        
+        if (change) {
+            result = m_util.mk_map_assoc(f, es.size(), es.c_ptr());
+            return BR_DONE;
+        }
+    }
+
+    if (m().is_or(f)) {
+        ast_mark mark;
+        ptr_buffer<expr> es;
+        es.append(num_args, args);
+        unsigned j = 0;
+        bool change = false;
+        for (unsigned i = 0; i < es.size(); ++i) {
+            expr* e = es[i];
+            if (mark.is_marked(e)) {
+                change = true;
+            }
+            else if (m_util.is_map(e) && m().is_or(m_util.get_map_func_decl(e))) {
+                mark.mark(e, true);                
+                es.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            }
+            else {
+                mark.mark(e, true);
+                es[j++] = es[i];
+            }
+        }
+        es.shrink(j);
+        for (expr* e : es) {
+            if (m().is_not(e, e) && mark.is_marked(e)) {
+                sort_ref s = get_map_array_sort(f, num_args, args);
+                result = m_util.mk_const_array(s, m().mk_true());
+                return BR_DONE;
+            }
+        }        
+        if (change) {
+            result = m_util.mk_map_assoc(f, es.size(), es.c_ptr());
+            return BR_DONE;
+        }
+    }
+
 
     return BR_FAILED;
 }

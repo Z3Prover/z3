@@ -102,7 +102,7 @@ namespace smt {
         theory_array_full&     th;
         arith_util             m_arith;
         array_util             m_autil;
-        array_rewriter         m_rw;
+        th_rewriter            m_rw;
         arith_value            m_arith_value;
         ast_ref_vector         m_pinned;
         obj_map<app, sz_info*> m_sizeof;
@@ -211,6 +211,9 @@ namespace smt {
             SASSERT(i2.m_is_leaf);
             expr* s = sz1->get_arg(0);
             expr* t = sz2->get_arg(0);
+			if (m.get_sort(s) != m.get_sort(t)) {
+				return true;
+			}
             enode* r1 = get_root(s);
             enode* r2 = get_root(t);
             if (r1 == r2) {
@@ -265,11 +268,15 @@ namespace smt {
         }
 
         expr_ref mk_subtract(expr* t, expr* s) {
-            return m_rw.mk_set_difference(t, s);
+            expr_ref d(m_autil.mk_setminus(t, s), m);
+            m_rw(d);
+            return d;
         }
 
         expr_ref mk_intersect(expr* t, expr* s) {
-            return m_rw.mk_set_intersect(t, s);
+            expr_ref i(m_autil.mk_intersection(t, s), m);
+            m_rw(i);
+            return i;
         }
 
         void propagate(expr* assumption, expr* conseq) {

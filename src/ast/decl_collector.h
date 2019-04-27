@@ -57,8 +57,8 @@ public:
     unsigned get_num_sorts() const { return m_sorts.size(); }
     unsigned get_num_decls() const { return m_decls.size(); }
     
-    sort * const * get_sorts() const { return m_sorts.c_ptr(); }
-    func_decl * const * get_func_decls() const { return m_decls.c_ptr(); }
+    ptr_vector<sort> const& get_sorts() const { return m_sorts; }
+    ptr_vector<func_decl> const& get_func_decls() const { return m_decls; }
 };
 
 #endif

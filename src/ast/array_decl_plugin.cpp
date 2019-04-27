@@ -30,8 +30,8 @@ array_decl_plugin::array_decl_plugin():
     m_default_sym("default"),
     m_map_sym("map"),
     m_set_union_sym("union"),
-    m_set_intersect_sym("intersect"),
-    m_set_difference_sym("difference"),
+    m_set_intersect_sym("intersection"),
+    m_set_difference_sym("setminus"),
     m_set_complement_sym("complement"),
     m_set_subset_sym("subset"),
     m_array_ext_sym("array-ext"),
@@ -581,8 +581,8 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("map",OP_ARRAY_MAP));
         op_names.push_back(builtin_name("default",OP_ARRAY_DEFAULT));
         op_names.push_back(builtin_name("union",OP_SET_UNION));
-        op_names.push_back(builtin_name("intersect",OP_SET_INTERSECT));
-        op_names.push_back(builtin_name("difference",OP_SET_DIFFERENCE));
+        op_names.push_back(builtin_name("intersection",OP_SET_INTERSECT));
+        op_names.push_back(builtin_name("setminus",OP_SET_DIFFERENCE));
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
@@ -614,6 +614,13 @@ bool array_decl_plugin::is_fully_interp(sort * s) const {
 func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
     return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
+}
+
+func_decl * array_recognizers::get_map_func_decl(func_decl* f) const {
+    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_parameter(0).is_ast());
+    SASSERT(is_func_decl(f->get_parameter(0).get_ast()));
+    return to_func_decl(f->get_parameter(0).get_ast());
 }
 
 func_decl * array_recognizers::get_as_array_func_decl(func_decl * f) const { 
