@@ -1347,7 +1347,7 @@ namespace nlsat {
                 restore_order();
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout););
-            VERIFY(r != l_true || check_satisfied(m_clauses));
+            SASSERT(r != l_true || check_satisfied(m_clauses));
             return r;
         }
 
