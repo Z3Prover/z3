@@ -4582,7 +4582,7 @@ def SetIntersect(*args):
     >>> a = Const('a', SetSort(IntSort()))
     >>> b = Const('b', SetSort(IntSort()))
     >>> SetIntersect(a, b)
-    intersect(a, b)
+    intersection(a, b)
     """
     args = _get_args(args)
     ctx = _ctx_from_ast_arg_list(args)
@@ -4623,7 +4623,7 @@ def SetDifference(a, b):
     >>> a = Const('a', SetSort(IntSort()))
     >>> b = Const('b', SetSort(IntSort()))
     >>> SetDifference(a, b)
-    difference(a, b)
+    setminus(a, b)
     """
     ctx = _ctx_from_ast_arg_list([a, b])
     return ArrayRef(Z3_mk_set_difference(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
