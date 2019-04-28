@@ -531,9 +531,9 @@ namespace sat {
             total_flips += step;
             PROGRESS(tries, total_flips);
             if (m_par) {
-                m_par->set_phase(*this);
+                m_par->to_solver(*this);
             }
-            if (m_par && m_par->get_phase(*this)) {
+            if (m_par && m_par->from_solver(*this)) {
                 reinit();
             }
             if (tries % 10 == 0 && !m_unsat_stack.empty()) {

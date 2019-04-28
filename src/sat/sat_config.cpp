@@ -98,6 +98,7 @@ namespace sat {
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
         m_ddfw_search     = p.ddfw_search();
+        m_ddfw_threads    = p.ddfw_threads();
         m_prob_search     = p.prob_search();
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();

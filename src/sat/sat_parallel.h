@@ -27,6 +27,7 @@ Revision History:
 namespace sat {
 
     class local_search;
+    class ddfw;
 
     class parallel {
 
@@ -52,10 +53,12 @@ namespace sat {
 
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
-        bool _get_phase(solver& s);
-        void _set_phase(solver& s);
-        bool _get_phase(local_search& s);
-        void _set_phase(local_search& s);
+        void _from_solver(solver& s);
+        bool _to_solver(solver& s);
+        bool _from_solver(local_search& s);
+        void _to_solver(local_search& s);
+        bool _from_solver(ddfw& s);
+        void _to_solver(ddfw& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;
@@ -64,7 +67,6 @@ namespace sat {
         vector_pool    m_pool;
 
         // for exchange with local search:
-        svector<bool>      m_cdcl_phase;
         svector<bool>      m_ls_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
@@ -102,14 +104,15 @@ namespace sat {
         // receive clauses from shared clause pool
         void get_clauses(solver& s);
 
-        // exchange phase of variables.
-        void set_phase(solver& s);
-
-        bool get_phase(solver& s);
+        // exchange from solver state to local search and back.
+        void from_solver(solver& s);
+        bool to_solver(solver& s);
         
-        bool get_phase(local_search& s);
+        bool from_solver(local_search& s);
+        void to_solver(local_search& s);
 
-        void set_phase(local_search& s);
+        bool from_solver(ddfw& s);
+        void to_solver(ddfw& s);
         
         bool copy_solver(solver& s);
     };

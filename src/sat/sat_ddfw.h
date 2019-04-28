@@ -34,7 +34,7 @@ namespace sat {
     class ddfw {
 
         struct clause_info {
-            clause_info(clause* cl): m_weight(2), m_trues(0), m_num_trues(0), m_clause(cl) {}
+            clause_info(clause* cl, unsigned init_weight): m_weight(init_weight), m_trues(0), m_num_trues(0), m_clause(cl) {}
             unsigned m_weight;       // weight of clause
             unsigned m_trues;        // set of literals that are true
             unsigned m_num_trues;    // size of true set
@@ -75,9 +75,10 @@ namespace sat {
         reslimit         m_limit;
         clause_allocator m_alloc;
         svector<clause_info> m_clauses;
-        svector<var_info>    m_vars;       // var -> info
-        svector<bool>        m_tmp_values;     // var -> current assignment        
-        model                m_model;      // var -> best assignment
+        literal_vector       m_assumptions;        
+        svector<var_info>    m_vars;        // var -> info
+        svector<bool>        m_tmp_values;  // var -> current assignment        
+        model                m_model;       // var -> best assignment
         
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
@@ -86,6 +87,7 @@ namespace sat {
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
+        unsigned         m_num_non_binary_clauses;
         unsigned         m_restart_count, m_reinit_count, m_parsync_count;
         uint64_t         m_restart_next,  m_reinit_next,  m_parsync_next;
         uint64_t         m_flips, m_last_flips, m_shifts;
@@ -180,7 +182,7 @@ namespace sat {
 
         void add(unsigned sz, literal const* c);
 
-        void add_assumptions(unsigned sz, literal const* assumptions);
+        void add_assumptions();
 
     public:
 
@@ -201,6 +203,10 @@ namespace sat {
         void add(solver const& s);
        
         std::ostream& display(std::ostream& out) const;
+
+        // for parallel integration
+        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
+        void reinit(solver& s);
     };
 }
 

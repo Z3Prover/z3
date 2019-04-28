@@ -57,15 +57,22 @@ namespace sat {
     void ddfw::log() {
         double sec = m_stopwatch.get_current_seconds();        
         double kflips_per_sec = (m_flips - m_last_flips) / (1000.0 * sec);
-        IF_VERBOSE(0, verbose_stream() 
-                   << " unsat "   << m_min_sz
-                   << " models " << m_models.size()
-                   << " kflips/sec " << kflips_per_sec
-                   << " flips: "  << m_flips 
-                   << " restarts: " << m_restart_count
-                   << " reinits: " << m_reinit_count
-                   << " unsat_vars " << m_unsat_vars.size()
-                   << " shifts: " << m_shifts << "\n");
+        if (m_last_flips == 0) {
+            IF_VERBOSE(0, verbose_stream() << "(sat.ddfw :unsat :models :kflips/sec  :flips  :restarts  :reinits  :unsat_vars  :shifts";
+                       if (m_par) verbose_stream() << "  :par";
+                       verbose_stream() << ")\n");
+        }
+        IF_VERBOSE(0, verbose_stream() << "(sat.ddfw " 
+                   << std::setw(7) << m_min_sz 
+                   << std::setw(7) << m_models.size()
+                   << std::setw(10) << kflips_per_sec
+                   << std::setw(10) << m_flips 
+                   << std::setw(10) << m_restart_count
+                   << std::setw(10) << m_reinit_count
+                   << std::setw(10) << m_unsat_vars.size()
+                   << std::setw(10) << m_shifts;
+                   if (m_par) verbose_stream() << std::setw(10) << m_parsync_count;
+                   verbose_stream() << ")\n");
         m_stopwatch.start();
         m_last_flips = m_flips;
     }
@@ -121,7 +128,7 @@ namespace sat {
     void ddfw::add(unsigned n, literal const* c) {        
         clause* cls = m_alloc.mk_clause(n, c, false);
         unsigned idx = m_clauses.size();
-        m_clauses.push_back(clause_info(cls));
+        m_clauses.push_back(clause_info(cls, m_config.m_init_clause_weight));
         for (literal lit : *cls) {
             m_use_list.reserve(lit.index()+1);
             m_vars.reserve(lit.var()+1);
@@ -130,6 +137,13 @@ namespace sat {
     }
 
     void ddfw::add(solver const& s) {
+        for (auto& ci : m_clauses) {
+            m_alloc.del_clause(ci.m_clause);
+        }
+        m_clauses.reset(); 
+        m_use_list.reset();
+        m_num_non_binary_clauses = 0;
+
         unsigned trail_sz = s.init_trail_size();
         for (unsigned i = 0; i < trail_sz; ++i) {
             add(1, s.m_trail.c_ptr() + i);
@@ -149,24 +163,23 @@ namespace sat {
             }
         }
         for (clause* c : s.m_clauses) {
-            add(c->size(), c->begin());
+            add(c->size(), c->begin());            
         }        
+        m_num_non_binary_clauses = s.m_clauses.size();
     }
 
-    void ddfw::add_assumptions(unsigned sz, literal const* assumptions) {
-        for (unsigned i = 0; i < sz; ++i) {
-            add(1, assumptions + i);
+    void ddfw::add_assumptions() {
+        for (unsigned i = 0; i < m_assumptions.size(); ++i) {
+            add(1, m_assumptions.c_ptr() + i);
         }
     }
 
     void ddfw::init(unsigned sz, literal const* assumptions) {
-        add_assumptions(sz, assumptions);
+        m_assumptions.reset();
+        m_assumptions.append(sz, assumptions);
+        add_assumptions();
         for (unsigned v = 0; v < num_vars(); ++v) {
             value(v) = (m_rand() % 2 == 0);
-        }
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause_info& ci = m_clauses[i];
-            ci.m_weight = m_config.m_init_clause_weight;
         }
         init_clause_data();
         flatten_use_list();
@@ -185,6 +198,20 @@ namespace sat {
         m_last_flips = 0;
         m_shifts = 0;
         m_stopwatch.start();
+    }
+
+    void ddfw::reinit(solver& s) {
+        add(s);
+        add_assumptions();
+        if (false && s.m_best_phase_size > 0) {
+            for (unsigned v = 0; v < num_vars(); ++v) {                
+                value(v) = s.m_best_phase[v];
+                reward(v) = 0;
+                make_count(v) = 0;                
+            }
+        }
+        init_clause_data();
+        flatten_use_list();
     }
 
     void ddfw::flatten_use_list() {
@@ -350,7 +377,7 @@ namespace sat {
     }
 
     void ddfw::do_parallel_sync() {
-        // m_par->get_phase(*this);
+        m_par->from_solver(*this);
         ++m_parsync_count;
         m_parsync_next *= 3;
         m_parsync_next /= 2;

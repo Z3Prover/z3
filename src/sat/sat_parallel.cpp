@@ -16,10 +16,10 @@ Author:
 Revision History:
 
 --*/
-#include "sat_parallel.h"
-#include "sat_clause.h"
-#include "sat_solver.h"
-
+#include "sat/sat_parallel.h"
+#include "sat/sat_clause.h"
+#include "sat/sat_solver.h"
+#include "sat/sat_ddfw.h"
 
 namespace sat {
 
@@ -209,11 +209,7 @@ namespace sat {
         return (c.size() <= 40 && c.glue() <= 8) || c.glue() <= 2;
     }
 
-    void parallel::_set_phase(solver& s) {
-        m_cdcl_phase.reserve(s.num_vars(), false);
-        for (unsigned i = 0; i < s.num_vars(); ++i) {
-            m_cdcl_phase[i] = s.m_best_phase[i];
-        }
+    void parallel::_from_solver(solver& s) {
         if (m_consumer_ready && (m_num_clauses == 0 || (m_num_clauses > s.m_clauses.size()))) {
             // time to update local search with new clauses.
             // there could be multiple local search engines running at the same time.
@@ -225,72 +221,101 @@ namespace sat {
     }
 
 
-    bool parallel::_get_phase(solver& s) {
+    bool parallel::_to_solver(solver& s) {
         if (!m_ls_phase.empty()) {
             m_ls_phase.reserve(s.num_vars(), false);
             for (unsigned i = s.num_vars(); i-- > 0; ) {
                 s.m_best_phase[i] = m_ls_phase[i];
             }
+            s.m_best_phase_size = s.num_vars();
         }
         return !m_ls_phase.empty();
     }
 
-    void parallel::set_phase(solver& s) {
+    void parallel::from_solver(solver& s) {
         #pragma omp critical (par_solver)
         {
-            _set_phase(s);
+            _from_solver(s);
         }
     }
 
-    bool parallel::get_phase(solver& s) {
+    bool parallel::to_solver(solver& s) {
         bool r;
         #pragma omp critical (par_solver)
         {
-            r = _get_phase(s);
+            r = _to_solver(s);
         }
         return r;
     }
 
 
-    void parallel::_set_phase(local_search& s) {
+    void parallel::_to_solver(local_search& s) {
         m_ls_phase.reserve(s.num_vars(), false);
         for (unsigned i = s.num_vars(); i-- > 0; ) {
             m_ls_phase[i] = s.get_best_phase(i);
         }
     }
 
-    bool parallel::_get_phase(local_search& s) {
+    bool parallel::_from_solver(local_search& s) {
         bool copied = false;
         m_consumer_ready = true;
         if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
             copied = true;
             s.import(*m_solver_copy.get(), true);
-        }
-        if (!m_cdcl_phase.empty()) {
-            m_cdcl_phase.reserve(s.num_vars(), false);                    
-            for (unsigned i = s.num_vars(); i-- > 0; ) {
-                s.set_phase(i, m_cdcl_phase[i]);
+            if (m_solver_copy->m_best_phase_size > 0) {
+                for (unsigned i = s.num_vars(); i-- > 0; ) {
+                    s.set_phase(i, m_solver_copy->m_best_phase[i]);
+                }
             }
         }
         return copied;
     }
 
-    bool parallel::get_phase(local_search& s) {
+    void parallel::_to_solver(ddfw& s) {
+        // nothing
+    }
+
+    bool parallel::_from_solver(ddfw& s) {
+        bool copied = false;
+        m_consumer_ready = true;
+        if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
+            copied = true;
+            s.reinit(*m_solver_copy.get());
+        }
+        return copied;
+    }
+
+    bool parallel::from_solver(local_search& s) {
         bool copied = false;
         #pragma omp critical (par_solver)
         {
-            copied = _get_phase(s);
+            copied = _from_solver(s);
         }       
         return copied;
     }
 
-    void parallel::set_phase(local_search& s) {
+    void parallel::to_solver(local_search& s) {
         #pragma omp critical (par_solver)
         {
-            _set_phase(s);
+            _to_solver(s);
         }       
     }
 
+    bool parallel::from_solver(ddfw& s) {
+        bool copied = false;
+        #pragma omp critical (par_solver)
+        {
+            copied = _from_solver(s);
+        }       
+        return copied;
+    }
+
+    void parallel::to_solver(ddfw& s) {
+        #pragma omp critical (par_solver)
+        {
+            _to_solver(s);
+        }       
+    }
 
     bool parallel::copy_solver(solver& s) {
         bool copied = false;
