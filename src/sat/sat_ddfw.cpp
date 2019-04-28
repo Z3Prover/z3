@@ -42,9 +42,9 @@ namespace sat {
     lbool ddfw::check() {
         init();
         while (m_limit.inc() && m_min_sz > 0) {
-            if (true && should_restart()) do_restart();
-            else if (should_reinit_weights()) do_reinit_weights();
+            if (should_reinit_weights()) do_reinit_weights();
             else if (do_flip()) ;
+            else if (should_restart()) do_restart();
             else shift_weights();                       
         }
         return m_min_sz == 0 ? l_true : l_undef;
@@ -168,6 +168,7 @@ namespace sat {
             ci.m_weight = m_config.m_init_clause_weight;
         }
         init_clause_data();
+        flatten_use_list();
 
         m_reinit_count = 0;
         m_reinit_next = m_config.m_reinit_inc;
@@ -183,12 +184,23 @@ namespace sat {
         m_stopwatch.start();
     }
 
+    void ddfw::flatten_use_list() {
+        m_use_list_index.reset();
+        m_flat_use_list.reset();
+        for (auto const& ul : m_use_list) {
+            m_use_list_index.push_back(m_flat_use_list.size());
+            m_flat_use_list.append(ul);
+        }
+        m_use_list_index.push_back(m_flat_use_list.size());
+    }
+
+
     void ddfw::flip(bool_var v) {
         ++m_flips;
         literal lit = literal(v, !m_values[v]);
         literal nlit = ~lit;
         SASSERT(is_true(lit));
-        for (unsigned cls_idx : m_use_list[lit.index()]) {
+        for (unsigned cls_idx : use_list(*this, lit)) {
             clause_info& ci = m_clauses[cls_idx];
             ci.del(lit);
             unsigned w = ci.m_weight;
@@ -211,7 +223,7 @@ namespace sat {
                 break;
             }
         }
-        for (unsigned cls_idx : m_use_list[nlit.index()]) {
+        for (unsigned cls_idx : use_list(*this, nlit)) {
             clause_info& ci = m_clauses[cls_idx];             
             unsigned w = ci.m_weight;
             // the clause used to have a single true (pivot) literal, now it has two.
@@ -348,7 +360,9 @@ namespace sat {
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
             for (int& b : m_bias) {
-                b /= 2;
+                if (abs(b) > 3) {
+                    b = b > 0 ? 3 : -3;
+                }
             }
         }
         m_model.reserve(m_values.size());

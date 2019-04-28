@@ -59,7 +59,7 @@ namespace sat {
                 m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
                 m_use_heap = false;
-                m_max_num_models = 64;
+                m_max_num_models = (1 << 10);
                 m_restart_base = 100000;
                 m_reinit_inc = 10000;
             }
@@ -75,6 +75,9 @@ namespace sat {
         svector<int>     m_bias;
         heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
+        unsigned_vector  m_flat_use_list;
+        unsigned_vector  m_use_list_index;
+
         indexed_uint_set m_unsat;
         unsigned_vector  m_make_count;  // number of unsat clauses that become true if variable is flipped
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
@@ -89,6 +92,19 @@ namespace sat {
         u_map<svector<bool>> m_models;
         stopwatch        m_stopwatch;
         model            m_model;
+
+
+        class use_list {
+            ddfw& p;
+            unsigned i;
+        public:
+            use_list(ddfw& p, literal lit):
+                p(p), i(lit.index()) {}
+            unsigned const* begin() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i]; }
+            unsigned const* end() { return p.m_flat_use_list.c_ptr() + p.m_use_list_index[i+1]; }
+        };
+
+        void flatten_use_list(); 
 
         unsigned model_hash(svector<bool> const& m) const;
 
