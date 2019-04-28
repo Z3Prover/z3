@@ -318,7 +318,7 @@ namespace sat {
             }
             switch (ci.m_num_trues) {
             case 0:
-                for (literal lit : get_clause(i)) {
+                for (literal lit : c) {
                     inc_reward(lit, ci.m_weight);
                     inc_make(lit);
                 }
@@ -364,7 +364,7 @@ namespace sat {
     }
 
     bool ddfw::should_parallel_sync() {
-        return m_par != nullptr && m_flips > m_parsync_next;
+        return m_par != nullptr && m_flips >= m_parsync_next;
     }
 
     void ddfw::do_parallel_sync() {
@@ -414,17 +414,19 @@ namespace sat {
     /**
        \brief Filter on whether to select a satisfied clause 
        1. with some probability prefer higher weight to lesser weight.
-       2. take into account number of trues
+       2. take into account number of trues ?
        3. select multiple clauses instead of just one per clause in unsat.
      */
 
-    bool ddfw::select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues) {
-#if 0
-        if (weight < max_weight) return false;
-        if (weight > max_weight) return true;
-        if (max_trues < num_trues) return true;
-#endif
-        return true;
+    bool ddfw::select_clause(unsigned max_weight, unsigned max_trues, clause_info const& cn, unsigned& n) {
+        if (cn.m_num_trues == 0 || cn.m_weight < max_weight) {
+            return false;
+        }
+        if (cn.m_weight > max_weight) {
+            n = 2;
+            return true;
+        } 
+        return (m_rand() % (n++)) == 0;
     }
 
     unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
@@ -435,23 +437,12 @@ namespace sat {
         unsigned cl = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
         unsigned n = 1;
         for (literal lit : c) {
-            auto const& cls = m_use_list[lit.index()];
-            for (unsigned cn_idx : cls) {
+            for (unsigned cn_idx : use_list(*this, lit)) {
                 auto& cn = m_clauses[cn_idx];
-                unsigned num_trues = cn.m_num_trues;
-                if (num_trues > 0) {
-                    unsigned wn = cn.m_weight;
-                    if (wn > max_weight && select_clause(max_weight, max_trues, wn, num_trues)) {
-                        cl = cn_idx;
-                        max_weight = wn;
-                        max_trues = num_trues;
-                        n = 2;
-                    }
-                    else if (wn == max_weight && select_clause(max_weight, max_trues, wn, num_trues) && (m_rand() % (n++)) == 0) {
-                        cl = cn_idx;
-                        max_weight = wn;
-                        max_trues = num_trues;
-                    }
+                if (select_clause(max_weight, max_trues, cn, n)) {
+                    cl = cn_idx;
+                    max_weight = cn.m_weight;
+                    max_trues = cn.m_num_trues;
                 }
             }
         }
