@@ -52,10 +52,16 @@ namespace sat {
             unsigned m_use_reward_zero_pct;
             unsigned m_init_clause_weight;
             bool     m_use_heap;
+            unsigned m_max_num_models;
+            unsigned m_restart_base;
+            unsigned m_reinit_inc;
             void reset() {
-                m_init_clause_weight = 20;
+                m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
-                m_use_heap = true;
+                m_use_heap = false;
+                m_max_num_models = 64;
+                m_restart_base = 100000;
+                m_reinit_inc = 10000;
             }
         };
         
@@ -66,19 +72,25 @@ namespace sat {
         svector<clause_info> m_clauses;
         svector<int>     m_reward; // per var break count
         svector<bool>    m_values;
+        svector<int>     m_bias;
         heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
         indexed_uint_set m_unsat;
         unsigned_vector  m_make_count;  // number of unsat clauses that become true if variable is flipped
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
-        unsigned         m_reinit_inc;
         unsigned         m_reinit_next;
         unsigned         m_reinit_next_reset;
         unsigned         m_reinit_count;
-        unsigned         m_flips, m_shifts, m_min_sz;
+
+        unsigned         m_restart_count, m_restart_next;
+        uint64_t         m_flips, m_last_flips, m_shifts;
+        unsigned         m_min_sz;
+        u_map<svector<bool>> m_models;
         stopwatch        m_stopwatch;
         model            m_model;
+
+        unsigned model_hash(svector<bool> const& m) const;
 
         bool is_true(literal lit) const { return m_values[lit.var()] != lit.sign(); }
 
@@ -90,36 +102,44 @@ namespace sat {
 
         unsigned select_max_same_sign(unsigned cf_idx);
 
-        void inc_make(literal lit) { bool_var v = lit.var(); m_make_count[v]++; 
-            if (v == 19579) IF_VERBOSE(0, verbose_stream() << "inc " << v << " " << m_make_count[v] << "\n");
-            if (m_make_count[v] == 1) { VERIFY(!m_unsat_vars.contains(v)); m_unsat_vars.insert(v); VERIFY(m_unsat_vars.contains(v)); } }
+        void inc_make(literal lit) { 
+            bool_var v = lit.var(); 
+            if (m_make_count[v]++ == 0) m_unsat_vars.insert(v); 
+        }
 
-        void dec_make(literal lit) { bool_var v = lit.var(); VERIFY(m_unsat_vars.contains(v)); if (v == 19579) IF_VERBOSE(0, verbose_stream() << "dec: " << v << " " << m_make_count[v] << "\n");
-            SASSERT(m_make_count[v] > 0); m_make_count[v]--; if (m_make_count[v] == 0) { m_unsat_vars.remove(v); VERIFY(!m_unsat_vars.contains(v)); } }
+        void dec_make(literal lit) { 
+            bool_var v = lit.var(); 
+            if (--m_make_count[v] == 0) m_unsat_vars.remove(v); 
+        }
 
         void inc_reward(literal lit, int inc);
 
         void dec_reward(literal lit, int inc);
 
+        // flip activity
+        bool do_flip();
+        bool_var pick_var();       
+        void flip(bool_var v);
         void save_best_values();
 
-        bool_var pick_var();
-
-        void flip(bool_var v);
-
+        // shift activity
         void shift_weights();
 
-        bool should_reinit_weights();
-
+        // reinitialize weights activity
+        bool should_reinit_weights();        
+        void do_reinit_weights();
         bool select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues);
-        
-        void do_reinit_weights(bool force);
+
+        // restart activity
+        bool should_restart();
+        void do_restart();
+        void reinit_values();
 
         void log();
 
         void init();
 
-        void init_rewards();
+        void init_clause_data();
 
         void invariant();
 
