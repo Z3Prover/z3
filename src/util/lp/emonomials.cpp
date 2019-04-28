@@ -21,6 +21,7 @@
 
 #include "util/lp/emonomials.h"
 #include "util/lp/nla_defs.h"
+#include "util/lp/nla_core.h"
 
 namespace nla {
 
@@ -339,11 +340,11 @@ namespace nla {
         }        
     }
 
-   std::ostream& emonomials::display(std::ostream& out) const {
+std::ostream& emonomials::display(const core& cr, std::ostream& out) const {
        out << "monomials\n";
        unsigned idx = 0;
        for (auto const& m : m_monomials) {
-           out << (idx++) << ": " << m << "\n";
+           out << (idx++) << ": " << pp_mon(cr, m) << "\n";
        }
        out << "use lists\n";
        idx = 0;

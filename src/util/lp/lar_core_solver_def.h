@@ -300,10 +300,9 @@ void lar_core_solver::solve() {
             if (snapped)
                 m_r_solver.solve_Ax_eq_b();
         }
-        if (m_r_solver.m_look_for_feasible_solution_only)
+        if (m_r_solver.m_look_for_feasible_solution_only) //todo : should it be set?
             m_r_solver.find_feasible_solution();
         else {
-            TRACE("lar_solver", tout << "solve\n";);
             m_r_solver.solve();
         }
         lp_assert(!settings().use_tableau() || r_basis_is_OK());

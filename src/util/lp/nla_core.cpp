@@ -1277,11 +1277,8 @@ void core::add_equivalence_maybe(const lp::lar_term *t, lpci c0, lpci c1) {
 
 // x is equivalent to y if x = +- y
 void core::init_vars_equivalence() {
-    /*       SASSERT(m_evars.empty());*/
     collect_equivs();
-    /*        TRACE("nla_solver_details", tout << "number of equivs = " << m_evars.size(););*/
-        
-    SASSERT((settings().random_next() % 100) || tables_are_ok());
+    //    SASSERT(tables_are_ok());
 }
     
 bool core:: tables_are_ok() const {
@@ -1339,6 +1336,7 @@ void core::init_search() {
 }
 
 void core::init_to_refine() {
+    TRACE("nla_solver", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
     for (auto const & m : m_emons) 
         if (!check_monomial(m)) 

@@ -30,7 +30,7 @@ bool basics::basic_sign_lemma_on_two_monomials(const monomial& m, const monomial
     const rational& sign = m.rsign() * n.rsign();
      if (val(m) == val(n) * sign)
         return false;
-    TRACE("nla_solver", tout << "sign contradiction:\nm = " << m << "n= " << n << "sign: " << sign << "\n";);
+     TRACE("nla_solver", tout << "sign contradiction:\nm = " << pp_mon(c(), m) << "n= " << pp_mon(c(), n) << "sign: " << sign << "\n";);
     generate_sign_lemma(m, n, sign);
     return true;
 }

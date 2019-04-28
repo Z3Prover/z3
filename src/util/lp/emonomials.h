@@ -27,6 +27,8 @@
 
 namespace nla {
 
+class core;
+
 class emonomials : public var_eqs_merge_handler {
     mutable svector<lpvar> m_find_key;
     /**
@@ -275,7 +277,7 @@ public:
     /**
        \brief display state of emonomials
     */
-    std::ostream& display(std::ostream& out) const;
+    std::ostream& display(const core&, std::ostream& out) const;
 
     /**
        \brief
@@ -291,6 +293,15 @@ public:
     bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 };
 
-inline std::ostream& operator<<(std::ostream& out, emonomials const& m) { return m.display(out); }
+struct pp_emons {
+    const core&       m_c;
+    const emonomials& m_em;
+    pp_emons(const core& c, const emonomials& e): m_c(c), m_em(e) {}
+    inline std::ostream& display(std::ostream& out) const {
+        return m_em.display(m_c, out);
+    }
+};
+
+inline std::ostream& operator<<(std::ostream& out, pp_emons const& p) { return p.display(out); }
 
 }
