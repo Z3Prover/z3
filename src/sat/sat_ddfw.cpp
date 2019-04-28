@@ -21,10 +21,7 @@
 
   Todo:
   - rephase strategy
-  - replace heap by probabilistic priority queue
   - experiment with backoff schemes for restarts
-  - import phases from CDCL
-  - export reward priorities
   - parallel sync
   --*/
 
@@ -179,7 +176,8 @@ namespace sat {
         m_assumptions.append(sz, assumptions);
         add_assumptions();
         for (unsigned v = 0; v < num_vars(); ++v) {
-            value(v) = (m_rand() % 2 == 0);
+            literal lit(v, false), nlit(v, true);
+            value(v) = m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
         }
         init_clause_data();
         flatten_use_list();
@@ -465,16 +463,6 @@ namespace sat {
             }
         }
         return cl;
-    }
-
-    void ddfw::inc_reward(literal lit, int inc) {
-        int& r = reward(lit.var());
-        r += inc;
-    }
-    
-    void ddfw::dec_reward(literal lit, int inc) {
-        int& r = reward(lit.var());
-        r -= inc;
     }
 
     void ddfw::shift_weights() {

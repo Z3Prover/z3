@@ -145,9 +145,9 @@ namespace sat {
             if (--make_count(v) == 0) m_unsat_vars.remove(v); 
         }
 
-        void inc_reward(literal lit, int inc);
+        inline void inc_reward(literal lit, int inc) { reward(lit.var()) += inc; }
 
-        void dec_reward(literal lit, int inc);
+        inline void dec_reward(literal lit, int inc) { reward(lit.var()) -= inc; }
 
         // flip activity
         bool do_flip();
