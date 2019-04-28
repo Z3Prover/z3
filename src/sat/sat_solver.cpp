@@ -1294,8 +1294,10 @@ namespace sat {
         srch.updt_params(m_params);
         srch.add(*this);
         scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check();
-        // m_model = srch.get_model();
+        lbool r = srch.check(num_lits, lits);
+        if (r == l_true) {
+            m_model = srch.get_model();
+        }
         m_ddfw_search = nullptr;
         dealloc(&srch);
         return r;

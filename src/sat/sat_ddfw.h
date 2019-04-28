@@ -48,17 +48,17 @@ namespace sat {
             config() { reset(); }
             unsigned m_use_reward_zero_pct;
             unsigned m_init_clause_weight;
-            bool     m_use_heap;
             unsigned m_max_num_models;
             unsigned m_restart_base;
             unsigned m_reinit_base;
+            unsigned m_parsync_base;
             void reset() {
                 m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
-                m_use_heap = false;
                 m_max_num_models = (1 << 10);
                 m_restart_base = 100000;
                 m_reinit_base = 10000;
+                m_parsync_base = 333333;
             }
         };
 
@@ -70,11 +70,6 @@ namespace sat {
             int      m_bias;
         };
 
-        struct lt {
-            svector<var_info>& m_vars;
-            lt(svector<var_info>& vs): m_vars(vs) {}
-            bool operator()(bool_var v1, bool_var v2) const { return m_vars[v1].m_reward > m_vars[v2].m_reward; }
-        };
         
         config           m_config;
         reslimit         m_limit;
@@ -84,7 +79,6 @@ namespace sat {
         svector<bool>        m_tmp_values;     // var -> current assignment        
         model                m_model;      // var -> best assignment
         
-        heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
@@ -92,13 +86,14 @@ namespace sat {
         indexed_uint_set m_unsat;
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
-        unsigned         m_reinit_count, m_reinit_next;
-        unsigned         m_restart_count, m_restart_next;
+        unsigned         m_restart_count, m_reinit_count, m_parsync_count;
+        uint64_t         m_restart_next,  m_reinit_next,  m_parsync_next;
         uint64_t         m_flips, m_last_flips, m_shifts;
         unsigned         m_min_sz;
         hashtable<unsigned, unsigned_hash, default_eq<unsigned>> m_models;
         stopwatch        m_stopwatch;
 
+        parallel*        m_par;
 
         class use_list {
             ddfw& p;
@@ -171,9 +166,13 @@ namespace sat {
         void do_restart();
         void reinit_values();
 
+        // parallel integration
+        bool should_parallel_sync();
+        void do_parallel_sync();
+
         void log();
 
-        void init();
+        void init(unsigned sz, literal const* assumptions);
 
         void init_clause_data();
 
@@ -181,13 +180,15 @@ namespace sat {
 
         void add(unsigned sz, literal const* c);
 
+        void add_assumptions(unsigned sz, literal const* assumptions);
+
     public:
 
-        ddfw(): m_heap(10, m_vars) {}
+        ddfw(): m_par(nullptr) {}
 
         ~ddfw();
 
-        lbool check();
+        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
 
         void updt_params(params_ref const& p);
 

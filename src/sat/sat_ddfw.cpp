@@ -25,6 +25,7 @@
   - experiment with backoff schemes for restarts
   - import phases from CDCL
   - export reward priorities
+  - parallel sync
   --*/
 
 #include "util/luby.h"
@@ -40,12 +41,14 @@ namespace sat {
         }
     }
 
-    lbool ddfw::check() {
-        init();
+    lbool ddfw::check(unsigned sz, literal const* assumptions, parallel* p) {
+        init(sz, assumptions);
+        flet<parallel*> _p(m_par, p);
         while (m_limit.inc() && m_min_sz > 0) {
             if (should_reinit_weights()) do_reinit_weights();
             else if (do_flip()) ;
             else if (should_restart()) do_restart();
+            else if (should_parallel_sync()) do_parallel_sync();
             else shift_weights();                       
         }
         return m_min_sz == 0 ? l_true : l_undef;
@@ -78,46 +81,41 @@ namespace sat {
     }
 
     bool_var ddfw::pick_var() {
-        if (m_config.m_use_heap) {
-            return m_heap.min_value();
+        double sum_pos = 0, sum_zero = 0;
+        for (bool_var v : m_unsat_vars) {
+            int r = reward(v);
+            if (r > 0) {
+                sum_pos += r;
+            }
+            else if (r == 0) {
+                sum_zero++;
+            }
         }
-        else {
-            double sum_pos = 0, sum_zero = 0;
+        if (sum_pos > 0) {
+            double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
             for (bool_var v : m_unsat_vars) {
                 int r = reward(v);
                 if (r > 0) {
-                    sum_pos += r;
-                }
-                else if (r == 0) {
-                    sum_zero++;
-                }
-            }
-            if (sum_pos > 0) {
-                double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
-                for (bool_var v : m_unsat_vars) {
-                    int r = reward(v);
-                    if (r > 0) {
-                        lim_pos -= r;
-                        if (lim_pos <= 0) {
-                            return v;
-                        }
+                    lim_pos -= r;
+                    if (lim_pos <= 0) {
+                        return v;
                     }
                 }
             }
-            if (false && sum_zero > 0) {
-                double lim_zero = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_zero;
-                for (bool_var v : m_unsat_vars) {
-                    int r = reward(v);
-                    if (r == 0) {
-                        lim_zero -= 1;
-                        if (lim_zero <= 0) {
-                            return v;
-                        }
-                    }
-                }
-            }
-            return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
         }
+        if (false && sum_zero > 0) {
+            double lim_zero = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_zero;
+            for (bool_var v : m_unsat_vars) {
+                int r = reward(v);
+                if (r == 0) {
+                    lim_zero -= 1;
+                    if (lim_zero <= 0) {
+                        return v;
+                    }
+                }
+            }
+        }
+        return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
 
     void ddfw::add(unsigned n, literal const* c) {        
@@ -155,7 +153,14 @@ namespace sat {
         }        
     }
 
-    void ddfw::init() {
+    void ddfw::add_assumptions(unsigned sz, literal const* assumptions) {
+        for (unsigned i = 0; i < sz; ++i) {
+            add(1, assumptions + i);
+        }
+    }
+
+    void ddfw::init(unsigned sz, literal const* assumptions) {
+        add_assumptions(sz, assumptions);
         for (unsigned v = 0; v < num_vars(); ++v) {
             value(v) = (m_rand() % 2 == 0);
         }
@@ -171,6 +176,9 @@ namespace sat {
 
         m_restart_count = 0;
         m_restart_next = m_config.m_restart_base*2;
+
+        m_parsync_count = 0;
+        m_parsync_next = m_config.m_parsync_base;
 
         m_min_sz = m_unsat.size();
         m_flips = 0;
@@ -273,16 +281,6 @@ namespace sat {
     }
 
     void ddfw::init_clause_data() {
-        if (m_config.m_use_heap) {
-            m_heap.clear();
-            m_heap.reserve(num_vars());
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                m_heap.insert(v);
-            }
-        }
-        else {
-            // inc_make below.
-        }
         for (unsigned v = 0; v < num_vars(); ++v) {
             make_count(v) = 0;
             reward(v) = 0;
@@ -347,6 +345,17 @@ namespace sat {
         }        
     }
 
+    bool ddfw::should_parallel_sync() {
+        return m_par != nullptr && m_flips > m_parsync_next;
+    }
+
+    void ddfw::do_parallel_sync() {
+        // m_par->get_phase(*this);
+        ++m_parsync_count;
+        m_parsync_next *= 3;
+        m_parsync_next /= 2;
+    }
+
     void ddfw::save_best_values() {
         m_model.reserve(num_vars());
         for (unsigned i = 0; i < num_vars(); ++i) {
@@ -368,8 +377,8 @@ namespace sat {
         }
         unsigned h = model_hash(m_tmp_values);
         if (!m_models.contains(h)) {
-            for (unsigned i = 0; i < num_vars(); ++i) {
-                bias(i) += value(i) ? 1 : -1;
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                bias(v) += value(v) ? 1 : -1;
             }
             m_models.insert(h);
             if (m_models.size() > m_config.m_max_num_models) {                
@@ -434,17 +443,11 @@ namespace sat {
     void ddfw::inc_reward(literal lit, int inc) {
         int& r = reward(lit.var());
         r += inc;
-        if (m_config.m_use_heap) {
-            m_heap.decreased(lit.var());
-        }
     }
     
     void ddfw::dec_reward(literal lit, int inc) {
         int& r = reward(lit.var());
         r -= inc;
-        if (m_config.m_use_heap) {
-            m_heap.increased(lit.var());        
-        }
     }
 
     void ddfw::shift_weights() {
