@@ -19,7 +19,6 @@ Revision History:
 #include "sat/sat_parallel.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_ddfw.h"
 
 namespace sat {
 
@@ -222,14 +221,7 @@ namespace sat {
 
 
     bool parallel::_to_solver(solver& s) {
-        if (!m_ls_phase.empty()) {
-            m_ls_phase.reserve(s.num_vars(), false);
-            for (unsigned i = s.num_vars(); i-- > 0; ) {
-                s.m_best_phase[i] = m_ls_phase[i];
-            }
-            s.m_best_phase_size = s.num_vars();
-        }
-        return !m_ls_phase.empty();
+        return false;
     }
 
     void parallel::from_solver(solver& s) {
@@ -248,34 +240,11 @@ namespace sat {
         return r;
     }
 
-
-    void parallel::_to_solver(local_search& s) {
-        m_ls_phase.reserve(s.num_vars(), false);
-        for (unsigned i = s.num_vars(); i-- > 0; ) {
-            m_ls_phase[i] = s.get_best_phase(i);
-        }
-    }
-
-    bool parallel::_from_solver(local_search& s) {
-        bool copied = false;
-        m_consumer_ready = true;
-        if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
-            copied = true;
-            s.import(*m_solver_copy.get(), true);
-            if (m_solver_copy->m_best_phase_size > 0) {
-                for (unsigned i = s.num_vars(); i-- > 0; ) {
-                    s.set_phase(i, m_solver_copy->m_best_phase[i]);
-                }
-            }
-        }
-        return copied;
-    }
-
-    void parallel::_to_solver(ddfw& s) {
+    void parallel::_to_solver(i_local_search& s) {
         // nothing
     }
 
-    bool parallel::_from_solver(ddfw& s) {
+    bool parallel::_from_solver(i_local_search& s) {
         bool copied = false;
         m_consumer_ready = true;
         if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
@@ -285,7 +254,7 @@ namespace sat {
         return copied;
     }
 
-    bool parallel::from_solver(local_search& s) {
+    bool parallel::from_solver(i_local_search& s) {
         bool copied = false;
         #pragma omp critical (par_solver)
         {
@@ -294,23 +263,7 @@ namespace sat {
         return copied;
     }
 
-    void parallel::to_solver(local_search& s) {
-        #pragma omp critical (par_solver)
-        {
-            _to_solver(s);
-        }       
-    }
-
-    bool parallel::from_solver(ddfw& s) {
-        bool copied = false;
-        #pragma omp critical (par_solver)
-        {
-            copied = _from_solver(s);
-        }       
-        return copied;
-    }
-
-    void parallel::to_solver(ddfw& s) {
+    void parallel::to_solver(i_local_search& s) {
         #pragma omp critical (par_solver)
         {
             _to_solver(s);

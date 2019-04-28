@@ -67,7 +67,7 @@ namespace sat {
     };
 
 
-    class local_search {
+    class local_search : public i_local_search {
 		
         struct pbcoeff {
             unsigned m_constraint_id;
@@ -168,7 +168,6 @@ namespace sat {
         parallel*   m_par;
         model       m_model;
 
-
         inline int score(bool_var v) const { return m_vars[v].m_score; }
         inline void inc_score(bool_var v) { m_vars[v].m_score++; }
         inline void dec_score(bool_var v) { m_vars[v].m_score--; }
@@ -224,34 +223,46 @@ namespace sat {
         void extract_model();
         void add_clause(unsigned sz, literal const* c);
         void add_unit(literal lit, literal explain);
+
         std::ostream& display(std::ostream& out) const;
         std::ostream& display(std::ostream& out, constraint const& c) const;
         std::ostream& display(std::ostream& out, unsigned v, var_info const& vi) const;
+
+        local_search_config& config() { return m_config;  }
+
+        void add_cardinality(unsigned sz, literal const* c, unsigned k);
+
+        void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
+
+        lbool check();
+
+        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
 
     public:
 
         local_search();
 
-        reslimit& rlimit() { return m_limit; }
-
-        ~local_search();
-
-        void add_cardinality(unsigned sz, literal const* c, unsigned k);
-
-        void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
+        ~local_search() override;
         
-        lbool check();
+        reslimit& rlimit() override { return m_limit; }
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
+        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
 
-        local_search_config& config() { return m_config;  }
+        unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
 
-        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
+        void add(solver const& s) override { import(s, false); }
 
-        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
+        model const& get_model() const override { return m_model; }
 
-        void import(solver& s, bool init);        
+        void collect_statistics(statistics& st) const override;        
 
+        void updt_params(params_ref const& p) override {}
+
+        void set_seed(unsigned n) override { config().set_random_seed(n); }
+
+        void reinit(solver& s) override;
+
+        // used by unit-walk
         void set_phase(bool_var v, bool f);
 
         void set_bias(bool_var v, lbool f);
@@ -262,10 +273,7 @@ namespace sat {
 
         double break_count(bool_var v) const { return m_vars[v].m_slow_break; }
 
-        model& get_model() { return m_model; }
-
-        void collect_statistics(statistics& st) const;        
-
+        void import(solver const& s, bool init);        
     };
 }
 

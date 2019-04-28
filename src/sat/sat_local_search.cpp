@@ -351,7 +351,16 @@ namespace sat {
         m_par(nullptr) {
     }
 
-    void local_search::import(solver& s, bool _init) {        
+    void local_search::reinit(solver& s) {
+        import(s, true); 
+        if (s.m_best_phase_size > 0) {
+            for (unsigned i = num_vars(); i-- > 0; ) {
+                set_phase(i, s.m_best_phase[i]);
+            }
+        }
+    }
+
+    void local_search::import(solver const& s, bool _init) {        
         flet<bool> linit(m_initializing, true);
         m_is_pb = false;
         m_vars.reset();
@@ -495,7 +504,7 @@ namespace sat {
     
 
     lbool local_search::check() {
-        return check(0, nullptr);
+        return check(0, nullptr, nullptr);
     }
 
 #define PROGRESS(tries, flips)                                          \

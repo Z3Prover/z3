@@ -82,8 +82,6 @@ namespace sat {
         m_local_search            = nullptr;
         m_neuro_state             = nullptr;
         m_neuro_predictor         = nullptr;
-        m_ddfw_search             = nullptr;
-        m_prob_search             = nullptr;
         m_mc.set_solver(this);
     }
 
@@ -1277,51 +1275,39 @@ namespace sat {
         ERROR_EX
     };
 
-    lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
+    lbool solver::invoke_local_search(unsigned num_lits, literal const* lits) {
         scoped_limits scoped_rl(rlimit());
-        SASSERT(!m_local_search);
-        m_local_search = alloc(local_search);
-        local_search& srch = *m_local_search;
-        srch.import(*this, false);
+        SASSERT(m_local_search);
+        i_local_search& srch = *m_local_search;
+        srch.add(*this);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, nullptr);
-        m_model = srch.get_model();
+        if (r == l_true) {
+            m_model = srch.get_model();
+        }
         m_local_search = nullptr;
         dealloc(&srch);
         return r;
     }
 
-    lbool solver::do_ddfw_search(unsigned num_lits, literal const* lits) {
-        scoped_limits scoped_rl(rlimit());
+    lbool solver::do_local_search(unsigned num_lits, literal const* lits) {
         SASSERT(!m_local_search);
-        m_ddfw_search = alloc(ddfw);
-        ddfw& srch = *m_ddfw_search;
-        srch.set_seed(m_config.m_random_seed);
-        srch.updt_params(m_params);
-        srch.add(*this);
-        scoped_rl.push_child(&srch.rlimit());
-        lbool r = srch.check(num_lits, lits);
-        if (r == l_true) {
-            m_model = srch.get_model();
-        }
-        m_ddfw_search = nullptr;
-        dealloc(&srch);
-        return r;
+        m_local_search = alloc(local_search);
+        return invoke_local_search(num_lits, lits);
+    }
+
+    lbool solver::do_ddfw_search(unsigned num_lits, literal const* lits) {
+        if (m_ext) return l_undef;
+        SASSERT(!m_local_search);
+        m_local_search = alloc(ddfw);
+        return invoke_local_search(num_lits, lits);
     }
 
     lbool solver::do_prob_search(unsigned num_lits, literal const* lits) {
-        scoped_limits scoped_rl(rlimit());
-        SASSERT(!m_prob_search);
-        m_prob_search = alloc(prob);
-        prob& srch = *m_prob_search;
-        srch.add(*this);
-        scoped_rl.push_child(&srch.rlimit());
-        srch.set_seed(m_config.m_random_seed);
-        lbool r = srch.check();
-        // m_model = srch.get_model();
-        m_prob_search = nullptr;
-        dealloc(&srch);
-        return r;
+        if (m_ext) return l_undef;
+        SASSERT(!m_local_search);
+        m_local_search = alloc(prob);
+        return invoke_local_search(num_lits, lits);
     }
 
     lbool solver::do_unit_walk() {
@@ -1331,19 +1317,27 @@ namespace sat {
     }
 
     lbool solver::check_par(unsigned num_lits, literal const* lits) {
-        scoped_ptr_vector<local_search> ls;
+        scoped_ptr_vector<i_local_search> ls;
         scoped_ptr_vector<solver> uw;
-        scoped_ptr_vector<ddfw> dd;
         int num_extra_solvers = m_config.m_num_threads - 1;
         int num_local_search  = static_cast<int>(m_config.m_local_search_threads);
         int num_unit_walk = static_cast<int>(m_config.m_unit_walk_threads);
-        int num_ddfw      = static_cast<int>(m_config.m_ddfw_threads);
-        int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk + num_ddfw;
+        int num_ddfw      = m_ext ? 0 : static_cast<int>(m_config.m_ddfw_threads);
+        int num_threads = num_extra_solvers + 1 + num_local_search + num_unit_walk + num_ddfw;        
         for (int i = 0; i < num_local_search; ++i) {
             local_search* l = alloc(local_search);
-            l->import(*this, false);
-            l->config().set_random_seed(m_config.m_random_seed + i);
+            l->updt_params(m_params);
+            l->add(*this);
+            l->set_seed(m_config.m_random_seed + i);
             ls.push_back(l);
+        }
+        // set up ddfw search
+        for (int i = 0; i < num_ddfw; ++i) {
+            ddfw* d = alloc(ddfw);
+            d->updt_params(m_params);
+            d->set_seed(m_config.m_random_seed + i);
+            d->add(*this);
+            ls.push_back(d);
         }
 
         // set up unit walk
@@ -1355,24 +1349,13 @@ namespace sat {
             uw.push_back(s);
         }
 
-        // set up ddfw search
-        for (int i = 0; i < num_ddfw; ++i) {
-            ddfw* d = alloc(ddfw);
-            d->updt_params(m_params);
-            d->set_seed(m_config.m_random_seed + i);
-            d->add(*this);
-            dd.push_back(d);
-        }
-
         int local_search_offset = num_extra_solvers;
-        int unit_walk_offset = num_extra_solvers + num_local_search;
-        int ddfw_offset = unit_walk_offset + num_unit_walk;
-        int main_solver_offset = ddfw_offset + num_ddfw;
+        int unit_walk_offset = num_extra_solvers + num_local_search + num_ddfw;
+        int main_solver_offset = unit_walk_offset + num_unit_walk;
 
 #define IS_AUX_SOLVER(i)   (0 <= i && i < num_extra_solvers)
 #define IS_LOCAL_SEARCH(i) (local_search_offset <= i && i < unit_walk_offset)
-#define IS_UNIT_WALK(i)    (unit_walk_offset <= i && i < ddfw_offset)
-#define IS_DDFW(i)         (ddfw_offset <= i && i < main_solver_offset)
+#define IS_UNIT_WALK(i)    (unit_walk_offset <= i && i < main_solver_offset)
 #define IS_MAIN_SOLVER(i)  (i == main_solver_offset)
 
         sat::parallel par(*this);
@@ -1405,9 +1388,6 @@ namespace sat {
                 }
                 else if (IS_UNIT_WALK(i)) {
                     r = uw[i-unit_walk_offset]->check(num_lits, lits);
-                }
-                else if (IS_DDFW(i)) {
-                    r = dd[i-ddfw_offset]->check(num_lits, lits, &par);
                 }
                 else {
                     r = check(num_lits, lits);
@@ -1467,16 +1447,12 @@ namespace sat {
         if (result == l_true && IS_UNIT_WALK(finished_id)) {
             set_model(uw[finished_id - unit_walk_offset]->get_model());
         }
-        if (result == l_true && IS_DDFW(finished_id)) {
-            set_model(dd[finished_id - ddfw_offset]->get_model());
-        }
         if (!canceled) {
             rlimit().reset_cancel();
         }
         set_par(nullptr, 0);
         ls.reset();
         uw.reset();
-        dd.reset();
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
@@ -2130,7 +2106,10 @@ namespace sat {
                 m_next_simplify = m_conflicts_since_init + m_config.m_simplify_max;
         }
 
-        if (m_par) m_par->from_solver(*this);
+        if (m_par) {
+            m_par->from_solver(*this);
+            m_par->to_solver(*this);
+        }
 
 #if 0
         static unsigned file_no = 0;
@@ -3328,9 +3307,6 @@ namespace sat {
             }
             else {
                 m_search_sat_conflicts += m_config.m_search_sat_conflicts;
-                if (m_par && m_par->to_solver(*this)) {
-                    // imported
-                }
             }
         }
 

@@ -26,9 +26,6 @@ Revision History:
 
 namespace sat {
 
-    class local_search;
-    class ddfw;
-
     class parallel {
 
         // shared pool of learned clauses.
@@ -55,10 +52,8 @@ namespace sat {
         void _get_clauses(solver& s);
         void _from_solver(solver& s);
         bool _to_solver(solver& s);
-        bool _from_solver(local_search& s);
-        void _to_solver(local_search& s);
-        bool _from_solver(ddfw& s);
-        void _to_solver(ddfw& s);
+        bool _from_solver(i_local_search& s);
+        void _to_solver(i_local_search& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;
@@ -67,7 +62,6 @@ namespace sat {
         vector_pool    m_pool;
 
         // for exchange with local search:
-        svector<bool>      m_ls_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
@@ -108,11 +102,8 @@ namespace sat {
         void from_solver(solver& s);
         bool to_solver(solver& s);
         
-        bool from_solver(local_search& s);
-        void to_solver(local_search& s);
-
-        bool from_solver(ddfw& s);
-        void to_solver(ddfw& s);
+        bool from_solver(i_local_search& s);
+        void to_solver(i_local_search& s);
         
         bool copy_solver(solver& s);
     };

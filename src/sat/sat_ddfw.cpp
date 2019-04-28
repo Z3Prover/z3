@@ -60,8 +60,8 @@ namespace sat {
                        verbose_stream() << ")\n");
         }
         IF_VERBOSE(0, verbose_stream() << "(sat.ddfw " 
-                   << std::setw(7) << m_min_sz 
-                   << std::setw(7) << m_models.size()
+                   << std::setw(07) << m_min_sz 
+                   << std::setw(07) << m_models.size()
                    << std::setw(10) << kflips_per_sec
                    << std::setw(10) << m_flips 
                    << std::setw(10) << m_restart_count
@@ -85,14 +85,16 @@ namespace sat {
     }
 
     bool_var ddfw::pick_var() {
-        double sum_pos = 0, sum_zero = 0;
+        double sum_pos = 0;
+        unsigned n = 1;
+        bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
             int r = reward(v);
             if (r > 0) {
                 sum_pos += r;
             }
-            else if (r == 0) {
-                sum_zero++;
+            else if (r == 0 && (m_rand() % (n++)) == 0) {
+                v0 = v;
             }
         }
         if (sum_pos > 0) {
@@ -107,17 +109,8 @@ namespace sat {
                 }
             }
         }
-        if (false && sum_zero > 0) {
-            double lim_zero = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_zero;
-            for (bool_var v : m_unsat_vars) {
-                int r = reward(v);
-                if (r == 0) {
-                    lim_zero -= 1;
-                    if (lim_zero <= 0) {
-                        return v;
-                    }
-                }
-            }
+        if (v0 != null_bool_var) {
+            return v0;
         }
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
@@ -177,7 +170,7 @@ namespace sat {
         add_assumptions();
         for (unsigned v = 0; v < num_vars(); ++v) {
             literal lit(v, false), nlit(v, true);
-            value(v) = m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
+            value(v) = (m_rand() % 2) == 0; // m_use_list[lit.index()].size() >= m_use_list[nlit.index()].size();
         }
         init_clause_data();
         flatten_use_list();
@@ -279,7 +272,7 @@ namespace sat {
     }
 
     bool ddfw::should_reinit_weights() {
-        return m_flips > m_reinit_next;
+        return m_flips >= m_reinit_next;
     }
 
     void ddfw::do_reinit_weights() {
@@ -341,7 +334,7 @@ namespace sat {
     }
 
     bool ddfw::should_restart() {
-        return m_flips > m_restart_next;
+        return m_flips >= m_restart_next;
     }
 
     void ddfw::do_restart() {        

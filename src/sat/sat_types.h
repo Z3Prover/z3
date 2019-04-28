@@ -29,6 +29,10 @@ Revision History:
 #include "util/stopwatch.h"
 #include<iomanip>
 
+class params_ref;
+class reslimit;
+class statistics;
+
 namespace sat {
 #define SAT_VB_LVL 10
 
@@ -121,6 +125,7 @@ namespace sat {
     typedef approx_set_tpl<bool_var, u2u, unsigned> var_approx_set;
 
     class solver;
+    class parallel;
     class lookahead;
     class unit_walk;
     class clause;
@@ -253,6 +258,21 @@ namespace sat {
     inline std::ostream & operator<<(std::ostream & out, literal_vector const & ls) {
         return out << mk_lits_pp(ls.size(), ls.c_ptr());
     }
+
+    class i_local_search {
+    public:
+        virtual ~i_local_search() {}
+        virtual void add(solver const& s) = 0;
+        virtual void updt_params(params_ref const& p) = 0;
+        virtual void set_seed(unsigned s) = 0;
+        virtual lbool check(unsigned sz, literal const* assumptions, parallel* par) = 0;
+        virtual void reinit(solver& s) = 0;        
+        virtual unsigned num_non_binary_clauses() const = 0;
+        virtual reslimit& rlimit() = 0;
+        virtual model const& get_model() const = 0;
+        virtual void collect_statistics(statistics& st) const = 0;        
+
+    };
 };
 
 #endif

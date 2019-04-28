@@ -24,14 +24,15 @@
 #include "util/uint_set.h"
 #include "util/heap.h"
 #include "util/rlimit.h"
-#include "sat/sat_clause.h"
 #include "util/params.h"
+#include "sat/sat_clause.h"
+#include "sat/sat_types.h"
 
 namespace sat {
     class solver;
     class parallel;
 
-    class ddfw {
+    class ddfw : public i_local_search {
 
         struct clause_info {
             clause_info(clause* cl, unsigned init_weight): m_weight(init_weight), m_trues(0), m_num_trues(0), m_clause(cl) {}
@@ -56,7 +57,7 @@ namespace sat {
                 m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
                 m_max_num_models = (1 << 10);
-                m_restart_base = 100000;
+                m_restart_base = 100333;
                 m_reinit_base = 10000;
                 m_parsync_base = 333333;
             }
@@ -188,25 +189,27 @@ namespace sat {
 
         ddfw(): m_par(nullptr) {}
 
-        ~ddfw();
+        ~ddfw() override;
 
-        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
+        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
 
-        void updt_params(params_ref const& p);
+        void updt_params(params_ref const& p) override;
 
-        model const& get_model() const { return m_model; }
+        model const& get_model() const override { return m_model; }
 
-        reslimit& rlimit() { return m_limit; }
+        reslimit& rlimit() override { return m_limit; }
 
-        void set_seed(unsigned n) { m_rand.set_seed(n); }
+        void set_seed(unsigned n) override { m_rand.set_seed(n); }
 
-        void add(solver const& s);
+        void add(solver const& s) override;
        
         std::ostream& display(std::ostream& out) const;
 
         // for parallel integration
-        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
-        void reinit(solver& s);
+        unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
+        void reinit(solver& s) override;
+
+        void collect_statistics(statistics& st) const override {} 
     };
 }
 

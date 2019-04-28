@@ -183,9 +183,7 @@ namespace sat {
         bool                    m_par_syncing_clauses;
 
         class lookahead*        m_cuber;
-        class local_search*     m_local_search;
-        class ddfw*             m_ddfw_search;
-        class prob*             m_prob_search;
+        class i_local_search*   m_local_search;
 
         void *                  m_neuro_state;
         neuro_predictor*        m_neuro_predictor;
@@ -533,6 +531,7 @@ namespace sat {
         lbool do_local_search(unsigned num_lits, literal const* lits);
         lbool do_ddfw_search(unsigned num_lits, literal const* lits);
         lbool do_prob_search(unsigned num_lits, literal const* lits);
+        lbool invoke_local_search(unsigned num_lits, literal const* lits);
         lbool do_unit_walk();
 
         // -----------------------

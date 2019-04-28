@@ -24,11 +24,12 @@
 #include "util/uint_set.h"
 #include "util/rlimit.h"
 #include "sat/sat_clause.h"
+#include "sat/sat_types.h"
 
 namespace sat {
     class solver;
 
-    class prob {
+    class prob : public i_local_search {
 
         struct clause_info {
             clause_info(): m_trues(0), m_num_trues(0) {}
@@ -131,19 +132,28 @@ namespace sat {
     public:
         prob() {}
 
-        ~prob();
+        ~prob() override;
 
-        lbool check();
+        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
 
-        void set_seed(unsigned n) { m_rand.set_seed(n); }
+        void set_seed(unsigned n) override { m_rand.set_seed(n); }
 
-        reslimit& rlimit() { return m_limit; }
+        reslimit& rlimit() override { return m_limit; }
 
-        void add(solver const& s);
+        void add(solver const& s) override;
 
-        model& get_model() { return m_model; }
+        model const& get_model() const override { return m_model; }
        
         std::ostream& display(std::ostream& out) const;
+
+        void updt_params(params_ref const& p) override {}
+
+        unsigned num_non_binary_clauses() const override { return 0; }
+
+        void collect_statistics(statistics& st) const override {} 
+
+        void reinit(solver& s) override { UNREACHABLE(); }
+
     };
 }
 

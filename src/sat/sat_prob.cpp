@@ -29,7 +29,8 @@ namespace sat {
         }
     }
 
-    lbool prob::check() {
+    lbool prob::check(unsigned n, literal const* assumptions, parallel* p) {
+        VERIFY(n == 0);
         init();
         while (m_limit.inc() && m_best_min_unsat > 0) {
             if (should_restart()) do_restart();
