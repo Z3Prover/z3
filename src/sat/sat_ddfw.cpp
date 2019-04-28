@@ -11,7 +11,8 @@
 
   Author:
 
-    Nikolaj Bjorner 2019-4-23
+    Nikolaj Bjorner, Marijn Heule 2019-4-23
+     
 
   Notes:
   
@@ -34,8 +35,8 @@
 namespace sat {
 
     ddfw::~ddfw() {
-        for (clause* cp : m_clause_db) {
-            m_alloc.del_clause(cp);
+        for (auto& ci : m_clauses) {
+            m_alloc.del_clause(ci.m_clause);
         }
     }
 
@@ -57,7 +58,6 @@ namespace sat {
                    << " unsat "   << m_min_sz
                    << " models " << m_models.size()
                    << " kflips/sec " << kflips_per_sec
-                   << " vars: "   << m_reward.size() 
                    << " flips: "  << m_flips 
                    << " restarts: " << m_restart_count
                    << " reinits: " << m_reinit_count
@@ -69,7 +69,7 @@ namespace sat {
 
     bool ddfw::do_flip() {
         bool_var v = pick_var();
-        if (m_reward[v] > 0 || (m_reward[v] == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
+        if (reward(v) > 0 || (reward(v) == 0 && m_rand(100) <= m_config.m_use_reward_zero_pct)) {
             flip(v);
             if (m_unsat.size() <= m_min_sz) save_best_values();
             return true;
@@ -84,7 +84,7 @@ namespace sat {
         else {
             double sum_pos = 0, sum_zero = 0;
             for (bool_var v : m_unsat_vars) {
-                int r = m_reward[v];
+                int r = reward(v);
                 if (r > 0) {
                     sum_pos += r;
                 }
@@ -95,7 +95,7 @@ namespace sat {
             if (sum_pos > 0) {
                 double lim_pos = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_pos;                
                 for (bool_var v : m_unsat_vars) {
-                    int r = m_reward[v];
+                    int r = reward(v);
                     if (r > 0) {
                         lim_pos -= r;
                         if (lim_pos <= 0) {
@@ -107,7 +107,7 @@ namespace sat {
             if (false && sum_zero > 0) {
                 double lim_zero = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_zero;
                 for (bool_var v : m_unsat_vars) {
-                    int r = m_reward[v];
+                    int r = reward(v);
                     if (r == 0) {
                         lim_zero -= 1;
                         if (lim_zero <= 0) {
@@ -122,12 +122,11 @@ namespace sat {
 
     void ddfw::add(unsigned n, literal const* c) {        
         clause* cls = m_alloc.mk_clause(n, c, false);
-        unsigned idx = m_clause_db.size();
-        m_clause_db.push_back(cls);
-        m_clauses.push_back(clause_info());
+        unsigned idx = m_clauses.size();
+        m_clauses.push_back(clause_info(cls));
         for (literal lit : *cls) {
             m_use_list.reserve(lit.index()+1);
-            m_reward.reserve(lit.var()+1, 0);
+            m_vars.reserve(lit.var()+1);
             m_use_list[lit.index()].push_back(idx);
         }
     }
@@ -157,11 +156,8 @@ namespace sat {
     }
 
     void ddfw::init() {
-        m_values.reserve(m_reward.size());
-        m_bias.reserve(m_reward.size());
-        m_make_count.reserve(m_reward.size(), 0);
-        for (unsigned v = 0; v < m_reward.size(); ++v) {
-            m_values[v] = (m_rand() % 2 == 0);
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            value(v) = (m_rand() % 2 == 0);
         }
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
             clause_info& ci = m_clauses[i];
@@ -171,8 +167,7 @@ namespace sat {
         flatten_use_list();
 
         m_reinit_count = 0;
-        m_reinit_next = m_config.m_reinit_inc;
-        m_reinit_next_reset = 1;
+        m_reinit_next = m_config.m_reinit_base;
 
         m_restart_count = 0;
         m_restart_next = m_config.m_restart_base*2;
@@ -197,7 +192,7 @@ namespace sat {
 
     void ddfw::flip(bool_var v) {
         ++m_flips;
-        literal lit = literal(v, !m_values[v]);
+        literal lit = literal(v, !value(v));
         literal nlit = ~lit;
         SASSERT(is_true(lit));
         for (unsigned cls_idx : use_list(*this, lit)) {
@@ -247,7 +242,7 @@ namespace sat {
             }
             ci.add(nlit);
         }
-        m_values[v] = !m_values[v];
+        value(v) = !value(v);
     }
 
     bool ddfw::should_reinit_weights() {
@@ -258,7 +253,6 @@ namespace sat {
         log();
 
         if (m_reinit_count % 2 == 0) { 
-            //  TBD have other strategies: m_reinit_count < m_reinit_next_reset
             for (auto& ci : m_clauses) {
                 ci.m_weight += 1;                
             }
@@ -272,29 +266,26 @@ namespace sat {
                     ci.m_weight = m_config.m_init_clause_weight + 1;
                 }                
             }
-            m_reinit_next_reset += m_reinit_count;                        
         }
         init_clause_data();   
         ++m_reinit_count;
-        m_reinit_next += m_reinit_count * m_config.m_reinit_inc;
+        m_reinit_next += m_reinit_count * m_config.m_reinit_base;
     }
 
     void ddfw::init_clause_data() {
         if (m_config.m_use_heap) {
             m_heap.clear();
-            m_heap.reserve(m_reward.size());
-            for (unsigned v = 0; v < m_reward.size(); ++v) {
+            m_heap.reserve(num_vars());
+            for (unsigned v = 0; v < num_vars(); ++v) {
                 m_heap.insert(v);
             }
         }
         else {
             // inc_make below.
         }
-        for (unsigned& c : m_make_count) {
-            c = 0;
-        }
-        for (int& r : m_reward) {
-            r = 0;
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            make_count(v) = 0;
+            reward(v) = 0;
         }
         m_unsat_vars.reset();
         m_unsat.reset();
@@ -345,44 +336,44 @@ namespace sat {
        etc
     */
     void ddfw::reinit_values() {
-        for (unsigned i = 0; i < m_values.size(); ++i) {
-            int b = m_bias[i];
+        for (unsigned i = 0; i < num_vars(); ++i) {
+            int b = bias(i);
             if (0 == (m_rand() % (1 + abs(b)))) {
-                m_values[i] = (m_rand() % 2) == 0;
+                value(i) = (m_rand() % 2) == 0;
             }
             else {
-                m_values[i] = m_bias[i] > 0;
+                value(i) = bias(i) > 0;
             }
         }        
     }
 
     void ddfw::save_best_values() {
-        m_model.reserve(m_values.size());
-        for (unsigned i = 0; i < m_values.size(); ++i) {
-            m_model[i] = to_lbool(m_values[i]);
+        m_model.reserve(num_vars());
+        for (unsigned i = 0; i < num_vars(); ++i) {
+            m_model[i] = to_lbool(value(i));
         }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
             // skip saving the first model.
-            for (int& b : m_bias) {
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                int& b = bias(v);
                 if (abs(b) > 3) {
                     b = b > 0 ? 3 : -3;
                 }
             }
-            for (unsigned i = 0; i < m_values.size(); ++i) {
-                m_bias[i] += m_values[i] ? 1 : -1;
-            }
         }
-        else {
-            unsigned h = model_hash(m_values);
-            if (!m_models.contains(h)) {
-                for (unsigned i = 0; i < m_values.size(); ++i) {
-                    m_bias[i] += m_values[i] ? 1 : -1;
-                }
-                m_models.insert(h, m_values);
-                if (m_models.size() > m_config.m_max_num_models) {                
-                    m_models.erase(m_models.begin()->m_key);
-                }
+        m_tmp_values.reserve(num_vars());
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            m_tmp_values[v] = value(v);
+        }
+        unsigned h = model_hash(m_tmp_values);
+        if (!m_models.contains(h)) {
+            for (unsigned i = 0; i < num_vars(); ++i) {
+                bias(i) += value(i) ? 1 : -1;
+            }
+            m_models.insert(h);
+            if (m_models.size() > m_config.m_max_num_models) {                
+                m_models.erase(*m_models.begin());
             }
         }
         m_min_sz = m_unsat.size();
@@ -441,7 +432,7 @@ namespace sat {
     }
 
     void ddfw::inc_reward(literal lit, int inc) {
-        int& r = m_reward[lit.var()];
+        int& r = reward(lit.var());
         r += inc;
         if (m_config.m_use_heap) {
             m_heap.decreased(lit.var());
@@ -449,7 +440,7 @@ namespace sat {
     }
     
     void ddfw::dec_reward(literal lit, int inc) {
-        int& r = m_reward[lit.var()];
+        int& r = reward(lit.var());
         r -= inc;
         if (m_config.m_use_heap) {
             m_heap.increased(lit.var());        
@@ -494,9 +485,8 @@ namespace sat {
             auto const& ci = m_clauses[i];
             out << ci.m_num_trues << " " << ci.m_weight << "\n";
         }
-        unsigned num_vars = m_reward.size();
-        for (unsigned v = 0; v < num_vars; ++v) {
-            out << v << ": " << m_reward[v] << "\n";
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            out << v << ": " << reward(v) << "\n";
         }
         out << "unsat vars: ";
         for (bool_var v : m_unsat_vars) {
@@ -519,26 +509,24 @@ namespace sat {
             if (!found) IF_VERBOSE(0, verbose_stream() << "unsat var not found: " << v << "\n"; );
             VERIFY(found);
         }
-        return;
-        unsigned num_vars = m_reward.size();
-        for (unsigned v = 0; v < num_vars; ++v) {
-            int reward = 0;
-            literal lit(v, !m_values[v]);
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            int v_reward = 0;
+            literal lit(v, !value(v));
             for (unsigned j : m_use_list[lit.index()]) {
                 clause_info const& ci = m_clauses[j];
                 if (ci.m_num_trues == 1) {
                     SASSERT(lit == to_literal(ci.m_trues));
-                    reward -= ci.m_weight;
+                    v_reward -= ci.m_weight;
                 }
             }
             for (unsigned j : m_use_list[(~lit).index()]) {
                 clause_info const& ci = m_clauses[j];
                 if (ci.m_num_trues == 0) {
-                    reward += ci.m_weight;
+                    v_reward += ci.m_weight;
                 }                
             }
-            IF_VERBOSE(0, if (reward != m_reward[v]) verbose_stream() << v << " " << reward << " " << m_reward[v] << "\n");
-            SASSERT(m_reward[v] == reward);
+            IF_VERBOSE(0, if (v_reward != reward(v)) verbose_stream() << v << " " << v_reward << " " << reward(v) << "\n");
+            SASSERT(reward(v) == v_reward);
         }
         for (auto const& ci : m_clauses) {
             SASSERT(ci.m_weight > 0);
@@ -564,8 +552,8 @@ namespace sat {
         sat_params p(_p);
         m_config.m_init_clause_weight = p.ddfw_init_clause_weight();
         m_config.m_use_reward_zero_pct = p.ddfw_use_reward_pct();
-        m_config.m_reinit_inc = p.ddfw_reinit_inc();
-        m_config.m_restart_base = p.ddfw_restart_base();
+        m_config.m_reinit_base = p.ddfw_reinit_base();
+        m_config.m_restart_base = p.ddfw_restart_base();        
     }
     
 }

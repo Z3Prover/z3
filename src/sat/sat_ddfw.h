@@ -11,7 +11,7 @@
 
   Author:
 
-  Nikolaj Bjorner 2019-4-23
+  Nikolaj Bjorner, Marijn Heule 2019-4-23
 
   Notes:
   
@@ -29,19 +29,16 @@
 
 namespace sat {
     class solver;
+    class parallel;
 
     class ddfw {
-        struct lt {
-            svector<int>& m_reward;
-            lt(svector<int>& b): m_reward(b) {}
-            bool operator()(bool_var v1, bool_var v2) const { return m_reward[v1] > m_reward[v2]; }
-        };
 
         struct clause_info {
-            clause_info(): m_weight(2), m_trues(0), m_num_trues(0) {}
+            clause_info(clause* cl): m_weight(2), m_trues(0), m_num_trues(0), m_clause(cl) {}
             unsigned m_weight;       // weight of clause
             unsigned m_trues;        // set of literals that are true
             unsigned m_num_trues;    // size of true set
+            clause*  m_clause;
             bool is_true() const { return m_num_trues > 0; }
             void add(literal lit) { ++m_num_trues; m_trues += lit.index(); }
             void del(literal lit) { SASSERT(m_num_trues > 0); --m_num_trues; m_trues -= lit.index(); }
@@ -54,44 +51,53 @@ namespace sat {
             bool     m_use_heap;
             unsigned m_max_num_models;
             unsigned m_restart_base;
-            unsigned m_reinit_inc;
+            unsigned m_reinit_base;
             void reset() {
                 m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
                 m_use_heap = false;
                 m_max_num_models = (1 << 10);
                 m_restart_base = 100000;
-                m_reinit_inc = 10000;
+                m_reinit_base = 10000;
             }
+        };
+
+        struct var_info {
+            var_info(): m_value(false), m_reward(0), m_make_count(0), m_bias(0) {}
+            bool     m_value;
+            int      m_reward;
+            unsigned m_make_count;
+            int      m_bias;
+        };
+
+        struct lt {
+            svector<var_info>& m_vars;
+            lt(svector<var_info>& vs): m_vars(vs) {}
+            bool operator()(bool_var v1, bool_var v2) const { return m_vars[v1].m_reward > m_vars[v2].m_reward; }
         };
         
         config           m_config;
         reslimit         m_limit;
         clause_allocator m_alloc;
-        clause_vector    m_clause_db;     
         svector<clause_info> m_clauses;
-        svector<int>     m_reward; // per var break count
-        svector<bool>    m_values;
-        svector<int>     m_bias;
+        svector<var_info>    m_vars;       // var -> info
+        svector<bool>        m_tmp_values;     // var -> current assignment        
+        model                m_model;      // var -> best assignment
+        
         heap<lt>         m_heap;
         vector<unsigned_vector> m_use_list;
         unsigned_vector  m_flat_use_list;
         unsigned_vector  m_use_list_index;
 
         indexed_uint_set m_unsat;
-        unsigned_vector  m_make_count;  // number of unsat clauses that become true if variable is flipped
         indexed_uint_set m_unsat_vars;  // set of variables that are in unsat clauses
         random_gen       m_rand;
-        unsigned         m_reinit_next;
-        unsigned         m_reinit_next_reset;
-        unsigned         m_reinit_count;
-
+        unsigned         m_reinit_count, m_reinit_next;
         unsigned         m_restart_count, m_restart_next;
         uint64_t         m_flips, m_last_flips, m_shifts;
         unsigned         m_min_sz;
-        u_map<svector<bool>> m_models;
+        hashtable<unsigned, unsigned_hash, default_eq<unsigned>> m_models;
         stopwatch        m_stopwatch;
-        model            m_model;
 
 
         class use_list {
@@ -106,11 +112,25 @@ namespace sat {
 
         void flatten_use_list(); 
 
+        inline unsigned num_vars() const { return m_vars.size(); }
+
+        inline unsigned& make_count(bool_var v) { return m_vars[v].m_make_count; }
+
+        inline bool& value(bool_var v) { return m_vars[v].m_value; }
+
+        inline bool value(bool_var v) const { return m_vars[v].m_value; }
+
+        inline int& reward(bool_var v) { return m_vars[v].m_reward; }
+
+        inline int reward(bool_var v) const { return m_vars[v].m_reward; }
+
+        inline int& bias(bool_var v) { return m_vars[v].m_bias; }
+
         unsigned model_hash(svector<bool> const& m) const;
 
-        bool is_true(literal lit) const { return m_values[lit.var()] != lit.sign(); }
+        inline bool is_true(literal lit) const { return value(lit.var()) != lit.sign(); }
 
-        inline clause const& get_clause(unsigned idx) const { return *m_clause_db[idx]; }
+        inline clause const& get_clause(unsigned idx) const { return *m_clauses[idx].m_clause; }
 
         inline unsigned get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
 
@@ -118,14 +138,14 @@ namespace sat {
 
         unsigned select_max_same_sign(unsigned cf_idx);
 
-        void inc_make(literal lit) { 
+        inline void inc_make(literal lit) { 
             bool_var v = lit.var(); 
-            if (m_make_count[v]++ == 0) m_unsat_vars.insert(v); 
+            if (make_count(v)++ == 0) m_unsat_vars.insert(v); 
         }
 
-        void dec_make(literal lit) { 
+        inline void dec_make(literal lit) { 
             bool_var v = lit.var(); 
-            if (--m_make_count[v] == 0) m_unsat_vars.remove(v); 
+            if (--make_count(v) == 0) m_unsat_vars.remove(v); 
         }
 
         void inc_reward(literal lit, int inc);
@@ -163,7 +183,7 @@ namespace sat {
 
     public:
 
-        ddfw(): m_heap(10, m_reward) {}
+        ddfw(): m_heap(10, m_vars) {}
 
         ~ddfw();
 
