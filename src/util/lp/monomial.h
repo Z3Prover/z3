@@ -68,19 +68,8 @@ public:
     void sort_rvars() {
         std::sort(m_rvars.begin(), m_rvars.end());
     }
-    std::ostream& display(std::ostream& out) const {
-        // out << "v" << var() << " := ";
-        // if (sign()) out << "- ";
-        // for (lpvar v : vars()) out << "v" << v << " ";
-        SASSERT(false);
-        return out;
-    }
 };
 
-inline std::ostream& operator<<(std::ostream& out, monomial const& m) {
-    SASSERT(false);
-    return m.display(out);
-}
 
 typedef std::unordered_map<lpvar, rational> variable_map_type;
 template <typename T>
