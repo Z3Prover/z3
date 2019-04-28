@@ -363,6 +363,7 @@ namespace sat {
         }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
+            // skip saving the first model.
             for (int& b : m_bias) {
                 if (abs(b) > 3) {
                     b = b > 0 ? 3 : -3;
@@ -373,12 +374,6 @@ namespace sat {
             }
         }
         else {
-            if (m_models.empty()) {
-                for (unsigned i = 0; i < m_values.size(); ++i) {
-                    m_values[i] = l_true == m_model[i];
-                }
-                m_models.insert(model_hash(m_values), m_values);
-            }
             unsigned h = model_hash(m_values);
             if (!m_models.contains(h)) {
                 for (unsigned i = 0; i < m_values.size(); ++i) {
