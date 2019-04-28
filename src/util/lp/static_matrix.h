@@ -48,7 +48,10 @@ struct row_cell {
     unsigned & offset() { return m_offset;}
             
 };
-
+template <typename T>
+std::ostream& operator<<(std::ostream& out, const row_cell<T>& rc) {
+    return out << "(m_j=" << rc.m_j << ", m_offset= " << rc.m_offset << ", m_value=" << rc.m_value << ")";   
+}
 struct empty_struct {};
 typedef row_cell<empty_struct> column_cell;
 
