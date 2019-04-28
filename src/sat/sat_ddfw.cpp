@@ -104,7 +104,7 @@ namespace sat {
                     }
                 }
             }
-            if (sum_zero > 0) {
+            if (false && sum_zero > 0) {
                 double lim_zero = ((double) m_rand() / (1.0 + m_rand.max_value())) * sum_zero;
                 for (bool_var v : m_unsat_vars) {
                     int r = m_reward[v];
@@ -341,7 +341,7 @@ namespace sat {
        during a restart.
         bias  = 0 -> flip truth value with 50%
        |bias| = 1 -> flip with 25% probability
-       |bias| = 2 -> flip with 12% probaility
+       |bias| = 2 -> flip with 12.5% probability
        etc
     */
     void ddfw::reinit_values() {
@@ -357,6 +357,10 @@ namespace sat {
     }
 
     void ddfw::save_best_values() {
+        m_model.reserve(m_values.size());
+        for (unsigned i = 0; i < m_values.size(); ++i) {
+            m_model[i] = to_lbool(m_values[i]);
+        }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
             for (int& b : m_bias) {
@@ -364,22 +368,29 @@ namespace sat {
                     b = b > 0 ? 3 : -3;
                 }
             }
-        }
-        m_model.reserve(m_values.size());
-        for (unsigned i = 0; i < m_values.size(); ++i) {
-            m_model[i] = to_lbool(m_values[i]);
-        }
-        m_min_sz = m_unsat.size();
-        unsigned h = model_hash(m_values);
-        if (!m_models.contains(h)) {
             for (unsigned i = 0; i < m_values.size(); ++i) {
                 m_bias[i] += m_values[i] ? 1 : -1;
             }
-            m_models.insert(h, m_values);
-            if (m_models.size() > m_config.m_max_num_models) {
-                m_models.erase(m_models.begin()->m_key);
+        }
+        else {
+            if (m_models.empty()) {
+                for (unsigned i = 0; i < m_values.size(); ++i) {
+                    m_values[i] = l_true == m_model[i];
+                }
+                m_models.insert(model_hash(m_values), m_values);
+            }
+            unsigned h = model_hash(m_values);
+            if (!m_models.contains(h)) {
+                for (unsigned i = 0; i < m_values.size(); ++i) {
+                    m_bias[i] += m_values[i] ? 1 : -1;
+                }
+                m_models.insert(h, m_values);
+                if (m_models.size() > m_config.m_max_num_models) {                
+                    m_models.erase(m_models.begin()->m_key);
+                }
             }
         }
+        m_min_sz = m_unsat.size();
     }
 
     unsigned ddfw::model_hash(svector<bool> const& m) const {
@@ -558,6 +569,8 @@ namespace sat {
         sat_params p(_p);
         m_config.m_init_clause_weight = p.ddfw_init_clause_weight();
         m_config.m_use_reward_zero_pct = p.ddfw_use_reward_pct();
+        m_config.m_reinit_inc = p.ddfw_reinit_inc();
+        m_config.m_restart_base = p.ddfw_restart_base();
     }
     
 }

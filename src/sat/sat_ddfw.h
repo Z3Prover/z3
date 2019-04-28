@@ -144,7 +144,7 @@ namespace sat {
         // reinitialize weights activity
         bool should_reinit_weights();        
         void do_reinit_weights();
-        bool select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues);
+        inline bool select_clause(unsigned max_weight, unsigned max_trues, unsigned weight, unsigned num_trues);
 
         // restart activity
         bool should_restart();
