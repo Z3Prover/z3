@@ -3327,7 +3327,6 @@ namespace sat {
     }
 
     void solver::do_rephase() {
-        IF_VERBOSE(2, verbose_stream() << "rephase " << m_rephase_lim << " " << m_best_phase_size << "\n");
         switch (m_config.m_phase) {
         case PS_ALWAYS_TRUE:
             for (auto& p : m_phase) p = true;

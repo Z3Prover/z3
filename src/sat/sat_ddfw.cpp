@@ -195,7 +195,7 @@ namespace sat {
     void ddfw::reinit(solver& s) {
         add(s);
         add_assumptions();
-        if (false && s.m_best_phase_size > 0) {
+        if (s.m_best_phase_size > 0) {
             for (unsigned v = 0; v < num_vars(); ++v) {                
                 value(v) = s.m_best_phase[v];
                 reward(v) = 0;
@@ -370,18 +370,20 @@ namespace sat {
 
     void ddfw::do_parallel_sync() {
         if (m_par->from_solver(*this)) {
-#if 0
-            // can export priorities as values of rewards to CDCL
-            svector<std::pair<double, bool_var>> vars;
-            for (unsigned v = 0; v < num_vars(); ++v) {
-                vars.push_back(std::make_pair(m_vars[v].m_reward_avg, v));
-            }
-            std::sort(vars.begin(), vars.end());
-            for (auto & vi : vars) {
-                std::cout << vi.second << " " << vi.first << "\n"; 
-            }
-#endif
+
         }
+        m_par->to_solver(*this);
+#if 0
+        // can export priorities as values of rewards to CDCL
+        svector<std::pair<double, bool_var>> vars;
+        for (unsigned v = 0; v < num_vars(); ++v) {
+            vars.push_back(std::make_pair(m_vars[v].m_reward_avg, v));
+        }
+        std::sort(vars.begin(), vars.end());
+        for (auto & vi : vars) {
+            std::cout << vi.second << " " << vi.first << "\n"; 
+        }
+#endif
         ++m_parsync_count;
         m_parsync_next *= 3;
         m_parsync_next /= 2;

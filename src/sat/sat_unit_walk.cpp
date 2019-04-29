@@ -245,8 +245,7 @@ namespace sat {
         local_search& ls;
         compare_break(local_search& ls): ls(ls) {}
         int operator()(bool_var v, bool_var w) const {
-            double diff = ls.break_count(v) - ls.break_count(w);
-            return diff > 0;
+            return ls.get_priority(v) > ls.get_priority(w);
         }
     };
 

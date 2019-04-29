@@ -102,7 +102,6 @@ namespace sat {
         literal l = lits.back();
         lits.pop_back();            
         SASSERT(!m_binary[(~l).index()].empty());
-        IF_VERBOSE(0, if (m_binary[(~l).index()].back() != ~to_literal(idx)) verbose_stream() << "pop bad literal: " << idx << " " << (~l).index() << "\n";);
         SASSERT(m_binary[(~l).index()].back() == ~to_literal(idx));
         m_binary[(~l).index()].pop_back();
         ++m_stats.m_del_binary;
@@ -2369,7 +2368,6 @@ namespace sat {
     }
 
     bool lookahead::should_neuro_choose() {
-        IF_VERBOSE(1, verbose_stream() << "neuro: " << m_s.m_config.m_neuro_choose << " " << m_s.m_neuro_predictor << "\n");
         if (!m_s.m_config.m_neuro_choose) {
             return false;
         }

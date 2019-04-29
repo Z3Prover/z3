@@ -240,8 +240,11 @@ namespace sat {
         return r;
     }
 
-    void parallel::_to_solver(i_local_search& s) {
-        // nothing
+    void parallel::_to_solver(i_local_search& s) {        
+        m_priorities.reset();
+        for (bool_var v = 0; m_solver_copy && v < m_solver_copy->num_vars(); ++v) {
+            m_priorities.push_back(s.get_priority(v));
+        }
     }
 
     bool parallel::_from_solver(i_local_search& s) {

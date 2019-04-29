@@ -271,7 +271,7 @@ namespace sat {
 
         inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
 
-        double break_count(bool_var v) const { return m_vars[v].m_slow_break; }
+        double get_priority(bool_var v) const { return m_vars[v].m_slow_break; }
 
         void import(solver const& s, bool init);        
     };

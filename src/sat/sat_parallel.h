@@ -65,6 +65,7 @@ namespace sat {
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
+        svector<double>    m_priorities;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;

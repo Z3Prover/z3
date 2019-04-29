@@ -212,6 +212,8 @@ namespace sat {
         void reinit(solver& s) override;
 
         void collect_statistics(statistics& st) const override {} 
+
+        double get_priority(bool_var v) const override { return m_vars[v].m_reward_avg; }
     };
 }
 

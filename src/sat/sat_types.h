@@ -271,6 +271,7 @@ namespace sat {
         virtual reslimit& rlimit() = 0;
         virtual model const& get_model() const = 0;
         virtual void collect_statistics(statistics& st) const = 0;        
+        virtual double get_priority(bool_var v) const { return 0; }
 
     };
 };
