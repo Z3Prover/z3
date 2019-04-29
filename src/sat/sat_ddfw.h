@@ -22,9 +22,9 @@
 #define _SAT_DDFW_
 
 #include "util/uint_set.h"
-#include "util/heap.h"
 #include "util/rlimit.h"
 #include "util/params.h"
+#include "util/ema.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_types.h"
 
@@ -64,13 +64,13 @@ namespace sat {
         };
 
         struct var_info {
-            var_info(): m_value(false), m_reward(0), m_make_count(0), m_bias(0) {}
+            var_info(): m_value(false), m_reward(0), m_make_count(0), m_bias(0), m_reward_avg(1e-5) {}
             bool     m_value;
             int      m_reward;
             unsigned m_make_count;
             int      m_bias;
+            ema      m_reward_avg;
         };
-
         
         config           m_config;
         reslimit         m_limit;
@@ -124,7 +124,7 @@ namespace sat {
 
         inline int& bias(bool_var v) { return m_vars[v].m_bias; }
 
-        unsigned model_hash(svector<bool> const& m) const;
+        unsigned value_hash() const;
 
         inline bool is_true(literal lit) const { return value(lit.var()) != lit.sign(); }
 
@@ -133,6 +133,8 @@ namespace sat {
         inline unsigned get_weight(unsigned idx) const { return m_clauses[idx].m_weight; }
 
         inline bool is_true(unsigned idx) const { return m_clauses[idx].is_true(); }
+
+        void update_reward_avg(bool_var v) { m_vars[v].m_reward_avg.update(reward(v)); }
 
         unsigned select_max_same_sign(unsigned cf_idx);
 

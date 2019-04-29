@@ -90,10 +90,10 @@ namespace sat {
         bool_var v0 = null_bool_var;
         for (bool_var v : m_unsat_vars) {
             int r = reward(v);
-            if (r > 0) {
+            if (r > 0) {                
                 sum_pos += r;
             }
-            else if (r == 0 && (m_rand() % (n++)) == 0) {
+            else if (r == 0 && sum_pos == 0 && (m_rand() % (n++)) == 0) {
                 v0 = v;
             }
         }
@@ -104,6 +104,7 @@ namespace sat {
                 if (r > 0) {
                     lim_pos -= r;
                     if (lim_pos <= 0) {
+                        if (m_par) update_reward_avg(v);
                         return v;
                     }
                 }
@@ -347,8 +348,8 @@ namespace sat {
        \brief the higher the bias, the lower the probability to deviate from the value of the bias 
        during a restart.
         bias  = 0 -> flip truth value with 50%
-       |bias| = 1 -> flip with 25% probability
-       |bias| = 2 -> flip with 12.5% probability
+       |bias| = 1 -> toss coin with 25% probability
+       |bias| = 2 -> toss coin with 12.5% probability
        etc
     */
     void ddfw::reinit_values() {
@@ -368,16 +369,30 @@ namespace sat {
     }
 
     void ddfw::do_parallel_sync() {
-        m_par->from_solver(*this);
+        if (m_par->from_solver(*this)) {
+#if 0
+            // can export priorities as values of rewards to CDCL
+            svector<std::pair<double, bool_var>> vars;
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                vars.push_back(std::make_pair(m_vars[v].m_reward_avg, v));
+            }
+            std::sort(vars.begin(), vars.end());
+            for (auto & vi : vars) {
+                std::cout << vi.second << " " << vi.first << "\n"; 
+            }
+#endif
+        }
         ++m_parsync_count;
         m_parsync_next *= 3;
         m_parsync_next /= 2;
     }
 
     void ddfw::save_best_values() {
-        m_model.reserve(num_vars());
-        for (unsigned i = 0; i < num_vars(); ++i) {
-            m_model[i] = to_lbool(value(i));
+        if (m_unsat.empty()) {
+            m_model.reserve(num_vars());
+            for (unsigned i = 0; i < num_vars(); ++i) {
+                m_model[i] = to_lbool(value(i));
+            }
         }
         if (m_unsat.size() < m_min_sz) {
             m_models.reset();
@@ -389,11 +404,7 @@ namespace sat {
                 }
             }
         }
-        m_tmp_values.reserve(num_vars());
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            m_tmp_values[v] = value(v);
-        }
-        unsigned h = model_hash(m_tmp_values);
+        unsigned h = value_hash();
         if (!m_models.contains(h)) {
             for (unsigned v = 0; v < num_vars(); ++v) {
                 bias(v) += value(v) ? 1 : -1;
@@ -406,8 +417,13 @@ namespace sat {
         m_min_sz = m_unsat.size();
     }
 
-    unsigned ddfw::model_hash(svector<bool> const& m) const {
-        return string_hash(reinterpret_cast<char const*>(m.c_ptr()), m.size()*sizeof(bool), 11);
+    unsigned ddfw::value_hash() const {
+        unsigned s0 = 0, s1 = 0;
+        for (auto const& vi : m_vars) {
+            s0 += vi.m_value;
+            s1 += s0;
+        }
+        return s1;
     }
 
 
