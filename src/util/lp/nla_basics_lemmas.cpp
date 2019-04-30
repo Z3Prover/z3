@@ -121,11 +121,13 @@ bool basics::basic_sign_lemma_on_mon(lpvar v, std::unordered_set<unsigned> & exp
     if (!try_insert(v, explored)) {
         return false;
     }
-
     const monomial& m_v = c().m_emons[v];
-    TRACE("nla_solver_details", tout << "mon = " << pp_mon(c(), m_v););
+    TRACE("nla_solver", tout << "m_v = " << pp_rmon(c(), m_v););
+    SASSERT(c().m_emons.is_canonized(m_v));
 
     for (auto const& m : c().m_emons.enum_sign_equiv_monomials(v)) {
+        TRACE("nla_solver_details", tout << "m = " << pp_rmon(c(), m););
+        SASSERT(m.rvars() == m_v.rvars());
         if (m_v.var() != m.var() && basic_sign_lemma_on_two_monomials(m_v, m) && done()) 
             return true;
     }
@@ -154,12 +156,14 @@ bool basics::basic_sign_lemma(bool derived) {
 void basics::generate_sign_lemma(const monomial& m, const monomial& n, const rational& sign) {
     add_empty_lemma();
     TRACE("nla_solver",
-          tout << "m = "; c().print_monomial_with_vars(m, tout);
-          tout << "n = "; c().print_monomial_with_vars(n, tout);
+          tout << "m = " << pp_rmon(_(), m);
+          tout << "n = " << pp_rmon(_(), n);
           );
     c().mk_ineq(m.var(), -sign, n.var(), llc::EQ);
     explain(m);
+    TRACE("nla_solver", tout << "m exp = "; _().print_explanation(_().current_expl(), tout););
     explain(n);        
+    TRACE("nla_solver", tout << "n exp = "; _().print_explanation(_().current_expl(), tout););
     TRACE("nla_solver", c().print_lemma(tout););
 }
 // try to find a variable j such that val(j) = 0
