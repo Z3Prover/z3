@@ -150,7 +150,6 @@ monomial const* emonomials::find_canonical(svector<lpvar> const& vars) const {
 
 void emonomials::remove_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
-    CTRACE("nla_solver", v == 14, tout << c << "\n";);
     if (c == nullptr) {
         return;
     }
@@ -160,7 +159,6 @@ void emonomials::remove_cg(lpvar v) {
         unsigned idx = c->m_index;
         c = c->m_next;
         monomial & m = m_monomials[idx];
-        CTRACE("nla_solver", v == 14, tout << m << "\n";);
         if (!is_visited(m)) {
             set_visited(m);
             remove_cg(idx, m);
@@ -201,7 +199,6 @@ void emonomials::remove_cg(unsigned idx, monomial& m) {
 */
 void emonomials::insert_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
-    CTRACE("nla_solver", v == 14, tout << c << "\n";);
 
     if (c == nullptr) {
         return;
@@ -213,7 +210,6 @@ void emonomials::insert_cg(lpvar v) {
         unsigned idx = c->m_index;
         c = c->m_next;
         monomial & m = m_monomials[idx];
-        CTRACE("nla_solver", v == 14, tout << m << "\n";);
         if (!is_visited(m)) {
             set_visited(m);
             insert_cg(idx, m);
