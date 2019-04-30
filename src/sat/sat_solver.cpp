@@ -29,6 +29,7 @@ Revision History:
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
+#include "sat/sat_binspr.h"
 #ifdef _MSC_VER
 # include <xmmintrin.h>
 #endif
@@ -2094,6 +2095,12 @@ namespace sat {
             lh.collect_statistics(m_aux_stats);
         }
 
+        if (m_config.m_binspr && !m_ext) {
+            binspr sp(*this, m_params);
+            sp();
+            sp.collect_statistics(m_aux_stats);
+        }
+
         reinit_assumptions();
         if (inconsistent()) return;
 
@@ -2817,7 +2824,7 @@ namespace sat {
         }
 
         if (m_conflict_lvl == 0) {
-            TRACE("sat", tout << "conflict level is 0 " << lvl(m_not_l) << "\n";);
+            TRACE("sat", tout << "conflict level is 0\n";);
             return l_false;
         }
 

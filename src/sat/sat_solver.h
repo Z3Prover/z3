@@ -197,6 +197,7 @@ namespace sat {
         friend class simplifier;
         friend class scc;
         friend class big;
+        friend class binspr;
         friend class elim_eqs;
         friend class asymm_branch;
         friend class probing;

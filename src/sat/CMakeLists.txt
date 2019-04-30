@@ -5,6 +5,7 @@ z3_add_component(sat
     sat_asymm_branch.cpp
     sat_bdd.cpp
     sat_big.cpp
+    sat_binspr.cpp
     sat_clause.cpp
     sat_clause_set.cpp
     sat_clause_use_list.cpp
