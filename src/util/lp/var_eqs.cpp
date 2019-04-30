@@ -120,8 +120,6 @@ void var_eqs::explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) cons
 }
 
 void var_eqs::explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) const {
-    static int ddd=0;
-    TRACE("nla_solver", tout << ++ddd << "\n";);
     SASSERT(find(v1) == find(v2));
     if (v1 == v2) {
         return;
