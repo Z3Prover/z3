@@ -36,6 +36,7 @@ namespace sat {
         local_search_mode m_mode;
         bool              m_phase_sticky;
         bool              m_dbg_flips;
+        double            m_itau;
 
         friend class local_search;
 
@@ -53,6 +54,7 @@ namespace sat {
             m_mode = local_search_mode::wsat;
             m_phase_sticky = false;
             m_dbg_flips = false;
+            m_itau = 0.5;
         }
 
         unsigned random_seed() const { return m_random_seed; }
@@ -60,6 +62,7 @@ namespace sat {
         local_search_mode mode() const { return m_mode; }
         bool phase_sticky() const { return m_phase_sticky; }
         bool dbg_flips() const { return m_dbg_flips; }
+        double itau() const { return m_itau; }
         
         void set_random_seed(unsigned s) { m_random_seed = s;  }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
@@ -102,6 +105,7 @@ namespace sat {
             literal_vector m_bin[2];
             unsigned m_flips;
             ema  m_slow_break;
+            double m_break_prob;
             var_info():
                 m_value(true),
                 m_bias(50), 
@@ -111,7 +115,8 @@ namespace sat {
                 m_score(0),
                 m_slack_score(0),
                 m_flips(0),
-                m_slow_break(1e-5)
+                m_slow_break(1e-5),
+                m_break_prob(0)
             {}
         };
 
@@ -271,7 +276,7 @@ namespace sat {
 
         inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
 
-        double get_priority(bool_var v) const { return m_vars[v].m_slow_break; }
+        double get_priority(bool_var v) const override { return m_vars[v].m_break_prob; }
 
         void import(solver const& s, bool init);        
     };

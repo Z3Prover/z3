@@ -540,6 +540,21 @@ namespace sat {
             total_flips += step;
             PROGRESS(tries, total_flips);
             if (m_par) {
+                double max_avg = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    max_avg = std::max(max_avg, (double)m_vars[v].m_slow_break);
+                }
+                double sum = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    sum += exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg));
+                }
+                if (sum == 0) {
+                    sum = 0.01;
+                }
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    m_vars[v].m_break_prob = exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg)) / sum;
+                }
+                
                 m_par->to_solver(*this);
             }
             if (m_par && m_par->from_solver(*this)) {

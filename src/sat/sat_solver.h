@@ -524,6 +524,7 @@ namespace sat {
         void set_next_restart();
         bool should_update_neuro_activity();
         void do_update_neuro_activity();
+        void update_activity(bool_var v, double p);
         bool reached_max_conflicts();
         void sort_watch_lits();
         void exchange_par();

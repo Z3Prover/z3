@@ -221,7 +221,13 @@ namespace sat {
 
 
     bool parallel::_to_solver(solver& s) {
-        return false;
+        if (m_priorities.empty()) {
+            return false;
+        }
+        for (bool_var v = 0; v < m_priorities.size(); ++v) {
+            s.update_activity(v, m_priorities[v]);
+        }
+        return true;
     }
 
     void parallel::from_solver(solver& s) {
@@ -250,7 +256,7 @@ namespace sat {
     bool parallel::_from_solver(i_local_search& s) {
         bool copied = false;
         m_consumer_ready = true;
-        if (m_solver_copy && s.num_non_binary_clauses() > m_solver_copy->m_clauses.size()) {
+        if (m_solver_copy) {
             copied = true;
             s.reinit(*m_solver_copy.get());
         }

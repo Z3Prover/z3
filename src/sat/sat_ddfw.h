@@ -53,6 +53,7 @@ namespace sat {
             unsigned m_restart_base;
             unsigned m_reinit_base;
             unsigned m_parsync_base;
+            double   m_itau;
             void reset() {
                 m_init_clause_weight = 8;
                 m_use_reward_zero_pct = 15;
@@ -60,6 +61,7 @@ namespace sat {
                 m_restart_base = 100333;
                 m_reinit_base = 10000;
                 m_parsync_base = 333333;
+                m_itau = 0.5;
             }
         };
 
@@ -78,7 +80,8 @@ namespace sat {
         svector<clause_info> m_clauses;
         literal_vector       m_assumptions;        
         svector<var_info>    m_vars;        // var -> info
-        svector<bool>        m_tmp_values;  // var -> current assignment        
+        svector<double>      m_probs;       // var -> probability of flipping
+        svector<double>      m_scores;      // reward -> score
         model                m_model;       // var -> best assignment
         
         vector<unsigned_vector> m_use_list;
@@ -109,6 +112,10 @@ namespace sat {
         };
 
         void flatten_use_list(); 
+
+        double mk_score(unsigned r);
+
+        inline double score(unsigned r) { return r; } // TBD: { for (unsigned sz = m_scores.size(); sz <= r; ++sz) m_scores.push_back(mk_score(sz)); return m_scores[r]; }
 
         inline unsigned num_vars() const { return m_vars.size(); }
 
@@ -213,7 +220,7 @@ namespace sat {
 
         void collect_statistics(statistics& st) const override {} 
 
-        double get_priority(bool_var v) const override { return m_vars[v].m_reward_avg; }
+        double get_priority(bool_var v) const override { return m_probs[v]; }
     };
 }
 

@@ -38,6 +38,7 @@ namespace sat {
         }
     }
 
+
     lbool ddfw::check(unsigned sz, literal const* assumptions, parallel* p) {
         init(sz, assumptions);
         flet<parallel*> _p(m_par, p);
@@ -91,7 +92,7 @@ namespace sat {
         for (bool_var v : m_unsat_vars) {
             int r = reward(v);
             if (r > 0) {                
-                sum_pos += r;
+                sum_pos += score(r);
             }
             else if (r == 0 && sum_pos == 0 && (m_rand() % (n++)) == 0) {
                 v0 = v;
@@ -102,7 +103,7 @@ namespace sat {
             for (bool_var v : m_unsat_vars) {
                 int r = reward(v);
                 if (r > 0) {
-                    lim_pos -= r;
+                    lim_pos -= score(r);
                     if (lim_pos <= 0) {
                         if (m_par) update_reward_avg(v);
                         return v;
@@ -115,6 +116,15 @@ namespace sat {
         }
         return m_unsat_vars.elem_at(m_rand(m_unsat_vars.size()));
     }
+
+    /**
+     * TBD: map reward value to a score, possibly through an exponential function, such as
+     * exp(-tau/r), where tau > 0
+     */
+    double ddfw::mk_score(unsigned r) {
+        return r;
+    }
+
 
     void ddfw::add(unsigned n, literal const* c) {        
         clause* cls = m_alloc.mk_clause(n, c, false);
@@ -370,20 +380,24 @@ namespace sat {
 
     void ddfw::do_parallel_sync() {
         if (m_par->from_solver(*this)) {
-
+            // Sum exp(xi) / exp(a) = Sum exp(xi - a)
+            double max_avg = 0;
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                max_avg = std::max(max_avg, (double)m_vars[v].m_reward_avg);
+            }
+            double sum = 0;
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                sum += exp(m_config.m_itau * (m_vars[v].m_reward_avg - max_avg));
+            }
+            if (sum == 0) {
+                sum = 0.01;
+            }
+            m_probs.reset();
+            for (unsigned v = 0; v < num_vars(); ++v) {
+                m_probs.push_back(exp(m_config.m_itau * (m_vars[v].m_reward_avg - max_avg)) / sum);
+            }
+            m_par->to_solver(*this);
         }
-        m_par->to_solver(*this);
-#if 0
-        // can export priorities as values of rewards to CDCL
-        svector<std::pair<double, bool_var>> vars;
-        for (unsigned v = 0; v < num_vars(); ++v) {
-            vars.push_back(std::make_pair(m_vars[v].m_reward_avg, v));
-        }
-        std::sort(vars.begin(), vars.end());
-        for (auto & vi : vars) {
-            std::cout << vi.second << " " << vi.first << "\n"; 
-        }
-#endif
         ++m_parsync_count;
         m_parsync_next *= 3;
         m_parsync_next /= 2;
