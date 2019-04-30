@@ -112,9 +112,7 @@ void core::push() {
      
 void core::pop(unsigned n) {
     TRACE("nla_solver", tout << "n = " << n << "\n";);
-    TRACE("nla_solver", tout << "before pop mons = " << pp_emons(*this, m_emons) << "\n";);   
     m_emons.pop(n); 
-    TRACE("nla_solver", tout << "after pop mons = " << pp_emons(*this, m_emons) << "\n";);   
 }
 
 rational core::product_value(const unsigned_vector & m) const {
