@@ -103,7 +103,7 @@ class emonomials : public var_eqs_merge_handler {
     cell* head(lpvar v) const;
     void set_visited(monomial& m) const;
     bool is_visited(monomial const& m) const;
-     
+    std::ostream& display_use(std::ostream& out) const; 
 public:
     /**
        \brief emonomials builds on top of var_eqs.
@@ -281,6 +281,7 @@ public:
        \brief display state of emonomials
     */
     std::ostream& display(const core&, std::ostream& out) const;
+    std::ostream& display(std::ostream& out) const;
 
     /**
        \brief

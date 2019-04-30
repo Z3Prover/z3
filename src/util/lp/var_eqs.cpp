@@ -175,11 +175,14 @@ std::ostream& var_eqs::display(std::ostream& out) const {
     m_uf.display(out);
     unsigned idx = 0;
     for (auto const& edges : m_eqs) {
-        out << signed_var(idx, from_index_dummy()) << ": ";
-        for (auto const& jv : edges) {
-            out << jv.m_var << " ";
+        if (!edges.empty()) {
+            auto v = signed_var(idx, from_index_dummy());
+            out << v << " root: " << find(v) << " : ";
+            for (auto const& jv : edges) {
+                out << jv.m_var << " ";
+            }
+            out << "\n";
         }
-        out << "\n";
         ++idx;
     }
     return out;

@@ -70,6 +70,10 @@ public:
     }
 };
 
+ inline std::ostream& operator<<(std::ostream& out, monomial const& m) {
+     return out << m.var() << " := " << m.vars() << " r " << m.rsign() << " * " << m.rvars();
+ }
+
 
 typedef std::unordered_map<lpvar, rational> variable_map_type;
 template <typename T>

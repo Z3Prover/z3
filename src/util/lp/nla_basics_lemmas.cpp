@@ -123,6 +123,10 @@ bool basics::basic_sign_lemma_on_mon(lpvar v, std::unordered_set<unsigned> & exp
     }
     const monomial& m_v = c().m_emons[v];
     TRACE("nla_solver", tout << "m_v = " << pp_rmon(c(), m_v););
+    CTRACE("nla_solver", !c().m_emons.is_canonized(m_v),
+           c().m_emons.display(c(), tout);
+           c().m_evars.display(tout);
+           );
     SASSERT(c().m_emons.is_canonized(m_v));
 
     for (auto const& m : c().m_emons.enum_sign_equiv_monomials(v)) {

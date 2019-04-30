@@ -150,6 +150,7 @@ monomial const* emonomials::find_canonical(svector<lpvar> const& vars) const {
 
 void emonomials::remove_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
+    CTRACE("nla_solver", v == 14, tout << c << "\n";);
     if (c == nullptr) {
         return;
     }
@@ -159,6 +160,7 @@ void emonomials::remove_cg(lpvar v) {
         unsigned idx = c->m_index;
         c = c->m_next;
         monomial & m = m_monomials[idx];
+        CTRACE("nla_solver", v == 14, tout << m << "\n";);
         if (!is_visited(m)) {
             set_visited(m);
             remove_cg(idx, m);
@@ -172,6 +174,7 @@ void emonomials::remove_cg(unsigned idx, monomial& m) {
     unsigned next = sv.next();
     unsigned prev = sv.prev();
         
+
     lpvar u = m.var(), w;
     // equivalence class of u:
     if (m_cg_table.find(u, w) && w == u) {
@@ -198,6 +201,8 @@ void emonomials::remove_cg(unsigned idx, monomial& m) {
 */
 void emonomials::insert_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
+    CTRACE("nla_solver", v == 14, tout << c << "\n";);
+
     if (c == nullptr) {
         return;
     }
@@ -208,6 +213,7 @@ void emonomials::insert_cg(lpvar v) {
         unsigned idx = c->m_index;
         c = c->m_next;
         monomial & m = m_monomials[idx];
+        CTRACE("nla_solver", v == 14, tout << m << "\n";);
         if (!is_visited(m)) {
             set_visited(m);
             insert_cg(idx, m);
@@ -344,7 +350,8 @@ void emonomials::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_va
 }
 
 void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-    if (!r2.sign() && m_ve.find(~r2) != m_ve.find(r1)) {
+    TRACE("nla_solver", tout << r2 << " <- " << r1 << "\n";);
+    if (!r1.sign()) {
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
         rehash_cg(r1.var()); 
         merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
@@ -352,34 +359,49 @@ void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, sig
 }
 
 void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
-    if (!r2.sign() && m_ve.find(~r2) != m_ve.find(r1)) {
+    TRACE("nla_solver", tout << r2 << " -> " << r1 << "\n";);
+    if (!r1.sign()) {
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());
     }        
 }
-
+ 
 std::ostream& emonomials::display(const core& cr, std::ostream& out) const {
     out << "monomials\n";
     unsigned idx = 0;
     for (auto const& m : m_monomials) {
-        out << (idx++) << ": " << pp_rmon(cr, m) << "\n";
-    }
-    out << "use lists\n";
-    idx = 0;
-    for (auto const& ht : m_use_lists) {
-        cell* c = ht.m_head;
-        if (c) {
-            out << "v" << idx << ": ";
-            do {
-                out << c->m_index << " ";
-                c = c->m_next;
-            }
-            while (c != ht.m_head);
-            out << "\n";
-        }
-        ++idx;
-    }
-    return out;
+        out << "m" << (idx++) << ": " << pp_rmon(cr, m) << "\n";
+    }    
+    return display_use(out);
 }
+
+std::ostream& emonomials::display(std::ostream& out) const {
+    out << "monomials\n";
+    unsigned idx = 0;
+    for (auto const& m : m_monomials) {
+        out << "m" << (idx++) << ": " << m << "\n";
+    }    
+    return display_use(out);
+}
+ 
+ std::ostream& emonomials::display_use(std::ostream& out) const {
+     out << "use lists\n";
+     unsigned idx = 0;
+     for (auto const& ht : m_use_lists) {
+         cell* c = ht.m_head;
+         if (c) {
+             out << idx << ": ";
+             do {
+                 out << "m" << c->m_index << " ";
+                 c = c->m_next;
+             }
+             while (c != ht.m_head);
+             out << "\n";
+         }
+         ++idx;
+     }
+     return out;
+ }
+
 
 }
