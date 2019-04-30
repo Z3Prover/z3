@@ -112,7 +112,9 @@ void core::push() {
      
 void core::pop(unsigned n) {
     TRACE("nla_solver", tout << "n = " << n << "\n";);
-    m_emons.pop(n);
+    TRACE("nla_solver", tout << "before pop mons = " << pp_emons(*this, m_emons) << "\n";);   
+    m_emons.pop(n); 
+    TRACE("nla_solver", tout << "after pop mons = " << pp_emons(*this, m_emons) << "\n";);   
 }
 
 rational core::product_value(const unsigned_vector & m) const {
@@ -718,7 +720,8 @@ std::ostream & core::print_var(lpvar j, std::ostream & out) const {
         out << " = " << val(j);;
     }
         
-    m_lar_solver.print_column_info(j, out) <<";";
+    m_lar_solver.print_column_info(j, out);
+    out << "root=" << m_evars.find(j) << "\n";
     return out;
 }
 

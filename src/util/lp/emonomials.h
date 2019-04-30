@@ -100,7 +100,6 @@ class emonomials : public var_eqs_merge_handler {
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
 
     void do_canonize(monomial& m) const; 
-
     cell* head(lpvar v) const;
     void set_visited(monomial& m) const;
     bool is_visited(monomial const& m) const;
@@ -141,7 +140,9 @@ public:
     */
     monomial const& operator[](lpvar v) const { return m_monomials[m_var2index[v]]; }
     monomial & operator[](lpvar v) { return m_monomials[m_var2index[v]]; }
-                                                                           
+    bool is_canonized(const monomial&) const;    
+    bool monomials_are_canonized() const;
+    
     /**
        \brief obtain the representative canonized monomial 
     */
@@ -204,7 +205,9 @@ public:
     public:
         pf_iterator(emonomials const& m, monomial& mon, bool at_end);
         pf_iterator(emonomials const& m, lpvar v, bool at_end);
-        monomial & operator*() { return *m_it; }
+        monomial & operator*() {
+            return *m_it;
+        }
         pf_iterator& operator++() { ++m_it; fast_forward(); return *this; }
         pf_iterator operator++(int) { pf_iterator tmp = *this; ++*this; return tmp; }
         bool operator==(pf_iterator const& other) const { return m_it == other.m_it; }
