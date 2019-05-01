@@ -138,7 +138,7 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         if (it == coeff_map.end())
             return false;
         mpq ratio = it->second / first_coeff.m_value;
-        for (auto & p : *t) {
+        for (const auto & p : *t) {
             it = coeff_map.find(p.var());
             if (it == coeff_map.end())
                 return false;
@@ -698,7 +698,7 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
             register_monoid_in_map(coeffs, t.first, j);
         } else {
             const lar_term & term = * m_terms[adjust_term_index(t.second)];
-            for (auto & p : term){
+            for (const auto & p : term){
                 register_monoid_in_map(coeffs, t.first * p.coeff() , p.var());
             }
         }
@@ -995,7 +995,7 @@ void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A,
     lp_assert(A.column_count() > 0);
     unsigned last_row = A.row_count() - 1;
     lp_assert(A.m_rows[last_row].size() == 0);
-    for (auto & t : *ls) {
+    for (const auto & t : *ls) {
         lp_assert(!is_zero(t.coeff()));
         var_index j = t.var();
         A.set(last_row, j, - t.coeff());
@@ -1429,7 +1429,7 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
-            for (auto & it : *m_terms[var - m_terms_start_index]) {
+            for (const auto & it : *m_terms[var - m_terms_start_index]) {
                 column_list.push_back(it.var());
             }
         } else {
@@ -1994,7 +1994,7 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
     unsigned last_row = A.row_count() - 1;
     lp_assert(A.m_rows[last_row].empty());
 
-    for (auto & t : *ls) {
+    for (const auto & t : *ls) {
         lp_assert(!is_zero(t.coeff()));
         var_index j = t.var();
         A.set(last_row, j, -t.coeff().get_double());
