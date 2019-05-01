@@ -20,12 +20,10 @@
 #pragma once
 #include "util/lp/indexed_vector.h"
 #include "util/map.h"
-
 namespace lp {
 class lar_term {
     // the term evaluates to sum of m_coeffs 
     u_map<mpq> m_coeffs;
-    // mpq m_v;
 public:
     lar_term() {}
     void add_monomial(const mpq& c, unsigned j) {
@@ -39,6 +37,11 @@ public:
             if (e->get_data().m_value.is_zero())
                 m_coeffs.erase(j);
         }
+    }
+    
+    void add_var(unsigned j) {
+        rational c(1);
+        add_monomial(c, j);
     }
 
     bool is_empty() const {
