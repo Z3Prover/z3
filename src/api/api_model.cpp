@@ -15,7 +15,6 @@ Author:
 Revision History:
 
 --*/
-#include<iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "api/api_context.h"
@@ -479,7 +478,7 @@ extern "C" {
             model_v2_pp(buffer, *(to_model_ref(m)), p.partial());
             result = buffer.str();
         }
-        return mk_c(c)->mk_external_string(result);
+        return mk_c(c)->mk_external_string(std::move(result));
         Z3_CATCH_RETURN(nullptr);
     }
 

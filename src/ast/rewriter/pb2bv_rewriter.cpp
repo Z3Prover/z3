@@ -28,7 +28,7 @@ Notes:
 #include "util/uint_set.h"
 #include "util/gparams.h"
 
-const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
+static const unsigned g_primes[7] = { 2, 3, 5, 7, 11, 13, 17};
 
 
 struct pb2bv_rewriter::imp {

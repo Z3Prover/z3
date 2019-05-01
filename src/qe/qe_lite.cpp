@@ -2430,7 +2430,6 @@ class qe_lite_tactic : public tactic {
             tactic_report report("qe-lite", *g);
             proof_ref new_pr(m);
             expr_ref new_f(m);
-            bool produce_proofs = g->proofs_enabled();
 
             unsigned sz = g->size();
             for (unsigned i = 0; i < sz; i++) {

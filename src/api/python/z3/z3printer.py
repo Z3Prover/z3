@@ -36,7 +36,15 @@ _z3_op_to_str = {
     Z3_OP_CONCAT : 'Concat', Z3_OP_EXTRACT : 'Extract', Z3_OP_BV2INT : 'BV2Int',
     Z3_OP_ARRAY_MAP : 'Map', Z3_OP_SELECT : 'Select', Z3_OP_STORE : 'Store', 
     Z3_OP_CONST_ARRAY : 'K', Z3_OP_ARRAY_EXT : 'Ext', 
-    Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe', Z3_OP_PB_EQ : 'PbEq'
+    Z3_OP_PB_AT_MOST : 'AtMost', Z3_OP_PB_LE : 'PbLe', Z3_OP_PB_GE : 'PbGe', Z3_OP_PB_EQ : 'PbEq',
+    Z3_OP_SEQ_CONCAT : 'Concat', Z3_OP_SEQ_PREFIX : 'PrefixOf', Z3_OP_SEQ_SUFFIX : 'SuffixOf',
+    Z3_OP_SEQ_UNIT : 'Unit', Z3_OP_SEQ_CONTAINS : 'Contains' , Z3_OP_SEQ_REPLACE : 'Replace',
+    Z3_OP_SEQ_AT : 'At', Z3_OP_SEQ_NTH : 'Nth', Z3_OP_SEQ_INDEX : 'IndexOf',
+    Z3_OP_SEQ_LAST_INDEX : 'LastIndexOf', Z3_OP_SEQ_LENGTH : 'Length', Z3_OP_STR_TO_INT : 'StrToInt', Z3_OP_INT_TO_STR : 'IntToStr',
+    Z3_OP_SEQ_IN_RE : 'InRe', Z3_OP_SEQ_TO_RE : 'Re', 
+    Z3_OP_RE_PLUS : 'Plus', Z3_OP_RE_STAR : 'Star', Z3_OP_RE_OPTION : 'Option', Z3_OP_RE_UNION : 'Union', Z3_OP_RE_RANGE : 'Range',
+    Z3_OP_RE_INTERSECT : 'Intersect', Z3_OP_RE_COMPLEMENT : 'Complement', 
+    
     }
 
 # List of infix operators
@@ -486,7 +494,7 @@ class PP:
 
     def pp(self, f, indent):
         if isinstance(f, str):
-            sef.pp_string(f, indent)
+            self.pp_string(f, indent)
         elif f.is_string():
             self.pp_string(f, indent)
         elif f.is_indent():
@@ -558,10 +566,23 @@ class Formatter:
             return seq1('BitVec', (to_format(s.size()), ))
         elif isinstance(s, z3.FPSortRef):
             return seq1('FPSort', (to_format(s.ebits()), to_format(s.sbits())))
+        elif isinstance(s, z3.ReSortRef):
+            return seq1('ReSort', (self.pp_sort(s.basis()), ))
+        elif isinstance(s, z3.SeqSortRef):
+            if s.is_string():
+                return to_format("String")
+            return seq1('Seq', (self.pp_sort(s.basis()), ))
         else:
             return to_format(s.name())
 
     def pp_const(self, a):
+        k = a.decl().kind()
+        if k == Z3_OP_RE_EMPTY_SET:
+            return self.pp_set("Empty", a)
+        elif k == Z3_OP_SEQ_EMPTY:
+            return self.pp_set("Empty", a)
+        elif k == Z3_OP_RE_FULL_SET:
+            return self.pp_set("Full", a)
         return self.pp_name(a)
 
     def pp_int(self, a):
@@ -577,7 +598,7 @@ class Formatter:
         return to_format(a.as_decimal(self.precision))
 
     def pp_string(self, a):
-        return to_format(a.as_string())
+        return to_format("\"" + a.as_string() + "\"")
 
     def pp_bv(self, a):
         return to_format(a.as_string())
@@ -842,6 +863,17 @@ class Formatter:
         arg = self.pp_expr(a.arg(0), d+1, xs)
         return seq1(self.pp_name(a), [ to_format(h), to_format(l), arg ])
 
+    def pp_loop(self, a, d, xs):
+        l   = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 0)
+        arg = self.pp_expr(a.arg(0), d+1, xs)
+        if Z3_get_decl_num_parameters(a.ctx_ref(), a.decl().ast) > 1:
+            h   = Z3_get_decl_int_parameter(a.ctx_ref(), a.decl().ast, 1)
+            return seq1("Loop", [ arg, to_format(l), to_format(h) ])
+        return seq1("Loop", [ arg, to_format(l) ])
+
+    def pp_set(self, id, a):
+        return seq1(id, [self.pp_sort(a.sort())])
+
     def pp_pattern(self, a, d, xs):
         if a.num_args() == 1:
             return self.pp_expr(a.arg(0), d, xs)
@@ -918,6 +950,8 @@ class Formatter:
                 return self.pp_unary_param(a, d, xs)
             elif k == Z3_OP_EXTRACT:
                 return self.pp_extract(a, d, xs)
+            elif k == Z3_OP_RE_LOOP:
+                return self.pp_loop(a, d, xs)
             elif k == Z3_OP_DT_IS:
                 return self.pp_is(a, d, xs)
             elif k == Z3_OP_ARRAY_MAP:

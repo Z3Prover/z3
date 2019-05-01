@@ -139,7 +139,7 @@ namespace smt {
             expr * acc    = m.mk_app(d, n->get_owner());
             args.push_back(acc);
         }
-        expr * mk       = m.mk_app(c, args.size(), args.c_ptr());
+        expr_ref mk(m.mk_app(c, args.size(), args.c_ptr()), m);
         if (m.has_trace_stream()) {
             app_ref body(m);
             body = m.mk_eq(n->get_owner(), mk);
@@ -175,7 +175,7 @@ namespace smt {
         unsigned base_id = get_manager().has_trace_stream() && accessors.size() > 0 ? m_util.get_plugin()->get_axiom_base_id(d->get_name()) : 0;
         unsigned i = 0;
         for (func_decl * acc : accessors) {
-            app * acc_app     = m.mk_app(acc, n->get_owner());
+            app_ref acc_app(m.mk_app(acc, n->get_owner()), m);
             enode * arg       = n->get_arg(i);
             if (m.has_trace_stream()) {
                 app_ref body(m);
@@ -239,7 +239,7 @@ namespace smt {
                 ctx.internalize(acc_app, false);
                 arg = ctx.get_enode(acc_app);
             }
-            app * acc_own = m.mk_app(acc1, own);
+            app_ref acc_own(m.mk_app(acc1, own), m);
             if (m.has_trace_stream()) {
                 app_ref body(m);
                 body = m.mk_implies(rec_app, m.mk_eq(arg->get_owner(), acc_own));
@@ -249,8 +249,7 @@ namespace smt {
             if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
         }
         // update_field is identity if 'n' is not created by a matching constructor.        
-        app_ref imp(m);
-        imp = m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_owner(), arg1));
+        app_ref imp(m.mk_implies(m.mk_not(rec_app), m.mk_eq(n->get_owner(), arg1)), m);
         if (m.has_trace_stream()) log_axiom_instantiation(imp, 1, &n);
         assert_eq_axiom(n, arg1, ~is_con);
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
@@ -373,7 +372,13 @@ namespace smt {
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
         TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << "\n";);
-        TRACE("datatype_bug", tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << "\n";);
+            TRACE("datatype_bug", 
+                  tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << " ";
+                  tout << m_util.is_datatype(s) << " ";
+                  if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
+                  if (m_util.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
+                  tout << "\n";
+                  );
         if ((get_context().has_quantifiers() || (m_util.is_datatype(s) && !s->is_infinite())) && !is_attached_to_var(n)) {
             mk_var(n);
         }

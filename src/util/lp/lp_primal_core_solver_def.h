@@ -151,8 +151,9 @@ template <typename T, typename X>
 bool lp_primal_core_solver<T, X>::column_is_benefitial_for_entering_basis_precise(unsigned j) const {
     lp_assert (numeric_traits<T>::precise());
     if (this->m_using_infeas_costs && this->m_settings.use_breakpoints_in_feasibility_search)
-        return column_is_benefitial_for_entering_on_breakpoints(j);
+        return column_is_benefitial_for_entering_on_breakpoints(j);    
     const T& dj = this->m_d[j];
+    TRACE("lar_solver", tout << "dj=" << dj << "\n";); 
     switch (this->m_column_types[j]) {
     case column_type::fixed:  break;
     case column_type::free_column:
@@ -357,20 +358,20 @@ template <typename T, typename X> bool lp_primal_core_solver<T, X>::try_jump_to_
                                                                                                           bool & unlimited) {
     switch(this->m_column_types[entering]){
     case column_type::boxed: 
-            if (m_sign_of_entering_delta > 0) {
-                t = this->m_upper_bounds[entering] - this->m_x[entering];
-                if (unlimited || t <= theta){
-                    lp_assert(t >= zero_of_type<X>());
-                    return true;
-                }
-            } else { // m_sign_of_entering_delta == -1
-                t = this->m_x[entering] - this->m_lower_bounds[entering];
-                if (unlimited || t <= theta) {
-                    lp_assert(t >= zero_of_type<X>());
-                    return true;
-                }
+        if (m_sign_of_entering_delta > 0) {
+            t = this->m_upper_bounds[entering] - this->m_x[entering];
+            if (unlimited || t <= theta){
+                lp_assert(t >= zero_of_type<X>());
+                return true;
             }
-            return false;
+        } else { // m_sign_of_entering_delta == -1
+            t = this->m_x[entering] - this->m_lower_bounds[entering];
+            if (unlimited || t <= theta) {
+                lp_assert(t >= zero_of_type<X>());
+                return true;
+            }
+        }
+        return false;
     case column_type::upper_bound:
         if (m_sign_of_entering_delta > 0) {
             t = this->m_upper_bounds[entering] - this->m_x[entering];
@@ -775,6 +776,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
     X t;
     int leaving = find_leaving_and_t_precise(entering, t);
     if (leaving == -1) {
+        TRACE("lar_solver", tout << "non-leaving\n";);
         this->set_status(lp_status::UNBOUNDED);
         return;
     }
@@ -828,6 +830,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::advance_on_e
         } else {
             this->set_status(lp_status::TENTATIVE_UNBOUNDED);
         }
+        TRACE("lar_solver", tout << this->get_status() << "\n";);
         return;
     }
     advance_on_entering_and_leaving(entering, leaving, t);
@@ -857,11 +860,11 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::print_column
         out << this->m_column_norms[j] << " ";
     }
     out << std::endl;
-    out << std::endl;
-}
+ }
 
 // returns the number of iterations
 template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() {
+    TRACE("lar_solver", tout << "solve " << this->get_status() << "\n";);
     if (numeric_traits<T>::precise() && this->m_settings.use_tableau())
         return solve_with_tableau();
 
@@ -881,6 +884,7 @@ template <typename T, typename X> unsigned lp_primal_core_solver<T, X>::solve() 
         }
         one_iteration();
 
+        TRACE("lar_solver", tout << "one iteration: " << this->get_status() << "\n";);
         lp_assert(!this->m_using_infeas_costs || this->costs_on_nbasis_are_zeros());
         switch (this->get_status()) {
         case lp_status::OPTIMAL:  // double check that we are at optimum

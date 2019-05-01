@@ -88,7 +88,7 @@ public:
         mc(ast_manager& m);
         ~mc() override {}
         // flush model converter from SAT solver to this structure.
-        void flush_smc(sat::solver_core& s, atom2bool_var const& map);         
+        void flush_smc(sat::solver_core& s, atom2bool_var const& map);                 
         void operator()(model_ref& md) override;
         void operator()(expr_ref& fml) override; 
         model_converter* translate(ast_translation& translator) override;

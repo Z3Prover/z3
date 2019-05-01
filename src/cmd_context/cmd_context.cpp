@@ -31,6 +31,7 @@ Notes:
 #include "ast/pb_decl_plugin.h"
 #include "ast/fpa_decl_plugin.h"
 #include "ast/csp_decl_plugin.h"
+#include "ast/special_relations_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/pp.h"
@@ -687,6 +688,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         register_plugin(symbol("fpa"),      alloc(fpa_decl_plugin), logic_has_fpa());
         register_plugin(symbol("datalog_relation"), alloc(datalog::dl_decl_plugin), !has_logic());
         register_plugin(symbol("csp"),      alloc(csp_decl_plugin), smt_logics::logic_is_csp(m_logic));
+        register_plugin(symbol("special_relations"), alloc(special_relations_decl_plugin), !has_logic());
     }
     else {
         // the manager was created by an external module
@@ -703,6 +705,7 @@ void cmd_context::init_manager_core(bool new_manager) {
         load_plugin(symbol("fpa"),      logic_has_fpa(), fids);
         load_plugin(symbol("pb"),       logic_has_pb(), fids);
         load_plugin(symbol("csp"),      smt_logics::logic_is_csp(m_logic), fids);
+
         for (family_id fid : fids) {
             decl_plugin * p = m_manager->get_plugin(fid);
             if (p) {
@@ -2030,10 +2033,8 @@ void cmd_context::display_smt2_benchmark(std::ostream & out, unsigned num, expr 
 
     // TODO: display uninterpreted sort decls, and datatype decls.
 
-    unsigned num_decls = decls.get_num_decls();
-    func_decl * const * fs = decls.get_func_decls();
-    for (unsigned i = 0; i < num_decls; i++) {
-        display(out, fs[i]);
+    for (func_decl* f : decls.get_func_decls()) {
+        display(out, f);
         out << std::endl;
     }
 

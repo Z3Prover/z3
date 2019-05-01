@@ -500,12 +500,14 @@ br_status bv_rewriter::mk_leq_core(bool is_signed, expr * a, expr * b, expr_ref 
     // (bvsle (- x (srem x c1)) c2) -> (bvsle x (+ c1 c2 - 1))
     // (bvsle (+ x (* -1 (srem_i x c1))) c2)
     // pre: (and (> c1 0) (> c2 0) (= c2 % c1 0) (<= (+ c1 c2 -1) max_int))
-    if (is_signed && is_num2 && m_util.is_bv_add(a, a1, a2) &&
+    if (is_signed && is_num2 && 
+        m_util.is_bv_add(a, a1, a2) &&
         m_util.is_bv_mul(a2, a3, a4) && is_numeral(a3, r1, sz) &&
         m_util.norm(r1, sz, is_signed).is_minus_one() &&
         m_util.is_bv_sremi(a4, a5, a6) && is_numeral(a6, r1, sz) &&
         (r1 = m_util.norm(r1, sz, is_signed), r1.is_pos()) &&
         r2.is_pos() &&
+        (a1 == a5) && 
         (r2 % r1).is_zero() && r1 + r2 - rational::one() < rational::power_of_two(sz-1)) {
         result = m_util.mk_sle(a1, m_util.mk_numeral(r1 + r2 - rational::one(), sz));
         return BR_REWRITE2;

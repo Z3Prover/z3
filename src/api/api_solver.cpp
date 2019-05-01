@@ -31,9 +31,6 @@ Revision History:
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
 #include "solver/tactic2solver.h"
-#include "util/scoped_ctrl_c.h"
-#include "util/cancel_eh.h"
-#include "util/scoped_timer.h"
 #include "util/file_path.h"
 #include "util/neuro_predictor.h"
 #include "tactic/portfolio/smt_strategic_solver.h"
@@ -474,7 +471,7 @@ extern "C" {
         expr * const * _assumptions = to_exprs(assumptions);
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         lbool result;
@@ -665,7 +662,7 @@ extern "C" {
         lbool result = l_undef;
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
@@ -707,7 +704,7 @@ extern "C" {
         }
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
-        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", false);
+        bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {

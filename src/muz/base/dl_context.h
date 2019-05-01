@@ -581,7 +581,7 @@ namespace datalog {
         /**
            \brief Display a certificate for reachability and/or unreachability.
         */
-        void display_certificate(std::ostream& out);
+        std::ostream& display_certificate(std::ostream& out);
 
         /**
            \brief query result if it contains fact.

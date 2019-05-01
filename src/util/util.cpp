@@ -39,6 +39,7 @@ void set_verbose_stream(std::ostream& str) {
     g_verbose_stream = &str;
 }
 
+#ifndef _NO_OMP_
 #ifdef _WINDOWS
 static int g_thread_id = 0;
 #else
@@ -57,6 +58,7 @@ bool is_threaded() {
 #endif
     return g_is_threaded;
 }
+#endif
 
 std::ostream& verbose_stream() {
     return *g_verbose_stream;

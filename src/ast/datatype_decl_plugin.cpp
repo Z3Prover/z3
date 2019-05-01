@@ -290,6 +290,7 @@ namespace datatype {
                     obj_map<sort, sort_size> S;
                     for (unsigned i = 0; i + 1 < num_parameters; ++i) {
                         sort* r = to_sort(parameters[i + 1].get_ast());
+                        TRACE("datatype", tout << "inserting " << mk_ismt2_pp(r, *m_manager) << " " << r->get_num_elements() << "\n";);
                         S.insert(d->params()[i], r->get_num_elements()); 
                     }
                     sort_size ts = d->sort_size()->eval(S);
@@ -454,23 +455,24 @@ namespace datatype {
         }
 
         void plugin::log_axiom_definitions(symbol const& s, sort * new_sort) {
+            std::ostream& out = m_manager->trace_stream();
             symbol const& family_name = m_manager->get_family_name(get_family_id());
             for (constructor const* c : *m_defs[s]) {
                 func_decl_ref f = c->instantiate(new_sort);
                 const unsigned num_args = f->get_arity();
                 if (num_args == 0) continue;
                 for (unsigned i = 0; i < num_args; ++i) {
-                    m_manager->trace_stream() << "[mk-var] " << family_name << "#" << m_id_counter << " " << i << "\n";
+                    out << "[mk-var] " << family_name << "#" << m_id_counter << " " << i << "\n";
                     ++m_id_counter;
                 }
                 const unsigned constructor_id = m_id_counter;
-                m_manager->trace_stream() << "[mk-app] " << family_name << "#" << constructor_id << " " << f->get_name();
+                out << "[mk-app] " << family_name << "#" << constructor_id << " " << f->get_name();
                 for (unsigned i = 0; i < num_args; ++i) {
-                    m_manager->trace_stream() << " " << family_name << "#" << constructor_id - num_args + i;
+                    out << " " << family_name << "#" << constructor_id - num_args + i;
                 }
-                m_manager->trace_stream() << "\n";
+                out << "\n";
                 ++m_id_counter;
-                m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " pattern " << family_name << "#" << constructor_id << "\n";
+                out << "[mk-app] " << family_name << "#" << m_id_counter << " pattern " << family_name << "#" << constructor_id << "\n";
                 ++m_id_counter;
                 m_axiom_bases.insert(f->get_name(), constructor_id + 4);
                 std::ostringstream var_sorts;
@@ -481,14 +483,14 @@ namespace datatype {
                 unsigned i = 0;
                 for (accessor const* a : *c) {
                     func_decl_ref acc = a->instantiate(new_sort);
-                    m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " " << acc->get_name() << " " << family_name << "#" << constructor_id << "\n";
+                    out << "[mk-app] " << family_name << "#" << m_id_counter << " " << acc->get_name() << " " << family_name << "#" << constructor_id << "\n";
                     ++m_id_counter;
-                    m_manager->trace_stream() << "[mk-app] " << family_name << "#" << m_id_counter << " = " << family_name << "#" << constructor_id - num_args + i 
+                    out << "[mk-app] " << family_name << "#" << m_id_counter << " = " << family_name << "#" << constructor_id - num_args + i 
                         << " " << family_name << "#" << m_id_counter - 1 << "\n";
                     ++m_id_counter;
-                    m_manager->trace_stream() << "[mk-quant] " << family_name << "#" << m_id_counter << " constructor_accessor_axiom " << family_name << "#" << constructor_id + 1
+                    out << "[mk-quant] " << family_name << "#" << m_id_counter << " constructor_accessor_axiom " << family_name << "#" << constructor_id + 1
                         << " " << family_name << "#" << m_id_counter - 1 << "\n";
-                    m_manager->trace_stream() << "[attach-var-names] " << family_name << "#" << m_id_counter << var_description << "\n";
+                    out << "[attach-var-names] " << family_name << "#" << m_id_counter << var_description << "\n";
                     ++m_id_counter;
                     ++i;
                 }
@@ -692,7 +694,7 @@ namespace datatype {
     }
 
     param_size::size* util::get_sort_size(sort_ref_vector const& params, sort* s) {
-        if (params.empty()) {
+        if (params.empty() && !is_datatype(s)) {
             return param_size::size::mk_offset(s->get_num_elements());
         }
         if (is_datatype(s)) {
@@ -741,6 +743,7 @@ namespace datatype {
         map<symbol, status, symbol_hash_proc, symbol_eq_proc> already_found;
         map<symbol, param_size::size*, symbol_hash_proc, symbol_eq_proc> szs;
 
+        TRACE("datatype", for (auto const& s : names) tout << s << " "; tout << "\n";);
         svector<symbol> todo(names);
         status st;
         while (!todo.empty()) {
@@ -779,6 +782,7 @@ namespace datatype {
             todo.pop_back();
             already_found.insert(s, BLACK);
             if (is_infinite) {
+                TRACE("datatype", tout << "infinite " << s << "\n";);
                 d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
                 continue;
             }
@@ -791,6 +795,7 @@ namespace datatype {
                 }
                 s_add.push_back(param_size::size::mk_times(s_mul));
             }
+            TRACE("datatype", tout << "set sort size " << s << "\n";);
             d.set_sort_size(param_size::size::mk_plus(s_add));
         }
     }
@@ -1187,6 +1192,85 @@ namespace datatype {
             }
         }
     }
+
+    sort_ref util::mk_list_datatype(sort* elem, symbol const& name, 
+                                    func_decl_ref& cons, func_decl_ref& is_cons, 
+                                    func_decl_ref& hd, func_decl_ref& tl, 
+                                    func_decl_ref& nil, func_decl_ref& is_nil) {
+
+        accessor_decl* head_tail[2] = {
+            mk_accessor_decl(m, symbol("head"), type_ref(elem)),
+            mk_accessor_decl(m, symbol("tail"), type_ref(0))
+        };
+        constructor_decl* constrs[2] = {
+            mk_constructor_decl(symbol("nil"), symbol("is_nil"), 0, nullptr),
+            mk_constructor_decl(symbol("cons"), symbol("is_cons"), 2, head_tail)
+        };
+        decl::plugin& p = *get_plugin();
+
+        sort_ref_vector sorts(m);
+        datatype_decl * decl = mk_datatype_decl(*this, name, 0, nullptr, 2, constrs);
+        bool is_ok = p.mk_datatypes(1, &decl, 0, nullptr, sorts);
+        del_datatype_decl(decl);
+        
+        if (!is_ok) {
+            return sort_ref(m);
+        }
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 2);
+        nil = cnstrs[0];
+        is_nil = get_constructor_is(cnstrs[0]);
+        cons = cnstrs[1];
+        is_cons = get_constructor_is(cnstrs[1]);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[1]);
+        SASSERT(acc.size() == 2);
+        hd = acc[0];
+        tl = acc[1];
+        return sort_ref(s, m);
+    }
+
+    sort_ref util::mk_pair_datatype(sort* a, sort* b, func_decl_ref& fst, func_decl_ref& snd, func_decl_ref& pair) {
+        type_ref t1(a), t2(b);
+        accessor_decl* fstd = mk_accessor_decl(m, symbol("fst"), t1);
+        accessor_decl* sndd = mk_accessor_decl(m, symbol("snd"), t2);
+        accessor_decl* accd[2] = { fstd, sndd };
+        auto * p = mk_constructor_decl(symbol("pair"), symbol("is-pair"), 2, accd);
+        auto* dt = mk_datatype_decl(*this, symbol("pair"), 0, nullptr, 1, &p);
+        sort_ref_vector sorts(m);
+        VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
+        del_datatype_decl(dt);
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 1);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        SASSERT(acc.size() == 2);
+        fst = acc[0];
+        snd = acc[1];
+        pair = cnstrs[0];
+        return sort_ref(s, m);
+    }
+
+    sort_ref util::mk_tuple_datatype(svector<std::pair<symbol, sort*>> const& elems, symbol const& name, symbol const& test, func_decl_ref& tup, func_decl_ref_vector& accs) {
+        ptr_vector<accessor_decl> accd;
+        for (auto const& e : elems) {
+            type_ref t(e.second);
+            accd.push_back(mk_accessor_decl(m, e.first, t));
+        }
+        auto* tuple = mk_constructor_decl(name, test, accd.size(), accd.c_ptr());
+        auto* dt = mk_datatype_decl(*this, name, 0, nullptr, 1, &tuple);
+        sort_ref_vector sorts(m);
+        VERIFY(get_plugin()->mk_datatypes(1, &dt, 0, nullptr, sorts));
+        del_datatype_decl(dt);
+        sort* s = sorts.get(0);
+        ptr_vector<func_decl> const& cnstrs = *get_datatype_constructors(s);
+        SASSERT(cnstrs.size() == 1);
+        ptr_vector<func_decl> const& acc = *get_constructor_accessors(cnstrs[0]);
+        for (auto* f : acc) accs.push_back(f);
+        tup = cnstrs[0];
+        return sort_ref(s, m);
+    }
+
 }
 
 datatype_decl * mk_datatype_decl(datatype_util& u, symbol const & n, unsigned num_params, sort*const* params, unsigned num_constructors, constructor_decl * const * cs) {

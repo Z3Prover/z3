@@ -1056,6 +1056,18 @@ extern "C" {
             }
         }
 
+        if (mk_c(c)->get_special_relations_fid() == _d->get_family_id()) {
+            switch(_d->get_decl_kind()) {
+            case OP_SPECIAL_RELATION_LO : return Z3_OP_SPECIAL_RELATION_LO;
+            case OP_SPECIAL_RELATION_PO : return Z3_OP_SPECIAL_RELATION_PO;
+            case OP_SPECIAL_RELATION_PLO: return Z3_OP_SPECIAL_RELATION_PLO;
+            case OP_SPECIAL_RELATION_TO : return Z3_OP_SPECIAL_RELATION_TO;
+            case OP_SPECIAL_RELATION_TC : return Z3_OP_SPECIAL_RELATION_TC;
+            default: UNREACHABLE();
+            }
+        }
+
+
         if (mk_c(c)->get_bv_fid() == _d->get_family_id()) {
             switch(_d->get_decl_kind()) {
             case OP_BV_NUM: return Z3_OP_BNUM;
@@ -1166,6 +1178,7 @@ extern "C" {
             case OP_SEQ_EXTRACT: return Z3_OP_SEQ_EXTRACT;
             case OP_SEQ_REPLACE: return Z3_OP_SEQ_REPLACE;
             case OP_SEQ_AT: return Z3_OP_SEQ_AT;
+            case OP_SEQ_NTH: return Z3_OP_SEQ_NTH;
             case OP_SEQ_LENGTH: return Z3_OP_SEQ_LENGTH;
             case OP_SEQ_INDEX: return Z3_OP_SEQ_INDEX;
             case OP_SEQ_TO_RE: return Z3_OP_SEQ_TO_RE;
@@ -1195,8 +1208,8 @@ extern "C" {
             case OP_RE_UNION: return Z3_OP_RE_UNION;
             case OP_RE_INTERSECT: return Z3_OP_RE_INTERSECT;
             case OP_RE_LOOP: return Z3_OP_RE_LOOP;
-            // case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
-            case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
+            case OP_RE_FULL_SEQ_SET: return Z3_OP_RE_FULL_SET;
+            //case OP_RE_FULL_CHAR_SET: return Z3_OP_RE_FULL_SET;
             case OP_RE_EMPTY_SET: return Z3_OP_RE_EMPTY_SET;
             default:
                 return Z3_OP_INTERNAL;

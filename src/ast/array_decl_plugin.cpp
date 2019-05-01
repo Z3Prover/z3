@@ -21,6 +21,7 @@ Revision History:
 #include "util/warning.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "ast/arith_decl_plugin.h"
 
 array_decl_plugin::array_decl_plugin():
     m_store_sym("store"),
@@ -29,12 +30,14 @@ array_decl_plugin::array_decl_plugin():
     m_default_sym("default"),
     m_map_sym("map"),
     m_set_union_sym("union"),
-    m_set_intersect_sym("intersect"),
-    m_set_difference_sym("difference"),
+    m_set_intersect_sym("intersection"),
+    m_set_difference_sym("setminus"),
     m_set_complement_sym("complement"),
     m_set_subset_sym("subset"),
     m_array_ext_sym("array-ext"),
-    m_as_array_sym("as-array") {
+    m_as_array_sym("as-array"),
+    m_set_has_size_sym("set-has-size"),
+    m_set_card_sym("card") {
 }
 
 #define ARRAY_SORT_STR "Array"
@@ -299,7 +302,7 @@ func_decl * array_decl_plugin::mk_store(unsigned arity, sort * const * domain) {
         sort* srt2 = domain[i+1];
         if (!m_manager->compatible_sorts(srt1, srt2)) {
             std::stringstream strm;
-            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt2, *m_manager) << " do not match";
+            strm << "domain sort " << sort_ref(srt2, *m_manager) << " and parameter sort " << sort_ref(srt1, *m_manager) << " do not match";
             m_manager->raise_exception(strm.str());
             UNREACHABLE();
             return nullptr;
@@ -438,6 +441,40 @@ func_decl * array_decl_plugin::mk_set_subset(unsigned arity, sort * const * doma
                                    func_decl_info(m_family_id, OP_SET_SUBSET));
 }
 
+func_decl * array_decl_plugin::mk_set_card(unsigned arity, sort * const* domain) {
+    if (arity != 1) {
+        m_manager->raise_exception("card takes only one argument");
+        return nullptr;
+    }    
+
+    arith_util arith(*m_manager);
+    if (!is_array_sort(domain[0]) || !m_manager->is_bool(get_array_range(domain[0]))) {
+        m_manager->raise_exception("card expects an array of Booleans");
+    }
+    sort * int_sort = arith.mk_int();
+    return m_manager->mk_func_decl(m_set_card_sym, arity, domain, int_sort,
+                                   func_decl_info(m_family_id, OP_SET_CARD));
+}
+
+func_decl * array_decl_plugin::mk_set_has_size(unsigned arity, sort * const* domain) {
+    if (arity != 2) {
+        m_manager->raise_exception("set-has-size takes two arguments");
+        return nullptr;
+    }    
+    // domain[0] is a Boolean array,
+    // domain[1] is Int
+    arith_util arith(*m_manager);
+    if (!arith.is_int(domain[1])) {
+        m_manager->raise_exception("set-has-size expects second argument to be an integer");
+    }
+    if (!is_array_sort(domain[0]) || !m_manager->is_bool(get_array_range(domain[0]))) {
+        m_manager->raise_exception("set-has-size expects first argument to be an array of Booleans");
+    }
+    sort * bool_sort = m_manager->mk_bool_sort();
+    return m_manager->mk_func_decl(m_set_has_size_sym, arity, domain, bool_sort,
+                                   func_decl_info(m_family_id, OP_SET_HAS_SIZE));
+}
+
 func_decl * array_decl_plugin::mk_as_array(func_decl * f) {
     vector<parameter> parameters;
     for (unsigned i = 0; i < f->get_arity(); i++) {
@@ -502,6 +539,10 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_set_complement(arity, domain);
     case OP_SET_SUBSET:
         return mk_set_subset(arity, domain);
+    case OP_SET_HAS_SIZE:
+        return mk_set_has_size(arity, domain);
+    case OP_SET_CARD:
+        return mk_set_card(arity, domain);
     case OP_AS_ARRAY: {
         if (num_parameters != 1 ||
             !parameters[0].is_ast() || 
@@ -525,8 +566,10 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name(ARRAY_SORT_STR, ARRAY_SORT));
     sort_names.push_back(builtin_name("=>", ARRAY_SORT));
-    // TBD: this could easily break users even though it is already used in CVC4: 
-    // sort_names.push_back(builtin_name("Set", _SET_SORT));
+    if (logic == symbol::null || logic == symbol("HORN") || logic == symbol("ALL")) {
+        // this could easily break users even though it is already used in CVC4: 
+        sort_names.push_back(builtin_name("Set", _SET_SORT));
+    }
 }
 
 void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
@@ -538,12 +581,14 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("map",OP_ARRAY_MAP));
         op_names.push_back(builtin_name("default",OP_ARRAY_DEFAULT));
         op_names.push_back(builtin_name("union",OP_SET_UNION));
-        op_names.push_back(builtin_name("intersect",OP_SET_INTERSECT));
-        op_names.push_back(builtin_name("difference",OP_SET_DIFFERENCE));
+        op_names.push_back(builtin_name("intersection",OP_SET_INTERSECT));
+        op_names.push_back(builtin_name("setminus",OP_SET_DIFFERENCE));
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
         op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
+        op_names.push_back(builtin_name("set-has-size", OP_SET_HAS_SIZE));
+        op_names.push_back(builtin_name("card", OP_SET_CARD));
     }
 }
 
@@ -571,10 +616,37 @@ func_decl * array_recognizers::get_as_array_func_decl(expr * n) const {
     return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
 }
 
+func_decl * array_recognizers::get_map_func_decl(func_decl* f) const {
+    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_parameter(0).is_ast());
+    SASSERT(is_func_decl(f->get_parameter(0).get_ast()));
+    return to_func_decl(f->get_parameter(0).get_ast());
+}
+
 func_decl * array_recognizers::get_as_array_func_decl(func_decl * f) const { 
     SASSERT(is_as_array(f)); 
     return to_func_decl(f->get_parameter(0).get_ast()); 
 }
+
+bool array_recognizers::is_const(expr* e, expr*& v) const {
+    return is_const(e) && (v = to_app(e)->get_arg(0), true);
+}
+
+bool array_recognizers::is_store_ext(expr* _e, expr_ref& a, expr_ref_vector& args, expr_ref& value) {
+    if (is_store(_e)) {
+        app* e = to_app(_e);
+        a = e->get_arg(0);
+        unsigned sz = e->get_num_args();
+        args.reset();
+        for (unsigned i = 1; i < sz-1; ++i) {
+            args.push_back(e->get_arg(i));
+        }
+        value = e->get_arg(sz-1);
+        return true;
+    }
+    return false;
+}
+
 
 array_util::array_util(ast_manager& m): 
     array_recognizers(m.mk_family_id("array")),

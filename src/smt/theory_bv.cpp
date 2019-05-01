@@ -97,30 +97,6 @@ namespace smt {
             // This will also force the creation of all bits for x.
             enode * first_arg_enode = ctx.get_enode(first_arg);
             get_var(first_arg_enode);
-#if 0
-            // constant axiomatization moved to catch all case in the end of function.
-
-            // numerals are not blasted into bit2bool, so we do this directly.
-            rational val;
-            unsigned sz;
-            if (!ctx.b_internalized(n) && m_util.is_numeral(first_arg, val, sz)) {
-                
-                TRACE("bv", tout << "bit2bool constants\n";);
-                theory_var v = first_arg_enode->get_th_var(get_id());
-                app* owner = first_arg_enode->get_owner();
-                for (unsigned i = 0; i < sz; ++i) {
-                    app* e = mk_bit2bool(owner, i);
-                    ctx.internalize(e, true);
-                }
-                m_bits[v].reset();
-                rational bit;                
-                for (unsigned i = 0; i < sz; ++i) {
-                    div(val, rational::power_of_two(i), bit);
-                    mod(bit, rational(2), bit);
-                    m_bits[v].push_back(bit.is_zero()?false_literal:true_literal);                                        
-                }
-            }
-#endif
         }
          
         enode * arg      = ctx.get_enode(first_arg);
@@ -144,6 +120,14 @@ namespace smt {
             unsigned idx     = n->get_decl()->get_parameter(0).get_int();
             SASSERT(a->m_occs == 0);
             a->m_occs = new (get_region()) var_pos_occ(v_arg, idx);
+#if 0
+            // possible fix for #2182, but effect of fix needs to be checked.
+            if (idx < m_bits[v_arg].size()) {
+                //std::cout << mk_pp(n, get_manager()) << "\n";
+                ctx.mk_th_axiom(get_id(), m_bits[v_arg][idx], literal(bv, true));
+                ctx.mk_th_axiom(get_id(), ~m_bits[v_arg][idx], literal(bv, false));
+            }      
+#endif      
         }
         // axiomatize bit2bool on constants.
         rational val;
@@ -783,6 +767,7 @@ namespace smt {
         }                                                                                       \
         std::cout << arg_bits << " " << bits << " " << new_bits << "\n"; \
         init_bits(e, bits);                                                                     \
+        TRACE("bv", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
     }
 
 

@@ -132,6 +132,10 @@ namespace smt {
         return literal(v, lit.sign());
     }
 
+    /**
+       \brief retrieve flag for when cancelation is possible.
+    */
+
     bool context::get_cancel_flag() {
         return !m_manager.limit().inc();
     }
@@ -549,14 +553,10 @@ namespace smt {
                 mark_as_relevant(r1);
             }
 
-            TRACE("add_eq", tout << "to trail\n";);
-
             push_trail(add_eq_trail(r1, n1, r2->get_num_parents()));
 
-            TRACE("add_eq", tout << "qmanager add_eq\n";);
             m_qmanager->add_eq_eh(r1, r2);
 
-            TRACE("add_eq", tout << "merge theory_vars\n";);
             merge_theory_vars(n2, n1, js);
 
             // 'Proof' tree
@@ -572,25 +572,6 @@ namespace smt {
             // r1 -> ..  -> n1 -> n2 -> ... -> r2
 
 
-#if 0
-            {
-                static unsigned counter      = 0;
-                static unsigned num_adds     = 0;
-                static unsigned num_bad_adds = 0;
-                num_adds++;
-                if (r1->get_class_size() <= r2->get_class_size() &&
-                    r1->m_parents.size() > r2->m_parents.size()) {
-                    num_bad_adds++;
-                }
-                if (num_adds % 100000 == 0) {
-                    verbose_stream() << "[add-eq]: " << num_bad_adds << " " << num_adds << " "
-                                     << static_cast<double>(num_bad_adds)/static_cast<double>(num_adds) << "\n";
-                }
-            }
-#endif
-
-
-            TRACE("add_eq", tout << "remove_parents_from_cg_table\n";);
             remove_parents_from_cg_table(r1);
 
             enode * curr = r1;
@@ -601,11 +582,8 @@ namespace smt {
             while(curr != r1);
 
             SASSERT(r1->get_root() == r2);
-
-            TRACE("add_eq", tout << "reinsert_parents_into_cg_table\n";);
             reinsert_parents_into_cg_table(r1, r2, n1, n2, js);
 
-            TRACE("add_eq", tout << "propagate_bool_enode_assignment\n";);
             if (n2->is_bool())
                 propagate_bool_enode_assignment(r1, r2, n1, n2);
 
@@ -633,25 +611,21 @@ namespace smt {
     void context::remove_parents_from_cg_table(enode * r1) {
         // Remove parents from the congruence table
         for (enode * parent : enode::parents(r1)) {
-#if 0
-            {
-                static unsigned num_eqs = 0;
-                static unsigned num_parents = 0;
-                static unsigned counter = 0;
-                if (parent->is_eq())
-                    num_eqs++;
-                num_parents++;
-                if (num_parents % 100000 == 0) {
-                    verbose_stream() << "[remove-cg] " << num_eqs << " " << num_parents << " "
-                              << static_cast<double>(num_eqs)/static_cast<double>(num_parents) << "\n";
-                }
-            }
-#endif
-            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() ||
-                    (!parent->is_true_eq() && parent->is_cgr() == m_cg_table.contains_ptr(parent)) ||
-                    (parent->is_true_eq() && !m_cg_table.contains_ptr(parent)));
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && parent->is_true_eq() && m_cg_table.contains_ptr(parent), tout << parent->get_owner_id() << "\n";);
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && !parent->is_true_eq() &&  parent->is_cgr() && !m_cg_table.contains_ptr(parent), 
+                   tout << "cgr !contains " << parent->get_owner_id() << " " << mk_pp(parent->get_decl(), m_manager) << "\n";
+                   for (enode* n : enode::args(parent))  tout << n->get_root()->get_owner_id() << " " << n->get_root()->hash() << " ";
+                   tout << "\n";
+                   tout << "contains: " << m_cg_table.contains(parent) << "\n";
+                   if (m_cg_table.contains(parent)) {
+                       tout << "owner: " << m_cg_table.find(parent)->get_owner_id() << "\n";
+                   }
+                   m_cg_table.display(tout);
+                   );
+            CTRACE("add_eq", !parent->is_marked() && parent->is_cgc_enabled() && !parent->is_true_eq() && !parent->is_cgr() &&  m_cg_table.contains_ptr(parent), tout << "!cgr contains " << parent->get_owner_id() << "\n";);
+            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() ||  parent->is_true_eq() || parent->is_cgr() == m_cg_table.contains_ptr(parent));
+            SASSERT(parent->is_marked() || !parent->is_cgc_enabled() || !parent->is_true_eq() || !m_cg_table.contains_ptr(parent));
             if (!parent->is_marked() && parent->is_cgr() && !parent->is_true_eq()) {
-                TRACE("add_eq_parents", tout << "add_eq removing: #" << parent->get_owner_id() << "\n";);
                 SASSERT(!parent->is_cgc_enabled() || m_cg_table.contains_ptr(parent));
                 parent->set_mark();
                 if (parent->is_cgc_enabled()) {
@@ -705,7 +679,6 @@ namespace smt {
                 enode_bool_pair pair = m_cg_table.insert(parent);
                 enode * parent_prime = pair.first;
                 if (parent_prime == parent) {
-                    TRACE("add_eq_parents", tout << "add_eq reinserting: #" << parent->get_owner_id() << "\n";);
                     SASSERT(parent);
                     SASSERT(parent->is_cgr());
                     SASSERT(m_cg_table.contains_ptr(parent));
@@ -984,7 +957,6 @@ namespace smt {
         for (; it != end; ++it) {
             enode * parent = *it;
             if (parent->is_cgc_enabled()) {
-                TRACE("add_eq_parents", tout << "removing: #" << parent->get_owner_id() << "\n";);
                 CTRACE("add_eq", !parent->is_cgr() || !m_cg_table.contains_ptr(parent),
                        tout << "old num_parents: " << r2_num_parents << ", num_parents: " << r2->m_parents.size() << ", parent: #" <<
                        parent->get_owner_id() << ", parents: \n";
@@ -1012,14 +984,13 @@ namespace smt {
         for (enode * parent : enode::parents(r1)) {
             TRACE("add_eq_parents", tout << "visiting: #" << parent->get_owner_id() << "\n";);
             if (parent->is_cgc_enabled()) {
-                enode * cg     = parent->m_cg;
+                enode * cg = parent->m_cg;
                 if (!parent->is_true_eq() &&
-                    (parent == cg || // parent was root of the congruence class before and after the merge
-                     !congruent(parent, cg) // parent was root of the congruence class before but not after the merge
+                    (parent == cg ||           // parent was root of the congruence class before and after the merge
+                     !congruent(parent, cg)    // parent was root of the congruence class before but not after the merge
                      )) {
-                    TRACE("add_eq_parents", tout << "trying to reinsert\n";);
-                    m_cg_table.insert(parent);
-                    parent->m_cg         = parent;
+                    enode_bool_pair p = m_cg_table.insert(parent);
+                    parent->m_cg = p.first;
                 }
             }
         }
@@ -1354,12 +1325,14 @@ namespace smt {
        \remark The method assign_eq adds a new entry on this queue.
     */
     bool context::propagate_eqs() {
-        TRACE("add_eq", tout << m_eq_propagation_queue.size() << "\n";);
-        for (unsigned i = 0; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
+        unsigned i = 0;
+        for (; i < m_eq_propagation_queue.size() && !get_cancel_flag(); i++) {
             new_eq & entry = m_eq_propagation_queue[i];
             add_eq(entry.m_lhs, entry.m_rhs, entry.m_justification);
-            if (inconsistent())
+            if (inconsistent()) {
+                m_eq_propagation_queue.reset();
                 return false;
+            }
         }
         m_eq_propagation_queue.reset();
         return true;
@@ -1728,7 +1701,13 @@ namespace smt {
             !m_th_diseq_propagation_queue.empty();
     }
 
+    /**
+       \brief unit propagation.
+       Cancelation is not safe during propagation at base level because
+       congruences cannot be retracted to a consistent state.
+     */
     bool context::propagate() {
+        scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
         TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
@@ -3721,7 +3700,6 @@ namespace smt {
             }
 
             if (resource_limits_exceeded() && !inconsistent()) {
-                m_last_search_failure = RESOURCE_LIMIT;
                 return l_undef;
             }
         }
@@ -4428,7 +4406,7 @@ namespace smt {
 
     void context::add_rec_funs_to_model() {
         ast_manager& m = m_manager;
-        SASSERT(m_model);
+        if (!m_model) return;
         for (unsigned i = 0; !get_cancel_flag() && i < m_asserted_formulas.get_num_formulas(); ++i) {
             expr* e = m_asserted_formulas.get_formula(i);
             if (is_quantifier(e)) {
@@ -4478,6 +4456,7 @@ namespace smt {
             fi->set_else(bodyr);
             m_model->register_decl(f, fi);
         }
+        TRACE("model", tout << *m_model << "\n";);
     }
 
 };

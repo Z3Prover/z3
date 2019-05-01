@@ -143,7 +143,9 @@ public:
         expr_ref last_v(m);
         if (!m_mc) m_mc = alloc(generic_model_converter, m, "lia2card");
         if (hi == 0) {
-            return expr_ref(a.mk_int(0), m);
+            expr* r = a.mk_int(0);
+            m_mc->add(x->get_decl(), r);
+            return expr_ref(r, m);
         }
         if (lo > 0) {
             xs.push_back(a.mk_int(lo));

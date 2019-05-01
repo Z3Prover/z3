@@ -221,15 +221,15 @@ template <typename T, typename X>    void scaler<T, X>::scale_row(unsigned i) {
     }
     if (row_max < m_scaling_minimum) {
         do {
-            alpha *= 2;
-            row_max *= 2;
+            alpha *= T(2);
+            row_max *= T(2);
         } while (row_max < m_scaling_minimum);
         m_A.multiply_row(i, alpha);
         m_b[i] *= alpha;
     } else if (row_max > m_scaling_maximum) {
         do {
-            alpha /= 2;
-            row_max /= 2;
+            alpha /= T(2);
+            row_max /= T(2);
         } while (row_max > m_scaling_maximum);
         m_A.multiply_row(i, alpha);
         m_b[i] *= alpha;
@@ -245,13 +245,13 @@ template <typename T, typename X>    void scaler<T, X>::scale_column(unsigned i)
     }
     if (column_max < m_scaling_minimum) {
         do {
-            alpha *= 2;
-            column_max *= 2;
+            alpha *= T(2);
+            column_max *= T(2);
         } while (column_max < m_scaling_minimum);
     } else if (column_max > m_scaling_maximum) {
         do {
-            alpha /= 2;
-            column_max /= 2;
+            alpha /= T(2);
+            column_max /= T(2);
         } while (column_max > m_scaling_maximum);
     } else {
         return;

@@ -75,7 +75,7 @@ namespace sat {
     void model_converter::operator()(model & m) const {
         vector<entry>::const_iterator begin = m_entries.begin();
         vector<entry>::const_iterator it    = m_entries.end();
-        bool first =  false; // true; // false; // // true;
+        bool first =  false; 
         //SASSERT(!m_solver || m_solver->check_clauses(m));
         while (it != begin) {
             --it;
@@ -144,16 +144,30 @@ namespace sat {
             DEBUG_CODE({
                 // all clauses must be satisfied
                 bool sat = false;
-                for (literal l : it->m_clauses) {
+                bool undef = false;
+                for (literal const& l : it->m_clauses) {
                     if (l == null_literal) {
-                        SASSERT(sat);
+                        CTRACE("sat", !sat, 
+                               if (m_solver) m_solver->display(tout);
+                               display(tout);
+                               for (unsigned v = 0; v < m.size(); ++v) tout << v << ": " << m[v] << "\n";
+                               for (literal const& l2 : it->m_clauses) {
+                                   if (l2 == null_literal) tout << "\n"; else tout << l2 << " ";
+                                   if (&l == &l2) break;
+                               }
+                               );
+                        SASSERT(sat || undef);
                         sat = false;
+                        undef = false;
                         continue;
                     }
                     if (sat)
                         continue;
-                    if (value_at(l, m) == l_true)
-                        sat = true;
+                    switch (value_at(l, m)) {
+                    case l_undef: undef = true; break;
+                    case l_true: sat = true; break;
+                    default: break;
+                    }
                 }
             });
         }

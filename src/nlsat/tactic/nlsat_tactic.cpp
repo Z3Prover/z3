@@ -85,6 +85,9 @@ class nlsat_tactic : public tactic {
             for (unsigned i = 0; i < sz; i++) {
                 if (!model.is_true(g.form(i))) {
                     TRACE("nlsat", tout << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
+                    IF_VERBOSE(0, verbose_stream() << mk_pp(g.form(i), m) << " -> " << model(g.form(i)) << "\n";);
+                    IF_VERBOSE(1, verbose_stream() << model << "\n");
+                    IF_VERBOSE(1, m_solver.display(verbose_stream()));
                     return false;
                 }
             }
@@ -123,6 +126,7 @@ class nlsat_tactic : public tactic {
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
             }
             DEBUG_CODE(eval_model(*md.get(), g););
+            // VERIFY(eval_model(*md.get(), g));
             mc = model2model_converter(md.get());
             return ok;
         }
@@ -149,6 +153,9 @@ class nlsat_tactic : public tactic {
             t2x.mk_inv(m_display_var.m_var2expr);
             m_solver.set_display_var(m_display_var);
             
+            IF_VERBOSE(10000, m_solver.display(verbose_stream()));
+            IF_VERBOSE(10000, g->display(verbose_stream()));
+
             lbool st = m_solver.check();
            
             if (st == l_undef) {

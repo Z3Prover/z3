@@ -262,18 +262,20 @@ macro(z3_add_install_tactic_rule)
       GLOBAL
       PROPERTY Z3_${dependency}_TACTIC_HEADERS
     )
-    list(APPEND _tactic_header_files ${_component_tactic_header_files})
+    list(APPEND _tactic_header_files "${_component_tactic_header_files}")
   endforeach()
   unset(_component_tactic_header_files)
 
+  string(REPLACE ";" "\n" _tactic_header_files "${_tactic_header_files}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps" ${_tactic_header_files})
   add_custom_command(OUTPUT "install_tactic.cpp"
     COMMAND "${PYTHON_EXECUTABLE}"
     "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
     "${CMAKE_CURRENT_BINARY_DIR}"
-    ${_tactic_header_files}
+    "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
     DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_install_tactic_cpp.py"
             ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-            ${_tactic_header_files}
+            "${CMAKE_CURRENT_BINARY_DIR}/install_tactic.deps"
     COMMENT "Generating \"${CMAKE_CURRENT_BINARY_DIR}/install_tactic.cpp\""
     ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
     VERBATIM

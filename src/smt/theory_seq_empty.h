@@ -117,6 +117,7 @@ namespace smt {
             }
             if (u.is_seq(s, ch)) {
                 expr* v = m_model.get_fresh_value(ch);
+				if (!v) return nullptr;
                 return u.str.mk_unit(v);
             }
             UNREACHABLE();

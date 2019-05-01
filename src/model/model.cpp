@@ -170,7 +170,11 @@ struct model::top_sort : public ::top_sort<func_decl> {
 
     top_sort(ast_manager& m):
         m_rewrite(m)
-    {}
+    {
+        params_ref p;
+        p.set_bool("elim_ite", false);
+        m_rewrite.updt_params(p);
+    }
 
     void add_occurs(func_decl* f) {
         m_occur_count.insert(f, occur_count(f) + 1);
@@ -217,6 +221,7 @@ void model::compress() {
             }
         }
         if (removed.empty()) break;
+        TRACE("model", tout << "remove\n"; for (func_decl* f : removed) tout << f->get_name() << "\n";);
         remove_decls(m_decls, removed);
         remove_decls(m_func_decls, removed);
         remove_decls(m_const_decls, removed);
@@ -427,7 +432,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             }
 #endif
             else {
-                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());
+                new_t = ts.m_rewrite.mk_app(f, args.size(), args.c_ptr());                
             }
             
             if (t != new_t.get()) trail.push_back(new_t);
@@ -442,7 +447,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
             break;
         }
     }
-
+    
     ts.m_rewrite(cache[e], new_t);
     return new_t;
 }

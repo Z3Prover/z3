@@ -52,7 +52,9 @@ extern "C" {
         RESET_ERROR_CODE();
         tactic_cmd * t = mk_c(c)->find_tactic_cmd(symbol(name));
         if (t == nullptr) {
-            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            std::stringstream err;
+            err << "unknown tactic " << name;
+            SET_ERROR_CODE(Z3_INVALID_ARG, err.str().c_str());
             RETURN_Z3(nullptr);
         }
         tactic * new_t = t->mk(mk_c(c)->m());

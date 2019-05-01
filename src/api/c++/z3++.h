@@ -633,6 +633,10 @@ namespace z3 {
         symbol name() const { Z3_symbol s = Z3_get_decl_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         Z3_decl_kind decl_kind() const { return Z3_get_decl_kind(ctx(), *this); }
 
+        func_decl transitive_closure(func_decl const& f) {
+            Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
+        }
+
         bool is_const() const { return arity() == 0; }
 
         expr operator()() const;
@@ -649,9 +653,16 @@ namespace z3 {
     };
 
     /**
+       \brief forward declarations
+     */
+    expr select(expr const & a, expr const& i);
+    expr select(expr const & a, expr_vector const & i);
+
+    /**
        \brief A Z3 expression is used to represent formulas and terms. For Z3, a formula is any expression of sort Boolean.
        Every expression has a sort.
     */
+
     class expr : public ast {
     public:
         expr(context & c):ast(c) {}
@@ -996,6 +1007,7 @@ namespace z3 {
         bool is_implies() const { return is_app() && Z3_OP_IMPLIES  == decl().decl_kind(); }
         bool is_eq() const { return is_app() && Z3_OP_EQ == decl().decl_kind(); }
         bool is_ite() const { return is_app() && Z3_OP_ITE == decl().decl_kind(); }
+        bool is_distinct() const { return is_app() && Z3_OP_DISTINCT == decl().decl_kind(); }
 
         friend expr distinct(expr_vector const& args);
         friend expr concat(expr const& a, expr const& b);
@@ -1135,6 +1147,12 @@ namespace z3 {
             check_error();
             return expr(ctx(), r);
         }
+        expr nth(expr const& index) const {
+            check_context(*this, index);
+            Z3_ast r = Z3_mk_seq_nth(ctx(), *this, index);
+            check_error();
+            return expr(ctx(), r);
+        }
         expr length() const {
             Z3_ast r = Z3_mk_seq_length(ctx(), *this);
             check_error();
@@ -1166,6 +1184,20 @@ namespace z3 {
             return expr(ctx(), r);
         }
 
+        /**
+         * index operator defined on arrays and sequences.
+         */
+        expr operator[](expr const& index) const {
+            assert(is_array() || is_seq());
+            if (is_array()) {
+                return select(*this, index);
+            }
+            return nth(index);            
+        }
+
+        expr operator[](expr_vector const& index) const {
+            return select(*this, index);
+        }
 
         /**
            \brief Return a simplified version of this expression.
@@ -1678,6 +1710,19 @@ namespace z3 {
        \brief Sign-extend of the given bit-vector to the (signed) equivalent bitvector of size m+i, where m is the size of the given bit-vector.
     */
     inline expr sext(expr const & a, unsigned i) { return to_expr(a.ctx(), Z3_mk_sign_ext(a.ctx(), i, a)); }
+
+    inline func_decl linear_order(sort const& a, unsigned index) {
+        return to_func_decl(a.ctx(), Z3_mk_linear_order(a.ctx(), a, index));
+    }
+    inline func_decl partial_order(sort const& a, unsigned index) {
+        return to_func_decl(a.ctx(), Z3_mk_partial_order(a.ctx(), a, index));
+    }
+    inline func_decl piecewise_linear_order(sort const& a, unsigned index) {
+        return to_func_decl(a.ctx(), Z3_mk_piecewise_linear_order(a.ctx(), a, index));
+    }
+    inline func_decl tree_order(sort const& a, unsigned index) {
+        return to_func_decl(a.ctx(), Z3_mk_tree_order(a.ctx(), a, index));
+    }
 
     template<typename T> class cast_ast;
 
@@ -2401,7 +2446,7 @@ namespace z3 {
             return *this;
         }
         void add(expr const & f) { check_context(*this, f); Z3_goal_assert(ctx(), m_goal, f); check_error(); }
-        // void add(expr_vector const& v) { check_context(*this, v); for (expr e : v) add(e); }
+        void add(expr_vector const& v) { check_context(*this, v); for (unsigned i = 0; i < v.size(); ++i) add(v[i]); }
         unsigned size() const { return Z3_goal_size(ctx(), m_goal); }
         expr operator[](int i) const { assert(0 <= i); Z3_ast r = Z3_goal_formula(ctx(), m_goal, i); check_error(); return expr(ctx(), r); }
         Z3_goal_prec precision() const { return Z3_goal_precision(ctx(), m_goal); }
@@ -2756,8 +2801,6 @@ namespace z3 {
             array<Z3_ast> qs(queries);
             return Z3_fixedpoint_to_string(ctx(), m_fp, qs.size(), qs.ptr());
         }
-        void push() { Z3_fixedpoint_push(ctx(), m_fp); check_error(); }
-        void pop() { Z3_fixedpoint_pop(ctx(), m_fp); check_error(); }
     };
     inline std::ostream & operator<<(std::ostream & out, fixedpoint const & f) { return out << Z3_fixedpoint_to_string(f.ctx(), f, 0, 0); }
 
@@ -3259,6 +3302,12 @@ namespace z3 {
     inline expr indexof(expr const& s, expr const& substr, expr const& offset) {
         check_context(s, substr); check_context(s, offset);
         Z3_ast r = Z3_mk_seq_index(s.ctx(), s, substr, offset);
+        s.check_error();
+        return expr(s.ctx(), r);
+    }
+    inline expr last_indexof(expr const& s, expr const& substr) {
+        check_context(s, substr); 
+        Z3_ast r = Z3_mk_seq_last_index(s.ctx(), s, substr);
         s.check_error();
         return expr(s.ctx(), r);
     }

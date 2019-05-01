@@ -32,6 +32,7 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/expr_substitution.h"
 #include "ast/ast_smt2_pp.h"
+#include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
 
@@ -184,7 +185,6 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                     st = m_ar_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_seq_rw.get_fid())
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
-
                 if (st != BR_FAILED)
                     return st;
             }
@@ -583,6 +583,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
             m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
             m().trace_stream() << "[end-of-instance]\n";
+            m().trace_stream().flush();
         }
 
         if (st != BR_DONE && st != BR_FAILED) {
@@ -661,6 +662,13 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 p1 = m().mk_pull_quant(old_q, q1);
             }
         }
+        else if (
+                 old_q->get_kind() == lambda_k &&
+                 is_ground(new_body)) {
+            result = m_ar_rw.util().mk_const_array(old_q->get_sort(), new_body);
+            result_pr = nullptr;
+            return true;
+        }
         else {
             ptr_buffer<expr> new_patterns_buf;
             ptr_buffer<expr> new_no_patterns_buf;
@@ -677,9 +685,9 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             TRACE("reduce_quantifier", tout << mk_ismt2_pp(old_q, m()) << "\n----->\n" << mk_ismt2_pp(q1, m()) << "\n";);
             SASSERT(is_well_sorted(m(), q1));
         }
-
         SASSERT(m().get_sort(old_q) == m().get_sort(q1));
         result = elim_unused_vars(m(), q1, params_ref());
+
 
         TRACE("reduce_quantifier", tout << "after elim_unused_vars:\n" << result << "\n";);
 
@@ -838,4 +846,14 @@ expr_ref th_rewriter::mk_app(func_decl* f, unsigned num_args, expr* const* args)
 
 void th_rewriter::set_solver(expr_solver* solver) {
     m_imp->set_solver(solver);
+}
+
+
+bool th_rewriter::reduce_quantifier(quantifier * old_q, 
+                                    expr * new_body, 
+                                    expr * const * new_patterns, 
+                                    expr * const * new_no_patterns,
+                                    expr_ref & result,
+                                    proof_ref & result_pr) {
+    return m_imp->cfg().reduce_quantifier(old_q, new_body, new_patterns, new_no_patterns, result, result_pr);
 }

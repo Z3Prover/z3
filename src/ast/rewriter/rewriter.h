@@ -300,7 +300,7 @@ protected:
     void process_var(var * v);
 
     template<bool ProofGen>
-    void process_const(app * t);
+    bool process_const(app * t);
 
     template<bool ProofGen>
     bool visit(expr * t, unsigned max_depth);

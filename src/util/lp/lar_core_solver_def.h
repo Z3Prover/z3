@@ -265,17 +265,20 @@ unsigned lar_core_solver::get_number_of_non_ints() const {
 }
 
 void lar_core_solver::solve() {
+    TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
     lp_assert(m_r_solver.inf_set_is_correct());
 	TRACE("find_feas_stats", tout << "infeasibles = " << m_r_solver.m_inf_set.size() << ", int_infs = " << get_number_of_non_ints() << std::endl;);
 	if (m_r_solver.current_x_is_feasible() && m_r_solver.m_look_for_feasible_solution_only) {
-		m_r_solver.set_status(lp_status::OPTIMAL);
-		return;
+            m_r_solver.set_status(lp_status::OPTIMAL);
+            TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
+            return;
 	}
     ++settings().st().m_need_to_solve_inf;
     CASSERT("A_off", !m_r_solver.A_mult_x_is_off());
     lp_assert((!settings().use_tableau()) || r_basis_is_OK());
     if (need_to_presolve_with_double_solver()) {
+        TRACE("lar_solver", tout << "presolving\n";);
         prefix_d();
         lar_solution_signature solution_signature;
         vector<unsigned> changes_of_basis = find_solution_signature_with_doubles(solution_signature);
@@ -291,6 +294,7 @@ void lar_core_solver::solve() {
         lp_assert(!settings().use_tableau() || r_basis_is_OK());
     } else {
         if (!settings().use_tableau()) {
+            TRACE("lar_solver", tout << "no tablau\n";);
             bool snapped = m_r_solver.snap_non_basic_x_to_bound();   
             lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
             if (snapped)
@@ -298,8 +302,10 @@ void lar_core_solver::solve() {
         }
         if (m_r_solver.m_look_for_feasible_solution_only)
             m_r_solver.find_feasible_solution();
-        else
+        else {
+            TRACE("lar_solver", tout << "solve\n";);
             m_r_solver.solve();
+        }
         lp_assert(!settings().use_tableau() || r_basis_is_OK());
     }
     if (m_r_solver.get_status() == lp_status::INFEASIBLE) {
@@ -310,6 +316,8 @@ void lar_core_solver::solve() {
     lp_assert(r_basis_is_OK());
     lp_assert(m_r_solver.non_basic_columns_are_set_correctly());
     lp_assert(m_r_solver.inf_set_is_correct());
+
+    TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
 }
 
 

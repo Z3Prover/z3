@@ -20,6 +20,7 @@ Revision History:
 #include "util/str_hashtable.h"
 
 #ifdef _TRACE
+
 std::ofstream tout(".z3-trace"); 
 
 static bool g_enable_all_trace_tags = false;
