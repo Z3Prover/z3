@@ -21,11 +21,12 @@
 #include "util/lp/indexed_vector.h"
 #include "util/map.h"
 namespace lp {
-struct lar_term {
+class lar_term {
 
     u_map<mpq> m_coeffs;
     // std::unordered_map<unsigned, mpq> m_coeffs;
 
+public:
     lar_term() {}
 
     lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
@@ -47,7 +48,7 @@ struct lar_term {
                 m_coeffs.erase(j);
         }
     }
-
+    
     void add_var(unsigned j) {
         rational c(1);
         add_coeff_var(c, j);
@@ -59,10 +60,11 @@ struct lar_term {
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
     
+private:
     const u_map<mpq> & coeffs() const {
         return m_coeffs;
     }
-    
+public:
     bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs; }
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
     // some terms get used in add constraint
@@ -85,6 +87,15 @@ struct lar_term {
             add_coeff_var(- b * li.m_data[it_j], it_j);
         }
         m_coeffs.erase(j);
+    }
+
+    // substitute a*j by a*k
+    // assumes that the term contans a*j
+    void subst_var(unsigned j, unsigned k) {
+        SASSERT(m_coeffs.find_iterator(j) != m_coeffs.end());
+        mpq a = m_coeffs[j];
+        m_coeffs.erase(j);
+        m_coeffs.insert(k, a);
     }
     
     bool contains(unsigned j) const {

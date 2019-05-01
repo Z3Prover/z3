@@ -132,12 +132,13 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         rs_of_evidence /= ratio;
     } else {
         const lar_term * t = m_terms[adjust_term_index(be.m_j)];
-        const auto first_coeff = *t->m_coeffs.begin();
-        unsigned j = first_coeff.m_key;
+        const auto & t_b = *(t->begin());
+        auto first_coeff = t_b.coeff();
+        unsigned j = t_b.var();
         auto it = coeff_map.find(j);
         if (it == coeff_map.end())
             return false;
-        mpq ratio = it->second / first_coeff.m_value;
+        mpq ratio = it->second / first_coeff;
         for (const auto & p : *t) {
             it = coeff_map.find(p.var());
             if (it == coeff_map.end())

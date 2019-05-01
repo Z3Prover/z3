@@ -595,9 +595,7 @@ public:
             columns_to_subs.push_back(std::make_pair(m.var(), tj));
         }
         for (const auto & p : columns_to_subs) {
-            mpq v = t.m_coeffs.find(p.first);
-            t.m_coeffs.erase(p.first);
-            t.m_coeffs.insert(p.second, v);
+            t.subst_var(p.first, p.second);
         }
     }
 
