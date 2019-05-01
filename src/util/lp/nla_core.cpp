@@ -47,8 +47,8 @@ bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const 
 
 rational core::value(const lp::lar_term& r) const {
     rational ret(0);
-    for (const auto & t : r.coeffs()) {
-        ret += t.second * val(t.first);
+    for (const auto & t : r) {
+        ret += t.coeff() * val(t.var());
     }
     return ret;
 }

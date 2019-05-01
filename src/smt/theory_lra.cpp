@@ -1633,6 +1633,7 @@ public:
                 return FC_CONTINUE;
             }            
 
+            TRACE("arith", display(tout););
             switch (check_lia()) {
             case l_true:
                 break;
@@ -2882,21 +2883,21 @@ public:
         lpvar vi = get_lpvar(v);
         SASSERT(lp().is_term(vi));
         lp::lar_term const& term = lp().get_term(vi);
-        for (auto const & coeff : term.m_coeffs) {
-            lpvar wi = coeff.first;
+        for (auto const & ti : term) {
+            lpvar wi = ti.var();
             lp::constraint_index ci;
             rational value;
             bool is_strict;
             if (lp().is_term(wi)) {
                 return false;
             }
-            if (coeff.second.is_neg() == is_lub) {
+            if (ti.coeff().is_neg() == is_lub) {
                 // -3*x ... <= lub based on lower bound for x.
                 if (!lp().has_lower_bound(wi, ci, value, is_strict)) {
                     return false;
                 }
                 if (is_strict) {
-                    r += inf_rational(rational::zero(), coeff.second.is_pos());
+                    r += inf_rational(rational::zero(), ti.coeff().is_pos());
                 }
             }
             else {
@@ -2904,10 +2905,10 @@ public:
                     return false;
                 }
                 if (is_strict) {
-                    r += inf_rational(rational::zero(), coeff.second.is_pos());
+                    r += inf_rational(rational::zero(), ti.coeff().is_pos());
                 }
             }                
-            r += value * coeff.second;
+            r += value * ti.coeff();
             set_evidence(ci);                    
         }
         TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);
@@ -3561,7 +3562,7 @@ public:
         for (const auto & ti : term) {
             theory_var w;
             if (lp().is_term(ti.var())) {
-                //w = m_term_index2theory_var.get(lp().adjust_term_index(ti.var()), null_theory_var);
+                //w = m_term_index2theory_var.get(lp().adjust_term_index(ti.m_key), null_theory_var);
                 //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = lp().get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();

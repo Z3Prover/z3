@@ -180,6 +180,16 @@ public:
     void swap(table2map & other) {
         m_table.swap(other.m_table);
     }
+
+    bool operator==(table2map const& other) const {
+        if (size() != other.size()) return false;
+        for (auto const& kv : *this) {
+            auto* e = other.find_core(kv.m_key);
+            if (!e) return false;
+            if (e->get_data().m_value != kv.m_value) return false;
+        }
+        return true;
+    }
     
 #ifdef Z3DEBUG
     
