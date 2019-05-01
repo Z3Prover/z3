@@ -41,13 +41,8 @@ public:
         }
     }
 
-    void add_var(unsigned j) {
-        rational c(1);
-        add_coeff_var(c, j);
-    }
-
     bool is_empty() const {
-        return m_coeffs.empty();
+        return m_coeffs.empty(); // && is_zero(m_v);
     }
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
@@ -57,7 +52,12 @@ public:
         return m_coeffs;
     }
     
-    bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs; }
+    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
+        for (const auto & p : coeffs) {
+            add_monomial(p.first, p.second);
+        }
+    }
+    bool operator==(const lar_term & a) const {  return false; } // take care not to create identical terms
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
     // some terms get used in add constraint
     // it is the same as the offset in the m_constraints
@@ -76,7 +76,7 @@ public:
         if (it == nullptr) return;
         const mpq & b = it->get_data().m_value;
         for (unsigned it_j :li.m_index) {
-            add_coeff_var(- b * li.m_data[it_j], it_j);
+            add_monomial(- b * li.m_data[it_j], it_j);
         }
         m_coeffs.erase(j);
     }
