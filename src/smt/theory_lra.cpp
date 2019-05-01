@@ -1642,6 +1642,7 @@ public:
                 return FC_CONTINUE;
             }
 
+            TRACE("arith", display(tout););
             switch (check_lia()) {
             case l_true:
                 break;
@@ -3574,7 +3575,7 @@ public:
         for (const auto & ti : term) {
             theory_var w;
             if (lp().is_term(ti.var())) {
-                //w = m_term_index2theory_var.get(lp().adjust_term_index(ti.var()), null_theory_var);
+                //w = m_term_index2theory_var.get(lp().adjust_term_index(ti.m_key), null_theory_var);
                 //if (w == null_theory_var) // if extracting expressions directly from nested term
                 lp::lar_term const& term1 = lp().get_term(ti.var());
                 rational coeff2 = coeff * ti.coeff();
