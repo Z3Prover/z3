@@ -765,7 +765,6 @@ namespace smt {
             m_bb.BLAST_OP(arg_bits.size(), arg_bits.c_ptr(), bits.c_ptr(), new_bits);           \
             bits.swap(new_bits);                                                                \
         }                                                                                       \
-        std::cout << arg_bits << " " << bits << " " << new_bits << "\n"; \
         init_bits(e, bits);                                                                     \
         TRACE("bv", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
     }
