@@ -347,7 +347,7 @@ void emonomials::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_va
 
 void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
     TRACE("nla_solver", tout << r2 << " <- " << r1 << "\n";);
-    if (!r1.sign()) {
+    if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
         rehash_cg(r1.var()); 
         merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
@@ -356,12 +356,12 @@ void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, sig
 
 void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
     TRACE("nla_solver", tout << r2 << " -> " << r1 << "\n";);
-    if (!r1.sign()) {
+    if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());
     }        
 }
- 
+
 std::ostream& emonomials::display(const core& cr, std::ostream& out) const {
     out << "monomials\n";
     unsigned idx = 0;
