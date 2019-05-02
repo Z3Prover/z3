@@ -102,7 +102,7 @@ namespace smt {
         theory_array_full&     th;
         arith_util             m_arith;
         array_util             m_autil;
-        array_rewriter         m_rw;
+        th_rewriter            m_rw;
         arith_value            m_arith_value;
         ast_ref_vector         m_pinned;
         obj_map<app, sz_info*> m_sizeof;
@@ -204,26 +204,29 @@ namespace smt {
             return l_true;
         }
 
-        lbool ensure_disjoint(app* sz1, app* sz2) {
+        bool ensure_disjoint(app* sz1, app* sz2) {
             sz_info& i1 = *m_sizeof[sz1];
             sz_info& i2 = *m_sizeof[sz2];
             SASSERT(i1.m_is_leaf);
             SASSERT(i2.m_is_leaf);
             expr* s = sz1->get_arg(0);
             expr* t = sz2->get_arg(0);
+			if (m.get_sort(s) != m.get_sort(t)) {
+				return true;
+			}
             enode* r1 = get_root(s);
             enode* r2 = get_root(t);
             if (r1 == r2) {
-                return l_true;
+                return true;
             }
             if (!ctx().is_diseq(r1, r2) && ctx().assume_eq(r1, r2)) {
-                return l_false;
+                return false;
             }
             if (do_intersect(i1.m_selects, i2.m_selects)) {
                 add_disjoint(sz1, sz2);
-                return l_false;
+                return false;
             }
-            return l_true;
+            return true;
         }
 
         bool do_intersect(obj_map<enode, expr*> const& s, obj_map<enode, expr*> const& t) const {
@@ -265,11 +268,15 @@ namespace smt {
         }
 
         expr_ref mk_subtract(expr* t, expr* s) {
-            return m_rw.mk_set_difference(t, s);
+            expr_ref d(m_autil.mk_setminus(t, s), m);
+            m_rw(d);
+            return d;
         }
 
         expr_ref mk_intersect(expr* t, expr* s) {
-            return m_rw.mk_set_intersect(t, s);
+            expr_ref i(m_autil.mk_intersection(t, s), m);
+            m_rw(i);
+            return i;
         }
 
         void propagate(expr* assumption, expr* conseq) {
@@ -436,6 +443,15 @@ namespace smt {
             reset();
         }
 
+        void internalize_term(app* term) {
+            if (th.is_set_has_size(term)) {
+                internalize_size(term);
+            }
+            else if (th.is_set_card(term)) {
+                internalize_card(term);
+            }
+        }
+
         /**
          *  Size(S, n) => n >= 0, default(S) = false
          */
@@ -456,6 +472,17 @@ namespace smt {
             }
             m_sizeof.insert(term, alloc(sz_info));
             ctx().push_trail(remove_sz(m_sizeof, term));
+        }
+
+        /**
+           \brief whenever there is a cardinality function, it includes an axiom
+           that entails the set is finite.
+         */
+        void internalize_card(app* term) {
+            SASSERT(ctx().e_internalized(term));
+            app_ref has_size(m_autil.mk_has_size(term->get_arg(0), term), m);
+            literal lit = mk_literal(has_size);
+            ctx().assign(lit, nullptr);
         }
 
         final_check_status final_check() {            
@@ -494,7 +521,7 @@ namespace smt {
 
     theory_array_bapa::~theory_array_bapa() { dealloc(m_imp); }
 
-    void theory_array_bapa::internalize_size(app* term) { m_imp->internalize_size(term); }
+    void theory_array_bapa::internalize_term(app* term) { m_imp->internalize_term(term); }
 
     final_check_status theory_array_bapa::final_check() { return m_imp->final_check(); }
 

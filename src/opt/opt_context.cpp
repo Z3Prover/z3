@@ -361,7 +361,8 @@ namespace opt {
 
     void context::fix_model(model_ref& mdl) {
         if (mdl && !m_model_fixed.contains(mdl.get())) {
-            TRACE("opt", tout << "fix-model\n";);
+            TRACE("opt", m_fm->display(tout << "fix-model\n");
+                  m_model_converter->display(tout););
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
             m_model_fixed.push_back(mdl.get());
@@ -1116,7 +1117,9 @@ namespace opt {
         val = (*mdl)(term);
         unsigned bvsz;
         if (!m_arith.is_numeral(val, r) && !m_bv.is_numeral(val, r, bvsz)) {
-            TRACE("opt", tout << "model does not evaluate objective to a value\n";);
+            TRACE("opt", tout << "model does not evaluate objective to a value but instead " << val << "\n";
+                  tout << *mdl << "\n";
+                  );
             return false;
         }
         if (r != v) {

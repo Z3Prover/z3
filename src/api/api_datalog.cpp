@@ -588,23 +588,6 @@ extern "C" {
         Z3_CATCH;
     }
 
-    void Z3_API Z3_fixedpoint_push(Z3_context c,Z3_fixedpoint d) {
-        Z3_TRY;
-        LOG_Z3_fixedpoint_push(c, d);
-        RESET_ERROR_CODE();
-        to_fixedpoint_ref(d)->ctx().push();
-        Z3_CATCH;
-    }
-
-    void Z3_API Z3_fixedpoint_pop(Z3_context c,Z3_fixedpoint d) {
-        Z3_TRY;
-        LOG_Z3_fixedpoint_pop(c, d);
-        RESET_ERROR_CODE();
-        to_fixedpoint_ref(d)->ctx().pop();
-        Z3_CATCH;
-
-    }
-
     void Z3_API Z3_fixedpoint_add_callback(Z3_context c, Z3_fixedpoint d,
                                             void *state,
                                             Z3_fixedpoint_new_lemma_eh new_lemma_eh,

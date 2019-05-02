@@ -32,7 +32,7 @@ namespace smt {
     public:
         theory_array_bapa(theory_array_full& th);
         ~theory_array_bapa();
-        void internalize_size(app* term);
+        void internalize_term(app* term);
         final_check_status final_check();
         void init_model();
     };

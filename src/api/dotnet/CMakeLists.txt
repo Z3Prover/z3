@@ -178,7 +178,7 @@ option(INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install targ
 if(INSTALL_DOTNET_BINDINGS)
     install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
     # move the local repo to the installation directory (cancel the build-time repo)
-    install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(\"${Z3_DOTNET_LOCALREPO_NAME}\" ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget)")
+    install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(\"${Z3_DOTNET_LOCALREPO_NAME}\" \"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget\")")
     install(FILES "${CMAKE_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.xml" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
 # TODO GAC?
 #  set(GAC_PKG_NAME "Microsoft.Z3.Sharp")

@@ -37,6 +37,9 @@ class array_rewriter {
     lbool compare_args(unsigned num_args, expr * const * args1, expr * const * args2);
     bool has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices);
     void mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls);
+
+    sort_ref get_map_array_sort(func_decl* f, unsigned num_args, expr* const* args);
+
 public:    
     array_rewriter(ast_manager & m, params_ref const & p = params_ref()):
         m_util(m) {

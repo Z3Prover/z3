@@ -30,13 +30,14 @@ array_decl_plugin::array_decl_plugin():
     m_default_sym("default"),
     m_map_sym("map"),
     m_set_union_sym("union"),
-    m_set_intersect_sym("intersect"),
-    m_set_difference_sym("difference"),
+    m_set_intersect_sym("intersection"),
+    m_set_difference_sym("setminus"),
     m_set_complement_sym("complement"),
     m_set_subset_sym("subset"),
     m_array_ext_sym("array-ext"),
     m_as_array_sym("as-array"),
-    m_set_has_size_sym("set-has-size") {
+    m_set_has_size_sym("set-has-size"),
+    m_set_card_sym("card") {
 }
 
 #define ARRAY_SORT_STR "Array"
@@ -440,6 +441,21 @@ func_decl * array_decl_plugin::mk_set_subset(unsigned arity, sort * const * doma
                                    func_decl_info(m_family_id, OP_SET_SUBSET));
 }
 
+func_decl * array_decl_plugin::mk_set_card(unsigned arity, sort * const* domain) {
+    if (arity != 1) {
+        m_manager->raise_exception("card takes only one argument");
+        return nullptr;
+    }    
+
+    arith_util arith(*m_manager);
+    if (!is_array_sort(domain[0]) || !m_manager->is_bool(get_array_range(domain[0]))) {
+        m_manager->raise_exception("card expects an array of Booleans");
+    }
+    sort * int_sort = arith.mk_int();
+    return m_manager->mk_func_decl(m_set_card_sym, arity, domain, int_sort,
+                                   func_decl_info(m_family_id, OP_SET_CARD));
+}
+
 func_decl * array_decl_plugin::mk_set_has_size(unsigned arity, sort * const* domain) {
     if (arity != 2) {
         m_manager->raise_exception("set-has-size takes two arguments");
@@ -525,6 +541,8 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
         return mk_set_subset(arity, domain);
     case OP_SET_HAS_SIZE:
         return mk_set_has_size(arity, domain);
+    case OP_SET_CARD:
+        return mk_set_card(arity, domain);
     case OP_AS_ARRAY: {
         if (num_parameters != 1 ||
             !parameters[0].is_ast() || 
@@ -548,8 +566,10 @@ func_decl * array_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters
 void array_decl_plugin::get_sort_names(svector<builtin_name>& sort_names, symbol const & logic) {
     sort_names.push_back(builtin_name(ARRAY_SORT_STR, ARRAY_SORT));
     sort_names.push_back(builtin_name("=>", ARRAY_SORT));
-    // TBD: this could easily break users even though it is already used in CVC4: 
-    // sort_names.push_back(builtin_name("Set", _SET_SORT));
+    if (logic == symbol::null || logic == symbol("HORN") || logic == symbol("ALL")) {
+        // this could easily break users even though it is already used in CVC4: 
+        sort_names.push_back(builtin_name("Set", _SET_SORT));
+    }
 }
 
 void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol const & logic) {
@@ -561,13 +581,14 @@ void array_decl_plugin::get_op_names(svector<builtin_name>& op_names, symbol con
         op_names.push_back(builtin_name("map",OP_ARRAY_MAP));
         op_names.push_back(builtin_name("default",OP_ARRAY_DEFAULT));
         op_names.push_back(builtin_name("union",OP_SET_UNION));
-        op_names.push_back(builtin_name("intersect",OP_SET_INTERSECT));
-        op_names.push_back(builtin_name("difference",OP_SET_DIFFERENCE));
+        op_names.push_back(builtin_name("intersection",OP_SET_INTERSECT));
+        op_names.push_back(builtin_name("setminus",OP_SET_DIFFERENCE));
         op_names.push_back(builtin_name("complement",OP_SET_COMPLEMENT));
         op_names.push_back(builtin_name("subset",OP_SET_SUBSET));
         op_names.push_back(builtin_name("as-array", OP_AS_ARRAY));
         op_names.push_back(builtin_name("array-ext", OP_ARRAY_EXT));
         op_names.push_back(builtin_name("set-has-size", OP_SET_HAS_SIZE));
+        op_names.push_back(builtin_name("card", OP_SET_CARD));
     }
 }
 
@@ -593,6 +614,13 @@ bool array_decl_plugin::is_fully_interp(sort * s) const {
 func_decl * array_recognizers::get_as_array_func_decl(expr * n) const { 
     SASSERT(is_as_array(n)); 
     return to_func_decl(to_app(n)->get_decl()->get_parameter(0).get_ast()); 
+}
+
+func_decl * array_recognizers::get_map_func_decl(func_decl* f) const {
+    SASSERT(f->get_num_parameters() == 1);
+    SASSERT(f->get_parameter(0).is_ast());
+    SASSERT(is_func_decl(f->get_parameter(0).get_ast()));
+    return to_func_decl(f->get_parameter(0).get_ast());
 }
 
 func_decl * array_recognizers::get_as_array_func_decl(func_decl * f) const { 

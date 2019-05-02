@@ -3576,7 +3576,7 @@ expr_ref theory_seq::digit2int(expr* ch) {
 // n >= 0 & len(e) >= i + 1 => is_digit(e_i) for i = 0..k-1
 // n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
 // n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
-// 10^k <= n < 10^{k+1}-1 => len(e) = k
+// 10^k <= n < 10^{k+1}-1 => len(e) => k
 
 void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
     context& ctx = get_context();
@@ -3618,15 +3618,9 @@ void theory_seq::add_si_axiom(expr* e, expr* n, unsigned k) {
     rational ub = power(rational(10), k) - 1;
     arith_util& a = m_autil;
     literal lbl = mk_literal(a.mk_ge(n, a.mk_int(lb)));
-    literal ubl = mk_literal(a.mk_le(n, a.mk_int(ub)));
     literal ge_k = mk_literal(a.mk_ge(len, a.mk_int(k)));
-    literal le_k = mk_literal(a.mk_le(len, a.mk_int(k)));
     // n >= lb => len(s) >= k
-    // n >= 0 & len(s) >= k => n >= lb
-    // 0 <= n <= ub => len(s) <= k
     add_axiom(~lbl, ge_k);
-    add_axiom(~ge0, lbl, ~ge_k);
-    add_axiom(~ge0, ~ubl, le_k);
 }
 
 

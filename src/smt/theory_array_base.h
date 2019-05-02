@@ -43,6 +43,7 @@ namespace smt {
         bool is_array_sort(sort const* s) const { return s->is_sort_of(get_id(), ARRAY_SORT); }
         bool is_array_sort(app const* n) const { return is_array_sort(get_manager().get_sort(n)); }
         bool is_set_has_size(app const* n) const { return n->is_app_of(get_id(), OP_SET_HAS_SIZE); }
+        bool is_set_card(app const* n) const { return n->is_app_of(get_id(), OP_SET_CARD); }
 
         bool is_store(enode const * n) const { return is_store(n->get_owner()); }
         bool is_map(enode const* n) const { return is_map(n->get_owner()); }
@@ -52,6 +53,7 @@ namespace smt {
         bool is_default(enode const* n) const { return is_default(n->get_owner()); }
         bool is_array_sort(enode const* n) const { return is_array_sort(n->get_owner()); }
         bool is_set_has_size(enode const* n) const { return is_set_has_size(n->get_owner()); }
+        bool is_set_carde(enode const* n) const { return is_set_card(n->get_owner()); }
 
 
         app * mk_select(unsigned num_args, expr * const * args);

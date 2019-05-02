@@ -1347,6 +1347,7 @@ namespace nlsat {
                 restore_order();
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout););
+            SASSERT(r != l_true || check_satisfied(m_clauses));
             return r;
         }
 
@@ -1867,11 +1868,17 @@ namespace nlsat {
             if (m_bk != null_bool_var)
                 num = m_bk;
             for (bool_var b = 0; b < num; b++) {
-                SASSERT(check_satisfied(m_bwatches[b]));
+                if (!check_satisfied(m_bwatches[b])) {
+                    UNREACHABLE();
+                    return false;
+                }
             }
             if (m_xk != null_var) {
                 for (var x = 0; x < m_xk; x++) {
-                    SASSERT(check_satisfied(m_watches[x]));
+                    if (!check_satisfied(m_watches[x])) {
+                        UNREACHABLE();
+                        return false;
+                    }
                 }
             }
             return true;

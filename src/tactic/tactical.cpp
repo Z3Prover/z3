@@ -917,7 +917,7 @@ public:
         { 
             // Warning: scoped_timer is not thread safe in Linux.
             scoped_timer timer(m_timeout, &eh);
-            m_t->operator()(in, result);
+            m_t->operator()(in, result);            
         }
     }
 

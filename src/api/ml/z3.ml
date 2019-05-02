@@ -1883,8 +1883,6 @@ struct
     | L_FALSE -> Solver.UNSATISFIABLE
     | _ -> Solver.UNKNOWN
 
-  let push x = Z3native.fixedpoint_push (gc x) x
-  let pop x = Z3native.fixedpoint_pop (gc x) x
   let update_rule x = Z3native.fixedpoint_update_rule (gc x) x
 
   let get_answer x =

@@ -379,9 +379,21 @@ typename symbolic_automata<T, M>::automaton_t* symbolic_automata<T, M>::mk_produ
     pair2id.insert(init_pair, 0);
     moves_t mvs;
     unsigned_vector final;
-    if (a.is_final_state(a.init()) && b.is_final_state(b.init())) {
-        final.push_back(0);
+    unsigned_vector a_init, b_init;
+    a.get_epsilon_closure(a.init(), a_init);
+    for (unsigned ia : a_init) {
+        if (a.is_final_state(ia)) {
+            b.get_epsilon_closure(b.init(), b_init);
+            for (unsigned ib : b_init) {
+                if (b.is_final_state(ib)) {
+                    final.push_back(0);
+                    break;
+                }
+            }
+            break;
+        }
     }
+    
     unsigned n = 1;
     moves_t mvsA, mvsB;
     while (!todo.empty()) {
