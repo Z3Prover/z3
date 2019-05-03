@@ -3161,7 +3161,7 @@ public:
             return l_false;
         case lp::lp_status::FEASIBLE:
         case lp::lp_status::OPTIMAL:
-            SASSERT(lp().all_constraints_hold());
+            //            SASSERT(lp().all_constraints_hold());
             return l_true;
         case lp::lp_status::TIME_EXHAUSTED:
                 
