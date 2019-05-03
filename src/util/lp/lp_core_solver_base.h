@@ -394,7 +394,7 @@ public:
     bool make_column_feasible(unsigned j, numeric_pair<mpq> & delta) {
         bool ret = false;
         lp_assert(m_basis_heading[j] < 0);
-        auto & x = m_x[j];
+        const auto & x = m_x[j];
         switch (m_column_types[j]) {
         case column_type::fixed:
             lp_assert(m_lower_bounds[j] == m_upper_bounds[j]);
@@ -429,7 +429,7 @@ public:
             break;
         }
         if (ret)
-            add_delta_to_x_and_call_tracker(j, delta);
+            add_delta_to_x_and_do_not_track_feasibility(j, delta);
 
         return ret;
         
@@ -686,15 +686,15 @@ public:
         m_x[j] += del;
         track_column_feasibility(j);
     }
-
-    void update_x_and_call_tracker(unsigned j, const X & v) {
+   
+    void update_x_and_do_not_track_feasibility (unsigned j, const X & v) {
         m_x[j] = v;
     }
 
-    void add_delta_to_x_and_call_tracker(unsigned j, const X & delta) {
+    void add_delta_to_x_and_do_not_track_feasibility(unsigned j, const X & delta) {
         m_x[j] += delta;
     }
-    
+   
     void track_column_feasibility(unsigned j) {
         if (column_is_feasible(j))
             remove_column_from_inf_set(j);

@@ -859,12 +859,12 @@ void lar_solver::fix_Ax_b_on_rounded_row(unsigned i) {
     if (A_r().m_rows.size() <= i)
         return;
     unsigned bj = m_mpq_lar_core_solver.m_r_basis[i];
-    auto& v = m_mpq_lar_core_solver.m_r_x[bj];
-    v = zero_of_type<numeric_pair<mpq>>();
+    auto v = zero_of_type<impq>();
     for (const auto & c : A_r().m_rows[i]) {
         if (c.var() != bj) 
             v -= c.coeff() * m_mpq_lar_core_solver.m_r_x[c.var()];
     }
+    m_mpq_lar_core_solver.m_r_solver.update_x_with_feasibility_tracking(bj, v);
 }
 void lar_solver::collect_rounded_rows_to_fix() {
     lp_assert(m_cube_rounded_rows.size() == 0);
@@ -1614,6 +1614,7 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
             m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     }
+    SASSERT(m_mpq_lar_core_solver.m_r_solver.inf_set_is_correct());
 }
 
 bool lar_solver::model_is_int_feasible() const {
@@ -1827,7 +1828,7 @@ void lar_solver::add_row_from_term_no_constraint(const lar_term * term, unsigned
     else {
         fill_last_row_of_A_r(A_r(), term);
     }
-    m_mpq_lar_core_solver.m_r_solver.update_x_and_call_tracker(j, get_basic_var_value_from_row_directly(A_r().row_count() - 1));
+    m_mpq_lar_core_solver.m_r_solver.update_x_and_do_not_track_feasibility(j, get_basic_var_value_from_row_directly(A_r().row_count() - 1));
     if (use_lu())
         fill_last_row_of_A_d(A_d(), term);
 }
