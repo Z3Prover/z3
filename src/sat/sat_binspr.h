@@ -41,7 +41,8 @@ namespace sat {
         void block_binary(literal lit1, literal lit2, bool learned);
         void check_spr(big& big, literal lit1);
         void check_spr(literal lit1, literal lit2);
-        bool binary_is_unit_implied(literal lit);
+        bool binary_are_unit_implied(literal lit);
+        bool clauses_are_unit_implied(literal lit1, literal lit2);
         bool clause_is_unit_implied(literal lit1, literal lit2, clause& c);
         
     public:

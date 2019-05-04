@@ -57,17 +57,10 @@ namespace sat {
         
         m_bin_clauses = 0;
 
-        unsigned counter = 0;
-        for (unsigned i = 0; i < num; i++) {
+        for (unsigned i = 0, count = 0; i < num && count <= m_limit1 && !s.inconsistent(); ++i) {
             s.checkpoint();
-            if (s.inconsistent()) {
-                return;
-            }
             bool_var v = (m_stopped_at + i) % num;
             m_stopped_at = v;
-            if (counter > m_limit1) {
-                break;
-            }
             if (s.value(v) != l_undef || s.was_eliminated(v)) {
                 continue;
             }
@@ -79,14 +72,14 @@ namespace sat {
             if (big.is_root(lit1)) {
                 check_spr(big, lit1);
             }
-            ++counter;
+            ++count;
         }        
         m_limit1 *= 2;
         m_limit2 *= 2;
     }
     
     void binspr::check_spr(big& big, literal lit1) {
-        TRACE("sat", tout << lit1 << " " << big.get_root(lit1) << "\n";);
+        TRACE("sat", tout << lit1 << "\n";);
         s.push();
         s.assign_scoped(lit1);
         s.propagate(false);
@@ -97,14 +90,10 @@ namespace sat {
         }
         unsigned num = s.num_vars() - lit1.var() - 1;
         unsigned start = s.rand()(); 
-        unsigned count = 0;
         // break symmetries: only consider variables larger than lit1
-        for (unsigned i = 0; i < num; ++i) {
+        for (unsigned i = 0, count = 0; i < num && count <= m_limit2; ++i) {
             bool_var v = ((i + start) % num) + lit1.var() + 1;
             s.checkpoint();
-            if (count > m_limit2) {
-                break;
-            }
             if (s.value(v) != l_undef || s.was_eliminated(v)) {
                 continue;
             }
@@ -129,27 +118,10 @@ namespace sat {
             block_binary(lit1, lit2, true);
         }
         else {
-            // check all clauses that contain lit1, li12 positively to be propgation redundant.
-            bool is_spr = true;
-            is_spr &= binary_is_unit_implied(lit1);
-            is_spr &= binary_is_unit_implied(lit2);
-            if (is_spr) {
-                for (clause* cp : m_use_list[lit1.index()]) {
-                    if (!clause_is_unit_implied(lit1, lit2, *cp)) {
-                        is_spr = false;
-                        break;
-                    }
-                }
-            }
-            if (is_spr) {
-                for (clause* cp : m_use_list[lit2.index()]) {
-                    if (!clause_is_unit_implied(lit1, lit2, *cp)) {
-                        is_spr = false;
-                        break;
-                    }
-                }
-            }
-            if (is_spr) {
+            if (binary_are_unit_implied(lit1) &&
+                binary_are_unit_implied(lit2) &&
+                clauses_are_unit_implied(lit1, lit2) &&
+                clauses_are_unit_implied(lit2, lit1)) {
                 // claim: SPR is confluent for binary clauses when G is empty.
                 // In other words, we can add binary clauses at will without
                 // considering the effect of adding a binary clause.
@@ -178,10 +150,19 @@ namespace sat {
         ++m_bin_clauses;
     }
 
-    bool binspr::binary_is_unit_implied(literal lit) {
+    bool binspr::binary_are_unit_implied(literal lit) {
         for (watched const& w : s.get_wlist(lit)) {
             if (w.is_binary_clause() && s.value(w.get_literal()) != l_true) {
                 TRACE("sat", tout << "Binary clause not unit implied " << lit << " " << w.get_literal() << "\n";);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    bool binspr::clauses_are_unit_implied(literal lit1, literal lit2) {        
+        for (clause* cp : m_use_list[lit1.index()]) {
+            if (!clause_is_unit_implied(lit1, lit2, *cp)) {
                 return false;
             }
         }
