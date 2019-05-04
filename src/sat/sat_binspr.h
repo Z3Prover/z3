@@ -3,7 +3,7 @@
 
   Module Name:
 
-   sat_spr.h
+   sat_binspr.h
 
   Abstract:
    
@@ -31,14 +31,15 @@ namespace sat {
 
     class binspr {
         solver& s;
-        svector<std::pair<literal, literal>> m_bin_clauses;
+        unsigned                             m_bin_clauses;
         unsigned                             m_stopped_at;
         vector<clause_vector>                m_use_list;
         unsigned                             m_limit1, m_limit2;
 
         struct report;
 
-        void process(big& big, literal lit1);
+        void block_binary(literal lit1, literal lit2, bool learned);
+        void check_spr(big& big, literal lit1);
         void check_spr(literal lit1, literal lit2);
         bool binary_is_unit_implied(literal lit);
         bool clause_is_unit_implied(literal lit1, literal lit2, clause& c);

@@ -3,7 +3,7 @@
 
   Module Name:
 
-   sat_spr.cpp
+   sat_binspr.cpp
 
   Abstract:
    
@@ -33,7 +33,7 @@ namespace sat {
         }
         ~report() {
             m_watch.stop();
-            unsigned nb = m_binspr.m_bin_clauses.size();
+            unsigned nb = m_binspr.m_bin_clauses;
             IF_VERBOSE(2, verbose_stream() << " (sat-binspr :binary " << nb << " " << mem_stat() << m_watch << ")\n");
         }
             
@@ -55,7 +55,7 @@ namespace sat {
                 }
         }
         
-        m_bin_clauses.reset();
+        m_bin_clauses = 0;
 
         unsigned counter = 0;
         for (unsigned i = 0; i < num; i++) {
@@ -64,28 +64,29 @@ namespace sat {
                 return;
             }
             bool_var v = (m_stopped_at + i) % num;
+            m_stopped_at = v;
             if (counter > m_limit1) {
-                m_stopped_at = v;
                 break;
             }
             if (s.value(v) != l_undef || s.was_eliminated(v)) {
                 continue;
             }
-            process(big, literal(v, false));
-            process(big, literal(v, true));
+            literal lit1(v, false);
+            if (big.is_root(lit1)) {
+                check_spr(big, lit1);
+            }
+            lit1.neg();
+            if (big.is_root(lit1)) {
+                check_spr(big, lit1);
+            }
             ++counter;
-        }
-        for (auto const& b : m_bin_clauses) {
-            TRACE("sat", tout << ~b.first << " " << ~b.second << "\n";);
-            s.mk_clause(~b.first, ~b.second, true); // treat it as redundant clause
-        }
+        }        
         m_limit1 *= 2;
         m_limit2 *= 2;
     }
     
-    void binspr::process(big& big, literal lit1) {
+    void binspr::check_spr(big& big, literal lit1) {
         TRACE("sat", tout << lit1 << " " << big.get_root(lit1) << "\n";);
-        if (big.get_root(lit1) != lit1) return;
         s.push();
         s.assign_scoped(lit1);
         s.propagate(false);
@@ -108,11 +109,11 @@ namespace sat {
                 continue;
             }
             literal lit2(v, false);
-            if (big.get_root(lit2) == lit2) {
+            if (big.is_root(lit2)) {
                 check_spr(lit1, lit2);
             }
             lit2.neg();
-            if (big.get_root(lit2) == lit2) {
+            if (big.is_root(lit2)) {
                 check_spr(lit1, lit2);
             }
             ++count;
@@ -125,7 +126,7 @@ namespace sat {
         s.assign_scoped(lit2);
         s.propagate(false);
         if (s.inconsistent()) {
-            m_bin_clauses.push_back(std::make_pair(lit1, lit2));
+            block_binary(lit1, lit2, true);
         }
         else {
             // check all clauses that contain lit1, li12 positively to be propgation redundant.
@@ -166,10 +167,15 @@ namespace sat {
                 // Given that satisfiability is checked with respect to **
                 // additional clauses create either equivalence constraints
                 // or units.
-                m_bin_clauses.push_back(std::make_pair(lit1, lit2));
+                block_binary(lit1, lit2, false);
             }
         }
         s.pop(1);
+    }
+
+    void binspr::block_binary(literal lit1, literal lit2, bool learned) {
+        s.mk_clause(~lit1, ~lit2, learned);
+        ++m_bin_clauses;
     }
 
     bool binspr::binary_is_unit_implied(literal lit) {
@@ -186,8 +192,7 @@ namespace sat {
         if (c.was_removed()) {
             return true;
         }
-        bool is_implied = true;
-        bool must_implied = true;
+        bool is_implied = false;
         bool found = false;
         s.push();
         for (literal lit : c) {
@@ -195,7 +200,7 @@ namespace sat {
                 found = true;
             }
             else if (s.value(lit) == l_true) {
-                must_implied = true;
+                is_implied = true;
                 break;
             }
             else if (s.value(lit) != l_false) {
@@ -203,12 +208,10 @@ namespace sat {
             }
         }
         SASSERT(found);
-        if (!must_implied && found) {
+        if (!is_implied) {
             s.propagate(false);
-            if (!s.inconsistent()) {
-                TRACE("sat", tout << "not unit implied " << lit1 << " " << lit2 << ": " << c << "\n";);
-                is_implied = false;
-            }
+            is_implied = s.inconsistent();
+            CTRACE("sat", !is_implied, tout << "not unit implied " << lit1 << " " << lit2 << ": " << c << "\n";);            
         }
         s.pop(1);
         return is_implied;
