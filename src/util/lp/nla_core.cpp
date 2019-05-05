@@ -93,7 +93,7 @@ svector<lpvar> core::sorted_rvars(const factor& f) const {
 // the value of the factor is equal to the value of the variable multiplied
 // by the canonize_sign
 rational core::canonize_sign(const factor& f) const {
-    return f.rsign() * (f.is_var()? canonize_sign_of_var(f.var()) : m_emons[f.var()].rsign());
+    return f.rat_sign() * (f.is_var()? canonize_sign_of_var(f.var()) : m_emons[f.var()].rsign());
 }
 
 rational core::canonize_sign_of_var(lpvar j) const {

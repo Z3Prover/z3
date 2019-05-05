@@ -180,7 +180,7 @@ void order::generate_mon_ol(const monomial& ac,
     add_empty_lemma();
     mk_ineq(c_sign, c, llc::LE);
     explain(c); // this explains c == +- d
-    mk_ineq(c_sign, a, -d_sign, b.var(), negate(ab_cmp));
+    mk_ineq(c_sign, a, -d_sign * b.rat_sign(), b.var(), negate(ab_cmp));
     mk_ineq(ac.var(), rational(-1), var(bd), ab_cmp);
     explain(bd);
     explain(b);
