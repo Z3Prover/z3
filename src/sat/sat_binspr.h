@@ -35,19 +35,24 @@ namespace sat {
         unsigned                             m_stopped_at;
         vector<clause_vector>                m_use_list;
         unsigned                             m_limit1, m_limit2;
+        literal_vector                       m_units;
+        svector<std::pair<literal, literal>> m_bins;
 
         struct report;
 
+        void reset_g(literal lit1, literal lit2);
+        bool add_g(literal lit1);
+        bool add_g(literal lit1, literal lit2);
         void block_binary(literal lit1, literal lit2, bool learned);
         void check_spr(big& big, literal lit1);
         void check_spr(literal lit1, literal lit2);
-        bool binary_are_unit_implied(literal lit);
+        bool binary_are_unit_implied(literal lit1, literal lit2);
         bool clauses_are_unit_implied(literal lit1, literal lit2);
         bool clause_is_unit_implied(literal lit1, literal lit2, clause& c);
         
     public:
 
-        binspr(solver& s, params_ref const& p): s(s), m_stopped_at(0), m_limit1(500), m_limit2(100) {}
+        binspr(solver& s, params_ref const& p): s(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}
 
         ~binspr() {}
 
