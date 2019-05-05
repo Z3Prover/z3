@@ -27,14 +27,16 @@ namespace nla {
 struct factorization_factory;
 typedef unsigned lpvar;
 
-enum class factor_type { VAR, RM }; // RM stands for rooted monomial 
+enum class factor_type { VAR, MON };
 
 class factor {
     lpvar        m_var;
     factor_type  m_type;
+    bool        m_sign;
 public:
-    factor(): m_var(UINT_MAX), m_type(factor_type::VAR) {}
-    explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t) {}
+    factor(): factor(false) {}
+    factor(bool sign): m_var(UINT_MAX), m_type(factor_type::VAR), m_sign(sign) {}
+    explicit factor(lpvar v, factor_type t) : m_var(v), m_type(t), m_sign(false) {}
     unsigned var() const { return m_var; }
     factor_type type() const { return m_type; }
     void set(lpvar v, factor_type t) { m_var = v; m_type = t; }
@@ -45,6 +47,9 @@ public:
     bool operator!=(factor const& other) const {
         return m_var != other.var() || m_type != other.type();
     }
+    bool sign() const { return m_sign; }
+    bool& sign() { return m_sign; }
+    rational rsign() const { return m_sign? rational(-1) : rational(1); }
 };
 
 

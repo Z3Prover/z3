@@ -14,7 +14,7 @@ void const_iterator_mon::init_vars_by_the_mask(unsigned_vector & k_vars, unsigne
         }
     }
 }
-            
+// todo : do we need the sign?
 bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const {
     unsigned_vector k_vars;
     unsigned_vector j_vars;
@@ -30,7 +30,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         if (!m_ff->find_rm_monomial_of_vars(k_vars, i)) {
             return false;
         }
-        k.set(i, factor_type::RM);
+        k.set(i, factor_type::MON);
     }
 
     if (j_vars.size() == 1) {
@@ -40,7 +40,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         if (!m_ff->find_rm_monomial_of_vars(j_vars, i)) {
             return false;
         }
-        j.set(i, factor_type::RM);
+        j.set(i, factor_type::MON);
     }
     return true;
 }

@@ -36,7 +36,6 @@ template <typename T> rational common::val(T const& t) const { return c().val(t)
 template rational common::val<monomial>(monomial const& t) const;
 template rational common::val<factor>(factor const& t) const;
 rational common::val(lpvar t) const { return c().val(t); }
-rational common::rval(const monomial& m) const { return c().rval(m); }
 template <typename T> lpvar common::var(T const& t) const { return c().var(t); }
 template lpvar common::var<factor>(factor const& t) const;
 template lpvar common::var<monomial>(monomial const& t) const;
