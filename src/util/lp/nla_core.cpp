@@ -76,10 +76,14 @@ bool core::lemma_holds(const lemma& l) const {
     }
     return false;
 }
+
+lpvar core::map_to_root(lpvar j) const {
+    return m_evars.find(j).var();
+}
     
-svector<lpvar> core::sorted_vars(const factor& f) const {
+svector<lpvar> core::sorted_rvars(const factor& f) const {
     if (f.is_var()) {
-        svector<lpvar> r; r.push_back(f.var());
+        svector<lpvar> r; r.push_back(map_to_root(f.var()));
         return r;
     }
     TRACE("nla_solver", tout << "nv";);
@@ -89,14 +93,23 @@ svector<lpvar> core::sorted_vars(const factor& f) const {
 // the value of the factor is equal to the value of the variable multiplied
 // by the canonize_sign
 rational core::canonize_sign(const factor& f) const {
-    return f.is_var()? canonize_sign_of_var(f.var()) : m_emons[f.var()].rsign();
+    return f.rsign() * (f.is_var()? canonize_sign_of_var(f.var()) : m_emons[f.var()].rsign());
 }
 
 rational core::canonize_sign_of_var(lpvar j) const {
     return m_evars.find(j).rsign();        
 }
-    
+
+bool core::canonize_sign_is_correct(const monomial& m) const {
+    rational r(1);
+    for (lpvar j : m.vars()) {
+        r *= canonize_sign_of_var(j);
+    }
+    return r == m.rsign();
+}
+
 rational core::canonize_sign(const monomial& m) const {
+    SASSERT(canonize_sign_is_correct(m));
     return m.rsign();
 }
 
@@ -157,11 +170,13 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
 }
 
 std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
+    if (f.sign())
+        out << "- ";
     if (f.is_var()) {
         out << "VAR,  ";
         print_var(f.var(), out);
     } else {
-        out << "PROD, ";
+        out << "MON, ";
         print_product(m_emons[f.var()].rvars(), out);
     }
     out << "\n";
@@ -1372,30 +1387,38 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     return vars;
 }
 
+// divides bc by c, so bc = b*c
 bool core::divide(const monomial& bc, const factor& c, factor & b) const {
-    svector<lpvar> c_vars = sorted_vars(c);
-    TRACE("nla_solver_div",
-          tout << "c_vars = ";
-          print_product(c_vars, tout);
-          tout << "\nbc_vars = ";
+    svector<lpvar> c_rvars = sorted_rvars(c);
+    TRACE("nla_solver",
+          tout << "c_rvars = ";
+          print_product(c_rvars, tout);
+          tout << "\nbc_rvars = ";
           print_product(bc.rvars(), tout););
-    if (!lp::is_proper_factor(c_vars, bc.rvars()))
+    if (!lp::is_proper_factor(c_rvars, bc.rvars()))
         return false;
             
-    auto b_vars = lp::vector_div(bc.rvars(), c_vars);
-    TRACE("nla_solver_div", tout << "b_vars = "; print_product(b_vars, tout););
-    SASSERT(b_vars.size() > 0);
-    if (b_vars.size() == 1) {
-        b = factor(b_vars[0], factor_type::VAR);
-        return true;
+    auto b_rvars = lp::vector_div(bc.rvars(), c_rvars);
+    TRACE("nla_solver_div", tout << "b_rvars = "; print_product(b_rvars, tout););
+    SASSERT(b_rvars.size() > 0);
+    if (b_rvars.size() == 1) {
+        b = factor(b_rvars[0], factor_type::VAR);
+    } else {
+        monomial const* sv = m_emons.find_canonical(b_rvars);
+        if (!sv) {
+            TRACE("nla_solver_div", tout << "not in rooted";);
+            return false;
+        }
+        b = factor(sv->var(), factor_type::MON);
     }
-    monomial const* sv = m_emons.find_canonical(b_vars);
-    if (!sv) {
-        TRACE("nla_solver_div", tout << "not in rooted";);
-        return false;
-    }
-    b = factor(sv->var(), factor_type::RM);
-    TRACE("nla_solver_div", tout << "success div:"; print_factor(b, tout););
+    SASSERT(!b.sign());
+    // we should have bc.vars()*canonize_sign(bc) = bc.rvar() = b.rvars()*c.rvars() =
+    // = canonize_sign(b)*b.vars()* canonize_sign(c)*c.vars().
+    // so bc.vars()*canonize_sign(bc) = canonize_sign(b)*b.vars()* canonize_sign(c)*c.vars().
+    // but canonize_sign(b) now is canonize_sign_of_var(b.m_var) or canonize_sign(m_monomials[b.m_var])
+    // so we are adjusting it
+    b.sign() = (canonize_sign(b) * canonize_sign(c) * canonize_sign(bc) == rational(1))? false: true; 
+    TRACE("nla_solver", tout << "success div:"; print_factor(b, tout););
     return true;
 }
 
@@ -1468,8 +1491,8 @@ void core::maybe_add_a_factor(lpvar i,
         }
     } else {
         if (try_insert(i, found_rm)) {
-            r.push_back(factor(i, factor_type::RM));
-            TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::RM), tout); );
+            r.push_back(factor(i, factor_type::MON));
+            TRACE("nla_solver", tout << "inserting factor = "; print_factor_with_vars(factor(i, factor_type::MON), tout); );
         }
     }
 }
