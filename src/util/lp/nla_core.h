@@ -100,17 +100,17 @@ public:
 
     rational val(const monomial& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
 
-    rational rval(const monomial& m) const { return val(m)*m.rsign(); }
+    bool canonize_sign_is_correct(const monomial& m) const;
 
     lpvar var(monomial const& sv) const { return sv.var(); }
 
     rational val_rooted(const monomial& m) const { return m.rsign()*val(m.var()); }
 
-    rational val(const factor& f) const {  return f.is_var()? val(f.var()) : val(m_emons[f.var()]); }
+    rational val(const factor& f) const {  return f.rsign() * (f.is_var()? val(f.var()) : val(m_emons[f.var()])); }
 
     lpvar var(const factor& f) const { return f.var(); }
 
-    svector<lpvar> sorted_vars(const factor& f) const;
+    svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
 
     void add_empty_lemma();
@@ -338,6 +338,7 @@ public:
     bool  no_lemmas_hold() const;
     
     lbool  test_check(vector<lemma>& l);
+    lpvar map_to_root(lpvar) const;
 };  // end of core
 
 struct pp_mon {
