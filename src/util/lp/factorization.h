@@ -49,7 +49,7 @@ public:
     }
     bool sign() const { return m_sign; }
     bool& sign() { return m_sign; }
-    rational rsign() const { return m_sign? rational(-1) : rational(1); }
+    rational rat_sign() const { return m_sign? rational(-1) : rational(1); }
 };
 
 

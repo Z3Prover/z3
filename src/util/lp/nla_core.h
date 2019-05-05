@@ -106,7 +106,7 @@ public:
 
     rational val_rooted(const monomial& m) const { return m.rsign()*val(m.var()); }
 
-    rational val(const factor& f) const {  return f.rsign() * (f.is_var()? val(f.var()) : val(m_emons[f.var()])); }
+    rational val(const factor& f) const {  return f.rat_sign() * (f.is_var()? val(f.var()) : val(m_emons[f.var()])); }
 
     lpvar var(const factor& f) const { return f.var(); }
 
