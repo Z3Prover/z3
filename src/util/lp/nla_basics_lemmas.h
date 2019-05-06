@@ -103,5 +103,6 @@ struct basics: common {
     // none of the factors is zero and the product is not zero
     // -> |fc[factor_index]| <= |rm|
     void generate_pl(const monomial& rm, const factorization& fc, int factor_index);   
+    bool is_separated_from_zero(const factorization&) const;
 };
 }

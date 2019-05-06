@@ -92,23 +92,23 @@ svector<lpvar> core::sorted_rvars(const factor& f) const {
 
 // the value of the factor is equal to the value of the variable multiplied
 // by the canonize_sign
-rational core::canonize_sign(const factor& f) const {
-    return f.rat_sign() * (f.is_var()? canonize_sign_of_var(f.var()) : m_emons[f.var()].rsign());
+bool core::canonize_sign(const factor& f) const {
+    return f.sign() ^ (f.is_var()? canonize_sign(f.var()) : m_emons[f.var()].rsign());
 }
 
-rational core::canonize_sign_of_var(lpvar j) const {
-    return m_evars.find(j).rsign();        
+bool core::canonize_sign(lpvar j) const {
+    return m_evars.find(j).sign();        
 }
 
 bool core::canonize_sign_is_correct(const monomial& m) const {
-    rational r(1);
+    bool r = false;
     for (lpvar j : m.vars()) {
-        r *= canonize_sign_of_var(j);
+        r ^= canonize_sign(j);
     }
     return r == m.rsign();
 }
 
-rational core::canonize_sign(const monomial& m) const {
+bool core::canonize_sign(const monomial& m) const {
     SASSERT(canonize_sign_is_correct(m));
     return m.rsign();
 }
@@ -811,18 +811,6 @@ void core::explain_separation_from_zero(lpvar j) {
         explain_existing_upper_bound(j);
 }
 
-int core::get_derived_sign(const monomial& rm, const factorization& f) const {
-    rational sign = rm.rsign(); // this is the flip sign of the variable var(rm)
-    SASSERT(!sign.is_zero());
-    for (const factor& fc: f) {
-        lpvar j = var(fc);
-        if (!(var_has_positive_lower_bound(j) || var_has_negative_upper_bound(j))) {
-            return 0;
-        }
-        sign *= m_evars.find(j).rsign();
-    }
-    return nla::rat_sign(sign);
-}
 void core::trace_print_monomial_and_factorization(const monomial& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
     print_product(rm.rvars(), out);
@@ -1390,11 +1378,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
 // divides bc by c, so bc = b*c
 bool core::divide(const monomial& bc, const factor& c, factor & b) const {
     svector<lpvar> c_rvars = sorted_rvars(c);
-    TRACE("nla_solver",
-          tout << "c_rvars = ";
-          print_product(c_rvars, tout);
-          tout << "\nbc_rvars = ";
-          print_product(bc.rvars(), tout););
+    TRACE("nla_solver_div", tout << "c_rvars = "; print_product(c_rvars, tout); tout << "\nbc_rvars = "; print_product(bc.rvars(), tout););
     if (!lp::is_proper_factor(c_rvars, bc.rvars()))
         return false;
             
@@ -1412,12 +1396,10 @@ bool core::divide(const monomial& bc, const factor& c, factor & b) const {
         b = factor(sv->var(), factor_type::MON);
     }
     SASSERT(!b.sign());
-    // we should have bc.vars()*canonize_sign(bc) = bc.rvar() = b.rvars()*c.rvars() =
-    // = canonize_sign(b)*b.vars()* canonize_sign(c)*c.vars().
-    // so bc.vars()*canonize_sign(bc) = canonize_sign(b)*b.vars()* canonize_sign(c)*c.vars().
-    // but canonize_sign(b) now is canonize_sign_of_var(b.m_var) or canonize_sign(m_monomials[b.m_var])
-    // so we are adjusting it
-    b.sign() = (canonize_sign(b) * canonize_sign(c) * canonize_sign(bc) == rational(1))? false: true; 
+    // We have bc = canonize_sign(bc)*bc.rvars() = canonize_sign(b)*b.rvars()*canonize_sign(c)*c.rvars().
+    // Dividing by bc.rvars() we get canonize_sign(bc) = canonize_sign(b)*canonize_sign(c)
+    // Currently, canonize_sign(b) is 1, we might need to adjust it
+    b.sign() = canonize_sign(b) ^ canonize_sign(c) ^ canonize_sign(bc); 
     TRACE("nla_solver", tout << "success div:"; print_factor(b, tout););
     return true;
 }
@@ -1438,8 +1420,8 @@ void core::negate_factor_equality(const factor& c,
 }
     
 void core::negate_factor_relation(const rational& a_sign, const factor& a, const rational& b_sign, const factor& b) {
-    rational a_fs = canonize_sign(a);
-    rational b_fs = canonize_sign(b);
+    rational a_fs = sign_to_rat(canonize_sign(a));
+    rational b_fs = sign_to_rat(canonize_sign(b));
     llc cmp = a_sign*val(a) < b_sign*val(b)? llc::GE : llc::LE;
     mk_ineq(a_fs*a_sign, var(a), - b_fs*b_sign, var(b), cmp);
 }

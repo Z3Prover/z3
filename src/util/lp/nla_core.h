@@ -116,13 +116,13 @@ public:
     void add_empty_lemma();
     // the value of the factor is equal to the value of the variable multiplied
     // by the canonize_sign
-    rational canonize_sign(const factor& f) const;
+    bool canonize_sign(const factor& f) const;
 
-    rational canonize_sign_of_var(lpvar j) const;
+    bool canonize_sign(lpvar j) const;
     
     // the value of the rooted monomias is equal to the value of the m.var() variable multiplied
     // by the canonize_sign
-    rational canonize_sign(const monomial& m) const;
+    bool canonize_sign(const monomial& m) const;
     
 
     void deregister_monomial_from_monomialomials (const monomial & m, unsigned i);
@@ -186,6 +186,8 @@ public:
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
+    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp, const rational& rs);
+    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp);
     void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
     void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp);
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp);
@@ -240,20 +242,13 @@ public:
 
     const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
 
-
-    int get_derived_sign(const monomial& rm, const factorization& f) const;
-
-
     bool var_has_positive_lower_bound(lpvar j) const;
 
     bool var_has_negative_upper_bound(lpvar j) const;
     
     bool var_is_separated_from_zero(lpvar j) const;
-    
 
-    bool vars_are_equiv(lpvar a, lpvar b) const;
-
-    
+    bool vars_are_equiv(lpvar a, lpvar b) const;    
     void explain_equiv_vars(lpvar a, lpvar b);
     void explain(const factorization& f, lp::explanation& exp);
     bool explain_upper_bound(const lp::lar_term& t, const rational& rs, lp::explanation& e) const;
@@ -353,6 +348,7 @@ struct pp_rmon {
     pp_rmon(core const& c, monomial const& m): c(c), m(m) {}
     pp_rmon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
 };
+inline rational sign_to_rat(bool s) { return rational(s? -1 : 1); }
 inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
 inline std::ostream& operator<<(std::ostream& out, pp_rmon const& p) { return p.c.print_monomial_with_vars(p.m, out); }
 
