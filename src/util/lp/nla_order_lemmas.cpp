@@ -209,12 +209,14 @@ bool order::order_lemma_on_ac_and_bc(const monomial& rm_ac,
         order_lemma_on_ac_and_bc_and_factors(rm_ac, ac_f[!k], ac_f[k], rm_bd, b);
 }
 
-// TBD: document what lemma is created here.
 
+// Here ab is a binary factorization of m.
+// We try to find a monomial n = cd, such that |b| = |d| 
+// and get a lemma m R n & |b| = |d| => ab/|b| R cd /|d|, where R is a relation
 void order::order_lemma_on_factorization(const monomial& m, const factorization& ab) {
-    rational sign = m.rsign();
+    bool sign = m.rsign();
     for (factor f: ab)
-        sign *= _().canonize_sign(f);
+        sign ^= _().canonize_sign(f);
     const rational fv = val(ab[0]) * val(ab[1]);
     const rational mv = sign * val(m);
     TRACE("nla_solver",
@@ -225,7 +227,7 @@ void order::order_lemma_on_factorization(const monomial& m, const factorization&
     bool gt = mv > fv;
     TRACE("nla_solver", tout << "m="; _().print_monomial_with_vars(m, tout); tout << "\nfactorization="; _().print_factorization(ab, tout););
     for (unsigned j = 0, k = 1; j < 2; j++, k--) {
-        order_lemma_on_ab(m, sign, var(ab[k]), var(ab[j]), gt);
+        order_lemma_on_ab(m, sign_to_rat(sign), var(ab[k]), var(ab[j]), gt);
         explain(ab); explain(m);
         TRACE("nla_solver", _().print_lemma(tout););
         order_lemma_on_ac_explore(m, ab, j == 1);
@@ -265,7 +267,7 @@ void order::generate_ol(const monomial& ac,
     add_empty_lemma();
     rational rc_sign = rational(c_sign);
     mk_ineq(rc_sign * canonize_sign(c), var(c), llc::LE);
-    mk_ineq(canonize_sign(ac), var(ac), -canonize_sign(bc), var(bc), ab_cmp);
+    mk_ineq(canonize_sign(ac), var(ac), !canonize_sign(bc), var(bc), ab_cmp);
     mk_ineq(canonize_sign(a)*rc_sign, var(a), - canonize_sign(b)*rc_sign, var(b), negate(ab_cmp));
     explain(ac);
     explain(a);

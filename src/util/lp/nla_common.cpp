@@ -40,15 +40,14 @@ template <typename T> lpvar common::var(T const& t) const { return c().var(t); }
 template lpvar common::var<factor>(factor const& t) const;
 template lpvar common::var<monomial>(monomial const& t) const;
 void common::add_empty_lemma() { c().add_empty_lemma(); }
-template <typename T> rational common::canonize_sign(const T& t) const {
+template <typename T> bool common::canonize_sign(const T& t) const {
     return c().canonize_sign(t);
 }
 
-template rational common::canonize_sign<monomial>(const monomial& t) const;
-template rational common::canonize_sign<factor>(const factor& t) const;
-rational common::canonize_sign(lpvar j) const {
-    return c().canonize_sign_of_var(j);
-}
+template bool common::canonize_sign<monomial>(const monomial&) const;
+template bool common::canonize_sign<factor>(const factor&) const;
+template bool common::canonize_sign<lpvar>(const lpvar&) const;
+
 void common::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs){
     c().mk_ineq(t, cmp, rs);
 }
@@ -66,6 +65,10 @@ void common::mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp){
 
 void common::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp) {
     c().mk_ineq(a, j, b, k, cmp);
+}
+
+void common::mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp) {
+    c().mk_ineq(sign_to_rat(a), j, sign_to_rat(b), k, cmp);
 }
 
 void common::mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs) {

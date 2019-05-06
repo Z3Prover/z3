@@ -27,7 +27,7 @@ basics::basics(core * c) : common(c) {}
 // Monomials m and n vars have the same values, up to "sign"
 // Generate a lemma if values of m.var() and n.var() are not the same up to sign
 bool basics::basic_sign_lemma_on_two_monomials(const monomial& m, const monomial& n) {
-    const rational& sign = m.rsign() * n.rsign();
+    const rational sign = sign_to_rat(m.rsign() ^ n.rsign());
      if (val(m) == val(n) * sign)
         return false;
      TRACE("nla_solver", tout << "sign contradiction:\nm = " << pp_mon(c(), m) << "n= " << pp_mon(c(), n) << "sign: " << sign << "\n";);
@@ -478,14 +478,25 @@ void basics::generate_pl(const monomial& rm, const factorization& fc, int factor
         explain(rm);
     }
     TRACE("nla_solver", c().print_lemma(tout); );
-}   
+}
+
+bool basics::is_separated_from_zero(const factorization& f) const {
+    for (const factor& fc: f) {
+        lpvar j = var(fc);
+        if (!(c().var_has_positive_lower_bound(j) || c().var_has_negative_upper_bound(j))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
 // here we use the fact xy = 0 -> x = 0 or y = 0
 void basics::basic_lemma_for_mon_zero_model_based(const monomial& rm, const factorization& f) {        
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout););
     SASSERT(val(rm).is_zero()&& ! c().rm_check(rm));
     add_empty_lemma();
-    int sign =  c().get_derived_sign(rm, f);
-    if (sign == 0) {
+    if (is_separated_from_zero(f)) {
         c().mk_ineq(var(rm), llc::NE);        
         for (auto j : f) {
             c().mk_ineq(var(j), llc::EQ);
@@ -496,7 +507,6 @@ void basics::basic_lemma_for_mon_zero_model_based(const monomial& rm, const fact
             c().explain_separation_from_zero(var(j));
         }            
     }
-    explain(rm);
     explain(f);
     TRACE("nla_solver", c().print_lemma(tout););
 }
@@ -692,7 +702,7 @@ void basics::basic_lemma_for_mon_neutral_model_based(const monomial& rm, const f
 // use the fact
 // 1 * 1 ... * 1 * x * 1 ... * 1 = x
 bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const monomial& rm, const factorization& f) {
-    rational sign = rm.rsign();
+    rational sign = sign_to_rat(rm.rsign());
     TRACE("nla_solver_bl", tout << "f = "; c().print_factorization(f, tout); tout << ", sign = " << sign << '\n'; );
     lpvar not_one = -1;
     for (auto j : f){

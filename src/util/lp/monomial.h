@@ -61,8 +61,7 @@ public:
     unsigned visited() const { return m_visited; }
     unsigned& visited() { return m_visited; }
     svector<lpvar> const& rvars() const { return m_rvars; }
-    bool sign() const { return m_rsign; }
-    rational rsign() const { return rational(m_rsign ? -1 : 1); }
+    bool rsign() const { return m_rsign; }
     void reset_rfields() { m_rsign = false; m_rvars.reset(); SASSERT(m_rvars.size() == 0); }
     void push_rvar(signed_var sv) { m_rsign ^= sv.sign(); m_rvars.push_back(sv.var()); }
     void sort_rvars() {
