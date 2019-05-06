@@ -62,7 +62,7 @@ signed_var var_eqs::find(signed_var v) const {
         return v;
     }
     unsigned idx = m_uf.find(v.index());
-    return signed_var(idx, from_index_dummy());
+    return signed_var(idx);
 }
 
 void var_eqs::explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) const {
@@ -174,7 +174,7 @@ std::ostream& var_eqs::display(std::ostream& out) const {
     unsigned idx = 0;
     for (auto const& edges : m_eqs) {
         if (!edges.empty()) {
-            auto v = signed_var(idx, from_index_dummy());
+            auto v = signed_var(idx);
             out << v << " root: " << find(v) << " : ";
             for (auto const& jv : edges) {
                 out << jv.m_var << " ";
