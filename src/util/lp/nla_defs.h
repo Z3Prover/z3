@@ -35,8 +35,8 @@ class signed_var {
 public:
     // constructor, sign = true means minus
     signed_var(lpvar v, bool sign): m_sv((v << 1) + (sign ? 1 : 0)) {}
+    explicit signed_var(unsigned sv) : m_sv(sv) {}
     // constructor
-    signed_var(unsigned sv, from_index_dummy): m_sv(sv) {}
     bool sign() const { return 0 != (m_sv & 0x1); }
     lpvar var() const { return m_sv >> 1; }
     unsigned index() const { return m_sv; }        

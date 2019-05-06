@@ -161,7 +161,7 @@ public:
     public:
         iterator(var_eqs& ve, unsigned idx, bool t) : m_ve(ve), m_idx(idx), m_touched(t) {}
         signed_var operator*() const {
-            return signed_var(m_idx, from_index()); // 0 is needed to call the right constructor
+            return signed_var(m_idx);
         }
         iterator& operator++() { m_idx = m_ve.m_uf.next(m_idx); m_touched = true; return *this; }
         bool operator==(iterator const& other) const { return m_idx == other.m_idx && m_touched == other.m_touched; }
@@ -191,18 +191,20 @@ public:
 
     void unmerge_eh(unsigned i, unsigned j) { 
         if (m_merge_handler) {
-            m_merge_handler->unmerge_eh(signed_var(i, from_index_dummy()), signed_var(j, from_index_dummy())); 
+            m_merge_handler->unmerge_eh(signed_var(i), signed_var(j)); 
         }
     }
     void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {
         if (m_merge_handler) {
-            m_merge_handler->merge_eh(signed_var(r2, from_index_dummy()), signed_var(r1, from_index_dummy()), signed_var(v2, from_index_dummy()), signed_var(v1, from_index_dummy())); 
+            m_merge_handler->merge_eh(signed_var(r2), signed_var(r1),
+                                      signed_var(v2), signed_var(v1)); 
         }
     }
 
     void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {
         if (m_merge_handler) {
-            m_merge_handler->after_merge_eh(signed_var(r2, from_index_dummy()), signed_var(r1, from_index_dummy()), signed_var(v2, from_index_dummy()), signed_var(v1, from_index_dummy())); 
+            m_merge_handler->after_merge_eh(signed_var(r2), signed_var(r1),
+                                            signed_var(v2), signed_var(v1)); 
         }
     }
 
