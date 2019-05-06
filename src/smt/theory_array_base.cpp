@@ -34,11 +34,7 @@ namespace smt {
 
     void theory_array_base::found_unsupported_op(expr * n) {
         if (!get_context().get_fparams().m_array_fake_support && !m_found_unsupported_op) {
-            //array_util autil(get_manager());
-            //func_decl* f = 0;
-            //if (autil.is_as_array(n, f) && f->is_skolem()) return;
-            TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);
-            
+            TRACE("array", tout << mk_ll_pp(n, get_manager()) << "\n";);            
             get_context().push_trail(value_trail<context, bool>(m_found_unsupported_op));
             m_found_unsupported_op = true;
         }
@@ -266,10 +262,7 @@ namespace smt {
 
         m_array_value.reset();
         // populate m_array_value if the select(a, i) parent terms of r1
-        enode_vector::const_iterator it  = r1->begin_parents();
-        enode_vector::const_iterator end = r1->end_parents();
-        for (; it != end; ++it) {
-            enode* parent = *it;            
+        for (enode* parent : r1->get_const_parents()) {
             if (parent->is_cgr() &&
                 ctx.is_relevant(parent) &&
                 is_select(parent->get_owner()) &&
@@ -278,10 +271,7 @@ namespace smt {
             }
         }
         // traverse select(a, i) parent terms of r2 trying to find a match.
-        it  = r2->begin_parents();
-        end = r2->end_parents();
-        for (; it != end; ++it) {
-            enode * parent = *it;
+        for (enode * parent : r2->get_const_parents()) {
             enode * other;
             if (parent->is_cgr() && 
                 ctx.is_relevant(parent) &&
@@ -712,10 +702,7 @@ namespace smt {
         for (theory_var v = 0; v < num_vars; ++v) {
             enode * r = get_enode(v)->get_root();                
             if (is_representative(v) && get_context().is_relevant(r)) {
-                enode_vector::iterator it  = r->begin_parents();
-                enode_vector::iterator end = r->end_parents();
-                for (; it != end; ++it) {
-                    enode * parent = *it;
+                for (enode * parent : r->get_const_parents()) {
                     if (parent->get_cg() == parent &&
                         get_context().is_relevant(parent) &&
                         is_select(parent) &&
@@ -735,10 +722,7 @@ namespace smt {
         if (!get_context().is_relevant(r)) {
             return;
         }
-        ptr_vector<enode>::const_iterator it  = r->begin_parents();
-        ptr_vector<enode>::const_iterator end = r->end_parents();
-        for (; it != end; ++it) {
-            enode * parent = *it;
+        for (enode * parent : r->get_const_parents()) {
             if (get_context().is_relevant(parent) &&
                 is_store(parent) &&
                 parent->get_arg(0)->get_root() == r) {
@@ -770,10 +754,7 @@ namespace smt {
 
     void theory_array_base::propagate_selects_to_store_parents(enode * r, enode_pair_vector & todo) {
         select_set * sel_set = get_select_set(r);
-        select_set::iterator it2  = sel_set->begin();
-        select_set::iterator end2 = sel_set->end();
-        for (; it2 != end2; ++it2) {
-            enode * sel = *it2;
+        for (enode* sel : *sel_set) {
             SASSERT(is_select(sel));
             propagate_select_to_store_parents(r, sel, todo);
         }
@@ -781,10 +762,7 @@ namespace smt {
 
     void theory_array_base::propagate_selects() {
         enode_pair_vector todo;
-        enode_vector::const_iterator it  = m_selects_domain.begin();
-        enode_vector::const_iterator end = m_selects_domain.end();
-        for (; it != end; ++it) {
-            enode * r = *it;
+        for (enode * r : m_selects_domain) {
             propagate_selects_to_store_parents(r, todo);
         }
         for (unsigned qhead = 0; qhead < todo.size(); qhead++) {
@@ -901,6 +879,10 @@ namespace smt {
         }
     };
 
+    bool theory_array_base::include_func_interp(func_decl* f) {
+        return is_decl_of(f, get_id(), OP_ARRAY_EXT);
+    }
+
     model_value_proc * theory_array_base::mk_value(enode * n, model_generator & m) {
         SASSERT(get_context().is_relevant(n));
         theory_var v       = n->get_th_var(get_id());
@@ -948,10 +930,7 @@ namespace smt {
         m_selects.find(n->get_root(), sel_set);
         if (sel_set != nullptr) {
             ptr_buffer<enode> args;
-            select_set::iterator it  = sel_set->begin();
-            select_set::iterator end = sel_set->end();
-            for (; it != end; ++it) {
-                enode * select = *it;
+            for (enode * select : *sel_set) {
                 args.reset();
                 unsigned num = select->get_num_args();
                 for (unsigned j = 1; j < num; ++j)
@@ -963,10 +942,8 @@ namespace smt {
         TRACE("array", 
               tout << mk_pp(n->get_root()->get_owner(), get_manager()) << "\n";
               if (sel_set) {
-                  select_set::iterator it  = sel_set->begin();
-                  select_set::iterator end = sel_set->end();
-                  for (; it != end; ++it) {
-                      tout << "#" << (*it)->get_root()->get_owner()->get_id() << " " << mk_pp((*it)->get_owner(), get_manager()) << "\n";
+                  for (enode* s : *sel_set) {
+                      tout << "#" << s->get_root()->get_owner()->get_id() << " " << mk_pp(s->get_owner(), get_manager()) << "\n";
                   }
               }
               if (else_val_n) {

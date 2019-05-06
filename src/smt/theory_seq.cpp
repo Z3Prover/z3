@@ -13,7 +13,76 @@ Author:
 
     Nikolaj Bjorner (nbjorner) 2015-6-12
 
-Revision History:
+Outline:
+
+ A cascading sequence of solvers:
+ 
+ - simplify_and_solve_eqs
+   - canonize equality
+   - solve_unit_eq: x = t, where x not in t.
+   - solve_binary_eq: xa = bx -> a = b, xa = bx
+   - solve_nth_eq: x = unit(nth(x,0)).unit(nth(x,1)).unit(nth(x,2)...unit(nth(x,n-1))
+   - solve_itos: itos(i) = "" -> i < 0   
+
+ - check_contains
+   - (f,dep) = canonize(contains(a, b))
+     lit := |b| > |a|
+     f := true -> conflict
+     f := false -> solved
+     value(lit) = l_true -> solved
+     f := s = t -> dep -> s != t
+     f := f1 & f2 -> dep -> ~f1 | ~f2
+     f := f1 | f2 -> dep -> ~f1 & ~f2
+
+ - solve_nqs
+   - s_i = t_i, d_i <- solve(s = t)
+   - create literals for s_i = t_i
+   - if one of created literals is false, done.
+   - conflict if all created literals are true
+
+ - fixed_length
+   - len(s) = k -> s = unit(nth(0,s)).unit(nth(1,s))....unit(nth(n-1,s))
+
+ - len_based_split
+   s = x.xs t = y.ys, len(x) = len(y) -> x = y & xs = ys
+   s = x.xs t = y.ys, len(x) = len(y) + offset -> y = x*Z, Z*xs = ys
+   s = x.x'.xs, t = y.y'.ys, len(xs) = len(ys) -> xs = ys
+   
+ - check_int_string
+   e := itos(n), len(e) = v, v > 0 ->      
+   n := stoi(e), len(e) = v, v > 0 -> 
+   -  n >= 0 & len(e) >= i + 1 => is_digit(e_i) for i = 0..k-1
+   -  n >= 0 & len(e) = k => n = sum 10^i*digit(e_i)
+   -  n < 0  & len(e) = k => \/_i ~is_digit(e_i) for i = 0..k-1
+   -  10^k <= n < 10^{k+1}-1 => len(e) => k
+
+ - reduce_length_eq
+   x1...xn = y1...ym, len(x1...xk) = len(y1...yj) -> x1...xk = y1..yj, x{k+1}..xn = y{j+1}..ym
+
+ - branch_unit_variable
+   len(x) = n -> x = unit(a1)unit(a2)...unit(a_n)
+
+ - branch_binary_variable
+   x ++ units1 = units2 ++ y -> x is prefix of units2 or x = units2 ++ y1, y = y1 ++ y2, y2 = units2
+
+ - branch_variable
+   - branch_variable_mb
+     s = xs, t = ys, each x_i, y_j has a length.
+     based on length comparisons decompose into smaller equalities.
+
+   - branch_variable_eq
+     cycle through branch options
+
+   - branch_ternary_variable1
+     
+   - branch_ternary_variable2
+
+ - check_length_coherence
+   len(e) >= lo => e = unit(nth(0,e)).unit(nth(1,e))....unit(nth(lo-1,e)).seq
+   len(e) <= lo => seq = empty
+   len(e) <= hi => len(seq) <= hi - lo
+
+ - check_extensionality
 
 
 --*/
@@ -454,8 +523,6 @@ bool theory_seq::is_unit_eq(expr_ref_vector const& ls, expr_ref_vector const& rs
     if (ls.empty() || !is_var(ls[0])) {
         return false;
     }
-    //std::function<bool(expr*)> is_unit = [&](expr* elem) { return m_util.str.is_unit(elem); }
-    //return rs.forall(is_unit);
 
     for (auto const& elem : rs) {
         if (!m_util.str.is_unit(elem)) {

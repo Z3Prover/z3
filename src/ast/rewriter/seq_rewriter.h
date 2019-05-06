@@ -167,6 +167,7 @@ public:
     static void get_param_descrs(param_descrs & r) {}
 
     void set_solver(expr_solver* solver) { m_re2aut.set_solver(solver); }
+    bool has_solver() { return m_re2aut.has_solver(); }
 
 
     br_status mk_app_core(func_decl * f, unsigned num_args, expr * const * args, expr_ref & result);

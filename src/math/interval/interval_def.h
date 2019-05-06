@@ -665,6 +665,16 @@ bool interval_manager<C>::check_invariant(interval const & n) const {
 }
 
 template<typename C>
+void interval_manager<C>::set(numeral const& k, interval & b) {
+    set_lower_is_inf(b, false);
+    set_upper_is_inf(b, false);
+    m().set(lower(b), k);
+    m().set(upper(b), k);
+    set_lower_is_open(b, false);
+    set_upper_is_open(b, false);
+}
+
+template<typename C>
 void interval_manager<C>::set(interval & t, interval const & s) {
     if (&t == &const_cast<interval&>(s))
         return;

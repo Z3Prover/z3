@@ -1846,6 +1846,14 @@ public:
         return mk_func_decl(name, 2, d, range, assoc, comm, false);
     }
 
+    bool is_considered_uninterpreted(func_decl* f) {
+        if (f->get_family_id() == null_family_id) {
+            return true;
+        }
+        decl_plugin* p = get_plugin(f->get_family_id());
+        return !p || p->is_considered_uninterpreted(f);        
+    }
+
     app * mk_app(func_decl * decl, unsigned num_args, expr * const * args);
 
     app * mk_app(func_decl * decl, expr * const * args) {

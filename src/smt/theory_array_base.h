@@ -194,7 +194,7 @@ namespace smt {
         select_set * get_select_set(enode * n);
         void finalize_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & m) override;
-        
+        bool include_func_interp(func_decl* f) override;
     public:
         theory_array_base(ast_manager & m);
         ~theory_array_base() override { restore_sorts(0); }
