@@ -268,7 +268,7 @@ void order::generate_ol(const monomial& ac,
     rational rc_sign = rational(c_sign);
     mk_ineq(rc_sign * canonize_sign(c), var(c), llc::LE);
     mk_ineq(canonize_sign(ac), var(ac), !canonize_sign(bc), var(bc), ab_cmp);
-    mk_ineq(canonize_sign(a)*rc_sign, var(a), - canonize_sign(b)*rc_sign, var(b), negate(ab_cmp));
+    mk_ineq(sign_to_rat(canonize_sign(a))*rc_sign, var(a), - sign_to_rat(canonize_sign(b))*rc_sign, var(b), negate(ab_cmp));
     explain(ac);
     explain(a);
     explain(bc);
