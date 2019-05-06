@@ -57,8 +57,7 @@ struct common {
     template <typename T> void explain(const T&);
     void explain(lpvar);
     void add_empty_lemma();
-    template <typename T> rational canonize_sign(const T&) const;
-    rational canonize_sign(lpvar) const;
+    template <typename T> bool canonize_sign(const T&) const;
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
 
@@ -67,6 +66,7 @@ struct common {
     void mk_ineq(lpvar j, const rational& b, lpvar k, llc cmp);
 
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp);
+    void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp);
 
     void mk_ineq(const rational& a ,lpvar j, lpvar k, llc cmp, const rational& rs);
 
