@@ -412,7 +412,7 @@ expr_ref model::cleanup_expr(top_sort& ts, expr* e, unsigned current_partition) 
                         domain.push_back(s);
                     }
                     new_t = fi->get_array_interp(domain);
-                    TRACE("model", tout << new_t << "\n";);
+                    TRACE("model", tout << "array interpretation:" << new_t << "\n";);
                 }
             }
 

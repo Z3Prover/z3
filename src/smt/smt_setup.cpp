@@ -900,6 +900,9 @@ namespace smt {
         else if (m_params.m_string_solver == "seq") {
             setup_seq();
         } 
+        else if (m_params.m_string_solver == "empty") {
+            m_context.register_plugin(alloc(smt::theory_seq_empty, m_manager, m_params));
+        }
         else if (m_params.m_string_solver == "auto") {
             if (st.m_has_seq_non_str) {
                 setup_seq();
