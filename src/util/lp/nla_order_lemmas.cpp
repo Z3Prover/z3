@@ -218,7 +218,7 @@ void order::order_lemma_on_factorization(const monomial& m, const factorization&
     for (factor f: ab)
         sign ^= _().canonize_sign(f);
     const rational fv = val(ab[0]) * val(ab[1]);
-    const rational mv = sign * val(m);
+    const rational mv = sign_to_rat(sign) * val(m);
     TRACE("nla_solver",
           tout << "ab.size()=" << ab.size() << "\n";
           tout << "we should have sign*val(m):" << mv << "=(" << sign << ")*(" << val(m) <<") to be equal to " << " val(ab[0])*val(ab[1]):" << fv << "\n";);
@@ -266,7 +266,7 @@ void order::generate_ol(const monomial& ac,
                        llc ab_cmp) {
     add_empty_lemma();
     rational rc_sign = rational(c_sign);
-    mk_ineq(rc_sign * canonize_sign(c), var(c), llc::LE);
+    mk_ineq(rc_sign * sign_to_rat(canonize_sign(c)), var(c), llc::LE);
     mk_ineq(canonize_sign(ac), var(ac), !canonize_sign(bc), var(bc), ab_cmp);
     mk_ineq(sign_to_rat(canonize_sign(a))*rc_sign, var(a), - sign_to_rat(canonize_sign(b))*rc_sign, var(b), negate(ab_cmp));
     explain(ac);
