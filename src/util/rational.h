@@ -137,7 +137,16 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
+private:
+    rational & operator=(bool) {
+        UNREACHABLE(); return *this;
+    }
+    inline rational operator*(bool  r1) const {
+        UNREACHABLE();
+        return *this;
+    }
 
+public:
     rational & operator=(int v) {
         *this = rational(v);
         return *this;
@@ -504,9 +513,18 @@ inline rational operator*(rational const & r1, rational const & r2) {
     return rational(r1) *= r2; 
 }
 
+inline rational operator*(rational const & r1, bool r2) {
+    UNREACHABLE();
+    return r1 * rational(r2);
+}
 inline rational operator*(rational const & r1, int r2) {
     return r1 * rational(r2);
 }
+inline rational operator*(bool  r1, rational const & r2) {
+    UNREACHABLE();
+    return rational(r1) * r2;
+}
+
 inline rational operator*(int  r1, rational const & r2) {
     return rational(r1) * r2;
 }
@@ -516,6 +534,11 @@ inline rational operator/(rational const & r1, rational const & r2) {
 }
 
 inline rational operator/(rational const & r1, int r2) {
+    return r1 / rational(r2);
+}
+
+inline rational operator/(rational const & r1, bool r2) {
+    UNREACHABLE();
     return r1 / rational(r2);
 }
 
