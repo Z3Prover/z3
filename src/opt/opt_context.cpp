@@ -362,7 +362,7 @@ namespace opt {
     void context::fix_model(model_ref& mdl) {
         if (mdl && !m_model_fixed.contains(mdl.get())) {
             TRACE("opt", m_fm->display(tout << "fix-model\n");
-                  m_model_converter->display(tout););
+                  if (m_model_converter) m_model_converter->display(tout););
             (*m_fm)(mdl);
             apply(m_model_converter, mdl);
             m_model_fixed.push_back(mdl.get());
@@ -942,7 +942,7 @@ namespace opt {
             return true;
         }
         if (is_max && get_pb_sum(term, terms, weights, offset)) {
-            TRACE("opt", tout << "try to convert maximization" << mk_pp(term, m) << "\n";);
+            TRACE("opt", tout << "try to convert maximization " << mk_pp(term, m) << "\n";);
             // maximize 2*x + 3*y - z 
             // <=>
             // (assert-soft x 2)
