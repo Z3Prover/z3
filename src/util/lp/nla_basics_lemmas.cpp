@@ -496,7 +496,7 @@ void basics::basic_lemma_for_mon_zero_model_based(const monomial& rm, const fact
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout););
     SASSERT(val(rm).is_zero()&& ! c().rm_check(rm));
     add_empty_lemma();
-    if (is_separated_from_zero(f)) {
+    if (!is_separated_from_zero(f)) {
         c().mk_ineq(var(rm), llc::NE);        
         for (auto j : f) {
             c().mk_ineq(var(j), llc::EQ);
