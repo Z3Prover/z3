@@ -280,6 +280,7 @@ void emonomials::do_canonize(monomial & m) const {
 
 bool emonomials::is_canonized(const monomial & m) const {
     monomial mm(m);
+    do_canonize(mm);
     return mm.rvars() == m.rvars();
 }
 
