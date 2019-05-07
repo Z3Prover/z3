@@ -703,7 +703,7 @@ void basics::basic_lemma_for_mon_neutral_model_based(const monomial& rm, const f
 // 1 * 1 ... * 1 * x * 1 ... * 1 = x
 bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(const monomial& rm, const factorization& f) {
     rational sign = sign_to_rat(rm.rsign());
-    TRACE("nla_solver_bl", tout << "f = "; c().print_factorization(f, tout); tout << ", sign = " << sign << '\n'; );
+    TRACE("nla_solver_bl", tout << pp_rmon(_(), rm) <<"\nf = "; c().print_factorization(f, tout); tout << "sign = " << sign << '\n'; );
     lpvar not_one = -1;
     for (auto j : f){
         TRACE("nla_solver_bl", tout << "j = "; c().print_factor_with_vars(j, tout););
@@ -729,7 +729,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(co
     if (not_one + 1) {
         // we found the only not_one
         if (val(rm) == val(not_one) * sign) {
-            TRACE("nla_solver", tout << "the whole equal to the factor" << std::endl;);
+            TRACE("nla_solver", tout << "the whole is equal to the factor" << std::endl;);
             return false;
         }
     } else {
@@ -746,7 +746,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based(co
     for (auto j : f){
         lpvar var_j = var(j);
         if (not_one == var_j) continue;
-        c().mk_ineq(var_j, llc::NE, j.is_var()? val(j) : c().canonize_sign(j) * val(j));   
+        c().mk_ineq(var_j, llc::NE, j.is_var()? val(j) : sign_to_rat(c().canonize_sign(j)) * val(j));   
     }
 
     if (not_one == static_cast<lpvar>(-1)) {

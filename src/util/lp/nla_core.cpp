@@ -228,8 +228,12 @@ std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const
 std::ostream& core::print_monomial_with_vars(const monomial& m, std::ostream& out) const {
     out << "["; print_var(m.var(), out) << "]\n";
     out << "vars:"; print_product_with_vars(m.vars(), out) << "\n";
-    out << "rvars:"; print_product_with_vars(m.rvars(), out) << "\n";
-    out << "rsign:" << m.rsign() << "\n";
+    if (m.vars() == m.rvars())
+        out << "same rvars, and m.rsign = " << m.rsign() << " of course\n";
+    else {
+        out << "rvars:"; print_product_with_vars(m.rvars(), out) << "\n";
+        out << "rsign:" << m.rsign() << "\n";
+    }
     return out;
 }
 
@@ -1586,7 +1590,7 @@ bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*
         rm_found = &rm;
         if (find_bfc_to_refine_on_rmonomial(rm, bf)) {
             j = rm.var();
-            sign = rm.rsign();
+            sign = sign_to_rat(rm.rsign());
             TRACE("nla_solver", tout << "found bf";
                   tout << ":rm:" << pp_rmon(*this, rm) << "\n";
                   tout << "bf:"; print_bfc(bf, tout);
