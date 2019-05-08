@@ -13,3 +13,6 @@ def_module_params('lp',
 
 
     
+                   ('print_ext_var_names', BOOL, False, 'print external variable names')
+                          ))
+

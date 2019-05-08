@@ -579,7 +579,11 @@ public:
             out << "[" << j << "] is not present\n";
             return out;
         }
-        out << "[" << j << "],\tname = "<< column_name(j) << "\t";
+        if (m_settings.m_print_external_var_name)
+            out << "[" << j << "],\tname = "<< column_name(j) << "\t";
+        else
+            out << "v" << j <<  "= \t";
+            
         switch (m_column_types[j]) {
         case column_type::fixed:
         case column_type::boxed:
