@@ -195,7 +195,7 @@ public:
     unsigned         limit_on_rows_for_hnf_cutter;
     unsigned         limit_on_columns_for_hnf_cutter;
     bool             m_enable_hnf;
-
+    bool             m_print_external_var_name;
 
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
     void set_hnf_cut_period(unsigned period) { m_hnf_cut_period = period;  }
@@ -262,7 +262,8 @@ public:
                     m_int_patch_only_integer_values(true),
                     limit_on_rows_for_hnf_cutter(75),
                     limit_on_columns_for_hnf_cutter(150),
-                    m_enable_hnf(true)
+                    m_enable_hnf(true),
+                    m_print_external_var_name(false)
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
