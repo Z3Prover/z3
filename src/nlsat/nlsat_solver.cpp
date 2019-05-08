@@ -2102,10 +2102,7 @@ namespace nlsat {
             del_ill_formed_lemmas();
             TRACE("nlsat_bool_assignment_bug", tout << "before reinit cache\n"; display_bool_assignment(tout););
             reinit_cache();
-            for (var x = 0; x < num_vars(); x++) {
-                if (new_assignment.is_assigned(x))
-                    m_assignment.set(x, new_assignment.value(x));
-            }
+            m_assignment.swap(new_assignment);
             reattach_arith_clauses(m_clauses);
             reattach_arith_clauses(m_learned);
             TRACE("nlsat_reorder", tout << "solver after variable reorder\n"; display(tout); display_vars(tout););
