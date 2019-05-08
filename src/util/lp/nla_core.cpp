@@ -164,7 +164,11 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first) out << "*"; else first = false;
-        out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
+        if (settings().m_print_external_var_name)
+            out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
+        else
+            out << "(v" << v << " =" << val(v) << ")";
+            
     }
     return out;
 }
@@ -194,7 +198,10 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 }
 
 std::ostream& core::print_monomial(const monomial& m, std::ostream& out) const {
-    out << "( [" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
+    if (settings().m_print_external_var_name)
+        out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
+    else 
+        out << "(v" << m.var() << " = " << val(m.var()) << " = ";
     print_product(m.vars(), out) << ")\n";
     return out;
 }
@@ -210,7 +217,11 @@ std::ostream& core::print_tangent_domain(const point &a, const point &b, std::os
 }
 
 std::ostream& core::print_bfc(const bfc& m, std::ostream& out) const {
-    return out << "( x = "; print_factor(m.m_x, out); out <<  ", y = "; print_factor(m.m_y, out); out <<  ")";
+    out << "( x = ";
+    print_factor(m.m_x, out);
+    out <<  ", y = ";
+    print_factor(m.m_y, out); out <<  ")";
+    return out;
 }
 
 std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
@@ -734,7 +745,6 @@ std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
     if (m_emons.is_monomial_var(j)) {
         print_monomial(m_emons[j], out);
-        out << " = " << val(j);;
     }
         
     m_lar_solver.print_column_info(j, out);
@@ -1191,6 +1201,9 @@ template bool core::mon_has_zero<unsigned_vector>(const unsigned_vector& product
 
 
 lp::lp_settings& core::settings() {
+    return m_lar_solver.settings();
+}
+const lp::lp_settings& core::settings() const {
     return m_lar_solver.settings();
 }
     

@@ -383,6 +383,7 @@ class theory_lra::imp {
         lp().settings().simplex_strategy() = static_cast<lp::simplex_strategy_enum>(lpar.simplex_strategy());
         lp().settings().bound_propagation() = BP_NONE != propagation_mode();
         lp().settings().m_enable_hnf = lpar.enable_hnf();
+        lp().settings().m_print_external_var_name = lpar.print_ext_var_names();
         lp().set_track_pivoted_rows(lpar.bprop_on_pivoted_rows());
         lp().settings().report_frequency = lpar.rep_freq();
         lp().settings().print_statistics = lpar.print_stats();
