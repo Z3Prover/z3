@@ -401,15 +401,18 @@ struct purify_arith_proc {
                 return BR_DONE;
 
             bool is_int = u().is_int(args[0]);
+            expr * x = args[0];
+            rational xr;
+            if (u().is_numeral(x, xr) && xr.is_zero())
+                return BR_FAILED;
 
             expr * k = mk_fresh_var(is_int);
             result = k;
             mk_def_proof(k, t, result_pr);
             cache_result(t, result, result_pr);
             
-            expr * x = args[0];
-            expr * zero = u().mk_numeral(rational(0), is_int);
-            expr * one  = u().mk_numeral(rational(1), is_int);
+            expr_ref zero(u().mk_numeral(rational(0), is_int), m());
+            expr_ref one(u().mk_numeral(rational(1), is_int), m());
             if (y.is_zero()) {
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
