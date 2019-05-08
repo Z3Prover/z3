@@ -268,6 +268,7 @@ public:
     template <typename T>
     bool mon_has_zero(const T& product) const;
     lp::lp_settings& settings();
+    const lp::lp_settings& settings() const;
     unsigned random();
     void map_monomial_vars_to_monomial_indices(unsigned i);
 
