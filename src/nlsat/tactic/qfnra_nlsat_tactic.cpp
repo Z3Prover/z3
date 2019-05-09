@@ -50,10 +50,10 @@ tactic * mk_qfnra_nlsat_tactic(ast_manager & m, params_ref const & p) {
                               purify_p),
                  mk_propagate_values_tactic(m, p),
                  mk_solve_eqs_tactic(m, p),
-                 using_params(mk_purify_arith_tactic(m, p),
-                              purify_p),
                  mk_elim_uncnstr_tactic(m, p),
-                 mk_elim_term_ite_tactic(m, p)),
+                 mk_elim_term_ite_tactic(m, p),
+                 using_params(mk_purify_arith_tactic(m, p),
+                              purify_p)),
         and_then(/* mk_degree_shift_tactic(m, p), */ // may affect full dimensionality detection
             factor,
             mk_solve_eqs_tactic(m, p),
