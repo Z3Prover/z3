@@ -239,7 +239,8 @@ public:
 
     bool var_is_fixed(lpvar j) const;
         
-    bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
+    bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, lpvar & i) const;
+    bool is_canonical_monomial(lpvar) const;
 
     bool var_has_positive_lower_bound(lpvar j) const;
 

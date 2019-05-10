@@ -805,11 +805,19 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     return out;
 }
     
-bool core::find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
-    SASSERT(vars_are_roots(vars));
+bool core::find_canonical_monomial_of_vars(const svector<lpvar>& vars, lpvar & i) const {
     monomial const* sv = m_emons.find_canonical(vars);
     return sv && (i = sv->var(), true);
 }
+
+bool core::is_canonical_monomial(lpvar j) const {
+    const monomial & m = m_emons[j];
+    unsigned k;
+    SASSERT(find_canonical_monomial_of_vars(m.rvars(), k));
+    find_canonical_monomial_of_vars(m.rvars(), k);
+    return j == k;
+}
+
 
 void core::explain_existing_lower_bound(lpvar j) {
     SASSERT(has_lower_bound(j));
@@ -1410,7 +1418,7 @@ bool core::divide(const monomial& bc, const factor& c, factor & b) const {
         b = factor(b_rvars[0], factor_type::VAR);
     } else {
         monomial const* sv = m_emons.find_canonical(b_rvars);
-        if (!sv) {
+        if (sv == nullptr) {
             TRACE("nla_solver_div", tout << "not in rooted";);
             return false;
         }
@@ -1592,11 +1600,14 @@ bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf)
     }
     return false;
 }
-    
+
+// finds a canonical monomial with its binary factorization
 bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
     m = nullptr;
-    // todo: randomise loop
-    for (unsigned i: m_to_refine) {
+    unsigned r = random(), sz = m_to_refine.size();
+    for (unsigned k = 0; k < sz; k++) {
+        lpvar i = m_to_refine[(k + r) % sz];
+        if (!is_canonical_monomial(i)) continue;
         m = &m_emons[i];
         SASSERT (!check_monomial(*m));
         if (m->size() == 2) {

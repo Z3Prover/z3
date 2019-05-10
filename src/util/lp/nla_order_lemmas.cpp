@@ -28,12 +28,18 @@ namespace nla {
 // a > b && c > 0 => ac > bc
 void order::order_lemma() {
     TRACE("nla_solver", );
-    const auto& rm_ref = c().m_to_refine; // todo : run on the rooted subset or m_to_refine
-    unsigned start = random();
-    unsigned sz = rm_ref.size();
-    for (unsigned i = 0; i < sz && !done(); ++i) {        
-        const monomial& rm = c().m_emons[rm_ref[(i + start) % sz]];
-        order_lemma_on_rmonomial(rm);
+    if (!c().m_settings.run_order()) {
+        TRACE("nla_solver", tout << "not generating order lemmas\n";);
+        return;
+    }
+    
+    const auto& to_ref = c().m_to_refine;
+    unsigned r = random();
+    unsigned sz = to_ref.size();
+    for (unsigned i = 0; i < sz && !done(); ++i) {
+        lpvar j = to_ref[(i + r) % sz];
+        if (c().is_canonical_monomial(j))
+            order_lemma_on_canonical_monomial(c().emons()[j]);
     }
 }
 
@@ -41,7 +47,7 @@ void order::order_lemma() {
 // a > b && c > 0 => ac > bc
 // Consider here some binary factorizations of m=ac and
 // try create order lemmas with either factor playing the role of c.
-void order::order_lemma_on_rmonomial(const monomial& m) {
+void order::order_lemma_on_canonical_monomial(const monomial& m) {
     TRACE("nla_solver_details",
           tout << "m = " << pp_mon(c(), m););
 
