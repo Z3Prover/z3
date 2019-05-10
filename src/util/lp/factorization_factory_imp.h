@@ -28,7 +28,8 @@ namespace nla {
         const monomial& m_rm;
         
         factorization_factory_imp(const monomial& rm, const core& s);
-        bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
-        const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
-    };
+        bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
+        virtual bool canonize_sign(const monomial& m) const;
+        virtual bool canonize_sign(const factorization& m) const;
+ };
 }

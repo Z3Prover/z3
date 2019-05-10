@@ -47,6 +47,7 @@ template <typename T> bool common::canonize_sign(const T& t) const {
 template bool common::canonize_sign<monomial>(const monomial&) const;
 template bool common::canonize_sign<factor>(const factor&) const;
 template bool common::canonize_sign<lpvar>(const lpvar&) const;
+template bool common::canonize_sign<factorization>(const factorization&) const;
 
 void common::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs){
     c().mk_ineq(t, cmp, rs);

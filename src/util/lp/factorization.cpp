@@ -27,7 +27,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         k.set(k_vars[0], factor_type::VAR);
     } else {
         unsigned i;
-        if (!m_ff->find_rm_monomial_of_vars(k_vars, i)) {
+        if (!m_ff->find_canonical_monomial_of_vars(k_vars, i)) {
             return false;
         }
         k.set(i, factor_type::MON);
@@ -37,7 +37,7 @@ bool const_iterator_mon::get_factors(factor& k, factor& j, rational& sign) const
         j.set(j_vars[0], factor_type::VAR);
     } else {
         unsigned i;
-        if (!m_ff->find_rm_monomial_of_vars(j_vars, i)) {
+        if (!m_ff->find_canonical_monomial_of_vars(j_vars, i)) {
             return false;
         }
         j.set(i, factor_type::MON);
@@ -92,7 +92,14 @@ bool const_iterator_mon::operator!=(const const_iterator_mon::self_type &other) 
 factorization const_iterator_mon::create_binary_factorization(factor j, factor k) const {
     factorization f(nullptr);
     f.push_back(j);
-    f.push_back(k);  
+    f.push_back(k);
+    // Let m by *m_ff->m_monomial, the monomial we factorize
+    // We have canonize_sign(m)*m.vars() = m.rvars()
+    // Let s = canonize_sign(f). Then we have f[0]*f[1] = s*m.rvars()
+    // s*canonize_sign(m)*val(m).
+    // Therefore val(m) = sign*val((f[0])*val(f[1]), where sign = canonize_sign(f)*canonize_sign(m).
+    // We apply this sign to the first factor.
+    f[0].sign() ^= (m_ff->canonize_sign(f)^m_ff->canonize_sign(*m_ff->m_monomial));
     return f;
 }
 

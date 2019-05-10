@@ -99,5 +99,5 @@ bool uniform_le(const T& a, const T& b,  unsigned & strict_i) {
     if (z_b) {strict_i = -1;}
     return true;
 }
-
+inline rational sign_to_rat(bool s) { return rational(s? -1 : 1); }
 }

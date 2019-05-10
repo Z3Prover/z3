@@ -49,7 +49,7 @@ void order::order_lemma_on_rmonomial(const monomial& m) {
         if (ac.size() != 2)
             continue;
         if (ac.is_mon())
-            order_lemma_on_binomial(*ac.mon());
+            order_lemma_on_binomial(ac.mon());
         else
             order_lemma_on_factorization(m, ac);
         if (done())

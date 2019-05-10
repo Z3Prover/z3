@@ -70,7 +70,7 @@ public:
 };
 
  inline std::ostream& operator<<(std::ostream& out, monomial const& m) {
-     return out << m.var() << " := " << m.vars() << " r " << m.rsign() << " * " << m.rvars();
+     return out << m.var() << " := " << m.vars() << " r ( " << sign_to_rat(m.rsign()) << " * " << m.rvars() << ")";
  }
 
 
