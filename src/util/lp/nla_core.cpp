@@ -93,7 +93,7 @@ svector<lpvar> core::sorted_rvars(const factor& f) const {
 // the value of the factor is equal to the value of the variable multiplied
 // by the canonize_sign
 bool core::canonize_sign(const factor& f) const {
-    return f.sign() ^ (f.is_var()? canonize_sign(f.var()) : m_emons[f.var()].rsign());
+    return f.sign() ^ (f.is_var()? canonize_sign(f.var()) : canonize_sign(m_emons[f.var()]));
 }
 
 bool core::canonize_sign(lpvar j) const {
@@ -111,6 +111,14 @@ bool core::canonize_sign_is_correct(const monomial& m) const {
 bool core::canonize_sign(const monomial& m) const {
     SASSERT(canonize_sign_is_correct(m));
     return m.rsign();
+}
+
+bool core::canonize_sign(const factorization& f) const {
+    bool r = false;
+    for (const factor & a : f) {
+        r ^= canonize_sign(a);
+    }
+    return r;
 }
 
 void core::add(lpvar v, unsigned sz, lpvar const* vs) {
@@ -180,7 +188,7 @@ std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
         out << "VAR,  ";
         print_var(f.var(), out);
     } else {
-        out << "MON, ";
+        out << "MON, v" << m_emons[f.var()] << " = ";
         print_product(m_emons[f.var()].rvars(), out);
     }
     out << "\n";
@@ -192,7 +200,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
         print_var(f.var(), out);
     } 
     else {
-        out << " RM = " << pp_rmon(*this, m_emons[f.var()]);
+        out << " MON = " << pp_rmon(*this, m_emons[f.var()]);
     }
     return out;
 }
@@ -216,11 +224,12 @@ std::ostream& core::print_tangent_domain(const point &a, const point &b, std::os
     return out;
 }
 
-std::ostream& core::print_bfc(const bfc& m, std::ostream& out) const {
+std::ostream& core::print_bfc(const factorization& m, std::ostream& out) const {
+    SASSERT(m.size() == 2);
     out << "( x = ";
-    print_factor(m.m_x, out);
-    out <<  ", y = ";
-    print_factor(m.m_y, out); out <<  ")";
+    print_factor(m[0], out);
+    out <<  "* y = ";
+    print_factor(m[1], out); out <<  ")";
     return out;
 }
 
@@ -748,7 +757,8 @@ std::ostream & core::print_var(lpvar j, std::ostream & out) const {
     }
         
     m_lar_solver.print_column_info(j, out);
-    out << "root=" << m_evars.find(j) << "\n";
+    signed_var jr = m_evars.find(j);
+    out << "root=" << (jr.sign()? "-v":"v") << jr.var() << "\n";
     return out;
 }
 
@@ -783,7 +793,7 @@ std::ostream & core::print_ineqs(const lemma& l, std::ostream & out) const {
     
 std::ostream & core::print_factorization(const factorization& f, std::ostream& out) const {
     if (f.is_mon()){
-        out << "is_mon " << pp_mon(*this, *f.mon());
+        out << "is_mon " << pp_mon(*this, f.mon());
     } 
     else {
         for (unsigned k = 0; k < f.size(); k++ ) {
@@ -795,17 +805,11 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     return out;
 }
     
-bool core:: find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
+bool core::find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
     SASSERT(vars_are_roots(vars));
     monomial const* sv = m_emons.find_canonical(vars);
     return sv && (i = sv->var(), true);
 }
-
-const monomial* core::find_monomial_of_vars(const svector<lpvar>& vars) const {
-    monomial const* sv = m_emons.find_canonical(vars);
-    return sv ? &m_emons[sv->var()] : nullptr;
-}
-
 
 void core::explain_existing_lower_bound(lpvar j) {
     SASSERT(has_lower_bound(j));
@@ -1571,13 +1575,17 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
 */
 
     
-bool core::find_bfc_to_refine_on_rmonomial(const monomial& rm, bfc & bf) {
-    for (auto factorization : factorization_factory_imp(rm, *this)) {
-        if (factorization.size() == 2) {
-            auto a = factorization[0];
-            auto b = factorization[1];
-            if (val(rm) != val(a) * val(b)) {
-                bf = bfc(a, b);
+bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf) {
+    for (auto f : factorization_factory_imp(m, *this)) {
+        if (f.size() == 2) {
+            auto a = f[0];
+            auto b = f[1];
+            if (val(m) != val(a) * val(b)) {
+                bf = f;
+                TRACE("nla_solver", tout << "found bf";
+                      tout << ":m:" << pp_rmon(*this, m) << "\n";
+                      tout << "bf:"; print_bfc(bf, tout););
+                      
                 return true;
             }
         }
@@ -1585,30 +1593,23 @@ bool core::find_bfc_to_refine_on_rmonomial(const monomial& rm, bfc & bf) {
     return false;
 }
     
-bool core::find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*& rm_found){
-    rm_found = nullptr;
+bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
+    m = nullptr;
+    // todo: randomise loop
     for (unsigned i: m_to_refine) {
-        const auto& rm = m_emons[i];
-        SASSERT (!check_monomial(m_emons[rm.var()]));
-        if (rm.size() == 2) {
-            sign = rational(1);
-            const monomial & m = m_emons[rm.var()];
-            j = m.var();
-            rm_found = nullptr;
-            bf.m_x = factor(m.vars()[0], factor_type::VAR);
-            bf.m_y = factor(m.vars()[1], factor_type::VAR);
+        m = &m_emons[i];
+        SASSERT (!check_monomial(*m));
+        if (m->size() == 2) {
+            bf.set_mon(m);
+            bf.push_back(factor(m->vars()[0], factor_type::VAR));
+            bf.push_back(factor(m->vars()[1], factor_type::VAR));
             return true;
         }
                 
-        rm_found = &rm;
-        if (find_bfc_to_refine_on_rmonomial(rm, bf)) {
-            j = rm.var();
-            sign = sign_to_rat(rm.rsign());
-            TRACE("nla_solver", tout << "found bf";
-                  tout << ":rm:" << pp_rmon(*this, rm) << "\n";
-                  tout << "bf:"; print_bfc(bf, tout);
-                  tout << ", product = " << val(rm) << ", but should be =" << val(bf.m_x)*val(bf.m_y);
-                  tout << ", j == "; print_var(j, tout) << "\n";);
+        if (find_bfc_to_refine_on_monomial(*m, bf)) {
+            TRACE("nla_solver",
+                  tout << "bf = "; print_factorization(bf, tout);
+                  tout << "\nval(*m) = " << val(*m) << ", should be = (val(bf[0])=" << val(bf[0]) << ")*(val(bf[1]) = " << val(bf[1]) << ") = " << val(bf[0])*val(bf[1]) << "\n";);
             return true;
         } 
     }
