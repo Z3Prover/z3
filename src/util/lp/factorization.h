@@ -54,26 +54,30 @@ public:
 
 
 class factorization {
-    svector<factor>       m_vars;
+    svector<factor>       m_factors;
     const monomial*       m_mon;
 public:
     factorization(const monomial* m): m_mon(m) {
         if (m != nullptr) {
             for (lpvar j : m->vars())
-                m_vars.push_back(factor(j, factor_type::VAR));
+                m_factors.push_back(factor(j, factor_type::VAR));
         }
     }
-    bool is_mon() const { return m_mon != nullptr;}
-    bool is_empty() const { return m_vars.empty(); }
-    factor operator[](unsigned k) const { return m_vars[k]; }
-    size_t size() const { return m_vars.size(); }
-    const factor* begin() const { return m_vars.begin(); }
-    const factor* end() const { return m_vars.end(); }
-    void push_back(factor const& v) {
-        SASSERT(!is_mon());
-        m_vars.push_back(v);
+    bool is_mon() const {
+        return m_mon != nullptr;
     }
-    const monomial* mon() const { return m_mon; }
+    bool is_empty() const { return m_factors.empty(); }
+    const factor& operator[](unsigned k) const { return m_factors[k]; }
+    factor& operator[](unsigned k) { return m_factors[k]; }
+    size_t size() const { return m_factors.size(); }
+    const factor* begin() const { return m_factors.begin(); }
+    const factor* end() const { return m_factors.end(); }
+    void push_back(factor const& v) {
+        m_factors.push_back(v);
+    }
+    const monomial& mon() const { return *m_mon; }
+    void set_mon(const monomial* m) { m_mon = m; }
+
 };
 
 struct const_iterator_mon {
@@ -112,9 +116,9 @@ struct factorization_factory {
     const svector<lpvar>&  m_vars;
     const monomial*       m_monomial;
     // returns true if found
-    virtual bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
-    virtual const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const = 0;
-    
+    virtual bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
+    virtual bool canonize_sign(const monomial& m) const = 0;
+    virtual bool canonize_sign(const factorization& m) const = 0;
 
     factorization_factory(const svector<lpvar>& vars, const monomial* m) :
         m_vars(vars), m_monomial(m) {
@@ -140,8 +144,7 @@ struct factorization_factory {
         auto it = const_iterator_mon(mask, this);
         it.m_full_factorization_returned = true;
         return it;
-    } 
-   
+    }   
 };
 
 }

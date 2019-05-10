@@ -117,6 +117,7 @@ public:
     // the value of the factor is equal to the value of the variable multiplied
     // by the canonize_sign
     bool canonize_sign(const factor& f) const;
+    bool canonize_sign(const factorization& f) const;
 
     bool canonize_sign(lpvar j) const;
     
@@ -159,7 +160,7 @@ public:
     std::ostream & print_factor(const factor& f, std::ostream& out) const;
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const;
-    std::ostream& print_bfc(const bfc& m, std::ostream& out) const;
+    std::ostream& print_bfc(const factorization& m, std::ostream& out) const;
     std::ostream& print_monomial_with_vars(unsigned i, std::ostream& out) const;
     template <typename T>
     std::ostream& print_product_with_vars(const T& m, std::ostream& out) const;
@@ -238,9 +239,7 @@ public:
 
     bool var_is_fixed(lpvar j) const;
         
-    bool find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
-
-    const monomial* find_monomial_of_vars(const svector<lpvar>& vars) const;
+    bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
 
     bool var_has_positive_lower_bound(lpvar j) const;
 
@@ -320,9 +319,9 @@ public:
     void add_abs_bound(lpvar v, llc cmp);
     void add_abs_bound(lpvar v, llc cmp, rational const& bound);
 
-    bool  find_bfc_to_refine_on_rmonomial(const monomial& rm, bfc & bf);
+    bool  find_bfc_to_refine_on_monomial(const monomial&, factorization & bf);
     
-    bool  find_bfc_to_refine(bfc& bf, lpvar &j, rational& sign, const monomial*& rm_found  );
+    bool  find_bfc_to_refine(const monomial* & m, factorization& bf);
     void generate_simple_sign_lemma(const rational& sign, const monomial& m);
 
     void negate_relation(unsigned j, const rational& a);
@@ -349,7 +348,6 @@ struct pp_rmon {
     pp_rmon(core const& c, monomial const& m): c(c), m(m) {}
     pp_rmon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
 };
-inline rational sign_to_rat(bool s) { return rational(s? -1 : 1); }
 inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
 inline std::ostream& operator<<(std::ostream& out, pp_rmon const& p) { return p.c.print_monomial_with_vars(p.m, out); }
 

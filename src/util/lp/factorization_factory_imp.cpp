@@ -25,10 +25,14 @@ factorization_factory_imp::factorization_factory_imp(const monomial& rm, const c
     factorization_factory(rm.rvars(), &s.m_emons[rm.var()]),
     m_core(s), m_mon(s.m_emons[rm.var()]), m_rm(rm) { }
         
-bool factorization_factory_imp::find_rm_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
-    return m_core.find_rm_monomial_of_vars(vars, i);
+bool factorization_factory_imp::find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
+    return m_core.find_canonical_monomial_of_vars(vars, i);
 }
-const monomial* factorization_factory_imp::find_monomial_of_vars(const svector<lpvar>& vars) const {
-    return m_core.find_monomial_of_vars(vars);
+bool factorization_factory_imp::canonize_sign(const monomial& m) const {
+    return m_core.canonize_sign(m);
 }
+bool factorization_factory_imp::canonize_sign(const factorization& f) const {
+    return m_core.canonize_sign(f);
+}
+
 }
