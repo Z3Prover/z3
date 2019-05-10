@@ -269,7 +269,7 @@ lia_move int_solver::find_cube() {
     m_lar_solver->pop();
     m_lar_solver->round_to_integer_solution();
     m_lar_solver->set_status(lp_status::FEASIBLE);
-    lp_assert(is_feasible());
+    lp_assert(settings().get_cancel_flag() || is_feasible());
     TRACE("cube", tout << "success";);
     settings().st().m_cube_success++;
     TRACE("cube", tout << "sat with cube\n";);
