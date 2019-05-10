@@ -29,54 +29,6 @@ tangents::tangents(core * c) : common(c) {}
 std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std::ostream& out) const {
     return out << "(" << a <<  ", " << b << ")";
 }
-unsigned tangents::find_binomial_to_refine() {
-    unsigned start = c().random();
-    unsigned sz = c().m_to_refine.size();
-    for (unsigned k = 0; k < sz; k++) {
-        lpvar j = c().m_to_refine[(k + start) % sz];
-        if (c().emons()[j].size() == 2)
-            return j;
-    }
-    return -1;
-}
-
-void tangents::generate_simple_tangent_lemma() {
-    lpvar j = find_binomial_to_refine();
-    if (!is_set(j)) return;
-    const monomial& m = c().emons()[j];
-    SASSERT(m.size() != 2);
-    TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
-    c().add_empty_lemma();
-    const rational v = c().product_value(m.vars());
-    const rational mv = val(m);
-    SASSERT(mv != v);
-    SASSERT(!mv.is_zero() && !v.is_zero());
-    rational sign = rational(nla::rat_sign(mv));
-    if (sign != nla::rat_sign(v)) {
-        c().generate_simple_sign_lemma(-sign, m);
-        return;
-    }
-    bool gt = abs(mv) > abs(v);
-    if (gt) {
-        for (lpvar j : m.vars()) {
-            const rational jv = val(j);
-            rational js = rational(nla::rat_sign(jv));
-            c().mk_ineq(js, j, llc::LT);
-            c().mk_ineq(js, j, llc::GT, jv);
-        }
-        c().mk_ineq(sign, m.var(), llc::LE, std::max(v, rational(-1)));
-    } else {
-        for (lpvar j : m.vars()) {
-            const rational jv = val(j);
-            rational js = rational(nla::rat_sign(jv));
-            c().mk_ineq(js, j, llc::LT, std::max(jv, rational(0)));
-        }
-        c().mk_ineq(sign, m.var(), llc::LT);
-        c().mk_ineq(sign, m.var(), llc::GE, v);
-    }
-    TRACE("nla_solver", c().print_lemma(tout););
-}
-    
 void tangents::tangent_lemma() {
     if (!c().m_settings.run_tangents()) {
         TRACE("nla_solver", tout << "not generating tangent lemmas\n";);
@@ -231,4 +183,3 @@ void tangents::get_tang_points(point &a, point &b, bool below, const rational& v
     TRACE("nla_solver", tout << "pushed a = " << a << "\npushed b = " << b << std::endl;);
 }
 }
-
