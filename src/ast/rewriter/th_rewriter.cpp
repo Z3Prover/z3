@@ -579,6 +579,8 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
             app_ref tmp(m());
             tmp = m().mk_app(f, num, args);
             m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
+            if (m().proofs_enabled())
+                result_pr = m().mk_rewrite(tmp, result);
             tmp = m().mk_eq(tmp, result);
             m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
             m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
