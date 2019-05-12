@@ -19,7 +19,6 @@
   --*/
 #pragma once
 #include "util/lp/monomial.h"    
-#include "util/lp/rooted_mons.h"    
 #include "util/lp/factorization.h"    
 #include "util/lp/nla_common.h"    
 
