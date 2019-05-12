@@ -30,7 +30,6 @@ namespace nla {
 class core;
 
 class emonomials : public var_eqs_merge_handler {
-    mutable svector<lpvar> m_find_key;
     /**
        \brief singly-lined cyclic list of monomial indices where variable occurs.
        Each variable points to the head and tail of the cyclic list.
@@ -75,6 +74,7 @@ class emonomials : public var_eqs_merge_handler {
         }
     };
 
+    mutable svector<lpvar>            m_find_key; // the key used when looking for a monomial with the specific variables
     var_eqs&                        m_ve;
     mutable vector<monomial>        m_monomials;     // set of monomials
     mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
@@ -266,16 +266,16 @@ public:
     };
 
     class sign_equiv_monomials {
-        emonomials&     em;
+        const emonomials&     em;
         monomial const& m;
         unsigned index() const { return em.m_var2index[m.var()]; }
     public:
-        sign_equiv_monomials(emonomials & em, monomial const& m): em(em), m(m) {}
+        sign_equiv_monomials(const emonomials & em, monomial const& m): em(em), m(m) {}
         sign_equiv_monomials_it begin() { return sign_equiv_monomials_it(em, index(), false); }
         sign_equiv_monomials_it end() { return sign_equiv_monomials_it(em, index(), true); }
     };
 
-    sign_equiv_monomials enum_sign_equiv_monomials(monomial const& m) { return sign_equiv_monomials(*this, m); }
+    sign_equiv_monomials enum_sign_equiv_monomials(monomial const& m) const { return sign_equiv_monomials(*this, m); }
     sign_equiv_monomials enum_sign_equiv_monomials(lpvar v) { return enum_sign_equiv_monomials((*this)[v]); }
     /**
        \brief display state of emonomials
