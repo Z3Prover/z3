@@ -165,7 +165,7 @@ public:
     vector<monomial>::const_iterator end() const { return m_monomials.end(); }
 
     /**
-       \brief iterators over monomials where an equivalent variable is used
+       \brief iterators over monomials where a variable is used
     */
     class iterator {
         emonomials const& m;
