@@ -1866,6 +1866,7 @@ lbool core:: inner_check(bool derived) {
         }
         if (derived) continue;
         TRACE("nla_solver", tout << "passed derived and basic lemmas\n";);
+        SASSERT(elists_are_consistent());
         if (search_level == 1) {
             m_order.order_lemma();
         } else { // search_level == 2
@@ -1875,8 +1876,58 @@ lbool core:: inner_check(bool derived) {
     }
     return m_lemma_vec->empty()? l_undef : l_false;
 }
+
+struct hash_svector {
+    size_t operator()(const unsigned_vector & v) const {
+        return svector_hash<unsigned_hash>()(v);
+    }
+};
+
+bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
+    bool first = true;
+    bool p;
+    for (lpvar j : list) {
+        if (first) {
+            p = check_monomial(m_emons[j]);
+            first = false;
+        } else 
+            if (check_monomial(m_emons[j]) != p)
+                return false;
+    }
+    return true;
+}
+
+bool core::elists_are_consistent() const {
     
-lbool core:: check(vector<lemma>& l_vec) {
+    std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> lists;
+    for (auto const & m : m_emons) {
+        auto it = lists.find(m.rvars());
+        if (it == lists.end()) {
+            std::unordered_set<lpvar> v;
+            v.insert(m.var());
+            lists[m.rvars()] = v;            
+        } else {
+            it->second.insert(m.var());
+        }
+    }
+    for (auto const & m : m_emons) {
+        if (!is_canonical_monomial(m.var()))
+            continue;
+        std::unordered_set<lpvar> c;
+        for (const monomial& e : m_emons.enum_sign_equiv_monomials(m))
+            c.insert(e.var());
+        auto it = lists.find(m.rvars());
+        SASSERT(it->second == c);
+    }
+
+    for (const auto & p : lists) {
+        if (! elist_is_consistent(p.second))
+            return false;
+    }
+    return true;
+}
+
+lbool core::check(vector<lemma>& l_vec) {
     settings().st().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << settings().st().m_nla_calls << "\n";);
     m_lemma_vec =  &l_vec;

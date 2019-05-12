@@ -154,6 +154,7 @@ public:
         return explain(find(s), s, e); 
     }
 
+    // iterates over the class of signed_var(m_idx)
     class iterator {
         var_eqs& m_ve;        // context.
         unsigned m_idx;       // index into a signed variable, same as union-find index

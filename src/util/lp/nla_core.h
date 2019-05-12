@@ -241,7 +241,8 @@ public:
         
     bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, lpvar & i) const;
     bool is_canonical_monomial(lpvar) const;
-
+    bool elists_are_consistent() const;
+    bool elist_is_consistent(const std::unordered_set<lpvar>&) const;
     bool var_has_positive_lower_bound(lpvar j) const;
 
     bool var_has_negative_upper_bound(lpvar j) const;
