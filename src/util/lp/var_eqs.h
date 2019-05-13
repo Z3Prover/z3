@@ -180,6 +180,7 @@ public:
 
     // union find event handlers
     void set_merge_handler(var_eqs_merge_handler* mh) { m_merge_handler = mh; }
+    // this method is required by union_find
     trail_stack<var_eqs> & get_trail_stack() { return m_stack; }
 
     void unmerge_eh(unsigned i, unsigned j) { 
@@ -200,9 +201,8 @@ public:
                                             signed_var(v2), signed_var(v1)); 
         }
     }
+};  // end of var_eqs
 
+inline std::ostream& operator<<(var_eqs const& ve, std::ostream& out) { return ve.display(out); }
 
-}; 
-
-    inline std::ostream& operator<<(var_eqs const& ve, std::ostream& out) { return ve.display(out); }
 }
