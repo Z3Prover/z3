@@ -27,7 +27,7 @@ var_eqs::var_eqs(): m_merge_handler(nullptr), m_uf(*this), m_stack(*this) {}
     
 void var_eqs::push() {
     m_trail_lim.push_back(m_trail.size());
-    get_trail_stack().push_scope();
+    m_stack.push_scope();
 }
 
 void var_eqs::pop(unsigned n) {
@@ -41,7 +41,7 @@ void var_eqs::pop(unsigned n) {
     }
     m_trail_lim.shrink(m_trail_lim.size() - n);
     m_trail.shrink(old_sz);
-    get_trail_stack().pop_scope(n);
+    m_stack.pop_scope(n);
 }
 
 void var_eqs::merge(signed_var v1, signed_var v2, eq_justification const& j) {
