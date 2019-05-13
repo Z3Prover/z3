@@ -45,15 +45,12 @@ public:
     }
 };
 
- class var_eqs_merge_handler {
- public:
-     virtual void merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
-
-     virtual void after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
-
-     virtual void unmerge_eh(signed_var r2, signed_var r1) = 0;;        
-
- };
+class var_eqs_merge_handler {
+public:
+    virtual void merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
+    virtual void after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) = 0;
+    virtual void unmerge_eh(signed_var r2, signed_var r1) = 0;
+};
 
 class var_eqs {
     struct eq_edge {
@@ -61,7 +58,6 @@ class var_eqs {
         eq_justification m_just;
         eq_edge(signed_var v, eq_justification const& j): m_var(v), m_just(j) {}
     };
-    typedef svector<eq_edge> eq_edges;
 
     struct var_frame {
         signed_var m_var;
@@ -74,16 +70,13 @@ class var_eqs {
         stats() { memset(this, 0, sizeof(*this)); }
     };
 
-    typedef std::pair<signed_var, signed_var> signed_var_pair;
-
     var_eqs_merge_handler*  m_merge_handler;    
     union_find<var_eqs>         m_uf;
-    svector<signed_var_pair>    m_trail;
-    unsigned_vector         m_trail_lim;
-    vector<eq_edges>  m_eqs;    // signed_var-index -> eq_edges corresponding to edges in a graph used to extract justifications.
+    svector<std::pair<signed_var, signed_var>>    m_trail;
+    unsigned_vector            m_trail_lim;
+    vector<svector<eq_edge>>   m_eqs;    // signed_var.index() -> the edges adjacent to signed_var.index()
 
-    typedef trail_stack<var_eqs>    trail_stack_t;       
-    trail_stack_t                   m_stack;
+    trail_stack<var_eqs>             m_stack;
     mutable svector<var_frame>      m_todo;
     mutable svector<bool>           m_marked;
     mutable unsigned_vector         m_marked_trail;
@@ -187,8 +180,7 @@ public:
 
     // union find event handlers
     void set_merge_handler(var_eqs_merge_handler* mh) { m_merge_handler = mh; }
-
-    trail_stack_t& get_trail_stack() { return m_stack; }
+    trail_stack<var_eqs> & get_trail_stack() { return m_stack; }
 
     void unmerge_eh(unsigned i, unsigned j) { 
         if (m_merge_handler) {
