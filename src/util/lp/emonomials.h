@@ -29,7 +29,7 @@ namespace nla {
 
 class core;
 
-class emonomials : public var_eqs_merge_handler {
+class emonomials {
     /**
        \brief singly-lined cyclic list of monomial indices where variable occurs.
        Each variable points to the head and tail of the cyclic list.
@@ -75,7 +75,7 @@ class emonomials : public var_eqs_merge_handler {
     };
 
     mutable svector<lpvar>            m_find_key; // the key used when looking for a monomial with the specific variables
-    var_eqs&                        m_ve;
+    var_eqs<emonomials>&                        m_ve;
     mutable vector<monomial>        m_monomials;     // set of monomials
     mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
     unsigned_vector                 m_lim;           // backtracking point
@@ -110,7 +110,7 @@ public:
        push and pop on emonomials calls push/pop on var_eqs, so no 
        other calls to push/pop to the var_eqs should take place. 
     */
-    emonomials(var_eqs& ve): 
+    emonomials(var_eqs<emonomials>& ve): 
         m_ve(ve), 
         m_visited(0), 
         m_cg_hash(*this),
@@ -288,11 +288,11 @@ public:
        these are merge event handlers to interect the union-find handlers.
        r2 becomes the new root. r2 is the root of v2, r1 is the old root of v1
     */
-    void merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) override;
+    void merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1);
 
-    void after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) override;
+    void after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1);
 
-    void unmerge_eh(signed_var r2, signed_var r1) override;        
+    void unmerge_eh(signed_var r2, signed_var r1);        
 
     bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 };
