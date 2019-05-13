@@ -399,5 +399,4 @@ std::ostream& emonomials::display(std::ostream& out) const {
      return out;
  }
 
-
 }

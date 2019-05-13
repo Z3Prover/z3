@@ -76,7 +76,7 @@ public:
 
 class core {
 public:
-    var_eqs                  m_evars;
+    var_eqs<emonomials>      m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
     svector<lpvar>           m_to_refine;
