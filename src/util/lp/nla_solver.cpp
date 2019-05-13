@@ -23,7 +23,6 @@
 #include "util/lp/lp_utils.h"
 #include "util/lp/var_eqs.h"
 #include "util/lp/factorization.h"
-#include "util/lp/rooted_mons.h"
 #include "util/lp/nla_solver.h"
 namespace nla {
 
