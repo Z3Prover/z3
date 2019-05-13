@@ -51,10 +51,10 @@ void var_eqs::merge(signed_var v1, signed_var v2, eq_justification const& j) {
     m_trail.push_back(std::make_pair(v1, v2));
     m_uf.merge(v1.index(), v2.index());
     m_uf.merge((~v1).index(), (~v2).index());
-    m_eqs[v1.index()].push_back(justified_var(v2, j));
-    m_eqs[v2.index()].push_back(justified_var(v1, j));
-    m_eqs[(~v1).index()].push_back(justified_var(~v2, j));
-    m_eqs[(~v2).index()].push_back(justified_var(~v1, j));
+    m_eqs[v1.index()].push_back(eq_edge(v2, j));
+    m_eqs[v2.index()].push_back(eq_edge(v1, j));
+    m_eqs[(~v1).index()].push_back(eq_edge(~v2, j));
+    m_eqs[(~v2).index()].push_back(eq_edge(~v1, j));
 }
 
 signed_var var_eqs::find(signed_var v) const {
@@ -71,7 +71,7 @@ void var_eqs::explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) cons
         return;
     }
     m_todo.push_back(var_frame(v1, 0));
-    m_jtrail.reset();
+    m_justtrail.reset();
     m_marked.reserve(m_eqs.size(), false);
     SASSERT(m_marked_trail.empty());
     m_marked[v1.index()] = true;
@@ -87,30 +87,30 @@ void var_eqs::explain_dfs(signed_var v1, signed_var v2, lp::explanation& e) cons
         bool seen_all = true;
         unsigned sz = next.size();
         for (unsigned i = f.m_index; seen_all && i < sz; ++i) {
-            justified_var const& jv = next[i];
+            eq_edge const& jv = next[i];
             signed_var v3 = jv.m_var;
             if (!m_marked[v3.index()]) {
                 seen_all = false;
                 f.m_index = i + 1;
                 m_todo.push_back(var_frame(v3, 0));
-                m_jtrail.push_back(jv.m_j);
+                m_justtrail.push_back(jv.m_just);
                 m_marked_trail.push_back(v3.index());
                 m_marked[v3.index()] = true;
             }
         }
         if (seen_all) {
             m_todo.pop_back();
-            m_jtrail.pop_back();
+            m_justtrail.pop_back();
         }
     }
         
-    for (eq_justification const& j : m_jtrail) {
+    for (eq_justification const& j : m_justtrail) {
         j.explain(e);
     }
-    m_stats.m_num_explains += m_jtrail.size();
+    m_stats.m_num_explains += m_justtrail.size();
     m_stats.m_num_explain_calls++;
     m_todo.reset();
-    m_jtrail.reset();
+    m_justtrail.reset();
     for (unsigned idx : m_marked_trail) {
         m_marked[idx] = false;
     }
@@ -125,7 +125,7 @@ void var_eqs::explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) cons
         return;
     }
     m_todo.push_back(var_frame(v1, 0));
-    m_jtrail.push_back(eq_justification({}));
+    m_justtrail.push_back(eq_justification({}));
     m_marked.reserve(m_eqs.size(), false);
     SASSERT(m_marked_trail.empty());
     m_marked[v1.index()] = true;
@@ -140,11 +140,11 @@ void var_eqs::explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) cons
         auto const& next = m_eqs[v.index()];
         unsigned sz = next.size();
         for (unsigned i = sz; i-- > 0; ) {
-            justified_var const& jv = next[i];
+            eq_edge const& jv = next[i];
             signed_var v3 = jv.m_var;
             if (!m_marked[v3.index()]) {
                 m_todo.push_back(var_frame(v3, head));
-                m_jtrail.push_back(jv.m_j);
+                m_justtrail.push_back(jv.m_just);
                 m_marked_trail.push_back(v3.index());
                 m_marked[v3.index()] = true;
             }
@@ -152,14 +152,14 @@ void var_eqs::explain_bfs(signed_var v1, signed_var v2, lp::explanation& e) cons
     }
         
     while (head != 0) {
-        m_jtrail[head].explain(e);
+        m_justtrail[head].explain(e);
         head = m_todo[head].m_index;
         ++m_stats.m_num_explains;
     }
     ++m_stats.m_num_explain_calls;
         
     m_todo.reset();
-    m_jtrail.reset();
+    m_justtrail.reset();
     for (unsigned idx : m_marked_trail) {
         m_marked[idx] = false;
     }

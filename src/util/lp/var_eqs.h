@@ -56,12 +56,12 @@ public:
  };
 
 class var_eqs {
-    struct justified_var {
+    struct eq_edge {
         signed_var       m_var;
-        eq_justification m_j;
-        justified_var(signed_var v, eq_justification const& j): m_var(v), m_j(j) {}
+        eq_justification m_just;
+        eq_edge(signed_var v, eq_justification const& j): m_var(v), m_just(j) {}
     };
-    typedef svector<justified_var> justified_vars;
+    typedef svector<eq_edge> eq_edges;
 
     struct var_frame {
         signed_var m_var;
@@ -80,14 +80,14 @@ class var_eqs {
     union_find<var_eqs>         m_uf;
     svector<signed_var_pair>    m_trail;
     unsigned_vector         m_trail_lim;
-    vector<justified_vars>  m_eqs;    // signed_var-index -> justified_var corresponding to edges in a graph used to extract justifications.
+    vector<eq_edges>  m_eqs;    // signed_var-index -> eq_edges corresponding to edges in a graph used to extract justifications.
 
     typedef trail_stack<var_eqs>    trail_stack_t;       
     trail_stack_t                   m_stack;
     mutable svector<var_frame>      m_todo;
     mutable svector<bool>           m_marked;
     mutable unsigned_vector         m_marked_trail;
-    mutable svector<eq_justification> m_jtrail;
+    mutable svector<eq_justification> m_justtrail;
         
     mutable stats m_stats;
 public:
@@ -154,7 +154,7 @@ public:
         return explain(find(s), s, e); 
     }
 
-    // iterates over the class of signed_var(m_idx)
+    // iterates over the class of lpvar(m_idx)
     class iterator {
         var_eqs& m_ve;        // context.
         unsigned m_idx;       // index into a signed variable, same as union-find index
