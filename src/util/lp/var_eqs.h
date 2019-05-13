@@ -23,6 +23,8 @@
 #include "util/lp/lp_types.h"
 #include "util/rational.h"
 #include "util/lp/explanation.h"
+#include "util/lp/incremental_vector.h"
+
 namespace nla {
 
 class eq_justification {
@@ -64,16 +66,16 @@ class var_eqs {
         stats() { memset(this, 0, sizeof(*this)); }
     };
 
-    T*  m_merge_handler;    
-    union_find<var_eqs>         m_uf;
-    svector<std::pair<signed_var, signed_var>>    m_trail;
-    unsigned_vector            m_trail_lim;
-    vector<svector<eq_edge>>   m_eqs;    // signed_var.index() -> the edges adjacent to signed_var.index()
+    T*                                m_merge_handler;    
+    union_find<var_eqs>               m_uf;
+    lp::incremental_vector<std::pair<signed_var, signed_var>>    
+	                                  m_trail;
+    vector<svector<eq_edge>>          m_eqs;    // signed_var.index() -> the edges adjacent to signed_var.index()
 
-    trail_stack<var_eqs>             m_stack;
-    mutable svector<var_frame>      m_todo;
-    mutable svector<bool>           m_marked;
-    mutable unsigned_vector         m_marked_trail;
+    trail_stack<var_eqs>              m_stack;
+    mutable svector<var_frame>        m_todo;
+    mutable svector<bool>             m_marked;
+    mutable unsigned_vector           m_marked_trail;
     mutable svector<eq_justification> m_justtrail;
         
     mutable stats m_stats;
@@ -82,7 +84,7 @@ public:
     /**
        \brief push a scope    */
     void push() {
-        m_trail_lim.push_back(m_trail.size());
+        m_trail.push_scope();
         m_stack.push_scope();
     }
 
@@ -90,7 +92,7 @@ public:
        \brief pop n scopes
     */
     void pop(unsigned n)  {
-        unsigned old_sz = m_trail_lim[m_trail_lim.size() - n];
+        unsigned old_sz = m_trail.peek_size(n);
         for (unsigned i = m_trail.size(); i-- > old_sz; ) {
             auto const& sv = m_trail[i];
             m_eqs[sv.first.index()].pop_back();
@@ -98,9 +100,8 @@ public:
             m_eqs[(~sv.first).index()].pop_back();
             m_eqs[(~sv.second).index()].pop_back();
         }
-        m_trail_lim.shrink(m_trail_lim.size() - n);
-        m_trail.shrink(old_sz);
-        m_stack.pop_scope(n);
+        m_trail.pop_scope(n);
+        m_stack.pop_scope(n); // this cass takes care of unmerging through union_find m_uf
     }
 
     /**

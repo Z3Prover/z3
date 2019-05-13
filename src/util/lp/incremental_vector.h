@@ -19,9 +19,6 @@ Revision History:
 --*/
 
 #pragma once
-#include <unordered_map>
-#include <set>
-#include <stack>
 #include "util/vector.h"
 namespace lp {
 template <typename B> class incremental_vector {
@@ -36,12 +33,12 @@ public:
         return m_vector.size();
     }
     
-    void push() {
+    void push_scope() {
         m_stack_of_vector_sizes.push_back(m_vector.size());
     }
 
-    void pop() {
-        pop(1);
+    void pop_scope() {
+        pop_scope(1);
     }
 
     template <typename T>  
@@ -55,12 +52,12 @@ public:
         v.resize(new_size);
     }
 
-    void pop(unsigned k) {
+    void pop_scope(unsigned k) {
         lp_assert(m_stack_of_vector_sizes.size() >= k);
         lp_assert(k > 0);
         m_vector.shrink(peek_size(k));
         unsigned new_st_size = m_stack_of_vector_sizes.size() - k;
-        m_stack_of_vector_sizes.shrink(k);
+        m_stack_of_vector_sizes.shrink(new_st_size);
     }
 
     void push_back(const B & b) {
