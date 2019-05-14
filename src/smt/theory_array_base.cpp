@@ -300,6 +300,20 @@ namespace smt {
         m_extensionality_todo.push_back(std::make_pair(n1, n2));         
         return true;
     }
+
+    void theory_array_base::assert_congruent(enode * a1, enode * a2) {
+        TRACE("array", tout << "congruent: #" << a1->get_owner_id() << " #" << a2->get_owner_id() << "\n";);
+        SASSERT(is_array_sort(a1));
+        SASSERT(is_array_sort(a2));
+        context & ctx = get_context();
+        if (a1->get_owner_id() > a2->get_owner_id())
+            std::swap(a1, a2);
+        enode * nodes[2] = { a1, a2 };
+        if (!ctx.add_fingerprint(this, 1, 2, nodes))
+            return; // axiom was already instantiated
+        m_congruent_todo.push_back(std::make_pair(a1, a2));         
+    }
+
    
     void theory_array_base::assert_extensionality_core(enode * n1, enode * n2) {
         app * e1        = n1->get_owner();
@@ -338,8 +352,59 @@ namespace smt {
         if (m.has_trace_stream()) m.trace_stream() << "[end-of-instance]\n";
     }
 
+    /**
+       \brief assert n1 = n2 => forall vars . (n1 vars) = (n2 vars)
+     */
+    void theory_array_base::assert_congruent_core(enode * n1, enode * n2) {
+        app * e1        = n1->get_owner();
+        app * e2        = n2->get_owner();
+        context & ctx   = get_context();
+        ast_manager & m = get_manager();
+        sort* s         = m.get_sort(e1);
+        unsigned dimension = get_array_arity(s);
+        literal n1_eq_n2 = mk_eq(e1, e2, true);
+        ctx.mark_as_relevant(n1_eq_n2);
+        expr_ref_vector args1(m), args2(m);
+        expr_ref f1 = instantiate_lambda(e1);
+        expr_ref f2 = instantiate_lambda(e2);
+        args1.push_back(f1);
+        args2.push_back(f2);
+        svector<symbol> names;
+        sort_ref_vector sorts(m);
+        for (unsigned i = 0; i < dimension; i++) {
+            sort * srt = get_array_domain(s, i);
+            sorts.push_back(srt);
+            names.push_back(symbol(i));
+            expr * k = m.mk_var(dimension - i - 1, srt);
+            args1.push_back(k);
+            args2.push_back(k);            
+        }
+        expr * sel1 = mk_select(dimension+1, args1.c_ptr());
+        expr * sel2 = mk_select(dimension+1, args2.c_ptr());
+        expr * eq = m.mk_eq(sel1, sel2);
+        expr_ref q(m.mk_forall(dimension, sorts.c_ptr(), names.c_ptr(), eq), m);
+        ctx.get_rewriter()(q);
+        if (!ctx.b_internalized(q)) {
+            ctx.internalize(q, true);
+        }
+        literal fa_eq = ctx.get_literal(q);
+        ctx.mark_as_relevant(fa_eq);
+        assert_axiom(~n1_eq_n2, fa_eq);
+    }
+
+    expr_ref theory_array_base::instantiate_lambda(app* e) {
+        ast_manager& m = get_manager();
+        quantifier * q = m.is_lambda_def(e->get_decl());
+        expr_ref f(e, m);
+        if (q) {
+            var_subst sub(m, false);
+            f = sub(q, e->get_num_args(), e->get_args());
+        }
+        return f;
+    }
+
     bool theory_array_base::can_propagate() {
-        return !m_axiom1_todo.empty() || !m_axiom2_todo.empty() || !m_extensionality_todo.empty();
+        return !m_axiom1_todo.empty() || !m_axiom2_todo.empty() || !m_extensionality_todo.empty() || !m_congruent_todo.empty();
     }
 
     void theory_array_base::propagate() {
@@ -352,7 +417,10 @@ namespace smt {
             m_axiom2_todo.reset();
             for (unsigned i = 0; i < m_extensionality_todo.size(); i++)
                 assert_extensionality_core(m_extensionality_todo[i].first, m_extensionality_todo[i].second);
+            for (unsigned i = 0; i < m_congruent_todo.size(); i++)
+                assert_congruent_core(m_congruent_todo[i].first, m_congruent_todo[i].second);
             m_extensionality_todo.reset();
+            m_congruent_todo.reset();
         }
     }
 
@@ -522,6 +590,7 @@ namespace smt {
         m_axiom1_todo.reset();
         m_axiom2_todo.reset();
         m_extensionality_todo.reset();
+        m_congruent_todo.reset();
     }
 
 

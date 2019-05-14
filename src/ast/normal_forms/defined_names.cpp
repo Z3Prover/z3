@@ -122,9 +122,9 @@ app * defined_names::impl::gen_name(expr * e, sort_ref_buffer & var_sorts, buffe
     sort * range = m.get_sort(e);
     func_decl * new_skolem_decl = m.mk_fresh_func_decl(m_z3name, symbol::null, domain.size(), domain.c_ptr(), range);
     app * n = m.mk_app(new_skolem_decl, new_args.size(), new_args.c_ptr());
-    TRACE("mk_definition_bug", tout << "gen_name: " << mk_ismt2_pp(n, m) << "\n";
-          for (unsigned i = 0; i < var_sorts.size(); i++) tout << mk_pp(var_sorts[i], m) << " ";
-          tout << "\n";);
+    if (is_lambda(e)) {
+        m.add_lambda_def(new_skolem_decl, to_quantifier(e));
+    }
     return n;
 }
 
@@ -203,7 +203,7 @@ void defined_names::impl::mk_definition(expr * e, app * n, sort_ref_buffer & var
         // NB. The pattern is incomplete.
         // consider store(a, i, v) == \lambda j . if i = j then v else a[j]
         // the instantiation rules for store(a, i, v) are:
-        //     sotre(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
+        //     store(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
         // The first pattern is not included.
         // TBD use a model-based scheme for exracting instantiations instead of
         // using multi-patterns.

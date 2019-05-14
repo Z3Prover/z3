@@ -398,6 +398,7 @@ struct func_decl_info : public decl_info {
     bool m_injective:1;
     bool m_idempotent:1;
     bool m_skolem:1;
+    bool m_lambda:1;
 
     func_decl_info(family_id family_id = null_family_id, decl_kind k = null_decl_kind, unsigned num_parameters = 0, parameter const * parameters = nullptr);
     ~func_decl_info() {}
@@ -412,6 +413,7 @@ struct func_decl_info : public decl_info {
     bool is_injective() const { return m_injective; }
     bool is_idempotent() const { return m_idempotent; }
     bool is_skolem() const { return m_skolem; }
+    bool is_lambda() const { return m_lambda; }
 
     void set_associative(bool flag = true) { m_left_assoc = flag; m_right_assoc = flag; }
     void set_left_associative(bool flag = true) { m_left_assoc = flag; }
@@ -423,6 +425,7 @@ struct func_decl_info : public decl_info {
     void set_injective(bool flag = true) { m_injective = flag; }
     void set_idempotent(bool flag = true) { m_idempotent = flag; }
     void set_skolem(bool flag = true) { m_skolem = flag; }
+    void set_lambda(bool flag = true) { m_lambda = flag; }
 
     bool operator==(func_decl_info const & info) const;
 
@@ -641,6 +644,7 @@ public:
     bool is_pairwise() const { return get_info() != nullptr && get_info()->is_pairwise(); }
     bool is_injective() const { return get_info() != nullptr && get_info()->is_injective(); }
     bool is_skolem() const { return get_info() != nullptr && get_info()->is_skolem(); }
+    bool is_lambda() const { return get_info() != nullptr && get_info()->is_lambda(); }
     bool is_idempotent() const { return get_info() != nullptr && get_info()->is_idempotent(); }
     unsigned get_arity() const { return m_arity; }
     sort * get_domain(unsigned idx) const { SASSERT(idx < get_arity()); return m_domain[idx]; }
@@ -1522,6 +1526,7 @@ protected:
     family_id                 m_user_sort_family_id;
     family_id                 m_arith_family_id;
     ast_table                 m_ast_table;
+    obj_map<func_decl, quantifier*> m_lambda_defs;
     id_gen                    m_expr_id_gen;
     id_gen                    m_decl_id_gen;
     sort *                    m_bool_sort;
@@ -1651,6 +1656,8 @@ public:
     
     bool is_rec_fun_def(quantifier* q) const { return q->get_qid() == m_rec_fun; }
     bool is_lambda_def(quantifier* q) const { return q->get_qid() == m_lambda_def; }
+    void add_lambda_def(func_decl* f, quantifier* q);
+    quantifier* is_lambda_def(func_decl* f);
     func_decl* get_rec_fun_decl(quantifier* q) const;
     
     symbol const& rec_fun_qid() const { return m_rec_fun; }

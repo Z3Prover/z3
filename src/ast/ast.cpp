@@ -269,7 +269,8 @@ func_decl_info::func_decl_info(family_id family_id, decl_kind k, unsigned num_pa
     m_pairwise(false),
     m_injective(false),
     m_idempotent(false),
-    m_skolem(false) {
+    m_skolem(false),
+    m_lambda(false) {
 }
 
 bool func_decl_info::operator==(func_decl_info const & info) const {
@@ -281,20 +282,22 @@ bool func_decl_info::operator==(func_decl_info const & info) const {
         m_chainable == info.m_chainable &&
         m_pairwise == info.m_pairwise &&
         m_injective == info.m_injective &&
-        m_skolem == info.m_skolem;
+        m_skolem == info.m_skolem &&
+        m_lambda == info.m_lambda;
 }
 
 std::ostream & operator<<(std::ostream & out, func_decl_info const & info) {
     operator<<(out, static_cast<decl_info const&>(info));
-    out << " :left-assoc " << info.is_left_associative();
-    out << " :right-assoc " << info.is_right_associative();
-    out << " :flat-associative " << info.is_flat_associative();
-    out << " :commutative " << info.is_commutative();
-    out << " :chainable " << info.is_chainable();
-    out << " :pairwise " << info.is_pairwise();
-    out << " :injective " << info.is_injective();
-    out << " :idempotent " << info.is_idempotent();
-    out << " :skolem " << info.is_skolem();
+    if (info.is_left_associative()) out << " :left-assoc ";
+    if (info.is_right_associative()) out << " :right-assoc ";
+    if (info.is_flat_associative()) out << " :flat-associative ";
+    if (info.is_commutative()) out << " :commutative ";
+    if (info.is_chainable()) out << " :chainable ";
+    if (info.is_pairwise()) out << " :pairwise ";
+    if (info.is_injective()) out << " :injective ";
+    if (info.is_idempotent()) out << " :idempotent ";
+    if (info.is_skolem()) out << " :skolem ";
+    if (info.is_lambda()) out << " :lambda ";
     return out;
 }
 
@@ -1713,6 +1716,20 @@ bool ast_manager::are_distinct(expr* a, expr* b) const {
     return false;
 }
 
+void ast_manager::add_lambda_def(func_decl* f, quantifier* q) {
+    m_lambda_defs.insert(f, q);
+    f->get_info()->set_lambda(true);
+    inc_ref(q);
+}
+
+quantifier* ast_manager::is_lambda_def(func_decl* f) {
+    if (f->get_info() && f->get_info()->is_lambda()) {
+        return m_lambda_defs[f];
+    }
+    return nullptr;
+}
+
+
 func_decl* ast_manager::get_rec_fun_decl(quantifier* q) const {
     SASSERT(is_rec_fun_def(q)); 
     return to_app(to_app(q->get_pattern(0))->get_arg(0))->get_decl(); 
@@ -1901,6 +1918,10 @@ void ast_manager::delete_node(ast * n) {
             func_decl* f = to_func_decl(n);
             if (f->m_info != nullptr && !m_debug_ref_count) {
                 func_decl_info * info = f->get_info();
+                if (info->is_lambda()) {
+                    push_dec_ref(m_lambda_defs[f]);
+                    m_lambda_defs.remove(f);
+                }
                 info->del_eh(*this);
                 dealloc(info);
             }

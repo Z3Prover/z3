@@ -27,7 +27,6 @@ Notes:
 #include "ast/act_cache.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
-
 #include "ast/ast_smt2_pp.h"
 
 /**
@@ -754,8 +753,7 @@ struct nnf::imp {
         if (fr.m_i == 0) {
             fr.m_i = 1;
             if (is_lambda(q)) {
-                if (!visit(q->get_expr(), fr.m_pol, true))
-                    return false;
+                // skip
             }
             else if (is_forall(q) == fr.m_pol) {
                 if (!visit(q->get_expr(), fr.m_pol, true))
@@ -769,19 +767,9 @@ struct nnf::imp {
         }
 
         if (is_lambda(q)) {
-            expr * new_expr = m_result_stack.back();
-            quantifier * new_q = m.update_quantifier(q, new_expr);
-            proof * new_q_pr   = nullptr;
+            m_result_stack.push_back(q);
             if (proofs_enabled()) {
-                // proof * new_expr_pr = m_result_pr_stack.back();
-                new_q_pr = m.mk_rewrite(q, new_q);  // TBD use new_expr_pr
-            }
-                                                      
-            m_result_stack.pop_back();
-            m_result_stack.push_back(new_q);
-            if (proofs_enabled()) {
-                m_result_pr_stack.pop_back();
-                m_result_pr_stack.push_back(new_q_pr);
+                m_result_pr_stack.push_back(nullptr);
                 SASSERT(m_result_stack.size() == m_result_pr_stack.size());
             }
             return true;
@@ -948,7 +936,6 @@ void nnf::updt_params(params_ref const & p) {
 void nnf::get_param_descrs(param_descrs & r) {
     imp::get_param_descrs(r);
 }
-
 
 void nnf::reset() {
     m_imp->reset();

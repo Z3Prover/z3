@@ -272,9 +272,7 @@ namespace smt {
         }
 
         // traverse all enodes that are associated with fresh values...
-        unsigned sz = roots.size();
-        for (unsigned i = 0; i < sz; i++) {
-            enode * r     = roots[i];
+        for (enode* r : roots) {
             model_value_proc * proc = root2proc[r];
             SASSERT(proc);
             if (!proc->is_fresh())
@@ -282,9 +280,7 @@ namespace smt {
             process_source(source(r), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
 
-        sz = roots.size();
-        for (unsigned i = 0; i < sz; i++) {
-            enode * r     = roots[i];
+        for (enode * r : roots) {
             process_source(source(r), roots, root2proc, colors, already_traversed, todo, sorted_sources);
         }
     }
