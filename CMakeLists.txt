@@ -320,10 +320,6 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
       list(APPEND Z3_DEPENDENT_LIBS "iomp5")
     endif()
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-  elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Intel")
-    set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-    # Intel's compiler requires linking with libiomp5 
-    list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
   elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
