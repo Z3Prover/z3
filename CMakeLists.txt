@@ -27,15 +27,8 @@ message(STATUS "Z3 version ${Z3_VERSION}")
 ################################################################################
 # Set various useful variables depending on CMake version
 ################################################################################
-if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() and add_custom_target()
-  # supports a ``USES_TERMINAL`` argument
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
-else()
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
-endif()
+set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 
 ################################################################################
 # Message for polluted source tree sanity checks
@@ -198,17 +191,8 @@ include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
-  # FIXME: Drop this when we upgrade to newer CMake versions.
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    z3_add_cxx_flag("-std=c++11" REQUIRED)
-  else()
-    message(AUTHOR_WARNING "Not setting C++ language version for compiler")
-  endif()
-else ()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################
 # Platform detection
@@ -574,18 +558,10 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
-  # FIXME: Remove this once we drop support for CMake 2.8.12
-  export(TARGETS libz3
-    NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-  )
-else()
-  export(EXPORT Z3_EXPORTED_TARGETS
-    NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
-  )
-endif()
+export(EXPORT Z3_EXPORTED_TARGETS
+  NAMESPACE z3::
+  FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+)
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
