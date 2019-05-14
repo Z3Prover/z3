@@ -350,6 +350,7 @@ namespace datatype {
         ptr_vector<func_decl> const * get_constructor_accessors(func_decl * constructor);
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
+        func_decl * get_update_accessor(func_decl * update) const;
         family_id get_family_id() const { return m_family_id; }
         bool are_siblings(sort * s1, sort * s2);
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);

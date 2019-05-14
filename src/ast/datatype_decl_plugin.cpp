@@ -960,6 +960,11 @@ namespace datatype {
         return to_func_decl(recognizer->get_parameter(0).get_ast());
     }
 
+    func_decl * util::get_update_accessor(func_decl * updt) const {
+        SASSERT(is_update_field(updt));
+        return to_func_decl(updt->get_parameter(0).get_ast());
+    }
+
     bool util::is_recursive(sort * ty) {
         SASSERT(is_datatype(ty));
         bool r = false;
