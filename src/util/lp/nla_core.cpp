@@ -133,7 +133,8 @@ void core::push() {
      
 void core::pop(unsigned n) {
     TRACE("nla_solver", tout << "n = " << n << "\n";);
-    m_emons.pop(n); 
+    m_emons.pop(n);
+    SASSERT(elists_are_consistent(false));
 }
 
 rational core::product_value(const unsigned_vector & m) const {
@@ -811,11 +812,7 @@ bool core::find_canonical_monomial_of_vars(const svector<lpvar>& vars, lpvar & i
 }
 
 bool core::is_canonical_monomial(lpvar j) const {
-    const monomial & m = m_emons[j];
-    unsigned k;
-    SASSERT(find_canonical_monomial_of_vars(m.rvars(), k));
-    find_canonical_monomial_of_vars(m.rvars(), k);
-    return j == k;
+    return m_emons.is_canonical_monomial(j);
 }
 
 
@@ -1366,6 +1363,7 @@ void core::clear() {
 void core::init_search() {
     clear();
     init_vars_equivalence();
+    SASSERT(elists_are_consistent(false));
 }
 
 void core::init_to_refine() {
@@ -1866,7 +1864,7 @@ lbool core:: inner_check(bool derived) {
         }
         if (derived) continue;
         TRACE("nla_solver", tout << "passed derived and basic lemmas\n";);
-        SASSERT(elists_are_consistent());
+        SASSERT(elists_are_consistent(true));
         if (search_level == 1) {
             m_order.order_lemma();
         } else { // search_level == 2
@@ -1876,12 +1874,6 @@ lbool core:: inner_check(bool derived) {
     }
     return m_lemma_vec->empty()? l_undef : l_false;
 }
-
-struct hash_svector {
-    size_t operator()(const unsigned_vector & v) const {
-        return svector_hash<unsigned_hash>()(v);
-    }
-};
 
 bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
     bool first = true;
@@ -1897,29 +1889,13 @@ bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
     return true;
 }
 
-bool core::elists_are_consistent() const {
-    
+bool core::elists_are_consistent(bool check_in_model) const {
     std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> lists;
-    for (auto const & m : m_emons) {
-        auto it = lists.find(m.rvars());
-        if (it == lists.end()) {
-            std::unordered_set<lpvar> v;
-            v.insert(m.var());
-            lists[m.rvars()] = v;            
-        } else {
-            it->second.insert(m.var());
-        }
-    }
-    for (auto const & m : m_emons) {
-        if (!is_canonical_monomial(m.var()))
-            continue;
-        std::unordered_set<lpvar> c;
-        for (const monomial& e : m_emons.enum_sign_equiv_monomials(m))
-            c.insert(e.var());
-        auto it = lists.find(m.rvars());
-        SASSERT(it->second == c);
-    }
+    if (!m_emons.elists_are_consistent(lists))
+        return false;
 
+    if (!check_in_model)
+        return true;
     for (const auto & p : lists) {
         if (! elist_is_consistent(p.second))
             return false;

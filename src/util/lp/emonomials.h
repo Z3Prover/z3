@@ -27,6 +27,12 @@
 
 namespace nla {
 
+struct hash_svector {
+    size_t operator()(const unsigned_vector & v) const {
+        return svector_hash<unsigned_hash>()(v);
+    }
+};
+
 class core;
 
 class emonomials {
@@ -73,9 +79,12 @@ class emonomials {
             return uvec == vvec;
         }
     };
-
-    mutable svector<lpvar>            m_find_key; // the key used when looking for a monomial with the specific variables
-    var_eqs<emonomials>&                        m_ve;
+    
+    union_find<emonomials>          m_u_f;
+    trail_stack<emonomials>         m_u_f_stack;
+    std::unordered_set<unsigned>       m_mons_to_rehash;
+    mutable svector<lpvar>          m_find_key; // the key used when looking for a monomial with the specific variables
+    var_eqs<emonomials>&            m_ve;
     mutable vector<monomial>        m_monomials;     // set of monomials
     mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
     unsigned_vector                 m_lim;           // backtracking point
@@ -86,6 +95,7 @@ class emonomials {
     eq_canonical                    m_cg_eq;
     hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
+
     void inc_visited() const;
 
     void remove_cell(head_tail& v, unsigned mIndex);
@@ -95,8 +105,8 @@ class emonomials {
 
     void remove_cg(lpvar v);
     void insert_cg(lpvar v);
-    void insert_cg(unsigned idx, monomial & m);
-    void remove_cg(unsigned idx, monomial & m);
+    void insert_cg_mon(monomial & m);
+    void remove_cg_mon(const monomial & m);
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
 
     void do_canonize(monomial& m) const; 
@@ -110,7 +120,9 @@ public:
        push and pop on emonomials calls push/pop on var_eqs, so no 
        other calls to push/pop to the var_eqs should take place. 
     */
-    emonomials(var_eqs<emonomials>& ve): 
+    emonomials(var_eqs<emonomials>& ve):
+        m_u_f(*this),
+        m_u_f_stack(*this),
         m_ve(ve), 
         m_visited(0), 
         m_cg_hash(*this),
@@ -118,6 +130,18 @@ public:
         m_cg_table(DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_cg_hash, m_cg_eq) { 
         m_ve.set_merge_handler(this); 
     }
+
+    void unmerge_eh(unsigned i, unsigned j) {
+        TRACE("nla_solver", tout << "unmerged " << i << " and " << j << "\n";);
+        m_mons_to_rehash.insert(i);
+        m_mons_to_rehash.insert(j);
+    }
+    
+    void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
+    void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
+
+    // this method is required by union_find
+    trail_stack<emonomials> & get_trail_stack() { return m_u_f_stack; }
 
     /**
        \brief push/pop scopes. 
@@ -229,7 +253,13 @@ public:
     products_of get_products_of(lpvar v) const { inc_visited(); return products_of(*this, v); }
        
     monomial const* find_canonical(svector<lpvar> const& vars) const;
-
+    bool is_canonical_monomial(lpvar j) const {
+        SASSERT(is_monomial_var(j));
+        unsigned idx = m_var2index[j];
+        if (idx >= m_u_f.get_num_vars())
+            return true;
+        return m_u_f.find(idx) == idx;
+    }
     /**
        \brief iterator over sign equivalent monomials.
        These are monomials that are equivalent modulo m_var_eqs amd modulo signs.
@@ -245,8 +275,9 @@ public:
         monomial const& operator*() { return m.m_monomials[m_index]; }
 
         sign_equiv_monomials_it& operator++() { 
-            m_touched = true; 
-            m_index = m.m_monomials[m_index].next(); 
+            m_touched = true;
+            if (m_index < m.m_u_f.get_num_vars())
+                m_index = m.m_u_f.next(m_index);
             return *this; 
         }
 
@@ -295,7 +326,10 @@ public:
     void unmerge_eh(signed_var r2, signed_var r1);        
 
     bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
-};
+
+    bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
+    
+}; // end of emonomials
 
 struct pp_emons {
     const core&       m_c;
