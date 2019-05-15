@@ -74,11 +74,6 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
     point xy (val(bf[0]), val(bf[1]));
     rational correct_mult_val =  xy.x * xy.y;
     lpvar j =m.var();
-    // We have canonize_sign(m)*m.vars() = m.rvars()
-    // Let s = canonize_sign(bf). Then we have bf[1]*bf[1] = s*m.rvars()
-    // s*canonize_sign(m)*val(m).
-    // Therefore sign*val(m) = val((bf[0])*val(bf[1]), where sign = canonize_sign(bf)*canonize_sign(m)
-    
     SASSERT(canonize_sign(bf) == canonize_sign(m));
     rational v = val(j);    
     bool below = v < correct_mult_val;
@@ -87,6 +82,7 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
     TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
     unsigned lemmas_size_was = c().m_lemma_vec->size();
     rational sign(1);
+    generate_simple_tangent_lemma(m);
     generate_two_tang_lines(bf, xy, j);
     generate_tang_plane(a.x, a.y, bf[0], bf[1], below, j);
     generate_tang_plane(b.x, b.y, bf[0], bf[1], below, j);
@@ -103,8 +99,8 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
           for (unsigned i = lemmas_size_was; i < c().m_lemma_vec->size(); i++) 
               c().print_specific_lemma((*c().m_lemma_vec)[i], tout); );
 }
-/*
-  void tangents::generate_simple_tangent_lemma(const monomial& m) {
+
+void tangents::generate_simple_tangent_lemma(const monomial& m) {
     if (m.size() != 2)
         return;
     TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
@@ -118,6 +114,7 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
         c().generate_simple_sign_lemma(-sign, m);
         return;
     }
+    /*
     bool gt = abs(mv) > abs(v);
     if (gt) {
         for (lpvar j : m.vars()) {
@@ -137,9 +134,10 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
         c().mk_ineq(sign, m.var(), llc::GE, v);
     }
     TRACE("nla_solver", c().print_lemma(tout););
+    */
 }
 // todo : consider using generate_simple_tangent_lemma on each factorization
- */
+
 void tangents::generate_two_tang_lines(const factorization & bf, const point& xy, lpvar j) {
     add_empty_lemma();
     c().mk_ineq(var(bf[0]), llc::NE, xy.x);
