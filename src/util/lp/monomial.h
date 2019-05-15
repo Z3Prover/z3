@@ -43,21 +43,15 @@ class monomial: public mon_eq {
     // fields
     svector<lpvar>  m_rvars;
     bool            m_rsign;
-    unsigned         m_next;                    // next congruent node.
-    unsigned         m_prev;                    // previous congruent node
     mutable unsigned m_visited;
 public:
     // constructors
     monomial(lpvar v, unsigned sz, lpvar const* vs, unsigned idx):  monomial(v, svector<lpvar>(sz, vs), idx) {
     }
-    monomial(lpvar v, const svector<lpvar> &vs, unsigned idx) : mon_eq(v, vs), m_rsign(false), m_next(idx), m_prev(idx), m_visited(0) {
+    monomial(lpvar v, const svector<lpvar> &vs, unsigned idx) : mon_eq(v, vs), m_rsign(false),  m_visited(0) {
         std::sort(vars().begin(), vars().end());
     }
 
-    unsigned next() const { return m_next; }
-    unsigned& next() { return m_next; }
-    unsigned prev() const { return m_prev; }
-    unsigned& prev() { return m_prev; }
     unsigned visited() const { return m_visited; }
     unsigned& visited() { return m_visited; }
     svector<lpvar> const& rvars() const { return m_rvars; }
