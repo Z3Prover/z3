@@ -64,12 +64,7 @@ void emonomials::pop(unsigned n) {
     m_region.pop_scope(n);
     m_lim.shrink(m_lim.size() - n);
     SASSERT(monomials_are_canonized());
-    m_mons_to_rehash.clear();
     m_u_f_stack.pop_scope(n);
-    for (unsigned j : m_mons_to_rehash) {
-        remove_cg_mon(m_monomials[j]);
-        insert_cg_mon(m_monomials[j]);
-    }
 }
 
 void emonomials::remove_cell(head_tail& v, unsigned mIndex) {
@@ -384,8 +379,8 @@ void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, sig
     if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
         TRACE("nla_solver", tout << "rehasing " << r1.var() << "\n";);
-        rehash_cg(r1.var()); 
         merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
+        rehash_cg(r1.var()); 
     }   
 }
 

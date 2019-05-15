@@ -67,7 +67,7 @@ private:
     void order_lemma_on_binomial_ac_bd(const monomial& ac, bool k, const monomial& bd, const factor& b, lpvar d);
     void order_lemma_on_binomial_sign(const monomial& ac, lpvar x, lpvar y, int sign);
     void order_lemma_on_binomial(const monomial& ac);
-    void order_lemma_on_canonical_monomial(const monomial& rm);
+    void order_lemma_on_monomial(const monomial& rm);
     // |c_sign| = 1, and c*c_sign > 0
     // ac > bc => ac/|c| > bc/|c| => a*c_sign > b*c_sign
     void generate_ol(const monomial& ac,                     
