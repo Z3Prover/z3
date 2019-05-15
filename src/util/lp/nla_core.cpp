@@ -1599,13 +1599,12 @@ bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf)
     return false;
 }
 
-// finds a canonical monomial with its binary factorization
+// finds a monomial to refine with its binary factorization
 bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
     m = nullptr;
     unsigned r = random(), sz = m_to_refine.size();
     for (unsigned k = 0; k < sz; k++) {
         lpvar i = m_to_refine[(k + r) % sz];
-        if (!is_canonical_monomial(i)) continue;
         m = &m_emons[i];
         SASSERT (!check_monomial(*m));
         if (m->size() == 2) {
