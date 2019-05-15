@@ -82,7 +82,6 @@ class emonomials {
     
     union_find<emonomials>          m_u_f;
     trail_stack<emonomials>         m_u_f_stack;
-    std::unordered_set<unsigned>       m_mons_to_rehash;
     mutable svector<lpvar>          m_find_key; // the key used when looking for a monomial with the specific variables
     var_eqs<emonomials>&            m_ve;
     mutable vector<monomial>        m_monomials;     // set of monomials
@@ -133,8 +132,6 @@ public:
 
     void unmerge_eh(unsigned i, unsigned j) {
         TRACE("nla_solver", tout << "unmerged " << i << " and " << j << "\n";);
-        m_mons_to_rehash.insert(i);
-        m_mons_to_rehash.insert(j);
     }
     
     void merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
