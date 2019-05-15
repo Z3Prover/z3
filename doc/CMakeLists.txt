@@ -13,7 +13,7 @@ SET(DOC_EXTRA_DEPENDS "")
 
 if (BUILD_PYTHON_BINDINGS)
   # FIXME: Don't hard code this path
-  list(APPEND PYTHON_API_OPTIONS "--z3py-package-path" "${CMAKE_BINARY_DIR}/python/z3")
+  list(APPEND PYTHON_API_OPTIONS "--z3py-package-path" "${PROJECT_BINARY_DIR}/python/z3")
   list(APPEND DOC_EXTRA_DEPENDS "build_z3_python_bindings")
 else()
   list(APPEND PYTHON_API_OPTIONS "--no-z3py")
@@ -22,8 +22,8 @@ endif()
 if (BUILD_DOTNET_BINDINGS)
   # FIXME: Don't hard code these paths
   list(APPEND DOTNET_API_OPTIONS "--dotnet-search-paths"
-    "${CMAKE_SOURCE_DIR}/src/api/dotnet"
-    "${CMAKE_BINARY_DIR}/src/api/dotnet"
+    "${PROJECT_SOURCE_DIR}/src/api/dotnet"
+    "${PROJECT_BINARY_DIR}/src/api/dotnet"
   )
   list(APPEND DOC_EXTRA_DEPENDS "build_z3_dotnet_bindings")
 else()
@@ -33,8 +33,8 @@ endif()
 if (BUILD_JAVA_BINDINGS)
   # FIXME: Don't hard code these paths
   list(APPEND JAVA_API_OPTIONS "--java-search-paths"
-    "${CMAKE_SOURCE_DIR}/src/api/java"
-    "${CMAKE_BINARY_DIR}/src/api/java"
+    "${PROJECT_SOURCE_DIR}/src/api/java"
+    "${PROJECT_BINARY_DIR}/src/api/java"
   )
   list(APPEND DOC_EXTRA_DEPENDS "build_z3_java_bindings")
 else()
@@ -59,7 +59,7 @@ endif()
 add_custom_target(api_docs ${ALWAYS_BUILD_DOCS_ARG}
   COMMAND
   "${PYTHON_EXECUTABLE}" "${MK_API_DOC_SCRIPT}"
-  --build "${CMAKE_BINARY_DIR}"
+  --build "${PROJECT_BINARY_DIR}"
   --doxygen-executable "${DOXYGEN_EXECUTABLE}"
   --output-dir "${DOC_DEST_DIR}"
   --temp-dir "${DOC_TEMP_DIR}"
