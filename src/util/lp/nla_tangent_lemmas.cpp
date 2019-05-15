@@ -104,7 +104,6 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
     if (m.size() != 2)
         return;
     TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
-    c().add_empty_lemma();
     const rational v = c().product_value(m.vars());
     const rational mv = val(m);
     SASSERT(mv != v);
@@ -115,6 +114,7 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
         return;
     }
     /*
+    c().add_empty_lemma();
     bool gt = abs(mv) > abs(v);
     if (gt) {
         for (lpvar j : m.vars()) {
