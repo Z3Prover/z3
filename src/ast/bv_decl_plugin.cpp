@@ -720,6 +720,7 @@ void bv_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const
     op_names.push_back(builtin_name("bvashr",OP_BASHR));
     op_names.push_back(builtin_name("rotate_left",OP_ROTATE_LEFT));
     op_names.push_back(builtin_name("rotate_right",OP_ROTATE_RIGHT));
+    op_names.push_back(builtin_name("bit2bool", OP_BIT2BOOL));
 
     if (logic == symbol::null || logic == symbol("ALL") || logic == "QF_FD") {
         op_names.push_back(builtin_name("bvumul_noovfl",OP_BUMUL_NO_OVFL));
