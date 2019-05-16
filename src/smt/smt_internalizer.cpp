@@ -535,13 +535,9 @@ namespace smt {
     }
 
     void context::internalize_lambda(quantifier * q) {
-#if 0
-        UNREACHABLE();
-#else
         TRACE("internalize_quantifier", tout << mk_pp(q, m_manager) << "\n";);
         SASSERT(is_lambda(q));
         app_ref lam_name(m_manager.mk_fresh_const("lambda", m_manager.get_sort(q)), m_manager);
-        enode * e = mk_enode(lam_name, true, false, false);
         app_ref eq(m_manager), lam_app(m_manager);
         expr_ref_vector vars(m_manager);
         vars.push_back(lam_name);
@@ -558,7 +554,6 @@ namespace smt {
         internalize_quantifier(fa, true);
         if (!e_internalized(lam_name)) internalize_uninterpreted(lam_name);
         m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
-#endif
     }
 
     /**
