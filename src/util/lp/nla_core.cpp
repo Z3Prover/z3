@@ -1624,6 +1624,14 @@ bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
     return false;
 }
 
+rational core::val(const factorization& f) const {
+    rational r(1);
+    for (const factor &p : f) {
+        r *= val(p);
+    }
+    return r;
+}
+
 void core::generate_simple_sign_lemma(const rational& sign, const monomial& m) {
     add_empty_lemma();
     SASSERT(sign == nla::rat_sign(product_value(m.vars())));

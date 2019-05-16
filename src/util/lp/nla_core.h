@@ -108,6 +108,8 @@ public:
 
     rational val(const factor& f) const {  return f.rat_sign() * (f.is_var()? val(f.var()) : val(m_emons[f.var()])); }
 
+    rational val(const factorization&) const;
+    
     lpvar var(const factor& f) const { return f.var(); }
 
     svector<lpvar> sorted_rvars(const factor& f) const;
