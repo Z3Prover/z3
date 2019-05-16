@@ -332,12 +332,12 @@ namespace smt {
         args1.push_back(e1);
         args2.push_back(e2);
         for (unsigned i = 0; i < dimension; i++) {
-            expr * k = m.mk_app((*funcs)[i].get(), e1, e2);
+            expr * k = m.mk_app(funcs->get(i), e1, e2);
             args1.push_back(k);
             args2.push_back(k);
         }
-        expr * sel1 = mk_select(dimension+1, args1.c_ptr());
-        expr * sel2 = mk_select(dimension+1, args2.c_ptr());
+        expr * sel1 = mk_select(args1.size(), args1.c_ptr());
+        expr * sel2 = mk_select(args2.size(), args2.c_ptr());
         TRACE("ext", tout << mk_bounded_pp(sel1, m) << "\n" << mk_bounded_pp(sel2, m) << "\n";);
         literal n1_eq_n2     = mk_eq(e1, e2, true);
         literal sel1_eq_sel2 = mk_eq(sel1, sel2, true);

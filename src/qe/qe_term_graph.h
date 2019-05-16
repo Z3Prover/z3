@@ -52,6 +52,7 @@ namespace qe {
         expr_ref_vector    m_lits; // NSB: expr_ref_vector?
         u_map<term* >     m_app2term;
         ast_ref_vector    m_pinned;
+        projector*        m_projector;
         u_map<expr*>      m_term2app;
         plugin_manager<qe::solve_plugin> m_plugins;
         ptr_hashtable<term, term_hash, term_eq> m_cg_table;
@@ -134,6 +135,12 @@ namespace qe {
          * x + y when f is uninterpreted and x + y has sort Int or Real.
          */
         expr_ref_vector shared_occurrences(family_id fid);
+
+        /**
+         * Map expression that occurs in added literals into representative if it exists.
+         */
+        void  add_model_based_terms(model& mdl, expr_ref_vector const& terms);
+        expr* get_model_based_rep(expr* e);
 
     };
 
