@@ -82,7 +82,7 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
     TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(a, b, tout); tout << std::endl;);
     unsigned lemmas_size_was = c().m_lemma_vec->size();
     rational sign(1);
-    generate_simple_tangent_lemma(m);
+    generate_simple_tangent_lemma(m, bf);
     generate_two_tang_lines(bf, xy, j);
     generate_tang_plane(a.x, a.y, bf[0], bf[1], below, j);
     generate_tang_plane(b.x, b.y, bf[0], bf[1], below, j);
@@ -100,11 +100,12 @@ void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
               c().print_specific_lemma((*c().m_lemma_vec)[i], tout); );
 }
 
-void tangents::generate_simple_tangent_lemma(const monomial& m) {
-    if (m.size() != 2)
-        return;
+// using a fact that
+// a != 0 & b != 0 & |a|*|b| = c & |a'| ~ |a| & |b'| ~ |b| => |a'|*|b'| ~ c,
+// where ~ is < or >.
+void tangents::generate_simple_tangent_lemma(const monomial& m, const factorization& bf) {
     TRACE("nla_solver", tout << "m:" << pp_mon(c(), m) << std::endl;);
-    const rational v = c().product_value(m.vars());
+    rational v = c().product_value(m.vars());
     const rational mv = val(m);
     SASSERT(mv != v);
     SASSERT(!mv.is_zero() && !v.is_zero());
@@ -113,30 +114,33 @@ void tangents::generate_simple_tangent_lemma(const monomial& m) {
         c().generate_simple_sign_lemma(-sign, m);
         return;
     }
-    /*
     c().add_empty_lemma();
+    v = val(bf);
+    SASSERT(rat_sign(v) == rat_sign(mv));
     bool gt = abs(mv) > abs(v);
+    unsigned j;
     if (gt) {
-        for (lpvar j : m.vars()) {
+        for (const factor& f : bf) {
+            j = var(f);
             const rational jv = val(j);
             rational js = rational(nla::rat_sign(jv));
-            c().mk_ineq(js, j, llc::LT);
-            c().mk_ineq(js, j, llc::GT, jv);
+            c().mk_ineq(js, j, llc::LE);
+            c().mk_ineq(js, j, llc::GT, abs(jv));
         }
-        c().mk_ineq(sign, m.var(), llc::LE, std::max(v, rational(-1)));
+        c().mk_ineq(sign, m.var(), llc::LT);        
+        c().mk_ineq(sign, m.var(), llc::LE, abs(v));
     } else {
-        for (lpvar j : m.vars()) {
+        for (const factor& f : bf) {
+            j = var(f);
             const rational jv = val(j);
             rational js = rational(nla::rat_sign(jv));
-            c().mk_ineq(js, j, llc::LT, std::max(jv, rational(0)));
+            c().mk_ineq(js, j, llc::LT, abs(jv));
         }
         c().mk_ineq(sign, m.var(), llc::LT);
-        c().mk_ineq(sign, m.var(), llc::GE, v);
+        c().mk_ineq(sign, m.var(), llc::GE, abs(v));
     }
     TRACE("nla_solver", c().print_lemma(tout););
-    */
 }
-// todo : consider using generate_simple_tangent_lemma on each factorization
 
 void tangents::generate_two_tang_lines(const factorization & bf, const point& xy, lpvar j) {
     add_empty_lemma();
