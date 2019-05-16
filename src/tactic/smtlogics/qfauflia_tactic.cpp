@@ -30,10 +30,6 @@ tactic * mk_qfauflia_tactic(ast_manager & m, params_ref const & p) {
     main_p.set_bool("som", true);
     main_p.set_bool("sort_store", true);
     
-    params_ref ctx_simp_p;
-    ctx_simp_p.set_uint("max_depth", 30);
-    ctx_simp_p.set_uint("max_steps", 5000000);
-
     params_ref solver_p;
     solver_p.set_bool("array.simplify", false); // disable array simplifications at old_simplify module
 
