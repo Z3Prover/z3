@@ -218,6 +218,20 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         
     }
 
+    if (m_util.is_map(args[0])) {
+        app* a = to_app(args[0]);
+        func_decl* f0 = m_util.get_map_func_decl(a);
+        expr_ref_vector args0(m());
+        for (expr* arg : *a) {
+            ptr_vector<expr> args1;
+            args1.push_back(arg);
+            args1.append(num_args-1, args + 1);
+            args0.push_back(m_util.mk_select(args1.size(), args1.c_ptr()));
+        }
+        result = m().mk_app(f0, args0.size(), args0.c_ptr());
+        return BR_REWRITE2;
+    }
+
     if (m_util.is_as_array(args[0])) {
         // select(as-array[f], I) --> f(I)
         func_decl * f = m_util.get_as_array_func_decl(to_app(args[0]));
