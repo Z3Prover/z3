@@ -17,7 +17,7 @@ set(Z3_JAVA_NATIVE_JAVA "${CMAKE_CURRENT_BINARY_DIR}/Native.java")
 set(Z3_JAVA_NATIVE_CPP "${CMAKE_CURRENT_BINARY_DIR}/Native.cpp")
 add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
   COMMAND "${PYTHON_EXECUTABLE}"
-    "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
+    "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--java-output-dir"
     "${CMAKE_CURRENT_BINARY_DIR}"
@@ -25,10 +25,10 @@ add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
     ${Z3_JAVA_PACKAGE_NAME}
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
-    "${CMAKE_SOURCE_DIR}/scripts/update_api.py"
+    "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
     # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
-    "${CMAKE_SOURCE_DIR}/scripts/mk_util.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating \"${Z3_JAVA_NATIVE_JAVA}\" and \"${Z3_JAVA_NATIVE_CPP}\""
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
 )
@@ -44,8 +44,8 @@ target_link_libraries(z3java PRIVATE libz3)
 target_compile_options(z3java PRIVATE ${Z3_COMPONENT_CXX_FLAGS})
 target_compile_definitions(z3java PRIVATE ${Z3_COMPONENT_CXX_DEFINES})
 target_include_directories(z3java PRIVATE
-  "${CMAKE_SOURCE_DIR}/src/api"
-  "${CMAKE_BINARY_DIR}/src/api"
+  "${PROJECT_SOURCE_DIR}/src/api"
+  "${PROJECT_BINARY_DIR}/src/api"
   ${JNI_INCLUDE_DIRS}
 )
 # FIXME: Should this library have SONAME and VERSION set?
@@ -75,7 +75,7 @@ foreach (enum_file ${Z3_JAVA_ENUMERATION_PACKAGE_FILES})
 endforeach()
 add_custom_command(OUTPUT ${Z3_JAVA_ENUMERATION_PACKAGE_FILES_FULL_PATH}
   COMMAND "${PYTHON_EXECUTABLE}"
-    "${CMAKE_SOURCE_DIR}/scripts/mk_consts_files.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--java-output-dir"
     "${CMAKE_CURRENT_BINARY_DIR}"
@@ -83,7 +83,7 @@ add_custom_command(OUTPUT ${Z3_JAVA_ENUMERATION_PACKAGE_FILES_FULL_PATH}
     ${Z3_JAVA_PACKAGE_NAME}
   DEPENDS
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
-    "${CMAKE_SOURCE_DIR}/scripts/mk_consts_files.py"
+    "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating ${Z3_JAVA_PACKAGE_NAME}.enumerations package"
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
@@ -203,7 +203,7 @@ add_custom_target(build_z3_java_bindings
 add_jar(z3JavaJar
   SOURCES ${Z3_JAVA_JAR_SOURCE_FILES_FULL_PATH}
   OUTPUT_NAME ${Z3_JAVA_PACKAGE_NAME}
-  OUTPUT_DIR "${CMAKE_BINARY_DIR}"
+  OUTPUT_DIR "${PROJECT_BINARY_DIR}"
   VERSION "${Z3_VERSION}"
 )
 

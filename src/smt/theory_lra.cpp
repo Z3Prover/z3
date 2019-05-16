@@ -3429,7 +3429,7 @@ public:
     }
 
     app_ref mk_obj(theory_var v) {
-        lp::var_index vi = m_theory_var2var_index[v];
+        lp::var_index vi = get_var_index(v);
         bool is_int = a.is_int(get_enode(v)->get_owner());
         if (m_solver->is_term(vi)) {           
             return mk_term(m_solver->get_term(vi), is_int);

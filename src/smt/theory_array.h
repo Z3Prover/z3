@@ -88,6 +88,7 @@ namespace smt {
         bool instantiate_axiom2b(enode * select, enode * store);
         void instantiate_axiom1(enode * store);
         void instantiate_extensionality(enode * a1, enode * a2);
+        void instantiate_congruent(enode * a1, enode * a2);
         bool instantiate_axiom2b_for(theory_var v);
         
         virtual final_check_status assert_delayed_axioms();

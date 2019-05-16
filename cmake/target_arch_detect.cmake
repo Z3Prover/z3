@@ -8,8 +8,8 @@
 function(detect_target_architecture OUTPUT_VAR)
   try_run(run_result
     compile_result
-    "${CMAKE_BINARY_DIR}"
-    "${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cpp"
+    "${PROJECT_BINARY_DIR}"
+    "${PROJECT_SOURCE_DIR}/cmake/target_arch_detect.cpp"
     COMPILE_OUTPUT_VARIABLE compiler_output
   )
   if (compile_result)

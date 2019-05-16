@@ -57,6 +57,7 @@ public:
     bool is_true(expr_ref_vector const& ts);
 
     void set_solver(expr_solver* solver);
+    bool has_solver();
 
     /**
      * best effort evaluator of extensional array equality.

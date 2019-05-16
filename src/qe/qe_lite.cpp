@@ -69,6 +69,7 @@ namespace eq {
         ast_manager &   m;
         arith_util      a;
         datatype_util   dt;
+        bv_util         bv;
         is_variable_proc* m_is_variable;
         beta_reducer    m_subst;
         expr_ref_vector m_subst_map;
@@ -84,6 +85,37 @@ namespace eq {
         th_rewriter      m_rewriter;
         params_ref       m_params;
 
+        bool is_sub_extract(unsigned idx, expr* t) {
+            bool has_ground = false;            
+            if (bv.is_concat(t)) {
+                unsigned lo, hi;
+                ptr_buffer<expr> args;
+                args.append(to_app(t)->get_num_args(), to_app(t)->get_args());
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    expr* arg = args[i];
+                    if (is_ground(arg)) {
+                        has_ground = true;
+                        continue;
+                    }
+                    if (bv.is_extract(arg, lo, hi, arg)) {
+                        if (is_var(arg) && to_var(arg)->get_idx() == idx) 
+                            continue;
+                    }
+                    if (bv.is_concat(arg)) {
+                        args.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                        continue;
+                    }
+                    return false;
+                }
+                return has_ground;
+            }
+            return false;
+        }
+
+        bool strict_occurs_var(unsigned idx, expr* t) {
+            return occurs_var(idx, t) && !is_sub_extract(idx, t);
+        }
+
         void der_sort_vars(ptr_vector<var> & vars, ptr_vector<expr> & definitions, unsigned_vector & order) {
             order.reset();
 
@@ -92,7 +124,7 @@ namespace eq {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 var * v  = vars[i];
                 expr * t = definitions[i];
-                if (t == nullptr || has_quantifiers(t) || occurs_var(v->get_idx(), t))
+                if (t == nullptr || has_quantifiers(t) || strict_occurs_var(v->get_idx(), t))
                     definitions[i] = nullptr;
                 else
                     found = true; // found at least one candidate
@@ -112,6 +144,10 @@ namespace eq {
             for (unsigned i = 0; i < definitions.size(); i++) {
                 if (definitions[i] == nullptr)
                     continue;
+                if (is_sub_extract(vars[i]->get_idx(), definitions[i])) {
+                    order.push_back(i);
+                    continue;
+                }
                 var * v = vars[i];
                 SASSERT(v->get_idx() == i);
                 SASSERT(todo.empty());
@@ -153,7 +189,7 @@ namespace eq {
                                 done.mark(t);
                             }
                         }
-                            done.mark(t);
+                        done.mark(t);
                         todo.pop_back();
                         break;
                     case AST_QUANTIFIER:
@@ -255,6 +291,7 @@ namespace eq {
 
         bool is_var_eq(expr * e, ptr_vector<var>& vs, expr_ref_vector & ts) {
             expr* lhs = nullptr, *rhs = nullptr;
+            TRACE("qe_lite", tout << mk_pp(e, m) << "\n";);
 
             // (= VAR t), (iff VAR t), (iff (not VAR) t), (iff t (not VAR)) cases
             if (m.is_eq(e, lhs, rhs) && trivial_solve(lhs, rhs, e, vs, ts)) {
@@ -270,6 +307,7 @@ namespace eq {
                 if (res != e && m.is_eq(res, lhs, rhs) && is_variable(lhs)) {
                     vs.push_back(to_var(lhs));
                     ts.push_back(rhs);
+                    TRACE("qe_lite", tout << res << "\n";);
                     return true;
                 }
             }
@@ -314,7 +352,8 @@ namespace eq {
                 expr_ref r(m);
                 if (is_ground(cur)) r = cur; else m_subst(cur, r);
                 unsigned inx = sz - idx - 1;
-                CTRACE("topo_sort", m_subst_map.get(inx) != nullptr,
+                TRACE("qe_lite", tout << idx << " |-> " << r << "\n";);
+                CTRACE("top_sort", m_subst_map.get(inx) != nullptr,
                        tout << "inx is " << inx << "\n"
                        << "idx is " << idx << "\n"
                        << "sz is " << sz << "\n"
@@ -368,6 +407,7 @@ namespace eq {
                 break;
             }
             expr_ref new_e = m_subst(t, m_subst_map.size(), m_subst_map.c_ptr());
+            TRACE("qe_lite", tout << new_e << "\n";);
 
             // don't forget to update the quantifier patterns
             expr_ref_buffer  new_patterns(m);
@@ -483,30 +523,30 @@ namespace eq {
                                 m_var2pos[idx] = i;
                                 m_map[idx] = t;
                                 m_new_exprs.push_back(std::move(t));
-                          }
-                          // -- prefer ground
-                          else if (is_app(t) && to_app(t)->is_ground() &&
+                            }
+                            // -- prefer ground
+                            else if (is_app(t) && to_app(t)->is_ground() &&
                                    (!is_app(old_def) ||
                                     !to_app(old_def)->is_ground())) {
-                              m_pos2var[m_var2pos[idx]] = -1;
-                              m_pos2var[i] = idx;
-                              m_var2pos[idx] = i;
-                              m_map[idx] = t;
-                              m_new_exprs.push_back(std::move(t));
-                          }
-                          // -- prefer constants
-                          else if (is_uninterp_const(t)
-                                   /* && !is_uninterp_const(old_def) */){
-                              m_pos2var[m_var2pos[idx]] = -1;
-                              m_pos2var[i] = idx;
-                              m_var2pos[idx] = i;
-                              m_map[idx] = t;
-                              m_new_exprs.push_back(std::move(t));
-                          }
-                          TRACE ("qe_def",
-                                 tout << "Replacing definition of VAR " << idx << " from "
-                                 << mk_pp(old_def, m) << " to " << mk_pp(t, m)
-                                 << " inferred from: " << mk_pp(args[i], m) << "\n";);
+                                m_pos2var[m_var2pos[idx]] = -1;
+                                m_pos2var[i] = idx;
+                                m_var2pos[idx] = i;
+                                m_map[idx] = t;
+                                m_new_exprs.push_back(std::move(t));
+                            }
+                            // -- prefer constants
+                            else if (is_uninterp_const(t)
+                                     /* && !is_uninterp_const(old_def) */){
+                                m_pos2var[m_var2pos[idx]] = -1;
+                                m_pos2var[i] = idx;
+                                m_var2pos[idx] = i;
+                                m_map[idx] = t;
+                                m_new_exprs.push_back(std::move(t));
+                            }
+                            TRACE ("qe_def",
+                                   tout << "Replacing definition of VAR " << idx << " from "
+                                   << mk_pp(old_def, m) << " to " << mk_pp(t, m)
+                                   << " inferred from: " << mk_pp(args[i], m) << "\n";);
                         }
                     }
                 }
@@ -657,6 +697,7 @@ namespace eq {
             m(m),
             a(m),
             dt(m),
+            bv(m),
             m_is_variable(nullptr),
             m_subst(m),
             m_subst_map(m),
@@ -671,6 +712,7 @@ namespace eq {
             m_solvers.reset();
             m_solvers.register_plugin(qe::mk_arith_solve_plugin(m, proc));            
             m_solvers.register_plugin(qe::mk_basic_solve_plugin(m, proc));            
+            m_solvers.register_plugin(qe::mk_bv_solve_plugin(m, proc));            
         }
 
         void operator()(quantifier * q, expr_ref & r, proof_ref & pr) {

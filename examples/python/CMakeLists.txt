@@ -9,7 +9,7 @@ set(python_example_files
   visitor.py
 )
 
-set(z3py_bindings_build_dest "${CMAKE_BINARY_DIR}/python")
+set(z3py_bindings_build_dest "${PROJECT_BINARY_DIR}/python")
 
 set(build_z3_python_examples_target_depends "")
 foreach (example_file ${python_example_files})

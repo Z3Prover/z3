@@ -2,7 +2,7 @@
 def_module_params('tactic', 
                   description='tactic parameters',
                   export=True,
-                  params=(('solve_eqs.context_solve', BOOL, False, "solve equalities within disjunctions."),
+                  params=(('solve_eqs.context_solve', BOOL, True, "solve equalities within disjunctions."),
                           ('solve_eqs.theory_solver', BOOL, True, "use theory solvers."),
                           ('solve_eqs.ite_solver', BOOL, True, "use if-then-else solvers."),
                           ('solve_eqs.max_occs', UINT, UINT_MAX, "maximum number of occurrences for considering a variable for gaussian eliminations."),

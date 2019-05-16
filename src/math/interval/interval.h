@@ -235,6 +235,11 @@ public:
     bool check_invariant(interval const & n) const;
 
     /**
+       \brief b <- k
+    */
+    void set(numeral const& k, interval & b);
+
+    /**
        \brief b <- -a
     */
     void neg(interval const & a, interval & b, interval_deps & b_deps);

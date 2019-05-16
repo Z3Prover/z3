@@ -906,12 +906,18 @@ bool seq_decl_plugin::is_value(app* e) const {
             m_manager->is_value(e->get_arg(0))) {
             return true;
         }
-        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT) &&
-            e->get_num_args() == 2 && 
-            is_app(e->get_arg(0)) &&
-            is_app(e->get_arg(1)) &&
-            is_value(to_app(e->get_arg(0)))) {
-            e = to_app(e->get_arg(1));
+        if (is_app_of(e, m_family_id, OP_SEQ_CONCAT)) {
+            bool first = true;
+            for (expr* arg : *e) {
+                if (first) {
+                    first = false;
+                }
+                else if (is_app(arg) && !is_value(to_app(arg))) {
+                    return false;
+                }
+            }
+            if (!is_app(e->get_arg(0))) return false;            
+            e = to_app(e->get_arg(0));
             continue;
         }
         return false;

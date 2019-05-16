@@ -112,6 +112,8 @@ public:
 
     expr * get_interp() const;
 
+    expr_ref get_array_interp(sort_ref_vector const& domain) const;
+
     func_interp * translate(ast_translation & translator) const;
 
 private:

@@ -21,6 +21,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_util.h"
 #include "model/func_interp.h"
+#include "ast/array_decl_plugin.h"
 
 func_entry::func_entry(ast_manager & m, unsigned arity, expr * const * args, expr * result):
     m_args_are_values(true),
@@ -314,6 +315,37 @@ bool func_interp::is_identity() const {
     // it, together with the entries covers the entire domain.
     //
     return (sz.size() == m_entries.size() + 1);
+}
+
+expr_ref func_interp::get_array_interp(sort_ref_vector const& domain) const {
+    if (m_else == nullptr) 
+        return expr_ref(m_manager);
+    if (!is_ground(m_else)) {
+        return expr_ref(m_manager);
+    }
+    array_util autil(m_manager);
+    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m_manager.get_sort(m_else)), m_manager);
+    expr_ref r(autil.mk_const_array(A, m_else), m_manager);
+    expr_ref_vector args(m_manager);
+    for (func_entry * curr : m_entries) {
+        expr * res = curr->get_result();
+
+        if (m_else == res) {
+            continue;
+        }
+        args.reset();
+        args.push_back(r);        
+        for (unsigned i = 0; i < m_arity; i++) {
+            expr* arg = curr->get_arg(i);
+            if (!is_ground(arg)) {
+                return expr_ref(m_manager);
+            }
+            args.push_back(arg);
+        }
+        args.push_back(res);
+        r = autil.mk_store(args.size(), args.c_ptr());
+    }
+    return r;    
 }
 
 expr * func_interp::get_interp_core() const {

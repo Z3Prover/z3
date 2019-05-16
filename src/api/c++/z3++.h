@@ -1573,12 +1573,14 @@ namespace z3 {
         else {
             r = Z3_mk_fpa_abs(a.ctx(), a); 
         }
+        a.check_error();
         return expr(a.ctx(), r); 
     }
     inline expr sqrt(expr const & a, expr const& rm) {
         check_context(a, rm);
         assert(a.is_fpa());
         Z3_ast r = Z3_mk_fpa_sqrt(a.ctx(), rm, a);
+        a.check_error();
         return expr(a.ctx(), r);
     }
     inline expr operator~(expr const & a) { Z3_ast r = Z3_mk_bvnot(a.ctx(), a); return expr(a.ctx(), r); }
@@ -1799,13 +1801,13 @@ namespace z3 {
             unsigned m_index;
         public:
             iterator(ast_vector_tpl const* v, unsigned i): m_vector(v), m_index(i) {}
-            iterator(iterator& other): m_vector(other.m_vector), m_index(other.m_index) {}
+            iterator(iterator const& other): m_vector(other.m_vector), m_index(other.m_index) {}
             iterator operator=(iterator const& other) { m_vector = other.m_vector; m_index = other.m_index; return *this; }
 
-            bool operator==(iterator const& other) {
+            bool operator==(iterator const& other) const {
                 return other.m_index == m_index;
             };
-            bool operator!=(iterator const& other) {
+            bool operator!=(iterator const& other) const {
                 return other.m_index != m_index;
             };
             iterator& operator++() {

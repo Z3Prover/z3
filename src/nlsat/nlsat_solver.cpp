@@ -920,7 +920,7 @@ namespace nlsat {
             m_justifications[b] = j;
             save_assign_trail(b);
             updt_eq(b);
-            TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b] << " " << m_atoms[b] << "\n";);
+            TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
         }
 
         /**
@@ -936,20 +936,23 @@ namespace nlsat {
         */
         lbool value(literal l) {
             lbool val = assigned_value(l);
-            TRACE("nlsat_verbose", display(tout << " assigned value " << val << " for ", l) << "\n";);
-            if (val != l_undef) {
+            if (val != l_undef) {            
+                TRACE("nlsat_verbose", display(tout << " assigned value " << val << " for ", l) << "\n";);
                 return val;
             }
             bool_var b = l.var();
             atom * a = m_atoms[b];
             if (a == nullptr) {
+                TRACE("nlsat_verbose", display(tout << " no atom for ", l) << "\n";);
                 return l_undef;
             }
             var max = a->max_var();
             if (!m_assignment.is_assigned(max)) {
+                TRACE("nlsat_verbose", display(tout << " maximal variable not assigned ", l) << "\n";);
                 return l_undef;
             }
             val = to_lbool(m_evaluator.eval(a, l.sign()));
+            TRACE("nlsat_verbose", display(tout << " evaluated value " << val << " for ", l) << "\n";);
             TRACE("value_bug", tout << "value of: "; display(tout, l); tout << " := " << val << "\n"; 
                   tout << "xk: " << m_xk << ", a->max_var(): " << a->max_var() << "\n";
                   display_assignment(tout););            
@@ -1086,7 +1089,7 @@ namespace nlsat {
                 SASSERT(max_var(l) == m_xk);
                 bool_var b = l.var();
                 atom * a   = m_atoms[b];
-                SASSERT(a != 0);
+                SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 TRACE("nlsat_inf_set", tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l); tout << "\n";);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign());
@@ -1148,7 +1151,7 @@ namespace nlsat {
            If satisfy_learned is true, then (arithmetic) learned clauses are satisfied even if m_lazy > 0
         */
         bool process_clause(clause const & cls, bool satisfy_learned) {
-            TRACE("nlsat", tout << "processing clause: "; display(tout, cls); tout << "\n";);
+            TRACE("nlsat", display(tout << "processing clause: ", cls) << "sat: " << is_satisfied(cls) << "\n";);
             if (is_satisfied(cls))
                 return true;
             if (m_xk == null_var)
@@ -1175,7 +1178,7 @@ namespace nlsat {
         */
         void peek_next_bool_var() {
             while (m_bk < m_atoms.size()) {
-                if (!m_dead[m_bk] && m_atoms[m_bk] == 0 && m_bvalues[m_bk] == l_undef) {
+                if (!m_dead[m_bk] && m_atoms[m_bk] == nullptr && m_bvalues[m_bk] == l_undef) {
                     return;
                 }
                 m_bk++;
@@ -1235,11 +1238,19 @@ namespace nlsat {
                 if (m_bk == null_bool_var && m_xk >= num_vars()) {
                     TRACE("nlsat", tout << "found model\n"; display_assignment(tout););
                     fix_patch();
+                    SASSERT(check_satisfied(m_clauses));
                     return l_true; // all variables were assigned, and all clauses were satisfied.
                 }
-                TRACE("nlsat", tout << "processing variable "; 
-                      if (m_xk != null_var) m_display_var(tout, m_xk); else tout << "boolean b" << m_bk; tout << "\n";);
                 while (true) {
+                    TRACE("nlsat", tout << "processing variable "; 
+                          if (m_xk != null_var) {
+                              m_display_var(tout, m_xk); tout << " " << m_watches[m_xk].size();
+                          }
+                          else {
+                              tout << m_bwatches[m_bk].size() << " boolean b" << m_bk;
+                          }
+                          tout << "\n";
+                          );
                     checkpoint();
                     clause * conflict_clause;
                     if (m_xk == null_var)
@@ -1856,7 +1867,7 @@ namespace nlsat {
                 clause const & c = *(cs[i]);
                 if (!is_satisfied(c)) {
                     TRACE("nlsat", tout << "not satisfied\n"; display(tout, c); tout << "\n";); 
-                    UNREACHABLE();
+                    return false;
                 }
             }
             return true;
@@ -2052,7 +2063,7 @@ namespace nlsat {
             reset_watches();
             assignment new_assignment(m_am);
             for (var x = 0; x < num_vars(); x++) {
-                if (m_assignment.is_assigned(x))
+                if (m_assignment.is_assigned(x)) 
                     new_assignment.set(p[x], m_assignment.value(x));
             }
             var_vector new_inv_perm;
@@ -2586,7 +2597,9 @@ namespace nlsat {
             }
             TRACE("nlsat_bool_assignment",
                   for (bool_var b = 0; b < sz; b++) {
-                      out << "b" << b << " -> " << m_bvalues[b] << " " << m_atoms[b] << "\n";
+                      out << "b" << b << " -> " << m_bvalues[b] << " ";
+                      if (m_atoms[b]) display(out, *m_atoms[b]);
+                      out << "\n";
                   });
             return out;
         }

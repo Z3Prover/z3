@@ -543,14 +543,14 @@ namespace smt {
     }
 
     void context::internalize_lambda(quantifier * q) {
-        UNREACHABLE();
-
 #if 0
+        UNREACHABLE();
+#else
         TRACE("internalize_quantifier", tout << mk_pp(q, m_manager) << "\n";);
         SASSERT(is_lambda(q));
         app_ref lam_name(m_manager.mk_fresh_const("lambda", m_manager.get_sort(q)), m_manager);
         enode * e = mk_enode(lam_name, true, false, false);
-        expr_ref eq(m_manager), lam_app(m_manager);
+        app_ref eq(m_manager), lam_app(m_manager);
         expr_ref_vector vars(m_manager);
         vars.push_back(lam_name);
         unsigned sz = q->get_num_decls();
@@ -561,9 +561,11 @@ namespace smt {
         lam_app = autil.mk_select(vars.size(), vars.c_ptr());
         eq = m_manager.mk_eq(lam_app, q->get_expr());
         quantifier_ref fa(m_manager);
-        expr * patterns[1] = { m_manager.mk_pattern(lam_name) };
+        expr * patterns[1] = { m_manager.mk_pattern(lam_app) };
         fa = m_manager.mk_forall(sz, q->get_decl_sorts(), q->get_decl_names(), eq, 0, m_manager.lambda_def_qid(), symbol::null, 1, patterns);
         internalize_quantifier(fa, true);
+        if (!e_internalized(lam_name)) internalize_uninterpreted(lam_name);
+        m_app2enode.setx(q->get_id(), get_enode(lam_name), nullptr);
 #endif
     }
 
@@ -946,7 +948,7 @@ namespace smt {
             e->mark_as_interpreted();
         TRACE("mk_var_bug", tout << "mk_enode: " << id << "\n";);
         TRACE("generation", tout << "mk_enode: " << id << " " << generation << "\n";);
-        m_app2enode.setx(id, e, 0);
+        m_app2enode.setx(id, e, nullptr);
         m_e_internalized_stack.push_back(n);
         m_trail_stack.push_back(&m_mk_enode_trail);
         m_enodes.push_back(e);

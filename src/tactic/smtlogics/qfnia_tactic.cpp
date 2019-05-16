@@ -98,7 +98,6 @@ static tactic * mk_qfnia_nlsat_solver(ast_manager & m, params_ref const & p) {
     simp_p.set_bool("som", true); // expand into sums of monomials
     simp_p.set_bool("factor", false);
 
-
     return and_then(using_params(mk_simplify_tactic(m), simp_p),
                     try_for(mk_qfnra_nlsat_tactic(m, simp_p), 3000),
                     mk_fail_if_undecided_tactic());

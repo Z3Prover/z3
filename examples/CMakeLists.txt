@@ -39,7 +39,7 @@ ExternalProject_Add(c_example
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/c"
   CMAKE_ARGS
-    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "-DZ3_DIR=${PROJECT_BINARY_DIR}"
     "${EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG}"
     "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
@@ -58,7 +58,7 @@ ExternalProject_Add(c_maxsat_example
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/maxsat"
   CMAKE_ARGS
-    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "-DZ3_DIR=${PROJECT_BINARY_DIR}"
     "${EXTERNAL_C_PROJ_USE_CXX_LINKER_ARG}"
     "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
@@ -78,7 +78,7 @@ ExternalProject_Add(cpp_example
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/c++"
   CMAKE_ARGS
-    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "-DZ3_DIR=${PROJECT_BINARY_DIR}"
     "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}
@@ -96,7 +96,7 @@ ExternalProject_Add(z3_tptp5
   # Configure step
   SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tptp"
   CMAKE_ARGS
-    "-DZ3_DIR=${CMAKE_BINARY_DIR}"
+    "-DZ3_DIR=${PROJECT_BINARY_DIR}"
     "${EXTERNAL_PROJECT_CMAKE_BUILD_TYPE_ARG}"
   # Build step
   ${EXTERNAL_PROJECT_BUILD_ALWAYS_ARG}

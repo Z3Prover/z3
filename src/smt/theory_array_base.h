@@ -66,6 +66,7 @@ namespace smt {
         ptr_vector<enode>                   m_axiom1_todo;
         enode_pair_vector                   m_axiom2_todo;
         enode_pair_vector                   m_extensionality_todo;
+        enode_pair_vector                   m_congruent_todo;
         scoped_ptr<theory_array_bapa>       m_bapa;
 
         void assert_axiom(unsigned num_lits, literal * lits);
@@ -78,6 +79,10 @@ namespace smt {
 
         void assert_extensionality_core(enode * a1, enode * a2);
         bool assert_extensionality(enode * a1, enode * a2);
+
+        expr_ref instantiate_lambda(app* e);
+        void assert_congruent_core(enode * a1, enode * a2);
+        void assert_congruent(enode * a1, enode * a2);
 
         // --------------------------------------------------
         // Array sort -> extensionality skolems
@@ -194,7 +199,7 @@ namespace smt {
         select_set * get_select_set(enode * n);
         void finalize_model(model_generator & m) override;
         model_value_proc * mk_value(enode * n, model_generator & m) override;
-        
+        bool include_func_interp(func_decl* f) override;
     public:
         theory_array_base(ast_manager & m);
         ~theory_array_base() override { restore_sorts(0); }
