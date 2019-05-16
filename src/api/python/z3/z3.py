@@ -6781,12 +6781,6 @@ class Solver(Z3PPObject):
         """Return trail of the solver state after a check() call. 
         """
         return AstVector(Z3_solver_get_trail(self.ctx.ref(), self.solver), self.ctx)
-
-    def set_activity(self, lit, act):
-        """Set activity of literal on solver object.
-        This influences the case split order of the variable.
-        """
-        Z3_solver_set_activity(self.ctx.ref(), self.solver, lit.ast, act)
         
     def statistics(self):
         """Return statistics for the last `check()`.
