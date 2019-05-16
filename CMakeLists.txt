@@ -53,7 +53,7 @@ set(z3_polluted_tree_msg
 ################################################################################
 # Sanity check - Disallow building in source
 ################################################################################
-if ("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
+if ("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
   message(FATAL_ERROR "In source builds are not allowed. You should invoke "
           "CMake from a different directory.")
 endif()
@@ -61,12 +61,12 @@ endif()
 ################################################################################
 # Add our CMake module directory to the list of module search directories
 ################################################################################
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/modules")
 
 ################################################################################
 # Handle git hash and description
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/git_utils.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/git_utils.cmake)
 macro(disable_git_describe)
   message(WARNING "Disabling INCLUDE_GIT_DESCRIBE")
   set(INCLUDE_GIT_DESCRIBE OFF CACHE BOOL "Include git describe output in version output" FORCE)
@@ -79,11 +79,11 @@ endmacro()
 option(INCLUDE_GIT_HASH "Include git hash in version output" ON)
 option(INCLUDE_GIT_DESCRIBE "Include git describe output in version output" ON)
 
-set(GIT_DIR "${CMAKE_SOURCE_DIR}/.git")
+set(GIT_DIR "${PROJECT_SOURCE_DIR}/.git")
 if (EXISTS "${GIT_DIR}")
   # Try to make CMake configure depend on the current git HEAD so that
   # a re-configure is triggered when the HEAD changes.
-  add_git_dir_dependency("${CMAKE_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
+  add_git_dir_dependency("${PROJECT_SOURCE_DIR}" ADD_GIT_DEP_SUCCESS)
   if (ADD_GIT_DEP_SUCCESS)
     if (INCLUDE_GIT_HASH)
       get_git_head_hash("${GIT_DIR}" Z3GITHASH)
@@ -185,7 +185,7 @@ message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 ################################################################################
 # Target architecture detection
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/target_arch_detect.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/target_arch_detect.cmake)
 detect_target_architecture(TARGET_ARCHITECTURE)
 message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 
@@ -193,7 +193,7 @@ message(STATUS "Detected target architecture: ${TARGET_ARCHITECTURE}")
 ################################################################################
 # Function for detecting C++ compiler flag support
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 
 ################################################################################
 # C++ language version
@@ -251,8 +251,8 @@ else()
 endif()
 
 list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS 
-  "${CMAKE_BINARY_DIR}/src"
-  "${CMAKE_SOURCE_DIR}/src"
+  "${PROJECT_BINARY_DIR}/src"
+  "${PROJECT_SOURCE_DIR}/src"
 )
 
 ################################################################################
@@ -361,7 +361,7 @@ list(APPEND Z3_DEPENDENT_LIBS ${CMAKE_THREAD_LIBS_INIT})
 ################################################################################
 # Compiler warnings
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/compiler_warnings.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/compiler_warnings.cmake)
 
 ################################################################################
 # Save Clang optimization records
@@ -428,7 +428,7 @@ endif()
 ################################################################################
 # Link time optimization
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/compiler_lto.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/compiler_lto.cmake)
 
 ################################################################################
 # Control flow integrity
@@ -466,7 +466,7 @@ endif()
 # MSVC specific flags inherited from old build system
 ################################################################################
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-  include(${CMAKE_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
+  include(${PROJECT_SOURCE_DIR}/cmake/msvc_legacy_quirks.cmake)
 endif()
 
 ################################################################################
@@ -527,7 +527,7 @@ message(STATUS "CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR: \"${CMAKE_INSTALL_Z3_CMAKE_P
 # Uninstall rule
 ################################################################################
 configure_file(
-  "${CMAKE_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
+  "${PROJECT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   @ONLY
 )
@@ -547,9 +547,9 @@ add_custom_target(uninstall
 ################################################################################
 # To mimic the python build system output these into the root of the build
 # directory
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}")
 
 ################################################################################
 # Extra dependencies for build rules that use the Python infrastructure to
@@ -559,14 +559,14 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 # Note: ``update_api.py`` is deliberately not here because it not used
 # to generate every generated file. The targets that need it list it explicitly.
 set(Z3_GENERATED_FILE_EXTRA_DEPENDENCIES
-  "${CMAKE_SOURCE_DIR}/scripts/mk_genfile_common.py"
+  "${PROJECT_SOURCE_DIR}/scripts/mk_genfile_common.py"
 )
 
 ################################################################################
 # Z3 components, library and executables
 ################################################################################
-include(${CMAKE_SOURCE_DIR}/cmake/z3_add_component.cmake)
-include(${CMAKE_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_add_component.cmake)
+include(${PROJECT_SOURCE_DIR}/cmake/z3_append_linker_flag_list_to_target.cmake)
 add_subdirectory(src)
 
 ################################################################################
@@ -578,22 +578,22 @@ if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
   # FIXME: Remove this once we drop support for CMake 2.8.12
   export(TARGETS libz3
     NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+    FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
   )
 else()
   export(EXPORT Z3_EXPORTED_TARGETS
     NAMESPACE z3::
-    FILE "${CMAKE_BINARY_DIR}/Z3Targets.cmake"
+    FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
   )
 endif()
-set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_BINARY_DIR}/src/api")
-set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api")
-set(Z3_CXX_PACKAGE_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/src/api/c++")
+set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
+set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
+set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
 set(AUTO_GEN_MSG "Automatically generated. DO NOT EDIT")
 set(CONFIG_FILE_TYPE "build tree")
-configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+configure_package_config_file("${PROJECT_SOURCE_DIR}/cmake/Z3Config.cmake.in"
   "Z3Config.cmake"
-  INSTALL_DESTINATION "${CMAKE_BINARY_DIR}"
+  INSTALL_DESTINATION "${PROJECT_BINARY_DIR}"
   PATH_VARS
     Z3_FIRST_PACKAGE_INCLUDE_DIR
     Z3_SECOND_PACKAGE_INCLUDE_DIR
@@ -617,7 +617,7 @@ install(EXPORT
   NAMESPACE z3::
   DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
 )
-set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${CMAKE_BINARY_DIR}/cmake/Z3Config.cmake")
+set(Z3_INSTALL_TREE_CMAKE_CONFIG_FILE "${PROJECT_BINARY_DIR}/cmake/Z3Config.cmake")
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${CMAKE_INSTALL_INCLUDEDIR}")
 set(Z3_SECOND_INCLUDE_DIR "")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "")
@@ -626,7 +626,7 @@ set(CONFIG_FILE_TYPE "install tree")
 # We use `configure_package_config_file()` to try and create CMake files
 # that are re-locatable so that it doesn't matter if the files aren't placed
 # in the original install prefix.
-configure_package_config_file("${CMAKE_SOURCE_DIR}/cmake/Z3Config.cmake.in"
+configure_package_config_file("${PROJECT_SOURCE_DIR}/cmake/Z3Config.cmake.in"
   "${Z3_INSTALL_TREE_CMAKE_CONFIG_FILE}"
   INSTALL_DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
   PATH_VARS Z3_FIRST_PACKAGE_INCLUDE_DIR

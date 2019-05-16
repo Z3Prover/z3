@@ -8,11 +8,11 @@ endif()
 
 add_custom_command(OUTPUT "database.h"
   COMMAND "${PYTHON_EXECUTABLE}"
-          "${CMAKE_SOURCE_DIR}/scripts/mk_pat_db.py"
+          "${PROJECT_SOURCE_DIR}/scripts/mk_pat_db.py"
           "${CMAKE_CURRENT_SOURCE_DIR}/database.smt2"
           "${CMAKE_CURRENT_BINARY_DIR}/database.h"
   MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/database.smt2"
-  DEPENDS "${CMAKE_SOURCE_DIR}/scripts/mk_pat_db.py"
+  DEPENDS "${PROJECT_SOURCE_DIR}/scripts/mk_pat_db.py"
           ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
   COMMENT "Generating \"database.h\""
   ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
