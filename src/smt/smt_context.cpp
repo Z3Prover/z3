@@ -1784,15 +1784,6 @@ namespace smt {
         m_bvar_inc *= INV_ACTIVITY_LIMIT;
     }
 
-    expr* context::next_decision() {
-        bool_var var;
-        lbool phase;
-        m_case_split_queue->next_case_split(var, phase);
-        if (var == null_bool_var) return m_manager.mk_true();
-        m_case_split_queue->unassign_var_eh(var);
-        return bool_var2expr(var);
-    }
-
     /**
        \brief Execute next case split, return false if there are no
        more case splits to be performed.

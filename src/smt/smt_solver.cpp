@@ -42,7 +42,7 @@ namespace smt {
             expr_ref cube() {
                 switch (m_round) {
                 case 0:
-                    m_result = m_solver.m_context.next_decision();
+                    m_result = m_solver.m_context.next_cube();
                     break;
                 case 1:
                     m_result = m_solver.get_manager().mk_not(m_result);

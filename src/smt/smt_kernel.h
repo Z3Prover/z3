@@ -217,7 +217,7 @@ namespace smt {
         /**
            \brief return the next case split literal.
         */
-        expr* next_decision();
+        expr_ref next_cube();
 
         /**
            \brief retrieve depth of variables from decision stack.

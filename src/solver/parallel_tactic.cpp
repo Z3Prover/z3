@@ -297,6 +297,7 @@ class parallel_tactic : public tactic {
             p.set_uint("restart.max", pp.simplify_restart_max() * mult);
             p.set_bool("lookahead_simplify", true);
             p.set_bool("retain_blocked_clauses", retain_blocked);
+            p.set_uint("max_conflicts", pp.simplify_max_conflicts());
             if (m_depth > 1) p.set_uint("bce_delay", 0);
             get_solver().updt_params(p);
         }

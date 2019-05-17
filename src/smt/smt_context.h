@@ -67,6 +67,7 @@ namespace smt {
 
     class context {
         friend class model_generator;
+        friend class lookahead;
     public:
         statistics                  m_stats;
 
@@ -1073,8 +1074,6 @@ namespace smt {
         bool is_ext_diseq(enode * n1, enode * n2, unsigned depth);
 
         enode * get_enode_eq_to(func_decl * f, unsigned num_args, enode * const * args);
-
-        expr* next_decision();
 
     protected:
         bool decide();

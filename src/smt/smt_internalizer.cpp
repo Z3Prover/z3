@@ -900,6 +900,7 @@ namespace smt {
         expr * n              = m_b_internalized_stack.back();
         unsigned n_id         = n->get_id();
         bool_var v            = get_bool_var_of_id(n_id);
+        m_bool_var2expr[v]    = nullptr;
         TRACE("undo_mk_bool_var", tout << "undo_bool: " << v << "\n" << mk_pp(n, m_manager) << "\n" << "m_bdata.size: " << m_bdata.size()
               << " m_assignment.size: " << m_assignment.size() << "\n";);
         TRACE("mk_var_bug", tout << "undo_mk_bool: " << v << "\n";);
