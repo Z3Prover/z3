@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 
+#include <cmath>
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_lookahead.h"
 #include "smt/smt_context.h"
