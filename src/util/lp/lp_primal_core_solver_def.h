@@ -643,7 +643,7 @@ template <typename T, typename X>    void lp_primal_core_solver<T, X>::backup_an
 
 template <typename T, typename X>    void lp_primal_core_solver<T, X>::init_run() {
     this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-    this->set_total_iterations(0);
+    //   this->set_total_iterations(0);
     this->iters_with_no_cost_growing() = 0;
     init_inf_set();
     if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)

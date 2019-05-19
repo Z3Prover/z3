@@ -738,7 +738,7 @@ template <typename T, typename X> void lp_dual_core_solver<T, X>::solve() { // s
     lp_assert(d_is_correct());
     lp_assert(problem_is_dual_feasible());
     lp_assert(this->basis_heading_is_correct());
-    this->set_total_iterations(0);
+    //this->set_total_iterations(0);
     this->iters_with_no_cost_growing() = 0;
     do {
         if (this->print_statistics_with_iterations_and_nonzeroes_and_cost_and_check_that_the_time_is_over("", *this->m_settings.get_message_ostream())){

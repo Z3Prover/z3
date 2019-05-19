@@ -384,6 +384,8 @@ class theory_lra::imp {
         lp().settings().bound_propagation() = BP_NONE != propagation_mode();
         lp().settings().m_enable_hnf = lpar.enable_hnf();
         lp().set_track_pivoted_rows(lpar.bprop_on_pivoted_rows());
+        lp().settings().report_frequency = lpar.rep_freq();
+        lp().settings().print_statistics = lpar.print_stats();
 
         // todo : do not use m_arith_branch_cut_ratio for deciding on cheap cuts
         unsigned branch_cut_ratio = ctx().get_fparams().m_arith_branch_cut_ratio;
