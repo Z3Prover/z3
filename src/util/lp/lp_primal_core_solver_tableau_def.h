@@ -327,7 +327,7 @@ template <typename T, typename X> void lp_primal_core_solver<T, X>::init_run_tab
     CASSERT("A_off", this->A_mult_x_is_off() == false);
         lp_assert(basis_columns_are_set_correctly());
         this->m_basis_sort_counter = 0; // to initiate the sort of the basis
-        this->set_total_iterations(0);
+        //  this->set_total_iterations(0);
         this->iters_with_no_cost_growing() = 0;
 		lp_assert(this->inf_set_is_correct());
         if (this->current_x_is_feasible() && this->m_look_for_feasible_solution_only)
