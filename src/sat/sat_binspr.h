@@ -27,7 +27,6 @@
 
 namespace sat {
     class solver;
-    class big;
 
     class binspr {
         solver& s;
@@ -44,7 +43,7 @@ namespace sat {
         bool add_g(literal lit1);
         bool add_g(literal lit1, literal lit2);
         void block_binary(literal lit1, literal lit2, bool learned);
-        void check_spr(big& big, literal lit1);
+        void check_spr(literal lit1);
         void check_spr(literal lit1, literal lit2);
         bool binary_are_unit_implied(literal lit1, literal lit2);
         bool clauses_are_unit_implied(literal lit1, literal lit2);

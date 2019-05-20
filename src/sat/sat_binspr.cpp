@@ -48,7 +48,6 @@
 
 #include "sat/sat_binspr.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_big.h"
 
 namespace sat {
 
@@ -72,8 +71,6 @@ namespace sat {
 
         report _rep(*this);
 
-        big big(s.rand());        
-        big.init(s, true);
         m_use_list.reset();
         m_use_list.reserve(num*2);
         for (clause* c : s.m_clauses) {
@@ -89,24 +86,18 @@ namespace sat {
             s.checkpoint();
             bool_var v = (m_stopped_at + i) % num;
             m_stopped_at = v;
-            if (s.value(v) != l_undef || s.was_eliminated(v)) {
-                continue;
+            if (s.value(v) == l_undef && !s.was_eliminated(v)) {
+                literal lit1(v, false);
+                check_spr(lit1);            
+                check_spr(~lit1);            
+                ++count;
             }
-            literal lit1(v, false);
-            if (big.is_root(lit1)) {
-                check_spr(big, lit1);
-            }
-            lit1.neg();
-            if (big.is_root(lit1)) {
-                check_spr(big, lit1);
-            }
-            ++count;
         }        
         m_limit1 *= 2;
         m_limit2 *= 2;
     }
     
-    void binspr::check_spr(big& big, literal lit1) {
+    void binspr::check_spr(literal lit1) {
         TRACE("sat", tout << lit1 << "\n";);
         s.push();
         s.assign_scoped(lit1);
@@ -117,18 +108,12 @@ namespace sat {
         for (unsigned i = 0, count = 0; i < num && count <= m_limit2 && !s.inconsistent(); ++i) {
             bool_var v = ((i + start) % num) + lit1.var() + 1;
             s.checkpoint();
-            if (s.value(v) != l_undef || s.was_eliminated(v)) {
-                continue;
+            if (s.value(v) == l_undef && !s.was_eliminated(v)) {
+                literal lit2(v, false);
+                check_spr(lit1, lit2);            
+                check_spr(lit1, ~lit2);            
+                ++count;
             }
-            literal lit2(v, false);
-            if (big.is_root(lit2)) {
-                check_spr(lit1, lit2);
-            }
-            lit2.neg();
-            if (big.is_root(lit2)) {
-                check_spr(lit1, lit2);
-            }
-            ++count;
         }
         if (s.inconsistent()) {
             s.pop(1);
@@ -149,7 +134,6 @@ namespace sat {
             s.pop(1);
             block_binary(lit1, lit2, true);
             s.propagate(false);
-            IF_VERBOSE(0, verbose_stream() << "block: " << lit1 << " " << lit2 << "\n");
         }
         else if (binary_are_unit_implied(lit1, lit2) &&
                  binary_are_unit_implied(lit2, lit1) &&
@@ -172,7 +156,7 @@ namespace sat {
     bool binspr::binary_are_unit_implied(literal lit1, literal lit2) {
         if (m_units.contains(lit1)) return true;
         for (watched const& w : s.get_wlist(~lit1)) {
-            if (!w.is_binary_clause()) {
+            if (!w.is_binary_non_learned_clause()) {
                 continue;
             }
             literal lit3 = w.get_literal();
@@ -194,7 +178,7 @@ namespace sat {
                 is_implied = s.inconsistent() || add_g(lit1);
                 s.pop(1);
             }
-            IF_VERBOSE(0, verbose_stream() << lit3 << " " << is_implied << "\n");
+            // IF_VERBOSE(0, verbose_stream() << lit3 << " " << is_implied << "\n");
             if (!is_implied) {
                 return false;
             }
@@ -308,10 +292,11 @@ namespace sat {
             s.propagate(false);
             is_implied = s.inconsistent();
             CTRACE("sat", !is_implied, tout << "not unit implied " << lit1 << " " << lit2 << ": " << c << "\n";);            
-            if (is_implied) IF_VERBOSE(0, verbose_stream() << "propagate: " << is_implied << " " << lit1 << " " << lit2 << " " << c << "\n");
+            // if (is_implied) IF_VERBOSE(0, verbose_stream() << "propagate: " << is_implied << " " << lit1 << " " << lit2 << " " << c << "\n");
         }
         if (!is_implied) {
             is_implied = add_g(lit1, lit2_);
+            // IF_VERBOSE(0, verbose_stream() << "propagate: " << is_implied << " " << lit1 << " " << lit2 << " " << c << "\n");
         }
         s.pop(1);
         return is_implied;

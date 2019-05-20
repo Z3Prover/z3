@@ -727,7 +727,7 @@ namespace smt {
             for (unsigned j = 0; j < edges.size(); ++j) {
                 edge_id e1 = edges[j];
                 if (!g.is_enabled(e1)) continue;
-                SASSERT (i == g.get_target(e1));
+                SASSERT ((int)i == g.get_target(e1));
                 dl_var src1 = g.get_source(e1);
                 for (unsigned k = j + 1; k < edges.size(); ++k) {
                     edge_id e2 = edges[k];
