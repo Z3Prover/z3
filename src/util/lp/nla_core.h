@@ -326,7 +326,6 @@ public:
     bool  find_bfc_to_refine_on_monomial(const monomial&, factorization & bf);
     
     bool  find_bfc_to_refine(const monomial* & m, factorization& bf);
-    void generate_simple_sign_lemma(const rational& sign, const monomial& m);
 
     void negate_relation(unsigned j, const rational& a);
     bool  conflict_found() const;
