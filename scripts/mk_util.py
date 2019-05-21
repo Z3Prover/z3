@@ -2221,8 +2221,16 @@ class MLComponent(Component):
 
             stubsc = os.path.join(src_dir, self.stubs + '.c')
             stubso = os.path.join(self.sub_dir, self.stubs) + '$(OBJ_EXT)'
-            z3dllso = get_component(Z3_DLL_COMPONENT).dll_name + '$(SO_EXT)'
-            out.write('%s: %s %s\n' % (stubso, stubsc, z3dllso))
+            base_dll_name = get_component(Z3_DLL_COMPONENT).dll_name
+            if STATIC_LIB:
+                z3link = 'z3-static'
+                z3linkdep = base_dll_name + '-static$(LIB_EXT)'
+                out.write('%s: %s\n' % (z3linkdep, base_dll_name + '$(LIB_EXT)'))
+                out.write('\tcp $< $@\n')
+            else:
+                z3link = 'z3'
+                z3linkdep = base_dll_name + '$(SO_EXT)'
+            out.write('%s: %s %s\n' % (stubso, stubsc, z3linkdep))
             out.write('\t%s -ccopt "$(CXXFLAGS_OCAML) -I %s -I %s -I %s $(CXX_OUT_FLAG)%s" -c %s\n' %
                       (OCAMLCF, OCAML_LIB, api_src, src_dir, stubso, stubsc))
 
@@ -2253,9 +2261,9 @@ class MLComponent(Component):
 
             OCAMLMKLIB = 'ocamlmklib'
 
-            LIBZ3 = '-lz3'
+            LIBZ3 = '-l' + z3link
             if is_cygwin() and not(is_cygwin_mingw()):
-                LIBZ3 = 'libz3.dll'
+                LIBZ3 = z3linkdep
 
             LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
 
@@ -2264,9 +2272,10 @@ class MLComponent(Component):
                 OCAMLMKLIB += ' -g'
 
             z3mls = os.path.join(self.sub_dir, 'z3ml')
-            out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3dllso))
+
+            out.write('%s.cma: %s %s %s\n' % (z3mls, cmos, stubso, z3linkdep))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmos, LIBZ3))
-            out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3dllso, z3mls))
+            out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3linkdep, z3mls))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
             out.write('\t%s -linkall -shared -o %s.cmxs -I . -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
