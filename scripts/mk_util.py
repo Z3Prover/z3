@@ -2253,9 +2253,11 @@ class MLComponent(Component):
 
             OCAMLMKLIB = 'ocamlmklib'
 
-            LIBZ3 = '-L. -lz3'
+            LIBZ3 = '-lz3'
             if is_cygwin() and not(is_cygwin_mingw()):
                 LIBZ3 = 'libz3.dll'
+
+            LIBZ3 = LIBZ3 + ' ' + ' '.join(map(lambda x: '-cclib ' + x, LDFLAGS.split()))
 
             if DEBUG_MODE and not(is_cygwin()):
                 # Some ocamlmklib's don't like -g; observed on cygwin, but may be others as well.
@@ -2267,7 +2269,7 @@ class MLComponent(Component):
             out.write('%s.cmxa: %s %s %s %s.cma\n' % (z3mls, cmxs, stubso, z3dllso, z3mls))
             out.write('\t%s -o %s -I %s %s %s %s\n' % (OCAMLMKLIB, z3mls, self.sub_dir, stubso, cmxs, LIBZ3))
             out.write('%s.cmxs: %s.cmxa\n' % (z3mls, z3mls))
-            out.write('\t%s -linkall -shared -o %s.cmxs -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
+            out.write('\t%s -linkall -shared -o %s.cmxs -I . -I %s %s.cmxa\n' % (OCAMLOPTF, z3mls, self.sub_dir, z3mls))
 
             out.write('\n')
             out.write('ml: %s.cma %s.cmxa %s.cmxs\n' % (z3mls, z3mls, z3mls))
