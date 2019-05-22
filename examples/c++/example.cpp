@@ -1213,6 +1213,14 @@ void recfun_example() {
     prove(f(x,c.bool_val(false)) > x);
 }
 
+static void string_values() {
+    context c;
+    expr s = c.string_val("abc\n\n\0\0", 7);
+    std::cout << s << "\n";
+    std::string s1 = s.get_string();
+    std::cout << s1 << "\n";
+}
+
 int main() {
 
     try {
@@ -1263,6 +1271,7 @@ int main() {
         parse_string(); std::cout << "\n";
         mk_model_example(); std::cout << "\n";
         recfun_example(); std::cout << "\n";
+        string_values(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {
