@@ -503,15 +503,20 @@ public:
 
     std::ostream& print_constraints(std::ostream& out) const ;
 
+    std::ostream& print_constraint_indices_only(constraint_index ci, std::ostream & out) const;
+
     std::ostream& print_terms(std::ostream& out) const;
 
     std::ostream& print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
+
+    std::ostream& print_left_side_of_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
 
     std::ostream& print_term(lar_term const& term, std::ostream & out) const;
 
     std::ostream& print_term_as_indices(lar_term const& term, std::ostream & out) const;
 
     std::ostream& print_constraint(const lar_base_constraint * c, std::ostream & out) const;
+    std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
 
     std::ostream& print_implied_bound(const implied_bound& be, std::ostream & out) const;
 

@@ -98,7 +98,30 @@ void print_linear_combination_of_column_indices_only(const T & coeffs, std::ostr
         else 
             out << T_to_string(val);
         
-        out << "x" << it.var();
+        out << "v" << it.var();
+    }
+}
+template <typename T>
+void print_linear_combination_of_column_indices_only(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
+    bool first = true;
+    for (const auto & it : coeffs) {
+        auto val = it.first;
+        if (first) {
+            first = false;
+        } else {
+            if (val.is_pos()) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val == 1)
+            out << " ";
+        else 
+            out << T_to_string(val);
+        
+        out << "v" << it.second;
     }
 }
 
