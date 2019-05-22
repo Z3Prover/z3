@@ -224,6 +224,17 @@ std::string zstring::encode() const {
     return strm.str();
 }
 
+std::string zstring::as_string() const {
+    SASSERT(m_encoding == ascii);
+    std::ostringstream strm;
+    for (unsigned i = 0; i < m_buffer.size(); ++i) {
+        unsigned char ch = m_buffer[i];
+        strm << (char)(ch);        
+    }
+    return strm.str();
+}
+
+
 bool zstring::suffixof(zstring const& other) const {
     if (length() > other.length()) return false;
     bool suffix = true;

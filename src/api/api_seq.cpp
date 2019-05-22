@@ -150,6 +150,25 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
+    Z3_string Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length) {
+        Z3_TRY;
+        LOG_Z3_get_lstring(c, s, length);
+        RESET_ERROR_CODE();
+        zstring str;
+        if (!length) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "length argument is null");
+            return "";
+        }
+        if (!mk_c(c)->sutil().str.is_string(to_expr(s), str)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, "expression is not a string literal");
+            return "";
+        }
+        std::string s = str.as_string();        
+        *length = static_cast<unsigned>(s.size());
+        return mk_c(c)->mk_external_string(s.c_str(), s.size());
+        Z3_CATCH_RETURN("");
+    }
+
 #define MK_SORTED(NAME, FN )                                    \
     Z3_ast Z3_API NAME(Z3_context c, Z3_sort s) {               \
     Z3_TRY;                                                     \

@@ -166,6 +166,12 @@ namespace api {
         m_string_buffer = str?str:"";
         return const_cast<char *>(m_string_buffer.c_str());
     }
+
+    char * context::mk_external_string(char const * str, unsigned n) {
+        m_string_buffer.clear();
+        m_string_buffer.append(str, n);
+        return const_cast<char *>(m_string_buffer.c_str());
+    }
     
     char * context::mk_external_string(std::string && str) {
         m_string_buffer = std::move(str);
