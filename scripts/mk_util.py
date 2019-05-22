@@ -2270,7 +2270,7 @@ class MLComponent(Component):
 
             OCAMLMKLIB = 'ocamlmklib'
 
-            LIBZ3 = '-l' + z3link
+            LIBZ3 = '-cclib -l' + z3link
             if is_cygwin() and not(is_cygwin_mingw()):
                 LIBZ3 = z3linkdep
 
