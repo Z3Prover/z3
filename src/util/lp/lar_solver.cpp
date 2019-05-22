@@ -1357,6 +1357,16 @@ std::ostream& lar_solver::print_constraint(constraint_index ci, std::ostream & o
     return print_constraint(m_constraints[ci], out);
 }
 
+std::ostream& lar_solver::print_constraint_indices_only(constraint_index ci, std::ostream & out) const {
+    if (ci >= m_constraints.size()) {
+        out << "constraint " << T_to_string(ci) << " is not found";
+        out << std::endl;
+        return out;
+    }
+
+    return print_constraint_indices_only(m_constraints[ci], out);
+}
+
 std::ostream& lar_solver::print_constraints(std::ostream& out) const  {
     out << "number of constraints = " << m_constraints.size() << std::endl;
     for (auto c : m_constraints) {
@@ -1374,6 +1384,14 @@ std::ostream& lar_solver::print_terms(std::ostream& out) const  {
 
 std::ostream& lar_solver::print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const {
     print_linear_combination_of_column_indices(c->coeffs(), out);
+    mpq free_coeff = c->get_free_coeff_of_left_side();
+    if (!is_zero(free_coeff))
+        out << " + " << free_coeff;
+    return out;
+}
+
+std::ostream& lar_solver::print_left_side_of_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const {
+    print_linear_combination_of_column_indices_only(c->coeffs(), out);
     mpq free_coeff = c->get_free_coeff_of_left_side();
     if (!is_zero(free_coeff))
         out << " + " << free_coeff;
@@ -1423,6 +1441,11 @@ mpq lar_solver::get_left_side_val(const lar_base_constraint &  cns, const std::u
 
 std::ostream& lar_solver::print_constraint(const lar_base_constraint * c, std::ostream & out) const {
     print_left_side_of_constraint(c, out);
+    return out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
+}
+
+std::ostream& lar_solver::print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const {
+    print_left_side_of_constraint_indices_only(c, out);
     return out << " " << lconstraint_kind_string(c->m_kind) << " " << c->m_right_side << std::endl;
 }
 

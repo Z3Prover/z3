@@ -262,7 +262,7 @@ std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& 
     out << "expl: ";
     for (auto &p : exp) {
         out << "(" << p.second << ")";
-        m_lar_solver.print_constraint(p.second, out);
+        m_lar_solver.print_constraint_indices_only(p.second, out);
         out << "      ";
     }
     out << "\n";
@@ -403,13 +403,13 @@ bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) {
         return false;
             
     m_evars.explain(signed_var(i, false), signed_var(j, sign), e);
-    TRACE("nla_solver", tout << "explained :"; m_lar_solver.print_term(t, tout););
+    TRACE("nla_solver", tout << "explained :"; m_lar_solver.print_term_as_indices(t, tout););
     return true;
             
 }
     
 void core::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs) {
-    TRACE("nla_solver_details", m_lar_solver.print_term(t, tout << "t = "););
+    TRACE("nla_solver_details", m_lar_solver.print_term_as_indices(t, tout << "t = "););
     if (!explain_ineq(t, cmp, rs)) {
         m_lar_solver.subs_term_columns(t);
         current_lemma().push_back(ineq(cmp, t, rs));
@@ -747,7 +747,7 @@ bool core:: var_is_fixed(lpvar j) const {
 }
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
-    m_lar_solver.print_term(in.m_term, out);
+    m_lar_solver.print_term_as_indices(in.m_term, out);
     out << " " << lconstraint_kind_string(in.m_cmp) << " " << in.m_rs;
     return out;
 }
@@ -1229,7 +1229,7 @@ void core::collect_equivs() {
             continue;
         lpvar j = s.external_to_local(ti);
         if (var_is_fixed_to_zero(j)) {
-            TRACE("nla_solver_eq", tout << "term = "; s.print_term(*s.terms()[i], tout););
+            TRACE("nla_solver_eq", tout << "term = "; s.print_term_as_indices(*s.terms()[i], tout););
             add_equivalence_maybe(s.terms()[i], s.get_column_upper_bound_witness(j), s.get_column_lower_bound_witness(j));
         }
     }
