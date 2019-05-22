@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "smt/smt_kernel.h"
 #include "smt/smt_context.h"
+#include "smt/smt_lookahead.h"
 #include "ast/ast_smt2_pp.h"
 #include "smt/params/smt_params_helper.hpp"
 
@@ -202,8 +203,9 @@ namespace smt {
             m_kernel.get_guessed_literals(result);
         }
 
-        expr* next_decision() {
-            return m_kernel.next_decision();
+        expr_ref next_cube() {
+            lookahead lh(m_kernel);
+            return lh.choose();
         }
                 
         void collect_statistics(::statistics & st) const {
@@ -379,8 +381,8 @@ namespace smt {
         m_imp->get_guessed_literals(result);
     }
 
-    expr* kernel::next_decision() {
-        return m_imp->next_decision();
+    expr_ref kernel::next_cube() {
+        return m_imp->next_cube();
     }        
 
     std::ostream& kernel::display(std::ostream & out) const {

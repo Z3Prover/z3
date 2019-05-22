@@ -10,6 +10,7 @@ def_module_params('parallel',
 	                  ('conquer.delay', UINT, 10, 'delay of cubes until applying conquer'),
 	                  ('conquer.backtrack_frequency', UINT, 10, 'frequency to apply core minimization during conquer'),
                           ('simplify.exp', DOUBLE, 1, 'restart and inprocess max is multiplied by simplify.exp ^ depth'),
+                          ('simplify.max_conflicts', UINT, UINT_MAX, 'maximal number of conflicts during simplifcation phase'),
 	                  ('simplify.restart.max', UINT, 5000, 'maximal number of restarts during simplification phase'),
                           ('simplify.inprocess.max', UINT, 2, 'maximal number of inprocessing steps during simplification'),
                           ))
