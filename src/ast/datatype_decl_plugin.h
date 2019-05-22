@@ -314,6 +314,8 @@ namespace datatype {
         void compute_datatype_size_functions(svector<symbol> const& names);
         param_size::size* get_sort_size(sort_ref_vector const& params, sort* s);
         bool is_well_founded(unsigned num_types, sort* const* sorts);
+        bool is_covariant(unsigned num_types, sort* const* sorts) const;
+        bool is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const;
         def& get_def(symbol const& s) { return m_plugin->get_def(s); }
         void get_subsorts(sort* s, ptr_vector<sort>& sorts) const;        
 
