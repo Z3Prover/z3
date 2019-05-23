@@ -21,11 +21,11 @@
 #pragma once
 #include "util/rational.h"
 #include "util/lp/monomial.h"
+#include "util/lp/nla_defs.h"
 
 namespace nla {
 
 struct factorization_factory;
-typedef unsigned lpvar;
 
 enum class factor_type { VAR, MON };
 

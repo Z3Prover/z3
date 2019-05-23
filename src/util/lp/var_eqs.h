@@ -20,7 +20,7 @@
 
 #pragma once
 #include "util/union_find.h"
-#include "util/lp/lp_types.h"
+#include "util/lp/nla_defs.h"
 #include "util/rational.h"
 #include "util/lp/explanation.h"
 #include "util/lp/incremental_vector.h"

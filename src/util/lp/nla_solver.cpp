@@ -50,8 +50,8 @@ void solver::pop(unsigned n) {
     }
 
         
-solver::solver(lp::lar_solver& s, reslimit& lim, params_ref const& p) {
-    m_core = alloc(core, s, lim, p);
+solver::solver(lp::lar_solver& s) {
+    m_core = alloc(core, s);
 }
 
 solver::~solver() {
