@@ -34,7 +34,7 @@ class solver {
 public:
     void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
     
-    solver(lp::lar_solver& s, reslimit& lim, params_ref const& p);
+    solver(lp::lar_solver& s);
     ~solver();
     inline core * get_core() { return m_core; } 
     void push();

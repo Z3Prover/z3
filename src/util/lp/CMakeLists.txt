@@ -31,7 +31,8 @@ z3_add_component(lp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
     nla_solver.cpp
-    nra_solver.cpp
+    nla_tangent_lemmas.cpp
+    nra_solver.cpp    
     permutation_matrix.cpp
     random_updater.cpp      
     row_eta_matrix.cpp
