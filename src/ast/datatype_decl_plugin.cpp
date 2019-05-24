@@ -709,20 +709,22 @@ namespace datatype {
         if (is_datatype(s)) {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
+            sref_vector<param_size::size> refs;
             unsigned n = get_datatype_num_parameter_sorts(s);
             def & d = get_def(s->get_name());
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();                
+                refs.push_back(sz);
                 S.insert(d.params().get(i), sz); 
             }            
-            sz = d.sort_size()->subst(S);
-            for (auto & kv : S) {
-                kv.m_value->dec_ref();
+            auto ss = d.sort_size();
+            if (!ss) {
+                d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
+                ss = d.sort_size();
             }
-            return sz;
+            return  ss->subst(S);
         }
         array_util autil(m);
         if (autil.is_array(s)) {
