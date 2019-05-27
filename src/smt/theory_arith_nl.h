@@ -1931,7 +1931,7 @@ namespace smt {
         derived_bound  b(null_theory_var, inf_numeral(0), B_LOWER);
         dependency2new_bound(d, b);
         set_conflict(b, ante, "arith_nl");
-        TRACE("non_linear", for (literal lit : b.m_lits) tout << lit << " "; tout << "\n";); 
+        TRACE("non_linear", for (literal lit : b.m_lits) get_context().display_literal_verbose(tout, lit) << "\n"; tout << "\n";); 
     }
 
     /**

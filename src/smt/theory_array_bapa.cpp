@@ -436,7 +436,7 @@ namespace smt {
         {
             context& ctx = th.get_context();
             m_arith_value.init(&ctx);
-            m_max_set_enumeration = 100;
+            m_max_set_enumeration = 4;
         }
 
         ~imp() {

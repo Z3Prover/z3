@@ -599,11 +599,14 @@ class solve_eqs_tactic : public tactic {
             hoist_rewriter_star rw(m());
             th_rewriter thrw(m());
             expr_ref tmp(m()), tmp2(m());
+            TRACE("solve_eqs", g.display(tout););
             for (unsigned idx = 0; idx < size; idx++) {
                 checkpoint();
+                if (g.is_decided_unsat()) break;
                 expr* f = g.form(idx);
                 thrw(f, tmp);
                 rw(tmp, tmp2);
+                TRACE("solve_eqs", tout << mk_pp(f, m()) << " " << tmp2 << "\n";);
                 g.update(idx, tmp2, g.pr(idx), g.dep(idx));
             }
             
