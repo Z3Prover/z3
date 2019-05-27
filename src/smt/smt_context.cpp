@@ -3314,18 +3314,19 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
+
+        internalize_assertions();
         expr_ref_vector theory_assumptions(m_manager);
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
             return check(0, nullptr, reset_cancel);
         }
-
-        internalize_assertions();
-        TRACE("before_search", display(tout););
-        lbool r = search();
-        r = check_finalize(r);
-        return r;
+        else {
+            TRACE("before_search", display(tout););
+            lbool r = search();
+            return check_finalize(r);
+        }
     }
 
     config_mode context::get_config_mode(bool use_static_features) const {
@@ -3380,10 +3381,9 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-            add_theory_assumptions(asms);                
-            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-            TRACE("unsat_core_bug", tout << asms << "\n";);        
             internalize_assertions();
+            add_theory_assumptions(asms);                
+            TRACE("unsat_core_bug", tout << asms << "\n";);        
             init_assumptions(asms);
             TRACE("before_search", display(tout););
             r = search();
@@ -3402,10 +3402,10 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
+            internalize_assertions();
             add_theory_assumptions(asms);
             // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
             for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-            internalize_assertions();
             init_assumptions(asms);
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   

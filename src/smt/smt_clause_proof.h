@@ -35,6 +35,7 @@ namespace smt {
     class justification;
 
     class clause_proof {
+    public:
         enum status {
             lemma,
             assumption,
@@ -42,6 +43,7 @@ namespace smt {
             th_assumption,
             deleted
         };
+    private:
 
         struct info {
             status          m_status;
@@ -68,6 +70,7 @@ namespace smt {
         proof_ref get_proof();
     };
 
+    std::ostream& operator<<(std::ostream& out, clause_proof::status st);
 };
 
 #endif /* SMT_CLAUSE_PROOF_H_ */

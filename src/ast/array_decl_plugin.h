@@ -237,6 +237,10 @@ public:
         return m_manager.mk_app(m_fid, OP_SET_HAS_SIZE, set, n);
     }
 
+    app* mk_card(expr* set) {
+        return m_manager.mk_app(m_fid, OP_SET_CARD, set);
+    }
+
     func_decl * mk_array_ext(sort* domain, unsigned i);
 
     sort * mk_array_sort(sort* dom, sort* range) { return mk_array_sort(1, &dom, range); }

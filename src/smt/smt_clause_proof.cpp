@@ -100,6 +100,7 @@ namespace smt {
 
     void clause_proof::update(status st, expr_ref_vector& v, proof* p) {
         TRACE("clause_proof", tout << st << " " << v << "\n";);
+        IF_VERBOSE(3, verbose_stream() << st << " " << v << "\n");
         m_trail.push_back(info(st, v, p));
     }
 
@@ -141,6 +142,23 @@ namespace smt {
             }
         }
         return proof_ref(m.mk_clause_trail(ps.size(), ps.c_ptr()), m);
+    }
+
+    std::ostream& operator<<(std::ostream& out, clause_proof::status st) {
+        switch (st) {
+        case clause_proof::status::assumption:
+            return out << "asm";
+        case clause_proof::status::th_assumption:
+            return out << "th_asm";
+        case clause_proof::status::lemma:
+            return out << "lem";
+        case clause_proof::status::th_lemma:
+            return out << "th_lem";
+        case clause_proof::status::deleted:
+            return out << "del";
+        default:
+            return out << "unkn";
+        }
     }
 
 };

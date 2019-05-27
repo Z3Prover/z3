@@ -19,7 +19,7 @@ Abstract:
           S, T are intersecting. n != m or S != T
 D  ---------------------------------------------------------
    Size(S, n) => Size(S\T, k1), Size(S n T, k2), n = k1 + k2
-   Size(T, m) => Size(T\S, k3), SIze(S n T, k2), m = k2 + k3
+   Size(T, m) => Size(T\S, k3), SIze(S n T, k2), m = k2 + k3   
 
         Size(S, n)
 P  --------------------
@@ -85,29 +85,40 @@ Revision History:
 #include "smt/theory_array_full.h"
 #include "smt/theory_array_bapa.h"
 
+#if 0
+- set of native select terms that are true
+- set of auxiliary select terms.
+- n1, n2, n3, n4.
+- a1, a2, a3, a4, a5.
+- 
+- add select terms, such that first 
+#endif
+
 namespace smt {
     
     class theory_array_bapa::imp {
         struct sz_info {
-            bool                  m_is_leaf; // has it been split into disjoint subsets already?
-            rational              m_value;   // set to >= integer if fixed in final check, otherwise -1            
-            literal               m_literal; // literal that enforces value is set.
+            bool                  m_is_leaf;   // has it been split into disjoint subsets already?
+            rational              m_size;      // set to >= integer if fixed in final check, otherwise -1
+            literal               m_literal;   // literal that enforces value is set.
             obj_map<enode, expr*> m_selects;
-            sz_info(): m_is_leaf(true), m_value(rational::minus_one()), m_literal(null_literal) {}
+            sz_info(): m_is_leaf(true), m_size(rational::minus_one()), m_literal(null_literal) {}
         };
 
         typedef std::pair<func_decl*, func_decl*> func_decls;
 
-        ast_manager&           m;
-        theory_array_full&     th;
-        arith_util             m_arith;
-        array_util             m_autil;
-        th_rewriter            m_rw;
-        arith_value            m_arith_value;
-        ast_ref_vector         m_pinned;
-        obj_map<app, sz_info*> m_sizeof;
+        ast_manager&              m;
+        theory_array_full&        th;
+        arith_util                m_arith;
+        array_util                m_autil;
+        th_rewriter               m_rw;
+        arith_value               m_arith_value;
+        ast_ref_vector            m_pinned;
+        obj_map<app, sz_info*>    m_sizeof;
+        obj_map<expr, rational>   m_size_limit;
         obj_map<sort, func_decls> m_index_skolems;
-        unsigned               m_max_set_enumeration;
+        obj_map<sort, func_decl*> m_size_limit_sort2skolems;
+        unsigned                  m_max_set_enumeration;
 
         context& ctx() { return th.get_context(); }
 
@@ -126,8 +137,8 @@ namespace smt {
         bool is_select(enode* n) { return th.is_select(n); }
         app_ref mk_select(expr* a, expr* i) { expr* args[2] = { a, i }; return app_ref(m_autil.mk_select(2, args), m); }
         literal get_literal(expr* e) { return ctx().get_literal(e); }
-        literal mk_literal(expr* e) { if (!ctx().e_internalized(e)) ctx().internalize(e, false); ctx().mark_as_relevant(e); return get_literal(e); }
-        literal mk_eq(expr* a, expr* b) { return th.mk_eq(a, b, false); }
+        literal mk_literal(expr* e) { if (!ctx().e_internalized(e)) ctx().internalize(e, false); literal lit = get_literal(e); ctx().mark_as_relevant(lit); return lit; }
+        literal mk_eq(expr* a, expr* b) { literal lit = th.mk_eq(a, b, false); ctx().mark_as_relevant(lit); return lit; }
         void mk_th_axiom(literal l1, literal l2) {
             literal lits[2] = { l1, l2 };
             mk_th_axiom(2, lits);
@@ -147,10 +158,12 @@ namespace smt {
                 sz_info& v = *kv.m_value;
                 v.m_selects.reset();
                 if (is_true(k) && is_leaf(v)) {
-                    expr* set = k->get_arg(0);
-                    for (enode* parent : enode::parents(get_root(set))) {
-                        if (is_select(parent) && is_true(parent)) {
-                            v.m_selects.insert(parent->get_arg(1)->get_root(), parent->get_owner());
+                    enode* set = get_root(k->get_arg(0));
+                    for (enode* parent : enode::parents(set)) {
+                        if (is_select(parent) && parent->get_arg(0)->get_root() == set) {
+                            if (is_true(parent)) {
+                                v.m_selects.insert(parent->get_arg(1)->get_root(), parent->get_owner());
+                            }
                         }
                     }                    
                 }
@@ -211,9 +224,9 @@ namespace smt {
             SASSERT(i2.m_is_leaf);
             expr* s = sz1->get_arg(0);
             expr* t = sz2->get_arg(0);
-			if (m.get_sort(s) != m.get_sort(t)) {
-				return true;
-			}
+            if (m.get_sort(s) != m.get_sort(t)) {
+                return true;
+            }
             enode* r1 = get_root(s);
             enode* r2 = get_root(t);
             if (r1 == r2) {
@@ -249,13 +262,24 @@ namespace smt {
             expr_ref tms = mk_subtract(t, s);
             expr_ref smt = mk_subtract(s, t);
             expr_ref tns = mk_intersect(t, s);
+#if 0
+            std::cout << tms << "\n";
+            std::cout << smt << "\n";
+            std::cout << tns << "\n";
+#endif
+            if (tns == sz1) {
+                std::cout << "SEEN " << tms << "\n";
+            }
+            if (tns == sz2) {
+                std::cout << "SEEN " << smt << "\n";                
+            }
             ctx().push_trail(value_trail<context, bool>(i1.m_is_leaf, false));
             ctx().push_trail(value_trail<context, bool>(i2.m_is_leaf, false));
             expr_ref k1(m), k2(m), k3(m);
             expr_ref sz_tms(m), sz_tns(m), sz_smt(m);
-            k1 = m.mk_fresh_const("K", m_arith.mk_int());
-            k2 = m.mk_fresh_const("K", m_arith.mk_int());
-            k3 = m.mk_fresh_const("K", m_arith.mk_int());
+            k1 = m_autil.mk_card(tms);
+            k2 = m_autil.mk_card(tns);
+            k3 = m_autil.mk_card(smt);
             sz_tms = m_autil.mk_has_size(tms, k1);
             sz_tns = m_autil.mk_has_size(tns, k2);
             sz_smt = m_autil.mk_has_size(smt, k3);
@@ -264,7 +288,7 @@ namespace smt {
             propagate(sz2, sz_smt);
             propagate(sz2, sz_tns);
             propagate(sz1, mk_eq(k1 + k2, sz1->get_arg(1)));
-            propagate(sz2, mk_eq(k3 + k2, sz2->get_arg(1)));                        
+            propagate(sz2, mk_eq(k3 + k2, sz2->get_arg(1)));
         }
 
         expr_ref mk_subtract(expr* t, expr* s) {
@@ -295,16 +319,17 @@ namespace smt {
             for (auto const& kv : m_sizeof) {
                 app* k = kv.m_key;
                 sz_info& i = *kv.m_value;
-                if (is_leaf(kv.m_value) && (i.m_literal == null_literal || !is_true(i.m_literal))) {
+                if (is_leaf(&i) && (i.m_literal == null_literal || !is_true(i.m_literal))) {
                     rational value;
-                    if (!m_arith_value.get_value(k->get_arg(1), value)) {
+                    expr* set = k->get_arg(0);
+                    expr* sz  = k->get_arg(1);
+                    if (!m_arith_value.get_value(sz, value)) {
                         return l_undef;
                     }  
-                    literal lit = mk_eq(k->get_arg(1), m_arith.mk_int(value));
-                    ctx().mark_as_relevant(lit);
+                    literal lit = mk_eq(sz, m_arith.mk_int(value));
                     ctx().set_true_first_flag(lit.var());
                     ctx().push_trail(value_trail<context, literal>(i.m_literal, lit));
-                    i.m_value = value;
+                    ctx().push_trail(value_trail<context, rational>(i.m_size, value));
                     result = l_false;
                 }
             }
@@ -312,21 +337,23 @@ namespace smt {
         }
 
         /**
-           Enforce Ak, k <= m_max_set_enumeration
+           Enforce Ak,
         */
         lbool ensure_non_empty() {
             for (auto const& kv : m_sizeof) {
                 sz_info& i = *kv.m_value;
-                app* sz = kv.m_key;
-                if (is_true(sz) && is_leaf(i) && i.m_selects.size() < i.m_value && i.m_selects.size() < m_max_set_enumeration) {
-                    expr* a = sz->get_arg(0);
-                    expr_ref le(m_arith.mk_le(sz->get_arg(1), m_arith.mk_int(0)), m);
+                app* set_sz = kv.m_key;
+                if (is_true(set_sz) && is_leaf(i) && i.m_selects.size() < i.m_size) {
+                    expr* set = set_sz->get_arg(0);
+                    expr_ref le(m_arith.mk_le(set_sz->get_arg(1), m_arith.mk_int(0)), m);
                     literal le_lit = mk_literal(le);
-                    literal sz_lit = mk_literal(sz);
-                    for (unsigned k = 0; k < m_max_set_enumeration && rational(k) < i.m_value; ++k) {
-                        expr_ref idx = mk_index_skolem(sz, a, k);
-                        app_ref  sel(mk_select(a, idx));
+                    literal sz_lit = mk_literal(set_sz);
+                    unsigned k = i.m_selects.size();
+                    for (unsigned k = i.m_selects.size(); rational(k) < i.m_size; ++k) {
+                        expr_ref idx = mk_index_skolem(set_sz, set, k);
+                        app_ref sel(mk_select(set, idx), m);
                         mk_th_axiom(~sz_lit, le_lit, mk_literal(sel));
+                        TRACE("array", tout << idx << " " << sel << " " << i.m_size << "\n";);
                     }
                     return l_false;
                 }
@@ -373,8 +400,8 @@ namespace smt {
         }
 
         lbool ensure_no_overflow(app* sz, sz_info& info) {
-            SASSERT(!info.m_value.is_neg());
-            if (info.m_value < info.m_selects.size()) {
+            SASSERT(!info.m_size.is_neg());
+            if (info.m_size < info.m_selects.size()) {
                 for (auto i = info.m_selects.begin(), e = info.m_selects.end(); i != e; ++i) {
                     for (auto j = i; ++j != e; ) {
                         if (ctx().assume_eq(i->m_key, j->m_key)) {
@@ -421,7 +448,7 @@ namespace smt {
         }
 
         std::ostream& display(std::ostream& out, sz_info& sz) {
-            return out << (sz.m_is_leaf ? "leaf": "") << " value: " << sz.m_value << " selects: " << sz.m_selects.size() << "\n";
+            return out << (sz.m_is_leaf ? "leaf": "") << " size: " << sz.m_size << " selects: " << sz.m_selects.size() << "\n";
         }
         
     public:
@@ -436,7 +463,7 @@ namespace smt {
         {
             context& ctx = th.get_context();
             m_arith_value.init(&ctx);
-            m_max_set_enumeration = 100;
+            m_max_set_enumeration = 4;
         }
 
         ~imp() {
@@ -471,6 +498,8 @@ namespace smt {
                 // add case where default(S) = true, and add negative elements.
             }
             m_sizeof.insert(term, alloc(sz_info));
+            m_size_limit.insert(s, rational(2));
+            assert_size_limit(s, n);
             ctx().push_trail(remove_sz(m_sizeof, term));
         }
 
@@ -485,13 +514,22 @@ namespace smt {
             ctx().assign(lit, nullptr);
         }
 
+        lbool trace_call(char const* msg, lbool r) {
+            if (r != l_true) {
+                IF_VERBOSE(2, verbose_stream() << msg << "\n");
+            }
+            return r;
+        }
+
         final_check_status final_check() {            
-            lbool r = ensure_functional();
+            final_check_status st = m_arith_value.final_check();
+            if (st != FC_DONE) return st;
+            lbool r = trace_call("ensure_functional", ensure_functional());
             if (r == l_true) update_indices();
-            if (r == l_true) r = ensure_disjoint();
-            if (r == l_true) r = ensure_values_assigned();
-            if (r == l_true) r = ensure_non_empty();
-            if (r == l_true) r = ensure_no_overflow();
+            if (r == l_true) r = trace_call("ensure_disjoint", ensure_disjoint());
+            if (r == l_true) r = trace_call("eensure_values_assigned", ensure_values_assigned());
+            if (r == l_true) r = trace_call("ensure_non_empty", ensure_non_empty());
+            if (r == l_true) r = trace_call("ensure_no_overflow", ensure_no_overflow());
             CTRACE("array", r != l_true, display(tout););
             switch (r) {
             case l_true:
@@ -508,13 +546,72 @@ namespace smt {
             for (auto const& kv : m_sizeof) {
                 sz_info& i = *kv.m_value;
                 app* sz = kv.m_key;
-                if (is_true(sz) && is_leaf(i) && rational(i.m_selects.size()) != i.m_value) {
+                if (is_true(sz) && is_leaf(i) && rational(i.m_selects.size()) != i.m_size) {
                     warning_msg("models for BAPA is TBD");
                     break;
                 }
             }
         }
 
+        bool should_research(expr_ref_vector & unsat_core) {
+            expr* set, *sz;
+            for (auto & e : unsat_core) {
+                if (is_app(e) && is_size_limit(to_app(e), set, sz)) {
+                    inc_size_limit(set, sz);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void inc_size_limit(expr* set, expr* sz) {
+            IF_VERBOSE(2, verbose_stream() << "inc value " << mk_pp(set, m) << "\n");
+            m_size_limit[set] *= rational(2);
+            assert_size_limit(set, sz);
+        }
+        
+        bool is_size_limit(app* e, expr*& set, expr*& sz) {
+            func_decl* d = nullptr;
+            if (e->get_num_args() > 0 && m_size_limit_sort2skolems.find(m.get_sort(e->get_arg(0)), d) && d == e->get_decl()) {
+                set = e->get_arg(0);
+                sz  = e->get_arg(1);
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        // has-size(s,n) & size-limit(s, n, k)  => n <= k
+
+        app_ref mk_size_limit(expr* set, expr* sz) {
+            func_decl* sk = nullptr;
+            sort* s = m.get_sort(set);
+            if (!m_size_limit_sort2skolems.find(s, sk)) {
+                sort* dom[3] = { s, m_arith.mk_int(), m_arith.mk_int() };
+                sk = m.mk_fresh_func_decl("value-limit", "", 3, dom, m.mk_bool_sort());
+                m_pinned.push_back(sk);                    
+                m_size_limit_sort2skolems.insert(s, sk);
+            }             
+            return app_ref(m.mk_app(sk, set, sz, m_arith.mk_int(m_size_limit[set])), m);            
+        }
+
+        void assert_size_limit(expr* set, expr* sz) {
+            app_ref set_sz(m_autil.mk_has_size(set, sz), m);
+            app_ref lim(m_arith.mk_int(m_size_limit[set]), m);
+            app_ref size_limit = mk_size_limit(set, sz);
+            mk_th_axiom(~mk_literal(set_sz), ~mk_literal(size_limit), mk_literal(m_arith.mk_le(sz, lim)));
+        }
+
+        void add_theory_assumptions(expr_ref_vector & assumptions) {
+            for (auto const& kv : m_sizeof) {
+                expr* set = kv.m_key->get_arg(0);
+                expr* sz =  kv.m_key->get_arg(1);
+                assumptions.push_back(mk_size_limit(set, sz));
+            }            
+            TRACE("array", tout << "ASSUMPTIONS: " << assumptions << "\n";);
+        }
+    
     };
 
     theory_array_bapa::theory_array_bapa(theory_array_full& th) { m_imp = alloc(imp, th);  }
@@ -526,4 +623,9 @@ namespace smt {
     final_check_status theory_array_bapa::final_check() { return m_imp->final_check(); }
 
     void theory_array_bapa::init_model() { m_imp->init_model(); }
+
+    bool theory_array_bapa::should_research(expr_ref_vector & unsat_core) { return m_imp->should_research(unsat_core); }
+
+    void theory_array_bapa::add_theory_assumptions(expr_ref_vector & assumptions) { m_imp->add_theory_assumptions(assumptions); }
+
 }

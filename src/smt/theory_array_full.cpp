@@ -387,7 +387,7 @@ namespace smt {
     }
     
     void theory_array_full::relevant_eh(app* n) {
-    TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
+        TRACE("array", tout << mk_pp(n, get_manager()) << "\n";);
         theory_array::relevant_eh(n);
         if (!is_default(n) && !is_select(n) && !is_map(n) && !is_const(n) && !is_as_array(n)){
             return;
@@ -425,6 +425,14 @@ namespace smt {
         else if (is_as_array(n)) {
             instantiate_default_as_array_axiom(node);
         }
+    }
+
+    bool theory_array_full::should_research(expr_ref_vector & unsat_core) {
+        return m_bapa && m_bapa->should_research(unsat_core);
+    }
+
+    void theory_array_full::add_theory_assumptions(expr_ref_vector & assumptions) {
+        if (m_bapa) m_bapa->add_theory_assumptions(assumptions);
     }
 
        
