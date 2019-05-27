@@ -312,6 +312,13 @@ void model::cleanup_interp(top_sort& ts, func_decl* f) {
         expr_ref e2 = cleanup_expr(ts, e1, pid);
         if (e1 != e2) 
             fi->set_else(e2);
+        for (auto& fe : *fi) {
+            expr_ref e2 = cleanup_expr(ts, fe->get_result(), pid);
+            if (e2 != fe->get_result()) {
+                fi->insert_entry(fe->get_args(), e2);
+            }
+        }
+
     }
 }
 
@@ -326,6 +333,9 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
             e = fi->get_else();
             if (e != nullptr)
                collect_occs(ts, e);
+            for (auto const& fe : *fi) {
+                collect_occs(ts, fe->get_result());
+            }
         }
     }
 }
