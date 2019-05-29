@@ -1221,6 +1221,37 @@ static void string_values() {
     std::cout << s1 << "\n";
 }
 
+expr MakeStringConstant(context* context, std::string value) {
+    return context->string_val(value.c_str());
+}
+
+expr MakeStringFunction(context* c, std::string s) {
+    sort sort = c->string_sort();
+    symbol name = c->str_symbol(s.c_str());
+    return c->constant(name, sort);
+}
+
+static void string_issue_2298() {
+    context c;
+    solver s(c);
+    s.push();
+    expr func1 = MakeStringFunction(&c, "func1");
+    expr func2 = MakeStringFunction(&c, "func2");
+    
+    expr abc = MakeStringConstant(&c, "abc");
+    expr cde = MakeStringConstant(&c, "cde");
+    
+    expr length = func1.length();
+    expr five = c.int_val(5);
+    
+    s.add(func2 == abc || func1 == cde);
+    s.add(func2 == abc || func2 == cde);
+    s.add(length <= five);
+    
+    s.check();
+    s.pop();
+}
+
 int main() {
 
     try {
@@ -1272,6 +1303,7 @@ int main() {
         mk_model_example(); std::cout << "\n";
         recfun_example(); std::cout << "\n";
         string_values(); std::cout << "\n";
+        string_issue_2298(); std::cout << "\n";
         std::cout << "done\n";
     }
     catch (exception & ex) {

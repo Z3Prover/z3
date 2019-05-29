@@ -274,10 +274,7 @@ namespace smt {
 
         // Parent use-list
         if (this == m_root) {
-            enode_vector::const_iterator it2  = m_parents.begin();
-            enode_vector::const_iterator end2 = m_parents.end();
-            for (; it2 != end2; ++it2) {
-                enode const * parent = *it2;
+            for (enode* parent : m_parents) {
                 unsigned i = 0;
                 unsigned num_args = parent->get_num_args();
                 SASSERT(num_args > 0);
@@ -318,10 +315,7 @@ namespace smt {
         enode const * curr = m_root; 
         do {
             if (curr != m_root) {
-                enode_vector::const_iterator it  = curr->m_parents.begin();
-                enode_vector::const_iterator end = curr->m_parents.end();
-                for (; it != end; ++it) {
-                    enode * p = *it;
+                for (enode * p : curr->m_parents) {
                     if (!p->is_true_eq() && !m_root->contains_parent_congruent_to(p)) {
                         UNREACHABLE();
                     }
@@ -334,10 +328,7 @@ namespace smt {
     }
     
     bool enode::contains_parent_congruent_to(enode * p) const {
-        enode_vector::const_iterator it  = m_parents.begin();
-        enode_vector::const_iterator end = m_parents.end();
-        for (; it != end; ++it) {
-            enode * curr = *it;
+        for (enode* curr : m_parents) {
             if (congruent(curr, p))
                 return true;
         }
