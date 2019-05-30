@@ -644,6 +644,18 @@ typedef enum
           unfolding the Boolean connectives in the axioms a small
           bounded number of steps (=3).
 
+   - Z3_OP_PR_ASSUMPTION_ADD
+     Clausal proof adding axiom
+
+   - Z3_OP_PR_LEMMA_ADD
+     Clausal proof lemma addition
+
+   - Z3_OP_PR_REDUNDANT_DEL
+     Clausal proof lemma deletion
+
+   - Z3_OP_PR_CLAUSE_TRAIL,
+     Clausal proof trail of additions and deletions
+
    - Z3_OP_PR_DEF_INTRO: Introduces a name for a formula/term.
        Suppose e is an expression with free variables x, and def-intro
        introduces the name n(x). The possible cases are:
@@ -1143,6 +1155,10 @@ typedef enum {
     Z3_OP_PR_IFF_FALSE,
     Z3_OP_PR_COMMUTATIVITY,
     Z3_OP_PR_DEF_AXIOM,
+    Z3_OP_PR_ASSUMPTION_ADD, 
+    Z3_OP_PR_LEMMA_ADD, 
+    Z3_OP_PR_REDUNDANT_DEL, 
+    Z3_OP_PR_CLAUSE_TRAIL,
     Z3_OP_PR_DEF_INTRO,
     Z3_OP_PR_APPLY_DEF,
     Z3_OP_PR_IFF_OEQ,

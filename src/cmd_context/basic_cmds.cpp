@@ -174,14 +174,16 @@ public:
 };
 
 ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
-    if (!ctx.produce_proofs())
-        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
-    if (!ctx.has_manager() ||
-        ctx.cs_state() != cmd_context::css_unsat)
+    if (!ctx.has_manager())
         throw cmd_exception("proof is not available");
+
+    if (ctx.ignore_check())
+        return;
     expr_ref pr(ctx.m());
     pr = ctx.get_check_sat_result()->get_proof();
-    if (pr == 0)
+    if (!pr && !ctx.produce_proofs())
+        throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
+    if (!pr) 
         throw cmd_exception("proof is not available");
     if (ctx.well_sorted_check_enabled() && !is_well_sorted(ctx.m(), pr)) {
         throw cmd_exception("proof is not well sorted");
@@ -209,6 +211,8 @@ ATOMIC_CMD(get_proof_graph_cmd, "get-proof-graph", "retrieve proof and print it 
         ctx.cs_state() != cmd_context::css_unsat)
         throw cmd_exception("proof is not available");
     proof_ref pr(ctx.m());
+    if (ctx.ignore_check())
+        return;
     pr = ctx.get_check_sat_result()->get_proof();
     if (pr == 0)
         throw cmd_exception("proof is not available");
@@ -238,6 +242,8 @@ static void print_core(cmd_context& ctx) {
 }
 
 ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
+        if (ctx.ignore_check())
+            return;
         if (!ctx.produce_unsat_cores())
             throw cmd_exception("unsat core construction is not enabled, use command (set-option :produce-unsat-cores true)");
         if (!ctx.has_manager() ||
@@ -247,6 +253,8 @@ ATOMIC_CMD(get_unsat_core_cmd, "get-unsat-core", "retrieve unsat core", {
     });
 
 ATOMIC_CMD(get_unsat_assumptions_cmd, "get-unsat-assumptions", "retrieve subset of assumptions sufficient for unsatisfiability", {
+        if (ctx.ignore_check())
+            return;
         if (!ctx.produce_unsat_assumptions())
             throw cmd_exception("unsat assumptions construction is not enabled, use command (set-option :produce-unsat-assumptions true)");
         if (!ctx.has_manager() || ctx.cs_state() != cmd_context::css_unsat) {

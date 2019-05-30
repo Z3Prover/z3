@@ -352,6 +352,11 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         return BR_REWRITE3;        
     }
 
+    if (m().is_not(f) && m_util.is_map(args[0]) && m().is_not(m_util.get_map_func_decl(args[0]))) {
+        result = to_app(args[0])->get_arg(0);
+        return BR_DONE;
+    }
+
     if (m().is_and(f)) {
         ast_mark mark;
         ptr_buffer<expr> es;
@@ -373,16 +378,48 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             }
         }
         es.shrink(j);
+        j = 0;
         for (expr* e : es) {
-            if (m().is_not(e, e) && mark.is_marked(e)) {
-                sort_ref s = get_map_array_sort(f, num_args, args);
-                result = m_util.mk_const_array(s, m().mk_false());
-                return BR_DONE;
+            if (m_util.is_map(e) && m().is_not(m_util.get_map_func_decl(e))) {
+                expr * arg = to_app(e)->get_arg(0);
+                if (mark.is_marked(arg)) {
+                    sort_ref s = get_map_array_sort(f, num_args, args);
+                    result = m_util.mk_const_array(s, m().mk_false());
+                    return BR_DONE;
+                }
+                // a & (!a & b & c) -> a & !(b & c)
+                if (m_util.is_map(arg) && m().is_and(m_util.get_map_func_decl(arg))) {
+                    unsigned k = 0;
+                    ptr_buffer<expr> gs;
+                    bool and_change = false;
+                    gs.append(to_app(arg)->get_num_args(), to_app(arg)->get_args());
+                    for (unsigned i = 0; i < gs.size(); ++i) {
+                        expr* g = gs[i];
+                        if (mark.is_marked(g)) {
+                            change = true;
+                            and_change = true;
+                        }
+                        else if (m_util.is_map(g) && m().is_and(m_util.get_map_func_decl(g))) {
+                            gs.append(to_app(g)->get_num_args(), to_app(g)->get_args());
+                        }
+                        else {
+                            gs[k++] = gs[i];
+                        }                        
+                    }
+                    gs.shrink(k);
+                    if (and_change) {
+                        std::sort(gs.begin(), gs.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
+                        expr* arg = m_util.mk_map_assoc(f, gs.size(), gs.c_ptr());
+                        es[j] = m_util.mk_map(m().mk_not_decl(), 1, &arg);                          
+                    }
+                }
             }
+            ++j;
         }        
         if (change) {
+            std::sort(es.begin(), es.end(), [](expr* a, expr* b) { return a->get_id() < b->get_id(); });
             result = m_util.mk_map_assoc(f, es.size(), es.c_ptr());
-            return BR_DONE;
+            return BR_REWRITE2;
         }
     }
 
@@ -408,7 +445,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         }
         es.shrink(j);
         for (expr* e : es) {
-            if (m().is_not(e, e) && mark.is_marked(e)) {
+            if (m_util.is_map(e) && m().is_not(m_util.get_map_func_decl(e)) && mark.is_marked(to_app(e)->get_arg(0))) {
                 sort_ref s = get_map_array_sort(f, num_args, args);
                 result = m_util.mk_const_array(s, m().mk_true());
                 return BR_DONE;
@@ -416,7 +453,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         }        
         if (change) {
             result = m_util.mk_map_assoc(f, es.size(), es.c_ptr());
-            return BR_DONE;
+            return BR_REWRITE1;
         }
     }
 

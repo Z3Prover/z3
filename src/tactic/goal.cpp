@@ -128,16 +128,14 @@ void goal::push_back(expr * f, proof * pr, expr_dependency * d) {
         m().del(m_dependencies);
         m_inconsistent = true;
         m().push_back(m_forms, m().mk_false());
-        if (proofs_enabled())
-            m().push_back(m_proofs, saved_pr);
+        m().push_back(m_proofs, saved_pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, saved_d);
     }
     else {
         SASSERT(!m_inconsistent);
         m().push_back(m_forms, f);
-        if (proofs_enabled())
-            m().push_back(m_proofs, pr);
+        m().push_back(m_proofs, pr);
         if (unsat_core_enabled())
             m().push_back(m_dependencies, d);
     }
@@ -248,11 +246,12 @@ void goal::assert_expr(expr * f, proof * pr, expr_dependency * d) {
     expr_ref _f(f, m());
     proof_ref _pr(pr, m());
     expr_dependency_ref _d(d, m());
-    SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
-    if (m_inconsistent)
+    if (m_inconsistent) {
         return;
-    if (proofs_enabled())
+    }
+    if (pr) {
         slow_process(f, pr, d);
+    }
     else {
         expr_ref fr(f, m());
         quick_process(false, fr, d);
@@ -278,11 +277,9 @@ void goal::get_formulas(expr_ref_vector & result) const {
 }
 
 void goal::update(unsigned i, expr * f, proof * pr, expr_dependency * d) {
-    // KLM: don't know why this assertion is no longer true
-    // SASSERT(proofs_enabled() == (pr != 0 && !m().is_undef_proof(pr)));
     if (m_inconsistent)
         return;
-    if (proofs_enabled()) {
+    if (pr) {
         expr_ref out_f(m());
         proof_ref out_pr(m());
         slow_process(true, f, pr, d, out_f, out_pr);
@@ -455,9 +452,8 @@ void goal::shrink(unsigned j) {
     unsigned sz = size();
     for (unsigned i = j; i < sz; i++)
         m().pop_back(m_forms);
-    if (proofs_enabled()) 
-        for (unsigned i = j; i < sz; i++)
-            m().pop_back(m_proofs);
+    for (unsigned i = j; i < sz; i++)
+        m().pop_back(m_proofs);
     if (unsat_core_enabled()) 
         for (unsigned i = j; i < sz; i++)
             m().pop_back(m_dependencies);
@@ -478,8 +474,7 @@ void goal::elim_true() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, m().get(m_proofs, i));
+        m().set(m_proofs, j, m().get(m_proofs, i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, m().get(m_dependencies, i));
         j++;
@@ -565,8 +560,7 @@ void goal::elim_redundancies() {
             continue;
         }
         m().set(m_forms, j, f);
-        if (proofs_enabled())
-            m().set(m_proofs, j, pr(i));
+        m().set(m_proofs, j, pr(i));
         if (unsat_core_enabled())
             m().set(m_dependencies, j, dep(i));
         j++;
@@ -596,8 +590,7 @@ goal * goal::translate(ast_translation & translator) const {
     unsigned sz = m().size(m_forms);
     for (unsigned i = 0; i < sz; i++) {
         res->m().push_back(res->m_forms, translator(m().get(m_forms, i)));
-        if (res->proofs_enabled())
-            res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
+        res->m().push_back(res->m_proofs, translator(m().get(m_proofs, i)));
         if (res->unsat_core_enabled())
             res->m().push_back(res->m_dependencies, dep_translator(m().get(m_dependencies, i)));
     }
