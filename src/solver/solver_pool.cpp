@@ -127,10 +127,6 @@ public:
         return m_base->get_trail();
     }
 
-    void set_activity(expr* var, double activity) override {
-        m_base->set_activity(var, activity);
-    }
-
     lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
         SASSERT(!m_pushed || get_scope_level() > 0);
         m_proof.reset();

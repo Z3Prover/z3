@@ -328,11 +328,6 @@ public:
             return m_solver2->get_trail();
     }
 
-    void set_activity(expr* lit, double activity) override {
-        m_solver1->set_activity(lit, activity);
-        m_solver2->set_activity(lit, activity);
-    }
-
     proof * get_proof() override {
         if (m_use_solver1_results)
             return m_solver1->get_proof();

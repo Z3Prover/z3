@@ -93,10 +93,6 @@ public:
         throw default_exception("cannot retrieve trail from solvers created using tactcis");
     }
 
-    void set_activity(expr* var, double activity) override {
-        throw default_exception("cannot set activity for solvers created using tactcis");
-    }
-
 
 };
 
