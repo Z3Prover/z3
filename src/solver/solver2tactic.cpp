@@ -110,7 +110,11 @@ public:
         extract_clauses_and_dependencies(in, clauses, assumptions, bool2dep, fmc);
         ref<solver> local_solver = m_solver->translate(m, m_params);
         local_solver->assert_expr(clauses);
+        TRACE("solver2tactic", tout << "clauses asserted\n";);
         lbool r = local_solver->check_sat(assumptions.size(), assumptions.c_ptr()); 
+        TRACE("solver2tactic", tout << "check sat result " << r << "\n";);
+        proof* pr = local_solver->get_proof();
+        if (pr) in->set(proof2proof_converter(m, pr));
         switch (r) {
         case l_true: 
             if (in->models_enabled()) {
@@ -128,11 +132,6 @@ public:
         case l_false: {
             in->reset();
             expr_dependency_ref lcore(m);
-            proof* pr = nullptr;
-            if (in->proofs_enabled()) {
-                pr = local_solver->get_proof();
-                in->set(proof2proof_converter(m, pr));
-            }
             if (in->unsat_core_enabled()) {
                 expr_ref_vector core(m);
                 local_solver->get_unsat_core(core);
