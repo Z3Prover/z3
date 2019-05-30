@@ -313,7 +313,7 @@ void model::cleanup_interp(top_sort& ts, func_decl* f) {
         if (e1 != e2) 
             fi->set_else(e2);
         for (auto& fe : *fi) {
-            expr_ref e2 = cleanup_expr(ts, fe->get_result(), pid);
+            e2 = cleanup_expr(ts, fe->get_result(), pid);
             if (e2 != fe->get_result()) {
                 fi->insert_entry(fe->get_args(), e2);
             }
