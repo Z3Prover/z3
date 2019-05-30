@@ -33,9 +33,7 @@ namespace smt {
     }
 
     static void acc_num_occs(clause * cls, unsigned_vector & lit2num_occs) {
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             lit2num_occs[l.index()]++;
         }
     }
@@ -80,9 +78,7 @@ namespace smt {
     }
 
     static void acc_var_num_occs(clause * cls, unsigned_vector & var2num_occs) {
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             var2num_occs[l.var()]++;
         }
     }
@@ -116,9 +112,9 @@ namespace smt {
 
     static void acc_var_num_min_occs(clause * cls, unsigned_vector & var2num_min_occs) {
         unsigned num_lits = cls->get_num_literals();
-        bool_var min_var  = cls->get_literal(0).var();
+        bool_var min_var  = (*cls)[0].var();
         for (unsigned i = 1; i < num_lits; i++) {
-            bool_var v = cls->get_literal(i).var();
+            bool_var v = (*cls)[i].var();
             if (v < min_var)
                 min_var = v;
         }

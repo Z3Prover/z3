@@ -281,7 +281,9 @@ namespace smt {
             set_conflict(mk_justification(justification_proof_wrapper(*this, pr)));
         }
         else {
-            assign(l, mk_justification(justification_proof_wrapper(*this, pr)));
+            justification* j = mk_justification(justification_proof_wrapper(*this, pr));
+            m_clause_proof.add(l, CLS_AUX, j);
+            assign(l, j);
             mark_as_relevant(l);
         }
     }
@@ -315,6 +317,12 @@ namespace smt {
         flet<unsigned> l(m_generation, generation);
         m_stats.m_max_generation = std::max(m_generation, m_stats.m_max_generation);
         internalize(n, gate_ctx);
+    }
+
+    void context::ensure_internalized(expr* e) {
+        if (!e_internalized(e)) {
+            internalize(e, false);
+        }
     }
 
     /**
@@ -1304,8 +1312,10 @@ namespace smt {
     */
     clause * context::mk_clause(unsigned num_lits, literal * lits, justification * j, clause_kind k, clause_del_eh * del_eh) {
         TRACE("mk_clause", tout << "creating clause:\n"; display_literals_verbose(tout, num_lits, lits); tout << "\n";);
+        m_clause_proof.add(num_lits, lits, k, j);
         switch (k) {
-        case CLS_AUX: {
+        case CLS_AUX: 
+        case CLS_TH_AXIOM: {
             literal_buffer simp_lits;
             if (!simplify_aux_clause_literals(num_lits, lits, simp_lits))
                 return nullptr; // clause is equivalent to true;
@@ -1319,7 +1329,7 @@ namespace smt {
             }
             break;
         }
-        case CLS_AUX_LEMMA: {
+        case CLS_TH_LEMMA: {
             if (!simplify_aux_lemma_literals(num_lits, lits))
                 return nullptr; // clause is equivalent to true
             // simplify_aux_lemma_literals does not delete literals assigned to false, so
@@ -1333,7 +1343,7 @@ namespace smt {
         unsigned activity = 0;
         if (activity == 0)
             activity = 1;
-        bool     lemma = k != CLS_AUX;
+        bool  lemma = is_lemma(k);
         m_stats.m_num_mk_lits += num_lits;
         switch (num_lits) {
         case 0:
@@ -1354,9 +1364,10 @@ namespace smt {
                 literal l2 = lits[1];
                 m_watches[(~l1).index()].insert_literal(l2);
                 m_watches[(~l2).index()].insert_literal(l1);
-                if (get_assignment(l2) == l_false)
+                if (get_assignment(l2) == l_false) {
                     assign(l1, b_justification(~l2));
-
+                }
+                m_clause_proof.add(l1, l2, k, j);
                 m_stats.m_num_mk_bin_clause++;
                 return nullptr;
             }
@@ -1368,6 +1379,7 @@ namespace smt {
             bool reinit         = save_atoms;
             SASSERT(!lemma || j == 0 || !j->in_region());
             clause * cls = clause::mk(m_manager, num_lits, lits, k, j, del_eh, save_atoms, m_bool_var2expr.c_ptr());
+            m_clause_proof.add(*cls);
             if (lemma) {
                 cls->set_activity(activity);
                 if (k == CLS_LEARNED) {
@@ -1375,7 +1387,7 @@ namespace smt {
                     cls->swap_lits(1, w2_idx);
                 }
                 else {
-                    SASSERT(k == CLS_AUX_LEMMA);
+                    SASSERT(k == CLS_TH_LEMMA);
                     int w1_idx = select_watch_lit(cls, 0);
                     cls->swap_lits(0, w1_idx);
                     int w2_idx = select_watch_lit(cls, 1);
@@ -1388,14 +1400,14 @@ namespace smt {
                 add_watch_literal(cls, 1);
                 if (get_assignment(cls->get_literal(0)) == l_false) {
                     set_conflict(b_justification(cls));
-                    if (k == CLS_AUX_LEMMA && m_scope_lvl > m_base_lvl) {
+                    if (k == CLS_TH_LEMMA && m_scope_lvl > m_base_lvl) {
                         reinit     = true;
                         iscope_lvl = m_scope_lvl;
                     }
                 }
                 else if (get_assignment(cls->get_literal(1)) == l_false) {
                     assign(cls->get_literal(0), b_justification(cls));
-                    if (k == CLS_AUX_LEMMA && m_scope_lvl > m_base_lvl) {
+                    if (k == CLS_TH_LEMMA && m_scope_lvl > m_base_lvl) {
                         reinit     = true;
                         iscope_lvl = m_scope_lvl;
                     }
@@ -1441,9 +1453,7 @@ namespace smt {
     
     void context::mk_th_axiom(theory_id tid, unsigned num_lits, literal * lits, unsigned num_params, parameter * params) {
         justification * js = nullptr;
-        TRACE("mk_th_axiom", 
-              display_literals_verbose(tout, num_lits, lits);
-              tout << "\n";);
+        TRACE("mk_th_axiom", display_literals_verbose(tout, num_lits, lits) << "\n";);
 
         if (m_manager.proofs_enabled()) {
             js = mk_justification(theory_axiom_justification(tid, m_region, num_lits, lits, num_params, params));
@@ -1454,7 +1464,7 @@ namespace smt {
             SASSERT(tmp.size() == num_lits);
             display_lemma_as_smt_problem(tmp.size(), tmp.c_ptr(), false_literal, m_fparams.m_logic);
         }
-        mk_clause(num_lits, lits, js);
+        mk_clause(num_lits, lits, js, CLS_TH_AXIOM);
     }
     
     void context::mk_th_axiom(theory_id tid, literal l1, literal l2, unsigned num_params, parameter * params) {

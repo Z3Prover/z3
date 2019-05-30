@@ -35,6 +35,8 @@ namespace smt {
         void internalize_term(app* term);
         final_check_status final_check();
         void init_model();
+        bool should_research(expr_ref_vector & unsat_core);
+        void add_theory_assumptions(expr_ref_vector & assumptions);
     };
 
 };

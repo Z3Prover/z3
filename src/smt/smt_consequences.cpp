@@ -110,9 +110,7 @@ namespace smt {
         case b_justification::CLAUSE: {
             clause * cls = js.get_clause();
             if (!cls) break;
-            unsigned num_lits = cls->get_num_literals();
-            for (unsigned j = 0; j < num_lits; ++j) {
-                literal lit2 = cls->get_literal(j);
+            for (literal lit2 : *cls) {
                 if (lit2.var() != lit.var()) {
                     s |= m_antecedents.find(lit2.var());
                 }

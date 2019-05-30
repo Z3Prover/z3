@@ -188,6 +188,14 @@ public:
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }
 
+    app * mk_select(ptr_vector<expr> const& args) {
+        return mk_select(args.size(), args.c_ptr());
+    }
+
+    app * mk_select(expr_ref_vector const& args) {
+        return mk_select(args.size(), args.c_ptr());
+    }
+
     app * mk_map(func_decl * f, unsigned num_args, expr * const * args) {
         parameter p(f);
         return m_manager.mk_app(m_fid, OP_ARRAY_MAP, 1, &p, num_args, args);
@@ -227,6 +235,10 @@ public:
 
     app* mk_has_size(expr* set, expr* n) {
         return m_manager.mk_app(m_fid, OP_SET_HAS_SIZE, set, n);
+    }
+
+    app* mk_card(expr* set) {
+        return m_manager.mk_app(m_fid, OP_SET_CARD, set);
     }
 
     func_decl * mk_array_ext(sort* domain, unsigned i);

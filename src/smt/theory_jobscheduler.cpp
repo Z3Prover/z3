@@ -385,7 +385,7 @@ namespace smt {
         expr_ref rhs(a.mk_add(start_e->get_owner(), a.mk_int(rational(delta, rational::ui64()))), m);
         lits.push_back(mk_eq_lit(end_e->get_owner(), rhs));
         context& ctx = get_context();
-        ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_TH_LEMMA, nullptr);
         ast_manager& m = get_manager();
         if (m.has_trace_stream()) {
             app_ref body(m);
@@ -458,7 +458,7 @@ namespace smt {
             if (j == last_job) break;
         }
         context& ctx = get_context();
-        ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_AUX_LEMMA, nullptr);
+        ctx.mk_clause(lits.size(), lits.c_ptr(), nullptr, CLS_TH_LEMMA, nullptr);
     }
 
     void theory_jobscheduler::propagate() {

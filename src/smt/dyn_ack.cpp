@@ -374,7 +374,7 @@ namespace smt {
         justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
+        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;
@@ -426,7 +426,7 @@ namespace smt {
         justification * js = nullptr;
         if (m_manager.proofs_enabled())
             js = alloc(dyn_ack_justification, n1, n2);
-        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_AUX_LEMMA, del_eh);
+        clause * cls = m_context.mk_clause(lits.size(), lits.c_ptr(), js, CLS_TH_LEMMA, del_eh);
         if (!cls) {
             dealloc(del_eh);
             return;

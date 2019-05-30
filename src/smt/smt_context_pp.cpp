@@ -31,8 +31,6 @@ namespace smt {
             return out << "OK";
         case UNKNOWN:
             return out << "UNKNOWN";
-        case TIMEOUT:
-            return out << "TIMEOUT";
         case MEMOUT:
             return out << "MEMOUT";
         case CANCELED:
@@ -64,7 +62,6 @@ namespace smt {
         std::string r;
         switch(m_last_search_failure) {
         case OK: r = m_unknown; break;
-        case TIMEOUT: r = "timeout"; break;
         case MEMOUT: r = "memout"; break;
         case CANCELED: r = "canceled"; break;
         case NUM_CONFLICTS: r = "max-conflicts-reached"; break;
@@ -149,9 +146,7 @@ namespace smt {
 
     void context::display_clause_detail(std::ostream & out, clause const * cls) const {
         out << "lemma: " << cls->is_lemma() << "\n";
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             display_literal(out, l);
             out << ", val: " << get_assignment(l) << ", lvl: " << get_assign_level(l)
                 << ", ilvl: " << get_intern_level(l.var()) << ", var: " << l.var() << "\n"

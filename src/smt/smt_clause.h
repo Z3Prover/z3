@@ -39,10 +39,14 @@ namespace smt {
     };
 
     enum clause_kind {
-        CLS_AUX,
-        CLS_LEARNED,
-        CLS_AUX_LEMMA 
+        CLS_AUX,         // an input assumption
+        CLS_TH_AXIOM,    // a theory axiom
+        CLS_LEARNED,     // learned through conflict resolution
+        CLS_TH_LEMMA     // a theory lemma
     };
+
+    inline bool is_axiom(clause_kind k) { return k == CLS_AUX || k == CLS_TH_AXIOM; }
+    inline bool is_lemma(clause_kind k) { return k == CLS_LEARNED || k == CLS_TH_LEMMA; }
     
     /**
        \brief A SMT clause.
@@ -63,7 +67,7 @@ namespace smt {
 
         static unsigned get_obj_size(unsigned num_lits, clause_kind k, bool has_atoms, bool has_del_eh, bool has_justification) {
             unsigned r = sizeof(clause) + sizeof(literal) * num_lits;
-            if (k != CLS_AUX)
+            if (smt::is_lemma(k)) 
                 r += sizeof(unsigned);
             /* dvitek: Fix alignment issues on 64-bit platforms.  The
              * 'if' statement below probably isn't worthwhile since
@@ -119,9 +123,9 @@ namespace smt {
         friend class context;
 
         void swap_lits(unsigned idx1, unsigned idx2) {
-            literal tmp = get_literal(idx1);
-            set_literal(idx1, get_literal(idx2));
-            set_literal(idx2, tmp);
+            SASSERT(idx1 < m_num_literals);
+            SASSERT(idx2 < m_num_literals);
+            std::swap(m_lits[idx1], m_lits[idx2]);
         }
 
         bool is_watch(literal l) const {
@@ -133,7 +137,6 @@ namespace smt {
         }
 
         void set_num_literals(unsigned n) {
-            SASSERT(n <= m_num_literals);
             SASSERT(!m_reinit);
             m_num_literals = n;
         }
@@ -159,16 +162,17 @@ namespace smt {
         }
 
         bool is_lemma() const {
-            return get_kind() != CLS_AUX;
+            return smt::is_lemma(get_kind());
         }
 
         bool is_learned() const {
             return get_kind() == CLS_LEARNED;
         }
 
-        bool is_aux_lemma() const {
-            return get_kind() == CLS_AUX_LEMMA;
+        bool is_th_lemma() const {
+            return get_kind() == CLS_TH_LEMMA;
         }
+
 
         bool in_reinit_stack() const { 
             return m_reinit;
@@ -182,14 +186,22 @@ namespace smt {
             return m_num_literals;
         }
 
-        literal get_literal(unsigned idx) const {
+        literal & operator[](unsigned idx) {
             SASSERT(idx < m_num_literals);
-            return m_lits[idx];
+            return m_lits[idx];            
+        }
+
+        literal operator[](unsigned idx) const {
+            SASSERT(idx < m_num_literals);
+            return m_lits[idx];            
+        }
+
+        literal get_literal(unsigned idx) const {
+            return (*this)[idx];
         }
 
         literal & get_literal(unsigned idx) {
-            SASSERT(idx < m_num_literals);
-            return m_lits[idx];
+            return (*this)[idx];
         }
 
         literal * begin() { return m_lits; }
@@ -248,7 +260,7 @@ namespace smt {
         unsigned hash() const {
             return get_ptr_hash(this); 
         }
-        
+
         void mark_as_deleted(ast_manager & m) {
             SASSERT(!m_deleted);
             m_deleted = true;
@@ -262,6 +274,7 @@ namespace smt {
         bool deleted() const { 
             return m_deleted; 
         }
+
     };
 
     typedef ptr_vector<clause> clause_vector;

@@ -277,17 +277,17 @@ namespace smt {
             unsigned num_lits = cls->get_num_literals();
             unsigned i        = 0;
             if (consequent != false_literal) {
-                SASSERT(cls->get_literal(0) == consequent || cls->get_literal(1) == consequent);
-                if (cls->get_literal(0) == consequent) {
+                SASSERT((*cls)[0] == consequent || (*cls)[1] == consequent);
+                if ((*cls)[0] == consequent) {
                     i = 1;
                 }
                 else {
-                    r = std::max(r, m_ctx.get_assign_level(cls->get_literal(0)));
+                    r = std::max(r, m_ctx.get_assign_level((*cls)[0]));
                     i = 2;
                 }
             }
             for(; i < num_lits; i++)
-                r = std::max(r, m_ctx.get_assign_level(cls->get_literal(i)));
+                r = std::max(r, m_ctx.get_assign_level((*cls)[i]));
             justification * js = cls->get_justification();
             if (js)
                 r = std::max(r, get_justification_max_lvl(js));
@@ -471,8 +471,9 @@ namespace smt {
         b_justification js;
         literal consequent;
 
-        if (!initialize_resolve(conflict, not_l, js, consequent))
+        if (!initialize_resolve(conflict, not_l, js, consequent)) {
             return false;
+        }
 
         unsigned idx = skip_literals_above_conflict_level();
 
@@ -510,19 +511,19 @@ namespace smt {
                 unsigned num_lits = cls->get_num_literals();
                 unsigned i        = 0;
                 if (consequent != false_literal) {
-                    SASSERT(cls->get_literal(0) == consequent || cls->get_literal(1) == consequent);
-                    if (cls->get_literal(0) == consequent) {
+                    SASSERT((*cls)[0] == consequent || (*cls)[1] == consequent);
+                    if ((*cls)[0] == consequent) {
                         i = 1;
                     }
                     else {
-                        literal l = cls->get_literal(0);
+                        literal l = (*cls)[0];
                         SASSERT(consequent.var() != l.var());
                         process_antecedent(~l, num_marks);
                         i = 2;
                     }
                 }
                 for(; i < num_lits; i++) {
-                    literal l = cls->get_literal(i);
+                    literal l = (*cls)[i];
                     SASSERT(consequent.var() != l.var());
                     process_antecedent(~l, num_marks);
                 }
@@ -671,10 +672,10 @@ namespace smt {
             case b_justification::CLAUSE: {
                 clause * cls      = js.get_clause();
                 unsigned num_lits = cls->get_num_literals();
-                unsigned pos      = cls->get_literal(1).var() == var;
+                unsigned pos      = (*cls)[1].var() == var;
                 for (unsigned i = 0; i < num_lits; i++) {
                     if (pos != i) {
-                        literal l = cls->get_literal(i);
+                        literal l = (*cls)[i];
                         SASSERT(l.var() != var);
                         if (!process_antecedent_for_minimization(~l)) {
                             reset_unmark_and_justifications(old_size, old_js_qhead);

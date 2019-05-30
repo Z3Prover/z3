@@ -55,6 +55,7 @@ namespace smt {
         m_lemma_id(0),
         m_progress_callback(nullptr),
         m_next_progress_sample(0),
+        m_clause_proof(*this),
         m_fingerprints(m, m_region),
         m_b_internalized_stack(m),
         m_e_internalized_stack(m),
@@ -1878,7 +1879,7 @@ namespace smt {
             }
         }
 
-        TRACE("decide", tout << "case split pos: " << is_pos << " p" << var << "\n"
+        TRACE("decide", tout << "case split " << (is_pos?"pos":"neg") << " p" << var << "\n"
               << "activity: " << get_activity(var) << "\n";);
 
         assign(literal(var, !is_pos), b_justification::mk_axiom(), true);
@@ -1987,8 +1988,10 @@ namespace smt {
 
        \pre Clause is not in the reinit stack.
     */
-    void context::del_clause(clause * cls) {
+    void context::del_clause(bool log, clause * cls) {
         SASSERT(m_flushing || !cls->in_reinit_stack());
+        if (log) 
+            m_clause_proof.del(*cls);
         if (!cls->deleted())
             remove_cls_occs(cls);
         cls->deallocate(m_manager);
@@ -2005,18 +2008,11 @@ namespace smt {
         clause_vector::iterator it    = v.end();
         while (it != begin) {
             --it;
-            del_clause(*it);
+            del_clause(false, *it);
         }
         v.shrink(old_size);
     }
 
-#if 0
-    void context::mark_as_deleted(clause * cls) {
-        SASSERT(!cls->deleted());
-        remove_cls_occs(cls);
-        cls->mark_as_deleted(m_manager);
-    }
-#endif
 
     /**
        \brief Undo variable assignments.
@@ -2221,7 +2217,6 @@ namespace smt {
                     cls->m_reinternalize_atoms = false;
                     continue;
                 }
-
                 SASSERT(cls->in_reinit_stack());
                 bool keep = false;
                 if (cls->reinternalize_atoms()) {
@@ -2473,11 +2468,11 @@ namespace smt {
        \remark This method should only be invoked if we are at the
        base level.
     */
-    bool context::simplify_clause(clause * cls) {
+    bool context::simplify_clause(clause& cls) {
         SASSERT(m_scope_lvl == m_base_lvl);
-        unsigned s = cls->get_num_literals();
-        if (get_assignment(cls->get_literal(0)) == l_true ||
-            get_assignment(cls->get_literal(1)) == l_true) {
+        unsigned s = cls.get_num_literals();
+        if (get_assignment(cls[0]) == l_true ||
+            get_assignment(cls[1]) == l_true) {
             // clause is already satisfied.
             return true;
         }
@@ -2487,16 +2482,18 @@ namespace smt {
         unsigned i = 2;
         unsigned j = i;
         for(; i < s; i++) {
-            literal l = cls->get_literal(i);
+            literal l = cls[i];
             switch(get_assignment(l)) {
             case l_false:
                 if (m_manager.proofs_enabled())
                     simp_lits.push_back(~l);
                 if (lit_occs_enabled())
-                    m_lit_occs[l.index()].erase(cls);
+                    m_lit_occs[l.index()].erase(&cls);
                 break;
             case l_undef:
-                cls->set_literal(j, l);
+                if (i != j) {
+                    cls.swap_lits(i, j);
+                }
                 j++;
                 break;
             case l_true:
@@ -2505,13 +2502,14 @@ namespace smt {
         }
 
         if (j < s) {
-            cls->set_num_literals(j);
+            m_clause_proof.shrink(cls, j);
+            cls.set_num_literals(j);
             SASSERT(j >= 2);
         }
 
         if (m_manager.proofs_enabled() && !simp_lits.empty()) {
             SASSERT(m_scope_lvl == m_base_lvl);
-            justification * js = cls->get_justification();
+            justification * js = cls.get_justification();
             justification * new_js = nullptr;
             if (js->in_region())
                 new_js = mk_justification(unit_resolution_justification(m_region,
@@ -2520,7 +2518,7 @@ namespace smt {
                                                                         simp_lits.c_ptr()));
             else
                 new_js = alloc(unit_resolution_justification, js, simp_lits.size(), simp_lits.c_ptr());
-            cls->set_justification(new_js);
+            cls.set_justification(new_js);
         }
         return false;
     }
@@ -2539,13 +2537,14 @@ namespace smt {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
             TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
+            
             if (cls->deleted()) {
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_clauses++;
             }
-            else if (simplify_clause(cls)) {
+            else if (simplify_clause(*cls)) {
                 for (unsigned idx = 0; idx < 2; idx++) {
-                    literal     l0        = cls->get_literal(idx);
+                    literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
                     if (l0_js != null_b_justification &&
                         l0_js.get_kind() == b_justification::CLAUSE &&
@@ -2560,7 +2559,7 @@ namespace smt {
                             unsigned num_lits = cls->get_num_literals();
                             for(unsigned i = 0; i < num_lits; i++) {
                                 if (i != idx) {
-                                    literal l = cls->get_literal(i);
+                                    literal l = (*cls)[i];
                                     SASSERT(l != l0);
                                     simp_lits.push_back(~l);
                                 }
@@ -2587,7 +2586,7 @@ namespace smt {
                             m_bdata[v0].set_axiom();
                     }
                 }
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_clauses++;
             }
             else {
@@ -2707,7 +2706,7 @@ namespace smt {
             if (can_delete(cls)) {
                 TRACE("del_inactive_lemmas", tout << "deleting: "; display_clause(tout, cls); tout << ", activity: " <<
                       cls->get_activity() << "\n";);
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_cls++;
             }
             else {
@@ -2719,12 +2718,11 @@ namespace smt {
         for (; i < sz; i++) {
             clause * cls = m_lemmas[i];
             if (cls->deleted() && can_delete(cls)) {
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_cls++;
             }
             else {
-                m_lemmas[j] = cls;
-                j++;
+                m_lemmas[j++] = cls;
             }
         }
         m_lemmas.shrink(j);
@@ -2762,7 +2760,7 @@ namespace smt {
             if (can_delete(cls)) {
                 if (cls->deleted()) {
                     // clause is already marked for deletion
-                    del_clause(cls);
+                    del_clause(true, cls);
                     num_del_cls++;
                     continue;
                 }
@@ -2773,7 +2771,7 @@ namespace smt {
                 if (cls->get_activity() < act_threshold) {
                     unsigned rel_threshold = (i >= new_first_idx ? m_fparams.m_new_clause_relevancy : m_fparams.m_old_clause_relevancy);
                     if (more_than_k_unassigned_literals(cls, rel_threshold)) {
-                        del_clause(cls);
+                        del_clause(true, cls);
                         num_del_cls++;
                         continue;
                     }
@@ -2793,9 +2791,7 @@ namespace smt {
     */
     bool context::more_than_k_unassigned_literals(clause * cls, unsigned k) {
         SASSERT(k > 0);
-        unsigned num_lits = cls->get_num_literals();
-        for(unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             if (get_assignment(l) == l_undef) {
                 k--;
                 if (k == 0) {
@@ -3150,7 +3146,7 @@ namespace smt {
 
     void context::reset_tmp_clauses() {
         for (auto& p : m_tmp_clauses) {
-            if (p.first) del_clause(p.first);
+            if (p.first) del_clause(false, p.first);
         }
         m_tmp_clauses.reset();
     }
@@ -3342,18 +3338,18 @@ namespace smt {
         SASSERT(!m_setup.already_configured());
         setup_context(m_fparams.m_auto_config);
 
+
+        internalize_assertions();
         expr_ref_vector theory_assumptions(m_manager);
         add_theory_assumptions(theory_assumptions);
         if (!theory_assumptions.empty()) {
             TRACE("search", tout << "Adding theory assumptions to context" << std::endl;);
             return check(0, nullptr, reset_cancel);
         }
-
-        internalize_assertions();
-        TRACE("before_search", display(tout););
-        lbool r = search();
-        r = check_finalize(r);
-        return r;
+        else {
+            TRACE("before_search", display(tout););
+            return check_finalize(search());
+        }
     }
 
     config_mode context::get_config_mode(bool use_static_features) const {
@@ -3408,10 +3404,9 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(m_manager, num_assumptions, assumptions);
-            add_theory_assumptions(asms);                
-            // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
-            TRACE("unsat_core_bug", tout << asms << "\n";);        
             internalize_assertions();
+            add_theory_assumptions(asms);                
+            TRACE("unsat_core_bug", tout << asms << "\n";);        
             init_assumptions(asms);
             TRACE("before_search", display(tout););
             r = search();
@@ -3430,10 +3425,10 @@ namespace smt {
         do {
             pop_to_base_lvl();
             expr_ref_vector asms(cube);
+            internalize_assertions();
             add_theory_assumptions(asms);
             // introducing proxies: if (!validate_assumptions(asms)) return l_undef;
             for (auto const& clause : clauses) if (!validate_assumptions(clause)) return l_undef;
-            internalize_assertions();
             init_assumptions(asms);
             for (auto const& clause : clauses) init_clause(clause);
             r = search();   
@@ -3731,8 +3726,8 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
 
-            if (m_timer.ms_timeout(m_fparams.m_timeout)) {
-                m_last_search_failure = TIMEOUT;
+            if (get_cancel_flag()) {
+                m_last_search_failure = CANCELED;
                 return true;
             }
 
@@ -4057,6 +4052,9 @@ namespace smt {
             update_phase_cache_counter();
             return true;
         }
+        else if (m_fparams.m_clause_proof) {
+            m_unsat_proof = m_clause_proof.get_proof();
+        }
         else if (m_manager.proofs_enabled()) {
             m_unsat_proof = m_conflict_resolution->get_lemma_proof();
             check_proof(m_unsat_proof);
@@ -4362,7 +4360,7 @@ namespace smt {
               m_fingerprints.display(tout);
               );
         failure fl = get_last_search_failure();
-        if (fl == MEMOUT || fl == CANCELED || fl == TIMEOUT || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
+        if (fl == MEMOUT || fl == CANCELED || fl == NUM_CONFLICTS || fl == RESOURCE_LIMIT) {
             TRACE("get_model", tout << "last search failure: " << fl << "\n";);
         }
         else if (m_fparams.m_model || m_fparams.m_model_on_final_check || m_qmanager->model_based()) {
@@ -4381,8 +4379,11 @@ namespace smt {
     }
 
     proof * context::get_proof() {
-        if (!m_manager.proofs_enabled())
-            return nullptr;
+        
+        if (!m_unsat_proof) {
+            m_unsat_proof = m_clause_proof.get_proof();
+        }
+        TRACE("context", tout << m_unsat_proof << "\n";);
         return m_unsat_proof;
     }
 

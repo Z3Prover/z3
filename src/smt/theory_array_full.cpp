@@ -427,6 +427,13 @@ namespace smt {
         }
     }
 
+    bool theory_array_full::should_research(expr_ref_vector & unsat_core) {
+        return m_bapa && m_bapa->should_research(unsat_core);
+    }
+
+    void theory_array_full::add_theory_assumptions(expr_ref_vector & assumptions) {
+        if (m_bapa) m_bapa->add_theory_assumptions(assumptions);
+    }
        
     //
     // Assert axiom: 

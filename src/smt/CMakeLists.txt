@@ -18,6 +18,7 @@ z3_add_component(smt
     smt_cg_table.cpp
     smt_checker.cpp
     smt_clause.cpp
+    smt_clause_proof.cpp
     smt_conflict_resolution.cpp
     smt_consequences.cpp
     smt_context.cpp

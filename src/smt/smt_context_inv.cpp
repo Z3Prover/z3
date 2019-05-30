@@ -33,9 +33,7 @@ namespace smt {
         SASSERT(is_watching_clause(~cls->get_literal(0), cls));        
         SASSERT(is_watching_clause(~cls->get_literal(1), cls));        
         if (lit_occs_enabled()) {
-            unsigned num_lits = cls->get_num_literals();
-            for (unsigned i = 0; i < num_lits; i++) {
-                literal l = cls->get_literal(i);
+            for (literal l : *cls) {
                 SASSERT(m_lit_occs[l.index()].contains(const_cast<clause*>(cls)));
             }
         }

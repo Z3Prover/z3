@@ -164,8 +164,8 @@ extern "C" {
             return "";
         }
         std::string s = str.as_string();        
-        *length = static_cast<unsigned>(s.size());
-        return mk_c(c)->mk_external_string(s.c_str(), s.size());
+        *length = (unsigned)(s.size());
+        return mk_c(c)->mk_external_string(s.c_str(), *length);
         Z3_CATCH_RETURN("");
     }
 

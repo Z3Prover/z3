@@ -42,7 +42,7 @@ namespace smt {
     class qi_queue {
         quantifier_manager &          m_qm;
         context &                     m_context;
-        ast_manager &                 m_manager;
+        ast_manager &                 m;
         qi_params &                   m_params;
         qi_queue_stats                m_stats;
         checker                       m_checker;
