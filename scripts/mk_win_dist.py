@@ -63,7 +63,6 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
-    print("  --dotnetcore                  build for dotnet core.")
     print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
     print("  --esrp                        sign with esrp.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
@@ -82,7 +81,7 @@ def parse_options():
                                                                    'silent',
                                                                    'force',
                                                                    'nojava',
-                                                                   'nodotnetcore',
+                                                                   'nodotnet',
                                                                    'dotnet-key=',
                                                                    'esrp',
                                                                    'githash',
@@ -101,7 +100,7 @@ def parse_options():
             display_help()
         elif opt in ('-f', '--force'):
             FORCE_MK = True
-        elif opt == '--nodotnetcore':
+        elif opt == '--nodotnet':
             DOTNET_CORE_ENABLED = False
         elif opt == '--nopython':
             PYTHON_ENABLED = False
@@ -131,7 +130,7 @@ def mk_build_dir(path, x64):
         parallel = '--parallel=' + MAKEJOBS
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_CORE_ENABLED:
-            opts.append('--dotnetcore')
+            opts.append('--dotnet')
             if not DOTNET_KEY_FILE is None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
         if JAVA_ENABLED:

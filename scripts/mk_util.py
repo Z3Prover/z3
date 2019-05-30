@@ -62,7 +62,7 @@ PATTERN_COMPONENT='pattern'
 UTIL_COMPONENT='util'
 API_COMPONENT='api'
 DOTNET_COMPONENT='dotnet'
-DOTNET_CORE_COMPONENT='dotnetcore'
+DOTNET_CORE_COMPONENT='dotnet'
 JAVA_COMPONENT='java'
 ML_COMPONENT='ml'
 CPP_COMPONENT='cpp'
@@ -651,8 +651,7 @@ def display_help(exit_code):
     if IS_WINDOWS:
         print("  -v, --vsproj                  generate Visual Studio Project Files.")
         print("  --optimize                    generate optimized code during linking.")
-    print("  --dotnetcore                  generate .NET platform bindings.")
-    print("  --dotnet                      generate .NET bindings.")
+    print("  --dotnet                      generate .NET platform bindings.")
     print("  --dotnet-key=<file>           sign the .NET assembly using the private key in <file>.")
     print("  --java                        generate Java bindings.")
     print("  --ml                          generate OCaml bindings.")
@@ -697,7 +696,7 @@ def parse_options():
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
-                                                'trace', 'dotnet', 'dotnetcore', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
+                                                'trace', 'dotnet', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
                                                 'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
     except:
         print("ERROR: Invalid command line option")
@@ -729,7 +728,7 @@ def parse_options():
             VS_PROJ = True
         elif opt in ('-t', '--trace'):
             TRACE = True
-        elif opt in ('--dotnetcore',):
+        elif opt in ('--dotnet',):
             DOTNET_CORE_ENABLED = True
         elif opt in ('--dotnet-key'):
             DOTNET_KEY_FILE = arg
@@ -1626,7 +1625,7 @@ def set_key_file(self):
     
 
 # build for dotnet core
-class DotNetCoreDLLComponent(Component):
+class DotNetDLLComponent(Component):
     def __init__(self, name, dll_name, path, deps, assembly_info_dir, default_key_file):
         Component.__init__(self, name, path, deps)
         if dll_name is None:
@@ -2374,9 +2373,8 @@ def add_dll(name, deps=[], path=None, dll_name=None, export_files=[], reexports=
     reg_component(name, c)
     return c
 
-
 def add_dot_net_core_dll(name, deps=[], path=None, dll_name=None, assembly_info_dir=None, default_key_file=None):
-    c = DotNetCoreDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
+    c = DotNetDLLComponent(name, dll_name, path, deps, assembly_info_dir, default_key_file)
     reg_component(name, c)
 
 def add_java_dll(name, deps=[], path=None, dll_name=None, package_name=None, manifest_file=None):
