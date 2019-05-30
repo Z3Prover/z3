@@ -24,8 +24,7 @@ BUILD_X86_DIR=os.path.join('build-dist', 'x86')
 VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
-DOTNET_ENABLED=True
-DOTNET_CORE_ENABLED=False
+DOTNET_CORE_ENABLED=True
 ESRP_SIGN=False
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
@@ -76,15 +75,14 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_ENABLED, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY, ESRP_SIGN
+    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY, ESRP_SIGN
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
                                                                    'silent',
                                                                    'force',
                                                                    'nojava',
-                                                                   'nodotnet',
-                                                                   'dotnetcore',
+                                                                   'nodotnetcore',
                                                                    'dotnet-key=',
                                                                    'esrp',
                                                                    'githash',
@@ -103,11 +101,8 @@ def parse_options():
             display_help()
         elif opt in ('-f', '--force'):
             FORCE_MK = True
-        elif opt == '--nodotnet':
-            DOTNET_ENABLED = False
-        elif opt == '--dotnetcore':
-            DOTNET_CORE_ENABLED = True
-            DOTNET_ENABLED = False
+        elif opt == '--nodotnetcore':
+            DOTNET_CORE_ENABLED = False
         elif opt == '--nopython':
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
@@ -137,10 +132,6 @@ def mk_build_dir(path, x64):
         opts = ["python", os.path.join('scripts', 'mk_make.py'), parallel, "-b", path]
         if DOTNET_CORE_ENABLED:
             opts.append('--dotnetcore')
-            if not DOTNET_KEY_FILE is None:
-                opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
-        elif DOTNET_ENABLED:
-            opts.append('--dotnet')
             if not DOTNET_KEY_FILE is None:
                 opts.append('--dotnet-key=' + DOTNET_KEY_FILE)
         if JAVA_ENABLED:
@@ -227,10 +218,7 @@ def mk_dist_dir(x64):
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
     mk_util.ESRP_SIGN = ESRP_SIGN
-    if DOTNET_CORE_ENABLED:
-       mk_util.DOTNET_CORE_ENABLED = True
-    else:
-       mk_util.DOTNET_ENABLED = DOTNET_ENABLED
+    mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
     mk_util.PYTHON_ENABLED = PYTHON_ENABLED
