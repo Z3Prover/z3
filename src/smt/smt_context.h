@@ -660,7 +660,7 @@ namespace smt {
 
         void remove_cls_occs(clause * cls);
 
-        void del_clause(clause * cls);
+        void del_clause(bool log, clause * cls);
 
         void del_clauses(clause_vector & v, unsigned old_size);
 

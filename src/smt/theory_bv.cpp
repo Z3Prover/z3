@@ -766,7 +766,7 @@ namespace smt {
             bits.swap(new_bits);                                                                \
         }                                                                                       \
         init_bits(e, bits);                                                                     \
-        TRACE("bv", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
+        TRACE("bv_verbose", tout << arg_bits << " " << bits << " " << new_bits << "\n";); \
     }
 
 

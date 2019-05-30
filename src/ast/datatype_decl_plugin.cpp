@@ -446,6 +446,9 @@ namespace datatype {
             if (!u().is_well_founded(sorts.size(), sorts.c_ptr())) {
                 m_manager->raise_exception("datatype is not well-founded");
             }
+            if (!u().is_covariant(sorts.size(), sorts.c_ptr())) {
+                m_manager->raise_exception("datatype is not co-variant");
+            }
 
             u().compute_datatype_size_functions(m_def_block);
             for (symbol const& s : m_def_block) {
@@ -706,20 +709,22 @@ namespace datatype {
         if (is_datatype(s)) {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
+            sref_vector<param_size::size> refs;
             unsigned n = get_datatype_num_parameter_sorts(s);
             def & d = get_def(s->get_name());
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                sz->inc_ref();                
+                refs.push_back(sz);
                 S.insert(d.params().get(i), sz); 
             }            
-            sz = d.sort_size()->subst(S);
-            for (auto & kv : S) {
-                kv.m_value->dec_ref();
+            auto ss = d.sort_size();
+            if (!ss) {
+                d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
+                ss = d.sort_size();
             }
-            return sz;
+            return  ss->subst(S);
         }
         array_util autil(m);
         if (autil.is_array(s)) {
@@ -849,6 +854,48 @@ namespace datatype {
         } 
         while (changed && num_well_founded < num_types);
         return num_well_founded == num_types;
+    }
+
+    /**
+       \brief Return true if the inductive datatype is co-variant.
+       Pre-condition: The given argument constrains the parameters of an inductive datatype.
+    */
+    bool util::is_covariant(unsigned num_types, sort* const* sorts) const {
+        ast_mark mark;
+        ptr_vector<sort> subsorts;
+
+        for (unsigned tid = 0; tid < num_types; tid++) {
+            mark.mark(sorts[tid], true);
+        }
+        
+        for (unsigned tid = 0; tid < num_types; tid++) {
+            sort* s = sorts[tid];
+            def const& d = get_def(s);
+            for (constructor const* c : d) {
+                for (accessor const* a : *c) {
+                    if (!is_covariant(mark, subsorts, a->range())) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    bool util::is_covariant(ast_mark& mark, ptr_vector<sort>& subsorts, sort* s) const {
+        array_util autil(m);
+        if (!autil.is_array(s)) {
+            return true;
+        }
+        unsigned n = get_array_arity(s);
+        subsorts.reset();
+        for (unsigned i = 0; i < n; ++i) {
+            get_subsorts(get_array_domain(s, i), subsorts);
+        }
+        for (sort* r : subsorts) {
+            if (mark.is_marked(r)) return false;
+        }
+        return is_covariant(mark, subsorts, get_array_range(s));
     }
 
     def const& util::get_def(sort* s) const {

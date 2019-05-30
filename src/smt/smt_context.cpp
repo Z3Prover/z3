@@ -1988,9 +1988,12 @@ namespace smt {
 
        \pre Clause is not in the reinit stack.
     */
-    void context::del_clause(clause * cls) {
+    void context::del_clause(bool log, clause * cls) {
         SASSERT(m_flushing || !cls->in_reinit_stack());
-        remove_cls_occs(cls);
+        if (log) 
+            m_clause_proof.del(*cls);
+        if (!cls->deleted())
+            remove_cls_occs(cls);
         cls->deallocate(m_manager);
         m_stats.m_num_del_clause++;
     }
@@ -2005,7 +2008,7 @@ namespace smt {
         clause_vector::iterator it    = v.end();
         while (it != begin) {
             --it;
-            del_clause(*it);
+            del_clause(false, *it);
         }
         v.shrink(old_size);
     }
@@ -2208,6 +2211,12 @@ namespace smt {
         for (unsigned i = m_scope_lvl+1; i <= lim; i++) {
             clause_vector & v = m_clauses_to_reinit[i];
             for (clause* cls : v) {
+                if (cls->deleted()) {
+                    cls->release_atoms(m_manager);
+                    cls->m_reinit              = false;
+                    cls->m_reinternalize_atoms = false;
+                    continue;
+                }
                 SASSERT(cls->in_reinit_stack());
                 bool keep = false;
                 if (cls->reinternalize_atoms()) {
@@ -2528,7 +2537,12 @@ namespace smt {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
             TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
-            if (simplify_clause(*cls)) {
+            
+            if (cls->deleted()) {
+                del_clause(true, cls);
+                num_del_clauses++;
+            }
+            else if (simplify_clause(*cls)) {
                 for (unsigned idx = 0; idx < 2; idx++) {
                     literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
@@ -2572,8 +2586,7 @@ namespace smt {
                             m_bdata[v0].set_axiom();
                     }
                 }
-                m_clause_proof.del(*cls);
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_clauses++;
             }
             else {
@@ -2693,8 +2706,7 @@ namespace smt {
             if (can_delete(cls)) {
                 TRACE("del_inactive_lemmas", tout << "deleting: "; display_clause(tout, cls); tout << ", activity: " <<
                       cls->get_activity() << "\n";);
-                m_clause_proof.del(*cls);
-                del_clause(cls);
+                del_clause(true, cls);
                 num_del_cls++;
             }
             else {
@@ -2704,7 +2716,14 @@ namespace smt {
         }
         // keep recent clauses
         for (; i < sz; i++) {
-            m_lemmas[j++] = m_lemmas[i];
+            clause * cls = m_lemmas[i];
+            if (cls->deleted() && can_delete(cls)) {
+                del_clause(true, cls);
+                num_del_cls++;
+            }
+            else {
+                m_lemmas[j++] = cls;
+            }
         }
         m_lemmas.shrink(j);
         if (m_fparams.m_clause_decay > 1) {
@@ -2739,6 +2758,12 @@ namespace smt {
         for (; i < sz; i++) {
             clause * cls = m_lemmas[i];
             if (can_delete(cls)) {
+                if (cls->deleted()) {
+                    // clause is already marked for deletion
+                    del_clause(true, cls);
+                    num_del_cls++;
+                    continue;
+                }
                 // A clause is deleted if it has low activity and the number of unknowns is greater than a threshold.
                 // The activity threshold depends on how old the clause is.
                 unsigned act_threshold = m_fparams.m_old_clause_activity -
@@ -2746,8 +2771,7 @@ namespace smt {
                 if (cls->get_activity() < act_threshold) {
                     unsigned rel_threshold = (i >= new_first_idx ? m_fparams.m_new_clause_relevancy : m_fparams.m_old_clause_relevancy);
                     if (more_than_k_unassigned_literals(cls, rel_threshold)) {
-                        m_clause_proof.del(*cls);
-                        del_clause(cls);
+                        del_clause(true, cls);
                         num_del_cls++;
                         continue;
                     }
@@ -3122,7 +3146,7 @@ namespace smt {
 
     void context::reset_tmp_clauses() {
         for (auto& p : m_tmp_clauses) {
-            if (p.first) del_clause(p.first);
+            if (p.first) del_clause(false, p.first);
         }
         m_tmp_clauses.reset();
     }
@@ -3324,8 +3348,7 @@ namespace smt {
         }
         else {
             TRACE("before_search", display(tout););
-            lbool r = search();
-            return check_finalize(r);
+            return check_finalize(search());
         }
     }
 

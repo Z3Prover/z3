@@ -107,6 +107,7 @@ public:
     unsigned num_bits() const { return (m_encoding==ascii)?8:16; }
     encoding get_encoding() const { return m_encoding; }
     std::string encode() const;
+    std::string as_string() const;
     unsigned length() const { return m_buffer.size(); }
     unsigned operator[](unsigned i) const { return m_buffer[i]; }
     bool empty() const { return m_buffer.empty(); }

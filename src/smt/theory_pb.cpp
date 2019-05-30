@@ -1372,11 +1372,11 @@ namespace smt {
         clause_vector const& lemmas = ctx.get_lemmas();
         for (unsigned i = 0; i < lemmas.size(); ++i) {
             clause* cl = lemmas[i];
-            unsigned sz = cl->get_num_literals();
-            for (unsigned j = 0; j < sz; ++j) {
-                literal lit = cl->get_literal(j);
-                if (m_occs.contains(lit.var())) {
-                    break;
+            if (!cl->deleted()) {
+                for (literal lit : *cl) {
+                    if (m_occs.contains(lit.var())) {
+                        break;
+                    }
                 }
             }
         }

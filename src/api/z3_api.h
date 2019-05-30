@@ -3391,7 +3391,7 @@ extern "C" {
     /**
        \brief Create a string constant out of the string that is passed in
        It takes the length of the string as well to take into account
-       0 characters.
+       0 characters. The string is unescaped.
 
        def_API('Z3_mk_lstring' ,AST ,(_in(CONTEXT), _in(UINT), _in(STRING)))
      */
@@ -3412,6 +3412,15 @@ extern "C" {
        def_API('Z3_get_string' ,STRING ,(_in(CONTEXT), _in(AST)))
      */
     Z3_string Z3_API Z3_get_string(Z3_context c, Z3_ast s);
+
+    /**
+       \brief Retrieve the unescaped string constant stored in \c s.
+
+       \pre  Z3_is_string(c, s)
+
+       def_API('Z3_get_lstring' ,STRING ,(_in(CONTEXT), _in(AST), _out(UINT)))
+     */
+    Z3_string Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
 
     /**
        \brief Create an empty sequence of the sequence sort \c seq.

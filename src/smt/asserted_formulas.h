@@ -213,7 +213,7 @@ class asserted_formulas {
     void set_eliminate_and(bool flag);
     void propagate_values();
     unsigned propagate_values(unsigned i);
-    void update_substitution(expr* n, proof* p);
+    bool update_substitution(expr* n, proof* p);
     bool is_gt(expr* lhs, expr* rhs);
     void compute_depth(expr* e);
     unsigned depth(expr* e) { return m_expr2depth[e]; }

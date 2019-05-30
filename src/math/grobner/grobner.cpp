@@ -18,6 +18,7 @@ Revision History:
 --*/
 #include "math/grobner/grobner.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "util/ref_util.h"
 
 // #define PROFILE_GB
@@ -121,7 +122,7 @@ void grobner::reset() {
 
 void grobner::display_var(std::ostream & out, expr * var) const {
     if (is_app(var) && to_app(var)->get_num_args() > 0)
-        out << "#" << var->get_id();
+        out << mk_bounded_pp(var, m_manager);
     else
         out << mk_pp(var, m_manager);
 }

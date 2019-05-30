@@ -358,6 +358,7 @@ namespace z3 {
         expr fpa_val(float n);
 
         expr string_val(char const* s);
+        expr string_val(char const* s, unsigned n);
         expr string_val(std::string const& s);
 
         expr num_val(int n, sort const & s);
@@ -793,6 +794,7 @@ namespace z3 {
             assert(is_numeral() || is_algebraic());
             return std::string(Z3_get_numeral_decimal_string(ctx(), m_ast, precision));
         }
+        
 
         /**
            \brief retrieve unique identifier for expression.
@@ -890,6 +892,24 @@ namespace z3 {
             Z3_ast r = Z3_get_denominator(ctx(), m_ast);
             check_error();
             return expr(ctx(),r);
+        }
+
+        /**
+           \brief for a string value expression return an escaped or unescaped string value.
+           \pre expression is for a string value.
+         */
+
+        std::string get_escaped_string() const {
+            char const* s = Z3_get_string(ctx(), m_ast);
+            check_error();
+            return std::string(s);
+        }
+
+        std::string get_string() const {
+            unsigned n;
+            char const* s = Z3_get_lstring(ctx(), m_ast, &n);
+            check_error();
+            return std::string(s, n);
         }
 
         operator Z3_app() const { assert(is_app()); return reinterpret_cast<Z3_app>(m_ast); }
@@ -3043,6 +3063,7 @@ namespace z3 {
     inline expr context::fpa_val(double n) { sort s = fpa_sort<64>(); Z3_ast r = Z3_mk_fpa_numeral_double(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::fpa_val(float n) { sort s = fpa_sort<32>(); Z3_ast r = Z3_mk_fpa_numeral_float(m_ctx, n, s); check_error(); return expr(*this, r); }
 
+    inline expr context::string_val(char const* s, unsigned n) { Z3_ast r = Z3_mk_lstring(m_ctx, n, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(char const* s) { Z3_ast r = Z3_mk_string(m_ctx, s); check_error(); return expr(*this, r); }
     inline expr context::string_val(std::string const& s) { Z3_ast r = Z3_mk_string(m_ctx, s.c_str()); check_error(); return expr(*this, r); }
 

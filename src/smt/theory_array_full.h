@@ -64,7 +64,6 @@ namespace smt {
         bool should_research(expr_ref_vector & unsat_core) override;
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
 
-
         void add_const(theory_var v, enode* c);
         void add_map(theory_var v, enode* s);
         void add_parent_map(theory_var v, enode* s);

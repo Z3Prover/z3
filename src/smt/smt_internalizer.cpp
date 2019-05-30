@@ -1436,9 +1436,7 @@ namespace smt {
     }
 
     void context::add_lit_occs(clause * cls) {
-        unsigned num_lits = cls->get_num_literals();
-        for (unsigned i = 0; i < num_lits; i++) {
-            literal l = cls->get_literal(i);
+        for (literal l : *cls) {
             m_lit_occs[l.index()].insert(cls);
         }
     }

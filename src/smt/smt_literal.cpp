@@ -30,9 +30,9 @@ namespace smt {
         else if (*this == null_literal)
             out << "null";
         else if (sign())
-            out << "(not " << mk_pp(bool_var2expr_map[var()], m) << ")";
+            out << "(not " << mk_bounded_pp(bool_var2expr_map[var()], m) << ")";
         else
-            out << mk_pp(bool_var2expr_map[var()], m);
+            out << mk_bounded_pp(bool_var2expr_map[var()], m);
     }
 
     void literal::display_compact(std::ostream & out, expr * const * bool_var2expr_map) const {

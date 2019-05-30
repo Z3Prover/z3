@@ -193,6 +193,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     else if (is_decided_unsat(r)) {
         goal * final = r[0];
         SASSERT(m.is_false(final->form(0)));
+        pr = final->pr(0);
         if (cores_enabled)  core = final->dep(0);
         return l_false;
     }
