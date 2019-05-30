@@ -336,16 +336,6 @@ public:
         return result;
     }
 
-    void set_activity(expr* var, double activity) override {
-        m.is_not(var, var);
-        sat::bool_var v = m_map.to_bool_var(var);
-        if (v == sat::null_bool_var) {
-            v = m_solver.add_var(true);
-            m_map.insert(var, v);
-        }
-        m_solver.set_activity(v, static_cast<unsigned>(activity));
-    }
-
     void set_predictor(void* state, neuro_predictor p) override {
         m_solver.set_predictor(state, p);
     }

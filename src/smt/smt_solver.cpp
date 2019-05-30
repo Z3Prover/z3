@@ -203,10 +203,6 @@ namespace smt {
             return m_context.get_trail();
         }
 
-        void set_activity(expr* lit, double activity) override {
-            m_context.set_activity(lit, activity);
-        }
-
         void set_predictor(void* state, neuro_predictor* p) override {
             throw default_exception("cannot set predictors for smt solver");
         }

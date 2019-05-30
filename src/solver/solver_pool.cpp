@@ -127,9 +127,6 @@ public:
         return m_base->get_trail();
     }
 
-    void set_activity(expr* var, double activity) override {
-        m_base->set_activity(var, activity);
-    }
     void set_predictor(void* state, neuro_predictor p) override {
         m_base->set_predictor(state, p);
     }
