@@ -434,7 +434,6 @@ namespace smt {
     void theory_array_full::add_theory_assumptions(expr_ref_vector & assumptions) {
         if (m_bapa) m_bapa->add_theory_assumptions(assumptions);
     }
-
     //
     // Assert axiom: 
     // select(map[f](a, ... d), i) = f(select(a,i),...,select(d,i))
