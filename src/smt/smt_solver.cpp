@@ -207,7 +207,6 @@ namespace smt {
             throw default_exception("cannot set predictors for smt solver");
         }
 
-
         struct scoped_minimize_core {
             smt_solver& s;
             expr_ref_vector m_assumptions;
