@@ -337,7 +337,6 @@ public:
     }
 
     proof * get_proof() override {
-        UNREACHABLE();
         return nullptr;
     }
 
