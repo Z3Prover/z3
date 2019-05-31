@@ -46,7 +46,7 @@ symbol smt_renaming::fix_symbol(symbol s, int k) {
     std::ostringstream buffer;
     char const * data = s.is_numerical() ? "" : s.bare_str();
 
-    if (k == 0 && *data) {
+    if (k == 0 && data && *data) {
         if (s.is_numerical()) {
             return s;
         }
@@ -664,7 +664,7 @@ class smt_printer {
             if (s.is_numerical()) {
                 sz += 7;
             }
-            else {
+            else if (s.bare_str()) {
                 sz += 3 + static_cast<unsigned>(strlen(s.bare_str()));
             }
             for (unsigned i = 0; i < a->get_num_args() && sz <= m_line_length; ++i) {
