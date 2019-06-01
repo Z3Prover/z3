@@ -6,7 +6,7 @@ Copyright (c) 2012 Microsoft Corporation
       - Smart pointers for all Z3 objects.
       - Object-Oriented interface.
       - Operator overloading.
-      - Exceptions for signining Z3 errors
+      - Exceptions for signaling Z3 errors
 
     The C API can be used simultaneously with the C++ layer.
     However, if you use the C API directly, you will have to check the error conditions manually.
