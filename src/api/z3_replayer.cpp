@@ -36,7 +36,7 @@ void throw_invalid_reference() {
 struct z3_replayer::imp {
     z3_replayer &            m_owner;
     std::istream &           m_stream;
-    char                     m_curr;  // current char;
+    signed char              m_curr;  // current char;
     int                      m_line;  // line
     svector<char>            m_string;
     symbol                   m_id;
@@ -158,7 +158,7 @@ struct z3_replayer::imp {
         }
     }
 
-    char curr() const { return m_curr; }
+    signed char curr() const { return m_curr; }
     void new_line() { m_line++; }
     void next() { m_curr = m_stream.get(); }
 
@@ -168,7 +168,7 @@ struct z3_replayer::imp {
         m_string.reset();
         next();
         while (true) {
-            char c = curr();
+            signed char c = curr();
             if (c == EOF) {
                 throw z3_replayer_exception("unexpected end of file");
             }

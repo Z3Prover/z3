@@ -3972,7 +3972,7 @@ public:
         else {
             for (source_t src : m_source) {
                 switch (src) {
-                case unit_source:
+                case unit_source:                    
                     args.push_back(th.m_util.str.mk_unit(values[j++]));
                     break;
                 case string_source:
@@ -5130,8 +5130,10 @@ void theory_seq::add_nth_axiom(expr* e) {
         add_axiom(mk_eq(ch, e, false));
     }
     else if (!m_internal_nth_table.contains(e)) {
-        expr_ref emp(m_util.str.mk_empty(m.get_sort(s)), m);
-        add_axiom(mk_eq(s, emp, false), mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));
+        expr_ref zero(m_autil.mk_int(0), m);
+        literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
+        literal i_ge_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(i, mk_len(s)), zero));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));
     }
 }
 
