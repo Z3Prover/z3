@@ -370,7 +370,7 @@ struct pb2bv_rewriter::imp {
         rational         m_min_cost;
         vector<rational> m_base;
 
-        void create_basis(vector<rational> const& seq, rational carry_in, rational cost) {
+        void create_basis(vector<rational> const& seq, rational const& carry_in, rational const& cost) {
             if (cost >= m_min_cost) {
                 return;
             }

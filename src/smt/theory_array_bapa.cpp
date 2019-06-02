@@ -348,7 +348,6 @@ namespace smt {
                     expr_ref le(m_arith.mk_le(set_sz->get_arg(1), m_arith.mk_int(0)), m);
                     literal le_lit = mk_literal(le);
                     literal sz_lit = mk_literal(set_sz);
-                    unsigned k = i.m_selects.size();
                     for (unsigned k = i.m_selects.size(); rational(k) < i.m_size; ++k) {
                         expr_ref idx = mk_index_skolem(set_sz, set, k);
                         app_ref sel(mk_select(set, idx), m);
