@@ -590,7 +590,7 @@ bool bv_bounds::is_sat() {
 }
 
 struct interval_comp_t {
-    bool operator() (bv_bounds::interval i, bv_bounds::interval j) {
+    bool operator() (bv_bounds::interval const& i, bv_bounds::interval const& j) {
         return (i.first < j.first);
     }
 } interval_comp;

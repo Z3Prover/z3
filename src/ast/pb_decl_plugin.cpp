@@ -70,7 +70,7 @@ func_decl * pb_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
             }
             else if (p.is_rational()) {
                 // HACK: ast pretty printer does not work with rationals.
-                rational r = p.get_rational();
+                rational const& r = p.get_rational();
                 if (r.is_int32()) {
                     params.push_back(parameter(r.get_int32()));
                 }

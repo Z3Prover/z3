@@ -495,7 +495,7 @@ public:
     moves const& get_moves_to(unsigned state) const { return m_delta_inv[state]; }
     bool initial_state_is_source() const { return m_delta_inv[m_init].empty(); }
     bool is_final_state(unsigned s) const { return m_final_set.contains(s); }
-    bool is_final_configuration(uint_set s) const {
+    bool is_final_configuration(uint_set const& s) const {
         for (unsigned i : s) {
             if (is_final_state(i))
                 return true;
@@ -547,7 +547,7 @@ public:
     void get_moves_from(unsigned state, moves& mvs, bool epsilon_closure = true) const {
         get_moves(state, m_delta, mvs, epsilon_closure);
     }
-    void get_moves_from_states(uint_set states, moves& mvs, bool epsilon_closure = true) const {
+    void get_moves_from_states(uint_set const& states, moves& mvs, bool epsilon_closure = true) const {
         for (unsigned i : states) {
             moves curr;
             get_moves(i, m_delta, curr, epsilon_closure);

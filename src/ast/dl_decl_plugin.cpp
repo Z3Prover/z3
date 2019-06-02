@@ -75,7 +75,7 @@ namespace datalog {
                 return nullptr;
             }
             sort* s = to_sort(parameters[i].get_ast());
-            sort_size sz1 = s->get_num_elements();
+            sort_size const& sz1 = s->get_num_elements();
             if (sz1.is_finite()) {
                 r *= rational(sz1.size(),rational::ui64());
             }
