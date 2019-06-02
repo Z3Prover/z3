@@ -271,14 +271,14 @@ public:
         app* mk_stoi(expr* s) const { return m.mk_app(m_fid, OP_STRING_STOI, 1, &s); }
         app* mk_is_empty(expr* s) const;
 
-        bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
 
+        bool is_nth(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH); }
+
+        bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, symbol& s) const {
             return is_string(n) && (s = to_app(n)->get_decl()->get_parameter(0).get_symbol(), true);
         }
-
         bool is_string(expr const* n, zstring& s) const;
-
         bool is_empty(expr const* n) const { symbol s;
             return is_app_of(n, m_fid, OP_SEQ_EMPTY) || (is_string(n, s) && !s.is_numerical() && *s.bare_str() == 0);
         }
