@@ -336,13 +336,16 @@ namespace smt {
         obj_map<enode, obj_map<enode, int>>   m_len_offset;
         int                                   m_len_prop_lvl;
 
+        obj_hashtable<expr>        m_internal_nth_table;
+        expr_ref_vector            m_internal_nth_es;
+        unsigned_vector            m_internal_nth_lim;
 
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
         expr_ref_vector            m_axioms;     // list of axioms to add.
         obj_hashtable<expr>        m_axiom_set;
         unsigned                   m_axioms_head; // index of first axiom to add.
-        bool            m_incomplete;             // is the solver (clearly) incomplete for the fragment.
+        bool                       m_incomplete;             // is the solver (clearly) incomplete for the fragment.
         expr_ref_vector     m_int_string;
         obj_map<expr, rational> m_si_axioms;
         obj_hashtable<expr> m_has_length;          // is length applied
@@ -357,7 +360,7 @@ namespace smt {
         th_trail_stack   m_trail_stack;
         stats            m_stats;
         symbol           m_prefix, m_suffix, m_accept, m_reject;
-        symbol           m_tail, m_nth, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
+        symbol           m_tail, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq, m_seq_align;
         ptr_vector<expr> m_todo;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
