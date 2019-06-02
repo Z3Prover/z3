@@ -154,7 +154,6 @@ void exec(tactic & t, goal_ref const & in, goal_ref_buffer & result) {
 
 lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, proof_ref & pr, expr_dependency_ref & core, std::string & reason_unknown) {
     bool models_enabled = g->models_enabled();
-    bool proofs_enabled = g->proofs_enabled();
     bool cores_enabled  = g->unsat_core_enabled();
     md   = nullptr;
     pr   = nullptr;
