@@ -51,7 +51,7 @@ C_COMPILERS=['gcc', 'clang']
 CSC_COMPILERS=['csc', 'mcs']
 JAVAC=None
 JAR=None
-PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
+PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib(prefix=getenv("PREFIX", None))
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
