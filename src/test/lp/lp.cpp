@@ -32,29 +32,29 @@
 #include <ctime>
 #include <stdlib.h>
 #include <utility>
-#include "util/lp/lp_utils.h"
-#include "util/lp/lp_primal_simplex.h"
-#include "util/lp/mps_reader.h"
+#include "math/lp/lp_utils.h"
+#include "math/lp/lp_primal_simplex.h"
+#include "math/lp/mps_reader.h"
 #include "test/lp/smt_reader.h"
-#include "util/lp/binary_heap_priority_queue.h"
+#include "math/lp/binary_heap_priority_queue.h"
 #include "test/lp/argument_parser.h"
 #include "test/lp/test_file_reader.h"
-#include "util/lp/indexed_value.h"
-#include "util/lp/lar_solver.h"
-#include "util/lp/numeric_pair.h"
-#include "util/lp/binary_heap_upair_queue.h"
-#include "util/lp/stacked_value.h"
-#include "util/lp/int_set.h"
+#include "math/lp/indexed_value.h"
+#include "math/lp/lar_solver.h"
+#include "math/lp/numeric_pair.h"
+#include "math/lp/binary_heap_upair_queue.h"
+#include "math/lp/stacked_value.h"
+#include "math/lp/int_set.h"
 #include "util/stopwatch.h"
 #include <cstdlib>
 #include "test/lp/gomory_test.h"
-#include "util/lp/matrix.h"
-#include "util/lp/hnf.h"
-#include "util/lp/square_sparse_matrix_def.h"
-#include "util/lp/lu_def.h"
-#include "util/lp/general_matrix.h"
-#include "util/lp/bound_propagator.h"
-#include "util/lp/nla_solver.h"
+#include "math/lp/matrix.h"
+#include "math/lp/hnf.h"
+#include "math/lp/square_sparse_matrix_def.h"
+#include "math/lp/lu_def.h"
+#include "math/lp/general_matrix.h"
+#include "math/lp/bound_propagator.h"
+#include "math/lp/nla_solver.h"
 namespace nla {
 void test_order_lemma();
 void test_monotone_lemma();
@@ -1507,127 +1507,127 @@ void fill_file_names(vector<std::string> &file_names,  std::set<std::string> & m
         return;
     }
     std::string home_dir_str(home_dir);
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l0redund.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l1.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l2.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l3.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l4.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l4fix.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/plan.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/samp2.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/murtagh.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/l0.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AFIRO.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC50B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC50A.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/KB2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC105.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ADLITTLE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BLEND.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCAGR7.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SC205.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHARE2B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/RECIPELP.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/LOTFI.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/VTP-BASE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHARE1B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BOEING2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BORE3D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCORPION.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CAPRI.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BRANDY.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCAGR25.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ISRAEL.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BANDM.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/E226.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW7.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/ETAMACRO.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FINNIS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDATA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDGUB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BEACONFD.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STAIR.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STANDMPS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GFRD-PNC.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCRS8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BOEING1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MODSZK1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DEGEN2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FORPLAN.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/AGG3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHELL.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT4.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP04S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SEBA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW15.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FFFFF800.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BNL1.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PEROLD.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCFXM3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP04L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GANGES.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GROW22.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT-WE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MAROS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/25FV47.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP12S.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT1P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SIERRA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOTNOV.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CZPROB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT-JA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/BNL2.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/NESM.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/CYCLE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/acc-tight5.mps");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/SHIP12L.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DEGEN3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/TRUSS.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/WOODW.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP12.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/D6CUBE.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/DFL001.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/WOOD1P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/PILOT87.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/STOCFOR3.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/QAP15.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/FIT2D.SIF");
-    file_names.push_back(home_dir_str + "/projects/lp/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/FIT2P.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/DFL001.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/D2Q06C.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/80BAU3B.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEB.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/GREENBEA.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/BNL2.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SHIP08L.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/FIT1D.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCTAP3.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCSD8.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/SCSD6.SIF");
-    minimums.insert("/projects/lp/src/tests/util/lp/test_files/netlib/MAROS-R7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l0redund.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l1.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l2.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l3.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l4.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l4fix.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/plan.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/samp2.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/murtagh.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/l0.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/AFIRO.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SC50B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SC50A.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/KB2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SC105.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STOCFOR1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/ADLITTLE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BLEND.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCAGR7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SC205.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHARE2B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/RECIPELP.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/LOTFI.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/VTP-BASE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHARE1B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BOEING2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BORE3D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCORPION.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/CAPRI.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BRANDY.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCAGR25.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCTAP1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/ISRAEL.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCFXM1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BANDM.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/E226.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/AGG.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GROW7.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/ETAMACRO.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FINNIS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCSD1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STANDATA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STANDGUB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BEACONFD.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STAIR.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STANDMPS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GFRD-PNC.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCRS8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BOEING1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/MODSZK1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/DEGEN2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FORPLAN.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/AGG2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/AGG3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCFXM2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHELL.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOT4.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCSD6.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP04S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SEBA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GROW15.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FFFFF800.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BNL1.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PEROLD.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/QAP8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCFXM3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP04L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GANGES.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCTAP2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GROW22.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP08S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOT-WE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/MAROS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STOCFOR2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/25FV47.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP12S.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCSD8.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FIT1P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SCTAP3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SIERRA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOTNOV.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/CZPROB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FIT1D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOT-JA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP08L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/BNL2.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/NESM.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/CYCLE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/acc-tight5.mps");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/SHIP12L.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/DEGEN3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GREENBEA.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/GREENBEB.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/80BAU3B.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/TRUSS.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/D2Q06C.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/WOODW.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/QAP12.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/D6CUBE.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOT.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/DFL001.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/WOOD1P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FIT2P.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/PILOT87.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/STOCFOR3.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/QAP15.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/FIT2D.SIF");
+    file_names.push_back(home_dir_str + "/projects/lp/src/tests/math/lp/test_files/netlib/MAROS-R7.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/FIT2P.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/DFL001.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/D2Q06C.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/80BAU3B.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/GREENBEB.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/GREENBEA.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/BNL2.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/SHIP08L.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/FIT1D.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/SCTAP3.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/SCSD8.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/SCSD6.SIF");
+    minimums.insert("/projects/lp/src/tests/math/lp/test_files/netlib/MAROS-R7.SIF");
 }
 
 void test_out_dir(std::string out_dir) {

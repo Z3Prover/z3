@@ -26,8 +26,8 @@ Revision History:
 #include <unordered_map>
 #include <iostream>
 #include <fstream>
-#include "util/lp/lp_utils.h"
-#include "util/lp/lp_solver.h"
+#include "math/lp/lp_utils.h"
+#include "math/lp/lp_solver.h"
 
 namespace lp {
 
