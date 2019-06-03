@@ -1,0 +1,15 @@
+pool:
+  name: Hosted
+  demands: Cmd
+
+steps:
+- task: DotNetCoreInstaller@0
+  displayName: 'Use .NET Core sdk 2.1'
+  inputs:
+    version: 2.1.300
+
+- task: BatchScript@1
+  displayName: 'scripts\vsts-vs2013.cmd'
+  inputs:
+    filename: 'scripts\vsts-vs2013.cmd'
+
