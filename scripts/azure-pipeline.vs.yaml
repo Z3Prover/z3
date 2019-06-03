@@ -13,7 +13,7 @@ steps:
 - task: BatchScript@1
   displayName: 'Setup VS'
   inputs:
-    filePath: 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat'
+    filePath: '"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"'
     arguments: 'x64'
 
 
