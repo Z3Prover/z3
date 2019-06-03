@@ -13,6 +13,6 @@ steps:
 - task: BatchScript@1
   displayName: 'run windist'
   inputs:
-    filePath: 'scripts/mk_win_dist.cmd'
+    filename: 'scripts/mk_win_dist.cmd'
 
 
