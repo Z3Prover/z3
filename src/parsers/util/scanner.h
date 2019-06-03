@@ -76,8 +76,8 @@ private:
     bool               m_smt2;
     bool               m_bv_token;
 
-    signed char read_char();
-    token read_symbol(signed char ch);
+    int read_char();
+    token read_symbol(int ch);
     void unread_char();
     void comment(char delimiter);
     token read_id(char first_char);

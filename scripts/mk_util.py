@@ -298,13 +298,15 @@ def test_fpmath(cc):
     t = TempFile('tstsse.cpp')
     t.add('int main() { return 42; }\n')
     t.commit()
-    if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
+    # -Werror is needed because some versions of clang warn about unrecognized
+    # -m flags.
+    if exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
         FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
         return "SSE2-GCC"
-    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
+    elif exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
         FPMATH_FLAGS="-msse -msse2"
         return "SSE2-CLANG"
-    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
+    elif exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
         FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
         return "ARM-VFP"
     else:
@@ -2528,7 +2530,8 @@ def mk_config():
         check_ar()
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
-        SLIBEXTRAFLAGS = ''
+        SLITEXTRAFLAGS = ''
+#       SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so.0' % LDFLAGS
         EXE_EXT = ''
         LIB_EXT = '.a'
         if GPROF:
