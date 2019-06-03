@@ -1,5 +1,5 @@
 namespace lp {
-#include "util/lp/lp_utils.h"
+#include "math/lp/lp_utils.h"
 struct gomory_test {
     gomory_test(
         std::function<std::string (unsigned)> name_function_p,
