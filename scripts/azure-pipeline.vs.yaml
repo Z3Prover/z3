@@ -11,14 +11,8 @@ steps:
 
 
 - task: BatchScript@1
-  displayName: 'Setup VS'
+  displayName: 'run windist'
   inputs:
-    filePath: '"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat"'
-    arguments: 'x64'
+    filePath: 'scripts\mk_win_dist.cmd'
 
-
-- task: PythonScript@0
-  inputs:
-    scriptSource: 'filePath'
-    scriptPath: 'scripts\mk_win_dist.py'
 
