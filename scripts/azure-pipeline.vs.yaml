@@ -17,7 +17,7 @@ steps:
     arguments: 'x64'
 
 
-- task: PythonScript@1
+- task: PythonScript@0
   inputs:
     scriptSource: 'filePath'
     scriptPath: 'scripts\mk_win_dist.py'
