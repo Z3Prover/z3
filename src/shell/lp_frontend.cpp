@@ -7,9 +7,9 @@ Author:
 
 --*/
 
-#include "util/lp/lp_params.hpp"
-#include "util/lp/lp_settings.h"
-#include "util/lp/mps_reader.h"
+#include "math/lp/lp_params.hpp"
+#include "math/lp/lp_settings.h"
+#include "math/lp/mps_reader.h"
 #include "util/timeout.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
