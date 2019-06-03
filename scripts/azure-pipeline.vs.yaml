@@ -1,6 +1,6 @@
 pool:
   name: Hosted
-  demands: Cmd
+  demands: python
 
 steps:
 - task: DotNetCoreInstaller@0
@@ -9,8 +9,7 @@ steps:
     version: 2.1.300
 
 - task: BatchScript@1
-  displayName: 'scripts\vsts-vs2017.cmd'
+  displayName: 'scripts\mk_win_dist.py'
   inputs:
-    filename: 'scripts\vsts-vs2017.cmd'
-    arguments: 'x64'
+    filename: 'scripts\mk_win_dist.py'
 
