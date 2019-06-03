@@ -9,7 +9,13 @@ steps:
   inputs:
     version: 2.1.300
 
-- task: PythonScript@0
+- task: VSEnvironment@1
+  displayName: 'Set VS environment'
+  inputs:
+    filename: 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat'
+    arguments: 'x64'
+
+- task: PythonScript@2
   inputs:
     scriptSource: 'filePath'
     scriptPath: 'scripts\mk_win_dist.py'
