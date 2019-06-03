@@ -19,14 +19,15 @@
 
   --*/
 #include "util/stopwatch.h"
-#include "util/lp/lp_solver.h"
-#include "util/lp/lp_primal_simplex.h"
-#include "util/lp/lp_dual_simplex.h"
-#include "util/lp/indexed_value.h"
-#include "util/lp/lar_solver.h"
+#include "math/lp/lp_solver.h"
+#include "math/lp/lp_primal_simplex.h"
+#include "math/lp/lp_dual_simplex.h"
+#include "math/lp/indexed_value.h"
+#include "math/lp/lar_solver.h"
 #include "util/nat_set.h"
 #include "util/optional.h"
-#include "util/lp/lp_params.hpp"
+#include "math/lp/lp_params.hpp"
+#include "math/lp/nla_params.hpp"
 #include "util/inf_rational.h"
 #include "smt/smt_theory.h"
 #include "smt/smt_context.h"
@@ -35,14 +36,14 @@
 #include "smt/smt_model_generator.h"
 #include "smt/arith_eq_adapter.h"
 #include "util/nat_set.h"
-#include "util/lp/nra_solver.h"
+#include "math/lp/nra_solver.h"
 #include "tactic/generic_model_converter.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "math/polynomial/polynomial.h"
 #include "ast/ast_pp.h"
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
-#include "util/lp/nla_solver.h"
+#include "math/lp/nla_solver.h"
 
 typedef lp::var_index lpvar;
 

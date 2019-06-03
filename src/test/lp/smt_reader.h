@@ -24,16 +24,16 @@ Revision History:
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "util/lp/lp_primal_simplex.h"
-#include "util/lp/lp_dual_simplex.h"
-#include "util/lp/lar_solver.h"
+#include "math/lp/lp_primal_simplex.h"
+#include "math/lp/lp_dual_simplex.h"
+#include "math/lp/lar_solver.h"
 #include <iostream>
 #include <fstream>
 #include <functional>
 #include <algorithm>
-#include "util/lp/mps_reader.h"
-#include "util/lp/ul_pair.h"
-#include "util/lp/lar_constraints.h"
+#include "math/lp/mps_reader.h"
+#include "math/lp/ul_pair.h"
+#include "math/lp/lar_constraints.h"
 #include <sstream>
 #include <cstdlib>
 namespace lp {
