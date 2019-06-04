@@ -19,6 +19,7 @@ Revision History:
 
 
 #include <cmath>
+#include <thread>
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
