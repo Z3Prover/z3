@@ -21,6 +21,7 @@ Notes:
 #include "util/cooperate.h"
 #include "util/scoped_ptr_vector.h"
 #include "tactic/tactical.h"
+#include <thread>
 
 class binary_tactical : public tactic {
 protected:
