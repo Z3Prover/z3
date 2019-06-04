@@ -1302,7 +1302,8 @@ namespace sat {
 
         vector<std::thread> threads;
         for (int i = 0; i < num_threads; ++i) {
-            threads.push_back(std::thread([&]() { worker_thread(i); }));
+            int id = i;
+            threads.push_back(std::thread([&]() { worker_thread(id); }));
         }
         for (int i = 0; i < num_threads; ++i) {
             threads[i].join();

@@ -22,6 +22,7 @@ Notes:
 #include "util/scoped_ptr_vector.h"
 #include "tactic/tactical.h"
 #include <thread>
+#include <vector>
 
 class binary_tactical : public tactic {
 protected:
@@ -458,12 +459,13 @@ public:
             }
         };
 
-        vector<std::thread> threads;
+        scoped_ptr_vector<std::thread> threads;
         for (int i = 0; i < num_threads; ++i) {
-            threads.push_back(std::thread([&]() { worker_thread(i); }));
+            int id = i;
+            threads.push_back(alloc(std::thread, [&]() { worker_thread(id); }));
         }
         for (int i = 0; i < num_threads; ++i) {
-            threads[i].join();
+            threads[i]->join();
         }
         
         if (finished_id == UINT_MAX) {
@@ -659,10 +661,11 @@ public:
                 }
             };
 
-            vector<std::thread> threads;
+            std::vector<std::thread> threads;
             int num_threads = static_cast<int>(r1_size);
             for (int i = 0; i < num_threads; ++i) {
-                threads.push_back(std::thread([&]() { worker_thread(i); }));
+                int id = i;
+                threads.emplace_back([&]() { worker_thread(id); });
             }
             for (int i = 0; i < num_threads; ++i) {
                 threads[i].join();
