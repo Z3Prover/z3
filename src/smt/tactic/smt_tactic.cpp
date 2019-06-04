@@ -208,6 +208,7 @@ public:
                 m_ctx->collect_statistics(m_stats);
                 throw;
             }
+			SASSERT(m_ctx);
             m_ctx->collect_statistics(m_stats);
             proof * pr = m_ctx->get_proof();
             TRACE("smt_tactic", tout << r << " " << pr << "\n";);

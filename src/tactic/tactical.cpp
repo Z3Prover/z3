@@ -416,6 +416,7 @@ public:
             tactic & t = *(ts.get(i));
             
             try {
+                // IF_VERBOSE(0, verbose_stream() << "start\n");
                 t(in_copy, _result);
                 bool first = false;
                 {
@@ -431,6 +432,7 @@ public:
                             managers[j]->limit().cancel();
                         }
                     }
+                    IF_VERBOSE(0, verbose_stream() << "first\n");
                     ast_translation translator(*(managers[i]), m, false);
                     for (goal* g : _result) {
                         result.push_back(g->translate(translator));
