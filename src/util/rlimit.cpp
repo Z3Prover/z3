@@ -18,9 +18,6 @@ Revision History:
 --*/
 #include "util/rlimit.h"
 #include "util/common_msgs.h"
-#include <mutex>
-
-static std::mutex g_reslimit_cancel;
 
 
 reslimit::reslimit():
@@ -73,34 +70,34 @@ char const* reslimit::get_cancel_msg() const {
 }
 
 void reslimit::push_child(reslimit* r) {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     m_children.push_back(r);    
 }
 
 void reslimit::pop_child() {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     m_children.pop_back();    
 }
 
 void reslimit::cancel() {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     set_cancel(m_cancel+1);    
 }
 
 
 void reslimit::reset_cancel() {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     set_cancel(0);    
 }
 
 void reslimit::inc_cancel() {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     set_cancel(m_cancel+1);    
 }
 
 
 void reslimit::dec_cancel() {
-    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    std::lock_guard<std::mutex> lock(m_mux);
     if (m_cancel > 0) {
         set_cancel(m_cancel-1);
     }

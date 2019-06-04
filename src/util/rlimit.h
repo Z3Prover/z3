@@ -19,6 +19,7 @@ Revision History:
 #ifndef RLIMIT_H_
 #define RLIMIT_H_
 
+#include <mutex>
 #include "util/vector.h"
 
 class reslimit {
@@ -28,12 +29,14 @@ class reslimit {
     uint64_t        m_limit;
     svector<uint64_t> m_limits;
     ptr_vector<reslimit> m_children;
+    std::mutex        m_mux;
 
     void set_cancel(unsigned f);
     friend class scoped_suspend_rlimit;
 
 public:
     reslimit();
+    ~reslimit() {}
     void push(unsigned delta_limit);
     void pop();
     void push_child(reslimit* r);

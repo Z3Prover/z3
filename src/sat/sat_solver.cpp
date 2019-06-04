@@ -1243,8 +1243,7 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
-        #pragma omp parallel for
-        for (int i = 0; i < num_threads; ++i) {
+        auto worker_thread = [&](int i) {
             try {
                 lbool r = l_undef;
                 if (IS_AUX_SOLVER(i)) {
@@ -1296,6 +1295,14 @@ namespace sat {
                 ex_msg = ex.msg();
                 ex_kind = DEFAULT_EX;    
             }
+        };
+
+        vector<std::thread> threads;
+        for (int i = 0; i < num_threads; ++i) {
+            threads.push_back(std::thread([&]() { worker_thread(i); }));
+        }
+        for (int i = 0; i < num_threads; ++i) {
+            threads[i].join();
         }
         
         if (IS_AUX_SOLVER(finished_id)) {

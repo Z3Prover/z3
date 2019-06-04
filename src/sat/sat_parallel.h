@@ -23,6 +23,7 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/map.h"
 #include "util/rlimit.h"
+#include "util/scoped_ptr_vector.h"
 
 namespace sat {
 
@@ -69,7 +70,7 @@ namespace sat {
         bool               m_consumer_ready;
 
         scoped_limits      m_scoped_rlimit;
-        vector<reslimit>   m_limits;
+        scoped_ptr_vector<reslimit> m_limits;
         ptr_vector<solver> m_solvers;
         
     public:
@@ -87,7 +88,7 @@ namespace sat {
 
         solver& get_solver(unsigned i) { return *m_solvers[i]; }
 
-        void cancel_solver(unsigned i) { m_limits[i].cancel(); }
+        void cancel_solver(unsigned i) { m_limits[i]->cancel(); }
 
         // exchange unit literals
         void exchange(solver& s, literal_vector const& in, unsigned& limit, literal_vector& out);
