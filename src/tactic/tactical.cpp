@@ -405,9 +405,9 @@ public:
         std::string        ex_msg;
         unsigned           error_code = 0;
         std::mutex         mux;
+        int num_threads = static_cast<int>(sz);
 
-        #pragma omp parallel for
-        for (int i = 0; i < static_cast<int>(sz); i++) {
+        auto worker_thread = [&](int i) {
             goal_ref_buffer     _result;
             
             goal_ref in_copy = in_copies[i];
@@ -455,7 +455,16 @@ public:
                     ex_msg = z3_ex.msg();
                 }
             }
+        };
+
+        vector<std::thread> threads;
+        for (int i = 0; i < num_threads; ++i) {
+            threads.push_back(std::thread([&]() { worker_thread(i); }));
         }
+        for (int i = 0; i < num_threads; ++i) {
+            threads[i].join();
+        }
+        
         if (finished_id == UINT_MAX) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
@@ -548,8 +557,7 @@ public:
             std::string  ex_msg;
             std::mutex mux;
 
-            #pragma omp parallel for
-            for (int i = 0; i < static_cast<int>(r1_size); i++) { 
+            auto worker_thread = [&](int i) {
                 ast_manager & new_m = *(managers[i]);
                 goal_ref new_g = g_copies[i];
 
@@ -648,6 +656,15 @@ public:
                         }
                     }                                                                                           
                 }
+            };
+
+            vector<std::thread> threads;
+            int num_threads = static_cast<int>(r1_size);
+            for (int i = 0; i < num_threads; ++i) {
+                threads.push_back(std::thread([&]() { worker_thread(i); }));
+            }
+            for (int i = 0; i < num_threads; ++i) {
+                threads[i].join();
             }
             
             if (failed) {

@@ -1243,6 +1243,8 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
+        std::mutex mux;
+
         auto worker_thread = [&](int i) {
             try {
                 lbool r = l_undef;
@@ -1259,8 +1261,8 @@ namespace sat {
                     r = check(num_lits, lits);
                 }
                 bool first = false;
-                #pragma omp critical (par_solver)
                 {
+                    std::lock_guard<std::mutex> lock(mux);
                     if (finished_id == -1) {
                         finished_id = i;
                         first = true;
