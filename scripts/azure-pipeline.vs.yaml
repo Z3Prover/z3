@@ -8,6 +8,9 @@ steps:
   inputs:
     version: 2.1.300
 
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: 'z3.snk'
 
 - task: BatchScript@1
   displayName: 'run windist'
