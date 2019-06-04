@@ -1300,13 +1300,12 @@ namespace sat {
             }
         };
 
-        vector<std::thread> threads;
+        vector<std::thread> threads(num_threads);
         for (int i = 0; i < num_threads; ++i) {
-            int id = i;
-            threads.push_back(std::thread([&]() { worker_thread(id); }));
+            threads[i] = std::thread([&, i]() { worker_thread(i); });
         }
-        for (int i = 0; i < num_threads; ++i) {
-            threads[i].join();
+        for (auto & th : threads) {
+            th.join();
         }
         
         if (IS_AUX_SOLVER(finished_id)) {

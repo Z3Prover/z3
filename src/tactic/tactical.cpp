@@ -370,9 +370,13 @@ enum par_exception_kind {
 
 class par_tactical : public or_else_tactical {
 
+	std::string        ex_msg;
+	unsigned           error_code;
 
 public:
-    par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}
+    par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {
+		error_code = 0;
+	}
     ~par_tactical() override {}
 
     
@@ -404,19 +408,15 @@ public:
 
         unsigned finished_id       = UINT_MAX;
         par_exception_kind ex_kind = DEFAULT_EX;
-        std::string        ex_msg;
-        unsigned           error_code = 0;
-        std::mutex         mux;
-        int num_threads = static_cast<int>(sz);
 
-        auto worker_thread = [&](int i) {
-            goal_ref_buffer     _result;
-            
+        std::mutex         mux;
+
+        auto worker_thread = [&](unsigned i) {
+            goal_ref_buffer     _result;                        
             goal_ref in_copy = in_copies[i];
             tactic & t = *(ts.get(i));
             
             try {
-                // IF_VERBOSE(0, verbose_stream() << "start\n");
                 t(in_copy, _result);
                 bool first = false;
                 {
@@ -428,11 +428,11 @@ public:
                 }                
                 if (first) {
                     for (unsigned j = 0; j < sz; j++) {
-                        if (static_cast<unsigned>(i) != j) {
+                        if (i != j) {
                             managers[j]->limit().cancel();
                         }
                     }
-                    IF_VERBOSE(0, verbose_stream() << "first\n");
+                    
                     ast_translation translator(*(managers[i]), m, false);
                     for (goal* g : _result) {
                         result.push_back(g->translate(translator));
@@ -461,13 +461,13 @@ public:
             }
         };
 
-        scoped_ptr_vector<std::thread> threads;
-        for (int i = 0; i < num_threads; ++i) {
-            int id = i;
-            threads.push_back(alloc(std::thread, [&]() { worker_thread(id); }));
+        vector<std::thread> threads(sz);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            threads[i] = std::thread([&, i]() { worker_thread(i); });
         }
-        for (int i = 0; i < num_threads; ++i) {
-            threads[i]->join();
+        for (unsigned i = 0; i < sz; ++i) {
+            threads[i].join();
         }
         
         if (finished_id == UINT_MAX) {
@@ -562,7 +562,7 @@ public:
             std::string  ex_msg;
             std::mutex mux;
 
-            auto worker_thread = [&](int i) {
+            auto worker_thread = [&](unsigned i) {
                 ast_manager & new_m = *(managers[i]);
                 goal_ref new_g = g_copies[i];
 
@@ -663,13 +663,11 @@ public:
                 }
             };
 
-            std::vector<std::thread> threads;
-            int num_threads = static_cast<int>(r1_size);
-            for (int i = 0; i < num_threads; ++i) {
-                int id = i;
-                threads.emplace_back([&]() { worker_thread(id); });
+            vector<std::thread> threads(r1_size);
+            for (unsigned i = 0; i < r1_size; ++i) {
+                threads[i] = std::thread([&, i]() { worker_thread(i); });
             }
-            for (int i = 0; i < num_threads; ++i) {
+            for (unsigned i = 0; i < r1_size; ++i) {
                 threads[i].join();
             }
             
