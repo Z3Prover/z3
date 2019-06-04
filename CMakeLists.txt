@@ -272,41 +272,6 @@ else()
   message(STATUS "Not using libgmp")
 endif()
 
-################################################################################
-# OpenMP support
-################################################################################
-find_package(OpenMP)
-if (OPENMP_FOUND)
-  set(USE_OPENMP_DEFAULT ON)
-else()
-  set(USE_OPENMP_DEFAULT OFF)
-endif()
-# By setting `USE_OPENMP` this way configuration will fail during the first
-# configure if the user explicitly passes `-DUSE_OPENMP=ON` and the compiler
-# does not support OpenMP. However if the option is not set explicitly during
-# the first configure OpenMP support will be automatically enabled/disabled
-# depending on whether OpenMP is available.
-option(USE_OPENMP "Use OpenMP" ${USE_OPENMP_DEFAULT})
-
-if (USE_OPENMP)
-  if (NOT OPENMP_FOUND)
-    message(FATAL_ERROR "USE_OPENMP is ON but your compiler does not support OpenMP")
-  endif()
-
-  list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-  # GCC and Clang need to have additional flags passed to the linker.
-  # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
-  # because ``/openmp`` is interpreted as file name rather than a linker
-  # flag by MSVC and breaks the build
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
-      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
-  endif()
-  message(STATUS "Using OpenMP")
-else()
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
-  message(STATUS "Not using OpenMP")
-endif()
 
 ################################################################################
 # API Log sync
@@ -316,9 +281,6 @@ option(API_LOG_SYNC
   OFF
 )
 if (API_LOG_SYNC)
-  if (NOT USE_OPENMP)
-    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
-  endif()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
   message(STATUS "Using API_LOG_SYNC")
 else()

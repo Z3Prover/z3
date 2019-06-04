@@ -16,6 +16,7 @@ Revision History:
 
 --*/
 #include<fstream>
+#include<mutex>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
 #include "util/util.h"
@@ -23,6 +24,7 @@ Revision History:
 
 std::ostream * g_z3_log = nullptr;
 bool g_z3_log_enabled   = false;
+static std::mutex g_log_mux;
 
 extern "C" {
     void Z3_close_log_unsafe(void) {
@@ -37,7 +39,7 @@ extern "C" {
         bool res = true;
 
 #ifdef Z3_LOG_SYNC
-        #pragma omp critical (z3_log)
+        std::lock_guard<std::mutex> lock(g_log_mux);
         {
 #endif
             if (g_z3_log != nullptr)
@@ -64,7 +66,7 @@ extern "C" {
         if (g_z3_log == nullptr)
             return;
 #ifdef Z3_LOG_SYNC
-        #pragma omp critical (z3_log)
+        std::lock_guard<std::mutex> lock(g_log_mux);
         {
 #endif
             if (g_z3_log != nullptr)
@@ -77,7 +79,7 @@ extern "C" {
     void Z3_API Z3_close_log(void) {
         if (g_z3_log != nullptr) {
 #ifdef Z3_LOG_SYNC
-            #pragma omp critical (z3_log)
+            std::lock_guard<std::mutex> lock(g_log_mux);
             {
 #endif
                 Z3_close_log_unsafe();

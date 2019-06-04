@@ -20,7 +20,6 @@ Notes:
 #include "util/cancel_eh.h"
 #include "util/cooperate.h"
 #include "util/scoped_ptr_vector.h"
-#include "util/z3_omp.h"
 #include "tactic/tactical.h"
 
 class binary_tactical : public tactic {
@@ -378,11 +377,7 @@ public:
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
-#ifdef _NO_OMP_
-        use_seq = true;
-#else
-        use_seq = 0 != omp_in_parallel();
-#endif
+        use_seq = false;
         if (use_seq) {
             // execute tasks sequentially
             or_else_tactical::operator()(in, result);
@@ -409,7 +404,8 @@ public:
         par_exception_kind ex_kind = DEFAULT_EX;
         std::string        ex_msg;
         unsigned           error_code = 0;
-        
+        std::mutex         mux;
+
         #pragma omp parallel for
         for (int i = 0; i < static_cast<int>(sz); i++) {
             goal_ref_buffer     _result;
@@ -420,8 +416,8 @@ public:
             try {
                 t(in_copy, _result);
                 bool first = false;
-                #pragma omp critical (par_tactical)
                 {
+                    std::lock_guard<std::mutex> lock(mux);
                     if (finished_id == UINT_MAX) {
                         finished_id = i;
                         first = true;
@@ -499,11 +495,7 @@ public:
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
-#ifdef _NO_OMP_
-        use_seq = true;
-#else
-        use_seq = 0 != omp_in_parallel();
-#endif
+        use_seq = false;
         if (use_seq) {
             // execute tasks sequentially
             and_then_tactical::operator()(in, result);
@@ -554,6 +546,7 @@ public:
             par_exception_kind ex_kind = DEFAULT_EX;
             unsigned error_code = 0;
             std::string  ex_msg;
+            std::mutex mux;
 
             #pragma omp parallel for
             for (int i = 0; i < static_cast<int>(r1_size); i++) { 
@@ -568,8 +561,8 @@ public:
                     ts2[i]->operator()(new_g, r2);                  
                 }
                 catch (tactic_exception & ex) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -579,8 +572,8 @@ public:
                     }
                 }
                 catch (z3_error & err) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -590,8 +583,8 @@ public:
                     }                    
                 }
                 catch (z3_exception & z3_ex) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -614,8 +607,8 @@ public:
                         if (is_decided_sat(r2)) {                                                          
                             // found solution... 
                             bool first = false;
-                            #pragma omp critical (par_and_then_tactical)
                             {
+                                std::lock_guard<std::mutex> lock(mux);
                                 if (!found_solution) {
                                     failed         = false;
                                     found_solution = true;

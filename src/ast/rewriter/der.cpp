@@ -436,11 +436,8 @@ void der_rewriter::operator()(expr * t, expr_ref & result, proof_ref & result_pr
 
 void der_rewriter::cleanup() {
     ast_manager & m = m_imp->m();
-    #pragma omp critical (th_rewriter)
-    {
-        dealloc(m_imp);
-        m_imp = alloc(imp, m);
-    }
+    dealloc(m_imp);
+    m_imp = alloc(imp, m);    
 }
 
 void der_rewriter::reset() {

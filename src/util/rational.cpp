@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include<sstream>
+#include<mutex>
 #include "util/util.h"
 #include "util/rational.h"
 #ifdef _WINDOWS
@@ -42,9 +43,11 @@ static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     }
 }
 
+static std::mutex g_powers_of_two;
+
 rational rational::power_of_two(unsigned k) {
     rational result;
-    #pragma omp critical (powers_of_two)
+    std::lock_guard<std::mutex> lock(g_powers_of_two);
     {
         if (k >= m_powers_of_two.size())
             mk_power_up_to(m_powers_of_two, k+1);

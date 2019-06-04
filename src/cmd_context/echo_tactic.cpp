@@ -29,12 +29,9 @@ public:
     
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
-        #pragma omp critical (echo_tactic)
-        {
-            m_ctx.regular_stream() << m_msg;
-            if (m_newline)
-                m_ctx.regular_stream() << std::endl;
-        }
+        m_ctx.regular_stream() << m_msg;
+        if (m_newline)
+            m_ctx.regular_stream() << std::endl;
         skip_tactic::operator()(in, result);
     }
 };
@@ -61,14 +58,11 @@ public:
     void operator()(goal_ref const & in, 
                     goal_ref_buffer & result) override {
         double val = (*m_p)(*(in.get())).get_value();
-        #pragma omp critical (probe_value_tactic)
-        {
-            if (m_msg)
-                m_ctx.diagnostic_stream() << m_msg << " ";
-            m_ctx.diagnostic_stream() << val;
-            if (m_newline)
-                m_ctx.diagnostic_stream() << std::endl;
-        }
+        if (m_msg)
+            m_ctx.diagnostic_stream() << m_msg << " ";
+        m_ctx.diagnostic_stream() << val;
+        if (m_newline)
+            m_ctx.diagnostic_stream() << std::endl;
         skip_tactic::operator()(in, result);
     }
 };

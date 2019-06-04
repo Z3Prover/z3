@@ -1731,18 +1731,6 @@ namespace sat {
         }
 
         if (m_par) m_par->set_phase(*this);
-
-#if 0
-        static unsigned file_no = 0;
-        #pragma omp critical (print_sat)
-        {
-            ++file_no;
-            std::ostringstream ostrm;
-            ostrm << "s" << file_no << ".txt";
-            std::ofstream ous(ostrm.str());
-            display(ous);
-        }
-#endif
     }
 
     bool solver::set_root(literal l, literal r) {

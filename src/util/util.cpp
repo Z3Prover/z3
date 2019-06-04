@@ -23,6 +23,10 @@ Revision History:
 #include <thread>
 #include "util/util.h"
 
+static std::mutex g_verbose_mux;
+void verbose_lock() { g_verbose_mux.lock(); }
+void verbose_unlock() { g_verbose_mux.unlock(); }
+
 static unsigned g_verbosity_level = 0;
 
 void set_verbosity_level(unsigned lvl) {

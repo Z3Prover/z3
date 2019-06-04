@@ -18,6 +18,10 @@ Revision History:
 --*/
 #include "util/rlimit.h"
 #include "util/common_msgs.h"
+#include <mutex>
+
+static std::mutex g_reslimit_cancel;
+
 
 reslimit::reslimit():
     m_cancel(0),
@@ -69,48 +73,36 @@ char const* reslimit::get_cancel_msg() const {
 }
 
 void reslimit::push_child(reslimit* r) {
-    #pragma omp critical (reslimit_cancel)
-    {
-        m_children.push_back(r);
-    }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    m_children.push_back(r);    
 }
 
 void reslimit::pop_child() {
-    #pragma omp critical (reslimit_cancel)
-    {
-        m_children.pop_back();
-    }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    m_children.pop_back();    
 }
 
 void reslimit::cancel() {
-    #pragma omp critical (reslimit_cancel)
-    {
-        set_cancel(m_cancel+1);
-    }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    set_cancel(m_cancel+1);    
 }
 
 
 void reslimit::reset_cancel() {
-    #pragma omp critical (reslimit_cancel)
-    {
-        set_cancel(0);
-    }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    set_cancel(0);    
 }
 
 void reslimit::inc_cancel() {
-    #pragma omp critical (reslimit_cancel)
-    {
-        set_cancel(m_cancel+1);
-    }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    set_cancel(m_cancel+1);    
 }
 
 
 void reslimit::dec_cancel() {
-    #pragma omp critical (reslimit_cancel)
-    {
-        if (m_cancel > 0) {
-            set_cancel(m_cancel-1);
-        }
+    std::lock_guard<std::mutex> lock(g_reslimit_cancel);
+    if (m_cancel > 0) {
+        set_cancel(m_cancel-1);
     }
 }
 

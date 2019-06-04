@@ -21,10 +21,10 @@ Revision History:
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
-#include "util/z3_omp.h"
 #include<iostream>
 #include<climits>
 #include<limits>
+#include<mutex>
 #include<stdint.h>
 
 #ifndef SIZE_MAX
@@ -174,11 +174,8 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
-#ifdef _NO_OMP_
-# define is_threaded() false
-#else
 bool is_threaded();
-#endif
+
 
   
 #define IF_VERBOSE(LVL, CODE) {                                 \
@@ -191,25 +188,16 @@ bool is_threaded();
         }                                                       \
     } } ((void) 0)              
 
-#ifdef _MSC_VER
-#define DO_PRAGMA(x) __pragma(x)
-#define PRAGMA_LOCK __pragma(omp critical (verbose_lock))
-#else
-#define DO_PRAGMA(x) _Pragma(#x)
-#define PRAGMA_LOCK _Pragma("omp critical (verbose_lock)")
-#endif
 
-#ifdef _NO_OMP_
-#define LOCK_CODE(CODE) CODE;
-#else
-#define LOCK_CODE(CODE)                         \
-    {                                           \
-        PRAGMA_LOCK   \
-            {                                   \
-                CODE;                           \
-            }                                   \
-    }                      
-#endif
+void verbose_lock();
+void verbose_unlock();
+
+#define LOCK_CODE(CODE)                                         \
+    {                                                           \
+        verbose_lock();                                         \
+        CODE;                                                   \
+        verbose_unlock();                                       \
+    }                                                           \
 
 template<typename T>
 struct default_eq {
