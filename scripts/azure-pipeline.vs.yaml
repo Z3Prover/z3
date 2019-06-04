@@ -3,6 +3,9 @@ pool:
 
 
 steps:
+
+- script: git clone https://github.com/z3prover/bin bin
+  
 - task: DotNetCoreInstaller@0
   displayName: 'Use .NET Core sdk 2.1'
   inputs:
@@ -16,5 +19,12 @@ steps:
   displayName: 'run windist'
   inputs:
     filename: 'scripts/mk_win_dist.cmd'
+
+- script: xcopy dist\z3-4.8.6-x86-win\*.zip bin\nightly\* /y
+- script: xcopy dist\z3-4.8.6-x64-win\*.zip bin\nightly\* /y
+- script: cd bin\nightly
+- script: git add *.zip
+- script: git commit -s -a 
+- script: git push
 
 
