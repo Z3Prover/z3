@@ -136,7 +136,7 @@ def git_hash():
         raise MKException("Failed to retrieve git hash")
     ls = r.split(' ')
     if len(ls) != 2:
-        raise MKException("Unexpected git output")
+        raise MKException("Unexpected git output " + r)
     return ls[0]
 
 def is_windows():
