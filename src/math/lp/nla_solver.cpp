@@ -31,6 +31,10 @@ void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
     m_core->add(v, sz, vs);
 }
 
+bool solver::is_monomial_var(lpvar v) const {
+    return m_core->is_monomial_var(v);
+}
+
 bool solver::need_check() { return true; }
 
 lbool solver::check(vector<lemma>& l) {
@@ -56,6 +60,22 @@ solver::solver(lp::lar_solver& s) {
 
 solver::~solver() {
     dealloc(m_core);
+}
+lp::impq solver::get_upper_bound(lpvar j) const {
+    SASSERT(is_monomial_var(j) && m_core->monomial_has_upper_bound(j));    
+    return m_core->get_upper_bound_of_monomial(j);
+}
+
+lp::impq solver::get_lower_bound(lpvar j) const {
+    SASSERT(is_monomial_var(j) && m_core->monomial_has_lower_bound(j));
+    return m_core->get_lower_bound_of_monomial(j);
+}
+
+bool solver::monomial_has_lower_bound(lpvar j) const {
+    return m_core->monomial_has_lower_bound(j);
+}
+bool solver::monomial_has_upper_bound(lpvar j) const {
+    return m_core->monomial_has_upper_bound(j);
 }
 
 }
