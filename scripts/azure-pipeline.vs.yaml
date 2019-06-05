@@ -8,7 +8,7 @@ steps:
 - task: GitHubRelease@0
   inputs:
     gitHubConnection: Z3GitHub
-    repositoryName: '$(Build.Repository.Name)'
+    repositoryName: 'Z3Prover/bin'
     action: 'edit'
     target: '$(Build.SourceVersion)'
     tag: 'nightly'
