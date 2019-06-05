@@ -16,15 +16,13 @@ Author:
 Revision History:
 
 --*/
-#ifndef UTIL_H_
-#define UTIL_H_
+#pragma once
 
 #include "util/debug.h"
 #include "util/memory_manager.h"
 #include<iostream>
 #include<climits>
 #include<limits>
-#include<mutex>
 #include<stdint.h>
 
 #ifndef SIZE_MAX
@@ -47,14 +45,10 @@ static_assert(sizeof(int64_t) == 8, "64 bits");
 #endif
 
 #ifdef _WINDOWS
-#define SSCANF sscanf_s
-// #define SPRINTF sprintf_s
 #define SPRINTF_D(_buffer_, _i_) sprintf_s(_buffer_, Z3_ARRAYSIZE(_buffer_), "%d", _i_)
 #define SPRINTF_U(_buffer_, _u_) sprintf_s(_buffer_, Z3_ARRAYSIZE(_buffer_), "%u", _u_)
 #define _Exit exit
 #else
-#define SSCANF sscanf
-// #define SPRINTF sprintf
 #define SPRINTF_D(_buffer_, _i_) sprintf(_buffer_, "%d", _i_)
 #define SPRINTF_U(_buffer_, _u_) sprintf(_buffer_, "%u", _u_)
 #endif
@@ -174,8 +168,11 @@ void set_verbosity_level(unsigned lvl);
 unsigned get_verbosity_level();
 std::ostream& verbose_stream();
 void set_verbose_stream(std::ostream& str);
+#ifdef SINGLE_THREAD
+# define is_threaded() false
+#else
 bool is_threaded();
-
+#endif
 
   
 #define IF_VERBOSE(LVL, CODE) {                                 \
@@ -189,6 +186,9 @@ bool is_threaded();
     } } ((void) 0)              
 
 
+#ifdef SINGLE_THREAD
+#define LOCK_CODE(CODE) CODE;
+#else
 void verbose_lock();
 void verbose_unlock();
 
@@ -197,7 +197,8 @@ void verbose_unlock();
         verbose_lock();                                         \
         CODE;                                                   \
         verbose_unlock();                                       \
-    }                                                           \
+    }
+#endif
 
 template<typename T>
 struct default_eq {
@@ -280,20 +281,6 @@ inline std::ostream & operator<<(std::ostream & out, std::pair<T1, T2> const & p
     return out;
 }
 
-template<typename IT>
-bool has_duplicates(const IT & begin, const IT & end) {
-    for (IT it1 = begin; it1 != end; ++it1) {
-        IT it2 = it1;
-        ++it2;
-        for (; it2 != end; ++it2) {
-            if (*it1 == *it2) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
 #ifndef _WINDOWS
 #ifndef __declspec
 #define __declspec(X)
@@ -364,12 +351,6 @@ void shuffle(unsigned sz, T * array, random_gen & gen) {
     }
 }
 
-#ifdef _EXTERNAL_RELEASE
-#define INTERNAL_CODE(CODE) ((void) 0)
-#else
-#define INTERNAL_CODE(CODE) { CODE } ((void) 0)
-#endif
-
 void fatal_error(int error_code);
 
 void set_fatal_error_handler(void (*pfn)(int error_code));
@@ -408,7 +389,3 @@ inline size_t megabytes_to_bytes(unsigned mb) {
         r = SIZE_MAX;    
     return r;
 }
-
-
-#endif /* UTIL_H_ */
-

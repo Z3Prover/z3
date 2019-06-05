@@ -2466,7 +2466,7 @@ bool mpz_manager<SYNCH>::divides(mpz const & a, mpz const & b) {
     return r;
 }
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 template class mpz_manager<true>;
 #endif
 template class mpz_manager<false>;
