@@ -159,7 +159,7 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
     
 void lar_solver::analyze_new_bounds_on_row(
     unsigned row_index,
-    bound_propagator & bp) {
+    lp_bound_propagator & bp) {
     lp_assert(!use_tableau());
     unsigned j =  m_mpq_lar_core_solver.m_r_basis[row_index]; // basis column for the row
     bound_analyzer_on_row<indexed_vector<mpq>>
@@ -174,7 +174,7 @@ void lar_solver::analyze_new_bounds_on_row(
 
 void lar_solver::analyze_new_bounds_on_row_tableau(
     unsigned row_index,
-    bound_propagator & bp ) {
+    lp_bound_propagator & bp ) {
 
     if (A_r().m_rows[row_index].size() > settings().max_row_length_for_bound_propagation)
         return;
@@ -200,7 +200,7 @@ void lar_solver::substitute_basis_var_in_terms_for_row(unsigned i) {
     }
 }
     
-void lar_solver::calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp) {
+void lar_solver::calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator & bp) {
     if(use_tableau()) {
         analyze_new_bounds_on_row_tableau(i, bp);
     } else {
@@ -220,12 +220,12 @@ unsigned lar_solver::map_term_index_to_column_index(unsigned j) const {
     return m_var_register.external_to_local(j);
 }
     
-void lar_solver::propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset) {
+void lar_solver::propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator & bp, unsigned term_offset) {
     lp_assert(false); // not implemented
 }
 
 
-void lar_solver::explain_implied_bound(implied_bound & ib, bound_propagator & bp) {
+void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp) {
     unsigned i = ib.m_row_or_term_index;
     int bound_sign = ib.m_is_lower_bound? 1: -1;
     int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
@@ -253,7 +253,7 @@ bool lar_solver::term_is_used_as_row(unsigned term) const {
     return m_var_register.external_is_used(term);
 }
     
-void lar_solver::propagate_bounds_on_terms(bound_propagator & bp) {
+void lar_solver::propagate_bounds_on_terms(lp_bound_propagator & bp) {
     for (unsigned i = 0; i < m_terms.size(); i++) {
         if (term_is_used_as_row(i + m_terms_start_index))
             continue; // this term is used a left side of a constraint,
@@ -264,7 +264,7 @@ void lar_solver::propagate_bounds_on_terms(bound_propagator & bp) {
 
 
 // goes over touched rows and tries to induce bounds
-void lar_solver::propagate_bounds_for_touched_rows(bound_propagator & bp) {
+void lar_solver::propagate_bounds_for_touched_rows(lp_bound_propagator & bp) {
     if (!use_tableau())
         return; // todo: consider to remove the restriction
     
