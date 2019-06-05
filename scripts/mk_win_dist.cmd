@@ -1,3 +1,7 @@
+git config --global user.email "nbjorner@microsoft.com"
+
+git config --global user.name "Nikolaj Bjorner"
+
 call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
 
 python scripts\mk_win_dist.py --x64-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
