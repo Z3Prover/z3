@@ -9,7 +9,7 @@ steps:
   inputs:
     gitHubConnection: Z3GitHub
     repositoryName: 'Z3Prover/bin'
-    action: 'edit'
+    action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
     tag: 'nightly'
