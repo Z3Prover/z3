@@ -14,7 +14,7 @@ steps:
 
 - script: scripts\mk_win_dist.cmd
 
-- script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)/* /y
+- script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
 
 - task: GitHubRelease@0
   inputs:
