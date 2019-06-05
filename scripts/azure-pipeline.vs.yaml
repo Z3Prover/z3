@@ -17,10 +17,13 @@ steps:
 
 - script: dir
 
-- task: BatchScript@1
-  displayName: 'run windist'
-  inputs:
-    filename: 'scripts/mk_win_dist.cmd'
+- script: "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+
+- script: python scripts\mk_win_dist.py --x64-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
+
+- script: "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+
+- script: python scripts\mk_win_dist.py --x86-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
 
 - script: dir
 - script: xcopy dist\z3-4.8.6-x86-win\*.zip bin\nightly\* /y
