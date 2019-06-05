@@ -8,7 +8,7 @@ steps:
 - task: GitHubRelease@0
   inputs:
     gitHubConnection: Z3GitHub
-    repositoryName: 'Z3Prover/bin'
+    repositoryName: 'Z3Prover/z3'
     action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
