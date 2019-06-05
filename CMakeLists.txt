@@ -288,6 +288,20 @@ else()
 endif()
 
 ################################################################################
+# Thread safe or not?
+################################################################################
+option(SINGLE_THREADED
+  "Non-thread-safe build"
+  OFF
+)
+if (SINGLE_THREADED)
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DSINGLE_THREAD")
+  message(STATUS "Non-thread-safe build")
+else()
+  message(STATUS "Thread-safe build")
+endif()
+
+################################################################################
 # FP math
 ################################################################################
 # FIXME: Support ARM "-mfpu=vfp -mfloat-abi=hard"
