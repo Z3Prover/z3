@@ -272,8 +272,8 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_find(*this),
     m_overlap(m),
     m_overlap2(m),
-    m_internal_nth_es(m),
     m_len_prop_lvl(-1),
+    m_internal_nth_es(m),
     m_factory(nullptr),
     m_exclude(m),
     m_axioms(m),
@@ -4218,12 +4218,15 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
         result = m_util.str.mk_last_index(arg1, arg2);
     }
     else if (m.is_ite(e, e1, e2, e3)) {
-        if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e2)->get_root()) {
+        enode* r = get_root(e);
+        enode* r2 = get_root(e2);
+        enode* r3 = get_root(e3);
+        if (ctx.e_internalized(e) && ctx.e_internalized(e2) && r == r2 && r != r3) {
             result = try_expand(e2, deps);
             if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e2));
         }
-        else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e3)->get_root()) {
+        else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && r == r3 && r != r2) {
             result = try_expand(e3, deps);
             if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e3));
