@@ -17,7 +17,7 @@ steps:
 
 - script: dir
 
-- script: 'C:\\Program\ Files\ (x86)\\Microsoft\ Visual\ Studio\\2017\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat'
+- script: 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat'
 
 
 - script: python scripts\mk_win_dist.py --x64-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
