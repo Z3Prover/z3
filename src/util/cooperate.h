@@ -16,10 +16,9 @@ Author:
 Notes:
 
 --*/
-#ifndef COOPERATE_H_
-#define COOPERATE_H_
+#pragma once
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 
 class cooperation_ctx {
     static bool g_cooperate;
@@ -34,6 +33,4 @@ inline void cooperate(char const * task) {
 
 #else
 inline void cooperate(char const *) {}
-#endif
-
 #endif
