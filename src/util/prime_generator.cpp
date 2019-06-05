@@ -17,7 +17,7 @@ Notes:
 
 --*/
 #include "util/prime_generator.h"
-#include <mutex>
+#include "util/mutex.h"
 
 #define PRIME_LIST_MAX_SIZE 1<<20
 
@@ -110,7 +110,7 @@ prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
     }
 }
 
-static std::mutex g_prime_iterator;
+static mutex g_prime_iterator;
 
 uint64_t prime_iterator::next() {
     unsigned idx = m_idx;
@@ -120,7 +120,7 @@ uint64_t prime_iterator::next() {
     }
     else {
         uint64_t r;
-        std::lock_guard<std::mutex> lock(g_prime_iterator);
+        lock_guard lock(g_prime_iterator);
         {
             r = (*m_generator)(idx);
         }
@@ -131,4 +131,3 @@ uint64_t prime_iterator::next() {
 void prime_iterator::finalize() {
     g_prime_generator.finalize();
 }
-

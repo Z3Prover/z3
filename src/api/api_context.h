@@ -42,7 +42,7 @@ Revision History:
 #include "ast/rewriter/seq_rewriter.h"
 #include "smt/smt_solver.h"
 #include "solver/solver.h"
-#include <mutex>
+#include "util/mutex.h"
 
 namespace smtlib {
     class parser;
@@ -80,7 +80,7 @@ namespace api {
         scoped_ptr<ast_manager>    m_manager;
         scoped_ptr<cmd_context>    m_cmd;
         add_plugins                m_plugins;
-        std::mutex                 m_mux;
+        mutex                      m_mux;
 
         arith_util                 m_arith_util;
         bv_util                    m_bv_util;

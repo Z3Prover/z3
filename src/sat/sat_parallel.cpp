@@ -104,7 +104,7 @@ namespace sat {
         m_solvers.resize(num_extra_solvers);
         symbol saved_phase = s.m_params.get_sym("phase", symbol("caching"));
         for (unsigned i = 0; i < num_extra_solvers; ++i) {        
-            m_limits.push_back(alloc(reslimit));
+            m_limits.push_back(reslimit());
         }
         
         for (unsigned i = 0; i < num_extra_solvers; ++i) {
@@ -112,7 +112,7 @@ namespace sat {
             if (i == 1 + num_threads/2) {
                 s.m_params.set_sym("phase", symbol("random"));
             }                        
-            m_solvers[i] = alloc(sat::solver, s.m_params, *m_limits[i]);
+            m_solvers[i] = alloc(sat::solver, s.m_params, m_limits[i]);
             m_solvers[i]->copy(s, true);
             m_solvers[i]->set_par(this, i);
             push_child(m_solvers[i]->rlimit());            

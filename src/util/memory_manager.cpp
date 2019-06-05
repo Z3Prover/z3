@@ -7,7 +7,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include<iostream>
 #include<stdlib.h>
 #include<climits>
-#include<mutex>
+#include "util/mutex.h"
 #include "util/trace.h"
 #include "util/memory_manager.h"
 #include "util/error_codes.h"
@@ -35,8 +35,8 @@ out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
 
-static std::mutex g_memory_mux;
-static volatile bool g_memory_out_of_memory  = false;
+static mutex g_memory_mux;
+static atomic<bool> g_memory_out_of_memory(false);
 static bool       g_memory_initialized       = false;
 static long long  g_memory_alloc_size        = 0;
 static long long  g_memory_max_size          = 0;
@@ -55,10 +55,7 @@ void memory::exit_when_out_of_memory(bool flag, char const * msg) {
 }
 
 static void throw_out_of_memory() {
-    {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
-        g_memory_out_of_memory = true;
-    }
+    g_memory_out_of_memory = true;
 
     if (g_exit_when_out_of_memory) {
         std::cerr << g_out_of_memory_msg << "\n";
@@ -92,7 +89,7 @@ mem_usage_report g_info;
 void memory::initialize(size_t max_size) {
     bool initialize = false;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         // only update the maximum size if max_size != UINT_MAX
         if (max_size != UINT_MAX) 
             g_memory_max_size       = max_size;
@@ -116,12 +113,7 @@ void memory::initialize(size_t max_size) {
 }
 
 bool memory::is_out_of_memory() {
-    bool r = false;
-    {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
-        r = g_memory_out_of_memory;
-    }
-    return r;
+    return g_memory_out_of_memory;
 }
 
 void memory::set_high_watermark(size_t watermark) {
@@ -132,7 +124,7 @@ void memory::set_high_watermark(size_t watermark) {
 bool memory::above_high_watermark() {
     if (g_memory_watermark == 0)
         return false;
-    std::lock_guard<std::mutex> lock(g_memory_mux);
+    lock_guard lock(g_memory_mux);
     return g_memory_watermark < g_memory_alloc_size;
 }
 
@@ -161,7 +153,7 @@ void memory::finalize() {
 unsigned long long memory::get_allocation_size() {
     long long r;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         r = g_memory_alloc_size;
     }
     if (r < 0)
@@ -172,7 +164,7 @@ unsigned long long memory::get_allocation_size() {
 unsigned long long memory::get_max_used_memory() {
     unsigned long long r;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         r = g_memory_max_used_size;
     }
     return r;
@@ -256,7 +248,7 @@ static void synchronize_counters(bool allocating) {
     bool out_of_mem = false;
     bool counts_exceeded = false;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         g_memory_alloc_size += g_memory_thread_alloc_size;
         g_memory_alloc_count += g_memory_thread_alloc_count;
         if (g_memory_alloc_size > g_memory_max_used_size)
@@ -337,7 +329,7 @@ void memory::deallocate(void * p) {
     size_t sz      = *sz_p;
     void * real_p  = reinterpret_cast<void*>(sz_p);
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         g_memory_alloc_size -= sz;
     }
     free(real_p);
@@ -347,7 +339,7 @@ void * memory::allocate(size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
     bool out_of_mem = false, counts_exceeded = false;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         g_memory_alloc_size += s;
         g_memory_alloc_count += 1;
         if (g_memory_alloc_size > g_memory_max_used_size)
@@ -377,7 +369,7 @@ void* memory::reallocate(void *p, size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
     bool out_of_mem = false, counts_exceeded = false;
     {
-        std::lock_guard<std::mutex> lock(g_memory_mux);
+        lock_guard lock(g_memory_mux);
         g_memory_alloc_size += s - sz;
         g_memory_alloc_count += 1;
         if (g_memory_alloc_size > g_memory_max_used_size)

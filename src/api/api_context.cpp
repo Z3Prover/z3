@@ -119,18 +119,18 @@ namespace api {
 
     context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
         m_ctx(ctx) {
-        std::lock_guard<std::mutex> lock(ctx.m_mux);
+        lock_guard lock(ctx.m_mux);
         SASSERT(m_ctx.m_interruptable == 0);
         m_ctx.m_interruptable = &i;        
     }
 
     context::set_interruptable::~set_interruptable() {
-        std::lock_guard<std::mutex> lock(m_ctx.m_mux);
+        lock_guard lock(m_ctx.m_mux);
         m_ctx.m_interruptable = nullptr;        
     }
 
     void context::interrupt() {
-        std::lock_guard<std::mutex> lock(m_mux);
+        lock_guard lock(m_mux);
         if (m_interruptable)
             (*m_interruptable)(API_INTERRUPT_EH_CALLER);
         m_limit.cancel();

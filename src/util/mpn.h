@@ -27,9 +27,14 @@ Revision History:
 typedef unsigned int mpn_digit;
 
 class mpn_manager {
+#ifndef SINGLE_THREAD
     std::recursive_mutex m_lock;
-#define MPN_BEGIN_CRITICAL() m_lock.lock();
-#define MPN_END_CRITICAL() m_lock.unlock();
+#define MPN_BEGIN_CRITICAL() m_lock.lock()
+#define MPN_END_CRITICAL() m_lock.unlock()
+#else
+#define MPN_BEGIN_CRITICAL() {}
+#define MPN_END_CRITICAL()   {}
+#endif
 
 public:
     mpn_manager();

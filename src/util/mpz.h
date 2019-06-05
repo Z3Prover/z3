@@ -135,9 +135,14 @@ inline void swap(mpz & m1, mpz & m2) { m1.swap(m2); }
 template<bool SYNCH = true>
 class mpz_manager {
     mutable small_object_allocator  m_allocator;
-    mutable std::recursive_mutex         m_lock;
-#define MPZ_BEGIN_CRITICAL() if (SYNCH) m_lock.lock();
-#define MPZ_END_CRITICAL()   if (SYNCH) m_lock.unlock();
+#ifndef SINGLE_THREAD
+    mutable std::recursive_mutex    m_lock;
+#define MPZ_BEGIN_CRITICAL() if (SYNCH) m_lock.lock()
+#define MPZ_END_CRITICAL()   if (SYNCH) m_lock.unlock()
+#else
+#define MPZ_BEGIN_CRITICAL() {}
+#define MPZ_END_CRITICAL()   {}
+#endif
     mutable mpn_manager             m_mpn_manager;
 
 #ifndef _MP_GMP
@@ -702,7 +707,11 @@ public:
     bool decompose(mpz const & n, svector<digit_t> & digits);
 };
 
+#ifndef SINGLE_THREAD
 typedef mpz_manager<true> synch_mpz_manager;
+#else
+typedef mpz_manager<false> synch_mpz_manager;
+#endif
 typedef mpz_manager<false> unsynch_mpz_manager;
 
 typedef _scoped_numeral<unsynch_mpz_manager> scoped_mpz;

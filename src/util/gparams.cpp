@@ -19,9 +19,9 @@ Notes:
 #include "util/gparams.h"
 #include "util/dictionary.h"
 #include "util/trace.h"
-#include <mutex>
+#include "util/mutex.h"
 
-static std::mutex gparams_mux;
+static mutex gparams_mux;
 
 extern void gparams_register_modules();
 
@@ -113,7 +113,7 @@ public:
     }
 
     void reset() {
-        std::lock_guard<std::mutex> lock(gparams_mux);
+        lock_guard lock(gparams_mux);
         m_params.reset();
         for (auto & kv : m_module_params) {
             dealloc(kv.m_value);
@@ -329,7 +329,7 @@ public:
         bool error = false;
         std::string error_msg;
         {
-            std::lock_guard<std::mutex> lock(gparams_mux);
+            lock_guard lock(gparams_mux);
             try {
                 symbol m, p;
                 normalize(name, m, p);
@@ -381,7 +381,7 @@ public:
         bool error = false;
         std::string error_msg;
         {
-            std::lock_guard<std::mutex> lock(gparams_mux);
+            lock_guard lock(gparams_mux);
             try {
                 symbol m, p;
                 normalize(name, m, p);
@@ -428,7 +428,7 @@ public:
         params_ref result;
         params_ref * ps = nullptr;
         {
-            std::lock_guard<std::mutex> lock(gparams_mux);
+            lock_guard lock(gparams_mux);
             if (m_module_params.find(module_name, ps)) {
                 result.copy(*ps);
             }
@@ -448,7 +448,7 @@ public:
 
     void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) {
         {
-            std::lock_guard<std::mutex> lock(gparams_mux);
+            lock_guard lock(gparams_mux);
             out << "Global parameters\n";
             get_param_descrs().display(out, indent + 4, smt2_style, include_descr);
             out << "\n";
@@ -470,7 +470,7 @@ public:
     }
 
     void display_modules(std::ostream & out) {
-        std::lock_guard<std::mutex> lock(gparams_mux);
+        lock_guard lock(gparams_mux);
         for (auto & kv : get_module_param_descrs()) {
             out << "[module] " << kv.m_key;
             char const * descr = nullptr;
@@ -484,7 +484,7 @@ public:
     void display_module(std::ostream & out, symbol const & module_name) {
         bool error = false;
         std::string error_msg;
-        std::lock_guard<std::mutex> lock(gparams_mux);
+        lock_guard lock(gparams_mux);
         try {
             param_descrs * d = nullptr;
             if (!get_module_param_descrs().find(module_name, d)) {
@@ -513,7 +513,7 @@ public:
         bool error = false;
         std::string error_msg;
         {
-            std::lock_guard<std::mutex> lock(gparams_mux);
+            lock_guard lock(gparams_mux);
             try {
                 symbol m, p;
                 normalize(name, m, p);
