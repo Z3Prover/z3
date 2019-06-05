@@ -15,11 +15,14 @@ steps:
   inputs:
     secureFile: 'z3.snk'
 
+- script: dir
+
 - task: BatchScript@1
   displayName: 'run windist'
   inputs:
     filename: 'scripts/mk_win_dist.cmd'
 
+- script: dir
 - script: xcopy dist\z3-4.8.6-x86-win\*.zip bin\nightly\* /y
 - script: xcopy dist\z3-4.8.6-x64-win\*.zip bin\nightly\* /y
 - script: cd bin\nightly
