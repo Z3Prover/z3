@@ -11,7 +11,7 @@ steps:
     repositoryName: 'Z3Prover/bin'
     action: 'edit'
     target: '$(Build.SourceVersion)'
-    tag: 'nightly'
+    tag: 'Git tag'
     title: 'nightly'
     releaseNotesSource: 'input'
     releaseNotes: 'nightly build'
