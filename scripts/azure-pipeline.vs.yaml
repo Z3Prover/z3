@@ -17,5 +17,15 @@ steps:
 
 - script: scripts\mk_win_dist.cmd
 
-
+- task: GitHubRelease@0
+  inputs:
+    repositoryName: '$(Build.Repository.Name)'
+    action: 'edit'
+    target: '$(Build.SourceVersion)'
+    tag: 'nightly'
+    title: 'nightly'
+    releaseNotesSource: 'input'
+    releaseNotes: 'nightly build'
+    isDraft: true
+    isPreRelease: true
 
