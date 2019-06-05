@@ -4,7 +4,7 @@ pool:
 
 steps:
 
-- script: git clone https://github.com/z3prover/bin bin
+# - script: git clone https://github.com/z3prover/bin bin
   
 - task: DotNetCoreInstaller@0
   displayName: 'Use .NET Core sdk 2.1'
@@ -17,7 +17,8 @@ steps:
 
 - script: dir
 
-- script: call "C:\\Program\ Files\ (x86)\\Microsoft\ Visual\ Studio\\2017\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat"
+- script: 'C:\Program\ Files\ (x86)\\Microsoft\ Visual\ Studio\\2017\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat'
+
 
 - script: python scripts\mk_win_dist.py --x64-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
 
