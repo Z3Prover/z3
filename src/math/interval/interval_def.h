@@ -663,16 +663,6 @@ bool interval_manager<C>::check_invariant(interval const & n) const {
 }
 
 template<typename C>
-void interval_manager<C>::set(numeral const& k, interval & b) {
-    set_lower_is_inf(b, false);
-    set_upper_is_inf(b, false);
-    m().set(lower(b), k);
-    m().set(upper(b), k);
-    set_lower_is_open(b, false);
-    set_upper_is_open(b, false);
-}
-
-template<typename C>
 void interval_manager<C>::set(interval & t, interval const & s) {
     if (&t == &const_cast<interval&>(s))
         return;
@@ -692,6 +682,17 @@ void interval_manager<C>::set(interval & t, interval const & s) {
     }
     set_lower_is_open(t, lower_is_open(s));
     set_upper_is_open(t, upper_is_open(s));
+    SASSERT(check_invariant(t));
+}
+
+template<typename C>
+void interval_manager<C>::set(interval & t, numeral const& n) {
+    m().set(lower(t), n);
+    set_lower_is_inf(t, false);
+    m().set(upper(t), n);
+    set_upper_is_inf(t, false);    
+    set_lower_is_open(t, false);
+    set_upper_is_open(t, false);
     SASSERT(check_invariant(t));
 }
 

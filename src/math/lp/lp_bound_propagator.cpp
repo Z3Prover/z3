@@ -4,6 +4,7 @@
 */
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/nla_intervals.h"
 namespace lp {
 
 lp_bound_propagator::lp_bound_propagator(lar_solver & ls, nla::solver* nla):

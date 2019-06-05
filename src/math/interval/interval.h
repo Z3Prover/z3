@@ -197,6 +197,8 @@ public:
 
     void set(interval & t, interval const & s);
 
+    void set(interval & t, numeral const& n);
+
     bool eq(interval const & a, interval const & b) const;
 
     /**
@@ -233,11 +235,6 @@ public:
     void display_pp(std::ostream & out, interval const & n) const;
 
     bool check_invariant(interval const & n) const;
-
-    /**
-       \brief b <- k
-    */
-    void set(numeral const& k, interval & b);
 
     /**
        \brief b <- -a
