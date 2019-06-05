@@ -32,7 +32,7 @@ namespace nla {
 class solver {
     core* m_core;
 public:
-    void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
+    void add_monomial(lpvar v, unsigned sz, lpvar const* vs);
     
     solver(lp::lar_solver& s);
     ~solver();
@@ -42,5 +42,10 @@ public:
     bool need_check();
     lbool check(vector<lemma>&);
     std::ostream& display(std::ostream& out);
+    bool is_monomial_var(lpvar) const;
+    lp::impq get_lower_bound(lpvar j) const;
+    lp::impq get_upper_bound(lpvar j) const;
+    bool monomial_has_lower_bound(lpvar j) const;
+    bool monomial_has_upper_bound(lpvar j) const;
 };
 }

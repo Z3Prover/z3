@@ -96,7 +96,7 @@ public:
     lp::lar_term subs_terms_to_columns(const lp::lar_term& t) const;
     bool ineq_holds(const ineq& n) const;
     bool lemma_holds(const lemma& l) const;
-  
+    bool is_monomial_var(lpvar j) const { return m_emons.is_monomial_var(j); }
     rational val(lpvar j) const { return m_lar_solver.get_column_value_rational(j); }
 
     rational val(const monomial& m) const { return m_lar_solver.get_column_value_rational(m.var()); }
@@ -338,6 +338,10 @@ public:
     
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;
+    lp::impq get_upper_bound_of_monomial(lpvar j) const;
+    lp::impq get_lower_bound_of_monomial(lpvar j) const;
+    bool monomial_has_lower_bound(lpvar j) const;
+    bool monomial_has_upper_bound(lpvar j) const;
 };  // end of core
 
 struct pp_mon {

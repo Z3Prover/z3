@@ -41,7 +41,7 @@ Revision History:
 #include "math/lp/conversion_helper.h"
 #include "math/lp/int_solver.h"
 #include "math/lp/nra_solver.h"
-#include "math/lp/bound_propagator.h"
+#include "math/lp/lp_bound_propagator.h"
 
 namespace lp {
 
@@ -264,16 +264,16 @@ public:
     
     void analyze_new_bounds_on_row(
         unsigned row_index,
-        bound_propagator & bp);
+        lp_bound_propagator & bp);
 
     void analyze_new_bounds_on_row_tableau(
         unsigned row_index,
-        bound_propagator & bp);
+        lp_bound_propagator & bp);
 
     
     void substitute_basis_var_in_terms_for_row(unsigned i);
     
-    void calculate_implied_bounds_for_row(unsigned i, bound_propagator & bp);
+    void calculate_implied_bounds_for_row(unsigned i, lp_bound_propagator & bp);
 
     unsigned adjust_column_index_to_term_index(unsigned j) const;
 
@@ -313,19 +313,19 @@ public:
     }
     
     
-    void propagate_bounds_on_a_term(const lar_term& t, bound_propagator & bp, unsigned term_offset);
+    void propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator & bp, unsigned term_offset);
 
 
-    void explain_implied_bound(implied_bound & ib, bound_propagator & bp);
+    void explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp);
 
 
     bool term_is_used_as_row(unsigned term) const;
     
-    void propagate_bounds_on_terms(bound_propagator & bp);
+    void propagate_bounds_on_terms(lp_bound_propagator & bp);
 
 
     // goes over touched rows and tries to induce bounds
-    void propagate_bounds_for_touched_rows(bound_propagator & bp);
+    void propagate_bounds_for_touched_rows(lp_bound_propagator & bp);
 
     lp_status get_status() const;
 

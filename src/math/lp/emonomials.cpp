@@ -282,6 +282,7 @@ bool emonomials::is_visited(monomial const& m) const {
    class of equal up-to var_eqs monomials.
 */
 void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
+    TRACE("nla_solver", tout << "v = " << v << "\n";);
     unsigned idx = m_monomials.size();
     m_monomials.push_back(monomial(v, sz, vs, idx));
     lpvar last_var = UINT_MAX;

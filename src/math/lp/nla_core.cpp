@@ -1331,6 +1331,21 @@ lbool core::test_check(
     return check(l);
 }
 
+lp::impq core::get_upper_bound_of_monomial(lpvar j) const {
+    SASSERT(false);
+}
+
+lp::impq core::get_lower_bound_of_monomial(lpvar j) const {
+    SASSERT(false);
+}
+
+bool core::monomial_has_lower_bound(lpvar j) const {
+    SASSERT(false);
+}
+
+bool core::monomial_has_upper_bound(lpvar j) const {
+    SASSERT(false);
+}
 } // end of nla
 
 

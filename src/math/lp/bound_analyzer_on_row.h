@@ -21,7 +21,7 @@ Revision History:
 #include "util/vector.h"
 #include "implied_bound.h"
 #include "test_bound_analyzer.h"
-#include "math/lp/bound_propagator.h"
+#include "math/lp/lp_bound_propagator.h"
 // We have an equality : sum by j of row[j]*x[j] = rs
 // We try to pin a var by pushing the total by using the variable bounds
 // In a loop we drive the partial sum down, denoting the variables of this process by _u.
@@ -30,7 +30,7 @@ namespace lp {
 template <typename C> // C plays a role of a container
 class bound_analyzer_on_row {
     const C&                           m_row;
-    bound_propagator &                 m_bp;
+    lp_bound_propagator &               m_bp;
     unsigned                           m_row_or_term_index;
     int                                m_column_of_u; // index of an unlimited from above monoid
     // -1 means that such a value is not found, -2 means that at least two of such monoids were found
@@ -44,7 +44,7 @@ public :
         unsigned  bj, // basis column for the row
         const numeric_pair<mpq>& rs,
         unsigned row_or_term_index,
-        bound_propagator & bp
+        lp_bound_propagator & bp
                           )
         :
         m_row(it),
@@ -55,8 +55,6 @@ public :
         m_rs(rs)
     {}
 
-
-    unsigned j;
     void analyze() {
         for (const auto & c : m_row) {
             if ((m_column_of_l == -2) && (m_column_of_u == -2))
@@ -80,86 +78,53 @@ public :
     }
 
     bool upper_bound_is_available(unsigned j) const {
-        switch (m_bp.get_column_type(j))
-            {
-            case column_type::fixed:
-            case column_type::boxed:
-            case column_type::upper_bound:
-                return true;
-            default:
-                return false;
-            }
+	return m_bp.upper_bound_is_available(j);
     }
 
     bool lower_bound_is_available(unsigned j) const {
-        switch (m_bp.get_column_type(j))
-            {
-            case column_type::fixed:
-            case column_type::boxed:
-            case column_type::lower_bound:
-                return true;
-            default:
-                return false;
-            }
+        return m_bp.lower_bound_is_available(j);
     }
 
-    const impq & ub(unsigned j) const {
+    impq ub(unsigned j) const {
         lp_assert(upper_bound_is_available(j));
         return m_bp.get_upper_bound(j);
     }
-    const impq & lb(unsigned j) const {
+    impq lb(unsigned j) const {
         lp_assert(lower_bound_is_available(j));
         return m_bp.get_lower_bound(j);
     }
 
+    mpq u_strict(unsigned j, bool & strict) const {
+    	const impq u = ub(j);
+        strict = !is_zero(u.y);
+        return u.x;
+    }
 
-    const mpq & monoid_max_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
-        if (a_is_pos) {
-            strict = !is_zero(ub(j).y);
-            return ub(j).x;
-        }
-        strict = !is_zero(lb(j).y);
-        return lb(j).x;
+    mpq l_strict(unsigned j, bool & strict) const {
+        const impq l = lb(j);
+        strict = !is_zero(l.y);
+        return l.x;
+    }
+
+    mpq monoid_max_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
+        return a_is_pos? u_strict(j, strict) : l_strict(j, strict);
     }
     mpq monoid_max(const mpq & a, unsigned j) const {
-        if (is_pos(a)) {
-            return a * ub(j).x;
-        }
-        return a * lb(j).x;
+        return a * (is_pos(a) ? ub(j).x : lb(j).x);
     }
     mpq monoid_max(const mpq & a, unsigned j, bool & strict) const {
-        if (is_pos(a)) {
-            strict = !is_zero(ub(j).y);
-            return a * ub(j).x;
-        }
-        strict = !is_zero(lb(j).y);
-        return a * lb(j).x;
+        return a * (is_pos(a)? u_strict(j, strict) : l_strict(j, strict));
     }
-    const mpq & monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
-        if (!a_is_pos) {
-            strict = !is_zero(ub(j).y);
-            return ub(j).x;
-        }
-        strict = !is_zero(lb(j).y);
-        return lb(j).x;
+    mpq monoid_min_no_mult(bool a_is_pos, unsigned j, bool & strict) const {
+        return a_is_pos? l_strict(j, strict) : u_strict(j, strict);
     }
 
     mpq monoid_min(const mpq & a, unsigned j, bool& strict) const {
-        if (is_neg(a)) {
-            strict = !is_zero(ub(j).y);
-            return a * ub(j).x;
-        }
-        
-        strict = !is_zero(lb(j).y);
-        return a * lb(j).x;
+        return a * (is_neg(a)? u_strict(j, strict) : l_strict(j, strict));
     }
 
     mpq monoid_min(const mpq & a, unsigned j) const {
-        if (is_neg(a)) {
-            return a * ub(j).x;
-        }
-        
-        return a * lb(j).x;
+        return a * (is_neg(a)? ub(j).x : lb(j).x );
     }
     
 
@@ -338,7 +303,7 @@ public :
                             unsigned bj, // basis column for the row
                             const numeric_pair<mpq>& rs,
                             unsigned row_or_term_index,
-                            bound_propagator & bp
+                            lp_bound_propagator & bp
                             ) {
         bound_analyzer_on_row a(row, bj, rs, row_or_term_index, bp);
         a.analyze();
