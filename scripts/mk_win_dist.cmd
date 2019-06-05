@@ -6,6 +6,18 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliar
 
 python scripts\mk_win_dist.py --x86-only --dotnet-key=$(Agent.TempDirectory)\z3.snk
 
+<<<<<<< HEAD
+xcopy dist\*.zip bin\nightly\* /y
+
+cd bin\nightly
+
+git add *.zip
+
+git commit -s -a -m "nightly Windows"
+
+git push
+=======
 
 
+>>>>>>> cdad6f3f977cd32c77909073ddba935e4ae2ae37
 
