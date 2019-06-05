@@ -460,13 +460,13 @@ namespace upolynomial {
         bool eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2);
         bool eq(numeral_vector const & p1, numeral_vector const & p2) { return eq(p1.size(), p1.c_ptr(), p2.size(), p2.c_ptr()); }
 
-        void display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const;
-        void display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { display(out, p.size(), p.c_ptr(), var_name); }
-        void display_star(std::ostream & out, unsigned sz, numeral const * p) { display(out, sz, p, "x", true); }
-        void display_star(std::ostream & out, numeral_vector const & p) { display_star(out, p.size(), p.c_ptr()); }
+        std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const;
+        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { return display(out, p.size(), p.c_ptr(), var_name); }
+        std::ostream& display_star(std::ostream & out, unsigned sz, numeral const * p) { return display(out, sz, p, "x", true); }
+        std::ostream& display_star(std::ostream & out, numeral_vector const & p) { return display_star(out, p.size(), p.c_ptr()); }
 
-        void display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
-        void display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
+        std::ostream& display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x") const;
+        std::ostream& display_smt2(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
             return display_smt2(out, p.size(), p.c_ptr(), var_name); 
         }
     };
@@ -908,13 +908,13 @@ namespace upolynomial {
         bool factor(unsigned sz, numeral const * p, factors & r, factor_params const & params = factor_params());
         bool factor(numeral_vector const & p, factors & r, factor_params const & params = factor_params()) { return factor(p.size(), p.c_ptr(), r, params); }
 
-        void display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const { 
+        std::ostream& display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name = "x", bool use_star = false) const { 
             return core_manager::display(out, sz, p, var_name); 
         }
-        void display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
+        std::ostream& display(std::ostream & out, numeral_vector const & p, char const * var_name = "x") const { 
             return core_manager::display(out, p, var_name); 
         }
-        void display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name = "x") const;
+        std::ostream& display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name = "x") const;
     };
 
 };
