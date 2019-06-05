@@ -15,14 +15,7 @@ steps:
   inputs:
     secureFile: 'z3.snk'
 
-- script: dir
 - script: scripts\mk_win_dist.cmd
-- script: dir
-- script: dir dist
-- script: xcopy dist\*.zip bin\nightly\* /y
-- script: cd bin\nightly
-- script: git add *.zip
-- script: git commit -s -a 
-- script: git push
+
 
 
