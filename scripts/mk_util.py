@@ -111,6 +111,7 @@ GIT_HASH=False
 GIT_DESCRIBE=False
 SLOW_OPTIMIZE=False
 LOG_SYNC=False
+SINGLE_THREADED=False
 GUARD_CF=False
 ALWAYS_DYNAMIC_BASE=False
 
@@ -646,6 +647,7 @@ def display_help(exit_code):
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
     print("  --log-sync                    synchronize access to API log files to enable multi-thread API logging.")
+    print("  --single-threaded             non-thread-safe build")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -672,14 +674,14 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
-    global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC
+    global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
-                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -745,6 +747,8 @@ def parse_options():
             JS_ENABLED = True
         elif opt in ('', '--log-sync'):
             LOG_SYNC = True
+        elif opt == '--single-threaded':
+            SINGLE_THREADED = True
         elif opt in ('--python'):
             PYTHON_ENABLED = True
             PYTHON_INSTALL_ENABLED = True
@@ -2404,7 +2408,7 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
-    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC
+    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
     if IS_WINDOWS:
         config.write(
             'CC=cl\n'
@@ -2426,6 +2430,8 @@ def mk_config():
         link_extra_opt = ''
         if LOG_SYNC:
             extra_opt = '%s /DZ3_LOG_SYNC' % extra_opt
+        if SINGLE_THREADED:
+            extra_opt = '%s /DSINGLE_THREAD' % extra_opt
         if GIT_HASH:
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if GUARD_CF:
@@ -2525,6 +2531,8 @@ def mk_config():
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
         if LOG_SYNC:
             CXXFLAGS = '%s -DZ3_LOG_SYNC' % CXXFLAGS
+        if SINGLE_THREADED:
+            CXXFLAGS = '%s -DSINGLE_THREAD' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
