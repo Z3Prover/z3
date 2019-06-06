@@ -3,7 +3,18 @@ pool:
 
 steps:
 
-- script: echo "test" > $(Build.ArtifactStagingDirectory)/ping.txt
+- task: DotNetCoreInstaller@0
+  displayName: 'Use .NET Core sdk 2.1'
+  inputs:
+    version: 2.1.300
+
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: 'z3.snk'
+
+- script: scripts\mk_win_dist.cmd
+
+- script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
 
 - task: GitHubRelease@0
   inputs:
@@ -13,22 +24,12 @@ steps:
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
     tag: '$(Build.SourceVersion)'
-    title: 'nightly'
+    title: 'Nightly Windows'
     releaseNotesSource: 'input'
     releaseNotes: 'nightly build'
     isDraft: true
     isPreRelease: true
 
-# - script: git clone https://github.com/z3prover/bin bin
 
-# - task: DotNetCoreInstaller@0
-#  displayName: 'Use .NET Core sdk 2.1'
-#  inputs:
-#    version: 2.1.300
 
-# - task: DownloadSecureFile@1
-#  inputs:
-#    secureFile: 'z3.snk'
-
-# - script: scripts\mk_win_dist.cmd
 
