@@ -55,7 +55,7 @@ void solver::pop(unsigned n) {
     }
 
         
-solver::solver(lp::lar_solver& s): m_core(alloc(core, s)), m_intervals(m_core, m_res_limit, s)  {
+solver::solver(lp::lar_solver& s): m_core(alloc(core, s)), m_intervals(m_core, m_res_limit)  {
 }
 
 solver::~solver() {
