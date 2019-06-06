@@ -27,8 +27,8 @@
 namespace nla {
     class core;
 
-    class intervals : common {
-
+    class intervals {
+        core * m_core;
         class ci_value_manager {
         public:
             void inc_ref(lp::constraint_index const & v) {
@@ -138,7 +138,7 @@ namespace nla {
         im_config                   m_config;
         interval_manager<im_config> m_imanager;
         region                      m_region;
-        lp::lar_solver&             m_solver;
+        //   lp::lar_solver&             m_solver;
 
         typedef interval_manager<im_config>::interval interval;
 
@@ -151,8 +151,12 @@ namespace nla {
         bool check(lp::lar_term const& t);
 
     public:
-        intervals(core* c);
+        intervals(core* c) : m_core(c) {}
         bool check();
+        bool monomial_has_lower_bound(lpvar j) const;
+        bool monomial_has_upper_bound(lpvar j) const;
+        bool product_has_upper_bound(int sign, const svector<lpvar>&) const;
+        lp::impq get_upper_bound_of_monomial(lpvar j) const;
+        lp::impq get_lower_bound_of_monomial(lpvar j) const;
     };
-    
 } // end of namespace nla
