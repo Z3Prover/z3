@@ -142,7 +142,6 @@ namespace nla {
         im_config                   m_config;
         interval_manager<im_config> m_imanager;
         region                      m_region;
-        lp::lar_solver&             m_solver;
 
         typedef interval_manager<im_config>::interval interval;
 
@@ -153,15 +152,14 @@ namespace nla {
         ci_dependency* mk_dep(lp::constraint_index ci);
 
         bool check(lp::lar_term const& t);
-
+        lp::lar_solver& ls();
     public:
-        intervals(core* c, reslimit& lim, lp::lar_solver& s) : 
+        intervals(core* c, reslimit& lim) : 
             m_core(c), 
             m_alloc("intervals"),
             m_dep_manager(m_val_manager, m_alloc),
             m_config(m_num_manager, m_dep_manager),
-            m_imanager(lim, im_config(m_num_manager, m_dep_manager)),
-            m_solver(s)
+            m_imanager(lim, im_config(m_num_manager, m_dep_manager))
         {}
         bool check();
         bool monomial_has_lower_bound(lpvar j) const;
