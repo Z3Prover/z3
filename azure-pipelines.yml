@@ -11,11 +11,11 @@ jobs:
         cd build
         make
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3.exe z3test/regressions/smt2
+    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
     - script: |
         cd build
         make cpp_example
-        cpp_example.exe
+        ./cpp_example
         make java_example
         make dotnet_example
         make test-z3
