@@ -338,10 +338,6 @@ public:
     
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;
-    lp::impq get_upper_bound_of_monomial(lpvar j) const;
-    lp::impq get_lower_bound_of_monomial(lpvar j) const;
-    bool monomial_has_lower_bound(lpvar j) const;
-    bool monomial_has_upper_bound(lpvar j) const;
 };  // end of core
 
 struct pp_mon {

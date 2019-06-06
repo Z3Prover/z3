@@ -6,17 +6,17 @@
 namespace nla {
     
     bool intervals::check() {
-        m_region.reset();
-        for (auto const& m : c().emons()) {
-            if (!check(m)) {
-                return false;
-            }
-        }
-        for (auto const& t : m_solver.terms()) {
-            if (!check(*t)) {
-                return false;
-            }
-        }
+        // m_region.reset();
+        // for (auto const& m : m_core->emons()) {
+        //     if (!check(m)) {
+        //         return false;
+        //     }
+        // }
+        // for (auto const& t : m_solver.terms()) {
+        //     if (!check(*t)) {
+        //         return false;
+        //     }
+        // }
         return true;
     }
 
@@ -104,4 +104,27 @@ namespace nla {
         // convert term into factors for improved precision
         return true;
     }
+
+lp::impq intervals::get_upper_bound_of_monomial(lpvar j) const {
+    SASSERT(false);
+}
+
+lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
+    SASSERT(false);
+}
+
+bool intervals::product_has_upper_bound(int sign, const svector<lpvar>&) const {
+    interval a;
+    
+}
+
+bool intervals::monomial_has_lower_bound(lpvar j) const {
+    const monomial& m = m_core->emons()[j];
+    return product_has_upper_bound(1, m.vars());
+}
+
+bool intervals::monomial_has_upper_bound(lpvar j) const {
+    const monomial& m = m_core->emons()[j];
+    return product_has_upper_bound(-1, m.vars());
+}
 }
