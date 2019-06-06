@@ -2375,7 +2375,7 @@ public:
                 m_params.reset();
                 m_explanation.clear();
                 local_bound_propagator bp(*this);
-                lp().explain_implied_bound(be, bp);
+                bp.explain_implied_bound(be);
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
