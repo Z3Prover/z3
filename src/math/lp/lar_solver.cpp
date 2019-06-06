@@ -240,6 +240,7 @@ void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator &
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;
         const ul_pair & ul =  m_columns_to_ul_pairs[j];
+        // todo : process witnesses from monomials!!!!!!!!!!!!!!!!!!!!!
         auto witness = sign > 0? ul.upper_bound_witness(): ul.lower_bound_witness();
         lp_assert(is_valid(witness));
         bp.consume(a, witness);
