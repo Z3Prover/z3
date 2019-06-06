@@ -225,29 +225,6 @@ void lar_solver::propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagat
 }
 
 
-void lar_solver::explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp) {
-    unsigned i = ib.m_row_or_term_index;
-    int bound_sign = ib.m_is_lower_bound? 1: -1;
-    int j_sign = (ib.m_coeff_before_j_is_pos ? 1 :-1) * bound_sign;
-    unsigned bound_j = ib.m_j;
-    if (is_term(bound_j)) {
-        bound_j = m_var_register.external_to_local(bound_j);
-    }
-    for (auto const& r : A_r().m_rows[i]) {
-        unsigned j = r.var();
-        if (j == bound_j) continue;
-        mpq const& a = r.get_val();
-        int a_sign = is_pos(a)? 1: -1;
-        int sign = j_sign * a_sign;
-        const ul_pair & ul =  m_columns_to_ul_pairs[j];
-        // todo : process witnesses from monomials!!!!!!!!!!!!!!!!!!!!!
-        auto witness = sign > 0? ul.upper_bound_witness(): ul.lower_bound_witness();
-        lp_assert(is_valid(witness));
-        bp.consume(a, witness);
-    }
-    // lp_assert(implied_bound_is_correctly_explained(ib, explanation));
-}
-
 
 bool lar_solver::term_is_used_as_row(unsigned term) const {
     lp_assert(is_term(term));
