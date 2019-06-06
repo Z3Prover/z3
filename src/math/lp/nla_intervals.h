@@ -172,5 +172,6 @@ namespace nla {
         bool product_has_upper_bound(int sign, const svector<lpvar>&) const;
         lp::impq get_upper_bound_of_monomial(lpvar j) const;
         lp::impq get_lower_bound_of_monomial(lpvar j) const;
+        interval mul(int sign, const svector<lpvar>&) const;
     };
 } // end of namespace nla
