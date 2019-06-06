@@ -23,7 +23,7 @@ steps:
     action: 'create'
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
-    tag: 'Ubuntu$(Build.SourceVersion)'
+    tag: 'NightlyUbuntu'
     title: 'Nightly Ubuntu'
     releaseNotesSource: 'input'
     releaseNotes: 'nightly build'
