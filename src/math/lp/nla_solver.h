@@ -33,6 +33,7 @@ namespace nla {
 // nonlinear integer incremental linear solver
 class solver {
     core* m_core;
+    reslimit m_res_limit;
     intervals m_intervals;
 public:
     void add_monomial(lpvar v, unsigned sz, lpvar const* vs);

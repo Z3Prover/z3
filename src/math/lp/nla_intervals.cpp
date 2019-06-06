@@ -107,15 +107,17 @@ namespace nla {
 
 lp::impq intervals::get_upper_bound_of_monomial(lpvar j) const {
     SASSERT(false);
+    throw;
 }
 
 lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
     SASSERT(false);
+    throw;
 }
 
 bool intervals::product_has_upper_bound(int sign, const svector<lpvar>&) const {
     interval a;
-    
+    throw;
 }
 
 bool intervals::monomial_has_lower_bound(lpvar j) const {

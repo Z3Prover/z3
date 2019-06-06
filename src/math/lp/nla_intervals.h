@@ -19,6 +19,7 @@
   --*/
 #pragma once
 #include "util/dependency.h"
+#include "util/small_object_allocator.h"
 #include "math/lp/nla_common.h"
 #include "math/lp/lar_solver.h"
 #include "math/interval/interval.h"
@@ -134,11 +135,14 @@ namespace nla {
             }
         };
 
-        ci_dependency_manager        m_dep_manager;
+        small_object_allocator      m_alloc;
+        ci_value_manager            m_val_manager;
+        unsynch_mpq_manager         m_num_manager;
+        ci_dependency_manager       m_dep_manager;
         im_config                   m_config;
         interval_manager<im_config> m_imanager;
         region                      m_region;
-        //   lp::lar_solver&             m_solver;
+        lp::lar_solver&             m_solver;
 
         typedef interval_manager<im_config>::interval interval;
 
@@ -151,7 +155,14 @@ namespace nla {
         bool check(lp::lar_term const& t);
 
     public:
-        intervals(core* c) : m_core(c) {}
+        intervals(core* c, reslimit& lim, lp::lar_solver& s) : 
+            m_core(c), 
+            m_alloc("intervals"),
+            m_dep_manager(m_val_manager, m_alloc),
+            m_config(m_num_manager, m_dep_manager),
+            m_imanager(lim, im_config(m_num_manager, m_dep_manager)),
+            m_solver(s)
+        {}
         bool check();
         bool monomial_has_lower_bound(lpvar j) const;
         bool monomial_has_upper_bound(lpvar j) const;
