@@ -1,18 +1,6 @@
 
 jobs:
 
-- job: "Windows"
-  displayName: "Windows build"
-  pool:
-    vmImage: "vs2017-win2016"
-  steps:
-    - task: DotNetCoreInstaller@0
-      displayName: 'Use .NET Core sdk 2.1'
-      inputs:
-        version: 2.1.300
-    - script: scripts\vsts-vs2017.cmd x64
-    - script: scripts\vsts-vs2013.cmd
-
 - job: "LinuxPython"
   displayName: "Ubuntu build - python make"
   pool:
@@ -23,7 +11,6 @@ jobs:
       inputs:
         version: 2.1.300
     # TBD add steps for building and testing
-
 
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
@@ -36,6 +23,19 @@ jobs:
         version: 2.1.300
     # TBD add steps for building and testing
     # debug/release/asan/ubsan/
+
+- job: "Windows2017"
+  displayName: "Windows 2017 build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+    - task: DotNetCoreInstaller@0
+      displayName: 'Use .NET Core sdk 2.1'
+      inputs:
+        version: 2.1.300
+    - script: scripts\vsts-vs2017.cmd x64
+
+
 
 # TBD add job for Mac build/test 
 
