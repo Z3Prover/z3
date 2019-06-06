@@ -1075,6 +1075,7 @@ void cmd_context::mk_app(symbol const & s, unsigned num_args, expr * const * arg
               tout << "body:\n" << mk_ismt2_pp(_t, m()) << "\n";
               tout << "args:\n"; for (unsigned i = 0; i < num_args; i++) tout << mk_ismt2_pp(args[i], m()) << "\n" << mk_pp(m().get_sort(args[i]), m()) << "\n";);
         var_subst subst(m());
+        scoped_rlimit no_limit(m().limit(), 0);
         result = subst(_t, num_args, args);
         if (well_sorted_check_enabled() && !is_well_sorted(m(), result))
             throw cmd_exception("invalid macro application, sort mismatch ", s);
@@ -1337,6 +1338,7 @@ void cmd_context::reset(bool finalize) {
 }
 
 void cmd_context::assert_expr(expr * t) {
+    scoped_rlimit no_limit(m().limit(), 0);
     m_processing_pareto = false;
     if (!m_check_logic(t))
         throw cmd_exception(m_check_logic.get_last_error());
@@ -1357,6 +1359,8 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
         assert_expr(t);
         return;
     }
+    scoped_rlimit no_limit(m().limit(), 0);
+
     m_check_sat_result = nullptr;
     m().inc_ref(t);
     m_assertions.push_back(t);
