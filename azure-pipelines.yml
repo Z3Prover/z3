@@ -6,33 +6,40 @@ jobs:
   pool:
     vmImage: "Ubuntu-16.04"
   steps:
-    - script: python scripts/mk_make.py -d
+    - script: python scripts/mk_make.py -d --java --dotnet
     - script: |
         cd build
         make
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2
-    - script: |
-        cd build
-        make cpp_example
+        make examples
+        ls
         ./cpp_example
-        make java_example
-        make dotnet_example
+        ./c_example
         make test-z3
-        test-z3 -a
+        ./test-z3 -a      
+        cd ..     
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
 
+
+# TBD: specify a matrix of options that are used in the cmake line.
 
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
   pool:
     vmImage: "Ubuntu-16.04"
   steps:
-    - task: DotNetCoreInstaller@0
-      displayName: 'Use .NET Core sdk 2.1'
-      inputs:
-        version: 2.1.300
-    # TBD add steps for building and testing
-    # debug/release/asan/ubsan/
+    - script: |
+        mkdir build
+        cd build
+        CC=clang CXX=clang++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -G "Ninja" ../
+        ninja
+        ninja test-z3
+        ninja examples
+        ./test-z3 -a
+        cd ..
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
+
 
 - job: "Windows2017"
   displayName: "Windows 2017 build"
@@ -40,8 +47,6 @@ jobs:
     vmImage: "vs2017-win2016"
   steps:
     - script: scripts\vsts-vs2017.cmd x64
-
-
 
 # TBD add job for Mac build/test 
 
