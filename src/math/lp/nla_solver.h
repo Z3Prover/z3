@@ -26,11 +26,14 @@ Revision History:
 #include "math/lp/lar_solver.h"
 #include "math/lp/monomial.h"
 #include "math/lp/nla_core.h"
+#include "math/lp/nla_intervals.h"
+
 namespace nla {
 
 // nonlinear integer incremental linear solver
 class solver {
     core* m_core;
+    intervals m_intervals;
 public:
     void add_monomial(lpvar v, unsigned sz, lpvar const* vs);
     

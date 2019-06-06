@@ -24,6 +24,7 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/nla_intervals.h"
 namespace nla {
 
 // returns the monomial index
@@ -54,28 +55,27 @@ void solver::pop(unsigned n) {
     }
 
         
-solver::solver(lp::lar_solver& s) {
-    m_core = alloc(core, s);
+solver::solver(lp::lar_solver& s): m_core(alloc(core, s)), m_intervals(m_core)  {
 }
 
 solver::~solver() {
     dealloc(m_core);
 }
 lp::impq solver::get_upper_bound(lpvar j) const {
-    SASSERT(is_monomial_var(j) && m_core->monomial_has_upper_bound(j));    
-    return m_core->get_upper_bound_of_monomial(j);
+    SASSERT(is_monomial_var(j) && m_intervals.monomial_has_upper_bound(j));    
+    return m_intervals.get_upper_bound_of_monomial(j);
 }
 
 lp::impq solver::get_lower_bound(lpvar j) const {
-    SASSERT(is_monomial_var(j) && m_core->monomial_has_lower_bound(j));
-    return m_core->get_lower_bound_of_monomial(j);
+    SASSERT(is_monomial_var(j) && m_intervals.monomial_has_lower_bound(j));
+    return m_intervals.get_lower_bound_of_monomial(j);
 }
 
 bool solver::monomial_has_lower_bound(lpvar j) const {
-    return m_core->monomial_has_lower_bound(j);
+    return m_intervals.monomial_has_lower_bound(j);
 }
 bool solver::monomial_has_upper_bound(lpvar j) const {
-    return m_core->monomial_has_upper_bound(j);
+    return m_intervals.monomial_has_upper_bound(j);
 }
 
 }
