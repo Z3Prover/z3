@@ -32,6 +32,7 @@ public:
                                       lp::lconstraint_kind kind,
                                       const rational & bval) {return true;}
     unsigned number_of_found_bounds() const { return m_ibounds.size(); }
+    void explain_implied_bound(implied_bound & ib);
     virtual void consume(mpq const& v, lp::constraint_index j) = 0;
 };
 }
