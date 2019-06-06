@@ -11,7 +11,7 @@ steps:
   inputs:
     secureFile: 'z3.snk'
 
-- script: scripts\vsts-vs2017.cmd    
+- script: scripts\vsts-vs2017.cmd x64
 
 - script: scripts\vsts-vs2013.cmd
 
