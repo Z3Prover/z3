@@ -28,6 +28,7 @@ jobs:
   pool:
     vmImage: "Ubuntu-16.04"
   steps:
+    - script: sudo apt-get install ninja-build
     - script: |
         mkdir build
         cd build
