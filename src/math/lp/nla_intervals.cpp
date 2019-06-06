@@ -4,7 +4,7 @@
 #include "math/interval/interval_def.h"
 #include "math/lp/nla_intervals.h"
 namespace nla {
-    
+
     bool intervals::check() {
         // m_region.reset();
         // for (auto const& m : m_core->emons()) {
@@ -130,3 +130,4 @@ bool intervals::monomial_has_upper_bound(lpvar j) const {
     return product_has_upper_bound(-1, m.vars());
 }
 }
+template class interval_manager<nla::intervals::im_config>;
