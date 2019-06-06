@@ -69,7 +69,7 @@ bool intervals::check(monomial const& m) {
     return true;
 }
 
-void intervals::set_interval(lpvar v, interval& b) {
+void intervals::set_interval(lpvar v, interval& b) const {
     lp::constraint_index ci;
     rational val;
     bool is_strict;
@@ -96,8 +96,38 @@ void intervals::set_interval(lpvar v, interval& b) {
         b.m_upper_dep = nullptr;
     }
 }
+
+rational sign(const rational& v) { return v.is_zero()? v : (rational(v.is_pos()? 1 : -1)); }
+
+void intervals::set_interval_signs(lpvar v, interval& b) const {
+    lp::constraint_index ci;
+    rational val;
+    bool is_strict;
+    if (ls().has_lower_bound(v, ci, val, is_strict)) {            
+        m_config.set_lower(b, sign(val));
+        m_config.set_lower_is_open(b, is_strict);
+        m_config.set_lower_is_inf(b, false);
+        b.m_lower_dep = mk_dep(ci);
+    }
+    else {
+        m_config.set_lower_is_open(b, true);
+        m_config.set_lower_is_inf(b, true);
+        b.m_lower_dep = nullptr;
+    }
+    if (ls().has_upper_bound(v, ci, val, is_strict)) {
+        m_config.set_upper(b, sign(val));
+        m_config.set_upper_is_open(b, is_strict);
+        m_config.set_upper_is_inf(b, false);
+        b.m_upper_dep = mk_dep(ci);
+    }
+    else {
+        m_config.set_upper_is_open(b, true);
+        m_config.set_upper_is_inf(b, true);
+        b.m_upper_dep = nullptr;
+    }
+}
     
-intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) {
+intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }
     
@@ -116,14 +146,30 @@ lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
     throw;
 }
 
-bool intervals::product_has_upper_bound(int sign, const svector<lpvar>&) const {
+bool intervals::product_has_upper_bound(int sign, const svector<lpvar>& vars) const {
     interval a;
-    SASSERT(false);
+    m_imanager.set(a, rational(sign).to_mpq());
+    
+    for (lpvar j : vars) {
+        interval b, c;
+        set_interval_signs(j, b);
+        m_imanager.mul(a, b, c);
+        if (m_imanager.is_zero(c)) {
+            TRACE("nla_intervals", tout << "sign = " << sign << "\nproduct = ";
+                  m_core->print_product_with_vars(vars, tout) << "collapsed to zero\n";);
+            return true;
+        }
+        m_imanager.set(a, c);
+    }
+    TRACE("nla_intervals", tout << "sign = " << sign << "\nproduct = ";
+          m_core->print_product_with_vars(vars, tout) << "has lower bound = " << 
+          !m_imanager.upper_is_inf(a) << "\n";);
+    return !m_imanager.upper_is_inf(a);
 }
 
 bool intervals::monomial_has_lower_bound(lpvar j) const {
     const monomial& m = m_core->emons()[j];
-    return product_has_upper_bound(1, m.vars());
+    return product_has_upper_bound(-1, m.vars());
 }
 
 bool intervals::monomial_has_upper_bound(lpvar j) const {
@@ -131,5 +177,6 @@ bool intervals::monomial_has_upper_bound(lpvar j) const {
     return product_has_upper_bound(-1, m.vars());
 }
 lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
+const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
 }
 template class interval_manager<nla::intervals::im_config>;
