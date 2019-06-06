@@ -57,8 +57,9 @@ impq lp_bound_propagator::get_lower_bound(unsigned j) const {
         const impq& l = m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j];
         if (!(m_nla_solver && m_nla_solver->is_monomial_var(j)))
             return l;
-        if (! m_nla_solver->monomial_has_lower_bound(j))
+        if (m_nla_solver->monomial_has_lower_bound(j))
             return std::max(l,  m_nla_solver->get_lower_bound(j));
+        return l;
     }
     return m_nla_solver->get_lower_bound(j);
 }
@@ -67,10 +68,11 @@ impq lp_bound_propagator::get_upper_bound(unsigned j) const {
     lp_assert(upper_bound_is_available(j));
     if (upper_bound_is_available_for_column(j)) {
         const impq& l = m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
-        if (!(m_nla_solver && m_nla_solver->is_monomial_var(j)))
+        if (!(m_nla_solver && m_nla_solver->is_monomial_var(j))) 
             return l;
-        if (! m_nla_solver->monomial_has_upper_bound(j))
+        if (m_nla_solver->monomial_has_upper_bound(j))
             return std::min(l, m_nla_solver->get_upper_bound(j));
+        return l;
     }
     return m_nla_solver->get_upper_bound(j);
 }
