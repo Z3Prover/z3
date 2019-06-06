@@ -20,6 +20,7 @@ Revision History:
 
 #include "util/vector.h"
 
+
 class reslimit {
     volatile unsigned   m_cancel;
     bool            m_suspend;

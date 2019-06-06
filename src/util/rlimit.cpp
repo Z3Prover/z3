@@ -87,7 +87,6 @@ void reslimit::cancel() {
     set_cancel(m_cancel+1);    
 }
 
-
 void reslimit::reset_cancel() {
     lock_guard lock(g_rlimit_mux);
     set_cancel(0);    
@@ -97,7 +96,6 @@ void reslimit::inc_cancel() {
     lock_guard lock(g_rlimit_mux);
     set_cancel(m_cancel+1);    
 }
-
 
 void reslimit::dec_cancel() {
     lock_guard lock(g_rlimit_mux);
