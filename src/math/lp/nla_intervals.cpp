@@ -137,33 +137,44 @@ bool intervals::check(lp::lar_term const& t) {
 }
 
 lp::impq intervals::get_upper_bound_of_monomial(lpvar j) const {
-    SASSERT(false);
-    throw;
+    const monomial& m = m_core->emons()[j];
+    interval a = mul(1, m.vars());
+    
+    auto r = lp::impq(a.m_upper);
+    if (a.m_upper_open)
+        r.y = -1;
+    return r;
 }
-
 lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
-    SASSERT(false);
-    throw;
+    const monomial& m = m_core->emons()[j];
+    interval a = mul(1, m.vars());
+    
+    auto r = lp::impq(a.m_lower);
+    if (a.m_lower_open)
+        r.y = 1;
+    return r;
 }
 
-bool intervals::product_has_upper_bound(int sign, const svector<lpvar>& vars) const {
+intervals::interval intervals::mul(int sign, const svector<lpvar>& vars) const {
     interval a;
     m_imanager.set(a, rational(sign).to_mpq());
     
     for (lpvar j : vars) {
         interval b, c;
-        set_interval_signs(j, b);
+        set_interval(j, b);
         m_imanager.mul(a, b, c);
         if (m_imanager.is_zero(c)) {
             TRACE("nla_intervals", tout << "sign = " << sign << "\nproduct = ";
                   m_core->print_product_with_vars(vars, tout) << "collapsed to zero\n";);
-            return true;
+            return c;
         }
         m_imanager.set(a, c);
     }
-    TRACE("nla_intervals", tout << "sign = " << sign << "\nproduct = ";
-          m_core->print_product_with_vars(vars, tout) << "has lower bound = " << 
-          !m_imanager.upper_is_inf(a) << "\n";);
+    return a;
+}
+
+bool intervals::product_has_upper_bound(int sign, const svector<lpvar>& vars) const {
+    interval a = mul(sign, vars);
     return !m_imanager.upper_is_inf(a);
 }
 
@@ -174,7 +185,7 @@ bool intervals::monomial_has_lower_bound(lpvar j) const {
 
 bool intervals::monomial_has_upper_bound(lpvar j) const {
     const monomial& m = m_core->emons()[j];
-    return product_has_upper_bound(-1, m.vars());
+    return product_has_upper_bound(1, m.vars());
 }
 lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
 const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
