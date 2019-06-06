@@ -20,7 +20,7 @@ steps:
   inputs:
     gitHubConnection: Z3GitHub
     repositoryName: 'Z3Prover/z3'
-    action: 'create'
+    action: 'edit'
     target: '$(Build.SourceVersion)'
     tagSource: 'manual'
     tag: 'NightlyMacOs'
