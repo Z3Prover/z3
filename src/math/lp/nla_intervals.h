@@ -56,7 +56,6 @@ namespace nla {
 
         public:
             typedef unsynch_mpq_manager numeral_manager;
-            typedef mpq                 numeral;
             
             // Every configuration object must provide an interval type.
             // The actual fields are irrelevant, the interval manager
@@ -68,8 +67,8 @@ namespace nla {
                     m_lower_open(1), m_upper_open(1), 
                     m_lower_inf(1), m_upper_inf(1), 
                     m_lower_dep(nullptr), m_upper_dep(nullptr) {}
-                numeral   m_lower;
-                numeral   m_upper;
+                mpq   m_lower;
+                mpq   m_upper;
                 unsigned  m_lower_open:1;
                 unsigned  m_upper_open:1;
                 unsigned  m_lower_inf:1;
@@ -86,31 +85,34 @@ namespace nla {
                 i.m_upper_dep = hi;
             }
             
-            // Should be NOOPs for precise numeral types.
+            // Should be NOOPs for precise mpq types.
             // For imprecise types (e.g., floats) it should set the rounding mode.
             void round_to_minus_inf() {}
             void round_to_plus_inf() {}
             void set_rounding(bool to_plus_inf) {}
             
             // Getters
-            numeral const & lower(interval const & a) const { return a.m_lower; }
-            numeral const & upper(interval const & a) const { return a.m_upper; }
-            numeral & lower(interval & a) { return a.m_lower; }
-            numeral & upper(interval & a) { return a.m_upper; }
+            mpq const & lower(interval const & a) const { return a.m_lower; }
+            mpq const & upper(interval const & a) const { return a.m_upper; }
+            mpq & lower(interval & a) { return a.m_lower; }
+            mpq & upper(interval & a) { return a.m_upper; }
             bool lower_is_open(interval const & a) const { return a.m_lower_open; }
             bool upper_is_open(interval const & a) const { return a.m_upper_open; }
             bool lower_is_inf(interval const & a) const { return a.m_lower_inf; }
             bool upper_is_inf(interval const & a) const { return a.m_upper_inf; }
+            bool is_zero(interval const & a) const {
+                return unsynch_mpq_manager::is_zero(a.m_lower)
+                    && unsynch_mpq_manager::is_zero(a.m_upper); }
             
             // Setters
-            void set_lower(interval & a, numeral const & n) { m_manager.set(a.m_lower, n); }
-            void set_upper(interval & a, numeral const & n) { m_manager.set(a.m_upper, n); }
-            void set_lower(interval & a, rational const & n) { set_lower(a, n.to_mpq()); }
-            void set_upper(interval & a, rational const & n) { set_upper(a, n.to_mpq()); }
-            void set_lower_is_open(interval & a, bool v) { a.m_lower_open = v; }
-            void set_upper_is_open(interval & a, bool v) { a.m_upper_open = v; }
-            void set_lower_is_inf(interval & a, bool v) { a.m_lower_inf = v; }
-            void set_upper_is_inf(interval & a, bool v) { a.m_upper_inf = v; }
+            void set_lower(interval & a, mpq const & n) const { m_manager.set(a.m_lower, n); }
+            void set_upper(interval & a, mpq const & n) const { m_manager.set(a.m_upper, n); }
+            void set_lower(interval & a, rational const & n) const { set_lower(a, n.to_mpq()); }
+            void set_upper(interval & a, rational const & n) const { set_upper(a, n.to_mpq()); }
+            void set_lower_is_open(interval & a, bool v) const { a.m_lower_open = v; }
+            void set_upper_is_open(interval & a, bool v) const { a.m_upper_open = v; }
+            void set_lower_is_inf(interval & a, bool v) const { a.m_lower_inf = v; }
+            void set_upper_is_inf(interval & a, bool v) const { a.m_upper_inf = v; }
             
             // Reference to numeral manager
             numeral_manager & m() const { return m_manager; }
@@ -138,21 +140,24 @@ namespace nla {
         small_object_allocator      m_alloc;
         ci_value_manager            m_val_manager;
         unsynch_mpq_manager         m_num_manager;
-        ci_dependency_manager       m_dep_manager;
+        mutable ci_dependency_manager       m_dep_manager;
         im_config                   m_config;
-        interval_manager<im_config> m_imanager;
+        mutable interval_manager<im_config> m_imanager;
         region                      m_region;
 
         typedef interval_manager<im_config>::interval interval;
 
         bool check(monomial const& m);
 
-        void set_interval(lpvar v, interval & b);
+        void set_interval(lpvar v, interval & b) const;
 
-        ci_dependency* mk_dep(lp::constraint_index ci);
+        void set_interval_signs(lpvar v, interval & b) const;
+
+        ci_dependency* mk_dep(lp::constraint_index ci) const;
 
         bool check(lp::lar_term const& t);
         lp::lar_solver& ls();
+        const lp::lar_solver& ls() const;
     public:
         intervals(core* c, reslimit& lim) : 
             m_core(c), 
