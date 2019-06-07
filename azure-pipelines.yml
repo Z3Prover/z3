@@ -1,7 +1,7 @@
 
 variables:
   cmakeStdArgs: '-DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
-  asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" {CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
+  asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
 
 jobs:
@@ -46,9 +46,9 @@ jobs:
       debugGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
         runUnitTest: 'True'
-      gccX86:
-        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
-        runUnitTest: 'True'
+#      gccX86:
+#        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
+#        runUnitTest: 'True'
       asan:
         cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
         runUnitTest: 'False'
@@ -121,7 +121,7 @@ jobs:
     - script: |
         mkdir build
         cd build
-        CC=clang CXX=clang++ $(cmakeStdArgs)
+        CC=clang CXX=clang++ cmake $(cmakeStdArgs)
         ninja
         ninja test-z3
         ninja c_example
