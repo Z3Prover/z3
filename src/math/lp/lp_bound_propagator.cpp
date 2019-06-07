@@ -50,16 +50,23 @@ bool lp_bound_propagator::upper_bound_is_available(unsigned j) const {
         return false;
     return m_nla_solver->monomial_has_upper_bound(j);
 }
+bool lp_bound_propagator::nl_monomial_upper_bound_is_available(unsigned j) const {
+    return m_nla_solver && m_nla_solver->is_monomial_var(j)
+        &&
+    m_nla_solver->monomial_has_upper_bound(j);
+}
+bool lp_bound_propagator::nl_monomial_lower_bound_is_available(unsigned j) const {
+    return m_nla_solver && m_nla_solver->is_monomial_var(j)
+        &&
+    m_nla_solver->monomial_has_lower_bound(j);
+}
 
 impq lp_bound_propagator::get_lower_bound(unsigned j) const {
     lp_assert(lower_bound_is_available(j));
     if (lower_bound_is_available_for_column(j)) {
         const impq& l = m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j];
-        if (!(m_nla_solver && m_nla_solver->is_monomial_var(j)))
-            return l;
-        if (m_nla_solver->monomial_has_lower_bound(j))
-            return std::max(l,  m_nla_solver->get_lower_bound(j));
-        return l;
+        return nl_monomial_lower_bound_is_available(j)?
+            std::max(l,  m_nla_solver->get_lower_bound(j)) : l;
     }
     return m_nla_solver->get_lower_bound(j);
 }
@@ -68,11 +75,8 @@ impq lp_bound_propagator::get_upper_bound(unsigned j) const {
     lp_assert(upper_bound_is_available(j));
     if (upper_bound_is_available_for_column(j)) {
         const impq& l = m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j];
-        if (!(m_nla_solver && m_nla_solver->is_monomial_var(j))) 
-            return l;
-        if (m_nla_solver->monomial_has_upper_bound(j))
-            return std::min(l, m_nla_solver->get_upper_bound(j));
-        return l;
+        return nl_monomial_upper_bound_is_available(j)?
+            std::min(l, m_nla_solver->get_upper_bound(j)) : l;
     }
     return m_nla_solver->get_upper_bound(j);
 }
@@ -114,6 +118,15 @@ void lp_bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool co
         }
      }
 }
+bool lp_bound_propagator::nl_monomial_upper_bound_should_be_taken(unsigned j) const {   
+    return (!upper_bound_is_available_for_column(j)) || (
+        nl_monomial_upper_bound_is_available(j) && m_nla_solver->get_lower_bound(j) < m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j]);
+}
+
+bool lp_bound_propagator::nl_monomial_lower_bound_should_be_taken(unsigned j) const {
+    return (!lower_bound_is_available_for_column(j)) || (nl_monomial_lower_bound_is_available(j) && m_nla_solver->get_lower_bound(j) > m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j]);
+}
+
 void lp_bound_propagator::explain_implied_bound(implied_bound & ib) {
     unsigned i = ib.m_row_or_term_index;
     int bound_sign = ib.m_is_lower_bound? 1: -1;
@@ -128,14 +141,26 @@ void lp_bound_propagator::explain_implied_bound(implied_bound & ib) {
         mpq const& a = r.get_val();
         int a_sign = is_pos(a)? 1: -1;
         int sign = j_sign * a_sign;
-        const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
-        // todo : process witnesses from monomials!!!!!!!!!!!!!!!!!!!!!
-        auto witness = sign > 0? ul.upper_bound_witness(): ul.lower_bound_witness();
-        lp_assert(is_valid(witness));
-        consume(a, witness);
+        if (sign > 0) {
+            if (nl_monomial_upper_bound_should_be_taken(j)) {
+                SASSERT(false);
+            } else {
+                const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
+                auto witness = ul.upper_bound_witness();
+                lp_assert(is_valid(witness));
+                consume(a, witness);
+            }
+        } else {
+            if (nl_monomial_lower_bound_should_be_taken(j)) {
+                SASSERT(false);
+            } else {
+                const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
+                // todo : process witnesses from monomials!!!!!!!!!!!!!!!!!!!!!
+                auto witness = ul.lower_bound_witness();
+                lp_assert(is_valid(witness));
+                consume(a, witness);
+            }
+        }
     }
-    // lp_assert(implied_bound_is_correctly_explained(ib, explanation));
 }
-
-
-}
+} // end of namespace lp
