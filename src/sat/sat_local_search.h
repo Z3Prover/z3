@@ -233,12 +233,6 @@ namespace sat {
         std::ostream& display(std::ostream& out, constraint const& c) const;
         std::ostream& display(std::ostream& out, unsigned v, var_info const& vi) const;
 
-        local_search_config& config() { return m_config;  }
-
-        void add_cardinality(unsigned sz, literal const* c, unsigned k);
-
-        void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
-
         lbool check();
 
         unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
@@ -279,6 +273,13 @@ namespace sat {
         double get_priority(bool_var v) const override { return m_vars[v].m_break_prob; }
 
         void import(solver const& s, bool init);        
+
+        void add_cardinality(unsigned sz, literal const* c, unsigned k);
+
+        void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
+
+        local_search_config& config() { return m_config;  }
+
     };
 }
 

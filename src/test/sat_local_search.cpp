@@ -123,6 +123,6 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     cancel_eh<reslimit> eh(local_search.rlimit());
     scoped_ctrl_c ctrlc(eh, false, true);
     scoped_timer timer(cutoff_time*1000, &eh);        
-    local_search.check();    
+    local_search.check(0, nullptr, nullptr);    
 
 }
