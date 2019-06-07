@@ -35,7 +35,20 @@ jobs:
         CC=clang CXX=clang++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -G "Ninja" ../
         ninja
         ninja test-z3
-        ninja examples
+        ninja c_example
+        ninja cpp_example
+        ninja z3_tptp5
+        ninja c_maxsat_example
+        examples/c_example_build_dir/c_example
+        examples/cpp_example_build_dir/cpp_example
+        examples/tptp_build_dir/z3_tptp5 -help
+        examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
+        # TBD: add python examples
+        mkdir -p examples/java
+        cp ../examples/java/JavaExample.java examples/java/
+        javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
+        export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
+        java -cp .:examples/java:com.microsoft.z3.jar JavaExample
         ./test-z3 -a
         cd ..
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -49,7 +62,25 @@ jobs:
   steps:
     - script: scripts\vsts-vs2017.cmd x64
 
-# TBD add job for Mac build/test 
+- job: "MacOS"
+  displayName: "MacOS build"
+  pool:
+    vmImage: "macOS-10.14"
+  steps:
+    - script: python scripts/mk_make.py -d --java --dotnet
+    - script: |
+        cd build
+        make
+        make examples
+        ls
+        ./cpp_example
+        ./c_example
+        make test-z3
+        ./test-z3 -a      
+        cd ..     
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2       
+
 
 
 
