@@ -56,12 +56,15 @@ jobs:
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Windows'
+     targetPath: tmp
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Mac'
+     targetPath: tmp
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Ubuntu'
+     targetPath: tmp
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
@@ -73,6 +76,7 @@ jobs:
       title: 'Nightly'
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
+      assets: 'tmp/*'
 #     assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
