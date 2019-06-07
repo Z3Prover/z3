@@ -34,5 +34,9 @@ public:
     unsigned number_of_found_bounds() const { return m_ibounds.size(); }
     void explain_implied_bound(implied_bound & ib);
     virtual void consume(mpq const& v, lp::constraint_index j) = 0;
+    bool nl_monomial_upper_bound_is_available(unsigned) const;
+    bool nl_monomial_lower_bound_is_available(unsigned) const;
+    bool nl_monomial_lower_bound_should_be_taken(unsigned) const;
+    bool nl_monomial_upper_bound_should_be_taken(unsigned) const;
 };
 }
