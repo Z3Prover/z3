@@ -1,0 +1,35 @@
+pool:
+  vmImage: "vs2017-win2016"
+
+steps:
+
+- task: DotNetCoreInstaller@0
+  displayName: 'Use .NET Core sdk 2.1'
+  inputs:
+    version: 2.1.300
+
+- task: DownloadSecureFile@1
+  inputs:
+    secureFile: 'z3.snk'
+
+- script: scripts\mk_win_dist.cmd
+
+- script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
+
+- task: GitHubRelease@0
+  inputs:
+    gitHubConnection: Z3GitHub
+    repositoryName: 'Z3Prover/z3'
+    action: 'edit'
+    target: '$(Build.SourceVersion)'
+    tagSource: 'manual'
+    tag: 'NightlyWindows'
+    title: 'Nightly Windows'
+    releaseNotesSource: 'input'
+    releaseNotes: 'nightly build'
+    isDraft: true
+    isPreRelease: true
+
+
+
+

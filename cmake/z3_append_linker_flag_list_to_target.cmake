@@ -3,7 +3,7 @@
 # them to append them as strings to the ``LINK_FLAGS`` property of
 # the specified target.
 # E.g.
-# z3_append_linker_flag_list_to_target(mytarget "-fopenmp" "-static")
+# z3_append_linker_flag_list_to_target(mytarget "-static")
 function(z3_append_linker_flag_list_to_target target)
   if (NOT (TARGET "${target}"))
     message(FATAL_ERROR "Specified target \"${target}\" is not a target")

@@ -17,11 +17,13 @@ Revision History:
 
 --*/
 #include "util/symbol.h"
+#include "util/mutex.h"
 #include "util/str_hashtable.h"
 #include "util/region.h"
 #include "util/string_buffer.h"
-#include "util/z3_omp.h"
 #include <cstring>
+
+static mutex g_symbol_lock;
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
@@ -36,8 +38,7 @@ public:
 
     char const * get_str(char const * d) {
         const char * result;
-        #pragma omp critical (cr_symbol) 
-        {
+        lock_guard lock(g_symbol_lock);
         str_hashtable::entry * e;
         if (m_table.insert_if_not_there_core(d, e)) {
             // new entry
@@ -55,7 +56,6 @@ public:
             result = e->get_data();
         }
         SASSERT(m_table.contains(result));
-        }
         return result;
     }
 };

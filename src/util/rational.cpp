@@ -17,11 +17,9 @@ Revision History:
 
 --*/
 #include<sstream>
+#include "util/mutex.h"
 #include "util/util.h"
 #include "util/rational.h"
-#ifdef _WINDOWS
-#include<strsafe.h>
-#endif
 
 synch_mpq_manager *  rational::g_mpq_manager = nullptr;
 rational             rational::m_zero;
@@ -42,9 +40,11 @@ static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     }
 }
 
+static mutex g_powers_of_two;
+
 rational rational::power_of_two(unsigned k) {
     rational result;
-    #pragma omp critical (powers_of_two)
+    lock_guard lock(g_powers_of_two);
     {
         if (k >= m_powers_of_two.size())
             mk_power_up_to(m_powers_of_two, k+1);

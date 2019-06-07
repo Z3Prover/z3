@@ -435,12 +435,9 @@ void asserted_formulas::commit(unsigned new_qhead) {
     TRACE("asserted_formulas", tout << "commit " << new_qhead << "\n";);
     m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.c_ptr() + m_qhead);
     m_expr2depth.reset();
-    bool new_sub = false;
     for (unsigned i = m_qhead; i < new_qhead; ++i) {
         justified_expr const& j = m_formulas[i];
-        if (update_substitution(j.get_fml(), j.get_proof())) {
-            new_sub = true;
-        }
+        update_substitution(j.get_fml(), j.get_proof());
     }
     m_qhead = new_qhead;
 }

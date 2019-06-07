@@ -816,7 +816,7 @@ public:
     bool is_even(mpq const & a) { return is_int(a) && is_even(a.m_num); }
 };
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 typedef mpq_manager<true> synch_mpq_manager;
 #else
 typedef mpq_manager<false> synch_mpq_manager;

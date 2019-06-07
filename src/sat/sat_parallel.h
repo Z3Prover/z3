@@ -23,6 +23,8 @@ Revision History:
 #include "util/hashtable.h"
 #include "util/map.h"
 #include "util/rlimit.h"
+#include "util/scoped_ptr_vector.h"
+#include <mutex>
 
 namespace sat {
 
@@ -60,6 +62,7 @@ namespace sat {
         index_set      m_unit_set;
         literal_vector m_lits;
         vector_pool    m_pool;
+        std::mutex     m_mux;
 
         // for exchange with local search:
         svector<lbool>     m_phase;

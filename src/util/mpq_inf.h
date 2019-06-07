@@ -279,7 +279,7 @@ public:
     mpq_manager<SYNCH>& get_mpq_manager() { return m; }
 };
 
-#ifndef _NO_OMP_
+#ifndef SINGLE_THREAD
 typedef mpq_inf_manager<true>  synch_mpq_inf_manager;
 #else
 typedef mpq_inf_manager<false> synch_mpq_inf_manager;

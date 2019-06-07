@@ -19,6 +19,7 @@ Revision History:
 
 
 #include <cmath>
+#include <thread>
 #include "sat/sat_solver.h"
 #include "sat/sat_integrity_checker.h"
 #include "sat/sat_lookahead.h"
@@ -1243,8 +1244,9 @@ namespace sat {
         unsigned error_code = 0;
         lbool result = l_undef;
         bool canceled = false;
-        #pragma omp parallel for
-        for (int i = 0; i < num_threads; ++i) {
+        std::mutex mux;
+
+        auto worker_thread = [&](int i) {
             try {
                 lbool r = l_undef;
                 if (IS_AUX_SOLVER(i)) {
@@ -1260,8 +1262,8 @@ namespace sat {
                     r = check(num_lits, lits);
                 }
                 bool first = false;
-                #pragma omp critical (par_solver)
                 {
+                    std::lock_guard<std::mutex> lock(mux);
                     if (finished_id == -1) {
                         finished_id = i;
                         first = true;
@@ -1296,6 +1298,14 @@ namespace sat {
                 ex_msg = ex.msg();
                 ex_kind = DEFAULT_EX;    
             }
+        };
+
+        vector<std::thread> threads(num_threads);
+        for (int i = 0; i < num_threads; ++i) {
+            threads[i] = std::thread([&, i]() { worker_thread(i); });
+        }
+        for (auto & th : threads) {
+            th.join();
         }
         
         if (IS_AUX_SOLVER(finished_id)) {
@@ -1731,18 +1741,6 @@ namespace sat {
         }
 
         if (m_par) m_par->set_phase(*this);
-
-#if 0
-        static unsigned file_no = 0;
-        #pragma omp critical (print_sat)
-        {
-            ++file_no;
-            std::ostringstream ostrm;
-            ostrm << "s" << file_no << ".txt";
-            std::ofstream ous(ostrm.str());
-            display(ous);
-        }
-#endif
     }
 
     bool solver::set_root(literal l, literal r) {
