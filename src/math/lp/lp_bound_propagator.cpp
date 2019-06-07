@@ -4,7 +4,6 @@
 */
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
-#include "math/lp/nla_intervals.h"
 namespace lp {
 
 lp_bound_propagator::lp_bound_propagator(lar_solver & ls, nla::solver* nla):
@@ -155,7 +154,6 @@ void lp_bound_propagator::explain_implied_bound(implied_bound & ib) {
                 SASSERT(false);
             } else {
                 const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
-                // todo : process witnesses from monomials!!!!!!!!!!!!!!!!!!!!!
                 auto witness = ul.lower_bound_witness();
                 lp_assert(is_valid(witness));
                 consume(a, witness);
