@@ -49,9 +49,9 @@ jobs:
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
 #        runUnitTest: 'True'
-      asan:
-        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
-        runUnitTest: 'False'
+#      asan:
+#        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
+#        runUnitTest: 'False'
   steps:
     - script: sudo apt-get install ninja-build
     - script: |
@@ -132,7 +132,6 @@ jobs:
         examples/cpp_example_build_dir/cpp_example
         examples/tptp_build_dir/z3_tptp5 -help
         examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
-        # TBD: add python examples
         mkdir -p examples/java
         cp ../examples/java/JavaExample.java examples/java/
         javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
