@@ -69,7 +69,7 @@ jobs:
     inputs:
       gitHubConnection: Z3GitHub
       repositoryName: 'Z3Prover/z3'
-      action: 'edit'
+      action: 'create'
       target: '$(Build.SourceVersion)'
       tagSource: 'manual'
       tag: 'Nightly'
