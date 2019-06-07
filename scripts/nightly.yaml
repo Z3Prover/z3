@@ -1,6 +1,6 @@
 jobs:
 
-- job: "Mac"
+- job: Mac
   displayName: "Mac Build"
   pool:
     vmImage: "macOS-10.14"
@@ -10,22 +10,13 @@ jobs:
       secureFile: 'z3.snk'
   - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-  - task: GitHubRelease@0
+  - task: PublishPipelineArtifact@0
     inputs:
-      gitHubConnection: Z3GitHub
-      repositoryName: 'Z3Prover/z3'
-      action: 'edit'
-      target: '$(Build.SourceVersion)'
-      tagSource: 'manual'
-      tag: 'Nightly'
-      title: 'Nightly'
-      releaseNotesSource: 'input'
-      releaseNotes: 'nightly build'
-      assetUploadMode: 'replace'
-      isDraft: false
-      isPreRelease: true
+      artifactName: 'Mac'
+      targetPath: $(Build.ArtifactStagingDirectory)
 
-- job: "Ubuntu"
+
+- job: Ubuntu
   displayName: "Ubuntu build"
   pool:
     vmImage: "ubuntu-16.04"
@@ -35,22 +26,12 @@ jobs:
       secureFile: 'z3.snk'
   - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-  - task: GitHubRelease@0
+  - task: PublishPipelineArtifact@0
     inputs:
-      gitHubConnection: Z3GitHub
-      repositoryName: 'Z3Prover/z3'
-      action: 'edit'
-      target: '$(Build.SourceVersion)'
-      tagSource: 'manual'
-      tag: 'Nightly'
-      title: 'Nightly'
-      releaseNotesSource: 'input'
-      releaseNotes: 'nightly build'
-      assetUploadMode: 'replace'
-      isDraft: false
-      isPreRelease: true
+      artifactName: 'Ubuntu'
+      targetPath: $(Build.ArtifactStagingDirectory)
 
-- job: "Windows"
+- job: Windows
   displayName: "Windows build"
   pool:
     vmImage: "vs2017-win2016"
@@ -60,6 +41,30 @@ jobs:
       secureFile: 'z3.snk'
   - script: scripts\mk_win_dist.cmd
   - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Windows'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Deploy
+  displayName: "Deploy into GitHub"
+  dependsOn: 
+  - Mac
+  - Ubuntu
+  - Windows
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows'
+     targetPath: $(Build.ArtifactStaginDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: $(Build.ArtifactStaginDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: $(Build.ArtifactStaginDirectory)
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
@@ -71,11 +76,9 @@ jobs:
       title: 'Nightly'
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
-      assetUploadMode: 'replace'
+#     assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
-
-
 
 
 
