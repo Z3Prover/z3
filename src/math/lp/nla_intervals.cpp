@@ -17,11 +17,21 @@ bool intervals::check() {
     // }
     return true;
 }
+// create a product of interval signs together with the depencies
+intervals::interval intervals::mul_signs_with_deps(int sign, const svector<lpvar>& vars) const {
+    interval a, b;
+    m_imanager.set(a, mpq(sign));
+    for (lpvar v : vars) {
+         set_var_interval(v, b);
+    }
+    return a;
+    
+}
 
 bool intervals::check(monomial const& m) {
     interval a, b, c, d;
-    m_imanager.set(a, rational(1).to_mpq());
-    set_interval(m.var(), d);
+    m_imanager.set(a, mpq(1));
+    set_var_interval(m.var(), d);
     if (m_imanager.lower_is_inf(d) && m_imanager.upper_is_inf(d)) {
         return true;
     }
@@ -32,11 +42,11 @@ bool intervals::check(monomial const& m) {
             return true;
         }
         // TBD: deal with powers v^n interval instead of multiplying v*v .. * v
-        set_interval(v, b);
+        set_var_interval(v, b);
         interval_deps deps;
         m_imanager.mul(a, b, c, deps);
         m_imanager.set(a, c);
-        m_config.set_deps(a, b, deps, a);
+        m_config.add_deps(a, b, deps, a);
     }
     if (m_imanager.before(a, d)) {
         svector<lp::constraint_index> cs;
@@ -69,7 +79,7 @@ bool intervals::check(monomial const& m) {
     return true;
 }
 
-void intervals::set_interval(lpvar v, interval& b) const {
+void intervals::set_var_interval(lpvar v, interval& b) const {
     lp::constraint_index ci;
     rational val;
     bool is_strict;
@@ -99,7 +109,31 @@ void intervals::set_interval(lpvar v, interval& b) const {
 
 rational sign(const rational& v) { return v.is_zero()? v : (rational(v.is_pos()? 1 : -1)); }
 
-void intervals::set_interval_signs(lpvar v, interval& b) const {
+void intervals::set_var_interval_signs(lpvar v, interval& b) const {
+    lp::constraint_index ci;
+    rational val;
+    bool is_strict;
+    if (ls().has_lower_bound(v, ci, val, is_strict)) {            
+        m_config.set_lower(b, sign(val));
+        m_config.set_lower_is_open(b, is_strict);
+        m_config.set_lower_is_inf(b, false);
+    }
+    else {
+        m_config.set_lower_is_open(b, true);
+        m_config.set_lower_is_inf(b, true);
+    }
+    if (ls().has_upper_bound(v, ci, val, is_strict)) {
+        m_config.set_upper(b, sign(val));
+        m_config.set_upper_is_open(b, is_strict);
+        m_config.set_upper_is_inf(b, false);
+    }
+    else {
+        m_config.set_upper_is_open(b, true);
+        m_config.set_upper_is_inf(b, true);
+    }
+}
+
+void intervals::set_var_interval_signs_with_deps(lpvar v, interval& b) const {
     lp::constraint_index ci;
     rational val;
     bool is_strict;
@@ -157,11 +191,11 @@ lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
 
 intervals::interval intervals::mul(int sign, const svector<lpvar>& vars) const {
     interval a;
-    m_imanager.set(a, rational(sign).to_mpq());
+    m_imanager.set(a, mpq(sign));
     
     for (lpvar j : vars) {
         interval b, c;
-        set_interval(j, b);
+        set_var_interval(j, b);
         m_imanager.mul(a, b, c);
         if (m_imanager.is_zero(c)) {
             TRACE("nla_intervals", tout << "sign = " << sign << "\nproduct = ";
