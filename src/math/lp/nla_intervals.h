@@ -78,7 +78,7 @@ namespace nla {
             };
 
 
-            void set_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) {
+            void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) {
                 ci_dependency* lo = mk_dependency(a, b, deps.m_lower_deps);
                 ci_dependency* hi = mk_dependency(a, b, deps.m_upper_deps);
                 i.m_lower_dep = lo;
@@ -149,9 +149,11 @@ namespace nla {
 
         bool check(monomial const& m);
 
-        void set_interval(lpvar v, interval & b) const;
+        void set_var_interval(lpvar v, interval & b) const;
 
-        void set_interval_signs(lpvar v, interval & b) const;
+        void set_var_interval_signs(lpvar v, interval & b) const;
+
+        void set_var_interval_signs_with_deps(lpvar v, interval & b) const;
 
         ci_dependency* mk_dep(lp::constraint_index ci) const;
 
@@ -173,5 +175,6 @@ namespace nla {
         lp::impq get_upper_bound_of_monomial(lpvar j) const;
         lp::impq get_lower_bound_of_monomial(lpvar j) const;
         interval mul(int sign, const svector<lpvar>&) const;
+        interval mul_signs_with_deps(int sign, const svector<lpvar>&) const;
     };
 } // end of namespace nla
