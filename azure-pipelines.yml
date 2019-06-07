@@ -39,19 +39,19 @@ jobs:
     matrix:
       debugClang:
         cmdLine: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
-        runUnitTest: True
+        runUnitTest: 'True'
       releaseClang:
         cmdLine: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
-        runUnitTest: True
+        runUnitTest: 'True'
       debugGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
-        runUnitTest: True
+        runUnitTest: 'True'
       gccX86:
         cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
-        runUnitTest: True
+        runUnitTest: 'True'
       asan:
         cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
-        runUnitTest: False
+        runUnitTest: 'False'
   steps:
     - script: sudo apt-get install ninja-build
     - script: |
@@ -79,7 +79,7 @@ jobs:
          cd build
          ./test-z3 -a
          cd ..
-      condition: $(runUnitTest)
+      condition: eq(variables['runUnitTest'], 'True')
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
 
