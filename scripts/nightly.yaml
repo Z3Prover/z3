@@ -21,6 +21,7 @@ jobs:
       title: 'Nightly'
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
+      assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
 
@@ -45,6 +46,7 @@ jobs:
       title: 'Nightly'
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
+      assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
 
@@ -69,6 +71,7 @@ jobs:
       title: 'Nightly'
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
+      assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
 
