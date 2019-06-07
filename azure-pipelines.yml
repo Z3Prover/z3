@@ -27,12 +27,20 @@ jobs:
   displayName: "Ubuntu build - cmake"
   pool:
     vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      debugClang:
+        cmdLine: 'CC=clang CXX=clang++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -G "Ninja" ../'
+      releaseClang:
+        cmdLine: 'CC=clang CXX=clang++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DCMAKE_BUILD_TYPE=Release -G "Ninja" ../'
+      debugGcc:
+        cmdLine: 'CC=gcc CXX=g++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -G "Ninja" ../'
   steps:
     - script: sudo apt-get install ninja-build
     - script: |
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -G "Ninja" ../
+        $(cmdLine)
         ninja
         ninja test-z3
         ninja c_example
