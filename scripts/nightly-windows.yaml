@@ -27,7 +27,7 @@ steps:
     title: 'Nightly Windows'
     releaseNotesSource: 'input'
     releaseNotes: 'nightly build'
-    isDraft: true
+    isDraft: false
     isPreRelease: true
 
 
