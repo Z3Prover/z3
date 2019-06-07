@@ -56,15 +56,12 @@ jobs:
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Windows'
-     targetPath: $(Build.ArtifactStaginDirectory)
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Mac'
-     targetPath: $(Build.ArtifactStaginDirectory)
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Ubuntu'
-     targetPath: $(Build.ArtifactStaginDirectory)
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
