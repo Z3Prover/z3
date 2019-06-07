@@ -439,7 +439,6 @@ void asserted_formulas::commit(unsigned new_qhead) {
         justified_expr const& j = m_formulas[i];
         update_substitution(j.get_fml(), j.get_proof());
     }
-    (void)new_sub;
     m_qhead = new_qhead;
 }
 
