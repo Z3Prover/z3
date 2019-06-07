@@ -1153,7 +1153,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
 
     expr_ref y_half(m), ny_half(m), zero_e(m), two_e(m);
     expr_ref y_half_is_zero(m), y_half_is_nz(m);
-    expr_ref r_ge_y_half(m), r_gt_ny_half(m), r_le_y_half(m), r_lt_ny_half(m);
+    expr_ref r_gt_y_half(m), r_gt_ny_half(m), r_lt_y_half(m), r_lt_ny_half(m);
     expr_ref r_ge_zero(m), r_le_zero(m);
     expr_ref rounded_sub_y(m), rounded_add_y(m);
     mpf zero, two;
@@ -1166,9 +1166,9 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     mk_is_zero(y_half, y_half_is_zero);
     y_half_is_nz = m.mk_not(y_half_is_zero);
 
-    mk_float_ge(s, rndd, y_half, r_ge_y_half);
+    mk_float_gt(s, rndd, y_half, r_gt_y_half);
     mk_float_gt(s, rndd, ny_half, r_gt_ny_half);
-    mk_float_le(s, rndd, y_half, r_le_y_half);
+    mk_float_lt(s, rndd, y_half, r_lt_y_half);
     mk_float_lt(s, rndd, ny_half, r_lt_ny_half);
 
     mk_sub(s, rne_bv, rndd, y, rounded_sub_y);
@@ -1176,11 +1176,11 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
 
     expr_ref sub_cnd(m), add_cnd(m);
     sub_cnd = m.mk_and(y_half_is_nz,
-                m.mk_or(m.mk_and(y_is_pos, r_ge_y_half),
-                        m.mk_and(y_is_neg, r_le_y_half)));
+                m.mk_or(m.mk_and(y_is_pos, r_gt_y_half),
+                        m.mk_and(y_is_neg, r_lt_y_half)));
     add_cnd = m.mk_and(y_half_is_nz,
                 m.mk_or(m.mk_and(y_is_pos, r_lt_ny_half),
-                    m.mk_and(y_is_neg, r_gt_ny_half)));
+                        m.mk_and(y_is_neg, r_gt_ny_half)));
 
     mk_ite(add_cnd, rounded_add_y, rndd, v7);
     mk_ite(sub_cnd, rounded_sub_y, v7, v7);
