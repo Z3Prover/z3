@@ -51,5 +51,7 @@ public:
     lp::impq get_upper_bound(lpvar j) const;
     bool monomial_has_lower_bound(lpvar j) const;
     bool monomial_has_upper_bound(lpvar j) const;
+    void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>&) const;
+    void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>&) const;
 };
 }
