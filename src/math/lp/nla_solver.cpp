@@ -77,5 +77,10 @@ bool solver::monomial_has_lower_bound(lpvar j) const {
 bool solver::monomial_has_upper_bound(lpvar j) const {
     return m_intervals.monomial_has_upper_bound(j);
 }
-
+void solver::get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const {
+    m_intervals.get_explanation_of_upper_bound_for_monomial(j, expl);
+}
+void solver::get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const{
+    m_intervals.get_explanation_of_lower_bound_for_monomial(j, expl);
+}
 }
