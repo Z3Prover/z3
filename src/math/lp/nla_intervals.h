@@ -78,7 +78,7 @@ namespace nla {
             };
 
 
-            void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) {
+            void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
                 ci_dependency* lo = mk_dependency(a, b, deps.m_lower_deps);
                 ci_dependency* hi = mk_dependency(a, b, deps.m_upper_deps);
                 i.m_lower_dep = lo;
@@ -119,7 +119,7 @@ namespace nla {
             
             im_config(numeral_manager & m, ci_dependency_manager& d):m_manager(m), m_dep_manager(d) {}
         private:
-            ci_dependency* mk_dependency(interval const& a, interval const& b, bound_deps bd) {
+            ci_dependency* mk_dependency(interval const& a, interval const& b, bound_deps bd) const {
                 ci_dependency* dep = nullptr;
                 if (dep_in_lower1(bd)) {
                     dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
@@ -174,7 +174,10 @@ namespace nla {
         bool product_has_upper_bound(int sign, const svector<lpvar>&) const;
         lp::impq get_upper_bound_of_monomial(lpvar j) const;
         lp::impq get_lower_bound_of_monomial(lpvar j) const;
-        interval mul(int sign, const svector<lpvar>&) const;
-        interval mul_signs_with_deps(int sign, const svector<lpvar>&) const;
+        interval mul(const svector<lpvar>&) const;
+        interval mul_signs(const svector<lpvar>&) const;
+        interval mul_signs_with_deps(const svector<lpvar>&) const;
+        void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
+        void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     };
 } // end of namespace nla
