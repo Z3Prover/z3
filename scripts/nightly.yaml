@@ -45,7 +45,7 @@ jobs:
       secureFile: 'z3.snk'
   - script: scripts\mk_win_dist.cmd
   - script: git clone https://github.com/z3prover/z3test z3test
-  - script: python z3test/scripts/test_benchmarks.py build-dist/z3.exe z3test/regressions/smt2    
+  - script: python z3test/scripts/test_benchmarks.py build-dist\z3.exe z3test/regressions/smt2    
   - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
   - task: PublishPipelineArtifact@0
     inputs:
