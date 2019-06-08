@@ -119,7 +119,7 @@ void lp_bound_propagator::try_add_bound(mpq  v, unsigned j, bool is_low, bool co
 }
 bool lp_bound_propagator::nl_monomial_upper_bound_should_be_taken(unsigned j) const {   
     return (!upper_bound_is_available_for_column(j)) || (
-        nl_monomial_upper_bound_is_available(j) && m_nla_solver->get_lower_bound(j) < m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j]);
+        nl_monomial_upper_bound_is_available(j) && m_nla_solver->get_upper_bound(j) < m_lar_solver.m_mpq_lar_core_solver.m_r_upper_bounds()[j]);
 }
 
 bool lp_bound_propagator::nl_monomial_lower_bound_should_be_taken(unsigned j) const {
@@ -142,7 +142,11 @@ void lp_bound_propagator::explain_implied_bound(implied_bound & ib) {
         int sign = j_sign * a_sign;
         if (sign > 0) {
             if (nl_monomial_upper_bound_should_be_taken(j)) {
-                SASSERT(false);
+                TRACE("nla_intervals", tout << "using the monomial upper bound\n";);
+                svector<lp::constraint_index> expl;
+                m_nla_solver->get_explanation_of_upper_bound_for_monomial(j, expl);
+                for (auto c : expl)
+                    consume(a, c);
             } else {
                 const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
                 auto witness = ul.upper_bound_witness();
@@ -151,7 +155,12 @@ void lp_bound_propagator::explain_implied_bound(implied_bound & ib) {
             }
         } else {
             if (nl_monomial_lower_bound_should_be_taken(j)) {
-                SASSERT(false);
+                TRACE("nla_intervals", tout << "using the monomial lower bound\n";);
+                svector<lp::constraint_index> expl;
+                m_nla_solver->get_explanation_of_lower_bound_for_monomial(j, expl);
+                for (auto c : expl)
+                    consume(a, c);
+                    
             } else {
                 const ul_pair & ul =  m_lar_solver.m_columns_to_ul_pairs[j];
                 auto witness = ul.lower_bound_witness();
