@@ -179,5 +179,6 @@ namespace nla {
         interval mul_signs_with_deps(const svector<lpvar>&) const;
         void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
         void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
+        std::ostream& print_explanations(const svector<lp::constraint_index> &, std::ostream&) const;
     };
 } // end of namespace nla

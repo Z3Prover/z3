@@ -239,13 +239,22 @@ lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
 
 const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
 
+std::ostream& intervals::print_explanations(const svector<lp::constraint_index> &expl , std::ostream& out) const {
+    out << "interv expl: ";
+    for (auto ci : expl)
+        m_core->m_lar_solver.print_constraint(ci, out) << "\n";
+    return out;
+}
+
 void intervals::get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const {
     interval a = mul_signs_with_deps(m_core->emons()[j].vars());
-    m_dep_manager.linearize(a.m_upper_dep, expl);    
+    m_dep_manager.linearize(a.m_upper_dep, expl);
+    TRACE("nla_intervals", print_explanations(expl, tout););
 }
 void intervals::get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const{
     interval a = mul_signs_with_deps(m_core->emons()[j].vars());
     m_dep_manager.linearize(a.m_lower_dep, expl);    
+    TRACE("nla_intervals", print_explanations(expl, tout););
     //    return m_intervals.get_explanation_of_lower_bound_for_monomial(j, expl ) 
 }
 }
