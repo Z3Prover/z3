@@ -24,6 +24,7 @@ Revision History:
 #include "muz/rel/dl_table_relation.h"
 #include "muz/rel/dl_finite_product_relation.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 
 namespace datalog {
 
@@ -1409,6 +1410,11 @@ namespace datalog {
                 //create the condition with table values substituted in and relation values properly renamed
                 expr_ref inner_cond(m_manager);
                 inner_cond = m_subst(m_cond, m_renaming_for_inner_rel.size(), m_renaming_for_inner_rel.c_ptr());
+                th_rewriter rw(m_manager);
+                rw(inner_cond);
+                if (m_manager.is_false(inner_cond)) {
+                    continue;
+                }
 
                 relation_base * new_rel = old_rel.clone();
                 

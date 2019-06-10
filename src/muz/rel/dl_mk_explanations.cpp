@@ -478,11 +478,13 @@ namespace datalog {
 
     relation_mutator_fn * explanation_relation_plugin::mk_filter_interpreted_fn(const relation_base & r, 
             app * cond) {
-        if (&r.get_plugin()!=this) {
+        if (&r.get_plugin() != this) {
+            TRACE("dl", tout << "not same plugin\n";);
             return nullptr;
         }
         ast_manager & m = get_ast_manager();
         if (!m.is_eq(cond)) {
+            TRACE("dl", tout << "not equality " << mk_pp(cond, m) << "\n";);
             return nullptr;
         }
         expr * arg1 = cond->get_arg(0);
@@ -493,11 +495,13 @@ namespace datalog {
         }
 
         if (!is_var(arg1) || !is_app(arg2)) {
+            TRACE("dl", tout << "not variable assignemnt\n";);
             return nullptr;
         }
         var * col_var = to_var(arg1);
         app * new_rule = to_app(arg2);
         if (!get_context().get_decl_util().is_rule_sort(col_var->get_sort())) {
+            TRACE("dl", tout << "not rule sort\n";);
             return nullptr;
         }
         unsigned col_idx = col_var->get_idx();

@@ -837,6 +837,7 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
+        expr_ref _query(query, m);
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
         m_last_answer = nullptr;
