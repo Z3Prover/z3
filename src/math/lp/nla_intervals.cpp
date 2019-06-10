@@ -23,12 +23,12 @@ intervals::interval intervals::mul_signs_with_deps(const svector<lpvar>& vars) c
     m_imanager.set(a, mpq(1));
     for (lpvar v : vars) {
          set_var_interval_signs_with_deps(v, b);
-         if (m_imanager.is_zero(b))
-             return b;
          interval_deps deps;
          m_imanager.mul(a, b, c, deps);
          m_imanager.set(a, c);
          m_config.add_deps(a, b, deps, a);
+         if (m_imanager.is_zero(a))
+             return a;
     }
     return a;
     
@@ -174,7 +174,7 @@ lp::impq intervals::get_upper_bound_of_monomial(lpvar j) const {
     auto r = lp::impq(a.m_upper);
     if (a.m_upper_open)
         r.y = -1;
-    TRACE("nla_intervals", m_core->print_monomial_with_vars(m, tout) << "upper = " << r << "\n";);
+    TRACE("nla_intervals_detail", m_core->print_monomial_with_vars(m, tout) << "upper = " << r << "\n";);
     return r;
 }
 lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
@@ -184,7 +184,7 @@ lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
     auto r = lp::impq(a.m_lower);
     if (a.m_lower_open)
         r.y = 1;
-    TRACE("nla_intervals", m_core->print_monomial_with_vars(m, tout) << "lower = " << r << "\n";);
+    TRACE("nla_intervals_detail", m_core->print_monomial_with_vars(m, tout) << "lower = " << r << "\n";);
     return r;
 }
 
@@ -240,9 +240,9 @@ lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
 const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
 
 std::ostream& intervals::print_explanations(const svector<lp::constraint_index> &expl , std::ostream& out) const {
-    out << "interv expl: ";
+    out << "interv expl:\n ";
     for (auto ci : expl)
-        m_core->m_lar_solver.print_constraint(ci, out) << "\n";
+        m_core->m_lar_solver.print_constraint_indices_only(ci, out);
     return out;
 }
 

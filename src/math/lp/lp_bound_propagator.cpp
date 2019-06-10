@@ -42,6 +42,7 @@ bool lp_bound_propagator::lower_bound_is_available_for_column(unsigned j) const 
         return false;
     }
 }
+
 bool lp_bound_propagator::upper_bound_is_available(unsigned j) const {
     if (upper_bound_is_available_for_column(j))
         return true;
@@ -123,6 +124,7 @@ bool lp_bound_propagator::nl_monomial_upper_bound_should_be_taken(unsigned j) co
 }
 
 bool lp_bound_propagator::nl_monomial_lower_bound_should_be_taken(unsigned j) const {
+    lp_assert(lower_bound_is_available(j));
     return (!lower_bound_is_available_for_column(j)) || (nl_monomial_lower_bound_is_available(j) && m_nla_solver->get_lower_bound(j) > m_lar_solver.m_mpq_lar_core_solver.m_r_lower_bounds()[j]);
 }
 

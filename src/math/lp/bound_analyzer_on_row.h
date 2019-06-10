@@ -56,6 +56,7 @@ public :
     {}
 
     void analyze() {
+        TRACE("lp_bound_prop", print_linear_combination_of_column_indices_only(m_row, tout); tout << " = " << m_rs << "\n";);
         for (const auto & c : m_row) {
             if ((m_column_of_l == -2) && (m_column_of_u == -2))
                 break;
