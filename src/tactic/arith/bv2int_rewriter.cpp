@@ -17,12 +17,13 @@ Notes:
 
 --*/
 #include "tactic/arith/bv2int_rewriter.h"
+#include "tactic/tactic_exception.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 
 void bv2int_rewriter_ctx::update_params(params_ref const& p) {
-    m_max_size = p.get_uint("max_bv_size", UINT_MAX);
+    m_max_size = p.get_uint("max_bv_size", m_max_size);
 }
 
 struct lt_rational {
@@ -617,6 +618,9 @@ expr* bv2int_rewriter::mk_extend(unsigned sz, expr* b, bool is_signed) {
     if (sz == 0) {
         return b;
     }
+	if (sz > m_ctx.get_max_num_bits()) {
+		throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
+	}
     rational r;
     unsigned bv_sz;
     if (is_signed) {
