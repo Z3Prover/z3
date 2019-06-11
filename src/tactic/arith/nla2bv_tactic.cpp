@@ -69,7 +69,7 @@ class nla2bv_tactic : public tactic {
             m_arith(m), 
             m_bv(m), 
             m_bv2real(m, rational(p.get_uint("nla2bv_root",2)), rational(p.get_uint("nla2bv_divisor",2)), p.get_uint("nla2bv_max_bv_size", UINT_MAX)),
-            m_bv2int_ctx(m, p),
+            m_bv2int_ctx(m, p, p.get_uint("nla2bv_max_bv_size", UINT_MAX)),
             m_bounds(m), 
             m_subst(m), 
             m_vars(m), 
@@ -80,6 +80,9 @@ class nla2bv_tactic : public tactic {
         }
 
         ~imp() {}
+
+		void updt_params(params_ref const& p)  {
+		}
         
         
         void operator()(goal & g, model_converter_ref & mc) {
@@ -440,7 +443,7 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
+		m_params.append(p);
     }
 
     void collect_param_descrs(param_descrs & r) override {
