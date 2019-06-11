@@ -80,9 +80,10 @@ jobs:
          ./test-z3 -a
          cd ..
       condition: eq(variables['runUnitTest'], 'True')
-    - script: | 
-         jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/guide.ipynb
-         jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/strategies.ipynb
+# Need to install jupyter-nbconvert
+#    - script: | 
+#        jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/guide.ipynb
+#        jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/strategies.ipynb
 #        jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/advanced.ipynb
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
