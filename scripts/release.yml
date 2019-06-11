@@ -43,9 +43,7 @@ jobs:
   - task: DownloadSecureFile@1
     inputs:
       secureFile: 'z3.snk'
-  - script: scripts\mk_win_dist.cmd
-#  - script: git clone https://github.com/z3prover/z3test z3test
-#  - script: python z3test/scripts/test_benchmarks.py build-dist\z3.exe z3test/regressions/smt2    
+  - script: scripts\mk_win_dist.cmd 
   - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
   - task: PublishPipelineArtifact@0
     inputs:
@@ -71,6 +69,8 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
+# TBD: build NuGet package
+# TBD: this script should build a specific pre-specified tag
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
@@ -91,7 +91,6 @@ jobs:
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
       assets: 'tmp/*'
-#     assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
 
