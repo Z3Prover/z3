@@ -22,8 +22,7 @@ jobs:
         make test-z3
         ./test-z3 -a      
         cd ..     
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
+    - template: scripts/regression-test.yml
 
 
 # TBD: 
@@ -80,9 +79,8 @@ jobs:
          ./test-z3 -a
          cd ..
       condition: eq(variables['runUnitTest'], 'True')
-#   - template: scripts/test-jupyter.hml
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
+#   - template: scripts/test-jupyter.yml
+    - template: scripts/regression-test.yml
 
 
 - job: "Windows2017"
@@ -108,8 +106,7 @@ jobs:
         make test-z3
         ./test-z3 -a      
         cd ..     
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2       
+    - template: scripts/regression-test.yml
 
 
 
@@ -140,8 +137,7 @@ jobs:
         java -cp .:examples/java:com.microsoft.z3.jar JavaExample
         ./test-z3 -a
         cd ..
-    - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    
+    - template: scripts/regression-test.yml
 
 
 
