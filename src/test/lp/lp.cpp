@@ -53,7 +53,7 @@
 #include "math/lp/square_sparse_matrix_def.h"
 #include "math/lp/lu_def.h"
 #include "math/lp/general_matrix.h"
-#include "math/lp/bound_propagator.h"
+#include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
 namespace nla {
 void test_order_lemma();
@@ -69,11 +69,11 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 namespace lp {
 unsigned seed = 1;
 
-    class my_bound_propagator : public bound_propagator {
-    public:
-        my_bound_propagator(lar_solver & ls): bound_propagator(ls) {}
-        void consume(mpq const& v, lp::constraint_index j) override {}
-    };
+class my_bound_propagator : public lp_bound_propagator {
+public:
+    my_bound_propagator(lar_solver & ls): lp_bound_propagator(ls, nullptr) {}
+    void consume(mpq const& v, lp::constraint_index j) override {}
+};
 
 random_gen g_rand;
 static unsigned my_random() {
