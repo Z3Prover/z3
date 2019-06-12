@@ -34,11 +34,17 @@ inline void cooperate(char const * task) {
 void initialize_cooperate();
 void finalize_cooperate();
 
+#else
+inline void cooperate(char const *) {}
+inline void initialize_cooperate() {}
+inline void finalize_cooperate() {}
+
+#endif
+
+
 /*
   ADD_INITIALIZER('initialize_cooperate();')
   ADD_FINALIZER('finalize_cooperate();')
 */
 
-#else
-inline void cooperate(char const *) {}
-#endif
+
