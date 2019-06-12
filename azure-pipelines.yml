@@ -125,7 +125,7 @@ jobs:
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake $(cmakeStdArgs)
+        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../
         ninja
         ninja test-z3
         ninja c_example
@@ -136,11 +136,7 @@ jobs:
         examples/cpp_example_build_dir/cpp_example
         examples/tptp_build_dir/z3_tptp5 -help
         examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
-        mkdir -p examples/java
-        cp ../examples/java/JavaExample.java examples/java/
-        javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
-        export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
-        java -cp .:examples/java:com.microsoft.z3.jar JavaExample
         cd ..
     - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
+#   - template: scripts/test-java-cmake.yml
