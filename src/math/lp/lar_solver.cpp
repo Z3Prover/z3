@@ -728,19 +728,6 @@ bool lar_solver::use_tableau_costs() const {
     return m_settings.simplex_strategy() == simplex_strategy_enum::tableau_costs;
 }
     
-void lar_solver::detect_rows_of_column_with_bound_change(unsigned j) {
-    if (m_mpq_lar_core_solver.m_r_heading[j] >= 0) { // it is a basic column
-        // just mark the row at touched and exit
-        m_rows_with_changed_bounds.insert(m_mpq_lar_core_solver.m_r_heading[j]);
-        return;
-    }
-
-    if (use_tableau())
-        detect_rows_of_bound_change_column_for_nbasic_column_tableau(j);
-    else
-        detect_rows_of_bound_change_column_for_nbasic_column(j);
-}
-
 void lar_solver::adjust_x_of_column(unsigned j) {
     lp_assert(false);
 }
