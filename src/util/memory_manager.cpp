@@ -218,7 +218,7 @@ void * memory::allocate(char const* file, int line, char const* obj, size_t s) {
 }
 #endif
 
-#if defined(_WINDOWS) || defined(_USE_THREAD_LOCAL)
+#if !defined(SINGLE_THREAD) && (defined(_WINDOWS) || defined(_USE_THREAD_LOCAL))
 // ==================================
 // ==================================
 // THREAD LOCAL VERSION
