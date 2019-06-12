@@ -386,8 +386,6 @@ public:
 
     bool use_tableau_costs() const;
     
-    void detect_rows_of_column_with_bound_change(unsigned j);
-
     void adjust_x_of_column(unsigned j);
 
     bool row_is_correct(unsigned i) const;
