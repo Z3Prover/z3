@@ -10,8 +10,14 @@ jobs:
   displayName: "Ubuntu build - python make - debug"
   pool:
     vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      MT:
+        cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+      ST:
+        cmdLine: './configure --single-threaded'
   steps:
-    - script: python scripts/mk_make.py -d --java --dotnet
+    - script: $(cmdLine)
     - script: |
         cd build
         make
@@ -19,7 +25,7 @@ jobs:
         make test-z3
         ./cpp_example
         ./c_example
-        cd ..     
+        cd ..
     - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
 
@@ -43,6 +49,9 @@ jobs:
         runUnitTest: 'True'
       debugGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
+        runUnitTest: 'True'
+      releaseSTGcc:
+        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
         runUnitTest: 'True'
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
@@ -135,11 +144,3 @@ jobs:
         cd ..
     - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
-
-
-
-
-
-
-
-
