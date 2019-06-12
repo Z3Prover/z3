@@ -1,0 +1,9 @@
+steps:
+- script: |
+    cd build
+    mkdir -p examples/java
+    cp ../examples/java/JavaExample.java examples/java/
+    javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
+    export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
+    java -cp .:examples/java:com.microsoft.z3.jar JavaExample
+    cd ..
