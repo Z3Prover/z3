@@ -86,7 +86,11 @@ public:
     order                    m_order;
     monotone                 m_monotone;
     emonomials               m_emons;
-
+    svector<lpvar>            m_add_buffer;
+public:
+    emonomials& emons() { return m_emons; }
+    const emonomials& emons() const { return m_emons; }
+    // constructor
     core(lp::lar_solver& s);
 
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
@@ -133,8 +137,7 @@ public:
 
     void deregister_monomial_from_tables(const monomial & m, unsigned i);
 
-    // returns the monomial index
-    void add(lpvar v, unsigned sz, lpvar const* vs);   
+    void add_monomial(lpvar v, unsigned sz, lpvar const* vs);   
     void push();     
     void pop(unsigned n);
 

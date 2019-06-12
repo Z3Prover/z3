@@ -27,9 +27,8 @@
 #include "math/lp/nla_intervals.h"
 namespace nla {
 
-// returns the monomial index
 void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
-    m_core->add(v, sz, vs);
+    m_core->add_monomial(v, sz, vs);
 }
 
 bool solver::is_monomial_var(lpvar v) const {

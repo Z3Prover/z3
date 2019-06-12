@@ -121,8 +121,16 @@ bool core::canonize_sign(const factorization& f) const {
     return r;
 }
 
-void core::add(lpvar v, unsigned sz, lpvar const* vs) {
-    m_emons.add(v, sz, vs);
+void core::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
+    m_add_buffer.resize(sz);
+    for (unsigned i = 0; i < sz; i++) {
+        lpvar j = vs[i];
+        if (m_lar_solver.is_term(j))
+            j = m_lar_solver.adjust_term_index(j);        
+        m_add_buffer[i] = j;
+    }
+        
+    m_emons.add(v, m_add_buffer);
 }
     
 void core::push() {
