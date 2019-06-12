@@ -21,6 +21,8 @@ Revision History:
 #include<iostream>
 #include<time.h>
 #include<signal.h>
+#include<mutex>
+
 #include "util/timeout.h"
 #include "parsers/smt2/smt2parser.h"
 #include "muz/fp/dl_cmds.h"
@@ -32,8 +34,7 @@ Revision History:
 #include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 
-static std::mutex display_stats_mux;
-
+extern std::mutex* g_stat_mux;
 extern bool g_display_statistics;
 static clock_t             g_start_time;
 static cmd_context *       g_cmd_context = nullptr;
@@ -51,7 +52,7 @@ static void display_statistics() {
 }
 
 static void on_timeout() {
-    std::lock_guard<std::mutex> lock(display_stats_mux);
+    std::lock_guard<std::mutex> lock(*g_stat_mux);
     display_statistics();
     exit(0);    
 }
@@ -59,7 +60,7 @@ static void on_timeout() {
 static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
+        std::lock_guard<std::mutex> lock(*g_stat_mux);
         display_statistics();
     }
     raise(SIGINT);
@@ -99,7 +100,7 @@ unsigned read_smtlib2_commands(char const * file_name) {
 
 
     {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
+        std::lock_guard<std::mutex> lock(*g_stat_mux);
         display_statistics();
         g_cmd_context = nullptr;
     }

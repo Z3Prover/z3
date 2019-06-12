@@ -26,6 +26,7 @@ rational             rational::m_zero;
 rational             rational::m_one;
 rational             rational::m_minus_one;
 vector<rational>     rational::m_powers_of_two;
+static mutex*        s_mux = nullptr;
 
 static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     if (pws.empty()) {
@@ -40,11 +41,10 @@ static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     }
 }
 
-static mutex g_powers_of_two;
 
 rational rational::power_of_two(unsigned k) {
     rational result;
-    lock_guard lock(g_powers_of_two);
+    lock_guard lock(*s_mux);
     {
         if (k >= m_powers_of_two.size())
             mk_power_up_to(m_powers_of_two, k+1);
@@ -64,6 +64,7 @@ void finalize_inf_int_rational();
 void rational::initialize() {
     if (!g_mpq_manager) {
         g_mpq_manager = alloc(synch_mpq_manager);
+        s_mux = alloc(mutex);
         m().set(m_zero.m_val, 0);
         m().set(m_one.m_val, 1);
         m().set(m_minus_one.m_val, -1);
@@ -81,5 +82,7 @@ void rational::finalize() {
     m_minus_one.~rational();
     dealloc(g_mpq_manager);
     g_mpq_manager = nullptr;
+    dealloc(s_mux);
+    s_mux = nullptr;
 }
 

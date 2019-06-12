@@ -17,13 +17,13 @@ Notes:
 
 --*/
 #include "util/prime_generator.h"
-#include "util/mutex.h"
 
 #define PRIME_LIST_MAX_SIZE 1<<20
 
 prime_generator::prime_generator() {
     m_primes.push_back(2);
     m_primes.push_back(3);
+    m_mux = alloc(mutex);
     process_next_k_numbers(128);
 }
 
@@ -82,6 +82,7 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
 
 void prime_generator::finalize() {
     m_primes.finalize();
+    dealloc(m_mux);
 }
 
 uint64_t prime_generator::operator()(unsigned idx) {
@@ -110,8 +111,6 @@ prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
     }
 }
 
-static mutex g_prime_iterator;
-
 uint64_t prime_iterator::next() {
     unsigned idx = m_idx;
     m_idx++;
@@ -120,7 +119,7 @@ uint64_t prime_iterator::next() {
     }
     else {
         uint64_t r;
-        lock_guard lock(g_prime_iterator);
+        lock_guard lock(*m_generator->m_mux);
         {
             r = (*m_generator)(idx);
         }

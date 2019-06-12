@@ -7,6 +7,7 @@ Copyright (c) 2015 Microsoft Corporation
 #include<fstream>
 #include<signal.h>
 #include<time.h>
+#include<mutex>
 #include "util/gparams.h"
 #include "util/timeout.h"
 #include "util/cancel_eh.h"
@@ -21,11 +22,11 @@ Copyright (c) 2015 Microsoft Corporation
 #include "opt/opt_parse.h"
 
 extern bool g_display_statistics;
+extern std::mutex* g_stat_mux;
 static bool g_first_interrupt = true;
 static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
-static std::mutex display_stats_mux;
 
 
 
@@ -70,7 +71,7 @@ static void STD_CALL on_ctrl_c(int) {
     else {
         signal (SIGINT, SIG_DFL);
         {
-            std::lock_guard<std::mutex> lock(display_stats_mux);
+            std::lock_guard<std::mutex> lock(*g_stat_mux);
             display_statistics();
         }
         raise(SIGINT);
@@ -79,7 +80,7 @@ static void STD_CALL on_ctrl_c(int) {
 
 static void on_timeout() {
     {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
+        std::lock_guard<std::mutex> lock(*g_stat_mux);
         display_statistics();
     }
     exit(0);
@@ -133,7 +134,7 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         std::cerr << ex.msg() << "\n";
     }
     {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
+        std::lock_guard<std::mutex> lock(*g_stat_mux);
         display_statistics();
         register_on_timeout_proc(nullptr);
         g_opt = nullptr;
