@@ -19,6 +19,7 @@ jobs:
   steps:
     - script: $(cmdLine)
     - script: |
+        set -e
         cd build
         make -j3
         make -j3 examples
@@ -62,6 +63,7 @@ jobs:
   steps:
     - script: sudo apt-get install ninja-build
     - script: |
+        set -e
         mkdir build
         cd build
         $(cmdLine)
@@ -104,6 +106,7 @@ jobs:
   steps:
     - script: python scripts/mk_make.py -d --java --dotnet
     - script: |
+        set -e
         cd build
         make -j3
         make -j3 examples
@@ -123,6 +126,7 @@ jobs:
   steps:
     - script: brew install ninja
     - script: |
+        set -e
         mkdir build
         cd build
         CC=clang CXX=clang++ cmake $(cmakeStdArgs)
