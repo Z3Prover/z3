@@ -119,7 +119,7 @@ jobs:
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../
+        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -DBUILD_DOTNET_BINDINGS=True -G "Ninja" ../
         ninja
         ninja test-z3
         cd ..
