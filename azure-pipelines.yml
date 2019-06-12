@@ -20,9 +20,9 @@ jobs:
     - script: $(cmdLine)
     - script: |
         cd build
-        make
-        make examples
-        make test-z3
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
         ./cpp_example
         ./c_example
         cd ..
@@ -105,9 +105,9 @@ jobs:
     - script: python scripts/mk_make.py -d --java --dotnet
     - script: |
         cd build
-        make
-        make examples
-        make test-z3
+        make -j3
+        make -j3 examples
+        make -j3 test-z3
         ./cpp_example
         ./c_example
         cd ..     
