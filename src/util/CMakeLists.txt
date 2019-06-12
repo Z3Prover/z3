@@ -63,10 +63,12 @@ z3_add_component(util
   EXTRA_REGISTER_MODULE_HEADERS
     env_params.h
   MEMORY_INIT_FINALIZER_HEADERS
+    cooperate.h
     debug.h
     gparams.h
     prime_generator.h
     rational.h
+    rlimit.h
     symbol.h
     trace.h
 )

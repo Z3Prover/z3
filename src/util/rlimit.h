@@ -21,7 +21,7 @@ Revision History:
 #include "util/vector.h"
 
 
-void initialize_rlimits();
+void initialize_rlimit();
 void finalize_rlimit();
 /*
   ADD_INITIALIZER('initialize_rlimit();')

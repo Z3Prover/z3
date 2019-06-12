@@ -23,7 +23,7 @@ Revision History:
 
 static mutex* s_mux = nullptr;
 
-void initialize_rlimits() {
+void initialize_rlimit() {
     s_mux = new mutex;
 }
 void finalize_rlimit() {
