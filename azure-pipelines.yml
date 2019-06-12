@@ -16,12 +16,11 @@ jobs:
         cd build
         make
         make examples
-        ls
+        make test-z3
         ./cpp_example
         ./c_example
-        make test-z3
-        ./test-z3 -a      
         cd ..     
+    - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
 
 
@@ -72,9 +71,8 @@ jobs:
         javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
         export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
         java -cp .:examples/java:com.microsoft.z3.jar JavaExample
-        ./test-z3 -a
         cd ..
-    - script: |
+    - script |
          cd build
          ./test-z3 -a
          cd ..
@@ -100,12 +98,11 @@ jobs:
         cd build
         make
         make examples
-        ls
+        make test-z3
         ./cpp_example
         ./c_example
-        make test-z3
-        ./test-z3 -a      
         cd ..     
+    - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
 
 
@@ -135,8 +132,8 @@ jobs:
         javac examples/java/Javaexamplejava -classpath com.microsoft.z3.jar
         export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
         java -cp .:examples/java:com.microsoft.z3.jar JavaExample
-        ./test-z3 -a
         cd ..
+    - template: scripts/test-z3.yml
     - template: scripts/regression-test.yml
 
 
