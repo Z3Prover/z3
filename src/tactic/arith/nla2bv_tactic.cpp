@@ -81,8 +81,8 @@ class nla2bv_tactic : public tactic {
 
         ~imp() {}
 
-		void updt_params(params_ref const& p)  {
-		}
+        void updt_params(params_ref const& p)  {
+        }
         
         
         void operator()(goal & g, model_converter_ref & mc) {
