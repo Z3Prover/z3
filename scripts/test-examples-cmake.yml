@@ -1,0 +1,13 @@
+steps:
+- script: |
+    set -e
+    cd build
+    ninja c_example
+    ninja cpp_example
+    ninja z3_tptp5
+    ninja c_maxsat_example
+    examples/c_example_build_dir/c_example
+    examples/cpp_example_build_dir/cpp_example
+    examples/tptp_build_dir/z3_tptp5 -help
+    examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
+    cd ..

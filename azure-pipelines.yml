@@ -28,7 +28,7 @@ jobs:
         ./c_example
         cd ..
     - template: scripts/test-z3.yml
-    - template: scripts/regression-test.yml
+    - template: scripts/test-regressions.yml
 
 
 # TBD: 
@@ -69,23 +69,16 @@ jobs:
         $(cmdLine)
         ninja
         ninja test-z3
-        ninja c_example
-        ninja cpp_example
-        ninja z3_tptp5
-        ninja c_maxsat_example
-        examples/c_example_build_dir/c_example
-        examples/cpp_example_build_dir/cpp_example
-        examples/tptp_build_dir/z3_tptp5 -help
-        examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
         cd ..
     - script: |
          cd build
          ./test-z3 -a
          cd ..
       condition: eq(variables['runUnitTest'], 'True')
+    - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
-    - template: scripts/regression-test.yml
+    - template: scripts/test-regressions.yml
 
 
 - job: "Windows2017"
@@ -111,7 +104,7 @@ jobs:
         ./c_example
         cd ..     
     - template: scripts/test-z3.yml
-    - template: scripts/regression-test.yml
+    - template: scripts/test-regressions.yml
 
 
 
@@ -128,15 +121,8 @@ jobs:
         CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../
         ninja
         ninja test-z3
-        ninja c_example
-        ninja cpp_example
-        ninja z3_tptp5
-        ninja c_maxsat_example
-        examples/c_example_build_dir/c_example
-        examples/cpp_example_build_dir/cpp_example
-        examples/tptp_build_dir/z3_tptp5 -help
-        examples/c_maxsat_example_build_dir/c_maxsat_example ../examples/maxsat/ex.smt
         cd ..
     - template: scripts/test-z3.yml
-    - template: scripts/regression-test.yml
+    - template: scripts/test-examples-cmake.yml
+    - template: scripts/test-regressions.yml
 #   - template: scripts/test-java-cmake.yml
