@@ -83,6 +83,7 @@ void prime_generator::process_next_k_numbers(uint64_t k) {
 void prime_generator::finalize() {
     m_primes.finalize();
     dealloc(m_mux);
+    m_mux = nullptr;
 }
 
 uint64_t prime_generator::operator()(unsigned idx) {
@@ -129,5 +130,4 @@ uint64_t prime_iterator::next() {
 
 void prime_iterator::finalize() {
     g_prime_generator.finalize();
-    dealloc(g_prime_generator.m_mux);
 }
