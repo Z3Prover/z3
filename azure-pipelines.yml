@@ -72,7 +72,7 @@ jobs:
         export LD_LIBRARY_PATH=$(pwd):${LD_LIBRARY_PATH}
         java -cp .:examples/java:com.microsoft.z3.jar JavaExample
         cd ..
-    - script |
+    - script: |
          cd build
          ./test-z3 -a
          cd ..

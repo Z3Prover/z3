@@ -129,4 +129,5 @@ uint64_t prime_iterator::next() {
 
 void prime_iterator::finalize() {
     g_prime_generator.finalize();
+    dealloc(g_prime_generator.m_mux);
 }
