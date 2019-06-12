@@ -38,5 +38,5 @@ void tst_prime_generator() {
             ENSURE(p % i != 0);
         }
     }
-    std::cout << std::endl;
+    std::cout << std::endl;    
 }

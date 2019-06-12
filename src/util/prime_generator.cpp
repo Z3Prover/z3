@@ -27,6 +27,11 @@ prime_generator::prime_generator() {
     process_next_k_numbers(128);
 }
 
+prime_generator::~prime_generator() {
+    dealloc(m_mux);
+    m_mux = nullptr;
+}
+
 void prime_generator::process_next_k_numbers(uint64_t k) {
     svector<uint64_t> todo;
     uint64_t begin = m_primes.back() + 2;

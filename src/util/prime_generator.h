@@ -38,6 +38,7 @@ class prime_generator {
 public:
     mutex             *m_mux;
     prime_generator();
+    ~prime_generator();
     uint64_t operator()(unsigned idx);
     void finalize();
 };
