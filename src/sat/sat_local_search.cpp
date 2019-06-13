@@ -373,7 +373,7 @@ namespace sat {
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                vi.m_bias = s.m_phase[v++] == l_true ? 98 : 2;
+                vi.m_bias = s.m_phase[v++] ? 98 : 2;
             }
         }
 
