@@ -135,7 +135,6 @@ namespace sat {
         VERIFY(s.m_decision.size() == s.num_vars());
         VERIFY(s.m_eliminated.size() == s.num_vars());
         VERIFY(s.m_external.size() == s.num_vars());
-        VERIFY(s.m_level.size() == s.num_vars());
         VERIFY(s.m_mark.size() == s.num_vars());
         VERIFY(s.m_activity.size() == s.num_vars());
         VERIFY(s.m_phase.size() == s.num_vars());

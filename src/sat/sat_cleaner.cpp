@@ -133,17 +133,11 @@ namespace sat {
                     s.del_clause(c);
                     break;
                 default:
-                    c.shrink(new_sz);
+                    s.shrink(c, sz, new_sz);
                     *it2 = *it;
                     it2++;
                     if (!c.frozen()) {                            
                         s.attach_clause(c);
-                    }
-                    if (s.m_config.m_drat && new_sz < sz) {
-                        s.m_drat.add(c, true);
-                        c.restore(sz);
-                        s.m_drat.del(c);
-                        c.shrink(new_sz);
                     }
                     break;
                 }
@@ -173,12 +167,33 @@ namespace sat {
         }
     };
 
+    bool cleaner::is_clean() const {
+        for (clause* cp : s.m_clauses) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        for (clause* cp : s.m_learned) {
+            for (literal lit : *cp) {
+                if (s.value(lit) != l_undef && s.lvl(lit) == 0) return false;
+            }
+        }
+        unsigned idx = 0;
+        for (auto& wlist : s.m_watches) {
+            literal lit = to_literal(idx);
+            if (s.value(lit) != l_undef && s.lvl(lit) == 0 && !wlist.empty()) return false;
+            ++idx;
+        }
+        return true;
+    }
+
     /**
        \brief Return true if cleaner executed.
     */
     bool cleaner::operator()(bool force) {
         CASSERT("cleaner_bug", s.check_invariant());
         unsigned trail_sz = s.m_trail.size();
+
         s.propagate(false); // make sure that everything was propagated.
         TRACE("sat_cleaner_bug", s.display(tout); s.display_watches(tout););
         if (s.m_inconsistent)

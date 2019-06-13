@@ -216,10 +216,10 @@ namespace sat {
 
     void local_search::set_best_unsat() {
         m_best_unsat = m_unsat_stack.size();
-        if (m_best_unsat == 1) {
-            constraint const& c = m_constraints[m_unsat_stack[0]];
-            IF_VERBOSE(2, display(verbose_stream() << "single unsat:", c));
-        }
+        m_best_phase.reserve(m_vars.size());
+        for (unsigned i = m_vars.size(); i-- > 0; ) {
+            m_best_phase[i] = m_vars[i].m_value;
+        }        
     }    
     
     void local_search::verify_solution() const {
@@ -351,7 +351,16 @@ namespace sat {
         m_par(nullptr) {
     }
 
-    void local_search::import(solver& s, bool _init) {        
+    void local_search::reinit(solver& s) {
+        import(s, true); 
+        if (s.m_best_phase_size > 0) {
+            for (unsigned i = num_vars(); i-- > 0; ) {
+                set_phase(i, s.m_best_phase[i]);
+            }
+        }
+    }
+
+    void local_search::import(solver const& s, bool _init) {        
         flet<bool> linit(m_initializing, true);
         m_is_pb = false;
         m_vars.reset();
@@ -364,7 +373,7 @@ namespace sat {
         if (m_config.phase_sticky()) {
             unsigned v = 0;
             for (var_info& vi : m_vars) {
-                vi.m_bias = s.m_phase[v++] == POS_PHASE ? 98 : 2;
+                vi.m_bias = s.m_phase[v++] ? 98 : 2;
             }
         }
 
@@ -495,7 +504,7 @@ namespace sat {
     
 
     lbool local_search::check() {
-        return check(0, nullptr);
+        return check(0, nullptr, nullptr);
     }
 
 #define PROGRESS(tries, flips)                                          \
@@ -530,7 +539,25 @@ namespace sat {
             }
             total_flips += step;
             PROGRESS(tries, total_flips);
-            if (m_par && m_par->get_phase(*this)) {
+            if (m_par) {
+                double max_avg = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    max_avg = std::max(max_avg, (double)m_vars[v].m_slow_break);
+                }
+                double sum = 0;
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    sum += exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg));
+                }
+                if (sum == 0) {
+                    sum = 0.01;
+                }
+                for (unsigned v = 0; v < num_vars(); ++v) {
+                    m_vars[v].m_break_prob = exp(m_config.itau() * (m_vars[v].m_slow_break - max_avg)) / sum;
+                }
+                
+                m_par->to_solver(*this);
+            }
+            if (m_par && m_par->from_solver(*this)) {
                 reinit();
             }
             if (tries % 10 == 0 && !m_unsat_stack.empty()) {
@@ -834,11 +861,10 @@ namespace sat {
     }
 
 
-    void local_search::set_phase(bool_var v, lbool f) {
+    void local_search::set_phase(bool_var v, bool f) {
         unsigned& bias = m_vars[v].m_bias;
-        if (f == l_true && bias < 100) bias++;
-        if (f == l_false && bias > 0) bias--;
-        // f == l_undef ?
+        if (f  && bias < 100) bias++;
+        if (!f && bias > 0) bias--;
     }
 
     void local_search::set_bias(bool_var v, lbool f) {

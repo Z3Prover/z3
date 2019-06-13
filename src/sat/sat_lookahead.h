@@ -20,9 +20,9 @@ Notes:
 #ifndef _SAT_LOOKAHEAD_H_
 #define _SAT_LOOKAHEAD_H_
 
-// #define OLD_NARY 0
 
-#include "sat_elim_eqs.h"
+#include "util/small_object_allocator.h"
+#include "sat/sat_elim_eqs.h"
 
 namespace sat {
 
@@ -247,6 +247,7 @@ namespace sat {
         stats                  m_stats;
         model                  m_model; 
         cube_state             m_cube_state;
+        unsigned               m_max_ops;       // cap number of operations used to compute lookahead reward.
         //scoped_ptr<extension>  m_ext;
  
         // ---------------------------------------
@@ -510,6 +511,7 @@ namespace sat {
         void propagate_binary(literal l);
         void propagate();
         literal choose();
+        literal choose_base();
         void compute_lookahead_reward();
         literal select_literal();
         void update_binary_clause_reward(literal l1, literal l2);
@@ -605,12 +607,25 @@ namespace sat {
 
         std::ostream& display(std::ostream& out) const;
         std::ostream& display_summary(std::ostream& out) const;
+
+        /**
+           \brief display lookahead scores as a sequence of:
+           <variable_id:uint> <true_branch_score:double> <false_branch_score:double>\n
+        */
+        void display_lookahead_scores(std::ostream& out);
+
         model const& get_model();
 
         void collect_statistics(statistics& st) const;
 
         double literal_occs(literal l);
         double literal_big_occs(literal l);
+
+        /**
+           \brief retrieve clauses as one vector of literals.
+           clauses are separated by null-literal
+        */
+        void get_clauses(literal_vector& clauses, unsigned max_clause_size);
 
         sat::config const& get_config() const { return m_s.get_config(); }
               

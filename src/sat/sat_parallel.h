@@ -28,8 +28,6 @@ Revision History:
 
 namespace sat {
 
-    class local_search;
-
     class parallel {
 
         // shared pool of learned clauses.
@@ -54,8 +52,10 @@ namespace sat {
 
         bool enable_add(clause const& c) const;
         void _get_clauses(solver& s);
-        void _get_phase(solver& s);
-        void _set_phase(solver& s);
+        void _from_solver(solver& s);
+        bool _to_solver(solver& s);
+        bool _from_solver(i_local_search& s);
+        void _to_solver(i_local_search& s);
 
         typedef hashtable<unsigned, u_hash, u_eq> index_set;
         literal_vector m_units;
@@ -65,10 +65,10 @@ namespace sat {
         std::mutex     m_mux;
 
         // for exchange with local search:
-        svector<lbool>     m_phase;
         unsigned           m_num_clauses;
         scoped_ptr<solver> m_solver_copy;
         bool               m_consumer_ready;
+        svector<double>    m_priorities;
 
         scoped_limits      m_scoped_rlimit;
         vector<reslimit>   m_limits;
@@ -102,13 +102,13 @@ namespace sat {
         // receive clauses from shared clause pool
         void get_clauses(solver& s);
 
-        // exchange phase of variables.
-        void set_phase(solver& s);
-
-        void get_phase(solver& s);
+        // exchange from solver state to local search and back.
+        void from_solver(solver& s);
+        bool to_solver(solver& s);
         
-        bool get_phase(local_search& s);
-
+        bool from_solver(i_local_search& s);
+        void to_solver(i_local_search& s);
+        
         bool copy_solver(solver& s);
     };
 

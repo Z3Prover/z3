@@ -62,6 +62,7 @@ namespace sat {
         virtual lbool resolve_conflict() { return l_undef; } // stores result in sat::solver::m_lemma
         virtual void push() = 0;
         virtual void pop(unsigned n) = 0;
+        virtual void pre_simplify() = 0;
         virtual void simplify() = 0;
         // have a way to replace l by r in all constraints
         virtual bool set_root(literal l, literal r) { return false; }

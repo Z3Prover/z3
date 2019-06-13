@@ -32,6 +32,7 @@ namespace sat {
         updt_params(p);
         reset_statistics();
         m_calls = 0;
+        m_touch_index = 0;
     }
 
     struct clause_size_lt {
@@ -103,6 +104,7 @@ namespace sat {
         unsigned eliml0 = m_elim_learned_literals;
         unsigned elim = m_elim_literals;
         process(nullptr, s.m_clauses);
+        if (learned) process(nullptr, s.m_learned);
         s.propagate(false); 
         IF_VERBOSE(4, if (m_elim_learned_literals > eliml0) 
                           verbose_stream() << "(sat-asymm-branch :elim " << m_elim_learned_literals - eliml0 << ")\n";);
@@ -168,13 +170,14 @@ namespace sat {
         CASSERT("asymm_branch", s.check_invariant());
         TRACE("asymm_branch_detail", s.display(tout););
         report rpt(*this);
-        svector<char> saved_phase(s.m_phase);
+        svector<bool> saved_phase(s.m_phase);
 
         bool change = true;
         unsigned counter = 0;
         while (change && counter < 2) {
             ++counter;
             change = false;
+            s.m_touch_index++;
             if (m_asymm_branch_sampled) {
                 big big(s.m_rand);
                 if (process(big, true)) change = true;
@@ -185,9 +188,10 @@ namespace sat {
             }
             if (m_asymm_branch) {
                 m_counter  = 0; 
-                if (process(true)) change = true;
+                if (process(false)) change = true;
                 m_counter = -m_counter;
             }
+            m_touch_index = s.m_touch_index;
         }
 
         s.m_phase = saved_phase;
@@ -196,6 +200,7 @@ namespace sat {
             m_asymm_branch_limit = UINT_MAX;
 
         CASSERT("asymm_branch", s.check_invariant());
+
     }
 
     /**
@@ -222,24 +227,12 @@ namespace sat {
         }
     };
 
-    void asymm_branch::sort(big& big, clause const& c) {
-        sort(big, c.begin(), c.end());
+    bool asymm_branch::is_touched(bool_var v) const { 
+        return s.m_touched[v] >= m_touch_index; 
     }
 
-    void asymm_branch::radix_sort(big& big, literal_vector& lits) {
-        const unsigned d = 4;
-        const unsigned w = 20; // 1M variable cap        
-        unsigned sz = lits.size();
-        m_tmp.reserve(sz);
-        for (unsigned p = 0; p < w/d; ++p) {
-            unsigned on[16];
-            memset(on, 0, 16*sizeof(unsigned));
-            for (literal l : lits) on[(big.get_left(l) >> 4*p) & 15]++;
-            for (unsigned i = 1; i < 16; ++i) on[i] += on[i-1];
-            for (unsigned i = sz; i-- > 0; ) 
-                m_tmp[--on[(big.get_left(lits[i]) >> 4*p) & 15]] = lits[i];
-            for (unsigned i = sz; i-- > 0; ) lits[i] = m_tmp[i];
-        }
+    void asymm_branch::sort(big& big, clause const& c) {
+        sort(big, c.begin(), c.end());
     }
 
     void asymm_branch::sort(big& big, literal const* begin, literal const* end) {
@@ -252,10 +245,6 @@ namespace sat {
         compare_left cmp(big);
         std::sort(m_pos.begin(), m_pos.end(), cmp);
         std::sort(m_neg.begin(), m_neg.end(), cmp);
-
-        // alternative: worse
-        // radix_sort(big, m_pos);
-        // radix_sort(big, m_neg);
 
         IF_VERBOSE(100, 
                    for (literal l : m_pos) verbose_stream() << big.get_left(l) << " "; 
@@ -284,22 +273,6 @@ namespace sat {
             }
         }
         return false;
-    }
-
-    void asymm_branch::minimize(big& big, literal_vector& lemma) {
-        big.ensure_big(s, true);
-        sort(big, lemma.begin(), lemma.end());
-        uhle(big);
-        if (!m_to_delete.empty()) {
-            unsigned j = 0;
-            for (unsigned i = 0; i < lemma.size(); ++i) {
-                literal l = lemma[i];
-                if (!m_to_delete.contains(l)) {
-                    lemma[j++] = l;
-                }
-            }
-            lemma.shrink(j);
-        }
     }
 
     void asymm_branch::uhle(big& big) {
@@ -365,6 +338,9 @@ namespace sat {
 
 
     bool asymm_branch::propagate_literal(clause const& c, literal l) {
+        if (!is_touched(l.var())) {
+            return false;
+        }
         SASSERT(!s.inconsistent());
         TRACE("asymm_branch_detail", tout << "assigning: " << l << "\n";);
         s.assign_scoped(l);
@@ -439,13 +415,7 @@ namespace sat {
             scoped_d.del_clause();
             return false;
         default:
-            c.shrink(new_sz);
-            if (s.m_config.m_drat && new_sz < old_sz) {
-                s.m_drat.add(c, true);
-                c.restore(old_sz);
-                s.m_drat.del(c);
-                c.shrink(new_sz);
-            }
+            s.shrink(c, old_sz, new_sz);
             return true;
         }
     }

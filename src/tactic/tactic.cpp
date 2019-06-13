@@ -165,11 +165,18 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     }
     catch (tactic_exception & ex) {
         reason_unknown = ex.msg();
+        if (r.size() > 0) pr = r[0]->pr(0);
         return l_undef;
     }
-    TRACE("tactic_check_sat",
+    TRACE("tactic",
           tout << "r.size(): " << r.size() << "\n";
-          for (unsigned i = 0; i < r.size(); i++) r[i]->display(tout););
+          for (unsigned i = 0; i < r.size(); i++) r[i]->display_with_dependencies(tout););
+
+    if (r.size() > 0) {
+        pr = r[0]->pr(0);
+        TRACE("tactic", tout << pr << "\n";);
+    }
+    
 
     if (is_decided_sat(r)) {
         model_converter_ref mc = r[0]->mc();            
@@ -192,7 +199,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     }
     else {
         if (models_enabled && !r.empty()) {
-        model_converter_ref mc = r[0]->mc();            
+            model_converter_ref mc = r[0]->mc();            
             model_converter2model(m, mc.get(), md);
             if (mc)
                 (*mc)(labels);

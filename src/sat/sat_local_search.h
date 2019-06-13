@@ -36,6 +36,7 @@ namespace sat {
         local_search_mode m_mode;
         bool              m_phase_sticky;
         bool              m_dbg_flips;
+        double            m_itau;
 
         friend class local_search;
 
@@ -53,6 +54,7 @@ namespace sat {
             m_mode = local_search_mode::wsat;
             m_phase_sticky = false;
             m_dbg_flips = false;
+            m_itau = 0.5;
         }
 
         unsigned random_seed() const { return m_random_seed; }
@@ -60,6 +62,7 @@ namespace sat {
         local_search_mode mode() const { return m_mode; }
         bool phase_sticky() const { return m_phase_sticky; }
         bool dbg_flips() const { return m_dbg_flips; }
+        double itau() const { return m_itau; }
         
         void set_random_seed(unsigned s) { m_random_seed = s;  }
         void set_best_known_value(unsigned v) { m_best_known_value = v; }
@@ -67,7 +70,7 @@ namespace sat {
     };
 
 
-    class local_search {
+    class local_search : public i_local_search {
 		
         struct pbcoeff {
             unsigned m_constraint_id;
@@ -102,6 +105,7 @@ namespace sat {
             literal_vector m_bin[2];
             unsigned m_flips;
             ema  m_slow_break;
+            double m_break_prob;
             var_info():
                 m_value(true),
                 m_bias(50), 
@@ -111,7 +115,8 @@ namespace sat {
                 m_score(0),
                 m_slack_score(0),
                 m_flips(0),
-                m_slow_break(1e-5)
+                m_slow_break(1e-5),
+                m_break_prob(0)
             {}
         };
 
@@ -134,6 +139,7 @@ namespace sat {
         local_search_config m_config;        
         
         vector<var_info>    m_vars;                      // variables
+        svector<bool>       m_best_phase;                // best value in round
         svector<bool_var>   m_units;                     // unit clauses
         vector<constraint>  m_constraints;               // all constraints
         literal_vector      m_assumptions;               // temporary assumptions
@@ -166,7 +172,6 @@ namespace sat {
         random_gen  m_rand;
         parallel*   m_par;
         model       m_model;
-
 
         inline int score(bool_var v) const { return m_vars[v].m_score; }
         inline void inc_score(bool_var v) { m_vars[v].m_score++; }
@@ -223,47 +228,57 @@ namespace sat {
         void extract_model();
         void add_clause(unsigned sz, literal const* c);
         void add_unit(literal lit, literal explain);
+
         std::ostream& display(std::ostream& out) const;
         std::ostream& display(std::ostream& out, constraint const& c) const;
         std::ostream& display(std::ostream& out, unsigned v, var_info const& vi) const;
+
+        lbool check();
+
+        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
 
     public:
 
         local_search();
 
-        reslimit& rlimit() { return m_limit; }
+        ~local_search() override;
+        
+        reslimit& rlimit() override { return m_limit; }
 
-        ~local_search();
+        lbool check(unsigned sz, literal const* assumptions, parallel* p) override;
+
+        unsigned num_non_binary_clauses() const override { return m_num_non_binary_clauses; }
+
+        void add(solver const& s) override { import(s, false); }
+
+        model const& get_model() const override { return m_model; }
+
+        void collect_statistics(statistics& st) const override;        
+
+        void updt_params(params_ref const& p) override {}
+
+        void set_seed(unsigned n) override { config().set_random_seed(n); }
+
+        void reinit(solver& s) override;
+
+        // used by unit-walk
+        void set_phase(bool_var v, bool f);
+
+        void set_bias(bool_var v, lbool f);
+
+        bool get_best_phase(bool_var v) const { return m_best_phase[v]; }
+
+        inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
+
+        double get_priority(bool_var v) const override { return m_vars[v].m_break_prob; }
+
+        void import(solver const& s, bool init);        
 
         void add_cardinality(unsigned sz, literal const* c, unsigned k);
 
         void add_pb(unsigned sz, literal const* c, unsigned const* coeffs, unsigned k);
-        
-        lbool check();
-
-        lbool check(unsigned sz, literal const* assumptions, parallel* p = nullptr);
 
         local_search_config& config() { return m_config;  }
-
-        unsigned num_vars() const { return m_vars.size() - 1; }     // var index from 1 to num_vars
-
-        unsigned num_non_binary_clauses() const { return m_num_non_binary_clauses; }
-
-        void import(solver& s, bool init);        
-
-        void set_phase(bool_var v, lbool f);
-
-        void set_bias(bool_var v, lbool f);
-
-        bool get_phase(bool_var v) const { return is_true(v); }
-
-        inline bool cur_solution(bool_var v) const { return m_vars[v].m_value; }
-
-        double break_count(bool_var v) const { return m_vars[v].m_slow_break; }
-
-        model& get_model() { return m_model; }
-
-        void collect_statistics(statistics& st) const;        
 
     };
 }

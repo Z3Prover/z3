@@ -54,32 +54,40 @@ namespace sat {
             m_phase = PS_ALWAYS_FALSE;
         else if (s == symbol("always_true"))
             m_phase = PS_ALWAYS_TRUE;
+        else if (s == symbol("basic_caching"))
+            m_phase = PS_BASIC_CACHING;
         else if (s == symbol("caching"))
-            m_phase = PS_CACHING;
+            m_phase = PS_SAT_CACHING;
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
             throw sat_param_exception("invalid phase selection strategy");
 
-        m_phase_caching_on  = p.phase_caching_on();
-        m_phase_caching_off = p.phase_caching_off();
+        m_rephase_base      = p.rephase_base();
+        m_search_sat_conflicts = p.search_sat_conflicts();
+        m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
 
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
         m_restart_max     = p.restart_max();
+        m_activity_scale  = 100;
         m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
 
         m_random_freq     = p.random_freq();
         m_random_seed     = p.random_seed();
-        if (m_random_seed == 0) 
+        if (m_random_seed == 0) {
             m_random_seed = _p.get_uint("random_seed", 0);
+        }
         
         m_burst_search    = p.burst_search();
         
         m_max_conflicts   = p.max_conflicts();
         m_num_threads     = p.threads();
+        m_ddfw_search     = p.ddfw_search();
+        m_ddfw_threads    = p.ddfw_threads();
+        m_prob_search     = p.prob_search();
         m_local_search    = p.local_search();
         m_local_search_threads = p.local_search_threads();
         if (p.local_search_mode() == symbol("gsat"))
@@ -89,6 +97,7 @@ namespace sat {
         m_local_search_dbg_flips = p.local_search_dbg_flips();
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
+        m_binspr            = false; // unsound :-( p.binspr();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();
@@ -159,6 +168,9 @@ namespace sat {
 
         m_force_cleanup   = p.force_cleanup();
 
+        m_backtrack_scopes = p.backtrack_scopes();
+        m_backtrack_init_conflicts = p.backtrack_conflicts();
+
         m_minimize_lemmas = p.minimize_lemmas();
         m_core_minimize   = p.core_minimize();
         m_core_minimize_partial   = p.core_minimize_partial();
@@ -217,6 +229,7 @@ namespace sat {
             throw sat_param_exception("invalid PB lemma format: 'cardinality' or 'pb' expected");
         
         m_card_solver = p.cardinality_solver();
+        m_xor_solver = p.xor_solver();
 
         sat_simplifier_params sp(_p);
         m_elim_vars = sp.elim_vars();

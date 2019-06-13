@@ -46,7 +46,6 @@ static bool build_instance(char const * filename, sat::solver& s, sat::local_sea
         std::cout << "Objective function format error. They have different lengths.\n";
         return false;
     }
-
     
     // read the constraints, one at a time
     int k;
@@ -124,6 +123,6 @@ void tst_sat_local_search(char ** argv, int argc, int& i) {
     cancel_eh<reslimit> eh(local_search.rlimit());
     scoped_ctrl_c ctrlc(eh, false, true);
     scoped_timer timer(cutoff_time*1000, &eh);        
-    local_search.check();    
+    local_search.check(0, nullptr, nullptr);    
 
 }

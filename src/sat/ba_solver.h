@@ -26,6 +26,7 @@ Revision History:
 #include "sat/sat_lookahead.h"
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_big.h"
+#include "util/small_object_allocator.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/sorting_network.h"
 
@@ -331,6 +332,7 @@ namespace sat {
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
         void cleanup_clauses();
+        void cleanup_clauses(clause_vector& clauses);
         void cleanup_constraints();
         void cleanup_constraints(ptr_vector<constraint>& cs, bool learned);
         void remove_constraint(constraint& c, char const* reason);
@@ -347,7 +349,9 @@ namespace sat {
         void init_watch(bool_var v);
         void clear_watch(constraint& c);
         lbool add_assign(constraint& c, literal l);
+        bool incremental_mode() const;
         void simplify(constraint& c);
+        void pre_simplify(constraint& c);
         void nullify_tracking_literal(constraint& c);
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);
@@ -355,6 +359,8 @@ namespace sat {
         void get_antecedents(literal l, constraint const& c, literal_vector & r);
         bool validate_conflict(constraint const& c) const;
         bool validate_unit_propagation(constraint const& c, literal alit) const;
+        void validate_eliminated();
+        void validate_eliminated(ptr_vector<constraint> const& cs);
         void attach_constraint(constraint const& c);
         void detach_constraint(constraint const& c);
         lbool eval(constraint const& c) const;
@@ -365,6 +371,7 @@ namespace sat {
         void recompile(constraint& c);
         void split_root(constraint& c);
         unsigned next_id() { return m_constraint_id++; }
+        void set_non_learned(constraint& c);
 
 
         // cardinality
@@ -391,6 +398,40 @@ namespace sat {
         void get_xr_antecedents(literal l, unsigned index, justification js, literal_vector& r);
         void get_antecedents(literal l, xr const& x, literal_vector & r);
         void simplify(xr& x);
+        void extract_xor();
+        void merge_xor();
+        struct clause_filter {
+            unsigned m_filter;
+            clause*  m_clause;            
+            clause_filter(unsigned f, clause* cp):
+                m_filter(f), m_clause(cp) {}
+        };
+        typedef svector<bool> bool_vector;
+        unsigned                m_max_xor_size;
+        vector<svector<clause_filter>>   m_clause_filters;      // index of clauses.
+        unsigned                m_barbet_combination;  // bit-mask of parities that have been found
+        vector<bool_vector>     m_barbet_parity;       // lookup parity for clauses
+        clause_vector           m_barbet_clauses_to_remove;    // remove clauses that become xors
+        unsigned_vector         m_barbet_var_position; // position of var in main clause
+        literal_vector          m_barbet_clause;       // reference clause with literals sorted according to main clause
+        unsigned_vector         m_barbet_missing;      // set of indices not occurring in clause.
+        void init_clause_filter();
+        void init_clause_filter(clause_vector& clauses);
+        inline void barbet_set_combination(unsigned mask) { m_barbet_combination |= (1 << mask); }
+        inline bool barbet_get_combination(unsigned mask) const { return (m_barbet_combination & (1 << mask)) != 0; }
+        void barbet_extract_xor();
+        void barbet_init_parity();
+        void barbet_extract_xor(clause& c);
+        bool barbet_extract_xor(bool parity, clause& c, clause& c2);
+        bool barbet_extract_xor(bool parity, clause& c, literal l1, literal l2);
+        bool barbet_update_combinations(clause& c, bool parity, unsigned mask);
+        void barbet_add_xor(bool parity, clause& c);
+        unsigned get_clause_filter(clause& c);
+
+        vector<ptr_vector<clause>> m_ternary;
+        void extract_ternary(clause_vector const& clauses);
+        bool extract_xor(clause& c, literal l);
+        bool extract_xor(clause& c1, clause& c2);
         bool clausify(xr& x);
         void flush_roots(xr& x);
         lbool eval(xr const& x) const;
@@ -445,7 +486,7 @@ namespace sat {
         inline void assign(literal l, justification j) { 
             if (m_lookahead) m_lookahead->assign(l); 
             else if (m_unit_walk) m_unit_walk->assign(l);
-            else m_solver->assign(l, j); 
+            else m_solver->assign(l, j);
         }
         inline void set_conflict(justification j, literal l) { 
             if (m_lookahead) m_lookahead->set_conflict(); 
@@ -519,6 +560,10 @@ namespace sat {
         constraint* add_at_least(literal l, literal_vector const& lits, unsigned k, bool learned);
         constraint* add_pb_ge(literal l, svector<wliteral> const& wlits, unsigned k, bool learned);
         constraint* add_xr(literal_vector const& lits, bool learned);
+        literal     add_xor_def(literal_vector& lits, bool learned = false);
+        bool        all_distinct(literal_vector const& lits);
+        bool        all_distinct(xr const& x);
+        bool        all_distinct(clause const& cl);
 
         void copy_core(ba_solver* result, bool learned);
         void copy_constraints(ba_solver* result, ptr_vector<constraint> const& constraints);
@@ -540,6 +585,7 @@ namespace sat {
         check_result check() override;
         void push() override;
         void pop(unsigned n) override;
+        void pre_simplify() override;
         void simplify() override;
         void clauses_modifed() override;
         lbool get_phase(bool_var v) override;

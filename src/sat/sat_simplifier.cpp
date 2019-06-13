@@ -189,7 +189,7 @@ namespace sat {
             return;
         if (!m_subsumption && !bce_enabled() && !bca_enabled() && !elim_vars_enabled())
             return;
-        
+       
         initialize();
 
         CASSERT("sat_solver", s.check_invariant());
@@ -352,12 +352,7 @@ namespace sat {
                 s.del_clause(c);
                 break;
             default:
-                if (s.m_config.m_drat && sz0 != sz) {
-                    s.m_drat.add(c, true);
-                    c.restore(sz0);
-                    s.m_drat.del(c);
-                    c.shrink(sz);
-                }
+                s.shrink(c, sz0, sz);
                 *it2 = *it;
                 it2++;
                 if (!c.frozen()) {
@@ -613,7 +608,12 @@ namespace sat {
             }
         }
         if (j < sz && !r) {
-            c.shrink(j);
+            if (j > 2) {
+                s.shrink(c, sz, j);
+            }
+            else {
+                c.shrink(j);
+            }
         }
         return r;
     }
@@ -715,12 +715,6 @@ namespace sat {
             remove_clause(c, sz0 != sz);
             break;
         default:
-            if (s.m_config.m_drat && sz0 != sz) {
-                s.m_drat.add(c, true);
-                c.restore(sz0);
-                s.m_drat.del(c);
-                c.shrink(sz);
-            }
             TRACE("elim_lit", tout << "result: " << c << "\n";);
             m_sub_todo.insert(c);
             break;
@@ -911,12 +905,6 @@ namespace sat {
                     remove_clause(c, sz != sz0);
                     continue;
                 default:
-                    if (s.m_config.m_drat && sz != sz0) {
-                        s.m_drat.add(c, true);
-                        c.restore(sz0);
-                        s.m_drat.del(c);
-                        c.shrink(sz);
-                    }
                     break;
                 }
             }
@@ -1981,7 +1969,7 @@ namespace sat {
         model_converter::entry & mc_entry = s.m_mc.mk(model_converter::ELIM_VAR, v);
         save_clauses(mc_entry, m_pos_cls);
         save_clauses(mc_entry, m_neg_cls);
-        s.m_eliminated[v] = true;       
+        s.set_eliminated(v, true);
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         for (auto & c1 : m_pos_cls) {

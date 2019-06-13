@@ -45,8 +45,10 @@ namespace sat {
         while (m_head < m_vars.size()) {
             bool_var v = m_vars[m_head];
             unsigned idx = literal(v, false).index();
-            if (s.m_assignment[idx] == l_undef)
+            if (s.m_assignment[idx] == l_undef) {
+                // IF_VERBOSE(0, verbose_stream() << "pop " << v << "\n");
                 return v;            
+            }
             ++m_head;
         }
         for (bool_var v : m_vars) {
@@ -54,17 +56,21 @@ namespace sat {
                 IF_VERBOSE(0, verbose_stream() << "unassigned: " << v << "\n");
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "#vars: " << m_vars.size() << "\n");
         IF_VERBOSE(0, verbose_stream() << "(sat.unit-walk sat)\n");
         return null_bool_var;
     }
 
     void unit_walk::var_priority::set_vars(solver& s) {
         m_vars.reset();
+        s.pop_to_base_level();
+
         for (unsigned v = 0; v < s.num_vars(); ++v) {            
-            if (!s.was_eliminated(v) && s.m_assignment[v] == l_undef) {
+            if (!s.was_eliminated(v) && s.value(v) == l_undef) {
                 add(v);
             }
         }
+        IF_VERBOSE(0, verbose_stream() << "num vars " << m_vars.size() << "\n";);
     }
 
     bool_var unit_walk::var_priority::next(solver& s) {
@@ -215,7 +221,7 @@ namespace sat {
         switch (is_sat) {
         case l_true:
             for (unsigned v = 0; v < s.num_vars(); ++v) {
-                s.m_assignment[v] = m_ls.get_phase(v) ? l_true : l_false;
+                s.m_assignment[v] = m_ls.get_best_phase(v) ? l_true : l_false;
             } 
             return l_true;
         case l_false:
@@ -239,8 +245,7 @@ namespace sat {
         local_search& ls;
         compare_break(local_search& ls): ls(ls) {}
         int operator()(bool_var v, bool_var w) const {
-            double diff = ls.break_count(v) - ls.break_count(w);
-            return diff > 0;
+            return ls.get_priority(v) > ls.get_priority(w);
         }
     };
 
@@ -249,22 +254,14 @@ namespace sat {
         std::sort(pqueue().begin(), pqueue().end(), cb);        
         for (bool_var v : pqueue()) {
             m_phase_tf[v].update(m_ls.cur_solution(v) ? 100 : 0);
-            m_phase[v] = m_ls.cur_solution(v);
+            m_phase[v] = l_true == m_ls.cur_solution(v);
         }
         pqueue().rewind();
     }
 
     void unit_walk::init_phase() {
         for (bool_var v : pqueue()) {
-            if (s.m_phase[v] == POS_PHASE) {
-                m_phase[v] = true;
-            }
-            else if (s.m_phase[v] == NEG_PHASE) {
-                m_phase[v] = false;
-            }
-            else {
-                m_phase[v] = m_rand(100) < m_phase_tf[v];
-            }
+            m_phase[v] = s.m_phase[v];            
         }
     }
 
