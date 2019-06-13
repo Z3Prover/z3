@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "util/scoped_timer.h"
 #include "util/cancel_eh.h"
-#include "util/cooperate.h"
 #include "util/scoped_ptr_vector.h"
 #include "tactic/tactical.h"
 #include <thread>

@@ -527,6 +527,15 @@ bool model::is_true(expr_ref_vector const& ts) {
     return true;
 }
 
+bool model::is_false(expr_ref_vector const& ts) {
+    for (expr* t : ts) if (is_false(t)) return true;
+    return false;
+}
+
+bool model::are_equal(expr* s, expr* t) {
+    return m_mev.are_equal(s, t);
+}
+
 void model::reset_eval_cache() {
     m_mev.reset();
 }
