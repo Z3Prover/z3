@@ -21,16 +21,11 @@ Revision History:
 #include "util/mutex.h"
 
 
-static mutex* s_mux = nullptr;
+static DECLARE_MUTEX(g_rlimit_mux);
 
-void initialize_rlimit() {
-    s_mux = new mutex;
-}
 void finalize_rlimit() {
-    delete s_mux;
-    s_mux = nullptr;
+    delete g_rlimit_mux;
 }
-
 
 reslimit::reslimit():
     m_cancel(0),
@@ -82,32 +77,32 @@ char const* reslimit::get_cancel_msg() const {
 }
 
 void reslimit::push_child(reslimit* r) {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     m_children.push_back(r);    
 }
 
 void reslimit::pop_child() {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     m_children.pop_back();    
 }
 
 void reslimit::cancel() {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     set_cancel(m_cancel+1);    
 }
 
 void reslimit::reset_cancel() {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     set_cancel(0);    
 }
 
 void reslimit::inc_cancel() {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     set_cancel(m_cancel+1);    
 }
 
 void reslimit::dec_cancel() {
-    lock_guard lock(*s_mux);
+    lock_guard lock(*g_rlimit_mux);
     if (m_cancel > 0) {
         set_cancel(m_cancel-1);
     }

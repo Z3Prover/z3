@@ -421,7 +421,7 @@ namespace smt {
             return m_activity[v];
         }
 
-        void set_activity(bool_var v, double const & act) {
+        void set_activity(bool_var v, double act) {
             m_activity[v] = act;
         }
 

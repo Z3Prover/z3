@@ -66,7 +66,6 @@ namespace sat {
             throw sat_param_exception("invalid phase selection strategy");
 
         m_rephase_base      = p.rephase_base();
-        m_rephase_neuro     = p.rephase_neuro();
         m_search_sat_conflicts = p.search_sat_conflicts();
         m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();
@@ -74,6 +73,7 @@ namespace sat {
         m_restart_initial = p.restart_initial();
         m_restart_factor  = p.restart_factor();
         m_restart_max     = p.restart_max();
+        m_activity_scale  = 100;
         m_propagate_prefetch = p.propagate_prefetch();
         m_inprocess_max   = p.inprocess_max();
 

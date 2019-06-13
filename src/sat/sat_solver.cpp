@@ -2426,9 +2426,10 @@ namespace sat {
         }
     }
 
+
     void solver::update_activity(bool_var v, double p) {
         unsigned old_act = m_activity[v];
-        unsigned new_act = (unsigned) (num_vars() * m_config.m_neuro_activity_scale *  p);
+        unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
         m_activity[v] = new_act;
         if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
             m_case_split_queue.activity_changed_eh(v, new_act > old_act);
@@ -3329,6 +3330,11 @@ namespace sat {
             else {
                 m_search_sat_conflicts += m_config.m_search_sat_conflicts;
             }
+        }
+
+        if (m_search_state == s_unsat) {
+            m_search_state = s_sat;
+            m_search_next_toggle = m_search_sat_conflicts;
         }
 
         if (m_search_state == s_unsat) {

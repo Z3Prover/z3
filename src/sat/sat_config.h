@@ -110,6 +110,7 @@ namespace sat {
         double             m_restart_factor; // for geometric case
         double             m_restart_margin; // for ema
         unsigned           m_restart_max;
+        unsigned           m_activity_scale;
         double             m_fast_glue_avg;
         double             m_slow_glue_avg;
         unsigned           m_inprocess_max;

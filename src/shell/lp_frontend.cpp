@@ -16,9 +16,8 @@ Author:
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include <signal.h>
-#include <mutex>
 
-extern std::mutex* g_stat_mux;
+static std::mutex display_stats_mux;
 
 static lp::lp_solver<double, double>* g_solver = nullptr;
 
@@ -31,14 +30,14 @@ static void display_statistics() {
 static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
     {
-        std::lock_guard<std::mutex> lock(*g_stat_mux);
+        std::lock_guard<std::mutex> lock(display_stats_mux);
         display_statistics();
     }
     raise(SIGINT);
 }
 
 static void on_timeout() {
-    std::lock_guard<std::mutex> lock(*g_stat_mux);
+    std::lock_guard<std::mutex> lock(display_stats_mux);
     display_statistics();
     exit(0);    
 }
