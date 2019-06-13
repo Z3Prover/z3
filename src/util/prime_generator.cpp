@@ -129,7 +129,7 @@ uint64_t prime_iterator::next() {
 }
 
 void prime_iterator::initialize() {
-  g_prime_generator.initialize();
+    g_prime_generator.initialize();
 }
 
 void prime_iterator::finalize() {
