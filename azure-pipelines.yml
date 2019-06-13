@@ -103,10 +103,9 @@ jobs:
         make -j3 test-z3
         ./cpp_example
         ./c_example
-        cd ..     
+        cd ..
     - template: scripts/test-z3.yml
     - template: scripts/test-regressions.yml
-
 
 
 - job: "MacOSCMake"
