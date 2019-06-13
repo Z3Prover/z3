@@ -1188,7 +1188,7 @@ public:
         format * args[2];
         args[0] = r1;
         args[1] = r2;
-        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-rec-funs");
+        r = mk_seq1<format**, f2f>(m(), args, args+2, f2f(), "define-funs-rec");
     }
 
 
@@ -1308,7 +1308,7 @@ std::ostream & ast_smt2_pp_recdefs(std::ostream & out, vector<std::pair<func_dec
     smt2_printer pr(env, p);
     pr(funs, r);
     pp(out, r.get(), m, p);
-    return out;
+    return out << "\n";
 }
 
 

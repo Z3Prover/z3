@@ -1,0 +1,651 @@
+<html>
+<head>
+<title>Z3Py Fixedpoints</title>
+<link rel="StyleSheet" href="style.css" type="text/css">
+</head>
+<body>
+
+<h1>Fixedpoints</h1>
+
+<p>
+</p>
+
+<p>
+This tutorial illustrates uses of Z3's fixedpoint engine.
+The following papers
+<a href="http://research.microsoft.com/en-us/people/nbjorner/z3fix.pdf">
+&#956;Z - An Efficient Engine for Fixed-Points with Constraints.</a>
+(CAV 2011) and
+<a href="http://research.microsoft.com/en-us/people/nbjorner/z3pdr.pdf">
+Generalized Property Directed Reachability</a> (SAT 2012)
+describe some of the main features of the engine.
+</p>
+
+<p>
+Please send feedback, comments and/or corrections to 
+<a href="mailto:nbjorner@microsoft.com">nbjorner@microsoft.com</a>.
+</p>
+
+<h2>Introduction</h2>
+
+
+<p>
+This tutorial covers some of the fixedpoint utilities available with Z3.
+The main features are a basic Datalog engine, an engine with relational
+algebra and an engine based on a generalization of the Property
+Directed Reachability algorithm.
+</p>
+
+
+<h2>Basic Datalog </h2>
+
+<p>The default fixed-point engine is a bottom-up Datalog engine. 
+It works with finite relations and uses finite table representations
+as hash tables as the default way to represent finite relations.
+</p>
+
+<h3>Relations, rules and queries</h3>
+
+The first example illustrates how to declare relations, rules and
+how to pose queries.
+
+<example pref="fixedpoint.1"><html><body>
+<div class="highlight"><pre><span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+
+<span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">Bools</span><span class="p">(</span><span class="s">'a b c'</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">decl</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">decl</span><span class="p">(),</span> <span class="n">c</span><span class="o">.</span><span class="n">decl</span><span class="p">())</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s">'datalog'</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="s">"current set of rules</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">fp</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="k">print</span> <span class="s">"updated set of rules</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">fp</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+The example illustrates some of the basic constructs.
+<pre>
+  fp = Fixedpoint()
+</pre>
+creates a context for fixed-point computation.
+<pre>
+ fp.register_relation(a.decl(), b.decl(), c.decl())
+</pre>
+Register the relations <tt>a, b, c</tt> as recursively defined.
+<pre>
+ fp.rule(a,b)
+</pre>
+Create the rule that <tt>a</tt> follows from <tt>b</tt>. 
+In general you can create a rule with multiple premises and a name using 
+the format
+<pre>
+ fp.rule(<em>head</em>,[<em>body1,...,bodyN</em>],<em>name</em>)
+</pre>
+The <em>name</em> is optional. It is used for tracking the rule in derivation proofs.
+
+Continuing with the example, <tt>a</tt> is false unless <tt>b</tt> is established.
+<pre>
+ fp.query(a)
+</pre>
+Asks if <tt>a</tt> can be derived. The rules so far say that <tt>a</tt> 
+follows if <tt>b</tt> is established and that <tt>b</tt> follows if <tt>c</tt> 
+is established. But nothing establishes <tt>c</tt> and <tt>b</tt> is also not
+established, so <tt>a</tt> cannot be derived.
+<pre>
+ fp.fact(c)
+</pre>
+Add a fact (shorthand for <tt>fp.rule(c,True)</tt>).
+Now it is the case that <tt>a</tt> can be derived.
+
+<h3>Explanations</h3>
+<p>
+It is also possible to get an explanation for a derived query.
+For the finite Datalog engine, an explanation is a trace that
+provides information of how a fact was derived. The explanation
+is an expression whose function symbols are Horn rules and facts used
+in the derivation.
+</p>
+<example pref="fixedpoint.2"><html><body>
+<div class="highlight"><pre><span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+
+<span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">Bools</span><span class="p">(</span><span class="s">'a b c'</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">decl</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">decl</span><span class="p">(),</span> <span class="n">c</span><span class="o">.</span><span class="n">decl</span><span class="p">())</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">generate_explanations</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">engine</span><span class="o">=</span><span class="s">'datalog'</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+<h3>Relations with arguments</h3>
+<p>
+Relations can take arguments. We illustrate relations with arguments
+using edges and paths in a graph.
+</p>
+<example pref="fixedpoint.3"><html><body>
+<div class="highlight"><pre><span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s">'datalog'</span><span class="p">)</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">BitVecSort</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">edge</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'edge'</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">BoolSort</span><span class="p">())</span>
+<span class="n">path</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'path'</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">BoolSort</span><span class="p">())</span>
+<span class="n">a</span> <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'a'</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+<span class="n">b</span> <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'b'</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+<span class="n">c</span> <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'c'</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">path</span><span class="p">,</span><span class="n">edge</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">declare_var</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">path</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">),</span> <span class="n">edge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">))</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">path</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">c</span><span class="p">),</span> <span class="p">[</span><span class="n">edge</span><span class="p">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p">),</span><span class="n">path</span><span class="p">(</span><span class="n">b</span><span class="p">,</span><span class="n">c</span><span class="p">)])</span>
+
+<span class="n">v1</span> <span class="o">=</span> <span class="n">BitVecVal</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+<span class="n">v2</span> <span class="o">=</span> <span class="n">BitVecVal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+<span class="n">v3</span> <span class="o">=</span> <span class="n">BitVecVal</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+<span class="n">v4</span> <span class="o">=</span> <span class="n">BitVecVal</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="n">s</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">edge</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">v2</span><span class="p">))</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">edge</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">v3</span><span class="p">))</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">edge</span><span class="p">(</span><span class="n">v2</span><span class="p">,</span><span class="n">v4</span><span class="p">))</span>
+
+<span class="k">print</span> <span class="s">"current set of rules"</span><span class="p">,</span> <span class="n">fp</span>
+
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">path</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span><span class="n">v4</span><span class="p">)),</span> <span class="s">"yes we can reach v4 from v1"</span>
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">path</span><span class="p">(</span><span class="n">v3</span><span class="p">,</span><span class="n">v4</span><span class="p">)),</span> <span class="s">"no we cannot reach v4 from v3"</span>
+</pre></div>
+</body></html></example>
+
+The example uses the declaration
+<pre>
+ fp.declare_var(a,b,c)
+</pre>
+to instrument the fixed-point engine that <tt>a, b, c</tt> 
+should be treated as variables
+when they appear in rules. Think of the convention as they way bound variables are
+passed to quantifiers in Z3Py.
+
+<h3>Rush Hour</h3>
+<p>
+A more entertaining example of using the basic fixed point engine
+is to solve the Rush Hour puzzle. The puzzle is about moving
+a red car out of a gridlock. We have encoded a configuration 
+and compiled a set of rules that encode the legal moves of the cars
+given the configuration. Other configurations can be tested by
+changing the parameters passed to the constructor for <t>Car</t>.
+We have encoded the configuration from 
+<a href="http://www.puzzles.com/products/RushHour/RHfromMarkRiedel/Jam.html?40" target="_top"> 
+an online puzzle you can solve manually, or cheat on by asking Z3</a>.
+</p>
+<example pref="fixedpoint.4"><html><body>
+<div class="highlight"><pre><span class="k">class</span> <span class="nc">Car</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">is_vertical</span><span class="p">,</span> <span class="n">base_pos</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">color</span><span class="p">):</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">is_vertical</span> <span class="o">=</span> <span class="n">is_vertical</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">base</span> <span class="o">=</span> <span class="n">base_pos</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">start</span> <span class="o">=</span> <span class="n">start</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">=</span> <span class="n">color</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+	<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">color</span>
+
+    <span class="k">def</span> <span class="nf">__ne__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+	<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">color</span> <span class="o">!=</span> <span class="n">other</span><span class="o">.</span><span class="n">color</span>
+
+<span class="n">dimension</span> <span class="o">=</span> <span class="mi">6</span>
+
+<span class="n">red_car</span> <span class="o">=</span> <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s">"red"</span><span class="p">)</span>
+<span class="n">cars</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">'yellow'</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">'blue'</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"brown"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"lgreen"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"light blue"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"pink"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s">"dark green"</span><span class="p">),</span>
+    <span class="n">red_car</span><span class="p">,</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s">"purple"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s">"light yellow"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"orange"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">False</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s">"black"</span><span class="p">),</span>
+    <span class="n">Car</span><span class="p">(</span><span class="bp">True</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"light purple"</span><span class="p">)</span>
+    <span class="p">]</span>
+
+<span class="n">num_cars</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">cars</span><span class="p">)</span>
+<span class="n">B</span> <span class="o">=</span> <span class="n">BoolSort</span><span class="p">()</span>
+<span class="n">bv3</span> <span class="o">=</span> <span class="n">BitVecSort</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+
+
+<span class="n">state</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'state'</span><span class="p">,</span> <span class="p">[</span> <span class="n">bv3</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">cars</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="n">B</span><span class="p">])</span>
+
+<span class="k">def</span> <span class="nf">num</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">BitVecVal</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="n">bv3</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">bound</span><span class="p">(</span><span class="n">i</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">Const</span><span class="p">(</span><span class="n">cars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">color</span><span class="p">,</span> <span class="n">bv3</span><span class="p">)</span>
+
+<span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">generate_explanations</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">declare_var</span><span class="p">([</span><span class="n">bound</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cars</span><span class="p">)])</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">mk_state</span><span class="p">(</span><span class="n">car</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">state</span><span class="p">([</span> <span class="p">(</span><span class="n">num</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="p">(</span><span class="n">cars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">car</span><span class="p">)</span> <span class="k">else</span> <span class="n">bound</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+		   <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cars</span><span class="p">)])</span>
+
+<span class="k">def</span> <span class="nf">mk_transition</span><span class="p">(</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">,</span> <span class="n">i0</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">car0</span><span class="p">):</span>
+    <span class="n">body</span> <span class="o">=</span> <span class="p">[</span><span class="n">mk_state</span><span class="p">(</span><span class="n">car0</span><span class="p">,</span> <span class="n">i0</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cars</span><span class="p">):</span>
+	<span class="n">car</span> <span class="o">=</span> <span class="n">cars</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+	<span class="k">if</span> <span class="n">car0</span> <span class="o">!=</span> <span class="n">car</span><span class="p">:</span>
+	    <span class="k">if</span> <span class="n">car</span><span class="o">.</span><span class="n">is_vertical</span> <span class="ow">and</span> <span class="n">car</span><span class="o">.</span><span class="n">base</span> <span class="o">==</span> <span class="n">col</span><span class="p">:</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dimension</span><span class="p">):</span>
+		    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">row</span> <span class="ow">and</span> <span class="n">row</span> <span class="o">&lt;</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">dimension</span><span class="p">:</span>
+			   <span class="n">body</span> <span class="o">+=</span> <span class="p">[</span><span class="n">bound</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+	    <span class="k">if</span> <span class="n">car</span><span class="o">.</span><span class="n">base</span> <span class="o">==</span> <span class="n">row</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">car</span><span class="o">.</span><span class="n">is_vertical</span><span class="p">:</span>
+		<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dimension</span><span class="p">):</span>
+		    <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;=</span> <span class="n">col</span> <span class="ow">and</span> <span class="n">col</span> <span class="o">&lt;</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">dimension</span><span class="p">:</span>
+			   <span class="n">body</span> <span class="o">+=</span> <span class="p">[</span><span class="n">bound</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="o">!=</span> <span class="n">num</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span>
+
+    <span class="n">s</span> <span class="o">=</span> <span class="s">"</span><span class="si">%s</span><span class="s"> </span><span class="si">%d</span><span class="s">-&gt;</span><span class="si">%d</span><span class="s">"</span> <span class="o">%</span> <span class="p">(</span><span class="n">car0</span><span class="o">.</span><span class="n">color</span><span class="p">,</span> <span class="n">i0</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span>
+			
+    <span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">mk_state</span><span class="p">(</span><span class="n">car0</span><span class="p">,</span> <span class="n">j</span><span class="p">),</span> <span class="n">body</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span>
+    
+
+<span class="k">def</span> <span class="nf">move_down</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">):</span>
+    <span class="n">free_row</span> <span class="o">=</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span>
+    <span class="k">if</span> <span class="n">free_row</span> <span class="o">&lt;</span> <span class="n">dimension</span><span class="p">:</span>
+	<span class="n">mk_transition</span><span class="p">(</span><span class="n">free_row</span><span class="p">,</span> <span class="n">car</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+            
+
+<span class="k">def</span> <span class="nf">move_up</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">):</span>
+    <span class="n">free_row</span> <span class="o">=</span> <span class="n">i</span>  <span class="o">-</span> <span class="mi">1</span>
+    <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">free_row</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">dimension</span><span class="p">:</span>
+	<span class="n">mk_transition</span><span class="p">(</span><span class="n">free_row</span><span class="p">,</span> <span class="n">car</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">move_left</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">):</span>
+    <span class="n">free_col</span> <span class="o">=</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="k">if</span> <span class="mi">0</span> <span class="o">&lt;=</span> <span class="n">free_col</span> <span class="ow">and</span> <span class="n">i</span> <span class="o">+</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">dimension</span><span class="p">:</span>
+	<span class="n">mk_transition</span><span class="p">(</span><span class="n">car</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">free_col</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+	
+
+<span class="k">def</span> <span class="nf">move_right</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">):</span>
+    <span class="n">free_col</span> <span class="o">=</span> <span class="n">car</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">i</span>
+    <span class="k">if</span> <span class="n">free_col</span> <span class="o">&lt;</span> <span class="n">dimension</span><span class="p">:</span>
+	<span class="n">mk_transition</span><span class="p">(</span><span class="n">car</span><span class="o">.</span><span class="n">base</span><span class="p">,</span> <span class="n">free_col</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+	
+
+<span class="c"># Initial state:</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">fact</span><span class="p">(</span><span class="n">state</span><span class="p">([</span><span class="n">num</span><span class="p">(</span><span class="n">cars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">start</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cars</span><span class="p">)]))</span>
+
+<span class="c"># Transitions:</span>
+<span class="k">for</span> <span class="n">car</span> <span class="ow">in</span> <span class="n">cars</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">dimension</span><span class="p">):</span>
+	<span class="k">if</span> <span class="n">car</span><span class="o">.</span><span class="n">is_vertical</span><span class="p">:</span>
+	    <span class="n">move_down</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+	    <span class="n">move_up</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+	<span class="k">else</span><span class="p">:</span>
+	    <span class="n">move_left</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+	    <span class="n">move_right</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">car</span><span class="p">)</span>
+    
+
+<span class="k">def</span> <span class="nf">get_instructions</span><span class="p">(</span><span class="n">ans</span><span class="p">):</span>
+    <span class="n">lastAnd</span> <span class="o">=</span> <span class="n">ans</span><span class="o">.</span><span class="n">arg</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">children</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">trace</span> <span class="o">=</span> <span class="n">lastAnd</span><span class="o">.</span><span class="n">children</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">while</span> <span class="n">trace</span><span class="o">.</span><span class="n">num_args</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+	<span class="k">print</span> <span class="n">trace</span><span class="o">.</span><span class="n">decl</span><span class="p">()</span>
+	<span class="n">trace</span> <span class="o">=</span> <span class="n">trace</span><span class="o">.</span><span class="n">children</span><span class="p">()[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+
+<span class="k">print</span> <span class="n">fp</span>
+
+<span class="n">goal</span> <span class="o">=</span> <span class="n">state</span><span class="p">([</span> <span class="p">(</span><span class="n">num</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">if</span> <span class="n">cars</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">red_car</span> <span class="k">else</span> <span class="n">bound</span><span class="p">(</span><span class="n">i</span><span class="p">))</span>
+	       <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">num_cars</span><span class="p">)])</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">goal</span><span class="p">)</span>
+
+<span class="n">get_instructions</span><span class="p">(</span><span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">())</span>
+    
+</pre></div>
+</body></html></example>
+
+
+<h2>Abstract Domains</h2>
+The underlying engine uses table operations 
+that are based on relational algebra. Representations are
+opaque to the underlying engine. 
+Relational algebra operations are well defined for arbitrary relations.
+They don't depend on whether the relations denote a finite or an 
+infinite set of values.
+Z3 contains two built-in tables for infinite domains.
+The first is for intervals of integers and reals.
+The second is for bound constraints between two integers or reals. 
+A bound constraint is of the form <tt>x  or <tt> x .
+When used in conjunction, they form
+an abstract domain that is called the 
+<a href="http://www.sciencedirect.com/science/article/pii/S0167642309000719">
+<em>Pentagon</em></a> abstract
+domain. Z3 implements <em>reduced products</em>
+of abstract domains that enables sharing constraints between
+the interval and bounds domains.
+
+</tt></tt><p>
+Below we give a simple example that illustrates a loop at location <tt>l0</tt>.
+The loop is incremented as long as the loop counter does not exceed an upper
+bound. Using the combination of bound and interval domains
+we can collect derived invariants from the loop and we can also establish
+that the state after the loop does not exceed the bound.
+</p>
+
+
+<example pref="fixedpoint.5"><html><body>
+<div class="highlight"><pre><span class="n">I</span>  <span class="o">=</span> <span class="n">IntSort</span><span class="p">()</span>
+<span class="n">B</span>  <span class="o">=</span> <span class="n">BoolSort</span><span class="p">()</span>
+<span class="n">l0</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'l0'</span><span class="p">,</span><span class="n">I</span><span class="p">,</span><span class="n">I</span><span class="p">,</span><span class="n">B</span><span class="p">)</span>
+<span class="n">l1</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'l1'</span><span class="p">,</span><span class="n">I</span><span class="p">,</span><span class="n">I</span><span class="p">,</span><span class="n">B</span><span class="p">)</span>
+
+<span class="n">s</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+<span class="n">s</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">engine</span><span class="o">=</span><span class="s">'datalog'</span><span class="p">,</span><span class="n">compile_with_widening</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span>
+      <span class="n">unbound_compressor</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+
+<span class="n">s</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">l0</span><span class="p">,</span><span class="n">l1</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">set_predicate_representation</span><span class="p">(</span><span class="n">l0</span><span class="p">,</span> <span class="s">'interval_relation'</span><span class="p">,</span> <span class="s">'bound_relation'</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">set_predicate_representation</span><span class="p">(</span><span class="n">l1</span><span class="p">,</span> <span class="s">'interval_relation'</span><span class="p">,</span> <span class="s">'bound_relation'</span><span class="p">)</span>
+
+<span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">=</span> <span class="n">Ints</span><span class="p">(</span><span class="s">'m x y'</span><span class="p">)</span>
+
+<span class="n">s</span><span class="o">.</span><span class="n">declare_var</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">l0</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="n">m</span><span class="p">),</span>   <span class="mi">0</span> <span class="o">&lt;</span> <span class="n">m</span><span class="p">)</span>
+<span class="n">s</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">l0</span><span class="p">(</span><span class="n">x</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span><span class="n">m</span><span class="p">),</span> <span class="p">[</span><span class="n">l0</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">m</span><span class="p">),</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">m</span><span class="p">])</span>
+<span class="n">s</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">l1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">m</span><span class="p">),</span>   <span class="p">[</span><span class="n">l0</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">m</span><span class="p">),</span> <span class="n">m</span> <span class="o">&lt;=</span> <span class="n">x</span><span class="p">])</span>
+
+<span class="k">print</span> <span class="s">"At l0 we learn that x, y are non-negative:"</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">l0</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">))</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+
+<span class="k">print</span> <span class="s">"At l1 we learn that x &lt;= y and both x and y are bigger than 0:"</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">l1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">))</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+
+
+<span class="k">print</span> <span class="s">"The state where x &lt; y is not reachable"</span>
+<span class="k">print</span> <span class="n">s</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">l1</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">),</span> <span class="n">x</span> <span class="o">&lt;</span> <span class="n">y</span><span class="p">))</span>
+</pre></div>
+</body></html></example>
+
+The example uses the option
+<pre>
+   set_option(dl_compile_with_widening=True)
+</pre>
+to instrument Z3 to apply abstract interpretation <em>widening</em> on loop boundaries. 
+
+
+<h2>Engine for Property Directed Reachability</h2>
+
+A different underlying engine for fixed-points is based on
+an algorithm for <it>Property Directed Reachability (PDR)</it>.
+The PDR engine is enabled using the instruction
+<pre>
+  set_option(dl_engine=1)
+</pre>
+The version in Z3 applies to Horn clauses with arithmetic and
+Boolean domains. When using arithmetic you should enable
+the main abstraction engine used in Z3 for arithmetic in PDR.
+<pre>
+ set_option(dl_pdr_use_farkas=True)
+</pre>
+The engine also works with domains using algebraic
+data-types and bit-vectors, although it is currently not
+overly tuned for either.
+The PDR engine is targeted at applications from symbolic model 
+checking of software. The systems may be infinite state. 
+The following examples also serve a purpose of showing 
+how software model checking problems (of safety properties)
+can be embedded into Horn clauses and solved using PDR.
+
+<h3>Procedure Calls</h3>
+<p>
+McCarthy's 91 function illustrates a procedure that calls itself recursively
+twice. The Horn clauses below encode the recursive function:
+
+</p>
+<pre>
+  mc(x) = if x &gt; 100 then x - 10 else mc(mc(x+11))
+</pre>
+
+The general scheme for encoding recursive procedures is by creating a predicate
+for each procedure and adding an additional output variable to the predicate.
+Nested calls to procedures within a body can be encoded as a conjunction
+of relations.
+
+
+<example pref="fixedpoint.8"><html><body>
+<div class="highlight"><pre><span class="n">mc</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'mc'</span><span class="p">,</span> <span class="n">IntSort</span><span class="p">(),</span> <span class="n">IntSort</span><span class="p">(),</span> <span class="n">BoolSort</span><span class="p">())</span>
+<span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">p</span> <span class="o">=</span> <span class="n">Ints</span><span class="p">(</span><span class="s">'n m p'</span><span class="p">)</span>
+
+<span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">declare_var</span><span class="p">(</span><span class="n">n</span><span class="p">,</span><span class="n">m</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">mc</span><span class="p">)</span>
+
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">m</span><span class="o">-</span><span class="mi">10</span><span class="p">),</span> <span class="n">m</span> <span class="o">&gt;</span> <span class="mi">100</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">n</span><span class="p">),</span> <span class="p">[</span><span class="n">m</span> <span class="o">&lt;=</span> <span class="mi">100</span><span class="p">,</span> <span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="o">+</span><span class="mi">11</span><span class="p">,</span><span class="n">p</span><span class="p">),</span><span class="n">mc</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="n">n</span><span class="p">)])</span>
+    
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="n">n</span><span class="p">),</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">90</span><span class="p">))</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="n">n</span><span class="p">),</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">91</span><span class="p">))</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">mc</span><span class="p">(</span><span class="n">m</span><span class="p">,</span><span class="n">n</span><span class="p">),</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">92</span><span class="p">))</span>
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+The first two queries are unsatisfiable. The PDR engine produces the same proof of unsatisfiability.
+The proof is an inductive invariant for each recursive predicate. The PDR engine introduces a
+special query predicate for the query.
+
+<h3>Bakery</h3>
+
+<p>
+We can also prove invariants of reactive systems. It is convenient to encode reactive systems
+as guarded transition systems. It is perhaps for some not as convenient to directly encode 
+guarded transitions as recursive Horn clauses. But it is fairly easy to write a translator
+from guarded transition systems to recursive Horn clauses. We illustrate a translator
+and Lamport's two process Bakery algorithm in the next example.
+</p>
+
+<example pref="fixedpoint.9"><html><body>
+<div class="highlight"><pre><span class="n">set_option</span><span class="p">(</span><span class="n">relevancy</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="n">verbose</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">flatten</span><span class="p">(</span><span class="n">l</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">l</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">t</span><span class="p">]</span>
+
+
+<span class="k">class</span> <span class="nc">TransitionSystem</span><span class="p">():</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">initial</span><span class="p">,</span> <span class="n">transitions</span><span class="p">,</span> <span class="n">vars1</span><span class="p">):</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>        
+	<span class="bp">self</span><span class="o">.</span><span class="n">initial</span>     <span class="o">=</span> <span class="n">initial</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">transitions</span> <span class="o">=</span> <span class="n">transitions</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">vars1</span> <span class="o">=</span> <span class="n">vars1</span>
+
+    <span class="k">def</span> <span class="nf">declare_rels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="n">B</span> <span class="o">=</span> <span class="n">BoolSort</span><span class="p">()</span>
+	<span class="n">var_sorts</span>   <span class="o">=</span> <span class="p">[</span> <span class="n">v</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars1</span> <span class="p">]</span>
+	<span class="n">state_sorts</span> <span class="o">=</span> <span class="n">var_sorts</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">state_vals</span> <span class="o">=</span> <span class="p">[</span> <span class="n">v</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">vars1</span> <span class="p">]</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span>  <span class="o">=</span> <span class="n">state_sorts</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">var_sorts</span> <span class="o">=</span> <span class="n">var_sorts</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">state</span>  <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'state'</span><span class="p">,</span> <span class="n">state_sorts</span> <span class="o">+</span> <span class="p">[</span> <span class="n">B</span> <span class="p">])</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">step</span>   <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'step'</span><span class="p">,</span>  <span class="n">state_sorts</span> <span class="o">+</span> <span class="n">state_sorts</span> <span class="o">+</span> <span class="p">[</span> <span class="n">B</span> <span class="p">])</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
+
+<span class="c"># Set of reachable states are transitive closure of step.</span>
+
+    <span class="k">def</span> <span class="nf">state0</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="n">idx</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">))</span>
+	<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">([</span><span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">idx</span><span class="p">])</span>
+	
+    <span class="k">def</span> <span class="nf">state1</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">)</span>
+	<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">state</span><span class="p">([</span><span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="n">n</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)])</span>
+
+    <span class="k">def</span> <span class="nf">rho</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">)</span>
+	<span class="n">args1</span> <span class="o">=</span> <span class="p">[</span> <span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="p">]</span>
+	<span class="n">args2</span> <span class="o">=</span> <span class="p">[</span> <span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="n">n</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="p">]</span>
+	<span class="n">args</span> <span class="o">=</span> <span class="n">args1</span> <span class="o">+</span> <span class="n">args2</span> 
+	<span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">declare_reachability</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state1</span><span class="p">(),</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">state0</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">rho</span><span class="p">()])</span>
+
+
+<span class="c"># Define transition relation</span>
+
+    <span class="k">def</span> <span class="nf">abstract</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">e</span><span class="p">):</span>
+	<span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">)</span>
+	<span class="n">sub</span> <span class="o">=</span> <span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_vals</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">]))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+	<span class="k">return</span> <span class="n">substitute</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">sub</span><span class="p">)</span>
+	
+    <span class="k">def</span> <span class="nf">declare_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tr</span><span class="p">):</span>
+	<span class="n">len_s</span>  <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">)</span>
+	<span class="n">effect</span> <span class="o">=</span> <span class="n">tr</span><span class="p">[</span><span class="s">"effect"</span><span class="p">]</span>
+	<span class="n">vars1</span>  <span class="o">=</span> <span class="p">[</span><span class="n">Var</span><span class="p">(</span><span class="n">i</span><span class="p">,</span><span class="bp">self</span><span class="o">.</span><span class="n">state_sorts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">len_s</span><span class="p">)]</span> <span class="o">+</span> <span class="n">effect</span>
+	<span class="n">rho1</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">vars1</span><span class="p">))</span>
+	<span class="n">guard</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">(</span><span class="n">tr</span><span class="p">[</span><span class="s">"guard"</span><span class="p">])</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">rho1</span><span class="p">,</span> <span class="n">guard</span><span class="p">)</span>
+	
+    <span class="k">def</span> <span class="nf">declare_transitions</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transitions</span><span class="p">:</span>
+	    <span class="bp">self</span><span class="o">.</span><span class="n">declare_transition</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">declare_initial</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state0</span><span class="p">(),[</span><span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">initial</span><span class="p">)])</span>
+	
+    <span class="k">def</span> <span class="nf">query</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">query</span><span class="p">):</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">declare_rels</span><span class="p">()</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">declare_initial</span><span class="p">()</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">declare_reachability</span><span class="p">()</span>
+	<span class="bp">self</span><span class="o">.</span><span class="n">declare_transitions</span><span class="p">()</span>
+	<span class="n">query</span> <span class="o">=</span> <span class="n">And</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">state0</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">abstract</span><span class="p">(</span><span class="n">query</span><span class="p">))</span>
+	<span class="k">print</span> <span class="bp">self</span><span class="o">.</span><span class="n">fp</span>
+	<span class="k">print</span> <span class="n">query</span>
+	<span class="k">print</span> <span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+	<span class="k">print</span> <span class="bp">self</span><span class="o">.</span><span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+<span class="c">#	print self.fp.statistics()</span>
+
+
+<span class="n">L</span> <span class="o">=</span> <span class="n">Datatype</span><span class="p">(</span><span class="s">'L'</span><span class="p">)</span>
+<span class="n">L</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'L0'</span><span class="p">)</span>
+<span class="n">L</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'L1'</span><span class="p">)</span>
+<span class="n">L</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'L2'</span><span class="p">)</span>
+<span class="n">L</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+<span class="n">L0</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">L0</span>
+<span class="n">L1</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">L1</span>
+<span class="n">L2</span> <span class="o">=</span> <span class="n">L</span><span class="o">.</span><span class="n">L2</span>
+
+
+<span class="n">y0</span> <span class="o">=</span> <span class="n">Int</span><span class="p">(</span><span class="s">'y0'</span><span class="p">)</span>
+<span class="n">y1</span> <span class="o">=</span> <span class="n">Int</span><span class="p">(</span><span class="s">'y1'</span><span class="p">)</span>
+<span class="n">l</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'l'</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>
+<span class="n">m</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'m'</span><span class="p">,</span> <span class="n">L</span><span class="p">)</span>
+
+
+<span class="n">t1</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">l</span> <span class="o">==</span> <span class="n">L0</span><span class="p">,</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">L1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">y1</span> <span class="p">]</span> <span class="p">}</span>
+<span class="n">t2</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">And</span><span class="p">(</span><span class="n">l</span> <span class="o">==</span> <span class="n">L1</span><span class="p">,</span> <span class="n">Or</span><span class="p">([</span><span class="n">y0</span> <span class="o">&lt;=</span> <span class="n">y1</span><span class="p">,</span> <span class="n">y1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">])),</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">L2</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span>     <span class="n">m</span><span class="p">,</span> <span class="n">y1</span> <span class="p">]</span> <span class="p">}</span>
+<span class="n">t3</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">l</span> <span class="o">==</span> <span class="n">L2</span><span class="p">,</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">L0</span><span class="p">,</span> <span class="n">IntVal</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">m</span><span class="p">,</span> <span class="n">y1</span> <span class="p">]}</span>
+<span class="n">s1</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">m</span> <span class="o">==</span> <span class="n">L0</span><span class="p">,</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">l</span><span class="p">,</span>  <span class="n">y0</span><span class="p">,</span> <span class="n">L1</span><span class="p">,</span> <span class="n">y0</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">]</span> <span class="p">}</span>
+<span class="n">s2</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">And</span><span class="p">(</span><span class="n">m</span> <span class="o">==</span> <span class="n">L1</span><span class="p">,</span> <span class="n">Or</span><span class="p">([</span><span class="n">y1</span> <span class="o">&lt;=</span> <span class="n">y0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">==</span> <span class="mi">0</span><span class="p">])),</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">l</span><span class="p">,</span>  <span class="n">y0</span><span class="p">,</span> <span class="n">L2</span><span class="p">,</span> <span class="n">y1</span> <span class="p">]</span> <span class="p">}</span>
+<span class="n">s3</span> <span class="o">=</span> <span class="p">{</span> <span class="s">"guard"</span> <span class="p">:</span> <span class="n">m</span> <span class="o">==</span> <span class="n">L2</span><span class="p">,</span>
+       <span class="s">"effect"</span> <span class="p">:</span> <span class="p">[</span> <span class="n">l</span><span class="p">,</span>  <span class="n">y0</span><span class="p">,</span> <span class="n">L0</span><span class="p">,</span> <span class="n">IntVal</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="p">]}</span>
+
+
+<span class="n">ptr</span> <span class="o">=</span> <span class="n">TransitionSystem</span><span class="p">(</span> <span class="n">And</span><span class="p">(</span><span class="n">l</span> <span class="o">==</span> <span class="n">L0</span><span class="p">,</span> <span class="n">y0</span> <span class="o">==</span> <span class="mi">0</span><span class="p">,</span> <span class="n">m</span> <span class="o">==</span> <span class="n">L0</span><span class="p">,</span> <span class="n">y1</span> <span class="o">==</span> <span class="mi">0</span><span class="p">),</span>
+			<span class="p">[</span><span class="n">t1</span><span class="p">,</span> <span class="n">t2</span><span class="p">,</span> <span class="n">t3</span><span class="p">,</span> <span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">,</span> <span class="n">s3</span><span class="p">],</span>
+			<span class="p">[</span><span class="n">l</span><span class="p">,</span> <span class="n">y0</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">y1</span><span class="p">])</span>
+
+<span class="n">ptr</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">([</span><span class="n">l</span> <span class="o">==</span> <span class="n">L2</span><span class="p">,</span> <span class="n">m</span> <span class="o">==</span> <span class="n">L2</span> <span class="p">]))</span>
+</pre></div>
+</body></html></example>
+The rather verbose (and in no way minimal) inductive invariants are produced as answers.
+
+<h3>Functional Programs</h3>
+We can also verify some properties of functional programs using Z3's 
+generalized PDR. Let us here consider an example from 
+<a href="http://www.kb.is.s.u-tokyo.ac.jp/~uhiro/">
+<em>Predicate Abstraction and CEGAR for Higher-Order Model 
+Checking, Kobayashi et.al. PLDI 2011</em></a>.
+We encode functional programs by taking a suitable operational
+semantics and encoding an evaluator that is specialized to
+the program being verified (we don't encode a general purpose
+evaluator, you should partial evaluate it to help verification).
+We use algebraic data-types to encode the current closure that is
+being evaluated.
+
+<example pref="fixedpoint.10"><html><body>
+<div class="highlight"><pre><span class="c"># let max max2 x y z = max2 (max2 x y) z</span>
+<span class="c"># let f x y = if x &gt; y then x else y</span>
+<span class="c"># assert (f (max f x y z) x) = (max f x y z)</span>
+
+
+<span class="n">Expr</span> <span class="o">=</span> <span class="n">Datatype</span><span class="p">(</span><span class="s">'Expr'</span><span class="p">)</span>
+<span class="n">Expr</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'Max'</span><span class="p">)</span>
+<span class="n">Expr</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'f'</span><span class="p">)</span>
+<span class="n">Expr</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'I'</span><span class="p">,</span> <span class="p">(</span><span class="s">'i'</span><span class="p">,</span> <span class="n">IntSort</span><span class="p">()))</span>
+<span class="n">Expr</span><span class="o">.</span><span class="n">declare</span><span class="p">(</span><span class="s">'App'</span><span class="p">,</span> <span class="p">(</span><span class="s">'fn'</span><span class="p">,</span><span class="n">Expr</span><span class="p">),(</span><span class="s">'arg'</span><span class="p">,</span><span class="n">Expr</span><span class="p">))</span>
+<span class="n">Expr</span> <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">create</span><span class="p">()</span>
+<span class="n">Max</span>  <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">Max</span>
+<span class="n">I</span>    <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">I</span>
+<span class="n">App</span>  <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">App</span>
+<span class="n">f</span>    <span class="o">=</span> <span class="n">Expr</span><span class="o">.</span><span class="n">f</span>
+<span class="n">Eval</span> <span class="o">=</span> <span class="n">Function</span><span class="p">(</span><span class="s">'Eval'</span><span class="p">,</span><span class="n">Expr</span><span class="p">,</span><span class="n">Expr</span><span class="p">,</span><span class="n">Expr</span><span class="p">,</span><span class="n">BoolSort</span><span class="p">())</span>
+
+<span class="n">x</span>   <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'x'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="n">y</span>   <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'y'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="n">z</span>   <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'z'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="n">r1</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'r1'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="n">r2</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'r2'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="nb">max</span> <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'max'</span><span class="p">,</span><span class="n">Expr</span><span class="p">)</span>
+<span class="n">xi</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'xi'</span><span class="p">,</span><span class="n">IntSort</span><span class="p">())</span>
+<span class="n">yi</span>  <span class="o">=</span> <span class="n">Const</span><span class="p">(</span><span class="s">'yi'</span><span class="p">,</span><span class="n">IntSort</span><span class="p">())</span>
+
+<span class="n">fp</span> <span class="o">=</span> <span class="n">Fixedpoint</span><span class="p">()</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">register_relation</span><span class="p">(</span><span class="n">Eval</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">declare_var</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">,</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="p">,</span><span class="nb">max</span><span class="p">,</span><span class="n">xi</span><span class="p">,</span><span class="n">yi</span><span class="p">)</span>
+
+<span class="c"># Max max x y z = max (max x y) z</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">Max</span><span class="p">,</span><span class="nb">max</span><span class="p">),</span><span class="n">x</span><span class="p">),</span><span class="n">y</span><span class="p">),</span> <span class="n">z</span><span class="p">,</span> <span class="n">r2</span><span class="p">),</span>
+	<span class="p">[</span><span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="nb">max</span><span class="p">,</span><span class="n">x</span><span class="p">),</span><span class="n">y</span><span class="p">,</span><span class="n">r1</span><span class="p">),</span>
+	 <span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="nb">max</span><span class="p">,</span><span class="n">r1</span><span class="p">),</span><span class="n">z</span><span class="p">,</span><span class="n">r2</span><span class="p">)])</span>
+
+<span class="c"># f x y = x if x &gt;= y</span>
+<span class="c"># f x y = y if x &lt; y</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">f</span><span class="p">,</span><span class="n">I</span><span class="p">(</span><span class="n">xi</span><span class="p">)),</span><span class="n">I</span><span class="p">(</span><span class="n">yi</span><span class="p">),</span><span class="n">I</span><span class="p">(</span><span class="n">xi</span><span class="p">)),</span><span class="n">xi</span> <span class="o">&gt;=</span> <span class="n">yi</span><span class="p">)</span>
+<span class="n">fp</span><span class="o">.</span><span class="n">rule</span><span class="p">(</span><span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">f</span><span class="p">,</span><span class="n">I</span><span class="p">(</span><span class="n">xi</span><span class="p">)),</span><span class="n">I</span><span class="p">(</span><span class="n">yi</span><span class="p">),</span><span class="n">I</span><span class="p">(</span><span class="n">yi</span><span class="p">)),</span><span class="n">xi</span> <span class="o">&lt;</span> <span class="n">yi</span><span class="p">)</span>
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">And</span><span class="p">(</span><span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">Max</span><span class="p">,</span><span class="n">f</span><span class="p">),</span><span class="n">x</span><span class="p">),</span><span class="n">y</span><span class="p">),</span><span class="n">z</span><span class="p">,</span><span class="n">r1</span><span class="p">),</span>
+		   <span class="n">Eval</span><span class="p">(</span><span class="n">App</span><span class="p">(</span><span class="n">f</span><span class="p">,</span><span class="n">x</span><span class="p">),</span><span class="n">r1</span><span class="p">,</span><span class="n">r2</span><span class="p">),</span>
+		   <span class="n">r1</span> <span class="o">!=</span> <span class="n">r2</span><span class="p">))</span>
+
+<span class="k">print</span> <span class="n">fp</span><span class="o">.</span><span class="n">get_answer</span><span class="p">()</span>
+</pre></div>
+</body></html></example>
+
+
+</body>
+</html>

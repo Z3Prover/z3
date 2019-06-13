@@ -832,7 +832,7 @@ namespace upolynomial {
         set(sz2, p2, B);
         TRACE("upolynomial", tout << "sz1: " << sz1 << ", p1: " << p1 << ", sz2: " << sz2 << ", p2: " << p2 << "\nB.size(): " << B.size() <<
               ", B.c_ptr(): " << B.c_ptr() << "\n";);
-        while (true) {
+        while (m_limit.inc()) {
             TRACE("upolynomial", tout << "A: "; display(tout, A); tout <<"\nB: "; display(tout, B); tout << "\n";);
             if (B.empty()) {
                 normalize(A);
@@ -853,6 +853,7 @@ namespace upolynomial {
             A.swap(B);
             B.swap(R);
         }
+        throw upolynomial_exception(Z3_CANCELED_MSG);
     }
 
     void core_manager::gcd(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2, numeral_vector & buffer) {
@@ -1106,7 +1107,7 @@ namespace upolynomial {
     }
 
     // Display p
-    void core_manager::display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name, bool use_star) const {
+    std::ostream& core_manager::display(std::ostream & out, unsigned sz, numeral const * p, char const * var_name, bool use_star) const {
         bool displayed = false;
         unsigned i = sz;
         scoped_numeral a(m());
@@ -1142,6 +1143,7 @@ namespace upolynomial {
         }
         if (!displayed)
             out << "0";
+        return out;
     }
 
     static void display_smt2_mumeral(std::ostream & out, numeral_manager & m, mpz const & n) {
@@ -1183,15 +1185,15 @@ namespace upolynomial {
     }
 
     // Display p as an s-expression
-    void core_manager::display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name) const {
+    std::ostream& core_manager::display_smt2(std::ostream & out, unsigned sz, numeral const * p, char const * var_name) const {
         if (sz == 0) {
             out << "0";
-            return;
+            return out;
         }
 
         if (sz == 1) {
             display_smt2_mumeral(out, m(), p[0]);
-            return;
+            return out;
         }
 
         unsigned non_zero_idx  = UINT_MAX;
@@ -1217,7 +1219,7 @@ namespace upolynomial {
                 display_smt2_monomial(out, m(), p[i], i, var_name);
             }
         }
-        out << ")";
+        return out << ")";
     }
 
     bool core_manager::eq(unsigned sz1, numeral const * p1, unsigned sz2, numeral const * p2) {
@@ -3115,11 +3117,12 @@ namespace upolynomial {
         return result;
     }
 
-    void manager::display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name) const {
+    std::ostream& manager::display(std::ostream & out, upolynomial_sequence const & seq, char const * var_name) const {
         for (unsigned i = 0; i < seq.size(); i++) {
             display(out, seq.size(i), seq.coeffs(i), var_name);
             out << "\n";
         }
+        return out;
     }
 };
 

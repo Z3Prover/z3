@@ -22,6 +22,7 @@ Notes:
 #include "util/vector.h"
 #include "util/z3_exception.h"
 #include "util/util.h"
+#include "util/mutex.h"
 
 class prime_generator_exception : public default_exception {
 public:
@@ -35,7 +36,9 @@ class prime_generator {
     svector<uint64_t> m_primes;
     void process_next_k_numbers(uint64_t k);
 public:
+    mutex             *m_mux;
     prime_generator();
+    ~prime_generator();
     uint64_t operator()(unsigned idx);
     void finalize();
 };

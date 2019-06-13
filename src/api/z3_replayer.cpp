@@ -36,7 +36,7 @@ void throw_invalid_reference() {
 struct z3_replayer::imp {
     z3_replayer &            m_owner;
     std::istream &           m_stream;
-    char                     m_curr;  // current char;
+    int                      m_curr;  // current char;
     int                      m_line;  // line
     svector<char>            m_string;
     symbol                   m_id;
@@ -158,7 +158,7 @@ struct z3_replayer::imp {
         }
     }
 
-    char curr() const { return m_curr; }
+    int curr() const { return m_curr; }
     void new_line() { m_line++; }
     void next() { m_curr = m_stream.get(); }
 
@@ -168,7 +168,7 @@ struct z3_replayer::imp {
         m_string.reset();
         next();
         while (true) {
-            char c = curr();
+            int c = curr();
             if (c == EOF) {
                 throw z3_replayer_exception("unexpected end of file");
             }
@@ -229,7 +229,7 @@ struct z3_replayer::imp {
         }
         m_int64 = 0;
         while (true) {
-            char c = curr();
+            int c = curr();
             if ('0' <= c && c <= '9') {
                 m_int64 = 10*m_int64 + (c - '0');
                 next();
@@ -247,7 +247,7 @@ struct z3_replayer::imp {
             throw z3_replayer_exception("invalid unsigned");
         m_uint64 = 0;
         while (true) {
-            char c = curr();
+            int c = curr();
             if ('0' <= c && c <= '9') {
                 m_uint64 = 10*m_uint64 + (c - '0');
                 next();
@@ -303,7 +303,7 @@ struct z3_replayer::imp {
         unsigned pos = 0;
         m_ptr = 0;
         while (true) {
-            char c = curr();
+            int c = curr();
             if ('0' <= c && c <= '9') {
                 m_ptr = m_ptr * 16 + (c - '0');
             }
@@ -325,7 +325,7 @@ struct z3_replayer::imp {
 
     void skip_blank() {
         while (true) {
-            char c = curr();
+            int c = curr();
             if (c == '\n') {
                 new_line();
                 next();
@@ -413,7 +413,7 @@ struct z3_replayer::imp {
                 }
             });
             skip_blank();
-            char c = curr();
+            int c = curr();
             if (c == EOF)
                 return;
             switch (c) {

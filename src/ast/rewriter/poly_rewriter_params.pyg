@@ -2,7 +2,7 @@ def_module_params(module_name='rewriter',
                   class_name='poly_rewriter_params',
                   export=True,
                   params=(("som", BOOL, False, "put polynomials in som-of-monomials form"),
-                          ("som_blowup", UINT, UINT_MAX, "maximum number of monomials generated when putting a polynomial in sum-of-monomials normal form"),
+                          ("som_blowup", UINT, 10, "maximum increase of monomials generated when putting a polynomial in sum-of-monomials normal form"),
                           ("hoist_mul", BOOL, False, "hoist multiplication over summation to minimize number of multiplications"),
                           ("hoist_cmul", BOOL, False, "hoist constant multiplication over summation to minimize number of multiplications"),
                           ("flat", BOOL, True, "create nary applications for and,or,+,*,bvadd,bvmul,bvand,bvor,bvxor")))

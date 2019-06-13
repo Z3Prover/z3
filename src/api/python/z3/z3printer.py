@@ -44,7 +44,9 @@ _z3_op_to_str = {
     Z3_OP_SEQ_IN_RE : 'InRe', Z3_OP_SEQ_TO_RE : 'Re', 
     Z3_OP_RE_PLUS : 'Plus', Z3_OP_RE_STAR : 'Star', Z3_OP_RE_OPTION : 'Option', Z3_OP_RE_UNION : 'Union', Z3_OP_RE_RANGE : 'Range',
     Z3_OP_RE_INTERSECT : 'Intersect', Z3_OP_RE_COMPLEMENT : 'Complement', 
-    
+    Z3_OP_FPA_IS_NAN : 'fpIsNaN', Z3_OP_FPA_IS_INF : 'fpIsInf', Z3_OP_FPA_IS_ZERO : 'fpIsZero',
+    Z3_OP_FPA_IS_NORMAL : 'fpIsNormal', Z3_OP_FPA_IS_SUBNORMAL : 'fpIsSubnormal',
+    Z3_OP_FPA_IS_NEGATIVE : 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE : 'fpIsPositive',    
     }
 
 # List of infix operators
@@ -89,10 +91,6 @@ _z3_op_to_fpa_normal_str = {
 
     Z3_OP_FPA_EQ : 'fpEQ', Z3_OP_FPA_LT : 'fpLT', Z3_OP_FPA_GT : 'fpGT', Z3_OP_FPA_LE : 'fpLEQ',
     Z3_OP_FPA_GE : 'fpGEQ',
-
-    Z3_OP_FPA_IS_NAN : 'fpIsNaN', Z3_OP_FPA_IS_INF : 'fpIsInf', Z3_OP_FPA_IS_ZERO : 'fpIsZero',
-    Z3_OP_FPA_IS_NORMAL : 'fpIsNormal', Z3_OP_FPA_IS_SUBNORMAL : 'fpIsSubnormal',
-    Z3_OP_FPA_IS_NEGATIVE : 'fpIsNegative', Z3_OP_FPA_IS_POSITIVE : 'fpIsPositive',
     
     Z3_OP_FPA_FP : 'fpFP', Z3_OP_FPA_TO_FP : 'fpToFP', Z3_OP_FPA_TO_FP_UNSIGNED: 'fpToFPUnsigned',
     Z3_OP_FPA_TO_UBV : 'fpToUBV', Z3_OP_FPA_TO_SBV : 'fpToSBV', Z3_OP_FPA_TO_REAL: 'fpToReal',

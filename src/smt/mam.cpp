@@ -79,7 +79,7 @@ namespace smt {
     //
     // ------------------------------------
     class label_hasher {
-        svector<char>               m_lbl2hash;        // cache: lbl_id -> hash
+        svector<signed char>             m_lbl2hash;        // cache: lbl_id -> hash
 
         void mk_lbl_hash(unsigned lbl_id) {
             unsigned a = 17;

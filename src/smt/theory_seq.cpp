@@ -273,6 +273,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_overlap(m),
     m_overlap2(m),
     m_len_prop_lvl(-1),
+    m_internal_nth_es(m),
     m_factory(nullptr),
     m_exclude(m),
     m_axioms(m),
@@ -298,7 +299,6 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_suffix         = "seq.s.prefix";
     m_accept         = "aut.accept";
     m_tail           = "seq.tail";
-    m_nth            = "seq.nth";
     m_seq_first      = "seq.first";
     m_seq_last       = "seq.last";
     m_indexof_left   = "seq.idx.left";
@@ -1985,18 +1985,10 @@ bool theory_seq::is_unit_nth(expr* e) const {
 
 bool theory_seq::is_nth(expr* e) const {
     return m_util.str.is_nth(e);
-//    return is_skolem(m_nth, e);
 }
 
 bool theory_seq::is_nth(expr* e, expr*& e1, expr*& e2) const {
-    if (is_nth(e)) {
-        e1 = to_app(e)->get_arg(0);
-        e2 = to_app(e)->get_arg(1);
-        return true;
-    }
-    else {
-        return false;
-    }
+    return m_util.str.is_nth(e, e1, e2);
 }
 
 bool theory_seq::is_tail(expr* e, expr*& s, unsigned& idx) const {
@@ -2023,7 +2015,12 @@ bool theory_seq::is_post(expr* e, expr*& s, expr*& i) {
 
 
 expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
-    return expr_ref(m_util.str.mk_nth(s, idx), m);
+    expr_ref result(m_util.str.mk_nth(s, idx), m);
+    if (!m_internal_nth_table.contains(result)) {
+        m_internal_nth_table.insert(result);
+        m_internal_nth_es.push_back(result);
+    }
+    return result;
 }
 
 expr_ref theory_seq::mk_sk_ite(expr* c, expr* t, expr* e) {
@@ -3975,7 +3972,7 @@ public:
         else {
             for (source_t src : m_source) {
                 switch (src) {
-                case unit_source:
+                case unit_source:                    
                     args.push_back(th.m_util.str.mk_unit(values[j++]));
                     break;
                 case string_source:
@@ -4221,12 +4218,15 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
         result = m_util.str.mk_last_index(arg1, arg2);
     }
     else if (m.is_ite(e, e1, e2, e3)) {
-        if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e2)->get_root()) {
+        enode* r = get_root(e);
+        enode* r2 = get_root(e2);
+        enode* r3 = get_root(e3);
+        if (ctx.e_internalized(e) && ctx.e_internalized(e2) && r == r2 && r != r3) {
             result = try_expand(e2, deps);
             if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e2));
         }
-        else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && ctx.get_enode(e)->get_root() == ctx.get_enode(e3)->get_root()) {
+        else if (ctx.e_internalized(e) && ctx.e_internalized(e2) && r == r3 && r != r2) {
             result = try_expand(e3, deps);
             if (!result) return result;
             add_dependency(deps, ctx.get_enode(e), ctx.get_enode(e3));
@@ -5132,6 +5132,12 @@ void theory_seq::add_nth_axiom(expr* e) {
         app_ref ch(m_util.str.mk_char(str[n.get_unsigned()]), m);
         add_axiom(mk_eq(ch, e, false));
     }
+    else if (!m_internal_nth_table.contains(e)) {
+        expr_ref zero(m_autil.mk_int(0), m);
+        literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
+        literal i_ge_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(i, mk_len(s)), zero));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));
+    }
 }
 
 
@@ -5597,6 +5603,7 @@ void theory_seq::push_scope_eh() {
     m_eqs.push_scope();
     m_nqs.push_scope();
     m_ncs.push_scope();
+    m_internal_nth_lim.push_back(m_internal_nth_es.size());
 }
 
 void theory_seq::pop_scope_eh(unsigned num_scopes) {
@@ -5617,6 +5624,12 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
         m_len_prop_lvl = ctx.get_scope_level();
         m_len_offset.reset();
     }
+    unsigned old_sz = m_internal_nth_lim[m_internal_nth_lim.size() - num_scopes];
+    for (unsigned i = m_internal_nth_es.size(); i-- > old_sz; ) {
+        m_internal_nth_table.erase(m_internal_nth_es.get(i));
+    }
+    m_internal_nth_es.shrink(old_sz);
+    m_internal_nth_lim.shrink(m_internal_nth_lim.size() - num_scopes);
 }
 
 void theory_seq::restart_eh() {

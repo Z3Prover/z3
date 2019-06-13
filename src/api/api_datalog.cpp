@@ -280,7 +280,7 @@ extern "C" {
         RESET_ERROR_CODE();
         lbool r = l_undef;
         unsigned timeout = to_fixedpoint(d)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
-        unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
+        unsigned rlimit  = to_fixedpoint(d)->m_params.get_uint("rlimit",  mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_fixedpoint(d)->m_params.get_bool("ctrl_c", true);
         {
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
@@ -373,11 +373,11 @@ extern "C" {
 
         Z3_ast_vector_ref* v = alloc(Z3_ast_vector_ref, *mk_c(c), m);
         mk_c(c)->save_object(v);
-        for (unsigned i = 0; i < coll.m_queries.size(); ++i) {
-            v->m_ast_vector.push_back(coll.m_queries[i].get());
+        for (expr * q : coll.m_queries) {
+            v->m_ast_vector.push_back(q);
         }
-        for (unsigned i = 0; i < coll.m_rels.size(); ++i) {
-            to_fixedpoint_ref(d)->ctx().register_predicate(coll.m_rels[i].get(), true);
+        for (func_decl * f : coll.m_rels) {
+            to_fixedpoint_ref(d)->ctx().register_predicate(f, true);
         }
         for (unsigned i = 0; i < coll.m_rules.size(); ++i) {
             to_fixedpoint_ref(d)->add_rule(coll.m_rules[i].get(), coll.m_names[i]);
@@ -466,11 +466,11 @@ extern "C" {
         svector<symbol> names;
         
         to_fixedpoint_ref(d)->ctx().get_rules_as_formulas(rules, queries, names);
-        for (unsigned i = 0; i < rules.size(); ++i) {
-            v->m_ast_vector.push_back(rules[i].get());
+        for (expr* r : rules) {
+            v->m_ast_vector.push_back(r);
         }
-        for (unsigned i = 0; i < queries.size(); ++i) {
-            v->m_ast_vector.push_back(m.mk_not(queries[i].get()));
+        for (expr* q : queries) {
+            v->m_ast_vector.push_back(m.mk_not(q));
         }
         RETURN_Z3(of_ast_vector(v));
         Z3_CATCH_RETURN(nullptr);

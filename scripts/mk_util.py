@@ -51,7 +51,7 @@ C_COMPILERS=['gcc', 'clang']
 CSC_COMPILERS=['csc', 'mcs']
 JAVAC=None
 JAR=None
-PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib()
+PYTHON_PACKAGE_DIR=distutils.sysconfig.get_python_lib(prefix=getenv("PREFIX", None))
 BUILD_DIR='build'
 REV_BUILD_DIR='..'
 SRC_DIR='src'
@@ -110,8 +110,8 @@ GPROF=False
 GIT_HASH=False
 GIT_DESCRIBE=False
 SLOW_OPTIMIZE=False
-USE_OMP=True
 LOG_SYNC=False
+SINGLE_THREADED=False
 GUARD_CF=False
 ALWAYS_DYNAMIC_BASE=False
 
@@ -136,7 +136,7 @@ def git_hash():
         raise MKException("Failed to retrieve git hash")
     ls = r.split(' ')
     if len(ls) != 2:
-        raise MKException("Unexpected git output")
+        raise MKException("Unexpected git output " + r)
     return ls[0]
 
 def is_windows():
@@ -272,24 +272,6 @@ def test_gmp(cc):
     return exec_compiler_cmd([cc, CPPFLAGS, 'tstgmp.cpp', LDFLAGS, '-lgmp']) == 0
 
 
-def test_openmp(cc):
-    if not USE_OMP:
-        return False
-    if is_verbose():
-        print("Testing OpenMP...")
-    t = TempFile('tstomp.cpp')
-    t.add('#include<omp.h>\nint main() { return omp_in_parallel() ? 1 : 0; }\n')
-    t.commit()
-    if IS_WINDOWS:
-        r = exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '/openmp']) == 0
-        try:
-            rmf('tstomp.obj')
-            rmf('tstomp.exe')
-        except:
-            pass
-        return r
-    else:
-        return exec_compiler_cmd([cc, CPPFLAGS, 'tstomp.cpp', LDFLAGS, '-fopenmp']) == 0
 
 def test_fpmath(cc):
     global FPMATH_FLAGS
@@ -298,13 +280,15 @@ def test_fpmath(cc):
     t = TempFile('tstsse.cpp')
     t.add('int main() { return 42; }\n')
     t.commit()
-    if exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
+    # -Werror is needed because some versions of clang warn about unrecognized
+    # -m flags.
+    if exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-mfpmath=sse -msse -msse2']) == 0:
         FPMATH_FLAGS="-mfpmath=sse -msse -msse2"
         return "SSE2-GCC"
-    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
+    elif exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-msse -msse2']) == 0:
         FPMATH_FLAGS="-msse -msse2"
         return "SSE2-CLANG"
-    elif exec_compiler_cmd([cc, CPPFLAGS, 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
+    elif exec_compiler_cmd([cc, CPPFLAGS, '-Werror', 'tstsse.cpp', LDFLAGS, '-mfpu=vfp -mfloat-abi=hard']) == 0:
         FPMATH_FLAGS="-mfpu=vfp -mfloat-abi=hard"
         return "ARM-VFP"
     else:
@@ -662,8 +646,8 @@ def display_help(exit_code):
     if not IS_WINDOWS:
         print("  -g, --gmp                     use GMP.")
         print("  --gprof                       enable gprof")
-    print("  --noomp                       disable OpenMP and all features that require it.")
     print("  --log-sync                    synchronize access to API log files to enable multi-thread API logging.")
+    print("  --single-threaded             non-thread-safe build")
     print("")
     print("Some influential environment variables:")
     if not IS_WINDOWS:
@@ -690,14 +674,14 @@ def display_help(exit_code):
 def parse_options():
     global VERBOSE, DEBUG_MODE, IS_WINDOWS, VS_X64, ONLY_MAKEFILES, SHOW_CPPS, VS_PROJ, TRACE, VS_PAR, VS_PAR_NUM
     global DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, JAVA_ENABLED, ML_ENABLED, JS_ENABLED, STATIC_LIB, STATIC_BIN, PREFIX, GMP, PYTHON_PACKAGE_DIR, GPROF, GIT_HASH, GIT_DESCRIBE, PYTHON_INSTALL_ENABLED, PYTHON_ENABLED, ESRP_SIGN
-    global LINUX_X64, SLOW_OPTIMIZE, USE_OMP, LOG_SYNC
+    global LINUX_X64, SLOW_OPTIMIZE, LOG_SYNC, SINGLE_THREADED
     global GUARD_CF, ALWAYS_DYNAMIC_BASE
     try:
         options, remainder = getopt.gnu_getopt(sys.argv[1:],
                                                'b:df:sxhmcvtnp:gj',
                                                ['build=', 'debug', 'silent', 'x64', 'help', 'makefiles', 'showcpp', 'vsproj', 'guardcf',
                                                 'trace', 'dotnet', 'dotnet-key=', 'esrp', 'staticlib', 'prefix=', 'gmp', 'java', 'parallel=', 'gprof', 'js',
-                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'noomp', 'pypkgdir=', 'python', 'staticbin', 'log-sync'])
+                                                'githash=', 'git-describe', 'x86', 'ml', 'optimize', 'pypkgdir=', 'python', 'staticbin', 'log-sync', 'single-threaded'])
     except:
         print("ERROR: Invalid command line option")
         display_help(1)
@@ -761,10 +745,10 @@ def parse_options():
             ML_ENABLED = True
         elif opt == "--js":
             JS_ENABLED = True
-        elif opt in ('', '--noomp'):
-            USE_OMP = False
         elif opt in ('', '--log-sync'):
             LOG_SYNC = True
+        elif opt == '--single-threaded':
+            SINGLE_THREADED = True
         elif opt in ('--python'):
             PYTHON_ENABLED = True
             PYTHON_INSTALL_ENABLED = True
@@ -2424,7 +2408,7 @@ def mk_config():
     if ONLY_MAKEFILES:
         return
     config = open(os.path.join(BUILD_DIR, 'config.mk'), 'w')
-    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, HAS_OMP, LOG_SYNC
+    global CXX, CC, GMP, CPPFLAGS, CXXFLAGS, LDFLAGS, EXAMP_DEBUG_FLAG, FPMATH_FLAGS, LOG_SYNC, SINGLE_THREADED
     if IS_WINDOWS:
         config.write(
             'CC=cl\n'
@@ -2444,13 +2428,10 @@ def mk_config():
             'OS_DEFINES=/D _WINDOWS\n')
         extra_opt = ''
         link_extra_opt = ''
-        HAS_OMP = test_openmp('cl')
-        if HAS_OMP:
-            extra_opt = ' /openmp'
-        else:
-            extra_opt = ' /D_NO_OMP_'
-        if HAS_OMP and LOG_SYNC:
+        if LOG_SYNC:
             extra_opt = '%s /DZ3_LOG_SYNC' % extra_opt
+        if SINGLE_THREADED:
+            extra_opt = '%s /DSINGLE_THREAD' % extra_opt
         if GIT_HASH:
             extra_opt = ' %s /D Z3GITHASH=%s' % (extra_opt, GIT_HASH)
         if GUARD_CF:
@@ -2494,10 +2475,10 @@ def mk_config():
                 extra_opt = '%s /D _TRACE ' % extra_opt
             if VS_X64:
                 config.write(
-                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /Gd /TP %s %s\n' % (GL, extra_opt, static_opt))
+                    'CXXFLAGS=/c%s /Zi /nologo /W3 /WX- /O2 /D _EXTERNAL_RELEASE /D WIN32 /D NDEBUG /D _LIB /D _WINDOWS /D _UNICODE /D UNICODE /Gm- /EHsc /GS /Gd /GF /Gy /TP %s %s\n' % (GL, extra_opt, static_opt))
                 config.write(
-                    'LINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:CONSOLE /INCREMENTAL:NO /STACK:8388608 %s\n'
-                    'SLINK_EXTRA_FLAGS=/link%s /MACHINE:X64 /SUBSYSTEM:WINDOWS /INCREMENTAL:NO /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
+                    'LINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:CONSOLE /STACK:8388608 %s\n'
+                    'SLINK_EXTRA_FLAGS=/link%s /profile /MACHINE:X64 /SUBSYSTEM:WINDOWS /STACK:8388608 %s\n' % (LTCG, link_extra_opt, LTCG, link_extra_opt))
             elif VS_ARM:
                 print("ARM on VS is unsupported")
                 exit(1)
@@ -2513,7 +2494,6 @@ def mk_config():
         # End of Windows VS config.mk
         if is_verbose():
             print('64-bit:         %s' % is64())
-            print('OpenMP:         %s' % HAS_OMP)
             if is_java_enabled():
                 print('JNI Bindings:   %s' % JNI_HOME)
                 print('Java Compiler:  %s' % JAVAC)
@@ -2529,6 +2509,7 @@ def mk_config():
         CXX = find_cxx_compiler()
         CC  = find_c_compiler()
         SLIBEXTRAFLAGS = ''
+#       SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so.0' % LDFLAGS
         EXE_EXT = ''
         LIB_EXT = '.a'
         if GPROF:
@@ -2548,15 +2529,10 @@ def mk_config():
         CXXFLAGS = '%s -fvisibility=hidden -c' % CXXFLAGS
         FPMATH = test_fpmath(CXX)
         CXXFLAGS = '%s %s' % (CXXFLAGS, FPMATH_FLAGS)
-        HAS_OMP = test_openmp(CXX)
-        if HAS_OMP:
-            CXXFLAGS = '%s -fopenmp' % CXXFLAGS
-            LDFLAGS  = '%s -fopenmp' % LDFLAGS
-            SLIBEXTRAFLAGS = '%s -fopenmp' % SLIBEXTRAFLAGS
-        else:
-            CXXFLAGS = '%s -D_NO_OMP_' % CXXFLAGS
-        if HAS_OMP and LOG_SYNC:
+        if LOG_SYNC:
             CXXFLAGS = '%s -DZ3_LOG_SYNC' % CXXFLAGS
+        if SINGLE_THREADED:
+            CXXFLAGS = '%s -DSINGLE_THREAD' % CXXFLAGS
         if DEBUG_MODE:
             CXXFLAGS     = '%s -g -Wall' % CXXFLAGS
             EXAMP_DEBUG_FLAG = '-g'
@@ -2658,7 +2634,6 @@ def mk_config():
                 print('MinGW32 cross:  %s' % (is_cygwin_mingw()))
             print('Archive Tool:   %s' % AR)
             print('Arithmetic:     %s' % ARITH)
-            print('OpenMP:         %s' % HAS_OMP)
             print('Prefix:         %s' % PREFIX)
             print('64-bit:         %s' % is64())
             print('FP math:        %s' % FPMATH)
@@ -3163,10 +3138,6 @@ def mk_vs_proj_cl_compile(f, name, components, debug):
         f.write('      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>\n')
     else:
         f.write('      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>\n')
-    if USE_OMP:
-        f.write('      <OpenMPSupport>true</OpenMPSupport>\n')
-    else:
-        f.write('      <OpenMPSupport>false</OpenMPSupport>\n')
     f.write('      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>\n')
     f.write('      <AdditionalIncludeDirectories>')
     deps = find_all_deps(name, components)

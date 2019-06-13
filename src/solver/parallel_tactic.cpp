@@ -337,7 +337,7 @@ private:
 
     void init() {
         parallel_params pp(m_params);
-        m_num_threads = std::min((unsigned)omp_get_num_procs(), pp.threads_max());
+        m_num_threads = std::min((unsigned) std::thread::hardware_concurrency(), pp.threads_max());
         m_progress = 0;
         m_has_undef = false;
         m_allsat = false;

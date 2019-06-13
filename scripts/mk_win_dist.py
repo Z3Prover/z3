@@ -89,6 +89,7 @@ def parse_options():
                                                                    'x86-only',
                                                                    'x64-only'
                                                                    ])
+    print(options)
     for opt, arg in options:
         if opt in ('-b', '--build'):
             if arg == 'src':

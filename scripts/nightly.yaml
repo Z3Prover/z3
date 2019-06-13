@@ -1,0 +1,99 @@
+jobs:
+
+- job: Mac
+  displayName: "Mac Build"
+  pool:
+    vmImage: "macOS-10.14"
+  steps:
+  - task: DownloadSecureFile@1
+    inputs:
+      secureFile: 'z3.snk'
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Mac'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+
+- job: Ubuntu
+  displayName: "Ubuntu build"
+  pool:
+    vmImage: "ubuntu-16.04"
+  steps:
+  - task: DownloadSecureFile@1
+    inputs:
+      secureFile: 'z3.snk'
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Ubuntu'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Windows
+  displayName: "Windows build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+  - task: DownloadSecureFile@1
+    inputs:
+      secureFile: 'z3.snk'
+  - script: scripts\mk_win_dist.cmd
+#  - script: git clone https://github.com/z3prover/z3test z3test
+#  - script: python z3test/scripts/test_benchmarks.py build-dist\z3.exe z3test/regressions/smt2    
+  - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Windows'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Deploy
+  displayName: "Deploy into GitHub"
+  dependsOn: 
+  - Mac
+  - Ubuntu
+  - Windows
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: tmp
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'delete'
+      target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'create'
+      target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
+      title: 'Nightly'
+      releaseNotesSource: 'input'
+      releaseNotes: 'nightly build'
+      assets: 'tmp/*'
+#     assetUploadMode: 'replace'
+      isDraft: false
+      isPreRelease: true
+
+
+# TBD: run regression tests on generated binaries.

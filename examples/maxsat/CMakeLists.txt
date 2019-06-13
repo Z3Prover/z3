@@ -6,7 +6,7 @@
 # C++ we will use the C linker rather than the C++ linker and will not link
 # the C++ standard library in resulting in a link failure.
 project(Z3_C_MAXSAT_EXAMPLE C CXX)
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 3.4)
 find_package(Z3
   REQUIRED
   CONFIG

@@ -18,7 +18,7 @@ Revision History:
 --*/
 #include "parsers/util/scanner.h"
 
-inline char scanner::read_char() {
+inline int scanner::read_char() {
     if (m_is_interactive) {
         ++m_pos;
         return m_stream.get();
@@ -58,7 +58,7 @@ inline bool scanner::state_ok() {
 
 void scanner::comment(char delimiter) {
     while(state_ok()) {
-        char ch = read_char();
+        int ch = read_char();
         if ('\n' == ch) {
             ++m_line;
         }
@@ -68,7 +68,7 @@ void scanner::comment(char delimiter) {
     }        
 }
 
-scanner::token scanner::read_symbol(char ch) {
+scanner::token scanner::read_symbol(int ch) {
     bool escape = false;
     if (m_smt2)
         m_string.pop_back(); // remove leading '|'
@@ -94,7 +94,7 @@ scanner::token scanner::read_symbol(char ch) {
 
 
 scanner::token scanner::read_id(char first_char) {
-    char ch;
+    int ch;
     m_string.reset();
     m_params.reset();
     m_string.push_back(first_char);
@@ -159,7 +159,7 @@ bool scanner::read_params() {
     unsigned param_num = 0;
     
     while (state_ok()) {
-        char ch = read_char();
+        int ch = read_char();
         switch (m_normalized[(unsigned char) ch]) {
         case '0': 
             param_num = 10*param_num + (ch - '0');
@@ -208,7 +208,7 @@ scanner::token scanner::read_number(char first_char, bool is_pos) {
     m_state = INT_TOKEN;
     
     while (true) {
-        char ch = read_char();
+        int ch = read_char();
         if (m_normalized[(unsigned char) ch] == '0') {
             m_number = rational(10)*m_number + rational(ch - '0');
             if (m_state == FLOAT_TOKEN) {
@@ -236,7 +236,7 @@ scanner::token scanner::read_string(char delimiter, token result) {
     m_string.reset();
     m_params.reset();
     while (true) {
-        char ch = read_char();
+        int ch = read_char();
         
         if (!state_ok()) {
             return m_state;
@@ -265,7 +265,7 @@ scanner::token scanner::read_string(char delimiter, token result) {
 scanner::token scanner::read_bv_literal() {
     TRACE("scanner", tout << "read_bv_literal\n";);
     if (m_bv_token) {
-        char ch     = read_char();
+        int ch = read_char();
         if (ch == 'x') {
             ch = read_char();
             m_number  = rational(0);
@@ -315,7 +315,7 @@ scanner::token scanner::read_bv_literal() {
     }
     else {
         // hack for the old parser
-        char ch     = read_char();
+        int ch  = read_char();
         bool is_hex = false;
         
         m_state = ID_TOKEN;
@@ -342,7 +342,7 @@ scanner::token scanner::read_bv_literal() {
         }
         
         while (true) {
-            ch = read_char();
+            signed ch = read_char();
             if (ch == '0' || ch == '1' ||
                 (is_hex &&
                  (('0' <= ch && ch <= '9') ||
@@ -449,7 +449,7 @@ scanner::scanner(std::istream& stream, std::ostream& err, bool smt2, bool bv_tok
 
 scanner::token scanner::scan() {
     while (state_ok()) {
-        char ch = read_char();        
+        int ch = read_char();        
         switch (m_normalized[(unsigned char) ch]) {
         case ' ':
             break;

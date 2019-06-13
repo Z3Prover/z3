@@ -29,11 +29,9 @@ static_assert(sizeof(mpn_double_digit) == 2 * sizeof(mpn_digit), "size alignment
 const mpn_digit mpn_manager::zero = 0;
 
 mpn_manager::mpn_manager() {
-    omp_init_nest_lock(&m_lock);
 }
 
 mpn_manager::~mpn_manager() {
-    omp_destroy_nest_lock(&m_lock);
 }
 
 int mpn_manager::compare(mpn_digit const * a, size_t const lnga, 

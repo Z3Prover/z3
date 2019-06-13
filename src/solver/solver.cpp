@@ -326,7 +326,7 @@ lbool solver::check_sat(unsigned num_assumptions, expr * const * assumptions) {
         r = check_sat_core(num_assumptions, assumptions);
     }
     catch (...) {
-        if (get_manager().canceled()) {
+        if (!get_manager().limit().inc(0)) {
             dump_state(num_assumptions, assumptions);
         }
         throw;

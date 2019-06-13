@@ -280,11 +280,8 @@ namespace smt {
         ast_manager & _m = m();
         smt_params & fps = m_imp->fparams();
         params_ref ps    = m_imp->params();
-        #pragma omp critical (smt_kernel)
-        {
-            m_imp->~imp();
-            m_imp = new (m_imp) imp(_m, fps, ps);
-        }
+        m_imp->~imp();
+        m_imp = new (m_imp) imp(_m, fps, ps);        
     }
 
     bool kernel::inconsistent() {

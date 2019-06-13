@@ -1,0 +1,3 @@
+steps:
+- script: git clone https://github.com/z3prover/z3test z3test
+- script: python z3test/scripts/test_benchmarks.py build/z3 z3test/regressions/smt2    

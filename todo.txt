@@ -1,9 +1,0 @@
-- consolidate virtual-solver and pool solver
-
-- fixup mbp/mbi
-
-- API additions to expose functionality
-
-- Equality solver
-
-- Generalizer index

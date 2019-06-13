@@ -18,6 +18,7 @@ Revision History:
 
 --*/
 #include<iostream>
+#include<mutex>
 #include "util/memory_manager.h"
 #include "util/trace.h"
 #include "util/debug.h"
@@ -50,6 +51,7 @@ static char const * g_input_file          = nullptr;
 static bool         g_standard_input      = false;
 static input_kind   g_input_kind          = IN_UNSPECIFIED;
 bool                g_display_statistics  = false;
+std::mutex*         g_stat_mux            = nullptr;
 static bool         g_display_istatistics = false;
 
 static void error(const char * msg) {
@@ -311,6 +313,7 @@ int STD_CALL main(int argc, char ** argv) {
         unsigned return_value = 0;
         memory::initialize(0);
         memory::exit_when_out_of_memory(true, "ERROR: out of memory");
+        g_stat_mux = alloc(std::mutex);
         parse_cmd_line_args(argc, argv);
         env_params::updt_params();
 
@@ -381,6 +384,7 @@ int STD_CALL main(int argc, char ** argv) {
         default:
             UNREACHABLE();
         }
+        dealloc(g_stat_mux);
         memory::finalize();
 #ifdef _WINDOWS
         _CrtDumpMemoryLeaks();

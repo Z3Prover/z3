@@ -16,6 +16,9 @@ Author:
 #include "util/rlimit.h"
 #include "util/gparams.h"
 #include <signal.h>
+#include <mutex>
+
+extern std::mutex* g_stat_mux;
 
 static lp::lp_solver<double, double>* g_solver = nullptr;
 
@@ -27,19 +30,17 @@ static void display_statistics() {
 
 static void STD_CALL on_ctrl_c(int) {
     signal (SIGINT, SIG_DFL);
-    #pragma omp critical (g_display_stats)
     {
+        std::lock_guard<std::mutex> lock(*g_stat_mux);
         display_statistics();
     }
     raise(SIGINT);
 }
 
 static void on_timeout() {
-    #pragma omp critical (g_display_stats)
-    {
-        display_statistics();
-        exit(0);
-    }
+    std::lock_guard<std::mutex> lock(*g_stat_mux);
+    display_statistics();
+    exit(0);    
 }
 
 struct front_end_resource_limit : public lp::lp_resource_limit {
@@ -92,7 +93,6 @@ void run_solver(lp_params & params, char const * mps_file_name) {
         solver->print_model(std::cout);
     }
 
-//    #pragma omp critical (g_display_stats)
     {
         display_statistics();
         register_on_timeout_proc(nullptr);

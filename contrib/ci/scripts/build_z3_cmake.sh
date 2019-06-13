@@ -33,13 +33,6 @@ else
   ADDITIONAL_Z3_OPTS+=('-DBUILD_LIBZ3_SHARED=ON')
 fi
 
-# Use OpenMP?
-if [ "X${USE_OPENMP}" = "X1" ]; then
-  ADDITIONAL_Z3_OPTS+=('-DUSE_OPENMP=ON')
-else
-  ADDITIONAL_Z3_OPTS+=('-DUSE_OPENMP=OFF')
-fi
-
 # Use LibGMP?
 if [ "X${USE_LIBGMP}" = "X1" ]; then
   ADDITIONAL_Z3_OPTS+=('-DUSE_LIB_GMP=ON')

@@ -321,7 +321,6 @@ namespace smt {
                 sz_info& i = *kv.m_value;
                 if (is_leaf(&i) && (i.m_literal == null_literal || !is_true(i.m_literal))) {
                     rational value;
-                    expr* set = k->get_arg(0);
                     expr* sz  = k->get_arg(1);
                     if (!m_arith_value.get_value(sz, value)) {
                         return l_undef;

@@ -20,8 +20,9 @@ Notes:
 #include "util/cancel_eh.h"
 #include "util/cooperate.h"
 #include "util/scoped_ptr_vector.h"
-#include "util/z3_omp.h"
 #include "tactic/tactical.h"
+#include <thread>
+#include <vector>
 
 class binary_tactical : public tactic {
 protected:
@@ -369,20 +370,20 @@ enum par_exception_kind {
 
 class par_tactical : public or_else_tactical {
 
+	std::string        ex_msg;
+	unsigned           error_code;
 
 public:
-    par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {}
+    par_tactical(unsigned num, tactic * const * ts):or_else_tactical(num, ts) {
+		error_code = 0;
+	}
     ~par_tactical() override {}
 
     
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
-#ifdef _NO_OMP_
-        use_seq = true;
-#else
-        use_seq = 0 != omp_in_parallel();
-#endif
+        use_seq = false;
         if (use_seq) {
             // execute tasks sequentially
             or_else_tactical::operator()(in, result);
@@ -407,21 +408,19 @@ public:
 
         unsigned finished_id       = UINT_MAX;
         par_exception_kind ex_kind = DEFAULT_EX;
-        std::string        ex_msg;
-        unsigned           error_code = 0;
-        
-        #pragma omp parallel for
-        for (int i = 0; i < static_cast<int>(sz); i++) {
-            goal_ref_buffer     _result;
-            
+
+        std::mutex         mux;
+
+        auto worker_thread = [&](unsigned i) {
+            goal_ref_buffer     _result;                        
             goal_ref in_copy = in_copies[i];
             tactic & t = *(ts.get(i));
             
             try {
                 t(in_copy, _result);
                 bool first = false;
-                #pragma omp critical (par_tactical)
                 {
+                    std::lock_guard<std::mutex> lock(mux);
                     if (finished_id == UINT_MAX) {
                         finished_id = i;
                         first = true;
@@ -429,10 +428,11 @@ public:
                 }                
                 if (first) {
                     for (unsigned j = 0; j < sz; j++) {
-                        if (static_cast<unsigned>(i) != j) {
+                        if (i != j) {
                             managers[j]->limit().cancel();
                         }
                     }
+                    
                     ast_translation translator(*(managers[i]), m, false);
                     for (goal* g : _result) {
                         result.push_back(g->translate(translator));
@@ -459,7 +459,17 @@ public:
                     ex_msg = z3_ex.msg();
                 }
             }
+        };
+
+        vector<std::thread> threads(sz);
+
+        for (unsigned i = 0; i < sz; ++i) {
+            threads[i] = std::thread([&, i]() { worker_thread(i); });
         }
+        for (unsigned i = 0; i < sz; ++i) {
+            threads[i].join();
+        }
+        
         if (finished_id == UINT_MAX) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
@@ -499,11 +509,7 @@ public:
 
     void operator()(goal_ref const & in, goal_ref_buffer& result) override {
         bool use_seq;
-#ifdef _NO_OMP_
-        use_seq = true;
-#else
-        use_seq = 0 != omp_in_parallel();
-#endif
+        use_seq = false;
         if (use_seq) {
             // execute tasks sequentially
             and_then_tactical::operator()(in, result);
@@ -554,9 +560,9 @@ public:
             par_exception_kind ex_kind = DEFAULT_EX;
             unsigned error_code = 0;
             std::string  ex_msg;
+            std::mutex mux;
 
-            #pragma omp parallel for
-            for (int i = 0; i < static_cast<int>(r1_size); i++) { 
+            auto worker_thread = [&](unsigned i) {
                 ast_manager & new_m = *(managers[i]);
                 goal_ref new_g = g_copies[i];
 
@@ -568,8 +574,8 @@ public:
                     ts2[i]->operator()(new_g, r2);                  
                 }
                 catch (tactic_exception & ex) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -579,8 +585,8 @@ public:
                     }
                 }
                 catch (z3_error & err) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -590,8 +596,8 @@ public:
                     }                    
                 }
                 catch (z3_exception & z3_ex) {
-                    #pragma omp critical (par_and_then_tactical)
                     {
+                        std::lock_guard<std::mutex> lock(mux);
                         if (!failed && !found_solution) {
                             curr_failed = true;
                             failed      = true;
@@ -614,8 +620,8 @@ public:
                         if (is_decided_sat(r2)) {                                                          
                             // found solution... 
                             bool first = false;
-                            #pragma omp critical (par_and_then_tactical)
                             {
+                                std::lock_guard<std::mutex> lock(mux);
                                 if (!found_solution) {
                                     failed         = false;
                                     found_solution = true;
@@ -655,6 +661,14 @@ public:
                         }
                     }                                                                                           
                 }
+            };
+
+            vector<std::thread> threads(r1_size);
+            for (unsigned i = 0; i < r1_size; ++i) {
+                threads[i] = std::thread([&, i]() { worker_thread(i); });
+            }
+            for (unsigned i = 0; i < r1_size; ++i) {
+                threads[i].join();
             }
             
             if (failed) {

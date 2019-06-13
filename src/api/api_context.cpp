@@ -119,28 +119,22 @@ namespace api {
 
     context::set_interruptable::set_interruptable(context & ctx, event_handler & i):
         m_ctx(ctx) {
-        #pragma omp critical (set_interruptable) 
-        {
-            SASSERT(m_ctx.m_interruptable == 0);
-            m_ctx.m_interruptable = &i;
-        }
+        lock_guard lock(ctx.m_mux);
+        SASSERT(m_ctx.m_interruptable == 0);
+        m_ctx.m_interruptable = &i;        
     }
 
     context::set_interruptable::~set_interruptable() {
-        #pragma omp critical (set_interruptable) 
-        {
-            m_ctx.m_interruptable = nullptr;
-        }
+        lock_guard lock(m_ctx.m_mux);
+        m_ctx.m_interruptable = nullptr;        
     }
 
     void context::interrupt() {
-        #pragma omp critical (set_interruptable)
-        {
-            if (m_interruptable)
-                (*m_interruptable)(API_INTERRUPT_EH_CALLER);
-            m_limit.cancel();
-            m().limit().cancel();
-        }
+        lock_guard lock(m_mux);
+        if (m_interruptable)
+            (*m_interruptable)(API_INTERRUPT_EH_CALLER);
+        m_limit.cancel();
+        m().limit().cancel();        
     }
     
     void context::set_error_code(Z3_error_code err, char const* opt_msg) {

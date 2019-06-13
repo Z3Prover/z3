@@ -1,0 +1,6 @@
+# Need to install jupyter-nbconvert
+# -steps
+#  - script: | 
+#    jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/guide.ipynb
+#    jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/strategies.ipynb
+#    jupyter-nbconvert --to notebook --execute --output out.txt examples/python/tutorial/jupyter/advanced.ipynb

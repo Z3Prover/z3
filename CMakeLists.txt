@@ -11,31 +11,20 @@ if (POLICY CMP0042)
 endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 CXX)
+project(Z3 VERSION 4.8.6.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
 ################################################################################
-set(Z3_VERSION_MAJOR 4)
-set(Z3_VERSION_MINOR 8)
-set(Z3_VERSION_PATCH 6)
-set(Z3_VERSION_TWEAK 0)
-set(Z3_VERSION "${Z3_VERSION_MAJOR}.${Z3_VERSION_MINOR}.${Z3_VERSION_PATCH}.${Z3_VERSION_TWEAK}")
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
 
 ################################################################################
 # Set various useful variables depending on CMake version
 ################################################################################
-if (("${CMAKE_VERSION}" VERSION_EQUAL "3.2") OR ("${CMAKE_VERSION}" VERSION_GREATER "3.2"))
-  # In CMake >= 3.2 add_custom_command() and add_custom_target()
-  # supports a ``USES_TERMINAL`` argument
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
-else()
-  set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "")
-  set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "")
-endif()
+
+set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
+set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 
 ################################################################################
 # Message for polluted source tree sanity checks
@@ -198,17 +187,8 @@ include(${PROJECT_SOURCE_DIR}/cmake/z3_add_cxx_flag.cmake)
 ################################################################################
 # C++ language version
 ################################################################################
-if ("${CMAKE_VERSION}" VERSION_LESS "3.1")
-  # FIXME: Drop this when we upgrade to newer CMake versions.
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU") OR ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang"))
-    z3_add_cxx_flag("-std=c++11" REQUIRED)
-  else()
-    message(AUTHOR_WARNING "Not setting C++ language version for compiler")
-  endif()
-else ()
-  set(CMAKE_CXX_STANDARD 11)
-  set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif ()
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ################################################################################
 # Platform detection
@@ -272,41 +252,6 @@ else()
   message(STATUS "Not using libgmp")
 endif()
 
-################################################################################
-# OpenMP support
-################################################################################
-find_package(OpenMP)
-if (OPENMP_FOUND)
-  set(USE_OPENMP_DEFAULT ON)
-else()
-  set(USE_OPENMP_DEFAULT OFF)
-endif()
-# By setting `USE_OPENMP` this way configuration will fail during the first
-# configure if the user explicitly passes `-DUSE_OPENMP=ON` and the compiler
-# does not support OpenMP. However if the option is not set explicitly during
-# the first configure OpenMP support will be automatically enabled/disabled
-# depending on whether OpenMP is available.
-option(USE_OPENMP "Use OpenMP" ${USE_OPENMP_DEFAULT})
-
-if (USE_OPENMP)
-  if (NOT OPENMP_FOUND)
-    message(FATAL_ERROR "USE_OPENMP is ON but your compiler does not support OpenMP")
-  endif()
-
-  list(APPEND Z3_COMPONENT_CXX_FLAGS ${OpenMP_CXX_FLAGS})
-  # GCC and Clang need to have additional flags passed to the linker.
-  # We can't do ``target_link_libraries(libz3 INTERFACE ${OpenMP_CXX_FLAGS})``
-  # because ``/openmp`` is interpreted as file name rather than a linker
-  # flag by MSVC and breaks the build
-  if (("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang") OR
-      ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU"))
-    list(APPEND Z3_DEPENDENT_EXTRA_CXX_LINK_FLAGS ${OpenMP_CXX_FLAGS})
-  endif()
-  message(STATUS "Using OpenMP")
-else()
-  list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_NO_OMP_")
-  message(STATUS "Not using OpenMP")
-endif()
 
 ################################################################################
 # API Log sync
@@ -316,13 +261,24 @@ option(API_LOG_SYNC
   OFF
 )
 if (API_LOG_SYNC)
-  if (NOT USE_OPENMP)
-    message(FATAL_ERROR "API_LOG_SYNC feature requires OpenMP")
-  endif()
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
   message(STATUS "Using API_LOG_SYNC")
 else()
   message(STATUS "Not using API_LOG_SYNC")
+endif()
+
+################################################################################
+# Thread safe or not?
+################################################################################
+option(SINGLE_THREADED
+  "Non-thread-safe build"
+  OFF
+)
+if (SINGLE_THREADED)
+  list(APPEND Z3_COMPONENT_CXX_DEFINES "-DSINGLE_THREAD")
+  message(STATUS "Non-thread-safe build")
+else()
+  message(STATUS "Thread-safe build")
 endif()
 
 ################################################################################
@@ -574,18 +530,10 @@ add_subdirectory(src)
 # use Z3 via CMake.
 ################################################################################
 include(CMakePackageConfigHelpers)
-if ("${CMAKE_VERSION}" VERSION_LESS "3.0")
-  # FIXME: Remove this once we drop support for CMake 2.8.12
-  export(TARGETS libz3
-    NAMESPACE z3::
-    FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
-  )
-else()
-  export(EXPORT Z3_EXPORTED_TARGETS
-    NAMESPACE z3::
-    FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
-  )
-endif()
+export(EXPORT Z3_EXPORTED_TARGETS
+   NAMESPACE z3::
+   FILE "${PROJECT_BINARY_DIR}/Z3Targets.cmake"
+)
 set(Z3_FIRST_PACKAGE_INCLUDE_DIR "${PROJECT_BINARY_DIR}/src/api")
 set(Z3_SECOND_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api")
 set(Z3_CXX_PACKAGE_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/src/api/c++")
@@ -604,8 +552,10 @@ unset(Z3_SECOND_PACKAGE_INCLUDE_DIR)
 unset(Z3_CXX_PACKAGE_INCLUDE_DIR)
 unset(AUTO_GEN_MSG)
 unset(CONFIG_FILE_TYPE)
-# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
-# of Z3 they want.
+
+write_basic_package_version_file("${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+  COMPATIBILITY SameMajorVersion
+)
 
 ################################################################################
 # Create `Z3Config.cmake` and related files for install tree so clients can use
@@ -643,8 +593,11 @@ install(
   DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
 )
 
-# TODO: Provide a `Z3Version.cmake` file so that clients can specify the version
-# of Z3 they want.
+# Add install rule to install ${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake
+install(
+  FILES "${PROJECT_BINARY_DIR}/Z3ConfigVersion.cmake"
+  DESTINATION "${CMAKE_INSTALL_Z3_CMAKE_PACKAGE_DIR}"
+)
 
 ################################################################################
 # Examples

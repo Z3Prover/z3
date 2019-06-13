@@ -346,14 +346,16 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
             SASSERT(sums.back()[0] == arg);
         }
     }
+    unsigned orig_size = sums.size();
     expr_ref_buffer sum(m()); // must be ref_buffer because we may throw an exception
     ptr_buffer<expr> m_args;
     TRACE("som", tout << "starting som...\n";);
     do {
         TRACE("som", for (unsigned i = 0; i < it.size(); i++) tout << it[i] << " ";
               tout << "\n";);
-        if (sum.size() > m_som_blowup)
-            throw rewriter_exception("sum of monomials blowup");
+        if (sum.size() > m_som_blowup * orig_size) {
+            return BR_FAILED;
+        }
         m_args.reset();
         for (unsigned i = 0; i < num_args; i++) {
             expr * const * v = sums[i];
