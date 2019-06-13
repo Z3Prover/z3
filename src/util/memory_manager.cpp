@@ -35,7 +35,11 @@ out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
 
-static mutex *g_memory_mux;
+#ifndef SINGLE_THREAD
+static mutex *g_memory_mux = new mutex;
+#else
+static mutex *g_memory_mux = nullptr;
+#endif
 static atomic<bool> g_memory_out_of_memory(false);
 static bool       g_memory_initialized       = false;
 static long long  g_memory_alloc_size        = 0;
@@ -96,9 +100,6 @@ void memory::initialize(size_t max_size) {
     if (g_memory_initialized)
         return;
 
-#ifndef SINGLE_THREAD
-    g_memory_mux = new mutex;
-#endif
     g_memory_out_of_memory = false;
     mem_initialize();
     g_memory_initialized = true;
