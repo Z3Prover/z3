@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/has_free_vars.h"
 #include "util/map.h"
@@ -115,7 +114,6 @@ struct reduce_args_tactic::imp {
     void checkpoint() { 
         if (m_manager.canceled())
             throw tactic_exception(m_manager.limit().get_cancel_msg());
-        cooperate("reduce-args");
     }
     
     struct find_non_candidates_proc {

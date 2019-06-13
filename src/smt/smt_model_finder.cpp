@@ -16,7 +16,6 @@ Author:
 Revision History:
 
 --*/
-#include "util/cooperate.h"
 #include "util/backtrackable_set.h"
 #include "ast/ast_util.h"
 #include "ast/macros/macro_util.h"
@@ -3179,7 +3178,6 @@ namespace smt {
     }
 
     void model_finder::checkpoint(char const* msg) {
-        cooperate(msg);
         if (m_context && m_context->get_cancel_flag())
             throw tactic_exception(m_context->get_manager().limit().get_cancel_msg());
     }

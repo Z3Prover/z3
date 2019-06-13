@@ -17,7 +17,6 @@ Revision History:
 
 --*/
 #include "ast/rewriter/expr_replacer.h"
-#include "util/cooperate.h"
 #include "ast/occurs.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
@@ -87,7 +86,6 @@ class solve_eqs_tactic : public tactic {
         void checkpoint() {
             if (m().canceled())
                 throw tactic_exception(m().limit().get_cancel_msg());
-            cooperate("solve-eqs");
         }
         
         // Check if the number of occurrences of t is below the specified threshold :solve-eqs-max-occs

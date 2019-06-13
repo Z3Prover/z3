@@ -21,7 +21,6 @@ Notes:
 #include "ast/expr2var.h"
 #include "util/ref_util.h"
 #include "util/z3_exception.h"
-#include "util/cooperate.h"
 #include "ast/arith_decl_plugin.h"
 #include "util/scoped_numeral_buffer.h"
 #include "util/common_msgs.h"
@@ -96,7 +95,6 @@ struct expr2subpaving::imp {
     void checkpoint() {
         if (m().canceled())
             throw default_exception(Z3_CANCELED_MSG);
-        cooperate("expr2subpaving");
     }
 
     subpaving::var mk_var_for(expr * t) {

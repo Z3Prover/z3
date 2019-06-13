@@ -24,7 +24,6 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "model/model_pp.h"
 #include "tactic/tactic.h"
-#include "util/cooperate.h"
 #include "util/luby.h"
 
 #include "tactic/sls/sls_params.hpp"
@@ -96,7 +95,6 @@ void sls_engine::collect_statistics(statistics& st) const {
 void sls_engine::checkpoint() {
     if (m_manager.canceled())
         throw tactic_exception(m_manager.limit().get_cancel_msg());
-    cooperate("sls");
 }
 
 bool sls_engine::full_eval(model & mdl) {

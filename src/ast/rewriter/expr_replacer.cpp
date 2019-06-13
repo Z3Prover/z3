@@ -19,7 +19,6 @@ Notes:
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "util/cooperate.h"
 
 void expr_replacer::operator()(expr * t, expr_ref & result, proof_ref & result_pr) {
     expr_dependency_ref result_dep(m());
@@ -74,7 +73,6 @@ struct default_expr_replacer_cfg : public default_rewriter_cfg  {
     }
 
     bool max_steps_exceeded(unsigned num_steps) const { 
-        cooperate("simplifier");
         return false;
     }
 };

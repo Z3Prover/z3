@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "tactic/arith/card2bv_tactic.h"
 #include "ast/rewriter/pb2bv_rewriter.h"

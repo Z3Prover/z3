@@ -18,7 +18,6 @@ Notes:
 --*/
 #include "tactic/core/ctx_simplify_tactic.h"
 #include "ast/rewriter/mk_simplified_app.h"
-#include "util/cooperate.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_pp.h"
 
@@ -202,7 +201,6 @@ struct ctx_simplify_tactic::imp {
     }
 
     void checkpoint() {
-        cooperate("ctx_simplify_tactic");
         if (memory::get_allocation_size() > m_max_memory)
             throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         if (m.canceled())

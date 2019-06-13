@@ -20,7 +20,6 @@ Notes:
 
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
-#include "util/cooperate.h"
 #include "ast/fpa/fpa2bv_rewriter_params.hpp"
 
 
@@ -50,7 +49,6 @@ void fpa2bv_rewriter_cfg::updt_params(params_ref const & p) {
 }
 
 bool fpa2bv_rewriter_cfg::max_steps_exceeded(unsigned num_steps) const {
-    cooperate("fpa2bv");
     return num_steps > m_max_steps;
 }
 

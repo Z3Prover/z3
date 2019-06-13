@@ -21,7 +21,6 @@
 #include "ast/rewriter/bv_bounds.h"
 #include "ast/rewriter/rewriter_params.hpp"
 #include "ast/rewriter/bool_rewriter.h"
-#include "util/cooperate.h"
 
 struct bv_bound_chk_stats {
     unsigned            m_unsats;
@@ -80,7 +79,6 @@ struct bv_bound_chk_rewriter_cfg : public default_rewriter_cfg {
     }
 
     bool max_steps_exceeded(unsigned long long num_steps) const {
-        cooperate("bv-bound-chk");
         if (num_steps > m_max_steps)
             return true;
         if (memory::get_allocation_size() > m_max_memory)

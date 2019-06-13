@@ -30,7 +30,6 @@ Notes:
 #include "tactic/smtlogics/qfufbv_tactic_params.hpp"
 ///////////////
 #include "model/model_smt2_pp.h"
-#include "util/cooperate.h"
 #include "ackermannization/lackr.h"
 #include "ackermannization/ackermannization_params.hpp"
 #include "tactic/smtlogics/qfufbv_ackr_model_converter.h"

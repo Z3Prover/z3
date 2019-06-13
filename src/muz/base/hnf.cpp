@@ -50,7 +50,6 @@ Notes:
 #include "ast/rewriter/var_subst.h"
 #include "ast/normal_forms/name_exprs.h"
 #include "ast/act_cache.h"
-#include "util/cooperate.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/quant_hoist.h"
 #include "ast/ast_util.h"

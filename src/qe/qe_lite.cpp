@@ -32,7 +32,6 @@ Revision History:
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/expr_safe_replace.h"
-#include "util/cooperate.h"
 #include "ast/datatype_decl_plugin.h"
 
 #include "qe/qe_vartest.h"
@@ -687,7 +686,6 @@ namespace eq {
         }
 
         void checkpoint() {
-            cooperate("der");
             if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
         }
@@ -878,7 +876,6 @@ namespace ar {
         }
 
         void checkpoint() {
-            cooperate("der");
             if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
     }
@@ -2154,7 +2151,6 @@ namespace fm {
         }
 
         void checkpoint() {
-            cooperate("fm");
             if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
         }
@@ -2428,7 +2424,6 @@ class qe_lite_tactic : public tactic {
         void checkpoint() {
             if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
-            cooperate("qe-lite");
         }
 
         void debug_diff(expr* a, expr* b) {

@@ -22,7 +22,6 @@ Notes:
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_smt2_pp.h"
 #include "util/z3_exception.h"
-#include "util/cooperate.h"
 #include "util/common_msgs.h"
 
 struct expr2polynomial::imp {
@@ -96,7 +95,6 @@ struct expr2polynomial::imp {
     void checkpoint() {
         if (m_cancel)
             throw default_exception(Z3_CANCELED_MSG);
-        cooperate("expr2polynomial");
     }
 
     void throw_not_polynomial() {
