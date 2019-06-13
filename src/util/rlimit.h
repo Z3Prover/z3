@@ -20,14 +20,6 @@ Revision History:
 
 #include "util/vector.h"
 
-
-void initialize_rlimit();
-void finalize_rlimit();
-/*
-  ADD_INITIALIZER('initialize_rlimit();')
-  ADD_FINALIZER('finalize_rlimit();')
-*/
-
 class reslimit {
     volatile unsigned   m_cancel;
     bool            m_suspend;
