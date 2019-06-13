@@ -110,7 +110,7 @@ prime_iterator::prime_iterator(prime_generator * g):m_idx(0) {
     }
 }
 
-static mutex g_prime_iterator;
+static DECLARE_MUTEX(g_prime_iterator);
 
 uint64_t prime_iterator::next() {
     unsigned idx = m_idx;
@@ -120,7 +120,7 @@ uint64_t prime_iterator::next() {
     }
     else {
         uint64_t r;
-        lock_guard lock(g_prime_iterator);
+        lock_guard lock(*g_prime_iterator);
         {
             r = (*m_generator)(idx);
         }
@@ -134,4 +134,5 @@ void prime_iterator::initialize() {
 
 void prime_iterator::finalize() {
     g_prime_generator.finalize();
+    delete g_prime_iterator;
 }

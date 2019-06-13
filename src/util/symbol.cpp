@@ -23,7 +23,7 @@ Revision History:
 #include "util/string_buffer.h"
 #include <cstring>
 
-static mutex g_symbol_lock;
+static DECLARE_MUTEX(g_symbol_lock);
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
 const symbol symbol::null;
@@ -38,7 +38,7 @@ public:
 
     char const * get_str(char const * d) {
         const char * result;
-        lock_guard lock(g_symbol_lock);
+        lock_guard lock(*g_symbol_lock);
         str_hashtable::entry * e;
         if (m_table.insert_if_not_there_core(d, e)) {
             // new entry
@@ -69,6 +69,7 @@ void initialize_symbols() {
 }
 
 void finalize_symbols() {
+    delete g_symbol_lock;
     dealloc(g_symbol_table);
     g_symbol_table = nullptr;
 }

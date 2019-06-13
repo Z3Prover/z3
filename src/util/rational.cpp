@@ -40,11 +40,11 @@ static void mk_power_up_to(vector<rational> & pws, unsigned n) {
     }
 }
 
-static mutex g_powers_of_two;
+static DECLARE_MUTEX(g_powers_of_two);
 
 rational rational::power_of_two(unsigned k) {
     rational result;
-    lock_guard lock(g_powers_of_two);
+    lock_guard lock(*g_powers_of_two);
     {
         if (k >= m_powers_of_two.size())
             mk_power_up_to(m_powers_of_two, k+1);
@@ -81,5 +81,6 @@ void rational::finalize() {
     m_minus_one.~rational();
     dealloc(g_mpq_manager);
     g_mpq_manager = nullptr;
+    delete g_powers_of_two;
 }
 
