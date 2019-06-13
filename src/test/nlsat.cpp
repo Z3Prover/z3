@@ -282,7 +282,6 @@ static void tst5() {
     nlsat::var                  x0, x1;
     x0 = pm.mk_var();
     x1 = pm.mk_var();
-    nlsat::interval_set_ref i(ism);
 
     polynomial_ref p(pm);
     polynomial_ref _x0(pm), _x1(pm);
@@ -297,11 +296,11 @@ static void tst5() {
     scoped_anum zero(am);
     am.set(zero, 0);
     as.set(0, zero);
-    i = ev.infeasible_intervals(a, true);
+    auto i = ev.infeasible_intervals(a, true);
     std::cout << "1) " << i << "\n";
     as.set(1, zero);
-    i = ev.infeasible_intervals(a, true);
-    std::cout << "2) " << i << "\n";
+    auto i2 = ev.infeasible_intervals(a, true);
+    std::cout << "2) " << i2 << "\n";
 }
 
 
