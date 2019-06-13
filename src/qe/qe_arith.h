@@ -31,6 +31,7 @@ namespace qe {
         family_id get_family_id() override;
         void operator()(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
         vector<def> project(model& model, app_ref_vector& vars, expr_ref_vector& lits) override;
+        void saturate(model& model, func_decl_ref_vector const& shared, expr_ref_vector& lits) override;
 
         opt::inf_eps maximize(expr_ref_vector const& fmls, model& mdl, app* t, expr_ref& ge, expr_ref& gt);
 

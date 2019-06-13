@@ -519,6 +519,7 @@ public:
         model_ref mdl;
         s->get_model(mdl);
         qe::euf_arith_mbi_plugin plugin(s.get(), se.get());
+        plugin.set_shared(vars);
         plugin.project(mdl, lits);
         ctx.regular_stream() << lits << "\n";
     }

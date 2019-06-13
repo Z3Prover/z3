@@ -217,6 +217,7 @@ namespace qe {
     bool term_graph::is_variable_proc::operator()(const expr * e) const {
         if (!is_app(e)) return false;
         const app *a = ::to_app(e);
+        TRACE("qe", tout << a->get_family_id() << " " << m_solved.contains(a->get_decl()) << " " << m_decls.contains(a->get_decl()) << "\n";);
         return
             a->get_family_id() == null_family_id &&
             !m_solved.contains(a->get_decl()) &&
@@ -242,12 +243,13 @@ namespace qe {
 
     bool term_graph::term_eq::operator()(term const* a, term const* b) const { return term::cg_eq(a, b); }
 
-    term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m) {
+    term_graph::term_graph(ast_manager &man) : m(man), m_lits(m), m_pinned(m), m_projector(nullptr) {
         m_plugins.register_plugin(mk_basic_solve_plugin(m, m_is_var));
         m_plugins.register_plugin(mk_arith_solve_plugin(m, m_is_var));
     }
 
     term_graph::~term_graph() {
+        dealloc(m_projector);
         reset();
     }
 
@@ -582,12 +584,14 @@ namespace qe {
         u_map<expr*> m_term2app;
         u_map<expr*> m_root2rep;
 
+
         model_ref m_model;
         expr_ref_vector m_pinned;  // tracks expr in the maps
 
         expr* mk_pure(term const& t) {
+            TRACE("qe", t.display(tout););
             expr* e = nullptr;
-            if (m_term2app.find(t.get_id(), e)) return e;
+            if (find_term2app(t, e)) return e;
             e = t.get_expr();
             if (!is_app(e)) return nullptr;
             app* a = ::to_app(e);
@@ -595,17 +599,20 @@ namespace qe {
             for (term* ch : term::children(t)) {
                 // prefer a node that resembles current child, 
                 // otherwise, pick a root representative, if present.
-                if (m_term2app.find(ch->get_id(), e))
-                kids.push_back(e);
-                else if (m_root2rep.find(ch->get_root().get_id(), e)) 
+                if (find_term2app(*ch, e)) {
                     kids.push_back(e);
-                else 
+                }
+                else if (m_root2rep.find(ch->get_root().get_id(), e)) {
+                    kids.push_back(e);
+                }
+                else {
                     return nullptr;
+                }
                 TRACE("qe_verbose", tout << *ch << " -> " << mk_pp(e, m) << "\n";);
             }
             expr* pure = m.mk_app(a->get_decl(), kids.size(), kids.c_ptr());
             m_pinned.push_back(pure);
-            m_term2app.insert(t.get_id(), pure);
+            add_term2app(t, pure);
             return pure;
         }
 
@@ -621,69 +628,15 @@ namespace qe {
             }
         };           
 
-        void purify() {
-            // - propagate representatives up over parents.
-            //   use work-list + marking to propagate.
-            // - produce equalities over represented classes.
-            // - produce other literals over represented classes
-            //   (walk disequalities in m_lits and represent
-            //   lhs/rhs over decls or excluding decls)
-
-            ptr_vector<term> worklist;
-            for (term * t : m_tg.m_terms) {
-                worklist.push_back(t);
-                t->set_mark(true);
-            }
-            // traverse worklist in order of depth.
-            term_depth td;
-            std::sort(worklist.begin(), worklist.end(), td);
-
-            for (unsigned i = 0; i < worklist.size(); ++i) {
-                term* t = worklist[i];
-                t->set_mark(false);
-                if (m_term2app.contains(t->get_id())) 
-                    continue;
-                if (!t->is_theory() && is_projected(*t))
-                    continue;
-
-                expr* pure = mk_pure(*t);
-                if (!pure) continue;
-
-                m_term2app.insert(t->get_id(), pure);
-                TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
-                expr* rep = nullptr;                // ensure that the root has a representative
-                m_root2rep.find(t->get_root().get_id(), rep);
-
-                // update rep with pure if it is better
-                if (pure != rep && is_better_rep(pure, rep)) {
-                    m_root2rep.insert(t->get_root().get_id(), pure);
-                    for (term * p : term::parents(t->get_root())) {
-                        m_term2app.remove(p->get_id());
-                        if (!p->is_marked()) {
-                            p->set_mark(true);
-                            worklist.push_back(p);
-                        }
-                    }
-                }
-            }
-
-            // Here we could also walk equivalence classes that
-            // contain interpreted values by sort and extract
-            // disequalities between non-unique value
-            // representatives.  these disequalities are implied
-            // and can be mined using other means, such as theory
-            // aware core minimization
-            m_tg.reset_marks();
-            TRACE("qe", display(tout << "after purify\n"););
-        }
 
         void solve_core() {
             ptr_vector<term> worklist;
             for (term * t : m_tg.m_terms) {
                 // skip pure terms
-                if (m_term2app.contains(t->get_id())) continue;
-                worklist.push_back(t);
-                t->set_mark(true);
+                if (!in_term2app(*t)) {
+                    worklist.push_back(t);
+                    t->set_mark(true);
+                }
             }
             term_depth td;
             std::sort(worklist.begin(), worklist.end(), td);
@@ -691,13 +644,14 @@ namespace qe {
             for (unsigned i = 0; i < worklist.size(); ++i) {
                 term* t = worklist[i];
                 t->set_mark(false);
-                if (m_term2app.contains(t->get_id()))
+                if (in_term2app(*t))
                     continue;
 
                 expr* pure = mk_pure(*t);
-                if (!pure) continue;
+                if (!pure) 
+                    continue;
 
-                m_term2app.insert(t->get_id(), pure);
+                add_term2app(*t, pure);
                 expr* rep = nullptr;
                 // ensure that the root has a representative
                 m_root2rep.find(t->get_root().get_id(), rep);
@@ -705,7 +659,7 @@ namespace qe {
                 if (!rep) {
                     m_root2rep.insert(t->get_root().get_id(), pure);
                     for (term * p : term::parents(t->get_root())) {
-                        SASSERT(!m_term2app.contains(p->get_id()));
+                        SASSERT(!in_term2app(*p));
                         if (!p->is_marked()) {
                             p->set_mark(true);
                             worklist.push_back(p);
@@ -718,14 +672,14 @@ namespace qe {
 
         bool find_app(term &t, expr *&res) {
             return 
-                m_term2app.find(t.get_id(), res) ||
+                find_term2app(t, res) ||
                 m_root2rep.find(t.get_root().get_id(), res);
         }
 
         bool find_app(expr *lit, expr *&res) {
             term const* t = m_tg.get_term(lit);
             return 
-                m_term2app.find(t->get_id(), res) ||
+                find_term2app(*t, res) ||
                 m_root2rep.find(t->get_root().get_id(), res);
         }
 
@@ -856,7 +810,7 @@ namespace qe {
             term const * r = &t;
             do {
                 expr* member = nullptr;
-                if (m_term2app.find(r->get_id(), member) && !members.contains(member)) {
+                if (find_term2app(*r, member) && !members.contains(member)) {
                     res.push_back (m.mk_eq (rep, member));
                     members.insert(member);
                 }
@@ -865,7 +819,9 @@ namespace qe {
             while (r != &t);
         }
 
-        bool is_projected(const term &t) {return m_tg.m_is_var(t);}
+        bool is_projected(const term &t) {
+            return m_tg.m_is_var(t);
+        }
 
         void mk_unpure_equalities(const term &t, expr_ref_vector &res) {
             expr *rep = nullptr;
@@ -981,6 +937,28 @@ namespace qe {
     public:
         projector(term_graph &tg) : m_tg(tg), m(m_tg.m), m_pinned(m) {}
 
+        void add_term2app(term const& t, expr* a) {
+            m_term2app.insert(t.get_id(), a);
+        }
+
+        void del_term2app(term const& t) {
+            m_term2app.remove(t.get_id());
+        }
+
+        bool find_term2app(term const& t, expr*& r) {
+            return m_term2app.find(t.get_id(), r);
+        }
+
+        expr* find_term2app(term const& t) {
+            expr* r = nullptr;
+            find_term2app(t, r);
+            return r;
+        }
+
+        bool in_term2app(term const& t) {
+            return m_term2app.contains(t.get_id());
+        }
+
         void set_model(model &mdl) { m_model = &mdl; }
 
         void reset() {
@@ -1025,7 +1003,7 @@ namespace qe {
             return res;
         }
 
-        vector<expr_ref_vector> get_partition(model& mdl) {
+        vector<expr_ref_vector> get_partition(model& mdl, bool include_bool) {
             vector<expr_ref_vector> result;
             expr_ref_vector pinned(m);
             obj_map<expr, unsigned> pid;
@@ -1033,7 +1011,7 @@ namespace qe {
             for (term *t : m_tg.m_terms) {
                 expr* a = t->get_expr();
                 if (!is_app(a)) continue;
-                if (m.is_bool(a)) continue;
+                if (m.is_bool(a) && !include_bool) continue;
                 expr_ref val = mdl(a);
                 unsigned p = 0;
                 // NB. works for simple domains Integers, Rationals, 
@@ -1065,6 +1043,63 @@ namespace qe {
             }
             return result;
         }
+
+        void purify() {
+            // - propagate representatives up over parents.
+            //   use work-list + marking to propagate.
+            // - produce equalities over represented classes.
+            // - produce other literals over represented classes
+            //   (walk disequalities in m_lits and represent
+            //   lhs/rhs over decls or excluding decls)
+
+            ptr_vector<term> worklist;
+            for (term * t : m_tg.m_terms) {
+                worklist.push_back(t);
+                t->set_mark(true);
+            }
+            // traverse worklist in order of depth.
+            term_depth td;
+            std::sort(worklist.begin(), worklist.end(), td);
+
+            for (unsigned i = 0; i < worklist.size(); ++i) {
+                term* t = worklist[i];
+                t->set_mark(false);
+                if (in_term2app(*t)) 
+                    continue;
+                if (!t->is_theory() && is_projected(*t))
+                    continue;
+
+                expr* pure = mk_pure(*t);
+                if (!pure) continue;
+
+                add_term2app(*t, pure);
+                TRACE("qe_verbose", tout << "purified " << *t << " " << mk_pp(pure, m) << "\n";);
+                expr* rep = nullptr;                // ensure that the root has a representative
+                m_root2rep.find(t->get_root().get_id(), rep);
+
+                // update rep with pure if it is better
+                if (pure != rep && is_better_rep(pure, rep)) {
+                    m_root2rep.insert(t->get_root().get_id(), pure);
+                    for (term * p : term::parents(t->get_root())) {
+                        del_term2app(*p);
+                        if (!p->is_marked()) {
+                            p->set_mark(true);
+                            worklist.push_back(p);
+                        }
+                    }
+                }
+            }
+
+            // Here we could also walk equivalence classes that
+            // contain interpreted values by sort and extract
+            // disequalities between non-unique value
+            // representatives.  these disequalities are implied
+            // and can be mined using other means, such as theory
+            // aware core minimization
+            m_tg.reset_marks();
+            TRACE("qe", display(tout << "after purify\n"););
+        }
+
     };
 
     void term_graph::set_vars(func_decl_ref_vector const& decls, bool exclude) {
@@ -1094,13 +1129,15 @@ namespace qe {
 
     expr_ref_vector term_graph::get_ackerman_disequalities() {
         m_is_var.reset_solved();
-        term_graph::projector p(*this);
-        return p.get_ackerman_disequalities();
+        dealloc(m_projector);
+        m_projector = alloc(term_graph::projector, *this);
+        return m_projector->get_ackerman_disequalities();
     }
 
     vector<expr_ref_vector> term_graph::get_partition(model& mdl) {
-        term_graph::projector p(*this);
-        return p.get_partition(mdl);
+        dealloc(m_projector);
+        m_projector = alloc(term_graph::projector, *this);
+        return m_projector->get_partition(mdl, false);
     }
 
     expr_ref_vector term_graph::shared_occurrences(family_id fid) {
@@ -1108,4 +1145,42 @@ namespace qe {
         return p.shared_occurrences(fid);        
     }
 
+    void term_graph::add_model_based_terms(model& mdl, expr_ref_vector const& terms) {
+        for (expr* t : terms) {
+            internalize_term(t);
+        }
+        m_is_var.reset_solved();
+        
+        SASSERT(!m_projector);
+        m_projector = alloc(term_graph::projector, *this);        
+
+        // retrieve partition of terms
+        vector<expr_ref_vector> equivs = m_projector->get_partition(mdl, true);
+
+        // merge term graph on equal terms.
+        for (auto const& cs : equivs) {
+            term* t0 = get_term(cs[0]);
+            for (unsigned i = 1; i < cs.size(); ++i) {
+                merge(*t0, *get_term(cs[i]));
+            }
+        }
+        TRACE("qe", 
+              for (auto & es : equivs) {
+                  tout << "equiv: ";
+                  for (expr* t : es) tout << expr_ref(t, m) << " ";
+                  tout << "\n";
+              }
+              display(tout););
+        // create representatives for shared/projected variables.
+        m_projector->set_model(mdl);
+        m_projector->purify();
+
+    }
+
+    expr* term_graph::get_model_based_rep(expr* e) {
+        SASSERT(m_projector);
+        term* t = get_term(e);
+        SASSERT(t && "only get representatives");
+        return m_projector->find_term2app(*t);
+    }
 }
