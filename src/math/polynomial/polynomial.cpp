@@ -23,7 +23,6 @@ Notes:
 #include "util/id_gen.h"
 #include "util/buffer.h"
 #include "util/scoped_ptr_vector.h"
-#include "util/cooperate.h"
 #include "math/polynomial/upolynomial_factorization.h"
 #include "math/polynomial/polynomial_primes.h"
 #include "util/permutation.h"
@@ -2372,7 +2371,6 @@ namespace polynomial {
             if (!m_limit.inc()) {
                 throw polynomial_exception(Z3_CANCELED_MSG);
             }
-            cooperate("polynomial");
         }
 
         mpzzp_manager & m() const { return const_cast<imp*>(this)->m_manager; }

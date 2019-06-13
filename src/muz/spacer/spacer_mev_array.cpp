@@ -25,7 +25,6 @@ Revision History:
 #include"ast/rewriter/datatype_rewriter.h"
 #include"ast/rewriter/array_rewriter.h"
 #include"ast/rewriter/rewriter_def.h"
-#include"util/cooperate.h"
 #include"ast/ast_pp.h"
 #include"model/func_interp.h"
 

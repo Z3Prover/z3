@@ -19,7 +19,6 @@ Revision History:
 #include "ast/rewriter/bit_blaster/bit_blaster_tpl.h"
 #include "util/rational.h"
 #include "ast/ast_pp.h"
-#include "util/cooperate.h"
 #include "util/common_msgs.h"
 #include "ast/rewriter/rewriter_types.h"
 
@@ -30,7 +29,6 @@ void bit_blaster_tpl<Cfg>::checkpoint() {
         throw rewriter_exception(Z3_MAX_MEMORY_MSG);
     if (m().canceled())
         throw rewriter_exception(m().limit().get_cancel_msg());
-    cooperate("bit-blaster");
 }
 
 /**

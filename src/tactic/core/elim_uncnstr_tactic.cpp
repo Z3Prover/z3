@@ -24,7 +24,6 @@ Notes:
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
 #include "tactic/core/collect_occs.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_ll_pp.h"
 
@@ -67,7 +66,6 @@ class elim_uncnstr_tactic : public tactic {
         ast_manager & m() const { return m_a_util.get_manager(); }
         
         bool max_steps_exceeded(unsigned num_steps) const { 
-            cooperate("elim-uncnstr-vars");
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
             return num_steps > m_max_steps;

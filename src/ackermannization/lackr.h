@@ -20,7 +20,6 @@
 #include "ackermannization/ackr_info.h"
 #include "ackermannization/ackr_helper.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "util/lbool.h"
 #include "model/model.h"
@@ -75,7 +74,6 @@ class lackr {
             if (m_m.canceled()) {
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             }
-            cooperate("lackr");
         }
     private:
         typedef ackr_helper::fun2terms_map fun2terms_map;

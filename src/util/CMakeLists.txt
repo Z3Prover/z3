@@ -16,7 +16,6 @@ z3_add_component(util
     bit_vector.cpp
     cmd_context_types.cpp
     common_msgs.cpp
-    cooperate.cpp
     debug.cpp
     env_params.cpp
     fixed_bit_vector.cpp
@@ -63,7 +62,6 @@ z3_add_component(util
   EXTRA_REGISTER_MODULE_HEADERS
     env_params.h
   MEMORY_INIT_FINALIZER_HEADERS
-    cooperate.h
     debug.h
     gparams.h
     prime_generator.h

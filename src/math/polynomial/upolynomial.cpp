@@ -25,7 +25,6 @@ Notes:
 #include "math/polynomial/upolynomial_factorization.h"
 #include "math/polynomial/polynomial_primes.h"
 #include "util/buffer.h"
-#include "util/cooperate.h"
 #include "util/common_msgs.h"
 
 namespace upolynomial {
@@ -157,7 +156,6 @@ namespace upolynomial {
     void core_manager::checkpoint() {
         if (!m_limit.inc())
             throw upolynomial_exception(Z3_CANCELED_MSG);
-        cooperate("upolynomial");
     }
 
     // Eliminate leading zeros from buffer.

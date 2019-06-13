@@ -19,7 +19,6 @@ Notes:
 --*/
 
 #include "util/warning.h"
-#include "util/cooperate.h"
 #include "ast/normal_forms/nnf.h"
 #include "ast/normal_forms/nnf_params.hpp"
 #include "ast/used_vars.h"
@@ -380,7 +379,6 @@ struct nnf::imp {
 
 
     void checkpoint() {
-        cooperate("nnf");
         if (memory::get_allocation_size() > m_max_memory)
             throw nnf_exception(Z3_MAX_MEMORY_MSG);
         if (m.canceled()) 

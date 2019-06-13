@@ -25,7 +25,6 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "smt/smt_kernel.h"
 #include "qe/qe.h"
-#include "util/cooperate.h"
 #include "model/model_v2_pp.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -657,7 +656,6 @@ namespace qe {
             if (m.canceled()) {
                 throw tactic_exception(m.limit().get_cancel_msg());
             }
-            cooperate("qe-sat");
         }
 
         void check_success(bool ok) {

@@ -17,7 +17,6 @@ Notes:
 
 --*/
 #include "tactic/tactical.h"
-#include "util/cooperate.h"
 #include "tactic/arith/bound_manager.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
@@ -182,7 +181,6 @@ private:
         };
 
         void checkpoint() {
-            cooperate("pb2bv");
             if (memory::get_allocation_size() > m_max_memory)
                 throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
         }
@@ -209,7 +207,6 @@ private:
             }
 
             bool max_steps_exceeded(unsigned num_steps) const { 
-                cooperate("pb2bv");
                 if (memory::get_allocation_size() > owner.m_max_memory)
                     throw tactic_exception(TACTIC_MAX_MEMORY_MSG);
                 return false;

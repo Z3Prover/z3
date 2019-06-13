@@ -18,7 +18,6 @@ Notes:
 
 --*/
 
-#include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/array_decl_plugin.h"
 #include "util/params.h"

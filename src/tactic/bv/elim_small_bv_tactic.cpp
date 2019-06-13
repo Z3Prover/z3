@@ -19,7 +19,6 @@ Revision History:
 #include "tactic/tactical.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "tactic/generic_model_converter.h"
-#include "util/cooperate.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/used_vars.h"
 #include "ast/well_sorted.h"
@@ -56,7 +55,6 @@ class elim_small_bv_tactic : public tactic {
         }
 
         bool max_steps_exceeded(unsigned long long num_steps) const {
-            cooperate("elim-small-bv");
             if (num_steps > m_max_steps)
                 return true;
             if (memory::get_allocation_size() > m_max_memory)

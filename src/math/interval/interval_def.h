@@ -23,7 +23,6 @@ Revision History:
 #include "util/debug.h"
 #include "util/trace.h"
 #include "util/scoped_numeral.h"
-#include "util/cooperate.h"
 #include "util/common_msgs.h"
 
 #define DEFAULT_PI_PRECISION 2
@@ -65,7 +64,6 @@ template<typename C>
 void interval_manager<C>::checkpoint() {
     if (!m_limit.inc())
         throw default_exception(Z3_CANCELED_MSG);
-    cooperate("interval");
 }
 
 /*

@@ -27,7 +27,6 @@ Notes:
 
 --*/
 #include "util/ref_util.h"
-#include "util/cooperate.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
 #include "ast/pb_decl_plugin.h"
@@ -749,7 +748,6 @@ struct goal2sat::imp {
         }
         while (!m_frame_stack.empty()) {
         loop:
-            cooperate("goal2sat");
             if (m.canceled())
                 throw tactic_exception(m.limit().get_cancel_msg());
             if (memory::get_allocation_size() > m_max_memory)

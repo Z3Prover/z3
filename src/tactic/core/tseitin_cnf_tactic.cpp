@@ -54,7 +54,6 @@ Notes:
 #include "tactic/generic_model_converter.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "tactic/core/simplify_tactic.h"
-#include "util/cooperate.h"
 
 static void swap_if_gt(expr * & n1, expr * & n2) {
     if (n1->get_id() > n2->get_id())
@@ -785,7 +784,6 @@ class tseitin_cnf_tactic : public tactic {
         
         
         void checkpoint() {
-            cooperate("tseitin cnf");
             if (m.canceled())
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             if (memory::get_allocation_size() > m_max_memory)
