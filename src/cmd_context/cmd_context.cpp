@@ -1886,9 +1886,9 @@ void cmd_context::validate_model() {
         if (invalid_model) {
             throw cmd_exception("an invalid model was generated");
         }
-        IF_VERBOSE(1, verbose_stream() << "model validated\n");
     }
 }
+
 
 void cmd_context::mk_solver() {
     bool proofs_enabled, models_enabled, unsat_core_enabled;
