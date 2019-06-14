@@ -2027,7 +2027,7 @@ def _mk_quantifier(is_forall, vs, body, weight=1, qid="", skid="", patterns=[], 
 def ForAll(vs, body, weight=1, qid="", skid="", patterns=[], no_patterns=[]):
     """Create a Z3 forall formula.
 
-    The parameters `weight`, `qif`, `skid`, `patterns` and `no_patterns` are optional annotations.
+    The parameters `weight`, `qid`, `skid`, `patterns` and `no_patterns` are optional annotations.
 
     >>> f = Function('f', IntSort(), IntSort(), IntSort())
     >>> x = Int('x')
