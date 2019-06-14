@@ -605,11 +605,11 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
     SASSERT(m().is_value(val));
 
     if (m().are_distinct(val, e)) {
-        result = m().mk_and(m().mk_eq(t, val), cond);
+        result = m().mk_and(mk_eq(t, val), cond);
         return BR_REWRITE2;
     }
     if (m().are_distinct(val, t)) {
-        result = m().mk_and(m().mk_eq(e, val), m().mk_not(cond));
+        result = m().mk_and(mk_eq(e, val), m().mk_not(cond));
         return BR_REWRITE2;
     }
     if (m().are_equal(val, t)) {
@@ -618,24 +618,24 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
             return BR_DONE;
         }
         else {
-            result = m().mk_or(m().mk_eq(e, val), cond);
+            result = m().mk_or(mk_eq(e, val), cond);
         }
         return BR_REWRITE2;
     }
     if (m().are_equal(val, e)) {
-        result = m().mk_or(m().mk_eq(t, val), m().mk_not(cond));
+        result = m().mk_or(mk_eq(t, val), m().mk_not(cond));
         return BR_REWRITE2;
     }
 
     expr* cond2 = nullptr, *t2 = nullptr, *e2 = nullptr;
     if (m().is_ite(t, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
         VERIFY(BR_FAILED != try_ite_value(to_app(t), val, result));
-        result = m().mk_ite(cond, result, m().mk_eq(e, val));
+        result = m().mk_ite(cond, result, mk_eq(e, val));
         return BR_REWRITE2;
     }
     if (m().is_ite(e, cond2, t2, e2) && m().is_value(t2) && m().is_value(e2)) {
         VERIFY(BR_FAILED != try_ite_value(to_app(e), val, result));
-        result = m().mk_ite(cond, m().mk_eq(t, val), result);
+        result = m().mk_ite(cond, mk_eq(t, val), result);
         return BR_REWRITE2;
     }
 
@@ -700,7 +700,7 @@ br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
             return BR_DONE;
         }
         if (unfolded) {
-            result = m().mk_eq(lhs, rhs);
+            result = mk_eq(lhs, rhs);
             return BR_DONE;
         }
 
@@ -728,7 +728,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
 
     if (num_args == 2) {
         expr_ref tmp(m());
-        result = m().mk_not(m().mk_eq(args[0], args[1]));
+        result = m().mk_not(mk_eq(args[0], args[1]));
         return BR_REWRITE2; // mk_eq may be dispatched to other rewriters.
     }
 
@@ -759,7 +759,7 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
         ptr_buffer<expr> new_diseqs;
         for (unsigned i = 0; i < num_args; i++) {
             for (unsigned j = i + 1; j < num_args; j++)
-                new_diseqs.push_back(m().mk_not(m().mk_eq(args[i], args[j])));
+                new_diseqs.push_back(m().mk_not(mk_eq(args[i], args[j])));
         }
         result = m().mk_and(new_diseqs.size(), new_diseqs.c_ptr());
         return BR_REWRITE3;
