@@ -19,6 +19,8 @@ Notes:
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/bool_rewriter_params.hpp"
 #include "ast/rewriter/rewriter_def.h"
+#include "ast/ast_lt.h"
+#include <algorithm>
 
 void bool_rewriter::updt_params(params_ref const & _p) {
     bool_rewriter_params p(_p);
@@ -176,6 +178,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
     ptr_buffer<expr> buffer;
     expr_fast_mark1 neg_lits;
     expr_fast_mark2 pos_lits;
+    expr* prev = nullptr;
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg  = args[i];
         if (m().is_true(arg)) {
@@ -186,8 +189,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
             s = true;
             continue;
         }
-        if (m().is_not(arg)) {
-            expr * atom = to_app(arg)->get_arg(0);
+        expr* atom = nullptr;
+        if (m().is_not(arg, atom)) {
             if (neg_lits.is_marked(atom)) {
                 s = true;
                 continue;
@@ -210,6 +213,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
             pos_lits.mark(arg);
         }
         buffer.push_back(arg);
+        s |= prev && lt(arg, prev);
+        prev = arg;
     }
 
     unsigned sz = buffer.size();
@@ -229,6 +234,7 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 return BR_DONE;
         }
         if (s) {
+            std::sort(buffer.begin(), buffer.end(), ast_to_lt());
             result = m().mk_or(sz, buffer.c_ptr());
             return BR_DONE;
         }
@@ -243,6 +249,8 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
         if (m().is_or(args[i]))
             break;
     }
+    bool ordered = true;
+    expr* prev = nullptr;
     if (i < num_args) {
         // has nested ORs
         ptr_buffer<expr> flat_args;
@@ -251,16 +259,23 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
             expr * arg = args[i];
             // Remark: all rewrites are depth 1.
             if (m().is_or(arg)) {
+                ordered = false;
                 unsigned num = to_app(arg)->get_num_args();
                 for (unsigned j = 0; j < num; j++)
                     flat_args.push_back(to_app(arg)->get_arg(j));
             }
             else {
                 flat_args.push_back(arg);
+                ordered &= !prev || !lt(arg, prev);
+                prev = arg;
             }
         }
-        if (mk_nflat_or_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED)
+        if (mk_nflat_or_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED) {
+            if (!ordered) {
+                std::sort(flat_args.begin(), flat_args.end(), ast_to_lt());
+            }
             result = m().mk_or(flat_args.size(), flat_args.c_ptr());
+        }
         return BR_DONE;
     }
     return mk_nflat_or_core(num_args, args, result);
