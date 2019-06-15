@@ -1,90 +1,76 @@
 #include "math/lp/nla_core.h"
 #include "math/interval/interval_def.h"
 #include "math/lp/nla_intervals.h"
+
 namespace nla {
 
-bool intervals::check() {
-    // m_region.reset();
-    // for (auto const& m : m_core->emons()) {
-    //     if (!check(m)) {
-    //         return false;
-    //     }
-    // }
-    // for (auto const& t : ls().terms()) {
-    //     if (!check(*t)) {
-    //         return false;
-    //     }
-    // }
-    return true;
+bool intervals::get_lemmas() {
+    m_region.reset();
+    bool ret = false;
+    for (auto const& k : c().m_to_refine) {
+        if (get_lemma(c().emons()[k])) {
+            ret = true;
+        }
+        if (c().done())
+            break;
+    }
+    return ret;
 }
 // create a product of interval signs together with the depencies
 intervals::interval intervals::mul_signs_with_deps(const svector<lpvar>& vars) const {
     interval a, b, c;
     m_imanager.set(a, mpq(1));
     for (lpvar v : vars) {
-         set_var_interval_signs_with_deps(v, b);
-         interval_deps deps;
-         m_imanager.mul(a, b, c, deps);
-         m_imanager.set(a, c);
-         m_config.add_deps(a, b, deps, a);
-         if (m_imanager.is_zero(a))
-             return a;
+        set_var_interval_signs_with_deps(v, b);
+        interval_deps deps;
+        m_imanager.mul(a, b, c, deps);
+        m_imanager.set(a, c);
+        m_config.add_deps(a, b, deps, a);
+        if (m_imanager.is_zero(a))
+            return a;
     }
-    return a;
-    
+    return a;    
 }
 
-// bool intervals::check(monomial const& m) {
-//     interval a, b, c, d;
-//     m_imanager.set(a, mpq(1));
-//     set_var_interval(m.var(), d);
-//     if (m_imanager.lower_is_inf(d) && m_imanager.upper_is_inf(d)) {
-//         return true;
-//     }
-//     for (lpvar v : m.vars()) {
-//         // TBD allow for division to get range of a
-//         // m = a*b*c, where m and b*c are bounded, then interval for a is m/b*c
-//         if (m_imanager.lower_is_inf(a) && m_imanager.upper_is_inf(a)) {
-//             return true;
-//         }
-//         // TBD: deal with powers v^n interval instead of multiplying v*v .. * v
-//         set_var_interval(v, b);
-//         interval_deps deps;
-//         m_imanager.mul(a, b, c, deps);
-//         m_imanager.set(a, c);
-//         m_config.add_deps(a, b, deps, a);
-//     }
-//     if (m_imanager.before(a, d)) {
-//         svector<lp::constraint_index> cs;
-//         m_dep_manager.linearize(a.m_upper_dep, cs);
-//         m_dep_manager.linearize(d.m_lower_dep, cs);
-//         for (auto ci : cs) {
-//             (void)ci;
-//             SASSERT(false);
-//             //expl.push_justification(ci);
-//         }
-//         // TBD conflict
-//         return false;
-//     }
-//     if (m_imanager.before(d, a)) {
-//         svector<lp::constraint_index> cs;
-//         m_dep_manager.linearize(a.m_lower_dep, cs);
-//         m_dep_manager.linearize(d.m_upper_dep, cs);
-//         for (auto ci : cs) {
-//             (void)ci;
-//             SASSERT(false); //expl.push_justification(ci);
-//         }
-//         // TBD conflict
-//         return false;
-//     }
-//     // could also perform bounds propagation:
-//     // a has tighter lower/upper bound than m.var(), 
-//     // -> transfer bound to m.var()
-//     // all but one variable has bound
-//     // -> transfer bound to that variable using division
-//     return true;
-// }
+bool intervals::get_lemma(monomial const& m) {
+    interval  b, c, d;
+    interval a = mul(m.vars());
+    lp::impq v(val(m.var()));
+    if (!m_imanager.lower_is_inf(a)) {
+        lp::impq lb(rational(a.m_lower));
+        if (m_config.lower_is_open(a))
+            lb.y = 1;
+        if (v < lb) {
+            interval signs_a = mul_signs_with_deps(m.vars());
+            add_empty_lemma();
+            svector<lp::constraint_index> expl;
+            m_dep_manager.linearize(signs_a.m_lower_dep, expl); 
+            _().current_expl().add_expl(expl);
+            llc cmp = m_config.lower_is_open(a)? llc::GT: llc::GE;
+            mk_ineq(m.var(), cmp,  lb.x);
+            TRACE("nla_solver", _().print_lemma(tout); );
+            return true;
+        }
+    }
 
+    if (!m_imanager.upper_is_inf(a)) {
+        lp::impq ub(rational(a.m_upper));
+        if (m_config.upper_is_open(a))
+            ub.y = 1;
+        if (v > ub) {
+            interval signs_a = mul_signs_with_deps(m.vars());
+            add_empty_lemma();
+            svector<lp::constraint_index> expl;
+            m_dep_manager.linearize(signs_a.m_upper_dep, expl); 
+            _().current_expl().add_expl(expl);
+            llc cmp = m_config.lower_is_open(a)? llc::LT: llc::LE;
+            mk_ineq(m.var(), cmp,  ub.x);
+            TRACE("nla_solver", _().print_lemma(tout); );
+            return true;
+        }
+    }
+    return false;
+} 
 void intervals::set_var_interval(lpvar v, interval& b) const {
     lp::constraint_index ci;
     rational val;

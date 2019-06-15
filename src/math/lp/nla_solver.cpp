@@ -54,32 +54,10 @@ void solver::pop(unsigned n) {
     }
 
         
-solver::solver(lp::lar_solver& s): m_core(alloc(core, s)), m_intervals(m_core, m_res_limit)  {
+solver::solver(lp::lar_solver& s): m_core(alloc(core, s, m_res_limit))  {
 }
 
 solver::~solver() {
     dealloc(m_core);
-}
-lp::impq solver::get_upper_bound(lpvar j) const {
-    SASSERT(is_monomial_var(j) && m_intervals.monomial_has_upper_bound(j));    
-    return m_intervals.get_upper_bound_of_monomial(j);
-}
-
-lp::impq solver::get_lower_bound(lpvar j) const {
-    SASSERT(is_monomial_var(j) && m_intervals.monomial_has_lower_bound(j));
-    return m_intervals.get_lower_bound_of_monomial(j);
-}
-
-bool solver::monomial_has_lower_bound(lpvar j) const {
-    return m_intervals.monomial_has_lower_bound(j);
-}
-bool solver::monomial_has_upper_bound(lpvar j) const {
-    return m_intervals.monomial_has_upper_bound(j);
-}
-void solver::get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const {
-    m_intervals.get_explanation_of_upper_bound_for_monomial(j, expl);
-}
-void solver::get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const{
-    m_intervals.get_explanation_of_lower_bound_for_monomial(j, expl);
 }
 }

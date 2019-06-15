@@ -34,7 +34,6 @@ namespace nla {
 class solver {
     core* m_core;
     reslimit m_res_limit;
-    intervals m_intervals;
 public:
     void add_monomial(lpvar v, unsigned sz, lpvar const* vs);
     
@@ -47,11 +46,5 @@ public:
     lbool check(vector<lemma>&);
     std::ostream& display(std::ostream& out);
     bool is_monomial_var(lpvar) const;
-    lp::impq get_lower_bound(lpvar j) const;
-    lp::impq get_upper_bound(lpvar j) const;
-    bool monomial_has_lower_bound(lpvar j) const;
-    bool monomial_has_upper_bound(lpvar j) const;
-    void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>&) const;
-    void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>&) const;
 };
 }

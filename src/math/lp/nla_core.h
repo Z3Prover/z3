@@ -27,6 +27,7 @@
 #include "math/lp/nla_monotone_lemmas.h"
 #include "math/lp/emonomials.h"
 #include "math/lp/nla_settings.h"
+#include "math/lp/nla_intervals.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -82,6 +83,7 @@ public:
     vector<lemma> *          m_lemma_vec;
     svector<lpvar>           m_to_refine;
     tangents                 m_tangents;
+    intervals                m_intervals;
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
@@ -91,7 +93,7 @@ public:
     emonomials& emons() { return m_emons; }
     const emonomials& emons() const { return m_emons; }
     // constructor
-    core(lp::lar_solver& s);
+    core(lp::lar_solver& s, reslimit &);
 
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
     
