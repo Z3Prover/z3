@@ -251,15 +251,15 @@ bool basics::basic_lemma(bool derived) {
     if (basic_sign_lemma(derived))
         return true;
     if (derived)
-        return false;
-    const auto& rm_ref = c().m_to_refine;
-    TRACE("nla_solver", tout << "rm_ref = "; print_vector(rm_ref, tout););
+        return c().m_intervals.get_lemmas();
+    const auto& mon_inds_to_ref = c().m_to_refine;
+    TRACE("nla_solver", tout << "mon_inds_to_ref = "; print_vector(mon_inds_to_ref, tout););
     unsigned start = c().random();
-    unsigned sz = rm_ref.size();
+    unsigned sz = mon_inds_to_ref.size();
     for (unsigned j = 0; j < sz; ++j) {
-        lpvar v = rm_ref[(j + start) % rm_ref.size()];
-        const monomial& r = c().m_emons[v];
-        SASSERT (!c().check_monomial(c().m_emons[v]));
+        lpvar v = mon_inds_to_ref[(j + start) % mon_inds_to_ref.size()];
+        const monomial& r = c().emons()[v];
+        SASSERT (!c().check_monomial(c().emons()[v]));
         basic_lemma_for_mon(r, derived);
     } 
         
