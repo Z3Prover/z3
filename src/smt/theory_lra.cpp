@@ -2327,7 +2327,7 @@ public:
 
     struct local_bound_propagator: public lp::lp_bound_propagator {
         imp & m_imp;
-        local_bound_propagator(imp& i) : lp_bound_propagator(*i.m_solver, i.get_nla_solver()), m_imp(i) {}
+        local_bound_propagator(imp& i) : lp_bound_propagator(*i.m_solver), m_imp(i) {}
 
         bool bound_is_interesting(unsigned j, lp::lconstraint_kind kind, const rational & v) override {
             return m_imp.bound_is_interesting(j, kind, v);
@@ -2375,7 +2375,7 @@ public:
                 m_params.reset();
                 m_explanation.clear();
                 local_bound_propagator bp(*this);
-                bp.explain_implied_bound(be);
+                lp().explain_implied_bound(be, bp);
             }
             CTRACE("arith", m_unassigned_bounds[v] == 0, tout << "missed bound\n";);
             updt_unassigned_bounds(v, -1);
