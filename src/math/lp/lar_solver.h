@@ -315,6 +315,10 @@ public:
     
     void propagate_bounds_on_a_term(const lar_term& t, lp_bound_propagator & bp, unsigned term_offset);
 
+
+    void explain_implied_bound(implied_bound & ib, lp_bound_propagator & bp);
+
+
     bool term_is_used_as_row(unsigned term) const;
     
     void propagate_bounds_on_terms(lp_bound_propagator & bp);
@@ -392,6 +396,8 @@ public:
 
     bool use_tableau_costs() const;
     
+    void detect_rows_of_column_with_bound_change(unsigned j);
+
     void adjust_x_of_column(unsigned j);
 
     bool row_is_correct(unsigned i) const;
