@@ -63,7 +63,7 @@ bool intervals::get_lemma(monomial const& m) {
             svector<lp::constraint_index> expl;
             m_dep_manager.linearize(signs_a.m_upper_dep, expl); 
             _().current_expl().add_expl(expl);
-            llc cmp = m_config.lower_is_open(a)? llc::LT: llc::LE;
+            llc cmp = m_config.upper_is_open(a)? llc::LT: llc::LE;
             mk_ineq(m.var(), cmp,  ub.x);
             TRACE("nla_solver", _().print_lemma(tout); );
             return true;
