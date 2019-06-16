@@ -251,7 +251,7 @@ bool basics::basic_lemma(bool derived) {
     if (basic_sign_lemma(derived))
         return true;
     if (derived)
-        return c().m_intervals.get_lemmas();
+        return false; // c().m_intervals.get_lemmas();
     const auto& mon_inds_to_ref = c().m_to_refine;
     TRACE("nla_solver", tout << "mon_inds_to_ref = "; print_vector(mon_inds_to_ref, tout););
     unsigned start = c().random();
