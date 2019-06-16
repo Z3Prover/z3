@@ -27,7 +27,7 @@
 #include "math/lp/nla_monotone_lemmas.h"
 #include "math/lp/emonomials.h"
 #include "math/lp/nla_settings.h"
-#include "math/lp/nla_intervals.h"
+// #include "math/lp/nla_intervals.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -83,7 +83,6 @@ public:
     vector<lemma> *          m_lemma_vec;
     svector<lpvar>           m_to_refine;
     tangents                 m_tangents;
-    intervals                m_intervals;
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;

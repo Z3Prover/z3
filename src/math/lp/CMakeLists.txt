@@ -28,7 +28,6 @@ z3_add_component(lp
     nla_basics_lemmas.cpp
     nla_common.cpp
     nla_core.cpp
-    nla_intervals.cpp
     nla_monotone_lemmas.cpp
     nla_order_lemmas.cpp
     nla_solver.cpp

@@ -25,7 +25,6 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
     m_tangents(this),
-    m_intervals(this, lim),
     m_basics(this),
     m_order(this),
     m_monotone(this),

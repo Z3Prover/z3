@@ -24,7 +24,7 @@
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
-#include "math/lp/nla_intervals.h"
+//#include "math/lp/nla_intervals.h"
 namespace nla {
 
 void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
