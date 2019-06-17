@@ -1273,6 +1273,7 @@ namespace sat {
         SASSERT(m_local_search);
         i_local_search& srch = *m_local_search;
         srch.add(*this);
+        srch.updt_params(m_params);
         scoped_rl.push_child(&srch.rlimit());
         lbool r = srch.check(num_lits, lits, nullptr);
         if (r == l_true) {
@@ -3850,7 +3851,7 @@ namespace sat {
     // -----------------------
 
     void solver::updt_params(params_ref const & p) {
-        m_params = p;
+        m_params.append(p);
         m_config.updt_params(p);
         m_simplifier.updt_params(p);
         m_asymm_branch.updt_params(p);
