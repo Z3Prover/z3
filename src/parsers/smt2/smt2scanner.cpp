@@ -126,6 +126,11 @@ namespace smt2 {
                 return SYMBOL_TOKEN;
             }
         }
+        if (!m_string.empty()) {
+            m_string.push_back(0);
+            m_id = m_string.begin();
+            return SYMBOL_TOKEN;
+        }
         return EOF_TOKEN;
     }
 

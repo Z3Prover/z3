@@ -3110,6 +3110,24 @@ namespace smt2 {
             m_var_shifter       = nullptr;
         }
 
+        sexpr_ref parse_sexpr_ref() {
+            m_num_bindings    = 0;
+            unsigned found_errors = 0;
+            m_num_open_paren = 0;
+
+            try {
+                scan_core();
+                parse_sexpr();
+                if (!sexpr_stack().empty()) {
+                    return sexpr_ref(sexpr_stack().back(), sm());
+                }
+            }
+            catch (z3_exception & ex) {
+                error(ex.msg());
+            }
+            return sexpr_ref(nullptr, sm());
+        }
+
         bool operator()() {
             m_num_bindings    = 0;
             unsigned found_errors = 0;
@@ -3181,4 +3199,11 @@ bool parse_smt2_commands(cmd_context & ctx, std::istream & is, bool interactive,
     smt2::parser p(ctx, is, interactive, ps, filename);
     return p();
 }
+
+sexpr_ref parse_sexpr(cmd_context& ctx, std::istream& is, params_ref const& ps, char const* filename) {
+    smt2::parser p(ctx, is, false, ps, filename);
+    return p.parse_sexpr_ref();
+    
+}
+
 
