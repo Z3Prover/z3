@@ -25,7 +25,6 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_evars(),
     m_lar_solver(s),
     m_tangents(this),
-    m_intervals(this, lim),
     m_basics(this),
     m_order(this),
     m_monotone(this),
@@ -137,13 +136,11 @@ void core::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
 void core::push() {
     TRACE("nla_solver",);
     m_emons.push();
-    m_intervals.push();
 }
 
      
 void core::pop(unsigned n) {
     TRACE("nla_solver", tout << "n = " << n << "\n";);
-    m_intervals.pop(n);
     m_emons.pop(n);
     SASSERT(elists_are_consistent(false));
 }
@@ -958,7 +955,6 @@ void core::clear() {
 void core::init_search() {
     clear();
     init_vars_equivalence();
-    m_intervals.init();
     SASSERT(elists_are_consistent(false));
 }
 
