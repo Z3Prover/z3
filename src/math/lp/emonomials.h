@@ -95,7 +95,6 @@ class emonomials {
     hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
-    unsigned number_of_monomials() const { return m_monomials.size(); }
     void inc_visited() const;
 
     void remove_cell(head_tail& v, unsigned mIndex);
@@ -115,6 +114,7 @@ class emonomials {
     bool is_visited(monomial const& m) const;
     std::ostream& display_use(std::ostream& out) const; 
 public:
+    unsigned number_of_monomials() const { return m_monomials.size(); }
     /**
        \brief emonomials builds on top of var_eqs.
        push and pop on emonomials calls push/pop on var_eqs, so no 
