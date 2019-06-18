@@ -145,8 +145,9 @@ class intervals : common {
     mutable interval_manager<im_config> m_imanager;
     region                      m_region;
 
+public:
     typedef interval_manager<im_config>::interval interval;
-
+private:
     void set_var_interval(lpvar v, interval & b) const;
 
     void set_var_interval_signs(lpvar v, interval & b) const;
@@ -184,6 +185,7 @@ public:
     void push();
     void pop(unsigned k);
     void init();
-    
+    std::ostream& display(std::ostream& out, const intervals::interval& i) const;
 };
+
 } // end of namespace nla
