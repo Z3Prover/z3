@@ -493,6 +493,7 @@ namespace smt {
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
+
         return m_lemma_id;
     }
 

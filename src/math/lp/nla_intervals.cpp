@@ -37,7 +37,8 @@ void intervals::get_lemma_for_zero_interval(monomial const& m) {
     interval signs_a = mul_signs_with_deps(m.vars());
     add_empty_lemma();
     svector<lp::constraint_index> expl;
-    m_dep_manager.linearize(signs_a.m_lower_dep, expl); 
+    m_dep_manager.linearize(signs_a.m_lower_dep, expl);
+    TRACE("nla_solver", print_vector(expl, tout) << "\n";);
     _().current_expl().add_expl(expl);
     mk_ineq(m.var(), llc::EQ);
     TRACE("nla_solver", _().print_lemma(tout); );
@@ -90,7 +91,7 @@ bool intervals::get_lemma_for_upper(const monomial& m, const interval& a) {
 bool intervals::get_lemma(monomial const& m) {
     interval  b, c, d;
     interval a = mul(m.vars());
-    if (m_config.is_zero(a)) {
+    if (m_imanager.is_zero(a)) {
         get_lemma_for_zero_interval(m);
         return true;
     }
@@ -205,6 +206,22 @@ lp::impq intervals::get_lower_bound_of_monomial(lpvar j) const {
     TRACE("nla_intervals_detail", m_core->print_monomial_with_vars(m, tout) << "lower = " << r << "\n";);
     return r;
 }
+
+std::ostream& intervals::display(std::ostream& out, const interval& i) const {
+    if (m_imanager.lower_is_inf(i)) {
+        out << "(-oo";
+    } else {
+        out << (m_imanager.lower_is_open(i)? "(":"[") << rational(m_imanager.lower(i));        
+    }
+    out << ",";
+    if (m_imanager.upper_is_inf(i)) {
+        out << "oo)";
+    } else {
+        out << rational(m_imanager.upper(i)) << (m_imanager.lower_is_open(i)? ")":"]");         
+    }
+    return out;
+}
+
 
 intervals::interval intervals::mul(const svector<lpvar>& vars) const {
     interval a;
