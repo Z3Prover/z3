@@ -26,7 +26,6 @@ Revision History:
 #include "math/lp/lar_solver.h"
 #include "math/lp/monomial.h"
 #include "math/lp/nla_core.h"
-#include "math/lp/nla_intervals.h"
 
 namespace nla {
 
