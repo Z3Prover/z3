@@ -967,7 +967,7 @@ void core::init_to_refine() {
     m_to_refine.clear();
     unsigned r = random(), sz = m_emons.number_of_monomials();
     for (unsigned k = 0; k < sz; k++) {
-        auto const & m = m_emons[(k + r)% sz];
+        auto const & m = *(m_emons.begin() + (k + r)% sz);
         if (!check_monomial(m)) 
             m_to_refine.push_back(m.var());
     }
