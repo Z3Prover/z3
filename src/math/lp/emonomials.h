@@ -95,6 +95,7 @@ class emonomials {
     hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
 
 
+    unsigned number_of_monomials() const { return m_monomials.size(); }
     void inc_visited() const;
 
     void remove_cell(head_tail& v, unsigned mIndex);
