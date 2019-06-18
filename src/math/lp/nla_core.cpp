@@ -965,9 +965,12 @@ void core::init_search() {
 void core::init_to_refine() {
     TRACE("nla_solver", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
-    for (auto const & m : m_emons) 
+    unsigned r = random(), sz = m_emons.number_of_monomials();
+    for (unsigned k = 0; k < sz; k++) {
+        auto const & m = m_emons[(k + r)% sz];
         if (!check_monomial(m)) 
             m_to_refine.push_back(m.var());
+    }
     
     TRACE("nla_solver", 
           tout << m_to_refine.size() << " mons to refine:\n";
