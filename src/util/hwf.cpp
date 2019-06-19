@@ -255,45 +255,10 @@ void hwf_manager::div(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf & 
 #endif
 }
 
-#ifdef _M_IA64
-#pragma fp_contract(on)
-#endif
-
 void hwf_manager::fma(mpf_rounding_mode rm, hwf const & x, hwf const & y, hwf const &z, hwf & o) {
-    // CMW: fused_mul_add is not available on most CPUs. As of 2012, only Itanium,
-    // Intel Sandybridge and AMD Bulldozers support that (via AVX).
-
     set_rounding_mode(rm);
-
-#ifdef _M_IA64
-    // IA64 (Itanium) will do it, if contractions are on.
-    o.value = x.value * y.value + z.value;
-#else
-#if defined( __MINGW32__ ) && ( defined( __GNUG__ ) || defined( __clang__ ) )
     o.value = ::fma(x.value, y.value, z.value);
-#else
-#if defined(_WINDOWS)
-#if _MSC_VER >= 1800
-    o.value = ::fma(x.value, y.value, z.value);
-#else // Windows, older than VS 2013
-  #ifdef USE_INTRINSICS
-      _mm_store_sd(&o.value, _mm_fmadd_sd(_mm_set_sd(x.value), _mm_set_sd(y.value), _mm_set_sd(z.value)));
-  #else
-      // If all else fails, we are imprecise.
-      o.value = (x.value * y.value) + z;
-  #endif
-#endif
-#else
-    // Linux, macOS
-    o.value = ::fma(x.value, y.value, z.value);
-#endif
-#endif
-#endif
 }
-
-#ifdef _M_IA64
-#pragma fp_contract(off)
-#endif
 
 void hwf_manager::sqrt(mpf_rounding_mode rm, hwf const & x, hwf & o) {
     set_rounding_mode(rm);
