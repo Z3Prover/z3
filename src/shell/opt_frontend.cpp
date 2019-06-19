@@ -25,8 +25,7 @@ static bool g_first_interrupt = true;
 static opt::context* g_opt = nullptr;
 static double g_start_time = 0;
 static unsigned_vector g_handles;
-static std::mutex display_stats_mux;
-
+static std::mutex *display_stats_mux = new std::mutex;
 
 
 static void display_results() {
@@ -51,6 +50,7 @@ static void display_results() {
 }
 
 static void display_statistics() {
+    std::lock_guard<std::mutex> lock(*display_stats_mux);
     if (g_display_statistics && g_opt) {
         ::statistics stats;
         g_opt->collect_statistics(stats);
@@ -69,19 +69,13 @@ static void STD_CALL on_ctrl_c(int) {
     }
     else {
         signal (SIGINT, SIG_DFL);
-        {
-            std::lock_guard<std::mutex> lock(display_stats_mux);
-            display_statistics();
-        }
+        display_statistics();
         raise(SIGINT);
     }
 }
 
 static void on_timeout() {
-    {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
-        display_statistics();
-    }
+    display_statistics();
     exit(0);
 }
 
@@ -132,12 +126,9 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
     catch (z3_exception & ex) {
         std::cerr << ex.msg() << "\n";
     }
-    {
-        std::lock_guard<std::mutex> lock(display_stats_mux);
-        display_statistics();
-        register_on_timeout_proc(nullptr);
-        g_opt = nullptr;
-    }    
+    display_statistics();
+    register_on_timeout_proc(nullptr);
+    g_opt = nullptr;
     return 0;
 }
 

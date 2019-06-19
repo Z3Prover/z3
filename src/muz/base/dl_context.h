@@ -19,10 +19,6 @@ Revision History:
 #ifndef DL_CONTEXT_H_
 #define DL_CONTEXT_H_
 
-#ifdef _CYGWIN
-#undef min
-#undef max
-#endif
 #include "ast/arith_decl_plugin.h"
 #include "util/map.h"
 #include "ast/rewriter/th_rewriter.h"

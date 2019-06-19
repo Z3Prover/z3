@@ -463,7 +463,6 @@ namespace sat {
 
     unsigned ddfw::select_max_same_sign(unsigned cf_idx) {
         clause const& c = get_clause(cf_idx);
-        unsigned sz = c.size();
         unsigned max_weight = 2;
         unsigned max_trues = 0;
         unsigned cl = UINT_MAX; // clause pointer to same sign, max weight satisfied clause.
@@ -566,7 +565,6 @@ namespace sat {
             SASSERT(ci.m_weight > 0);
         }
         for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            clause_info const& ci = m_clauses[i];
             bool found = false;
             for (literal lit : get_clause(i)) {
                 if (is_true(lit)) found = true;

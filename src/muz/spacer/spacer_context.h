@@ -23,10 +23,6 @@ Notes:
 #ifndef _SPACER_CONTEXT_H_
 #define _SPACER_CONTEXT_H_
 
-#ifdef _CYGWIN
-#undef min
-#undef max
-#endif
 #include <queue>
 #include "util/scoped_ptr_vector.h"
 #include "muz/spacer/spacer_manager.h"

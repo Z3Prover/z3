@@ -18,13 +18,10 @@ Revision History:
 --*/
 
 #include<iostream>
+#include<mutex>
 #include<time.h>
 #include<signal.h>
 #include "util/stopwatch.h"
-#ifdef _CYGWIN
-#undef min
-#undef max
-#endif
 #include "smt/params/smt_params.h"
 #include "ast/arith_decl_plugin.h"
 #include "muz/rel/dl_compiler.h"
@@ -46,6 +43,8 @@ static datalog::rule_set * g_orig_rules;
 static datalog::instruction_block * g_code;
 static datalog::execution_context * g_ectx;
 
+static std::mutex *display_stats_mux = new std::mutex;
+
 
 static void display_statistics(
     std::ostream& out,
@@ -56,6 +55,7 @@ static void display_statistics(
     bool verbose
     ) 
 {
+    std::lock_guard<std::mutex> lock(*display_stats_mux);
     g_piece_timer.stop();
     unsigned t_other = static_cast<int>(g_piece_timer.get_seconds()*1000);
     g_overall_time.stop();
