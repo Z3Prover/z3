@@ -569,7 +569,6 @@ namespace sat {
             for (literal lit : get_clause(i)) {
                 if (is_true(lit)) found = true;
             }
-            SASSERT(ci.is_true() == found);
             SASSERT(found == !m_unsat.contains(i));
         }
         // every variable in a false clause is in unsat vars

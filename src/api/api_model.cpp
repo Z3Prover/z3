@@ -171,7 +171,7 @@ extern "C" {
         mk_c(c)->save_ast_trail(result.get());
         *v = of_ast(result.get());
         RETURN_Z3_model_eval true;
-        Z3_CATCH_RETURN(0);
+        Z3_CATCH_RETURN(false);
     }
 
     unsigned Z3_API Z3_model_get_num_sorts(Z3_context c, Z3_model m) {

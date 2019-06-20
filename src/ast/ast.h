@@ -482,6 +482,7 @@ protected:
     void *   m_mark2_owner;
 #endif
 
+#if 1
     void inc_ref() {
         SASSERT(m_ref_count < UINT_MAX);
         m_ref_count ++;
@@ -491,6 +492,12 @@ protected:
         SASSERT(m_ref_count > 0);
         m_ref_count --;
     }
+#else
+    void inc_ref();
+
+    void dec_ref();
+
+#endif
 
     ast(ast_kind k):m_id(UINT_MAX), m_kind(k), m_mark1(false), m_mark2(false), m_mark_shared_occs(false), m_ref_count(0) {
         DEBUG_CODE({
