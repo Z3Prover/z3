@@ -77,52 +77,51 @@ bool is_non_decreasing(const K& v) {
     return true; 
 }
 
+template <typename T>
+std::ostream& print_linear_combination_customized(const vector<std::pair<T, unsigned>> & coeffs, std::function<std::string (unsigned)> var_str, std::ostream & out) {
+    bool first = true;
+    for (const auto & it : coeffs) {
+        T val = it.first;
+        if (first) {
+            first = false;
+            if (val.is_neg()) {
+                out << "- ";
+                val = -val;
+            }    
+        } else {
+            if (val.is_pos()) {
+                out << " + ";
+            } else {
+                out << " - ";
+                val = -val;
+            }
+        }
+        if (val == 1)
+            out << " ";
+        else {
+            out << T_to_string(val);
+        }
+        out << var_str(it.second);
+    }
+    return out;
+}
+
 
 template <typename T>
-void print_linear_combination_of_column_indices_only(const T & coeffs, std::ostream & out) {
-    bool first = true;
-    for (const auto & it : coeffs) {
-        auto val = it.coeff();
-        if (first) {
-            first = false;
-        } else {
-            if (val.is_pos()) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
-        }
-        if (val == 1)
-            out << " ";
-        else 
-            out << T_to_string(val);
-        
-        out << "v" << it.var();
-    }
+std::ostream& print_linear_combination_of_column_indices_only(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
+    return print_linear_combination_customized(
+        coeffs,
+        [](unsigned j) {std::stringstream ss; ss << "v" << j; return ss.str();},
+        out); 
 }
-template <typename T>
-void print_linear_combination_of_column_indices_only(const vector<std::pair<T, unsigned>> & coeffs, std::ostream & out) {
-    bool first = true;
+template <typename T, typename K>
+std::ostream& print_linear_combination_indices_only(const T & coeffs, std::ostream & out) {
+    vector<std::pair<K, unsigned>>  cfs;
+    
     for (const auto & it : coeffs) {
-        auto val = it.first;
-        if (first) {
-            first = false;
-        } else {
-            if (val.is_pos()) {
-                out << " + ";
-            } else {
-                out << " - ";
-                val = -val;
-            }
-        }
-        if (val == 1)
-            out << " ";
-        else 
-            out << T_to_string(val);
-        
-        out << "v" << it.second;
+        cfs.push_back(std::make_pair(it.coeff(), it.var()));
     }
+    return print_linear_combination_of_column_indices_only<K>(cfs, out);
 }
 
 inline void throw_exception(std::string && str) {

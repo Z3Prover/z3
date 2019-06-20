@@ -43,7 +43,6 @@ public:
     void pop(unsigned scopes);
     bool need_check();
     lbool check(vector<lemma>&);
-    std::ostream& display(std::ostream& out);
     bool is_monomial_var(lpvar) const;
 };
 }

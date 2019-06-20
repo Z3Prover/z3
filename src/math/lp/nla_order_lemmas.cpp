@@ -66,7 +66,7 @@ void order::order_lemma_on_monomial(const monomial& m) {
 // a > b && c > 0 => ac > bc,
 // with either variable of ac playing the role of c
 void order::order_lemma_on_binomial(const monomial& ac) {
-    TRACE("nla_solver", tout << pp_rmon(c(), ac););
+    TRACE("nla_solver", tout << pp_mon_with_vars(c(), ac););
     SASSERT(!check_monomial(ac) && ac.size() == 2);
     const rational mult_val = val(ac.vars()[0]) * val(ac.vars()[1]);
     const rational acv = val(ac);
@@ -101,13 +101,13 @@ void order::order_lemma_on_binomial_sign(const monomial& xy, lpvar x, lpvar y, i
 
 // We look for monomials e = m.rvars()[k]*d and see if we can create an order lemma for m and  e
 void order::order_lemma_on_factor_binomial_explore(const monomial& ac, bool k) {
-    TRACE("nla_solver", tout << "ac = " <<  pp_rmon(c(), ac););
+    TRACE("nla_solver", tout << "ac = " <<  pp_mon_with_vars(c(), ac););
     SASSERT(ac.size() == 2);    
     lpvar c = ac.vars()[k];
     
     for (monomial const& bd : _().m_emons.get_products_of(c)) {
         if (bd.var() == ac.var()) continue;
-        TRACE("nla_solver", tout << "bd = " << pp_rmon(_(), bd););
+        TRACE("nla_solver", tout << "bd = " << pp_mon_with_vars(_(), bd););
         order_lemma_on_factor_binomial_rm(ac, k, bd);
         if (done()) {
             break;
@@ -119,9 +119,9 @@ void order::order_lemma_on_factor_binomial_explore(const monomial& ac, bool k) {
 // create order lemma on monomials bd where d is equivalent to ac[k]
 void order::order_lemma_on_factor_binomial_rm(const monomial& ac, bool k, const monomial& bd) {
     TRACE("nla_solver",
-          tout << "ac=" << pp_rmon(_(), ac) << "\n";
+          tout << "ac=" << pp_mon_with_vars(_(), ac) << "\n";
           tout << "k=" << k << "\n";
-          tout << "bd=" << pp_rmon(_(), bd) << "\n";
+          tout << "bd=" << pp_mon_with_vars(_(), bd) << "\n";
           );
     factor d(_().m_evars.find(ac.vars()[k]).var(), factor_type::VAR);
     factor b(false);
@@ -204,8 +204,8 @@ bool order::order_lemma_on_ac_and_bc(const monomial& rm_ac,
                                      bool k,
                                      const monomial& rm_bd) {
     TRACE("nla_solver", 
-          tout << "rm_ac = " << pp_rmon(_(), rm_ac) << "\n";
-          tout << "rm_bd = " << pp_rmon(_(), rm_bd) << "\n";
+          tout << "rm_ac = " << pp_mon_with_vars(_(), rm_ac) << "\n";
+          tout << "rm_bd = " << pp_mon_with_vars(_(), rm_bd) << "\n";
           tout << "ac_f[k] = ";
           c().print_factor_with_vars(ac_f[k], tout););
     factor b(false);

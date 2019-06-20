@@ -162,7 +162,9 @@ public:
     std::ostream & print_ineqs(const lemma& l, std::ostream & out) const;    
     std::ostream & print_factorization(const factorization& f, std::ostream& out) const;
     template <typename T>
-    std::ostream& print_product(const T & m, std::ostream& out) const;
+    std::ostream& print_product(const T & m, std::ostream& out) const;    
+    template <typename T>
+    std::string product_indices_str(const T & m) const;
     std::ostream & print_factor(const factor& f, std::ostream& out) const;
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const;
@@ -341,6 +343,8 @@ public:
     
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;
+    std::ostream& print_terms(std::ostream&) const;
+    std::ostream& print_term( const lp::lar_term&, std::ostream&) const;    
 };  // end of core
 
 struct pp_mon {
@@ -349,14 +353,14 @@ struct pp_mon {
     pp_mon(core const& c, monomial const& m): c(c), m(m) {}
     pp_mon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
 };
-struct pp_rmon {
+struct pp_mon_with_vars {
     core const& c;
     monomial const& m;
-    pp_rmon(core const& c, monomial const& m): c(c), m(m) {}
-    pp_rmon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
+    pp_mon_with_vars(core const& c, monomial const& m): c(c), m(m) {}
+    pp_mon_with_vars(core const& c, lpvar v): c(c), m(c.emons()[v]) {}
 };
 inline std::ostream& operator<<(std::ostream& out, pp_mon const& p) { return p.c.print_monomial(p.m, out); }
-inline std::ostream& operator<<(std::ostream& out, pp_rmon const& p) { return p.c.print_monomial_with_vars(p.m, out); }
+inline std::ostream& operator<<(std::ostream& out, pp_mon_with_vars const& p) { return p.c.print_monomial_with_vars(p.m, out); }
 
 struct pp_fac {
     core const& c;

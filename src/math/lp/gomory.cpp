@@ -258,15 +258,17 @@ class gomory::imp {
         dump_the_cut_assert(out);
         out << "(check-sat)\n";
     }
+    
 public:
+    void dump(std::ostream& out) {
+        tout << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, tout); tout << std::endl;
+        for (auto & p : m_row) {
+            m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
+        }
+        tout << "inf_col = " << m_inf_col << std::endl;
+    }
     lia_move create_cut() {
-        TRACE("gomory_cut",
-              tout << "applying cut at:\n"; print_linear_combination_of_column_indices_only(m_row, tout); tout << std::endl;
-              for (auto & p : m_row) {
-                  m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
-              }
-              tout << "inf_col = " << m_inf_col << std::endl;
-              );
+        TRACE("gomory_cut", dump(tout););
         
         // gomory will be   t <= k and the current solution has a property t > k
         m_k = 1;
@@ -309,7 +311,7 @@ public:
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         m_int_solver.m_lar_solver->subs_term_columns(m_t);
-        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t, tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
+        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
 

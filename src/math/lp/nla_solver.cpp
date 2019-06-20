@@ -47,11 +47,6 @@ void solver::push(){
 void solver::pop(unsigned n) {
     m_core->pop(n);
 }
-
-    std::ostream& solver::display(std::ostream& out) {
-        return m_core->print_monomials(out);
-    }
-
         
 solver::solver(lp::lar_solver& s): m_core(alloc(core, s, m_res_limit))  {
 }
