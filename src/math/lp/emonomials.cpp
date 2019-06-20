@@ -397,7 +397,7 @@ std::ostream& emonomials::display(const core& cr, std::ostream& out) const {
     out << "monomials\n";
     unsigned idx = 0;
     for (auto const& m : m_monomials) {
-        out << "m" << (idx++) << ": " << pp_rmon(cr, m) << "\n";
+        out << "m" << (idx++) << ": " << pp_mon_with_vars(cr, m) << "\n";
     }    
     return display_use(out);
 }

@@ -310,7 +310,7 @@ public:
         lp_assert(m_int_solver.current_solution_is_inf_on_cut());
         TRACE("gomory_cut_detail", dump_cut_and_constraints_as_smt_lemma(tout););
         m_int_solver.m_lar_solver->subs_term_columns(m_t);
-        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t, tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
+        TRACE("gomory_cut", print_linear_combination_of_column_indices_only(m_t.coeffs_as_vector(), tout << "gomory cut:"); tout << " <= " << m_k << std::endl;);
         return lia_move::cut;
     }
 
