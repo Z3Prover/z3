@@ -189,6 +189,19 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     }
     return out;
 }
+template <typename T>
+std::string core::product_indices_str(const T & m) const {
+    std::stringstream out;
+    bool first = true;
+    for (lpvar v : m) {
+        if (!first)
+            out << "*";
+        else
+            first = false;
+        out << "v" << v;;
+    }
+    return out.str();
+}
 
 std::ostream & core::print_factor(const factor& f, std::ostream& out) const {
     if (f.sign())
@@ -209,7 +222,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
         print_var(f.var(), out);
     } 
     else {
-        out << " MON = " << pp_rmon(*this, m_emons[f.var()]);
+        out << " MON = " << pp_mon_with_vars(*this, m_emons[f.var()]);
     }
     return out;
 }
@@ -1184,7 +1197,7 @@ bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf)
             if (val(m) != val(a) * val(b)) {
                 bf = f;
                 TRACE("nla_solver", tout << "found bf";
-                      tout << ":m:" << pp_rmon(*this, m) << "\n";
+                      tout << ":m:" << pp_mon_with_vars(*this, m) << "\n";
                       tout << "bf:"; print_bfc(bf, tout););
                       
                 return true;
@@ -1254,6 +1267,7 @@ bool core:: done() const {
 }
         
 lbool core:: inner_check(bool derived) {
+    TRACE("nla_cn", print_terms(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "derived = " << derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {
@@ -1342,11 +1356,17 @@ lbool core::test_check(
     return check(l);
 }
 
-} // end of nla
-
-
-#if 0
-rational core::mon_value_by_vars(unsigned i) const {
-    return product_value(m_monomials[i]);
+std::ostream& core::print_terms(std::ostream& out) const {
+    for (auto t: m_lar_solver.m_terms)
+        print_term(*t, out) << "\n";
+    return out;
 }
-#endif
+std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {
+    return lp::print_linear_combination_customized(
+        t.coeffs_as_vector(),
+        [this](lpvar j) {
+            return is_monomial_var(j)? product_indices_str(m_emons[j].vars()) : (std::string("v") + lp::T_to_string(j));
+        },
+        out);
+}
+} // end of nla
