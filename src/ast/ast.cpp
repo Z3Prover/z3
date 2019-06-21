@@ -169,7 +169,7 @@ bool family_manager::has_family(symbol const & s) const {
     return m_families.contains(s);
 }
 
-#if 1
+#if 0
 static unsigned s_count = 0;
 void ast::inc_ref() {
     SASSERT(m_ref_count < UINT_MAX);
