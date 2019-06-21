@@ -169,28 +169,6 @@ bool family_manager::has_family(symbol const & s) const {
     return m_families.contains(s);
 }
 
-#if 0
-static unsigned s_count = 0;
-void ast::inc_ref() {
-    SASSERT(m_ref_count < UINT_MAX);
-    m_ref_count ++;
-    if (get_id() == 1) {
-        s_count++;
-        if (s_count >= 36530) {
-            TRACE("rc", tout << "inc_ref " << m_ref_count << "\n";);
-        }
-    }
-}
-
-void ast::dec_ref() {
-    SASSERT(m_ref_count > 0);
-    m_ref_count --;
-    if (get_id() == 1 && s_count >= 36530) {
-        TRACE("rc", tout << "dec_ref " << m_ref_count << "\n";);
-        // IF_VERBOSE(0, verbose_stream() << "dec_rc " << s_count << "\n";);
-    }
-}
-#endif
 
 // -----------------------------------
 //

@@ -27,6 +27,7 @@ Revision History:
 #include "ast/reg_decl_plugins.h"
 #include "math/realclosure/realclosure.h"
 
+
 // The install_tactics procedure is automatically generated
 void install_tactics(tactic_manager & ctx);
 
@@ -383,7 +384,6 @@ extern "C" {
         if (a) {
             mk_c(c)->m().dec_ref(to_ast(a));
         }
-
         Z3_CATCH;
     }
 

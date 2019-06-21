@@ -107,9 +107,9 @@ struct goal2sat::imp {
         m_solver.add_clause(l1, l2, m_is_lemma);
     }
 
-    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3) {
+    void mk_clause(sat::literal l1, sat::literal l2, sat::literal l3, bool is_lemma = false) {
         TRACE("goal2sat", tout << "mk_clause: " << l1 << " " << l2 << " " << l3 << "\n";);
-        m_solver.add_clause(l1, l2, l3, m_is_lemma);
+        m_solver.add_clause(l1, l2, l3, m_is_lemma || is_lemma);
     }
 
     void mk_clause(unsigned num, sat::literal * lits) {
@@ -337,8 +337,8 @@ struct goal2sat::imp {
             mk_clause(l,  ~c, ~t);
             mk_clause(l,   c, ~e);
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l);
-                mk_clause(t,  e, ~l);
+                mk_clause(~t, ~e, l, true);
+                mk_clause(t,  e, ~l, true);
             }
             m_result_stack.shrink(sz-3);
             if (sign)

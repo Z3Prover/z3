@@ -216,6 +216,11 @@ void asserted_formulas::reset() {
     m_inconsistent = false;
 }
 
+void asserted_formulas::finalize() {
+    reset();
+    m_substitution.cleanup();
+}
+
 bool asserted_formulas::check_well_sorted() const {
     for (justified_expr const& je : m_formulas) {
         if (!is_well_sorted(m, je.get_fml())) return false;

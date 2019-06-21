@@ -232,6 +232,7 @@ namespace smt {
 
     context::~context() {
         flush();
+        m_asserted_formulas.finalize();
     }
 
     void context::copy_plugins(context& src, context& dst) {

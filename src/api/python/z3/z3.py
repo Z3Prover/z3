@@ -1630,7 +1630,7 @@ def Xor(a, b, ctx=None):
     >>> Xor(p, q)
     Xor(p, q)
     >>> simplify(Xor(p, q))
-    q == Not(p) 
+    q == Not(p)
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a, b], ctx))
     s = BoolSort(ctx)

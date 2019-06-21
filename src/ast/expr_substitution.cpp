@@ -121,9 +121,9 @@ void expr_substitution::erase(expr * c) {
     }
     expr * def = nullptr;
     if (m_subst.find(c, def)) {
-        m_manager.dec_ref(c);
         m_manager.dec_ref(def);
         m_subst.erase(c);
+        m_manager.dec_ref(c);
     }
 }
 

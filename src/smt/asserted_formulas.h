@@ -223,6 +223,7 @@ class asserted_formulas {
 public:
     asserted_formulas(ast_manager & m, smt_params & smtp, params_ref const& p);
     ~asserted_formulas();
+    void finalize();
 
     void updt_params(params_ref const& p);
     bool has_quantifiers() const { return m_has_quantifiers; }
