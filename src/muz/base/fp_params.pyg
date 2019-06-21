@@ -41,6 +41,7 @@ def_module_params('fp',
                           ('datalog.initial_restart_timeout', UINT, 0,
                            "length of saturation run before the first restart (in ms), " +
                            "zero means no restarts"),
+                          ('datalog.timeout', UINT, 0, "Time limit used for saturation"),
                           ('datalog.output_profile', BOOL, False,
                            "determines whether profile information should be " +
                            "output when outputting Datalog rules or instructions"),

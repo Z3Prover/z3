@@ -288,9 +288,9 @@ namespace datalog {
     bool context::compile_with_widening() const { return m_params->datalog_compile_with_widening(); }
     bool context::unbound_compressor() const { return m_unbound_compressor; }
     void context::set_unbound_compressor(bool f) { m_unbound_compressor = f; }
+    unsigned context::soft_timeout() const { return m_params->datalog_timeout(); }
     bool context::similarity_compressor() const { return m_params->datalog_similarity_compressor(); }
     unsigned context::similarity_compressor_threshold() const { return m_params->datalog_similarity_compressor_threshold(); }
-    unsigned context::soft_timeout() const { return m_fparams.m_timeout; }
     unsigned context::initial_restart_timeout() const { return m_params->datalog_initial_restart_timeout(); }
     bool context::generate_explanations() const { return m_params->datalog_generate_explanations(); }
     bool context::explanations_on_relation_level() const { return m_params->datalog_explanations_on_relation_level(); }

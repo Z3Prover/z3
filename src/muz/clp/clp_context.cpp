@@ -57,7 +57,6 @@ namespace datalog {
         {
             // m_fparams.m_relevancy_lvl = 0;
             m_fparams.m_mbqi = false;
-            m_fparams.m_timeout = 1000;
         }
 
         ~imp() {}        
