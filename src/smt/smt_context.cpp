@@ -3726,6 +3726,11 @@ namespace smt {
             if (m_last_search_failure != OK)
                 return true;
 
+            if (m_timer.ms_timeout(m_fparams.m_timeout)) {
+                m_last_search_failure = RESOURCE_LIMIT;
+                return true;
+            }
+
             if (get_cancel_flag()) {
                 m_last_search_failure = CANCELED;
                 return true;
