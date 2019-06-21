@@ -301,8 +301,9 @@ class AstRef(Z3PPObject):
         Z3_inc_ref(self.ctx.ref(), self.as_ast())
 
     def __del__(self):
-        if self.ctx.ref() is not None:
+        if self.ctx.ref() is not None and self.ast is not None:
            Z3_dec_ref(self.ctx.ref(), self.as_ast())
+           self.ast = None
 
     def __deepcopy__(self, memo={}):
         return _to_ast_ref(self.ast, self.ctx)
