@@ -227,13 +227,13 @@ namespace datalog {
         bool saturation_was_run() const { return m_saturation_was_run; }
         void notify_saturation_was_run() { m_saturation_was_run = true; }
 
-        void configure_engine();
+        void configure_engine(expr* e);
 
         ast_manager & get_manager() const { return m; }
         rule_manager & get_rule_manager() { return m_rule_manager; }
         smt_params & get_fparams() const { return m_fparams; }
         fp_params const&  get_params() const { return *m_params; }
-        DL_ENGINE get_engine() { configure_engine(); return m_engine_type; }
+        DL_ENGINE get_engine(expr* e = nullptr) { configure_engine(e); return m_engine_type; }
         register_engine_base& get_register_engine() { return m_register_engine; }
         th_rewriter& get_rewriter() { return m_rewriter; }
         var_subst & get_var_subst() { return m_var_subst; }
@@ -609,7 +609,7 @@ namespace datalog {
 
         void flush_add_rules();
 
-        void ensure_engine();
+        void ensure_engine(expr* e = nullptr);
 
         // auxiliary functions for SMT2 pretty-printer.
         void declare_vars(expr_ref_vector& rules, mk_fresh_name& mk_fresh, std::ostream& out);
