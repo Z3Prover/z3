@@ -337,8 +337,8 @@ struct goal2sat::imp {
             mk_clause(l,  ~c, ~t);
             mk_clause(l,   c, ~e);
             if (m_ite_extra) {
-                mk_clause(~t, ~e, l, true);
-                mk_clause(t,  e, ~l, true);
+                mk_clause(~t, ~e, l, false);
+                mk_clause(t,  e, ~l, false);
             }
             m_result_stack.shrink(sz-3);
             if (sign)
