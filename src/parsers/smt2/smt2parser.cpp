@@ -3112,7 +3112,6 @@ namespace smt2 {
 
         sexpr_ref parse_sexpr_ref() {
             m_num_bindings    = 0;
-            unsigned found_errors = 0;
             m_num_open_paren = 0;
 
             try {

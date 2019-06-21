@@ -561,22 +561,23 @@ namespace sat {
             IF_VERBOSE(0, if (v_reward != reward(v)) verbose_stream() << v << " " << v_reward << " " << reward(v) << "\n");
             SASSERT(reward(v) == v_reward);
         }
-        for (auto const& ci : m_clauses) {
-            SASSERT(ci.m_weight > 0);
-        }
-        for (unsigned i = 0; i < m_clauses.size(); ++i) {
-            bool found = false;
-            for (literal lit : get_clause(i)) {
-                if (is_true(lit)) found = true;
+        DEBUG_CODE(
+            for (auto const& ci : m_clauses) {
+                SASSERT(ci.m_weight > 0);
             }
-            SASSERT(found == !m_unsat.contains(i));
-        }
-        // every variable in a false clause is in unsat vars
-        for (unsigned cl : m_unsat) {
-            for (literal lit : get_clause(cl)) {
-                SASSERT(m_unsat_vars.contains(lit.var()));
+            for (unsigned i = 0; i < m_clauses.size(); ++i) {
+                bool found = false;
+                for (literal lit : get_clause(i)) {
+                    if (is_true(lit)) found = true;
+                }
+                SASSERT(found == !m_unsat.contains(i));
             }
-        }
+            // every variable in a false clause is in unsat vars
+            for (unsigned cl : m_unsat) {
+                for (literal lit : get_clause(cl)) {
+                    SASSERT(m_unsat_vars.contains(lit.var()));
+                }
+            });
     }
 
     void ddfw::updt_params(params_ref const& _p) {
