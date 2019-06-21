@@ -817,10 +817,11 @@ namespace datalog {
             expr_fast_mark1 mark;
             engine_type_proc proc(m);
             m_engine_type = DATALOG_ENGINE;
-            std::cout << "configure engine " << m_rule_set.get_num_rules() << " " << m_rule_fmls.size() << " " << q << "\n";
             if (q) {
                 quick_for_each_expr(proc, mark, q);
+                m_engine_type = proc.get_engine();
             }
+
             for (unsigned i = 0; m_engine_type == DATALOG_ENGINE && i < m_rule_set.get_num_rules(); ++i) {
                 rule * r = m_rule_set.get_rule(i);
                 quick_for_each_expr(proc, mark, r->get_head());
@@ -841,7 +842,6 @@ namespace datalog {
     }
 
     lbool context::query(expr* query) {
-        std::cout << "query: " << mk_pp(query, m) << "\n";
         expr_ref _query(query, m);
         m_mc = mk_skip_model_converter();
         m_last_status = OK;
