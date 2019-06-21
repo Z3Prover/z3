@@ -234,7 +234,8 @@ br_status bool_rewriter::mk_nflat_or_core(unsigned num_args, expr * const * args
                 return BR_DONE;
         }
         if (s) {
-            std::sort(buffer.begin(), buffer.end(), ast_to_lt());
+            ast_lt lt;
+            std::sort(buffer.begin(), buffer.end(), lt);
             result = m().mk_or(sz, buffer.c_ptr());
             return BR_DONE;
         }
@@ -272,7 +273,8 @@ br_status bool_rewriter::mk_flat_or_core(unsigned num_args, expr * const * args,
         }
         if (mk_nflat_or_core(flat_args.size(), flat_args.c_ptr(), result) == BR_FAILED) {
             if (!ordered) {
-                std::sort(flat_args.begin(), flat_args.end(), ast_to_lt());
+                ast_lt lt;
+                std::sort(flat_args.begin(), flat_args.end(), lt);
             }
             result = m().mk_or(flat_args.size(), flat_args.c_ptr());
         }
