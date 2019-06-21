@@ -482,7 +482,7 @@ protected:
     void *   m_mark2_owner;
 #endif
 
-#if 1
+#if 0
     void inc_ref() {
         SASSERT(m_ref_count < UINT_MAX);
         m_ref_count ++;

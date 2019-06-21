@@ -1270,7 +1270,7 @@ def Distinct(*args):
     >>> simplify(Distinct(x, y, z))
     Distinct(x, y, z)
     >>> simplify(Distinct(x, y, z), blast_distinct=True)
-    And(Not(x == y), Not(z == x), Not(z == y))
+    And(Not(y == x), Not(z == x), Not(z == y))
     """
     args  = _get_args(args)
     ctx   = _ctx_from_ast_arg_list(args)
@@ -1630,7 +1630,7 @@ def Xor(a, b, ctx=None):
     >>> Xor(p, q)
     Xor(p, q)
     >>> simplify(Xor(p, q))
-    Not(p) == q
+    q == Not(p) 
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a, b], ctx))
     s = BoolSort(ctx)
@@ -8158,7 +8158,7 @@ def simplify(a, *arguments, **keywords):
     >>> simplify((x + 1)*(y + 1), som=True)
     1 + x + y + x*y
     >>> simplify(Distinct(x, y, 1), blast_distinct=True)
-    And(Not(y == x), Not(1 == x), Not(y == 1))
+    And(Not(x == y), Not(x == 1), Not(1 == y))
     >>> simplify(And(x == 0, y == 1), elim_and=True)
     Not(Or(Not(x == 0), Not(y == 1)))
     """
