@@ -1,4 +1,4 @@
-/*++
+ /*++
 Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
@@ -19,6 +19,7 @@ Revision History:
 --*/
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
+#include "math/lp/nla_expr.h"
 namespace nla {
 
 core::core(lp::lar_solver& s, reslimit & lim) :
@@ -1356,16 +1357,68 @@ lbool core::test_check(
     return check(l);
 }
 
+nla_expr<rational> core::mk_expr(lpvar j)  const {
+    return nla_expr<rational>::var(j);
+}
+
+nla_expr<rational> core::mk_expr(const rational &a, lpvar j)  const {
+    if (a == 1)
+        return mk_expr(j);
+    nla_expr<rational> r(expr_type::MUL);
+    r.add_child(nla_expr<rational>::scalar(a));
+    r.add_child(nla_expr<rational>::var(j));
+    return r;            
+}
+
+nla_expr<rational> core::mk_expr(const rational &a, const svector<lpvar>& vs) const {
+    nla_expr<rational> r(expr_type::MUL);
+    r.add_child(nla_expr<rational>::scalar(a));
+    for (lpvar j : vs)
+        r.add_child(nla_expr<rational>::var(j));
+    return r;            
+}
+nla_expr<rational> core::mk_expr(const lp::lar_term& t) const {
+    auto coeffs = t.coeffs_as_vector();
+    if (coeffs.size() == 1) {
+        return mk_expr(coeffs[0].first, coeffs[0].second);
+    }
+    nla_expr<rational> r(expr_type::SUM);
+    for (const auto & p : coeffs) {
+        lpvar j = p.second;
+        if (is_monomial_var(j))
+            r.add_child(mk_expr(p.first, m_emons[j].vars()));
+        else
+            r.add_child(mk_expr(p.first, j));
+    }
+    return r;
+}
+
 std::ostream& core::print_terms(std::ostream& out) const {
-    for (auto t: m_lar_solver.m_terms)
-        print_term(*t, out) << "\n";
+    for (unsigned i=0; i< m_lar_solver.m_terms.size(); i++) {
+        unsigned ext = i + m_lar_solver.terms_start_index();
+        if (!m_lar_solver.var_is_registered(ext)) {
+            out << "term is not registered\n";
+            continue;
+        }
+        
+        const lp::lar_term & t = *m_lar_solver.m_terms[i];
+        print_term(t, out) << std::endl;        
+        lpvar j = m_lar_solver.external_to_local(ext);
+        SASSERT(j + 1);
+        SASSERT(value(t) == val(j));
+        print_var(j, out);
+        out << "term again "; print_term(t, out) << std::endl;        
+        auto e = mk_expr(t);
+        out << "e= " << e << "\n";        
+    }
     return out;
 }
 std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {
     return lp::print_linear_combination_customized(
         t.coeffs_as_vector(),
         [this](lpvar j) {
-            return is_monomial_var(j)? product_indices_str(m_emons[j].vars()) : (std::string("v") + lp::T_to_string(j));
+            return is_monomial_var(j)?
+                (product_indices_str(m_emons[j].vars()) + (check_monomial(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));
         },
         out);
 }
