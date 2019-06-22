@@ -645,6 +645,11 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
 }
 
 
+app* bool_rewriter::mk_eq(expr* lhs, expr* rhs) {
+    // if (lhs->get_id() > rhs->get_id()) std::swap(lhs, rhs);
+    return m().mk_eq(lhs, rhs);
+}
+
 br_status bool_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     if (m().are_equal(lhs, rhs)) {
         result = m().mk_true();

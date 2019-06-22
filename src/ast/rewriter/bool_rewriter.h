@@ -127,10 +127,7 @@ public:
     br_status mk_ite_core(expr * c, expr * t, expr * e, expr_ref & result);
     br_status mk_not_core(expr * t, expr_ref & result);
 
-    app* mk_eq(expr* lhs, expr* rhs) {
-        if (lhs->get_id() > rhs->get_id()) std::swap(lhs, rhs);
-        return m().mk_eq(lhs, rhs);
-    }
+    app* mk_eq(expr* lhs, expr* rhs);
 
     void mk_eq(expr * lhs, expr * rhs, expr_ref & result) {
         if (mk_eq_core(lhs, rhs, result) == BR_FAILED)
