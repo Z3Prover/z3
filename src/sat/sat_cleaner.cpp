@@ -53,6 +53,10 @@ namespace sat {
             for (; it2 != end2; ++it2) {
                 switch (it2->get_kind()) {
                 case watched::BINARY:
+                    TRACE("cleanup_bug", 
+                          tout << ~to_literal(l_idx) << " " << it2->get_literal() << "\n";
+                          tout << s.value(~to_literal(l_idx)) << " " << s.value(it2->get_literal()) << "\n";
+                          tout << s.was_eliminated(it2->get_literal()) << " " << s.inconsistent() << "\n";);
                     SASSERT(s.value(it2->get_literal()) == l_true || s.value(it2->get_literal()) == l_undef);
                     if (s.value(it2->get_literal()) == l_undef) {
                         *it_prev = *it2;
@@ -212,7 +216,7 @@ namespace sat {
             cleanup_clauses(s.m_learned);
             s.propagate(false);
         }
-        while (trail_sz < s.m_trail.size());
+        while (trail_sz < s.m_trail.size() && !s.inconsistent());
         CASSERT("cleaner_bug", s.check_invariant());
         return true;
     }
