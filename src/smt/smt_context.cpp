@@ -2849,7 +2849,7 @@ namespace smt {
     }
 
     void context::push() {
-        TRACE("trigger_bug", tout << "context::push()\n";);
+        TRACE("unit_subsumption_bug", display(tout << "context::push()\n"););
         scoped_suspend_rlimit _suspend_cancel(m_manager.limit());
         pop_to_base_lvl();
         setup_context(false);

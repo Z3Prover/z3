@@ -1018,7 +1018,7 @@ void interval_manager<C>::mul(interval const & i1, interval const & i2, interval
 #ifdef _TRACE
     static unsigned call_id = 0;
 #endif
-#if Z3DEBUG || _TRACE
+#if Z3DEBUG 
     bool i1_contains_zero = contains_zero(i1);
     bool i2_contains_zero = contains_zero(i2);
 #endif

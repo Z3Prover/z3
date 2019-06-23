@@ -784,10 +784,13 @@ br_status bv_rewriter::mk_extract(unsigned high, unsigned low, expr * arg, expr_
         }
     }
 
+    // issue #2359 led to relaxing condition for propagating extract over ite.
+    // It is propagted inwards only in the case that it leads to at most one
+    // branch of ite to be expanded or if one of the expanded ite branches have a single 
+    // reference count.
     expr* c = nullptr, *t = nullptr, *e = nullptr;
     if (m().is_ite(arg, c, t, e) &&
-        (t->get_ref_count() == 1 || !m().is_ite(t)) && 
-        (e->get_ref_count() == 1 || !m().is_ite(e))) {
+        (t->get_ref_count() == 1 || e->get_ref_count() == 1 || !m().is_ite(t) || !m().is_ite(e))) {
         result = m().mk_ite(c, m_mk_extract(high, low, t), m_mk_extract(high, low, e));
         return BR_REWRITE2;
     }
