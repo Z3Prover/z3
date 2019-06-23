@@ -1271,7 +1271,7 @@ def Distinct(*args):
     >>> simplify(Distinct(x, y, z))
     Distinct(x, y, z)
     >>> simplify(Distinct(x, y, z), blast_distinct=True)
-    And(Not(x == y), Not(z == x), Not(z == y))
+    And(Not(x == y), Not(x == z), Not(y == z))
     """
     args  = _get_args(args)
     ctx   = _ctx_from_ast_arg_list(args)

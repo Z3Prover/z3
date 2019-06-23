@@ -89,10 +89,10 @@ struct unit_subsumption_tactic : public tactic {
         m_context.push();
         for (unsigned j = 0; j < m_clause_count; ++j) {
             if (i == j) {
-                m_context.assert_expr(m.mk_not(m_clauses[j].get()));
+                m_context.assert_expr(m.mk_not(m_clauses.get(j)));
             }
             else if (!m_is_deleted.get(j)) {
-                m_context.assert_expr(m_clauses[j].get());
+                m_context.assert_expr(m_clauses.get(j));
             }
         }
         m_context.push(); // force propagation
@@ -114,6 +114,7 @@ struct unit_subsumption_tactic : public tactic {
         m_is_deleted.reset();
         m_is_deleted.resize(g->size());
         m_deleted.reset();
+        
     }
 
     expr* new_bool(unsigned& count, expr_ref_vector& v, char const* name) {
