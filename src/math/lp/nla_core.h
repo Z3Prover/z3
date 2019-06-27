@@ -28,6 +28,7 @@
 #include "math/lp/emonomials.h"
 #include "math/lp/nla_settings.h"
 #include "math/lp/nla_expr.h"
+#include "math/lp/horner.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -86,8 +87,11 @@ public:
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
+    horner                   m_horner;
+    nla_settings             m_settings;
+private:
     emonomials               m_emons;
-    svector<lpvar>            m_add_buffer;
+    svector<lpvar>           m_add_buffer;
 public:
     emonomials& emons() { return m_emons; }
     const emonomials& emons() const { return m_emons; }
@@ -277,8 +281,8 @@ public:
 
     template <typename T>
     bool mon_has_zero(const T& product) const;
-    lp::lp_settings& settings();
-    const lp::lp_settings& settings() const;
+    lp::lp_settings& lp_settings();
+    const lp::lp_settings& lp_settings() const;
     unsigned random();
     void map_monomial_vars_to_monomial_indices(unsigned i);
 

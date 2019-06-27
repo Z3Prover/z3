@@ -10,6 +10,7 @@ z3_add_component(lp
     factorization.cpp
     factorization_factory_imp.cpp
     gomory.cpp
+    horner.cpp
     indexed_vector.cpp
     int_solver.cpp
     lar_solver.cpp
