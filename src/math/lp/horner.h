@@ -29,7 +29,10 @@ class horner : common {
 public:
     horner(core *core);
     void horner_lemmas();
-    void lemma_on_row(const lp::row_strip<rational>&);
+    template <typename T> // T has an iterator of (coeff(), var())
+    void lemma_on_row(const T&);
+    template <typename T>
+    bool row_is_interesting(const T&) const;
 private:    
 }; // end of horner
 }
