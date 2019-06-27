@@ -29,8 +29,8 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_basics(this),
     m_order(this),
     m_monotone(this),
-    m_emons(m_evars) {
-}
+    m_horner(this),
+    m_emons(m_evars) {}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
     switch(cmp) {
@@ -182,7 +182,7 @@ std::ostream& core::print_product(const T & m, std::ostream& out) const {
     bool first = true;
     for (lpvar v : m) {
         if (!first) out << "*"; else first = false;
-        if (settings().m_print_external_var_name)
+        if (lp_settings().m_print_external_var_name)
             out << "(" << m_lar_solver.get_variable_name(v) << "=" << val(v) << ")";
         else
             out << "(v" << v << " =" << val(v) << ")";
@@ -229,7 +229,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
 }
 
 std::ostream& core::print_monomial(const monomial& m, std::ostream& out) const {
-    if (settings().m_print_external_var_name)
+    if (lp_settings().m_print_external_var_name)
         out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     else 
         out << "(v" << m.var() << " = " << val(m.var()) << " = ";
@@ -805,14 +805,14 @@ bool core:: mon_has_zero(const T& product) const {
 template bool core::mon_has_zero<unsigned_vector>(const unsigned_vector& product) const;
 
 
-lp::lp_settings& core::settings() {
+lp::lp_settings& core::lp_settings() {
     return m_lar_solver.settings();
 }
-const lp::lp_settings& core::settings() const {
+const lp::lp_settings& core::lp_settings() const {
     return m_lar_solver.settings();
 }
     
-unsigned core::random() { return settings().random_next(); }
+unsigned core::random() { return lp_settings().random_next(); }
     
 
 // we look for octagon constraints here, with a left part  +-x +- y 
@@ -1268,6 +1268,12 @@ bool core:: done() const {
 }
         
 lbool core:: inner_check(bool derived) {
+    if (derived &&  (lp_settings().st().m_nla_calls % m_settings.horner_frequency() == 0))
+        m_horner.horner_lemmas();
+    if (done()) {
+        return l_false;
+    }
+       
     TRACE("nla_cn", print_terms(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "derived = " << derived << ", search_level = " << search_level << "\n";);
@@ -1318,8 +1324,8 @@ bool core::elists_are_consistent(bool check_in_model) const {
 }
 
 lbool core::check(vector<lemma>& l_vec) {
-    settings().st().m_nla_calls++;
-    TRACE("nla_solver", tout << "calls = " << settings().st().m_nla_calls << "\n";);
+    lp_settings().st().m_nla_calls++;
+    TRACE("nla_solver", tout << "calls = " << lp_settings().st().m_nla_calls << "\n";);
     m_lemma_vec =  &l_vec;
     if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
