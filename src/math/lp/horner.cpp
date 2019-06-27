@@ -25,7 +25,17 @@ namespace nla {
 
 horner::horner(core * c) : common(c) {}
 
-void horner::lemma_on_row(const lp::row_strip<rational>&) {}
+template <typename T>
+bool horner::row_is_interesting(const T&) const {
+    return true;
+}
+
+template <typename T> 
+void horner::lemma_on_row(const T& row) {
+    if (!row_is_interesting(row))
+        return;
+    SASSERT(false);
+}
 
 void horner::horner_lemmas() {
     if (!c().m_settings.run_horner()) {
@@ -37,7 +47,7 @@ void horner::horner_lemmas() {
     unsigned r = random();
     unsigned s = m.row_count();
     for (unsigned i = 0; i < s && !done(); i++) {
-        lemma_on_row(m.m_rows[(i%s)]);
+        lemma_on_row(m.m_rows[((i + r) %s)]);
     }
     
     SASSERT(false);
