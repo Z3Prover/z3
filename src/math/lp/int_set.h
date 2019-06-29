@@ -54,6 +54,8 @@ public:
         m_data[j] = -1;
     }
 
+    int operator[](unsigned j) const { return m_index[j]; }
+    
     void resize(unsigned size) {
         m_data.resize(size, -1);
     }
@@ -61,7 +63,7 @@ public:
     void increase_size_by_one() {
         resize(m_data.size() + 1);
     }
-
+   
     unsigned data_size() const {  return m_data.size(); }
     unsigned size() const { return m_index.size();}
     bool is_empty() const { return size() == 0; }
@@ -76,6 +78,7 @@ public:
         }
         out << std::endl;
     }
-    
+    const int * begin() const { return m_index.begin(); }
+    const int * end() const { return m_index.end(); }
 };
 }
