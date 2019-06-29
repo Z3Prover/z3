@@ -39,8 +39,10 @@ public:
     intervals::interval interval_of_expr(const nla_expr<rational>& e);
     void check_interval_for_conflict(const intervals::interval&);
     nla_expr<rational> nexvar(lpvar j) const;
-    nla_expr<rational> cross_nested_of_sum(const nla_expr<rational>&) const;    
-    void get_occurences_map(const nla_expr<rational>& e, std::unordered_map<unsigned, lpvar>& ) const;
-
+    nla_expr<rational> cross_nested_of_sum(const nla_expr<rational>&);    
+    void get_occurences_map(const nla_expr<rational>& e,
+                            std::unordered_map<unsigned, lpvar>& ) const;
+    unsigned random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences);
+    nla_expr<rational> split_with_var(const nla_expr<rational> &, lpvar);
 }; // end of horner
 }

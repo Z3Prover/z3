@@ -52,6 +52,10 @@ class nla_expr {
     T             m_v; // for the scalar
     vector<nla_expr> m_children;
 public:
+    bool is_sum() const { return m_type == expr_type::SUM; }
+    bool is_var() const { return m_type == expr_type::VAR; }
+    bool is_mul() const { return m_type == expr_type::MUL; }
+    bool is_undef() const { return m_type == expr_type::UNDEF; }
     lpvar var() const { SASSERT(m_type == expr_type::VAR); return m_j; }
     expr_type type() const { return m_type; }
     expr_type& type() { return m_type; }
@@ -136,6 +140,16 @@ public:
         }
     }
 
+    unsigned size() {
+        switch(m_type) {
+        case expr_type::SUM:
+        case expr_type::MUL:
+            return m_children.size();
+        
+        default:
+            return 1;
+        }
+    }
     nla_expr(expr_type t): m_type(t) {}
     nla_expr() {
 #if Z3DEBUG
@@ -144,7 +158,6 @@ public:
     }
     
     void add_child(const nla_expr& e) {
-        SASSERT(m_type == expr_type::SUM || m_type == expr_type::MUL);
         m_children.push_back(e);
     }
 
@@ -188,9 +201,34 @@ public:
         r.m_j = j;
         return r;
     }
-    
+
+    bool contains(lpvar j) const {
+        if (is_var())
+            return m_j == j;
+        if (is_mul()) {
+            for (const nla_expr<T>& c : children()) {
+                if (c.is_var() && c.var() == j) return true;
+            }
+        }
+        return false;
+    }
     
 };
+template <typename T> 
+nla_expr<T> operator/(const nla_expr<T>& a, lpvar j) {
+    SASSERT(a.is_mul());
+    nla_expr<T> b;
+    for (const nla_expr<T>& c : a.children()) {
+        if (c.is_var() && c.var() == j) continue;
+        b.add_child(c);
+    }
+    if (b.children().size() > 1) {
+        b.type() = expr_type::MUL;
+    } else {
+        b = b.children()[0];
+    }
+    return b;
+}
 template <typename T>
 std::ostream& operator<<(std::ostream& out, const nla_expr<T>& e ) {
     return e.print(out);
