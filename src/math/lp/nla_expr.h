@@ -19,15 +19,45 @@ Revision History:
 #pragma once
 #include "math/lp/nla_defs.h"
 namespace nla {
-enum class expr_type { SUM, MUL, VAR, SCALAR };
+enum class expr_type { SUM, MUL, VAR, SCALAR, UNDEF };
+inline std::ostream & operator<<(std::ostream& out, expr_type t) {
+    switch (t) {
+    case expr_type::SUM:
+        out << "SUM";
+        break;
+    case expr_type::MUL:
+        out << "MUL";
+        break;
+    case expr_type::VAR:
+        out << "VAR";
+        break;
+    case expr_type::SCALAR:
+        out << "SCALAR";
+        break;
+    case expr_type::UNDEF:
+        out << "UNDEF";
+        break;
+    default:
+        out << "NN";
+        break;
+    }
+    return out;
+}
 // This class is needed in horner calculation with intervals
 template <typename T>
 class nla_expr {
+    // todo: use union
     expr_type       m_type;
     lpvar           m_j;
     T             m_v; // for the scalar
     vector<nla_expr> m_children;
 public:
+    lpvar var() const { SASSERT(m_type == expr_type::VAR); return m_j; }
+    expr_type type() const { return m_type; }
+    expr_type& type() { return m_type; }
+    const vector<nla_expr>& children() const { return m_children; }
+    vector<nla_expr>& children() { return m_children; }
+    
     std::string str() const { std::stringstream ss; ss << *this; return ss.str(); }
     std::ostream & print_sum(std::ostream& out) const {
         bool first = true;
@@ -90,6 +120,7 @@ public:
             out << m_v;
             return out;
         default:
+            out << "undef";
             return out;
         }
     }
@@ -106,6 +137,11 @@ public:
     }
 
     nla_expr(expr_type t): m_type(t) {}
+    nla_expr() {
+#if Z3DEBUG
+        m_type = expr_type::UNDEF;
+#endif
+    }
     
     void add_child(const nla_expr& e) {
         SASSERT(m_type == expr_type::SUM || m_type == expr_type::MUL);
@@ -124,6 +160,21 @@ public:
         r.add_child(v);
         r.add_child(w);
         return r;
+    }
+
+    static nla_expr mul(const T& v, const nla_expr & w) {
+        if (v == 1)
+            return w;
+        nla_expr r(expr_type::MUL);
+        r.add_child(scalar(v));
+        r.add_child(w);
+        return r;
+    }
+
+    static nla_expr mul(const T& v, lpvar j) {
+        if (v == 1)
+            return var(j);
+        return mul(scalar(v), var(j));
     }
 
     static nla_expr scalar(const T& v)  {
