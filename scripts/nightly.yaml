@@ -91,7 +91,7 @@ jobs:
       releaseNotesSource: 'input'
       releaseNotes: 'nightly build'
       assets: 'tmp/*'
-#     assetUploadMode: 'replace'
+      assetUploadMode: 'replace'
       isDraft: false
       isPreRelease: true
 
