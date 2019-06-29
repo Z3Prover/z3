@@ -831,37 +831,6 @@ void core::collect_equivs() {
     }
 }
 
-void core::collect_equivs_of_fixed_vars() {
-    std::unordered_map<rational, svector<lpvar> > abs_map;
-    for (lpvar j = 0; j < m_lar_solver.number_of_vars(); j++) {
-        if (!var_is_fixed(j))
-            continue;
-        rational v = abs(val(j));
-        auto it = abs_map.find(v);
-        if (it == abs_map.end()) {
-            abs_map[v] = svector<lpvar>();
-            abs_map[v].push_back(j);
-        } else {
-            it->second.push_back(j);
-        }
-    }
-    for (auto p : abs_map) {
-        svector<lpvar>& v = p.second;
-        lpvar head = v[0];
-        auto c0 = m_lar_solver.get_column_upper_bound_witness(head);
-        auto c1 = m_lar_solver.get_column_lower_bound_witness(head);
-        for (unsigned k = 1; k < v.size(); k++) {
-            auto c2 = m_lar_solver.get_column_upper_bound_witness(v[k]);
-            auto c3 = m_lar_solver.get_column_lower_bound_witness(v[k]);
-            if (val(head) == val(v[k])) {
-                m_evars.merge_plus(head, v[k], eq_justification({c0, c1, c2, c3}));
-            } else {
-                SASSERT(val(head) == -val(v[k]));
-                m_evars.merge_minus(head, v[k], eq_justification({c0, c1, c2, c3}));
-            }
-        }
-    }
-}
 
 // returns true iff the term is in a form +-x-+y.
 // the sign is true iff the term is x+y, -x-y.
@@ -975,11 +944,12 @@ void core::init_search() {
 void core::init_to_refine() {
     TRACE("nla_solver", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
+    m_to_refine.resize(m_lar_solver.number_of_vars());
     unsigned r = random(), sz = m_emons.number_of_monomials();
     for (unsigned k = 0; k < sz; k++) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
         if (!check_monomial(m)) 
-            m_to_refine.push_back(m.var());
+            m_to_refine.insert(m.var());
     }
     
     TRACE("nla_solver", 
@@ -1333,7 +1303,7 @@ lbool core::check(vector<lemma>& l_vec) {
     }
 
     init_to_refine();
-    if (m_to_refine.empty()) {
+    if (m_to_refine.is_empty()) {
         return l_true;
     }
     init_search();

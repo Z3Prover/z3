@@ -20,6 +20,8 @@
 #pragma once
 
 #include "math/lp/nla_common.h"
+#include "math/lp/nla_intervals.h"
+#include "math/lp/nla_expr.h"
 
 namespace nla {
 class core;
@@ -33,6 +35,12 @@ public:
     void lemma_on_row(const T&);
     template <typename T>
     bool row_is_interesting(const T&) const;
-private:    
+    template <typename T> nla_expr<rational> create_expr_from_row(const T&);
+    intervals::interval interval_of_expr(const nla_expr<rational>& e);
+    void check_interval_for_conflict(const intervals::interval&);
+    nla_expr<rational> nexvar(lpvar j) const;
+    nla_expr<rational> cross_nested_of_sum(const nla_expr<rational>&) const;    
+    void get_occurences_map(const nla_expr<rational>& e, std::unordered_map<unsigned, lpvar>& ) const;
+
 }; // end of horner
 }

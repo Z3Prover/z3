@@ -82,7 +82,7 @@ public:
     var_eqs<emonomials>      m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
-    svector<lpvar>           m_to_refine;
+    lp::int_set               m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
@@ -290,8 +290,6 @@ public:
 
     // we look for octagon constraints here, with a left part  +-x +- y 
     void collect_equivs();
-
-    void collect_equivs_of_fixed_vars();
 
     bool is_octagon_term(const lp::lar_term& t, bool & sign, lpvar& i, lpvar &j) const;
     

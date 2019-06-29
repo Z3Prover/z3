@@ -149,8 +149,8 @@ bool basics::basic_sign_lemma(bool derived) {
         return basic_sign_lemma_model_based();
 
     std::unordered_set<unsigned> explored;
-    for (lpvar i : c().m_to_refine){
-        if (basic_sign_lemma_on_mon(i, explored))
+    for (lpvar j : c().m_to_refine){
+        if (basic_sign_lemma_on_mon(j, explored))
             return true;
     }
     return false;
