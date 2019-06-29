@@ -2453,6 +2453,28 @@ namespace Microsoft.Z3
         }
 
         /// <summary>
+        /// Check if the string s1 is lexicographically strictly less than s2.
+        /// </summary>
+	public BoolExpr MkStringLt(SeqExpr s1, SeqExpr s2) 
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+            CheckContextMatch(s1, s2);
+            return new BoolExpr(this, Native.Z3_mk_str_lt(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
+        /// Check if the string s1 is lexicographically strictly less than s2.
+        /// </summary>
+	public BoolExpr MkStringLe(SeqExpr s1, SeqExpr s2) 
+        {
+            Debug.Assert(s1 != null);
+            Debug.Assert(s2 != null);
+            CheckContextMatch(s1, s2);
+            return new BoolExpr(this, Native.Z3_mk_str_le(nCtx, s1.NativeObject, s2.NativeObject));
+        }
+
+        /// <summary>
         /// Retrieve sequence of length one at index.
         /// </summary>
         public SeqExpr MkAt(SeqExpr s, Expr index)

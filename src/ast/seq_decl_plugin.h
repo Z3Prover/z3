@@ -66,6 +66,8 @@ enum seq_op_kind {
     OP_STRING_CONST,
     OP_STRING_ITOS,
     OP_STRING_STOI,
+    OP_STRING_LT,
+    OP_STRING_LE,
     // internal only operators. Converted to SEQ variants.
     _OP_STRING_STRREPL,
     _OP_STRING_CONCAT,
@@ -226,6 +228,7 @@ public:
     bool is_const_char(expr* e, unsigned& c) const;
     app* mk_char(unsigned ch) const;
     app* mk_le(expr* ch1, expr* ch2) const;
+    app* mk_lt(expr* ch1, expr* ch2) const;
 
     app* mk_skolem(symbol const& name, unsigned n, expr* const* args, sort* range);
     bool is_skolem(expr const* e) const { return is_app_of(e, m_fid, _OP_SEQ_SKOLEM); }
@@ -298,6 +301,8 @@ public:
         bool is_stoi(expr const* n)     const { return is_app_of(n, m_fid, OP_STRING_STOI); }
         bool is_in_re(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_IN_RE); }
         bool is_unit(expr const* n)     const { return is_app_of(n, m_fid, OP_SEQ_UNIT); }
+        bool is_lt(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LT); }
+        bool is_le(expr const* n)       const { return is_app_of(n, m_fid, OP_STRING_LE); }
 
         bool is_string_term(expr const * n) const {
             sort * s = get_sort(n);
@@ -321,6 +326,8 @@ public:
         MATCH_TERNARY(is_replace);
         MATCH_BINARY(is_prefix);
         MATCH_BINARY(is_suffix);
+        MATCH_BINARY(is_lt);
+        MATCH_BINARY(is_le);
         MATCH_UNARY(is_itos);
         MATCH_UNARY(is_stoi);
         MATCH_BINARY(is_in_re);

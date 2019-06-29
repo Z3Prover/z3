@@ -646,7 +646,8 @@ br_status bool_rewriter::try_ite_value(app * ite, app * val, expr_ref & result) 
 
 
 app* bool_rewriter::mk_eq(expr* lhs, expr* rhs) {
-    // degrades simplification on if (lhs->get_id() > rhs->get_id()) std::swap(lhs, rhs);
+    // degrades simplification 
+    // if (lhs->get_id() > rhs->get_id()) std::swap(lhs, rhs);
     return m().mk_eq(lhs, rhs);
 }
 

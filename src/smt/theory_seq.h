@@ -646,6 +646,8 @@ namespace smt {
         void propagate_step(literal lit, expr* n);
         void propagate_accept(literal lit, expr* e);
         void new_eq_eh(dependency* dep, enode* n1, enode* n2);
+        void propagate_lt(literal lit, expr* e1, expr* e2);
+        void propagate_le(literal lit, expr* e1, expr* e2);
 
         // diagnostics
         std::ostream& display_equations(std::ostream& out) const;

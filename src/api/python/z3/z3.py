@@ -9990,6 +9990,18 @@ class SeqRef(ExprRef):
            return Z3_get_string(self.ctx_ref(), self.as_ast())
         return Z3_ast_to_string(self.ctx_ref(), self.as_ast())
 
+    def __le__(self, other):
+        return SeqRef(Z3_mk_str_le(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
+    
+    def __lt__(self, other):
+        return SeqRef(Z3_mk_str_lt(self.ctx_ref(), self.as_ast(), other.as_ast()), self.ctx)
+
+    def __ge__(self, other):
+        return SeqRef(Z3_mk_str_le(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
+    
+    def __gt__(self, other):
+        return SeqRef(Z3_mk_str_lt(self.ctx_ref(), other.as_ast(), self.as_ast()), self.ctx)
+
 
 def _coerce_seq(s, ctx=None):
     if isinstance(s, str):
@@ -10048,6 +10060,13 @@ def String(name, ctx=None):
     """
     ctx = _get_ctx(ctx)
     return SeqRef(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), StringSort(ctx).ast), ctx)
+
+def Strings(names, ctx=None):
+    """Return string constants"""    
+    ctx = _get_ctx(ctx)
+    if isinstance(names, str):
+        names = names.split(" ")
+    return [String(name, ctx) for name in names]
 
 def SubString(s, offset, length):
     """Extract substring or subsequence starting at offset"""

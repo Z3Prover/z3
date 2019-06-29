@@ -580,6 +580,8 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_STRING_STRREPL]   = alloc(psig, m, "str.replace", 0, 3, str3T, strT);
     m_sigs[OP_STRING_ITOS]       = alloc(psig, m, "int.to.str", 0, 1, &intT, strT);
     m_sigs[OP_STRING_STOI]       = alloc(psig, m, "str.to.int", 0, 1, &strT, intT);
+    m_sigs[OP_STRING_LT]         = alloc(psig, m, "str.<", 0, 2, str2T, boolT);
+    m_sigs[OP_STRING_LE]         = alloc(psig, m, "str.<=", 0, 2, str2T, boolT);
     m_sigs[_OP_STRING_CONCAT]    = alloc(psig, m, "str.++", 1, 2, str2T, strT);
     m_sigs[_OP_STRING_LENGTH]    = alloc(psig, m, "str.len", 0, 1, &strT, intT);
     m_sigs[_OP_STRING_STRCTN]    = alloc(psig, m, "str.contains", 0, 2, str2T, boolT);
@@ -695,9 +697,11 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
     case OP_SEQ_UNIT:
     case OP_STRING_ITOS:
     case OP_STRING_STOI:
+    case OP_STRING_LT:
+    case OP_STRING_LE:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
-
+        
     case _OP_REGEXP_FULL_CHAR:
         m_has_re = true;
         if (!range) range = m_re;
@@ -1016,6 +1020,10 @@ app* seq_util::mk_le(expr* ch1, expr* ch2) const {
     return bv.mk_ule(ch1, ch2);
 }
 
+app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
+    bv_util bv(m);
+    return m.mk_not(bv.mk_ule(ch2, ch1));
+}
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {
     if (is_string(n)) {
@@ -1036,7 +1044,6 @@ bool seq_util::str::is_nth(expr const* n, expr*& s, unsigned& idx) const {
 app* seq_util::str::mk_nth(expr* s, unsigned i) const {
     return mk_nth(s, arith_util(m).mk_int(i));
 }
-
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {
     expr* e1, *e2;

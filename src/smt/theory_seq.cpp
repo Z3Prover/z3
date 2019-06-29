@@ -4941,6 +4941,7 @@ void theory_seq::add_extract_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     expr* s = nullptr, *i = nullptr, *l = nullptr;
     VERIFY(m_util.str.is_extract(e, s, i, l));
+#if 0
     if (is_tail(s, i, l)) {
         add_tail_axiom(e, s);
         return;
@@ -4957,7 +4958,7 @@ void theory_seq::add_extract_axiom(expr* e) {
         add_extract_suffix_axiom(e, s, i);
         return;
     }
-
+#endif
     expr_ref x(mk_skolem(m_pre, s, i), m);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
@@ -5450,6 +5451,22 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
             m_ncs.push_back(nc(expr_ref(e, m), len_gt, dep));
         }
     }
+    else if (m_util.str.is_lt(e, e1, e2)) {
+        if (is_true) {
+            propagate_lt(lit, e1, e2);
+        }
+        else {
+            propagate_le(lit, e2, e1);
+        }
+    }
+    else if (m_util.str.is_le(e, e1, e2)) {
+        if (is_true) {
+            propagate_le(lit, e1, e2);
+        }
+        else {
+            propagate_lt(lit, e2, e1);
+        }
+    }
     else if (is_accept(e)) {
         if (is_true) {
             propagate_accept(lit, e);
@@ -5902,7 +5919,49 @@ void theory_seq::propagate_not_suffix(expr* e) {
     add_axiom(lit, e1_gt_e2, ~mk_eq(c, d, false));
 }
 
+/**
+   lit == e1 < e2:
+   lit => e1 = empty or e1 = xcy
+   lit => e1 = empty or e2 = xdz
+   lit => e1 = empty or c < d
+   lit => e1 != empty or e2 != empty
+ */
+void theory_seq::propagate_lt(literal lit, expr* e1, expr* e2) {
+    sort* s = m.get_sort(e1);
+    sort* char_sort = nullptr;
+    VERIFY(m_util.is_seq(s, char_sort));
+    expr_ref x = mk_skolem(symbol("str.lt.x"), e1, e2);
+    expr_ref y = mk_skolem(symbol("str.lt.y"), e1, e2);
+    expr_ref z = mk_skolem(symbol("str.lt.z"), e1, e2);
+    expr_ref c = mk_skolem(symbol("str.lt.c"), e1, e2, nullptr, nullptr, char_sort);
+    expr_ref d = mk_skolem(symbol("str.lt.d"), e1, e2, nullptr, nullptr, char_sort);
+    expr_ref empty_string(m_util.str.mk_empty(s), m);
+    literal emp = mk_eq(e1, empty_string, false);
+    add_axiom(~lit, ~mk_eq(e1, e2, false));
+    add_axiom(~lit, emp, mk_eq(e1, mk_concat(x, m_util.str.mk_unit(c), y), false));
+    add_axiom(~lit, emp, mk_eq(e2, mk_concat(x, m_util.str.mk_unit(d), z), false));
+    add_axiom(~lit, emp, mk_literal(m_util.mk_lt(c, d)));
+    add_axiom(~lit, ~emp, ~mk_eq(e2, empty_string, false));
+}
 
+/**
+   lit => e1 <= e2
+   e1 < e2 or e1 = e2 or e2 < e1
+   !(e1 = e2) or !(e1 < e2)
+   !(e1 = e2) or !(e2 < e1)
+   !(e1 < e2) or !(e2 < e1)
+   lit => e1 < e2 or e1 = e2
+ */
+void theory_seq::propagate_le(literal lit, expr* e1, expr* e2) {
+    literal lt_e1e2 = mk_literal(m_util.mk_lt(e1, e2));
+    literal lt_e2e1 = mk_literal(m_util.mk_lt(e2, e1));
+    literal eq = mk_eq(e1, e2, false);
+    add_axiom(eq, lt_e1e2, lt_e2e1);
+    add_axiom(lit, eq, lt_e1e2);
+    add_axiom(~eq, ~lt_e1e2);
+    add_axiom(~eq, ~lt_e2e1);
+    add_axiom(~lt_e1e2, ~lt_e2e1);
+}
 
 bool theory_seq::canonizes(bool sign, expr* e) {
     context& ctx = get_context();

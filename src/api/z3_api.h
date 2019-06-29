@@ -3474,6 +3474,25 @@ extern "C" {
      */
     Z3_ast Z3_API Z3_mk_seq_contains(Z3_context c, Z3_ast container, Z3_ast containee);
 
+
+    /**
+       \brief Check if \c s1 is lexicographically strictly less than \c s2.
+
+       \pre \c s1 and \c s2 are strings
+
+       def_API('Z3_mk_str_lt' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_lt(Z3_context c, Z3_ast prefix, Z3_ast s);
+
+    /**
+       \brief Check if \c s1 is equal or lexicographically strictly less than \c s2.
+
+       \pre \c s1 and \c s2 are strings
+
+       def_API('Z3_mk_str_le' ,AST ,(_in(CONTEXT), _in(AST), _in(AST)))
+     */
+    Z3_ast Z3_API Z3_mk_str_le(Z3_context c, Z3_ast prefix, Z3_ast s);
+
     /**
        \brief Extract subsequence starting at \c offset of \c length.
 
