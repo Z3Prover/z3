@@ -5964,7 +5964,7 @@ void theory_seq::add_lt_axiom(expr* n) {
  */
 void theory_seq::add_le_axiom(expr* n) {
     expr* e1 = nullptr, *e2 = nullptr;
-    VERIFY(m_util.str.is_lt(n, e1, e2));
+    VERIFY(m_util.str.is_le(n, e1, e2));
     literal lt = mk_literal(m_util.str.mk_lex_lt(e1, e2));
     literal le = mk_literal(n);
     literal eq = mk_eq(e1, e2, false);
