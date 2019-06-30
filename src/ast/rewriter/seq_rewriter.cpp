@@ -1242,7 +1242,7 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
-    result = m.mk_not(m_util.str.mk_lex_lt(b, a));
+    result = m().mk_not(m_util.str.mk_lex_lt(b, a));
     return BR_DONE;
 }
 
