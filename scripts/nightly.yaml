@@ -76,7 +76,7 @@ jobs:
       gitHubConnection: Z3GitHub
       repositoryName: 'Z3Prover/z3'
       action: 'delete'
-      target: '$(Build.SourceVersion)'
+#     target: '$(Build.SourceVersion)'
       tagSource: 'manual'
       tag: 'Nightly'
   - task: GitHubRelease@0
@@ -84,7 +84,7 @@ jobs:
       gitHubConnection: Z3GitHub
       repositoryName: 'Z3Prover/z3'
       action: 'create'
-      target: '$(Build.SourceVersion)'
+#     target: '$(Build.SourceVersion)'
       tagSource: 'manual'
       tag: 'Nightly'
       title: 'Nightly'
