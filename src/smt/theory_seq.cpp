@@ -5923,6 +5923,9 @@ void theory_seq::propagate_not_suffix(expr* e) {
    e1 < e2 => e1 = empty or e1 = xcy
    e1 < e2 => e1 = empty or c < d
    e1 < e2 => e2 = xdz
+   !(e1 < e2) => e1 = e2 or e2 = empty or e2 = xcy
+   !(e1 < e2) => e1 = e2 or e2 = empty or c < d
+   !(e1 < e2) => e1 = e2 or e1 = xdz
    
    e1 < e2 or e1 = e2 or e2 < e1
    !(e1 = e2) or !(e1 < e2)
@@ -5941,15 +5944,23 @@ void theory_seq::add_lt_axiom(expr* n) {
     expr_ref z = mk_skolem(symbol("str.lt.z"), e1, e2);
     expr_ref c = mk_skolem(symbol("str.lt.c"), e1, e2, nullptr, nullptr, char_sort);
     expr_ref d = mk_skolem(symbol("str.lt.d"), e1, e2, nullptr, nullptr, char_sort);
+    expr_ref xcy(mk_concat(x, m_util.str.mk_unit(c), y), m);
+    expr_ref xdz(mk_concat(x, m_util.str.mk_unit(d), z), m);
     expr_ref empty_string(m_util.str.mk_empty(s), m);
     literal emp1 = mk_eq(e1, empty_string, false);
+    literal emp2 = mk_eq(e2, empty_string, false);
     literal eq   = mk_eq(e1, e2, false);
-    literal xcy  = mk_eq(e1, mk_concat(x, m_util.str.mk_unit(c), y), false);
-    literal xdz  = mk_eq(e2, mk_concat(x, m_util.str.mk_unit(d), z), false);
+    literal e1xcy = mk_eq(e1, xcy, false);
+    literal e2xdz = mk_eq(e2, xdz, false);
+    literal e2xcy = mk_eq(e2, xcy, false);
+    literal e1xdz = mk_eq(e1, xdz, false);
     literal ltcd = mk_literal(m_util.mk_lt(c, d));
-    add_axiom(~lt, xdz);
-    add_axiom(~lt, emp1, xcy);
+    add_axiom(~lt, e2xdz);
+    add_axiom(~lt, emp1, e1xcy);
     add_axiom(~lt, emp1, ltcd);
+    add_axiom(lt, eq, e1xdz);
+    add_axiom(lt, eq, emp2, ltcd);
+    add_axiom(lt, eq, emp2, e2xcy);
     if (e1->get_id() <= e2->get_id()) {
         literal gt = mk_literal(m_util.str.mk_lex_lt(e2, e1));
         add_axiom(lt, eq, gt);

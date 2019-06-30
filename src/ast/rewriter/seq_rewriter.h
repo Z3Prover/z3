@@ -124,6 +124,7 @@ class seq_rewriter {
     br_status mk_str_stoi(expr* a, expr_ref& result);
     br_status mk_str_in_regexp(expr* a, expr* b, expr_ref& result);
     br_status mk_str_to_regexp(expr* a, expr_ref& result);
+    br_status mk_str_le(expr* a, expr* b, expr_ref& result);
     br_status mk_re_concat(expr* a, expr* b, expr_ref& result);
     br_status mk_re_union(expr* a, expr* b, expr_ref& result);
     br_status mk_re_inter(expr* a, expr* b, expr_ref& result);

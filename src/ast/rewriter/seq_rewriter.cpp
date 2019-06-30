@@ -518,6 +518,10 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_str_in_regexp(args[0], args[1], result);
         break;
+    case OP_STRING_LE:
+        SASSERT(num_args == 2);
+        st = mk_str_le(args[0], args[1], result);
+        break;
     case OP_STRING_CONST:
         return BR_FAILED;
     case OP_STRING_ITOS: 
@@ -1235,6 +1239,11 @@ br_status seq_rewriter::mk_seq_suffix(expr* a, expr* b, expr_ref& result) {
     }
 
     return BR_FAILED;
+}
+
+br_status seq_rewriter::mk_str_le(expr* a, expr* b, expr_ref& result) {
+    result = m.mk_not(m_util.str.mk_lex_lt(b, a));
+    return BR_DONE;
 }
 
 br_status seq_rewriter::mk_str_itos(expr* a, expr_ref& result) {
