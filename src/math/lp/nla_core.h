@@ -93,6 +93,8 @@ private:
     emonomials               m_emons;
     svector<lpvar>           m_add_buffer;
 public:
+    reslimit                   m_reslim;
+    reslimit &               reslim() { return m_reslim; }  
     emonomials& emons() { return m_emons; }
     const emonomials& emons() const { return m_emons; }
     // constructor

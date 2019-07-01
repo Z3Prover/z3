@@ -28,7 +28,9 @@ class core;
 
 
 class horner : common {   
+    intervals m_intervals;
 public:
+    
     horner(core *core);
     void horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
@@ -44,5 +46,6 @@ public:
                             std::unordered_map<unsigned, lpvar>& ) const;
     unsigned random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences);
     nla_expr<rational> split_with_var(const nla_expr<rational> &, lpvar);
+    void set_var_interval(lpvar j, intervals::interval&);
 }; // end of horner
 }

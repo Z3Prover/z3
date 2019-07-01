@@ -30,7 +30,9 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_horner(this),
-    m_emons(m_evars) {}
+    m_emons(m_evars),
+    m_reslim(lim)
+{}
     
 bool core::compare_holds(const rational& ls, llc cmp, const rational& rs) const {
     switch(cmp) {
