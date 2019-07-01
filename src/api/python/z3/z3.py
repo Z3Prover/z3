@@ -1301,7 +1301,7 @@ def Const(name, sort):
     return _to_expr_ref(Z3_mk_const(ctx.ref(), to_symbol(name, ctx), sort.ast), ctx)
 
 def Consts(names, sort):
-    """Create a several constants of the given sort.
+    """Create several constants of the given sort.
 
     `names` is a string containing the names of all constants to be created.
     Blank spaces separate the names of different constants.
