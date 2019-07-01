@@ -61,7 +61,7 @@ public:
     expr_type& type() { return m_type; }
     const vector<nla_expr>& children() const { return m_children; }
     vector<nla_expr>& children() { return m_children; }
-    
+    const T& value() const { SASSERT(m_type == expr_type::SCALAR); return m_v; }
     std::string str() const { std::stringstream ss; ss << *this; return ss.str(); }
     std::ostream & print_sum(std::ostream& out) const {
         bool first = true;

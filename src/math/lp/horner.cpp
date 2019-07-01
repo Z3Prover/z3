@@ -23,7 +23,8 @@
 
 namespace nla {
 typedef nla_expr<rational> nex;
-horner::horner(core * c) : common(c) {}
+typedef intervals::interval interv;
+horner::horner(core * c) : common(c), m_intervals(c->reslim()) {}
 
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
@@ -39,7 +40,7 @@ void horner::lemma_on_row(const T& row) {
     if (!row_is_interesting(row))
         return;
     nex e = create_expr_from_row(row);
-    TRACE("nla_cn", tout << "cn e = " << e << std::endl;);
+    TRACE("nla_cn", tout << "cross nested e = " << e << std::endl;);
     intervals::interval inter = interval_of_expr(e);
     check_interval_for_conflict(inter);
 }
@@ -95,6 +96,7 @@ void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::
     }
 }
 
+// return a valid j if some variable appears more than once
 unsigned horner::random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences)  {
     unsigned max = 0;
     unsigned ret = -1;
@@ -111,6 +113,8 @@ unsigned horner::random_most_occured_var(std::unordered_map<lpvar, unsigned>& oc
             }
         } 
     }
+    if (max <= 1)
+        return -1;
     SASSERT(ret + 1);
     return ret;
 }
@@ -166,12 +170,13 @@ nex horner::split_with_var(const nex& e, lpvar j) {
     }
 
     if (b.is_undef()) {
+        SASSERT(b.children().size() == 0);
         nex r(expr_type::MUL);        
         r.add_child(nex::var(j));
-        r.add_child(a);
+        r.add_child(cross_nested_of_sum(a));
         return r;
     }
-    return nex::sum(nex::mul(a, nex::var(j)), b);    
+    return nex::sum(nex::mul(cross_nested_of_sum(a), nex::var(j)), b);    
 }
 
 nex horner::cross_nested_of_sum(const nex& e) {
@@ -180,6 +185,7 @@ nex horner::cross_nested_of_sum(const nex& e) {
     std::unordered_map<lpvar, unsigned>  occurences;
     get_occurences_map(e, occurences);
     lpvar j = random_most_occured_var(occurences);
+    if (j + 1 == 0) return e;
     TRACE("nla_cn",
           tout << "e = "  << e << "\noccurences ";
           for (auto p : occurences){
@@ -202,13 +208,53 @@ template <typename T> nex horner::create_expr_from_row(const T& row) {
         const auto &p  = *row.begin();
         return nex::mul(p.coeff(), nexvar(p.var()));
     }
-    
     SASSERT(false);
 }
 intervals::interval horner::interval_of_expr(const nex& e) {
-    
-    SASSERT(false);
+    interv a;
+    switch (e.type()) {
+    case expr_type::SCALAR:
+        m_intervals.set_lower(a, e.value());
+        m_intervals.set_upper(a, e.value());
+        return a;
+    case expr_type::SUM:
+        return interval_of_sum(e.children());
+    case expr_type::MUL:
+        return interval_of_mul(e.children());
+    case expr_type::VAR:
+        return interval_of_var(e.var());                               
+    default:
+        TRACE("nla_cn", tout << e.type() << "\n";);
+        SASSERT(false);
+        return e;
+    }
 }
+
+void horner::set_var_interval(lpvar v, interv& b) {
+    const auto& ls = c().m_lar_solver;
+    lp::constraint_index ci;
+    rational val;
+    bool is_strict;
+    if (ls.has_lower_bound(v, ci, val, is_strict)) {            
+        m_intervals.set_lower(b, val);
+        m_intervals.set_lower_is_open(b, is_strict);
+        m_intervals.set_lower_is_inf(b, false);
+    }
+    else {
+        m_intervals.set_lower_is_open(b, true);
+        m_intervals.set_lower_is_inf(b, true);
+    }
+    if (ls.has_upper_bound(v, ci, val, is_strict)) {
+        m_intervals.set_upper(b, val);
+        m_intervals.set_upper_is_open(b, is_strict);
+        m_intervals.set_upper_is_inf(b, false);
+    }
+    else {
+        m_intervals.set_upper_is_open(b, true);
+        m_intervals.set_upper_is_inf(b, true);
+    }
+}
+
 void horner::check_interval_for_conflict(const intervals::interval&) {
     SASSERT(false);
 }
