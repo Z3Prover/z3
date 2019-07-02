@@ -20,12 +20,15 @@
 #pragma once
 #include "util/dependency.h"
 #include "util/small_object_allocator.h"
+#include "math/lp/nla_common.h"
+#include "math/lp/lar_solver.h"
 #include "math/interval/interval.h"
 
 
 namespace nla {
+class core;
 
-class intervals {
+class intervals : common {
     class ci_value_manager {
     public:
         void inc_ref(lp::constraint_index const & v) {
@@ -86,8 +89,8 @@ class intervals {
             
         // Getters
         mpq const & lower(interval const & a) const { return a.m_lower; }
-        mpq & lower(interval & a) { return a.m_lower; }
         mpq const & upper(interval const & a) const { return a.m_upper; }
+        mpq & lower(interval & a) { return a.m_lower; }
         mpq & upper(interval & a) { return a.m_upper; }
         bool lower_is_open(interval const & a) const { return a.m_lower_open; }
         bool upper_is_open(interval const & a) const { return a.m_upper_open; }
@@ -145,24 +148,21 @@ private:
 
     void set_var_interval_signs(lpvar v, interval & b) const;
 
-    void set_var_interval_signs_with_deps(lpvar v, interval & b) const;
+    void set_var_interval_deps(lpvar v, interval & b) const;
 
     ci_dependency* mk_dep(lp::constraint_index ci) const;
 
+    lp::lar_solver& ls();
+    const lp::lar_solver& ls() const;
 public:
-    intervals(reslimit& lim) :
+    intervals(core* c, reslimit& lim) :
+        common(c),
         m_alloc("intervals"),
         m_dep_manager(m_val_manager, m_alloc),
         m_config(m_num_manager, m_dep_manager),
         m_imanager(lim, im_config(m_num_manager, m_dep_manager))
     {}
-    bool monomial_has_lower_bound(lpvar j) const;
-    bool monomial_has_upper_bound(lpvar j) const;
-    bool product_has_upper_bound(int sign, const svector<lpvar>&) const;
-    lp::impq get_upper_bound_of_monomial(lpvar j) const;
-    lp::impq get_lower_bound_of_monomial(lpvar j) const;
     interval mul(const svector<lpvar>&) const;
-    
     interval mul_signs(const svector<lpvar>&) const;
     interval mul_signs_with_deps(const svector<lpvar>&) const;
     void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
@@ -175,6 +175,14 @@ public:
     void set_lower_is_inf(interval & a, bool inf) { m_config.set_lower_is_inf(a, inf); }
     void set_upper_is_open(interval & a, bool strict) { m_config.set_upper_is_open(a, strict); }
     void set_upper_is_inf(interval & a, bool inf) { m_config.set_upper_is_inf(a, inf); }
-};
-
+    bool is_zero(const interval& a) const { return m_config.is_zero(a); }
+    void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
+    void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
+    void set(interval& a, const interval& b) { m_imanager.set(a, b); }
+    void mul(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.mul(a, b, c, deps); }
+    void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
+        m_config.add_deps(a, b, deps, i);
+    }
+    void set_var_interval_with_deps(lpvar, interval &);
+}; // end of intervals
 } // end of namespace nla
