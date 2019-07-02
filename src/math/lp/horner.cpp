@@ -24,7 +24,7 @@
 namespace nla {
 typedef nla_expr<rational> nex;
 typedef intervals::interval interv;
-horner::horner(core * c) : common(c), m_intervals(c->reslim()) {}
+horner::horner(core * c) : common(c), m_intervals(c, c->reslim()) {}
 
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
@@ -209,7 +209,9 @@ template <typename T> nex horner::create_expr_from_row(const T& row) {
         return nex::mul(p.coeff(), nexvar(p.var()));
     }
     SASSERT(false);
+    return e;
 }
+
 intervals::interval horner::interval_of_expr(const nex& e) {
     interv a;
     switch (e.type()) {
@@ -222,37 +224,47 @@ intervals::interval horner::interval_of_expr(const nex& e) {
     case expr_type::MUL:
         return interval_of_mul(e.children());
     case expr_type::VAR:
-        return interval_of_var(e.var());                               
+        set_var_interval(e.var(), a);
+        return a;
     default:
         TRACE("nla_cn", tout << e.type() << "\n";);
         SASSERT(false);
-        return e;
+        return interv();
     }
 }
+template <typename T>
+interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
+    interv a = interval_of_expr(es[0]);    
+    for (unsigned k = 1; k < es.size(); k++) {
+        interv b = interval_of_expr(es[k]);
+        if (m_intervals.is_zero(b)) {
+            return b;
+        }
+        interv c;
+        interval_deps deps;
+        m_intervals.mul(a, b, c, deps);
+        m_intervals.set(a, c);
+        m_intervals.add_deps(a, b, deps, a);
+        if (m_intervals.is_zero(a))
+            return a;
+    }
+    return a;
+}
 
+template <typename T>
+interv horner::interval_of_sum(const vector<nla_expr<T>>& es) {
+    interv a = interval_of_expr(es[0]);    
+    for (unsigned k = 1; k < es.size(); k++) {
+        interv b = interval_of_expr(es[k]);
+        interv c;
+        m_intervals.add(a, b, c);
+        m_intervals.set(a, c);
+    }
+    return a;
+}
+// sets the dependencies also
 void horner::set_var_interval(lpvar v, interv& b) {
-    const auto& ls = c().m_lar_solver;
-    lp::constraint_index ci;
-    rational val;
-    bool is_strict;
-    if (ls.has_lower_bound(v, ci, val, is_strict)) {            
-        m_intervals.set_lower(b, val);
-        m_intervals.set_lower_is_open(b, is_strict);
-        m_intervals.set_lower_is_inf(b, false);
-    }
-    else {
-        m_intervals.set_lower_is_open(b, true);
-        m_intervals.set_lower_is_inf(b, true);
-    }
-    if (ls.has_upper_bound(v, ci, val, is_strict)) {
-        m_intervals.set_upper(b, val);
-        m_intervals.set_upper_is_open(b, is_strict);
-        m_intervals.set_upper_is_inf(b, false);
-    }
-    else {
-        m_intervals.set_upper_is_open(b, true);
-        m_intervals.set_upper_is_inf(b, true);
-    }
+    m_intervals.set_var_interval_with_deps(v, b);
 }
 
 void horner::check_interval_for_conflict(const intervals::interval&) {

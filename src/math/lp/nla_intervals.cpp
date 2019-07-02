@@ -45,13 +45,13 @@ void intervals::set_var_interval_signs(lpvar v, interval& b) const {
         m_config.set_upper_is_inf(b, true);
     }
 }
-
-void intervals::set_var_interval_signs_with_deps(lpvar v, interval& b) const {
+*/
+void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
     lp::constraint_index ci;
     rational val;
     bool is_strict;
     if (ls().has_lower_bound(v, ci, val, is_strict)) {            
-        m_config.set_lower(b, sign(val));
+        m_config.set_lower(b, val);
         m_config.set_lower_is_open(b, is_strict);
         m_config.set_lower_is_inf(b, false);
         b.m_lower_dep = mk_dep(ci);
@@ -62,7 +62,7 @@ void intervals::set_var_interval_signs_with_deps(lpvar v, interval& b) const {
         b.m_lower_dep = nullptr;
     }
     if (ls().has_upper_bound(v, ci, val, is_strict)) {
-        m_config.set_upper(b, sign(val));
+        m_config.set_upper(b, val);
         m_config.set_upper_is_open(b, is_strict);
         m_config.set_upper_is_inf(b, false);
         b.m_upper_dep = mk_dep(ci);
@@ -78,7 +78,7 @@ intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }
     
-*/
+
 std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     if (m_imanager.lower_is_inf(i)) {
         out << "(-oo";
@@ -94,46 +94,18 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     return out;
 }
 
-/*
-intervals::interval intervals::mul(const svector<lpvar>& vars) const {
-    interval a;
-    m_imanager.set(a, mpq(1));
-    
-    for (lpvar j : vars) {
-        interval b, c;
-        set_var_interval(j, b);
-        if (m_imanager.is_zero(b)) {
-            return b;
-        }
-        m_imanager.mul(a, b, c);
-        m_imanager.set(a, c);
-    }
-    return a;
+lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
+
+const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
+
+std::ostream& intervals::print_explanations(const svector<lp::constraint_index> &expl , std::ostream& out) const {
+    out << "interv expl:\n ";
+    for (auto ci : expl)
+        m_core->m_lar_solver.print_constraint_indices_only(ci, out);
+    return out;
 }
 
-intervals::interval intervals::mul_signs(const svector<lpvar>& vars) const {
-    interval a;
-    m_imanager.set(a, mpq(1));
-    
-    for (lpvar j : vars) {
-        interval b, c;
-        set_var_interval_signs(j, b);
-        if (m_imanager.is_zero(b)) {
-            return b;
-        }
-        m_imanager.mul(a, b, c);
-        m_imanager.set(a, c);
-    }
-    return a;
-}
-
-bool intervals::product_has_upper_bound(int sign, const svector<lpvar>& vars) const {
-    interval a = mul_signs(vars);
-    SASSERT(sign == 1 || sign == -1);
-    return sign == 1 ? !m_imanager.upper_is_inf(a) : !m_imanager.lower_is_inf(a);
-}
-*/
-}
+} // end of nla namespace
 
 // instantiate the template
 template class interval_manager<nla::intervals::im_config>;
