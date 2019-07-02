@@ -85,6 +85,7 @@ namespace smt {
         setup                       m_setup;
         timer                       m_timer;
         asserted_formulas           m_asserted_formulas;
+        th_rewriter                 m_rewriter;
         scoped_ptr<quantifier_manager>   m_qmanager;
         scoped_ptr<model_generator>      m_model_generator;
         scoped_ptr<relevancy_propagator> m_relevancy_propagator;
@@ -261,7 +262,7 @@ namespace smt {
         }
 
         th_rewriter & get_rewriter() {
-            return m_asserted_formulas.get_rewriter();
+            return m_rewriter;
         }
 
         smt_params & get_fparams() {

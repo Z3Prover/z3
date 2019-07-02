@@ -47,6 +47,7 @@ namespace smt {
         m_params(_p),
         m_setup(*this, p),
         m_asserted_formulas(m, p, _p),
+        m_rewriter(m),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
         m_model_generator(alloc(model_generator, m)),
         m_relevancy_propagator(mk_relevancy_propagator(*this)),
@@ -94,6 +95,7 @@ namespace smt {
         SASSERT(m_search_lvl == 0);
 
         m_case_split_queue = mk_case_split_queue(*this, p);
+        m_rewriter.updt_params(m_asserted_formulas.get_params());
 
         init();
 

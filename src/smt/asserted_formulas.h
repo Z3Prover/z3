@@ -244,7 +244,7 @@ public:
     expr *  get_formula(unsigned idx) const { return m_formulas[idx].get_fml(); }
     proof * get_formula_proof(unsigned idx) const { return m_formulas[idx].get_proof(); }
     
-    th_rewriter & get_rewriter() { return m_rewriter; }
+    params_ref const& get_params() const { return m_params; }
     void get_assertions(ptr_vector<expr> & result) const;
     bool empty() const { return m_formulas.empty(); }
     void display(std::ostream & out) const;

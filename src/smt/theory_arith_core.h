@@ -426,6 +426,7 @@ namespace smt {
         bool negated;
 
         s(ante, s_ante);
+
         if (ctx.get_cancel_flag()) return;
         negated = m.is_not(s_ante, s_ante_n);
         if (negated) s_ante = s_ante_n;
