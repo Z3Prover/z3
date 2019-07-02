@@ -96,9 +96,11 @@ class intervals : common {
         bool upper_is_open(interval const & a) const { return a.m_upper_open; }
         bool lower_is_inf(interval const & a) const { return a.m_lower_inf; }
         bool upper_is_inf(interval const & a) const { return a.m_upper_inf; }
+        bool is_inf(interval const & a) const { return upper_is_inf(a) && lower_is_inf(a); }
         bool is_zero(interval const & a) const {
             return unsynch_mpq_manager::is_zero(a.m_lower)
                 && unsynch_mpq_manager::is_zero(a.m_upper); }
+
             
         // Setters
         void set_lower(interval & a, mpq const & n) const { m_manager.set(a.m_lower, n); }
@@ -178,11 +180,13 @@ public:
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
+    void add(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.add(a, b, c, deps); }
     void set(interval& a, const interval& b) { m_imanager.set(a, b); }
     void mul(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.mul(a, b, c, deps); }
     void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
         m_config.add_deps(a, b, deps, i);
     }
     void set_var_interval_with_deps(lpvar, interval &);
+    bool is_inf(const interval& i) const { return m_config.is_inf(i); }
 }; // end of intervals
 } // end of namespace nla
