@@ -235,9 +235,14 @@ intervals::interval horner::interval_of_expr(const nex& e) {
 template <typename T>
 interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
     interv a = interval_of_expr(es[0]);    
+    if (m_intervals.is_zero(a)) {
+        TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
+            return a;
+    }
     for (unsigned k = 1; k < es.size(); k++) {
         interv b = interval_of_expr(es[k]);
         if (m_intervals.is_zero(b)) {
+            TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, b); tout << "\n";);
             return b;
         }
         interv c;
@@ -245,29 +250,49 @@ interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
         m_intervals.mul(a, b, c, deps);
         m_intervals.set(a, c);
         m_intervals.add_deps(a, b, deps, a);
-        if (m_intervals.is_zero(a))
-            return a;
     }
+    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
     return a;
 }
 
 template <typename T>
 interv horner::interval_of_sum(const vector<nla_expr<T>>& es) {
-    interv a = interval_of_expr(es[0]);    
-    for (unsigned k = 1; k < es.size(); k++) {
-        interv b = interval_of_expr(es[k]);
-        interv c;
-        m_intervals.add(a, b, c);
-        m_intervals.set(a, c);
+    TRACE("nla_cn", tout << "es[0]= "  << es[0] << "\n";);
+    interv a = interval_of_expr(es[0]);
+    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
+    if (m_intervals.is_inf(a)) {
+        return a;
     }
+        
+    for (unsigned k = 1; k < es.size(); k++) {
+        TRACE("nla_cn", tout << "es[k]= "  << es[k] << "\n";);
+        interv b = interval_of_expr(es[k]);
+        TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
+        if (m_intervals.is_inf(b)) {
+            return a;
+        }
+        interv c;
+        interval_deps deps;
+        m_intervals.add(a, b, c, deps);
+        m_intervals.set(a, c);
+        m_intervals.add_deps(a, b, deps, a);
+        TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
+        if (m_intervals.is_inf(a)) {
+            return a;
+        }
+    }
+    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
     return a;
 }
 // sets the dependencies also
 void horner::set_var_interval(lpvar v, interv& b) {
     m_intervals.set_var_interval_with_deps(v, b);
+    TRACE("nla_cn", tout << "v = "; print_var(v, tout); tout << "\n";);
+    
 }
 
-void horner::check_interval_for_conflict(const intervals::interval&) {
+void horner::check_interval_for_conflict(const intervals::interval& i) {
+    TRACE("nla_cn", tout << "interval = "; m_intervals.display(tout, i); );
     SASSERT(false);
 }
 }
