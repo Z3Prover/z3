@@ -47,5 +47,9 @@ public:
     unsigned random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences);
     nla_expr<rational> split_with_var(const nla_expr<rational> &, lpvar);
     void set_var_interval(lpvar j, intervals::interval&);
+    template <typename T>
+    intervals::interval interval_of_sum(const vector<nla_expr<T>>&);
+    template <typename T>
+    intervals::interval interval_of_mul(const vector<nla_expr<T>>&);
 }; // end of horner
 }
