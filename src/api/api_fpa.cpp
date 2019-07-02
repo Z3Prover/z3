@@ -22,27 +22,19 @@ Notes:
 #include "api/api_context.h"
 #include "ast/fpa_decl_plugin.h"
 
-bool is_fp_sort(Z3_context c, Z3_sort s) {
+static bool is_fp_sort(Z3_context c, Z3_sort s) {
     return mk_c(c)->fpautil().is_float(to_sort(s));
 }
 
-bool is_fp(Z3_context c, Z3_ast a) {
+static bool is_fp(Z3_context c, Z3_ast a) {
     return mk_c(c)->fpautil().is_float(to_expr(a));
 }
 
-bool is_rm_sort(Z3_context c, Z3_sort s) {
-    return mk_c(c)->fpautil().is_rm(to_sort(s));
-}
-
-bool is_rm(Z3_context c, Z3_ast a) {
+static bool is_rm(Z3_context c, Z3_ast a) {
     return mk_c(c)->fpautil().is_rm(to_expr(a));
 }
 
-bool is_bv_sort(Z3_context c, Z3_sort s) {
-    return mk_c(c)->bvutil().is_bv_sort(to_sort(s));
-}
-
-bool is_bv(Z3_context c, Z3_ast a) {
+static bool is_bv(Z3_context c, Z3_ast a) {
     return mk_c(c)->bvutil().is_bv(to_expr(a));
 }
 
