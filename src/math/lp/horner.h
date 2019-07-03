@@ -35,11 +35,11 @@ public:
     void horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
     void lemma_on_row(const T&);
-    template <typename T>
-    bool row_is_interesting(const T&) const;
+    template <typename T>  bool row_is_interesting(const T&) const;
     template <typename T> nla_expr<rational> create_expr_from_row(const T&);
     intervals::interval interval_of_expr(const nla_expr<rational>& e);
-    void check_interval_for_conflict(const intervals::interval&);
+    
+    template <typename T> void check_interval_for_conflict(const intervals::interval&, const T&);
     bool check_interval_for_conflict_lower_bound(const intervals::interval&);
     bool check_interval_for_conflict_upper_bound(const intervals::interval&);
     nla_expr<rational> nexvar(lpvar j) const;
@@ -53,5 +53,7 @@ public:
     intervals::interval interval_of_sum(const vector<nla_expr<T>>&);
     template <typename T>
     intervals::interval interval_of_mul(const vector<nla_expr<T>>&);
+    template <typename T>
+    void set_interval_for_scalar(intervals::interval&, const T&);
 }; // end of horner
 }
