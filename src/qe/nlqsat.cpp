@@ -149,8 +149,8 @@ namespace qe {
                 }
             }
             TRACE("qe", display(tout);
-                  for (unsigned i = 0; i < m_asms.size(); ++i) {
-                      m_solver.display(tout, m_asms[i]); tout << "\n";
+                  for (nlsat::literal a : m_asms) {
+                      m_solver.display(tout, a) << "\n";
                   });
             save_model();
         }
@@ -291,7 +291,7 @@ namespace qe {
             }
             nlsat::var_vector vs;
             m_solver.vars(l, vs);
-            TRACE("qe", m_solver.display(tout, l); tout << "\n";);
+            TRACE("qe", m_solver.display(tout << vs << " ", l) << "\n";);
             for (unsigned v : vs) {
                 level.merge(m_rvar2level[v]);                
             }
@@ -492,10 +492,10 @@ namespace qe {
                     return;
                 }
                 expr* n1, *n2;
-                if (a.is_div(n, n1, n2) && a.is_numeral(n2)) {
+                rational r;
+                if (a.is_div(n, n1, n2) && a.is_numeral(n2, r) && !r.is_zero()) {
                     return;
                 }
-                rational r;
                 if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
                     return;
                 }
@@ -511,7 +511,7 @@ namespace qe {
             bool has_divs() const { return m_has_divs; }
         };
 
-        void purify(expr_ref& fml, app_ref_vector& pvars, expr_ref_vector& paxioms) {
+        void purify(expr_ref& fml, div_rewriter_star& rw, expr_ref_vector& paxioms) {
             is_pure_proc  is_pure(*this);
             {
                 expr_fast_mark1 visited;
@@ -519,12 +519,12 @@ namespace qe {
             }
             if (is_pure.has_divs()) {
                 arith_util arith(m);
-                div_rewriter_star rw(*this);
                 proof_ref pr(m);
+                TRACE("qe", tout << fml << "\n";);
                 rw(fml, fml, pr);
+                TRACE("qe", tout << fml << "\n";);
                 vector<div> const& divs = rw.divs();
                 for (unsigned i = 0; i < divs.size(); ++i) {
-                    pvars.push_back(divs[i].name);
                     paxioms.push_back(
                         m.mk_or(m.mk_eq(divs[i].den, arith.mk_numeral(rational(0), false)), 
                                 m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));                    
@@ -540,12 +540,15 @@ namespace qe {
         void ackermanize_div(bool is_forall, vector<app_ref_vector>& qvars, expr_ref& fml) {
             app_ref_vector pvars(m);
             expr_ref_vector paxioms(m);
-            purify(fml, pvars, paxioms);            
+            div_rewriter_star rw(*this);
+            purify(fml, rw, paxioms);   
             if (paxioms.empty()) {
                 return;
             }
             expr_ref ante = mk_and(paxioms);
-            qvars[qvars.size()-2].append(pvars);
+            for (div const& d : rw.divs()) {
+                qvars[qvars.size()-2].push_back(d.name);
+            }
             if (!is_forall) {
                 fml = m.mk_implies(ante, fml);
             }
