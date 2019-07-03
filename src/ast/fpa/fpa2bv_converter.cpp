@@ -1122,12 +1122,13 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     a_lz_ext = m_bv_util.mk_zero_extend(2, a_lz);
     b_lz_ext = m_bv_util.mk_zero_extend(2, b_lz);
 
-    expr_ref exp_diff(m), neg_exp_diff(m), exp_diff_is_neg(m);
+    expr_ref exp_diff(m), neg_exp_diff(m), exp_diff_is_neg(m), exp_diff_is_zero(m);
     exp_diff = m_bv_util.mk_bv_sub(
         m_bv_util.mk_bv_sub(a_exp_ext, a_lz_ext),
         m_bv_util.mk_bv_sub(b_exp_ext, b_lz_ext));
     neg_exp_diff = m_bv_util.mk_bv_neg(exp_diff);
     exp_diff_is_neg = m_bv_util.mk_sle(exp_diff, m_bv_util.mk_numeral(0, ebits+2));
+    exp_diff_is_zero = m.mk_eq(exp_diff, m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(exp_diff)));
     dbg_decouple("fpa2bv_rem_exp_diff", exp_diff);
 
     // CMW: This creates _huge_ bit-vectors, which is potentially sub-optimal,
@@ -1153,7 +1154,7 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
 
     expr_ref y_half(m), ny_half(m), zero_e(m), two_e(m);
     expr_ref y_half_is_zero(m), y_half_is_nz(m);
-    expr_ref r_gt_y_half(m), r_gt_ny_half(m), r_lt_y_half(m), r_lt_ny_half(m);
+    expr_ref r_ge_y_half(m), r_gt_ny_half(m), r_le_y_half(m), r_lt_ny_half(m);
     expr_ref r_ge_zero(m), r_le_zero(m);
     expr_ref rounded_sub_y(m), rounded_add_y(m);
     mpf zero, two;
@@ -1166,21 +1167,30 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     mk_is_zero(y_half, y_half_is_zero);
     y_half_is_nz = m.mk_not(y_half_is_zero);
 
-    mk_float_gt(s, rndd, y_half, r_gt_y_half);
+    mk_float_ge(s, rndd, y_half, r_ge_y_half);
     mk_float_gt(s, rndd, ny_half, r_gt_ny_half);
-    mk_float_lt(s, rndd, y_half, r_lt_y_half);
+    mk_float_le(s, rndd, y_half, r_le_y_half);
     mk_float_lt(s, rndd, ny_half, r_lt_ny_half);
 
     mk_sub(s, rne_bv, rndd, y, rounded_sub_y);
     mk_add(s, rne_bv, rndd, y, rounded_add_y);
 
     expr_ref sub_cnd(m), add_cnd(m);
-    sub_cnd = m.mk_and(y_half_is_nz,
-                m.mk_or(m.mk_and(y_is_pos, r_gt_y_half),
-                        m.mk_and(y_is_neg, r_lt_y_half)));
-    add_cnd = m.mk_and(y_half_is_nz,
+    sub_cnd = m.mk_and(exp_diff_is_zero,
+              m.mk_and(y_half_is_nz,
+                m.mk_or(m.mk_and(y_is_pos, r_ge_y_half),
+                        m.mk_and(y_is_neg, r_le_y_half))));
+    add_cnd = m.mk_and(exp_diff_is_zero,
+              m.mk_and(y_half_is_nz,
                 m.mk_or(m.mk_and(y_is_pos, r_lt_ny_half),
-                        m.mk_and(y_is_neg, r_gt_ny_half)));
+                        m.mk_and(y_is_neg, r_gt_ny_half))));
+
+    dbg_decouple("fpa2bv_rem_y_half", y_half);
+    dbg_decouple("fpa2bv_rem_sub_cnd", sub_cnd);
+    dbg_decouple("fpa2bv_rem_add_cnd", add_cnd);
+    dbg_decouple("fpa2bv_rem_rounded_add_y", rounded_add_y);
+    dbg_decouple("fpa2bv_rem_rounded_sub_y", rounded_sub_y);
+    dbg_decouple("fpa2bv_rem_rndd", rndd);
 
     mk_ite(add_cnd, rounded_add_y, rndd, v7);
     mk_ite(sub_cnd, rounded_sub_y, v7, v7);
