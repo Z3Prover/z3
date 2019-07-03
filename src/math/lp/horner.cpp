@@ -166,7 +166,8 @@ nex horner::split_with_var(const nex& e, lpvar j) {
     a.type() = expr_type::SUM;
     
     if (b.children().size() == 1) {
-        b = b.children()[0];      
+        nex t = b.children()[0];
+        b = t;      
     } else if (b.children().size() > 1) {
         b.type() = expr_type::SUM;
     }
