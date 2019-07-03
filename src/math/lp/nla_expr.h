@@ -207,19 +207,29 @@ public:
             return m_j == j;
         if (is_mul()) {
             for (const nla_expr<T>& c : children()) {
-                if (c.is_var() && c.var() == j) return true;
+                if (c.contains(j))
+                    return true;
             }
         }
         return false;
-    }
-    
+    }    
 };
 template <typename T> 
 nla_expr<T> operator/(const nla_expr<T>& a, lpvar j) {
-    SASSERT(a.is_mul());
+    SASSERT((a.is_mul() && a.contains(j)) || (a.is_var() && a.var() == j));
+    if (a.is_var())
+        return nla_expr<T>::scalar(T(1));
     nla_expr<T> b;
+    bool seenj = false;
     for (const nla_expr<T>& c : a.children()) {
-        if (c.is_var() && c.var() == j) continue;
+        if (!seenj) {
+            if (c.contains(j)) {
+                if (!c.is_var())                     
+                    b.add_child(c / j);
+                seenj = true;
+                continue;
+            } 
+        }
         b.add_child(c);
     }
     if (b.children().size() > 1) {
