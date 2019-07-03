@@ -98,6 +98,7 @@ JS_ENABLED=False
 PYTHON_INSTALL_ENABLED=False
 STATIC_LIB=False
 STATIC_BIN=False
+ADD_CHECKSUM=True
 VER_MAJOR=None
 VER_MINOR=None
 VER_BUILD=None
@@ -2441,6 +2442,8 @@ def mk_config():
             static_opt = '/MT'
         else:
             static_opt = '/MD'
+        if ADD_CHECKSUM:
+            extra_opt = ' %s /RELEASE' % extra_opt
         maybe_disable_dynamic_base = '/DYNAMICBASE' if ALWAYS_DYNAMIC_BASE else '/DYNAMICBASE:NO'
         if DEBUG_MODE:
             static_opt = static_opt + 'd'

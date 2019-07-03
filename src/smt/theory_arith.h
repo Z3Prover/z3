@@ -603,6 +603,7 @@ namespace smt {
         theory_var internalize_to_int(app * n);
         void internalize_is_int(app * n);
         theory_var internalize_numeral(app * n);
+        theory_var internalize_numeral(app * n, numeral const& val);
         theory_var internalize_term_core(app * n);
         void mk_axiom(expr * n1, expr * n2, bool simplify_conseq = true);
         void mk_idiv_mod_axioms(expr * dividend, expr * divisor);

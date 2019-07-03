@@ -86,6 +86,7 @@ namespace qe {
         nlsat::literal_vector                m_assumptions;
         u_map<expr*>                         m_asm2fml;
         expr_ref_vector                      m_trail;
+        app_ref                              m_delta0, m_delta1;
         
         lbool check_sat() {
             while (true) {
@@ -511,6 +512,20 @@ namespace qe {
             bool has_divs() const { return m_has_divs; }
         };
 
+        /*
+          Ackermanize division
+
+          For each p/q:
+             p = 0 & q = 0 => div = delta0
+             p != 0 & q = 0 => div = p*delta1
+             q != 0 => div*q = p
+
+          delta0 stands for 0/0
+          delta1 stands for 1/0
+          assumption: p * 1/0 = p/0 for p != 0, 
+          so 2/0 != a * 1/0 & a = 2 is unsat by fiat.
+         */
+
         void purify(expr_ref& fml, div_rewriter_star& rw, expr_ref_vector& paxioms) {
             is_pure_proc  is_pure(*this);
             {
@@ -520,14 +535,16 @@ namespace qe {
             if (is_pure.has_divs()) {
                 arith_util arith(m);
                 proof_ref pr(m);
-                TRACE("qe", tout << fml << "\n";);
                 rw(fml, fml, pr);
-                TRACE("qe", tout << fml << "\n";);
+                m_delta0 = m.mk_fresh_const("delta0", arith.mk_real());
+                m_delta1 = m.mk_fresh_const("delta1", arith.mk_real());
                 vector<div> const& divs = rw.divs();
                 for (unsigned i = 0; i < divs.size(); ++i) {
-                    paxioms.push_back(
-                        m.mk_or(m.mk_eq(divs[i].den, arith.mk_numeral(rational(0), false)), 
-                                m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));                    
+                    expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
+                    expr_ref num_is0(m.mk_eq(divs[i].num, arith.mk_real(0)), m);
+                    paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
+                    paxioms.push_back(m.mk_or(m.mk_not(den_is0), m.mk_not(num_is0), m.mk_eq(divs[i].name, m_delta0)));
+                    paxioms.push_back(m.mk_or(m.mk_not(den_is0), num_is0, m.mk_eq(divs[i].name, arith.mk_mul(divs[i].num, m_delta1))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
                         paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
                                                   m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
@@ -546,6 +563,8 @@ namespace qe {
                 return;
             }
             expr_ref ante = mk_and(paxioms);
+            qvars[0].push_back(m_delta0);
+            qvars[0].push_back(m_delta1);
             for (div const& d : rw.divs()) {
                 qvars[qvars.size()-2].push_back(d.name);
             }
@@ -555,6 +574,7 @@ namespace qe {
             else {
                 fml = m.mk_and(fml, ante);
             }
+            TRACE("qe", tout << fml << "\n";);
         }
 
 
@@ -675,6 +695,7 @@ namespace qe {
                     if (m_a2b.is_var(v)) {
                         SASSERT(m.is_bool(v));
                         nlsat::bool_var b = m_a2b.to_var(v);
+                        TRACE("qe", tout << mk_pp(v, m) << " |-> b" << b << "\n";);
                         m_bound_bvars.back().push_back(b);
                         set_level(b, lvl);
                     }
@@ -703,14 +724,13 @@ namespace qe {
         }
 
         void init_expr2var(vector<app_ref_vector> const& qvars) {
-            for (unsigned i = 0; i < qvars.size(); ++i) {
-                init_expr2var(qvars[i]);
+            for (app_ref_vector const& qvs : qvars) {
+                init_expr2var(qvs);
             }
         }
 
         void init_expr2var(app_ref_vector const& qvars) {
-            for (unsigned i = 0; i < qvars.size(); ++i) {
-                app* v = qvars[i];
+            for (app* v : qvars) {
                 if (m.is_bool(v)) {
                     m_a2b.insert(v, m_solver.mk_bool_var());
                 }
@@ -784,7 +804,9 @@ namespace qe {
             m_cancel(false),
             m_answer(m),
             m_answer_simplify(m),
-            m_trail(m)
+            m_trail(m),
+            m_delta0(m),
+            m_delta1(m)
         {
             m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
