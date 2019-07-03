@@ -75,10 +75,8 @@ void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
     }
 }
 
-void intervals::check_interval_for_conflict_on_zero(const interval & i) {
-    if (check_interval_for_conflict_on_zero_lower(i))
-        return;
-    check_interval_for_conflict_on_zero_upper(i);    
+bool intervals::check_interval_for_conflict_on_zero(const interval & i) {
+    return check_interval_for_conflict_on_zero_lower(i) || check_interval_for_conflict_on_zero_upper(i);
 }
 
 bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
@@ -98,7 +96,7 @@ bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
 bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
     if (lower_is_inf(i))
         return false;
-    if (unsynch_mpq_manager::is_pos(lower(i)))
+    if (unsynch_mpq_manager::is_neg(lower(i)))
         return false;
     if (unsynch_mpq_manager::is_zero(lower(i)) && !m_config.lower_is_open(i))
         return false;
@@ -126,6 +124,19 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     } else {
         out << rational(m_imanager.upper(i)) << (m_imanager.lower_is_open(i)? ")":"]");         
     }
+    svector<lp::constraint_index> expl;
+    m_dep_manager.linearize(i.m_lower_dep, expl);
+    out << "\nlower constraints (\n";
+    for (lp::constraint_index c: expl)
+        m_core->m_lar_solver.print_constraint_indices_only(c, out);
+    out << ")\n";
+    expl.clear();
+    m_dep_manager.linearize(i.m_upper_dep, expl);   
+    out << "upper constraints (\n";    
+    for (lp::constraint_index c: expl)
+        m_core->m_lar_solver.print_constraint_indices_only(c, out);
+    out << ")\n";
+
     return out;
 }
 

@@ -433,6 +433,14 @@ void core::mk_ineq(lp::lar_term& t, llc cmp, const rational& rs) {
     }
 }
 
+void core::mk_ineq_no_expl_check(lp::lar_term& t, llc cmp, const rational& rs) {
+    TRACE("nla_solver_details", m_lar_solver.print_term_as_indices(t, tout << "t = "););
+    m_lar_solver.subs_term_columns(t);
+    current_lemma().push_back(ineq(cmp, t, rs));
+    CTRACE("nla_solver", ineq_holds(ineq(cmp, t, rs)), print_ineq(ineq(cmp, t, rs), tout) << "\n";);
+    SASSERT(!ineq_holds(ineq(cmp, t, rs)));
+}
+
 void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
     lp::lar_term t;
     t.add_coeff_var(a, j);
@@ -1246,7 +1254,7 @@ lbool core:: inner_check(bool derived) {
         return l_false;
     }
        
-    TRACE("nla_cn", print_terms(tout););
+    TRACE("nla_cn_details", print_terms(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "derived = " << derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {
