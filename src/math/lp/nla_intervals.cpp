@@ -1,6 +1,7 @@
 #include "math/lp/nla_core.h"
 #include "math/interval/interval_def.h"
 #include "math/lp/nla_intervals.h"
+#include "util/mpq.h"
 
 namespace nla {
 /*
@@ -73,7 +74,41 @@ void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
         b.m_upper_dep = nullptr;
     }
 }
-    
+
+void intervals::check_interval_for_conflict_on_zero(const interval & i) {
+    if (check_interval_for_conflict_on_zero_lower(i))
+        return;
+    check_interval_for_conflict_on_zero_upper(i);    
+}
+
+bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
+    if (upper_is_inf(i))
+        return false;
+    if (unsynch_mpq_manager::is_pos(upper(i)))
+        return false;
+    if (unsynch_mpq_manager::is_zero(upper(i)) && !m_config.upper_is_open(i))
+        return false;
+     add_empty_lemma();
+     svector<lp::constraint_index> expl;
+     m_dep_manager.linearize(i.m_upper_dep, expl); 
+     _().current_expl().add_expl(expl);
+     return true;
+}
+
+bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
+    if (lower_is_inf(i))
+        return false;
+    if (unsynch_mpq_manager::is_pos(lower(i)))
+        return false;
+    if (unsynch_mpq_manager::is_zero(lower(i)) && !m_config.lower_is_open(i))
+        return false;
+     add_empty_lemma();
+     svector<lp::constraint_index> expl;
+     m_dep_manager.linearize(i.m_lower_dep, expl); 
+     _().current_expl().add_expl(expl);
+     return true;
+}
+
 intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }

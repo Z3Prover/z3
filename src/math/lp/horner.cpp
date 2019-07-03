@@ -57,8 +57,6 @@ void horner::horner_lemmas() {
     for (unsigned i = 0; i < s && !done(); i++) {
         lemma_on_row(m.m_rows[((i + r) %s)]);
     }
-    
-    SASSERT(false);
 }
 
 nex horner::nexvar(lpvar j) const {
@@ -122,6 +120,7 @@ unsigned horner::random_most_occured_var(std::unordered_map<lpvar, unsigned>& oc
 
 // j -> the number of expressions j appears in
 void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<lpvar, unsigned>& occurences) const {
+    TRACE("nla_cn", tout << "e = " << e << std::endl;);    
     SASSERT(e.type() == expr_type::SUM);
     for (const auto & ce : e.children()) {
         std::unordered_set<lpvar> seen;
@@ -141,13 +140,16 @@ void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<
             }
         } else if (ce.type() ==  expr_type::VAR) {
             process_var_occurences(ce.var(), seen, occurences);
-        } else {
+        } else if (ce.type() == expr_type::SCALAR) {
+        } else {            
+            TRACE("nla_cn", tout << "unexpected expression ce = " << ce << std::endl;);            
             SASSERT(false);
         }
     }
 }
 
 nex horner::split_with_var(const nex& e, lpvar j) {
+    TRACE("nla_cn", tout << "e = " << e << ", j = v" << j << "\n";);
     if (!e.is_sum())
         return e;
     nex a, b;
@@ -180,6 +182,7 @@ nex horner::split_with_var(const nex& e, lpvar j) {
 }
 
 nex horner::cross_nested_of_sum(const nex& e) {
+    TRACE("nla_cn", );
     if (!e.is_sum())
         return e;
     std::unordered_map<lpvar, unsigned>  occurences;
@@ -192,7 +195,9 @@ nex horner::cross_nested_of_sum(const nex& e) {
               tout << "(v"<<p.first << ", "<< p.second<<")";
           }
           tout << std::endl << "most occured = v" << j << std::endl;);
-    return split_with_var(e, j);
+    nex ret = split_with_var(e, j);
+    TRACE("nla_cn", tout << "ret =" << ret << "\n";);
+    return ret;
 }
 
 template <typename T> nex horner::create_expr_from_row(const T& row) {
@@ -213,11 +218,18 @@ template <typename T> nex horner::create_expr_from_row(const T& row) {
 }
 
 intervals::interval horner::interval_of_expr(const nex& e) {
+    TRACE("nla_cn", tout << e.type() << " e=" << e << std::endl;);
     interv a;
     switch (e.type()) {
     case expr_type::SCALAR:
         m_intervals.set_lower(a, e.value());
         m_intervals.set_upper(a, e.value());
+        m_intervals.set_lower_is_open(a, false);
+        m_intervals.set_lower_is_inf(a, false);
+        m_intervals.set_upper_is_open(a, false);
+        m_intervals.set_upper_is_inf(a, false);
+       
+        TRACE("nla_cn", tout << "e.value() = " << e.value() << "\n"; m_intervals.display(tout, a) << '\n';);
         return a;
     case expr_type::SUM:
         return interval_of_sum(e.children());
@@ -225,6 +237,7 @@ intervals::interval horner::interval_of_expr(const nex& e) {
         return interval_of_mul(e.children());
     case expr_type::VAR:
         set_var_interval(e.var(), a);
+        TRACE("nla_cn", tout << "a = "; m_intervals.display(tout, a) << "\n";);
         return a;
     default:
         TRACE("nla_cn", tout << e.type() << "\n";);
@@ -233,16 +246,17 @@ intervals::interval horner::interval_of_expr(const nex& e) {
     }
 }
 template <typename T>
-interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
+interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {    
     interv a = interval_of_expr(es[0]);    
     if (m_intervals.is_zero(a)) {
-        TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
-            return a;
+        TRACE("nla_cn", tout << "got zero\n";);
+        return a;
     }
+    TRACE("nla_cn", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); tout << "\n";);
     for (unsigned k = 1; k < es.size(); k++) {
         interv b = interval_of_expr(es[k]);
         if (m_intervals.is_zero(b)) {
-            TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, b); tout << "\n";);
+            TRACE("nla_cn", tout << "got zero\n";);
             return b;
         }
         interv c;
@@ -250,26 +264,25 @@ interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
         m_intervals.mul(a, b, c, deps);
         m_intervals.set(a, c);
         m_intervals.add_deps(a, b, deps, a);
+        TRACE("nla_cn", tout  << "a = "; m_intervals.display(tout, a); tout << "\n";);
     }
-    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
     return a;
 }
 
 template <typename T>
 interv horner::interval_of_sum(const vector<nla_expr<T>>& es) {
-    TRACE("nla_cn", tout << "es[0]= "  << es[0] << "\n";);
     interv a = interval_of_expr(es[0]);
-    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
+    TRACE("nla_cn", tout << "es[0]= "  << es[0] << "\n"; m_intervals.display(tout, a) << "\n";);
     if (m_intervals.is_inf(a)) {
         return a;
     }
         
     for (unsigned k = 1; k < es.size(); k++) {
-        TRACE("nla_cn", tout << "es[k]= "  << es[k] << "\n";);
+        TRACE("nla_cn", tout <<  "es[" << k << "]= " << es[k] << "\n";);
         interv b = interval_of_expr(es[k]);
-        TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
         if (m_intervals.is_inf(b)) {
-            return a;
+            TRACE("nla_cn", tout << "got inf\n";);
+            return b;
         }
         interv c;
         interval_deps deps;
@@ -278,10 +291,10 @@ interv horner::interval_of_sum(const vector<nla_expr<T>>& es) {
         m_intervals.add_deps(a, b, deps, a);
         TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
         if (m_intervals.is_inf(a)) {
+            TRACE("nla_cn", tout << "got infinity\n";);            
             return a;
         }
     }
-    TRACE("nla_cn", tout << "interv = "; m_intervals.display(tout, a); tout << "\n";);
     return a;
 }
 // sets the dependencies also
@@ -292,7 +305,6 @@ void horner::set_var_interval(lpvar v, interv& b) {
 }
 
 void horner::check_interval_for_conflict(const intervals::interval& i) {
-    TRACE("nla_cn", tout << "interval = "; m_intervals.display(tout, i); );
-    SASSERT(false);
+    m_intervals.check_interval_for_conflict_on_zero(i);
 }
 }
