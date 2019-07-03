@@ -201,6 +201,7 @@ public:
         
     
     void mk_ineq(lp::lar_term& t, llc cmp, const rational& rs);
+    void mk_ineq_no_expl_check(lp::lar_term& t, llc cmp, const rational& rs);
     void mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs);
     void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp, const rational& rs);
     void mk_ineq(bool a, lpvar j, bool b, lpvar k, llc cmp);
