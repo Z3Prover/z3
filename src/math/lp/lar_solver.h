@@ -605,7 +605,12 @@ public:
     }
 
     std::ostream& print_column_info(unsigned j, std::ostream& out) const {
-        return m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+        m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+        if( !column_corresponds_to_term(j))
+            return out;
+        const lar_term& t = * m_terms[m_var_register.local_to_external(j) - m_terms_start_index];
+        print_term_as_indices(t, out) << "\n";
+        return out;
     }
     
     bool has_int_var() const;

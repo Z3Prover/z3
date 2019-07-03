@@ -34,6 +34,12 @@ public:
             add_coeff_var(p.first, p.second);
         }
     }
+    template <typename T>
+    lar_term(const T& coeffs) {
+        for (const auto & p : coeffs) {
+            add_coeff_var(p.coeff(), p.var());
+        }
+    }
     
     void add_coeff_var(const mpq& c, unsigned j) {
         if (c.is_zero())
