@@ -1122,13 +1122,13 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     a_lz_ext = m_bv_util.mk_zero_extend(2, a_lz);
     b_lz_ext = m_bv_util.mk_zero_extend(2, b_lz);
 
-    expr_ref exp_diff(m), neg_exp_diff(m), exp_diff_is_neg(m), exp_diff_is_zero(m);
+    expr_ref exp_diff(m), neg_exp_diff(m), exp_diff_is_neg(m), exp_diff_ge_zero(m);
     exp_diff = m_bv_util.mk_bv_sub(
         m_bv_util.mk_bv_sub(a_exp_ext, a_lz_ext),
         m_bv_util.mk_bv_sub(b_exp_ext, b_lz_ext));
     neg_exp_diff = m_bv_util.mk_bv_neg(exp_diff);
     exp_diff_is_neg = m_bv_util.mk_sle(exp_diff, m_bv_util.mk_numeral(0, ebits+2));
-    exp_diff_is_zero = m.mk_eq(exp_diff, m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(exp_diff)));
+    exp_diff_ge_zero = m_bv_util.mk_sle(m_bv_util.mk_numeral(0, m_bv_util.get_bv_size(exp_diff)), exp_diff);
     dbg_decouple("fpa2bv_rem_exp_diff", exp_diff);
 
     // CMW: This creates _huge_ bit-vectors, which is potentially sub-optimal,
@@ -1176,11 +1176,11 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     mk_add(s, rne_bv, rndd, y, rounded_add_y);
 
     expr_ref sub_cnd(m), add_cnd(m);
-    sub_cnd = m.mk_and(exp_diff_is_zero,
+    sub_cnd = m.mk_and(exp_diff_ge_zero,
               m.mk_and(y_half_is_nz,
                 m.mk_or(m.mk_and(y_is_pos, r_ge_y_half),
                         m.mk_and(y_is_neg, r_le_y_half))));
-    add_cnd = m.mk_and(exp_diff_is_zero,
+    add_cnd = m.mk_and(exp_diff_ge_zero,
               m.mk_and(y_half_is_nz,
                 m.mk_or(m.mk_and(y_is_pos, r_lt_ny_half),
                         m.mk_and(y_is_neg, r_gt_ny_half))));
