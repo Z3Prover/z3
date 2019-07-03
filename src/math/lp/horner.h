@@ -40,6 +40,8 @@ public:
     template <typename T> nla_expr<rational> create_expr_from_row(const T&);
     intervals::interval interval_of_expr(const nla_expr<rational>& e);
     void check_interval_for_conflict(const intervals::interval&);
+    bool check_interval_for_conflict_lower_bound(const intervals::interval&);
+    bool check_interval_for_conflict_upper_bound(const intervals::interval&);
     nla_expr<rational> nexvar(lpvar j) const;
     nla_expr<rational> cross_nested_of_sum(const nla_expr<rational>&);    
     void get_occurences_map(const nla_expr<rational>& e,
