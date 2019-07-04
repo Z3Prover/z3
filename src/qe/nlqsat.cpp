@@ -86,7 +86,6 @@ namespace qe {
         nlsat::literal_vector                m_assumptions;
         u_map<expr*>                         m_asm2fml;
         expr_ref_vector                      m_trail;
-        app_ref                              m_delta0, m_delta1;
         
         lbool check_sat() {
             while (true) {
@@ -446,7 +445,9 @@ namespace qe {
             ~div_rewriter_cfg() {}
             br_status reduce_app(func_decl* f, unsigned sz, expr* const* args, expr_ref& result, proof_ref& pr) {
                 rational r(1);
-                if (is_decl_of(f, a.get_family_id(), OP_DIV) && sz == 2 && (!a.is_numeral(args[1], r) || r.is_zero())) {                    
+                if (is_decl_of(f, a.get_family_id(), OP_DIV) && 
+                    sz == 2 && (!a.is_numeral(args[1], r) || r.is_zero()) &&
+                    is_ground(args[0]) && is_ground(args[1])) {                    
                     result = m.mk_fresh_const("div", a.mk_real());
                     m_divs.push_back(div(m, args[0], args[1], to_app(result)));
                     return BR_DONE;
@@ -536,15 +537,11 @@ namespace qe {
                 arith_util arith(m);
                 proof_ref pr(m);
                 rw(fml, fml, pr);
-                m_delta0 = m.mk_fresh_const("delta0", arith.mk_real());
-                m_delta1 = m.mk_fresh_const("delta1", arith.mk_real());
                 vector<div> const& divs = rw.divs();
                 for (unsigned i = 0; i < divs.size(); ++i) {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
                     expr_ref num_is0(m.mk_eq(divs[i].num, arith.mk_real(0)), m);
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
-                    paxioms.push_back(m.mk_or(m.mk_not(den_is0), m.mk_not(num_is0), m.mk_eq(divs[i].name, m_delta0)));
-                    paxioms.push_back(m.mk_or(m.mk_not(den_is0), num_is0, m.mk_eq(divs[i].name, arith.mk_mul(divs[i].num, m_delta1))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
                         paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
                                                   m.mk_not(m.mk_eq(divs[i].num, divs[j].num)), 
@@ -554,27 +551,15 @@ namespace qe {
             }
         }
 
-        void ackermanize_div(bool is_forall, vector<app_ref_vector>& qvars, expr_ref& fml) {
+        void ackermanize_div(expr_ref& fml) {
             app_ref_vector pvars(m);
             expr_ref_vector paxioms(m);
             div_rewriter_star rw(*this);
             purify(fml, rw, paxioms);   
-            if (paxioms.empty()) {
-                return;
+            if (!paxioms.empty()) {
+                fml = m.mk_and(fml, mk_and(paxioms));
+                TRACE("qe", tout << fml << "\n";);
             }
-            expr_ref ante = mk_and(paxioms);
-            qvars[0].push_back(m_delta0);
-            qvars[0].push_back(m_delta1);
-            for (div const& d : rw.divs()) {
-                qvars[qvars.size()-2].push_back(d.name);
-            }
-            if (!is_forall) {
-                fml = m.mk_implies(ante, fml);
-            }
-            else {
-                fml = m.mk_and(fml, ante);
-            }
-            TRACE("qe", tout << fml << "\n";);
         }
 
 
@@ -640,6 +625,7 @@ namespace qe {
         // expr -> nlsat::solver
 
         void hoist(expr_ref& fml) {
+            ackermanize_div(fml);
             quantifier_hoister hoist(m);
             vector<app_ref_vector> qvars;
             app_ref_vector vars(m);
@@ -669,7 +655,6 @@ namespace qe {
             while (!vars.empty());
             SASSERT(qvars.size() >= 2);
             SASSERT(qvars.back().empty()); 
-            ackermanize_div(is_forall, qvars, fml);
             init_expr2var(qvars);
             goal2nlsat g2s;
 
@@ -804,9 +789,7 @@ namespace qe {
             m_cancel(false),
             m_answer(m),
             m_answer_simplify(m),
-            m_trail(m),
-            m_delta0(m),
-            m_delta1(m)
+            m_trail(m)
         {
             m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);

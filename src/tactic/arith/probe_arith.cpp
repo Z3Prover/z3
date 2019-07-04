@@ -484,6 +484,8 @@ struct is_non_nira_functor {
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (m_linear && !u.is_numeral(n->get_arg(1)))
                     throw_found(n); 
+                if (!is_ground(n->get_arg(0)) || !is_ground(n->get_arg(1))) 
+                    throw_found(n);
                 return;
             case OP_IS_INT:
                 if (m_real)
