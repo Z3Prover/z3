@@ -634,7 +634,7 @@ namespace z3 {
         symbol name() const { Z3_symbol s = Z3_get_decl_name(ctx(), *this); check_error(); return symbol(ctx(), s); }
         Z3_decl_kind decl_kind() const { return Z3_get_decl_kind(ctx(), *this); }
 
-        func_decl transitive_closure(func_decl const& f) {
+        func_decl transitive_closure(func_decl const&) {
             Z3_func_decl tc = Z3_mk_transitive_closure(ctx(), *this); check_error(); return func_decl(ctx(), tc); 
         }
 
