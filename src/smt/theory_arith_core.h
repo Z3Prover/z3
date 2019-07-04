@@ -246,12 +246,12 @@ namespace smt {
             SASSERT(m->get_num_args() == 2);
             if (m_util.is_numeral(arg2, _val2)) {
                 numeral val(_val1 + _val2);
+				if (reflection_enabled()) {
+					internalize_term_core(to_app(arg1));
+					internalize_term_core(to_app(arg2));
+					mk_enode(m);
+				}
                 theory_var v = internalize_numeral(m, val);
-                if (reflection_enabled()) {
-                    internalize_term_core(to_app(arg1));
-                    internalize_term_core(to_app(arg2));
-                    mk_enode(m);
-                }
                 add_row_entry<true>(r_id, numeral::one(), v);
                 return;
             }
