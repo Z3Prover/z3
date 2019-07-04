@@ -517,18 +517,15 @@ namespace qe {
           Ackermanize division
 
           For each p/q:
-             p = 0 & q = 0 => div = delta0
-             p != 0 & q = 0 => div = p*delta1
-             q != 0 => div*q = p
+             q != 0 => div_pq*q = p
 
-          delta0 stands for 0/0
-          delta1 stands for 1/0
-          assumption: p * 1/0 = p/0 for p != 0, 
-          so 2/0 != a * 1/0 & a = 2 is unsat by fiat.
+          For each p/q, p'/q'
+             p = p', q = q' => div_pq = div_pq'
+
          */
 
-        void purify(expr_ref& fml, div_rewriter_star& rw, expr_ref_vector& paxioms) {
-            is_pure_proc  is_pure(*this);
+        void ackermanize_div(expr_ref& fml) {
+            is_pure_proc is_pure(*this);
             {
                 expr_fast_mark1 visited;
                 quick_for_each_expr(is_pure, visited, fml);
@@ -536,11 +533,13 @@ namespace qe {
             if (is_pure.has_divs()) {
                 arith_util arith(m);
                 proof_ref pr(m);
+                expr_ref_vector paxioms(m);
+                div_rewriter_star rw(*this);
                 rw(fml, fml, pr);
+                paxioms.push_back(fml);
                 vector<div> const& divs = rw.divs();
                 for (unsigned i = 0; i < divs.size(); ++i) {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
-                    expr_ref num_is0(m.mk_eq(divs[i].num, arith.mk_real(0)), m);
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
                     for (unsigned j = i + 1; j < divs.size(); ++j) {
                         paxioms.push_back(m.mk_or(m.mk_not(m.mk_eq(divs[i].den, divs[j].den)),
@@ -548,20 +547,9 @@ namespace qe {
                                                   m.mk_eq(divs[i].name, divs[j].name)));
                     }
                 }
+                fml = mk_and(paxioms);
             }
         }
-
-        void ackermanize_div(expr_ref& fml) {
-            app_ref_vector pvars(m);
-            expr_ref_vector paxioms(m);
-            div_rewriter_star rw(*this);
-            purify(fml, rw, paxioms);   
-            if (!paxioms.empty()) {
-                fml = m.mk_and(fml, mk_and(paxioms));
-                TRACE("qe", tout << fml << "\n";);
-            }
-        }
-
 
         void reset() override {
             //m_solver.reset();
