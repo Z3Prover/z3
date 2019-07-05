@@ -61,9 +61,10 @@ namespace sat {
         else if (s == symbol("random"))
             m_phase = PS_RANDOM;
         else
-            throw sat_param_exception("invalid phase selection strategy");
+            throw sat_param_exception("invalid phase selection strategy: always_false, always_true, basic_caching, caching, random");
 
         m_rephase_base      = p.rephase_base();
+        m_reorder_base      = p.reorder_base();
         m_search_sat_conflicts = p.search_sat_conflicts();
         m_search_unsat_conflicts = p.search_unsat_conflicts();
         m_phase_sticky      = p.phase_sticky();

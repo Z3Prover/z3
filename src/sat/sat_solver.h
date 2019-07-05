@@ -146,6 +146,8 @@ namespace sat {
         unsigned                m_best_phase_size;
         unsigned                m_rephase_lim;
         unsigned                m_rephase_inc;
+        unsigned                m_reorder_lim;
+        unsigned                m_reorder_inc;
         var_queue               m_case_split_queue;
         unsigned                m_qhead;
         unsigned                m_scope_lvl;
@@ -562,6 +564,8 @@ namespace sat {
         bool is_two_phase() const;
         bool should_rephase();
         void do_rephase();
+        bool should_reorder();
+        void do_reorder();
         svector<char> m_diff_levels;
         unsigned num_diff_levels(unsigned num, literal const * lits);
         bool     num_diff_levels_below(unsigned num, literal const* lits, unsigned max_glue, unsigned& glue);

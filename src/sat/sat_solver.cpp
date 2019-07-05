@@ -1230,6 +1230,7 @@ namespace sat {
                 else if (do_cleanup(false)) continue;
                 else if (should_gc()) do_gc();
                 else if (should_rephase()) do_rephase();
+                else if (should_reorder()) do_reorder();
                 else if (should_restart()) do_restart(!m_config.m_restart_fast);
                 else if (should_simplify()) do_simplify();
                 else if (!decide()) is_sat = final_check();
@@ -1806,6 +1807,8 @@ namespace sat {
         m_best_phase_size         = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
+        m_reorder_lim             = 0;
+        m_reorder_inc             = 0;
         m_conflicts_since_restart = 0;
         m_force_conflict_analysis = false;
         m_restart_threshold       = m_config.m_restart_initial;
@@ -3144,6 +3147,25 @@ namespace sat {
         }
         m_rephase_inc += m_config.m_rephase_base;
         m_rephase_lim += m_rephase_inc;
+    }
+
+    bool solver::should_reorder() {
+        return m_conflicts_since_init > m_reorder_lim;
+    }
+
+    void solver::do_reorder() {
+        IF_VERBOSE(1, verbose_stream() << "(reorder)\n");
+        m_activity_inc = 128;
+        svector<bool_var> vars;
+        for (bool_var v = num_vars(); v-- > 0; ) {
+            vars.push_back(v);
+        }
+        shuffle(vars.size(), vars.c_ptr(), m_rand);
+        for (bool_var v : vars) {
+            update_activity(v, m_rand(10));
+        }
+        m_reorder_inc += m_config.m_reorder_base;
+        m_reorder_lim += m_reorder_inc;
     }
 
     void solver::updt_phase_counters() {

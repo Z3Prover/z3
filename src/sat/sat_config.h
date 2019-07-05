@@ -91,6 +91,7 @@ namespace sat {
         unsigned           m_search_unsat_conflicts;
         bool               m_phase_sticky;
         unsigned           m_rephase_base;
+        unsigned           m_reorder_base;
         bool               m_propagate_prefetch;
         restart_strategy   m_restart;
         bool               m_restart_fast;

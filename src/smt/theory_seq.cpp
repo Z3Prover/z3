@@ -5961,7 +5961,7 @@ void theory_seq::add_lt_axiom(expr* n) {
     add_axiom(lt, eq, e1xcy);
     add_axiom(lt, eq, emp2, ltdc);
     add_axiom(lt, eq, emp2, e2xdz);
-    if (e1->get_id() <= e2->get_id()) {
+    if (e1->get_id() <= e2->get_id() || true) {
         literal gt = mk_literal(m_util.str.mk_lex_lt(e2, e1));
         add_axiom(lt, eq, gt);
         add_axiom(~eq, ~lt);
