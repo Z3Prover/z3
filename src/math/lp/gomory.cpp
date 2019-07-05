@@ -261,11 +261,11 @@ class gomory::imp {
     
 public:
     void dump(std::ostream& out) {
-        tout << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, tout); tout << std::endl;
+        out << "applying cut at:\n"; print_linear_combination_indices_only<row_strip<mpq>, mpq>(m_row, out); out << std::endl;
         for (auto & p : m_row) {
-            m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), tout);
+            m_int_solver.m_lar_solver->m_mpq_lar_core_solver.m_r_solver.print_column_info(p.var(), out);
         }
-        tout << "inf_col = " << m_inf_col << std::endl;
+        out << "inf_col = " << m_inf_col << std::endl;
     }
     lia_move create_cut() {
         TRACE("gomory_cut", dump(tout););
