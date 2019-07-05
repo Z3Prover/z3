@@ -56,8 +56,8 @@ void horner::horner_lemmas() {
     const auto& m = c().m_lar_solver.A_r();
     unsigned r = random();
     unsigned s = m.row_count();
-    for (unsigned i = 0; i < s && !done(); i++) {
-        lemma_on_row(m.m_rows[((i + r) %s)]);
+    for (unsigned i = 0; i < s && c().m_lemma_vec->size() < 3 ; i++) {
+        lemma_on_row(m.m_rows[((i + r) % s)]);
     }
 }
 
@@ -86,7 +86,7 @@ void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::
     SASSERT(e.type() == expr_type::MUL);
     for (const auto & ce : e.children()) {
         if (ce.type() == expr_type::SCALAR) {
-        }  else  if (ce.type() ==  expr_type::VAR) {
+        } else  if (ce.type() ==  expr_type::VAR) {
             process_var_occurences(ce.var(), seen, occurences);
         } else if (ce.type() ==  expr_type::MUL){
             process_mul_occurences(ce, seen, occurences);
@@ -182,7 +182,7 @@ nex horner::split_with_var(const nex& e, lpvar j) {
         return r;
     }
     TRACE("nla_cn", tout << "b = " << b << "\n";);
-    return nex::sum(nex::mul(cross_nested_of_sum(a), nex::var(j)), b);    
+    return nex::sum(nex::mul(cross_nested_of_sum(a), nex::var(j)), cross_nested_of_sum(b));    
 }
 
 nex horner::cross_nested_of_sum(const nex& e) {
