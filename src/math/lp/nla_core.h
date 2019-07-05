@@ -172,6 +172,8 @@ public:
     std::ostream& print_product(const T & m, std::ostream& out) const;    
     template <typename T>
     std::string product_indices_str(const T & m) const;
+    std::string var_str(lpvar) const;
+    
     std::ostream & print_factor(const factor& f, std::ostream& out) const;
     std::ostream & print_factor_with_vars(const factor& f, std::ostream& out) const;
     std::ostream& print_monomial(const monomial& m, std::ostream& out) const;
@@ -187,7 +189,7 @@ public:
     void print_monomial_stats(const monomial& m, std::ostream& out);    
     void print_stats(std::ostream& out);
     std::ostream& print_lemma(std::ostream& out) const;
-
+  
     void print_specific_lemma(const lemma& l, std::ostream& out) const;
     
 

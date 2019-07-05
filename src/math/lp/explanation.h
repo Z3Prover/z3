@@ -25,6 +25,10 @@ class explanation {
     vector<std::pair<mpq, constraint_index>> m_explanation;
     std::unordered_set<unsigned> m_set_of_ci;
 public:
+    explanation() {}
+    template <typename T>
+    explanation(const T& t) { for ( unsigned c : t) add(c); }
+    
     void clear() { m_explanation.clear(); m_set_of_ci.clear(); }
     vector<std::pair<mpq, constraint_index>>::const_iterator begin() const { return m_explanation.begin(); }
     vector<std::pair<mpq, constraint_index>>::const_iterator end() const { return m_explanation.end(); }

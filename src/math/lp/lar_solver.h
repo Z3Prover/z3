@@ -505,6 +505,10 @@ public:
 
     std::ostream& print_constraint_indices_only(constraint_index ci, std::ostream & out) const;
 
+    std::ostream& print_constraint_indices_only_customized(constraint_index ci, std::function<std::string (unsigned)> var_str, std::ostream & out) const;
+
+    std::ostream& print_constraint_indices_only_customized(const lar_base_constraint * c, std::function<std::string (unsigned)> var_str, std::ostream & out) const;
+
     std::ostream& print_terms(std::ostream& out) const;
 
     std::ostream& print_left_side_of_constraint(const lar_base_constraint * c, std::ostream & out) const;
