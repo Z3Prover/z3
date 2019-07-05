@@ -181,6 +181,7 @@ nex horner::split_with_var(const nex& e, lpvar j) {
         r.add_child(cross_nested_of_sum(a));
         return r;
     }
+    TRACE("nla_cn", tout << "b = " << b << "\n";);
     return nex::sum(nex::mul(cross_nested_of_sum(a), nex::var(j)), b);    
 }
 
@@ -203,7 +204,7 @@ nex horner::cross_nested_of_sum(const nex& e) {
 }
 
 template <typename T> nex horner::create_expr_from_row(const T& row) {
-    TRACE("nla_cn", tout << "row="; m_core->m_lar_solver.print_term_as_indices(row, tout););
+    TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";);
     nex e;
     if (row.size() > 1) {
         e.type() = expr_type::SUM;
@@ -216,6 +217,7 @@ template <typename T> nex horner::create_expr_from_row(const T& row) {
         const auto &p  = *row.begin();
         return nex::mul(p.coeff(), nexvar(p.var()));
     }
+    std::cout << "ops\n";
     SASSERT(false);
     return e;
 }
@@ -231,7 +233,8 @@ void horner::set_interval_for_scalar(interv& a, const T& v) {
 }
 
 interv horner::interval_of_expr(const nex& e) {
-    TRACE("nla_cn_details", tout << e.type() << " e=" << e << std::endl;);
+    
+    TRACE("nla_cn", tout << e.type() << " e=" << e << std::endl;);
     interv a;
     switch (e.type()) {
     case expr_type::SCALAR:
@@ -252,7 +255,8 @@ interv horner::interval_of_expr(const nex& e) {
 }
 template <typename T>
 interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {    
-    interv a = interval_of_expr(es[0]);    
+    interv a = interval_of_expr(es[0]);
+    //    std::cout << "a" << std::endl;
     TRACE("nla_cn", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); tout << "\n";);
     for (unsigned k = 1; k < es.size(); k++) {
         interv b = interval_of_expr(es[k]);
