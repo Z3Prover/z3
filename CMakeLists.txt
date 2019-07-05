@@ -426,6 +426,14 @@ if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 ################################################################################
+# Pass /RELEASE to the linker so that checksums in PE files are calculated.
+################################################################################
+if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  string(APPEND CMAKE_EXE_LINKER_FLAGS " /RELEASE")
+  string(APPEND CMAKE_SHARED_LINKER_FLAGS " /RELEASE")
+endif()
+
+################################################################################
 # Report default CMake flags
 ################################################################################
 # This is mainly for debugging.
