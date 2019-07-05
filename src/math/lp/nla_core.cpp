@@ -277,7 +277,9 @@ std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& 
     out << "expl: ";
     for (auto &p : exp) {
         out << "(" << p.second << ")";
-        m_lar_solver.print_constraint_indices_only(p.second, out);
+        m_lar_solver.print_constraint_indices_only_customized(p.second,
+                                                              [this](lpvar j) { return var_str(j);},
+                                                              out);
         out << "      ";
     }
     out << "\n";
@@ -1397,13 +1399,16 @@ std::ostream& core::print_terms(std::ostream& out) const {
     }
     return out;
 }
+
+std::string core::var_str(lpvar j) const {
+    return is_monomial_var(j)?
+        (product_indices_str(m_emons[j].vars()) + (check_monomial(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));        
+}
+
 std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {
     return lp::print_linear_combination_customized(
         t.coeffs_as_vector(),
-        [this](lpvar j) {
-            return is_monomial_var(j)?
-                (product_indices_str(m_emons[j].vars()) + (check_monomial(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));
-        },
+        [this](lpvar j) { return var_str(j); },
         out);
 }
 } // end of nla

@@ -126,17 +126,19 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     }
     svector<lp::constraint_index> expl;
     m_dep_manager.linearize(i.m_lower_dep, expl);
-    out << "\nlower constraints (\n";
-    for (lp::constraint_index c: expl)
-        m_core->m_lar_solver.print_constraint_indices_only(c, out);
-    out << ")\n";
-    expl.clear();
+    {
+        lp::explanation e(expl);
+        out << "\nlower constraints\n";
+        m_core->print_explanation(e, out);
+        expl.clear();
+    }
     m_dep_manager.linearize(i.m_upper_dep, expl);   
-    out << "upper constraints (\n";    
-    for (lp::constraint_index c: expl)
-        m_core->m_lar_solver.print_constraint_indices_only(c, out);
+    {
+        lp::explanation e(expl);
+        out << "\n)\nupper constraints (\n";    
+        m_core->print_explanation(e, out);
+    }
     out << ")\n";
-
     return out;
 }
 
@@ -144,12 +146,6 @@ lp::lar_solver& intervals::ls() { return m_core->m_lar_solver; }
 
 const lp::lar_solver& intervals::ls() const { return m_core->m_lar_solver; }
 
-std::ostream& intervals::print_explanations(const svector<lp::constraint_index> &expl , std::ostream& out) const {
-    out << "interv expl:\n ";
-    for (auto ci : expl)
-        m_core->m_lar_solver.print_constraint_indices_only(ci, out);
-    return out;
-}
 
 } // end of nla namespace
 
