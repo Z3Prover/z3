@@ -151,11 +151,7 @@ public:
         }
     }
     nla_expr(expr_type t): m_type(t) {}
-    nla_expr() {
-#if Z3DEBUG
-        m_type = expr_type::UNDEF;
-#endif
-    }
+    nla_expr(): m_type(expr_type::UNDEF) {}
     
     void add_child(const nla_expr& e) {
         m_children.push_back(e);
