@@ -41,7 +41,11 @@ void horner::lemma_on_row(const T& row) {
     if (!row_is_interesting(row))
         return;
     nex e = create_expr_from_row(row);
-    TRACE("nla_cn_details", tout << "cross nested e = " << e << std::endl;);
+    TRACE("nla_cn", tout << "cross nested e = " << e << std::endl;
+          for (lpvar j: get_vars_of_expr(e)) {
+              print_var(j, tout);
+          }
+          );
     interv a = interval_of_expr(e);
     TRACE("nla_cn_details", tout << "interval a = ";  m_intervals.display(tout, a) << "\n";);
     check_interval_for_conflict(a, row);
@@ -156,7 +160,7 @@ nex horner::split_with_var(const nex& e, lpvar j) {
         return e;
     nex a, b;
     for (const nex & ce: e.children()) {
-        if (ce.is_mul() && ce.contains(j)) {
+        if ((ce.is_mul() && ce.contains(j)) || (ce.is_var() && ce.var() == j)) {
             a.add_child(ce / j);
         } else {
             b.add_child(ce);
@@ -204,12 +208,7 @@ nex horner::cross_nested_of_sum(const nex& e) {
 }
 
 template <typename T> nex horner::create_expr_from_row(const T& row) {
-    TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";
-          for (const auto & p : row) {
-              print_var(p.var(), tout);
-          }
-          tout << "\n";
-          );
+    TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";);
     nex e;
     if (row.size() > 1) {
         e.type() = expr_type::SUM;
@@ -222,9 +221,32 @@ template <typename T> nex horner::create_expr_from_row(const T& row) {
         const auto &p  = *row.begin();
         return nex::mul(p.coeff(), nexvar(p.var()));
     }
-    std::cout << "ops\n";
     SASSERT(false);
     return e;
+}
+template <typename T>
+std::set<lpvar> horner::get_vars_of_expr(const nla_expr<T> &e ) const {
+    std::set<lpvar> r;
+    switch (e.type()) {
+    case expr_type::SCALAR:
+        return r;
+    case expr_type::SUM:
+    case expr_type::MUL:
+        {
+            for (const auto & c: e.children())
+                for ( lpvar j : get_vars_of_expr(c))
+                    r.insert(j);
+        }
+        return r;
+    case expr_type::VAR:
+        r.insert(e.var());
+        return r;
+    default:
+        TRACE("nla_cn_details", tout << e.type() << "\n";);
+        SASSERT(false);
+        return r;
+    }
+
 }
 
 template <typename T>
