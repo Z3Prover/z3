@@ -55,5 +55,7 @@ public:
     intervals::interval interval_of_mul(const vector<nla_expr<T>>&);
     template <typename T>
     void set_interval_for_scalar(intervals::interval&, const T&);
+    template <typename T>
+    std::set<lpvar> get_vars_of_expr(const nla_expr<T> &) const;
 }; // end of horner
 }
