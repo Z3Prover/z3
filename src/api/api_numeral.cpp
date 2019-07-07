@@ -38,7 +38,7 @@ bool is_numeral_sort(Z3_context c, Z3_sort ty) {
     return true;
 }
 
-bool check_numeral_sort(Z3_context c, Z3_sort ty) {
+static bool check_numeral_sort(Z3_context c, Z3_sort ty) {
     bool is_num = is_numeral_sort(c, ty);
     if (!is_num) {
         SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
