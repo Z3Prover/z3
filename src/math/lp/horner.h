@@ -42,8 +42,7 @@ public:
     
     nex nexvar(lpvar j) const;
     nex cross_nested_of_sum(const nex&, lpvar);    
-    void get_occurences_map(const nex& e,
-                            std::unordered_map<unsigned, lpvar>& ) const;
+    vector<lpvar> get_mult_occurences(const nex& e) const;
     void split_with_var(nex &, lpvar, vector<nex*> & front);
     void set_var_interval(lpvar j, intervals::interval&);
     intervals::interval interval_of_sum(const vector<nex>&);
@@ -51,8 +50,8 @@ public:
     void set_interval_for_scalar(intervals::interval&, const rational&);
     std::set<lpvar> get_vars_of_expr(const nex &) const;
     void lemmas_on_expr(nex &);
-    void cross_nested_of_expr(nex& , vector<nex*>& front);
-    void cross_nested_of_expr_on_front_elem(nex& , nex&, vector<nex*>& front);
-    void cross_nested_of_expr_on_sum_and_var(nex& , nex&, lpvar, vector<nex*>& front);
+    void cross_nested_of_expr(nex& , vector<nex*> front);
+    void cross_nested_of_expr_on_front_elem(nex& , nex&, vector<nex*> front);
+    void cross_nested_of_expr_on_sum_and_var(nex& , nex&, lpvar, vector<nex*> front);
 }; // end of horner
 }

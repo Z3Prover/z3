@@ -42,42 +42,48 @@ void horner::lemmas_on_expr(nex& e) {
     vector<nex*> front;
     front.push_back(&e);
     cross_nested_of_expr(e, front);
-
 }
 
-void horner::cross_nested_of_expr(nex& e, vector<nex*> & front) {
+void horner::cross_nested_of_expr(nex& e, vector<nex*> front) {
     TRACE("nla_cn", tout << "e = " << e << ", front has " << front.size() << "\n";);
-    if (front.empty()) {
+    while (!front.empty()) {
+        nex& c = *front.back();
+        front.pop_back();
+        cross_nested_of_expr_on_front_elem(e, c, front);        
+    }
+    TRACE("nla_cn", tout << "empty front: e=" << "\n";);
+     
+}
+
+void horner::cross_nested_of_expr_on_front_elem(nex& e, nex& c, vector<nex*> front) {
+    TRACE("nla_cn", tout << "e=" << e << "\nc=" << c << "\n";);
+    SASSERT(c.is_sum());
+    auto occurences = get_mult_occurences(c);
+    if (occurences.empty() && front.empty()) {
+        TRACE("nla_cn", tout << "empty front: e=" << e << "\n";);        
         auto i = interval_of_expr(e);
         m_intervals.check_interval_for_conflict_on_zero(i);
-    }
-    nex & c = *(front.back());
-    front.pop_back();
-    TRACE("nla_cn", tout << "pop from front\n";);
-    cross_nested_of_expr_on_front_elem(e, c, front);    
-}
-
-void horner::cross_nested_of_expr_on_front_elem(nex& e, nex& c, vector<nex*> & front) {
-    SASSERT(c.is_sum());
-    std::unordered_map<unsigned, lpvar> occurences;
-    TRACE("nla_cn", tout << "c = " << c << "\n";);
-    get_occurences_map(c, occurences);
-    nex copy_of_c(c);
-    for(const auto & p : occurences) {
-        TRACE("nla_cn", tout << "v" << p.first << ", " << p.second << "\n";);
-        if (p.second < 2)
-            continue;
-        cross_nested_of_expr_on_sum_and_var(e, c, p.first, front);
-        c = copy_of_c;
+    } else {
+        nex copy_of_c = c;
+        for(lpvar j : occurences) {
+            cross_nested_of_expr_on_sum_and_var(e, c, j, front);
+            c = copy_of_c;
+        }
     }
     TRACE("nla_cn", tout << "exit\n";);
 }
 // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
-void horner::cross_nested_of_expr_on_sum_and_var(nex& e, nex& c, lpvar j, vector<nex*> & front) {
-    TRACE("nla_cn", tout << "e=" << e << "\nc = " << c << "\nj = v" << j << "\n";);
+void horner::cross_nested_of_expr_on_sum_and_var(nex& e, nex& c, lpvar j, vector<nex*> front) {
+    TRACE("nla_cn", tout << "e=" << e << "\nc=" << c << "\nj = v" << j << "\n";);
     split_with_var(c, j, front);
-    cross_nested_of_expr(e, front);
+    TRACE("nla_cn", tout << "after split c=" << c << "\n";);    
+    do {
+        nex& c = *front.back();
+        front.pop_back();
+        cross_nested_of_expr_on_front_elem(e, c, front);
+    } while (!front.empty());
 }
+
 
 template <typename T> 
 void horner::lemmas_on_row(const T& row) {
@@ -137,7 +143,8 @@ void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::
 
 
 // j -> the number of expressions j appears in as a multiplier
-void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<lpvar, unsigned>& occurences) const {
+vector<lpvar> horner::get_mult_occurences(const nex& e) const {
+    std::unordered_map<lpvar, unsigned> occurences;
     SASSERT(e.type() == expr_type::SUM);
     for (const auto & ce : e.children()) {
         std::unordered_set<lpvar> seen;
@@ -159,12 +166,18 @@ void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<
             SASSERT(false);
         }
     }
-    TRACE("nla_cn_details",
+    TRACE("nla_cn",
           tout << "{";
           for(auto p: occurences) {
               tout << "(v" << p.first << "->" << p.second << ")";
           }
           tout << "}" << std::endl;);    
+    vector<lpvar> r;
+    for(auto p: occurences) {
+        if (p.second > 1)
+            r.push_back(p.first);
+    }
+    return r;
 }
 
 void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
