@@ -16,6 +16,8 @@ Author:
 Notes:
 
 --*/
+
+#include "util/container_util.h"
 #include "ast/rewriter/poly_rewriter.h"
 #include "ast/rewriter/poly_rewriter_params.hpp"
 #include "ast/rewriter/arith_rewriter_params.hpp"
@@ -31,6 +33,7 @@ void poly_rewriter<Config>::updt_params(params_ref const & _p) {
     m_som  = p.som();
     m_hoist_mul = p.hoist_mul();
     m_hoist_cmul = p.hoist_cmul();
+    m_hoist_ite = p.hoist_ite();
     m_som_blowup = p.som_blowup();
     if (!m_flat) m_som = false;
     if (m_som) m_hoist_mul = false;
@@ -628,11 +631,14 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
         if (hoist_multiplication(result)) {
             return BR_REWRITE_FULL;
         }
+        if (hoist_ite(result)) {
+            return BR_REWRITE_FULL;
+        }
         return BR_DONE;
     }
     else {
         SASSERT(!has_multiple);
-        if (ordered && !m_hoist_mul && !m_hoist_cmul) {
+        if (ordered && !m_hoist_mul && !m_hoist_cmul && !m_hoist_ite) {
             if (num_coeffs == 0)
                 return BR_FAILED; 
             if (num_coeffs == 1 && is_numeral(args[0], a) && !a.is_zero())
@@ -655,9 +661,12 @@ br_status poly_rewriter<Config>::mk_nflat_add_core(unsigned num_args, expr * con
                 std::sort(new_args.c_ptr(), new_args.c_ptr() + new_args.size(), lt);
             else 
                 std::sort(new_args.c_ptr() + 1, new_args.c_ptr() + new_args.size(), lt);
-    }
+        }
         result = mk_add_app(new_args.size(), new_args.c_ptr());        
         if (hoist_multiplication(result)) {
+            return BR_REWRITE_FULL;
+        }
+        if (hoist_ite(result)) {
             return BR_REWRITE_FULL;
         }
         return BR_DONE;
@@ -977,6 +986,101 @@ expr* poly_rewriter<Config>::merge_muls(expr* x, expr* y) {
     m1[k] = mk_add_app(2, args);
     return mk_mul_app(k+1, m1.c_ptr());
 }
+
+template<typename Config>
+bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
+    if (!m_hoist_ite) { 
+        return false;
+    }
+    obj_hashtable<expr> shared;
+    ptr_buffer<expr> adds;
+    expr_ref_vector bs(m()), pinned(m());
+    TO_BUFFER(is_add, adds, e);
+    unsigned i = 0;
+    for (expr* a : adds) {
+        if (m().is_ite(a)) {
+            shared.reset();
+            numeral g(0);
+            if (hoist_ite(a, shared, g) && (is_nontrivial_gcd(g) || !shared.empty())) {
+                bs.reset();
+                if (!shared.empty()) {
+                    g = numeral(1);
+                }
+                bs.push_back(apply_hoist(a, g, shared));
+                if (is_nontrivial_gcd(g)) {
+                    bs.push_back(mk_numeral(g));
+                    bs[0] = mk_mul_app(2, bs.c_ptr());
+                    bs.pop_back();
+                }
+                else {
+                    for (expr* s : shared) {
+                        bs.push_back(s);
+                    }
+                }
+                adds[i] = mk_add_app(bs.size(), bs.c_ptr());
+                pinned.push_back(adds[i]);
+            }
+        }
+        ++i;
+    }
+    if (!pinned.empty()) {
+        e = mk_add_app(adds.size(), adds.c_ptr());
+        return true;
+    }
+    return false;
+}
+
+template<typename Config>
+bool poly_rewriter<Config>::hoist_ite(expr* a, obj_hashtable<expr>& shared, numeral& g) {
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(a, c, t, e)) {
+        return hoist_ite(t, shared, g) && hoist_ite(e, shared, g);
+    }
+    rational k, g1;
+    if (is_int_numeral(a, k)) {
+        g = gcd(g, k);
+        return shared.empty();
+    }
+    ptr_buffer<expr> adds;
+    TO_BUFFER(is_add, adds, a);
+    if (g.is_zero()) { // first 
+        for (expr* e : adds) {
+            shared.insert(e);            
+        }        
+    }
+    else {
+        obj_hashtable<expr> tmp;        
+        for (expr* e : adds) {
+            tmp.insert(e);            
+        }
+        set_intersection<obj_hashtable<expr>, obj_hashtable<expr>>(shared, tmp);
+    }
+    g = numeral(1);
+    return !shared.empty();
+}
+
+template<typename Config>
+expr* poly_rewriter<Config>::apply_hoist(expr* a, numeral const& g, obj_hashtable<expr> const& shared) {
+    expr* c = nullptr, *t = nullptr, *e = nullptr;
+    if (m().is_ite(a, c, t, e)) {
+        return m().mk_ite(c, apply_hoist(t, g, shared), apply_hoist(e, g, shared));
+    }
+    rational k;
+    if (is_nontrivial_gcd(g) && is_int_numeral(a, k)) {
+        return mk_numeral(k/g);
+    }
+    ptr_buffer<expr> adds;
+    TO_BUFFER(is_add, adds, a);
+    unsigned i = 0;
+    for (expr* e : adds) {
+        if (!shared.contains(e)) {
+            adds[i++] = e;
+        }
+    }
+    adds.shrink(i);
+    return mk_add_app(adds.size(), adds.c_ptr());
+}
+
 
 template<typename Config>
 bool poly_rewriter<Config>::is_times_minus_one(expr * n, expr* & r) const {

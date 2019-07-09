@@ -37,9 +37,11 @@ protected:
     bool                    m_hoist_mul;
     bool                    m_hoist_cmul;
     bool                    m_ast_order;
+    bool                    m_hoist_ite;
 
     bool is_numeral(expr * n) const { return Config::is_numeral(n); }
     bool is_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r); }
+    bool is_int_numeral(expr * n, numeral & r) const { return Config::is_numeral(n, r) && r.is_int(); }
     bool is_minus_one(expr * n) const { return Config::is_minus_one(n); }
     void normalize(numeral & c) { Config::normalize(c, m_curr_sort); }
     app * mk_numeral(numeral const & r) { return Config::mk_numeral(r, m_curr_sort); }
@@ -77,6 +79,11 @@ protected:
     }
 
     br_status cancel_monomials(expr * lhs, expr * rhs, bool move, expr_ref & lhs_result, expr_ref & rhs_result);
+
+    bool is_nontrivial_gcd(numeral const& g) const { return !g.is_zero() && !g.is_one(); }
+    bool hoist_ite(expr_ref& e);
+    bool hoist_ite(expr* e, obj_hashtable<expr>& shared, numeral& g);
+    expr* apply_hoist(expr* e, numeral const& g, obj_hashtable<expr> const& shared);
 
     bool hoist_multiplication(expr_ref& som);
     expr* merge_muls(expr* x, expr* y);

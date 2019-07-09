@@ -217,7 +217,7 @@ namespace smt {
             TRACE("checker", tout << "reduced to true, before:\n" << mk_ll_pp(instance, m););
 
             if (m.has_trace_stream()) {
-                display_instance_profile(f, q, num_bindings, bindings, pr->get_id(), generation);
+                display_instance_profile(f, q, num_bindings, bindings, pr ? pr->get_id() : 0, generation);
                 m.trace_stream() << "[end-of-instance]\n";
             }
 
