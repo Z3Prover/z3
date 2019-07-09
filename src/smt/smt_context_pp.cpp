@@ -451,6 +451,7 @@ namespace smt {
         std::ofstream out(strm.str());
         TRACE("lemma", tout << strm.str() << "\n";);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, consequent, logic);
+        TRACE("non_linear", display_lemma_as_smt_problem(tout, num_antecedents, antecedents, consequent, logic););
         out.close();
         return m_lemma_id;
     }

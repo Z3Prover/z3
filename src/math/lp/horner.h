@@ -27,35 +27,32 @@ namespace nla {
 class core;
 
 
-class horner : common {   
+class horner : common {
+    typedef nla_expr<rational> nex;
     intervals m_intervals;
 public:
     
     horner(core *core);
     void horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
-    void lemma_on_row(const T&);
+    void lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;
-    template <typename T> nla_expr<rational> create_expr_from_row(const T&);
-    intervals::interval interval_of_expr(const nla_expr<rational>& e);
+    template <typename T> nex create_sum_from_row(const T&);
+    intervals::interval interval_of_expr(const nex& e);
     
-    template <typename T> void check_interval_for_conflict(const intervals::interval&, const T&);
-    bool check_interval_for_conflict_lower_bound(const intervals::interval&);
-    bool check_interval_for_conflict_upper_bound(const intervals::interval&);
-    nla_expr<rational> nexvar(lpvar j) const;
-    nla_expr<rational> cross_nested_of_sum(const nla_expr<rational>&);    
-    void get_occurences_map(const nla_expr<rational>& e,
+    nex nexvar(lpvar j) const;
+    nex cross_nested_of_sum(const nex&, lpvar);    
+    void get_occurences_map(const nex& e,
                             std::unordered_map<unsigned, lpvar>& ) const;
-    unsigned random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences);
-    nla_expr<rational> split_with_var(const nla_expr<rational> &, lpvar);
+    void split_with_var(nex &, lpvar, vector<nex*> & front);
     void set_var_interval(lpvar j, intervals::interval&);
-    template <typename T>
-    intervals::interval interval_of_sum(const vector<nla_expr<T>>&);
-    template <typename T>
-    intervals::interval interval_of_mul(const vector<nla_expr<T>>&);
-    template <typename T>
-    void set_interval_for_scalar(intervals::interval&, const T&);
-    template <typename T>
-    std::set<lpvar> get_vars_of_expr(const nla_expr<T> &) const;
+    intervals::interval interval_of_sum(const vector<nex>&);
+    intervals::interval interval_of_mul(const vector<nex>&);
+    void set_interval_for_scalar(intervals::interval&, const rational&);
+    std::set<lpvar> get_vars_of_expr(const nex &) const;
+    void lemmas_on_expr(nex &);
+    void cross_nested_of_expr(nex& , vector<nex*>& front);
+    void cross_nested_of_expr_on_front_elem(nex& , nex&, vector<nex*>& front);
+    void cross_nested_of_expr_on_sum_and_var(nex& , nex&, lpvar, vector<nex*>& front);
 }; // end of horner
 }

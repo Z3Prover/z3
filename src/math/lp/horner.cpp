@@ -29,6 +29,8 @@ horner::horner(core * c) : common(c), m_intervals(c, c->reslim()) {}
 
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
+    if (row.size() <= 1)
+        return false;
     for (const auto& p : row) {
         if (c().m_to_refine.contains(p.var()))
             return true;
@@ -36,19 +38,53 @@ bool horner::row_is_interesting(const T& row) const {
     return false;
 }
 
+void horner::lemmas_on_expr(nex& e) {
+    vector<nex*> front;
+    front.push_back(&e);
+    cross_nested_of_expr(e, front);
+
+}
+
+void horner::cross_nested_of_expr(nex& e, vector<nex*> & front) {
+    TRACE("nla_cn", tout << "e = " << e << ", front has " << front.size() << "\n";);
+    if (front.empty()) {
+        auto i = interval_of_expr(e);
+        m_intervals.check_interval_for_conflict_on_zero(i);
+    }
+    nex & c = *(front.back());
+    front.pop_back();
+    TRACE("nla_cn", tout << "pop from front\n";);
+    cross_nested_of_expr_on_front_elem(e, c, front);    
+}
+
+void horner::cross_nested_of_expr_on_front_elem(nex& e, nex& c, vector<nex*> & front) {
+    SASSERT(c.is_sum());
+    std::unordered_map<unsigned, lpvar> occurences;
+    TRACE("nla_cn", tout << "c = " << c << "\n";);
+    get_occurences_map(c, occurences);
+    nex copy_of_c(c);
+    for(const auto & p : occurences) {
+        TRACE("nla_cn", tout << "v" << p.first << ", " << p.second << "\n";);
+        if (p.second < 2)
+            continue;
+        cross_nested_of_expr_on_sum_and_var(e, c, p.first, front);
+        c = copy_of_c;
+    }
+    TRACE("nla_cn", tout << "exit\n";);
+}
+// e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
+void horner::cross_nested_of_expr_on_sum_and_var(nex& e, nex& c, lpvar j, vector<nex*> & front) {
+    TRACE("nla_cn", tout << "e=" << e << "\nc = " << c << "\nj = v" << j << "\n";);
+    split_with_var(c, j, front);
+    cross_nested_of_expr(e, front);
+}
+
 template <typename T> 
-void horner::lemma_on_row(const T& row) {
+void horner::lemmas_on_row(const T& row) {
     if (!row_is_interesting(row))
         return;
-    nex e = create_expr_from_row(row);
-    TRACE("nla_cn", tout << "cross nested e = " << e << std::endl;
-          for (lpvar j: get_vars_of_expr(e)) {
-              print_var(j, tout);
-          }
-          );
-    interv a = interval_of_expr(e);
-    TRACE("nla_cn_details", tout << "interval a = ";  m_intervals.display(tout, a) << "\n";);
-    check_interval_for_conflict(a, row);
+    nex e = create_sum_from_row(row);
+    lemmas_on_expr(e);
 }
 
 void horner::horner_lemmas() {
@@ -57,15 +93,14 @@ void horner::horner_lemmas() {
         return;
     }
 
-    const auto& m = c().m_lar_solver.A_r();
-    unsigned r = random();
-    unsigned s = m.row_count();
-    for (unsigned i = 0; i < s && !done() ; i++) {
-        lemma_on_row(m.m_rows[((i + r) % s)]);
+    const auto& matrix = c().m_lar_solver.A_r();
+    for (unsigned i = 0; i < matrix.row_count(); i++) {
+        lemmas_on_row(matrix.m_rows[i]);
     }
 }
 
 nex horner::nexvar(lpvar j) const {
+    // todo: consider deepen the recursion
     if (!c().is_monomial_var(j))
         return nex::var(j);
     const monomial& m = c().emons()[j];
@@ -100,48 +135,20 @@ void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::
     }
 }
 
-// return a valid j if some variable appears more than once
-unsigned horner::random_most_occured_var(std::unordered_map<lpvar, unsigned>& occurences)  {
-    unsigned max = 0;
-    unsigned ret = -1;
-    unsigned n = 0;
-    for (const auto & p : occurences) {
-        if (p.second > max) {
-            n = 0;
-            max = p.second;
-            ret = p.first;
-        } else if (p.second == max) {
-            n++;
-            if (random() % n == 0) {
-                ret = p.first;
-            }
-        } 
-    }
-    if (max <= 1)
-        return -1;
-    SASSERT(ret + 1);
-    return ret;
-}
 
-
-// j -> the number of expressions j appears in
+// j -> the number of expressions j appears in as a multiplier
 void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<lpvar, unsigned>& occurences) const {
-    TRACE("nla_cn_details", tout << "e = " << e << std::endl;);    
     SASSERT(e.type() == expr_type::SUM);
     for (const auto & ce : e.children()) {
         std::unordered_set<lpvar> seen;
         if (ce.type() == expr_type::MUL) {
             for (const auto & cce : ce.children()) {
-                if (cce.type() == expr_type::SCALAR) {
-                }  else  if (cce.type() ==  expr_type::VAR) {
+                if (cce.type() ==  expr_type::VAR) {
                     process_var_occurences(cce.var(), seen, occurences);
                 } else if (cce.type() == expr_type::MUL) {
                     process_mul_occurences(cce, seen, occurences);
                 } else {
-                    TRACE("nla_cn_details", tout << "e = " << e << "\nce = " << ce << std::endl <<
-                          "ce type = " << ce.type() << std::endl;);
-                    
-                    SASSERT(false); // unexpected type
+                    continue;
                 }
             }
         } else if (ce.type() ==  expr_type::VAR) {
@@ -152,12 +159,18 @@ void horner::get_occurences_map(const nla_expr<rational>& e, std::unordered_map<
             SASSERT(false);
         }
     }
+    TRACE("nla_cn_details",
+          tout << "{";
+          for(auto p: occurences) {
+              tout << "(v" << p.first << "->" << p.second << ")";
+          }
+          tout << "}" << std::endl;);    
 }
 
-nex horner::split_with_var(const nex& e, lpvar j) {
-    TRACE("nla_cn_details", tout << "e = " << e << ", j = v" << j << "\n";);
+void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
+    TRACE("nla_cn", tout << "e = " << e << ", j = v" << j << "\n";);
     if (!e.is_sum())
-        return e;
+        return;
     nex a, b;
     for (const nex & ce: e.children()) {
         if ((ce.is_mul() && ce.contains(j)) || (ce.is_var() && ce.var() == j)) {
@@ -166,32 +179,45 @@ nex horner::split_with_var(const nex& e, lpvar j) {
             b.add_child(ce);
         }        
     }
-    if (a.children().size() == 1)
-        return e;
-    SASSERT(a.children().size());
     a.type() = expr_type::SUM;
+    TRACE("nla_cn", tout << "a = " << a << "\n";);
+    SASSERT(a.children().size() >= 2);
     
     if (b.children().size() == 1) {
         nex t = b.children()[0];
         b = t;      
     } else if (b.children().size() > 1) {
-        b.type() = expr_type::SUM;
+        b.type() = expr_type::SUM;        
     }
 
     if (b.is_undef()) {
         SASSERT(b.children().size() == 0);
-        nex r(expr_type::MUL);        
-        r.add_child(nex::var(j));
-        r.add_child(cross_nested_of_sum(a));
-        return r;
+        e = nex(expr_type::MUL);        
+        e.add_child(nex::var(j));
+        e.add_child(a);
+        if (a.size() > 1) {
+            front.push_back(&e.children().back());
+            TRACE("nla_cn", tout << "push to front " << e.children().back() << "\n";);
+        }
+      
+    } else {
+        TRACE("nla_cn", tout << "b = " << b << "\n";);
+        e = nex::sum(nex::mul(nex::var(j), a), b);
+        if (a.is_sum()) {
+            front.push_back(&(e.children()[0].children()[1]));
+            TRACE("nla_cn", tout << "push to front " << e.children()[0].children()[1] << "\n";);
+        }
+        if (b.is_sum()) {
+            front.push_back(&(e.children()[1]));
+            TRACE("nla_cn", tout << "push to front " << e.children()[1] << "\n";);
+}
     }
-    TRACE("nla_cn_details", tout << "b = " << b << "\n";);
-    return nex::sum(nex::mul(cross_nested_of_sum(a), nex::var(j)), cross_nested_of_sum(b));    
 }
 
-nex horner::cross_nested_of_sum(const nex& e) {
+nex horner::cross_nested_of_sum(const nex& e, lpvar j) {
     if (!e.is_sum())
         return e;
+    /*
     std::unordered_map<lpvar, unsigned>  occurences;
     get_occurences_map(e, occurences);
     lpvar j = random_most_occured_var(occurences);
@@ -204,28 +230,22 @@ nex horner::cross_nested_of_sum(const nex& e) {
           tout << std::endl << "most occured = v" << j << std::endl;);
     nex ret = split_with_var(e, j);
     TRACE("nla_cn_details", tout << "ret =" << ret << "\n";);
-    return ret;
+    return ret;*/
+    SASSERT(false);
+    return nex();
 }
 
-template <typename T> nex horner::create_expr_from_row(const T& row) {
+template <typename T> nex horner::create_sum_from_row(const T& row) {
     TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";);
-    nex e;
-    if (row.size() > 1) {
-        e.type() = expr_type::SUM;
-        for (const auto &p : row) {
-            e.add_child(nex::mul(p.coeff(), nexvar(p.var())));
-        }
-        return cross_nested_of_sum(e);
+    SASSERT(row.size() > 1);
+    nex e(expr_type::SUM);
+    for (const auto &p : row) {
+        e.add_child(nex::mul(p.coeff(), nexvar(p.var())));
     }
-    if (row.size() == 1) {
-        const auto &p  = *row.begin();
-        return nex::mul(p.coeff(), nexvar(p.var()));
-    }
-    SASSERT(false);
     return e;
 }
-template <typename T>
-std::set<lpvar> horner::get_vars_of_expr(const nla_expr<T> &e ) const {
+
+std::set<lpvar> horner::get_vars_of_expr(const nex &e ) const {
     std::set<lpvar> r;
     switch (e.type()) {
     case expr_type::SCALAR:
@@ -249,8 +269,7 @@ std::set<lpvar> horner::get_vars_of_expr(const nla_expr<T> &e ) const {
 
 }
 
-template <typename T>
-void horner::set_interval_for_scalar(interv& a, const T& v) {
+void horner::set_interval_for_scalar(interv& a, const rational& v) {
     m_intervals.set_lower(a, v);
     m_intervals.set_upper(a, v);
     m_intervals.set_lower_is_open(a, false);
@@ -280,8 +299,8 @@ interv horner::interval_of_expr(const nex& e) {
         return interv();
     }
 }
-template <typename T>
-interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {    
+
+interv horner::interval_of_mul(const vector<nex>& es) {    
     interv a = interval_of_expr(es[0]);
     //    std::cout << "a" << std::endl;
     TRACE("nla_cn_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); tout << "\n";);
@@ -307,8 +326,7 @@ interv horner::interval_of_mul(const vector<nla_expr<T>>& es) {
     return a;
 }
 
-template <typename T>
-interv horner::interval_of_sum(const vector<nla_expr<T>>& es) {
+interv horner::interval_of_sum(const vector<nex>& es) {
     interv a = interval_of_expr(es[0]);
     TRACE("nla_cn_details", tout << "es[0]= "  << es[0] << "\n"; m_intervals.display(tout, a) << "\n";);
     if (m_intervals.is_inf(a)) {
@@ -345,11 +363,5 @@ void horner::set_var_interval(lpvar v, interv& b) {
     
     TRACE("nla_cn_details", tout << "v = "; print_var(v, tout) << "\n"; m_intervals.display(tout, b)<< '\n';);
     
-}
-template <typename T> 
-void horner::check_interval_for_conflict(const interv& i, const T& row) {
-    if (m_intervals.check_interval_for_conflict_on_zero(i)) {
-        TRACE("nla_cn", print_lemma(tout););
-    }
 }
 }
