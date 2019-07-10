@@ -456,6 +456,32 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             st = BR_DONE;
         }
     }
+    expr* e1 = nullptr, *e2 = nullptr;
+    if (m_util.is_div(arg1, e1, e2) && (!is_numeral(e2, a2) || !a2.is_zero())) {
+        new_arg1 = e1;
+        new_arg2 = m_util.mk_mul(e2, arg2);
+        expr_ref zero(m_util.mk_numeral(rational(0), m_util.is_int(arg1)), m());
+        expr_ref is_zero(m().mk_eq(zero, e2), m());
+        expr_ref div0(m_util.mk_div(e1, zero), m());
+        expr_ref mul2(m_util.mk_mul(e2, arg2), m());
+        switch (kind) {
+        case LE: 
+            result = m().mk_or(
+                m().mk_and(is_zero, m_util.mk_le(div0, arg2)),
+                m().mk_and(m_util.mk_gt(e2, zero), m_util.mk_le(e1, mul2)),
+                m().mk_and(m_util.mk_lt(e2, zero), m_util.mk_ge(e1, mul2)));
+            return BR_REWRITE2;
+        case GE: 
+            result = m().mk_or(
+                m().mk_and(is_zero, m_util.mk_ge(div0, arg2)),
+                m().mk_and(m_util.mk_gt(e2, zero), m_util.mk_ge(e1, mul2)),
+                m().mk_and(m_util.mk_lt(e2, zero), m_util.mk_le(e1, mul2)));
+            return BR_REWRITE2;
+        case EQ: 
+            result = m().mk_ite(is_zero, m().mk_eq(div0, arg2), m().mk_eq(e1, mul2));
+            return BR_REWRITE2;
+        }        
+    }
     if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
         a2.neg();
         new_arg2 = m_util.mk_numeral(a2, m_util.is_int(new_arg1));
