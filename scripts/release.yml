@@ -75,23 +75,15 @@ jobs:
     inputs:
       gitHubConnection: Z3GitHub
       repositoryName: 'Z3Prover/z3'
-      action: 'delete'
-      target: '$(Build.SourceVersion)'
-      tagSource: 'manual'
-      tag: 'Nightly'
-  - task: GitHubRelease@0
-    inputs:
-      gitHubConnection: Z3GitHub
-      repositoryName: 'Z3Prover/z3'
       action: 'create'
       target: '$(Build.SourceVersion)'
       tagSource: 'manual'
-      tag: 'Nightly'
-      title: 'Nightly'
+      tag: 'z3-4.8.6'
+      title: 'z3-4.8.6'
       releaseNotesSource: 'input'
-      releaseNotes: 'nightly build'
+      releaseNotes: '4.8.6 release'
       assets: 'tmp/*'
-      isDraft: false
+      isDraft: true
       isPreRelease: true
 
 
