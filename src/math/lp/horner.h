@@ -50,8 +50,8 @@ public:
     void set_interval_for_scalar(intervals::interval&, const rational&);
     std::set<lpvar> get_vars_of_expr(const nex &) const;
     void lemmas_on_expr(nex &);
-    void cross_nested_of_expr(nex& , vector<nex*> front);
-    void cross_nested_of_expr_on_front_elem(nex& , nex&, vector<nex*> front);
-    void cross_nested_of_expr_on_sum_and_var(nex& , nex&, lpvar, vector<nex*> front);
+    void cross_nested_of_expr(nex& , vector<nex*>& front);
+    void cross_nested_of_expr_on_front_elem(nex& , nex*, vector<nex*>& front);
+    void cross_nested_of_expr_on_sum_and_var(nex& , nex*, lpvar, vector<nex*>& front);
 }; // end of horner
 }
