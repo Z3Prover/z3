@@ -29,6 +29,12 @@ std::ostream& print_vector(const C & t, std::ostream & out) {
         out << p << " ";
     return out;
 }
+template <typename C>
+std::ostream& print_vector_of_ptrs(const C & t, std::ostream & out) {
+    for (const auto & p : t)
+        out << (*p) << ", ";
+    return out;
+}
 
 template <typename C, typename D>
 bool contains(const C & collection, const D & key) {
