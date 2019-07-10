@@ -21,7 +21,6 @@
 #include "math/lp/horner.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/lp_utils.h"
-
 namespace nla {
 typedef nla_expr<rational> nex;
 typedef intervals::interval interv;
@@ -39,48 +38,59 @@ bool horner::row_is_interesting(const T& row) const {
 }
 
 void horner::lemmas_on_expr(nex& e) {
+    TRACE("nla_cn", tout << "e = " << e << "\n";);    
     vector<nex*> front;
     front.push_back(&e);
     cross_nested_of_expr(e, front);
 }
 
-void horner::cross_nested_of_expr(nex& e, vector<nex*> front) {
-    TRACE("nla_cn", tout << "e = " << e << ", front has " << front.size() << "\n";);
-    while (!front.empty()) {
-        nex& c = *front.back();
-        front.pop_back();
-        cross_nested_of_expr_on_front_elem(e, c, front);        
-    }
-    TRACE("nla_cn", tout << "empty front: e=" << "\n";);
-     
+nex* pop_back(vector<nex*>& front) {
+    nex* c = front.back();
+    front.pop_back();
+    return c;
 }
 
-void horner::cross_nested_of_expr_on_front_elem(nex& e, nex& c, vector<nex*> front) {
-    TRACE("nla_cn", tout << "e=" << e << "\nc=" << c << "\n";);
-    SASSERT(c.is_sum());
-    auto occurences = get_mult_occurences(c);
-    if (occurences.empty() && front.empty()) {
-        TRACE("nla_cn", tout << "empty front: e=" << e << "\n";);        
-        auto i = interval_of_expr(e);
-        m_intervals.check_interval_for_conflict_on_zero(i);
+void horner::cross_nested_of_expr(nex& e, vector<nex*>& front) {
+    TRACE("nla_cn", tout << "e = " << e << ", front:"; print_vector_of_ptrs(front, tout) << "\n";);
+    while (!front.empty()) {
+        nex* c = pop_back(front);
+        cross_nested_of_expr_on_front_elem(e, c, front);        
+    }
+}
+
+void horner::cross_nested_of_expr_on_front_elem(nex& e, nex* c, vector<nex*>& front) {
+    SASSERT(c->is_sum());
+    vector<lpvar> occurences = get_mult_occurences(*c);
+    TRACE("nla_cn", tout << "e=" << e << "\nc=" << *c << "\noccurences="; print_vector(occurences, tout) << "\nfront:"; print_vector_of_ptrs(front, tout) << "\n";);
+    
+    if (occurences.empty()) {
+        if(front.empty()) {
+            TRACE("nla_cn", tout << "empty front: e=" << e << "\n";);        
+            auto i = interval_of_expr(e);
+            m_intervals.check_interval_for_conflict_on_zero(i);
+        } else {
+            nex* c = pop_back(front);
+            cross_nested_of_expr_on_front_elem(e, c, front);     
+        }
     } else {
-        nex copy_of_c = c;
+        TRACE("nla_cn", tout << "save c=" << *c << "front:"; print_vector_of_ptrs(front, tout) << "\n";);           
+        nex copy_of_c = *c;
         for(lpvar j : occurences) {
             cross_nested_of_expr_on_sum_and_var(e, c, j, front);
-            c = copy_of_c;
+            *c = copy_of_c;
+            TRACE("nla_cn", tout << "restore c=" << *c << ", e=" << e << "\n";);   
         }
     }
     TRACE("nla_cn", tout << "exit\n";);
 }
 // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
-void horner::cross_nested_of_expr_on_sum_and_var(nex& e, nex& c, lpvar j, vector<nex*> front) {
-    TRACE("nla_cn", tout << "e=" << e << "\nc=" << c << "\nj = v" << j << "\n";);
-    split_with_var(c, j, front);
-    TRACE("nla_cn", tout << "after split c=" << c << "\n";);    
+void horner::cross_nested_of_expr_on_sum_and_var(nex& e, nex* c, lpvar j, vector<nex*>& front) {
+    TRACE("nla_cn", tout << "e=" << e << "\nc=" << *c << "\nj = v" << j << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
+    split_with_var(*c, j, front);
+    TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);    
     do {
-        nex& c = *front.back();
-        front.pop_back();
-        cross_nested_of_expr_on_front_elem(e, c, front);
+        nex* n = pop_back(front);
+        cross_nested_of_expr_on_front_elem(e, n, front);
     } while (!front.empty());
 }
 
@@ -166,7 +176,7 @@ vector<lpvar> horner::get_mult_occurences(const nex& e) const {
             SASSERT(false);
         }
     }
-    TRACE("nla_cn",
+    TRACE("nla_cn_details",
           tout << "{";
           for(auto p: occurences) {
               tout << "(v" << p.first << "->" << p.second << ")";
@@ -181,7 +191,7 @@ vector<lpvar> horner::get_mult_occurences(const nex& e) const {
 }
 
 void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
-    TRACE("nla_cn", tout << "e = " << e << ", j = v" << j << "\n";);
+    TRACE("nla_cn_details", tout << "e = " << e << ", j = v" << j << "\n";);
     if (!e.is_sum())
         return;
     nex a, b;
@@ -193,7 +203,7 @@ void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
         }        
     }
     a.type() = expr_type::SUM;
-    TRACE("nla_cn", tout << "a = " << a << "\n";);
+    TRACE("nla_cn_details", tout << "a = " << a << "\n";);
     SASSERT(a.children().size() >= 2);
     
     if (b.children().size() == 1) {
@@ -210,20 +220,20 @@ void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
         e.add_child(a);
         if (a.size() > 1) {
             front.push_back(&e.children().back());
-            TRACE("nla_cn", tout << "push to front " << e.children().back() << "\n";);
+            TRACE("nla_cn_details", tout << "push to front " << e.children().back() << "\n";);
         }
       
     } else {
-        TRACE("nla_cn", tout << "b = " << b << "\n";);
+        TRACE("nla_cn_details", tout << "b = " << b << "\n";);
         e = nex::sum(nex::mul(nex::var(j), a), b);
         if (a.is_sum()) {
             front.push_back(&(e.children()[0].children()[1]));
-            TRACE("nla_cn", tout << "push to front " << e.children()[0].children()[1] << "\n";);
+            TRACE("nla_cn_details", tout << "push to front " << e.children()[0].children()[1] << "\n";);
         }
         if (b.is_sum()) {
             front.push_back(&(e.children()[1]));
-            TRACE("nla_cn", tout << "push to front " << e.children()[1] << "\n";);
-}
+            TRACE("nla_cn_details", tout << "push to front " << e.children()[1] << "\n";);
+        }
     }
 }
 
