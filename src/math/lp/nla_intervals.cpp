@@ -90,6 +90,7 @@ bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
      svector<lp::constraint_index> expl;
      m_dep_manager.linearize(i.m_upper_dep, expl); 
      _().current_expl().add_expl(expl);
+     TRACE("nla_cn", print_lemma(tout););
      return true;
 }
 
