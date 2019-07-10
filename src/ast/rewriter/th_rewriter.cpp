@@ -34,6 +34,8 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
+#include "ast/ast.h"
+#include <map>
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
@@ -557,6 +559,28 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return BR_DONE;
     }
 
+    void count_subterm_references(expr * e, map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> & reference_map) {
+        if (is_app(e)) {
+            app * a = to_app(e);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                expr * child = a->get_arg(i);
+                reference_map.insert(child, reference_map.get(child, 0) + 1);
+            }
+        }
+    }
+
+    void log_enodes_for_new_terms(expr *term) {
+        map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> reference_map;
+        count_subterm_references(term, reference_map);
+
+        // Any term that was newly introduced by the rewrite step is only referenced within the result term.
+        for (auto kv : reference_map) {
+            if (kv.m_key->get_ref_count() == kv.m_value) {
+                m().trace_stream() << "[attach-enode] #" << kv.m_key->get_id() << " 0\n";
+            }
+        }
+    }
+
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         br_status st = reduce_app_core(f, num, args, result);
@@ -581,8 +605,15 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
                 result_pr = m().mk_rewrite(tmp, result);
             tmp = m().mk_eq(tmp, result);
             m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
-            m().trace_stream() << "[attach-enode] #" << result->get_id() << " 0\n";
-            m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
+
+            // Make sure that both the result term and equality were newly introduced.
+            if (tmp->get_ref_count() == 1) {
+                if (result->get_ref_count() == 1) {
+                    log_enodes_for_new_terms(result);
+                    m().trace_stream() << "[attach-enode] #" << result->get_id() << " 0\n";
+                }
+                m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
+            }
             m().trace_stream() << "[end-of-instance]\n";
             m().trace_stream().flush();
         }
