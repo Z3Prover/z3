@@ -34,8 +34,6 @@ Notes:
 #include "ast/ast_pp.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
-#include "ast/ast.h"
-#include <map>
 
 namespace {
 struct th_rewriter_cfg : public default_rewriter_cfg {
