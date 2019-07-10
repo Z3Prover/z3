@@ -70,6 +70,7 @@ jobs:
      artifactName: 'Ubuntu'
      targetPath: tmp
   - task: CopyFiles@2
+    inputs:
      sourceFolder: $(Build.ArtifactStagingDirectory)
      targetFilder: tmp
 # TBD: build NuGet package
