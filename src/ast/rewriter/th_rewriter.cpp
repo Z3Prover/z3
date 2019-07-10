@@ -574,7 +574,7 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> reference_map;
         count_down_subterm_references(term, reference_map);
 
-        // Any term that was newly introduced by the rewrite step is only referenced within the result term.
+        // Any term that was newly introduced by the rewrite step is only referenced within / reachable from the result term.
         for (auto kv : reference_map) {
             if (kv.m_value == 0) {
                 m().trace_stream() << "[attach-enode] #" << kv.m_key->get_id() << " 0\n";
