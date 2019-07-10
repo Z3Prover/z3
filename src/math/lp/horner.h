@@ -52,6 +52,7 @@ public:
     void lemmas_on_expr(nex &);
     void cross_nested_of_expr(nex& , vector<nex*>& front);
     void cross_nested_of_expr_on_front_elem(nex& , nex*, vector<nex*>& front);
-    void cross_nested_of_expr_on_sum_and_var(nex& , nex*, lpvar, vector<nex*>& front);
+    void cross_nested_of_expr_on_sum_and_var(nex& , nex*, lpvar, vector<nex*>& front);    
+    bool can_be_cross_nested_more(const nex&) const;
 }; // end of horner
 }

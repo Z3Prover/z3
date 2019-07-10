@@ -65,7 +65,8 @@ void horner::cross_nested_of_expr_on_front_elem(nex& e, nex* c, vector<nex*>& fr
     
     if (occurences.empty()) {
         if(front.empty()) {
-            TRACE("nla_cn", tout << "empty front: e=" << e << "\n";);        
+            TRACE("nla_cn", tout << "got the cn form: e=" << e << "\n";);
+            SASSERT(!can_be_cross_nested_more(e));
             auto i = interval_of_expr(e);
             m_intervals.check_interval_for_conflict_on_zero(i);
         } else {
@@ -140,14 +141,11 @@ void process_var_occurences(lpvar j, std::unordered_set<lpvar>& seen, std::unord
 void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::unordered_map<lpvar, unsigned>& occurences) {
     SASSERT(e.type() == expr_type::MUL);
     for (const auto & ce : e.children()) {
-        if (ce.type() == expr_type::SCALAR) {
-        } else  if (ce.type() ==  expr_type::VAR) {
+         if (ce.type() ==  expr_type::VAR) {
             process_var_occurences(ce.var(), seen, occurences);
         } else if (ce.type() ==  expr_type::MUL){
             process_mul_occurences(ce, seen, occurences);
-        } else {        
-            SASSERT(false); // unexpected type
-        }
+        } 
     }
 }
 
@@ -170,10 +168,6 @@ vector<lpvar> horner::get_mult_occurences(const nex& e) const {
             }
         } else if (ce.type() ==  expr_type::VAR) {
             process_var_occurences(ce.var(), seen, occurences);
-        } else if (ce.type() == expr_type::SCALAR) {
-        } else {            
-            TRACE("nla_cn_details", tout << "unexpected expression ce = " << ce << std::endl;);            
-            SASSERT(false);
         }
     }
     TRACE("nla_cn_details",
@@ -189,7 +183,29 @@ vector<lpvar> horner::get_mult_occurences(const nex& e) const {
     }
     return r;
 }
-
+bool horner::can_be_cross_nested_more(const nex& e) const {
+    switch (e.type()) {
+    case expr_type::SCALAR:
+        return false;
+    case expr_type::SUM: {
+        return !get_mult_occurences(e).empty();
+    }
+    case expr_type::MUL:
+        {
+            for (const auto & c: e.children()) {
+                if (can_be_cross_nested_more(c))
+                    return true;
+            }
+            return false;
+        }
+    case expr_type::VAR:
+        return false;
+    default:
+        TRACE("nla_cn_details", tout << e.type() << "\n";);
+        SASSERT(false);
+        return false;
+    }
+}
 void horner::split_with_var(nex& e, lpvar j, vector<nex*> & front) {
     TRACE("nla_cn_details", tout << "e = " << e << ", j = v" << j << "\n";);
     if (!e.is_sum())
