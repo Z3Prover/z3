@@ -184,7 +184,7 @@ tactic * mk_preamble_tactic(ast_manager& m) {
     pull_ite_p.set_bool("push_ite_arith", false);
     pull_ite_p.set_bool("local_ctx", true);
     pull_ite_p.set_uint("local_ctx_limit", 10000000);
-
+    pull_ite_p.set_bool("hoist_ite", true);
 
     params_ref ctx_simp_p;
     ctx_simp_p.set_uint("max_depth", 30);
