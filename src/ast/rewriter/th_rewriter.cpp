@@ -557,23 +557,26 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return BR_DONE;
     }
 
-    void count_subterm_references(expr * e, map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> & reference_map) {
+    void count_down_subterm_references(expr * e, map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> & reference_map) {
         if (is_app(e)) {
             app * a = to_app(e);
             for (unsigned i = 0; i < a->get_num_args(); ++i) {
                 expr * child = a->get_arg(i);
-                reference_map.insert(child, reference_map.get(child, 0) + 1);
+                unsigned countdown = reference_map.get(child, child->get_ref_count()) - 1;
+                reference_map.insert(child,  countdown);
+                if (countdown == 0)
+                    count_down_subterm_references(child, reference_map);
             }
         }
     }
 
     void log_enodes_for_new_terms(expr *term) {
         map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> reference_map;
-        count_subterm_references(term, reference_map);
+        count_down_subterm_references(term, reference_map);
 
         // Any term that was newly introduced by the rewrite step is only referenced within the result term.
         for (auto kv : reference_map) {
-            if (kv.m_key->get_ref_count() == kv.m_value) {
+            if (kv.m_value == 0) {
                 m().trace_stream() << "[attach-enode] #" << kv.m_key->get_id() << " 0\n";
             }
         }
