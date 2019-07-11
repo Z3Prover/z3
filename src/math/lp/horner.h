@@ -28,9 +28,9 @@ class core;
 
 
 class horner : common {
-    typedef nla_expr<rational> nex;
     intervals m_intervals;
 public:
+    typedef nla_expr<rational> nex;
     
     horner(core *core);
     void horner_lemmas();

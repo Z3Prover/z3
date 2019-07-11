@@ -55,6 +55,7 @@
 #include "math/lp/general_matrix.h"
 #include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
+#include "math/lp/horner.h"
 namespace nla {
 void test_order_lemma();
 void test_monotone_lemma();
@@ -64,6 +65,17 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors();
 void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
+
+void test_cn() {
+    typedef horner::nex nex;
+    enable_trace("nla_cn");
+
+    nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
+    nex aad = nex::mul(a, a, d);
+    
+    
+}
+
 }
 
 namespace lp {
@@ -71,7 +83,7 @@ unsigned seed = 1;
 
 class my_bound_propagator : public lp_bound_propagator {
 public:
-    my_bound_propagator(lar_solver & ls): lp_bound_propagator(ls, nullptr) {}
+    my_bound_propagator(lar_solver & ls): lp_bound_propagator(ls) {}
     void consume(mpq const& v, lp::constraint_index j) override {}
 };
 
@@ -1907,6 +1919,7 @@ void test_replace_column() {
 
 
 void setup_args_parser(argument_parser & parser) {
+    parser.add_option_with_help_string("-nla_cn", "test cross nornmal form");
     parser.add_option_with_help_string("-nla_blfmz_mf", "test_basic_lemma_for_mon_zero_from_factor_to_monomial");
     parser.add_option_with_help_string("-nla_blfmz_fm", "test_basic_lemma_for_mon_zero_from_monomials_to_factor");
     parser.add_option_with_help_string("-nla_order", "test nla_solver order lemma");
@@ -3570,6 +3583,7 @@ void test_nla_order_lemma() {
     nla::test_order_lemma();
 }
 
+
 void test_lp_local(int argn, char**argv) {
     
     // initialize_util_module();
@@ -3586,6 +3600,13 @@ void test_lp_local(int argn, char**argv) {
 
     args_parser.print();
     
+    if (args_parser.option_is_used("-nla_cn")) {
+#ifdef Z3DEBUG
+        nla::test_cn();
+#endif
+        return finalize(0);
+    }
+
     if (args_parser.option_is_used("-nla_order")) {
 #ifdef Z3DEBUG
         test_nla_order_lemma();
