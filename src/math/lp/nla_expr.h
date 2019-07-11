@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #pragma once
+#include <initializer_list>
 #include "math/lp/nla_defs.h"
 namespace nla {
 enum class expr_type { SUM, MUL, VAR, SCALAR, UNDEF };
@@ -157,21 +158,33 @@ public:
         m_children.push_back(e);
     }
 
-    
-    static nla_expr sum(const nla_expr& v, const nla_expr & w) {
-        nla_expr r(expr_type::SUM);
-        r.add_child(v);
-        r.add_child(w);
-        return r;
+    void add_child(const T& k) {
+        m_children.push_back(scalar(k));
     }
-    static nla_expr mul(const nla_expr& v, const nla_expr & w) {
-        nla_expr r(expr_type::MUL);
-        r.add_child(v);
-        r.add_child(w);
+
+    void add_children() { }
+
+    template <typename K, typename ...Args>
+    void add_children(K e, Args ...  es) {
+        add_child(e);
+        add_children(es ...);
+    }
+
+    template <typename K, typename ... Args>
+    static nla_expr sum(K e, Args ... es) {
+        nla_expr r(expr_type::SUM);
+        r.add_children(e, es...);
         return r;
     }
 
-    static nla_expr mul(const T& v, const nla_expr & w) {
+    template <typename K, typename ... Args>
+    static nla_expr mul(K e, Args ... es) {
+        nla_expr r(expr_type::MUL);
+        r.add_children(e, es...);
+        return r;
+    }
+
+    static nla_expr mul(const T& v, nla_expr & w) {
         if (v == 1)
             return w;
         nla_expr r(expr_type::MUL);
