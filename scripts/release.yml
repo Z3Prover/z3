@@ -72,7 +72,7 @@ jobs:
   - task: CopyFiles@2
     inputs:
      sourceFolder: $(Build.ArtifactStagingDirectory)
-     targetFilder: tmp
+     targetFolder: tmp
 # TBD: build NuGet package
 # TBD: this script should build a specific pre-specified tag
   - task: GitHubRelease@0
