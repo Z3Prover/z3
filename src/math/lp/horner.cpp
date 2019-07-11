@@ -39,23 +39,15 @@ bool horner::row_is_interesting(const T& row) const {
 
 void horner::lemmas_on_expr(nex& e) {
     TRACE("nla_cn", tout << "e = " << e << "\n";);    
+    TRACE("nla_cn_cn", tout << "e = " << e << "\n";);    
     vector<nex*> front;
-    front.push_back(&e);
-    cross_nested_of_expr(e, front);
+    cross_nested_of_expr_on_front_elem(e, &e, front);
 }
 
 nex* pop_back(vector<nex*>& front) {
     nex* c = front.back();
     front.pop_back();
     return c;
-}
-
-void horner::cross_nested_of_expr(nex& e, vector<nex*>& front) {
-    TRACE("nla_cn", tout << "e = " << e << ", front:"; print_vector_of_ptrs(front, tout) << "\n";);
-    while (!front.empty()) {
-        nex* c = pop_back(front);
-        cross_nested_of_expr_on_front_elem(e, c, front);        
-    }
 }
 
 void horner::cross_nested_of_expr_on_front_elem(nex& e, nex* c, vector<nex*>& front) {
@@ -65,7 +57,7 @@ void horner::cross_nested_of_expr_on_front_elem(nex& e, nex* c, vector<nex*>& fr
     
     if (occurences.empty()) {
         if(front.empty()) {
-            TRACE("nla_cn", tout << "got the cn form: e=" << e << "\n";);
+            TRACE("nla_cn_cn", tout << "got the cn form: e=" << e << "\n";);
             SASSERT(!can_be_cross_nested_more(e));
             auto i = interval_of_expr(e);
             m_intervals.check_interval_for_conflict_on_zero(i);
