@@ -69,6 +69,10 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
+  - task: CopyFiles@2
+    inputs:
+     sourceFolder: $(Build.ArtifactStagingDirectory)
+     targetFolder: tmp
 # TBD: build NuGet package
 # TBD: this script should build a specific pre-specified tag
   - task: GitHubRelease@0

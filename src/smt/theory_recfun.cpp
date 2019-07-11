@@ -88,7 +88,11 @@ namespace smt {
         // the internalization of the arguments may have triggered the internalization of term.
         if (!ctx().e_internalized(term)) {            
             ctx().mk_enode(term, false, false, true);
+            if (!ctx().relevancy() && u().is_defined(term)) {
+                push_case_expand(alloc(case_expansion, u(), term));
+            }
         }
+
         return true; 
     }
 
@@ -117,8 +121,8 @@ namespace smt {
      */
     void theory_recfun::relevant_eh(app * n) {
         SASSERT(ctx().relevancy());
+        TRACEFN("relevant_eh: (defined) " <<  u().is_defined(n) << " " << mk_pp(n, m));        
         if (u().is_defined(n) && u().has_defs()) {
-            TRACEFN("relevant_eh: (defined) " <<  mk_pp(n, m));        
             push_case_expand(alloc(case_expansion, u(), n));
         }
     }
