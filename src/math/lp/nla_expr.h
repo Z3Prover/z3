@@ -119,7 +119,7 @@ public:
         case expr_type::MUL:
             return print_mul(out);
         case expr_type::VAR:
-            out << "v" << m_j;
+            out << static_cast<char>('a'+m_j);
             return out;
         case expr_type::SCALAR:
             out << m_v;
@@ -223,6 +223,51 @@ public:
         return false;
     }    
 };
+template <typename T> 
+nla_expr<T> operator+(const nla_expr<T>& a, const nla_expr<T>& b) {
+    if (a.is_sum()) {
+        nla_expr<T> r(expr_type::SUM);
+        r.children() = a.children();
+        if (b.is_sum()) {
+            for (auto& e: b.children())
+                r.add_child(e);
+        } else {
+            r.add_child(b);
+        }
+        return r;
+    }
+    if (b.is_sum()) {
+        nla_expr<T> r(expr_type::SUM);
+        r.children() = b.children();
+        r.add_child(a);
+        return r;
+    }
+    return nla_expr<T>::sum(a, b);
+}
+
+template <typename T> 
+nla_expr<T> operator*(const nla_expr<T>& a, const nla_expr<T>& b) {
+    if (a.is_mul()) {
+        nla_expr<T> r(expr_type::MUL);
+        r.children() = a.children();
+        if (b.is_mul()) {
+            for (auto& e: b.children())
+                r.add_child(e);
+        } else {
+            r.add_child(b);
+        }
+        return r;
+    }
+    if (b.is_mul()) {
+        nla_expr<T> r(expr_type::MUL);
+        r.children() = b.children();
+        r.add_child(a);
+        return r;
+    }
+    return nla_expr<T>::mul(a, b);
+}
+
+
 template <typename T> 
 nla_expr<T> operator/(const nla_expr<T>& a, lpvar j) {
     SASSERT((a.is_mul() && a.contains(j)) || (a.is_var() && a.var() == j));
