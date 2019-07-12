@@ -189,5 +189,4 @@ void horner::set_var_interval(lpvar v, interv& b) {
     
 }
 }
- auto i = interval_of_expr(e);
-                m_intervals.check_interval_for_conflict_on_zero(i);
+
