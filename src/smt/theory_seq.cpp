@@ -2481,6 +2481,7 @@ bool theory_seq::is_var(expr* a) const {
         !m_util.str.is_string(a) &&
         !m_util.str.is_unit(a) &&
         !m_util.str.is_itos(a) && 
+        // !m_util.str.is_extract(a) && 
         !m.is_ite(a);
 }
 
@@ -4941,6 +4942,7 @@ this translates to:
   i >= |s| => |e| = 0
   i < 0 => |e| = 0
   l <= 0 => |e| = 0
+  |e| = 0 => i < 0 | l <= 0 | i >= |s|
 
   It follows that: 
   |e| = min(l, |s| - i) for 0 <= i < |s| and 0 < |l|
@@ -4952,7 +4954,6 @@ void theory_seq::add_extract_axiom(expr* e) {
     TRACE("seq", tout << mk_pp(e, m) << "\n";);
     expr* s = nullptr, *i = nullptr, *l = nullptr;
     VERIFY(m_util.str.is_extract(e, s, i, l));
-#if 0
     if (is_tail(s, i, l)) {
         add_tail_axiom(e, s);
         return;
@@ -4969,7 +4970,6 @@ void theory_seq::add_extract_axiom(expr* e) {
         add_extract_suffix_axiom(e, s, i);
         return;
     }
-#endif
     expr_ref x(mk_skolem(m_pre, s, i), m);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
@@ -4995,6 +4995,7 @@ void theory_seq::add_extract_axiom(expr* e) {
     add_axiom(i_ge_0,   le_is_0);
     add_axiom(ls_le_i,  le_is_0);
     add_axiom(~ls_le_0, le_is_0);
+    add_axiom(~le_is_0, ~i_ge_0, ~ls_le_i, ls_le_0);
 }
 
 void theory_seq::add_tail_axiom(expr* e, expr* s) {
