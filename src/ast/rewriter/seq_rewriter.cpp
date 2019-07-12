@@ -724,7 +724,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
             t2 = m_autil.mk_add(t2, m_util.str.mk_length(rhs));
         }
         for (expr* rhs : other) {
-            t2 = m_autil.mk_add(t2, m_util.str.mk_length(rhs));
+            t2 = m_autil.mk_add(t2, rhs);
         }
         result = m_util.str.mk_substr(t1, t2, c);
         return BR_REWRITE2;
