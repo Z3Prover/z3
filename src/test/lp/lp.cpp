@@ -56,6 +56,7 @@
 #include "math/lp/lp_bound_propagator.h"
 #include "math/lp/nla_solver.h"
 #include "math/lp/horner.h"
+#include "math/lp/cross_nested.h"
 namespace nla {
 void test_order_lemma();
 void test_monotone_lemma();
@@ -73,9 +74,11 @@ void test_cn() {
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
     nex t = a*a*d + a*b*c*d + a*c*c*d + e*a*e + e*a*c + e*d;
     TRACE("nla_cn", tout << "t=" << t << '\n';);
+    cross_nested cn(t, [](const nex& n) { std::cout << n << "\n"; } );
+    cn.run();
 }
 
-}
+} // end of namespace nla
 
 namespace lp {
 unsigned seed = 1;
