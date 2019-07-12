@@ -93,9 +93,9 @@ namespace qe {
                 check_cancel();
                 init_assumptions();   
                 lbool res = m_solver.check(m_asms);
+                TRACE("qe", display(tout); );
                 switch (res) {
                 case l_true:
-                    TRACE("qe", display(tout); );
                     save_model();
                     push();
                     break;
@@ -306,6 +306,7 @@ namespace qe {
             }
             nlsat::literal l(v, false);
             m_preds[k].push_back(l);
+            m_solver.inc_ref(v);
             m_bvar2level.insert(v, level);            
             TRACE("qe", m_solver.display(tout, l); tout << ": " << level << "\n";);
         }
@@ -412,6 +413,7 @@ namespace qe {
             nlsat::bool_var b = m_solver.mk_bool_var();
             clause.push_back(nlsat::literal(b, true));
             m_assumptions.push_back(nlsat::literal(b, false)); 
+            m_solver.inc_ref(b);
             m_asm2fml.insert(b, fml);
             m_trail.push_back(fml);            
             m_bvar2level.insert(b, max_level());
@@ -562,6 +564,9 @@ namespace qe {
             m_bound_rvars.reset();
             m_bound_bvars.reset();
             m_preds.reset();
+            for (auto const& kv : m_bvar2level) {
+                m_solver.dec_ref(kv.m_key);
+            }
             m_rvar2level.reset();
             m_bvar2level.reset();
             m_t2x.reset();

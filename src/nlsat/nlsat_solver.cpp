@@ -473,6 +473,7 @@ namespace nlsat {
         }
 
         void del(bool_var b) {
+            TRACE("nlsat", tout << "del " << b << "\n";);
             SASSERT(m_bwatches[b].empty());
             //SASSERT(m_bvalues[b] == l_undef);
             m_num_bool_vars--;
