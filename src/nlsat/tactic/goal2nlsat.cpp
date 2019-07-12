@@ -251,6 +251,7 @@ struct goal2nlsat::imp {
     }
 
     void operator()(goal const & g) {
+        TRACE("goal2nlsat", g.display(tout););
         if (has_term_ite(g))
             throw tactic_exception("eliminate term-ite before applying nlsat");
         unsigned sz = g.size();

@@ -165,7 +165,7 @@ namespace qe {
                 lits.push_back(~l);
                 break;
             default:
-                UNREACHABLE();
+                lits.push_back(l);
                 break; 
             }
         }

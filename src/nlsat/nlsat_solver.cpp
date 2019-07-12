@@ -995,7 +995,7 @@ namespace nlsat {
             unsigned sz = cls.size();
             for (unsigned i = 0; i < sz; i++) {
                 literal l = cls[i];
-                SASSERT(m_atoms[l.var()] == 0);
+                SASSERT(m_atoms[l.var()] == nullptr);
                 SASSERT(value(l) != l_true);
                 if (value(l) == l_false)
                     continue;
@@ -1085,13 +1085,13 @@ namespace nlsat {
                 checkpoint();
                 if (value(l) == l_false)
                     continue;
+                TRACE("nlsat_inf_set", tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l); tout << "\n";);
                 SASSERT(value(l) == l_undef);
                 SASSERT(max_var(l) == m_xk);
                 bool_var b = l.var();
                 atom * a   = m_atoms[b];
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
-                TRACE("nlsat_inf_set", tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l); tout << "\n";);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign());
                 TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";);
                 if (m_ism.is_empty(curr_set)) {
@@ -1151,7 +1151,7 @@ namespace nlsat {
            If satisfy_learned is true, then (arithmetic) learned clauses are satisfied even if m_lazy > 0
         */
         bool process_clause(clause const & cls, bool satisfy_learned) {
-            TRACE("nlsat", display(tout << "processing clause: ", cls) << "sat: " << is_satisfied(cls) << "\n";);
+            TRACE("nlsat", display(tout << "processing clause: ", cls) << " sat: " << is_satisfied(cls) << "\n";);
             if (is_satisfied(cls))
                 return true;
             if (m_xk == null_var)

@@ -1119,7 +1119,6 @@ sort* basic_decl_plugin::join(sort* s1, sort* s2) {
     }
     std::ostringstream buffer;
     buffer << "Sorts " << mk_pp(s1, *m_manager) << " and " << mk_pp(s2, *m_manager) << " are incompatible";
-    INVOKE_DEBUGGER();
     throw ast_exception(buffer.str());
 }
 
