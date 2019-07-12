@@ -704,7 +704,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         get_lengths(b, lens, other, pos);
         unsigned rsz = lens.size();
         unsigned i = 0;
-        for (; i < rsz; ++i) {
+        for (; i < m_lhs.size(); ++i) {
             expr* lhs = m_lhs.get(i);
             if (lens.contains(lhs)) {
                 lens.erase(lhs);
@@ -718,7 +718,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         }
         if (i == 0) return BR_FAILED;
         expr_ref t1(m()), t2(m());
-        t1 = m_util.str.mk_concat(m_lhs.size() - i, m_lhs.c_ptr() + i);
+        if (m_lhs.size() == i) {
+            t1 = m_util.str.mk_empty(m().get_sort(a));
+        }
+        else {
+            t1 = m_util.str.mk_concat(m_lhs.size() - i, m_lhs.c_ptr() + i);
+        }
         t2 = m_autil.mk_int(pos);
         for (expr* rhs : lens) {
             t2 = m_autil.mk_add(t2, m_util.str.mk_length(rhs));
