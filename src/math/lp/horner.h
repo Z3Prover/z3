@@ -44,6 +44,7 @@ public:
     intervals::interval interval_of_sum(const vector<nex>&);
     intervals::interval interval_of_mul(const vector<nex>&);
     void set_interval_for_scalar(intervals::interval&, const rational&);
+    void set_var_interval(lpvar j, intervals::interval&);
     std::set<lpvar> get_vars_of_expr(const nex &) const;
     void lemmas_on_expr(nex &);
 }; // end of horner
