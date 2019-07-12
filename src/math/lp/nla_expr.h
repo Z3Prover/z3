@@ -119,7 +119,7 @@ public:
         case expr_type::MUL:
             return print_mul(out);
         case expr_type::VAR:
-            out << static_cast<char>('a'+m_j);
+            out << 'v' << m_j;
             return out;
         case expr_type::SCALAR:
             out << m_v;

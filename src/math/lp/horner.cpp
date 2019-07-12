@@ -44,7 +44,7 @@ void horner::lemmas_on_expr(nex& e) {
     cross_nested cn(e, [this](const nex& n) {
                         auto i = interval_of_expr(n);
                         m_intervals.check_interval_for_conflict_on_zero(i);} );
-    
+    cn.run();    
 }
 
 
