@@ -4,49 +4,6 @@
 #include "util/mpq.h"
 
 namespace nla {
-/*
-// create a product of interval signs together with the depencies
-intervals::interval intervals::mul_signs_with_deps(const svector<lpvar>& vars) const {
-    interval a, b, c;
-    m_imanager.set(a, mpq(1));
-    for (lpvar v : vars) {
-        set_var_interval_signs_with_deps(v, b);
-        interval_deps deps;
-        m_imanager.mul(a, b, c, deps);
-        m_imanager.set(a, c);
-        m_config.add_deps(a, b, deps, a);
-        if (m_imanager.is_zero(a))
-            return a;
-    }
-    return a;    
-}
-
-rational sign(const rational& v) { return v.is_zero()? v : (rational(v.is_pos()? 1 : -1)); }
-
-void intervals::set_var_interval_signs(lpvar v, interval& b) const {
-    lp::constraint_index ci;
-    rational val;
-    bool is_strict;
-    if (ls().has_lower_bound(v, ci, val, is_strict)) {            
-        m_config.set_lower(b, sign(val));
-        m_config.set_lower_is_open(b, is_strict);
-        m_config.set_lower_is_inf(b, false);
-    }
-    else {
-        m_config.set_lower_is_open(b, true);
-        m_config.set_lower_is_inf(b, true);
-    }
-    if (ls().has_upper_bound(v, ci, val, is_strict)) {
-        m_config.set_upper(b, sign(val));
-        m_config.set_upper_is_open(b, is_strict);
-        m_config.set_upper_is_inf(b, false);
-    }
-    else {
-        m_config.set_upper_is_open(b, true);
-        m_config.set_upper_is_inf(b, true);
-    }
-}
-*/
 void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
     lp::constraint_index ci;
     rational val;
