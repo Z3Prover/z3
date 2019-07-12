@@ -184,6 +184,14 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
+                else if (m.are_equal(args[0], args[1])) {
+                    result = m.mk_true();
+                    st = BR_DONE;
+                }
+                else if (m.are_distinct(args[0], args[1])) {
+                    result = m.mk_false();
+                    st = BR_DONE;
+                }
                 TRACE("model_evaluator", 
                       tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " " 
                       << mk_pp(args[0], m) << " " << mk_pp(args[1], m) << " " << result << "\n";);
@@ -508,6 +516,12 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return true;
         }
 
+        if (m_ar_rw.has_index_set(a, else_case, stores)) {
+            for (auto const& store : stores) {
+                are_values &= args_are_values(store, are_unique);
+            }
+            return true;
+        }
         if (!m_ar.is_as_array(a)) {
             TRACE("model_evaluator", tout << "no translation: " << mk_pp(a, m) << "\n";);
             TRACE("model_evaluator", tout << m_model << "\n";);

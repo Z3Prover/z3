@@ -539,53 +539,75 @@ void array_rewriter::mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls)
     }                                                
 }
 
-bool array_rewriter::has_index_set(expr* e, expr_ref& e0, vector<expr_ref_vector>& indices) {
+bool array_rewriter::has_index_set(expr* e, expr_ref& else_case, vector<expr_ref_vector>& stores) {
     expr_ref_vector args(m());
     expr_ref a(m()), v(m());
     a = e;
     while (m_util.is_store_ext(e, a, args, v)) {
-        indices.push_back(args);
+        args.push_back(v);
+        stores.push_back(args);
         e = a;
     }
-    e0 = e;
-    if (is_lambda(e0)) {
-        quantifier* q = to_quantifier(e0);
+    if (m_util.is_const(e, e)) {
+        else_case = e;
+        return true;
+    }
+    if (is_lambda(e)) {
+        quantifier* q = to_quantifier(e);
         e = q->get_expr();
         unsigned num_idxs = q->get_num_decls();
-        expr* e1, *e2, *e3;
-        ptr_vector<expr> eqs;
-        while (!is_ground(e) && m().is_ite(e, e1, e2, e3) && is_ground(e2)) {
-            args.reset();
-            args.resize(num_idxs, nullptr);
-            eqs.reset();
-            eqs.push_back(e1);
-            for (unsigned i = 0; i < eqs.size(); ++i) {
-                expr* e = eqs[i];
-                if (m().is_and(e)) {
-                    eqs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
-                }
-                else if (m().is_eq(e, e1, e2)) {
-                    if (is_var(e2)) {
-                        std::swap(e1, e2);
-                    }
-                    if (is_var(e1) && is_ground(e2)) {
-                        unsigned idx = to_var(e1)->get_idx();
-                        args[num_idxs - idx - 1] = e2;
-                    }
-                    else {
-                        return false;
-                    }
-                }                
+        expr* e1, *e3, *store_val;
+        if (!is_ground(e) && m().is_or(e)) {
+            for (expr* arg : *to_app(e)) {
+                if (!add_store(args, num_idxs, arg, m().mk_true(), stores)) {
+                    return false;
+                }                            
             }
-            for (unsigned i = 0; i < num_idxs; ++i) {
-                if (!args.get(i)) return false;
-            }
-            indices.push_back(args);
+            else_case = m().mk_false();
+            return true;
+        }
+        while (!is_ground(e) && m().is_ite(e, e1, store_val, e3) && is_ground(store_val)) {            
+            if (!add_store(args, num_idxs, e1, store_val, stores)) {
+                return false;
+            }            
             e = e3;
         }
-        e0 = e;
+        else_case = e;
         return is_ground(e);
     }
+    return false;
+}
+
+bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e, expr* store_val, vector<expr_ref_vector>& stores) {
+
+    expr* e1, *e2;
+    ptr_vector<expr> eqs;    
+    args.reset();
+    args.resize(num_idxs + 1, nullptr);
+    eqs.push_back(e);
+    for (unsigned i = 0; i < eqs.size(); ++i) {
+        e = eqs[i];
+        if (m().is_and(e)) {
+            eqs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        }
+        else if (m().is_eq(e, e1, e2)) {
+            if (is_var(e2)) {
+                std::swap(e1, e2);
+            }
+            if (is_var(e1) && is_ground(e2)) {
+                unsigned idx = to_var(e1)->get_idx();
+                args[num_idxs - idx - 1] = e2;
+            }
+            else {
+                return false;
+            }
+        }                
+    }
+    for (unsigned i = 0; i < num_idxs; ++i) {
+        if (!args.get(i)) return false;
+    }
+    args[num_idxs] = store_val;
+    stores.push_back(args);
     return true;
 }
 
@@ -616,7 +638,8 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         for (auto const& idxs : indices) {
             args.reset();
             args.push_back(lhs);
-            args.append(idxs);
+            idxs.pop_back();
+            args.append(idxs);            
             mk_select(args.size(), args.c_ptr(), tmp1);
             args[0] = rhs;
             mk_select(args.size(), args.c_ptr(), tmp2);

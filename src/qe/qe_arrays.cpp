@@ -389,7 +389,7 @@ namespace qe {
                 if (!m_has_stores_v.is_marked (lhs)) {
                     std::swap (lhs, rhs);
                 }
-                if (m_has_stores_v.is_marked (lhs)) {
+                if (m_has_stores_v.is_marked (lhs) && m_arr_u.is_store(lhs)) {
                     /** project using the equivalence:
                      *
                      *  (store(arr0,idx,x) ==I arr1) <->
