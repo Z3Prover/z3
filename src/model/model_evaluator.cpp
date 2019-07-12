@@ -184,6 +184,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                     st = m_seq_rw.mk_eq_core(args[0], args[1], result);
                 else if (s_fid == m_ar_rw.get_fid())
                     st = mk_array_eq(args[0], args[1], result);
+                std::cout << result << "\n";
                 TRACE("model_evaluator", 
                       tout << st << " " << mk_pp(s, m) << " " << s_fid << " " << m_ar_rw.get_fid() << " " 
                       << mk_pp(args[0], m) << " " << mk_pp(args[1], m) << " " << result << "\n";);
