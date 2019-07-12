@@ -40,16 +40,13 @@ bool horner::row_is_interesting(const T& row) const {
 
 void horner::lemmas_on_expr(nex& e) {
     TRACE("nla_cn", tout << "e = " << e << "\n";);    
-    TRACE("nla_cn_cn", tout << "e = " << e << "\n";);    
-    vector<nex*> front;
-    cross_nested_of_expr_on_front_elem(e, &e, front);
+    TRACE("nla_cn_cn", tout << "e = " << e << "\n";);
+    cross_nested cn(e, [this](const nex& n) {
+                        auto i = interval_of_expr(n);
+                        m_intervals.check_interval_for_conflict_on_zero(i);} );
+    
 }
 
-nex* pop_back(vector<nex*>& front) {
-    nex* c = front.back();
-    front.pop_back();
-    return c;
-}
 
 template <typename T> 
 void horner::lemmas_on_row(const T& row) {
@@ -71,6 +68,8 @@ void horner::horner_lemmas() {
     }
 }
 
+typedef nla_expr<rational> nex;
+
 nex horner::nexvar(lpvar j) const {
     // todo: consider deepen the recursion
     if (!c().is_monomial_var(j))
@@ -82,7 +81,6 @@ nex horner::nexvar(lpvar j) const {
     }
     return e;
 }
-
 
 template <typename T> nex horner::create_sum_from_row(const T& row) {
     TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";);
@@ -191,3 +189,5 @@ void horner::set_var_interval(lpvar v, interv& b) {
     
 }
 }
+ auto i = interval_of_expr(e);
+                m_intervals.check_interval_for_conflict_on_zero(i);
