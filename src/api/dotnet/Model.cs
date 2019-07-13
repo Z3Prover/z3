@@ -51,9 +51,8 @@ namespace Microsoft.Z3
             Debug.Assert(f != null);
 
             Context.CheckContextMatch(f);
-            if (f.Arity != 0 ||
-                Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f.NativeObject)) == (uint)Z3_sort_kind.Z3_ARRAY_SORT)
-                throw new Z3Exception("Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.");
+            if (f.Arity != 0) 
+                throw new Z3Exception("Non-zero arity functions have FunctionInterpretations as a model. Use FuncInterp.");
 
             IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f.NativeObject);
             if (n == IntPtr.Zero)
