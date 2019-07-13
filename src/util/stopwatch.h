@@ -54,7 +54,7 @@ public:
     }
     
     void start() {
-        SASSERT(!m_running);
+        // SASSERT(!m_running);
         DEBUG_CODE(m_running = true;);
         m_start = get();
     }
