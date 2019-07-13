@@ -150,7 +150,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
+                return BR_DONE;
+                //return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
             }
             else if (m_model_completion) {
                 sort * s   = f->get_range();
