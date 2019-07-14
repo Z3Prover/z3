@@ -150,6 +150,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
+                // return BR_DONE;
                 return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
             }
             else if (m_model_completion) {
@@ -243,19 +244,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 result = def;
                 return BR_DONE;
             }
-            if (get_macro(g, def, q, def_pr)) {
-                sort_ref_vector sorts(m);
-                expr_ref_vector vars(m);
-                svector<symbol> var_names;
-                unsigned sz = g->get_arity();
-                for (unsigned i = 0; i < sz; ++i) {
-                    var_names.push_back(symbol(sz - i - 1));
-                    vars.push_back(m.mk_var(sz - i - 1, g->get_domain(i)));
-                    sorts.push_back(g->get_domain(i));
-                }
-                var_subst subst(m, false);
-                result = subst(def, sorts.size(), vars.c_ptr());
-                result = m.mk_lambda(sorts.size(), sorts.c_ptr(), var_names.c_ptr(), result);
+            func_interp * fi = m_model.get_func_interp(g);
+            if (fi && (result = fi->get_array_interp(g))) {
                 model_evaluator ev(m_model, m_params);
                 result = ev(result);
                 m_pinned.push_back(result);
@@ -530,47 +520,34 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_decl* f = m_ar.get_as_array_func_decl(to_app(a));
         func_interp* g = m_model.get_func_interp(f);
-        if (!g) return false;
+        if (!g) return false;        
+        else_case = g->get_else();
+        if (!else_case) {
+            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m) << "\n";);
+            return false;
+        }
+        bool ground = is_ground(else_case);
         unsigned sz = g->num_entries();
-        unsigned arity = f->get_arity();
-        unsigned base_sz = stores.size();
+        expr_ref_vector store(m);
         for (unsigned i = 0; i < sz; ++i) {
-            expr_ref_vector store(m);
+            store.reset();
             func_entry const* fe = g->get_entry(i);
-            store.append(arity, fe->get_args());
-            store.push_back(fe->get_result());
-            for (unsigned j = 0; j < store.size(); ++j) {
-                if (!is_ground(store[j].get())) {
-                    TRACE("model_evaluator", tout << "could not extract array interpretation: " << mk_pp(a, m) << "\n" << mk_pp(store[j].get(), m) << "\n";);
-                    return false;
-                }
+            expr* res = fe->get_result();
+            if (m.are_equal(else_case, res)) {
+                continue;
+            }
+            ground &= is_ground(res);
+            store.append(g->get_arity(), fe->get_args());
+            store.push_back(res);
+            for (expr* arg : store) {
+                ground &= is_ground(arg);
             }
             stores.push_back(store);
         }
-        else_case = g->get_else();
-        if (!else_case) {
-            TRACE("model_evaluator", tout << "no else case " << mk_pp(a, m) << "\n";
-                  /*model_smt2_pp(tout, m, m_model, 0);*/
-                  );
+        if (!ground) {
+            TRACE("model_evaluator", tout << "could not extract ground array interpretation: " << mk_pp(a, m) << "\n";);
             return false;
         }
-        if (!is_ground(else_case)) {
-            TRACE("model_evaluator", tout << "non-ground else case " << mk_pp(a, m) << "\n" << else_case << "\n";);
-            return false;
-        }
-        for (unsigned i = stores.size(); are_values && i > base_sz; ) {
-            --i;
-            if (m.are_equal(else_case, stores[i].back())) {
-                for (unsigned j = i + 1; j < stores.size(); ++j) {
-                    stores[j-1].reset();
-                    stores[j-1].append(stores[j]);
-                }
-                stores.pop_back();
-                continue;
-            }
-            are_values &= args_are_values(stores[i], are_unique);
-        }
-        TRACE("model_evaluator", tout << "else case: " << mk_pp(else_case, m) << "\n";);
         return true;
     }
 };

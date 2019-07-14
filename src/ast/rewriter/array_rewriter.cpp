@@ -19,6 +19,7 @@ Notes:
 #include "ast/rewriter/array_rewriter.h"
 #include "ast/rewriter/array_rewriter_params.hpp"
 #include "ast/ast_lt.h"
+#include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/rewriter/var_subst.h"
 
@@ -566,6 +567,15 @@ bool array_rewriter::has_index_set(expr* e, expr_ref& else_case, vector<expr_ref
             else_case = m().mk_false();
             return true;
         }
+        if (!is_ground(e) && m().is_and(e)) {
+            for (expr* arg : *to_app(e)) {
+                if (!add_store(args, num_idxs, arg, m().mk_true(), stores)) {
+                    return false;
+                }                            
+            }
+            else_case = m().mk_true();
+            return true;
+        }
         while (!is_ground(e) && m().is_ite(e, e1, store_val, e3) && is_ground(store_val)) {            
             if (!add_store(args, num_idxs, e1, store_val, stores)) {
                 return false;
@@ -584,13 +594,16 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
     ptr_vector<expr> eqs;    
     args.reset();
     args.resize(num_idxs + 1, nullptr);
+    bool is_not = m().is_bool(store_val) && m().is_not(e, e);
+
     eqs.push_back(e);
     for (unsigned i = 0; i < eqs.size(); ++i) {
         e = eqs[i];
         if (m().is_and(e)) {
             eqs.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+            continue;
         }
-        else if (m().is_eq(e, e1, e2)) {
+        if (m().is_eq(e, e1, e2)) {
             if (is_var(e2)) {
                 std::swap(e1, e2);
             }
@@ -601,10 +614,15 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
             else {
                 return false;
             }
-        }                
+            continue;
+        }    
+        return false;
     }
     for (unsigned i = 0; i < num_idxs; ++i) {
         if (!args.get(i)) return false;
+    }
+    if (is_not) {
+        store_val = mk_not(m(), store_val);
     }
     args[num_idxs] = store_val;
     stores.push_back(args);

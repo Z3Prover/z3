@@ -75,7 +75,8 @@ func_interp::func_interp(ast_manager & m, unsigned arity):
     m_arity(arity),
     m_else(nullptr),
     m_args_are_values(true),
-    m_interp(nullptr) {
+    m_interp(nullptr),
+    m_array_interp(nullptr) {
 }
 
 func_interp::~func_interp() {
@@ -84,6 +85,7 @@ func_interp::~func_interp() {
     }
     m_manager.dec_ref(m_else);
     m_manager.dec_ref(m_interp);
+    m_manager.dec_ref(m_array_interp);
 }
 
 func_interp * func_interp::copy() const {
@@ -98,7 +100,9 @@ func_interp * func_interp::copy() const {
 
 void func_interp::reset_interp_cache() {
     m_manager.dec_ref(m_interp);
+    m_manager.dec_ref(m_array_interp);
     m_interp = nullptr;
+    m_array_interp = nullptr;
 }
 
 bool func_interp::is_fi_entry_expr(expr * e, ptr_vector<expr> & args) {
@@ -317,36 +321,6 @@ bool func_interp::is_identity() const {
     return (sz.size() == m_entries.size() + 1);
 }
 
-expr_ref func_interp::get_array_interp(sort_ref_vector const& domain) const {
-    if (m_else == nullptr) 
-        return expr_ref(m_manager);
-    if (!is_ground(m_else)) {
-        return expr_ref(m_manager);
-    }
-    array_util autil(m_manager);
-    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m_manager.get_sort(m_else)), m_manager);
-    expr_ref r(autil.mk_const_array(A, m_else), m_manager);
-    expr_ref_vector args(m_manager);
-    for (func_entry * curr : m_entries) {
-        expr * res = curr->get_result();
-
-        if (m_else == res) {
-            continue;
-        }
-        args.reset();
-        args.push_back(r);        
-        for (unsigned i = 0; i < m_arity; i++) {
-            expr* arg = curr->get_arg(i);
-            if (!is_ground(arg)) {
-                return expr_ref(m_manager);
-            }
-            args.push_back(arg);
-        }
-        args.push_back(res);
-        r = autil.mk_store(args.size(), args.c_ptr());
-    }
-    return r;    
-}
 
 expr * func_interp::get_interp_core() const {
     if (m_else == nullptr)
@@ -382,6 +356,57 @@ expr * func_interp::get_interp_core() const {
     return r;
 }
 
+expr* func_interp::get_array_interp_core(func_decl * f) const {
+    if (m_else == nullptr) 
+        return nullptr;
+    ptr_vector<sort> domain;
+    for (sort* s : *f) {
+        domain.push_back(s);
+    }
+    expr* r;
+
+    bool ground = is_ground(m_else);
+    for (func_entry * curr : m_entries) {
+        ground &= is_ground(curr->get_result());
+        for (unsigned i = 0; i < m_arity; i++) {
+            ground &= is_ground(curr->get_arg(i));
+        }
+    }
+    if (!ground) {
+        r = get_interp();
+        if (!r) return r;
+        sort_ref_vector vars(m_manager);
+        svector<symbol> var_names;
+        for (unsigned i = 0; i < m_arity; ++i) {
+            var_names.push_back(symbol(i));
+            vars.push_back(domain.get(m_arity - i - 1));
+        }
+        r = m_manager.mk_lambda(vars.size(), vars.c_ptr(), var_names.c_ptr(), r);        
+        return r;
+    }
+
+    expr_ref_vector args(m_manager);
+    array_util autil(m_manager);
+    sort_ref A(autil.mk_array_sort(domain.size(), domain.c_ptr(), m_manager.get_sort(m_else)), m_manager);
+    r = autil.mk_const_array(A, m_else);
+    for (func_entry * curr : m_entries) {
+        expr * res = curr->get_result();
+
+        if (m_else == res) {
+            continue;
+        }
+        args.reset();
+        args.push_back(r);        
+        for (unsigned i = 0; i < m_arity; i++) {
+            args.push_back(curr->get_arg(i));
+        }
+        args.push_back(res);
+        r = autil.mk_store(args.size(), args.c_ptr());
+    }
+    return r;    
+}
+
+   
 expr * func_interp::get_interp() const {
     if (m_interp != nullptr)
         return m_interp;
@@ -389,6 +414,17 @@ expr * func_interp::get_interp() const {
     if (r != nullptr) {
         const_cast<func_interp*>(this)->m_interp = r;
         m_manager.inc_ref(m_interp);
+    }
+    return r;
+}
+
+expr * func_interp::get_array_interp(func_decl * f) const {
+    if (m_array_interp != nullptr)
+        return m_array_interp;
+    expr* r = get_array_interp_core(f);
+    if (r != nullptr) {
+        const_cast<func_interp*>(this)->m_array_interp = r;
+        m_manager.inc_ref(m_array_interp);
     }
     return r;
 }

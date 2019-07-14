@@ -515,9 +515,8 @@ namespace qe {
          * ...
          */
         unsigned get_nesting_depth(app* eq) {
-            SASSERT(m.is_eq(eq));
-            expr* lhs = eq->get_arg (0);
-            expr* rhs = eq->get_arg (1);
+            expr* lhs = nullptr, *rhs = nullptr;
+            VERIFY(m.is_eq(eq, lhs, rhs));
             bool lhs_has_v = (lhs == m_v || m_has_stores_v.is_marked (lhs));
             bool rhs_has_v = (rhs == m_v || m_has_stores_v.is_marked (rhs));
             app* store = nullptr;
@@ -537,9 +536,13 @@ namespace qe {
             }
 
             unsigned nd = 0; // nesting depth
-            for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0)))
+            for (nd = 1; m_arr_u.is_store (store); nd++, store = to_app (store->get_arg (0))) {
                 /* empty */ ;
-            SASSERT (store == m_v);
+            }
+            if (store != m_v) {
+                TRACE("qe", tout << "not a store " << mk_pp(eq, m) << " " << lhs_has_v << " " << rhs_has_v << " " << mk_pp(m_v, m) << "\n";);
+                return UINT_MAX;
+            }
             return nd;
         }
 
