@@ -557,34 +557,67 @@ struct th_rewriter_cfg : public default_rewriter_cfg {
         return BR_DONE;
     }
 
+    void count_down_subterm_references(expr * e, map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> & reference_map) {
+        if (is_app(e)) {
+            app * a = to_app(e);
+            for (unsigned i = 0; i < a->get_num_args(); ++i) {
+                expr * child = a->get_arg(i);
+                unsigned countdown = reference_map.get(child, child->get_ref_count()) - 1;
+                reference_map.insert(child,  countdown);
+                if (countdown == 0)
+                    count_down_subterm_references(child, reference_map);
+            }
+        }
+    }
+
+    void log_rewrite_axiom_instantiation(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
+        family_id fid = f->get_family_id();
+        if (fid == m_b_rw.get_fid()) {
+            decl_kind k = f->get_decl_kind();
+            if (k == OP_EQ) {
+                SASSERT(num == 2);
+                fid = m().get_sort(args[0])->get_family_id();
+            }
+            else if (k == OP_ITE) {
+                SASSERT(num == 3);
+                fid = m().get_sort(args[1])->get_family_id();
+            }
+        }
+        app_ref tmp(m());
+        tmp = m().mk_app(f, num, args);
+        m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
+        if (m().proofs_enabled())
+            result_pr = m().mk_rewrite(tmp, result);
+        tmp = m().mk_eq(tmp, result);
+        m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
+
+        // Make sure that both the result term and equality were newly introduced.
+        if (tmp->get_ref_count() == 1) {
+            if (result->get_ref_count() == 1) {
+                map<expr *, unsigned, ptr_hash<expr>, ptr_eq<expr>> reference_map;
+                count_down_subterm_references(result, reference_map);
+
+                // Any term that was newly introduced by the rewrite step is only referenced within / reachable from the result term.
+                for (auto kv : reference_map) {
+                    if (kv.m_value == 0) {
+                        m().trace_stream() << "[attach-enode] #" << kv.m_key->get_id() << " 0\n";
+                    }
+                }
+
+                m().trace_stream() << "[attach-enode] #" << result->get_id() << " 0\n";
+            }
+            m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
+        }
+        m().trace_stream() << "[end-of-instance]\n";
+        m().trace_stream().flush();
+    }
+
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
         result_pr = nullptr;
         br_status st = reduce_app_core(f, num, args, result);
 
         if (st != BR_FAILED && m().has_trace_stream()) {
-            family_id fid = f->get_family_id();
-            if (fid == m_b_rw.get_fid()) {
-                decl_kind k = f->get_decl_kind();
-                if (k == OP_EQ) {
-                    SASSERT(num == 2);
-                    fid = m().get_sort(args[0])->get_family_id();
-                }
-                else if (k == OP_ITE) {
-                    SASSERT(num == 3);
-                    fid = m().get_sort(args[1])->get_family_id();
-                }
-            }
-            app_ref tmp(m());
-            tmp = m().mk_app(f, num, args);
-            m().trace_stream() << "[inst-discovered] theory-solving " << static_cast<void *>(nullptr) << " " << m().get_family_name(fid) << "# ; #" << tmp->get_id() << "\n";
-            if (m().proofs_enabled())
-                result_pr = m().mk_rewrite(tmp, result);
-            tmp = m().mk_eq(tmp, result);
-            m().trace_stream() << "[instance] " << static_cast<void *>(nullptr) << " #" << tmp->get_id() << "\n";
-            m().trace_stream() << "[attach-enode] #" << result->get_id() << " 0\n";
-            m().trace_stream() << "[attach-enode] #" << tmp->get_id() << " 0\n";
-            m().trace_stream() << "[end-of-instance]\n";
-            m().trace_stream().flush();
+            log_rewrite_axiom_instantiation(f, num, args, result, result_pr);
         }
 
         if (st != BR_DONE && st != BR_FAILED) {
