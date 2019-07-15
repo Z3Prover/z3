@@ -124,7 +124,7 @@ interv horner::interval_of_expr(const nex& e) {
     }
 }
 
-interv horner::interval_of_mul(const vector<nex>& es) {    
+interv horner::interval_of_mul(const std::vector<nex>& es) {    
     interv a = interval_of_expr(es[0]);
     //    std::cout << "a" << std::endl;
     TRACE("nla_cn_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); tout << "\n";);
@@ -150,7 +150,7 @@ interv horner::interval_of_mul(const vector<nex>& es) {
     return a;
 }
 
-interv horner::interval_of_sum(const vector<nex>& es) {
+interv horner::interval_of_sum(const std::vector<nex>& es) {
     interv a = interval_of_expr(es[0]);
     TRACE("nla_cn_details", tout << "es[0]= "  << es[0] << "\n"; m_intervals.display(tout, a) << "\n";);
     if (m_intervals.is_inf(a)) {
