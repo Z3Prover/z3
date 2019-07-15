@@ -492,7 +492,9 @@ namespace smt {
         std::stringstream strm;
         strm << "lemma_" << (++m_lemma_id) << ".smt2";
         std::ofstream out(strm.str());
-        TRACE("lemma", tout << strm.str() << "\n";);
+        TRACE("lemma", tout << strm.str() << "\n";
+              display_lemma_as_smt_problem(tout, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
+);
         display_lemma_as_smt_problem(out, num_antecedents, antecedents, num_eq_antecedents, eq_antecedents, consequent, logic);
         out.close();
 
