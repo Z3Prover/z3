@@ -25,6 +25,7 @@ class cross_nested {
     typedef nla_expr<rational> nex;
     nex& m_e;
     std::function<void (const nex&)> m_call_on_result;
+    std::set<nex> m_reported;
 public:
     cross_nested(nex &e, std::function<void (const nex&)> call_on_result): m_e(e), m_call_on_result(call_on_result) {}
 
@@ -48,7 +49,15 @@ public:
             if(front.empty()) {
                 TRACE("nla_cn_cn", tout << "got the cn form: m_e=" << m_e << "\n";);
                 SASSERT(!can_be_cross_nested_more(m_e));
-                m_call_on_result(m_e);
+                auto e_to_report = m_e;
+                e_to_report.simplify();
+                e_to_report.sort();
+                if (m_reported.find(e_to_report) == m_reported.end()) {
+                    m_reported.insert(e_to_report);
+                    m_call_on_result(e_to_report);
+                } else {
+                    TRACE("nla_cn", tout << "do not report " << e_to_report << "\n";);
+                }
             } else {
                 nex* c = pop_back(front);
                 cross_nested_of_expr_on_front_elem(c, front);     
@@ -67,7 +76,6 @@ public:
                     *(front[i]) = copy_of_front[i];
             }
         }
-        TRACE("nla_cn", tout << "exit\n";);
     }
     // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
     void cross_nested_of_expr_on_sum_and_var(nex* c, lpvar j, vector<nex*> front) {

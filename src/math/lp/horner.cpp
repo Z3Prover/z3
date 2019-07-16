@@ -42,9 +42,12 @@ void horner::lemmas_on_expr(nex& e) {
     TRACE("nla_cn", tout << "e = " << e << "\n";);    
     TRACE("nla_cn_cn", tout << "e = " << e << "\n";);
     cross_nested cn(e, [this](const nex& n) {
-                        auto i = interval_of_expr(n);
-                        m_intervals.check_interval_for_conflict_on_zero(i);} );
-    cn.run();    
+                           TRACE("nla_cn", tout << "callback n = " << n << "\n";);
+                           auto i = interval_of_expr(n);
+                           m_intervals.check_interval_for_conflict_on_zero(i);} );
+    cn.run();
+    TRACE("nla_cn", tout << "lemmas_on_expr done\n";);    
+    
 }
 
 

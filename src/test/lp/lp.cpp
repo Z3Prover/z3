@@ -84,11 +84,12 @@ void test_cn() {
     typedef horner::nex nex;
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
+    enable_trace("nla_cn_cn");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
     
-    nex t = a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d;
-    test_cn_on_expr(t);
-    test_cn_on_expr(a*b*d + a*b*c);
+    test_cn_on_expr(a*b*d + a*b*c + c*b*d);
+    // nex t = a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d;
+    // test_cn_on_expr(t);
 }
 
 } // end of namespace nla
