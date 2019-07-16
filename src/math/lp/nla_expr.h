@@ -20,7 +20,7 @@
 #include <initializer_list>
 #include "math/lp/nla_defs.h"
 namespace nla {
-enum class expr_type { SUM, MUL, VAR, SCALAR, UNDEF };
+enum class expr_type { VAR, SUM, MUL, SCALAR, UNDEF };
 inline std::ostream & operator<<(std::ostream& out, expr_type t) {
     switch (t) {
     case expr_type::SUM:
@@ -72,6 +72,21 @@ class nla_expr {
         unsigned size() const { return m_es.size(); }
         void sort() {
             std::sort(m_order.begin(), m_order.end(), [this](unsigned i, unsigned j) { return m_es[i] < m_es[j]; });
+        }
+        bool operator<(const sorted_children& e) const {
+            return compare(e) == -1;
+        }
+
+        int compare(const sorted_children& e) const {
+            unsigned m = std::min(size(), e.size());
+            for (unsigned j = 0; j < m; j++) {
+                int r = m_es[m_order[j]].compare(e.m_es[e.m_order[j]]);
+                if (r == -1)
+                    return true;
+                if (r == 1)
+                    return false;
+            }
+            return size() < e.size();
         }
     };
 
@@ -295,6 +310,27 @@ public:
         }
         return false;
     }
+
+    int compare(const nla_expr& e) const {
+        if (type() != (e.type()))
+            return (int)type() - (int)(e.type());
+        SASSERT(type() == (e.type()));
+
+        switch(m_type) {
+        case expr_type::SUM:
+        case expr_type::MUL:
+            return m_children.compare(e.m_children);
+             
+        case expr_type::VAR:
+            return m_j - e.m_j;
+        case expr_type::SCALAR:
+            return m_v < e.m_v? -1 : (m_v == e.m_v? 0 : 1);
+        default:
+            SASSERT(false);
+            return 0;
+        }
+    }
+    
     bool operator<(const nla_expr& e) const {
         if (type() != (e.type()))
             return (int)type() < (int)(e.type());
@@ -304,7 +340,8 @@ public:
         switch(m_type) {
         case expr_type::SUM:
         case expr_type::MUL:
-            return m_children.es() < e.m_children.es();
+            return m_children < e.m_children;
+             
         case expr_type::VAR:
             return m_j < e.m_j;
         case expr_type::SCALAR:
