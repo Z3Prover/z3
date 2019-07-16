@@ -1,21 +1,21 @@
 /*++
-Copyright (c) 2017 Microsoft Corporation
+  Copyright (c) 2017 Microsoft Corporation
 
-Module Name:
+  Module Name:
 
-    <name>
+  <name>
 
-Abstract:
+  Abstract:
 
-    <abstract>
+  <abstract>
 
-Author:
-    Lev Nachmanson (levnach)
+  Author:
+  Lev Nachmanson (levnach)
 
-Revision History:
+  Revision History:
 
 
---*/
+  --*/
 #pragma once
 #include <initializer_list>
 #include "math/lp/nla_defs.h"
@@ -50,28 +50,28 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
 template <typename T>
 class nla_expr {
     
-class sorted_children {
-    std::vector<nla_expr> m_es;
-    // m_order will be sorted according to the non-decreasing order of m_es
-    svector<unsigned> m_order;
-public:
-    const std::vector<nla_expr>& es() const { return m_es; }
-    std::vector<nla_expr>& es() { return m_es; }
-    void push_back(const nla_expr& e) {
-        SASSERT(m_es.size() == m_order.size());
-        m_order.push_back(m_es.size());
-        m_es.push_back(e);
-    }
-    const svector<unsigned>& order() const { return m_order; }
-    const nla_expr& back() const { return m_es.back(); }
-    nla_expr& back() { return m_es.back(); }
-    const nla_expr* begin() const { return m_es.begin(); }
-    const nla_expr* end() const { return m_es.end(); }
-    unsigned size() const { return m_es.size(); }
-    void sort() {
-        std::sort(m_order.begin(), m_order.end(), [this](unsigned i, unsigned j) { return m_es[i] < m_es[j]; });
-    }
-};
+    class sorted_children {
+        std::vector<nla_expr> m_es;
+        // m_order will be sorted according to the non-decreasing order of m_es
+        svector<unsigned> m_order;
+    public:
+        const std::vector<nla_expr>& es() const { return m_es; }
+        std::vector<nla_expr>& es() { return m_es; }
+        void push_back(const nla_expr& e) {
+            SASSERT(m_es.size() == m_order.size());
+            m_order.push_back(m_es.size());
+            m_es.push_back(e);
+        }
+        const svector<unsigned>& order() const { return m_order; }
+        const nla_expr& back() const { return m_es.back(); }
+        nla_expr& back() { return m_es.back(); }
+        const nla_expr* begin() const { return m_es.begin(); }
+        const nla_expr* end() const { return m_es.end(); }
+        unsigned size() const { return m_es.size(); }
+        void sort() {
+            std::sort(m_order.begin(), m_order.end(), [this](unsigned i, unsigned j) { return m_es[i] < m_es[j]; });
+        }
+    };
 
     // todo: use union
     expr_type       m_type;
@@ -125,6 +125,43 @@ public:
             m_children.sort();
         }            
     }
+
+    void simplify() {
+        if (is_sum()) {
+            bool has_sum = false;
+            for (unsigned j = 0; j < m_children.es().size(); j++) {
+                auto& e = m_children.es()[j];
+                e.simplify();
+                if (e.is_sum())
+                    has_sum = true;
+            }
+            if (has_sum) {
+                nla_expr n(expr_type::SUM);
+                for (auto &e : m_children.es()) {
+                    n += e;
+                }
+                *this = n;
+            }
+            
+        } else if (is_mul()) {
+            bool has_mul = false;
+            for (unsigned j = 0; j < m_children.es().size(); j++) {
+                auto& e = m_children.es()[j];
+                e.simplify();
+                if (e.is_mul())
+                    has_mul = true;
+            }
+            if (has_mul) {
+                nla_expr n(expr_type::MUL);
+                for (auto &e : m_children.es()) {
+                    n *= e;
+                }
+                *this = n;
+            }
+            TRACE("nla_cn", tout << "simplified " << *this << "\n";);
+        }
+    }
+
     std::ostream & print_mul(std::ostream& out) const {
         bool first = true;
         for (unsigned j : m_children.order()) {            
@@ -278,10 +315,36 @@ public:
             SASSERT(false);
             return false;
         }
-
-        
-            
     }
+
+    nla_expr& operator*=(const nla_expr& b) {
+        if (is_mul()) {
+            if (b.is_mul()) {
+                for (auto& e: b.children())
+                    add_child(e);
+            } else {
+                add_child(b);
+            }
+            return *this;
+        }
+        SASSERT(false); // not impl
+        return *this;
+    }
+
+    nla_expr& operator+=(const nla_expr& b) {
+        if (is_sum()) {
+            if (b.is_sum()) {
+                for (auto& e: b.children())
+                    add_child(e);
+            } else {
+                add_child(b);
+            }
+            return *this;
+        }
+        SASSERT(false); // not impl
+        return *this;
+    }
+
 };
 template <typename T> 
 nla_expr<T> operator+(const nla_expr<T>& a, const nla_expr<T>& b) {

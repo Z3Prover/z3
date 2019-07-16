@@ -67,37 +67,28 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 
+void test_cn_on_expr(horner::nex t) {
+    TRACE("nla_cn", tout << "t=" << t << '\n';);
+    cross_nested cn(t, [](const horner::nex& n) {
+                           TRACE("nla_cn", tout << n << "\n";);
+                           auto nn = n;
+                           nn.simplify();                               
+                           nn.sort();
+                           TRACE("nla_cn", tout << "ordered version\n" << nn << "\n______________________\n";);
+                           
+                       } );
+    cn.run();
+}
+
 void test_cn() {
     typedef horner::nex nex;
     enable_trace("nla_cn");
-    // (a(a+(b+c)c+d)d + e(a(e+c)+d)
+    enable_trace("nla_cn_details");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
-    {
-        nex t = a*a*d + a*b*c*d + a*c*c*d + a*d*d + e*a*e + e*a*c + e*d;
-        std::cout << "t = " << t << "\n";
-        TRACE("nla_cn", tout << "t=" << t << '\n';);
-        cross_nested cn(t, [](const nex& n) {
-                               std::cout << n << "\n";
-                               auto nn = n;
-                               nn.sort();
-                               std::cout << "ordered version\n" << nn << "\n______________________\n";
-                           
-                           } );
-        cn.run();
-    }
-    {
-        nex t = a*b*d + a*b*c;
-        std::cout << "t = " << t << "\n";
-        TRACE("nla_cn", tout << "t=" << t << '\n';);
-        cross_nested cn(t, [](const nex& n) {
-                               std::cout << n << "\n";
-                               auto nn = n;
-                               nn.sort();
-                               std::cout << "ordered version\n" << nn << "\n______________________\n";
-                           
-                           } );
-        cn.run();
-    }
+    
+    nex t = a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d;
+    test_cn_on_expr(t);
+    test_cn_on_expr(a*b*d + a*b*c);
 }
 
 } // end of namespace nla
