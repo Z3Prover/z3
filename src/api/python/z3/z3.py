@@ -6646,6 +6646,10 @@ class Solver(Z3PPObject):
         except Z3Exception:
             raise Z3Exception("model is not available")
 
+    def import_model_converter(self, other):
+        """Import model converter from other into the current solver"""
+        Z3_solver_import_model_converter(self.ctx.ref(), other.solver, self.solver)
+
     def unsat_core(self):
         """Return a subset (as an AST vector) of the assumptions provided to the last check().
 
@@ -8310,11 +8314,17 @@ def AtLeast(*args):
     _args, sz = _to_ast_array(args1)
     return BoolRef(Z3_mk_atleast(ctx.ref(), sz, _args, k), ctx)
 
+def _reorder_pb_arg(arg):
+    a, b = arg
+    if not _is_int(b) and _is_int(a):
+        return b, a
+    return arg
 
 def _pb_args_coeffs(args, default_ctx = None):
     args  = _get_args_ast_list(args)
     if len(args) == 0:
        return _get_ctx(default_ctx), 0, (Ast * 0)(), (ctypes.c_int * 0)()
+    args = [_reorder_pb_arg(arg) for arg in args]
     args, coeffs = zip(*args)
     if z3_debug():
         _z3_assert(len(args) > 0, "Non empty list of arguments expected")

@@ -934,7 +934,6 @@ void sat2goal::mc::flush_smc(sat::solver_core& s, atom2bool_var const& map) {
 void sat2goal::mc::flush_gmc() {
     sat::literal_vector updates;
     m_smc.expand(updates);    
-    m_smc.reset();
     if (!m_gmc) m_gmc = alloc(generic_model_converter, m, "sat2goal");
     // now gmc owns the model converter
     sat::literal_vector clause;

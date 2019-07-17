@@ -23,16 +23,12 @@ Revision History:
 
 namespace sat {
 
-    model_converter::model_converter(): m_solver(nullptr) {
+    model_converter::model_converter(): m_solver(nullptr), m_exposed_lim(0) {
     }
 
     model_converter::~model_converter() {
-        reset();
     }
 
-    void model_converter::reset() {
-        m_entries.finalize();
-    }
 
     model_converter& model_converter::operator=(model_converter const& other) {
         copy(other);
@@ -40,20 +36,18 @@ namespace sat {
     }
 
     bool model_converter::legal_to_flip(bool_var v) const {
-        // std::cout << "check " << v << " " << m_solver << "\n";
         if (m_solver && m_solver->is_assumption(v)) {
-            std::cout << "flipping assumption v" << v << "\n";
+            IF_VERBOSE(0, verbose_stream() << "flipping assumption v" << v << "\n";);
             UNREACHABLE();
             throw solver_exception("flipping assumption");
         }
         if (m_solver && m_solver->is_external(v) && m_solver->is_incremental()) {
-            std::cout << "flipping external v" << v << "\n";
+            IF_VERBOSE(0, verbose_stream() << "flipping external v" << v << "\n";);
             UNREACHABLE();
             throw solver_exception("flipping external");
         }
         return !m_solver || !m_solver->is_assumption(v);
     }
-
 
     void model_converter::process_stack(model & m, literal_vector const& c, elim_stackv const& stack) const {
         SASSERT(!stack.empty());
@@ -73,46 +67,33 @@ namespace sat {
     }
     
     void model_converter::operator()(model & m) const {
-        vector<entry>::const_iterator begin = m_entries.begin();
-        vector<entry>::const_iterator it    = m_entries.end();
         bool first =  false; 
-        //SASSERT(!m_solver || m_solver->check_clauses(m));
-        while (it != begin) {
-            --it;
-            bool_var v0 = it->var();
-            SASSERT(it->get_kind() != ELIM_VAR || v0 == null_bool_var || m[v0] == l_undef);
-            // if it->get_kind() == BCE, then it might be the case that m[v] != l_undef,
+        literal_vector clause;
+        for (unsigned i = m_entries.size(); i-- > m_exposed_lim; ) {
+            entry const& e = m_entries[i];
+            bool_var v0 = e.var();
+            SASSERT(e.get_kind() != ELIM_VAR || v0 == null_bool_var || m[v0] == l_undef);
+            // if e.get_kind() == BCE, then it might be the case that m[v] != l_undef,
             // and the following procedure flips its value.
             bool sat = false;
             bool var_sign = false;
             unsigned index = 0;
-            literal_vector clause;
+            clause.reset();
             VERIFY(v0 == null_bool_var || legal_to_flip(v0));
-            for (literal l : it->m_clauses) {
+            for (literal l : e.m_clauses) {
                 if (l == null_literal) {
                     // end of clause
-                    if (!sat && it->get_kind() == ATE) {
-                        IF_VERBOSE(0, display(verbose_stream() << "violated ate\n", *it) << "\n");
-                        IF_VERBOSE(0, for (unsigned v = 0; v < m.size(); ++v) verbose_stream() << v << " := " << m[v] << "\n";);
-                        IF_VERBOSE(0, display(verbose_stream()));
-                        UNREACHABLE();
-                        first = false;
-                    }
-                    if (!sat && it->get_kind() != ATE && v0 != null_bool_var) {     
+                    VERIFY (sat || e.get_kind() != ATE);
+                    if (!sat && e.get_kind() != ATE && v0 != null_bool_var) {     
                         VERIFY(legal_to_flip(v0));                        
                         m[v0] = var_sign ? l_false : l_true;
-                        //IF_VERBOSE(0, verbose_stream() << "assign " << v0 << " "<< m[v0] << "\n");
                     }
-                    elim_stack* st = it->m_elim_stack[index];
+                    elim_stack* st = e.m_elim_stack[index];
                     if (st) {
                         process_stack(m, clause, st->stack());
                     }
                     sat = false;
-                    if (first && m_solver && !m_solver->check_clauses(m)) {
-                        IF_VERBOSE(0, display(verbose_stream() << "after processing stack\n", *it) << "\n");
-                        IF_VERBOSE(0, display(verbose_stream()));
-                        first = false;
-                    }
+                    VERIFY(!first || !m_solver || m_solver->check_clauses(m));
                     ++index;
                     clause.reset();
                     continue;                    
@@ -123,7 +104,6 @@ namespace sat {
                     continue;
                 bool sign  = l.sign();
                 bool_var v = l.var();
-                if (v >= m.size()) std::cout << v << " model size: " << m.size() << "\n";
                 VERIFY(v < m.size());
                 if (v == v0)
                     var_sign = sign;
@@ -133,25 +113,21 @@ namespace sat {
                     VERIFY(legal_to_flip(v));
                     // clause can be satisfied by assigning v.
                     m[v] = sign ? l_false : l_true;
-                    // if (first) std::cout << "set: " << l << "\n";
                     sat = true;
-                    if (first && m_solver && !m_solver->check_clauses(m)) {
-                        IF_VERBOSE(0, display(verbose_stream() << "after flipping undef\n", *it)  << "\n");
-                        first = false;
-                    }
+                    VERIFY(!first || !m_solver || m_solver->check_clauses(m));
                 }
             }
             DEBUG_CODE({
                 // all clauses must be satisfied
                 bool sat = false;
                 bool undef = false;
-                for (literal const& l : it->m_clauses) {
+                for (literal const& l : e.m_clauses) {
                     if (l == null_literal) {
                         CTRACE("sat", !sat, 
                                if (m_solver) m_solver->display(tout);
                                display(tout);
                                for (unsigned v = 0; v < m.size(); ++v) tout << v << ": " << m[v] << "\n";
-                               for (literal const& l2 : it->m_clauses) {
+                               for (literal const& l2 : e.m_clauses) {
                                    if (l2 == null_literal) tout << "\n"; else tout << l2 << " ";
                                    if (&l == &l2) break;
                                }
@@ -179,24 +155,21 @@ namespace sat {
     */
     bool model_converter::check_model(model const & m) const {
         bool ok = true;
-        vector<entry>::const_iterator begin = m_entries.begin();
-        vector<entry>::const_iterator it    = m_entries.end();
-        while (it != begin) {
-            --it;
+        for (entry const & e : m_entries) {
             bool sat = false;
-            literal_vector::const_iterator it2     = it->m_clauses.begin();
-            literal_vector::const_iterator itbegin = it2;
-            literal_vector::const_iterator end2    = it->m_clauses.end();
-            for (; it2 != end2; ++it2) {
-                literal l  = *it2;
+            literal_vector::const_iterator it      = e.m_clauses.begin();
+            literal_vector::const_iterator itbegin = it;
+            literal_vector::const_iterator end     = e.m_clauses.end();
+            for (; it != end; ++it) {
+                literal l  = *it;
                 if (l == null_literal) {
                     // end of clause
                     if (!sat) {
-                        TRACE("sat_model_bug", tout << "failed eliminated: " << mk_lits_pp(static_cast<unsigned>(it2 - itbegin), itbegin) << "\n";);
+                        TRACE("sat_model_bug", tout << "failed eliminated: " << mk_lits_pp(static_cast<unsigned>(it - itbegin), itbegin) << "\n";);
                         ok = false;
                     }
                     sat = false;
-                    itbegin = it2;
+                    itbegin = it;
                     itbegin++;
                     continue;
                 }
@@ -238,6 +211,16 @@ namespace sat {
         // VERIFY(for (auto const& s : stackv()) VERIFY(legal_to_flip(s.second.var())););
         stackv().reset();
     }
+
+    void model_converter::set_clause(entry & e, literal l1, literal l2) {
+        e.m_clause.push_back(l1);
+        e.m_clause.push_back(l2);
+    }
+
+    void model_converter::set_clause(entry & e, clause const & c) {
+        e.m_clause.append(c.size(), c.begin());
+    }
+
 
     void model_converter::insert(entry & e, clause const & c) {
         SASSERT(c.contains(e.var()));
@@ -349,27 +332,27 @@ namespace sat {
             out << l;
         }
         out << ")";
-        for (literal l : entry.m_clauses) {
-            if (l != null_literal && l.var() != null_bool_var) {
-                if (false && m_solver && m_solver->was_eliminated(l.var())) out << "\neliminated: " << l;
-            }
-        }
         return out;
     }
 
     void model_converter::copy(model_converter const & src) {
-        reset();
+        m_entries.reset();        
         m_entries.append(src.m_entries);
+        m_exposed_lim = src.m_exposed_lim;
     }
 
     void model_converter::flush(model_converter & src) {
         VERIFY(this != &src);
         m_entries.append(src.m_entries);
+        m_exposed_lim = src.m_exposed_lim;
         src.m_entries.reset();
+        src.m_exposed_lim = 0;
     }
 
     void model_converter::collect_vars(bool_var_set & s) const {
-        for (entry const & e : m_entries) s.insert(e.m_var);
+        for (entry const & e : m_entries) {
+            s.insert(e.m_var);
+        }
     }
 
     unsigned model_converter::max_var(unsigned min) const {
@@ -398,7 +381,8 @@ namespace sat {
 
     void model_converter::expand(literal_vector& update_stack) {
         sat::literal_vector clause;
-        for (entry const& e : m_entries) {
+        for (unsigned i = m_exposed_lim; i < m_entries.size(); ++i) {
+            entry const& e = m_entries[i];
             unsigned index = 0;
             clause.reset();
             for (literal l : e.m_clauses) {
@@ -426,6 +410,56 @@ namespace sat {
                     clause.push_back(l);
                 }
             }
+        }
+        m_exposed_lim = m_entries.size();
+    }
+
+    void model_converter::init_search(solver& s) {
+#if 0
+        unsigned j = 0, k = 0;
+        literal_vector clause;
+        for (unsigned i = 0; i < m_entries.size(); ++i) {
+            entry & e = m_entries[i];
+            if (!m_mark[e.var()]) {
+                m_entries[j++] = e;
+                if (i < m_exposed_lim) k++;
+                continue;
+            }
+            clause.reset();
+            // For covered clauses we record the original clause. The role of m_clauses is to record ALA
+            // tautologies and are not part of the clause that is removed.
+
+            if (!e.m_clause.empty()) {
+                clause.append(e.m_clause);
+                s.mk_clause(clause.size(), clause.c_ptr(), false);
+                continue;
+            }
+            for (literal lit : e.m_clauses) {
+                if (lit == null_literal) {
+                    s.mk_clause(clause.size(), clause.c_ptr(), false);
+                    clause.reset();
+                }
+                else {
+                    clause.push_back(lit);
+                }
+            }
+        }
+        m_entries.shrink(j);
+        m_exposed_lim = k;
+        for (bool& m : m_mark) {
+            m = false;
+        }
+#endif
+    }
+
+    void model_converter::add_clause(unsigned n, literal const* lits) {
+        if (m_entries.empty()) {
+            return;
+        }
+        // TBD: we just mark variables instead of literals because entries don't have directly literal information.
+        for (unsigned i = 0; i < n; ++i) {
+            m_mark.reserve(lits[i].var() + 1);
+            m_mark[lits[i].var()] = true;
         }
     }
 

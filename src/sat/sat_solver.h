@@ -348,7 +348,6 @@ namespace sat {
 
         bool limit_reached() {
             if (!m_rlimit.inc()) {
-                m_mc.reset();
                 m_model_is_current = false;
                 TRACE("sat", tout << "canceled\n";);
                 m_reason_unknown = "sat.canceled";

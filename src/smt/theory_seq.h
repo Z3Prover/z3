@@ -328,6 +328,8 @@ namespace smt {
         scoped_vector<eq>          m_eqs;        // set of current equations.
         scoped_vector<ne>          m_nqs;        // set of current disequalities.
         scoped_vector<nc>          m_ncs;        // set of non-contains constraints.
+        scoped_vector<expr*>       m_lts;        // set of asserted str.<, str.<= literals
+        bool                       m_lts_checked; 
         unsigned                   m_eq_id;
         th_union_find              m_find;
 
@@ -460,6 +462,7 @@ namespace smt {
 
         bool check_extensionality();
         bool check_contains();
+        bool check_lts();
         bool solve_eqs(unsigned start);
         bool solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep, unsigned idx);
         bool simplify_eq(expr_ref_vector& l, expr_ref_vector& r, dependency* dep);

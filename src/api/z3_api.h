@@ -6213,6 +6213,14 @@ extern "C" {
 
     /**
        \brief Ad-hoc method for importing model conversion from solver.
+
+       This method is used for scenarios where \c src has been used to solve a set
+       of formulas and was interrupted. The \c dst solver may be a strengthening of \c src
+       obtained from cubing (assigning a subset of literals or adding constraints over the 
+       assertions available in \c src). If \c dst ends up being satisfiable, the model for \c dst
+       may not correspond to a model of the original formula due to inprocessing in \c src.
+       This method is used to take the side-effect of inprocessing into account when returning
+       a model for \c dst.
        
        def_API('Z3_solver_import_model_converter', VOID, (_in(CONTEXT), _in(SOLVER), _in(SOLVER)))
      */

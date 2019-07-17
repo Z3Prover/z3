@@ -72,20 +72,25 @@ namespace sat {
             bool_var                m_var;
             kind                    m_kind;
             literal_vector          m_clauses; // the different clauses are separated by null_literal
+            literal_vector          m_clause;  // original clause in case of CCE
             sref_vector<elim_stack> m_elim_stack;
             entry(kind k, bool_var v): m_var(v), m_kind(k) {}
         public:
             entry(entry const & src):
                 m_var(src.m_var),
                 m_kind(src.m_kind),
-                m_clauses(src.m_clauses) {
+                m_clauses(src.m_clauses),
+                m_clause(src.m_clause)
+            {
                 m_elim_stack.append(src.m_elim_stack);
             }
             bool_var var() const { return m_var; }
             kind get_kind() const { return m_kind; }
         };
     private:
-        vector<entry>          m_entries;
+        vector<entry>          m_entries;           // entries accumulated during SAT search
+        unsigned               m_exposed_lim;       // last entry that was exposed to model converter.
+        svector<bool>          m_mark;              // literals that are used in asserted clauses.
         solver const*          m_solver;
         elim_stackv            m_elim_stack;
 
@@ -113,6 +118,8 @@ namespace sat {
         void insert(entry & e, literal l1, literal l2);
         void insert(entry & e, clause_wrapper const & c);
         void insert(entry & c, literal_vector const& covered_clause);
+        void set_clause(entry & e, literal l1, literal l2);
+        void set_clause(entry & e, clause const & c);
 
         void add_ate(literal_vector const& lits);
         void add_ate(literal l1, literal l2);
@@ -121,7 +128,9 @@ namespace sat {
         bool empty() const { return m_entries.empty(); }
         unsigned size() const { return m_entries.size(); }
 
-        void reset();
+        void init_search(solver& s);
+        void add_clause(unsigned n, literal const* lits);
+
         bool check_invariant(unsigned num_vars) const;
         void display(std::ostream & out) const;
         bool check_model(model const & m) const;

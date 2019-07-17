@@ -268,6 +268,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_params(params),
     m_rep(m, m_dm),
     m_reset_cache(false),
+    m_lts_checked(false),
     m_eq_id(0),
     m_find(*this),
     m_overlap(m),
@@ -336,10 +337,14 @@ final_check_status theory_seq::final_check_eh() {
         ++m_stats.m_solve_eqs;
         TRACEFIN("solve_eqs");
         return FC_CONTINUE;
-    }
+    }    
     if (check_contains()) {
         ++m_stats.m_propagate_contains;
         TRACEFIN("propagate_contains");
+        return FC_CONTINUE;
+    }
+    if (check_lts()) {
+        TRACEFIN("check_lts");
         return FC_CONTINUE;
     }
     if (solve_nqs(0)) {
@@ -2147,6 +2152,57 @@ bool theory_seq::check_contains() {
     }
     return m_new_propagation || ctx.inconsistent();
 }
+
+bool theory_seq::check_lts() {
+    context& ctx = get_context();
+    if (m_lts.empty() || m_lts_checked) {
+        return false;
+    }
+    unsigned sz = m_lts.size();
+    m_trail_stack.push(value_trail<theory_seq, bool>(m_lts_checked));
+    m_lts_checked = true;
+    expr* a = nullptr, *b = nullptr, *c = nullptr, *d = nullptr;
+    bool is_strict1, is_strict2;
+    for (unsigned i = 0; i + 1 < sz; ++i) {
+        expr* p1 = m_lts[i];
+        VERIFY(m_util.str.is_lt(p1, a, b) || m_util.str.is_le(p1, a, b));
+        literal r1 = ctx.get_literal(p1);
+        if (ctx.get_assignment(r1) == l_false) {
+            std::swap(a, b);
+            r1.neg();
+            is_strict1 = m_util.str.is_le(p1);
+        }
+        else {
+            is_strict1 = m_util.str.is_lt(p1);
+        }
+        for (unsigned j = i + 1; j < sz; ++j) {
+            expr* p2 = m_lts[j];
+            VERIFY(m_util.str.is_lt(p2, c, d) || m_util.str.is_le(p2, c, d));
+            literal r2 = ctx.get_literal(p2);
+            if (ctx.get_assignment(r2) == l_false) {
+                std::swap(c, d);
+                r2.neg();
+                is_strict2 = m_util.str.is_le(p2);
+            }
+            else {
+                is_strict2 = m_util.str.is_lt(p2);
+            }
+            if (ctx.get_enode(b)->get_root() == ctx.get_enode(c)->get_root()) {
+
+                literal eq = (b == c) ? true_literal : mk_eq(b, c, false);
+                bool is_strict = is_strict1 || is_strict2; 
+                if (is_strict) {
+                    add_axiom(~r1, ~r2, ~eq, mk_literal(m_util.str.mk_lex_lt(a, d)));
+                }
+                else {
+                    add_axiom(~r1, ~r2, ~eq, mk_literal(m_util.str.mk_lex_le(a, d)));
+                }
+            }
+        }
+    }
+    return true;
+}
+
 /*
    - Eqs = 0
    - Diseqs evaluate to false
@@ -5491,7 +5547,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
         // no-op
     }
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
-        // no-op
+        m_lts.push_back(e);
     }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
@@ -5619,6 +5675,7 @@ void theory_seq::push_scope_eh() {
     m_eqs.push_scope();
     m_nqs.push_scope();
     m_ncs.push_scope();
+    m_lts.push_scope();
     m_internal_nth_lim.push_back(m_internal_nth_es.size());
 }
 
@@ -5632,6 +5689,7 @@ void theory_seq::pop_scope_eh(unsigned num_scopes) {
     m_eqs.pop_scope(num_scopes);
     m_nqs.pop_scope(num_scopes);
     m_ncs.pop_scope(num_scopes);
+    m_lts.pop_scope(num_scopes);
     m_rewrite.reset();    
     if (ctx.get_base_level() > ctx.get_scope_level() - num_scopes) {
         m_replay.reset();
@@ -5927,10 +5985,10 @@ void theory_seq::propagate_not_suffix(expr* e) {
    !(e1 < e2) => e1 = e2 or e2 = empty or e2 = xdz
    !(e1 < e2) => e1 = e2 or e2 = empty or d < c
    !(e1 < e2) => e1 = e2 or e1 = xcy
+   !(e1 = e2) or !(e1 < e2)
    
 optional:
    e1 < e2 or e1 = e2 or e2 < e1
-   !(e1 = e2) or !(e1 < e2)
    !(e1 = e2) or !(e2 < e1)
    !(e1 < e2) or !(e2 < e1)
  */
@@ -5962,13 +6020,7 @@ void theory_seq::add_lt_axiom(expr* n) {
     add_axiom(lt, eq, e1xcy);
     add_axiom(lt, eq, emp2, ltdc);
     add_axiom(lt, eq, emp2, e2xdz);
-    if (e1->get_id() <= e2->get_id()) {
-        literal gt = mk_literal(m_util.str.mk_lex_lt(e2, e1));
-        add_axiom(lt, eq, gt);
-        add_axiom(~eq, ~lt);
-        add_axiom(~eq, ~gt);
-        add_axiom(~lt, ~gt);
-    }
+    add_axiom(~eq, ~lt);
 }
 
 /**

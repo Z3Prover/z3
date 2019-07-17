@@ -1223,8 +1223,6 @@ namespace sat {
             }
             for (unsigned i = idx; i > 0; --i) {
                 literal lit = m_covered_clause[i];
-                //s.mark_visited(lit);
-                //continue;
                 if (!s.is_marked(lit)) continue;
                 clause_ante const& ante = m_covered_antecedent[i];
                 if (ante.cls()) {
@@ -1591,6 +1589,7 @@ namespace sat {
                 }
             }
             m_mc.insert(new_entry, m_covered_clause);
+            m_mc.set_clause(new_entry, c);
         }
         
         void block_covered_binary(watched const& w, literal l1, literal blocked, model_converter::kind k) {
@@ -1600,6 +1599,7 @@ namespace sat {
             TRACE("blocked_clause", tout << "new blocked clause: " << l2 << " " << l1 << "\n";);
             s.set_learned(l1, l2);
             m_mc.insert(new_entry, m_covered_clause);
+            m_mc.set_clause(new_entry, l1, l2);
             m_queue.decreased(~l2);
         }
 

@@ -120,6 +120,9 @@ namespace smt {
     }
 
     literal theory::mk_eq(expr * a, expr * b, bool gate_ctx) {
+        if (a == b) {
+            return true_literal;
+        }
         context & ctx = get_context();
         app * eq = ctx.mk_eq_atom(a, b);
         TRACE("mk_var_bug", tout << "mk_eq: " << eq->get_id() << " " << a->get_id() << " " << b->get_id() << "\n";

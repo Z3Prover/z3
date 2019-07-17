@@ -357,6 +357,9 @@ namespace sat {
                 m_drat.add(m_lemma);
             }
             ++m_stats.m_non_learned_generation;
+            if (!m_searching) {
+                m_mc.add_clause(num_lits, lits);
+            }
         }
         
         switch (num_lits) {
@@ -1832,8 +1835,8 @@ namespace sat {
         m_min_core_valid = false;
         m_min_core.reset();
         m_simplifier.init_search();
+        m_mc.init_search(*this);
         TRACE("sat", display(tout););
-
     }
 
     bool solver::should_simplify() const {
@@ -4485,13 +4488,14 @@ namespace sat {
     lbool solver::get_bounded_consequences(literal_vector const& asms, bool_var_vector const& vars, vector<literal_vector>& conseq) {
         bool_var_set unfixed_vars;
         unsigned num_units = 0, num_iterations = 0;
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            unfixed_vars.insert(vars[i]);
+        for (bool_var v : vars) {
+            unfixed_vars.insert(v);
         }
         TRACE("sat", tout << asms << "\n";);
         m_antecedents.reset();
         pop_to_base_level();
         if (inconsistent()) return l_false;
+        flet<bool> _searching(m_searching, true);
         init_search();
         propagate(false);
         if (inconsistent()) return l_false;
