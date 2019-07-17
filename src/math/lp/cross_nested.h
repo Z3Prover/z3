@@ -40,9 +40,62 @@ public:
         return c;
     }
 
+    struct occ {
+        unsigned m_occs;
+        unsigned m_power;
+        occ() : m_occs(0), m_power(0) {}
+        occ(unsigned k, unsigned p) : m_occs(k), m_power(p) {}
+        // use the "name injection rule here"
+        friend std::ostream& operator<<(std::ostream& out, const occ& c) {
+            out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
+            return out;
+        }
+    };
+
+    bool proceed_with_common_factor(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
+        TRACE("nla_cn", tout << "c=" << *c << "\n";);
+        SASSERT(c->is_sum());
+        auto f = nex::mul();
+        unsigned size = c->children().size();
+        for(const auto & p : occurences) {
+            if (p.second.m_occs == size) {
+                unsigned pow = p.second.m_power;
+                while (pow --) {
+                    f *= nex::var(p.first);
+                }
+            }
+        }
+        if (f.children().size() == 0) return false;
+        *c /= f;
+        f.simplify();
+        * c = nex::mul(f, *c);
+        TRACE("nla_cn", tout << "common factor=" << f << ", c=" << *c << "\n";);
+        cross_nested_of_expr_on_front_elem(&(c->children()[1]), front);
+        return true;
+    }
+    
+    void cross_nested_of_expr_on_front_elem_occs(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
+        if (proceed_with_common_factor(c, front, occurences))
+            return;
+        TRACE("nla_cn", tout << "save c=" << *c << "front:"; print_vector_of_ptrs(front, tout) << "\n";);           
+        nex copy_of_c = *c;
+        vector<nex> copy_of_front;
+        for (nex* n: front)
+            copy_of_front.push_back(*n);
+        for(auto& p : occurences) {
+            SASSERT(p.second.m_occs > 1);
+            lpvar j = p.first;
+            cross_nested_of_expr_on_sum_and_var(c, j, front);
+            *c = copy_of_c;
+            TRACE("nla_cn", tout << "restore c=" << *c << ", m_e=" << m_e << "\n";);   
+            for (unsigned i = 0; i < front.size(); i++)
+                *(front[i]) = copy_of_front[i];
+        }
+    }
+    
     void cross_nested_of_expr_on_front_elem(nex* c, vector<nex*>& front) {
         SASSERT(c->is_sum());
-        vector<lpvar> occurences = get_mult_occurences(*c);
+        auto occurences = get_mult_occurences(*c);
         TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << "\noccurences="; print_vector(occurences, tout) << "\nfront:"; print_vector_of_ptrs(front, tout) << "\n";);
     
         if (occurences.empty()) {
@@ -63,18 +116,7 @@ public:
                 cross_nested_of_expr_on_front_elem(c, front);     
             }
         } else {
-            TRACE("nla_cn", tout << "save c=" << *c << "front:"; print_vector_of_ptrs(front, tout) << "\n";);           
-            nex copy_of_c = *c;
-            vector<nex> copy_of_front;
-            for (nex* n: front)
-                copy_of_front.push_back(*n);
-            for(lpvar j : occurences) {
-                cross_nested_of_expr_on_sum_and_var(c, j, front);
-                *c = copy_of_c;
-                TRACE("nla_cn", tout << "restore c=" << *c << ", m_e=" << m_e << "\n";);   
-                for (unsigned i = 0; i < front.size(); i++)
-                    *(front[i]) = copy_of_front[i];
-            }
+            cross_nested_of_expr_on_front_elem_occs(c, front, occurences);
         }
     }
     // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
@@ -87,60 +129,67 @@ public:
             cross_nested_of_expr_on_front_elem(n, front);
         } while (!front.empty());
     }
-    void process_var_occurences(lpvar j, std::unordered_set<lpvar>& seen, std::unordered_map<lpvar, unsigned>& occurences) const {
-        if (seen.find(j) != seen.end()) return;
-        seen.insert(j);
+   static void process_var_occurences(lpvar j, std::unordered_map<lpvar, occ>& occurences) {
         auto it = occurences.find(j);
-        if (it == occurences.end())
-            occurences[j] = 1;
-        else
-            it->second ++;
+        if (it != occurences.end()) {
+            it->second.m_occs++;
+            it->second.m_power = 1;
+        } else {            
+            occurences.insert(std::make_pair(j, occ(1, 1)));
+        }
     }
     
-    void process_mul_occurences(const nex& e, std::unordered_set<lpvar>& seen, std::unordered_map<lpvar, unsigned>& occurences) const {
-        SASSERT(e.type() == expr_type::MUL);
-        for (const auto & ce : e.children()) {
-            if (ce.type() ==  expr_type::VAR) {
-                process_var_occurences(ce.var(), seen, occurences);
-            } else if (ce.type() ==  expr_type::MUL){
-                process_mul_occurences(ce, seen, occurences);
-            } 
+    static void dump_occurences(std::ostream& out, const std::unordered_map<lpvar, occ>& occurences) {
+        out << "{";
+        for(const auto& p: occurences) {
+            const occ& o = p.second;
+            out << "(v" << p.first << "->" << o << ")";
+        }
+        out << "}" << std::endl;
+    }
+
+
+    static void update_occurences_with_powers(std::unordered_map<lpvar, occ>& occurences,
+                                       const std::unordered_map<lpvar, int>& powers) {
+        for (auto & p : powers) {
+            lpvar j = p.first;
+            unsigned jp = p.second;
+            auto it = occurences.find(j);
+            if (it == occurences.end()) {
+                occurences[j] = occ(1, jp);
+            } else {
+                it->second.m_occs++;
+                it->second.m_power = std::min(it->second.m_power, jp);
+            }
         }
     }
 
-
-    // j -> the number of expressions j appears in as a multiplier
-    vector<lpvar> get_mult_occurences(const nex& e) const {
-        std::unordered_map<lpvar, unsigned> occurences;
+    static void remove_singular_occurences(std::unordered_map<lpvar, occ>& occurences) {
+        svector<lpvar> r;
+        for (const auto & p : occurences) {
+            if (p.second.m_occs <= 1) {
+                r.push_back(p.first);
+            }
+        }
+        for (lpvar j : r)
+            occurences.erase(j);
+    }
+    // j -> the number of expressions j appears in as a multiplier, get the max degree as well
+    static std::unordered_map<lpvar, occ> get_mult_occurences(const nex& e) {
+        std::unordered_map<lpvar, occ> occurences;
         SASSERT(e.type() == expr_type::SUM);
         for (const auto & ce : e.children()) {
             std::unordered_set<lpvar> seen;
-            if (ce.type() == expr_type::MUL) {
-                for (const auto & cce : ce.children()) {
-                    if (cce.type() ==  expr_type::VAR) {
-                        process_var_occurences(cce.var(), seen, occurences);
-                    } else if (cce.type() == expr_type::MUL) {
-                        process_mul_occurences(cce, seen, occurences);
-                    } else {
-                        continue;
-                    }
-                }
+            if (ce.is_mul()) {
+                auto powers = ce.get_powers_from_mul();
+                update_occurences_with_powers(occurences, powers);
             } else if (ce.type() ==  expr_type::VAR) {
-                process_var_occurences(ce.var(), seen, occurences);
+                process_var_occurences(ce.var(), occurences);
             }
         }
-        TRACE("nla_cn_details",
-              tout << "{";
-              for(auto p: occurences) {
-                  tout << "(v" << p.first << "->" << p.second << ")";
-              }
-              tout << "}" << std::endl;);    
-        vector<lpvar> r;
-        for(auto p: occurences) {
-            if (p.second > 1)
-                r.push_back(p.first);
-        }
-        return r;
+        remove_singular_occurences(occurences);
+        TRACE("nla_cn_details", dump_occurences(tout, occurences););    
+        return occurences;
     }
     bool can_be_cross_nested_more(const nex& e) const {
         switch (e.type()) {
