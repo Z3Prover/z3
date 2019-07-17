@@ -74,19 +74,23 @@ class nla_expr {
             std::sort(m_order.begin(), m_order.end(), [this](unsigned i, unsigned j) { return m_es[i] < m_es[j]; });
         }
         bool operator<(const sorted_children& e) const {
-            return compare(e) == -1;
+            return compare(e) < 0;
         }
 
         int compare(const sorted_children& e) const {
             unsigned m = std::min(size(), e.size());
             for (unsigned j = 0; j < m; j++) {
                 int r = m_es[m_order[j]].compare(e.m_es[e.m_order[j]]);
-                if (r == -1)
-                    return true;
-                if (r == 1)
-                    return false;
+                TRACE("nla_cn_details", tout << "r=" << r << "\n";);
+                if (r)
+                    return r;
             }
-            return size() < e.size();
+            return static_cast<int>(size()) - static_cast<int>(e.size());
+        }
+        void reset_order() {
+            m_order.clear();
+            for( unsigned i = 0; i < m_es.size(); i++)
+                m_order.push_back(i);
         }
     };
 
@@ -100,6 +104,7 @@ public:
     bool is_var() const { return m_type == expr_type::VAR; }
     bool is_mul() const { return m_type == expr_type::MUL; }
     bool is_undef() const { return m_type == expr_type::UNDEF; }
+    bool is_scalar() const { return m_type == expr_type::SCALAR; }
     lpvar var() const { SASSERT(m_type == expr_type::VAR); return m_j; }
     expr_type type() const { return m_type; }
     expr_type& type() { return m_type; }
@@ -281,6 +286,10 @@ public:
         return r;
     }
 
+    static nla_expr mul() {
+        return nla_expr(expr_type::MUL);
+    }
+
     static nla_expr mul(const T& v, lpvar j) {
         if (v == 1)
             return var(j);
@@ -312,9 +321,9 @@ public:
     }
 
     int compare(const nla_expr& e) const {
-        if (type() != (e.type()))
+        TRACE("nla_cn_details", tout << "this="<<*this<<", e=" << e << "\n";);
+        if (type() != e.type())
             return (int)type() - (int)(e.type());
-        SASSERT(type() == (e.type()));
 
         switch(m_type) {
         case expr_type::SUM:
@@ -322,7 +331,7 @@ public:
             return m_children.compare(e.m_children);
              
         case expr_type::VAR:
-            return m_j - e.m_j;
+            return static_cast<int>(m_j) - static_cast<int>(e.m_j);
         case expr_type::SCALAR:
             return m_v < e.m_v? -1 : (m_v == e.m_v? 0 : 1);
         default:
@@ -332,6 +341,7 @@ public:
     }
     
     bool operator<(const nla_expr& e) const {
+        TRACE("nla_cn_details", tout << "this=" << *this << ", e=" << e << "\n";);
         if (type() != (e.type()))
             return (int)type() < (int)(e.type());
 
@@ -366,6 +376,64 @@ public:
         return *this;
     }
 
+    std::unordered_map<lpvar, int> get_powers_from_mul() const {
+        SASSERT(is_mul());
+        std::unordered_map<lpvar, int> r;
+        for (const auto & c : children()) {
+            if (!c.is_var()) {
+                continue;
+            }
+            lpvar j = c.var();
+            auto it = r.find(j);
+            if (it == r.end()) {
+                r[j] = 1;
+            } else {
+                it->second++;
+            }
+        }
+        return r;
+    }
+
+    
+    nla_expr& operator/=(const nla_expr& b) {
+        SASSERT(b.is_mul());
+        if (is_sum()) {
+            for (auto & e : children()) {
+                e /= b;
+            }
+            return *this;
+        }
+        SASSERT(is_mul());
+        auto powers = b.get_powers_from_mul();
+        unsigned i = 0, k = 0;
+        for (; i < children().size(); i++, k++) {
+            auto & e = children()[i];
+            if (!e.is_var()) {
+                SASSERT(e.is_scalar());
+                continue;
+            }
+            lpvar j = e.var();
+            auto it = powers.find(j);
+            if (it == powers.end()) {
+                if (i != k)
+                    children()[k] = children()[i];
+            } else {
+                it->second --;
+                if (it->second == 0)
+                    powers.erase(it);
+                k--;
+            }            
+        }
+
+        while(k ++ < i)
+            children().pop_back();
+
+        s_children().reset_order();
+        
+        return *this;
+    }
+        
+    
     nla_expr& operator+=(const nla_expr& b) {
         if (is_sum()) {
             if (b.is_sum()) {
