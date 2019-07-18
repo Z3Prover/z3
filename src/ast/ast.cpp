@@ -1794,7 +1794,8 @@ ast * ast_manager::register_node_core(ast * n) {
     CASSERT("nondet_bug", contains || slow_not_contains(n));
 #endif
 
-    ast * r = m_ast_table.insert_if_not_there(n);
+    ast* r = m_ast_table.insert_if_not_there(n);    
+
     SASSERT(r->m_hash == h);
     if (r != n) {
         SASSERT(contains);
