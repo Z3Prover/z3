@@ -1364,7 +1364,7 @@ void cmd_context::assert_expr(symbol const & name, expr * t) {
     m_check_sat_result = nullptr;
     m().inc_ref(t);
     m_assertions.push_back(t);
-    expr * ans  = m().mk_const(name, m().mk_bool_sort());
+    app * ans  = m().mk_skolem_const(name, m().mk_bool_sort());
     m().inc_ref(ans);
     m_assertion_names.push_back(ans);
     if (m_solver)

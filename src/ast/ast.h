@@ -1820,6 +1820,12 @@ public:
                             arity, domain);
     }
 
+    func_decl * mk_skolem_const_decl(symbol const& name, sort* s) {
+        func_decl_info info;
+        info.set_skolem(true);
+        return mk_func_decl(name, static_cast<unsigned>(0), nullptr, s, info);
+    }
+
     func_decl * mk_const_decl(const char* name, sort * s) {
         return mk_func_decl(symbol(name), static_cast<unsigned>(0), nullptr, s);
     }
@@ -1896,6 +1902,10 @@ public:
     app * mk_const(func_decl * decl) {
         SASSERT(decl->get_arity() == 0);
         return mk_app(decl, static_cast<unsigned>(0), static_cast<expr**>(nullptr));
+    }
+
+    app * mk_skolem_const(symbol const & name, sort * s) {
+        return mk_const(mk_skolem_const_decl(name, s));
     }
 
     app * mk_const(symbol const & name, sort * s) {

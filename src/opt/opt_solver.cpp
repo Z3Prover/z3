@@ -406,6 +406,11 @@ namespace opt {
             smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
+
+        if (typeid(smt::theory_rdl) == typeid(opt)) {
+            smt::theory_rdl& th = dynamic_cast<smt::theory_rdl&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
         
         if (typeid(smt::theory_dense_i) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
