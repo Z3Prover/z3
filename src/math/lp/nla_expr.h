@@ -396,11 +396,20 @@ public:
 
     
     nla_expr& operator/=(const nla_expr& b) {
+        TRACE("nla_cn_details", tout << *this <<", " << b << "\n";);
+        if (b.is_var()) {
+            *this = (*this) / b.var();
+            return *this;
+        }
         SASSERT(b.is_mul());
         if (is_sum()) {
             for (auto & e : children()) {
                 e /= b;
             }
+            return *this;
+        }
+        if (is_var()) {
+            *this = scalar(T(1));
             return *this;
         }
         SASSERT(is_mul());
@@ -496,6 +505,7 @@ nla_expr<T> operator*(const nla_expr<T>& a, const nla_expr<T>& b) {
 
 template <typename T> 
 nla_expr<T> operator/(const nla_expr<T>& a, lpvar j) {
+    TRACE("nla_cn_details", tout << "a=" << a << ", v" << j << "\n";);
     SASSERT((a.is_mul() && a.contains(j)) || (a.is_var() && a.var() == j));
     if (a.is_var())
         return nla_expr<T>::scalar(T(1));
@@ -514,8 +524,11 @@ nla_expr<T> operator/(const nla_expr<T>& a, lpvar j) {
     }
     if (b.children().size() > 1) {
         b.type() = expr_type::MUL;
+    } else if (b.children().size() == 1) {
+        auto t = b.children()[0];
+        b = t;        
     } else {
-        b = b.children()[0];
+        b = nla_expr<T>::scalar(T(1));
     }
     return b;
 }
