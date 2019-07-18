@@ -326,7 +326,7 @@ func_decl * bv_decl_plugin::mk_func_decl(decl_kind k, unsigned bv_size) {
     case OP_BXOR:     return mk_binary(m_bv_xor, k, "bvxor", bv_size, true);
     case OP_BNAND:    return mk_binary(m_bv_nand, k, "bvnand", bv_size, false);
     case OP_BNOR:     return mk_binary(m_bv_nor, k, "bvnor", bv_size, false);
-    case OP_BXNOR:    return mk_binary(m_bv_xnor, k, "bvxnor", bv_size, false);
+    case OP_BXNOR:    return mk_binary(m_bv_xnor, k, "bvxnor", bv_size, true);
 
     case OP_BREDOR:   return mk_reduction(m_bv_redor, k, "bvredor", bv_size);
     case OP_BREDAND:  return mk_reduction(m_bv_redand, k, "bvredand", bv_size);
