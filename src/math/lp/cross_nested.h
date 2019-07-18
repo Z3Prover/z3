@@ -25,7 +25,6 @@ class cross_nested {
     typedef nla_expr<rational> nex;
     nex& m_e;
     std::function<void (const nex&)> m_call_on_result;
-    std::set<nex> m_reported;
 public:
     cross_nested(nex &e, std::function<void (const nex&)> call_on_result): m_e(e), m_call_on_result(call_on_result) {}
 
@@ -105,12 +104,7 @@ public:
                 auto e_to_report = m_e;
                 e_to_report.simplify();
                 e_to_report.sort();
-                if (m_reported.find(e_to_report) == m_reported.end()) {
-                    m_reported.insert(e_to_report);
-                    m_call_on_result(e_to_report);
-                } else {
-                    TRACE("nla_cn", tout << "do not report " << e_to_report << "\n";);
-                }
+                m_call_on_result(e_to_report);
             } else {
                 nex* c = pop_back(front);
                 cross_nested_of_expr_on_front_elem(c, front);     
