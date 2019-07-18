@@ -335,6 +335,9 @@ void model::collect_occs(top_sort& ts, func_decl* f) {
                collect_occs(ts, e);
             for (auto const& fe : *fi) {
                 collect_occs(ts, fe->get_result());
+                for (unsigned i = 0; i < fi->get_arity(); ++i) {
+                    collect_occs(ts, fe->get_arg(i));
+                }
             }
         }
     }
