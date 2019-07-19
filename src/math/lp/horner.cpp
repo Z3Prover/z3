@@ -40,14 +40,11 @@ bool horner::row_is_interesting(const T& row) const {
 
 void horner::lemmas_on_expr(nex& e) {
     TRACE("nla_cn", tout << "e = " << e << "\n";);    
-    TRACE("nla_cn_cn", tout << "e = " << e << "\n";);
     cross_nested cn(e, [this](const nex& n) {
                            TRACE("nla_cn", tout << "callback n = " << n << "\n";);
                            auto i = interval_of_expr(n);
                            m_intervals.check_interval_for_conflict_on_zero(i);} );
     cn.run();
-    TRACE("nla_cn", tout << "lemmas_on_expr done\n";);    
-    
 }
 
 
@@ -89,8 +86,8 @@ template <typename T> nex horner::create_sum_from_row(const T& row) {
     TRACE("nla_cn", tout << "row="; m_core->print_term(row, tout) << "\n";);
     SASSERT(row.size() > 1);
     nex e(expr_type::SUM);
-    for (const auto &p : row) {
-        e.add_child(nex::mul(p.coeff(), nexvar(p.var())));
+    for (const auto &p : row) {        
+        e.add_child(nex::scalar(p.coeff())* nexvar(p.var()));
     }
     return e;
 }
@@ -126,8 +123,9 @@ interv horner::interval_of_expr(const nex& e) {
         return interv();
     }
 }
-
-interv horner::interval_of_mul(const std::vector<nex>& es) {    
+template <typename V>
+interv horner::interval_of_mul(const V& es) {
+    SASSERT(es.size());
     interv a = interval_of_expr(es[0]);
     //    std::cout << "a" << std::endl;
     TRACE("nla_cn_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); tout << "\n";);
@@ -153,7 +151,8 @@ interv horner::interval_of_mul(const std::vector<nex>& es) {
     return a;
 }
 
-interv horner::interval_of_sum(const std::vector<nex>& es) {
+template <typename V>
+interv horner::interval_of_sum(const V& es) {
     interv a = interval_of_expr(es[0]);
     TRACE("nla_cn_details", tout << "es[0]= "  << es[0] << "\n"; m_intervals.display(tout, a) << "\n";);
     if (m_intervals.is_inf(a)) {

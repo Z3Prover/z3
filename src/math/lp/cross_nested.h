@@ -30,7 +30,7 @@ public:
 
     void run() {
         vector<nex*> front;
-        cross_nested_of_expr_on_front_elem(&m_e, front);
+        cross_nested_of_expr_on_front_elem(&m_e, front, true); // true for trivial form - no change
     }
 
     static nex* pop_back(vector<nex*>& front) {
@@ -69,7 +69,7 @@ public:
         f.simplify();
         * c = nex::mul(f, *c);
         TRACE("nla_cn", tout << "common factor=" << f << ", c=" << *c << "\n";);
-        cross_nested_of_expr_on_front_elem(&(c->children()[1]), front);
+        cross_nested_of_expr_on_front_elem(&(c->children()[1]), front, false);
         return true;
     }
     
@@ -89,39 +89,54 @@ public:
             TRACE("nla_cn", tout << "restore c=" << *c << ", m_e=" << m_e << "\n";);   
             for (unsigned i = 0; i < front.size(); i++)
                 *(front[i]) = copy_of_front[i];
+            TRACE("nla_cn", tout << "restore c=" << *c << ", m_e=" << m_e << "\n";);   
         }
     }
-    
-    void cross_nested_of_expr_on_front_elem(nex* c, vector<nex*>& front) {
+
+    static std::ostream& dump_occurences(std::ostream& out, const std::unordered_map<lpvar, occ>& occurences) {
+        out << "{";
+        for(const auto& p: occurences) {
+            const occ& o = p.second;
+            out << "(" << (char)('a' + p.first) << "->" << o << ")";
+        }
+        out << "}" << std::endl;
+        return out;
+    }
+
+    void cross_nested_of_expr_on_front_elem(nex* c, vector<nex*>& front, bool trivial_form) {
         SASSERT(c->is_sum());
         auto occurences = get_mult_occurences(*c);
-        TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << "\noccurences="; print_vector(occurences, tout) << "\nfront:"; print_vector_of_ptrs(front, tout) << "\n";);
+        TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << ", c occurences=";
+              dump_occurences(tout, occurences) << "; front:"; print_vector_of_ptrs(front, tout) << "\ntrivial_form=" << trivial_form << "\n";);
     
         if (occurences.empty()) {
             if(front.empty()) {
-                TRACE("nla_cn_cn", tout << "got the cn form: m_e=" << m_e << "\n";);
+                if (trivial_form)
+                    return;
+                TRACE("nla_cn", tout << "got the cn form: m_e=" << m_e << "\n";);
                 SASSERT(!can_be_cross_nested_more(m_e));
                 auto e_to_report = m_e;
                 e_to_report.simplify();
-                e_to_report.sort();
-                m_call_on_result(e_to_report);
+                m_call_on_result(e_to_report);                
             } else {
                 nex* c = pop_back(front);
-                cross_nested_of_expr_on_front_elem(c, front);     
+                cross_nested_of_expr_on_front_elem(c, front, trivial_form);     
             }
         } else {
             cross_nested_of_expr_on_front_elem_occs(c, front, occurences);
         }
     }
+    static char ch(unsigned j) {
+        return (char)('a'+j);
+    }
     // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
     void cross_nested_of_expr_on_sum_and_var(nex* c, lpvar j, vector<nex*> front) {
-        TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << "\nj = v" << j << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
+        TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << "\nj = " << ch(j) << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
         split_with_var(*c, j, front);
-        TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);    
-        do {
-            nex* n = pop_back(front);
-            cross_nested_of_expr_on_front_elem(n, front);
-        } while (!front.empty());
+        TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
+        SASSERT(front.size());
+        nex* n = pop_back(front); TRACE("nla_cn", tout << "n=" << *n <<"\n";);
+        cross_nested_of_expr_on_front_elem(n, front, false); // we got a non-trivial_form 
     }
    static void process_var_occurences(lpvar j, std::unordered_map<lpvar, occ>& occurences) {
         auto it = occurences.find(j);
@@ -131,17 +146,7 @@ public:
         } else {            
             occurences.insert(std::make_pair(j, occ(1, 1)));
         }
-    }
-    
-    static void dump_occurences(std::ostream& out, const std::unordered_map<lpvar, occ>& occurences) {
-        out << "{";
-        for(const auto& p: occurences) {
-            const occ& o = p.second;
-            out << "(v" << p.first << "->" << o << ")";
-        }
-        out << "}" << std::endl;
-    }
-
+    }    
 
     static void update_occurences_with_powers(std::unordered_map<lpvar, occ>& occurences,
                                        const std::unordered_map<lpvar, int>& powers) {
@@ -156,6 +161,7 @@ public:
                 it->second.m_power = std::min(it->second.m_power, jp);
             }
         }
+        TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, occurences) << "\n";);
     }
 
     static void remove_singular_occurences(std::unordered_map<lpvar, occ>& occurences) {
@@ -173,7 +179,6 @@ public:
         std::unordered_map<lpvar, occ> occurences;
         SASSERT(e.type() == expr_type::SUM);
         for (const auto & ce : e.children()) {
-            std::unordered_set<lpvar> seen;
             if (ce.is_mul()) {
                 auto powers = ce.get_powers_from_mul();
                 update_occurences_with_powers(occurences, powers);
@@ -182,16 +187,20 @@ public:
             }
         }
         remove_singular_occurences(occurences);
-        TRACE("nla_cn_details", dump_occurences(tout, occurences););    
+        TRACE("nla_cn_details", tout << "e=" << e << "\noccs="; dump_occurences(tout, occurences) << "\n";);    
         return occurences;
     }
-    bool can_be_cross_nested_more(const nex& e) const {
+    bool can_be_cross_nested_more(const nex& s) const {
+        auto e = s;
+        e.simplify();
+        TRACE("nla_cn_details", tout << "simplified " << e << "\n";);
         switch (e.type()) {
         case expr_type::SCALAR:
             return false;
-        case expr_type::SUM: {
-            return !get_mult_occurences(e).empty();
-        }
+        case expr_type::SUM: 
+            if ( !get_mult_occurences(e).empty())
+                return true;
+            // fall through MUL
         case expr_type::MUL:
             {
                 for (const auto & c: e.children()) {

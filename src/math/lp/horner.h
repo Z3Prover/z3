@@ -41,8 +41,10 @@ public:
     intervals::interval interval_of_expr(const nex& e);
     
     nex nexvar(lpvar j) const;
-    intervals::interval interval_of_sum(const std::vector<nex>&);
-    intervals::interval interval_of_mul(const std::vector<nex>&);
+    template <typename V> // V is a vector of expressions
+    intervals::interval interval_of_sum(const V&);
+    template <typename V> // V is a vector of expressions
+    intervals::interval interval_of_mul(const V&);
     void set_interval_for_scalar(intervals::interval&, const rational&);
     void set_var_interval(lpvar j, intervals::interval&);
     std::set<lpvar> get_vars_of_expr(const nex &) const;

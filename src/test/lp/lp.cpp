@@ -70,7 +70,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 void test_cn_on_expr(horner::nex t) {
     TRACE("nla_cn", tout << "t=" << t << '\n';);
     cross_nested cn(t, [](const horner::nex& n) {
-                           TRACE("nla_cn", tout << n << "\n";);
+                           TRACE("nla_cn_test", tout << n << "\n";);
                        } );
     cn.run();
 }
@@ -78,16 +78,19 @@ void test_cn_on_expr(horner::nex t) {
 void test_cn() {
     typedef horner::nex nex;
     enable_trace("nla_cn");
-    enable_trace("nla_cn_details");
     enable_trace("nla_cn_cn");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
-    
+    test_cn_on_expr(a*b + a*c + b*c);
+    TRACE("nla_cn", tout << "done\n";);
+    /*
+    test_cn_on_expr(a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d);
+    TRACE("nla_cn", tout << "done\n";);
     test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
+    TRACE("nla_cn", tout << "done\n";);
     test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
     TRACE("nla_cn", tout << "done\n";);
     test_cn_on_expr(a*b*d + a*b*c + c*b*d);
-    nex t = a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d;
-    test_cn_on_expr(t);
+    */
 }
 
 } // end of namespace nla
