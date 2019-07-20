@@ -1810,7 +1810,7 @@ namespace sat {
         m_best_phase_size         = 0;
         m_rephase_lim             = 0;
         m_rephase_inc             = 0;
-        m_reorder_lim             = 0;
+        m_reorder_lim             = m_config.m_reorder_base;
         m_reorder_inc             = 0;
         m_conflicts_since_restart = 0;
         m_force_conflict_analysis = false;
