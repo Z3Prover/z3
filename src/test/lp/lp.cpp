@@ -79,17 +79,18 @@ void test_cn() {
     typedef horner::nex nex;
     enable_trace("nla_cn");
     enable_trace("nla_cn_cn");
+    enable_trace("nla_cn_details");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
-    test_cn_on_expr(a*b + a*c + b*c);
-    TRACE("nla_cn", tout << "done\n";);
-    /*
+    //    test_cn_on_expr(a*b + a*c + b*c);
+    //TRACE("nla_cn", tout << "done\n";);
     test_cn_on_expr(a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d);
     TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
-    TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
-    TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*d + a*b*c + c*b*d);
+    /*
+      test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
+      TRACE("nla_cn", tout << "done\n";);
+      test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
+      TRACE("nla_cn", tout << "done\n";);
+      test_cn_on_expr(a*b*d + a*b*c + c*b*d);
     */
 }
 
