@@ -155,7 +155,7 @@ class seq_rewriter {
     bool is_sequence(eautomaton& aut, expr_ref_vector& seq);
     bool is_epsilon(expr* e) const;
     void split_units(expr_ref_vector& lhs, expr_ref_vector& rhs);
-    void get_lengths(expr* e, expr_ref_vector& lens, expr_ref_vector& other, rational& pos);
+    bool get_lengths(expr* e, expr_ref_vector& lens, rational& pos);
 
 
 public:    

@@ -699,9 +699,11 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     if (lengthPos) {
         
         m_lhs.reset();
-        expr_ref_vector lens(m()), other(m());
+        expr_ref_vector lens(m());
         m_util.str.get_concat(a, m_lhs);
-        get_lengths(b, lens, other, pos);
+        if (!get_lengths(b, lens, pos)) {
+            return BR_FAILED;
+        }
         unsigned rsz = lens.size();
         unsigned i = 0;
         for (; i < m_lhs.size(); ++i) {
@@ -727,9 +729,6 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         t2 = m_autil.mk_int(pos);
         for (expr* rhs : lens) {
             t2 = m_autil.mk_add(t2, m_util.str.mk_length(rhs));
-        }
-        for (expr* rhs : other) {
-            t2 = m_autil.mk_add(t2, rhs);
         }
         result = m_util.str.mk_substr(t1, t2, c);
         return BR_REWRITE2;
@@ -782,12 +781,12 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
     return BR_REWRITE3;
 }
 
-void seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, expr_ref_vector& other, rational& pos) {
+bool seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, rational& pos) {
     expr* arg = nullptr;
     rational pos1;
     if (m_autil.is_add(e)) {
         for (expr* arg1 : *to_app(e)) {
-            get_lengths(arg1, lens, other, pos);
+            if (!get_lengths(arg1, lens, pos)) return false;
         }
     }
     else if (m_util.str.is_length(e, arg)) {
@@ -797,8 +796,9 @@ void seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, expr_ref_vector& 
         pos += pos1;
     }
     else {
-        other.push_back(e);
+        return false;
     }
+    return true;
 }
 
 bool seq_rewriter::cannot_contain_suffix(expr* a, expr* b) {

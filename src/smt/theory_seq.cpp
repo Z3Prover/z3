@@ -4746,6 +4746,9 @@ void theory_seq::add_itos_length_axiom(expr* len) {
     literal n_ge_100hi = mk_literal(m_autil.mk_ge(n, m_autil.mk_numeral(ten*ten*hi, true)));
     
     add_axiom(~n_ge_10hi, len_ge);
+    add_axiom(n_ge_10hi, ~len_ge);
+
+    add_axiom(n_ge_100hi, len_le);
     add_axiom(~n_ge_100hi, ~len_le);
 }
 
