@@ -731,6 +731,7 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
             t2 = m_autil.mk_add(t2, m_util.str.mk_length(rhs));
         }
         result = m_util.str.mk_substr(t1, t2, c);
+        TRACE("seq", tout << result << "\n";);
         return BR_REWRITE2;
     }
 
@@ -798,7 +799,7 @@ bool seq_rewriter::get_lengths(expr* e, expr_ref_vector& lens, rational& pos) {
     else {
         return false;
     }
-    return true;
+    return !pos.is_neg();
 }
 
 bool seq_rewriter::cannot_contain_suffix(expr* a, expr* b) {
