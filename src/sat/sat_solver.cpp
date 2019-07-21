@@ -3161,12 +3161,42 @@ namespace sat {
         m_activity_inc = 128;
         svector<bool_var> vars;
         for (bool_var v = num_vars(); v-- > 0; ) {
-            vars.push_back(v);
+            if (!was_eliminated(v) && value(v) == l_undef) {            
+                vars.push_back(v);
+            }
         }
+#if 1
+        // 
+        //   exp(logits[i]) / sum(exp(logits)) 
+        // = 
+        //   exp(log(exp(logits[i]) / sum(exp(logits)))) 
+        // = 
+        //   exp(log(exp(logits[i])) - log(sum(exp(logits)))) 
+        // =
+        //   exp(logits[i] - lse)
+        svector<float> logits(vars.size(), 0.0);
+        float itau = 4.0;
+        float lse = 0;
+        float mid = m_rand.max_value()/2;
+        float max = 0;
+        for (float& f : logits) {
+            f = itau * (m_rand() - mid)/mid;
+            if (f > max) max = f;
+        }
+        for (float f : logits) {
+            lse += log(f - max);
+        }
+        lse = max + exp(lse);
+
+        for (unsigned i = 0; i < vars.size(); ++i) {
+            update_activity(vars[i], exp(logits[i] - lse));
+        }
+#else
         shuffle(vars.size(), vars.c_ptr(), m_rand);
         for (bool_var v : vars) {
-            update_activity(v, m_rand(10));
+            update_activity(v, m_rand(10)/10.0);
         }
+#endif
         m_reorder_inc += m_config.m_reorder_base;
         m_reorder_lim += m_reorder_inc;
     }

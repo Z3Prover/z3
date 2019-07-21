@@ -1400,6 +1400,12 @@ namespace sat {
             unsigned ci = ineq.coeff(i); 
             unsigned q = ci % c;
             if (q != 0 && !is_false(ineq.lit(i))) {
+#if 1
+                // code review by Elffers:
+                ineq.weaken(i);
+                --i;
+                --sz;                
+#else
                 if (q == ci) {
                     ineq.weaken(i);
                     --i;
@@ -1409,6 +1415,7 @@ namespace sat {
                     ineq.m_wlits[i].first -= q;
                     ineq.m_k -= q;
                 }
+#endif
             }
         }
         ineq.divide(c);
