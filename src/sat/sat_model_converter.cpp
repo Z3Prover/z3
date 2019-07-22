@@ -68,6 +68,7 @@ namespace sat {
     
     void model_converter::operator()(model & m) const {
         bool first =  false; 
+        TRACE("sat", display(tout););
         literal_vector clause;
         for (unsigned i = m_entries.size(); i-- > m_exposed_lim; ) {
             entry const& e = m_entries[i];
@@ -124,6 +125,7 @@ namespace sat {
                 for (literal const& l : e.m_clauses) {
                     if (l == null_literal) {
                         CTRACE("sat", !sat, 
+                               tout << "exposed: " << m_exposed_lim << "\n";
                                if (m_solver) m_solver->display(tout);
                                display(tout);
                                for (unsigned v = 0; v < m.size(); ++v) tout << v << ": " << m[v] << "\n";
