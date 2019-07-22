@@ -105,7 +105,7 @@ public:
                 for (auto &e : m_children) {
                     n += e;
                 }
-                *this = n;
+                m_children = n.m_children;
             }        
         } else if (is_mul()) {
             bool has_mul = false;
@@ -118,7 +118,7 @@ public:
                 for (auto &e : m_children) {
                     n *= e;
                 }
-                *this = n;
+                m_children = n.m_children;
             }
             TRACE("nla_cn_details", tout << "simplified " << *this << "\n";);
         }
@@ -320,7 +320,6 @@ public:
         for (; i < children().size(); i++, k++) {
             auto & e = children()[i];
             if (!e.is_var()) {
-                SASSERT(e.is_scalar());
                 continue;
             }
             lpvar j = e.var();

@@ -78,8 +78,7 @@ void test_cn_on_expr(horner::nex t) {
 void test_cn() {
     typedef horner::nex nex;
     enable_trace("nla_cn");
-    enable_trace("nla_cn_cn");
-    enable_trace("nla_cn_details");
+    //  enable_trace("nla_cn_details");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
     //    test_cn_on_expr(a*b + a*c + b*c);
     //TRACE("nla_cn", tout << "done\n";);
