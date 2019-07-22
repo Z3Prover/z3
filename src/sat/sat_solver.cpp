@@ -2196,7 +2196,7 @@ namespace sat {
 
     void solver::update_activity(bool_var v, double p) {
         unsigned old_act = m_activity[v];
-        unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
+        unsigned new_act = (unsigned) (m_config.m_activity_scale *  p);
         m_activity[v] = new_act;
         if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
             m_case_split_queue.activity_changed_eh(v, new_act > old_act);
@@ -3174,16 +3174,16 @@ namespace sat {
         //   exp(log(exp(logits[i])) - log(sum(exp(logits)))) 
         // =
         //   exp(logits[i] - lse)
-        svector<float> logits(vars.size(), 0.0);
-        float itau = 4.0;
-        float lse = 0;
-        float mid = m_rand.max_value()/2;
-        float max = 0;
-        for (float& f : logits) {
+        svector<double> logits(vars.size(), 0.0);
+        double itau = m_config.m_reorder_itau;
+        double lse = 0;
+        double mid = m_rand.max_value()/2;
+        double max = 0;
+        for (double& f : logits) {
             f = itau * (m_rand() - mid)/mid;
             if (f > max) max = f;
         }
-        for (float f : logits) {
+        for (double f : logits) {
             lse += log(f - max);
         }
         lse = max + exp(lse);
