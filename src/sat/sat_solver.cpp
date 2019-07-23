@@ -2196,7 +2196,7 @@ namespace sat {
 
     void solver::update_activity(bool_var v, double p) {
         unsigned old_act = m_activity[v];
-        unsigned new_act = (unsigned) (m_config.m_activity_scale *  p);
+        unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
         m_activity[v] = new_act;
         if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
             m_case_split_queue.activity_changed_eh(v, new_act > old_act);
