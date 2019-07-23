@@ -30,7 +30,7 @@ public:
 
     void run() {
         vector<nex*> front;
-        explore_of_expr_on_front_elem(&m_e, front, true); // true for trivial form - no change
+        explore_expr_on_front_elem(&m_e, front, true); // true for trivial form - no change
     }
 
     static nex* pop_back(vector<nex*>& front) {
@@ -69,6 +69,18 @@ public:
         return !f.children().empty();
     }
 
+    static bool has_common_factor(const nex& c) {
+        TRACE("nla_cn", tout << "c=" << c << "\n";);
+        SASSERT(c.is_sum());
+        unsigned size = c.children().size();
+        for(const auto & p : get_mult_occurences(c)) {
+            if (p.second.m_occs == size) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     bool proceed_with_common_factor(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
         SASSERT(c->is_sum());
@@ -80,7 +92,7 @@ public:
         f.simplify();
         * c = nex::mul(f, *c);
         TRACE("nla_cn", tout << "common factor=" << f << ", c=" << *c << "\n";);
-        explore_of_expr_on_front_elem(&(c->children()[1]), front, false);
+        explore_expr_on_front_elem(&(c->children()[1]), front, false);
         return true;
     }
 
@@ -102,7 +114,7 @@ public:
             *(front[i]) = copy[i];
     }
     
-    void explore_of_expr_on_front_elem_occs(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
+    void explore_expr_on_front_elem_occs(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
         if (proceed_with_common_factor(c, front, occurences))
             return;
         TRACE("nla_cn", tout << "save c=" << *c << "; front:"; print_vector_of_ptrs(front, tout) << "\n";);           
@@ -130,7 +142,7 @@ public:
         return out;
     }
 
-    void explore_of_expr_on_front_elem(nex* c, vector<nex*>& front, bool trivial_form) {
+    void explore_expr_on_front_elem(nex* c, vector<nex*>& front, bool trivial_form) {
         SASSERT(c->is_sum());
         auto occurences = get_mult_occurences(*c);
         TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << ", c occurences=";
@@ -144,10 +156,10 @@ public:
                 m_call_on_result(m_e);
             } else {
                 nex* c = pop_back(front);
-                explore_of_expr_on_front_elem(c, front, trivial_form);     
+                explore_expr_on_front_elem(c, front, trivial_form);     
             }
         } else {
-            explore_of_expr_on_front_elem_occs(c, front, occurences);
+            explore_expr_on_front_elem_occs(c, front, occurences);
         }
     }
     static char ch(unsigned j) {
@@ -161,7 +173,7 @@ public:
         TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
         SASSERT(front.size());
         nex* n = pop_back(front); TRACE("nla_cn", tout << "n=" << *n <<"\n";);
-        explore_of_expr_on_front_elem(n, front, false); // we got a non-trivial_form
+        explore_expr_on_front_elem(n, front, false); // we got a non-trivial_form
     }
    static void process_var_occurences(lpvar j, std::unordered_map<lpvar, occ>& occurences) {
         auto it = occurences.find(j);
@@ -303,8 +315,15 @@ public:
         if (!e.is_sum()) return false;
         nex a, b;
         pre_split(e, j, a, b);
-        nex f;
-        if (extract_common_factor(&a, f, get_mult_occurences(a)))
+        /*
+          When we have e without a non-trivial common factor then
+          there is a variable j such that e = jP + Q, where Q has all members
+          of e that do not have j as a factor, and
+          P also does not have a non-trivial common factor. It is enough
+          to explore only such variables to create all cross-nested forms.
+        */
+        
+        if (has_common_factor(a))
             return false;
         update_front_with_split(e, j, front, a, b);
         return true;
