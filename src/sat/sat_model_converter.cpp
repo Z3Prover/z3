@@ -23,7 +23,7 @@ Revision History:
 
 namespace sat {
 
-    model_converter::model_converter(): m_solver(nullptr), m_exposed_lim(0) {
+    model_converter::model_converter(): m_exposed_lim(0), m_solver(nullptr) {
     }
 
     model_converter::~model_converter() {
