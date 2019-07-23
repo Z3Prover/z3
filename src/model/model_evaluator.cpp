@@ -238,8 +238,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             func_decl* g = nullptr;
             VERIFY(m_ar.is_as_array(f, g));
             expr* def = nullptr;
-            quantifier* q = nullptr;
-            proof* def_pr = nullptr;
             if (m_def_cache.find(g, def)) {
                 result = def;
                 return BR_DONE;

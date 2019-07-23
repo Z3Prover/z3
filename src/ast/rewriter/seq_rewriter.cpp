@@ -704,7 +704,6 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         if (!get_lengths(b, lens, pos)) {
             return BR_FAILED;
         }
-        unsigned rsz = lens.size();
         unsigned i = 0;
         for (; i < m_lhs.size(); ++i) {
             expr* lhs = m_lhs.get(i);
