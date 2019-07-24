@@ -75,12 +75,11 @@ class intervals : common {
 
 
         void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
-            ci_dependency* lo = mk_dependency(a, b, deps.m_lower_deps);
-            ci_dependency* hi = mk_dependency(a, b, deps.m_upper_deps);
-            i.m_lower_dep = lo;
-            i.m_upper_dep = hi;
+            i.m_lower_dep =  mk_dependency(a, b, deps.m_lower_deps);
+            i.m_upper_dep = mk_dependency(a, b, deps.m_upper_deps);
         }
-            
+
+        
         // Should be NOOPs for precise mpq types.
         // For imprecise types (e.g., floats) it should set the rounding mode.
         void round_to_minus_inf() {}
@@ -149,13 +148,7 @@ public:
     typedef interval_manager<im_config>::interval interval;
 private:
     void set_var_interval(lpvar v, interval & b) const;
-
-    void set_var_interval_signs(lpvar v, interval & b) const;
-
-    void set_var_interval_deps(lpvar v, interval & b) const;
-
     ci_dependency* mk_dep(lp::constraint_index ci) const;
-
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
 public:
@@ -167,8 +160,6 @@ public:
         m_imanager(lim, im_config(m_num_manager, m_dep_manager))
     {}
     interval mul(const svector<lpvar>&) const;
-    interval mul_signs(const svector<lpvar>&) const;
-    interval mul_signs_with_deps(const svector<lpvar>&) const;
     void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     std::ostream& print_explanations(const svector<lp::constraint_index> &, std::ostream&) const;
