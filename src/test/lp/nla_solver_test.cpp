@@ -410,6 +410,51 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
     SASSERT(found0 && found1);
 }
 
+void test_horner() {
+    enable_trace("nla_solver");
+    lp::lar_solver s;
+    unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
+        ce = 5, bd = 6, ab = 7, ac = 8, c_min_b = 9;
+    
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, true, "b");
+    lpvar lp_c = s.add_named_var(c, true, "c");
+    lpvar lp_d = s.add_named_var(d, true, "d");
+    lpvar lp_e = s.add_named_var(e, true, "e");
+    lpvar lp_ab = s.add_named_var(ab, true, "ab");
+    lpvar lp_ce = s.add_named_var(ce, true, "ce");
+    lpvar lp_bd = s.add_named_var(bd, true, "ab");
+    lpvar lp_ac = s.add_named_var(ac, true, "ce");
+
+    lp::lar_term t;
+    t.add_var(lp_c);
+    t.add_coeff_var(rational(-1), lp_b);
+    lpvar lp_c_min_b = s.add_term(t.coeffs_as_vector(), c_min_b);
+    
+    reslimit l;
+    params_ref p;
+    solver nla(s);
+    vector<lpvar> v;
+    v.push_back(a); v.push_back(b);
+    nla.add_monomial(lp_ab, v.size(), v.begin());
+    v.clear();
+
+    v.push_back(c); v.push_back(e);
+    nla.add_monomial(lp_ce, v.size(), v.begin());
+    v.clear();
+
+    v.push_back(b); v.push_back(d);
+    nla.add_monomial(lp_bd, v.size(), v.begin());
+    v.clear();
+
+    v.push_back(a); v.push_back(c);
+    nla.add_monomial(lp_ac, v.size(), v.begin());
+    v.clear();
+
+    
+
+
+}
 void test_basic_sign_lemma() {
     enable_trace("nla_solver");
     lp::lar_solver s;
@@ -458,8 +503,8 @@ void test_basic_sign_lemma() {
     s_set_column_value(s, lp_bde, rational(5));
     s_set_column_value(s, lp_acd, rational(3));
    
-    vector<lemma> lemma;
-    SASSERT(nla.get_core()->test_check(lemma) == l_false);
+    vector<lemma> lemmas;
+    SASSERT(nla.get_core()->test_check(lemmas) == l_false);
 
     lp::lar_term t;
     t.add_var(lp_bde);
@@ -467,18 +512,6 @@ void test_basic_sign_lemma() {
     ineq q(llc::EQ, t, rational(0));
    
     nla.get_core()->print_lemma(std::cout);
-    SASSERT(q == lemma[0].ineqs().back());
-    ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    i0.m_term.add_var(lp_bde);
-    i0.m_term.add_var(lp_acd);
-    bool found = false;
-    for (const auto& k : lemma[0].ineqs()){
-        if (k == i0) {
-            found = true;
-        } 
-    }
-
-    SASSERT(found);
 }
 
 void test_order_lemma_params(bool var_equiv, int sign) {
