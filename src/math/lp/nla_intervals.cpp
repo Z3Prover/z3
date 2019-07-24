@@ -94,10 +94,9 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     m_dep_manager.linearize(i.m_upper_dep, expl);   
     {
         lp::explanation e(expl);
-        out << "\n)\nupper constraints (\n";    
+        out << "upper constraints\n";    
         m_core->print_explanation(e, out);
     }
-    out << ")\n";
     return out;
 }
 
