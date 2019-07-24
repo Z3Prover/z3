@@ -30,7 +30,7 @@ public:
 
     void run() {
         vector<nex*> front;
-        explore_expr_on_front_elem(&m_e, front, true); // true for trivial form - no change
+        explore_expr_on_front_elem(&m_e, front); // true for trivial form - no change
     }
 
     static nex* pop_back(vector<nex*>& front) {
@@ -92,7 +92,7 @@ public:
         f.simplify();
         * c = nex::mul(f, *c);
         TRACE("nla_cn", tout << "common factor=" << f << ", c=" << *c << "\n";);
-        explore_expr_on_front_elem(&(c->children()[1]), front, false);
+        explore_expr_on_front_elem(&(c->children()[1]), front);
         return true;
     }
 
@@ -142,21 +142,19 @@ public:
         return out;
     }
 
-    void explore_expr_on_front_elem(nex* c, vector<nex*>& front, bool trivial_form) {
+    void explore_expr_on_front_elem(nex* c, vector<nex*>& front) {
         SASSERT(c->is_sum());
         auto occurences = get_mult_occurences(*c);
         TRACE("nla_cn", tout << "m_e=" << m_e << "\nc=" << *c << ", c occurences=";
-              dump_occurences(tout, occurences) << "; front:"; print_vector_of_ptrs(front, tout) << "\ntrivial_form=" << trivial_form << "\n";);
+              dump_occurences(tout, occurences) << "; front:"; print_vector_of_ptrs(front, tout) << "\n";);
     
         if (occurences.empty()) {
             if(front.empty()) {
-                if (trivial_form)
-                    return;
                 TRACE("nla_cn", tout << "got the cn form: =" << m_e << "\n";);
                 m_call_on_result(m_e);
             } else {
                 nex* c = pop_back(front);
-                explore_expr_on_front_elem(c, front, trivial_form);     
+                explore_expr_on_front_elem(c, front);     
             }
         } else {
             explore_expr_on_front_elem_occs(c, front, occurences);
@@ -173,7 +171,7 @@ public:
         TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_vector_of_ptrs(front, tout) << "\n";);
         SASSERT(front.size());
         nex* n = pop_back(front); TRACE("nla_cn", tout << "n=" << *n <<"\n";);
-        explore_expr_on_front_elem(n, front, false); // we got a non-trivial_form
+        explore_expr_on_front_elem(n, front);
     }
    static void process_var_occurences(lpvar j, std::unordered_map<lpvar, occ>& occurences) {
         auto it = occurences.find(j);
