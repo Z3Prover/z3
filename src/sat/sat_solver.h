@@ -113,13 +113,13 @@ namespace sat {
         clause_vector           m_learned;
         unsigned                m_num_frozen;
         vector<watch_list>      m_watches;
-        char_vector             m_assignment;
+        svector<lbool>          m_assignment;
         svector<justification>  m_justification; 
-        svector<char>           m_decision;
-        svector<char>           m_mark;
-        svector<char>           m_lit_mark;
-        svector<char>           m_eliminated;
-        svector<char>           m_external;
+        svector<bool>           m_decision;
+        svector<bool>           m_mark;
+        svector<bool>           m_lit_mark;
+        svector<bool>           m_eliminated;
+        svector<bool>           m_external;
         unsigned_vector         m_touched;
         unsigned                m_touch_index;
         literal_vector          m_replay_assign;
@@ -311,18 +311,18 @@ namespace sat {
         unsigned num_clauses() const override;
         void num_binary(unsigned& given, unsigned& learned) const;
         unsigned num_restarts() const { return m_restarts; }
-        bool is_external(bool_var v) const override { return m_external[v] != 0; }
+        bool is_external(bool_var v) const override { return m_external[v]; }
         void set_external(bool_var v) override;
         void set_non_external(bool_var v) override;
-        bool was_eliminated(bool_var v) const { return m_eliminated[v] != 0; }
+        bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
         bool  at_base_lvl() const override { return m_scope_lvl == 0; }
-        lbool value(literal l) const { return static_cast<lbool>(m_assignment[l.index()]); }
-        lbool value(bool_var v) const { return static_cast<lbool>(m_assignment[literal(v, false).index()]); }
+        lbool value(literal l) const { return m_assignment[l.index()]; }
+        lbool value(bool_var v) const { return m_assignment[literal(v, false).index()]; }
         unsigned lvl(bool_var v) const { return m_justification[v].level(); }
         unsigned lvl(literal l) const { return m_justification[l.var()].level(); }
         unsigned init_trail_size() const override { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
@@ -386,10 +386,10 @@ namespace sat {
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }
         watch_list & get_wlist(unsigned l_idx) { return m_watches[l_idx]; }
-        bool is_marked(bool_var v) const { return m_mark[v] != 0; }
+        bool is_marked(bool_var v) const { return m_mark[v]; }
         void mark(bool_var v) { SASSERT(!is_marked(v)); m_mark[v] = true; }
         void reset_mark(bool_var v) { SASSERT(is_marked(v)); m_mark[v] = false; }
-        bool is_marked_lit(literal l) const { return m_lit_mark[l.index()] != 0; }
+        bool is_marked_lit(literal l) const { return m_lit_mark[l.index()]; }
         void mark_lit(literal l) { SASSERT(!is_marked_lit(l)); m_lit_mark[l.index()] = true; }
         void unmark_lit(literal l) { SASSERT(is_marked_lit(l)); m_lit_mark[l.index()] = false; }
         bool check_inconsistent();

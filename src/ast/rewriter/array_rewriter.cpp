@@ -315,6 +315,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
             sort_ref s = get_map_array_sort(f, num_args, args);
             result = m_util.mk_const_array(s, value);
         }
+        TRACE("array", tout << result << "\n";);
         return BR_REWRITE2;
     }
 

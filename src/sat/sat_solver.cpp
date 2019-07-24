@@ -140,8 +140,8 @@ namespace sat {
         
         // create new vars
         for (bool_var v = num_vars(); v < src.num_vars(); v++) {
-            bool ext  = src.m_external[v] != 0;
-            bool dvar = src.m_decision[v] != 0;
+            bool ext  = src.m_external[v];
+            bool dvar = src.m_decision[v];
             VERIFY(v == mk_var(ext, dvar));
             if (src.was_eliminated(v)) {
                 set_eliminated(v, true);
@@ -273,7 +273,7 @@ namespace sat {
     }
 
     void solver::set_external(bool_var v) {
-        if (m_external[v] != 0) return;
+        if (m_external[v]) return;
         m_external[v] = true;
         if (!m_ext) return;
         
