@@ -274,9 +274,8 @@ bool arith_rewriter::elim_to_real_pol(expr * p, expr_ref & new_p) {
     if (m_util.is_add(p)) {
         expr_ref_buffer new_monomials(m());
         expr_ref new_monomial(m());
-        unsigned num = to_app(p)->get_num_args();
-        for (unsigned i = 0; i < num; i++) {
-            if (!elim_to_real_mon(to_app(p)->get_arg(i), new_monomial))
+        for (expr* arg : *to_app(p)) {
+            if (!elim_to_real_mon(arg, new_monomial))
                 return false;
             new_monomials.push_back(new_monomial);
         }
