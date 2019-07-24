@@ -2504,7 +2504,7 @@ namespace sat {
     }
 
     void ba_solver::remove_constraint(constraint& c, char const* reason) {
-        TRACE("ba", tout << "remove " << c << " " << reason << "\n";);
+        TRACE("ba", display(tout << "remove ", c, true) << " " << reason << "\n";);
         IF_VERBOSE(21, display(verbose_stream() << "remove " << reason << " ", c, true););
         nullify_tracking_literal(c);
         clear_watch(c);
@@ -2991,7 +2991,7 @@ namespace sat {
             init_use_lists();
             remove_unused_defs();
             set_non_external();
-            if (get_config().m_elim_vars) elim_pure();
+            if (get_config().m_elim_vars && !s().get_config().m_incremental && !s().tracking_assumptions()) elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
@@ -4371,7 +4371,7 @@ namespace sat {
             SASSERT(c1.index() != c2.index());
             if (subsumes(c1, c2, slit)) {
                 if (slit.empty()) {
-                    TRACE("ba", tout << "subsume cardinality\n" << c1.index() << ":" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
+                    TRACE("ba", tout << "subsume cardinality\n" << c1 << "\n" << c2.index() << ":" << c2 << "\n";);
                     remove_constraint(c2, "subsumed");
                     ++m_stats.m_num_pb_subsumes;
                     set_non_learned(c1);
@@ -4789,13 +4789,14 @@ namespace sat {
         return out << index2constraint(idx);
     }
 
-    void ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
+    std::ostream& ba_solver::display(std::ostream& out, constraint const& c, bool values) const {
         switch (c.tag()) {
         case card_t: display(out, c.to_card(), values); break;
         case pb_t: display(out, c.to_pb(), values); break;
         case xr_t: display(out, c.to_xr(), values); break;
         default: UNREACHABLE(); break;
         }
+        return out;
     }
 
     void ba_solver::collect_statistics(statistics& st) const {

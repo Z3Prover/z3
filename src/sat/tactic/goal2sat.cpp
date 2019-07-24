@@ -1002,43 +1002,11 @@ void sat2goal::mc::get_units(obj_map<expr, bool>& units) {
 }
 
 
+void sat2goal::mc::operator()(sat::model& md) {
+    m_smc(md);
+}
+
 void sat2goal::mc::operator()(model_ref & md) {
-    model_evaluator ev(*md);
-    ev.set_model_completion(false);
-    
-    // create a SAT model using md
-    sat::model sat_md;
-    expr_ref val(m);
-    for (expr * atom : m_var2expr) {
-        if (!atom) {
-            sat_md.push_back(l_undef);
-            continue;
-        }
-        ev(atom, val);
-        if (m.is_true(val)) 
-            sat_md.push_back(l_true);
-        else if (m.is_false(val))
-            sat_md.push_back(l_false);
-        else 
-            sat_md.push_back(l_undef);
-    }
-    
-    // apply SAT model converter
-    m_smc(sat_md);
-            
-    // register value of non-auxiliary boolean variables back into md
-    unsigned sz = m_var2expr.size();
-    for (sat::bool_var v = 0; v < sz; v++) {
-        app * atom = m_var2expr.get(v);
-        if (atom && is_uninterp_const(atom)) {
-            func_decl * d = atom->get_decl();
-            lbool new_val = sat_md[v];
-            if (new_val == l_true)
-                md->register_decl(d, m.mk_true());
-            else if (new_val == l_false)
-                md->register_decl(d, m.mk_false());
-        }
-    }    
     // apply externalized model converter
     if (m_gmc) (*m_gmc)(md);
     TRACE("sat_mc", tout << "after sat_mc\n"; model_v2_pp(tout, *md););

@@ -869,7 +869,10 @@ private:
             return;
         }
         TRACE("sat", m_solver.display_model(tout););
-        sat::model const & ll_m = m_solver.get_model();
+        sat::model ll_m = m_solver.get_model();
+        if (m_sat_mc) {
+            (*m_sat_mc)(ll_m);
+        }
         mdl = alloc(model, m);
         for (sat::bool_var v = 0; v < ll_m.size(); ++v) {
             expr* n = m_sat_mc->var2expr(v);

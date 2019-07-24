@@ -79,7 +79,7 @@ public:
         ast_manager&            m;
         sat::model_converter    m_smc;
         generic_model_converter_ref m_gmc;
-        app_ref_vector         m_var2expr;
+        app_ref_vector          m_var2expr;
 
         // flushes from m_smc to m_gmc;
         void flush_gmc();
@@ -88,7 +88,8 @@ public:
         mc(ast_manager& m);
         ~mc() override {}
         // flush model converter from SAT solver to this structure.
-        void flush_smc(sat::solver_core& s, atom2bool_var const& map);                 
+        void flush_smc(sat::solver_core& s, atom2bool_var const& map);
+        void operator()(sat::model& m);
         void operator()(model_ref& md) override;
         void operator()(expr_ref& fml) override; 
         model_converter* translate(ast_translation& translator) override;

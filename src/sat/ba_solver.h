@@ -608,7 +608,7 @@ namespace sat {
         bool check_model(model const& m) const override;
 
         ptr_vector<constraint> const & constraints() const { return m_constraints; }
-        void display(std::ostream& out, constraint const& c, bool values) const;
+        std::ostream& display(std::ostream& out, constraint const& c, bool values) const;
 
         bool validate() override;
 

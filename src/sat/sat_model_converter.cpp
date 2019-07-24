@@ -68,7 +68,6 @@ namespace sat {
     
     void model_converter::operator()(model & m) const {
         bool first =  false; 
-        TRACE("sat", display(tout););
         literal_vector clause;
         for (unsigned i = m_entries.size(); i-- > m_exposed_lim; ) {
             entry const& e = m_entries[i];
@@ -86,7 +85,7 @@ namespace sat {
                     // end of clause
                     VERIFY (sat || e.get_kind() != ATE);
                     if (!sat && e.get_kind() != ATE && v0 != null_bool_var) {     
-                        VERIFY(legal_to_flip(v0));                        
+                        VERIFY(legal_to_flip(v0));   
                         m[v0] = var_sign ? l_false : l_true;
                     }
                     elim_stack* st = e.m_elim_stack[index];
