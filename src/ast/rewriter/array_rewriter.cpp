@@ -306,7 +306,7 @@ br_status array_rewriter::mk_map_core(func_decl * f, unsigned num_args, expr * c
         if (store_expr) {
             ptr_buffer<expr> new_args;
             new_args.push_back(m_util.mk_map(f, arrays.size(), arrays.c_ptr()));
-            new_args.append(num_indices, to_app(args[0])->get_args() + 1);
+            new_args.append(num_indices, store_expr->get_args() + 1);
             new_args.push_back(m().mk_app(f, values.size(), values.c_ptr()));
             result = m().mk_app(get_fid(), OP_STORE, new_args.size(), new_args.c_ptr());
         }
