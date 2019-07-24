@@ -141,16 +141,15 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
 
     br_status reduce_app(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) {
-        TRACE("model_evaluator", tout << f->get_name() << "\n";);
         result_pr = nullptr;
         family_id fid = f->get_family_id();
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
-        if (num == 0 && (fid == null_family_id || is_uninterp)) {
+        TRACE("model_evaluator", tout << f->get_name() << " " << is_uninterp << "\n";);        
+        if (num == 0 && (fid == null_family_id || is_uninterp || m_ar.is_as_array(f))) {
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;
-                // return BR_DONE;
                 return m_ar.is_as_array(val)? BR_REWRITE1 : BR_DONE;
             }
             else if (m_model_completion) {
