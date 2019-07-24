@@ -246,11 +246,11 @@ namespace smt {
             SASSERT(m->get_num_args() == 2);
             if (m_util.is_numeral(arg2, _val2)) {
                 numeral val(_val1 + _val2);
-				if (reflection_enabled()) {
-					internalize_term_core(to_app(arg1));
-					internalize_term_core(to_app(arg2));
-					mk_enode(m);
-				}
+                if (reflection_enabled()) {
+                    internalize_term_core(to_app(arg1));
+                    internalize_term_core(to_app(arg2));
+                    mk_enode(m);
+                }
                 theory_var v = internalize_numeral(m, val);
                 add_row_entry<true>(r_id, numeral::one(), v);
                 return;
@@ -730,7 +730,11 @@ namespace smt {
 
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_numeral(app * n, numeral const& val) {
-        SASSERT(!get_context().e_internalized(n));
+        
+        context& ctx = get_context();
+        if (ctx.e_internalized(n)) {
+            return mk_var(ctx.get_enode(n));
+        }
         enode * e    = mk_enode(n);
         // internalizer is marking enodes as interpreted whenever the associated ast is a value and a constant.
         // e->mark_as_interpreted();
