@@ -2084,8 +2084,10 @@ br_status bv_rewriter::mk_bv_comp(expr * arg1, expr * arg2, expr_ref & result) {
 
 br_status bv_rewriter::mk_bv_add(unsigned num_args, expr * const * args, expr_ref & result) {
     br_status st = mk_add_core(num_args, args, result);
-    if (st != BR_FAILED && st != BR_DONE)
+    if (st != BR_FAILED && st != BR_DONE) {
+        TRACE("bv", tout << result << "\n";);
         return st;
+    }
 #if 0
     expr * x;
     expr * y;

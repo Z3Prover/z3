@@ -146,7 +146,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         bool is_uninterp = fid != null_family_id && m.get_plugin(fid)->is_considered_uninterpreted(f);
         br_status st = BR_FAILED;
         TRACE("model_evaluator", tout << f->get_name() << " " << is_uninterp << "\n";);        
-        if (num == 0 && (fid == null_family_id || is_uninterp || m_ar.is_as_array(f))) {
+        if (num == 0 && (fid == null_family_id || is_uninterp)) { // || m_ar.is_as_array(f)
             expr * val = m_model.get_const_interp(f);
             if (val != nullptr) {
                 result = val;

@@ -1017,8 +1017,11 @@ bool poly_rewriter<Config>::hoist_ite(expr_ref& e) {
                         bs.push_back(s);
                     }
                 }
-                adds[i] = mk_add_app(bs.size(), bs.c_ptr());
-                pinned.push_back(adds[i]);
+                expr* a2 = mk_add_app(bs.size(), bs.c_ptr()); 
+                if (a != a2) {
+                    adds[i] = a2;
+                    pinned.push_back(a2);
+                }
             }
         }
         ++i;
