@@ -1041,9 +1041,7 @@ bool poly_rewriter<Config>::hoist_ite(expr* a, obj_hashtable<expr>& shared, nume
     }
     rational k, g1;
     if (is_int_numeral(a, k)) {
-        normalize(k);
-        g = gcd(g, k);
-        return !is_minus_one(a) && shared.empty();
+        return false;
     }
     ptr_buffer<expr> adds;
     TO_BUFFER(is_add, adds, a);
