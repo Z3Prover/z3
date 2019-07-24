@@ -58,6 +58,7 @@
 #include "math/lp/horner.h"
 #include "math/lp/cross_nested.h"
 namespace nla {
+void test_horner();
 void test_order_lemma();
 void test_monotone_lemma();
 void test_basic_sign_lemma();
@@ -80,16 +81,17 @@ void test_cn() {
     enable_trace("nla_cn");
     //  enable_trace("nla_cn_details");
     nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4);
-    //test_cn_on_expr(a*b + a*c + b*c);
-    //TRACE("nla_cn", tout << "done\n";);
+    nex min_1 = nex::scalar(rational(-1));
+    test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
+    TRACE("nla_cn", tout << "done\n";);
+   
     test_cn_on_expr(a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d);
-    TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
-    TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
-    TRACE("nla_cn", tout << "done\n";);
-    test_cn_on_expr(a*b*d + a*b*c + c*b*d);
-
+    // TRACE("nla_cn", tout << "done\n";);
+    // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
+    // TRACE("nla_cn", tout << "done\n";);
+    // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
+    // TRACE("nla_cn", tout << "done\n";);
+    // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
 }
 
 } // end of namespace nla
@@ -1941,6 +1943,7 @@ void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-nla_monot", "test nla_solver order lemma");
     parser.add_option_with_help_string("-nla_tan", "test_tangent_lemma");
     parser.add_option_with_help_string("-nla_bsl", "test_basic_sign_lemma");
+    parser.add_option_with_help_string("-horner", "test horner's heuristic");
     parser.add_option_with_help_string("-nla_blnt_mf", "test_basic_lemma_for_mon_neutral_from_monomial_to_factors");
     parser.add_option_with_help_string("-nla_blnt_fm", "test_basic_lemma_for_mon_neutral_from_factors_to_monomial");
     parser.add_option_with_help_string("-hnf", "test hermite normal form");
@@ -3640,6 +3643,13 @@ void test_lp_local(int argn, char**argv) {
     if (args_parser.option_is_used("-nla_bsl")) { 
 #ifdef Z3DEBUG
         nla::test_basic_sign_lemma();
+#endif
+        return finalize(0);
+    }
+
+    if (args_parser.option_is_used("-nla_horner")) { 
+#ifdef Z3DEBUG
+        nla::test_horner();
 #endif
         return finalize(0);
     }
