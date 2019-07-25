@@ -2938,7 +2938,7 @@ expr_ref context::mk_unsat_answer() const
 }
 
 
-proof_ref context::get_ground_refutation() {
+proof_ref context::get_ground_refutation() const {
     if (m_last_result != l_true) {
         IF_VERBOSE(0, verbose_stream()
                    << "Sat answer unavailable when result is false\n";);
@@ -2948,142 +2948,45 @@ proof_ref context::get_ground_refutation() {
     ground_sat_answer_op op(*this);
     return op(*m_query);
 }
-expr_ref context::get_ground_sat_answer()  {
+
+expr_ref context::get_ground_sat_answer() const {
     if (m_last_result != l_true) {
         IF_VERBOSE(0, verbose_stream()
                    << "Sat answer unavailable when result is false\n";);
         return expr_ref(m);
     }
 
-    // treat the following as queues: read from left to right and insert at the right
-    reach_fact_ref_vector reach_facts;
-    ptr_vector<func_decl> preds;
-    ptr_vector<pred_transformer> pts;
-    expr_ref_vector cex (m); // pre-order list of ground instances of predicates
-    expr_ref_vector cex_facts (m); // equalities for the ground cex using signature constants
+    // convert a ground refutation into a linear counterexample
+    // only works for linear CHC systems
+    expr_ref_vector cex(m);
+    proof_ref pf = get_ground_refutation();
 
-    // temporary
-    reach_fact *reach_fact;
-    pred_transformer* pt;
-    expr_ref cex_fact (m);
-    datalog::rule const* r;
-
-    // get and discard query rule
-    reach_fact = m_query->get_last_rf ();
-    r = &reach_fact->get_rule ();
-
-    // initialize queues
-    reach_facts.append (reach_fact->get_justifications ());
-    if (reach_facts.size() != 1) {
-        // XXX Escape if an assertion is about to fail
-        IF_VERBOSE(1,
-                   verbose_stream () <<
-                   "Warning: counterexample is trivial or non-existent\n";);
-        return expr_ref(m.mk_true(), m);
+    proof_ref_vector premises(m);
+    expr_ref conclusion(m);
+    svector<std::pair<unsigned, unsigned>> positions;
+    vector<expr_ref_vector> substs;
+    unsigned count = 0;
+    while (m.is_hyper_resolve(pf, premises, conclusion, positions, substs)) {
+        // skip the first fact since it is query!X introduced by the encoding
+        // and not a user-visible predicate
+        if (count++ > 0)
+            cex.push_back(m.get_fact(pf));
+        if (premises.size() > 1) {
+            SASSERT(premises.size() == 2 && "Non linear CHC detected");
+            pf = premises.get(1);
+        } else {
+            pf.reset();
+            break;
     }
-    m_query->find_predecessors (*r, preds);
-    SASSERT (preds.size () == 1);
-    pts.push_back (&(get_pred_transformer (preds[0])));
-    cex_facts.push_back (m.mk_true ());
 
-    // XXX a hack to avoid assertion when query predicate is not nullary
-    if (preds[0]->get_arity () == 0)
-    { cex.push_back(m.mk_const(preds[0])); }
-
-    // smt context to obtain local cexes
-    ref<solver> cex_ctx =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
-
-    bool first = true;
-    // preorder traversal of the query derivation tree
-    for (unsigned curr = 0; curr < pts.size (); curr++) {
-        // pick next pt, fact, and cex_fact
-        pt = pts.get (curr);
-        reach_fact = reach_facts[curr];
-
-        cex_fact = cex_facts.get (curr);
-
-        ptr_vector<pred_transformer> child_pts;
-
-        // get justifying rule and child facts for the derivation of reach_fact at pt
-        r = &reach_fact->get_rule ();
-        const reach_fact_ref_vector &child_reach_facts =
-            reach_fact->get_justifications ();
-        // get child pts
-        preds.reset();
-        pt->find_predecessors(*r, preds);
-
-        for (unsigned j = 0; j < preds.size (); j++) {
-            child_pts.push_back (&(get_pred_transformer (preds[j])));
+        premises.reset();
+        conclusion.reset();
+        positions.reset();
+        substs.reset();
         }
-        // update the queues
-        reach_facts.append (child_reach_facts);
-        pts.append (child_pts);
-
-        // update cex and cex_facts by making a local sat check:
-        // check consistency of reach facts of children, rule body, and cex_fact
-        cex_ctx->push ();
-        cex_ctx->assert_expr (cex_fact);
-        unsigned u_tail_sz = r->get_uninterpreted_tail_size ();
-        SASSERT (child_reach_facts.size () == u_tail_sz);
-        for (unsigned i = 0; i < u_tail_sz; i++) {
-            expr_ref ofml (m);
-            m_pm.formula_n2o(child_reach_facts[i]->get(), ofml, i);
-            cex_ctx->assert_expr (ofml);
-        }
-        cex_ctx->assert_expr(pt->transition());
-        cex_ctx->assert_expr(pt->rule2tag(r));
-        TRACE("cex", cex_ctx->display(tout););
-        lbool res = cex_ctx->check_sat(0, nullptr);
-        CTRACE("cex", res == l_false,
-               tout << "Cex fact: " << mk_pp(cex_fact, m) << "\n";
-               for (unsigned i = 0; i < u_tail_sz; i++)
-                   tout << "Pre" << i << " "
-                        << mk_pp(child_reach_facts[i]->get(), m) << "\n";
-               tout << "Rule: ";
-               get_datalog_context().get_rule_manager().display_smt2(*r, tout) << "\n";
-            );
-        VERIFY (res == l_true);
-        model_ref local_mdl;
-        cex_ctx->get_model (local_mdl);
-        cex_ctx->pop (1);
-        local_mdl->set_model_completion(true);
-        if (first) {
-            unsigned sig_size = pt->sig_size();
-            expr_ref_vector ground_fact_conjs(m);
-            expr_ref_vector ground_arg_vals(m);
-            for (unsigned j = 0; j < sig_size; j++) {
-                expr_ref sig_arg(m), sig_val(m);
-                sig_arg = m.mk_const (m_pm.o2n(pt->sig(j), 0));
-                sig_val = (*local_mdl)(sig_arg);
-                ground_arg_vals.push_back(sig_val);
-            }
-            cex.push_back(m.mk_app(pt->head(), sig_size, ground_arg_vals.c_ptr()));            
-            first = false;
-        }
-        for (unsigned i = 0; i < child_pts.size(); i++) {
-            pred_transformer& ch_pt = *(child_pts.get(i));
-            unsigned sig_size = ch_pt.sig_size();
-            expr_ref_vector ground_fact_conjs(m);
-            expr_ref_vector ground_arg_vals(m);
-            for (unsigned j = 0; j < sig_size; j++) {
-                expr_ref sig_arg(m), sig_val(m);
-                sig_arg = m.mk_const (m_pm.o2o(ch_pt.sig(j), 0, i));
-                sig_val = (*local_mdl)(sig_arg);
-                ground_fact_conjs.push_back(m.mk_eq(sig_arg, sig_val));
-                ground_arg_vals.push_back(sig_val);
-            }
-            if (!ground_fact_conjs.empty()) {
-                expr_ref ground_fact(m);
-                ground_fact = mk_and(ground_fact_conjs);
-                m_pm.formula_o2n(ground_fact, ground_fact, i);
-                cex_facts.push_back (ground_fact);
-            } else {
-                cex_facts.push_back (m.mk_true ());
-            }
-            cex.push_back(m.mk_app(ch_pt.head(),
-                                   sig_size, ground_arg_vals.c_ptr()));
-        }
+    SASSERT(!pf || !m.is_hyper_resolve(pf));
+    if (pf) {
+        cex.push_back(m.get_fact(pf));
     }
 
     TRACE ("spacer", tout << "ground cex\n" << cex << "\n";);
@@ -3091,7 +2994,7 @@ expr_ref context::get_ground_sat_answer()  {
     return mk_and(cex);
 }
 
-void context::display_certificate(std::ostream &out)  {
+void context::display_certificate(std::ostream &out) const {
     switch(m_last_result) {
     case l_false:
         out << mk_pp(mk_unsat_answer(), m);
