@@ -160,8 +160,11 @@ public:
             explore_expr_on_front_elem_occs(c, front, occurences);
         }
     }
-    static char ch(unsigned j) {
-        return (char)('a'+j);
+    static std::string ch(unsigned j) {
+        std::stringstream s;
+        s << "v" << j;
+        return s.str();
+        //        return (char)('a'+j);
     }
     // e is the global expression, c is the sub expressiond which is going to changed from sum to the cross nested form
     void explore_of_expr_on_sum_and_var(nex* c, lpvar j, vector<nex*> front) {
