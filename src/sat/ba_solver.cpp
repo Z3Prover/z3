@@ -2991,7 +2991,7 @@ namespace sat {
             init_use_lists();
             remove_unused_defs();
             set_non_external();
-            if (get_config().m_elim_vars && !s().get_config().m_incremental && !s().tracking_assumptions()) elim_pure();
+            //if (get_config().m_elim_vars && !s().get_config().m_incremental && !s().tracking_assumptions()) elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
