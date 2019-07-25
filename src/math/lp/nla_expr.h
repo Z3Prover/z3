@@ -334,9 +334,12 @@ public:
                 k--;
             }            
         }
-
+        SASSERT(powers.size() == 0);
         while(k ++ < i)
             children().pop_back();
+
+        if (children().size() == 0)
+            *this = scalar(T(1));
         
         return *this;
     }
