@@ -412,7 +412,7 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors() {
 
 void test_horner() {
     enable_trace("nla_solver");
-    lp::lar_solver s;
+    /*    lp::lar_solver s;
     unsigned a = 0, b = 1, c = 2, d = 3, e = 4,
         ce = 5, bd = 6, ab = 7, ac = 8, c_min_b = 9;
     
@@ -451,7 +451,7 @@ void test_horner() {
     nla.add_monomial(lp_ac, v.size(), v.begin());
     v.clear();
 
-    
+    */
 
 
 }
