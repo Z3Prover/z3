@@ -296,11 +296,15 @@ public:
         return r;
     }
 
+    friend nla_expr operator-(const nla_expr& a, const nla_expr&b) {
+        return a + scalar(T(-1))*b;
+    }
     
     nla_expr& operator/=(const nla_expr& b) {
-        TRACE("nla_cn_details", tout << *this <<", " << b << "\n";);
+        TRACE("nla_cn_details", tout << *this <<" / " << b << "\n";);
         if (b.is_var()) {
             *this = (*this) / b.var();
+            TRACE("nla_cn_details", tout << *this << "\n";);
             return *this;
         }
         SASSERT(b.is_mul());
@@ -308,10 +312,12 @@ public:
             for (auto & e : children()) {
                 e /= b;
             }
+            TRACE("nla_cn_details", tout << *this << "\n";);
             return *this;
         }
         if (is_var() || children().size() == 1) {
             *this = scalar(T(1));
+            TRACE("nla_cn_details", tout << *this << "\n";);
             return *this;
         }
         SASSERT(is_mul());
@@ -319,8 +325,16 @@ public:
         unsigned i = 0, k = 0;
         for (; i < children().size(); i++, k++) {
             auto & e = children()[i];
+            TRACE("nla_cn_details", tout << "e=" << e << ",i=" <<i<< ",k=" << k<< "\n";);
+            
             if (!e.is_var()) {
+                SASSERT(e.is_scalar());
+                if (i != k)
+                    children()[k] = children()[i];
+                
+                TRACE("nla_cn_details", tout << "continue\n";);
                 continue;
+
             }
             lpvar j = e.var();
             auto it = powers.find(j);
@@ -332,7 +346,9 @@ public:
                 if (it->second == 0)
                     powers.erase(it);
                 k--;
-            }            
+            }
+            TRACE("nla_cn_details", tout << *this << "\n";);
+            
         }
         SASSERT(powers.size() == 0);
         while(k ++ < i)
@@ -340,6 +356,7 @@ public:
 
         if (children().size() == 0)
             *this = scalar(T(1));
+        TRACE("nla_cn_details", tout << *this << "\n";);
         
         return *this;
     }
