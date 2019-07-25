@@ -310,7 +310,7 @@ public:
             }
             return *this;
         }
-        if (is_var()) {
+        if (is_var() || children().size() == 1) {
             *this = scalar(T(1));
             return *this;
         }
