@@ -2991,7 +2991,7 @@ namespace sat {
             init_use_lists();
             remove_unused_defs();
             set_non_external();
-            //if (get_config().m_elim_vars && !s().get_config().m_incremental && !s().tracking_assumptions()) elim_pure();
+            elim_pure();
             for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) subsumption(*m_constraints[i]);
             for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) subsumption(*m_learned[i]);    
             unit_strengthen();
@@ -3563,6 +3563,7 @@ namespace sat {
     }
 
     void ba_solver::remove_unused_defs() {
+        if (incremental_mode()) return;
         // remove constraints where indicator literal isn't used.
         for (constraint* cp : m_constraints) {
             constraint& c = *cp;
@@ -3634,6 +3635,9 @@ namespace sat {
     }
 
     unsigned ba_solver::elim_pure() {
+        if (!get_config().m_elim_vars || incremental_mode()) {
+            return 0;
+        }
         // eliminate pure literals
         unsigned pure_literals = 0;
         for (unsigned v = 0; v < s().num_vars(); ++v) {

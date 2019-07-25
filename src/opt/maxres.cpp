@@ -435,7 +435,9 @@ public:
         maxres& mr;
         compare_asm(maxres& mr):mr(mr) {}
         bool operator()(expr* a, expr* b) const {
-            return mr.get_weight(a) > mr.get_weight(b);
+            rational w1 = mr.get_weight(a);
+            rational w2 = mr.get_weight(b);
+            return w1 > w2 || (w1 == w2 && a->get_id() > b->get_id());
         }
     };
 
