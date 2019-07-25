@@ -5552,6 +5552,9 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
     }
+    else if (is_nth(e)) {
+        // no-op
+    }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
         UNREACHABLE();
