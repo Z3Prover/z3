@@ -301,8 +301,10 @@ namespace sat {
     clause* solver::mk_clause(unsigned num_lits, literal * lits, bool learned) {
         m_model_is_current = false;
         DEBUG_CODE({
-            for (unsigned i = 0; i < num_lits; i++)
-                SASSERT(m_eliminated[lits[i].var()] == false);
+                for (unsigned i = 0; i < num_lits; i++) {
+                    CTRACE("sat", m_eliminated[lits[i].var()], tout << lits[i] << " was eliminated\n";);
+                    SASSERT(m_eliminated[lits[i].var()] == false);
+                }
         });
 
         if (m_user_scope_literals.empty()) {
@@ -2908,26 +2910,20 @@ namespace sat {
 
         justification js = m_conflict;
 
+        int init_sz = init_trail_size();
         while (true) {
             process_consequent_for_unsat_core(consequent, js);
-            while (idx >= 0) {
-                literal l = m_trail[idx];
-                if (is_marked(l.var()))
+            while (idx >= init_sz) {
+                consequent = m_trail[idx];
+                if (is_marked(consequent.var()) && lvl(consequent) == m_conflict_lvl)
                     break;
                 idx--;
             }
-
-            if (idx < 0) {
+            if (idx < init_sz) {
                 break;
             }
-            consequent     = m_trail[idx];
-            if (lvl(consequent) < m_conflict_lvl) {
-                TRACE("sat", tout << consequent << " at level " << lvl(consequent) << "\n";);
-                break;
-            }
-            bool_var c_var = consequent.var();
             SASSERT(lvl(consequent) == m_conflict_lvl);
-            js             = m_justification[c_var];
+            js = m_justification[consequent.var()];
             idx--;
         }
         reset_unmark(old_size);

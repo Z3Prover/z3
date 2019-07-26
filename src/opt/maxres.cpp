@@ -133,7 +133,7 @@ public:
         m_max_core_size(3),
         m_maximize_assignment(false),
         m_max_correction_set_size(3),
-        m_pivot_on_cs(true)
+        m_pivot_on_cs(true)       
     {
         switch(st) {
         case s_primal:
