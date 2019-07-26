@@ -201,7 +201,7 @@ See [``examples/python``](examples/python) for examples.
 
 ## Resources
 
-* Default input format is [SMTLIB2](/http://smtlib.cs.uiowa.edu)
+* Default input format is [SMTLIB2](http://smtlib.cs.uiowa.edu)
 
 * Other native foreign function interfaces:
   * C
