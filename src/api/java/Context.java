@@ -33,7 +33,7 @@ import java.util.Map;
  * to them. 
  **/
 public class Context implements AutoCloseable {
-    private final long m_ctx;
+    private long m_ctx;
     static final Object creation_lock = new Object();
 
     public Context () {
