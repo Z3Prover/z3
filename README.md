@@ -1,7 +1,7 @@
 # Z3
 
-Z3 is a theorem prover from Microsoft Research. It is licensed
-under the [MIT license](LICENSE.txt).
+Z3 is a theorem prover from Microsoft Research. 
+It is licensed under the [MIT license](LICENSE.txt).
 
 If you are not familiar with Z3, you can start [here](https://github.com/Z3Prover/z3/wiki#background).
 
@@ -194,3 +194,21 @@ See [``examples/python``](examples/python) for examples.
 ### ``Web Assembly``
 
 [WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
+
+## System
+
+[!System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
+
+## Resources
+
+* Default input format is [SMTLIB2](/http://smtlib.cs.uiowa.edu)
+
+* Other native foreign function interfaces:
+  * C
+  * C++
+  * Python
+  * Java
+  * C#
+  * OCaml
+
+
