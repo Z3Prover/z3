@@ -3965,6 +3965,8 @@ public class Context implements AutoCloseable {
 
     long nCtx()
     {
+        if (m_ctx == 0) 
+            throw new Z3Exception("Context closed");
         return m_ctx;
     }
 
@@ -4133,6 +4135,6 @@ public class Context implements AutoCloseable {
         synchronized (creation_lock) {
             Native.delContext(m_ctx);
         }
-        m_ctx = null;
+        m_ctx = 0;
     }
 }
