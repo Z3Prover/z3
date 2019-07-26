@@ -4133,5 +4133,6 @@ public class Context implements AutoCloseable {
         synchronized (creation_lock) {
             Native.delContext(m_ctx);
         }
+        m_ctx = null;
     }
 }
