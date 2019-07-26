@@ -27,13 +27,27 @@ namespace nla {
 typedef intervals::interval interv;
 horner::horner(core * c) : common(c), m_intervals(c, c->reslim()) {}
 
+// Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
-    if (row.size() <= 1)
-        return false;
+    std::unordered_set<lpvar> seen;
     for (const auto& p : row) {
-        if (c().m_to_refine.contains(p.var()))
-            return true;
+        lpvar j = p.var();
+        if (!c().is_monomial_var(j))
+            continue;
+        auto & m = c().emons()[j];
+        
+        std::unordered_set<lpvar> local_vars;
+        for (lpvar k : m.vars()) { // have to do it to ignore the powers
+            local_vars.insert(k);
+        }
+        for (lpvar k : local_vars) {
+            auto it = seen.find(k);
+            if (it == seen.end())
+                seen.insert(k);
+            else
+                return true;
+        }
     }
     return false;
 }
