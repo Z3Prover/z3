@@ -1,7 +1,7 @@
 #include "muz/spacer/spacer_sat_answer.h"
 #include "muz/base/dl_context.h"
 #include "muz/base/dl_rule.h"
-
+#include "ast/scoped_proof.h"
 #include "smt/smt_solver.h"
 
 namespace spacer {
@@ -44,15 +44,16 @@ struct ground_sat_answer_op::frame {
     pred_transformer &pt() {return m_pt;}
 };
 
-ground_sat_answer_op::ground_sat_answer_op(context &ctx) :
+ground_sat_answer_op::ground_sat_answer_op(const context &ctx) :
     m_ctx(ctx), m(m_ctx.get_ast_manager()), m_pm(m_ctx.get_manager()),
     m_pinned(m) {
-    m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
 }
 
 proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
+    // -- turn on proof mode so that proof constructing API in ast_manager work correctly
+    scoped_proof _pf(m);
 
-
+    m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     vector<frame> todo, new_todo;
 
     // -- find substitution for a query if query is not nullary
