@@ -197,7 +197,7 @@ See [``examples/python``](examples/python) for examples.
 
 ## System
 
-[!System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
+![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
 
 ## Resources
 
