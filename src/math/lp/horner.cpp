@@ -55,8 +55,9 @@ bool horner::row_is_interesting(const T& row) const {
 void horner::lemmas_on_expr(nex& e) {
     TRACE("nla_horner", tout << "e = " << e << "\n";);    
     cross_nested cn(e, [this](const nex& n) {
-                           TRACE("nla_horner", tout << "callback n = " << n << "\n";);
                            auto i = interval_of_expr(n);
+                           TRACE("nla_horner", tout << "callback n = " << n << "\ni="; m_intervals.display(tout, i) << "\n";);
+                           
                            m_intervals.check_interval_for_conflict_on_zero(i);} );
     cn.run();
 }
@@ -77,7 +78,13 @@ void horner::horner_lemmas() {
     }
 
     const auto& matrix = c().m_lar_solver.A_r();
-    for (unsigned i = 0; i < matrix.row_count(); i++) {
+    // choose only rows that depend on m_to_refine variables
+    std::set<unsigned> rows_to_check; // we need it to be determenistic: cannow work with the unordered_set
+    for (lpvar j : c().m_to_refine) {
+        for (auto & s : matrix.m_columns[j])
+            rows_to_check.insert(s.var());
+    }
+    for (unsigned i : rows_to_check) {        
         lemmas_on_row(matrix.m_rows[i]);
     }
 }
@@ -117,8 +124,6 @@ void horner::set_interval_for_scalar(interv& a, const rational& v) {
 }
 
 interv horner::interval_of_expr(const nex& e) {
-    
-    TRACE("nla_horner_details", tout << e.type() << " e=" << e << std::endl;);
     interv a;
     switch (e.type()) {
     case expr_type::SCALAR:
@@ -145,18 +150,21 @@ interv horner::interval_of_mul(const nex& e) {
     interv a = interval_of_expr(es[0]);
     TRACE("nla_horner_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); );
     for (unsigned k = 1; k < es.size(); k++) {
-        interv b = interval_of_expr(es[k]);
-        interv c;
         interval_deps deps;
-        m_intervals.mul(a, b, c, deps);
-        TRACE("nla_horner_details", tout << "c = "; m_intervals.display(tout, c); tout << "\n";);
-        m_intervals.add_deps(a, b, deps, a);
-        m_intervals.set(a, c);
-        TRACE("nla_horner_details", tout << "es[" << k << "]=" << es[k] << ", a = "; m_intervals.display(tout, a); );
         if (m_intervals.is_zero(a)) {
+            interv t;
+            set_interval_for_scalar(t, rational(1));
+            m_intervals.mul(a, t, a, deps);
+            m_intervals.add_deps(a, t, deps, a);
             TRACE("nla_horner_details", tout << "got zero\n"; );
             break;
         }
+        interv b = interval_of_expr(es[k]);
+        interv c;
+        m_intervals.mul(a, b, c, deps);
+        m_intervals.add_deps(a, b, deps, a);
+        m_intervals.set(a, c);
+        TRACE("nla_horner_details", tout << "es[" << k << "]=" << es[k] << ", "; m_intervals.display(tout, a) << "\n";);
     }
     TRACE("nla_horner_details",  tout << "e=" << e << "\n";
           tout << " interv = "; m_intervals.display(tout, a););
@@ -185,13 +193,10 @@ interv horner::interval_of_sum(const nex& e) {
         interval_deps deps;
         TRACE("nla_horner_details_sum", tout << "a = "; m_intervals.display(tout, a) << "\nb = "; m_intervals.display(tout, b) << "\n";);
         m_intervals.add(a, b, c, deps);
-        TRACE("nla_horner_details", tout << "c = "; m_intervals.display(tout, c); tout << "\n";);
         m_intervals.add_deps(a, b, deps, a);
         m_intervals.set(a, c);
-        TRACE("nla_horner_details_sum", tout << "a = "; m_intervals.display(tout, a); tout << "\n";);
-        
-        // m_intervals.add_deps(a, b, deps, a);
-        TRACE("nla_horner_details", tout << "final a with deps = "; m_intervals.display(tout, a); tout << "\n";);
+        TRACE("nla_horner_details_sum", tout << es[k] << ", ";
+              m_intervals.display(tout, a); tout << "\n";);
         if (m_intervals.is_inf(a)) {
             TRACE("nla_horner_details", tout << "got infinity\n";);            
             return a;
