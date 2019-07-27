@@ -3,6 +3,7 @@ def_module_params('nla',
                   params=(
                    ('order', BOOL, True, 'run order lemmas'),
                    ('tangents', BOOL, True, 'run tangent lemmas'),
+                   ('horner', BOOL, True, 'run horner\'s heuristic'),
                           ))           
 
 
