@@ -195,11 +195,11 @@ See [``examples/python``](examples/python) for examples.
 
 [WebAssembly](https://github.com/cpitclaudel/z3.wasm) bindings are provided by Clément Pit-Claudel.
 
-## System
+## System Overview
 
 ![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
 
-## Resources
+## Interfaces
 
 * Default input format is [SMTLIB2](http://smtlib.cs.uiowa.edu)
 
