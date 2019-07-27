@@ -80,14 +80,14 @@ public:
 #define DEP_IN_LOWER2 4
 #define DEP_IN_UPPER2 8
 
-typedef short bound_deps;
-inline bool dep_in_lower1(bound_deps d) { return (d & DEP_IN_LOWER1) != 0; }
-inline bool dep_in_lower2(bound_deps d) { return (d & DEP_IN_LOWER2) != 0; }
-inline bool dep_in_upper1(bound_deps d) { return (d & DEP_IN_UPPER1) != 0; }
-inline bool dep_in_upper2(bound_deps d) { return (d & DEP_IN_UPPER2) != 0; }
-inline bound_deps dep1_to_dep2(bound_deps d) { 
+typedef short deps_combine_rule;
+inline bool dep_in_lower1(deps_combine_rule d) { return (d & DEP_IN_LOWER1) != 0; }
+inline bool dep_in_lower2(deps_combine_rule d) { return (d & DEP_IN_LOWER2) != 0; }
+inline bool dep_in_upper1(deps_combine_rule d) { return (d & DEP_IN_UPPER1) != 0; }
+inline bool dep_in_upper2(deps_combine_rule d) { return (d & DEP_IN_UPPER2) != 0; }
+inline deps_combine_rule dep1_to_dep2(deps_combine_rule d) { 
     SASSERT(!dep_in_lower2(d) && !dep_in_upper2(d));
-    bound_deps r = d << 2; 
+    deps_combine_rule r = d << 2; 
     SASSERT(dep_in_lower1(d) == dep_in_lower2(r));
     SASSERT(dep_in_upper1(d) == dep_in_upper2(r));
     SASSERT(!dep_in_lower1(r) && !dep_in_upper1(r));
@@ -99,9 +99,9 @@ inline bound_deps dep1_to_dep2(bound_deps d) {
    It contains the dependencies for the output lower and upper bounds 
    for the resultant interval.
 */ 
-struct interval_deps {
-    bound_deps m_lower_deps;
-    bound_deps m_upper_deps;
+struct interval_deps_combine_rule {
+    deps_combine_rule m_lower_combine;
+    deps_combine_rule m_upper_combine;
 };
 
 template<typename C>
@@ -239,30 +239,30 @@ public:
     /**
        \brief b <- -a
     */
-    void neg(interval const & a, interval & b, interval_deps & b_deps);
+    void neg(interval const & a, interval & b, interval_deps_combine_rule & b_deps);
     void neg(interval const & a, interval & b);
-    void neg_jst(interval const & a, interval_deps & b_deps);
+    void neg_jst(interval const & a, interval_deps_combine_rule & b_deps);
 
     /**
        \brief c <- a + b
     */
-    void add(interval const & a, interval const & b, interval & c, interval_deps & c_deps);
+    void add(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps);
     void add(interval const & a, interval const & b, interval & c);
-    void add_jst(interval const & a, interval const & b, interval_deps & c_deps);
+    void add_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps);
 
     /**
        \brief c <- a - b
     */
-    void sub(interval const & a, interval const & b, interval & c, interval_deps & c_deps);
+    void sub(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps);
     void sub(interval const & a, interval const & b, interval & c);
-    void sub_jst(interval const & a, interval const & b, interval_deps & c_deps);
+    void sub_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps);
 
     /**
        \brief b <- k * a
     */
-    void mul(numeral const & k, interval const & a, interval & b, interval_deps & b_deps);
+    void mul(numeral const & k, interval const & a, interval & b, interval_deps_combine_rule & b_deps);
     void mul(numeral const & k, interval const & a, interval & b) { div_mul(k, a, b, false); }
-    void mul_jst(numeral const & k, interval const & a, interval_deps & b_deps);
+    void mul_jst(numeral const & k, interval const & a, interval_deps_combine_rule & b_deps);
     /**
        \brief b <- (n/d) * a
     */
@@ -278,58 +278,58 @@ public:
        That is, we must invert k rounding towards +oo or -oo depending whether we
        are computing a lower or upper bound.
     */
-    void div(interval const & a, numeral const & k, interval & b, interval_deps & b_deps);
+    void div(interval const & a, numeral const & k, interval & b, interval_deps_combine_rule & b_deps);
     void div(interval const & a, numeral const & k, interval & b) { div_mul(k, a, b, true); }
-    void div_jst(interval const & a, numeral const & k, interval_deps & b_deps) { mul_jst(k, a, b_deps); }
+    void div_jst(interval const & a, numeral const & k, interval_deps_combine_rule & b_deps) { mul_jst(k, a, b_deps); }
 
     /**
        \brief c <- a * b
     */
-    void mul(interval const & a, interval const & b, interval & c, interval_deps & c_deps);
+    void mul(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps);
     void mul(interval const & a, interval const & b, interval & c);
-    void mul_jst(interval const & a, interval const & b, interval_deps & c_deps);
+    void mul_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps);
 
     /**
        \brief b <- a^n
     */
-    void power(interval const & a, unsigned n, interval & b, interval_deps & b_deps);
+    void power(interval const & a, unsigned n, interval & b, interval_deps_combine_rule & b_deps);
     void power(interval const & a, unsigned n, interval & b);
-    void power_jst(interval const & a, unsigned n, interval_deps & b_deps);
+    void power_jst(interval const & a, unsigned n, interval_deps_combine_rule & b_deps);
 
     /**
        \brief b <- a^(1/n) with precision p.
 
        \pre if n is even, then a must not contain negative numbers.
     */
-    void nth_root(interval const & a, unsigned n, numeral const & p, interval & b, interval_deps & b_deps);
+    void nth_root(interval const & a, unsigned n, numeral const & p, interval & b, interval_deps_combine_rule & b_deps);
     void nth_root(interval const & a, unsigned n, numeral const & p, interval & b);
-    void nth_root_jst(interval const & a, unsigned n, numeral const & p, interval_deps & b_deps);
+    void nth_root_jst(interval const & a, unsigned n, numeral const & p, interval_deps_combine_rule & b_deps);
     
     /**
        \brief Given an equation x^n = y and an interval for y, compute the solution set for x with precision p.
        
        \pre if n is even, then !lower_is_neg(y)
     */
-    void xn_eq_y(interval const & y, unsigned n, numeral const & p, interval & x, interval_deps & x_deps);
+    void xn_eq_y(interval const & y, unsigned n, numeral const & p, interval & x, interval_deps_combine_rule & x_deps);
     void xn_eq_y(interval const & y, unsigned n, numeral const & p, interval & x); 
-    void xn_eq_y_jst(interval const & y, unsigned n, numeral const & p, interval_deps & x_deps);
+    void xn_eq_y_jst(interval const & y, unsigned n, numeral const & p, interval_deps_combine_rule & x_deps);
    
     /**
        \brief b <- 1/a
        \pre !contains_zero(a)
     */
-    void inv(interval const & a, interval & b, interval_deps & b_deps);
+    void inv(interval const & a, interval & b, interval_deps_combine_rule & b_deps);
     void inv(interval const & a, interval & b);
-    void inv_jst(interval const & a, interval_deps & b_deps);
+    void inv_jst(interval const & a, interval_deps_combine_rule & b_deps);
 
     /**
        \brief c <- a/b
        \pre !contains_zero(b)
        \pre &a == &c (that is, c should not be an alias for a)
     */
-    void div(interval const & a, interval const & b, interval & c, interval_deps & c_deps);
+    void div(interval const & a, interval const & b, interval & c, interval_deps_combine_rule & c_deps);
     void div(interval const & a, interval const & b, interval & c);
-    void div_jst(interval const & a, interval const & b, interval_deps & c_deps);
+    void div_jst(interval const & a, interval const & b, interval_deps_combine_rule & c_deps);
     
     /**
        \brief Store in r an interval that contains the number pi.

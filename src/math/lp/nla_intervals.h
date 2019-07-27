@@ -74,9 +74,9 @@ class intervals : common {
         };
 
 
-        void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
-            i.m_lower_dep =  mk_dependency(a, b, deps.m_lower_deps);
-            i.m_upper_dep = mk_dependency(a, b, deps.m_upper_deps);
+        void add_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
+            i.m_lower_dep =  mk_dependency(a, b, deps.m_lower_combine);
+            i.m_upper_dep = mk_dependency(a, b, deps.m_upper_combine);
         }
 
         
@@ -118,7 +118,7 @@ class intervals : common {
             
         im_config(numeral_manager & m, ci_dependency_manager& d):m_manager(m), m_dep_manager(d) {}
     private:
-        ci_dependency* mk_dependency(interval const& a, interval const& b, bound_deps bd) const {
+        ci_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
             ci_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
@@ -173,16 +173,19 @@ public:
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
-    void add(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.add(a, b, c, deps); }
+    void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
     void set(interval& a, const interval& b) { m_imanager.set(a, b); }
-    void mul(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.mul(a, b, c, deps); }
-    void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
+    void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
+    void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         m_config.add_deps(a, b, deps, i);
     }
 
+    
+    
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }    
     void set_var_interval_with_deps(lpvar, interval &);
+    void set_zero_interval_deps_for_mult(interval&);
     bool is_inf(const interval& i) const { return m_config.is_inf(i); }
     bool check_interval_for_conflict_on_zero(const interval & i);
     bool check_interval_for_conflict_on_zero_lower(const interval & i);

@@ -32,6 +32,11 @@ void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
     }
 }
 
+void intervals::set_zero_interval_deps_for_mult(interval& a) {
+    a.m_lower_dep = m_dep_manager.mk_join(a.m_lower_dep, a.m_upper_dep);
+    a.m_upper_dep = a.m_lower_dep;
+}
+
 bool intervals::check_interval_for_conflict_on_zero(const interval & i) {
     return check_interval_for_conflict_on_zero_lower(i) || check_interval_for_conflict_on_zero_upper(i);
 }
