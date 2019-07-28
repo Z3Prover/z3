@@ -86,7 +86,7 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     if (m_imanager.upper_is_inf(i)) {
         out << "oo)";
     } else {
-        out << rational(m_imanager.upper(i)) << (m_imanager.lower_is_open(i)? ")":"]");         
+        out << rational(m_imanager.upper(i)) << (m_imanager.upper_is_open(i)? ")":"]");         
     }
     svector<lp::constraint_index> expl;
     m_dep_manager.linearize(i.m_lower_dep, expl);

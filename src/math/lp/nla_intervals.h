@@ -174,9 +174,14 @@ public:
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
     void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
-    void set(interval& a, const interval& b) { m_imanager.set(a, b); }
+    void set(interval& a, const interval& b) {
+        m_imanager.set(a, b);
+        a.m_lower_dep = b.m_lower_dep;
+        a.m_upper_dep = b.m_upper_dep;
+    }
     void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
+        SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);
     }
 
