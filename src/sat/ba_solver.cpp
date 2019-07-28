@@ -3159,14 +3159,18 @@ namespace sat {
     // -------------------------------
     // set literals equivalent
 
-    bool ba_solver::set_root(literal l, literal r) { 
-        if (s().is_assumption(l.var())) {
-            return false;
-        }
+    void ba_solver::reserve_roots() {
         m_root_vars.reserve(s().num_vars(), false);
         for (unsigned i = m_roots.size(); i < 2 * s().num_vars(); ++i) {
             m_roots.push_back(to_literal(i));
         }
+    }
+
+    bool ba_solver::set_root(literal l, literal r) { 
+        if (s().is_assumption(l.var())) {
+            return false;
+        }
+        reserve_roots();
         m_roots[l.index()] = r;
         m_roots[(~l).index()] = ~r;
         m_root_vars[l.var()] = true;
@@ -3175,7 +3179,7 @@ namespace sat {
 
     void ba_solver::flush_roots() {
         if (m_roots.empty()) return;
-
+        reserve_roots();
         // validate();
         m_visited.resize(s().num_vars()*2, false);
         m_constraint_removed = false;

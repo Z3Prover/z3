@@ -328,6 +328,7 @@ namespace sat {
         void update_psm(constraint& c) const;
         void mutex_reduction();
         void update_pure();
+        void reserve_roots();
 
         unsigned use_count(literal lit) const { return m_cnstr_use_list[lit.index()].size() + m_clause_use_list.get(lit).size(); }
 
