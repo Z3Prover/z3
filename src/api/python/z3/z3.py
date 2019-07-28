@@ -236,6 +236,9 @@ def _get_ctx(ctx):
     else:
         return ctx
 
+def get_ctx(ctx):
+    return _get_ctx(ctx)
+
 def set_param(*args, **kws):
     """Set Z3 global (or module) parameters.
 
