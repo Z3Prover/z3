@@ -165,10 +165,10 @@ interv horner::interval_of_mul(const nex& e) {
         interv c;
         m_intervals.mul(a, b, c, comb_rule);
         m_intervals.combine_deps(a, b, comb_rule, c);
-        TRACE("nla_horner_details", tout << "a "; m_intervals.display(tout, a) << "\n";);
-        TRACE("nla_horner_details", tout << "c "; m_intervals.display(tout, c) << "\n";);
+        TRACE("nla_horner_details", tout << "a "; m_intervals.display(tout, a););
+        TRACE("nla_horner_details", tout << "c "; m_intervals.display(tout, c););
         m_intervals.set(a, c);
-        TRACE("nla_horner_details", tout << "part mult "; m_intervals.display(tout, a) << "\n";);
+        TRACE("nla_horner_details", tout << "part mult "; m_intervals.display(tout, a););
     }
     TRACE("nla_horner_details",  tout << "e=" << e << "\n";
           tout << " return "; m_intervals.display(tout, a););

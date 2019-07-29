@@ -275,14 +275,15 @@ std::ostream& core::print_monomial_with_vars(const monomial& m, std::ostream& ou
 
 std::ostream& core::print_explanation(const lp::explanation& exp, std::ostream& out) const {
     out << "expl: ";
+    unsigned i = 0;
     for (auto &p : exp) {
         out << "(" << p.second << ")";
         m_lar_solver.print_constraint_indices_only_customized(p.second,
                                                               [this](lpvar j) { return var_str(j);},
                                                               out);
-        out << "      ";
+        if (++i < exp.size())
+            out << "      ";
     }
-    out << "\n";
     return out;
 }
 

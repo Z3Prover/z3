@@ -92,15 +92,23 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     m_dep_manager.linearize(i.m_lower_dep, expl);
     {
         lp::explanation e(expl);
-        out << "\nlower constraints\n";
-        m_core->print_explanation(e, out);
-        expl.clear();
+        if (!expl.empty()) {
+            out << "\nlower constraints\n";
+            m_core->print_explanation(e, out);
+            expl.clear();
+        } else {
+            out << "\nno lower constraints\n";
+        }
     }
     m_dep_manager.linearize(i.m_upper_dep, expl);   
     {
         lp::explanation e(expl);
-        out << "upper constraints\n";    
-        m_core->print_explanation(e, out);
+        if (!expl.empty()) {
+            out << "upper constraints\n";    
+            m_core->print_explanation(e, out);
+        }else {
+            out << "no upper constraints\n";
+        }
     }
     return out;
 }
