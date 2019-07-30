@@ -61,7 +61,7 @@ public:
         }
     };
 
-    static bool extract_common_factor(nex* c, nex& f, const std::unordered_map<lpvar, occ> & occurences) {
+    static bool extract_common_factor(nex* c, nex& f, const vector<std::pair<lpvar, occ>> & occurences) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
         SASSERT(c->is_sum());
         f.type() = expr_type::MUL;
@@ -97,7 +97,7 @@ public:
         return false;
     }
 
-    bool proceed_with_common_factor(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
+    bool proceed_with_common_factor(nex* c, vector<nex*>& front, const vector<std::pair<lpvar, occ>> & occurences) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
         SASSERT(c->is_sum());
         nex f;
@@ -130,7 +130,7 @@ public:
             *(front[i]) = copy[i];
     }
     
-    void explore_expr_on_front_elem_occs(nex* c, vector<nex*>& front, const std::unordered_map<lpvar, occ> & occurences) {
+    void explore_expr_on_front_elem_occs(nex* c, vector<nex*>& front, const vector<std::pair<lpvar, occ>> & occurences) {
         if (proceed_with_common_factor(c, front, occurences))
             return;
         TRACE("nla_cn", tout << "save c=" << *c << "; front:"; print_vector_of_ptrs(front, tout) << "\n";);           
@@ -156,7 +156,8 @@ public:
         }
     }
 
-    static std::ostream& dump_occurences(std::ostream& out, const std::unordered_map<lpvar, occ>& occurences) {
+    template <typename T>
+    static std::ostream& dump_occurences(std::ostream& out, const T& occurences) {
         out << "{";
         for(const auto& p: occurences) {
             const occ& o = p.second;
@@ -226,6 +227,8 @@ public:
         TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, occurences) << "\n";);
     }
 
+    
+    
     static void remove_singular_occurences(std::unordered_map<lpvar, occ>& occurences) {
         svector<lpvar> r;
         for (const auto & p : occurences) {
@@ -236,8 +239,10 @@ public:
         for (lpvar j : r)
             occurences.erase(j);
     }
-    // j -> the number of expressions j appears in as a multiplier, get the max degree as well
-    static std::unordered_map<lpvar, occ> get_mult_occurences(const nex& e) {
+
+    // j -> the number of expressions j appears in as a multiplier
+    // The result is sorted by large number of occurences first
+    static vector<std::pair<lpvar, occ>> get_mult_occurences(const nex& e) {
         std::unordered_map<lpvar, occ> occurences;
         SASSERT(e.type() == expr_type::SUM);
         for (const auto & ce : e.children()) {
@@ -249,39 +254,23 @@ public:
             }
         }
         remove_singular_occurences(occurences);
-        TRACE("nla_cn_details", tout << "e=" << e << "\noccs="; dump_occurences(tout, occurences) << "\n";);    
-        return occurences;
-    }
-    static bool can_be_cross_nested_more(const nex& s) {
-        auto e = s;
-        e.simplify();
-        TRACE("nla_cn", tout << "simplified " << e << "\n";);
-        switch (e.type()) {
-        case expr_type::SCALAR:
-            return false;
-        case expr_type::SUM: 
-            if ( !get_mult_occurences(e).empty()) {
-                TRACE("nla_cn", tout << "true for " << e << "\n";);
-                return true;
-            }
-            // fall through MUL
-        case expr_type::MUL:
-            {
-                for (const auto & c: e.children()) {
-                    if (can_be_cross_nested_more(c)) {
-                        TRACE("nla_cn", tout << "true for " << e << "\n";);
-                        return true;
-                    }
-                }
-                return false;
-            }
-        case expr_type::VAR:
-            return false;
-        default:
-            TRACE("nla_cn_details", tout << e.type() << "\n";);
-            SASSERT(false);
-            return false;
-        }
+        TRACE("nla_cn_details", tout << "e=" << e << "\noccs="; dump_occurences(tout, occurences) << "\n";);
+        vector<std::pair<lpvar, occ>> ret;
+        for (auto & p : occurences)
+            ret.push_back(p);
+        std::sort(ret.begin(), ret.end(), [](const std::pair<lpvar, occ>& a, const std::pair<lpvar, occ>& b) {
+                                              if (a.second.m_occs > b.second.m_occs)
+                                                  return true;
+                                              if (a.second.m_occs < b.second.m_occs)
+                                                  return false;
+                                              if (a.second.m_power > b.second.m_power)
+                                                  return true;
+                                              if (a.second.m_power < b.second.m_power)
+                                                  return false;
+
+                                              return a.first < b.first;
+                                          });
+        return ret;
     }
     // all factors of j go to a, the rest to b
     static void pre_split(nex &e, lpvar j, nex &a, nex&b) {
