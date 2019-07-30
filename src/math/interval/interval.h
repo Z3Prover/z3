@@ -43,6 +43,11 @@ public:
         unsigned  m_upper_open:1;
         unsigned  m_lower_inf:1;
         unsigned  m_upper_inf:1;
+        interval():
+            m_lower_open(false),
+            m_upper_open(false),
+            m_lower_inf(true),
+            m_upper_inf(true) {}
     };
 
     // Should be NOOPs for precise numeral types.
