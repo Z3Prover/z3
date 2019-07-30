@@ -159,7 +159,10 @@ public:
         m_dep_manager(m_val_manager, m_alloc),
         m_config(m_num_manager, m_dep_manager),
         m_imanager(lim, im_config(m_num_manager, m_dep_manager))
-    {}
+    {
+        test_inf();
+    }
+    void test_inf();
     interval mul(const svector<lpvar>&) const;
     void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
