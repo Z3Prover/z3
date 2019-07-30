@@ -72,7 +72,9 @@ void test_cn_on_expr(horner::nex t) {
     TRACE("nla_cn", tout << "t=" << t << '\n';);
     cross_nested cn(t, [](const horner::nex& n) {
                            TRACE("nla_cn_test", tout << n << "\n";);
-                       } );
+                           return false;
+                       } ,
+        [](unsigned) { return false; });
     cn.run();
 }
 

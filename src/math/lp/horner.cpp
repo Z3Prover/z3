@@ -52,23 +52,29 @@ bool horner::row_is_interesting(const T& row) const {
     return false;
 }
 
-void horner::lemmas_on_expr(nex& e) {
-    TRACE("nla_horner", tout << "e = " << e << "\n";);    
-    cross_nested cn(e, [this](const nex& n) {
+bool horner::lemmas_on_expr(nex& e) {
+    TRACE("nla_horner", tout << "e = " << e << "\n";);
+    bool conflict = false;
+    cross_nested cn(e, [this, & conflict](const nex& n) {
                            auto i = interval_of_expr(n);
                            TRACE("nla_horner", tout << "callback n = " << n << "\ni="; m_intervals.display(tout, i) << "\n";);
                            
-                           m_intervals.check_interval_for_conflict_on_zero(i);} );
+                           conflict = m_intervals.check_interval_for_conflict_on_zero(i);
+                           return conflict;
+                       },
+        [this](unsigned j) {  return c().var_is_fixed(j); }
+        );
     cn.run();
+    return conflict;
 }
 
 
 template <typename T> 
-void horner::lemmas_on_row(const T& row) {
+bool horner::lemmas_on_row(const T& row) {
     if (!row_is_interesting(row))
-        return;
+        return false;
     nex e = create_sum_from_row(row);
-    lemmas_on_expr(e);
+    return lemmas_on_expr(e);
 }
 
 void horner::horner_lemmas() {
@@ -84,8 +90,16 @@ void horner::horner_lemmas() {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
-    for (unsigned i : rows_to_check) {        
-        lemmas_on_row(matrix.m_rows[i]);
+    svector<unsigned> rows;
+    for (unsigned i : rows_to_check) {
+        rows.push_back(i);
+    }
+
+    unsigned r = c().random();
+    unsigned sz = rows.size();
+    for (unsigned i = 0; i < sz; i++) {
+        if (lemmas_on_row(matrix.m_rows[(i + r) % sz]))
+            break;
     }
 }
 
@@ -145,7 +159,6 @@ interv horner::interval_of_expr(const nex& e) {
 interv horner::interval_of_mul(const nex& e) {
     SASSERT(e.is_mul());
     auto & es = e.children();
-    interval_deps_combine_rule comb_rule;
     interv a = interval_of_expr(es[0]);
     if (m_intervals.is_zero(a)) {
         m_intervals.set_zero_interval_deps_for_mult(a);
@@ -161,9 +174,11 @@ interv horner::interval_of_mul(const nex& e) {
             TRACE("nla_horner_details", tout << "got zero\n"; );
             return b;
         }
-        TRACE("nla_horner_details", tout << "es[k]= "<< es[k] << ", "; m_intervals.display(tout, b); );
+        TRACE("nla_horner_details", tout << "es[" << k << "] "<< es[k] << ", "; m_intervals.display(tout, b); );
         interv c;
+        interval_deps_combine_rule comb_rule;
         m_intervals.mul(a, b, c, comb_rule);
+        TRACE("nla_horner_details", tout << "c before combine_deps() "; m_intervals.display(tout, c););
         m_intervals.combine_deps(a, b, comb_rule, c);
         TRACE("nla_horner_details", tout << "a "; m_intervals.display(tout, a););
         TRACE("nla_horner_details", tout << "c "; m_intervals.display(tout, c););
