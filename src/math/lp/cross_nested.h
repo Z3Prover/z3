@@ -24,9 +24,18 @@ namespace nla {
 class cross_nested {
     typedef nla_expr<rational> nex;
     nex& m_e;
-    std::function<void (const nex&)> m_call_on_result;
+    std::function<bool (const nex&)> m_call_on_result;
+    std::function<bool (unsigned)> m_var_is_fixed;
+    bool m_done;
 public:
-    cross_nested(nex &e, std::function<void (const nex&)> call_on_result): m_e(e), m_call_on_result(call_on_result) {}
+    cross_nested(nex &e,
+                 std::function<bool (const nex&)> call_on_result,
+                 std::function<bool (unsigned)> var_is_fixed):
+        m_e(e),
+        m_call_on_result(call_on_result),
+        m_var_is_fixed(var_is_fixed),
+        m_done(false)
+    {}
 
     void run() {
         vector<nex*> front;
@@ -123,7 +132,15 @@ public:
         for(auto& p : occurences) {
             SASSERT(p.second.m_occs > 1);
             lpvar j = p.first;
+            if (m_var_is_fixed(j)) {
+                // it does not make sense to explore fixed multupliers
+                // because the interval products do not become smaller
+                // after factoring those out
+                continue;
+            }
             explore_of_expr_on_sum_and_var(c, j, front);
+            if (m_done)
+                return;
             *c = copy_of_c;
             TRACE("nla_cn", tout << "restore c=" << *c << ", m_e=" << m_e << "\n";);
             restore_front(copy_of_front, front);
@@ -151,7 +168,7 @@ public:
         if (occurences.empty()) {
             if(front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << m_e << "\n";);
-                m_call_on_result(m_e);
+                m_done = m_call_on_result(m_e);
             } else {
                 nex* c = pop_back(front);
                 explore_expr_on_front_elem(c, front);     

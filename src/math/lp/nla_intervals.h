@@ -74,7 +74,8 @@ class intervals : common {
         };
 
 
-        void add_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
+        void add_deps(interval const& a, interval const& b,
+                      interval_deps_combine_rule const& deps, interval& i) const {
             i.m_lower_dep =  mk_dependency(a, b, deps.m_lower_combine);
             i.m_upper_dep = mk_dependency(a, b, deps.m_upper_combine);
         }
@@ -176,8 +177,8 @@ public:
     void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
     void set(interval& a, const interval& b) {
         m_imanager.set(a, b);
-        a.m_lower_dep = b.m_lower_dep;
-        a.m_upper_dep = b.m_upper_dep;
+        a.m_lower_dep = lower_is_inf(a)? nullptr : b.m_lower_dep;
+        a.m_upper_dep = upper_is_inf(a)?nullptr : b.m_upper_dep;
     }
     void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
