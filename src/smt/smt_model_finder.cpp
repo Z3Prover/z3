@@ -522,7 +522,6 @@ namespace smt {
             }
 
             instantiation_set const * get_uvar_inst_set(quantifier * q, unsigned i) const {
-                //SASSERT(!has_quantifiers(q->get_expr()));
                 ast_idx_pair k(q, i);
                 node * r = nullptr;
                 if (m_uvars.find(k, r))
@@ -1747,7 +1746,6 @@ namespace smt {
                 }
                 CTRACE("model_finder_bug", has_quantifiers(m_flat_q->get_expr()),
                        tout << mk_pp(q, m) << "\n" << mk_pp(m_flat_q, m) << "\n";);
-                // SASSERT(m.is_lambda_def(q) || !has_quantifiers(m_flat_q->get_expr()));
             }
 
             ~quantifier_info() {
@@ -2193,8 +2191,7 @@ namespace smt {
                         m_info->m_is_auf = false; // unexpected occurrence of variable.
                     }
                     else {
-                        SASSERT(is_quantifier(curr)); // no nested quantifiers
-                        //UNREACHABLE();
+                        SASSERT(is_lambda(curr)); 
                     }
                 }
             }
@@ -2380,7 +2377,6 @@ namespace smt {
                 quantifier * q = d->get_flat_q();
                 if (m.is_lambda_def(q)) return;
                 expr * e = q->get_expr();
-                //SASSERT(!has_quantifiers(e));
                 reset_cache();
                 SASSERT(m_ttodo.empty());
                 SASSERT(m_ftodo.empty());
