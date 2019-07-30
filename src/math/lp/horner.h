@@ -35,7 +35,7 @@ public:
     horner(core *core);
     void horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
-    void lemmas_on_row(const T&);
+    bool lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;
     template <typename T> nex create_sum_from_row(const T&);
     intervals::interval interval_of_expr(const nex& e);
@@ -46,6 +46,6 @@ public:
     void set_interval_for_scalar(intervals::interval&, const rational&);
     void set_var_interval(lpvar j, intervals::interval&);
     std::set<lpvar> get_vars_of_expr(const nex &) const;
-    void lemmas_on_expr(nex &);
+    bool lemmas_on_expr(nex &);
 }; // end of horner
 }
