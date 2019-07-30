@@ -4,6 +4,31 @@
 #include "util/mpq.h"
 
 namespace nla {
+void intervals::test_inf() {
+    interval a; // [1, inf)
+    m_config.set_lower(a, rational(1));
+    m_config.set_lower_is_open(a, false);
+    m_config.set_upper_is_inf(a, true);
+    a.m_lower_dep = mk_dep(1);
+
+    interval b; // [-1,-1]
+    m_config.set_lower(b, rational(-1));
+    m_config.set_lower_is_open(b, false);
+    m_config.set_upper(b, rational(-1));
+    m_config.set_upper_is_open(b, false);
+ 
+    b.m_lower_dep = mk_dep(2);
+    b.m_upper_dep = mk_dep(4);
+    
+    interval_deps_combine_rule comb_rule;
+    interval c;
+    mul(a, b, c, comb_rule);
+    TRACE("nla_horner_test", tout << "c before combine_deps() "; display(tout, c););
+    combine_deps(a, b, comb_rule, c);
+    SASSERT(lower_is_inf(c));
+    SASSERT(!dep_in_upper1(comb_rule.m_lower_combine));
+
+}
 void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
     lp::constraint_index ci;
     rational val;
