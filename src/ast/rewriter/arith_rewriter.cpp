@@ -467,15 +467,15 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
         case LE: 
             result = m().mk_or(
                 m().mk_and(is_zero, m_util.mk_le(div0, arg2)),
-                m().mk_and(m_util.mk_gt(e2, zero), m_util.mk_le(e1, mul2)),
-                m().mk_and(m_util.mk_lt(e2, zero), m_util.mk_ge(e1, mul2)));
-            return BR_REWRITE2;
+                m().mk_and(m().mk_not(m_util.mk_le(e2, zero)), m_util.mk_le(e1, mul2)),
+                m().mk_and(m().mk_not(m_util.mk_ge(e2, zero)), m_util.mk_ge(e1, mul2)));
+            return BR_REWRITE_FULL;
         case GE: 
             result = m().mk_or(
                 m().mk_and(is_zero, m_util.mk_ge(div0, arg2)),
-                m().mk_and(m_util.mk_gt(e2, zero), m_util.mk_ge(e1, mul2)),
-                m().mk_and(m_util.mk_lt(e2, zero), m_util.mk_le(e1, mul2)));
-            return BR_REWRITE2;
+                m().mk_and(m().mk_not(m_util.mk_le(e2, zero)), m_util.mk_ge(e1, mul2)),
+                m().mk_and(m().mk_not(m_util.mk_ge(e2, zero)), m_util.mk_le(e1, mul2)));
+            return BR_REWRITE_FULL;
         case EQ: 
             result = m().mk_ite(is_zero, m().mk_eq(div0, arg2), m().mk_eq(e1, mul2));
             return BR_REWRITE2;
