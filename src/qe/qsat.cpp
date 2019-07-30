@@ -1278,6 +1278,7 @@ namespace qe {
                 in->reset();
                 in->inc_depth();
                 result.push_back(in.get());
+                std::cout << in->models_enabled() << " " << m_model_save.get() << "\n";
                 if (in->models_enabled()) {                    
                     model_converter_ref mc;
                     mc = model2model_converter(m_model_save.get());
