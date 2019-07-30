@@ -81,9 +81,16 @@ public:
     static bool has_common_factor(const nex& c) {
         TRACE("nla_cn", tout << "c=" << c << "\n";);
         SASSERT(c.is_sum());
-        unsigned size = c.children().size();
-        for(const auto & p : get_mult_occurences(c)) {
-            if (p.second.m_occs == size) {
+        auto & ch = c.children();
+        auto common_vars = get_vars_of_expr(ch[0]);
+        for (lpvar j : common_vars) {
+            bool divides_the_rest = true;
+            for(unsigned i = 1; i < ch.size() && divides_the_rest; i++) {
+                if (!ch[i].contains(j))
+                    divides_the_rest = false;
+            }
+            if (divides_the_rest) {
+                TRACE("nla_cn_common_factor", tout << c << "\n";);
                 return true;
             }
         }
@@ -341,13 +348,14 @@ public:
           to explore only such variables to create all cross-nested forms.
         */
         
-        if (has_common_factor(a))
+        if (has_common_factor(a)) {
             return false;
+        }
         update_front_with_split(e, j, front, a, b);
         return true;
     }
-    std::set<lpvar> get_vars_of_expr(const nex &e ) const {
-        std::set<lpvar> r;
+    static std::unordered_set<lpvar> get_vars_of_expr(const nex &e ) {
+        std::unordered_set<lpvar> r;
         switch (e.type()) {
         case expr_type::SCALAR:
             return r;
@@ -367,7 +375,6 @@ public:
             SASSERT(false);
             return r;
         }
-
     }
 
 };
