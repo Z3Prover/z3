@@ -82,8 +82,7 @@ bool horner::lemmas_on_expr(nex& e) {
 
 template <typename T> 
 bool horner::lemmas_on_row(const T& row) {
-    if (!row_is_interesting(row))
-        return false;
+    SASSERT (row_is_interesting(row));
     nex e = create_sum_from_row(row);
     return lemmas_on_expr(e);
 }
@@ -96,14 +95,15 @@ void horner::horner_lemmas() {
 
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
-    std::set<unsigned> rows_to_check; // we need it to be determenistic: cannow work with the unordered_set
+    std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
     for (lpvar j : c().m_to_refine) {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
-        rows.push_back(i);
+        if (row_is_interesting(matrix.m_rows[i]))
+            rows.push_back(i);
     }
 
     unsigned r = c().random();
