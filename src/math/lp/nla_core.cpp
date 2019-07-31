@@ -1238,7 +1238,7 @@ void core::negate_relation(unsigned j, const rational& a) {
     }
 }
 
-bool core:: conflict_found() const {
+bool core::conflict_found() const {
     for (const auto & l : * m_lemma_vec) {
         if (l.is_conflict())
             return true;
@@ -1246,11 +1246,11 @@ bool core:: conflict_found() const {
     return false;
 }
 
-bool core:: done() const {
+bool core::done() const {
     return m_lemma_vec->size() >= 10 || conflict_found();
 }
         
-lbool core:: inner_check(bool derived) {
+lbool core::inner_check(bool derived) {
     if (derived &&  (lp_settings().st().m_nla_calls % m_settings.horner_frequency() == 0))
         m_horner.horner_lemmas();
     if (done()) {
