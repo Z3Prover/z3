@@ -173,7 +173,7 @@ void emonomials::remove_cg_mon(const monomial& m) {
     lpvar u = m.var(), w;
     // equivalence class of u:
     if (m_cg_table.find(u, w)) {
-        TRACE("nla_solver", tout << "erase << " << m << "\n";);
+        TRACE("nla_solver_mons", tout << "erase << " << m << "\n";);
         m_cg_table.erase(u);
     }
 }
@@ -226,7 +226,7 @@ bool emonomials::elists_are_consistent(std::unordered_map<unsigned_vector, std::
             c.insert(e.var());
         auto it = lists.find(m.rvars());
         
-        CTRACE("nla_solver",  it->second != c,
+        CTRACE("nla_solver_mons",  it->second != c,
                tout << "m = " << m << "\n";
                tout << "c = " ; print_vector(c, tout); tout << "\n";
                if (it == lists.end()) {
@@ -249,7 +249,7 @@ void emonomials::insert_cg_mon(monomial & m) {
     lpvar v = m.var(), w;
     if (m_cg_table.find(v, w)) {
         if (v == w) {
-            TRACE("nla_solver", tout << "found "  << v << "\n";);
+            TRACE("nla_solver_mons", tout << "found "  << v << "\n";);
             return;
         }
         unsigned v_idx = m_var2index[v];
@@ -257,11 +257,11 @@ void emonomials::insert_cg_mon(monomial & m) {
         unsigned max_i = std::max(v_idx, w_idx);
         while (m_u_f.get_num_vars() <= max_i)
             m_u_f.mk_var();
-        TRACE("nla_solver", tout << "merge " << v << " idx " << v_idx << ", and " << w << " idx " << w_idx << "\n";);
+        TRACE("nla_solver_mons", tout << "merge " << v << " idx " << v_idx << ", and " << w << " idx " << w_idx << "\n";);
         m_u_f.merge(v_idx, w_idx);
     }
     else {
-        TRACE("nla_solver", tout << "insert " << m << "\n";);
+        TRACE("nla_solver_mons", tout << "insert " << m << "\n";);
         m_cg_table.insert(v);
     }        
 }
@@ -282,7 +282,7 @@ bool emonomials::is_visited(monomial const& m) const {
    class of equal up-to var_eqs monomials.
 */
 void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
-    TRACE("nla_solver", tout << "v = " << v << "\n";);
+    TRACE("nla_solver_mons", tout << "v = " << v << "\n";);
     unsigned idx = m_monomials.size();
     m_monomials.push_back(monomial(v, sz, vs, idx));
     lpvar last_var = UINT_MAX;
@@ -376,17 +376,17 @@ void emonomials::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_va
 }
 
 void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
-    TRACE("nla_solver", tout << r2 << " <- " << r1 << "\n";);
+    TRACE("nla_solver_mons", tout << r2 << " <- " << r1 << "\n";);
     if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
-        TRACE("nla_solver", tout << "rehasing " << r1.var() << "\n";);
+        TRACE("nla_solver_mons", tout << "rehasing " << r1.var() << "\n";);
         merge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);
         rehash_cg(r1.var()); 
     }   
 }
 
 void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
-    TRACE("nla_solver", tout << r2 << " -> " << r1 << "\n";);
+    TRACE("nla_solver_mons", tout << r2 << " -> " << r1 << "\n";);
     if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
         rehash_cg(r1.var());
