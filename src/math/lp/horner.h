@@ -46,5 +46,8 @@ public:
     void set_interval_for_scalar(intervals::interval&, const rational&);
     void set_var_interval(lpvar j, intervals::interval&);
     bool lemmas_on_expr(nex &);
+    
+    template <typename T> // T has an iterator of (coeff(), var())
+    bool row_has_monomial_to_refine(const T&) const;
 }; // end of horner
 }

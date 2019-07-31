@@ -27,9 +27,20 @@ namespace nla {
 typedef intervals::interval interv;
 horner::horner(core * c) : common(c), m_intervals(c, c->reslim()) {}
 
+template <typename T>
+bool horner::row_has_monomial_to_refine(const T& row) const {
+    for (const auto& p : row) {
+        if (c().m_to_refine.contains(p.var()))
+            return true;
+    }
+    return false;
+    
+}
 // Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
+    TRACE("nla_solver", m_core->print_term(row, tout););
+    SASSERT(row_has_monomial_to_refine(row));
     std::unordered_set<lpvar> seen;
     for (const auto& p : row) {
         lpvar j = p.var();
@@ -98,7 +109,8 @@ void horner::horner_lemmas() {
     unsigned r = c().random();
     unsigned sz = rows.size();
     for (unsigned i = 0; i < sz; i++) {
-        if (lemmas_on_row(matrix.m_rows[(i + r) % sz]))
+        unsigned row_index = rows[(i + r) % sz];
+        if (lemmas_on_row(matrix.m_rows[row_index]))
             break;
     }
 }
@@ -113,6 +125,7 @@ nex horner::nexvar(lpvar j) const {
     nex e(expr_type::MUL);
     for (lpvar k : m.vars()) {
         e.add_child(nex::var(k));
+        CTRACE("nla_horner", c().is_monomial_var(k), c().print_var(k, tout) << "\n";);
     }
     return e;
 }
