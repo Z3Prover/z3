@@ -1408,16 +1408,13 @@ namespace nlsat {
         }
 
         void collect(literal_vector const& assumptions, clause_vector& clauses) {
-            unsigned n = clauses.size();
             unsigned j  = 0;
-            for (unsigned i = 0; i < n; i++) {
-                clause * c = clauses[i];
+            for (clause * c : clauses) {
                 if (collect(assumptions, *c)) {
                     del_clause(c);
                 }
                 else {
-                    clauses[j] = c;
-                    j++;
+                    clauses[j++] = c;
                 }
             }
             clauses.shrink(j);
@@ -1432,11 +1429,12 @@ namespace nlsat {
             }
             vector<assumption, false> deps;
             m_asm.linearize(asms, deps);
-            bool found = false;
-            for (unsigned i = 0; !found && i < deps.size(); ++i) {
-                found = ptr <= deps[i] && deps[i] < ptr + sz;
+            for (auto dep : deps) {
+                if (ptr <= dep && dep < ptr + sz) {
+                    return true;
+                }
             }
-            return found;
+            return false;
         }
 
         // -----------------------
@@ -1453,8 +1451,8 @@ namespace nlsat {
         // Conflict resolution invariant: a marked literal is in m_lemma or on the trail stack.
 
         bool check_marks() {
-            for (unsigned i = 0; i < m_marks.size(); i++) {
-                SASSERT(m_marks[i] == 0);
+            for (unsigned m : m_marks) {
+                SASSERT(m == 0);
             }
             return true;
         }
@@ -1468,14 +1466,13 @@ namespace nlsat {
         void reset_mark(bool_var b) { m_marks[b] = 0; }
 
         void reset_marks() {
-            unsigned sz = m_lemma.size();
-            for (unsigned i = 0; i < sz; i++) {
-                reset_mark(m_lemma[i].var());
+            for (auto const& l : m_lemma) {
+                reset_mark(l.var());
             }
         }
 
         void process_antecedent(literal antecedent) {
-            bool_var b   = antecedent.var();
+            bool_var b  = antecedent.var();
             TRACE("nlsat_resolve", tout << "resolving antecedent, l:\n"; display(tout, antecedent); tout << "\n";);
             if (assigned_value(antecedent) == l_undef) {
                 // antecedent must be false in the current arith interpretation

@@ -40,8 +40,7 @@ namespace qe {
 
     enum qsat_mode_t {
         qsat_t,
-        elim_t,
-        interp_t
+        elim_t
     };
 
     class nlqsat : public tactic {
@@ -55,48 +54,210 @@ namespace qe {
             void reset() { memset(this, 0, sizeof(*this)); }            
         };
         
+        struct solver_state {
+            ast_manager&           m;
+            params_ref             m_params;
+            nlsat::solver          m_solver;
+            nlsat::literal         m_is_true;
+            nlsat::assignment      m_rmodel;        
+            svector<lbool>         m_bmodel;
+            nlsat::assignment      m_rmodel0;        
+            svector<lbool>         m_bmodel0;
+            bool                   m_valid_model;
+            vector<nlsat::var_vector>            m_bound_rvars;
+            vector<svector<nlsat::bool_var> >    m_bound_bvars;
+            vector<nlsat::scoped_literal_vector> m_preds;
+            svector<max_level>                   m_rvar2level;
+            u_map<max_level>                     m_bvar2level;
+            expr2var                             m_a2b, m_t2x;
+            u_map<expr*>                         m_b2a, m_x2t;
+            nlsat::literal_vector                m_assumptions;            
+            nlsat::literal_vector                m_asms;
+            nlsat::literal_vector                m_cached_asms;
+            unsigned_vector                      m_cached_asms_lim;
+            u_map<expr*>                         m_asm2fml;
+            solver_state(ast_manager& m, params_ref const& p):
+                m(m),
+                m_params(p),
+                m_solver(m.limit(), p, true),
+                m_rmodel(m_solver.am()),
+                m_rmodel0(m_solver.am()),
+                m_valid_model(false),
+                m_a2b(m),
+                m_t2x(m)
+            {}
+
+            void g2s(goal const& g) {
+                goal2nlsat gs;
+                gs(g, m_params, m_solver, m_a2b, m_t2x);
+            }
+
+            void init_expr2var(vector<app_ref_vector> const& qvars) {
+                for (app_ref_vector const& qvs : qvars) {
+                    init_expr2var(qvs);
+                }
+            }
+            
+            void init_expr2var(app_ref_vector const& qvars) {
+                for (app* v : qvars) {
+                    if (m.is_bool(v)) {
+                        m_a2b.insert(v, m_solver.mk_bool_var());
+                    }
+                    else {
+                        // TODO: assert it is of type Real.
+                        m_t2x.insert(v, m_solver.mk_var(false));
+                    }
+                }
+            }
+            
+            void init_var2expr() {
+                for (auto const& kv : m_t2x) {
+                    m_x2t.insert(kv.m_value, kv.m_key);
+                }
+                for (auto const& kv : m_a2b) {
+                    m_b2a.insert(kv.m_value, kv.m_key);
+                }
+            }
+
+            void save_model(bool is_exists) {
+                m_solver.get_rvalues(m_rmodel);
+                m_solver.get_bvalues(m_bmodel);
+                m_valid_model = true;
+                if (is_exists) {
+                    m_rmodel0.copy(m_rmodel);
+                    m_bmodel0.reset();
+                    m_bmodel0.append(m_bmodel);
+                }
+            }
+            
+            void unsave_model() {
+                SASSERT(m_valid_model);
+                m_solver.set_rvalues(m_rmodel);
+                m_solver.set_bvalues(m_bmodel);
+            }
+            
+            void clear_model() {
+                m_valid_model = false;
+                m_rmodel.reset();
+                m_bmodel.reset();
+                m_solver.set_rvalues(m_rmodel);
+            }
+
+            void add_assumption_literal(clause& clause, expr* fml) {
+                nlsat::bool_var b = m_solver.mk_bool_var();
+                clause.push_back(nlsat::literal(b, true));
+                m_assumptions.push_back(nlsat::literal(b, false)); 
+                m_solver.inc_ref(b);
+                m_asm2fml.insert(b, fml);
+                m_bvar2level.insert(b, max_level());
+            }
+
+            expr_ref clause2fml(nlsat::scoped_literal_vector const& clause) {
+                expr_ref_vector fmls(m);
+                expr_ref fml(m);
+                expr* t;
+                nlsat2goal n2g(m);
+                for (nlsat::literal l : clause) {
+                    if (m_asm2fml.find(l.var(), t)) {
+                        fml = t;
+                        if (l.sign()) {
+                            fml = push_not(fml);
+                        }
+                        SASSERT(l.sign());
+                        fmls.push_back(fml);
+                    }
+                    else {
+                        fmls.push_back(n2g(m_solver, m_b2a, m_x2t, l));
+                    }
+                }
+                fml = mk_or(fmls);
+                return fml;
+            }
+
+            void add_literal(nlsat::literal_vector& lits, nlsat::literal l) {
+                lbool r = m_solver.value(l);
+                switch (r) {
+                case l_true:
+                    lits.push_back(l);
+                    break;
+                case l_false:
+                    lits.push_back(~l);
+                    break;
+                default:
+                    lits.push_back(l);
+                    break; 
+                }
+            }
+        
+            void display(std::ostream& out) {
+                out << "level " << level() << "\n";
+                display_preds(out);
+                display_assumptions(out);
+                m_solver.display(out << "solver:\n");
+            }
+            
+            void display_assumptions(std::ostream& out) {
+                m_solver.display(out << "assumptions: ", m_asms.size(), m_asms.c_ptr());
+                out << "\n";
+            }
+            
+            void display_preds(std::ostream& out) {
+                for (unsigned i = 0; i < m_preds.size(); ++i) {                
+                    m_solver.display(out << i << ": ", m_preds[i].size(), m_preds[i].c_ptr());
+                    out << "\n";
+                }
+            }
+
+            unsigned level() const {
+                return m_cached_asms_lim.size();
+            }
+
+            void reset() {
+                m_asms.reset();
+                m_cached_asms.reset();
+                m_cached_asms_lim.reset();
+                m_is_true = nlsat::null_literal;
+                m_rmodel.reset();
+                m_valid_model = false;
+                m_bound_rvars.reset();
+                m_bound_bvars.reset();
+                m_preds.reset();
+                for (auto const& kv : m_bvar2level) {
+                    m_solver.dec_ref(kv.m_key);
+                }
+                m_rvar2level.reset();
+                m_bvar2level.reset();
+                m_t2x.reset();
+                m_a2b.reset();
+                m_b2a.reset();
+                m_x2t.reset();
+                m_assumptions.reset();
+                m_asm2fml.reset();
+            }
+        };
         ast_manager&           m;
+        solver_state           s;
         qsat_mode_t            m_mode;
         params_ref             m_params;
-        nlsat::solver          m_solver;
         tactic_ref             m_nftactic;
-        nlsat::literal_vector  m_asms;
-        nlsat::literal_vector  m_cached_asms;
-        unsigned_vector        m_cached_asms_lim;
-        nlsat::literal         m_is_true;
-        nlsat::assignment      m_rmodel;        
-        svector<lbool>         m_bmodel;
-        nlsat::assignment      m_rmodel0;        
-        svector<lbool>         m_bmodel0;
-        bool                   m_valid_model;
-        vector<nlsat::var_vector>            m_bound_rvars;
-        vector<svector<nlsat::bool_var> >    m_bound_bvars;
-        vector<nlsat::scoped_literal_vector> m_preds;
-        svector<max_level>                   m_rvar2level;
-        u_map<max_level>                     m_bvar2level;
-        expr2var                             m_a2b, m_t2x;
-        u_map<expr*>                         m_b2a, m_x2t;
-        volatile bool                        m_cancel;
-        stats                                m_stats;
-        statistics                           m_st;
-        obj_hashtable<expr>                  m_free_vars;
-        obj_hashtable<expr>                  m_aux_vars;
-        expr_ref_vector                      m_answer;
-        expr_safe_replace                    m_answer_simplify;
-        nlsat::literal_vector                m_assumptions;
-        u_map<expr*>                         m_asm2fml;
-        expr_ref_vector                      m_trail;
+        stats                  m_stats;
+        statistics             m_st;
+        obj_hashtable<expr>    m_free_vars;
+        obj_hashtable<expr>    m_aux_vars;
+        expr_ref_vector        m_answer;
+        expr_safe_replace      m_answer_simplify;
+        expr_ref_vector        m_trail;
         
         lbool check_sat() {
             while (true) {
                 ++m_stats.m_num_rounds;
                 check_cancel();
                 init_assumptions();   
-                lbool res = m_solver.check(m_asms);
-                TRACE("qe", display(tout); );
+                lbool res = s.m_solver.check(s.m_asms);
+                TRACE("qe", s.display(tout << res << "\n"); );
                 switch (res) {
                 case l_true:
-                    save_model();
+                    s.save_model(is_exists(level()));
                     push();
                     break;
                 case l_false:
@@ -113,70 +274,55 @@ namespace qe {
         
         void init_assumptions() {
             unsigned lvl = level();
-            m_asms.reset();
-            m_asms.push_back(is_exists()?m_is_true:~m_is_true);
-            m_asms.append(m_assumptions);
-            TRACE("qe", tout << "model valid: " << m_valid_model << " level: " << lvl << " "; 
-                  display_assumptions(tout);
-                  m_solver.display(tout););
+            s.m_asms.reset();
+            s.m_asms.push_back(is_exists()?s.m_is_true:~s.m_is_true);
+            s.m_asms.append(s.m_assumptions);
+            TRACE("qe", tout << "model valid: " << s.m_valid_model << " level: " << lvl << " "; 
+                  s.display_assumptions(tout);
+                  s.m_solver.display(tout););
 
-            if (!m_valid_model) {
-                m_asms.append(m_cached_asms);
+            if (!s.m_valid_model) {
+                s.m_asms.append(s.m_cached_asms);
                 return;
             }            
-            unsave_model();
+            s.unsave_model();
             if (lvl == 0) {
-                SASSERT(m_cached_asms.empty());
+                SASSERT(s.m_cached_asms.empty());
                 return;
             }
-            if (lvl <= m_preds.size()) {
-                for (unsigned j = 0; j < m_preds[lvl - 1].size(); ++j) {
-                    add_literal(m_cached_asms, m_preds[lvl - 1][j]);
+            if (lvl <= s.m_preds.size()) {
+                for (unsigned j = 0; j < s.m_preds[lvl - 1].size(); ++j) {
+                    s.add_literal(s.m_cached_asms, s.m_preds[lvl - 1][j]);
                 }
             }
-            m_asms.append(m_cached_asms);
+            s.m_asms.append(s.m_cached_asms);
             
-            for (unsigned i = lvl + 1; i < m_preds.size(); i += 2) {
-                for (unsigned j = 0; j < m_preds[i].size(); ++j) {
-                    nlsat::literal l = m_preds[i][j];
-                    max_level lv = m_bvar2level.find(l.var());
+            for (unsigned i = lvl + 1; i < s.m_preds.size(); i += 2) {
+                for (unsigned j = 0; j < s.m_preds[i].size(); ++j) {
+                    nlsat::literal l = s.m_preds[i][j];
+                    max_level lv = s.m_bvar2level.find(l.var());
                     bool use = 
                         (lv.m_fa == i && (lv.m_ex == UINT_MAX || lv.m_ex < lvl)) ||
                         (lv.m_ex == i && (lv.m_fa == UINT_MAX || lv.m_fa < lvl));
                     if (use) {
-                        add_literal(m_asms, l);
+                        s.add_literal(s.m_asms, l);
                     }
                 }
             }
-            TRACE("qe", display(tout);
-                  for (nlsat::literal a : m_asms) {
-                      m_solver.display(tout, a) << "\n";
+            TRACE("qe", s.display(tout);
+                  for (nlsat::literal a : s.m_asms) {
+                      s.m_solver.display(tout, a) << "\n";
                   });
-            save_model();
+            s.save_model(is_exists(level()));
         }
 
-        void add_literal(nlsat::literal_vector& lits, nlsat::literal l) {
-            lbool r = m_solver.value(l);
-            switch (r) {
-            case l_true:
-                lits.push_back(l);
-                break;
-            case l_false:
-                lits.push_back(~l);
-                break;
-            default:
-                lits.push_back(l);
-                break; 
-            }
-        }
 
         template<class S, class T>
         void insert_set(S& set, T const& vec) {
-            for (unsigned i = 0; i < vec.size(); ++i) {
-                set.insert(vec[i]);
+            for (auto const& v : vec) {
+                set.insert(v);
             }
-        }
-        
+        }        
 
         void mbp(unsigned level, nlsat::scoped_literal_vector& result) {
             nlsat::var_vector vars;
@@ -186,12 +332,12 @@ namespace qe {
         }
 
         void extract_vars(unsigned level, nlsat::var_vector& vars, uint_set& fvars) {
-            for (unsigned i = 0; i < m_bound_rvars.size(); ++i) {
+            for (unsigned i = 0; i < s.m_bound_rvars.size(); ++i) {
                 if (i < level) {
-                    insert_set(fvars, m_bound_bvars[i]);
+                    insert_set(fvars, s.m_bound_bvars[i]);
                 }
                 else {
-                    vars.append(m_bound_rvars[i]);
+                    vars.append(s.m_bound_rvars[i]);
                 }
             }
         }
@@ -200,27 +346,27 @@ namespace qe {
             // 
             // Also project auxiliary variables from clausification.
             // 
-            unsave_model();
-            nlsat::explain& ex = m_solver.get_explain();
-            nlsat::scoped_literal_vector new_result(m_solver);
+            s.unsave_model();
+            nlsat::explain& ex = s.m_solver.get_explain();
+            nlsat::scoped_literal_vector new_result(s.m_solver);
             result.reset();
             // project quantified Boolean variables.
-            for (nlsat::literal lit : m_asms) {
-                if (!m_b2a.contains(lit.var()) || fvars.contains(lit.var())) {
+            for (nlsat::literal lit : s.m_asms) {
+                if (!s.m_b2a.contains(lit.var()) || fvars.contains(lit.var())) {
                     result.push_back(lit);
                 }
             }
-            TRACE("qe", m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
+            TRACE("qe", s.m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             // project quantified real variables.
             // They are sorted by size, so we project the largest variables first to avoid 
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
-                TRACE("qe", m_solver.display(tout << "project: ", vars[i]) << "\n";);
+                TRACE("qe", s.m_solver.display(tout << "project: ", vars[i]) << "\n";);
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
                 result.swap(new_result);
-                TRACE("qe", m_solver.display(tout, vars[i]) << ": ";
-                      m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
+                TRACE("qe", s.m_solver.display(tout, vars[i]) << ": ";
+                      s.m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             }
             negate_clause(result);
         }
@@ -231,45 +377,21 @@ namespace qe {
             }
         }
 
-        void save_model() {
-            m_solver.get_rvalues(m_rmodel);
-            m_solver.get_bvalues(m_bmodel);
-            m_valid_model = true;
-            if (is_exists(level())) {
-                m_rmodel0.copy(m_rmodel);
-                m_bmodel0.reset();
-                m_bmodel0.append(m_bmodel);
-            }
-        }
-
-        void unsave_model() {
-            SASSERT(m_valid_model);
-            m_solver.set_rvalues(m_rmodel);
-            m_solver.set_bvalues(m_bmodel);
-        }
-         
-        void clear_model() {
-            m_valid_model = false;
-            m_rmodel.reset();
-            m_bmodel.reset();
-            m_solver.set_rvalues(m_rmodel);
-        }
-
         unsigned level() const { 
-            return m_cached_asms_lim.size();
+            return s.level();
         }
 
         void enforce_parity(clause& cl) {
-            cl.push_back(is_exists()?~m_is_true:m_is_true);
+            cl.push_back(is_exists()?~s.m_is_true:s.m_is_true);
         }
 
         void add_clause(clause& cl) {
             if (cl.empty()) {
-                cl.push_back(~m_solver.mk_true());
+                cl.push_back(~s.m_solver.mk_true());
             }
             SASSERT(!cl.empty());
             nlsat::literal_vector lits(cl.size(), cl.c_ptr());
-            m_solver.mk_clause(lits.size(), lits.c_ptr());
+            s.m_solver.mk_clause(lits.size(), lits.c_ptr());
         }
 
         max_level get_level(clause const& cl) {
@@ -286,14 +408,14 @@ namespace qe {
 
         max_level get_level(nlsat::literal l) {
             max_level level;
-            if (m_bvar2level.find(l.var(), level)) {
+            if (s.m_bvar2level.find(l.var(), level)) {
                 return level;
             }
             nlsat::var_vector vs;
-            m_solver.vars(l, vs);
-            TRACE("qe", m_solver.display(tout << vs << " ", l) << "\n";);
+            s.m_solver.vars(l, vs);
+            TRACE("qe", s.m_solver.display(tout << vs << " ", l) << "\n";);
             for (unsigned v : vs) {
-                level.merge(m_rvar2level[v]);                
+                level.merge(s.m_rvar2level[v]);                
             }
             set_level(l.var(), level);
             return level;
@@ -301,19 +423,19 @@ namespace qe {
 
         void set_level(nlsat::bool_var v, max_level const& level) {
             unsigned k = level.max();
-            while (m_preds.size() <= k) {
-                m_preds.push_back(nlsat::scoped_literal_vector(m_solver));
+            while (s.m_preds.size() <= k) {
+                s.m_preds.push_back(nlsat::scoped_literal_vector(s.m_solver));
             }
             nlsat::literal l(v, false);
-            m_preds[k].push_back(l);
-            m_solver.inc_ref(v);
-            m_bvar2level.insert(v, level);            
-            TRACE("qe", m_solver.display(tout, l); tout << ": " << level << "\n";);
+            s.m_preds[k].push_back(l);
+            s.m_solver.inc_ref(v);
+            s.m_bvar2level.insert(v, level);            
+            TRACE("qe", s.m_solver.display(tout, l); tout << ": " << level << "\n";);
         }
         
         void project() {
-            TRACE("qe", display_assumptions(tout););
-            if (!m_valid_model) {
+            TRACE("qe", s.display_assumptions(tout););
+            if (!s.m_valid_model) {
                 pop(1);
                 return;
             }
@@ -323,7 +445,7 @@ namespace qe {
             }
             SASSERT(level() >= 2);
             unsigned num_scopes;
-            clause cl(m_solver);
+            clause cl(s.m_solver);
             mbp(level()-1, cl);            
             
             max_level clevel = get_level(cl);
@@ -347,11 +469,11 @@ namespace qe {
         }
 
         void project_qe() {
-            SASSERT(level() >= 1 && m_mode == elim_t && m_valid_model);
-            clause cl(m_solver);
+            SASSERT(level() >= 1 && m_mode == elim_t && s.m_valid_model);
+            clause cl(s.m_solver);
             mbp(std::max(1u, level()-1), cl);            
             
-            expr_ref fml = clause2fml(cl);
+            expr_ref fml = s.clause2fml(cl);
             TRACE("qe", tout << level() << ": " << fml << "\n";);
             max_level clevel = get_level(cl);
             if (level() == 1 || clevel.max() == 0) {
@@ -386,37 +508,9 @@ namespace qe {
             m_answer.push_back(fml);
         }
 
-        expr_ref clause2fml(nlsat::scoped_literal_vector const& clause) {
-            expr_ref_vector fmls(m);
-            expr_ref fml(m);
-            expr* t;
-            nlsat2goal n2g(m);
-            for (unsigned i = 0; i < clause.size(); ++i) {
-                nlsat::literal l = clause[i];
-                if (m_asm2fml.find(l.var(), t)) {
-                    fml = t;
-                    if (l.sign()) {
-                        fml = push_not(fml);
-                    }
-                    SASSERT(l.sign());
-                    fmls.push_back(fml);
-                }
-                else {
-                    fmls.push_back(n2g(m_solver, m_b2a, m_x2t, l));
-                }
-            }
-            fml = mk_or(fmls);
-            return fml;
-        }
-
         void add_assumption_literal(clause& clause, expr* fml) {
-            nlsat::bool_var b = m_solver.mk_bool_var();
-            clause.push_back(nlsat::literal(b, true));
-            m_assumptions.push_back(nlsat::literal(b, false)); 
-            m_solver.inc_ref(b);
-            m_asm2fml.insert(b, fml);
+            s.add_assumption_literal(clause, fml);
             m_trail.push_back(fml);            
-            m_bvar2level.insert(b, max_level());
         }
 
         bool is_exists() const { return is_exists(level()); }
@@ -425,9 +519,6 @@ namespace qe {
         bool is_forall(unsigned level) const { return is_exists(level+1); }
 
         void check_cancel() {
-            if (m_cancel) {
-                throw tactic_exception(TACTIC_CANCELED_MSG);
-            }
         }
 
         struct div {
@@ -554,65 +645,25 @@ namespace qe {
         }
 
         void reset() override {
-            //m_solver.reset();
-            m_asms.reset();
-            m_cached_asms.reset();
-            m_cached_asms_lim.reset();
-            m_is_true = nlsat::null_literal;
-            m_rmodel.reset();
-            m_valid_model = false;
-            m_bound_rvars.reset();
-            m_bound_bvars.reset();
-            m_preds.reset();
-            for (auto const& kv : m_bvar2level) {
-                m_solver.dec_ref(kv.m_key);
-            }
-            m_rvar2level.reset();
-            m_bvar2level.reset();
-            m_t2x.reset();
-            m_a2b.reset();
-            m_b2a.reset();
-            m_x2t.reset();
-            m_cancel = false;
+            s.reset();
             m_st.reset();        
-            m_solver.collect_statistics(m_st);
+            s.m_solver.collect_statistics(m_st);
             m_free_vars.reset();
             m_aux_vars.reset();
             m_answer.reset();
             m_answer_simplify.reset();
-            m_assumptions.reset();
-            m_asm2fml.reset();
             m_trail.reset();
         }
 
         void push() {
-            m_cached_asms_lim.push_back(m_cached_asms.size());
+            s.m_cached_asms_lim.push_back(s.m_cached_asms.size());
         }
 
         void pop(unsigned num_scopes) {
-            clear_model();
+            s.clear_model();
             unsigned new_level = level() - num_scopes;
-            m_cached_asms.shrink(m_cached_asms_lim[new_level]);
-            m_cached_asms_lim.shrink(new_level);
-        }
-
-        void display(std::ostream& out) {
-            out << "level " << level() << "\n";
-            display_preds(out);
-            display_assumptions(out);
-            m_solver.display(out << "solver:\n");
-        }
-
-        void display_assumptions(std::ostream& out) {
-            m_solver.display(out << "assumptions: ", m_asms.size(), m_asms.c_ptr());
-            out << "\n";
-        }
-
-        void display_preds(std::ostream& out) {
-            for (unsigned i = 0; i < m_preds.size(); ++i) {                
-                m_solver.display(out << i << ": ", m_preds[i].size(), m_preds[i].c_ptr());
-                out << "\n";
-            }
+            s.m_cached_asms.shrink(s.m_cached_asms_lim[new_level]);
+            s.m_cached_asms_lim.shrink(new_level);
         }
 
         // expr -> nlsat::solver
@@ -648,8 +699,7 @@ namespace qe {
             while (!vars.empty());
             SASSERT(qvars.size() >= 2);
             SASSERT(qvars.back().empty()); 
-            init_expr2var(qvars);
-            goal2nlsat g2s;
+            s.init_expr2var(qvars);
 
             expr_ref is_true(m), fml1(m), fml2(m);
             is_true = m.mk_fresh_const("is_true", m.mk_bool_sort());
@@ -661,38 +711,38 @@ namespace qe {
             (*m_nftactic)(g, result);
             SASSERT(result.size() == 1);
             TRACE("qe", result[0]->display(tout););
-            g2s(*result[0], m_params, m_solver, m_a2b, m_t2x);
+            s.g2s(*result[0]);
 
             // insert variables and their levels.
             for (unsigned i = 0; i < qvars.size(); ++i) {
-                m_bound_bvars.push_back(svector<nlsat::bool_var>());
-                m_bound_rvars.push_back(nlsat::var_vector());
+                s.m_bound_bvars.push_back(svector<nlsat::bool_var>());
+                s.m_bound_rvars.push_back(nlsat::var_vector());
                 max_level lvl;
                 if (is_exists(i)) lvl.m_ex = i; else lvl.m_fa = i;
                 for (app* v : qvars[i]) {
-                    if (m_a2b.is_var(v)) {
+                    if (s.m_a2b.is_var(v)) {
                         SASSERT(m.is_bool(v));
-                        nlsat::bool_var b = m_a2b.to_var(v);
+                        nlsat::bool_var b = s.m_a2b.to_var(v);
                         TRACE("qe", tout << mk_pp(v, m) << " |-> b" << b << "\n";);
-                        m_bound_bvars.back().push_back(b);
+                        s.m_bound_bvars.back().push_back(b);
                         set_level(b, lvl);
                     }
-                    else if (m_t2x.is_var(v)) {
-                        nlsat::var w = m_t2x.to_var(v);
+                    else if (s.m_t2x.is_var(v)) {
+                        nlsat::var w = s.m_t2x.to_var(v);
                         TRACE("qe", tout << mk_pp(v, m) << " |-> x" << w << "\n";);
-                        m_bound_rvars.back().push_back(w);
-                        m_rvar2level.setx(w, lvl, max_level());
+                        s.m_bound_rvars.back().push_back(w);
+                        s.m_rvar2level.setx(w, lvl, max_level());
                     }
                     else {
                         TRACE("qe", tout << mk_pp(v, m) << " not found\n";);
                     }
                 }
             }
-            init_var2expr();
-            m_is_true = nlsat::literal(m_a2b.to_var(is_true), false);
+            s.init_var2expr();
+            s.m_is_true = nlsat::literal(s.m_a2b.to_var(is_true), false);
             // insert literals from arithmetical sub-formulas
-            nlsat::atom_vector const& atoms = m_solver.get_atoms();
-            TRACE("qe", m_solver.display(tout););
+            nlsat::atom_vector const& atoms = s.m_solver.get_atoms();
+            TRACE("qe", s.m_solver.display(tout););
             for (unsigned i = 0; i < atoms.size(); ++i) {
                 if (atoms[i]) {
                     get_level(nlsat::literal(i, false));
@@ -701,32 +751,6 @@ namespace qe {
             TRACE("qe", tout << fml << "\n";);
         }
 
-        void init_expr2var(vector<app_ref_vector> const& qvars) {
-            for (app_ref_vector const& qvs : qvars) {
-                init_expr2var(qvs);
-            }
-        }
-
-        void init_expr2var(app_ref_vector const& qvars) {
-            for (app* v : qvars) {
-                if (m.is_bool(v)) {
-                    m_a2b.insert(v, m_solver.mk_bool_var());
-                }
-                else {
-                    // TODO: assert it is of type Real.
-                    m_t2x.insert(v, m_solver.mk_var(false));
-                }
-            }
-        }
-
-        void init_var2expr() {
-            for (auto const& kv : m_t2x) {
-                m_x2t.insert(kv.m_value, kv.m_key);
-            }
-            for (auto const& kv : m_a2b) {
-                m_b2a.insert(kv.m_value, kv.m_key);
-            }
-        }
 
         
         // Return false if nlsat assigned noninteger value to an integer variable.
@@ -735,30 +759,30 @@ namespace qe {
             bool ok = true;
             model_ref md = alloc(model, m);
             arith_util util(m);
-            for (auto const& kv : m_t2x) {
+            for (auto const& kv : s.m_t2x) {
                 nlsat::var x = kv.m_value;
                 expr * t = kv.m_key;
                 if (!is_uninterp_const(t) || !m_free_vars.contains(t) || m_aux_vars.contains(t))
                     continue;
                 expr * v;
                 try {
-                    v = util.mk_numeral(m_rmodel0.value(x), util.is_int(t));
+                    v = util.mk_numeral(s.m_rmodel0.value(x), util.is_int(t));
                 }
                 catch (z3_error & ex) {
                     throw ex;
                 }
                 catch (z3_exception &) {
-                    v = util.mk_to_int(util.mk_numeral(m_rmodel0.value(x), false));
+                    v = util.mk_to_int(util.mk_numeral(s.m_rmodel0.value(x), false));
                     ok = false;
                 }
                 md->register_decl(to_app(t)->get_decl(), v);
             }
-            for (auto const& kv : m_a2b) {
+            for (auto const& kv : s.m_a2b) {
                 expr * a = kv.m_key;
                 nlsat::bool_var b = kv.m_value;
-                if (a == nullptr || !is_uninterp_const(a) || b == m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
+                if (a == nullptr || !is_uninterp_const(a) || b == s.m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
                     continue;
-                lbool val = m_bmodel0.get(b, l_undef);
+                lbool val = s.m_bmodel0.get(b, l_undef);
                 if (val == l_undef)
                     continue; // don't care
                 md->register_decl(to_app(a)->get_decl(), val == l_true ? m.mk_true() : m.mk_false());
@@ -770,21 +794,15 @@ namespace qe {
     public:
         nlqsat(ast_manager& m, qsat_mode_t mode, params_ref const& p):
             m(m),
+            s(m, p),
             m_mode(mode),
             m_params(p),
-            m_solver(m.limit(), p, true),
             m_nftactic(nullptr),
-            m_rmodel(m_solver.am()),
-            m_rmodel0(m_solver.am()),
-            m_valid_model(false),
-            m_a2b(m),
-            m_t2x(m),
-            m_cancel(false),
             m_answer(m),
             m_answer_simplify(m),
             m_trail(m)
         {
-            m_solver.get_explain().set_signed_project(true);
+            s.m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
 
@@ -794,7 +812,7 @@ namespace qe {
         void updt_params(params_ref const & p) override {
             params_ref p2(p);
             p2.set_bool("factor", false);
-            m_solver.updt_params(p2);
+            s.m_solver.updt_params(p2);
         }
         
         void collect_param_descrs(param_descrs & r) override {
@@ -857,7 +875,7 @@ namespace qe {
 
         void reset_statistics() override {
             m_stats.reset();
-            m_solver.reset_statistics();
+            s.m_solver.reset_statistics();
         }
 
         void cleanup() override {
