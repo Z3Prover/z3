@@ -20,7 +20,6 @@ Notes:
 #include "util/rational.h"
 #include "util/symbol.h"
 #include "util/dictionary.h"
-#include <thread>
 #include <atomic>
 
 params_ref params_ref::g_empty_params_ref;
