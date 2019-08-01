@@ -120,7 +120,7 @@ public:
         int ret = -1;
         int n = 0;
         for (int i = 0; i < static_cast<int>(b.size()); i++) {
-            if (is_int(b[i])) continue;
+            if (is_integer(b[i])) continue;
             if (n == 0 ) {
                 lp_assert(ret == -1);
                 n = 1;

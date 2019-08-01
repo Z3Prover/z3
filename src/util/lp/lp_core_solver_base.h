@@ -550,6 +550,7 @@ public:
     bool non_basic_columns_are_set_correctly() const {
         for (unsigned j : this->m_nbasis)
             if (!column_is_feasible(j)) {
+                TRACE("lp_core", tout << "inf col "; print_column_info(j, tout) << "\n";);
                 return false;
             }
         return true;
@@ -573,7 +574,7 @@ public:
         }
     }
 
-    void print_column_info(unsigned j, std::ostream & out) const {
+    std::ostream& print_column_info(unsigned j, std::ostream & out) const {
         out << "j = " << j << ",\tname = "<< column_name(j) << "\t";
         switch (m_column_types[j]) {
         case column_type::fixed:
@@ -598,6 +599,7 @@ public:
             out << " base\n";
         else
            out << " \n";
+        return out;
     }
 
     bool column_is_free(unsigned j) const { return this->m_column_type[j] == free; }

@@ -16,7 +16,7 @@ void int_solver::trace_inf_rows() const {
     TRACE("arith_int_rows",
           unsigned num = m_lar_solver->A_r().column_count();
           for (unsigned v = 0; v < num; v++) {
-              if (is_int(v) && !get_value(v).is_int()) {
+              if (column_is_int(v) && !get_value(v).is_int()) {
                   display_column(tout, v);
               }
           }
@@ -197,7 +197,7 @@ impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
         bool seen_minus = false;
         bool seen_plus = false;
         for(const auto & p : t) {
-            if (!is_int(p.var()))
+            if (!column_is_int(p.var()))
                 goto usual_delta;
             const mpq & c = p.coeff();
             if (c == one_of_type<mpq>()) {
@@ -215,7 +215,7 @@ impq int_solver::get_cube_delta_for_term(const lar_term& t) const {
  usual_delta:
     mpq delta = zero_of_type<mpq>();
     for (const auto & p : t)
-        if (is_int(p.var()))
+        if (column_is_int(p.var()))
             delta += abs(p.coeff());
     
     delta *= mpq(1, 2);
@@ -759,7 +759,7 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
         
         unsigned i = lcs.m_r_basis[row_index];
         impq const & xi = get_value(i);
-        if (is_int(i) && is_int(j) && !a.is_int())
+        if (column_is_int(i) && column_is_int(j) && !a.is_int())
             m = lcm(m, denominator(a));
         if (a.is_neg()) {
             if (has_low(i))
@@ -791,12 +791,12 @@ bool int_solver::get_freedom_interval_for_column(unsigned j, bool & inf_l, impq 
     return (inf_l || inf_u || l <= u);
 }
 
-bool int_solver::is_int(unsigned j) const {
+bool int_solver::column_is_int(unsigned j) const {
     return m_lar_solver->column_is_int(j);
 }
 
 bool int_solver::is_real(unsigned j) const {
-    return !is_int(j);
+    return !column_is_int(j);
 }
 
 bool int_solver::value_is_int(unsigned j) const {
@@ -821,7 +821,7 @@ void int_solver::display_column(std::ostream & out, unsigned j) const {
 }
 
 bool int_solver::column_is_int_inf(unsigned j) const {
-    return is_int(j) && (!value_is_int(j));
+    return column_is_int(j) && (!value_is_int(j));
 }
 
 bool int_solver::is_base(unsigned j) const {
@@ -912,7 +912,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
         set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
-    if (is_int(j)) {
+    if (column_is_int(j)) {
         if (!inf_l) {
             l = ceil(l);
             if (!m.is_one())
@@ -940,7 +940,7 @@ bool int_solver::shift_var(unsigned j, unsigned range) {
         set_value_for_nbasic_column_ignore_old_values(j, new_val);
         return true;
     }
-    if (!is_int(j)) {
+    if (!column_is_int(j)) {
         SASSERT(!inf_l && !inf_u);
         mpq delta       = mpq(random() % (range + 1));
         impq new_val = l + ((delta * (u - l)) / mpq(range)); 
@@ -975,7 +975,7 @@ bool int_solver::non_basic_columns_are_at_bounds() const {
                 return false;
             break;
         default:
-            if (is_int(j) && !val.is_int()) {
+            if (column_is_int(j) && !val.is_int()) {
                 return false;
             }
         }

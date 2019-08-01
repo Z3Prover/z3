@@ -59,7 +59,7 @@ public:
     bool is_real(unsigned j) const;
     const impq & lower_bound(unsigned j) const;
     const impq & upper_bound(unsigned j) const;
-    bool is_int(unsigned j) const;
+    bool column_is_int(unsigned j) const;
     const impq & get_value(unsigned j) const;
     bool at_lower(unsigned j) const;
     bool at_upper(unsigned j) const;

@@ -137,7 +137,7 @@ void pivot_column_non_fractional(M &m, unsigned r, bool & overflow, const mpq & 
                 overflow = true;
                 return;
             }
-            lp_assert(is_int(m[i][j]));
+            lp_assert(is_integer(m[i][j]));
         }
     }
 }
@@ -577,7 +577,7 @@ private:
             process_row_modulo();
             lp_assert(is_pos(m_W[m_i][m_i]));
             m_R /= m_W[m_i][m_i];
-            lp_assert(is_int(m_R));
+            lp_assert(is_integer(m_R));
             m_half_R = floor(m_R / 2);
         }
     }
