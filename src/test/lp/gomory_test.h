@@ -86,7 +86,7 @@ struct gomory_test {
     }
     
     void int_case_in_gomory_cut(const mpq & a, unsigned x_j, mpq & k, lar_term & t, explanation& expl, mpq & lcm_den, const mpq& f_0, const mpq& one_minus_f_0) {
-        lp_assert(is_int(x_j));
+        lp_assert(is_integer(x_j));
         lp_assert(!a.is_int());
              lp_assert(f_0 > zero_of_type<mpq>() && f_0 < one_of_type<mpq>());
         mpq f_j =  fractional_part(a);
@@ -138,7 +138,7 @@ struct gomory_test {
         if (pol.size() == 1) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
             unsigned v = pol[0].second;
-            lp_assert(is_int(v));
+            lp_assert(is_integer(v));
             const mpq& a = pol[0].first;
             k /= a;
             if (a.is_pos()) { // we have av >= k
@@ -165,7 +165,7 @@ struct gomory_test {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & pi: pol) {
                     pi.first *= lcm_den;
-                    SASSERT(!is_int(pi.second) || pi.first.is_int());
+                    SASSERT(!is_integer(pi.second) || pi.first.is_int());
                 }
                 k *= lcm_den;
             }
