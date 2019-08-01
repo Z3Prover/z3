@@ -521,8 +521,13 @@ class JavaExample
 
         // each column contains a digit at most once
         BoolExpr[] cols_c = new BoolExpr[9];
-        for (int j = 0; j < 9; j++)
-            cols_c[j] = ctx.mkDistinct(X[j]);
+        for (int j = 0; j < 9; j++) {
+            IntExpr[] col = new IntExpr[9];
+            for (int i = 0; i < 9; i++) {
+                col[i] = X[i][j];
+            }
+            cols_c[j] = ctx.mkDistinct(col);
+        }
 
         // each 3x3 square contains a digit at most once
         BoolExpr[][] sq_c = new BoolExpr[3][];
@@ -557,12 +562,10 @@ class JavaExample
         BoolExpr instance_c = ctx.mkTrue();
         for (int i = 0; i < 9; i++)
             for (int j = 0; j < 9; j++)
-                instance_c = ctx.mkAnd(
-                        instance_c,
-                        (BoolExpr) ctx.mkITE(
-                                ctx.mkEq(ctx.mkInt(instance[i][j]),
-                                        ctx.mkInt(0)), ctx.mkTrue(),
-                                ctx.mkEq(X[i][j], ctx.mkInt(instance[i][j]))));
+                if (0 != instance[i][j])
+                    instance_c = ctx.mkAnd(
+                            instance_c,
+                            ctx.mkEq(X[i][j], ctx.mkInt(instance[i][j])));
 
         Solver s = ctx.mkSolver();
         s.add(sudoku_c);
