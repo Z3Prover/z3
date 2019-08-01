@@ -1257,7 +1257,7 @@ lbool core::inner_check(bool derived) {
         return l_false;
     }
        
-    TRACE("nla_cn_details", print_terms(tout););
+    TRACE("nla_solver", print_terms(tout); m_lar_solver.print_constraints(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "derived = " << derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {
