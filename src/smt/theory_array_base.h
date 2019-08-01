@@ -32,6 +32,8 @@ namespace smt {
         bool m_found_unsupported_op;
 
         void found_unsupported_op(expr * n);
+        void found_unsupported_op(enode* n) { found_unsupported_op(n->get_owner()); }
+        void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_owner()); }
         
         bool is_store(app const* n) const { return n->is_app_of(get_id(), OP_STORE); }
         bool is_map(app const* n) const { return n->is_app_of(get_id(), OP_ARRAY_MAP); }

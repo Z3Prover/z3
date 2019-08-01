@@ -324,8 +324,8 @@ class params {
         };
     };
     typedef std::pair<symbol, value> entry;
-    svector<entry> m_entries;
-    std::atomic<unsigned>       m_ref_count;
+    svector<entry>        m_entries;
+    std::atomic<unsigned> m_ref_count;
     void del_value(entry & e);
     void del_values();
 

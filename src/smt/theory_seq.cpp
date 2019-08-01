@@ -5208,7 +5208,7 @@ void theory_seq::add_nth_axiom(expr* e) {
         expr_ref zero(m_autil.mk_int(0), m);
         literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
         literal i_ge_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(i, mk_len(s)), zero));
-        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));
+        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));        
     }
 }
 

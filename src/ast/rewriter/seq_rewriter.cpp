@@ -954,6 +954,16 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
         return BR_FAILED;
     }
     unsigned len = r.get_unsigned();
+    expr* a2 = nullptr, *i2 = nullptr;
+    if (m_util.str.is_at(a, a2, i2)) {
+        if (len > 0) {
+            result = m_util.str.mk_empty(m().get_sort(a));
+        }
+        else {
+            result = a2;
+        }
+        return BR_DONE;            
+    }
 
     expr_ref_vector as(m());
     m_util.str.get_concat_units(a, as);
