@@ -289,9 +289,6 @@ public:
     lp::lp_settings& lp_settings();
     const lp::lp_settings& lp_settings() const;
     unsigned random();
-    void map_monomial_vars_to_monomial_indices(unsigned i);
-
-    void map_vars_to_monomials();
 
     // we look for octagon constraints here, with a left part  +-x +- y 
     void collect_equivs();
