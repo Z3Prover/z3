@@ -39,7 +39,7 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 // Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
-    TRACE("nla_solver", m_core->print_term(row, tout););
+    TRACE("nla_solver_details", m_core->print_term(row, tout););
     SASSERT(row_has_monomial_to_refine(row));
     std::unordered_set<lpvar> seen;
     for (const auto& p : row) {
@@ -67,6 +67,7 @@ bool horner::lemmas_on_expr(nex& e) {
     TRACE("nla_horner", tout << "e = " << e << "\n";);
     bool conflict = false;
     cross_nested cn(e, [this, & conflict](const nex& n) {
+                           TRACE("nla_horner", tout << "cross-nested n = " << n << "\n";);
                            auto i = interval_of_expr(n);
                            TRACE("nla_horner", tout << "callback n = " << n << "\ni="; m_intervals.display(tout, i) << "\n";);
                            
