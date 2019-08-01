@@ -66,11 +66,11 @@ public:
     
     unsigned size() const { return static_cast<unsigned>(m_coeffs.size()); }
     
-private:
+
+public:
     const u_map<mpq> & coeffs() const {
         return m_coeffs;
     }
-public:
     bool operator==(const lar_term & a) const {  return m_coeffs == a.m_coeffs; }
     bool operator!=(const lar_term & a) const {  return ! (*this == a);}
     // some terms get used in add constraint

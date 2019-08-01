@@ -47,16 +47,20 @@ namespace lp {
 
 
 class lar_solver : public column_namer {
-#if Z3DEBUG_CHECK_UNIQUE_TERMS
+
     struct term_hasher {
         std::size_t operator()(const lar_term *t) const
-        {
+        {            
             using std::size_t;
             using std::hash;
             using std::string;
             size_t seed = 0;
-            for (const auto& p : t->m_coeffs) {
-                hash_combine(seed, p);
+            int i = 0;
+            for (const auto& p : t->coeffs()) {
+                hash_combine(seed, p.m_key);
+                hash_combine(seed, p.m_value);
+                if (i++ > 10)
+                    break;
             }
             return seed;
         }
@@ -65,27 +69,29 @@ class lar_solver : public column_namer {
     struct term_ls_comparer {
         bool operator()(const lar_term *a, const lar_term* b) const
         {
-            // a is contained in b
-            for (auto & p : a->m_coeffs) {
-                auto t = b->m_coeffs.find(p.first);
-                if (t == b->m_coeffs.end())
-                    return false;
-                if (p.second != t->second)
-                    return false;
-            }
-            // zz is contained in b
-            for (auto & p : b->m_coeffs) {
-                auto t = a->m_coeffs.find(p.first);
-                if (t == a->m_coeffs.end())
-                    return false;
-                if (p.second != t->second)
-                    return false;
-            }
-            return true;
+            return a->coeffs() == b->coeffs();
+            
+            // // a is contained in b
+            // for (auto & p : a->coeffs()) {
+            //     auto t = b->coeffs().find_iterator(p.m_key);
+            //     if (t == b->coeffs().end())
+            //         return false;
+            //     if (p.m_value != t->m_value)
+            //         return false;
+            // }
+            // // zz is contained in b
+            // for (auto & p : b->coeffs()) {
+            //     auto t = a->coeffs().find_iterator(p.m_key);
+            //     if (t == a->coeffs().end())
+            //         return false;
+            //     if (p.m_value != t->m_value)
+            //         return false;
+            // }
+            // return true;
         }
     };
     std::unordered_set<lar_term*, term_hasher, term_ls_comparer>    m_set_of_terms;
-#endif
+
     
     //////////////////// fields //////////////////////////
     std::unordered_set<unsigned>                         m_cube_rounded_columns;
