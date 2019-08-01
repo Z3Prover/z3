@@ -960,7 +960,7 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
             result = m_util.str.mk_empty(m().get_sort(a));
         }
         else {
-            result = a2;
+            result = a;
         }
         return BR_DONE;            
     }
