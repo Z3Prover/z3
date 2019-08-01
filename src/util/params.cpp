@@ -339,8 +339,6 @@ public:
     void inc_ref() { m_ref_count++; }
     void dec_ref() { 
         SASSERT(m_ref_count > 0);
-        if (m_ref_count > 10000) 
-            IF_VERBOSE(0, verbose_stream() << this << " " << m_ref_count << " " << std::this_thread::get_id() << "\n";);
         if (--m_ref_count == 0) dealloc(this); 
     }
 
