@@ -2519,7 +2519,6 @@ bool theory_seq::occurs(expr* a, expr* b) {
         b = m_todo.back();
         if (a == b || m.is_ite(b)) {
             m_todo.reset();
-            std::cout << " yes\n";
             return true;
         }
         m_todo.pop_back();
