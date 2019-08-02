@@ -816,7 +816,7 @@ public:
         return ret;
     }
     
-    void fill_lar_solver_on_row(row * row, lar_solver *solver)  {
+    void fill_lar_solver_on_row(row * row, lar_solver *solver, int row_index)  {
         if (row->m_name != m_cost_row_name) {
             auto kind = get_lar_relation_from_row(row->m_type);
             vector<std::pair<mpq, var_index>> ls;
@@ -824,7 +824,8 @@ public:
                 var_index i = solver->add_var(get_var_index(s.first), false);
                 ls.push_back(std::make_pair(s.second, i));
             }
-            solver->add_constraint(ls, kind, row->m_right_side);
+            unsigned j = solver->add_term(ls, row_index);
+            solver->add_var_bound(j, kind, row->m_right_side);
         } else {
             // ignore the cost row
         }
@@ -832,30 +833,26 @@ public:
 
 
     void fill_lar_solver_on_rows(lar_solver * solver) {
+        int row_index = 0;
         for (auto row_it : m_rows) {
-            fill_lar_solver_on_row(row_it.second, solver);
+            fill_lar_solver_on_row(row_it.second, solver, row_index++);
         }
     }
 
     void create_low_constraint_for_var(column* col, bound * b, lar_solver *solver) {
-        vector<std::pair<mpq, var_index>> ls;
         var_index i = solver->add_var(col->m_index, false);
-        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
-        solver->add_constraint(ls, GE, b->m_low);
+        solver->add_var_bound(i, GE, b->m_low);
     }
 
     void create_upper_constraint_for_var(column* col, bound * b, lar_solver *solver) {
         var_index i = solver->add_var(col->m_index, false);
-        vector<std::pair<mpq, var_index>> ls;
-        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
-        solver->add_constraint(ls, LE, b->m_upper);
+        solver->add_var_bound(i, LE, b->m_upper);
     }
 
     void create_equality_contraint_for_var(column* col, bound * b, lar_solver *solver) {
         var_index i = solver->add_var(col->m_index, false);
-        vector<std::pair<mpq, var_index>> ls;
-        ls.push_back(std::make_pair(numeric_traits<T>::one(), i));
-        solver->add_constraint(ls, EQ, b->m_fixed_value);
+        solver->add_var_bound(i, LE, b->m_fixed_value);
+        solver->add_var_bound(i, GE, b->m_fixed_value);
     }
 
     void fill_lar_solver_on_columns(lar_solver * solver) {

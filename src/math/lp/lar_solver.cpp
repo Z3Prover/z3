@@ -1932,15 +1932,6 @@ void lar_solver::add_var_bound_on_constraint_for_term(var_index j, lconstraint_k
     }
 }
 
-constraint_index lar_solver::add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm) {
-    vector<std::pair<mpq, var_index>> left_side;
-    substitute_terms_in_linear_expression(left_side_with_terms, left_side);
-    unsigned term_index = add_term(left_side, -1);
-    constraint_index ci = m_constraints.size();
-    add_var_bound_on_constraint_for_term(term_index, kind_par, right_side_parm, ci);
-    return ci;
-}
-
 void lar_solver::add_constraint_from_term_and_create_new_column_row(unsigned term_j, const lar_term* term,
                                                                     lconstraint_kind kind, const mpq & right_side) {
 

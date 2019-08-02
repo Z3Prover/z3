@@ -49,5 +49,6 @@ public:
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
+    bool find_term_expr(rational& a, const lp::lar_term * & t, rational& b) const;
 }; // end of horner
 }
