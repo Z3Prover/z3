@@ -49,14 +49,14 @@ namespace lp {
 class lar_solver : public column_namer {
 
     struct term_hasher {
-        std::size_t operator()(const lar_term *t) const
+        std::size_t operator()(const lar_term &t) const
         {            
             using std::size_t;
             using std::hash;
             using std::string;
             size_t seed = 0;
             int i = 0;
-            for (const auto& p : t->coeffs()) {
+            for (const auto& p : t.coeffs()) {
                 hash_combine(seed, p.m_key);
                 hash_combine(seed, p.m_value);
                 if (i++ > 10)
@@ -66,31 +66,14 @@ class lar_solver : public column_namer {
         }
     };
 
-    struct term_ls_comparer {
-        bool operator()(const lar_term *a, const lar_term* b) const
+    struct term_comparer {
+        bool operator()(const lar_term &a, const lar_term& b) const
         {
-            return a->coeffs() == b->coeffs();
-            
-            // // a is contained in b
-            // for (auto & p : a->coeffs()) {
-            //     auto t = b->coeffs().find_iterator(p.m_key);
-            //     if (t == b->coeffs().end())
-            //         return false;
-            //     if (p.m_value != t->m_value)
-            //         return false;
-            // }
-            // // zz is contained in b
-            // for (auto & p : b->coeffs()) {
-            //     auto t = a->coeffs().find_iterator(p.m_key);
-            //     if (t == a->coeffs().end())
-            //         return false;
-            //     if (p.m_value != t->m_value)
-            //         return false;
-            // }
-            // return true;
+            return a.coeffs() == b.coeffs();            
         }
     };
-    std::unordered_set<lar_term*, term_hasher, term_ls_comparer>    m_set_of_terms;
+
+    std::unordered_map<lar_term, unsigned, term_hasher, term_comparer>  m_normalized_terms_to_columns;
 
     
     //////////////////// fields //////////////////////////
@@ -464,7 +447,6 @@ public:
 
     bool all_constrained_variables_are_registered(const vector<std::pair<mpq, var_index>>& left_side);
 
-    constraint_index add_constraint(const vector<std::pair<mpq, var_index>>& left_side_with_terms, lconstraint_kind kind_par, const mpq& right_side_parm);
     bool all_constraints_hold() const;
     bool constraint_holds(const lar_base_constraint & constr, std::unordered_map<var_index, mpq> & var_map) const;
     bool the_relations_are_of_same_type(const vector<std::pair<mpq, unsigned>> & evidence, lconstraint_kind & the_kind_of_sum) const;
