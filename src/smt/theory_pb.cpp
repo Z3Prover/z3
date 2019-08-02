@@ -2326,7 +2326,7 @@ namespace smt {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
 
-        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+        app * mk_value(model_generator & mg, expr_ref_vector const& values) override {
             ast_manager& m = mg.get_manager();
             SASSERT(values.size() == m_dependencies.size());
             SASSERT(values.size() == m_app->get_num_args());

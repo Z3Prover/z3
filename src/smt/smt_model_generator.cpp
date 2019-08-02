@@ -291,7 +291,7 @@ namespace smt {
         ptr_vector<model_value_proc> procs;
         svector<source> sources;
         buffer<model_value_dependency> dependencies;
-        ptr_vector<expr> dependency_values;
+        expr_ref_vector dependency_values(m_manager);
         mk_value_procs(root2proc, roots, procs);
         top_sort_sources(roots, root2proc, sources);
         TRACE("sorted_sources",
@@ -307,6 +307,9 @@ namespace smt {
                       tout << " is_fresh: " << root2proc[n]->is_fresh() << "\n";
                   }
               });
+
+        scoped_reset _scoped_reset(*this, procs);
+
         for (source const& curr : sources) {
             if (curr.is_fresh_value()) {
                 sort * s = curr.get_value()->get_sort();
@@ -336,10 +339,7 @@ namespace smt {
                         enode * child = d.get_enode();
                         TRACE("mg_top_sort", tout << "#" << n->get_owner_id() << " (" << mk_pp(n->get_owner(), m_manager) << "): " << mk_pp(child->get_owner(), m_manager) << " " << mk_pp(child->get_root()->get_owner(), m_manager) << "\n";);
                         child = child->get_root();
-                        app * val = nullptr;
-                        m_root2value.find(child, val);
-                        SASSERT(val);
-                        dependency_values.push_back(val);
+                        dependency_values.push_back(m_root2value[child]);
                     }
                 }
                 app * val = proc->mk_value(*this, dependency_values); 
@@ -347,11 +347,7 @@ namespace smt {
                 m_asts.push_back(val);
                 m_root2value.insert(n, val);
             }
-        }
-        std::for_each(procs.begin(), procs.end(), delete_proc<model_value_proc>());
-        std::for_each(m_extra_fresh_values.begin(), m_extra_fresh_values.end(), delete_proc<extra_fresh_value>());
-        m_extra_fresh_values.reset();
-        
+        }        
         // send model
         for (enode * n : m_context->enodes()) {
             if (is_uninterp_const(n->get_owner()) && m_context->is_relevant(n)) {
@@ -364,11 +360,17 @@ namespace smt {
         }
     }
 
+    model_generator::scoped_reset::scoped_reset(model_generator& mg, ptr_vector<model_value_proc>& procs): 
+        mg(mg), procs(procs) {}
+
+    model_generator::scoped_reset::~scoped_reset() {
+        std::for_each(procs.begin(), procs.end(), delete_proc<model_value_proc>());
+        std::for_each(mg.m_extra_fresh_values.begin(), mg.m_extra_fresh_values.end(), delete_proc<extra_fresh_value>());
+        mg.m_extra_fresh_values.reset();
+    }
+
     app * model_generator::get_value(enode * n) const {
-        app * val = nullptr;
-        m_root2value.find(n->get_root(), val);
-        SASSERT(val);
-        return val;
+        return m_root2value[n->get_root()];
     }
 
     /**
@@ -490,7 +492,7 @@ namespace smt {
         finalize_theory_models();
         register_macros();
         TRACE("model", model_v2_pp(tout, *m_model, true););
-        return m_model;
+        return m_model.get();
     }
     
 };

@@ -691,7 +691,7 @@ namespace smt {
         void get_dependencies(buffer<model_value_dependency> & result) override {
             result.append(m_dependencies.size(), m_dependencies.c_ptr());
         }
-        app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+        app * mk_value(model_generator & mg, expr_ref_vector const & values) override {
             SASSERT(values.size() == m_dependencies.size());
             return mg.get_manager().mk_app(m_constructor, values.size(), values.c_ptr());
         }

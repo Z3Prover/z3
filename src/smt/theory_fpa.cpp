@@ -125,7 +125,7 @@ namespace smt {
         m_is_initialized = true;
     }
 
-    app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
+    app * theory_fpa::fpa_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         TRACE("t_fpa_detail",
               ast_manager & m = m_th.get_manager();
               for (unsigned i = 0; i < values.size(); i++)
@@ -200,7 +200,7 @@ namespace smt {
         return result;
     }
 
-    app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, ptr_vector<expr> & values) {
+    app * theory_fpa::fpa_rm_value_proc::mk_value(model_generator & mg, expr_ref_vector const & values) {
         SASSERT(values.size() == 1);
 
         TRACE("t_fpa_detail",

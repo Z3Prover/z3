@@ -478,7 +478,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_seq_at(args[0], args[1], result); 
         break;
-#if 0
+#if 1
     case OP_SEQ_NTH:
         SASSERT(num_args == 2);
         return mk_seq_nth(args[0], args[1], result); 
@@ -1805,6 +1805,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
     bool changed = false;
     if (!reduce_eq(l, r, lhs, rhs, changed)) {
         result = m().mk_false();
+        TRACE("seq", tout << result << "\n";);
         return BR_DONE;
     }
     if (!changed) {
@@ -1814,6 +1815,7 @@ br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
         res.push_back(m().mk_eq(lhs.get(i), rhs.get(i)));
     }
     result = mk_and(res);
+    TRACE("seq", tout << result << "\n";);
     return BR_REWRITE3;
 }
 

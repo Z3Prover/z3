@@ -76,7 +76,7 @@ namespace smt {
             
             void get_dependencies(buffer<smt::model_value_dependency> & result) override {}
             
-            app * mk_value(smt::model_generator & mg, ptr_vector<expr> & ) override {
+            app * mk_value(smt::model_generator & mg, expr_ref_vector const & ) override {
                 smt::context& ctx = m_th.get_context();
                 app* result = nullptr;
                 expr* n = m_node->get_owner();

@@ -2113,12 +2113,14 @@ bool theory_seq::check_extensionality() {
                 m_lhs.reset(); m_rhs.reset();
                 bool change = false;
                 if (!m_seq_rewrite.reduce_eq(e1, e2, m_lhs, m_rhs, change)) {
+                    TRACE("seq", tout << "exclude " << mk_pp(o1, m) << " " << mk_pp(o2, m) << "\n";);
                     m_exclude.update(o1, o2);
                     continue;
                 }
                 bool excluded = false;
                 for (unsigned j = 0; !excluded && j < m_lhs.size(); ++j) {
-                    if (m_exclude.contains(m_lhs[j].get(), m_rhs[j].get())) {
+                    if (m_exclude.contains(m_lhs.get(j), m_rhs.get(j))) {
+                        TRACE("seq", tout << "excluded " << j << " " << m_lhs << " " << m_rhs << "\n";);
                         excluded = true;
                     }
                 }
@@ -2517,6 +2519,7 @@ bool theory_seq::occurs(expr* a, expr* b) {
         b = m_todo.back();
         if (a == b || m.is_ite(b)) {
             m_todo.reset();
+            std::cout << " yes\n";
             return true;
         }
         m_todo.pop_back();
@@ -2524,8 +2527,14 @@ bool theory_seq::occurs(expr* a, expr* b) {
             m_todo.push_back(e1);
             m_todo.push_back(e2);
         }
+        else if (m_util.str.is_unit(b, e1)) {
+            m_todo.push_back(e1);
+        }
+        else if (m_util.str.is_nth(b, e1, e2)) {
+            m_todo.push_back(e1);
+        }
     }
-     return false;
+    return false;
 }
 
 
@@ -2536,7 +2545,7 @@ bool theory_seq::is_var(expr* a) const {
         !m_util.str.is_empty(a)  &&
         !m_util.str.is_string(a) &&
         !m_util.str.is_unit(a) &&
-        !m_util.str.is_itos(a) && 
+        !m_util.str.is_itos(a) &&
         // !m_util.str.is_extract(a) && 
         !m.is_ite(a);
 }
@@ -3981,7 +3990,7 @@ public:
         }
     }
 
-    app * mk_value(model_generator & mg, ptr_vector<expr> & values) override {
+    app * mk_value(model_generator & mg, expr_ref_vector const & values) override {
         SASSERT(values.size() == m_dependencies.size());
         expr_ref_vector args(th.m);
         unsigned j = 0, k = 0;
@@ -5182,8 +5191,8 @@ void theory_seq::add_at_axiom(expr* e) {
     }
     else {
         expr_ref len_e = mk_len(e);
-        expr_ref x = mk_skolem(m_pre, s, i);
-        expr_ref y = mk_skolem(m_tail, s, i);
+        expr_ref x =     mk_skolem(m_pre, s, i);
+        expr_ref y =     mk_skolem(m_tail, s, i);
         expr_ref xey   = mk_concat(x, e, y);
         expr_ref len_x = mk_len(x);
         add_axiom(~i_ge_0, i_ge_len_s, mk_seq_eq(s, xey));
@@ -5208,7 +5217,10 @@ void theory_seq::add_nth_axiom(expr* e) {
         expr_ref zero(m_autil.mk_int(0), m);
         literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
         literal i_ge_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(i, mk_len(s)), zero));
-        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), m_util.str.mk_at(s, i), false));        
+        // at(s,i) = [nth(s,i)]
+        expr_ref rhs(s, m);
+        if (!m_util.str.is_at(s)) rhs = m_util.str.mk_at(s, i);
+        add_axiom(~i_ge_0, i_ge_len_s, mk_eq(m_util.str.mk_unit(e), rhs, false));        
     }
 }
 
