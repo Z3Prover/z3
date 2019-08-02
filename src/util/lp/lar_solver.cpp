@@ -526,7 +526,6 @@ void lar_solver::set_value_for_nbasic_column(unsigned j, const impq & new_val) {
     auto & x = m_mpq_lar_core_solver.m_r_x[j];
     auto delta = new_val - x;
     x = new_val;
-    m_mpq_lar_core_solver.m_r_solver.track_column_feasibility(j);
     change_basic_columns_dependend_on_a_given_nb_column(j, delta);
 }
 
