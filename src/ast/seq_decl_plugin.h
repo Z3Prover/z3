@@ -40,9 +40,9 @@ enum seq_op_kind {
     OP_SEQ_EXTRACT,
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
-    OP_SEQ_NTH,
-    OP_SEQ_NTH_I,
-    OP_SEQ_NTH_U,
+    OP_SEQ_NTH,         // NTH function exposed over API. Rewritten to NTH(s,i) := if (0 <= i < len(s)) then NTH_I(s,i) else NTH_U(s,i)
+    OP_SEQ_NTH_I,       // Interpreted variant of Nth for indices within defined domain.
+    OP_SEQ_NTH_U,       // Uninterpreted variant of Nth for indices outside of uniquely defined domain.
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_LAST_INDEX,

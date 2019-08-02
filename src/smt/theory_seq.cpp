@@ -5529,9 +5529,6 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_in_re(e)) {
         propagate_in_re(e, is_true);
     }
-    else if (is_skolem(symbol("seq.split"), e)) {
-        // propagate equalities
-    }
     else if (is_skolem(symbol("seq.is_digit"), e)) {
         // no-op
     }
@@ -5541,7 +5538,7 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_lt(e) || m_util.str.is_le(e)) {
         m_lts.push_back(e);
     }
-    else if (m_util.str.is_nth_i(e)) {
+    else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
     else {
