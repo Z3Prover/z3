@@ -204,9 +204,22 @@ interv horner::interval_of_mul(const nex& e) {
     return a;
 }
 
+bool horner::find_term_expr(rational& a, const lp::lar_term * &t, rational& b) const {
+    return false;
+}
+
 interv horner::interval_of_sum(const nex& e) {
     TRACE("nla_horner_details", tout << "e=" << e << "\n";);
     SASSERT(e.is_sum());
+    if (e.sum_is_linear()) {
+        const lp::lar_term * t;
+        rational a,b;
+        if (find_term_expr(a, t, b)) {
+            //todo create interval from a*t + b
+            SASSERT(false);
+        }            
+    }
+        
     auto & es = e.children(); 
     interv a = interval_of_expr(es[0]);
     if (m_intervals.is_inf(a)) {
