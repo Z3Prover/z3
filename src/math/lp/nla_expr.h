@@ -376,6 +376,47 @@ public:
         return *this;
     }
 
+    bool sum_is_linear() const {
+        SASSERT(is_sum());
+        int degree = 0;
+        for (auto & e : children()) {
+            int d = e.get_degree();
+            if (d > 1)
+                return false;
+            if (d > degree)
+                degree = d;
+        }
+        return degree == 1;
+    }
+
+    int get_degree() const {
+        switch (type()) {
+        case expr_type::SUM: {
+            int degree = 0;       
+            for (auto & e : children()) {
+                degree = std::max(degree, e.get_degree());
+            }
+            return degree;
+        }
+
+        case expr_type::MUL: {
+            int degree = 0;       
+            for (auto & e : children()) {
+                degree += e.get_degree();
+            }
+            return degree;
+        }            
+        case expr_type::VAR:
+            return 1;
+        case expr_type::SCALAR:
+            return 0;
+        case expr_type::UNDEF:
+        default:
+            UNREACHABLE();         
+            break;
+        }
+        return 0;
+    }    
 };
 
 /*
