@@ -41,6 +41,8 @@ enum seq_op_kind {
     OP_SEQ_REPLACE,
     OP_SEQ_AT,
     OP_SEQ_NTH,
+    OP_SEQ_NTH_I,
+    OP_SEQ_NTH_U,
     OP_SEQ_LENGTH,
     OP_SEQ_INDEX,
     OP_SEQ_LAST_INDEX,
@@ -259,8 +261,8 @@ public:
         expr* mk_concat(expr_ref_vector const& es) const { return mk_concat(es.size(), es.c_ptr()); }
         app* mk_length(expr* a) const { return m.mk_app(m_fid, OP_SEQ_LENGTH, 1, &a); }
         app* mk_at(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_AT, 2, es); }
-        app* mk_nth(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH, 2, es); }
-        app* mk_nth(expr* s, unsigned i) const;
+        app* mk_nth_i(expr* s, expr* i) const { expr* es[2] = { s, i }; return m.mk_app(m_fid, OP_SEQ_NTH_I, 2, es); }
+        app* mk_nth_i(expr* s, unsigned i) const;
 
         app* mk_substr(expr* a, expr* b, expr* c) const { expr* es[3] = { a, b, c }; return m.mk_app(m_fid, OP_SEQ_EXTRACT, 3, es); }
         app* mk_contains(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_SEQ_CONTAINS, 2, es); }
@@ -277,7 +279,8 @@ public:
         app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
 
 
-        bool is_nth(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH); }
+        bool is_nth_i(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_I); }
+        bool is_nth_u(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_U); }
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, symbol& s) const {
@@ -292,8 +295,9 @@ public:
         bool is_extract(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_EXTRACT); }
         bool is_contains(expr const* n) const { return is_app_of(n, m_fid, OP_SEQ_CONTAINS); }
         bool is_at(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_AT); }
-        bool is_nth(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH); }
-        bool is_nth(expr const* n, expr*& s, unsigned& idx) const;
+        bool is_nth_i(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH_I); }
+        bool is_nth_u(expr const* n)       const { return is_app_of(n, m_fid, OP_SEQ_NTH_U); }
+        bool is_nth_i(expr const* n, expr*& s, unsigned& idx) const;
         bool is_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_INDEX); }
         bool is_last_index(expr const* n)    const { return is_app_of(n, m_fid, OP_SEQ_LAST_INDEX); }
         bool is_replace(expr const* n)  const { return is_app_of(n, m_fid, OP_SEQ_REPLACE); }
@@ -321,7 +325,8 @@ public:
         MATCH_TERNARY(is_extract);
         MATCH_BINARY(is_contains);
         MATCH_BINARY(is_at);
-        MATCH_BINARY(is_nth);
+        MATCH_BINARY(is_nth_i);
+        MATCH_BINARY(is_nth_u);
         MATCH_BINARY(is_index);
         MATCH_TERNARY(is_index);
         MATCH_BINARY(is_last_index);

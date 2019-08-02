@@ -559,6 +559,8 @@ void seq_decl_plugin::init() {
     m_sigs[OP_SEQ_LAST_INDEX] = alloc(psig, m, "seq.last_indexof",  1, 2, seqAseqA, intT);
     m_sigs[OP_SEQ_AT]        = alloc(psig, m, "seq.at",       1, 2, seqAintT, seqA);
     m_sigs[OP_SEQ_NTH]       = alloc(psig, m, "seq.nth",      1, 2, seqAintT, A);
+    m_sigs[OP_SEQ_NTH_I]     = alloc(psig, m, "seq.nth_i",    1, 2, seqAintT, A);
+    m_sigs[OP_SEQ_NTH_U]     = alloc(psig, m, "seq.nth_u",    1, 2, seqAintT, A);
     m_sigs[OP_SEQ_LENGTH]    = alloc(psig, m, "seq.len",      1, 1, &seqA, intT);
     m_sigs[OP_RE_PLUS]       = alloc(psig, m, "re.+",         1, 1, &reA, reA);
     m_sigs[OP_RE_STAR]       = alloc(psig, m, "re.*",         1, 1, &reA, reA);
@@ -852,6 +854,8 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
         return mk_str_fun(k, arity, domain, range, OP_SEQ_AT);
 
     case OP_SEQ_NTH:
+    case OP_SEQ_NTH_I:
+    case OP_SEQ_NTH_U:
         match(*m_sigs[k], arity, domain, range, rng);
         return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k));
 
@@ -1035,14 +1039,14 @@ bool seq_util::str::is_string(expr const* n, zstring& s) const {
     }
 }
 
-bool seq_util::str::is_nth(expr const* n, expr*& s, unsigned& idx) const {
+bool seq_util::str::is_nth_i(expr const* n, expr*& s, unsigned& idx) const {
     expr* i = nullptr;
-    if (!is_nth(n, s, i)) return false;
+    if (!is_nth_i(n, s, i)) return false;
     return arith_util(m).is_unsigned(i, idx);
 }
 
-app* seq_util::str::mk_nth(expr* s, unsigned i) const {
-    return mk_nth(s, arith_util(m).mk_int(i));
+app* seq_util::str::mk_nth_i(expr* s, unsigned i) const {
+    return mk_nth_i(s, arith_util(m).mk_int(i));
 }
 
 void seq_util::str::get_concat(expr* e, expr_ref_vector& es) const {

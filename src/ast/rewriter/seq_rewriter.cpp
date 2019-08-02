@@ -478,11 +478,12 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
         SASSERT(num_args == 2);
         st = mk_seq_at(args[0], args[1], result); 
         break;
-#if 1
     case OP_SEQ_NTH:
         SASSERT(num_args == 2);
         return mk_seq_nth(args[0], args[1], result); 
-#endif
+    case OP_SEQ_NTH_I:
+        SASSERT(num_args == 2);
+        return mk_seq_nth_i(args[0], args[1], result); 
     case OP_SEQ_PREFIX: 
         SASSERT(num_args == 2);
         st = mk_seq_prefix(args[0], args[1], result);
@@ -991,6 +992,16 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {
+    expr* es[2] = { a, b};
+    expr* la = m_util.str.mk_length(a);
+    result = m().mk_ite(m().mk_and(m_autil.mk_le(m_autil.mk_int(0), b), m_autil.mk_lt(b, la)), 
+                        m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_I, 2, es), 
+                        m().mk_app(m_util.get_family_id(), OP_SEQ_NTH_U, 2, es));
+    return BR_REWRITE_FULL;
+}
+
+
+br_status seq_rewriter::mk_seq_nth_i(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
     if (!m_autil.is_numeral(b, r) || !r.is_unsigned()) {

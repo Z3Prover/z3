@@ -338,10 +338,6 @@ namespace smt {
         obj_map<enode, obj_map<enode, int>>   m_len_offset;
         int                                   m_len_prop_lvl;
 
-        obj_hashtable<expr>        m_internal_nth_table;
-        expr_ref_vector            m_internal_nth_es;
-        unsigned_vector            m_internal_nth_lim;
-
         seq_factory*               m_factory;    // value factory
         exclusion_table            m_exclude;    // set of asserted disequalities.
         expr_ref_vector            m_axioms;     // list of axioms to add.
@@ -399,7 +395,7 @@ namespace smt {
         void add_theory_assumptions(expr_ref_vector & assumptions) override;
         theory* mk_fresh(context* new_ctx) override { return alloc(theory_seq, new_ctx->get_manager(), m_params); }
         char const * get_name() const override { return "seq"; }
-        bool include_func_interp(func_decl* f) override { return false; } // m_util.str.is_nth(f); }
+        bool include_func_interp(func_decl* f) override { return m_util.str.is_nth_u(f); }
         theory_var mk_var(enode* n) override;
         void apply_sort_cnstr(enode* n, sort* s) override;
         void display(std::ostream & out) const override;
@@ -532,8 +528,6 @@ namespace smt {
         bool is_var(expr* b) const;
         bool add_solution(expr* l, expr* r, dependency* dep);
         bool is_unit_nth(expr* a) const;
-        bool is_nth(expr* a) const;
-        bool is_nth(expr* a, expr*& e1, expr*& e2) const;
         bool is_tail(expr* a, expr*& s, unsigned& idx) const;
         bool is_eq(expr* e, expr*& a, expr*& b) const; 
         bool is_pre(expr* e, expr*& s, expr*& i);
