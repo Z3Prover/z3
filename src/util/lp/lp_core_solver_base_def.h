@@ -511,12 +511,11 @@ template <typename T, typename X> bool lp_core_solver_base<T, X>::calc_current_x
 }
 
 template <typename T, typename X> bool lp_core_solver_base<T, X>::inf_set_is_correct() const {
-    unsigned j = this->m_n();
-    while (j--) {
+    for (unsigned j = 0; j < this->m_n(); j++) {
         bool belongs_to_set = m_inf_set.contains(j);
         bool is_feas = column_is_feasible(j);
-    
         if (is_feas == belongs_to_set) {
+            TRACE("lp_core", tout << "incorrectly set column in inf set "; print_column_info(j, tout) << "\n";);
             return false;
         }
     }

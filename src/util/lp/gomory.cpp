@@ -47,7 +47,7 @@ class gomory::imp {
     bool column_is_fixed(unsigned j) const { return m_int_solver.m_lar_solver->column_is_fixed(j); }
 
     void int_case_in_gomory_cut(unsigned j) {
-        lp_assert(is_int(j) && m_fj.is_pos());
+        lp_assert(m_int_solver.column_is_int(j) && m_fj.is_pos());
         TRACE("gomory_cut_detail", 
               tout << " k = " << m_k;
               tout << ", fj: " << m_fj << ", ";
@@ -117,7 +117,7 @@ class gomory::imp {
         if (pol.size() == 1) {
             TRACE("gomory_cut_detail", tout << "pol.size() is 1" << std::endl;);
             unsigned v = pol[0].second;
-            lp_assert(is_int(v));
+            lp_assert(m_int_solver.column_is_int(v));
             const mpq& a = pol[0].first;
             m_k /= a;
             if (a.is_pos()) { // we have av >= k
@@ -139,7 +139,7 @@ class gomory::imp {
                 // normalize coefficients of integer parameters to be integers.
                 for (auto & pi: pol) {
                     pi.first *= m_lcm_den;
-                    SASSERT(!is_int(pi.second) || pi.first.is_int());
+                    SASSERT(!m_int_solver.column_is_int(pi.second) || pi.first.is_int());
                 }
                 m_k *= m_lcm_den;
             }
@@ -195,7 +195,7 @@ class gomory::imp {
     }
 
     void dump_declaration(std::ostream& out, unsigned v) const {
-        out << "(declare-const " << var_name(v) << (is_int(v) ? " Int" : " Real") << ")\n";
+        out << "(declare-const " << var_name(v) << (m_int_solver.column_is_int(v) ? " Int" : " Real") << ")\n";
     }
     
     void dump_declarations(std::ostream& out) const {

@@ -86,7 +86,7 @@ template <typename X> inline X one_of_type() { return numeric_traits<X>::one(); 
 template <typename X> inline bool is_zero(const X & v) { return numeric_traits<X>::is_zero(v); }
 template <typename X> inline bool is_pos(const X & v) { return numeric_traits<X>::is_pos(v); }
 template <typename X> inline bool is_neg(const X & v) { return numeric_traits<X>::is_neg(v); }
-template <typename X> inline bool is_int(const X & v) { return numeric_traits<X>::is_int(v); }
+template <typename X> inline bool is_integer(const X & v) { return numeric_traits<X>::is_int(v); }
 
 template <typename X> inline X ceil_ratio(const X & a, const X & b) { return numeric_traits<X>::ceil_ratio(a, b); }
 template <typename X> inline X floor_ratio(const X & a, const X & b) { return numeric_traits<X>::floor_ratio(a, b); }
