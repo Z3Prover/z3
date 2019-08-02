@@ -122,6 +122,33 @@ namespace nlsat {
         };
         perm_display_var_proc  m_display_var;
 
+        display_assumption_proc const* m_display_assumption;
+        struct display_literal_assumption : public display_assumption_proc {
+            imp& i;
+            literal_vector const& lits;
+            display_literal_assumption(imp& i, literal_vector const& lits): i(i), lits(lits) {}
+            std::ostream& operator()(std::ostream& out, assumption a) const override {
+                if (lits.begin() <= a && a < lits.end()) {
+                    out << *((literal const*)a);
+                }
+                else if (i.m_display_assumption) {
+                    (*i.m_display_assumption)(out, a);
+                }
+                return out;
+            }
+
+        };
+        struct scoped_display_assumptions {
+            imp& i;
+            display_assumption_proc const* m_save;
+            scoped_display_assumptions(imp& i, display_assumption_proc const& p): i(i), m_save(i.m_display_assumption) {
+                i.m_display_assumption = &p;
+            }
+            ~scoped_display_assumptions() {
+                i.m_display_assumption = m_save;
+            }
+        };
+
         explain                m_explain;
 
         bool_var               m_bk;       // current Boolean variable we are processing
@@ -179,6 +206,7 @@ namespace nlsat {
             m_patch_denom(m_pm),
             m_num_bool_vars(0),
             m_display_var(m_perm),
+            m_display_assumption(nullptr),
             m_explain(s, m_assignment, m_cache, m_atoms, m_var2eq, m_evaluator),
             m_scope_lvl(0),
             m_lemma(s),
@@ -1035,9 +1063,9 @@ namespace nlsat {
             interval_set * xk_set = m_infeasible[m_xk];
             save_set_updt_trail(xk_set);
             interval_set_ref new_set(m_ism);
-            TRACE("nlsat_inf_set", tout << "updating infeasible set\n"; m_ism.display(tout, xk_set); tout << "\n"; m_ism.display(tout, s); tout << "\n";);
+            TRACE("nlsat_inf_set", tout << "updating infeasible set\n"; m_ism.display(tout, xk_set) << "\n"; m_ism.display(tout, s) << "\n";);
             new_set = m_ism.mk_union(s, xk_set);
-            TRACE("nlsat_inf_set", tout << "new infeasible set:\n"; m_ism.display(tout, new_set); tout << "\n";);
+            TRACE("nlsat_inf_set", tout << "new infeasible set:\n"; m_ism.display(tout, new_set) << "\n";);
             SASSERT(!m_ism.is_full(new_set));
             m_ism.inc_ref(new_set);
             m_infeasible[m_xk] = new_set;
@@ -1060,7 +1088,7 @@ namespace nlsat {
             if (m_var2eq[x] != 0 && degree(m_var2eq[x]) <= degree(a))
                 return; // we only update m_var2eq if the new equality has smaller degree
             TRACE("simplify_core", tout << "Saving equality for "; m_display_var(tout, x) << " (x" << x << ") ";
-                  tout << "scope-lvl: " << scope_lvl() << "\n"; display(tout, literal(b, false)); tout << "\n";);
+                  tout << "scope-lvl: " << scope_lvl() << "\n"; display(tout, literal(b, false)) << "\n";);
             save_updt_eq_trail(m_var2eq[x]);
             m_var2eq[x] = a;
         }
@@ -1094,7 +1122,8 @@ namespace nlsat {
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
                 curr_set = m_evaluator.infeasible_intervals(a, l.sign());
-                TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";);
+                TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
+                      display(tout, cls) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {
                     TRACE("nlsat_inf_set", tout << "infeasible set is empty, found literal\n";);
                     R_propagate(l, nullptr);
@@ -1114,7 +1143,8 @@ namespace nlsat {
                 interval_set_ref tmp(m_ism);
                 tmp = m_ism.mk_union(curr_set, xk_set);
                 if (m_ism.is_full(tmp)) {
-                    TRACE("nlsat_inf_set", tout << "infeasible set + current set = R, skip literal\n";);
+                    TRACE("nlsat_inf_set", tout << "infeasible set + current set = R, skip literal\n";
+                          display(tout, cls) << "\n";);
                     R_propagate(~l, tmp, false);
                     continue;
                 }
@@ -1382,6 +1412,8 @@ namespace nlsat {
             for (unsigned i = 0; i < sz; ++i) {
                 mk_clause(1, ptr+i, (assumption)(ptr+i));
             }
+            display_literal_assumption dla(*this, assumptions);
+            scoped_display_assumptions _scoped_display(*this, dla);
             lbool r = check();
 
             if (r == l_false) {
@@ -1393,9 +1425,6 @@ namespace nlsat {
                     if (ptr <= lp && lp < ptr + sz) {
                         result.push_back(*lp);
                     } 
-                    else {
-                        std::cout << "pointer out of bounds\n";
-                    }
                 }
             }
             collect(assumptions, m_clauses);
@@ -1506,7 +1535,7 @@ namespace nlsat {
         }
 
         void resolve_clause(bool_var b, unsigned sz, literal const * c) {
-            TRACE("nlsat_proof", tout << "resolving "; if (b != null_bool_var) display_atom(tout, b); tout << "\n"; display(tout, sz, c); tout << "\n";);
+            TRACE("nlsat_proof", tout << "resolving "; if (b != null_bool_var) display_atom(tout, b) << "\n"; display(tout, sz, c); tout << "\n";);
             TRACE("nlsat_proof_sk", tout << "resolving "; if (b != null_bool_var) tout << "b" << b; tout << "\n"; display_abst(tout, sz, c); tout << "\n";); 
 
             bool found_decision = false;
@@ -1703,7 +1732,7 @@ namespace nlsat {
                     if (t.m_kind == trail::BVAR_ASSIGNMENT) {
                         bool_var b = t.m_b;
                         if (is_marked(b)) {
-                            TRACE("nlsat_resolve", tout << "found marked bool_var: " << b << "\n"; display_atom(tout, b); tout << "\n";);
+                            TRACE("nlsat_resolve", tout << "found marked bool_var: " << b << "\n"; display_atom(tout, b) << "\n";);
                             m_num_marks--;
                             reset_mark(b);
                             justification jst = m_justifications[b];
@@ -1812,13 +1841,7 @@ namespace nlsat {
                     undo_until_level(new_lvl);
                 }
 
-                bool same = (sz == conflict_clause->size());
-                if (same) {
-                    for (unsigned i = 0; same && i < sz; ++i) {
-                        same = m_lemma[i] == (*conflict_clause)[i];
-                    }
-                }
-                if (same) {
+                if (lemma_is_clause(*conflict_clause)) {
                     TRACE("nlsat", tout << "found decision literal in conflict clause\n";);
                     VERIFY(process_clause(*conflict_clause, true));
                     return true;
@@ -1837,6 +1860,14 @@ namespace nlsat {
             }
             TRACE("nlsat_resolve_done", display_assignment(tout););
             return true;
+        }
+
+        bool lemma_is_clause(clause const& cls) const {
+            bool same = (m_lemma.size() == cls.size());
+            for (unsigned i = 0; same && i < m_lemma.size(); ++i) {
+                same = m_lemma[i] == cls[i];
+            }
+            return same;
         }
 
 
@@ -2883,10 +2914,11 @@ namespace nlsat {
         std::ostream& display_assumptions(std::ostream & out, _assumption_set s) const {
             vector<assumption, false> deps;
             m_asm.linearize(s, deps);
+            bool first = true;
             for (auto dep : deps) {
-                out << *((literal const*)(dep)) << " ";
+                if (first) first = false; else out << " ";
+                if (m_display_assumption) (*m_display_assumption)(out, dep); 
             }
-
             return out;
         }
         
@@ -3153,6 +3185,11 @@ namespace nlsat {
     void solver::set_display_var(display_var_proc const & proc) {
         m_imp->m_display_var.m_proc = &proc;
     }
+
+    void solver::set_display_assumption(display_assumption_proc const& proc) {
+        m_imp->m_display_assumption = &proc;
+    }
+
 
     unsigned solver::num_vars() const {
         return m_imp->num_vars();

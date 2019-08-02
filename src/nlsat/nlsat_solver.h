@@ -31,6 +31,11 @@ namespace nlsat {
     class evaluator;
     class explain;
 
+    class display_assumption_proc {
+    public:
+        virtual std::ostream& operator()(std::ostream& out, assumption a) const = 0;
+    };
+
     class solver {
         struct imp;
         imp * m_imp;
@@ -54,6 +59,8 @@ namespace nlsat {
         pmanager & pm();
 
         void set_display_var(display_var_proc const & proc);
+
+        void set_display_assumption(display_assumption_proc const& proc);
 
         // -----------------------
         //

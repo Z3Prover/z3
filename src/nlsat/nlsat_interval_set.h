@@ -93,7 +93,7 @@ namespace nlsat {
         */
         void get_justifications(interval_set const * s, literal_vector & js);
         
-        void display(std::ostream & out, interval_set const * s) const;
+        std::ostream& display(std::ostream & out, interval_set const * s) const;
         
         unsigned num_intervals(interval_set const * s) const;
         

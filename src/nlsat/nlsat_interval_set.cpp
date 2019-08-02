@@ -743,10 +743,10 @@ namespace nlsat {
         m_am.set(w, s->m_intervals[irrational_i].m_upper);
     }
 
-    void interval_set_manager::display(std::ostream & out, interval_set const * s) const {
+    std::ostream& interval_set_manager::display(std::ostream & out, interval_set const * s) const {
         if (s == nullptr) {
             out << "{}";
-            return;
+            return out;
         }
         out << "{";
         for (unsigned i = 0; i < s->m_num_intervals; i++) {
@@ -757,6 +757,7 @@ namespace nlsat {
         out << "}";
         if (s->m_full)
             out << "*";
+        return out;
     }
 
 };
