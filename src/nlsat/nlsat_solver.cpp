@@ -74,7 +74,7 @@ namespace nlsat {
         pmanager               m_pm;
         cache                  m_cache;
         anum_manager           m_am;
-        assumption_manager     m_asm;
+        mutable assumption_manager     m_asm;
         assignment             m_assignment; // partial interpretation
         evaluator              m_evaluator;
         interval_set_manager & m_ism;
@@ -304,7 +304,7 @@ namespace nlsat {
             dec_ref(l.var());
         }
 
-        bool is_arith_atom(bool_var b) const { return m_atoms[b] != 0; }
+        bool is_arith_atom(bool_var b) const { return m_atoms[b] != nullptr; }
 
         bool is_arith_literal(literal l) const { return is_arith_atom(l.var()); }
 
@@ -1152,9 +1152,9 @@ namespace nlsat {
            If satisfy_learned is true, then (arithmetic) learned clauses are satisfied even if m_lazy > 0
         */
         bool process_clause(clause const & cls, bool satisfy_learned) {
-            TRACE("nlsat", display(tout << "processing clause: ", cls) << " sat: " << is_satisfied(cls) << "\n";);
             if (is_satisfied(cls))
                 return true;
+            TRACE("nlsat", display(tout << "processing clause: ", cls) << "\n";);
             if (m_xk == null_var)
                 return process_boolean_clause(cls);
             else
@@ -1393,6 +1393,9 @@ namespace nlsat {
                     if (ptr <= lp && lp < ptr + sz) {
                         result.push_back(*lp);
                     } 
+                    else {
+                        std::cout << "pointer out of bounds\n";
+                    }
                 }
             }
             collect(assumptions, m_clauses);
@@ -1506,6 +1509,7 @@ namespace nlsat {
             TRACE("nlsat_proof", tout << "resolving "; if (b != null_bool_var) display_atom(tout, b); tout << "\n"; display(tout, sz, c); tout << "\n";);
             TRACE("nlsat_proof_sk", tout << "resolving "; if (b != null_bool_var) tout << "b" << b; tout << "\n"; display_abst(tout, sz, c); tout << "\n";); 
 
+            bool found_decision = false;
             for (unsigned i = 0; i < sz; i++) {
                 if (c[i].var() != b)
                     process_antecedent(c[i]);
@@ -1629,7 +1633,7 @@ namespace nlsat {
         */
         bool is_bool_lemma(unsigned sz, literal const * ls) const {
             for (unsigned i = 0; i < sz; i++) {
-                if (m_atoms[ls[i].var()] != 0)
+                if (m_atoms[ls[i].var()] != nullptr)
                     return false;
             }
             return true;
@@ -1788,7 +1792,7 @@ namespace nlsat {
                 undo_until_stage(new_max_var);
                 SASSERT(m_xk == new_max_var);
                 new_cls = mk_clause(sz, m_lemma.c_ptr(), true, m_lemma_assumptions.get());
-                TRACE("nlsat", tout << "new_level: " << scope_lvl() << "\nnew_stage: " << new_max_var << " "; 
+                TRACE("nlsat", tout << "new_level: " << scope_lvl() << "\nnew_stage: " << new_max_var << "\n"; 
                       if (new_max_var != null_var) m_display_var(tout, new_max_var) << "\n";);
             }
             else {
@@ -1807,11 +1811,26 @@ namespace nlsat {
                     TRACE("nlsat", tout << "backtracking to new level: " << new_lvl << ", curr: " << m_scope_lvl << "\n";);
                     undo_until_level(new_lvl);
                 }
+
+                bool same = (sz == conflict_clause->size());
+                if (same) {
+                    for (unsigned i = 0; same && i < sz; ++i) {
+                        same = m_lemma[i] == (*conflict_clause)[i];
+                    }
+                }
+                if (same) {
+                    TRACE("nlsat", tout << "found decision literal in conflict clause\n";);
+                    VERIFY(process_clause(*conflict_clause, true));
+                    return true;
+                }
                 new_cls = mk_clause(sz, m_lemma.c_ptr(), true, m_lemma_assumptions.get());
+                
             }
-            NLSAT_VERBOSE(display(verbose_stream(), *new_cls); verbose_stream() << "\n";);
+            NLSAT_VERBOSE(display(verbose_stream(), *new_cls) << "\n";);
             if (!process_clause(*new_cls, true)) {
-                TRACE("nlsat", tout << "new clause triggered another conflict, restarting conflict resolution...\n";);
+                TRACE("nlsat", tout << "new clause triggered another conflict, restarting conflict resolution...\n";
+                      display(tout, *new_cls) << "\n";
+                      );
                 // we are still in conflict
                 conflict_clause = new_cls;
                 goto start;
@@ -2862,6 +2881,12 @@ namespace nlsat {
         }
             
         std::ostream& display_assumptions(std::ostream & out, _assumption_set s) const {
+            vector<assumption, false> deps;
+            m_asm.linearize(s, deps);
+            for (auto dep : deps) {
+                out << *((literal const*)(dep)) << " ";
+            }
+
             return out;
         }
         

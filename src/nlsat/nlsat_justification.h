@@ -68,6 +68,16 @@ namespace nlsat {
         bool operator==(justification other) const { return m_data == other.m_data; }
         bool operator!=(justification other) const { return m_data != other.m_data; }
     };
+
+    inline std::ostream& operator<<(std::ostream& out, justification::kind k) {
+        switch (k) {
+        case justification::NULL_JST: return out << "null";
+        case justification::DECISION: return out << "decision";
+        case justification::CLAUSE: return out << "clause";
+        case justification::LAZY: return out << "lazy";
+        default: return out << "??";
+        }
+    }
     
     const justification null_justification;
     const justification decided_justification(true);
