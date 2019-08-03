@@ -163,7 +163,7 @@ lbool check_sat(tactic & t, goal_ref & g, model_ref & md, labels_vec & labels, p
     try {
         exec(t, g, r);
     }
-    catch (tactic_exception & ex) {
+    catch (z3_exception & ex) {
         reason_unknown = ex.msg();
         if (r.size() > 0) pr = r[0]->pr(0);
         return l_undef;
