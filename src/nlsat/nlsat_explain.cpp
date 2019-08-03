@@ -1382,14 +1382,14 @@ namespace nlsat {
                 literal l = core[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);
-                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign());
+                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign(), nullptr);
                 r = ism.mk_union(inf, r);
                 if (ism.is_full(r)) {
                     // Done
                     return false;
                 }
             }
-            TRACE("nlsat_mininize", tout << "interval set after adding partial core:\n" << r << "\n";);
+            TRACE("nlsat_minimize", tout << "interval set after adding partial core:\n" << r << "\n";);
             if (todo.size() == 1) {
                 // Done
                 core.push_back(todo[0]);
@@ -1401,7 +1401,7 @@ namespace nlsat {
                 literal l = todo[i];
                 atom * a  = m_atoms[l.var()];
                 SASSERT(a != 0);
-                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign());
+                interval_set_ref inf = m_evaluator.infeasible_intervals(a, l.sign(), nullptr);
                 r = ism.mk_union(inf, r);
                 if (ism.is_full(r)) {
                     // literal l must be in the core
@@ -1425,15 +1425,15 @@ namespace nlsat {
             todo.reset(); core.reset();
             todo.append(num, ls);
             while (true) {
-                TRACE("nlsat_mininize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
+                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
                 if (!minimize_core(todo, core))
                     break;
                 std::reverse(todo.begin(), todo.end());
-                TRACE("nlsat_mininize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
+                TRACE("nlsat_minimize", tout << "core minimization:\n"; display(tout, todo); tout << "\nCORE:\n"; display(tout, core););
                 if (!minimize_core(todo, core))
                     break;
             }
-            TRACE("nlsat_mininize", tout << "core:\n"; display(tout, core););
+            TRACE("nlsat_minimize", tout << "core:\n"; display(tout, core););
             r.append(core.size(), core.c_ptr());
         }
 

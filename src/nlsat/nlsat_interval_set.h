@@ -47,7 +47,7 @@ namespace nlsat {
         */
         interval_set * mk(bool lower_open, bool lower_inf, anum const & lower, 
                           bool upper_open, bool upper_inf, anum const & upper,
-                          literal justification);
+                          literal justification, clause const* cls);
         
         /**
            \brief Return the union of two sets.
@@ -91,7 +91,7 @@ namespace nlsat {
         /**
            \brief Return a set of literals that justify s.
         */
-        void get_justifications(interval_set const * s, literal_vector & js);
+        void get_justifications(interval_set const * s, literal_vector & js, ptr_vector<clause>& clauses );
         
         std::ostream& display(std::ostream & out, interval_set const * s) const;
         

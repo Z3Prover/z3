@@ -488,7 +488,7 @@ namespace nlsat {
             return sign;
         }
         
-        interval_set_ref infeasible_intervals(ineq_atom * a, bool neg) {
+        interval_set_ref infeasible_intervals(ineq_atom * a, bool neg, clause const* cls) {
             sign_table & table = m_sign_table_tmp;
             table.reset();
             unsigned num_ps = a->size();
@@ -543,7 +543,7 @@ namespace nlsat {
                             curr_root_id = table.get_root_id(c-1);
                         }
                         set = m_ism.mk(prev_open, prev_inf, table.get_root(prev_root_id),
-                                       curr_open, false,    table.get_root(curr_root_id), jst);
+                                       curr_open, false,    table.get_root(curr_root_id), jst, cls);
                         result = m_ism.mk_union(result, set);   
                         prev_sat = true;
                     }
@@ -554,7 +554,7 @@ namespace nlsat {
                         if (c == 0) {
                             if (num_cells == 1) {
                                 // (-oo, oo)
-                                result = m_ism.mk(true, true, dummy, true, true, dummy, jst); 
+                                result = m_ism.mk(true, true, dummy, true, true, dummy, jst, cls); 
                             }
                             else {
                                 // save -oo as beginning of infeasible interval
@@ -583,7 +583,7 @@ namespace nlsat {
                     if (c == num_cells - 1) {
                         // last cell add interval with  (prev, oo)
                         set = m_ism.mk(prev_open, prev_inf, table.get_root(prev_root_id),
-                                       true, true, dummy, jst);
+                                       true, true, dummy, jst, cls);
                         result = m_ism.mk_union(result, set);
                     } 
                 }
@@ -592,7 +592,7 @@ namespace nlsat {
             return result;
         }
 
-        interval_set_ref infeasible_intervals(root_atom * a, bool neg) {
+        interval_set_ref infeasible_intervals(root_atom * a, bool neg, clause const* cls) {
             atom::kind k = a->get_kind();
             unsigned i = a->i();
             SASSERT(i > 0);
@@ -613,7 +613,7 @@ namespace nlsat {
                     result = m_ism.mk_empty(); 
                 }
                 else {
-                    result = m_ism.mk(true, true, dummy, true, true, dummy, jst); // (-oo, oo)
+                    result = m_ism.mk(true, true, dummy, true, true, dummy, jst, cls); // (-oo, oo)
                 }
             }
             else {
@@ -621,38 +621,38 @@ namespace nlsat {
                 switch (k) {
                 case atom::ROOT_EQ:
                     if (neg) {
-                        result = m_ism.mk(false, false, r_i, false, false, r_i, jst); // [r_i, r_i]
+                        result = m_ism.mk(false, false, r_i, false, false, r_i, jst, cls); // [r_i, r_i]
                     }
                     else {
                         interval_set_ref s1(m_ism), s2(m_ism);
-                        s1 = m_ism.mk(true, true, dummy, true, false, r_i, jst); // (-oo, r_i)
-                        s2 = m_ism.mk(true, false, r_i, true, true, dummy, jst); // (r_i, oo)
+                        s1 = m_ism.mk(true, true, dummy, true, false, r_i, jst, cls); // (-oo, r_i)
+                        s2 = m_ism.mk(true, false, r_i, true, true, dummy, jst, cls); // (r_i, oo)
                         result = m_ism.mk_union(s1, s2);
                     }
                     break;
                 case atom::ROOT_LT:
                     if (neg)
-                        result = m_ism.mk(true, true, dummy, true, false, r_i, jst); // (-oo, r_i)
+                        result = m_ism.mk(true, true, dummy, true, false, r_i, jst, cls); // (-oo, r_i)
                     else
-                        result = m_ism.mk(false, false, r_i, true, true, dummy, jst); // [r_i, oo)
+                        result = m_ism.mk(false, false, r_i, true, true, dummy, jst, cls); // [r_i, oo)
                     break;
                 case atom::ROOT_GT:
                     if (neg) 
-                        result = m_ism.mk(true, false, r_i, true, true, dummy, jst); // (r_i, oo)
+                        result = m_ism.mk(true, false, r_i, true, true, dummy, jst, cls); // (r_i, oo)
                     else
-                        result = m_ism.mk(true, true, dummy, false, false, r_i, jst); // (-oo, r_i]
+                        result = m_ism.mk(true, true, dummy, false, false, r_i, jst, cls); // (-oo, r_i]
                     break;
                 case atom::ROOT_LE:
                     if (neg)
-                        result = m_ism.mk(true, true, dummy, false, false, r_i, jst); // (-oo, r_i]
+                        result = m_ism.mk(true, true, dummy, false, false, r_i, jst, cls); // (-oo, r_i]
                     else
-                        result = m_ism.mk(true, false, r_i, true, true, dummy, jst); // (r_i, oo)
+                        result = m_ism.mk(true, false, r_i, true, true, dummy, jst, cls); // (r_i, oo)
                     break;
                 case atom::ROOT_GE:
                     if (neg) 
-                        result = m_ism.mk(false, false, r_i, true, true, dummy, jst); // [r_i, oo)
+                        result = m_ism.mk(false, false, r_i, true, true, dummy, jst, cls); // [r_i, oo)
                     else
-                        result = m_ism.mk(true, true, dummy, true, false, r_i, jst); // (-oo, r_i)
+                        result = m_ism.mk(true, true, dummy, true, false, r_i, jst, cls); // (-oo, r_i)
                     break;
                 default:
                     UNREACHABLE();
@@ -663,8 +663,8 @@ namespace nlsat {
             return result;
         }
         
-        interval_set_ref infeasible_intervals(atom * a, bool neg) {
-            return a->is_ineq_atom() ? infeasible_intervals(to_ineq_atom(a), neg) : infeasible_intervals(to_root_atom(a), neg); 
+        interval_set_ref infeasible_intervals(atom * a, bool neg, clause const* cls) {
+            return a->is_ineq_atom() ? infeasible_intervals(to_ineq_atom(a), neg, cls) : infeasible_intervals(to_root_atom(a), neg, cls); 
         }
     };
     
@@ -684,8 +684,8 @@ namespace nlsat {
         return m_imp->eval(a, neg);
     }
         
-    interval_set_ref evaluator::infeasible_intervals(atom * a, bool neg) {
-        return m_imp->infeasible_intervals(a, neg);
+    interval_set_ref evaluator::infeasible_intervals(atom * a, bool neg, clause const* cls) {
+        return m_imp->infeasible_intervals(a, neg, cls);
     }
 
     void evaluator::push() {

@@ -28,6 +28,7 @@ namespace nlsat {
         unsigned  m_lower_inf:1;
         unsigned  m_upper_inf:1;
         literal   m_justification;
+        clause const* m_clause;
         anum      m_lower;
         anum      m_upper;
     };
@@ -147,7 +148,7 @@ namespace nlsat {
     
     interval_set * interval_set_manager::mk(bool lower_open, bool lower_inf, anum const & lower, 
                                             bool upper_open, bool upper_inf, anum const & upper,
-                                            literal justification) {
+                                            literal justification, clause const* cls) {
         void * mem = m_allocator.allocate(interval_set::get_obj_size(1));
         interval_set * new_set = new (mem) interval_set();
         new_set->m_num_intervals = 1;
@@ -159,6 +160,7 @@ namespace nlsat {
         i->m_upper_open = upper_open;
         i->m_upper_inf  = upper_inf;
         i->m_justification = justification;
+        i->m_clause = cls;
         if (!lower_inf)
             m_am.set(i->m_lower, lower);
         if (!upper_inf)
@@ -644,8 +646,9 @@ namespace nlsat {
         return true;
     }
 
-    void interval_set_manager::get_justifications(interval_set const * s, literal_vector & js) {
+    void interval_set_manager::get_justifications(interval_set const * s, literal_vector & js, ptr_vector<clause>& clauses) {
         js.reset();
+        clauses.reset();
         unsigned num = num_intervals(s);
         for (unsigned i = 0; i < num; i++) {
             literal l     = s->m_intervals[i].m_justification;
@@ -654,6 +657,9 @@ namespace nlsat {
                 continue;
             m_already_visited.setx(lidx, true, false);
             js.push_back(l);
+            if (s->m_intervals[i].m_clause) {
+                clauses.push_back(const_cast<clause*>(s->m_intervals[i].m_clause));
+            }
         }
         for (unsigned i = 0; i < num; i++) {
             literal l     = s->m_intervals[i].m_justification;

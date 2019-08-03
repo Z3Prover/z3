@@ -450,7 +450,7 @@ namespace nlsat {
             m_is_int.    push_back(is_int);
             m_watches.   push_back(clause_vector());
             m_infeasible.push_back(0);
-            m_var2eq.    push_back(0);
+            m_var2eq.    push_back(nullptr);
             m_perm.      push_back(x);
             m_inv_perm.  push_back(x);
             SASSERT(m_is_int.size() == m_watches.size());
@@ -948,7 +948,7 @@ namespace nlsat {
             m_levels[b]  = m_scope_lvl;
             m_justifications[b] = j;
             save_assign_trail(b);
-            updt_eq(b);
+            updt_eq(b, j);
             TRACE("nlsat_assign", tout << "b" << b << " -> " << m_bvalues[b]  << "\n";);
         }
 
@@ -1047,11 +1047,12 @@ namespace nlsat {
            \brief assign l to true, because l + (justification of) s is infeasible in RCF in the current interpretation.
         */
         literal_vector core;
+        ptr_vector<clause> clauses;
         void R_propagate(literal l, interval_set const * s, bool include_l = true) {
-            m_ism.get_justifications(s, core);
+            m_ism.get_justifications(s, core, clauses);
             if (include_l) 
                 core.push_back(~l);
-            assign(l, mk_lazy_jst(m_allocator, core.size(), core.c_ptr()));
+            assign(l, mk_lazy_jst(m_allocator, core.size(), core.c_ptr(), clauses.size(), clauses.c_ptr()));
             SASSERT(value(l) == l_true);
         }
         
@@ -1074,7 +1075,7 @@ namespace nlsat {
         /**
            \brief Update m_var2eq mapping.
         */
-        void updt_eq(bool_var b) {
+        void updt_eq(bool_var b, justification j) {
             if (!m_simplify_cores)
                 return;
             if (m_bvalues[b] != l_true)
@@ -1082,6 +1083,16 @@ namespace nlsat {
             atom * a = m_atoms[b];
             if (a == nullptr || a->get_kind() != atom::EQ || to_ineq_atom(a)->size() > 1 || to_ineq_atom(a)->is_even(0))
                 return;
+            switch (j.get_kind()) {
+            case justification::CLAUSE:
+                if (j.get_clause()->assumptions() != nullptr) return;
+                break;
+            case justification::LAZY:
+                if (j.get_lazy()->num_clauses() > 0) return;
+                break;
+            default:
+                break;
+            }
             var x = m_xk;
             SASSERT(a->max_var() == x);
             SASSERT(x != null_var);
@@ -1121,7 +1132,7 @@ namespace nlsat {
                 atom * a   = m_atoms[b];
                 SASSERT(a != nullptr);
                 interval_set_ref curr_set(m_ism);
-                curr_set = m_evaluator.infeasible_intervals(a, l.sign());
+                curr_set = m_evaluator.infeasible_intervals(a, l.sign(), &cls);
                 TRACE("nlsat_inf_set", tout << "infeasible set for literal: "; display(tout, l); tout << "\n"; m_ism.display(tout, curr_set); tout << "\n";
                       display(tout, cls) << "\n";); 
                 if (m_ism.is_empty(curr_set)) {
@@ -1553,7 +1564,7 @@ namespace nlsat {
 
         void resolve_lazy_justification(bool_var b, lazy_justification const & jst) {
             TRACE("nlsat_resolve", tout << "resolving lazy_justification for b: " << b << "\n";);
-            unsigned sz = jst.size();
+            unsigned sz = jst.num_lits();
 
             // Dump lemma as Mathematica formula that must be true,
             // if the current interpretation (really) makes the core in jst infeasible.
@@ -1561,15 +1572,15 @@ namespace nlsat {
                   tout << "assignment lemma\n";
                   literal_vector core;
                   for (unsigned i = 0; i < sz; i++) {
-                      core.push_back(~jst[i]);
+                      core.push_back(~jst.lit(i));
                   }
                   display_mathematica_lemma(tout, core.size(), core.c_ptr(), true););
 
             m_lazy_clause.reset();
-            m_explain(jst.size(), jst.lits(), m_lazy_clause);
+            m_explain(jst.num_lits(), jst.lits(), m_lazy_clause);
             for (unsigned i = 0; i < sz; i++)
-                m_lazy_clause.push_back(~jst[i]);
-
+                m_lazy_clause.push_back(~jst.lit(i));
+            
             // lazy clause is a valid clause
             TRACE("nlsat_mathematica", display_mathematica_lemma(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()););            
             TRACE("nlsat_proof_sk", tout << "theory lemma\n"; display_abst(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()); tout << "\n";); 
@@ -1593,6 +1604,12 @@ namespace nlsat {
                 }
             });
             resolve_clause(b, m_lazy_clause.size(), m_lazy_clause.c_ptr());
+
+            for (unsigned i = 0; i < jst.num_clauses(); ++i) {
+                clause const& c = jst.clause(i);
+                TRACE("nlsat", display(tout << "adding clause assumptions ", c) << "\n";);
+                m_lemma_assumptions = m_asm.mk_join(static_cast<_assumption_set>(c.assumptions()), m_lemma_assumptions);
+            }
         }
         
         /**
