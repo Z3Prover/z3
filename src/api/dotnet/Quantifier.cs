@@ -143,12 +143,12 @@ namespace Microsoft.Z3
         /// <summary>
         /// The body of the quantifier.
         /// </summary>
-        public BoolExpr Body
+        public Expr Body
         {
             get
             {
 
-                return (BoolExpr)Expr.Create(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
+                return Expr.Create(Context, Native.Z3_get_quantifier_body(Context.nCtx, NativeObject));
             }
         }
 

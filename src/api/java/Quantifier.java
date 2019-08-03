@@ -139,9 +139,9 @@ public class Quantifier extends BoolExpr
      * 
      * @throws Z3Exception
      **/
-    public BoolExpr getBody()
+    public Expr getBody()
     {
-        return (BoolExpr) Expr.create(getContext(), Native.getQuantifierBody(getContext()
+        return Expr.create(getContext(), Native.getQuantifierBody(getContext()
                 .nCtx(), getNativeObject()));
     }
 
