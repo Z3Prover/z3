@@ -52,7 +52,7 @@ nlsat::interval_set_ref tst_interval(nlsat::interval_set_ref const & s1,
     anum zero;
     nlsat::interval_set_ref full(ism);
     nlsat::literal dummy(131, false);
-    full = ism.mk(true, true, zero, true, true, zero, dummy);
+    full = ism.mk(true, true, zero, true, true, zero, dummy, nullptr);
     ENSURE(ism.set_eq(r, full) == ism.is_full(r));
     return r;
 }
@@ -83,9 +83,9 @@ static void tst3() {
     nlsat::interval_set_ref s1(ism), s2(ism), s3(ism), s4(ism);
     s1 = ism.mk_empty();
     std::cout << "s1: " << s1 << "\n";
-    s2 = ism.mk(true, true, zero, false, false, sqrt2, np2);
+    s2 = ism.mk(true, true, zero, false, false, sqrt2, np2, nullptr);
     std::cout << "s2: " << s2 << "\n";
-    s3 = ism.mk(false, false, zero, false, false, two, p1);
+    s3 = ism.mk(false, false, zero, false, false, two, p1, nullptr);
     std::cout << "s3: " << s3 << "\n";
     s4 = ism.mk_union(s2, s3);
     std::cout << "s4: " << s4 << "\n";
@@ -93,84 +93,84 @@ static void tst3() {
     // Case
     //  s1:   [ ... ]
     //  s2:   [ ... ]
-    s1 = ism.mk(false, false, zero, false, false, two, p1);
-    s2 = ism.mk(false, false, zero, false, false, two, p2);
+    s1 = ism.mk(false, false, zero, false, false, two, p1, nullptr);
+    s2 = ism.mk(false, false, zero, false, false, two, p2, nullptr);
     tst_interval(s1, s2, 1);
 
     // Case
     // s1:   [ ... ]
     // s2: [ ... ]
-    s1 = ism.mk(false, false, zero, false, false, two, p1);
-    s2 = ism.mk(false, false, m_sqrt2, false, false, one, p2);
+    s1 = ism.mk(false, false, zero, false, false, two, p1, nullptr);
+    s2 = ism.mk(false, false, m_sqrt2, false, false, one, p2, nullptr);
     s3 = ism.mk_union(s1, s2);
     tst_interval(s1, s2, 2);
 
     // Case
     // s1:   [ ... ]
     // s2:      [ ... ]
-    s1 = ism.mk(false, false, m_sqrt2, false, false, one, p1);
-    s2 = ism.mk(false, false, zero, false, false, two, p2);
+    s1 = ism.mk(false, false, m_sqrt2, false, false, one, p1, nullptr);
+    s2 = ism.mk(false, false, zero, false, false, two, p2, nullptr);
     tst_interval(s1, s2, 2);
 
     // Case
     // s1:   [ ... ]
     // s2:            [ ... ]
-    s1 = ism.mk(false, false, m_sqrt2, false, false, one, p1);
-    s2 = ism.mk(false, false, two, false, false, three, p2);
+    s1 = ism.mk(false, false, m_sqrt2, false, false, one, p1, nullptr);
+    s2 = ism.mk(false, false, two, false, false, three, p2, nullptr);
     tst_interval(s1, s2, 2);
 
     // Case
     // s1:   [    ...    ]
     // s2:      [ ... ]
-    s1 = ism.mk(false, false, m_sqrt2, false, false, three, p1);
-    s2 = ism.mk(false, false, zero, false, false, two, p2);
+    s1 = ism.mk(false, false, m_sqrt2, false, false, three, p1, nullptr);
+    s2 = ism.mk(false, false, zero, false, false, two, p2, nullptr);
     tst_interval(s1, s2, 1);
 
     // Case
     // s1:   [    ...      ]
     // s2:      [ ... ] [  ...  ]
-    s1 = ism.mk(false, false, m_two, false, false, two, p1);
-    s2 = ism.mk(false, false, m_sqrt2, false, false, zero, p2);
-    s3 = ism.mk(false, false, one, false, false, three, p2);
+    s1 = ism.mk(false, false, m_two, false, false, two, p1, nullptr);
+    s2 = ism.mk(false, false, m_sqrt2, false, false, zero, p2, nullptr);
+    s3 = ism.mk(false, false, one, false, false, three, p2, nullptr);
     s2 = ism.mk_union(s2, s3);
     tst_interval(s1, s2, 2);
 
     // Case
     // s1:  [ ... ]
     // s2:        [ ... ]
-    s1 = ism.mk(false, false, m_two, false, false, two, p1);
-    s2 = ism.mk(false, false, two, false, false, three, p2);
+    s1 = ism.mk(false, false, m_two, false, false, two, p1, nullptr);
+    s2 = ism.mk(false, false, two, false, false, three, p2, nullptr);
     tst_interval(s1, s2, 2);
-    s2 = ism.mk(true, false, two, false, false, three, p2);
+    s2 = ism.mk(true, false, two, false, false, three, p2, nullptr);
     tst_interval(s1, s2, 2);
-    s2 = ism.mk(true, false, two, false, false, three, p1);
+    s2 = ism.mk(true, false, two, false, false, three, p1, nullptr);
     tst_interval(s1, s2, 1);
-    s1 = ism.mk(false, false, m_two, true, false, two, p1);
+    s1 = ism.mk(false, false, m_two, true, false, two, p1, nullptr);
     tst_interval(s1, s2, 2);
-    s1 = ism.mk(false, false, two, false, false, two, p1);
-    s2 = ism.mk(false, false, two, false, false, three, p2);
+    s1 = ism.mk(false, false, two, false, false, two, p1, nullptr);
+    s2 = ism.mk(false, false, two, false, false, three, p2, nullptr);
     tst_interval(s1, s2, 1);
 
     // Case
     // s1:  [ ... ]    [ ...  ]
     // s2: [ .. ]   [ ... ] [ ... ]
-    s1 = ism.mk(false, false, m_two, false, false, zero, p1);
-    s3 = ism.mk(false, false, one, false, false,   three, p1);
+    s1 = ism.mk(false, false, m_two, false, false, zero, p1, nullptr);
+    s3 = ism.mk(false, false, one, false, false,   three, p1, nullptr);
     s1 = ism.mk_union(s1, s3);
-    s2 = ism.mk(true, true, zero,  false, false, m_sqrt2, p2);
+    s2 = ism.mk(true, true, zero,  false, false, m_sqrt2, p2, nullptr);
     tst_interval(s1, s2, 3);
-    s3 = ism.mk(false, false, one, false, false, sqrt2, p2);
+    s3 = ism.mk(false, false, one, false, false, sqrt2, p2, nullptr);
     s2 = ism.mk_union(s2, s3);
-    s3 = ism.mk(false, false, two, true, true, zero, p2);
+    s3 = ism.mk(false, false, two, true, true, zero, p2, nullptr);
     s2 = ism.mk_union(s2, s3);
     tst_interval(s1, s2, 4);
 
     // Case
-    s1 = ism.mk(true, true, zero, false, false, one, p1);
-    s2 = ism.mk(true, false, one, true, true, zero, p2);
+    s1 = ism.mk(true, true, zero, false, false, one, p1, nullptr);
+    s2 = ism.mk(true, false, one, true, true, zero, p2, nullptr);
     tst_interval(s1, s2, 2);
-    s2 = ism.mk(true, false, one, false, false, two, p2);
-    s3 = ism.mk(false, false, two, true, true, zero, p1);
+    s2 = ism.mk(true, false, one, false, false, two, p2, nullptr);
+    s3 = ism.mk(false, false, two, true, true, zero, p1, nullptr);
     s2 = ism.mk_union(s2, s3);
     tst_interval(s1, s2, 3);
 }
@@ -189,7 +189,7 @@ static nlsat::interval_set_ref mk_random(nlsat::interval_set_manager & ism, anum
         int  next = prev + (gen() % space);
         bool open = gen() % 2 == 0;
         am.set(upper, next);
-        r = ism.mk(true, true, lower, open, false, upper, lit);
+        r = ism.mk(true, true, lower, open, false, upper, lit, nullptr);
         prev = next;
     }
 
@@ -202,7 +202,7 @@ static nlsat::interval_set_ref mk_random(nlsat::interval_set_manager & ism, anum
             u++;
         am.set(lower, l);
         am.set(upper, u);
-        curr = ism.mk(lower_open, false, lower, upper_open, false, upper, lit);
+        curr = ism.mk(lower_open, false, lower, upper_open, false, upper, lit, nullptr);
         r = ism.mk_union(r, curr);
         prev = u;
     }
@@ -211,7 +211,7 @@ static nlsat::interval_set_ref mk_random(nlsat::interval_set_manager & ism, anum
         int  next = prev + (gen() % space);
         bool open = gen() % 2 == 0;
         am.set(lower, next);
-        curr = ism.mk(open, false, lower, true, true, upper, lit);
+        curr = ism.mk(open, false, lower, true, true, upper, lit, nullptr);
         r = ism.mk_union(r, curr);
     }
     return r;
@@ -226,11 +226,12 @@ static void check_subset_result(nlsat::interval_set_ref const & s1,
     nlsat::interval_set_ref tmp(ism);
     unsigned num = ism.num_intervals(r);
     nlsat::literal_vector lits;
-    ism.get_justifications(r, lits);
+    ptr_vector<nlsat::clause> clauses;
+    ism.get_justifications(r, lits, clauses);
     ENSURE(lits.size() <= 2);
     for (unsigned i = 0; i < num; i++) {
         tmp = ism.get_interval(r, i);
-        ism.get_justifications(tmp, lits);
+        ism.get_justifications(tmp, lits, clauses);
         ENSURE(lits.size() == 1);
         if (lits[0] == l1) {
             ENSURE(ism.subset(tmp, s1));
@@ -296,10 +297,10 @@ static void tst5() {
     scoped_anum zero(am);
     am.set(zero, 0);
     as.set(0, zero);
-    auto i = ev.infeasible_intervals(a, true);
+    auto i = ev.infeasible_intervals(a, true, nullptr);
     std::cout << "1) " << i << "\n";
     as.set(1, zero);
-    auto i2 = ev.infeasible_intervals(a, true);
+    auto i2 = ev.infeasible_intervals(a, true, nullptr);
     std::cout << "2) " << i2 << "\n";
 }
 
