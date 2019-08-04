@@ -78,6 +78,19 @@ namespace smt {
         return t;
     }
 
+    expr * model_checker::get_type_compatible_term(expr * val) {
+        for (auto const& kv : m_value2expr) {
+            if (m.get_sort(kv.m_key) == m.get_sort(val) &&
+                !contains_model_value(kv.m_key)) {
+                return kv.m_key;
+            }
+        }
+        app* fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
+        m_context->ensure_internalized(fresh_term);
+        m_value2expr.insert(val, fresh_term);
+        return fresh_term;
+    }
+
     void model_checker::init_value2expr() {
         if (m_value2expr.empty()) {
             // populate m_value2expr
@@ -207,8 +220,7 @@ namespace smt {
                 }
             }
             if (contains_model_value(sk_value)) {
-                TRACE("model_checker", tout << "value is private to model: " << sk_value << "\n";);
-                return false;
+                sk_value = get_type_compatible_term(sk_value);
             }
             func_decl * f = nullptr;
             if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f)) {

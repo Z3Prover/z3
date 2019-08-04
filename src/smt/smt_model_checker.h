@@ -60,6 +60,7 @@ namespace smt {
         void init_aux_context();
         void init_value2expr();
         expr * get_term_from_ctx(expr * val);
+        expr * get_type_compatible_term(expr * val);
         expr_ref replace_value_from_ctx(expr * e);
         void restrict_to_universe(expr * sk, obj_hashtable<expr> const & universe);
         void assert_neg_q_m(quantifier * q, expr_ref_vector & sks);
