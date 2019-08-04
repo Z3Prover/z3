@@ -46,8 +46,12 @@ namespace nlsat {
         lazy_justification(unsigned nl, literal const * lits, unsigned nc, nlsat::clause * const* clss):
             m_num_literals(nl),
             m_num_clauses(nc) {
-            memcpy(m_data + 0,                  clss, sizeof(nlsat::clause const*)*nc);
-            memcpy(m_data + sizeof(nlsat::clause*)*nc, lits, sizeof(literal)*nl);
+            if (nc > 0) {
+                memcpy(m_data + 0,                         clss, sizeof(nlsat::clause*)*nc);
+            }
+            if (nl > 0) {
+                memcpy(m_data + sizeof(nlsat::clause*)*nc, lits, sizeof(literal)*nl);
+            }
         }
         unsigned num_lits() const { return m_num_literals; }
         literal lit(unsigned i) const { SASSERT(i < num_lits()); return lits()[i]; }
