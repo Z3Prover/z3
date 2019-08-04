@@ -81,8 +81,8 @@ namespace smt {
     expr * model_checker::get_type_compatible_term(expr * val) {
         for (auto const& kv : m_value2expr) {
             if (m.get_sort(kv.m_key) == m.get_sort(val) &&
-                !contains_model_value(kv.m_key)) {
-                return kv.m_key;
+                !contains_model_value(kv.m_value)) {
+                return kv.m_value;
             }
         }
         app* fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
