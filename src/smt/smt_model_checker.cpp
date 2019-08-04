@@ -49,7 +49,8 @@ namespace smt {
         m_iteration_idx(0),
         m_has_rec_fun(false),
         m_curr_model(nullptr),
-        m_pinned_exprs(m) {
+        m_pinned_exprs(m),
+        m_fresh_exprs(m) {
     }
 
     model_checker::~model_checker() {
@@ -79,15 +80,14 @@ namespace smt {
     }
 
     expr * model_checker::get_type_compatible_term(expr * val) {
-        for (auto const& kv : m_value2expr) {
-            if (m.get_sort(kv.m_key) == m.get_sort(val) &&
-                !contains_model_value(kv.m_value)) {
-                return kv.m_value;
+        for (expr* f : m_fresh_exprs) {
+            if (m.get_sort(f) == m.get_sort(val)) {
+                return f;
             }
         }
         app* fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
         m_context->ensure_internalized(fresh_term);
-        m_value2expr.insert(val, fresh_term);
+        m_fresh_exprs.push_back(fresh_term);
         return fresh_term;
     }
 

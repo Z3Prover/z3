@@ -54,6 +54,7 @@ namespace smt {
         bool                                        m_has_rec_fun;
         proto_model *                               m_curr_model;
         obj_map<expr, expr *>                       m_value2expr;
+        expr_ref_vector                             m_fresh_exprs;
 
         friend class instantiation_set;
 
