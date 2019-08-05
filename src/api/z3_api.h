@@ -1456,6 +1456,9 @@ extern "C" {
        Z3_global_param_set('pp.decimal', 'true')
        will set the parameter "decimal" in the module "pp" to true.
 
+       \sa Z3_global_param_get
+       \sa Z3_global_param_reset_all
+
        def_API('Z3_global_param_set', VOID, (_in(STRING), _in(STRING)))
     */
     void Z3_API Z3_global_param_set(Z3_string param_id, Z3_string param_value);
@@ -1465,6 +1468,7 @@ extern "C" {
        \brief Restore the value of all global (and module) parameters.
        This command will not affect already created objects (such as tactics and solvers).
 
+       \sa Z3_global_param_get
        \sa Z3_global_param_set
 
        def_API('Z3_global_param_reset_all', VOID, ())
@@ -1476,6 +1480,7 @@ extern "C" {
 
        Returns \c false if the parameter value does not exist.
 
+       \sa Z3_global_param_reset_all
        \sa Z3_global_param_set
 
        \remark This function cannot be invoked simultaneously from different threads without synchronization.
@@ -1997,6 +2002,10 @@ extern "C" {
                         sort reference is 0, then the value in sort_refs should be an index referring to
                         one of the recursive datatypes that is declared.
 
+       \sa Z3_del_constructor
+       \sa Z3_mk_constructor_list
+       \sa Z3_query_constructor
+
        def_API('Z3_mk_constructor', CONSTRUCTOR, (_in(CONTEXT), _in(SYMBOL), _in(SYMBOL), _in(UINT), _in_array(3, SYMBOL), _in_array(3, SORT), _in_array(3, UINT)))
     */
     Z3_constructor Z3_API Z3_mk_constructor(Z3_context c,
@@ -2014,6 +2023,8 @@ extern "C" {
        \param c logical context.
        \param constr constructor.
 
+       \sa Z3_mk_constructor
+
        def_API('Z3_del_constructor', VOID, (_in(CONTEXT), _in(CONSTRUCTOR)))
     */
     void Z3_API Z3_del_constructor(Z3_context c, Z3_constructor constr);
@@ -2026,6 +2037,10 @@ extern "C" {
        \param name name of datatype.
        \param num_constructors number of constructors passed in.
        \param constructors array of constructor containers.
+
+       \sa Z3_mk_constructor
+       \sa Z3_mk_constructor_list
+       \sa Z3_mk_datatypes
 
        def_API('Z3_mk_datatype', SORT, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _inout_array(2, CONSTRUCTOR)))
     */
@@ -2041,6 +2056,9 @@ extern "C" {
        \param num_constructors number of constructors in list.
        \param constructors list of constructors.
 
+       \sa Z3_del_constructor_list
+       \sa Z3_mk_constructor
+
        def_API('Z3_mk_constructor_list', CONSTRUCTOR_LIST, (_in(CONTEXT), _in(UINT), _in_array(1, CONSTRUCTOR)))
     */
     Z3_constructor_list Z3_API Z3_mk_constructor_list(Z3_context c,
@@ -2055,6 +2073,8 @@ extern "C" {
        \param c logical context.
        \param clist constructor list container.
 
+       \sa Z3_mk_constructor_list
+
        def_API('Z3_del_constructor_list', VOID, (_in(CONTEXT), _in(CONSTRUCTOR_LIST)))
     */
     void Z3_API Z3_del_constructor_list(Z3_context c, Z3_constructor_list clist);
@@ -2067,6 +2087,10 @@ extern "C" {
        \param sort_names names of datatype sorts.
        \param sorts array of datatype sorts.
        \param constructor_lists list of constructors, one list per sort.
+
+       \sa Z3_mk_constructor
+       \sa Z3_mk_constructor_list
+       \sa Z3_mk_datatype
 
        def_API('Z3_mk_datatypes', VOID, (_in(CONTEXT), _in(UINT), _in_array(1, SYMBOL), _out_array(1, SORT), _inout_array(1, CONSTRUCTOR_LIST)))
     */
@@ -2085,6 +2109,8 @@ extern "C" {
        \param constructor constructor function declaration, allocated by user.
        \param tester constructor test function declaration, allocated by user.
        \param accessors array of accessor function declarations allocated by user. The array must contain num_fields elements.
+
+       \sa Z3_mk_constructor
 
        def_API('Z3_query_constructor', VOID, (_in(CONTEXT), _in(CONSTRUCTOR), _in(UINT), _out(FUNC_DECL), _out(FUNC_DECL), _out_array(2, FUNC_DECL)))
     */
@@ -2114,6 +2140,8 @@ extern "C" {
        application.
 
        \sa Z3_mk_app
+       \sa Z3_mk_fresh_func_decl
+       \sa Z3_mk_rec_func_decl
 
        def_API('Z3_mk_func_decl', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
@@ -2126,7 +2154,9 @@ extern "C" {
     /**
        \brief Create a constant or function application.
 
+       \sa Z3_mk_fresh_func_decl
        \sa Z3_mk_func_decl
+       \sa Z3_mk_rec_func_decl
 
        def_API('Z3_mk_app', AST, (_in(CONTEXT), _in(FUNC_DECL), _in(UINT), _in_array(2, AST)))
     */
@@ -2145,8 +2175,9 @@ extern "C" {
        Z3_ast n            = Z3_mk_app(c, d, 0, 0);
        \endcode
 
-       \sa Z3_mk_func_decl
        \sa Z3_mk_app
+       \sa Z3_mk_fresh_const
+       \sa Z3_mk_func_decl
 
        def_API('Z3_mk_const', AST, (_in(CONTEXT), _in(SYMBOL), _in(SORT)))
     */
@@ -2176,8 +2207,10 @@ extern "C" {
 
        \remark If \c prefix is \c NULL, then it is assumed to be the empty string.
 
-       \sa Z3_mk_func_decl
        \sa Z3_mk_app
+       \sa Z3_mk_const
+       \sa Z3_mk_fresh_func_decl
+       \sa Z3_mk_func_decl
 
        def_API('Z3_mk_fresh_const', AST, (_in(CONTEXT), _in(STRING), _in(SORT)))
     */
@@ -2197,8 +2230,9 @@ extern "C" {
        The function #Z3_mk_app can be used to create a constant or function
        application.
 
-       \sa Z3_mk_app
        \sa Z3_add_rec_def
+       \sa Z3_mk_app
+       \sa Z3_mk_func_decl
 
        def_API('Z3_mk_rec_func_decl', FUNC_DECL, (_in(CONTEXT), _in(SYMBOL), _in(UINT), _in_array(2, SORT), _in(SORT)))
     */
@@ -5557,20 +5591,26 @@ extern "C" {
     /**
        \brief Return Z3 version number information.
 
+       \sa Z3_get_full_version
+
        def_API('Z3_get_version', VOID, (_out(UINT), _out(UINT), _out(UINT), _out(UINT)))
     */
     void Z3_API Z3_get_version(unsigned * major, unsigned * minor, unsigned * build_number, unsigned * revision_number);
 
     /**
-        \brief Return a string that fully describes the version of Z3 in use.
+       \brief Return a string that fully describes the version of Z3 in use.
 
-        def_API('Z3_get_full_version', STRING, ())
+       \sa Z3_get_version
+
+       def_API('Z3_get_full_version', STRING, ())
     */
     Z3_string Z3_API Z3_get_full_version(void);
 
     /**
        \brief Enable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
        It is a NOOP otherwise
+
+       \sa Z3_disable_trace
 
        def_API('Z3_enable_trace', VOID, (_in(STRING),))
     */
@@ -5579,6 +5619,8 @@ extern "C" {
     /**
        \brief Disable tracing messages tagged as \c tag when Z3 is compiled in debug mode.
        It is a NOOP otherwise
+
+       \sa Z3_enable_trace
 
        def_API('Z3_disable_trace', VOID, (_in(STRING),))
     */
