@@ -39,7 +39,7 @@ public:
         }
     }
     
-    void add_var(unsigned j) {
+    void add_var(lpvar j) {
         rational c(1);
         add_monomial(c, j);
     }
@@ -65,8 +65,8 @@ public:
     // some terms get used in add constraint
     // it is the same as the offset in the m_constraints
 
-    vector<std::pair<mpq, unsigned>> coeffs_as_vector() const {
-        vector<std::pair<mpq, unsigned>> ret;
+    vector<std::pair<mpq, lpvar>> coeffs_as_vector() const {
+        vector<std::pair<mpq, lpvar>> ret;
         for (const auto & p :  m_coeffs) {
             ret.push_back(std::make_pair(p.m_value, p.m_key));
         }
@@ -93,7 +93,7 @@ public:
         m_coeffs.insert(k, b);
     }
     
-    bool contains(unsigned j) const {
+    bool contains(lpvar j) const {
         return m_coeffs.contains(j);
     }
 
@@ -116,11 +116,11 @@ public:
     }
 
     struct ival {
-        unsigned m_var;
+        lpvar m_var;
         const mpq & m_coeff;
-        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+        ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) {
         }
-        unsigned var() const { return m_var;}
+        lpvar var() const { return m_var;}
         const mpq & coeff() const { return m_coeff; }
     };
     

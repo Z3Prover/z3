@@ -31,6 +31,7 @@ class horner : common {
     intervals m_intervals;
 public:
     typedef nla_expr<rational> nex;
+    typedef intervals::interval interv;
     
     horner(core *core);
     void horner_lemmas();
@@ -42,6 +43,7 @@ public:
     
     nex nexvar(lpvar j) const;
     intervals::interval interval_of_sum(const nex&);
+    intervals::interval interval_of_sum_no_terms(const nex&);
     intervals::interval interval_of_mul(const nex&);
     void set_interval_for_scalar(intervals::interval&, const rational&);
     void set_var_interval(lpvar j, intervals::interval&);
@@ -49,6 +51,11 @@ public:
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
-    bool find_term_expr(rational& a, const lp::lar_term * & t, rational& b) const;
+    bool find_term_expr(const nex& e, rational& a, const lp::lar_term * & t, rational& b) const;
+    static lp::lar_term expression_to_canonical_form(nex&, rational& a, rational & b);
+    static void add_linear_to_vector(const nex&, vector<std::pair<rational, lpvar>> &);
+    static void add_mul_to_vector(const nex&, vector<std::pair<rational, lpvar>> &);
+    bool is_tighter(const interv&, const interv&) const;
+    bool interval_from_term(const nex& e, interv&) const;
 }; // end of horner
 }
