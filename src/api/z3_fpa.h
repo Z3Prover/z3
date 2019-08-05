@@ -218,6 +218,9 @@ extern "C" {
         \param c logical context
         \param s target sort
 
+        \sa Z3_mk_fpa_inf
+        \sa Z3_mk_fpa_zero
+
         def_API('Z3_mk_fpa_nan', AST, (_in(CONTEXT),_in(SORT)))
     */
     Z3_ast Z3_API Z3_mk_fpa_nan(Z3_context c, Z3_sort s);
@@ -231,6 +234,9 @@ extern "C" {
 
         When \c negative is \c true, -oo will be generated instead of +oo.
 
+        \sa Z3_mk_fpa_nan
+        \sa Z3_mk_fpa_zero
+
         def_API('Z3_mk_fpa_inf', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
     Z3_ast Z3_API Z3_mk_fpa_inf(Z3_context c, Z3_sort s, bool negative);
@@ -243,6 +249,9 @@ extern "C" {
         \param negative indicates whether the result should be negative
 
         When \c negative is \c true, -zero will be generated instead of +zero.
+
+        \sa Z3_mk_fpa_inf
+        \sa Z3_mk_fpa_nan
 
         def_API('Z3_mk_fpa_zero', AST, (_in(CONTEXT),_in(SORT),_in(BOOL)))
     */
@@ -262,6 +271,13 @@ extern "C" {
         \param exp exponent
         \param sig significand
 
+        \sa Z3_mk_fpa_numeral_double
+        \sa Z3_mk_fpa_numeral_float
+        \sa Z3_mk_fpa_numeral_int
+        \sa Z3_mk_fpa_numeral_int_uint
+        \sa Z3_mk_fpa_numeral_int64_uint64
+        \sa Z3_mk_numeral
+
         def_API('Z3_mk_fpa_fp', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(AST)))
     */
     Z3_ast Z3_API Z3_mk_fpa_fp(Z3_context c, Z3_ast sgn, Z3_ast exp, Z3_ast sig);
@@ -278,6 +294,11 @@ extern "C" {
 
         \c ty must be a FloatingPoint sort
 
+        \sa Z3_mk_fpa_fp
+        \sa Z3_mk_fpa_numeral_double
+        \sa Z3_mk_fpa_numeral_int
+        \sa Z3_mk_fpa_numeral_int_uint
+        \sa Z3_mk_fpa_numeral_int64_uint64
         \sa Z3_mk_numeral
 
         def_API('Z3_mk_fpa_numeral_float', AST, (_in(CONTEXT), _in(FLOAT), _in(SORT)))
@@ -296,6 +317,11 @@ extern "C" {
 
         \c ty must be a FloatingPoint sort
 
+        \sa Z3_mk_fpa_fp
+        \sa Z3_mk_fpa_numeral_float
+        \sa Z3_mk_fpa_numeral_int
+        \sa Z3_mk_fpa_numeral_int_uint
+        \sa Z3_mk_fpa_numeral_int64_uint64
         \sa Z3_mk_numeral
 
         def_API('Z3_mk_fpa_numeral_double', AST, (_in(CONTEXT), _in(DOUBLE), _in(SORT)))
@@ -311,6 +337,11 @@ extern "C" {
 
         \c ty must be a FloatingPoint sort
 
+        \sa Z3_mk_fpa_fp
+        \sa Z3_mk_fpa_numeral_double
+        \sa Z3_mk_fpa_numeral_float
+        \sa Z3_mk_fpa_numeral_int_uint
+        \sa Z3_mk_fpa_numeral_int64_uint64
         \sa Z3_mk_numeral
 
         def_API('Z3_mk_fpa_numeral_int', AST, (_in(CONTEXT), _in(INT), _in(SORT)))
@@ -328,6 +359,11 @@ extern "C" {
 
         \c ty must be a FloatingPoint sort
 
+        \sa Z3_mk_fpa_fp
+        \sa Z3_mk_fpa_numeral_double
+        \sa Z3_mk_fpa_numeral_float
+        \sa Z3_mk_fpa_numeral_int
+        \sa Z3_mk_fpa_numeral_int64_uint64
         \sa Z3_mk_numeral
 
         def_API('Z3_mk_fpa_numeral_int_uint', AST, (_in(CONTEXT), _in(BOOL), _in(INT), _in(UINT), _in(SORT)))
@@ -345,6 +381,11 @@ extern "C" {
 
         \c ty must be a FloatingPoint sort
 
+        \sa Z3_mk_fpa_fp
+        \sa Z3_mk_fpa_numeral_double
+        \sa Z3_mk_fpa_numeral_float
+        \sa Z3_mk_fpa_numeral_int
+        \sa Z3_mk_fpa_numeral_int_uint
         \sa Z3_mk_numeral
 
         def_API('Z3_mk_fpa_numeral_int64_uint64', AST, (_in(CONTEXT), _in(BOOL), _in(INT64), _in(UINT64), _in(SORT)))

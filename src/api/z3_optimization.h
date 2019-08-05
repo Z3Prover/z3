@@ -82,6 +82,7 @@ extern "C" {
        \param id - optional identifier to group soft constraints
 
        \sa Z3_optimize_assert
+       \sa Z3_optimize_assert_and_track
 
        def_API('Z3_optimize_assert_soft', UINT, (_in(CONTEXT), _in(OPTIMIZE), _in(AST), _in(STRING), _in(SYMBOL)))
     */
