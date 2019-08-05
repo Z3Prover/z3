@@ -1549,7 +1549,6 @@ namespace nlsat {
             TRACE("nlsat_proof", tout << "resolving "; if (b != null_bool_var) display_atom(tout, b) << "\n"; display(tout, sz, c); tout << "\n";);
             TRACE("nlsat_proof_sk", tout << "resolving "; if (b != null_bool_var) tout << "b" << b; tout << "\n"; display_abst(tout, sz, c); tout << "\n";); 
 
-            bool found_decision = false;
             for (unsigned i = 0; i < sz; i++) {
                 if (c[i].var() != b)
                     process_antecedent(c[i]);
