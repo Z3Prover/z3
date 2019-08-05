@@ -33,7 +33,8 @@ lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_int_solver(nullptr),
                            m_terms_start_index(1000000),
                            m_var_register(0),
-                           m_term_register(m_terms_start_index)
+                           m_term_register(m_terms_start_index),
+                           m_need_register_terms(true) // change to false
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
@@ -1419,7 +1420,7 @@ std::ostream& lar_solver::print_term(lar_term const& term, std::ostream & out) c
     return out;
 }
 
-std::ostream& lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) const {
+std::ostream& lar_solver::print_term_as_indices(lar_term const& term, std::ostream & out) {
     print_linear_combination_of_column_indices_only(term.coeffs_as_vector(), out);
     return out;
 }
@@ -1766,7 +1767,7 @@ void lar_solver::add_new_var_to_core_fields_for_mpq(bool register_in_basis) {
 
 
 var_index lar_solver::add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs) {
-    push_and_register_term(new lar_term(coeffs));
+    push_term(new lar_term(coeffs));
     return m_terms_start_index + m_terms.size() - 1;
 }
 
@@ -1797,11 +1798,7 @@ bool lar_solver::term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & co
     return false;
 }
 #endif
-void lar_solver::push_and_register_term(lar_term* t) {
-#if Z3DEBUG_CHECK_UNIQUE_TERMS
-    lp_assert(m_set_of_terms.find(t) == m_set_of_terms.end());
-    m_set_of_terms.insert(t);
-#endif
+void lar_solver::push_term(lar_term* t) {
     m_terms.push_back(t);
 }
 
@@ -1821,8 +1818,8 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
         return add_term_undecided(coeffs);
-
-    push_and_register_term(new lar_term(coeffs));
+    lar_term * t = new lar_term(coeffs);
+    push_term(t);
     SASSERT(m_term_register.size() == m_terms.size());
     unsigned adjusted_term_index = m_terms.size() - 1;
     var_index ret = m_terms_start_index + adjusted_term_index;
@@ -1832,6 +1829,10 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
             m_rows_with_changed_bounds.insert(A_r().row_count() - 1);
     }
     lp_assert(m_var_register.size() == A_r().column_count());
+    if (m_need_register_terms) {
+        lar_term normalized_t = t->get_normalized_by_min_var();
+        m_normalized_terms_to_columns[normalized_t] = A_r().column_count() - 1;        
+    }
     return ret;
 }
 
@@ -2246,10 +2247,6 @@ bool lar_solver::column_corresponds_to_term(unsigned j) const {
     return m_var_register.local_to_external(j) >= m_terms_start_index;
 }
 
-var_index lar_solver::to_column(unsigned ext_j) const {
-    return m_var_register.external_to_local(ext_j);
-}
-
 bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& delta) {
     unsigned tj = term_index + m_terms_start_index;
     unsigned j;
@@ -2363,6 +2360,14 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
         settings().m_int_gomory_cut_period = 10000000;
         settings().set_hnf_cut_period(100000000);
     } 
+}
+void lar_solver::register_existing_terms() {
+    for (unsigned k = 0; k < m_terms.size(); k++) {
+        lar_term * t = m_terms[k];
+        lar_term normalized_t = t->get_normalized_by_min_var();
+        lpvar j = m_var_register.external_to_local(k + m_terms_start_index);
+        m_normalized_terms_to_columns[normalized_t] = j;        
+    }
 }
 } // namespace lp
 

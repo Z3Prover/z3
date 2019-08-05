@@ -22,14 +22,14 @@
 #include "util/map.h"
 namespace lp {
 class lar_term {
-
+    typedef unsigned lpvar;
     u_map<mpq> m_coeffs;
     // std::unordered_map<unsigned, mpq> m_coeffs;
 
 public:
     lar_term() {}
 
-    lar_term(const vector<std::pair<mpq, unsigned>>& coeffs) {
+    lar_term(const vector<std::pair<mpq, lpvar>>& coeffs) {
         for (const auto & p : coeffs) {
             add_coeff_var(p.first, p.second);
         }
@@ -41,7 +41,7 @@ public:
         }
     }
     
-    void add_coeff_var(const mpq& c, unsigned j) {
+    void add_coeff_var(const mpq& c, lpvar j) {
         if (c.is_zero())
             return;
         
@@ -55,7 +55,7 @@ public:
         }
     }
     
-    void add_var(unsigned j) {
+    void add_var(lpvar j) {
         rational c(1);
         add_coeff_var(c, j);
     }
@@ -76,8 +76,8 @@ public:
     // some terms get used in add constraint
     // it is the same as the offset in the m_constraints
 
-    vector<std::pair<mpq, unsigned>> coeffs_as_vector() const {
-        vector<std::pair<mpq, unsigned>> ret;
+    vector<std::pair<mpq, lpvar>> coeffs_as_vector() const {
+        vector<std::pair<mpq, lpvar>> ret;
         for (const auto & p :  m_coeffs) {
             ret.push_back(std::make_pair(p.m_value, p.m_key));
         }
@@ -85,7 +85,7 @@ public:
     }
 
     // j is the basic variable to substitute
-    void subst(unsigned j, indexed_vector<mpq> & li) {
+    void subst(lpvar j, indexed_vector<mpq> & li) {
         auto it = m_coeffs.find_iterator(j);
         if (it == m_coeffs.end()) return;
         const mpq & b = it->m_value;
@@ -97,14 +97,14 @@ public:
 
     // substitute a*j by a*k
     // assumes that the term contans a*j
-    void subst_var(unsigned j, unsigned k) {
+    void subst_var(lpvar j, lpvar k) {
         SASSERT(m_coeffs.find_iterator(j) != m_coeffs.end());
         mpq a = m_coeffs[j];
         m_coeffs.erase(j);
         m_coeffs.insert(k, a);
     }
     
-    bool contains(unsigned j) const {
+    bool contains(lpvar j) const {
         return m_coeffs.contains(j);
     }
 
@@ -127,11 +127,11 @@ public:
     }
     
     struct ival {
-        unsigned m_var;
+        lpvar m_var;
         const mpq & m_coeff;
-        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
+        ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) {
         }
-        unsigned var() const { return m_var;}
+        lpvar var() const { return m_var;}
         const mpq & coeff() const { return m_coeff; }
     };
 
@@ -160,6 +160,25 @@ public:
         bool operator!=(const self_type &other) const { return !(*this == other); }
     };
 
+    lar_term get_normalized_by_min_var() const {
+        lpvar min_var = -1;
+        mpq c;
+        for (const auto & p : *this) {
+            if (p.var() < min_var) {
+                min_var = p.var();
+                c = p.coeff();
+            }
+        }
+        lar_term r;
+        for (const auto & p : *this) {
+            if (p.var() != min_var) {
+                r.add_coeff_var(p.coeff() / c, p.var());
+            } else {
+                r.add_var(min_var);
+            }
+        }
+        return r;        
+    }
     const_iterator begin() const { return const_iterator(m_coeffs.begin());}
     const_iterator end() const { return const_iterator(m_coeffs.end()); }
 
