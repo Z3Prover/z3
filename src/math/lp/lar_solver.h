@@ -47,7 +47,7 @@ namespace lp {
 
 
 class lar_solver : public column_namer {
-
+    typedef unsigned lpvar;
     struct term_hasher {
         std::size_t operator()(const lar_term &t) const
         {            
@@ -73,7 +73,7 @@ class lar_solver : public column_namer {
         }
     };
 
-    std::unordered_map<lar_term, unsigned, term_hasher, term_comparer>  m_normalized_terms_to_columns;
+
 
     
     //////////////////// fields //////////////////////////
@@ -105,7 +105,8 @@ public:
     stacked_value<unsigned>                             m_term_count;
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
-    // end of fields
+    bool                                                m_need_register_terms;
+    std::unordered_map<lar_term, unsigned, term_hasher, term_comparer>  m_normalized_terms_to_columns;    // end of fields
 
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
@@ -181,8 +182,7 @@ public:
     var_index add_term_undecided(const vector<std::pair<mpq, var_index>> & coeffs);
 
     bool term_coeffs_are_ok(const vector<std::pair<mpq, var_index>> & coeffs);
-    void push_and_register_term(lar_term* t);
-
+    void push_term(lar_term* t);
     void add_row_for_term(const lar_term * term, unsigned term_ext_index);
 
     void add_row_from_term_no_constraint(const lar_term * term, unsigned term_ext_index);
@@ -505,7 +505,7 @@ public:
 
     std::ostream& print_term(lar_term const& term, std::ostream & out) const;
 
-    std::ostream& print_term_as_indices(lar_term const& term, std::ostream & out) const;
+    static std::ostream& print_term_as_indices(lar_term const& term, std::ostream & out);
 
     std::ostream& print_constraint(const lar_base_constraint * c, std::ostream & out) const;
     std::ostream& print_constraint_indices_only(const lar_base_constraint * c, std::ostream & out) const;
@@ -628,7 +628,6 @@ public:
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
-    var_index to_column(unsigned ext_j) const;
     bool tighten_term_bounds_by_delta(unsigned, const impq&);
     void round_to_integer_solution();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
@@ -644,5 +643,6 @@ public:
     void fix_Ax_b_on_rounded_rows();
     void fix_Ax_b_on_rounded_row(unsigned);
     void collect_rounded_rows_to_fix();
+    void register_existing_terms();
 };
 }

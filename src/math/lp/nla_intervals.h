@@ -185,7 +185,46 @@ public:
         m_config.add_deps(a, b, deps, i);
     }
 
+    bool is_tighter_on_lower(const interval& a, const interval& b) const {
+        if (lower_is_inf(a))
+            return false;
+        if (lower_is_inf(b))
+            return true;
+        if (rational(lower(a)) < rational(lower(b)))
+            return true;
+        if (lower(a) > lower(b))
+            return false;
+
+        if (!a.m_lower_open)
+            return false;
+        if (b.m_lower_open)
+            return false;
+
+        return true;
+    }
+
+    bool is_tighter_on_upper(const interval& a, const interval& b) const {
+        if (upper_is_inf(a))
+            return false;
+        if (upper_is_inf(b))
+            return true;
+        if (rational(upper(a)) > rational(upper(b)))
+            return true;
+        if (rational(upper(a)) < rational(upper(b)))
+            return false;
+
+        if (!a.m_upper_open)
+            return false;
+        if (b.m_upper_open)
+            return false;
+
+        return true;
+    }
     
+    bool is_tighter(const interval& a, const interval& b) const {
+        return (is_tighter_on_lower(a, b) && !is_tighter_on_upper(b, a)) ||
+            (is_tighter_on_upper(a, b) && is_tighter_on_lower(b, a));
+    }
     
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }    
