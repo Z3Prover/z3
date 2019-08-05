@@ -49,8 +49,8 @@ namespace smt {
         m_iteration_idx(0),
         m_has_rec_fun(false),
         m_curr_model(nullptr),
-        m_pinned_exprs(m),
-        m_fresh_exprs(m) {
+        m_fresh_exprs(m),
+        m_pinned_exprs(m) {
     }
 
     model_checker::~model_checker() {
