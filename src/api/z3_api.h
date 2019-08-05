@@ -3698,7 +3698,7 @@ extern "C" {
     Z3_func_decl Z3_API Z3_mk_piecewise_linear_order(Z3_context c, Z3_sort a, unsigned id);
 
     /**
-       \brief create a tree ordering lreation over signature \c a identified using index \c id.
+       \brief create a tree ordering relation over signature \c a identified using index \c id.
 
        def_API('Z3_mk_tree_order', FUNC_DECL, (_in(CONTEXT), _in(SORT), _in(UINT)))
      */
