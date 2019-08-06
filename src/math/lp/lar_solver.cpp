@@ -2366,13 +2366,17 @@ void lar_solver::register_normalized_term(const lar_term& t, lpvar j) {
     lar_term normalized_t = t.get_normalized_by_min_var();
     TRACE("lar_solver_terms", tout << "t="; print_term_as_indices(t, tout);
           tout << ", normalized_t="; print_term_as_indices(normalized_t, tout) << "\n";);
-    lp_assert(m_normalized_terms_to_columns.find(normalized_t) == m_normalized_terms_to_columns.end());
-    m_normalized_terms_to_columns[normalized_t] = j;            
+    if (m_normalized_terms_to_columns.find(normalized_t) == m_normalized_terms_to_columns.end()) {
+        m_normalized_terms_to_columns[normalized_t] = j;
+    } else {
+        TRACE("lar_solver_terms", tout << "the term has been seen already\n";);        
+    }
 }
 
 void lar_solver::deregister_normalized_term(const lar_term& t) {
+    TRACE("lar_solver_terms", tout << "deregister term ";
+          print_term_as_indices(t, tout) << "\n";);
     lar_term normalized_t = t.get_normalized_by_min_var();
-    lp_assert(m_normalized_terms_to_columns.find(normalized_t) != m_normalized_terms_to_columns.end());
     m_normalized_terms_to_columns.erase(normalized_t);
 }
 
@@ -2385,9 +2389,15 @@ void lar_solver::register_existing_terms() {
 }
 
 unsigned lar_solver::fetch_normalized_term_column(const lar_term& c) const {
+    TRACE("lar_solver_terms", tout << "looking for term ";
+          print_term_as_indices(c, tout) << "\n";);
+    lp_assert(c.is_normalized());
     auto it = m_normalized_terms_to_columns.find(c);
-    if (it != m_normalized_terms_to_columns.end())
+    if (it != m_normalized_terms_to_columns.end()) {
+        TRACE("lar_solver_terms", tout << "got " << it->second << "\n" ;);
         return it->second;
+    }
+    TRACE("lar_solver_terms", tout << "have not found\n";);
     return -1;
 }
 } // namespace lp

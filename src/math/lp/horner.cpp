@@ -241,7 +241,7 @@ void horner::add_linear_to_vector(const nex& e, vector<std::pair<rational, lpvar
         SASSERT(false);
     }
 }
-// e = a * can_t + b, but we do not calculate the offset here
+// e = a * can_t + b
 lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational& b) {
     TRACE("nla_horner_details", tout << e << "\n";);
     lpvar smallest_j;
@@ -253,12 +253,13 @@ lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational
             b += c.value();
         } else {
             add_linear_to_vector(c, v);
-            if (v.size() == 1 || smallest_j <  v.back().second) {
+            if (v.size() == 1 || smallest_j > v.back().second) {
                 smallest_j = v.back().second;
                 a_index = v.size() - 1;
             }
         }
     }
+    TRACE("nla_horner_details", tout << "a_index = " << a_index << ", v="; print_vector(v, tout) << "\n";);
     a = v[a_index].first;
     lp::lar_term t;
 
@@ -277,7 +278,8 @@ lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational
         }
     }
     TRACE("nla_horner_details", tout << a << "* (";
-          lp::lar_solver::print_term_as_indices(t, tout) << ") + " << b << std::endl;); 
+          lp::lar_solver::print_term_as_indices(t, tout) << ") + " << b << std::endl;);
+    SASSERT(t.is_normalized());
     return t;
 }
 
@@ -346,7 +348,7 @@ interv horner::interval_of_sum(const nex& e) {
     TRACE("nla_horner_details", tout << "e=" << e << "\n";);
     SASSERT(e.is_sum());
     interv i_e = interval_of_sum_no_terms(e);
-    if (e.sum_is_linear()) {
+    if (e.sum_is_a_linear_term()) {
         interv i_from_term ;
         if (interval_from_term(e, i_from_term)
             &&

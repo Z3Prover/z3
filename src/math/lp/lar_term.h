@@ -160,13 +160,31 @@ public:
         bool operator!=(const self_type &other) const { return !(*this == other); }
     };
 
+    bool is_normalized() const {
+        lpvar min_var = -1;
+        mpq c;
+        for (const auto & p : *this) {
+            if (p.var() < min_var) {
+                min_var = p.var();
+            }
+        }
+        lar_term r;
+        for (const auto & p : *this) {
+            if (p.var() == min_var) {
+                return p.coeff().is_one();
+            }
+        }
+        lp_unreachable();
+        return false;        
+    }
+    
     lar_term get_normalized_by_min_var() const {
         lpvar min_var = -1;
         mpq c;
         for (const auto & p : *this) {
             if (p.var() < min_var) {
                 min_var = p.var();
-                c = p.coeff();
+                c = p.coeff(); // todo: avoid the copy
             }
         }
         lar_term r;

@@ -376,17 +376,20 @@ public:
         return *this;
     }
 
-    bool sum_is_linear() const {
+    bool sum_is_a_linear_term() const {
         SASSERT(is_sum());
         int degree = 0;
+        unsigned number_of_non_scalars = 0;
         for (auto & e : children()) {
             int d = e.get_degree();
             if (d > 1)
                 return false;
             if (d > degree)
                 degree = d;
+            if (!e.is_scalar())
+                number_of_non_scalars++;
         }
-        return degree == 1;
+        return degree == 1 && number_of_non_scalars > 1;
     }
 
     int get_degree() const {
