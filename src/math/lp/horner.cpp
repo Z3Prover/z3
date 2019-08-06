@@ -242,7 +242,7 @@ void horner::add_linear_to_vector(const nex& e, vector<std::pair<rational, lpvar
     }
 }
 // e = a * can_t + b, but we do not calculate the offset here
-lp::lar_term horner::expression_to_canonical_form(nex& e, rational& a, rational& b) {
+lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational& b) {
     TRACE("nla_horner_details", tout << e << "\n";);
     lpvar smallest_j;
     vector<std::pair<rational, lpvar>> v;
@@ -281,12 +281,10 @@ lp::lar_term horner::expression_to_canonical_form(nex& e, rational& a, rational&
     return t;
 }
 
-bool horner::find_term_expr(const nex& e, rational& a, const lp::lar_term* &t, rational& b) const {
+lpvar horner::find_term_column(const nex& e, rational& a, rational& b) const {
     nex n = e;
-    lp::lar_term can_t = expression_to_canonical_form(n, a, b);
-    TRACE("nla_horner_details", tout << "term = "; c().m_lar_solver.print_term(can_t, tout) << "\n";);
-    SASSERT(false);
-    return false;
+    lp::lar_term norm_t = expression_to_normalized_term(n, a, b);
+    return c().m_lar_solver.fetch_normalized_term_column(norm_t);
 }
 
 interv horner::interval_of_sum_no_terms(const nex& e) {
@@ -326,10 +324,21 @@ interv horner::interval_of_sum_no_terms(const nex& e) {
 bool horner::interval_from_term(const nex& e, interv & i) const {
     rational a, b;
     nex n = e;
-    lp::lar_term canonical_t = expression_to_canonical_form(n, a, b);
-    // TRACE("nla_horner_details",     
-    SASSERT(false);
-    return false;
+    lpvar j = find_term_column(n, a, b);
+    if (j + 1 == 0)
+        return false;
+
+    set_var_interval(j, i);
+    interv bi;
+    m_intervals.mul(a, i, bi);
+    m_intervals.add(b, bi);
+    m_intervals.set(i, bi);
+    
+    TRACE("nla_horner",
+          c().m_lar_solver.print_column_info(j, tout) << "\n";
+          tout << "a=" << a << ", b=" << b << "\n"; 
+          tout << e << ", interval = "; m_intervals.display(tout, i););
+    return true;
 }
 
 
@@ -349,7 +358,7 @@ interv horner::interval_of_sum(const nex& e) {
 }
 
 // sets the dependencies also
-void horner::set_var_interval(lpvar v, interv& b) {
+void horner::set_var_interval(lpvar v, interv& b) const{
     m_intervals.set_var_interval_with_deps(v, b);    
     TRACE("nla_horner_details_var", tout << "v = "; print_var(v, tout) << "\n"; m_intervals.display(tout, b););    
 }

@@ -34,7 +34,7 @@ lar_solver::lar_solver() : m_status(lp_status::UNKNOWN),
                            m_terms_start_index(1000000),
                            m_var_register(0),
                            m_term_register(m_terms_start_index),
-                           m_need_register_terms(true) // change to false
+                           m_need_register_terms(false)
 {}
     
 void lar_solver::set_track_pivoted_rows(bool v) {
@@ -385,9 +385,8 @@ void lar_solver::pop(unsigned k) {
     m_constraints.resize(m_constraint_count);
     m_term_count.pop(k);
     for (unsigned i = m_term_count; i < m_terms.size(); i++) {
-#if Z3DEBUG_CHECK_UNIQUE_TERMS
-        m_set_of_terms.erase(m_terms[i]);
-#endif
+        if (m_need_register_terms)
+            deregister_normalized_term(*m_terms[i]);
         delete m_terms[i];
     }
     m_term_register.shrink(m_term_count);
@@ -1814,6 +1813,8 @@ bool lar_solver::all_vars_are_registered(const vector<std::pair<mpq, var_index>>
 }
 
 var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs, unsigned ext_i) {
+    TRACE("lar_solver_terms", print_linear_combination_of_column_indices_only(coeffs, tout) << ", ext_i =" << ext_i << "\n";); 
+          
     m_term_register.add_var(ext_i);
     lp_assert(all_vars_are_registered(coeffs));
     if (strategy_is_undecided())
@@ -1830,8 +1831,7 @@ var_index lar_solver::add_term(const vector<std::pair<mpq, var_index>> & coeffs,
     }
     lp_assert(m_var_register.size() == A_r().column_count());
     if (m_need_register_terms) {
-        lar_term normalized_t = t->get_normalized_by_min_var();
-        m_normalized_terms_to_columns[normalized_t] = A_r().column_count() - 1;        
+        register_normalized_term(*t, A_r().column_count() - 1); 
     }
     return ret;
 }
@@ -2361,13 +2361,34 @@ void lar_solver::set_cut_strategy(unsigned cut_frequency) {
         settings().set_hnf_cut_period(100000000);
     } 
 }
+
+void lar_solver::register_normalized_term(const lar_term& t, lpvar j) {
+    lar_term normalized_t = t.get_normalized_by_min_var();
+    TRACE("lar_solver_terms", tout << "t="; print_term_as_indices(t, tout);
+          tout << ", normalized_t="; print_term_as_indices(normalized_t, tout) << "\n";);
+    lp_assert(m_normalized_terms_to_columns.find(normalized_t) == m_normalized_terms_to_columns.end());
+    m_normalized_terms_to_columns[normalized_t] = j;            
+}
+
+void lar_solver::deregister_normalized_term(const lar_term& t) {
+    lar_term normalized_t = t.get_normalized_by_min_var();
+    lp_assert(m_normalized_terms_to_columns.find(normalized_t) != m_normalized_terms_to_columns.end());
+    m_normalized_terms_to_columns.erase(normalized_t);
+}
+
 void lar_solver::register_existing_terms() {
+    TRACE("nla_solver", tout << "registering " << m_terms.size() << " terms\n";);
     for (unsigned k = 0; k < m_terms.size(); k++) {
-        lar_term * t = m_terms[k];
-        lar_term normalized_t = t->get_normalized_by_min_var();
         lpvar j = m_var_register.external_to_local(k + m_terms_start_index);
-        m_normalized_terms_to_columns[normalized_t] = j;        
+        register_normalized_term(*m_terms[k], j);
     }
+}
+
+unsigned lar_solver::fetch_normalized_term_column(const lar_term& c) const {
+    auto it = m_normalized_terms_to_columns.find(c);
+    if (it != m_normalized_terms_to_columns.end())
+        return it->second;
+    return -1;
 }
 } // namespace lp
 
