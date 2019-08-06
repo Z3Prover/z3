@@ -23,6 +23,7 @@
 namespace lp {
 class lar_term {
     // the term evaluates to sum of m_coeffs 
+    typedef unsigned lpvar;
     u_map<mpq> m_coeffs;
 public:
     lar_term() {}
@@ -149,8 +150,41 @@ public:
         bool operator!=(const self_type &other) const { return !(*this == other); }
     };
 
-    
-    const_iterator begin() const { return m_coeffs.begin();}
-    const_iterator end() const { return m_coeffs.end(); }
+    bool is_normalized() const {
+        lpvar min_var = -1;
+        mpq c;
+        for (const auto & p : *this) {
+            if (p.var() < min_var) {
+                min_var = p.var();
+            }
+        }
+        lar_term r;
+        for (const auto & p : *this) {
+            if (p.var() == min_var) {
+                return p.coeff().is_one();
+            }
+        }
+        lp_unreachable();
+        return false;        
+    }
+
+    // a is the coefficient by which we diveded the term to normalize it
+    lar_term get_normalized_by_min_var(mpq& a) const {
+        a = m_coeffs.begin()->second;
+        if (a.is_one()) {
+            return *this;
+        }
+        lar_term r;
+        auto it = m_coeffs.begin();
+        r.add_var(it->first);
+        it++;
+        for(;it != m_coeffs.end(); it++) {
+            r.add_coeff_var(it->second / a, it->first);
+        }
+        return r;        
+    }
+    const_iterator begin() const { return const_iterator(m_coeffs.begin());}
+    const_iterator end() const { return const_iterator(m_coeffs.end()); }
+
 };
 }

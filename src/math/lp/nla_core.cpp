@@ -955,7 +955,7 @@ void core::init_search() {
 }
 
 void core::init_to_refine() {
-    TRACE("nla_solver", tout << "emons:" << pp_emons(*this, m_emons););
+    TRACE("nla_solver_details", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
     m_to_refine.resize(m_lar_solver.number_of_vars());
     unsigned r = random(), sz = m_emons.number_of_monomials();
