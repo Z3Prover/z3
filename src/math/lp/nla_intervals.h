@@ -171,10 +171,31 @@ public:
     void set_upper_is_open(interval & a, bool strict) { m_config.set_upper_is_open(a, strict); }
     void set_upper_is_inf(interval & a, bool inf) { m_config.set_upper_is_inf(a, inf); }
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
+    void mul(const rational& r, const interval& a, interval& b) const {       
+        m_imanager.mul(r.to_mpq(), a, b);
+        if (r.is_pos()) {
+            b.m_lower_dep = a.m_lower_dep;
+            b.m_upper_dep = a.m_upper_dep;
+        } else {
+            SASSERT(r.is_neg());
+            b.m_upper_dep = a.m_lower_dep;
+            b.m_lower_dep = a.m_upper_dep;
+        }
+    }
+
+    void add(const rational& r, interval& a) const {
+        if (!a.m_lower_inf) {
+            m_config.set_lower(a, a.m_lower + r);
+        }
+        if (!a.m_upper_inf) {
+            m_config.set_upper(a, a.m_upper + r);
+        }
+    }
+
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
     void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
-    void set(interval& a, const interval& b) {
+    void set(interval& a, const interval& b) const {
         m_imanager.set(a, b);
         a.m_lower_dep = b.m_lower_dep;
         a.m_upper_dep = b.m_upper_dep;
@@ -228,7 +249,7 @@ public:
     
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }    
-    void set_var_interval_with_deps(lpvar, interval &);
+    void set_var_interval_with_deps(lpvar, interval &) const;
     void set_zero_interval_deps_for_mult(interval&);
     bool is_inf(const interval& i) const { return m_config.is_inf(i); }
     bool check_interval_for_conflict_on_zero(const interval & i);

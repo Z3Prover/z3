@@ -46,13 +46,13 @@ public:
     intervals::interval interval_of_sum_no_terms(const nex&);
     intervals::interval interval_of_mul(const nex&);
     void set_interval_for_scalar(intervals::interval&, const rational&);
-    void set_var_interval(lpvar j, intervals::interval&);
+    void set_var_interval(lpvar j, intervals::interval&) const;
     bool lemmas_on_expr(nex &);
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
-    bool find_term_expr(const nex& e, rational& a, const lp::lar_term * & t, rational& b) const;
-    static lp::lar_term expression_to_canonical_form(nex&, rational& a, rational & b);
+    lpvar find_term_column(const nex& e, rational& a, rational& b) const;
+    static lp::lar_term expression_to_normalized_term(nex&, rational& a, rational & b);
     static void add_linear_to_vector(const nex&, vector<std::pair<rational, lpvar>> &);
     static void add_mul_to_vector(const nex&, vector<std::pair<rational, lpvar>> &);
     bool is_tighter(const interv&, const interv&) const;

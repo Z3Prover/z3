@@ -644,5 +644,8 @@ public:
     void fix_Ax_b_on_rounded_row(unsigned);
     void collect_rounded_rows_to_fix();
     void register_existing_terms();
+    void register_normalized_term(const lar_term&, lpvar);
+    void deregister_normalized_term(const lar_term&);
+    lpvar fetch_normalized_term_column(const lar_term& t) const;
 };
 }

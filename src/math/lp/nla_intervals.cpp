@@ -4,7 +4,7 @@
 #include "util/mpq.h"
 
 namespace nla {
-void intervals::set_var_interval_with_deps(lpvar v, interval& b) {
+void intervals::set_var_interval_with_deps(lpvar v, interval& b) const {
     lp::constraint_index ci;
     rational val;
     bool is_strict;
