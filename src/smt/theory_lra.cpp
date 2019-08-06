@@ -2005,11 +2005,6 @@ public:
     }
 
     bool can_propagate() {
-#if 0
-        if (ctx().at_base_level() && has_delayed_constraints()) {
-            // we could add the delayed constraints here directly to the tableau instead of using bounds variables.
-        }
-#endif
         return m_asserted_atoms.size() > m_asserted_qhead;
     }
 
