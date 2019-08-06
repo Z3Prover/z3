@@ -281,6 +281,9 @@ namespace smt {
             ast_manager& m = get_manager();
             if (!m_cuber) {
                 m_cuber = alloc(cuber, *this);
+                // force propagation
+                push_core();
+                pop_core(1);
             }
             expr_ref result = m_cuber->cube();
             expr_ref_vector lits(m);

@@ -264,7 +264,8 @@ public:
     }
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned backtrack_level) override {
-        return m_solver1->cube(vars, backtrack_level);
+        switch_inc_mode();
+        return m_solver2->cube(vars, backtrack_level);
     }
 
     expr * get_assumption(unsigned idx) const override {

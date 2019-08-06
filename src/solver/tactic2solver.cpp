@@ -80,6 +80,7 @@ public:
 
     expr_ref_vector cube(expr_ref_vector& vars, unsigned ) override {
         set_reason_unknown("cubing is not supported on tactics");
+        IF_VERBOSE(1, verbose_stream() << "cubing is not supported on tactics\n");
         return expr_ref_vector(get_manager());
     }
 
