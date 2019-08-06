@@ -93,7 +93,6 @@ class elim_uncnstr_tactic : public tactic {
             }
             
             v = m().mk_fresh_const(nullptr, m().get_sort(t));
-            std::cout << mk_pp(t, m()) << " -> " << mk_pp(v, m()) << "\n";
             TRACE("elim_uncnstr_bug", tout << "eliminating:\n" << mk_ismt2_pp(t, m()) << "\n";);
             TRACE("elim_uncnstr_bug_ll", tout << "eliminating:\n" << mk_bounded_pp(t, m()) << "\n";);
             m_fresh_vars.push_back(v);
