@@ -2015,29 +2015,16 @@ public:
         }
         while (m_asserted_qhead < m_asserted_atoms.size() && !ctx().inconsistent()) {
             bool_var bv  = m_asserted_atoms[m_asserted_qhead].m_bv;
-            bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;
-                
-#if 1
+            bool is_true = m_asserted_atoms[m_asserted_qhead].m_is_true;                
             m_to_check.push_back(bv);
-#else
-            propagate_bound(bv, is_true, b);
-#endif
             lp_api::bound& b = *m_bool_var2bound.find(bv);
-            assert_bound(bv, is_true, b);
-                
-
+            assert_bound(bv, is_true, b);                
             ++m_asserted_qhead;
         }
         if (ctx().inconsistent()) {
             m_to_check.reset();
             return;
         }
-        /*for (; qhead < m_asserted_atoms.size() && !ctx().inconsistent(); ++qhead) {
-          bool_var bv  = m_asserted_atoms[qhead].m_bv;
-          bool is_true = m_asserted_atoms[qhead].m_is_true;
-          lp_api::bound& b = *m_bool_var2bound.find(bv);
-          propagate_bound_compound(bv, is_true, b);
-          }*/
 
         lbool lbl = make_feasible();
             

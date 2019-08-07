@@ -107,6 +107,7 @@ class bv_rewriter : public poly_rewriter<bv_rewriter_core> {
     br_status mk_bv_shl(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_lshr(expr * arg1, expr * arg2, expr_ref & result);
     br_status mk_bv_ashr(expr * arg1, expr * arg2, expr_ref & result);
+    bool distribute_concat(decl_kind op, unsigned n, expr* const* args, expr_ref& result);
     bool is_minus_one_core(expr * arg) const;
     bool is_x_minus_one(expr * arg, expr * & x);
     bool is_add_no_overflow(expr* e);
