@@ -19,7 +19,8 @@
   --*/
 #pragma once
 #include "math/lp/indexed_vector.h"
-#include "util/map.h"
+#include <map>
+
 namespace lp {
 class lar_term {
     // the term evaluates to sum of m_coeffs 
@@ -69,7 +70,7 @@ public:
     vector<std::pair<mpq, lpvar>> coeffs_as_vector() const {
         vector<std::pair<mpq, lpvar>> ret;
         for (const auto & p :  m_coeffs) {
-            ret.push_back(std::make_pair(p.m_value, p.m_key));
+            ret.push_back(std::make_pair(p.second, p.first));
         }
         return ret;
     }
@@ -95,25 +96,25 @@ public:
     }
     
     bool contains(lpvar j) const {
-        return m_coeffs.contains(j);
+        return m_coeffs.find(j) != m_coeffs.end();
     }
 
     void negate() {
         for (auto & t : m_coeffs)
-            t.m_value.neg();
+            t.second.neg();
     }
 
     template <typename T>
     T apply(const vector<T>& x) const {
         T ret(0);
         for (const auto & t : m_coeffs) {
-            ret += t.m_value * x[t.m_key];
+            ret += t.second * x[t.first];
         }
         return ret;
     }
    
     void clear() {
-        m_coeffs.reset();
+        m_coeffs.clear();
     }
 
     struct ival {
@@ -137,13 +138,13 @@ public:
         typedef std::forward_iterator_tag iterator_category;
 
         reference operator*() const {
-            return ival(m_it->m_key, m_it->m_value);
+            return ival(m_it->first, m_it->second);
         }
         
         self_type operator++() {  self_type i = *this; m_it++; return i;  }
         self_type operator++(int) { m_it++; return *this; }
 
-        const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
+        const_iterator(std::map<lpvar, mpq>::const_iterator it) : m_it(it) {}
         bool operator==(const self_type &other) const {
             return m_it == other.m_it;
         }
