@@ -177,7 +177,7 @@ public:
         }
     }
 
-    unsigned size() {
+    unsigned size() const {
         switch(m_type) {
         case expr_type::SUM:
         case expr_type::MUL:
@@ -376,20 +376,20 @@ public:
         return *this;
     }
 
+    // we need a linear combination of at least two variables
     bool sum_is_a_linear_term() const {
         SASSERT(is_sum());
-        int degree = 0;
+        TRACE("nla_expr_details", tout << *this << "\n";);
         unsigned number_of_non_scalars = 0;
         for (auto & e : children()) {
             int d = e.get_degree();
-            if (d > 1)
-                return false;
-            if (d > degree)
-                degree = d;
-            if (!e.is_scalar())
-                number_of_non_scalars++;
+            if (d == 0) continue;
+            if (d > 1) return false;
+            
+            number_of_non_scalars++;
         }
-        return degree == 1 && number_of_non_scalars > 1;
+        TRACE("nla_expr_details", tout << (number_of_non_scalars > 1?"linear":"non-linear") << "\n";); 
+        return number_of_non_scalars > 1;
     }
 
     int get_degree() const {
