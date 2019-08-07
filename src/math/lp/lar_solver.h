@@ -57,8 +57,8 @@ class lar_solver : public column_namer {
             size_t seed = 0;
             int i = 0;
             for (const auto& p : t.coeffs()) {
-                hash_combine(seed, p.m_key);
-                hash_combine(seed, p.m_value);
+                hash_combine(seed, p.first);
+                hash_combine(seed, p.second);
                 if (i++ > 10)
                     break;
             }
@@ -102,7 +102,9 @@ public:
     vector<lar_term*>                                   m_terms;
     indexed_vector<mpq>                                 m_column_buffer;
     bool                                                m_need_register_terms;
-    std::unordered_map<lar_term, unsigned, term_hasher, term_comparer>  m_normalized_terms_to_columns;    // end of fields
+    std::unordered_map<lar_term, std::pair<mpq, unsigned>, term_hasher, term_comparer>
+                                                        m_normalized_terms_to_columns;
+    // end of fields
 
     unsigned terms_start_index() const { return m_terms_start_index; }
     const vector<lar_term*> & terms() const { return m_terms; }
@@ -644,6 +646,6 @@ public:
     void register_existing_terms();
     void register_normalized_term(const lar_term&, lpvar);
     void deregister_normalized_term(const lar_term&);
-    lpvar fetch_normalized_term_column(const lar_term& t) const;
+    bool fetch_normalized_term_column(const lar_term& t, std::pair<mpq, lpvar>& ) const;
 };
 }

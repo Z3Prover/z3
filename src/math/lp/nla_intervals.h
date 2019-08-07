@@ -101,8 +101,7 @@ class intervals : common {
                 (!lower_is_open(a)) && (!upper_is_open(a)) && 
                 unsynch_mpq_manager::is_zero(a.m_lower) &&
                 unsynch_mpq_manager::is_zero(a.m_upper); }
-
-            
+          
         // Setters
         void set_lower(interval & a, mpq const & n) const { m_manager.set(a.m_lower, n); }
         void set_upper(interval & a, mpq const & n) const { m_manager.set(a.m_upper, n); }
@@ -138,7 +137,7 @@ class intervals : common {
 
     small_object_allocator      m_alloc;
     ci_value_manager            m_val_manager;
-    unsynch_mpq_manager         m_num_manager;
+    mutable unsynch_mpq_manager         m_num_manager;
     mutable ci_dependency_manager       m_dep_manager;
     im_config                   m_config;
     mutable interval_manager<im_config> m_imanager;
@@ -181,7 +180,7 @@ public:
             b.m_upper_dep = a.m_lower_dep;
             b.m_lower_dep = a.m_upper_dep;
         }
-    }
+    }                   
 
     void add(const rational& r, interval& a) const {
         if (!a.m_lower_inf) {
@@ -206,45 +205,96 @@ public:
         m_config.add_deps(a, b, deps, i);
     }
 
-    bool is_tighter_on_lower(const interval& a, const interval& b) const {
-        if (lower_is_inf(a))
-            return false;
-        if (lower_is_inf(b))
-            return true;
-        if (rational(lower(a)) < rational(lower(b)))
-            return true;
-        if (lower(a) > lower(b))
-            return false;
+    void update_lower_for_intersection(const interval& a, const interval& b, interval & i) const {
+        if (a.m_lower_inf)  {
+            if (b.m_lower_inf)
+                return;
+            copy_lower_bound(b, i);
+            return;
+        }
+        
+        if (b.m_lower_inf)  {
+            SASSERT(!a.m_lower_inf);
+            copy_lower_bound(a, i);
+            return;
+        }
 
-        if (!a.m_lower_open)
-            return false;
-        if (b.m_lower_open)
-            return false;
+        if (m_num_manager.lt(a.m_lower, b.m_lower)) {
+            copy_lower_bound(b, i);
+            return;
+        }
 
-        return true;
+        if (m_num_manager.gt(a.m_lower, b.m_lower)) {
+            copy_lower_bound(a, i);
+            return;
+        }
+
+        SASSERT(m_num_manager.eq(a.m_lower, b.m_lower));
+        if (a.m_lower_open) { // we might consider to look at b.m_lower_open too here
+            copy_lower_bound(a, i);
+            return;
+        }
+
+        copy_lower_bound(b, i);
     }
 
-    bool is_tighter_on_upper(const interval& a, const interval& b) const {
-        if (upper_is_inf(a))
-            return false;
-        if (upper_is_inf(b))
-            return true;
-        if (rational(upper(a)) > rational(upper(b)))
-            return true;
-        if (rational(upper(a)) < rational(upper(b)))
-            return false;
+    void copy_upper_bound(const interval& a, interval & i) const {
+        SASSERT(a.m_upper_inf == false);
+        i.m_upper_inf = false;
+        m_config.set_upper(i, a.m_upper);
+        i.m_upper_dep = a.m_upper_dep;
+        i.m_upper_open = a.m_upper_open;
+    }
 
-        if (!a.m_upper_open)
-            return false;
-        if (b.m_upper_open)
-            return false;
-
-        return true;
+    void copy_lower_bound(const interval& a, interval & i) const {
+        SASSERT(a.m_lower_open == false);
+        i.m_lower_inf = false;
+        m_config.set_lower(i, a.m_lower);
+        i.m_lower_dep = a.m_lower_dep;
+        i.m_lower_open = a.m_lower_open;
     }
     
-    bool is_tighter(const interval& a, const interval& b) const {
-        return (is_tighter_on_lower(a, b) && !is_tighter_on_upper(b, a)) ||
-            (is_tighter_on_upper(a, b) && is_tighter_on_lower(b, a));
+    void update_upper_for_intersection(const interval& a, const interval& b, interval & i) const {
+        if (a.m_upper_inf)  {
+            if (b.m_upper_inf)
+                return;
+            copy_upper_bound(b, i);
+            return;
+        }
+        
+        if (b.m_upper_inf)  {
+            SASSERT(!a.m_upper_inf);
+            copy_upper_bound(a, i);
+            return;
+        }
+
+        if (m_num_manager.gt(a.m_upper, b.m_upper)) {
+            copy_upper_bound(b, i);
+            return;
+        }
+
+        if (m_num_manager.lt(a.m_upper, b.m_upper)) {
+            copy_upper_bound(a, i);
+            return;
+        }
+
+        SASSERT(m_num_manager.eq(a.m_upper, b.m_upper));
+        if (a.m_upper_open) { // we might consider to look at b.m_upper_open too here
+            copy_upper_bound(a, i);
+            return;
+        }
+
+        copy_upper_bound(b, i);
+    }
+    
+    interval intersect(const interval& a, const interval& b) const {
+        interval i;
+        TRACE("nla_interval_compare", tout << "a="; display(tout, a) << "\nb="; display(tout, b););
+        update_lower_for_intersection(a, b, i);
+        TRACE("nla_interval_compare", tout << "i="; display(tout, i) << "\n";);
+        update_upper_for_intersection(a, b, i);
+        TRACE("nla_interval_compare", tout << "i="; display(tout, i) << "\n";);
+        return i;
     }
     
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
@@ -257,5 +307,18 @@ public:
     bool check_interval_for_conflict_on_zero_upper(const interval & i);
     mpq const & lower(interval const & a) const { return m_config.lower(a); }
     mpq const & upper(interval const & a) const { return m_config.upper(a); }
+    bool is_empty(interval const & a) const {
+        if (a.m_lower_inf || a.m_upper_inf)
+            return false;
+        
+        if (m_num_manager.gt(a.m_lower, a.m_upper))
+            return true;
+        if (m_num_manager.lt(a.m_lower, a.m_upper))
+            return false;
+        if (a.m_lower_open || a.m_upper_open)
+            return true;
+        return false;
+    }
+
 }; // end of intervals
 } // end of namespace nla
