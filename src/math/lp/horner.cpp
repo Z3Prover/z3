@@ -206,7 +206,11 @@ interv horner::interval_of_mul(const nex& e) {
 
 void horner::add_mul_to_vector(const nex& e, vector<std::pair<rational, lpvar>> &v) {
     TRACE("nla_horner_details", tout << e << "\n";);
-    SASSERT(e.is_mul() && e.children().size() == 2);
+    SASSERT(e.is_mul() && e.size() > 0);
+    if (e.size() == 1) {
+        add_linear_to_vector(*(e.children().begin()), v);
+        return;
+    }
     rational r;
     lpvar j = -1;
     for (const nex & c : e.children()) {
@@ -236,9 +240,8 @@ void horner::add_linear_to_vector(const nex& e, vector<std::pair<rational, lpvar
         v.push_back(std::make_pair(rational(1), e.var()));
         break;
     default:
-        TRACE("nla_horner_details", tout << e.type() << "\n";);
-        UNREACHABLE();
-        SASSERT(false);
+        SASSERT(!e.is_sum());
+        // noop
     }
 }
 // e = a * can_t + b
@@ -253,7 +256,9 @@ lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational
             b += c.value();
         } else {
             add_linear_to_vector(c, v);
-            if (v.size() == 1 || smallest_j > v.back().second) {
+            if (v.empty())
+                continue;
+            if (v.size() == 1 ||  smallest_j > v.back().second) {
                 smallest_j = v.back().second;
                 a_index = v.size() - 1;
             }
