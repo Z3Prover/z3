@@ -1391,11 +1391,8 @@ std::ostream& core::print_terms(std::ostream& out) const {
         }
         
         const lp::lar_term & t = *m_lar_solver.m_terms[i];
-        print_term(t, out) << std::endl;        
+        out << "term:"; print_term(t, out) << std::endl;        
         lpvar j = m_lar_solver.external_to_local(ext);
-        SASSERT(j + 1);
-        auto e = mk_expr(t);
-        out << "e= " << e << "\n";        
         print_var(j, out);
     }
     return out;
