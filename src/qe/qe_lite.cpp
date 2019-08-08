@@ -145,6 +145,7 @@ namespace eq {
                     continue;
                 if (is_sub_extract(vars[i]->get_idx(), definitions[i])) {
                     order.push_back(i);
+                    done.mark(definitions[i]);
                     continue;
                 }
                 var * v = vars[i];
