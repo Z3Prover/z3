@@ -3,6 +3,7 @@ variables:
   cmakeStdArgs: '-DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
   asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
+  msanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=memory -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -fsanitize=memory -fno-omit-frame-pointer -g -O2"'
 
 jobs:
 
@@ -54,6 +55,9 @@ jobs:
         runUnitTest: 'True'
       releaseSTGcc:
         cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
+        runUnitTest: 'True'
+      msanClang:
+        cmdLine: 'CC=clang CXX=clang++ $(msanEnv) cmake $(cmakeStdArgs)'
         runUnitTest: 'True'
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
