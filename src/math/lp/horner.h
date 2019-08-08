@@ -28,11 +28,13 @@ class core;
 
 
 class horner : common {
-    intervals m_intervals;
+    intervals *m_intervals;
 public:
     typedef nla_expr<rational> nex;
     typedef intervals::interval interv;
-    
+    void set_intervals( intervals * i) {
+        m_intervals = i;
+    }
     horner(core *core);
     void horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
