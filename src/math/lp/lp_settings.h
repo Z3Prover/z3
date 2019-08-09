@@ -107,6 +107,9 @@ struct stats {
     unsigned m_hnf_cutter_calls;
     unsigned m_hnf_cuts;
     unsigned m_nla_calls;
+    unsigned m_horner_calls;
+    unsigned m_horner_conflicts;
+    unsigned m_cross_nested_forms;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };

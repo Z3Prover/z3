@@ -72,6 +72,7 @@ bool horner::lemmas_on_expr(nex& e) {
                            TRACE("nla_horner", tout << "callback n = " << n << "\ni="; m_intervals.display(tout, i) << "\n";);
                            
                            conflict = m_intervals.check_interval_for_conflict_on_zero(i);
+                           c().lp_settings().st().m_cross_nested_forms++;
                            m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
                            return conflict;
                        },
@@ -94,7 +95,7 @@ void horner::horner_lemmas() {
         TRACE("nla_solver", tout << "not generating horner lemmas\n";);
         return;
     }
-
+    c().lp_settings().st().m_horner_calls++;
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
@@ -112,8 +113,10 @@ void horner::horner_lemmas() {
     unsigned sz = rows.size();
     for (unsigned i = 0; i < sz; i++) {
         unsigned row_index = rows[(i + r) % sz];
-        if (lemmas_on_row(matrix.m_rows[row_index]))
+        if (lemmas_on_row(matrix.m_rows[row_index])) {
+            c().lp_settings().st().m_horner_conflicts++;
             break;
+        }
     }
 }
 
