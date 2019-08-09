@@ -4,6 +4,7 @@
 #include "ast/scoped_proof.h"
 #include "smt/smt_solver.h"
 
+#include "tactic/portfolio/smt_strategic_solver.h"
 namespace spacer {
 
 struct ground_sat_answer_op::frame {
@@ -53,7 +54,9 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
     // -- turn on proof mode so that proof constructing API in ast_manager work correctly
     scoped_proof _pf(m);
 
-    m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory(symbol::null));
+    m_solver = (*factory)(m, params_ref::get_empty(),
+                          m.proofs_enabled() /*proofs*/, true /*models*/, false /*unsat_core*/, symbol::null /*logic*/);
     vector<frame> todo, new_todo;
 
     // -- find substitution for a query if query is not nullary
@@ -100,6 +103,8 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
             todo.pop_back();
         }
     }
+
+    m_solver.reset();
     return proof_ref(m_cache.find(root_fact), m);
 }
 
@@ -124,6 +129,11 @@ void ground_sat_answer_op::mk_children(frame &fr, vector<frame> &todo) {
     m_solver->assert_expr(fr.pt().rule2tag(&r));
 
     lbool res = m_solver->check_sat(0, nullptr);
+    TRACE("spacer_sat_answer", m_solver->display(tout);
+          tout << "res is " << res << "\n";
+          tout << m_solver->get_params() << "\n";
+          );
+
     (void)res;
     VERIFY(res == l_true);
 
