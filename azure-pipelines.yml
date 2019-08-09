@@ -8,27 +8,27 @@ variables:
 
 jobs:
 
-- job: "LinuxPythonDebug"
-  displayName: "Ubuntu build - python make - debug"
-  pool:
-    vmImage: "Ubuntu-16.04"
-  strategy:
-    matrix:
-      MT:
-        cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
-      ST:
-        cmdLine: './configure --single-threaded'
-  steps:
-    - script: $(cmdLine)
-    - script: |
-        set -e
-        cd build
-        make -j3
-        make -j3 examples
-        make -j3 test-z3
-        cd ..
-    - template: scripts/test-z3.yml
-    - template: scripts/test-regressions.yml
+#- job: "LinuxPythonDebug"
+#  displayName: "Ubuntu build - python make - debug"
+#  pool:
+#    vmImage: "Ubuntu-16.04"
+#  strategy:
+#    matrix:
+#      MT:
+#        cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+#      ST:
+#        cmdLine: './configure --single-threaded'
+#  steps:
+#    - script: $(cmdLine)
+#    - script: |
+#        set -e
+#        cd build
+#        make -j3
+#        make -j3 examples
+#        make -j3 test-z3
+#        cd ..
+#    - template: scripts/test-z3.yml
+#    - template: scripts/test-regressions.yml
 
 #       ./cpp_example
 #       ./c_example
@@ -45,18 +45,18 @@ jobs:
     vmImage: "Ubuntu-16.04"
   strategy:
     matrix:
-      debugClang:
-        cmdLine: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
-        runUnitTest: 'True'
-      releaseClang:
-        cmdLine: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
-        runUnitTest: 'True'
-      debugGcc:
-        cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
-        runUnitTest: 'True'
-      releaseSTGcc:
-        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
-        runUnitTest: 'True'
+#      debugClang:
+#        cmdLine: 'CC=clang CXX=clang++ cmake $(cmakeStdArgs)'
+#        runUnitTest: 'True'
+#      releaseClang:
+#        cmdLine: 'CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release $(cmakeStdArgs)'
+#        runUnitTest: 'True'
+#      debugGcc:
+#        cmdLine: 'CC=gcc CXX=g++ cmake $(cmakeStdArgs)'
+#        runUnitTest: 'True'
+#      releaseSTGcc:
+#        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
+#        runUnitTest: 'True'
       msanClang:
         cmdLine: '$(asanEnv) cmake $(cmakeStdArgs) && ../scripts/build_libcxx_msan.sh'
         runUnitTest: 'False' # asanEnv doesn't seem to get picked up by unit tests
@@ -87,47 +87,47 @@ jobs:
     - template: scripts/test-regressions.yml
 
 
-- job: "Windows2017"
-  displayName: "Windows 2017 build"
-  pool:
-    vmImage: "vs2017-win2016"
-  steps:
-    - script: scripts\vsts-vs2017.cmd x64
+#- job: "Windows2017"
+#  displayName: "Windows 2017 build"
+#  pool:
+#    vmImage: "vs2017-win2016"
+#  steps:
+#    - script: scripts\vsts-vs2017.cmd x64
 
-- job: "MacOS"
-  displayName: "MacOS build"
-  pool:
-    vmImage: "macOS-10.14"
-  steps:
-    - script: python scripts/mk_make.py -d --java --dotnet
-    - script: |
-        set -e
-        cd build
-        make -j3
-        make -j3 examples
-        make -j3 test-z3
-        ./cpp_example
-        ./c_example
-        cd ..
-    - template: scripts/test-z3.yml
-    - template: scripts/test-regressions.yml
+#- job: "MacOS"
+#  displayName: "MacOS build"
+#  pool:
+#    vmImage: "macOS-10.14"
+#  steps:
+#    - script: python scripts/mk_make.py -d --java --dotnet
+#    - script: |
+#        set -e
+#        cd build
+#        make -j3
+#        make -j3 examples
+#        make -j3 test-z3
+#        ./cpp_example
+#        ./c_example
+#        cd ..
+#    - template: scripts/test-z3.yml
+#    - template: scripts/test-regressions.yml
 
 
-- job: "MacOSCMake"
-  displayName: "MacOS build with CMake"
-  pool:
-    vmImage: "macOS-10.14"
-  steps:
-    - script: brew install ninja
-    - script: |
-        set -e
-        mkdir build
-        cd build
-        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -DBUILD_DOTNET_BINDINGS=False -G "Ninja" ../
-        ninja
-        ninja test-z3
-        cd ..
-    - template: scripts/test-z3.yml
-    - template: scripts/test-examples-cmake.yml
-    - template: scripts/test-regressions.yml
+#- job: "MacOSCMake"
+#  displayName: "MacOS build with CMake"
+#  pool:
+#    vmImage: "macOS-10.14"
+#  steps:
+#    - script: brew install ninja
+#    - script: |
+#        set -e
+#        mkdir build
+#        cd build
+#        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -DBUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+#        ninja
+#        ninja test-z3
+#        cd ..
+#    - template: scripts/test-z3.yml
+#    - template: scripts/test-examples-cmake.yml
+#    - template: scripts/test-regressions.yml
 #   - template: scripts/test-java-cmake.yml
