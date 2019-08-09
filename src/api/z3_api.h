@@ -3674,10 +3674,8 @@ extern "C" {
     /** @name Special relations */
     /*@{*/
     /**
-       \brief declare \c a and \c b are in linear order over a relation indexed by \c id.
-
-       \pre a and b are of same type.
-       
+       \brief create a linear ordering relation over signature \c a.
+       The relation is identified by the index \c id.
 
        def_API('Z3_mk_linear_order', FUNC_DECL ,(_in(CONTEXT), _in(SORT), _in(UINT)))
      */
