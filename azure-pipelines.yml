@@ -72,7 +72,7 @@ jobs:
 #        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
 #        runUnitTest: 'False'
   steps:
-    - script: sudo apt-get install ninja-build
+    - script: sudo apt-get install ninja-build libc++-dev libc++abi-dev
     - script: ./scripts/build_libcxx_msan.sh
     - script: |
         set -e
