@@ -58,7 +58,7 @@ jobs:
 #        cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
 #        runUnitTest: 'True'
       msanClang:
-        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs) && ../scripts/build_libcxx_msan.sh'
+        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
         runUnitTest: 'False' # asanEnv doesn't seem to get picked up by unit tests
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
@@ -68,6 +68,7 @@ jobs:
 #        runUnitTest: 'False'
   steps:
     - script: sudo apt-get install ninja-build
+    - script: ./scripts/build_libcxx_msan.sh
     - script: |
         set -e
         mkdir build
