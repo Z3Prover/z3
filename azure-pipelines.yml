@@ -87,7 +87,7 @@ jobs:
          ./test-z3 -a
          cd ..
       condition: eq(variables['runUnitTest'], 'True')
-    - ${{if eq(runExample, 'True')}}:
+    - ${{if eq(variables['runExample'], 'True')}}:
       - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
