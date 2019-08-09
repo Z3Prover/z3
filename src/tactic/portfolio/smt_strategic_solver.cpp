@@ -3,7 +3,7 @@ Copyright (c) 2012 Microsoft Corporation
 
 Module Name:
 
-    smt_strategic_solver.h
+    smt_strategic_solver.cpp
 
 Abstract:
 

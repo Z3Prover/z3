@@ -25,7 +25,6 @@ Revision History:
 #include "smt/smt_solver.h"
 #include "parsers/smt2/smt2parser.h"
 #include "solver/solver_na2as.h"
-#include "tactic/portfolio/smt_strategic_solver.h"
 
 
 extern "C" {

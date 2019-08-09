@@ -32,7 +32,6 @@ Revision History:
 #include "api/api_ast_vector.h"
 #include "solver/tactic2solver.h"
 #include "util/file_path.h"
-#include "tactic/portfolio/smt_strategic_solver.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
