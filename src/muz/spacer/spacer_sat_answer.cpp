@@ -53,7 +53,11 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
     // -- turn on proof mode so that proof constructing API in ast_manager work correctly
     scoped_proof _pf(m);
 
-    m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    scoped_ptr<solver_factory> factory(mk_smt_strategic_solver_factory(symbol::null));
+    m_solver = (*factory)(m, params_ref::get_empty(),
+                          m.proofs_enabled() /*proofs*/, true /*models*/, false /*unsat_core*/, symbol::null /*logic*/);
+
+    // m_solver = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     vector<frame> todo, new_todo;
 
     // -- find substitution for a query if query is not nullary
@@ -100,6 +104,7 @@ proof_ref ground_sat_answer_op::operator()(pred_transformer &query) {
             todo.pop_back();
         }
     }
+    m_solver.reset();
     return proof_ref(m_cache.find(root_fact), m);
 }
 

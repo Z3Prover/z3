@@ -32,6 +32,8 @@ public:
     virtual solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) = 0;
 };
 
+solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
+
 /**
    \brief Abstract interface for making solvers available in the Z3
    API and front-ends such as SMT 2.0 and (legacy) SMT 1.0.

@@ -22,6 +22,6 @@ Notes:
 
 class solver_factory;
 
-solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
+// solver_factory * mk_smt_strategic_solver_factory(symbol const & logic = symbol::null);
 
 #endif
