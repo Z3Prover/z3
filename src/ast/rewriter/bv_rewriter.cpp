@@ -1928,10 +1928,10 @@ bool bv_rewriter::distribute_concat(decl_kind k, unsigned n, expr* const* args, 
             expr* e = to_app(arg)->get_arg(0);
             unsigned sz1 = get_bv_size(e);
             unsigned sz2 = get_bv_size(arg);
-            ptr_buffer<expr> args1, args2;
+            expr_ref_vector args1(m()), args2(m());
             for (unsigned j = 0; j < n; ++j) {
-                args1.push_back(m_mk_extract(sz2-1, sz1, args[j]));
-                args2.push_back(m_mk_extract(sz1-1,0, args[j]));
+                args1.push_back(m_mk_extract(sz2 - 1, sz2 - sz1, args[j]));
+                args2.push_back(m_mk_extract(sz2 - sz1 - 1, 0, args[j]));
             }
             expr* arg1 = m().mk_app(get_fid(), k, args1.size(), args1.c_ptr());
             expr* arg2 = m().mk_app(get_fid(), k, args2.size(), args2.c_ptr());
