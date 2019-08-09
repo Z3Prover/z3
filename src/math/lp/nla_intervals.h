@@ -19,7 +19,7 @@
   --*/
 #pragma once
 #include "util/dependency.h"
-#include "util/small_object_allocator.h"
+#include "util/region.h"
 #include "math/lp/nla_common.h"
 #include "math/lp/lar_solver.h"
 #include "math/interval/interval.h"
@@ -40,7 +40,7 @@ class intervals : common {
 
     struct ci_dependency_config {
         typedef ci_value_manager        value_manager;
-        typedef small_object_allocator  allocator;
+        typedef region  allocator;
         static const bool ref_count = false;
         typedef lp::constraint_index value;
     };
@@ -135,13 +135,13 @@ class intervals : common {
         }
     };
 
-    small_object_allocator      m_alloc;
-    ci_value_manager            m_val_manager;
+    region                              m_alloc;
+    ci_value_manager                    m_val_manager;
     mutable unsynch_mpq_manager         m_num_manager;
     mutable ci_dependency_manager       m_dep_manager;
     im_config                   m_config;
     mutable interval_manager<im_config> m_imanager;
-    region                      m_region;
+    region                              m_region;
 
 public:
     typedef interval_manager<im_config>::interval interval;
@@ -153,7 +153,7 @@ private:
 public:
     intervals(core* c, reslimit& lim) :
         common(c),
-        m_alloc("intervals"),
+        m_alloc(),
         m_dep_manager(m_val_manager, m_alloc),
         m_config(m_num_manager, m_dep_manager),
         m_imanager(lim, im_config(m_num_manager, m_dep_manager))
@@ -319,6 +319,6 @@ public:
             return true;
         return false;
     }
-
+    void reset() { m_alloc.reset(); }
 }; // end of intervals
 } // end of namespace nla
