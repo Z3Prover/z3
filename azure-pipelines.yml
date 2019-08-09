@@ -3,7 +3,8 @@ variables:
   cmakeStdArgs: '-DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
   asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
-  msanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=memory -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -fsanitize=memory -fno-omit-frame-pointer -g -O2"'
+  msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
+
 
 jobs:
 
@@ -57,8 +58,8 @@ jobs:
         cmdLine: 'CC=gcc CXX=g++ cmake -DCMAKE_BUILD_TYPE=Release -DSINGLE_THREADED=ON $(cmakeStdArgs)'
         runUnitTest: 'True'
       msanClang:
-        cmdLine: 'CC=clang CXX=clang++ $(msanEnv) cmake $(cmakeStdArgs)'
-        runUnitTest: 'True'
+        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs) && ../scripts/build_libcxx_msan.sh'
+        runUnitTest: 'False' # asanEnv doesn't seem to get picked up by unit tests
 #      gccX86:
 #        cmdLine: 'CXXFLAGS="${CXXFLAGS} -m32" CFLAGS="${CFLAGS} -m32" CC=gcc-5 CXX=g++-5 cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo $(cmakeStdArgs)'
 #        runUnitTest: 'True'
