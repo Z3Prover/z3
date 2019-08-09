@@ -81,8 +81,8 @@ jobs:
          cd build
          ./test-z3 -a
          cd ..
-    - template: scripts/test-examples-cmake.yml
       condition: eq(variables['runUnitTest'], 'True')
+#    - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
     - template: scripts/test-regressions.yml
