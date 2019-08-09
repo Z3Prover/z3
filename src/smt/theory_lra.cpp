@@ -3769,6 +3769,9 @@ public:
         st.update("arith-patches", lp().settings().st().m_patches);
         st.update("arith-patches-success", lp().settings().st().m_patches_success);
         st.update("arith-hnf-calls", lp().settings().st().m_hnf_cutter_calls);
+        st.update("horner-calls", lp().settings().st().m_horner_calls);
+        st.update("horner-conflicts", lp().settings().st().m_horner_conflicts);
+        st.update("horner-cross-nested-forms", lp().settings().st().m_cross_nested_forms);
         st.update("nla-explanations", m_stats.m_nla_explanations);
         st.update("nla-lemmas", m_stats.m_nla_lemmas);
     }        
