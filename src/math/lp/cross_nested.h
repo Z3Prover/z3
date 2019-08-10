@@ -23,10 +23,26 @@
 namespace nla {
 class cross_nested {
     typedef nla_expr<rational> nex;
+    struct occ {
+        unsigned m_occs;
+        unsigned m_power;
+        occ() : m_occs(0), m_power(0) {}
+        occ(unsigned k, unsigned p) : m_occs(k), m_power(p) {}
+        // use the "name injection rule here"
+        friend std::ostream& operator<<(std::ostream& out, const occ& c) {
+            out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
+            return out;
+        }
+    };
+
+    // fields
     nex& m_e;
-    std::function<bool (const nex&)> m_call_on_result;
-    std::function<bool (unsigned)> m_var_is_fixed;
-    bool m_done;
+    std::function<bool (const nex&)>      m_call_on_result;
+    std::function<bool (unsigned)>        m_var_is_fixed;
+    bool                                  m_done;
+    std::unordered_map<lpvar, occ>        m_occurences_map;
+    std::unordered_map<lpvar, unsigned>   m_powers;
+
 public:
     cross_nested(nex &e,
                  std::function<bool (const nex&)> call_on_result,
@@ -48,18 +64,6 @@ public:
         front.pop_back();
         return c;
     }
-
-    struct occ {
-        unsigned m_occs;
-        unsigned m_power;
-        occ() : m_occs(0), m_power(0) {}
-        occ(unsigned k, unsigned p) : m_occs(k), m_power(p) {}
-        // use the "name injection rule here"
-        friend std::ostream& operator<<(std::ostream& out, const occ& c) {
-            out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
-            return out;
-        }
-    };
 
     static bool extract_common_factor(nex* c, nex& f, const vector<std::pair<lpvar, occ>> & occurences) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
@@ -161,7 +165,7 @@ public:
         out << "{";
         for(const auto& p: occurences) {
             const occ& o = p.second;
-            out << "(" << (char)('a' + p.first) << "->" << o << ")";
+            out << "(v" << p.first << "->" << o << ")";
         }
         out << "}" << std::endl;
         return out;
@@ -201,62 +205,67 @@ public:
         nex* n = pop_back(front); TRACE("nla_cn", tout << "n=" << *n <<"\n";);
         explore_expr_on_front_elem(n, front);
     }
-   static void process_var_occurences(lpvar j, std::unordered_map<lpvar, occ>& occurences) {
-        auto it = occurences.find(j);
-        if (it != occurences.end()) {
+
+    void process_var_occurences(lpvar j) {
+        auto it = m_occurences_map.find(j);
+        if (it != m_occurences_map.end()) {
             it->second.m_occs++;
             it->second.m_power = 1;
         } else {            
-            occurences.insert(std::make_pair(j, occ(1, 1)));
+            m_occurences_map.insert(std::make_pair(j, occ(1, 1)));
         }
     }    
 
-    static void update_occurences_with_powers(std::unordered_map<lpvar, occ>& occurences,
-                                       const std::unordered_map<lpvar, int>& powers) {
-        for (auto & p : powers) {
+    void update_occurences_with_powers() {
+        for (auto & p : m_powers) {
             lpvar j = p.first;
             unsigned jp = p.second;
-            auto it = occurences.find(j);
-            if (it == occurences.end()) {
-                occurences[j] = occ(1, jp);
+            auto it = m_occurences_map.find(j);
+            if (it == m_occurences_map.end()) {
+                m_occurences_map[j] = occ(1, jp);
             } else {
                 it->second.m_occs++;
                 it->second.m_power = std::min(it->second.m_power, jp);
             }
         }
-        TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, occurences) << "\n";);
+        TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, m_occurences_map) << "\n";);
     }
 
     
     
-    static void remove_singular_occurences(std::unordered_map<lpvar, occ>& occurences) {
+    void remove_singular_occurences() {
         svector<lpvar> r;
-        for (const auto & p : occurences) {
+        for (const auto & p : m_occurences_map) {
             if (p.second.m_occs <= 1) {
                 r.push_back(p.first);
             }
         }
         for (lpvar j : r)
-            occurences.erase(j);
+            m_occurences_map.erase(j);
     }
 
+    void clear_maps() {
+        m_occurences_map.clear();
+        m_powers.clear();
+    }
+    
     // j -> the number of expressions j appears in as a multiplier
     // The result is sorted by large number of occurences first
-    static vector<std::pair<lpvar, occ>> get_mult_occurences(const nex& e) {
-        std::unordered_map<lpvar, occ> occurences;
+    vector<std::pair<lpvar, occ>> get_mult_occurences(const nex& e) {
+        clear_maps();
         SASSERT(e.type() == expr_type::SUM);
         for (const auto & ce : e.children()) {
             if (ce.is_mul()) {
                 auto powers = ce.get_powers_from_mul();
-                update_occurences_with_powers(occurences, powers);
+                update_occurences_with_powers();
             } else if (ce.type() ==  expr_type::VAR) {
-                process_var_occurences(ce.var(), occurences);
+                process_var_occurences(ce.var());
             }
         }
-        remove_singular_occurences(occurences);
-        TRACE("nla_cn_details", tout << "e=" << e << "\noccs="; dump_occurences(tout, occurences) << "\n";);
+        remove_singular_occurences();
+        TRACE("nla_cn_details", tout << "e=" << e << "\noccs="; dump_occurences(tout, m_occurences_map) << "\n";);
         vector<std::pair<lpvar, occ>> ret;
-        for (auto & p : occurences)
+        for (auto & p : m_occurences_map)
             ret.push_back(p);
         std::sort(ret.begin(), ret.end(), [](const std::pair<lpvar, occ>& a, const std::pair<lpvar, occ>& b) {
                                               if (a.second.m_occs > b.second.m_occs)

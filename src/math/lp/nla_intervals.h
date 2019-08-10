@@ -141,7 +141,6 @@ class intervals : common {
     mutable ci_dependency_manager       m_dep_manager;
     im_config                   m_config;
     mutable interval_manager<im_config> m_imanager;
-    region                              m_region;
 
 public:
     typedef interval_manager<im_config>::interval interval;
