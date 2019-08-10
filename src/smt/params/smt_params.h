@@ -39,7 +39,8 @@ enum phase_selection {
     PS_CACHING_CONSERVATIVE,
     PS_CACHING_CONSERVATIVE2, // similar to the previous one, but alternated default config from time to time.
     PS_RANDOM,
-    PS_OCCURRENCE
+    PS_OCCURRENCE,
+    PS_THEORY
 };
 
 enum restart_strategy {

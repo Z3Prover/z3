@@ -210,6 +210,10 @@ public:
         return r;
     }
 
+    app * mk_default(expr * a) {
+        return m_manager.mk_app(m_fid, OP_ARRAY_DEFAULT, 0, nullptr, 1, &a);
+    }
+
     app * mk_const_array(sort * s, expr * v) {
         parameter param(s);
         return m_manager.mk_app(m_fid, OP_CONST_ARRAY, 1, &param, 1, &v);
@@ -251,6 +255,14 @@ public:
         parameter param(f);
         return m_manager.mk_app(m_fid, OP_AS_ARRAY, 1, &param, 0, nullptr, nullptr);
     }
+
+    sort* get_array_range_rec(sort* s) {
+        while (is_array(s)) {
+            s = get_array_range(s);
+        }
+        return s;
+    }
+
 };
 
 

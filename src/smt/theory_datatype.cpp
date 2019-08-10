@@ -23,6 +23,7 @@ Revision History:
 #include "ast/ast_smt2_pp.h"
 #include "smt/smt_context.h"
 #include "smt/theory_datatype.h"
+#include "smt/theory_array.h"
 #include "smt/smt_model_generator.h"
 
 namespace smt {
@@ -332,6 +333,13 @@ namespace smt {
             for (unsigned i = 0; i < num_args; i++) {
                 enode * arg = e->get_arg(i);
                 sort * s    = get_manager().get_sort(arg->get_owner());
+                if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                    app_ref def(m_autil.mk_default(arg->get_owner()), get_manager());
+                    if (!ctx.e_internalized(def)) {
+                        ctx.internalize(def, false);
+                    }
+                    arg = ctx.get_enode(def);       
+                }
                 if (!m_util.is_datatype(s))
                     continue;
                 if (is_attached_to_var(arg))
@@ -371,15 +379,18 @@ namespace smt {
         //   (assert (> (len a) 1)
         //   
         // If the theory variable is not created for 'a', then a wrong model will be generated.
-        TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << "\n";);
-            TRACE("datatype_bug", 
-                  tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << " ";
-                  tout << m_util.is_datatype(s) << " ";
-                  if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
-                  if (m_util.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
-                  tout << "\n";
-                  );
-        if ((get_context().has_quantifiers() || (m_util.is_datatype(s) && !s->is_infinite())) && !is_attached_to_var(n)) {
+        TRACE("datatype", tout << "apply_sort_cnstr: #" << n->get_owner_id() << " " << mk_pp(n->get_owner(), get_manager()) << "\n";);
+        TRACE("datatype_bug", 
+              tout << "apply_sort_cnstr:\n" << mk_pp(n->get_owner(), get_manager()) << " ";
+              tout << m_util.is_datatype(s) << " ";
+              if (m_util.is_datatype(s)) tout << "is-infinite: " << s->is_infinite() << " "; 
+              if (m_util.is_datatype(s)) tout << "attached: " << is_attached_to_var(n) << " ";
+              tout << "\n";);
+
+        if (!is_attached_to_var(n) &&
+            (get_context().has_quantifiers() || 
+             (m_util.is_datatype(s) && m_util.has_nested_arrays()) || 
+             (m_util.is_datatype(s) && !s->is_infinite()))) {
             mk_var(n);
         }
     }
@@ -500,6 +511,7 @@ namespace smt {
 
         // collect equalities on all children that may have been used.
         bool found = false;
+        ast_manager& m = get_manager();
         for (enode * arg : enode::args(parentc)) {
             // found an argument which is equal to root
             if (arg->get_root() == child->get_root()) {
@@ -507,6 +519,17 @@ namespace smt {
                     m_used_eqs.push_back(enode_pair(arg, child));
                 }
                 found = true;
+            }
+            sort * s = m.get_sort(arg->get_owner());
+            if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                for (enode* aarg : get_array_args(arg)) {
+                    if (aarg->get_root() == child->get_root()) {
+                        if (aarg != child) {
+                            m_used_eqs.push_back(enode_pair(aarg, child));
+                        }
+                        found = true;
+                    }
+                }
             }
         }
         VERIFY(found);
@@ -542,6 +565,7 @@ namespace smt {
 
     // start exploring subgraph below `app`
     bool theory_datatype::occurs_check_enter(enode * app) {
+        context& ctx = get_context();
         app = app->get_root();
         theory_var v = app->get_th_var(get_id());
         if (v == null_theory_var) {
@@ -563,13 +587,42 @@ namespace smt {
                 occurs_check_explain(parent, arg);
                 return true;
             }
-            // explore `arg` (with paren)
-            if (m_util.is_datatype(get_manager().get_sort(arg->get_owner()))) {
+            // explore `arg` (with parent)
+            expr* earg = arg->get_owner();
+            sort* s = get_manager().get_sort(earg);
+            if (m_util.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
             }
+            else if (m_autil.is_array(s) && m_util.is_datatype(get_array_range(s))) {
+                for (enode* aarg : get_array_args(arg)) {
+                    if (oc_cycle_free(aarg)) {
+                        continue;
+                    }
+                    if (oc_on_stack(aarg)) {
+                        occurs_check_explain(parent, aarg);
+                        return true;
+                    }
+                    if (m_util.is_datatype(get_manager().get_sort(aarg->get_owner()))) {
+                        m_parent.insert(aarg->get_root(), parent);
+                        oc_push_stack(aarg);
+                    }
+                }
+            }            
         }
         return false;
+    }
+
+    ptr_vector<enode> const& theory_datatype::get_array_args(enode* n) {
+        m_array_args.reset();
+        context& ctx = get_context();
+        theory_array* th = dynamic_cast<theory_array*>(ctx.get_theory(m_autil.get_family_id()));
+        for (enode* p : th->parent_selects(n)) {
+            m_array_args.push_back(p);            
+        }
+        app_ref def(m_autil.mk_default(n->get_owner()), get_manager());
+        m_array_args.push_back(ctx.get_enode(def));
+        return m_array_args;
     }
 
     /**
@@ -637,6 +690,7 @@ namespace smt {
         theory(m.mk_family_id("datatype")),
         m_params(p),
         m_util(m),
+        m_autil(m),
         m_find(*this),
         m_trail_stack(*this) {
     }
@@ -673,7 +727,7 @@ namespace smt {
     }
 
     bool theory_datatype::include_func_interp(func_decl* f) {
-        return false; // return m_util.is_accessor(f);
+        return false; 
     }
 
     void theory_datatype::init_model(model_generator & m) {
@@ -706,8 +760,15 @@ namespace smt {
         func_decl * c_decl = d->m_constructor->get_decl();
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
         unsigned num = d->m_constructor->get_num_args();
-        for (unsigned i = 0; i < num; i++) 
-            result->add_dependency(d->m_constructor->get_arg(i));
+        for (enode* arg : enode::args(d->m_constructor)) {
+            result->add_dependency(arg);
+        }
+        TRACE("datatype", 
+              tout << mk_pp(n->get_owner(), get_manager()) << "\n";
+              tout << "depends on\n";
+              for (enode* arg : enode::args(d->m_constructor)) {
+                  tout << " " << mk_pp(arg->get_owner(), get_manager()) << "\n";
+              });
         return result;
     }
 
@@ -882,7 +943,7 @@ namespace smt {
         TRACE("datatype_bug", tout << "non_rec_c: " << non_rec_c->get_name() << "\n";);
         unsigned non_rec_idx  = m_util.get_constructor_idx(non_rec_c);
         var_data * d          = m_var_data[v];
-        SASSERT(d->m_constructor == 0);
+        SASSERT(d->m_constructor == nullptr);
         func_decl * r         = nullptr;
         m_stats.m_splits++;
 

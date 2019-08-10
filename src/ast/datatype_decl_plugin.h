@@ -210,13 +210,14 @@ namespace datatype {
             unsigned                 m_id_counter;
             svector<symbol>          m_def_block;
             unsigned                 m_class_id;
+            mutable bool             m_has_nested_arrays;
 
             void inherit(decl_plugin* other_p, ast_translation& tr) override;
 
             void log_axiom_definitions(symbol const& s, sort * new_sort);
 
         public:
-            plugin(): m_id_counter(0), m_class_id(0) {}
+            plugin(): m_id_counter(0), m_class_id(0), m_has_nested_arrays(false) {}
             ~plugin() override;
 
             void finalize() override;
@@ -253,6 +254,8 @@ namespace datatype {
             bool is_declared(sort* s) const { return m_defs.contains(datatype_name(s)); }
             unsigned get_axiom_base_id(symbol const& s) { return m_axiom_bases[s]; }
             util & u() const;
+
+            bool has_nested_arrays() const { return m_has_nested_arrays; }
 
         private:
             bool is_value_visit(expr * arg, ptr_buffer<app> & todo) const;
@@ -353,6 +356,7 @@ namespace datatype {
         func_decl * get_accessor_constructor(func_decl * accessor);
         func_decl * get_recognizer_constructor(func_decl * recognizer) const;
         func_decl * get_update_accessor(func_decl * update) const;
+        bool has_nested_arrays() const { return m_plugin->has_nested_arrays(); }
         family_id get_family_id() const { return m_family_id; }
         bool are_siblings(sort * s1, sort * s2);
         bool is_func_decl(op_kind k, unsigned num_params, parameter const* params, func_decl* f);

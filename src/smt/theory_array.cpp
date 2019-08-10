@@ -95,7 +95,7 @@ namespace smt {
         v                = find(v);
         var_data * d     = m_var_data[v];
         d->m_parent_selects.push_back(s);
-        TRACE("array", tout << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
+        TRACE("array", tout << v << " " << mk_pp(s->get_owner(), get_manager()) << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << "\n";);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d->m_parent_selects));
         for (enode* n : d->m_stores) {
             instantiate_axiom2a(s, n);

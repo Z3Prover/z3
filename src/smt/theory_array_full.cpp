@@ -140,8 +140,8 @@ namespace smt {
             set_prop_upward(n->get_arg(0)->get_th_var(get_id()));
         }
         else if (is_map(n)) {
-            for (unsigned i = 0; i < n->get_num_args(); ++i) {
-                set_prop_upward(n->get_arg(i)->get_th_var(get_id()));
+            for (enode* arg : enode::args(n)) {
+                set_prop_upward(arg->get_th_var(get_id()));
             }
         }
     }
@@ -481,12 +481,12 @@ namespace smt {
               tout << mk_bounded_pp(sl->get_owner(), get_manager()) << "\n";);
         unsigned num_args   = select->get_num_args();
         unsigned num_arrays = map->get_num_args();
-        ptr_buffer<expr>       args1, args2;
+        ptr_buffer<expr> args1, args2;
         vector<ptr_vector<expr> > args2l;
         args1.push_back(map);
-        for (unsigned j = 0; j < num_arrays; ++j) {
+        for (expr* ar : *map) {
             ptr_vector<expr> arg;
-            arg.push_back(map->get_arg(j));
+            arg.push_back(ar);
             args2l.push_back(arg);
         }
         for (unsigned i = 1; i < num_args; ++i) {
@@ -537,8 +537,8 @@ namespace smt {
         func_decl* f = to_func_decl(map->get_decl()->get_parameter(0).get_ast());
         SASSERT(map->get_num_args() == f->get_arity());
         ptr_buffer<expr> args2;
-        for (unsigned i = 0; i < map->get_num_args(); ++i) {
-            args2.push_back(mk_default(map->get_arg(i)));
+        for (expr* arg : *map) {
+            args2.push_back(mk_default(arg));
         }
 
         expr_ref def2(m.mk_app(f, args2.size(), args2.c_ptr()), m);

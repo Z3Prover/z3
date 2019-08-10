@@ -450,6 +450,19 @@ namespace datatype {
                 m_manager->raise_exception("datatype is not co-variant");
             }
 
+            array_util autil(m);
+            for (sort* s : sorts) {
+                for (constructor const* c : get_def(s)) {
+                    for (accessor const* a : *c) {
+                        if (autil.is_array(a->range())) {
+                            if (sorts.contains(get_array_range(a->range()))) {
+                                m_has_nested_arrays = true;
+                            }
+                        }                    
+                    }
+                }
+            }
+            
             u().compute_datatype_size_functions(m_def_block);
             for (symbol const& s : m_def_block) {
                 sort_ref_vector ps(m);
@@ -892,10 +905,13 @@ namespace datatype {
         for (unsigned i = 0; i < n; ++i) {
             get_subsorts(get_array_domain(s, i), subsorts);
         }
+        if (!is_datatype(get_array_range(s))) {
+            get_subsorts(get_array_range(s), subsorts);
+        }
         for (sort* r : subsorts) {
             if (mark.is_marked(r)) return false;
         }
-        return is_covariant(mark, subsorts, get_array_range(s));
+        return true;
     }
 
     def const& util::get_def(sort* s) const {
@@ -1115,6 +1131,7 @@ namespace datatype {
 
         ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
         unsigned sz = constructors.size();
+        array_util autil(m);
         TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
               tout << "forbidden: ";
               for (sort* s : forbidden_set) tout << sort_ref(s, m) << " ";
@@ -1129,7 +1146,7 @@ namespace datatype {
             TRACE("util_bug", tout << "checking " << sort_ref(ty, m) << ": " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
             unsigned i = 0;
-            for (; i < num_args && !is_datatype(c->get_domain(i)); i++);
+            for (; i < num_args && !is_datatype(autil.get_array_range_rec(c->get_domain(i))); i++);
             if (i == num_args) {
                 TRACE("util_bug", tout << "found non-rec " << func_decl_ref(c, m) << "\n";);
                 return c;
@@ -1142,7 +1159,7 @@ namespace datatype {
             unsigned num_args = c->get_arity();
             unsigned i = 0;
             for (; i < num_args; i++) {
-                sort * T_i = c->get_domain(i);
+                sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
                 if (!is_datatype(T_i)) {
                     TRACE("util_bug", tout << sort_ref(T_i, m) << " is not a datatype\n";);

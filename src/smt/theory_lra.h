@@ -43,6 +43,8 @@ namespace smt {
 
         void assign_eh(bool_var v, bool is_true) override;
 
+        lbool get_phase(bool_var v) override;
+
         void new_eq_eh(theory_var v1, theory_var v2) override;
 
         bool use_diseqs() const override;

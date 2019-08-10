@@ -1777,6 +1777,32 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
     return ci;
 }
 
+bool lar_solver::compare_values(var_index j, lconstraint_kind k, const mpq & rhs) {
+    if (is_term(j)) { // j is a term
+        impq lhs = 0;
+        for (auto const& cv : get_term(j)) {
+            lhs += cv.coeff() * get_column_value(cv.var());
+        }
+        return compare_values(lhs, k, rhs);
+    }
+    else {
+        return compare_values(get_column_value(j), k, rhs);
+    }
+}
+
+bool lar_solver::compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs) {
+    switch (k) {
+    case LT: return lhs < rhs;
+    case LE: return lhs <= rhs;
+    case GT: return lhs > rhs;
+    case GE: return lhs >= rhs;
+    case EQ: return lhs == rhs;
+    default:
+        UNREACHABLE();
+        return true;
+    }
+}
+
 void lar_solver::update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index) {
     switch (m_mpq_lar_core_solver.m_column_types[j]) {
     case column_type::free_column:

@@ -110,6 +110,8 @@ namespace smt {
         virtual void merge_eh(theory_var v1, theory_var v2, theory_var, theory_var);
         static void after_merge_eh(theory_var r1, theory_var r2, theory_var v1, theory_var v2) {}
         void unmerge_eh(theory_var v1, theory_var v2);
+
+        ptr_vector<enode> const& parent_selects(enode* n) { return m_var_data[find(n->get_root()->get_th_var(get_id()))]->m_parent_selects; }
     };
 
 };

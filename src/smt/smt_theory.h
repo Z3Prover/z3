@@ -144,6 +144,13 @@ namespace smt {
         }
 
         /**
+           \brief use the theory to determine phase of the variable.
+         */
+        virtual lbool get_phase(bool_var v) {
+            return l_undef;
+        }
+
+        /**
            \brief Equality propagation (v1 = v2): Core -> Theory
         */
         virtual void new_eq_eh(theory_var v1, theory_var v2) = 0;

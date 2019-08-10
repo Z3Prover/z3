@@ -939,6 +939,29 @@ public:
         m_asserted_atoms.push_back(delayed_atom(v, is_true));
     }
 
+    lbool get_phase(bool_var v) {
+        lp_api::bound* b;
+        if (!m_bool_var2bound.find(v, b)) {
+            return l_undef;
+        }
+        scoped_internalize_state st(*this);
+        st.vars().push_back(b->get_var());
+        st.coeffs().push_back(rational::one());
+        init_left_side(st);
+        lp::lconstraint_kind k = lp::EQ;
+        switch (b->get_bound_kind()) {
+        case lp_api::lower_t:
+            k = lp::GE;
+            break;
+        case lp_api::upper_t:
+            k = lp::LE;
+            break;
+        }         
+        auto vi = get_var_index(b->get_var());
+        rational bound = b->get_value();
+        return m_solver->compare_values(vi, k, bound) ? l_true : l_false;
+    }
+
     void new_eq_eh(theory_var v1, theory_var v2) {
         // or internalize_eq(v1, v2);
         m_arith_eq_adapter.new_eq_eh(v1, v2);            
@@ -3564,6 +3587,9 @@ void theory_lra::internalize_eq_eh(app * atom, bool_var v) {
 }
 void theory_lra::assign_eh(bool_var v, bool is_true) {
     m_imp->assign_eh(v, is_true);
+}
+lbool theory_lra::get_phase(bool_var v) {
+    return m_imp->get_phase(v);
 }
 void theory_lra::new_eq_eh(theory_var v1, theory_var v2) {
     m_imp->new_eq_eh(v1, v2);

@@ -178,6 +178,10 @@ public:
 
     constraint_index add_var_bound(var_index j, lconstraint_kind kind, const mpq & right_side) ;
 
+    bool compare_values(var_index j, lconstraint_kind kind, const mpq & right_side);
+
+    bool compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs);
+
     void update_column_type_and_bound(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index constr_index);
 
     void add_var_bound_on_constraint_for_term(var_index j, lconstraint_kind kind, const mpq & right_side, constraint_index ci);

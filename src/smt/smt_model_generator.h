@@ -84,7 +84,7 @@ namespace smt {
         extra_fresh_value(sort * s, unsigned idx):m_sort(s), m_idx(idx), m_value(nullptr) {}
         sort * get_sort() const { return m_sort; }
         unsigned get_idx() const { return m_idx; }
-        void set_value(expr * n) { SASSERT(m_value == 0); m_value = n; }
+        void set_value(expr * n) { SASSERT(!m_value); m_value = n; }
         expr * get_value() const { return m_value; }
     };
 
@@ -178,7 +178,7 @@ namespace smt {
        \brief Auxiliary class used during model generation.
     */
     class model_generator {
-        ast_manager &                 m_manager;
+        ast_manager &                 m;
         context *                     m_context;
         ptr_vector<extra_fresh_value> m_extra_fresh_values;
         unsigned                      m_fresh_idx;
@@ -226,7 +226,7 @@ namespace smt {
         expr * get_some_value(sort * s);
         proto_model & get_model() { SASSERT(m_model); return *m_model; }
         void register_value(expr * val);
-        ast_manager & get_manager() { return m_manager; }
+        ast_manager & get_manager() { return m; }
         proto_model* mk_model();
 
         obj_map<enode, app *> const & get_root2value() const { return m_root2value; }
@@ -235,7 +235,7 @@ namespace smt {
         void hide(func_decl * f) { 
             if (!m_hidden_ufs.contains(f)) {
                 m_hidden_ufs.insert(f);
-                m_manager.inc_ref(f); 
+                m.inc_ref(f); 
             }
         }
     };
