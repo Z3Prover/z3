@@ -2729,7 +2729,6 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
                 result = e;
                 return BR_REWRITE1;
             }
-
             const unsigned sz = m_util.get_bv_size(rhs);
             if (sz == 1) { // detect (lhs = N) ? C : D, where N, C, D are 1 bit numerals
                 numeral rhs_n, e_n, t_n;
@@ -2742,12 +2741,24 @@ br_status bv_rewriter::mk_ite_core(expr * c, expr * t, expr * e, expr_ref & resu
                         result = m().are_equal(rhs, t) ? lhs : m_util.mk_bv_not(lhs);
                         return BR_REWRITE1;
                     }
+                    if (rhs_n.is_one() && t_n.is_one() && e_n.is_zero()) {
+                        return mk_zero_extend(t_sz - 1, lhs, result);
+                    }
+                    if (rhs_n.is_zero() && t_n.is_one() && e_n.is_zero()) {
+                        return mk_zero_extend(t_sz - 1, m_util.mk_bv_not(lhs), result);
+                    }
+                    if (rhs_n.is_zero() && t_n.is_zero() && e_n.is_one()) {
+                        return mk_zero_extend(t_sz - 1, lhs, result);
+                    }
+                    if (rhs_n.is_one() && t_n.is_zero() && e_n.is_one()) {
+                        return mk_zero_extend(t_sz - 1, m_util.mk_bv_not(lhs), result);
+                    }
                 }
-            }
+            }    
+        
         }
-
-
     }
+    
     return BR_FAILED;
 }
 
