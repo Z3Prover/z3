@@ -2909,11 +2909,6 @@ model_ref context::get_model()
     return model;
 }
 
-proof_ref context::get_proof() const
-{
-    return proof_ref (m);
-}
-
 expr_ref context::get_answer()
 {
     switch(m_last_result) {
