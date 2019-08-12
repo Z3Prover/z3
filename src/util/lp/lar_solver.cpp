@@ -1242,7 +1242,7 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
 }
 
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
-    lp_assert(m_status == lp_status::OPTIMAL);
+    lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
     unsigned i;
     do {
@@ -1778,16 +1778,9 @@ constraint_index lar_solver::add_var_bound(var_index j, lconstraint_kind kind, c
 }
 
 bool lar_solver::compare_values(var_index j, lconstraint_kind k, const mpq & rhs) {
-    if (is_term(j)) { // j is a term
-        impq lhs = 0;
-        for (auto const& cv : get_term(j)) {
-            lhs += cv.coeff() * get_column_value(cv.var());
-        }
-        return compare_values(lhs, k, rhs);
-    }
-    else {
-        return compare_values(get_column_value(j), k, rhs);
-    }
+    if (is_term(j))
+        j = to_column(j);
+    return compare_values(get_column_value(j), k, rhs);
 }
 
 bool lar_solver::compare_values(impq const& lhs, lconstraint_kind k, const mpq & rhs) {
