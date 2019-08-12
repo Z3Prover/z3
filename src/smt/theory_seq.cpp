@@ -5541,6 +5541,9 @@ void theory_seq::assign_eh(bool_var v, bool is_true) {
     else if (m_util.str.is_nth_i(e) || m_util.str.is_nth_u(e)) {
         // no-op
     }
+    else if (m_util.is_skolem(e)) {
+        // no-op
+    }
     else {
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
         UNREACHABLE();
