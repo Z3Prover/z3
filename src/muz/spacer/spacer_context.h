@@ -1109,7 +1109,7 @@ public:
     expr_ref get_reachable (func_decl* p);
     void add_invariant (func_decl *pred, expr* property);
     model_ref get_model();
-    proof_ref get_proof() const;
+    proof_ref get_proof() const {return get_ground_refutation();}
 
     expr_ref get_constraints (unsigned lvl);
     void add_constraint (expr *c, unsigned lvl);

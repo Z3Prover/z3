@@ -1537,8 +1537,12 @@ namespace datalog {
         // m_solver->reset_statistics();
     }
 
-    expr_ref bmc::get_answer() {
+    expr_ref bmc::get_answer()  {
         return m_answer;
+    }
+
+    proof_ref bmc::get_proof() {
+        return proof_ref(to_app(m_answer), m);
     }
 
     void bmc::get_rules_along_trace(datalog::rule_ref_vector& rules) {
