@@ -3873,7 +3873,9 @@ namespace smt {
         default:
             break;
         }
-        if (m_fparams.m_phase_selection == PS_CACHING_CONSERVATIVE || m_fparams.m_phase_selection == PS_CACHING_CONSERVATIVE2)
+        if (m_fparams.m_phase_selection == PS_THEORY || 
+            m_fparams.m_phase_selection == PS_CACHING_CONSERVATIVE || 
+            m_fparams.m_phase_selection == PS_CACHING_CONSERVATIVE2)
             forget_phase_of_vars_in_current_level();
         m_atom_propagation_queue.reset();
         m_eq_propagation_queue.reset();

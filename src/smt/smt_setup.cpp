@@ -317,6 +317,7 @@ namespace smt {
                 // }
                 // else {
                 TRACE("rdl_bug", tout << "using theory_mi_arith\n";);
+                //setup_lra_arith();
                 m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
                 // }
             }
@@ -477,13 +478,10 @@ namespace smt {
             m_params.m_relevancy_lvl       = 2;
             m_params.m_relevancy_lemma     = false;
         }
-        if (st.m_cnf) {
-            m_params.m_phase_selection = PS_CACHING_CONSERVATIVE2;
-        }
-        else {
+        m_params.m_phase_selection       = PS_THEORY;
+        if (!st.m_cnf) {
             m_params.m_restart_strategy      = RS_GEOMETRIC;
             m_params.m_arith_stronger_lemmas = false;
-            m_params.m_phase_selection       = PS_ALWAYS_FALSE;
             m_params.m_restart_adaptive      = false;
         }
         m_params.m_arith_small_lemma_size = 32;
@@ -533,7 +531,6 @@ namespace smt {
         } 
         else {
             m_params.m_eliminate_term_ite   = true;
-            m_params.m_phase_selection      = PS_CACHING;
             m_params.m_restart_adaptive     = false;
             m_params.m_restart_strategy     = RS_GEOMETRIC;
             m_params.m_restart_factor       = 1.5;

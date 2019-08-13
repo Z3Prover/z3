@@ -1861,6 +1861,15 @@ class QuantifierRef(BoolRef):
         """
         return Z3_is_lambda(self.ctx_ref(), self.ast)
 
+    def __getitem__(self, arg):
+        """Return the Z3 expression `self[arg]`.
+        """
+        if z3_debug():
+            _z3_assert(self.is_lambda(), "quantifier should be a lambda expression")
+        arg = self.sort().domain().cast(arg)
+        return _to_expr_ref(Z3_mk_select(self.ctx_ref(), self.as_ast(), arg.as_ast()), self.ctx)
+    
+
     def weight(self):
         """Return the weight annotation of `self`.
 
@@ -4288,6 +4297,9 @@ def is_array(a):
     """
     return isinstance(a, ArrayRef)
 
+def is_array_sort(a):
+    return _ast_kind(a.ctx(), a.sort()) == Z3_ARRAY_SORT
+
 def is_const_array(a):
     """Return `True` if `a` is a Z3 constant array.
 
@@ -4412,7 +4424,7 @@ def Update(a, i, v):
     proved
     """
     if z3_debug():
-        _z3_assert(is_array(a), "First argument must be a Z3 array expression")
+        _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
     i = a.domain().cast(i)
     v = a.range().cast(v)
     ctx = a.ctx
@@ -4425,7 +4437,7 @@ def Default(a):
     proved
     """
     if z3_debug():
-        _z3_assert(is_array(a), "First argument must be a Z3 array expression")
+        _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
     return a.default()
 
 
@@ -4456,7 +4468,7 @@ def Select(a, i):
     True
     """
     if z3_debug():
-        _z3_assert(is_array(a), "First argument must be a Z3 array expression")
+        _z3_assert(is_array_sort(a), "First argument must be a Z3 array expression")
     return a[i]
 
 
@@ -4476,7 +4488,7 @@ def Map(f, *args):
     if z3_debug():
         _z3_assert(len(args) > 0, "At least one Z3 array expression expected")
         _z3_assert(is_func_decl(f), "First argument must be a Z3 function declaration")
-        _z3_assert(all([is_array(a) for a in args]), "Z3 array expected expected")
+        _z3_assert(all([is_array_sort(a) for a in args]), "Z3 array expected expected")
         _z3_assert(len(args) == f.arity(), "Number of arguments mismatch")
     _args, sz = _to_ast_array(args)
     ctx = f.ctx
@@ -4511,7 +4523,7 @@ def Ext(a, b):
     """
     ctx = a.ctx
     if z3_debug():
-        _z3_assert(is_array(a) and is_array(b), "arguments must be arrays")
+        _z3_assert(is_array_sort(a) and is_array_sort(b), "arguments must be arrays")
     return _to_expr_ref(Z3_mk_array_ext(ctx.ref(), a.as_ast(), b.as_ast()), ctx)
 
 def SetHasSize(a, k):
