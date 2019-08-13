@@ -4288,6 +4288,11 @@ def is_array(a):
     """
     return isinstance(a, ArrayRef)
 
+def is_array_sorted_expr(a):
+    """Return `True' if `a' is a Z3 expression of sort array.
+    """
+    return a.sort_kind() == Z3_ARRAY_SORT
+
 def is_const_array(a):
     """Return `True` if `a` is a Z3 constant array.
 
@@ -4456,9 +4461,12 @@ def Select(a, i):
     True
     """
     if z3_debug():
-        _z3_assert(is_array(a), "First argument must be a Z3 array expression")
-    return a[i]
-
+        _z3_assert(is_array_sorted_expr(a), "First argument must be a Z3 array expression")
+    if is_array(a):
+        return a[i]
+    else:
+        arg = a.sort().domain().cast(i)
+        return _to_expr_ref(Z3_mk_select(a.ctx_ref(), a.as_ast(), arg.as_ast()), a.ctx)
 
 def Map(f, *args):
     """Return a Z3 map array expression.
@@ -4476,7 +4484,7 @@ def Map(f, *args):
     if z3_debug():
         _z3_assert(len(args) > 0, "At least one Z3 array expression expected")
         _z3_assert(is_func_decl(f), "First argument must be a Z3 function declaration")
-        _z3_assert(all([is_array(a) for a in args]), "Z3 array expected expected")
+        _z3_assert(all([is_array_sorted_expr(a) for a in args]), "Z3 array expected expected")
         _z3_assert(len(args) == f.arity(), "Number of arguments mismatch")
     _args, sz = _to_ast_array(args)
     ctx = f.ctx
