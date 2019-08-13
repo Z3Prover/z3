@@ -9976,7 +9976,7 @@ class SeqRef(ExprRef):
     def __getitem__(self, i):
         if _is_int(i):
             i = IntVal(i, self.ctx)
-        return SeqRef(Z3_mk_seq_nth(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
+        return _to_expr_ref(Z3_mk_seq_nth(self.ctx_ref(), self.as_ast(), i.as_ast()), self.ctx)
 
     def at(self, i):
         if _is_int(i):
