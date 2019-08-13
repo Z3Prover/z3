@@ -56,12 +56,12 @@ jobs:
         mkdir build
         cd build
         $(cmdLine)
-        export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-3.8/bin/llvm-symbolizer
         ninja
         ninja test-z3
         cd ..
     - script: |
          cd build
+         export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
          ./test-z3 -a
          cd ..
       condition: eq(variables['runUnitTest'], 'True')
