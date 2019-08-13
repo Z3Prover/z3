@@ -215,13 +215,13 @@ void check(Z3_context ctx, Z3_solver s, Z3_lbool expected_result)
         break;
     case Z3_L_UNDEF:
         printf("unknown\n");
-	m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        m = Z3_solver_get_model(ctx, s);
+        if (m) Z3_model_inc_ref(ctx, m);
         printf("potential model:\n%s\n", Z3_model_to_string(ctx, m));
         break;
     case Z3_L_TRUE:
-	m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        m = Z3_solver_get_model(ctx, s);
+        if (m) Z3_model_inc_ref(ctx, m);
         printf("sat\n%s\n", Z3_model_to_string(ctx, m));
         break;
     }
@@ -265,9 +265,9 @@ void prove(Z3_context ctx, Z3_solver s, Z3_ast f, bool is_valid)
         printf("unknown\n");
         m = Z3_solver_get_model(ctx, s);
         if (m != 0) {
-	  Z3_model_inc_ref(ctx, m);
+            Z3_model_inc_ref(ctx, m);
             /* m should be viewed as a potential counterexample. */
-  	    printf("potential counterexample:\n%s\n", Z3_model_to_string(ctx, m));
+            printf("potential counterexample:\n%s\n", Z3_model_to_string(ctx, m));
         }
         if (is_valid) {
             exitf("unexpected result");
@@ -278,7 +278,7 @@ void prove(Z3_context ctx, Z3_solver s, Z3_ast f, bool is_valid)
         printf("invalid\n");
         m = Z3_solver_get_model(ctx, s);
         if (m) {
-	  Z3_model_inc_ref(ctx, m);
+            Z3_model_inc_ref(ctx, m);
             /* the model returned by Z3 is a counterexample */
             printf("counterexample:\n%s\n", Z3_model_to_string(ctx, m));
         }
@@ -498,25 +498,25 @@ void display_sort(Z3_context c, FILE * out, Z3_sort ty)
         fprintf(out, "]");
         break;
     case Z3_DATATYPE_SORT:
-		if (Z3_get_datatype_sort_num_constructors(c, ty) != 1)
-		{
-			fprintf(out, "%s", Z3_sort_to_string(c,ty));
-			break;
-		}
-		{
-        unsigned num_fields = Z3_get_tuple_sort_num_fields(c, ty);
-        unsigned i;
-        fprintf(out, "(");
-        for (i = 0; i < num_fields; i++) {
-            Z3_func_decl field = Z3_get_tuple_sort_field_decl(c, ty, i);
-            if (i > 0) {
-                fprintf(out, ", ");
-            }
-            display_sort(c, out, Z3_get_range(c, field));
+        if (Z3_get_datatype_sort_num_constructors(c, ty) != 1)
+        {
+            fprintf(out, "%s", Z3_sort_to_string(c,ty));
+            break;
         }
-        fprintf(out, ")");
-        break;
-    }
+        {
+            unsigned num_fields = Z3_get_tuple_sort_num_fields(c, ty);
+            unsigned i;
+            fprintf(out, "(");
+            for (i = 0; i < num_fields; i++) {
+                Z3_func_decl field = Z3_get_tuple_sort_field_decl(c, ty, i);
+                if (i > 0) {
+                    fprintf(out, ", ");
+                }
+                display_sort(c, out, Z3_get_range(c, field));
+            }
+            fprintf(out, ")");
+            break;
+        }
     default:
         fprintf(out, "unknown[");
         display_symbol(c, out, Z3_get_sort_name(c, ty));
@@ -587,7 +587,7 @@ void display_function_interpretations(Z3_context c, FILE * out, Z3_model m)
 
         fdecl = Z3_model_get_func_decl(c, m, i);
         finterp = Z3_model_get_func_interp(c, m, fdecl);
-	Z3_func_interp_inc_ref(c, finterp);
+        Z3_func_interp_inc_ref(c, finterp);
         name = Z3_get_decl_name(c, fdecl);
         display_symbol(c, out, name);
         fprintf(out, " = {");
@@ -596,7 +596,7 @@ void display_function_interpretations(Z3_context c, FILE * out, Z3_model m)
         for (j = 0; j < num_entries; j++) {
             unsigned num_args, k;
             Z3_func_entry fentry = Z3_func_interp_get_entry(c, finterp, j);
-	    Z3_func_entry_inc_ref(c, fentry);
+            Z3_func_entry_inc_ref(c, fentry);
             if (j > 0) {
                 fprintf(out, ", ");
             }
@@ -611,7 +611,7 @@ void display_function_interpretations(Z3_context c, FILE * out, Z3_model m)
             fprintf(out, "|->");
             display_ast(c, out, Z3_func_entry_get_value(c, fentry));
             fprintf(out, ")");
-	    Z3_func_entry_dec_ref(c, fentry);
+            Z3_func_entry_dec_ref(c, fentry);
         }
         if (num_entries > 0) {
             fprintf(out, ", ");
@@ -620,7 +620,7 @@ void display_function_interpretations(Z3_context c, FILE * out, Z3_model m)
         func_else = Z3_func_interp_get_else(c, finterp);
         display_ast(c, out, func_else);
         fprintf(out, ")}\n");
-	Z3_func_interp_dec_ref(c, finterp);
+        Z3_func_interp_dec_ref(c, finterp);
     }
 }
 
@@ -667,13 +667,13 @@ void check2(Z3_context ctx, Z3_solver s, Z3_lbool expected_result)
         printf("unknown\n");
         printf("potential model:\n");
         m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        if (m) Z3_model_inc_ref(ctx, m);
         display_model(ctx, stdout, m);
         break;
     case Z3_L_TRUE:
         printf("sat\n");
         m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        if (m) Z3_model_inc_ref(ctx, m);
         display_model(ctx, stdout, m);
         break;
     }
@@ -1245,7 +1245,7 @@ void array_example2()
         /* context is satisfiable if n < 5 */
         check2(ctx, s, n < 5 ? Z3_L_TRUE : Z3_L_FALSE);
 
-	del_solver(ctx, s);
+        del_solver(ctx, s);
         Z3_del_context(ctx);
     }
 }
@@ -1281,7 +1281,7 @@ void array_example3()
     display_sort(ctx, stdout, range);
     printf("\n");
 
-	if (int_sort != domain || bool_sort != range) {
+    if (int_sort != domain || bool_sort != range) {
         exitf("invalid array type");
     }
 
@@ -1499,7 +1499,7 @@ void eval_example1()
         Z3_ast   args[2] = {x, y};
         Z3_ast v;
         m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        if (m) Z3_model_inc_ref(ctx, m);
         printf("MODEL:\n%s", Z3_model_to_string(ctx, m));
         x_plus_y = Z3_mk_add(ctx, 2, args);
         printf("\nevaluating x+y\n");
@@ -1749,14 +1749,14 @@ void parser_example5() {
         e = Z3_get_error_code(ctx);
         if (e != Z3_OK) goto err;
         unreachable();
-	del_solver(ctx, s);
+        del_solver(ctx, s);
         Z3_del_context(ctx);
     }
     else {
     err:
         printf("Z3 error: %s.\n", Z3_get_error_msg(ctx, e));
         if (ctx != NULL) {
-	    del_solver(ctx, s);
+            del_solver(ctx, s);
             Z3_del_context(ctx);
         }
     }
@@ -1909,14 +1909,14 @@ void list_example() {
     x = mk_var(ctx, "x", int_ty);
     y = mk_var(ctx, "y", int_ty);
     l1 = mk_binary_app(ctx, cons_decl, x, nil);
-	l2 = mk_binary_app(ctx, cons_decl, y, nil);
+    l2 = mk_binary_app(ctx, cons_decl, y, nil);
     prove(ctx, s, Z3_mk_implies(ctx, Z3_mk_eq(ctx,l1,l2), Z3_mk_eq(ctx, x, y)), true);
 
     /* cons(x,u) = cons(x, v) => u = v */
     u = mk_var(ctx, "u", int_list);
     v = mk_var(ctx, "v", int_list);
     l1 = mk_binary_app(ctx, cons_decl, x, u);
-	l2 = mk_binary_app(ctx, cons_decl, y, v);
+    l2 = mk_binary_app(ctx, cons_decl, y, v);
     prove(ctx, s, Z3_mk_implies(ctx, Z3_mk_eq(ctx,l1,l2), Z3_mk_eq(ctx, u, v)), true);
     prove(ctx, s, Z3_mk_implies(ctx, Z3_mk_eq(ctx,l1,l2), Z3_mk_eq(ctx, x, y)), true);
 
@@ -2266,21 +2266,21 @@ void unsat_core_and_proof_example() {
 
         printf("\ncore:\n");
         for (i = 0; i < Z3_ast_vector_size(ctx, core); ++i) {
-	  printf("%s\n", Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, core, i)));
+            printf("%s\n", Z3_ast_to_string(ctx, Z3_ast_vector_get(ctx, core, i)));
         }
         printf("\n");
         break;
     case Z3_L_UNDEF:
         printf("unknown\n");
         printf("potential model:\n");
-	m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        m = Z3_solver_get_model(ctx, s);
+        if (m) Z3_model_inc_ref(ctx, m);
         display_model(ctx, stdout, m);
         break;
     case Z3_L_TRUE:
         printf("sat\n");
-	m = Z3_solver_get_model(ctx, s);
-	if (m) Z3_model_inc_ref(ctx, m);
+        m = Z3_solver_get_model(ctx, s);
+        if (m) Z3_model_inc_ref(ctx, m);
         display_model(ctx, stdout, m);
         break;
     }
@@ -2300,7 +2300,7 @@ void unsat_core_and_proof_example() {
 */
 typedef struct {
     Z3_context m_context;
-  Z3_solver  m_solver;
+    Z3_solver  m_solver;
     // IMPORTANT: the fields m_answer_literals, m_retracted and m_num_answer_literals must be saved/restored
     // if push/pop operations are performed on m_context.
     Z3_ast     m_answer_literals[MAX_RETRACTABLE_ASSERTIONS];
@@ -2406,7 +2406,7 @@ Z3_lbool ext_check(Z3_ext_context ctx) {
             // In this example, we display the core based on the assertion ids.
             unsigned j;
             for (j = 0; j < ctx->m_num_answer_literals; j++) {
- 	        if (Z3_ast_vector_get(ctx->m_context, core, i) == ctx->m_answer_literals[j]) {
+                if (Z3_ast_vector_get(ctx->m_context, core, i) == ctx->m_answer_literals[j]) {
                     printf("%d ", j);
                     break;
                 }
@@ -2449,7 +2449,7 @@ void incremental_example1() {
     c4 = assert_retractable_cnstr(ext_ctx, Z3_mk_lt(ctx, y, one));
 
     result = ext_check(ext_ctx);
-    if (result != Z3_L_FALSE) 
+    if (result != Z3_L_FALSE)
         exitf("bug in Z3");
     printf("unsat\n");
 
@@ -2655,7 +2655,7 @@ void fpa_example() {
     Z3_sort double_sort, rm_sort;
     Z3_symbol s_rm, s_x, s_y, s_x_plus_y;
     Z3_ast rm, x, y, n, x_plus_y, c1, c2, c3, c4, c5;
-	Z3_ast args[2], args2[2], and_args[3], args3[3];
+    Z3_ast args[2], args2[2], and_args[3], args3[3];
 
     printf("\nFPA-example\n");
     LOG_MSG("FPA-example");
@@ -2676,38 +2676,38 @@ void fpa_example() {
     x = Z3_mk_const(ctx, s_x, double_sort);
     y = Z3_mk_const(ctx, s_y, double_sort);
     n = Z3_mk_fpa_numeral_double(ctx, 42.0, double_sort);
-    
+
     s_x_plus_y = Z3_mk_string_symbol(ctx, "x_plus_y");
     x_plus_y = Z3_mk_const(ctx, s_x_plus_y, double_sort);
     c1 = Z3_mk_eq(ctx, x_plus_y, Z3_mk_fpa_add(ctx, rm, x, y));
-    
+
     args[0] = c1;
     args[1] = Z3_mk_eq(ctx, x_plus_y, n);
     c2 = Z3_mk_and(ctx, 2, (Z3_ast*)&args);
-    
+
     args2[0] = c2;
     args2[1] = Z3_mk_not(ctx, Z3_mk_eq(ctx, rm, Z3_mk_fpa_rtz(ctx)));
     c3 = Z3_mk_and(ctx, 2, (Z3_ast*)&args2);
-    
+
     and_args[0] = Z3_mk_not(ctx, Z3_mk_fpa_is_zero(ctx, y));
     and_args[1] = Z3_mk_not(ctx, Z3_mk_fpa_is_nan(ctx, y));
     and_args[2] = Z3_mk_not(ctx, Z3_mk_fpa_is_infinite(ctx, y));
     args3[0] = c3;
     args3[1] = Z3_mk_and(ctx, 3, and_args);
     c4 = Z3_mk_and(ctx, 2, (Z3_ast*)&args3);
-    
+
     printf("c4: %s\n", Z3_ast_to_string(ctx, c4));
     Z3_solver_push(ctx, s);
     Z3_solver_assert(ctx, s, c4);
     check(ctx, s, Z3_L_TRUE);
     Z3_solver_pop(ctx, s, 1);
-    
+
     // Show that the following are equal:
     //   (fp #b0 #b10000000001 #xc000000000000)
     //   ((_ to_fp 11 53) #x401c000000000000))
     //   ((_ to_fp 11 53) RTZ 1.75 2)))
     //   ((_ to_fp 11 53) RTZ 7.0)))
-    
+
     Z3_solver_push(ctx, s);
     c1 = Z3_mk_fpa_fp(ctx,
                       Z3_mk_numeral(ctx, "0", Z3_mk_bv_sort(ctx, 1)),
@@ -2729,12 +2729,12 @@ void fpa_example() {
     args3[1] = Z3_mk_eq(ctx, c1, c3);
     args3[2] = Z3_mk_eq(ctx, c1, c4);
     c5 = Z3_mk_and(ctx, 3, args3);
-    
+
     printf("c5: %s\n", Z3_ast_to_string(ctx, c5));
     Z3_solver_assert(ctx, s, c5);
     check(ctx, s, Z3_L_TRUE);
     Z3_solver_pop(ctx, s, 1);
-    
+
     del_solver(ctx, s);
     Z3_del_context(ctx);
 }
@@ -2896,7 +2896,7 @@ void mk_model_example() {
         }
     }
 
-    {    
+    {
         // Evaluate c[0] + c[1] + c[2] under model
         Z3_ast c0 = Z3_mk_select(ctx, cApp, zeroNumeral);
         Z3_ast c1 = Z3_mk_select(ctx, cApp, oneNumeral);
