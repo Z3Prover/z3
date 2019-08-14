@@ -10,13 +10,12 @@ jobs:
       secureFile: 'z3.snk'
   - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
   - script: git clone https://github.com/z3prover/z3test z3test
-  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'Mac'
       targetPath: $(Build.ArtifactStagingDirectory)
-
 
 - job: Ubuntu
   displayName: "Ubuntu build"
@@ -28,11 +27,28 @@ jobs:
       secureFile: 'z3.snk'
   - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
   - script: git clone https://github.com/z3prover/z3test z3test
-  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+  - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'Ubuntu'
+      targetPath: $(Build.ArtifactStagingDirectory)
+
+- job: Manylinux
+  displayName: "Manylinux build"
+  pool:
+    vmImage: "ubuntu-16.04"
+  container: "rhelmot/manylinux1_x86_64:latest"
+  variables:
+    python: "/opt/python/cp35-cp35m/bin/python"
+  steps:
+  - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+  - script: git clone https://github.com/z3prover/z3test z3test
+  - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+  - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Manylinux'
       targetPath: $(Build.ArtifactStagingDirectory)
 
 - job: Windows
@@ -43,19 +59,50 @@ jobs:
   - task: DownloadSecureFile@1
     inputs:
       secureFile: 'z3.snk'
-  - script: scripts\mk_win_dist.cmd 
+  - script: scripts\mk_win_dist.cmd
   - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'Windows'
       targetPath: $(Build.ArtifactStagingDirectory)
 
+- job: Python
+  displayName: "Python packaging"
+  dependsOn:
+  - Manylinux
+  - Windows
+  pool:
+    vmImage: "ubuntu-16.04"
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows'
+     targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Manylinux'
+     targetPath: $(Agent.TempDirectory)
+  - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
+  - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
+  - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
+  - script: python -m pip install --user -U setuptools wheel
+  - script: cd src/api/python; python setup.py sdist
+  # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - task: PublishPipelineArtifact@0
+    inputs:
+      artifactName: 'Python packages'
+      targetPath: src/api/python/dist
+
 - job: Deploy
-  displayName: "Deploy into GitHub"
-  dependsOn: 
+  displayName: "Deploy into GitHub and PyPI"
+  dependsOn:
   - Mac
   - Ubuntu
   - Windows
+  - Python
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -69,10 +116,6 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-  - task: CopyFiles@2
-    inputs:
-     sourceFolder: $(Build.ArtifactStagingDirectory)
-     targetFolder: tmp
 # TBD: build NuGet package
 # TBD: this script should build a specific pre-specified tag
   - task: GitHubRelease@0
@@ -89,6 +132,16 @@ jobs:
       assets: 'tmp/*'
       isDraft: true
       isPreRelease: true
+  - task: DownloadPipelineArtifact@0
+    inputs:
+      artifactName: 'Python packages'
+      targetPath: dist
+  - task: DownloadSecureFile@1
+    name: pypirc
+    inputs:
+      secureFile: 'pypirc'
+  - script: python -m pip install --user -U setuptools wheel twine
+  - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
 
 # TBD: run regression tests on generated binaries.
