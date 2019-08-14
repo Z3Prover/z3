@@ -944,10 +944,6 @@ public:
         if (!m_bool_var2bound.find(v, b)) {
             return l_undef;
         }
-        scoped_internalize_state st(*this);
-        st.vars().push_back(b->get_var());
-        st.coeffs().push_back(rational::one());
-        init_left_side(st);
         lp::lconstraint_kind k = lp::EQ;
         switch (b->get_bound_kind()) {
         case lp_api::lower_t:
@@ -956,10 +952,11 @@ public:
         case lp_api::upper_t:
             k = lp::LE;
             break;
+        default:
+            break;
         }         
         auto vi = get_var_index(b->get_var());
-        rational bound = b->get_value();
-        return m_solver->compare_values(vi, k, bound) ? l_true : l_false;
+        return m_solver->compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 
     void new_eq_eh(theory_var v1, theory_var v2) {

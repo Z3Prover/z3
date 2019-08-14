@@ -25,8 +25,8 @@ Revision History:
 #include "util/vector.h"
 namespace lp {
 template < typename B> class stacked_vector {
-    vector<unsigned> m_stack_of_vector_sizes;
-    vector<unsigned> m_stack_of_change_sizes;
+    svector<unsigned> m_stack_of_vector_sizes;
+    svector<unsigned> m_stack_of_change_sizes;
     vector<std::pair<unsigned, B>> m_changes;
     vector<B> m_vector;
 public:
@@ -114,7 +114,7 @@ public:
     }
 
     template <typename T>  
-    void pop_tail(vector<T> & v, unsigned k) {
+    void pop_tail(svector<T> & v, unsigned k) {
         lp_assert(v.size() >= k);
         v.resize(v.size() - k);
     }

@@ -175,10 +175,13 @@ public :
         }
 
         
+        mpq bound;
         for (const auto &p : m_row) {
             bool str;
             bool a_is_pos = is_pos(p.coeff());
-            mpq bound = total / p.coeff() + monoid_min_no_mult(a_is_pos, p.var(), str);
+            bound = total;
+            bound /= p.coeff();
+            bound += monoid_min_no_mult(a_is_pos, p.var(), str);
             if (a_is_pos) {
                 limit_j(p.var(), bound, true, false, strict - static_cast<int>(str) > 0);
             }
