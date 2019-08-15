@@ -6559,6 +6559,11 @@ extern "C" {
        \brief Retrieve the unsat core for the last #Z3_solver_check_assumptions
        The unsat core is a subset of the assumptions \c a.
 
+       By default, the unsat core will not be minimized. Generation of a minimized
+       unsat core can be enabled via the `"sat.core.minimize"` and `"smt.core.minimize"`
+       settings for SAT and SMT cores respectively. Generation of minimized unsat cores
+       will be more expensive.
+
        def_API('Z3_solver_get_unsat_core', AST_VECTOR, (_in(CONTEXT), _in(SOLVER)))
     */
     Z3_ast_vector Z3_API Z3_solver_get_unsat_core(Z3_context c, Z3_solver s);
