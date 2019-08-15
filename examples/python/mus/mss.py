@@ -118,11 +118,11 @@ class MSSSolver:
 
    # Given a current satisfiable state
    # Extract an MSS, and ensure that currently 
-   # encoutered cores are avoided in next iterations
+   # encountered cores are avoided in next iterations
    # by weakening the set of literals that are
    # examined in next iterations.
    # Strengthen the solver state by enforcing that
-   # an element from the MCS is encoutered.
+   # an element from the MCS is encountered.
 
    def grow(self):
        self.mss = []

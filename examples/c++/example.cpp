@@ -570,7 +570,7 @@ void tactic_example3() {
       - The choice combinator t | s first applies t to the given goal, if it fails then returns the result of s applied to the given goal.      
       - repeat(t) Keep applying the given tactic until no subgoal is modified by it.
       - repeat(t, n) Keep applying the given tactic until no subgoal is modified by it, or the number of iterations is greater than n.
-      - try_for(t, ms) Apply tactic t to the input goal, if it does not return in ms millisenconds, it fails.
+      - try_for(t, ms) Apply tactic t to the input goal, if it does not return in ms milliseconds, it fails.
       - with(t, params) Apply the given tactic using the given parameters.      
     */
     std::cout << "tactic example 3\n";
