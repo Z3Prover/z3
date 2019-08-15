@@ -4298,7 +4298,7 @@ def is_array(a):
     return isinstance(a, ArrayRef)
 
 def is_array_sort(a):
-    return _ast_kind(a.ctx, a.sort()) == Z3_ARRAY_SORT
+    return Z3_get_sort_kind(a.ctx.ref(), Z3_get_sort(a.ctx.ref(), a.ast)) == Z3_ARRAY_SORT
 
 def is_const_array(a):
     """Return `True` if `a` is a Z3 constant array.
