@@ -1,25 +1,25 @@
-def_module_params('sat', 
+def_module_params('sat',
                   export=True,
                   description='propositional SAT solver',
                   params=(max_memory_param(),
                           ('phase', SYMBOL, 'caching', 'phase selection strategy: always_false, always_true, basic_caching, random, caching'),
-	                  ('phase.sticky', BOOL, True, 'use sticky phase caching'),
+                          ('phase.sticky', BOOL, True, 'use sticky phase caching'),
                           ('search.unsat.conflicts', UINT, 400, 'period for solving for unsat (in number of conflicts)'),
                           ('search.sat.conflicts', UINT, 400, 'period for solving for sat (in number of conflicts)'),
-	                  ('rephase.base', UINT, 1000, 'number of conflicts per rephase '),                          
-	                  ('reorder.base', UINT, UINT_MAX, 'number of conflicts per random reorder '),       
-                          ('reorder.itau', DOUBLE, 4.0, 'inverse temperature for softmax'),               
-                          ('reorder.activity_scale', UINT, 100, 'scaling factor for activity update'),               
+                          ('rephase.base', UINT, 1000, 'number of conflicts per rephase '),
+                          ('reorder.base', UINT, UINT_MAX, 'number of conflicts per random reorder '),
+                          ('reorder.itau', DOUBLE, 4.0, 'inverse temperature for softmax'),
+                          ('reorder.activity_scale', UINT, 100, 'scaling factor for activity update'),
                           ('propagate.prefetch', BOOL, True, 'prefetch watch lists for assigned literals'),
                           ('restart', SYMBOL, 'ema', 'restart strategy: static, luby, ema or geometric'),
                           ('restart.initial', UINT, 2, 'initial restart (number of conflicts)'),
-                          ('restart.max', UINT, UINT_MAX, 'maximal number of restarts.'),	               
+                          ('restart.max', UINT, UINT_MAX, 'maximal number of restarts.'),
                           ('restart.fast', BOOL, True, 'use fast restart approach only removing less active literals.'),
                           ('restart.factor', DOUBLE, 1.5, 'restart increment factor for geometric strategy'),
                           ('restart.margin', DOUBLE, 1.1, 'margin between fast and slow restart factors. For ema'),
                           ('restart.emafastglue', DOUBLE, 3e-2, 'ema alpha factor for fast moving average'),
                           ('restart.emaslowglue', DOUBLE, 1e-5, 'ema alpha factor for slow moving average'),
-                          ('variable_decay', UINT, 110, 'multiplier (divided by 100) for the VSIDS activity increment'), 
+                          ('variable_decay', UINT, 110, 'multiplier (divided by 100) for the VSIDS activity increment'),
                           ('inprocess.max', UINT, UINT_MAX, 'maximal number of inprocessing passes'),
                           ('branching.heuristic', SYMBOL, 'vsids', 'branching heuristic vsids, lrb or chb'),
                           ('branching.anti_exploration', BOOL, False, 'apply anti-exploration heuristic for branch selection'),
@@ -40,8 +40,8 @@ def_module_params('sat',
                           ('dyn_sub_res', BOOL, True, 'dynamic subsumption resolution for minimizing learned clauses'),
                           ('core.minimize', BOOL, False, 'minimize computed core'),
                           ('core.minimize_partial', BOOL, False, 'apply partial (cheap) core minimization'),
-                          ('backtrack.scopes', UINT, 100, 'number of scopes to enable chronological backtracking'), 
-                          ('backtrack.conflicts', UINT, 4000, 'number of conflicts before enabling chronological backtracking'), 
+                          ('backtrack.scopes', UINT, 100, 'number of scopes to enable chronological backtracking'),
+                          ('backtrack.conflicts', UINT, 4000, 'number of conflicts before enabling chronological backtracking'),
                           ('threads', UINT, 1, 'number of parallel threads to use'),
                           ('dimacs.core', BOOL, False, 'extract core from DIMACS benchmarks'),
                           ('drat.file', SYMBOL, '', 'file to dump DRAT proofs'),
@@ -51,7 +51,7 @@ def_module_params('sat',
                           ('cardinality.solver', BOOL, True, 'use cardinality solver'),
                           ('pb.solver', SYMBOL, 'solver', 'method for handling Pseudo-Boolean constraints: circuit (arithmetical circuit), sorting (sorting circuit), totalizer (use totalizer encoding), binary_merge, segmented, solver (use native solver)'),
                           ('pb.min_arity', UINT, 9, 'minimal arity to compile pb/cardinality constraints to CNF'),
-                          ('xor.solver', BOOL, False, 'use xor solver'),                        
+                          ('xor.solver', BOOL, False, 'use xor solver'),
                           ('cardinality.encoding', SYMBOL, 'grouped', 'encoding used for at-most-k constraints: grouped, bimander, ordered, unate, circuit'),
                           ('pb.resolve', SYMBOL, 'cardinality', 'resolution strategy for boolean algebra solver: cardinality, rounding'),
                           ('pb.lemma_format', SYMBOL, 'cardinality', 'generate either cardinality or pb lemmas'),
@@ -60,19 +60,19 @@ def_module_params('sat',
                           ('ddfw.use_reward_pct', UINT, 15, 'percentage to pick highest reward variable when it has reward 0'),
                           ('ddfw.restart_base', UINT, 100000, 'number of flips used a starting point for hessitant restart backoff'),
                           ('ddfw.reinit_base', UINT, 10000, 'increment basis for geometric backoff scheme of re-initialization of weights'),
-	                  ('ddfw.threads', UINT, 0, 'number of ddfw threads to run in parallel with sat solver'),
+                          ('ddfw.threads', UINT, 0, 'number of ddfw threads to run in parallel with sat solver'),
                           ('prob_search', BOOL, False, 'use probsat local search instead of CDCL'),
                           ('local_search', BOOL, False, 'use local search instead of CDCL'),
                           ('local_search_threads', UINT, 0, 'number of local search threads to find satisfiable solution'),
                           ('local_search_mode', SYMBOL, 'wsat', 'local search algorithm, either default wsat or qsat'),
                           ('local_search_dbg_flips', BOOL, False, 'write debug information for number of flips'),
-	                  ('unit_walk', BOOL, False, 'use unit-walk search instead of CDCL'),
+                          ('unit_walk', BOOL, False, 'use unit-walk search instead of CDCL'),
                           ('unit_walk_threads', UINT, 0, 'number of unit-walk search threads to find satisfiable solution'),
                           ('binspr', BOOL, False, 'enable SPR inferences of binary propagation redundant clauses. This inprocessing step eliminates models'),
                           ('lookahead.cube.cutoff', SYMBOL, 'depth', 'cutoff type used to create lookahead cubes: depth, freevars, psat, adaptive_freevars, adaptive_psat'),
-                          # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth. 
+                          # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth.
                           #          So if the value is 10, at most 1024 cubes will be generated of length 10.
-                          # - freevars: cutoff based on a variable fraction of lookahead.cube.freevars. 
+                          # - freevars: cutoff based on a variable fraction of lookahead.cube.freevars.
                           #          Cut if the number of current unassigned variables drops below a fraction of number of initial variables.
                           # - psat:  Let psat_heur := (Sum_{clause C} (psat.clause_base ^ {-|C|+1})) / |freevars|^psat.var_exp
                           #          Cut if the value of psat_heur exceeds psat.trigger
@@ -98,7 +98,7 @@ def_module_params('sat',
                           # reward function used to determine which literal to cube on.
                           # - ternary: reward function useful for random 3-SAT instances. Used by Heule and Knuth in March.
                           # - heule_schur: reward function based on "Schur Number 5", Heule, AAAI 2018
-                          #   The score of a literal lit is: 
+                          #   The score of a literal lit is:
                           #           Sum_{C in Clauses | lit in C} 2 ^ (- |C|+1)
                           #           * Sum_{lit' in C | lit' != lit} lit_occs(~lit')
                           #           / | C |
@@ -106,7 +106,7 @@ def_module_params('sat',
                           # - heuleu: The score of a literal lit is: Sum_{C in Clauses | lit in C} 2 ^ (-|C| + 1)
                           # - unit: heule_schur + also counts number of unit clauses.
                           # - march_cu: default reward function used in a version of March
-                          # Each reward function also comes with its own variant of "mix_diff", which 
-                          # is the function for combining reward metrics for the positive and negative variant of a literal. 
+                          # Each reward function also comes with its own variant of "mix_diff", which
+                          # is the function for combining reward metrics for the positive and negative variant of a literal.
                           )
 
