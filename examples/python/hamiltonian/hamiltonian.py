@@ -64,7 +64,7 @@ def examples():
     print(sdodec.model())
     # =======================================================
     # See http://en.wikipedia.org/wiki/Hamiltonian_path for the Herschel graph
-    # being the smallest possible polyhdral graph that does not have a Hamiltonian
+    # being the smallest possible polyhedral graph that does not have a Hamiltonian
     # cycle.
     #
     grherschel = { 0: [1, 9, 10, 7],

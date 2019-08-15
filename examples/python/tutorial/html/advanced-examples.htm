@@ -505,7 +505,7 @@ and <tt>y</tt> were used to create quantified formulas.
 This is a "trick" for simplifying the construction of quantified
 formulas in Z3Py. Internally, these constants are replaced by
 bounded variables. The next example demonstrates that. The method
-<tt>body()</tt> retrives the quantified expression.
+<tt>body()</tt> retrieves the quantified expression.
 In the resultant formula the bounded variables are free.
 The function <tt>Var(index, sort)</tt> creates a bounded/free variable
 with the given index and sort.
@@ -603,7 +603,7 @@ Z3 fails to show that the formula is unsatisfiable.
 </body></html></example>
 
 <p>When the more permissive pattern <tt>g(x)</tt> is used. Z3 proves the formula
-to be unsatisfiable. More restrive patterns minimize the number of
+to be unsatisfiable. More restrictive patterns minimize the number of
 instantiations (and potentially improve performance), but they may
 also make Z3 "less complete".
 </p>

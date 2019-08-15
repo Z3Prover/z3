@@ -74,7 +74,7 @@ class RC2:
     def get_cost(self):
         return sum(self.Ws0[c] for c in self.Ws0 if not tt(self.solver, c))
 
-    # Retrieve independendent cores from Ws
+    # Retrieve independent cores from Ws
     def get_cores(self, Ws):
         cores = []
         while unsat == self.check(Ws):            
