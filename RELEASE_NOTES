@@ -66,7 +66,7 @@ Version 4.8.0
        in "cuts from proofs" and "cutting the mix").
      . extracting integer solutions from LP solutions by tightening bounds selectively.
        We use a generalization of Bromberger and Weidenbach that allows avoiding selected
-       bounds tighthenings (https://easychair.org/publications/paper/qGfG).
+       bounds tightenings (https://easychair.org/publications/paper/qGfG).
      It solves significantly more problems in the QF_LIA category and may at this point also 
      be the best solver for your problem as well.
      The new solver is enabled only for select SMT-LIB logics. These include QF_LIA, QF_IDL, and QF_UFLIA.
@@ -238,7 +238,7 @@ xor88, parno, gario, Bauna, GManNickG, hanwentao, dinu09, fhowar, Cici, chinissa
       (check-sat a)
       (check-sat)
   If 'F' is unstatisfiable independently of the assumption 'a', and 
-  the inconsistenty can be detected by just performing propagation,
+  the inconsistency can be detected by just performing propagation,
   Then, version <= 4.3.1 may return
       unsat
       sat
@@ -290,8 +290,6 @@ Version 4.3.0
 
 - Removed tactic mip. It was based on code that was deleted during the code reorganization. 
      
-- Remark: We skipped version 4.2 due to a mistake when releasing 4.1.2. It accidentatly 
-
 - Fixed compilation problems with clang/llvm. Many thanks to Xi Wang for finding the problem, and suggesting the fix. 
 
 - Now, Z3 automatically adds arithmetic coercions: to_real and to_int.
@@ -308,7 +306,7 @@ Version 4.3.0
 
 - Added "--with-python=<path>" option to configure script.
 
-- Cleanned c++, maxsat, test_mapi examples.
+- Cleaned c++, maxsat, test_mapi examples.
 
 - Move RELEASE_NOTES files to source code distribution.
 
@@ -452,7 +450,7 @@ Temporarily disabled features:
 
 - User theories cannot be used with the new Solver API yet. Users may still use them with the deprecated solver API.
 
-- Parallel Z3 is also disabled in this release. However, we have parallel combinators for creating stragegies (See <a href="http://rise4fun.com/Z3/tutorial/strategies"> tutorial</a>).
+- Parallel Z3 is also disabled in this release. However, we have parallel combinators for creating strategies (See <a href="http://rise4fun.com/Z3/tutorial/strategies"> tutorial</a>).
       
 The two features above will return in future releases. 
 
