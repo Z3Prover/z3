@@ -1259,9 +1259,21 @@ namespace z3 {
     inline expr pw(expr const & a, int b) { return pw(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr pw(int a, expr const & b) { return pw(b.ctx().num_val(a, b.get_sort()), b); }
 
-    inline expr mod(expr const& a, expr const& b) { _Z3_MK_BIN_(a, b, Z3_mk_mod);   }
+    inline expr mod(expr const& a, expr const& b) { 
+        if (a.is_bv()) {
+            _Z3_MK_BIN_(a, b, Z3_mk_bvsmod);   
+        }
+        else {
+            _Z3_MK_BIN_(a, b, Z3_mk_mod);   
+        }
+    }
     inline expr mod(expr const & a, int b) { return mod(a, a.ctx().num_val(b, a.get_sort())); }
     inline expr mod(int a, expr const & b) { return mod(b.ctx().num_val(a, b.get_sort()), b); }
+
+    inline expr operator%(expr const& a, expr const& b) { return mod(a, b); }
+    inline expr operator%(expr const& a, int b) { return mod(a, b); }
+    inline expr operator%(int a, expr const& b) { return mod(a, b); }
+
 
     inline expr rem(expr const& a, expr const& b) {
         if (a.is_fpa() && b.is_fpa()) {
