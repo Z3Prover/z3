@@ -202,7 +202,7 @@ extern "C" {
         func_decl* d = mk_c(c)->m().mk_fresh_func_decl(prefix,
                                                        domain_size,
                                                        reinterpret_cast<sort*const*>(domain),
-                                                       to_sort(range));
+                                                       to_sort(range), false);
 
         mk_c(c)->save_ast_trail(d);
         RETURN_Z3(of_func_decl(d));
@@ -216,7 +216,7 @@ extern "C" {
         if (prefix == nullptr) {
             prefix = "";
         }
-        app* a = mk_c(c)->m().mk_fresh_const(prefix, to_sort(ty));
+        app* a = mk_c(c)->m().mk_fresh_const(prefix, to_sort(ty), false);
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_ast(a));
         Z3_CATCH_RETURN(nullptr);

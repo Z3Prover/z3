@@ -1921,20 +1921,24 @@ public:
     }
 
     func_decl * mk_fresh_func_decl(symbol const & prefix, symbol const & suffix, unsigned arity,
-                                   sort * const * domain, sort * range);
+                                   sort * const * domain, sort * range, bool skolem = true);
 
-    func_decl * mk_fresh_func_decl(unsigned arity, sort * const * domain, sort * range) { return mk_fresh_func_decl(symbol::null, symbol::null, arity, domain, range); }
+    func_decl * mk_fresh_func_decl(unsigned arity, sort * const * domain, sort * range, bool skolem = true) { 
+        return mk_fresh_func_decl(symbol::null, symbol::null, arity, domain, range, skolem); 
+    }
 
     func_decl * mk_fresh_func_decl(char const * prefix, char const * suffix, unsigned arity,
-                                   sort * const * domain, sort * range) {
-        return mk_fresh_func_decl(symbol(prefix), symbol(suffix), arity, domain, range);
+                                   sort * const * domain, sort * range, bool skolem = true) {
+        return mk_fresh_func_decl(symbol(prefix), symbol(suffix), arity, domain, range, skolem);
     }
 
-    func_decl * mk_fresh_func_decl(char const * prefix, unsigned arity, sort * const * domain, sort * range) {
-        return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range);
+    func_decl * mk_fresh_func_decl(char const * prefix, unsigned arity, sort * const * domain, sort * range, bool skolem = true) {
+        return mk_fresh_func_decl(symbol(prefix), symbol::null, arity, domain, range, skolem);
     }
 
-    app * mk_fresh_const(char const * prefix, sort * s) { return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s)); }
+    app * mk_fresh_const(char const * prefix, sort * s, bool skolem = true) { 
+        return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s, skolem)); 
+    }
 
     symbol mk_fresh_var_name(char const * prefix = nullptr);
 
