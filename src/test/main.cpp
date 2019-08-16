@@ -22,7 +22,7 @@
         s += #MODULE;                                        \
         void tst_##MODULE();                                 \
         if (do_display_usage)                                \
-            std::cout << #MODULE << "\n";                    \
+            std::cout << "    " << #MODULE << "\n";          \
         for (int i = 0; i < argc; i++)                       \
             if (test_all || strcmp(argv[i], #MODULE) == 0) { \
                 enable_trace(#MODULE);                       \
@@ -38,7 +38,7 @@
     s += #MODULE;                                       \
     void tst_##MODULE(char** argv, int argc, int& i);   \
     if (do_display_usage)                               \
-        std::cout << #MODULE << "\n";                   \
+        std::cout << "    " << #MODULE << "(...)\n";    \
     for (int i = 0; i < argc; i++)                      \
     if (strcmp(argv[i], #MODULE) == 0) {                \
         enable_trace(#MODULE);                          \
@@ -72,10 +72,15 @@ void display_usage() {
 #ifdef Z3DEBUG
     std::cout << "  /dbg:tag    enable assertions tagged with <tag>.\n";
 #endif
+    std::cout << "\nModule names:\n";
 }
 
 void parse_cmd_line_args(int argc, char ** argv, bool& do_display_usage, bool& test_all) {
     int i = 1;
+    if (argc == 1) {
+        display_usage();
+        do_display_usage = true;
+    }
     while (i < argc) {
         char * arg = argv[i];
         char * eq_pos = nullptr;
