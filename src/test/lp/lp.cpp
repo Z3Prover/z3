@@ -68,26 +68,33 @@ void test_basic_lemma_for_mon_zero_from_factors_to_monomial();
 void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 
-void test_cn_on_expr(horner::nex t) {
-    TRACE("nla_cn", tout << "t=" << t << '\n';);
-    cross_nested cn(t, [](const horner::nex& n) {
-                           TRACE("nla_cn_test", tout << n << "\n";);
-                           return false;
-                       } ,
-        [](unsigned) { return false; });
-    cn.run();
+void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
+    TRACE("nla_cn", tout << "t=" << *t << '\n';);
+    cn.run(t);
 }
 
 void test_cn() {
-    typedef horner::nex nex;
+    cross_nested cn([](const nex* n) {
+                           TRACE("nla_cn_test", tout << *n << "\n";);
+                           return false;
+                       } ,
+        [](unsigned) { return false; });
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
-    nex a = nex::var(0), b = nex::var(1), c = nex::var(2), d = nex::var(3), e = nex::var(4), f = nex::var(5), g = nex::var(6);
-    nex min_1 = nex::scalar(rational(-1));
+    nex_var* a = cn.mk_var(0);
+    nex_var* b = cn.mk_var(1);
+    nex_var* c = cn.mk_var(2);
+    nex_var* d = cn.mk_var(3);
+    nex_var* e = cn.mk_var(4);
+    nex_var* f = cn.mk_var(5);
+    nex_var* g = cn.mk_var(6);
+    nex* min_1 = cn.mk_scalar(rational(-1));
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
-    TRACE("nla_cn", tout << "done\n";);
-   
-    test_cn_on_expr(b*c*d -  b*c*g);
+    nex* bcd = cn.mk_mul(b, c, d);
+    nex_mul* bcg = cn.mk_mul(b, c, g);
+    bcg->add_child(min_1);
+    nex_sum* t = cn.mk_sum(bcd, bcg);
+    test_cn_on_expr(t, cn);
     //    test_cn_on_expr(a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d);
     // TRACE("nla_cn", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
