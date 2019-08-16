@@ -350,11 +350,6 @@ public:
     lpvar map_to_root(lpvar) const;
     std::ostream& print_terms(std::ostream&) const;
     std::ostream& print_term( const lp::lar_term&, std::ostream&) const;
-    nla_expr<rational> mk_expr(lpvar j) const;
-    nla_expr<rational> mk_expr(const rational &a, lpvar j) const;
-
-    nla_expr<rational> mk_expr(const rational &a, const svector<lpvar>& vs) const;
-    nla_expr<rational> mk_expr(const lp::lar_term& t) const;
 };  // end of core
 
 struct pp_mon {

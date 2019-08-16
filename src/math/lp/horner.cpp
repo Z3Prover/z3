@@ -63,31 +63,31 @@ bool horner::row_is_interesting(const T& row) const {
     return false;
 }
 
-bool horner::lemmas_on_expr(nex& e) {
+bool horner::lemmas_on_expr(nex_sum* e, cross_nested& cn) {
     TRACE("nla_horner", tout << "e = " << e << "\n";);
-    bool conflict = false;
-    cross_nested cn(e, [this, & conflict](const nex& n) {
+    cn.run(e);
+    return cn.done();
+}
+
+
+template <typename T> 
+bool horner::lemmas_on_row(const T& row) {
+    cross_nested cn([this](const nex* n) {
                            TRACE("nla_horner", tout << "cross-nested n = " << n << "\n";);
                            auto i = interval_of_expr(n);
                            TRACE("nla_horner", tout << "callback n = " << n << "\ni="; m_intervals.display(tout, i) << "\n";);
                            
-                           conflict = m_intervals.check_interval_for_conflict_on_zero(i);
+                           bool conflict = m_intervals.check_interval_for_conflict_on_zero(i);
                            c().lp_settings().st().m_cross_nested_forms++;
                            m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
                            return conflict;
                        },
         [this](unsigned j) {  return c().var_is_fixed(j); }
         );
-    cn.run();
-    return conflict;
-}
 
-
-template <typename T> 
-bool horner::lemmas_on_row(const T& row) {
     SASSERT (row_is_interesting(row));
-    nex e = create_sum_from_row(row);
-    return lemmas_on_expr(e);
+    nex_sum* e = create_sum_from_row(row, cn);
+    return lemmas_on_expr(e, cn);
 }
 
 void horner::horner_lemmas() {
@@ -120,27 +120,28 @@ void horner::horner_lemmas() {
     }
 }
 
-typedef nla_expr<rational> nex;
-
-nex horner::nexvar(lpvar j) const {
+nex * horner::nexvar(lpvar j, cross_nested& cn) const {
     // todo: consider deepen the recursion
     if (!c().is_monomial_var(j))
-        return nex::var(j);
+        return cn.mk_var(j);
     const monomial& m = c().emons()[j];
-    nex e(expr_type::MUL);
+    nex_mul * e = cn.mk_mul();
     for (lpvar k : m.vars()) {
-        e.add_child(nex::var(k));
+        e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monomial_var(k), c().print_var(k, tout) << "\n";);
     }
     return e;
 }
 
-template <typename T> nex horner::create_sum_from_row(const T& row) {
+template <typename T> nex_sum* horner::create_sum_from_row(const T& row, cross_nested& cn) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     SASSERT(row.size() > 1);
-    nex e(expr_type::SUM);
-    for (const auto &p : row) {        
-        e.add_child(nex::scalar(p.coeff())* nexvar(p.var()));
+    nex_sum *e = cn.mk_sum();
+    for (const auto &p : row) {
+        if (p.coeff().is_one())
+            e->add_child(nexvar(p.var(), cn));
+        else
+            e->add_child(cn.mk_mul(cn.mk_scalar(p.coeff()), nexvar(p.var(), cn)));
     }
     return e;
 }
@@ -155,28 +156,28 @@ void horner::set_interval_for_scalar(interv& a, const rational& v) {
     m_intervals.set_upper_is_inf(a, false);
 }
 
-interv horner::interval_of_expr(const nex& e) {
+interv horner::interval_of_expr(const nex* e) {
     interv a;
-    switch (e.type()) {
+    switch (e->type()) {
     case expr_type::SCALAR:
-        set_interval_for_scalar(a, e.value());
+        set_interval_for_scalar(a, to_scalar(e)->value());
         return a;
     case expr_type::SUM:
-        return interval_of_sum(e);
+        return interval_of_sum(to_sum(e));
     case expr_type::MUL:
-        return interval_of_mul(e);
+        return interval_of_mul(to_mul(e));
     case expr_type::VAR:
-        set_var_interval(e.var(), a);
+        set_var_interval(to_var(e)->var(), a);
         return a;
     default:
-        TRACE("nla_horner_details", tout << e.type() << "\n";);
+        TRACE("nla_horner_details", tout << e->type() << "\n";);
         SASSERT(false);
         return interv();
     }
 }
-interv horner::interval_of_mul(const nex& e) {
-    SASSERT(e.is_mul());
-    auto & es = e.children();
+interv horner::interval_of_mul(const nex_mul* e) {
+    SASSERT(e->is_mul());
+    auto & es = to_mul(e)->children();
     interv a = interval_of_expr(es[0]);
     if (m_intervals.is_zero(a)) {
         m_intervals.set_zero_interval_deps_for_mult(a);
@@ -208,25 +209,25 @@ interv horner::interval_of_mul(const nex& e) {
     return a;
 }
 
-void horner::add_mul_to_vector(const nex& e, vector<std::pair<rational, lpvar>> &v) {
+void horner::add_mul_to_vector(const nex_mul* e, vector<std::pair<rational, lpvar>> &v) {
     TRACE("nla_horner_details", tout << e << "\n";);
-    SASSERT(e.is_mul() && e.size() > 0);
-    if (e.size() == 1) {
-        add_linear_to_vector(*(e.children().begin()), v);
+    SASSERT(e->size() > 0);
+    if (e->size() == 1) {
+        add_linear_to_vector(*(e->children().begin()), v);
         return;
     }
     rational r;
     lpvar j = -1;
-    for (const nex & c : e.children()) {
-        switch (c.type()) {
+    for (const nex * c : e->children()) {
+        switch (c->type()) {
         case expr_type::SCALAR:
-            r = c.value();
+            r = to_scalar(c)->value();
             break;
         case expr_type::VAR:
-            j = c.var();
+            j = to_var(c)->var();
             break;
         default:
-            TRACE("nla_horner_details", tout << e.type() << "\n";);
+            TRACE("nla_horner_details", tout << e->type() << "\n";);
             SASSERT(false);
         }
     }
@@ -234,30 +235,30 @@ void horner::add_mul_to_vector(const nex& e, vector<std::pair<rational, lpvar>> 
     v.push_back(std::make_pair(r, j));
 }
 
-void horner::add_linear_to_vector(const nex& e, vector<std::pair<rational, lpvar>> &v) {
+void horner::add_linear_to_vector(const nex* e, vector<std::pair<rational, lpvar>> &v) {
     TRACE("nla_horner_details", tout << e << "\n";);
-    switch (e.type()) {
+    switch (e->type()) {
     case expr_type::MUL:
-        add_mul_to_vector(e, v);
+        add_mul_to_vector(to_mul(e), v);
         break; 
     case expr_type::VAR:
-        v.push_back(std::make_pair(rational(1), e.var()));
+        v.push_back(std::make_pair(rational(1), to_var(e)->var()));
         break;
     default:
-        SASSERT(!e.is_sum());
+        SASSERT(!e->is_sum());
         // noop
     }
 }
 // e = a * can_t + b
-lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational& b) {
+lp::lar_term horner::expression_to_normalized_term(const nex_sum* e, rational& a, rational& b) {
     TRACE("nla_horner_details", tout << e << "\n";);
     lpvar smallest_j;
     vector<std::pair<rational, lpvar>> v;
     b = rational(0);
     unsigned a_index;
-    for (const nex& c : e.children()) {
-        if (c.is_scalar()) {
-            b += c.value();
+    for (const nex* c : e->children()) {
+        if (c->is_scalar()) {
+            b += to_scalar(c)->value();
         } else {
             add_linear_to_vector(c, v);
             if (v.empty())
@@ -295,9 +296,10 @@ lp::lar_term horner::expression_to_normalized_term(nex& e, rational& a, rational
 
 // we should have in the case of found a*m_terms[k] + b = e,
 // where m_terms[k] corresponds to the returned lpvar
-lpvar horner::find_term_column(const nex& e, rational& a, rational& b) const {
-    nex n = e;
-    lp::lar_term norm_t = expression_to_normalized_term(n, a, b);
+lpvar horner::find_term_column(const nex* e, rational& a, rational& b) const {
+    if (!e->is_sum())
+        return -1;
+    lp::lar_term norm_t = expression_to_normalized_term(to_sum(e), a, b);
     std::pair<rational, lpvar> a_j;
     if (c().m_lar_solver.fetch_normalized_term_column(norm_t, a_j)) {
         a /= a_j.first;
@@ -306,8 +308,8 @@ lpvar horner::find_term_column(const nex& e, rational& a, rational& b) const {
     return -1;
 }
 
-interv horner::interval_of_sum_no_terms(const nex& e) {
-    auto & es = e.children(); 
+interv horner::interval_of_sum_no_terms(const nex_sum* e) {
+    auto & es = e->children(); 
     interv a = interval_of_expr(es[0]);
     if (m_intervals.is_inf(a)) {
         TRACE("nla_horner_details",  tout << "e=" << e << "\n";
@@ -340,10 +342,9 @@ interv horner::interval_of_sum_no_terms(const nex& e) {
     return a;
 }
 
-bool horner::interval_from_term(const nex& e, interv & i) const {
+bool horner::interval_from_term(const nex* e, interv & i) const {
     rational a, b;
-    nex n = e;
-    lpvar j = find_term_column(n, a, b);
+    lpvar j = find_term_column(e, a, b);
     if (j + 1 == 0)
         return false;
 
@@ -361,11 +362,10 @@ bool horner::interval_from_term(const nex& e, interv & i) const {
 }
 
 
-interv horner::interval_of_sum(const nex& e) {
+interv horner::interval_of_sum(const nex_sum* e) {
     TRACE("nla_horner_details", tout << "e=" << e << "\n";);
-    SASSERT(e.is_sum());
     interv i_e = interval_of_sum_no_terms(e);
-    if (e.sum_is_a_linear_term()) {
+    if (e->is_a_linear_term()) {
         interv i_from_term ;
         if (interval_from_term(e, i_from_term)) {
             interv r = m_intervals.intersect(i_e, i_from_term);

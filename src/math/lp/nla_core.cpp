@@ -1346,41 +1346,41 @@ lbool core::test_check(
     return check(l);
 }
 
-nla_expr<rational> core::mk_expr(lpvar j)  const {
-    return nla_expr<rational>::var(j);
-}
+// nla_expr<rational> core::mk_expr(lpvar j)  const {
+//     return nla_expr<rational>::var(j);
+// }
 
-nla_expr<rational> core::mk_expr(const rational &a, lpvar j)  const {
-    if (a == 1)
-        return mk_expr(j);
-    nla_expr<rational> r(expr_type::MUL);
-    r.add_child(nla_expr<rational>::scalar(a));
-    r.add_child(nla_expr<rational>::var(j));
-    return r;            
-}
+// nla_expr<rational> core::mk_expr(const rational &a, lpvar j)  const {
+//     if (a == 1)
+//         return mk_expr(j);
+//     nla_expr<rational> r(expr_type::MUL);
+//     r.add_child(nla_expr<rational>::scalar(a));
+//     r.add_child(nla_expr<rational>::var(j));
+//     return r;            
+// }
 
-nla_expr<rational> core::mk_expr(const rational &a, const svector<lpvar>& vs) const {
-    nla_expr<rational> r(expr_type::MUL);
-    r.add_child(nla_expr<rational>::scalar(a));
-    for (lpvar j : vs)
-        r.add_child(nla_expr<rational>::var(j));
-    return r;            
-}
-nla_expr<rational> core::mk_expr(const lp::lar_term& t) const {
-    auto coeffs = t.coeffs_as_vector();
-    if (coeffs.size() == 1) {
-        return mk_expr(coeffs[0].first, coeffs[0].second);
-    }
-    nla_expr<rational> r(expr_type::SUM);
-    for (const auto & p : coeffs) {
-        lpvar j = p.second;
-        if (is_monomial_var(j))
-            r.add_child(mk_expr(p.first, m_emons[j].vars()));
-        else
-            r.add_child(mk_expr(p.first, j));
-    }
-    return r;
-}
+// nla_expr<rational> core::mk_expr(const rational &a, const svector<lpvar>& vs) const {
+//     nla_expr<rational> r(expr_type::MUL);
+//     r.add_child(nla_expr<rational>::scalar(a));
+//     for (lpvar j : vs)
+//         r.add_child(nla_expr<rational>::var(j));
+//     return r;            
+// }
+// nla_expr<rational> core::mk_expr(const lp::lar_term& t) const {
+//     auto coeffs = t.coeffs_as_vector();
+//     if (coeffs.size() == 1) {
+//         return mk_expr(coeffs[0].first, coeffs[0].second);
+//     }
+//     nla_expr<rational> r(expr_type::SUM);
+//     for (const auto & p : coeffs) {
+//         lpvar j = p.second;
+//         if (is_monomial_var(j))
+//             r.add_child(mk_expr(p.first, m_emons[j].vars()));
+//         else
+//             r.add_child(mk_expr(p.first, j));
+//     }
+//     return r;
+// }
 
 std::ostream& core::print_terms(std::ostream& out) const {
     for (unsigned i=0; i< m_lar_solver.m_terms.size(); i++) {
