@@ -70,6 +70,11 @@ public:
     virtual ~nex() {}
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
+    virtual void simplify() {}
+    virtual const vector<nex*> * children_ptr() const {
+        UNREACHABLE();
+        return nullptr;
+    }
 };
 std::ostream& operator<<(std::ostream& out, const nex&);
 
@@ -107,6 +112,28 @@ public:
 
 };
 
+static void promote_children_by_type(vector<nex*> * children, expr_type t) {
+    svector<nex*> to_promote;
+    for(unsigned j = 0; j < children->size(); j++) {
+        nex* e = (*children)[j];
+        e->simplify();
+        if (e->type() == t) {
+            to_promote.push_back(e);
+        } else {
+            unsigned offset = to_promote.size();
+            if (offset) {
+                (*children)[j - offset] = e;
+            }
+        }
+        for (nex *e : to_promote) {
+            for (nex *ee : *(e->children_ptr())) {
+                children->push_back(ee);
+            }
+        }
+    }
+        
+}
+
 class nex_mul : public nex {
     vector<nex*> m_children;
 public:
@@ -115,6 +142,8 @@ public:
     expr_type type() const { return expr_type::MUL; }
     vector<nex*>& children() { return m_children;}
     const vector<nex*>& children() const { return m_children;}
+    const vector<nex*>* children_ptr() const { return &m_children;}
+    
     std::ostream & print(std::ostream& out) const {
         bool first = true;
         for (const nex* v : m_children) {            
@@ -180,8 +209,12 @@ public:
         return degree;
     }
     
+    void simplify() {
+        promote_children_by_type(&m_children, expr_type::MUL);
+    }
 
 };
+
 
 class nex_sum : public nex {
     vector<nex*> m_children;
@@ -190,6 +223,7 @@ public:
     expr_type type() const { return expr_type::SUM; }
     vector<nex*>& children() { return m_children;}
     const vector<nex*>& children() const { return m_children;}    
+    const vector<nex*>* children_ptr() const { return &m_children;}
     unsigned size() const { return m_children.size(); }
 
     // we need a linear combination of at least two variables
@@ -233,7 +267,7 @@ public:
     }
 
     void simplify() {
-        SASSERT(false);
+        promote_children_by_type(&m_children, expr_type::SUM);
     }
     
     int get_degree() const {

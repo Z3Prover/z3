@@ -86,7 +86,6 @@ void test_cn() {
     nex_var* c = cn.mk_var(2);
     nex_var* d = cn.mk_var(3);
     nex_var* e = cn.mk_var(4);
-    nex_var* f = cn.mk_var(5);
     nex_var* g = cn.mk_var(6);
     nex* min_1 = cn.mk_scalar(rational(-1));
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
@@ -94,8 +93,16 @@ void test_cn() {
     nex_mul* bcg = cn.mk_mul(b, c, g);
     bcg->add_child(min_1);
     nex_sum* t = cn.mk_sum(bcd, bcg);
-    test_cn_on_expr(t, cn);
-    //    test_cn_on_expr(a*a*d + a*b*c*d + a*a*c*c*d + a*d*d + e*a*e + e*a*c + e*d);
+    //    test_cn_on_expr(t, cn);
+    nex* aad = cn.mk_mul(a, a, d);
+    nex* abcd = cn.mk_mul(a, b, c, d);
+    nex* aaccd = cn.mk_mul(a, a, c, c, d);
+    nex* add = cn.mk_mul(a, d, d);
+    nex* eae = cn.mk_mul(e, a, e);
+    nex* eac = cn.mk_mul(e, a, c);
+    nex* ed = cn.mk_mul(e, d);
+    
+    test_cn_on_expr(cn.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     // TRACE("nla_cn", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
     // TRACE("nla_cn", tout << "done\n";);
