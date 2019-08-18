@@ -215,13 +215,16 @@ public:
 
     nex* extract_common_factor(nex* e, const vector<std::pair<lpvar, occ>> & occurences) {
         nex_sum* c = to_sum(e);
-        TRACE("nla_cn", tout << "c=" << *c << "\n";);
+        TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, occurences) << "\n";);
         unsigned size = c->children().size();
+        bool have_factor = false;
         for(const auto & p : occurences) {
-            if (p.second.m_occs < size) {
-                return nullptr;
+            if (p.second.m_occs == size) {
+                have_factor = true;
+                break;
             }
         }
+        if (have_factor == false) return nullptr;
         nex_mul* f = mk_mul();
         for(const auto & p : occurences) { // randomize here: todo
             if (p.second.m_occs == size) {
@@ -255,8 +258,10 @@ public:
     bool proceed_with_common_factor(nex*& c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
         nex* f = extract_common_factor(c, occurences);
-        if (f == nullptr)
+        if (f == nullptr) {
+            TRACE("nla_cn", tout << "no common factor\n"; );
             return false;
+        }
         
         nex* c_over_f = mk_div(c, f);
         to_sum(c_over_f)->simplify();
