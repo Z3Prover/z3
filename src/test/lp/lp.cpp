@@ -101,8 +101,9 @@ void test_cn() {
     nex* eae = cn.mk_mul(e, a, e);
     nex* eac = cn.mk_mul(e, a, c);
     nex* ed = cn.mk_mul(e, d);
-    
-    test_cn_on_expr(cn.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
+    nex* _6aad = cn.mk_mul(cn.mk_scalar(rational(6)), a, a, d); 
+    //    test_cn_on_expr(cn.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
+    test_cn_on_expr(cn.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed), cn);
     // TRACE("nla_cn", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
     // TRACE("nla_cn", tout << "done\n";);
