@@ -41,9 +41,8 @@ class cross_nested {
     bool                                  m_done;
     std::unordered_map<lpvar, occ>        m_occurences_map;
     std::unordered_map<lpvar, unsigned>   m_powers;
-    vector<nex*> m_allocated;
-    vector<nex*> m_b_vec;
-    vector<nex*> m_b_split_vec;
+    ptr_vector<nex> m_allocated;
+    ptr_vector<nex> m_b_split_vec;
 public:
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed):
@@ -56,7 +55,7 @@ public:
         m_e = e;
         
         vector<nex**> front;
-        explore_expr_on_front_elem(m_e, front);
+        explore_expr_on_front_elem(&m_e, front);
     }
 
     static nex** pop_front(vector<nex**>& front) {
@@ -80,20 +79,21 @@ public:
         add_children(r, es ...);
     }
 
-    nex_sum* mk_sum(const vector<nex*>& v) {
+    nex_sum* mk_sum(const ptr_vector<nex>& v) {
         auto r = new nex_sum();
         m_allocated.push_back(r);
         r->children() = v;
         return r;
     }
 
-    nex_mul* mk_mul(const vector<nex*>& v) {
+    nex_mul* mk_mul(const ptr_vector<nex>& v) {
         auto r = new nex_mul();
         m_allocated.push_back(r);
         r->children() = v;
         return r;
     }
 
+    
     template <typename K, typename...Args>
     nex_sum* mk_sum(K e, Args... es) {
         auto r = new nex_sum();
@@ -134,27 +134,27 @@ public:
         SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
         if (a->is_var())
             return mk_scalar(rational(1));
-        m_b_vec.clear();
+        ptr_vector<nex> bv;
         bool seenj = false;
         for (nex* c : to_mul(a)->children()) {
             if (!seenj) {
                 if (c->contains(j)) {
                     if (!c->is_var())                     
-                        m_b_vec.push_back(mk_div(c, j));
+                        bv.push_back(mk_div(c, j));
                     seenj = true;
                     continue;
                 } 
             }
-            m_b_vec.push_back(c);
+            bv.push_back(c);
         }
-        if (m_b_vec.size() > 1) { 
-            return mk_mul(m_b_vec);
+        if (bv.size() > 1) { 
+            return mk_mul(bv);
         }
-        if (m_b_vec.size() == 1) {
-            return m_b_vec[0];
+        if (bv.size() == 1) {
+            return bv[0];
         }
 
-        SASSERT(m_b_vec.size() == 0);
+        SASSERT(bv.size() == 0);
         return mk_scalar(rational(1));
     }
 
@@ -255,20 +255,20 @@ public:
         return false;
     }
 
-    bool proceed_with_common_factor(nex*& c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
-        TRACE("nla_cn", tout << "c=" << *c << "\n";);
-        nex* f = extract_common_factor(c, occurences);
+    bool proceed_with_common_factor(nex** c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
+        TRACE("nla_cn", tout << "c=" << **c << "\n";);
+        nex* f = extract_common_factor(*c, occurences);
         if (f == nullptr) {
             TRACE("nla_cn", tout << "no common factor\n"; );
             return false;
         }
         
-        nex* c_over_f = mk_div(c, f);
+        nex* c_over_f = mk_div(*c, f);
         to_sum(c_over_f)->simplify();
-        c = mk_mul(f, c_over_f);
-        TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << *c << "\ne = " << *m_e << "\n";);
+        *c = mk_mul(f, c_over_f);
+        TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
         
-        explore_expr_on_front_elem(c_over_f, front);
+        explore_expr_on_front_elem(&(*((*c)->children_ptr()))[1],  front);
         return true;
     }
 
@@ -290,11 +290,11 @@ public:
             *(front[i]) = copy[i];
     }
     
-    void explore_expr_on_front_elem_occs(nex* &c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
+    void explore_expr_on_front_elem_occs(nex** c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
         if (proceed_with_common_factor(c, front, occurences))
             return;
         TRACE("nla_cn", tout << "save c=" << *c << "; front:"; print_front(front, tout) << "\n";);           
-        nex* copy_of_c = c;
+        nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
         for(auto& p : occurences) {
             SASSERT(p.second.m_occs > 1);
@@ -308,11 +308,11 @@ public:
             explore_of_expr_on_sum_and_var(c, j, front);
             if (m_done)
                 return;
-            TRACE("nla_cn", tout << "before restore c=" << *c << ", m_e=" << *m_e << "\n";);
-            c = copy_of_c;
-            TRACE("nla_cn", tout << "after restore c=" << *c << ", m_e=" << *m_e << "\n";);
+            TRACE("nla_cn", tout << "before restore c=" << **c << ", m_e=" << *m_e << "\n";);
+            *c = copy_of_c;
+            TRACE("nla_cn", tout << "after restore c=" << **c << ", m_e=" << *m_e << "\n";);
             restore_front(copy_of_front, front);
-            TRACE("nla_cn", tout << "restore c=" << *c << "\n";);
+            TRACE("nla_cn", tout << "restore c=" << **c << "\n";);
             TRACE("nla_cn", tout << "m_e=" << *m_e << "\n";);   
         }
     }
@@ -328,9 +328,9 @@ public:
         return out;
     }
 
-    void explore_expr_on_front_elem(nex*& c, vector<nex**>& front) {
-        auto occurences = get_mult_occurences(to_sum(c));
-        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << *c << ", c occurences=";
+    void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
+        auto occurences = get_mult_occurences(to_sum(*c));
+        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << ", c occurences=";
               dump_occurences(tout, occurences) << "; front:"; print_front(front, tout) << "\n";);
     
         if (occurences.empty()) {
@@ -338,7 +338,7 @@ public:
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e);
             } else {
-                nex* f = *pop_front(front);
+                nex** f = pop_front(front);
                 explore_expr_on_front_elem(f, front);     
             }
         } else {
@@ -360,14 +360,14 @@ public:
     }
     // c is the sub expressiond which is going to be changed from sum to the cross nested form
     // front will be explored more
-    void explore_of_expr_on_sum_and_var(nex*& c, lpvar j, vector<nex**> front) {
-        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << *c << "\nj = " << ch(j) << "\nfront="; print_front(front, tout) << "\n";);
-        if (!split_with_var(c, j, front))
+    void explore_of_expr_on_sum_and_var(nex** c, lpvar j, vector<nex**> front) {
+        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << ch(j) << "\nfront="; print_front(front, tout) << "\n";);
+        if (!split_with_var(*c, j, front))
             return;
-        TRACE("nla_cn", tout << "after split c=" << *c << "\nfront="; print_front(front, tout) << "\n";);
+        TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         SASSERT(front.size());
         auto n = pop_front(front);
-        explore_expr_on_front_elem(*n, front);
+        explore_expr_on_front_elem(n, front);
     }
 
     void add_var_occs(lpvar j) {

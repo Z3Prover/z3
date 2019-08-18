@@ -71,7 +71,11 @@ public:
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
     virtual void simplify() {}
-    virtual const vector<nex*> * children_ptr() const {
+    virtual const ptr_vector<nex> * children_ptr() const {
+        UNREACHABLE();
+        return nullptr;
+    }
+    virtual ptr_vector<nex> * children_ptr() {
         UNREACHABLE();
         return nullptr;
     }
@@ -112,8 +116,8 @@ public:
 
 };
 
-static void promote_children_by_type(vector<nex*> * children, expr_type t) {
-    svector<nex*> to_promote;
+static void promote_children_by_type(ptr_vector<nex> * children, expr_type t) {
+    ptr_vector<nex> to_promote;
     for(unsigned j = 0; j < children->size(); j++) {
         nex* e = (*children)[j];
         e->simplify();
@@ -125,24 +129,25 @@ static void promote_children_by_type(vector<nex*> * children, expr_type t) {
                 (*children)[j - offset] = e;
             }
         }
-        for (nex *e : to_promote) {
-            for (nex *ee : *(e->children_ptr())) {
-                children->push_back(ee);
-            }
-        }
     }
-        
+    
+    for (nex *e : to_promote) {
+        for (nex *ee : *(e->children_ptr())) {
+            children->push_back(ee);
+        }
+    }    
 }
 
 class nex_mul : public nex {
-    vector<nex*> m_children;
+    ptr_vector<nex> m_children;
 public:
     nex_mul()  {}
     unsigned size() const { return m_children.size(); }
     expr_type type() const { return expr_type::MUL; }
-    vector<nex*>& children() { return m_children;}
-    const vector<nex*>& children() const { return m_children;}
-    const vector<nex*>* children_ptr() const { return &m_children;}
+    ptr_vector<nex>& children() { return m_children;}
+    const ptr_vector<nex>& children() const { return m_children;}
+    const ptr_vector<nex>* children_ptr() const { return &m_children;}
+    ptr_vector<nex>* children_ptr() { return &m_children;}
     
     std::ostream & print(std::ostream& out) const {
         bool first = true;
@@ -217,13 +222,14 @@ public:
 
 
 class nex_sum : public nex {
-    vector<nex*> m_children;
+    ptr_vector<nex> m_children;
 public:
     nex_sum()  {}
     expr_type type() const { return expr_type::SUM; }
-    vector<nex*>& children() { return m_children;}
-    const vector<nex*>& children() const { return m_children;}    
-    const vector<nex*>* children_ptr() const { return &m_children;}
+    ptr_vector<nex>& children() { return m_children;}
+    const ptr_vector<nex>& children() const { return m_children;}    
+    const ptr_vector<nex>* children_ptr() const { return &m_children;}
+    ptr_vector<nex>* children_ptr() { return &m_children;}
     unsigned size() const { return m_children.size(); }
 
     // we need a linear combination of at least two variables
