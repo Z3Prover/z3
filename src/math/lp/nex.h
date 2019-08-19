@@ -49,7 +49,7 @@ public:
     virtual expr_type type() const = 0;
     virtual std::ostream& print(std::ostream&) const = 0;
     nex() {}
-    bool is_simple() const {
+    bool is_elementary() const {
         switch(type()) {
         case expr_type::SUM:
         case expr_type::MUL:
@@ -67,7 +67,10 @@ public:
     virtual ~nex() {}
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
-    virtual void simplify() {}
+    virtual void simplify(nex** ) = 0;
+    virtual bool is_simplified() const {
+        return true;
+    }
     virtual const ptr_vector<nex> * children_ptr() const {
         UNREACHABLE();
         return nullptr;
@@ -103,6 +106,7 @@ public:
 
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
+    virtual void simplify(nex** e) { *e = this; }
 };
 
 class nex_scalar : public nex {
@@ -119,29 +123,48 @@ public:
     }
     
     int get_degree() const { return 0; }
+    virtual void simplify(nex** e) { *e = this; }
 
 };
 
+const nex_scalar * to_scalar(const nex* a);
+
+static bool ignored_child(nex* e, expr_type t) {
+    switch(t) {
+    case expr_type::MUL:
+        return e->is_scalar() && to_scalar(e)->value().is_one();
+    case expr_type::SUM:        
+        return e->is_scalar() && to_scalar(e)->value().is_zero();
+    default: return false;
+    }
+    return false;
+}
+
 static void promote_children_by_type(ptr_vector<nex> * children, expr_type t) {
     ptr_vector<nex> to_promote;
+    int skipped = 0;
     for(unsigned j = 0; j < children->size(); j++) {
-        nex* e = (*children)[j];
-        e->simplify();
-        if (e->type() == t) {
-            to_promote.push_back(e);
+        nex** e = &(*children)[j];
+        (*e)->simplify(e);
+        if ((*e)->type() == t) {
+            to_promote.push_back(*e);
+        } else if (ignored_child(*e, t)) {
+            skipped ++;
+            continue;
         } else {
-            unsigned offset = to_promote.size();
+            unsigned offset = to_promote.size() + skipped;
             if (offset) {
-                (*children)[j - offset] = e;
+                (*children)[j - offset] = *e;
             }
         }
     }
-
-    children->shrink(children->size() - to_promote.size());
+    
+    children->shrink(children->size() - to_promote.size() - skipped);
     
     for (nex *e : to_promote) {
         for (nex *ee : *(e->children_ptr())) {
-            children->push_back(ee);
+            if (!ignored_child(ee, t))
+                children->push_back(ee);            
         }
     }    
 }
@@ -163,12 +186,12 @@ public:
             std::string s = v->str();
             if (first) {
                 first = false;
-                if (v->is_simple())
+                if (v->is_elementary())
                     out << s;
                 else 
                     out << "(" << s << ")";                            
             } else {
-                if (v->is_simple()) {
+                if (v->is_elementary()) {
                     if (s[0] == '-') {
                         out << "*(" << s << ")";
                     } else {
@@ -222,12 +245,29 @@ public:
         return degree;
     }
     
-    void simplify() {
+    void simplify(nex **e) {
+        *e = this;
         TRACE("nla_cn_details", tout << *this << "\n";);
         promote_children_by_type(&m_children, expr_type::MUL);
+        if (size() == 1) 
+            *e = m_children[0];
         TRACE("nla_cn_details", tout << *this << "\n";);
+        SASSERT((*e)->is_simplified());
     }
-    #ifdef Z3DEBUG
+
+    virtual bool is_simplified() const {
+        if (size() < 2)
+            return false;
+        for (nex * e : children()) {
+            if (e->is_mul()) 
+                return false;
+            if (e->is_scalar() && to_scalar(e)->value().is_one())
+                return false;
+        }
+        return true;
+    }
+
+#ifdef Z3DEBUG
     virtual void sort() {
         for (nex * c : m_children) {
             c->sort();
@@ -271,12 +311,12 @@ public:
             std::string s = v->str();
             if (first) {
                 first = false;
-                if (v->is_simple())
+                if (v->is_elementary())
                     out << s;
                 else 
                     out << "(" << s << ")";                            
             } else {
-                if (v->is_simple()) {
+                if (v->is_elementary()) {
                     if (s[0] == '-') {
                         out << s;
                     } else {
@@ -290,8 +330,21 @@ public:
         return out;
     }
 
-    void simplify() {
+    void simplify(nex **e) {
+        *e = this;
         promote_children_by_type(&m_children, expr_type::SUM);
+        if (size() == 1)
+            *e = m_children[0];
+    }
+    virtual bool is_simplified() const {
+        if (size() < 2) return false;
+        for (nex * e : children()) {
+            if (e->is_sum())
+                return false;
+            if (e->is_scalar() && to_scalar(e)->value().is_zero())
+                return false;
+        }
+        return true;
     }
     
     int get_degree() const {
@@ -331,6 +384,11 @@ inline const nex_var* to_var(const nex*a)  {
     return static_cast<const nex_var*>(a);
 }
 
+inline const nex_scalar* to_scalar(const nex*a)  {
+    SASSERT(a->is_scalar());
+    return static_cast<const nex_scalar*>(a);
+}
+
 inline const nex_mul* to_mul(const nex*a) {
     SASSERT(a->is_mul());
     return static_cast<const nex_mul*>(a);
@@ -339,11 +397,6 @@ inline const nex_mul* to_mul(const nex*a) {
 inline nex_mul* to_mul(nex*a) {
     SASSERT(a->is_mul());
     return static_cast<nex_mul*>(a);
-}
-
-inline const nex_scalar * to_scalar(const nex* a) {
-    SASSERT(a->is_scalar());
-    return static_cast<const nex_scalar*>(a);
 }
 
 inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
