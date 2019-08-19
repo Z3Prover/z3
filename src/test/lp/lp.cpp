@@ -93,7 +93,7 @@ void test_cn() {
     nex_mul* bcg = cn.mk_mul(b, c, g);
     bcg->add_child(min_1);
     nex_sum* t = cn.mk_sum(bcd, bcg);
-    //    test_cn_on_expr(t, cn);
+    test_cn_on_expr(t, cn);
     nex* aad = cn.mk_mul(a, a, d);
     nex* abcd = cn.mk_mul(a, b, c, d);
     nex* aaccd = cn.mk_mul(a, a, c, c, d);
@@ -101,7 +101,9 @@ void test_cn() {
     nex* eae = cn.mk_mul(e, a, e);
     nex* eac = cn.mk_mul(e, a, c);
     nex* ed = cn.mk_mul(e, d);
-    nex* _6aad = cn.mk_mul(cn.mk_scalar(rational(6)), a, a, d); 
+    nex* _6aad = cn.mk_mul(cn.mk_scalar(rational(6)), a, a, d);
+    nex * clone = cn.clone(cn.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
+    TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
     //    test_cn_on_expr(cn.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(cn.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed), cn);
     // TRACE("nla_cn", tout << "done\n";);
