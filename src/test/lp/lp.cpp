@@ -102,8 +102,10 @@ void test_cn() {
     nex* eac = cn.mk_mul(e, a, c);
     nex* ed = cn.mk_mul(e, d);
     nex* _6aad = cn.mk_mul(cn.mk_scalar(rational(6)), a, a, d);
+#ifdef Z3DEBUG
     nex * clone = cn.clone(cn.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
     TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
+#endif
     //    test_cn_on_expr(cn.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(cn.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed), cn);
     // TRACE("nla_cn", tout << "done\n";);

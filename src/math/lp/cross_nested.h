@@ -270,7 +270,7 @@ public:
         }
         
         nex* c_over_f = mk_div(*c, f);
-        to_sum(c_over_f)->simplify();
+        to_sum(c_over_f)->simplify(&c_over_f);
         *c = mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
         
@@ -463,8 +463,7 @@ public:
             || (ce->is_var() && to_var(ce)->var() == j);
     }
     // all factors of j go to a, the rest to b
-    void pre_split(nex_sum * e, lpvar j, nex_sum* & a, nex* & b) {
-        
+    void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {        
         a = mk_sum();
         m_b_split_vec.clear();
         for (nex * ce: e->children()) {
@@ -478,7 +477,8 @@ public:
         }
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
         SASSERT(a->children().size() >= 2 && m_b_split_vec.size());
-        a->simplify();
+        nex* f;
+        a->simplify(&f); 
         
         if (m_b_split_vec.size() == 1) {
             b = m_b_split_vec[0];
@@ -608,11 +608,13 @@ public:
         for (unsigned j = 0; j < a->size(); j ++) {
             a->children()[j] = normalize(a->children()[j]);            
         }
-        a->simplify();
-        return a;
+        nex *r;
+        a->simplify(&r);
+        return r;
     }
 
     nex * normalize_mul(nex_mul* a) {
+        TRACE("nla_cn", tout << *a << "\n";);
         int sum_j = -1;
         for (unsigned j = 0; j < a->size(); j ++) {
             a->children()[j] = normalize(a->children()[j]);
@@ -620,28 +622,36 @@ public:
                 sum_j = j;
         }
 
-        if (sum_j == -1)
-            return a;
+        if (sum_j == -1) {
+            nex * r;
+            a->simplify(&r);
+            SASSERT(r->is_simplified());
+            return r;
+        }
         
         nex_sum *r = mk_sum();
         nex_sum *as = to_sum(a->children()[sum_j]);
         for (unsigned k = 0; k < as->size(); k++) {
             nex_mul *b = mk_mul(as->children()[k]);
-            r->add_child(b);
             for (unsigned j = 0; j < a->size(); j ++) {
                 if ((int)j != sum_j)
                     b->add_child(a->children()[j]);
             }
-            b->simplify();
+            nex *e;
+            b->simplify(&e);
+            r->add_child(e);
         }
-        TRACE("nla_cn", tout << *r << "\n";); 
-        return normalize_sum(r);
+        TRACE("nla_cn", tout << *r << "\n";);
+        nex *rs = normalize_sum(r);
+        SASSERT(rs->is_simplified());
+        return rs;
+
     }
 
     
     
     nex * normalize(nex* a) {
-        if (a->is_simple())
+        if (a->is_elementary())
             return a;
         nex *r;
         if (a->is_mul()) {
