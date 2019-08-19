@@ -19,7 +19,7 @@
   --*/
 #pragma once
 #include <functional>
-#include "math/lp/nla_expr.h"
+#include "math/lp/nex.h"
 namespace nla {
 class cross_nested {
     struct occ {
