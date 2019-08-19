@@ -590,6 +590,52 @@ public:
         }
         return nullptr;
     }
+
+    nex * normalize_sum(nex_sum* a) {
+        for (unsigned j = 0; j < a->size(); j ++) {
+            a->children()[j] = normalize(a->children()[j]);            
+        }
+        a->simplify();
+        return a;
+    }
+
+    nex * normalize_mul(nex_mul* a) {
+        int sum_j = -1;
+        for (unsigned j = 0; j < a->size(); j ++) {
+            a->children()[j] = normalize(a->children()[j]);
+            if (a->children()[j]->is_sum())
+                sum_j = j;
+        }
+
+        if (sum_j == -1)
+            return a;
+        
+        nex_sum *r = mk_sum();
+        nex_sum *as = to_sum(a->children()[sum_j]);
+        for (unsigned k = 0; k < as->size(); k++) {
+            nex_mul *b = mk_mul(as->children()[k]);
+            r->add_child(b);
+            for (unsigned j = 0; j < a->size(); j ++) {
+                if ((int)j != sum_j)
+                    b->add_child(a->children()[j]);
+            }
+        }        
+        return normalize_sum(r);
+    }
+
+    
+    
+    nex * normalize(nex* a) {
+        if (a->is_simple())
+            return a;
+        nex *r;
+        if (a->is_mul()) {
+            r = normalize_mul(to_mul(a));
+        } else {
+            r = normalize_sum(to_sum(a));
+        }
+        r->sort();
+    }
     #endif
     
 };
