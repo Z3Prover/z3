@@ -27,7 +27,7 @@
 #include "math/lp/nla_monotone_lemmas.h"
 #include "math/lp/emonomials.h"
 #include "math/lp/nla_settings.h"
-#include "math/lp/nla_expr.h"
+#include "math/lp/nex.h"
 #include "math/lp/horner.h"
 namespace nla {
 
