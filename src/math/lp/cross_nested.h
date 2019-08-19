@@ -556,6 +556,41 @@ public:
     }
 
     bool done() const { return m_done; }
+#if Z3DEBUG
+    nex *clone (nex * a) {
+        switch (a->type()) {
+        case expr_type::VAR: {
+            auto v = to_var(a);
+            return mk_var(v->var());
+        }
+            
+        case expr_type::SCALAR: {
+            auto v = to_scalar(a);
+            return mk_scalar(v->value());
+        }
+        case expr_type::MUL: {
+            auto m = to_mul(a);
+            auto r = mk_mul();
+            for (nex * e : m->children()) {
+                r->add_child(clone(e));
+            }
+            return r;
+        }
+        case expr_type::SUM: {
+            auto m = to_sum(a);
+            auto r = mk_sum();
+            for (nex * e : m->children()) {
+                r->add_child(clone(e));
+            }
+            return r;
+        }
+        default:
+            SASSERT(false);
+            break;
+        }
+        return nullptr;
+    }
+    #endif
     
 };
 }
