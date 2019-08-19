@@ -69,7 +69,7 @@ extern "C" {
                 (' ' == *m) || ('\n' == *m) ||
                 ('.' == *m) || ('e' == *m) ||
                 ('E' == *m) || ('+' == *m) ||
-                (is_float && 
+                (is_float &&
                     (('p' == *m) ||
                      ('P' == *m))))) {
                 SET_ERROR_CODE(Z3_PARSER_ERROR, nullptr);
@@ -145,7 +145,7 @@ extern "C" {
     bool Z3_API Z3_is_numeral_ast(Z3_context c, Z3_ast a) {
         Z3_TRY;
         LOG_Z3_is_numeral_ast(c, a);
-        RESET_ERROR_CODE();        
+        RESET_ERROR_CODE();
         CHECK_IS_EXPR(a, false);
         expr* e = to_expr(a);
         return
@@ -228,8 +228,22 @@ extern "C" {
     }
 
     double Z3_API Z3_get_numeral_double(Z3_context c, Z3_ast a) {
-        Z3_string s = Z3_get_numeral_decimal_string(c, a, 12);
-        return std::stod(std::string(s));
+        LOG_Z3_get_numeral_double(c, a);
+        RESET_ERROR_CODE();
+        if (!is_expr(a)) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return 0.0/0.0;
+        }
+        expr* e = to_expr(a);
+        fpa_util & fu = mk_c(c)->fpautil();
+        scoped_mpf tmp(fu.fm());
+        if (!mk_c(c)->fpautil().is_numeral(e, tmp) ||
+            tmp.get().get_ebits() > 11 ||
+            tmp.get().get_sbits() > 53) {
+            SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
+            return 0.0/0.0;
+        }
+        return fu.fm().to_double(tmp);
     }
 
     Z3_string Z3_API Z3_get_numeral_decimal_string(Z3_context c, Z3_ast a, unsigned precision) {
