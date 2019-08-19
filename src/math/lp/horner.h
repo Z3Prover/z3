@@ -21,7 +21,7 @@
 
 #include "math/lp/nla_common.h"
 #include "math/lp/nla_intervals.h"
-#include "math/lp/nla_expr.h"
+#include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
 
 namespace nla {
