@@ -192,7 +192,6 @@ extern "C" {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
-            // floats are separated from all others to avoid huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf tmp(fu.fm());
             mpf_rounding_mode rm;
@@ -217,7 +216,9 @@ extern "C" {
                 }
             }
             else if (mk_c(c)->fpautil().is_numeral(to_expr(a), tmp)) {
-                return mk_c(c)->mk_external_string(fu.fm().to_string(tmp));
+                std::ostringstream buffer;
+                fu.fm().display_smt2(buffer, tmp, false);
+                return mk_c(c)->mk_external_string(buffer.str());
             }
             else {
                 SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
@@ -254,6 +255,9 @@ extern "C" {
         expr* e = to_expr(a);
         rational r;
         arith_util & u = mk_c(c)->autil();
+        fpa_util & fu = mk_c(c)->fpautil();
+        scoped_mpf ftmp(fu.fm());
+        mpf_rounding_mode rm;
         if (u.is_numeral(e, r) && !r.is_int()) {
             std::ostringstream buffer;
             r.display_decimal(buffer, precision);
@@ -266,8 +270,14 @@ extern "C" {
             am.display_decimal(buffer, n, precision);
             return mk_c(c)->mk_external_string(buffer.str());
         }
-        bool ok = Z3_get_numeral_rational(c, a, r);
-        if (ok) {
+        else if (mk_c(c)->fpautil().is_rm_numeral(to_expr(a), rm))
+            return Z3_get_numeral_string(c, a);
+        else if (mk_c(c)->fpautil().is_numeral(to_expr(a), ftmp)) {
+            std::ostringstream buffer;
+            fu.fm().display_decimal(buffer, ftmp, 12);
+            return mk_c(c)->mk_external_string(buffer.str());
+        }
+        else if (Z3_get_numeral_rational(c, a, r)) {
             return mk_c(c)->mk_external_string(r.to_string());
         }
         else {
