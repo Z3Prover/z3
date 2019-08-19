@@ -82,6 +82,9 @@ public:
 };
 #if Z3DEBUG
 bool operator<(const nex& a , const nex& b);
+inline bool operator ==(const nex& a , const nex& b) {
+    return ! (a < b || b < a) ;
+}
 #endif
 std::ostream& operator<<(std::ostream& out, const nex&);
 
@@ -133,6 +136,8 @@ static void promote_children_by_type(ptr_vector<nex> * children, expr_type t) {
             }
         }
     }
+
+    children->shrink(children->size() - to_promote.size());
     
     for (nex *e : to_promote) {
         for (nex *ee : *(e->children_ptr())) {
@@ -218,7 +223,9 @@ public:
     }
     
     void simplify() {
+        TRACE("nla_cn_details", tout << *this << "\n";);
         promote_children_by_type(&m_children, expr_type::MUL);
+        TRACE("nla_cn_details", tout << *this << "\n";);
     }
     #ifdef Z3DEBUG
     virtual void sort() {
@@ -377,7 +384,7 @@ inline bool operator<(const nex& a , const nex& b) {
         return to_mul(&a)->children() < to_mul(&b)->children();
     }
     case expr_type::SUM: {
-        return to_mul(&a)->children() < to_mul(&b)->children();
+        return to_sum(&a)->children() < to_sum(&b)->children();
     }
     default:
         SASSERT(false);
