@@ -1164,7 +1164,8 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     SASSERT(m_bv_util.get_bv_size(rndd_exp) == ebits+2);
     SASSERT(m_bv_util.get_bv_size(y_exp_m1) == ebits);
 
-    expr_ref rndd_exp_eq_y_exp_m1(m), y_sig_le_rndd_sig(m);
+    expr_ref rndd_exp_eq_y_exp(m), rndd_exp_eq_y_exp_m1(m), y_sig_le_rndd_sig(m);
+    rndd_exp_eq_y_exp = m.mk_eq(rndd_sig_lz, m_bv_util.mk_numeral(1, ebits+2));
     rndd_exp_eq_y_exp_m1 = m.mk_eq(rndd_sig_lz, m_bv_util.mk_numeral(2, ebits+2));
     dbg_decouple("fpa2bv_rem_rndd_exp_eq_y_exp_m1", rndd_exp_eq_y_exp_m1);
 
@@ -1177,7 +1178,8 @@ void fpa2bv_converter::mk_rem(sort * s, expr_ref & x, expr_ref & y, expr_ref & r
     dbg_decouple("fpa2bv_rem_y_sig_eq_rndd_sig", y_sig_eq_rndd_sig);
 
     expr_ref sub_cnd(m);
-    sub_cnd = m.mk_or(m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_le_rndd_sig, m.mk_not(y_sig_eq_rndd_sig)),
+    sub_cnd = m.mk_or(m.mk_and(rndd_exp_eq_y_exp, y_sig_le_rndd_sig),
+                      m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_le_rndd_sig, m.mk_not(y_sig_eq_rndd_sig)),
                       m.mk_and(rndd_exp_eq_y_exp_m1, y_sig_eq_rndd_sig, m.mk_not(huge_div_is_even)));
     dbg_decouple("fpa2bv_rem_sub_cnd", sub_cnd);
 
