@@ -15,6 +15,7 @@ Author:
 Revision History:
 
 --*/
+#include<cmath>
 #include<iostream>
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -233,7 +234,7 @@ extern "C" {
         RESET_ERROR_CODE();
         if (!is_expr(a)) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0.0/0.0;
+            return NAN;
         }
         expr* e = to_expr(a);
         fpa_util & fu = mk_c(c)->fpautil();
@@ -242,7 +243,7 @@ extern "C" {
             tmp.get().get_ebits() > 11 ||
             tmp.get().get_sbits() > 53) {
             SET_ERROR_CODE(Z3_INVALID_ARG, nullptr);
-            return 0.0/0.0;
+            return NAN;
         }
         return fu.fm().to_double(tmp);
     }
