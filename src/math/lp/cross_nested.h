@@ -41,11 +41,14 @@ class cross_nested {
     bool                                  m_done;
     std::unordered_map<lpvar, occ>        m_occurences_map;
     std::unordered_map<lpvar, unsigned>   m_powers;
-    ptr_vector<nex> m_allocated;
-    ptr_vector<nex> m_b_split_vec;
+    ptr_vector<nex>                       m_allocated;
+    ptr_vector<nex>                       m_b_split_vec;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
+    void add_to_allocated(nex* r) {
+        m_allocated.push_back(r);
+    }
 public:
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed):
@@ -54,11 +57,12 @@ public:
         m_done(false)
     {}
 
+    
     void run(nex *e) {
         m_e = e;
 #ifdef Z3DEBUG
-        m_e_clone = clone(m_e);
-        m_e_clone = normalize(m_e_clone);
+        //        m_e_clone = clone(m_e);
+        //        m_e_clone = normalize(m_e_clone);
 #endif
         vector<nex**> front;
         explore_expr_on_front_elem(&m_e, front);
@@ -73,7 +77,7 @@ public:
 
     nex_sum* mk_sum() {
         auto r = new nex_sum();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         return r;
     }
     template <typename T>
@@ -87,14 +91,14 @@ public:
 
     nex_sum* mk_sum(const ptr_vector<nex>& v) {
         auto r = new nex_sum();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         r->children() = v;
         return r;
     }
 
     nex_mul* mk_mul(const ptr_vector<nex>& v) {
         auto r = new nex_mul();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         r->children() = v;
         return r;
     }
@@ -103,34 +107,34 @@ public:
     template <typename K, typename...Args>
     nex_sum* mk_sum(K e, Args... es) {
         auto r = new nex_sum();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         r->add_child(e);
         add_children(r, es...);
         return r;
     }
     nex_var* mk_var(lpvar j) {
         auto r = new nex_var(j);
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         return r;
     }
     
     nex_mul* mk_mul() {
         auto r = new nex_mul();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         return r;
     }
 
     template <typename K, typename...Args>
     nex_mul* mk_mul(K e, Args... es) {
         auto r = new nex_mul();
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         add_children(r, e, es...);
         return r;
     }
     
     nex_scalar* mk_scalar(const rational& v) {
         auto r = new nex_scalar(v);
-        m_allocated.push_back(r);
+        add_to_allocated(r);
         return r;
     }
 
@@ -214,7 +218,7 @@ public:
             TRACE("nla_cn_details", tout << "return 1\n";);
             return mk_scalar(rational(1));
         }
-        m_allocated.push_back(ret);
+        add_to_allocated(ret);
         TRACE("nla_cn_details", tout << *ret << "\n";);        
         return ret;
     }
@@ -295,6 +299,12 @@ public:
         for (unsigned i = 0; i < front.size(); i++)
             *(front[i]) = copy[i];
     }
+
+    void pop_allocated(unsigned sz) {
+        for (unsigned j = sz; j < m_allocated.size(); j ++)
+            delete m_allocated[j];
+        m_allocated.resize(sz);
+    }
     
     void explore_expr_on_front_elem_occs(nex** c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
         if (proceed_with_common_factor(c, front, occurences))
@@ -302,6 +312,7 @@ public:
         TRACE("nla_cn", tout << "save c=" << *c << "; front:"; print_front(front, tout) << "\n";);           
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
+        int alloc_size = m_allocated.size();
         for(auto& p : occurences) {
             SASSERT(p.second.m_occs > 1);
             lpvar j = p.first;
@@ -314,12 +325,11 @@ public:
             explore_of_expr_on_sum_and_var(c, j, front);
             if (m_done)
                 return;
-            TRACE("nla_cn", tout << "before restore c=" << **c << ", m_e=" << *m_e << "\n";);
+            TRACE("nla_cn", tout << "before restore c=" << **c << "\nm_e=" << *m_e << "\n";);
             *c = copy_of_c;
-            TRACE("nla_cn", tout << "after restore c=" << **c << ", m_e=" << *m_e << "\n";);
             restore_front(copy_of_front, front);
-            TRACE("nla_cn", tout << "restore c=" << **c << "\n";);
-            TRACE("nla_cn", tout << "m_e=" << *m_e << "\n";);   
+            pop_allocated(alloc_size);
+            TRACE("nla_cn", tout << "after restore c=" << **c << "\nm_e=" << *m_e << "\n";);   
         }
     }
 
@@ -343,13 +353,13 @@ public:
             if(front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e);
-#ifdef Z3DEBUG
-                nex *ce = clone(m_e);
-                TRACE("nla_cn", tout << "ce = " << *ce <<  "\n";);
-                nex *n = normalize(ce);
-                TRACE("nla_cn", tout << "n = " << *n << "\nm_e_clone=" << * m_e_clone << "\n";);
-                SASSERT(*n == *m_e_clone);
-#endif
+// #ifdef Z3DEBUG
+//                 nex *ce = clone(m_e);
+//                 TRACE("nla_cn", tout << "ce = " << *ce <<  "\n";);
+//                 nex *n = normalize(ce);
+//                 TRACE("nla_cn", tout << "n = " << *n << "\nm_e_clone=" << * m_e_clone << "\n";);
+//                 SASSERT(*n == *m_e_clone);
+// #endif
             } else {
                 nex** f = pop_front(front);
                 explore_expr_on_front_elem(f, front);     
@@ -378,7 +388,10 @@ public:
         if (!split_with_var(*c, j, front))
             return;
         TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
-        SASSERT(front.size());
+        if (front.empty()) {
+            m_done = m_call_on_result(m_e);
+            return;
+        }
         auto n = pop_front(front);
         explore_expr_on_front_elem(n, front);
     }
@@ -496,10 +509,12 @@ public:
         
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = mk_sum(mk_mul(mk_var(j), a), b); // e = j*a + b
-        nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
-        push(front, ptr_to_a);
+        if (a->get_degree() > 1) {
+            nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
+            push(front, ptr_to_a);
+        }
         
-        if (b->is_sum()) {
+        if (b->is_sum() && b->get_degree() > 1) {
             nex **ptr_to_a = &(to_sum(e)->children()[1]);
             push(front, ptr_to_a);
         }
@@ -508,7 +523,8 @@ public:
    void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex* a, nex* b) {
         if (b == nullptr) {
             e = mk_mul(mk_var(j), a);
-            push(front, &(to_mul(e)->children()[1]));
+            if (a->get_degree() > 1)
+                push(front, &(to_mul(e)->children()[1]));
         } else {
             update_front_with_split_with_non_empty_b(e, j, front, a, b);
         }
