@@ -82,6 +82,7 @@ public:
     #ifdef Z3DEBUG
     virtual void sort() {};
     #endif
+    bool virtual is_linear() const = 0;
 };
 #if Z3DEBUG
 bool operator<(const nex& a , const nex& b);
@@ -107,6 +108,7 @@ public:
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
     virtual void simplify(nex** e) { *e = this; }
+    bool virtual is_linear() const { return true; }
 };
 
 class nex_scalar : public nex {
@@ -124,6 +126,7 @@ public:
     
     int get_degree() const { return 0; }
     virtual void simplify(nex** e) { *e = this; }
+    bool is_linear() const { return true; }
 
 };
 
@@ -267,6 +270,19 @@ public:
         return true;
     }
 
+    bool is_linear() const {
+        SASSERT(is_simplified());
+        if (children().size() > 2)
+            return false;
+
+        SASSERT(children().size() == 2);
+        for (auto e : children()) {
+            if (e->is_scalar())
+                return true;
+        }
+        return false;
+    }
+
 #ifdef Z3DEBUG
     virtual void sort() {
         for (nex * c : m_children) {
@@ -294,7 +310,7 @@ public:
     bool is_linear() const {
         TRACE("nex_details", tout << *this << "\n";);
         for (auto  e : children()) {
-            if (e->get_degree() > 1)
+            if (!e->is_linear())
                 return false;
         }
         TRACE("nex_details", tout << "linear\n";); 
