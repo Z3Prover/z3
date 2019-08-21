@@ -360,7 +360,7 @@ bool horner::interval_from_term(const nex* e, interv & i) const {
     lp::explanation exp;
     if (c().explain_by_equiv(norm_t, exp)) {
         m_intervals.set_zero_interval_with_explanation(i, exp);
-        TRACE("nla_horner", tout << "explain_by_equiv\n");
+        TRACE("nla_horner", tout << "explain_by_equiv\n";);
         return true;
     }
     lpvar j = find_term_column(norm_t, a);
