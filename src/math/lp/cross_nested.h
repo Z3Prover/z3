@@ -282,7 +282,7 @@ public:
         return true;
     }
 
-    static void push(vector<nex**>& front, nex** e) {
+    static void push_to_front(vector<nex**>& front, nex** e) {
         TRACE("nla_cn", tout << **e << "\n";);
         front.push_back(e);
     }
@@ -509,22 +509,22 @@ public:
         
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = mk_sum(mk_mul(mk_var(j), a), b); // e = j*a + b
-        if (a->get_degree() > 1) {
+        if (!to_sum(a)->is_linear()) {
             nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
-            push(front, ptr_to_a);
+            push_to_front(front, ptr_to_a);
         }
         
-        if (b->is_sum() && b->get_degree() > 1) {
+        if (b->is_sum() && !to_sum(b)->is_linear()) {
             nex **ptr_to_a = &(to_sum(e)->children()[1]);
-            push(front, ptr_to_a);
+            push_to_front(front, ptr_to_a);
         }
     }
     
    void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex* a, nex* b) {
         if (b == nullptr) {
             e = mk_mul(mk_var(j), a);
-            if (a->get_degree() > 1)
-                push(front, &(to_mul(e)->children()[1]));
+            if (!to_sum(a)->is_linear())
+                push_to_front(front, &(to_mul(e)->children()[1]));
         } else {
             update_front_with_split_with_non_empty_b(e, j, front, a, b);
         }
