@@ -133,6 +133,20 @@ nex * horner::nexvar(lpvar j, cross_nested& cn) const {
     return e;
 }
 
+nex * horner::nexvar(const rational & coeff, lpvar j, cross_nested& cn) const {
+    // todo: consider deepen the recursion
+    if (!c().is_monomial_var(j))
+        return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
+    const monomial& m = c().emons()[j];
+    nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
+    for (lpvar k : m.vars()) {
+        e->add_child(cn.mk_var(k));
+        CTRACE("nla_horner", c().is_monomial_var(k), c().print_var(k, tout) << "\n";);
+    }
+    return e;
+}
+
+
 template <typename T> nex_sum* horner::create_sum_from_row(const T& row, cross_nested& cn) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     SASSERT(row.size() > 1);
@@ -140,8 +154,9 @@ template <typename T> nex_sum* horner::create_sum_from_row(const T& row, cross_n
     for (const auto &p : row) {
         if (p.coeff().is_one())
             e->add_child(nexvar(p.var(), cn));
-        else
-            e->add_child(cn.mk_mul(cn.mk_scalar(p.coeff()), nexvar(p.var(), cn)));
+        else {           
+            e->add_child(nexvar(p.coeff(), p.var(), cn));
+        }
     }
     return e;
 }

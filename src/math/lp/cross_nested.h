@@ -59,6 +59,8 @@ public:
 
     
     void run(nex *e) {
+        TRACE("nla_cn", tout << *e << "\n";);
+        SASSERT(e->is_simplified());
         m_e = e;
 #ifdef Z3DEBUG
         //        m_e_clone = clone(m_e);
@@ -503,13 +505,10 @@ public:
         }
     }
 
-    void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex* a, nex* b) {
-
-        SASSERT(a->is_sum());
-        
+    void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = mk_sum(mk_mul(mk_var(j), a), b); // e = j*a + b
-        if (!to_sum(a)->is_linear()) {
+        if (!a->is_linear()) {
             nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
             push_to_front(front, ptr_to_a);
         }
@@ -520,7 +519,7 @@ public:
         }
     }
     
-   void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex* a, nex* b) {
+   void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
         if (b == nullptr) {
             e = mk_mul(mk_var(j), a);
             if (!to_sum(a)->is_linear())
