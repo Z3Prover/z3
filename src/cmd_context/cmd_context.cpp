@@ -1674,6 +1674,7 @@ void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         if (m_mc0) (*m_mc0)(mdl);
         if (m_params.m_model_compress) mdl->compress();
+        add_declared_functions(*mdl);
         model_params p;
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;
@@ -1683,6 +1684,23 @@ void cmd_context::display_model(model_ref& mdl) {
             regular_stream() << "(model " << std::endl;
             model_smt2_pp(regular_stream(), *this, *mdl, 2);
             regular_stream() << ")" << std::endl;
+        }
+    }
+}
+
+void cmd_context::add_declared_functions(model& mdl) {
+    for (auto const& kv : m_func_decls) {
+        func_decl* f = kv.m_value.first();
+        if (!mdl.has_interpretation(f)) {
+            expr* val = mdl.get_some_value(f->get_range());
+            if (f->get_arity() == 0) {
+                mdl.register_decl(f, val);
+                }
+            else {
+                func_interp* fi = alloc(func_interp, m(), f->get_arity());
+                fi->set_else(val);
+                mdl.register_decl(f, fi);
+            }
         }
     }
 }

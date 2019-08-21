@@ -273,6 +273,7 @@ protected:
     void init_external_manager();
     void reset_cmds();
     void finalize_cmds();
+    void add_declared_functions(model& mdl);
 
     void restore_func_decls(unsigned old_sz);
     void restore_psort_decls(unsigned old_sz);
