@@ -280,7 +280,7 @@ public:
     
     bool explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs);
 
-    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e);
+    bool explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const;
 
     bool has_zero_factor(const factorization& factorization) const;
 
