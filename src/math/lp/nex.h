@@ -290,6 +290,17 @@ public:
     ptr_vector<nex>* children_ptr() { return &m_children;}
     unsigned size() const { return m_children.size(); }
 
+
+    bool is_linear() const {
+        TRACE("nex_details", tout << *this << "\n";);
+        for (auto  e : children()) {
+            if (e->get_degree() > 1)
+                return false;
+        }
+        TRACE("nex_details", tout << "linear\n";); 
+        return true;
+    }
+
     // we need a linear combination of at least two variables
     bool is_a_linear_term() const {
         TRACE("nex_details", tout << *this << "\n";);
