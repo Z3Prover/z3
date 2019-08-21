@@ -311,10 +311,7 @@ lp::lar_term horner::expression_to_normalized_term(const nex_sum* e, rational& a
 
 // we should have in the case of found a*m_terms[k] + b = e,
 // where m_terms[k] corresponds to the returned lpvar
-lpvar horner::find_term_column(const nex* e, rational& a, rational& b) const {
-    if (!e->is_sum())
-        return -1;
-    lp::lar_term norm_t = expression_to_normalized_term(to_sum(e), a, b);
+lpvar horner::find_term_column(const lp::lar_term & norm_t, rational& a) const {
     std::pair<rational, lpvar> a_j;
     if (c().m_lar_solver.fetch_normalized_term_column(norm_t, a_j)) {
         a /= a_j.first;
@@ -359,7 +356,14 @@ interv horner::interval_of_sum_no_terms(const nex_sum* e) {
 
 bool horner::interval_from_term(const nex* e, interv & i) const {
     rational a, b;
-    lpvar j = find_term_column(e, a, b);
+    lp::lar_term norm_t = expression_to_normalized_term(to_sum(e), a, b);
+    lp::explanation exp;
+    if (c().explain_by_equiv(norm_t, exp)) {
+        m_intervals.set_zero_interval_with_explanation(i, exp);
+        TRACE("nla_horner", tout << "explain_by_equiv\n");
+        return true;
+    }
+    lpvar j = find_term_column(norm_t, a);
     if (j + 1 == 0)
         return false;
 
@@ -381,6 +385,7 @@ interv horner::interval_of_sum(const nex_sum* e) {
     TRACE("nla_horner_details", tout << "e=" << e << "\n";);
     interv i_e = interval_of_sum_no_terms(e);
     if (e->is_a_linear_term()) {
+        SASSERT(e->is_sum() && e->size() > 1);
         interv i_from_term ;
         if (interval_from_term(e, i_from_term)) {
             interv r = m_intervals.intersect(i_e, i_from_term);

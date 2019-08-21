@@ -32,6 +32,17 @@ void intervals::set_var_interval_with_deps(lpvar v, interval& b) const {
     }
 }
 
+void intervals::set_zero_interval_with_explanation(interval& i, const lp::explanation& exp) const {
+    auto val = rational(0);
+    m_config.set_lower(i, val);
+    m_config.set_lower_is_open(i, false);
+    m_config.set_lower_is_inf(i, false);
+    m_config.set_upper(i, val);
+    m_config.set_upper_is_open(i, false);
+    m_config.set_upper_is_inf(i, false);
+    i.m_lower_dep = i.m_upper_dep = mk_dep(exp);
+}
+
 void intervals::set_zero_interval_deps_for_mult(interval& a) {
     a.m_lower_dep = m_dep_manager.mk_join(a.m_lower_dep, a.m_upper_dep);
     a.m_upper_dep = a.m_lower_dep;
@@ -74,7 +85,19 @@ bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
 intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }
-    
+
+intervals::ci_dependency *intervals::mk_dep(const lp::explanation& expl) const {
+    intervals::ci_dependency * r = nullptr;
+    for (auto p : expl) {
+        if (r == nullptr) {
+            r = m_dep_manager.mk_leaf(p.second);
+        } else {
+            r = m_dep_manager.mk_join(r, m_dep_manager.mk_leaf(p.second));
+        }
+    }
+    return r;
+}
+
 
 std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     if (m_imanager.lower_is_inf(i)) {

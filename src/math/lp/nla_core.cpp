@@ -409,10 +409,10 @@ bool core:: explain_ineq(const lp::lar_term& t, llc cmp, const rational& rs) {
 
 /**
  * \brief
- if t is an octagon term -+x -+ y try to explain why the term always
+ if t is an octagon term -+x -+ y try to explain why the term always is
  equal zero
 */
-bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) {
+bool core:: explain_by_equiv(const lp::lar_term& t, lp::explanation& e) const {
     lpvar i,j;
     bool sign;
     if (!is_octagon_term(t, sign, i, j))
