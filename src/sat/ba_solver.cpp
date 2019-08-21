@@ -372,7 +372,7 @@ namespace sat {
         SASSERT(s().at_base_lvl());
         if (p.lit() != null_literal && value(p.lit()) == l_false) {
             TRACE("ba", tout << "pb: flip sign " << p << "\n";);
-            IF_VERBOSE(0, verbose_stream() << "sign is flipped " << p << "\n";);
+            IF_VERBOSE(1, verbose_stream() << "sign is flipped " << p << "\n";);
             return;
         }
         bool nullify = p.lit() != null_literal && value(p.lit()) == l_true;
@@ -424,7 +424,7 @@ namespace sat {
                 s().assign_scoped(~p.lit());
             }
             else {
-                IF_VERBOSE(0, verbose_stream() << "unsat during simplification\n";);
+                IF_VERBOSE(1, verbose_stream() << "unsat during simplification\n";);
                 s().set_conflict(justification(0));
             }
             remove_constraint(p, "is false");
@@ -990,7 +990,6 @@ namespace sat {
                 // alit gets unwatched by propagate_core because we return l_undef
                 watch_literal(lit, x);
                 watch_literal(~lit, x);
-                // IF_VERBOSE(0, verbose_stream() << "swap " << lit << " " << alit << "\n");
                 TRACE("ba", tout << "swap in: " << lit << " " << x << "\n";);
                 return l_undef;
             }
@@ -2181,7 +2180,6 @@ namespace sat {
         unsigned level = lvl(l);
         bool_var v = l.var();
         SASSERT(js.get_kind() == justification::EXT_JUSTIFICATION);
-        // IF_VERBOSE(0, verbose_stream() << l << " : " << js << " " << xr_count << "\n");
         TRACE("ba", tout << l << ": " << js << "\n"; 
               for (unsigned i = 0; i <= index; ++i) tout << s().m_trail[i] << " "; tout << "\n";
               s().display_units(tout);
@@ -2417,7 +2415,6 @@ namespace sat {
             CTRACE("ba",!found, s().display(tout << l << ":" << c << "\n"););
             SASSERT(found););
         
-        // IF_VERBOSE(0, if (_debug_conflict) verbose_stream() << "ante " << l << " " << c << "\n");
         VERIFY(c.lit() == null_literal || value(c.lit()) != l_false);
         if (c.lit() != null_literal) r.push_back(value(c.lit()) == l_true ? c.lit() : ~c.lit());
         for (unsigned i = c.k(); i < c.size(); ++i) {
@@ -3320,7 +3317,6 @@ namespace sat {
             return;
         }
         if (all_units && sz < k) {
-            // IF_VERBOSE(0, verbose_stream() << "all units " << sz << " " << k << "\n");
             if (c.lit() == null_literal) {
                 s().mk_clause(0, nullptr, true);            
             }
@@ -3331,7 +3327,6 @@ namespace sat {
             remove_constraint(c, "recompiled to clause");
             return;            
         }
-        // IF_VERBOSE(0, verbose_stream() << "csz: " << c.size() << " ck:" << c.k() << " sz:" << sz << " k:" << k << "\n");
         VERIFY(!all_units || c.size() - c.k() >= sz - k);
         c.set_size(sz);
         c.set_k(k);    
@@ -3820,7 +3815,7 @@ namespace sat {
                     }
                     lits.shrink(j);
                     if (!parity) lits[0].neg();
-                    IF_VERBOSE(0, verbose_stream() << "binary " << lits << " : " << c1 << " " << c2 << "\n");
+                    IF_VERBOSE(1, verbose_stream() << "binary " << lits << " : " << c1 << " " << c2 << "\n");
                     c1.set_removed();
                     c2.set_removed();
                     add_xr(lits, !c1.learned() && !c2.learned());
@@ -3925,7 +3920,6 @@ namespace sat {
         m_barbet_clauses_to_remove.push_back(&c);
         m_barbet_clause.resize(c.size());
         m_barbet_combination = 0;
-        // IF_VERBOSE(0, verbose_stream() << "barbet: " << c << " parity: " << parity << " mask: " << mask << "\n");
         barbet_set_combination(mask);
         c.mark_used();
         for (literal l : c) {
@@ -3960,7 +3954,6 @@ namespace sat {
 
     void ba_solver::barbet_add_xor(bool parity, clause& c) {
         for (clause* cp : m_barbet_clauses_to_remove) {
-            //IF_VERBOSE(0, verbose_stream() << "remove " << *cp << "\n");
             cp->set_removed(true);
         }
         m_clause_removed = true;
@@ -3971,12 +3964,10 @@ namespace sat {
             s().set_external(l.var());
         }
         if (parity) lits[0].neg();
-        // IF_VERBOSE(0, verbose_stream() << "mk: " << lits << "\n");
         add_xr(lits, learned);
     }
 
     bool ba_solver::barbet_extract_xor(bool parity, clause& c, literal l1, literal l2) {
-        //IF_VERBOSE(0, verbose_stream() << "adding " << l1 << " " << l2 << "\n"); 
         SASSERT(is_visited(l1.var()));
         SASSERT(is_visited(l2.var()));
         m_barbet_missing.reset();
