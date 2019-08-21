@@ -1691,7 +1691,7 @@ void cmd_context::display_model(model_ref& mdl) {
 void cmd_context::add_declared_functions(model& mdl) {
     for (auto const& kv : m_func_decls) {
         func_decl* f = kv.m_value.first();
-        if (!mdl.has_interpretation(f)) {
+        if (f->get_family_id() == null_family_id && !mdl.has_interpretation(f)) {
             expr* val = mdl.get_some_value(f->get_range());
             if (f->get_arity() == 0) {
                 mdl.register_decl(f, val);
