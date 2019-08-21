@@ -42,6 +42,7 @@ public:
     intervals::interval interval_of_expr(const nex* e);
     
     nex* nexvar(lpvar j, cross_nested& cn) const;
+    nex* nexvar(const rational& coeff, lpvar j, cross_nested& cn) const;
     intervals::interval interval_of_sum(const nex_sum*);
     intervals::interval interval_of_sum_no_terms(const nex_sum*);
     intervals::interval interval_of_mul(const nex_mul*);
