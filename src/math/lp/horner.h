@@ -52,7 +52,7 @@ public:
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
-    lpvar find_term_column(const nex* e, rational& a, rational& b) const;
+    lpvar find_term_column(const lp::lar_term &, rational & a) const;
     static lp::lar_term expression_to_normalized_term(const nex_sum*, rational& a, rational & b);
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>> &);
     static void add_mul_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>> &);

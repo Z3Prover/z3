@@ -147,6 +147,7 @@ public:
 private:
     void set_var_interval(lpvar v, interval & b) const;
     ci_dependency* mk_dep(lp::constraint_index ci) const;
+    ci_dependency* mk_dep(lp::explanation const &) const;
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
 public:
@@ -300,6 +301,7 @@ public:
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }    
     void set_var_interval_with_deps(lpvar, interval &) const;
     void set_zero_interval_deps_for_mult(interval&);
+    void set_zero_interval_with_explanation(interval& , const lp::explanation& exp) const;
     bool is_inf(const interval& i) const { return m_config.is_inf(i); }
     bool check_interval_for_conflict_on_zero(const interval & i);
     bool check_interval_for_conflict_on_zero_lower(const interval & i);
