@@ -108,7 +108,7 @@ namespace datatype {
             size(): m_ref(0) {}
             virtual ~size() {}
             void inc_ref() { ++m_ref; }
-            void dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
+            void dec_ref();
             static size* mk_offset(sort_size const& s); 
             static size* mk_param(sort_ref& p); 
             static size* mk_plus(size* a1, size* a2); 
@@ -159,13 +159,13 @@ namespace datatype {
     };
 
     class def {
-        ast_manager&        m;
-        util&               m_util;
-        symbol              m_name;
-        unsigned            m_class_id;
-        param_size::size*   m_sort_size;
-        sort_ref_vector     m_params;
-        mutable sort_ref    m_sort;
+        ast_manager&            m;
+        util&                   m_util;
+        symbol                  m_name;
+        unsigned                m_class_id;
+        param_size::size*       m_sort_size;
+        sort_ref_vector         m_params;
+        mutable sort_ref        m_sort;
         ptr_vector<constructor> m_constructors;
     public:
         def(ast_manager& m, util& u, symbol const& n, unsigned class_id, unsigned num_params, sort * const* params):
@@ -304,6 +304,7 @@ namespace datatype {
         obj_map<sort, bool>                         m_is_enum;
         mutable obj_map<sort, bool>                 m_is_fully_interp;
         mutable ast_ref_vector                      m_asts;
+        sref_vector<param_size::size>               m_refs;
         ptr_vector<ptr_vector<func_decl> >          m_vectors;
         unsigned                                    m_start;
         mutable ptr_vector<sort>                    m_fully_interp_trail;

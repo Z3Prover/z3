@@ -121,6 +121,7 @@ namespace datatype {
     };
 
     namespace param_size {
+        void  size::dec_ref() { --m_ref; if (m_ref == 0) dealloc(this); }
         size* size::mk_offset(sort_size const& s) { return alloc(offset, s); }
         size* size::mk_param(sort_ref& p) { return alloc(sparam, p); }
         size* size::mk_plus(size* a1, size* a2) { return alloc(plus, a1, a2); }
@@ -545,7 +546,9 @@ namespace datatype {
 
         void plugin::remove(symbol const& s) {
             def* d = nullptr;
-            if (m_defs.find(s, d)) dealloc(d);
+            if (m_defs.find(s, d)) {
+                dealloc(d);
+            }
             m_defs.remove(s);
         }
 
@@ -722,14 +725,13 @@ namespace datatype {
         if (is_datatype(s)) {
             param_size::size* sz;
             obj_map<sort, param_size::size*> S;
-            sref_vector<param_size::size> refs;
             unsigned n = get_datatype_num_parameter_sorts(s);
             def & d = get_def(s->get_name());
             SASSERT(n == d.params().size());
             for (unsigned i = 0; i < n; ++i) {
                 sort* ps = get_datatype_parameter_sort(s, i);
                 sz = get_sort_size(params, ps);
-                refs.push_back(sz);
+                m_refs.push_back(sz);
                 S.insert(d.params().get(i), sz); 
             }            
             auto ss = d.sort_size();
@@ -737,7 +739,7 @@ namespace datatype {
                 d.set_sort_size(param_size::size::mk_offset(sort_size::mk_infinite()));
                 ss = d.sort_size();
             }
-            return  ss->subst(S);
+            return ss->subst(S);
         }
         array_util autil(m);
         if (autil.is_array(s)) {
@@ -821,6 +823,7 @@ namespace datatype {
             }
             TRACE("datatype", tout << "set sort size " << s << "\n";);
             d.set_sort_size(param_size::size::mk_plus(s_add));
+            m_refs.reset();
         }
     }
     
