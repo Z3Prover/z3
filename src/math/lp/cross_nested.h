@@ -43,6 +43,7 @@ class cross_nested {
     std::unordered_map<lpvar, unsigned>   m_powers;
     ptr_vector<nex>                       m_allocated;
     ptr_vector<nex>                       m_b_split_vec;
+    int                                   m_reported;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
@@ -54,7 +55,8 @@ public:
                  std::function<bool (unsigned)> var_is_fixed):
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
-        m_done(false)
+        m_done(false),
+        m_reported(0)
     {}
 
     
@@ -354,7 +356,7 @@ public:
         if (occurences.empty()) {
             if(front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
-                m_done = m_call_on_result(m_e);
+                m_done = m_call_on_result(m_e) || ++m_reported > 100;
 // #ifdef Z3DEBUG
 //                 nex *ce = clone(m_e);
 //                 TRACE("nla_cn", tout << "ce = " << *ce <<  "\n";);
@@ -391,7 +393,7 @@ public:
             return;
         TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         if (front.empty()) {
-            m_done = m_call_on_result(m_e);
+            m_done = m_call_on_result(m_e) || ++m_reported > 100;
             return;
         }
         auto n = pop_front(front);

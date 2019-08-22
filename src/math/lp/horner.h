@@ -23,13 +23,16 @@
 #include "math/lp/nla_intervals.h"
 #include "math/lp/nex.h"
 #include "math/lp/cross_nested.h"
+#include "math/lp/int_set.h"
 
 namespace nla {
 class core;
 
 
 class horner : common {
-    intervals m_intervals;
+    intervals             m_intervals;
+    nex_sum               m_row_sum;
+    mutable lp::int_set   m_row_var_set;
 public:
     typedef intervals::interval interv;
     horner(core *core);
@@ -38,7 +41,7 @@ public:
     bool lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;
     template <typename T>
-    nex_sum* create_sum_from_row(const T&, cross_nested&);
+    void create_sum_from_row(const T&, cross_nested&);
     intervals::interval interval_of_expr(const nex* e);
     
     nex* nexvar(lpvar j, cross_nested& cn) const;
@@ -48,7 +51,7 @@ public:
     intervals::interval interval_of_mul(const nex_mul*);
     void set_interval_for_scalar(intervals::interval&, const rational&);
     void set_var_interval(lpvar j, intervals::interval&) const;
-    bool lemmas_on_expr(nex_sum* , cross_nested&);
+    bool lemmas_on_expr(cross_nested&);
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;
