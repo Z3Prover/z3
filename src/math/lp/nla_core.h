@@ -241,7 +241,10 @@ public:
 
     int vars_sign(const svector<lpvar>& v);
     bool has_upper_bound(lpvar j) const; 
-    bool has_lower_bound(lpvar j) const; 
+    bool has_lower_bound(lpvar j) const;
+    bool no_bounds(lpvar j) const {
+        return !has_upper_bound(j) && !has_lower_bound(j);
+    }
     const rational& get_upper_bound(unsigned j) const;
     const rational& get_lower_bound(unsigned j) const;    
     

@@ -57,5 +57,11 @@ public:
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>> &);
     static void add_mul_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>> &);
     bool interval_from_term(const nex* e, interv&) const;
+    const nex* get_zero_interval_child(const nex_mul*) const;
+    const nex* get_inf_interval_child(const nex_sum*) const;
+    bool has_zero_interval(const nex* ) const;
+    bool has_inf_interval(const nex* ) const;
+    
+    bool mul_has_inf_interval(const nex_mul* ) const;
 }; // end of horner
 }
