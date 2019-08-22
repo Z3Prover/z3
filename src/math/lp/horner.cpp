@@ -41,31 +41,27 @@ template <typename T>
 bool horner::row_is_interesting(const T& row) const {
     TRACE("nla_solver_details", m_core->print_term(row, tout););
     SASSERT(row_has_monomial_to_refine(row));
-    std::unordered_set<lpvar> seen;
+    m_row_var_set.clear();
     for (const auto& p : row) {
         lpvar j = p.var();
         if (!c().is_monomial_var(j))
             continue;
         auto & m = c().emons()[j];
         
-        std::unordered_set<lpvar> local_vars;
-        for (lpvar k : m.vars()) { // have to do it to ignore the powers
-            local_vars.insert(k);
-        }
-        for (lpvar k : local_vars) {
-            auto it = seen.find(k);
-            if (it == seen.end())
-                seen.insert(k);
-            else
+        for (lpvar k : m.vars()) {
+            if (m_row_var_set.contains(k))
                 return true;
+        }
+        for (lpvar k : m.vars()) {
+            m_row_var_set.insert(k);
         }
     }
     return false;
 }
 
-bool horner::lemmas_on_expr(nex_sum* e, cross_nested& cn) {
-    TRACE("nla_horner", tout << "e = " << e << "\n";);
-    cn.run(e);
+bool horner::lemmas_on_expr(cross_nested& cn) {
+    TRACE("nla_horner", tout << "m_row_sum = " << m_row_sum << "\n";);
+    cn.run(&m_row_sum);
     return cn.done();
 }
 
@@ -86,8 +82,8 @@ bool horner::lemmas_on_row(const T& row) {
         );
 
     SASSERT (row_is_interesting(row));
-    nex_sum* e = create_sum_from_row(row, cn);
-    return lemmas_on_expr(e, cn);
+    create_sum_from_row(row, cn);
+    return lemmas_on_expr(cn);
 }
 
 void horner::horner_lemmas() {
@@ -103,6 +99,7 @@ void horner::horner_lemmas() {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
+    m_row_var_set.resize(c().m_lar_solver.number_of_vars());
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
         if (row_is_interesting(matrix.m_rows[i]))
@@ -147,18 +144,17 @@ nex * horner::nexvar(const rational & coeff, lpvar j, cross_nested& cn) const {
 }
 
 
-template <typename T> nex_sum* horner::create_sum_from_row(const T& row, cross_nested& cn) {
+template <typename T> void horner::create_sum_from_row(const T& row, cross_nested& cn) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     SASSERT(row.size() > 1);
-    nex_sum *e = cn.mk_sum();
+    m_row_sum.children().clear();
     for (const auto &p : row) {
         if (p.coeff().is_one())
-            e->add_child(nexvar(p.var(), cn));
+            m_row_sum.add_child(nexvar(p.var(), cn));
         else {           
-            e->add_child(nexvar(p.coeff(), p.var(), cn));
+            m_row_sum.add_child(nexvar(p.coeff(), p.var(), cn));
         }
     }
-    return e;
 }
 
 
