@@ -145,7 +145,6 @@ class intervals : common {
 public:
     typedef interval_manager<im_config>::interval interval;
 private:
-    void set_var_interval(lpvar v, interval & b) const;
     ci_dependency* mk_dep(lp::constraint_index ci) const;
     ci_dependency* mk_dep(lp::explanation const &) const;
     lp::lar_solver& ls();
@@ -170,7 +169,9 @@ public:
     void set_upper_is_open(interval & a, bool strict) { m_config.set_upper_is_open(a, strict); }
     void set_upper_is_inf(interval & a, bool inf) { m_config.set_upper_is_inf(a, inf); }
     bool is_zero(const interval& a) const { return m_config.is_zero(a); }
-    void mul(const rational& r, const interval& a, interval& b) const {       
+    void set_var_interval(lpvar v, interval & b) const;
+
+    void mul_with_deps(const rational& r, const interval& a, interval& b) const {       
         m_imanager.mul(r.to_mpq(), a, b);
         if (r.is_pos()) {
             b.m_lower_dep = a.m_lower_dep;
@@ -180,6 +181,10 @@ public:
             b.m_upper_dep = a.m_lower_dep;
             b.m_lower_dep = a.m_upper_dep;
         }
+    }                   
+
+    void mul(const rational& r, const interval& a, interval& b, int foo) const {       
+        m_imanager.mul(r.to_mpq(), a, b);
     }                   
 
     void add(const rational& r, interval& a) const {
@@ -194,11 +199,16 @@ public:
     void mul(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
     void add(const interval& a, const interval& b, interval& c) { m_imanager.add(a, b, c); }
     void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
-    void set(interval& a, const interval& b) const {
+    void set_with_deps(interval& a, const interval& b) const {
         m_imanager.set(a, b);
         a.m_lower_dep = b.m_lower_dep;
         a.m_upper_dep = b.m_upper_dep;
     }
+
+    void set(interval& a, const interval& b, int fooo) const {
+        m_imanager.set(a, b);
+    }
+
     void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i && &b != &i);
@@ -238,7 +248,40 @@ public:
         copy_lower_bound(b, i);
     }
 
-    void copy_upper_bound(const interval& a, interval & i) const {
+    void update_lower_for_intersection_with_deps(const interval& a, const interval& b, interval & i) const {
+        if (a.m_lower_inf)  {
+            if (b.m_lower_inf)
+                return;
+            copy_lower_bound_with_deps(b, i);
+            return;
+        }
+        
+        if (b.m_lower_inf)  {
+            SASSERT(!a.m_lower_inf);
+            copy_lower_bound_with_deps(a, i);
+            return;
+        }
+
+        if (m_num_manager.lt(a.m_lower, b.m_lower)) {
+            copy_lower_bound_with_deps(b, i);
+            return;
+        }
+
+        if (m_num_manager.gt(a.m_lower, b.m_lower)) {
+            copy_lower_bound_with_deps(a, i);
+            return;
+        }
+
+        SASSERT(m_num_manager.eq(a.m_lower, b.m_lower));
+        if (a.m_lower_open) { // we might consider to look at b.m_lower_open too here
+            copy_lower_bound_with_deps(a, i);
+            return;
+        }
+
+        copy_lower_bound_with_deps(b, i);
+    }
+
+    void copy_upper_bound_with_deps(const interval& a, interval & i) const {
         SASSERT(a.m_upper_inf == false);
         i.m_upper_inf = false;
         m_config.set_upper(i, a.m_upper);
@@ -246,14 +289,62 @@ public:
         i.m_upper_open = a.m_upper_open;
     }
 
-    void copy_lower_bound(const interval& a, interval & i) const {
-        SASSERT(a.m_lower_open == false);
+    void copy_upper_bound(const interval& a, interval & i) const {
+        SASSERT(a.m_upper_inf == false);
+        i.m_upper_inf = false;
+        m_config.set_upper(i, a.m_upper);
+        i.m_upper_open = a.m_upper_open;
+    }
+
+    void copy_lower_bound_with_deps(const interval& a, interval & i) const {
+        SASSERT(a.m_lower_inf == false);
         i.m_lower_inf = false;
         m_config.set_lower(i, a.m_lower);
         i.m_lower_dep = a.m_lower_dep;
         i.m_lower_open = a.m_lower_open;
     }
+
+    void copy_lower_bound(const interval& a, interval & i) const {
+        SASSERT(a.m_lower_inf == false);
+        i.m_lower_inf = false;
+        m_config.set_lower(i, a.m_lower);
+        i.m_lower_open = a.m_lower_open;
+    }
+
     
+    void update_upper_for_intersection_with_deps(const interval& a, const interval& b, interval & i) const {
+        if (a.m_upper_inf)  {
+            if (b.m_upper_inf)
+                return;
+            copy_upper_bound_with_deps(b, i);
+            return;
+        }
+        
+        if (b.m_upper_inf)  {
+            SASSERT(!a.m_upper_inf);
+            copy_upper_bound_with_deps(a, i);
+            return;
+        }
+
+        if (m_num_manager.gt(a.m_upper, b.m_upper)) {
+            copy_upper_bound_with_deps(b, i);
+            return;
+        }
+
+        if (m_num_manager.lt(a.m_upper, b.m_upper)) {
+            copy_upper_bound_with_deps(a, i);
+            return;
+        }
+
+        SASSERT(m_num_manager.eq(a.m_upper, b.m_upper));
+        if (a.m_upper_open) { // we might consider to look at b.m_upper_open too here
+            copy_upper_bound_with_deps(a, i);
+            return;
+        }
+
+        copy_upper_bound_with_deps(b, i);
+    }
+
     void update_upper_for_intersection(const interval& a, const interval& b, interval & i) const {
         if (a.m_upper_inf)  {
             if (b.m_upper_inf)
@@ -286,8 +377,19 @@ public:
 
         copy_upper_bound(b, i);
     }
+
     
-    interval intersect(const interval& a, const interval& b) const {
+    interval intersect_with_deps(const interval& a, const interval& b) const {
+        interval i;
+        TRACE("nla_interval_compare", tout << "a="; display(tout, a) << "\nb="; display(tout, b););
+        update_lower_for_intersection_with_deps(a, b, i);
+        TRACE("nla_interval_compare", tout << "i="; display(tout, i) << "\n";);
+        update_upper_for_intersection_with_deps(a, b, i);
+        TRACE("nla_interval_compare", tout << "i="; display(tout, i) << "\n";);
+        return i;
+    }
+
+    interval intersect(const interval& a, const interval& b, int foo) const {
         interval i;
         TRACE("nla_interval_compare", tout << "a="; display(tout, a) << "\nb="; display(tout, b););
         update_lower_for_intersection(a, b, i);
@@ -296,18 +398,26 @@ public:
         TRACE("nla_interval_compare", tout << "i="; display(tout, i) << "\n";);
         return i;
     }
-    
+
     bool upper_is_inf(const interval& a) const { return m_config.upper_is_inf(a); }
     bool lower_is_inf(const interval& a) const { return m_config.lower_is_inf(a); }    
     void set_var_interval_with_deps(lpvar, interval &) const;
     void set_zero_interval_deps_for_mult(interval&);
     void set_zero_interval_with_explanation(interval& , const lp::explanation& exp) const;
+    void set_zero_interval(interval&) const;
     bool is_inf(const interval& i) const { return m_config.is_inf(i); }
+    bool separated_from_zero_on_lower(const interval&) const;
+    bool separated_from_zero_on_upper(const interval&) const;
+    inline  bool separated_from_zero(const interval& i) const {
+        return separated_from_zero_on_upper(i) ||
+            separated_from_zero_on_lower(i);            
+        }
     bool check_interval_for_conflict_on_zero(const interval & i);
     bool check_interval_for_conflict_on_zero_lower(const interval & i);
     bool check_interval_for_conflict_on_zero_upper(const interval & i);
     mpq const & lower(interval const & a) const { return m_config.lower(a); }
     mpq const & upper(interval const & a) const { return m_config.upper(a); }
+    inline
     bool is_empty(interval const & a) const {
         if (a.m_lower_inf || a.m_upper_inf)
             return false;
