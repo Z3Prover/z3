@@ -40,6 +40,10 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
     TRACE("nla_solver_details", m_core->print_term(row, tout););
+    if (row.size() > m_core->m_settings.horner_row_length_limit()) {
+        TRACE("nla_solver_details", tout << "disregard\n";);
+        return false;
+    }
     SASSERT(row_has_monomial_to_refine(row));
     m_row_var_set.clear();
     for (const auto& p : row) {
