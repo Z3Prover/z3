@@ -44,6 +44,7 @@ class cross_nested {
     ptr_vector<nex>                       m_allocated;
     ptr_vector<nex>                       m_b_split_vec;
     int                                   m_reported;
+    bool                                  m_random_bit;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
@@ -227,12 +228,12 @@ public:
         return ret;
     }
 
-    nex* extract_common_factor(nex* e, const vector<std::pair<lpvar, occ>> & occurences) {
+    nex* extract_common_factor(nex* e) {
         nex_sum* c = to_sum(e);
-        TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, occurences) << "\n";);
+        TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, m_occurences_map) << "\n";);
         unsigned size = c->children().size();
         bool have_factor = false;
-        for(const auto & p : occurences) {
+        for(const auto & p : m_occurences_map) {
             if (p.second.m_occs == size) {
                 have_factor = true;
                 break;
@@ -240,7 +241,7 @@ public:
         }
         if (have_factor == false) return nullptr;
         nex_mul* f = mk_mul();
-        for(const auto & p : occurences) { // randomize here: todo
+        for(const auto & p : m_occurences_map) { // randomize here: todo
             if (p.second.m_occs == size) {
                 unsigned pow = p.second.m_power;
                 while (pow --) {
@@ -269,9 +270,9 @@ public:
         return false;
     }
 
-    bool proceed_with_common_factor(nex** c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
+    bool proceed_with_common_factor(nex** c, vector<nex**>& front) {
         TRACE("nla_cn", tout << "c=" << **c << "\n";);
-        nex* f = extract_common_factor(*c, occurences);
+        nex* f = extract_common_factor(*c);
         if (f == nullptr) {
             TRACE("nla_cn", tout << "no common factor\n"; );
             return false;
@@ -310,16 +311,12 @@ public:
         m_allocated.resize(sz);
     }
     
-    void explore_expr_on_front_elem_occs(nex** c, vector<nex**>& front, const vector<std::pair<lpvar, occ>> & occurences) {
-        if (proceed_with_common_factor(c, front, occurences))
-            return;
+    void explore_expr_on_front_elem_vars(nex** c, vector<nex**>& front, const svector<lpvar> & vars) {
         TRACE("nla_cn", tout << "save c=" << **c << "; front:"; print_front(front, tout) << "\n";);           
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
         int alloc_size = m_allocated.size();
-        for(auto& p : occurences) {
-            SASSERT(p.second.m_occs > 1);
-            lpvar j = p.first;
+        for(lpvar j : vars) {
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
                 // because the interval products do not become smaller
@@ -348,12 +345,66 @@ public:
         return out;
     }
 
-    void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
-        auto occurences = get_mult_occurences(to_sum(*c));
-        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << ", c occurences=";
-              dump_occurences(tout, occurences) << "; front:"; print_front(front, tout) << "\n";);
+    void calc_occurences(nex_sum* e) {
+        clear_maps();
+        for (const auto * ce : e->children()) {
+            if (ce->is_mul()) {
+                to_mul(ce)->get_powers_from_mul(m_powers);
+                update_occurences_with_powers();
+            } else if (ce->is_var()) {
+                add_var_occs(to_var(ce)->var());
+            }
+        }
+        remove_singular_occurences();
+        TRACE("nla_cn_details", tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_occurences_map) << "\n";);
+    }
+
+    void fill_vars_from_occurences_map(svector<lpvar>& vars) {
+        for (auto & p : m_occurences_map)
+            vars.push_back(p.first);
+
+        m_random_bit = random() % 2;
+        TRACE("nla_cn", tout << "m_random_bit = " << m_random_bit << "\n";);
+        std::sort(vars.begin(), vars.end(), [this](lpvar j, lpvar k)
+                                            {
+                                                auto it_j = m_occurences_map.find(j);
+                                                auto it_k = m_occurences_map.find(k);
+                                                
+
+                                                const occ& a = it_j->second;
+                                                const occ& b = it_k->second;
+                                                if (a.m_occs > b.m_occs)
+                                                    return true;
+                                                if (a.m_occs < b.m_occs)
+                                                    return false;
+                                                if (a.m_power > b.m_power)
+                                                    return true;
+                                                if (a.m_power < b.m_power)
+                                                    return false;
+                                                
+                                                return m_random_bit? j < k : j > k;
+                                          });
+ 
+    }    
     
-        if (occurences.empty()) {
+    bool proceed_with_common_factor_or_get_vars_to_factor_out(nex** c, svector<lpvar>& vars, vector<nex**> front) {
+        calc_occurences(to_sum(*c));
+        if (proceed_with_common_factor(c, front))
+            return true;
+
+        fill_vars_from_occurences_map(vars);
+        return false;
+    }
+    
+    void explore_expr_on_front_elem(nex** c, vector<nex**>& front) {
+        svector<lpvar> vars;
+        if (proceed_with_common_factor_or_get_vars_to_factor_out(c, vars, front))
+            return;
+
+        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << ", c vars=";
+              print_vector(vars, tout) << "; front:"; print_front(front, tout) << "\n";);
+    
+        if (vars.empty()) {
             if(front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e) || ++m_reported > 100;
@@ -369,7 +420,7 @@ public:
                 explore_expr_on_front_elem(f, front);     
             }
         } else {
-            explore_expr_on_front_elem_occs(c, front, occurences);
+            explore_expr_on_front_elem_vars(c, front, vars);
         }
     }
     static std::string ch(unsigned j) {
