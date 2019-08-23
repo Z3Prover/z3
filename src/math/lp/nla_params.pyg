@@ -4,6 +4,8 @@ def_module_params('nla',
                    ('order', BOOL, True, 'run order lemmas'),
                    ('tangents', BOOL, True, 'run tangent lemmas'),
                    ('horner', BOOL, True, 'run horner\'s heuristic'),
+                   ('horner_frequency', UINT, 4, 'horner\'s call frequency'),
+                   ('horner_row_length_limit', UINT, 10, 'row is disregarded by the heuristic if its length is longer than the value')
                           ))           
 
 
