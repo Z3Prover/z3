@@ -91,8 +91,9 @@ template <typename T>
 bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
         [this](const nex* n) { return check_cross_nested_expr(n); },
-        [this](unsigned j)   { return c().var_is_fixed(j); }
-        );
+        [this](unsigned j)   { return c().var_is_fixed(j); },
+        [this]() { return c().random(); }
+                    );
 
     SASSERT (row_is_interesting(row));
     create_sum_from_row(row, cn);
