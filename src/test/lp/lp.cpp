@@ -74,11 +74,14 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
 }
 
 void test_cn() {
-    cross_nested cn([](const nex* n) {
+    cross_nested cn(
+        [](const nex* n) {
                            TRACE("nla_cn_test", tout << *n << "\n";);
                            return false;
                        } ,
-        [](unsigned) { return false; });
+        [](unsigned) { return false; },
+        []{ return 1; }
+        );
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
     nex_var* a = cn.mk_var(0);
