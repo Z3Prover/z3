@@ -38,6 +38,7 @@ class cross_nested {
     nex *                                 m_e;
     std::function<bool (const nex*)>      m_call_on_result;
     std::function<bool (unsigned)>        m_var_is_fixed;
+    std::function<unsigned ()>            m_random;    
     bool                                  m_done;
     std::unordered_map<lpvar, occ>        m_occurences_map;
     std::unordered_map<lpvar, unsigned>   m_powers;
@@ -45,6 +46,7 @@ class cross_nested {
     ptr_vector<nex>                       m_b_split_vec;
     int                                   m_reported;
     bool                                  m_random_bit;
+    
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
@@ -53,9 +55,11 @@ class cross_nested {
     }
 public:
     cross_nested(std::function<bool (const nex*)> call_on_result,
-                 std::function<bool (unsigned)> var_is_fixed):
+                 std::function<bool (unsigned)> var_is_fixed,
+                 std::function<unsigned ()> random):
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
+        m_random(random),
         m_done(false),
         m_reported(0)
     {}
@@ -363,7 +367,7 @@ public:
         for (auto & p : m_occurences_map)
             vars.push_back(p.first);
 
-        m_random_bit = random() % 2;
+        m_random_bit = m_random() % 2;
         TRACE("nla_cn", tout << "m_random_bit = " << m_random_bit << "\n";);
         std::sort(vars.begin(), vars.end(), [this](lpvar j, lpvar k)
                                             {
