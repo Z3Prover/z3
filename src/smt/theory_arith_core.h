@@ -1650,11 +1650,6 @@ namespace smt {
         theory::reset_eh();
     }
 
-    template<typename Ext>
-    bool theory_arith<Ext>::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-        return true;
-    }
-
     /**
        \brief Compute the value of a base or quasi-base variable using
        the value of the dependent variables.

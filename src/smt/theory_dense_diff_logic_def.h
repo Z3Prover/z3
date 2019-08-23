@@ -425,11 +425,6 @@ namespace smt {
         theory::reset_eh();
     }
     
-    template<typename Ext>
-    bool theory_dense_diff_logic<Ext>::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-        return is_true ? m_assignment[v1] == m_assignment[v2] : m_assignment[v1] != m_assignment[v2];
-    }
-
     /**
        \brief Store in results the antecedents that justify that the distance between source and target.
     */

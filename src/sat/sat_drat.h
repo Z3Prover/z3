@@ -49,13 +49,15 @@ namespace sat {
         std::ostream*           m_out;
         std::ostream*           m_bout;
         ptr_vector<clause>      m_proof;
-        svector<status>         m_status;
+        svector<status>         m_status;        
         literal_vector          m_units;
         vector<watch>           m_watches;
         svector<lbool>          m_assignment;
         bool                    m_inconsistent;
-        bool                    m_check_unsat, m_check_sat, m_check;
+        unsigned                m_num_add, m_num_del;
+        bool                    m_check_unsat, m_check_sat, m_check, m_activity;
 
+        void dump_activity();
         void dump(unsigned n, literal const* c, status st);
         void bdump(unsigned n, literal const* c, status st);
         void append(literal l, status st);

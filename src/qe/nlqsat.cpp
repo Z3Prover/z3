@@ -641,6 +641,7 @@ namespace qe {
                     }
                 }
                 fml = mk_and(paxioms);
+                std::cout << fml << "\n";
             }
         }
 

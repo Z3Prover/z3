@@ -276,13 +276,11 @@ namespace smt {
 
         // ----------------------------------------------------
         //
-        // Model validation (-vldt flag)
+        // Model validation 
         //
         // ----------------------------------------------------
 
-        virtual bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-            return true;
-        }
+        virtual void validate_model(model& mdl) {}
 
         // ----------------------------------------------------
         //

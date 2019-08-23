@@ -1314,6 +1314,10 @@ namespace smt {
             return display_literals(out, lits.size(), lits.c_ptr());
         }
 
+        std::ostream& display_literal_smt2(std::ostream& out, literal lit) const;
+
+        std::ostream& display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const;
+
         std::ostream& display_literal_verbose(std::ostream & out, literal lit) const;
 
         std::ostream& display_literals_verbose(std::ostream & out, unsigned num_lits, literal const * lits) const;
@@ -1326,13 +1330,15 @@ namespace smt {
 
         void display_watch_lists(std::ostream & out) const;
 
-        void display_clause_detail(std::ostream & out, clause const * cls) const;
+        std::ostream& display_clause_detail(std::ostream & out, clause const * cls) const;
 
-        void display_clause(std::ostream & out, clause const * cls) const;
+        std::ostream& display_clause(std::ostream & out, clause const * cls) const;
 
-        void display_clauses(std::ostream & out, ptr_vector<clause> const & v) const;
+        std::ostream& display_clause_smt2(std::ostream & out, clause const& cls) const;
 
-        void display_binary_clauses(std::ostream & out) const;
+        std::ostream& display_clauses(std::ostream & out, ptr_vector<clause> const & v) const;
+
+        std::ostream& display_binary_clauses(std::ostream & out) const;
 
         void display_assignment(std::ostream & out) const;
 

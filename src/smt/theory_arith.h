@@ -682,8 +682,6 @@ namespace smt {
         void flush_eh() override;
         void reset_eh() override;
         
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
-
         // -----------------------------------
         //
         // bool_var -> atom mapping

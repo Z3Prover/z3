@@ -326,6 +326,7 @@ namespace smt {
 
         if (m_manager.has_trace_stream())
             trace_assign(l, j, decision);
+
         m_case_split_queue->assign_lit_eh(l);
 
         // a unit is asserted at search level. Mark it as relevant.
@@ -2005,6 +2006,7 @@ namespace smt {
         SASSERT(m_flushing || !cls->in_reinit_stack());
         if (log) 
             m_clause_proof.del(*cls);
+        CTRACE("context", !m_flushing, display_clause_smt2(tout << "deleting ", *cls) << "\n";);
         if (!cls->deleted())
             remove_cls_occs(cls);
         cls->deallocate(m_manager);
@@ -2549,13 +2551,14 @@ namespace smt {
         for(; it != end; ++it) {
             clause * cls = *it;
             SASSERT(!cls->in_reinit_stack());
-            TRACE("simplify_clauses_bug", display_clause(tout, cls); tout << "\n";);
             
             if (cls->deleted()) {
+                TRACE("simplify_clauses_bug", display_clause(tout << "deleted\n", cls) << "\n";);
                 del_clause(true, cls);
                 num_del_clauses++;
             }
             else if (simplify_clause(*cls)) {
+                TRACE("simplify_clauses_bug", display_clause_smt2(tout << "simplified\n", *cls) << "\n";);
                 for (unsigned idx = 0; idx < 2; idx++) {
                     literal     l0        = (*cls)[idx];
                     b_justification l0_js = get_justification(l0.var());
@@ -3334,6 +3337,33 @@ namespace smt {
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) {
             r = l_undef;
+        }
+        if (r == l_true && gparams::get_value("model_validate") == "true") {
+            for (theory* t : m_theory_set) {
+                t->validate_model(*m_model);
+            }
+            for (literal lit : m_assigned_literals) {
+                if (!is_relevant(lit)) continue;
+                expr* v = m_bool_var2expr[lit.var()];
+                if (lit.sign() ? m_model->is_true(v) : m_model->is_false(v)) {
+                    IF_VERBOSE(10, verbose_stream() 
+                               << "invalid assignment " << (lit.sign() ? "true" : "false") 
+                               << " to #" << v->get_id() << " := " << mk_bounded_pp(v, m_manager, 1) << "\n");
+                }
+            }
+            for (clause* cls : m_aux_clauses) {
+                bool found = false;
+                for (literal lit : *cls) {
+                    expr* v = m_bool_var2expr[lit.var()];
+                    if (lit.sign() ? !m_model->is_true(v) : !m_model->is_false(v)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
+                }
+            }
         }
         return r;
     }

@@ -346,9 +346,7 @@ void static_features::update_core(expr * e) {
                 m_num_uninterpreted_functions++;
         }
         if (!_is_eq && !_is_gate) {
-            unsigned num_args = to_app(e)->get_num_args();
-            for (unsigned i = 0; i < num_args; i++) {
-                expr * arg   = to_app(e)->get_arg(i);
+            for (expr * arg : *to_app(e)) {
                 sort * arg_s = m_manager.get_sort(arg); 
                 if (!m_manager.is_uninterp(arg_s)) {
                     family_id fid_arg = arg_s->get_family_id();

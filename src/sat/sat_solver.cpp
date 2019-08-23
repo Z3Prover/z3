@@ -885,10 +885,9 @@ namespace sat {
             uint64_t age = m_stats.m_conflict - m_canceled[v];
             if (age > 0) {
                 double decay = pow(0.95, age);
-                m_activity[v] = static_cast<unsigned>(m_activity[v] * decay);
+                set_activity(v, static_cast<unsigned>(m_activity[v] * decay));
                 // NB. MapleSAT does not update canceled.
                 m_canceled[v] = m_stats.m_conflict;
-                m_case_split_queue.activity_changed_eh(v, false);
             }
         }
         
@@ -1532,8 +1531,7 @@ namespace sat {
                 next = m_case_split_queue.min_var();
                 auto age = m_stats.m_conflict - m_canceled[next];
                 while (age > 0) {
-                    m_activity[next] = static_cast<unsigned>(m_activity[next] * pow(0.95, age));
-                    m_case_split_queue.activity_changed_eh(next, false);
+                    set_activity(next, static_cast<unsigned>(m_activity[next] * pow(0.95, age)));
                     m_canceled[next] = m_stats.m_conflict;
                     next = m_case_split_queue.min_var();
                     age = m_stats.m_conflict - m_canceled[next];                    
@@ -1792,10 +1790,12 @@ namespace sat {
         return tracking_assumptions() && m_assumption_set.contains(l);
     }
 
-    void solver::set_activity(bool_var v, unsigned act) {
+    void solver::set_activity(bool_var v, unsigned new_act) {
         unsigned old_act = m_activity[v];
-        m_activity[v] = act; 
-        m_case_split_queue.activity_changed_eh(v, act > old_act);
+        m_activity[v] = new_act; 
+        if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
+            m_case_split_queue.activity_changed_eh(v, new_act > old_act);
+        }
     }
 
     bool solver::is_assumption(bool_var v) const {
@@ -2195,14 +2195,9 @@ namespace sat {
         }
     }
 
-
     void solver::update_activity(bool_var v, double p) {
-        unsigned old_act = m_activity[v];
         unsigned new_act = (unsigned) (num_vars() * m_config.m_activity_scale *  p);
-        m_activity[v] = new_act;
-        if (!was_eliminated(v) && value(v) == l_undef && new_act != old_act) {
-            m_case_split_queue.activity_changed_eh(v, new_act > old_act);
-        }
+        set_activity(v, new_act);
     }
 
     void solver::set_next_restart() {
@@ -3705,8 +3700,7 @@ namespace sat {
                 if (interval > 0) {
                     auto activity = m_activity[v];
                     auto reward = (m_config.m_reward_offset * (m_participated[v] + m_reasoned[v])) / interval;
-                    m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity));
-                    m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+                    set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1 - m_step_size) * activity)));
                 }
             }
             if (m_config.m_anti_exploration) {
@@ -3966,10 +3960,9 @@ namespace sat {
         double multiplier = m_config.m_reward_offset * (is_sat ? m_config.m_reward_multiplier : 1.0);
         for (unsigned i = qhead; i < m_trail.size(); ++i) {
             auto v = m_trail[i].var();
-            auto reward = multiplier / (m_stats.m_conflict - m_last_conflict[v] + 1);
+            auto reward = multiplier / (m_stats.m_conflict - m_last_conflict[v] + 1);            
             auto activity = m_activity[v];
-            m_activity[v] = static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity));
-            m_case_split_queue.activity_changed_eh(v, m_activity[v] > activity);
+            set_activity(v, static_cast<unsigned>(m_step_size * reward + ((1.0 - m_step_size) * activity)));
         }
     }
 

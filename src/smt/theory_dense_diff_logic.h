@@ -241,8 +241,6 @@ namespace smt {
         
         bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
 
-        bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const override;
-
         void display(std::ostream & out) const override;
         virtual void display_atom(std::ostream & out, atom * a) const;
         void collect_statistics(::statistics & st) const override;

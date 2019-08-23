@@ -911,12 +911,6 @@ model_value_proc * theory_diff_logic<Ext>::mk_value(enode * n, model_generator &
     return alloc(expr_wrapper_proc, m_factory->mk_num_value(num, m_util.is_int(n->get_owner())));
 }
 
-template<typename Ext>
-bool theory_diff_logic<Ext>::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-    NOT_IMPLEMENTED_YET();
-    return true;
-}
-
 
 template<typename Ext>
 void theory_diff_logic<Ext>::display(std::ostream & out) const {

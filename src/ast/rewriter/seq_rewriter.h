@@ -139,6 +139,8 @@ class seq_rewriter {
     bool cannot_contain_prefix(expr* a, expr* b);
     bool cannot_contain_suffix(expr* a, expr* b);
 
+    bool is_suffix(expr* s, expr* offset, expr* len);
+
     bool set_empty(unsigned sz, expr* const* es, bool all, expr_ref_vector& lhs, expr_ref_vector& rhs);
     bool is_subsequence(unsigned n, expr* const* l, unsigned m, expr* const* r, 
                         expr_ref_vector& lhs, expr_ref_vector& rhs, bool& is_sat);

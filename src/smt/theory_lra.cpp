@@ -3206,12 +3206,6 @@ public:
         return false;
     }
 
-    bool validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-        SASSERT(v1 != null_theory_var);
-        SASSERT(v2 != null_theory_var);
-        return (get_value(v1) == get_value(v2)) == is_true;
-    }
-
     // Auxiliary verification utilities.
 
     struct scoped_arith_mode {
@@ -3655,10 +3649,6 @@ bool theory_lra::get_lower(enode* n, rational& r, bool& is_strict) {
 }
 bool theory_lra::get_upper(enode* n, rational& r, bool& is_strict) {
     return m_imp->get_upper(n, r, is_strict);
-}
-
-bool theory_lra::validate_eq_in_model(theory_var v1, theory_var v2, bool is_true) const {
-    return m_imp->validate_eq_in_model(v1, v2, is_true);
 }
 void theory_lra::display(std::ostream & out) const {
     m_imp->display(out);

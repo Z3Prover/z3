@@ -31,12 +31,15 @@ namespace sat {
         m_inconsistent(false),
         m_check_unsat(false),
         m_check_sat(false),
-        m_check(false)
+        m_check(false),
+        m_activity(false),
+        m_num_add(0), 
+        m_num_del(0)
     {
-        if (s.m_config.m_drat && s.m_config.m_drat_file != symbol()) {
-            auto mode = s.m_config.m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
-            m_out = alloc(std::ofstream, s.m_config.m_drat_file.str().c_str(), mode);
-            if (s.m_config.m_drat_binary) {
+        if (s.get_config().m_drat && s.get_config().m_drat_file != symbol()) {
+            auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;
+            m_out = alloc(std::ofstream, s.get_config().m_drat_file.str().c_str(), mode);
+            if (s.get_config().m_drat_binary) {
                 std::swap(m_out, m_bout);
             }
         }
@@ -59,9 +62,10 @@ namespace sat {
     }
 
     void drat::updt_config() {
-        m_check_unsat = s.m_config.m_drat_check_unsat;
-        m_check_sat = s.m_config.m_drat_check_sat;
+        m_check_unsat = s.get_config().m_drat_check_unsat;
+        m_check_sat = s.get_config().m_drat_check_sat;
         m_check = m_check_unsat || m_check_sat;
+        m_activity = s.get_config().m_drat_activity;
     }
 
     std::ostream& operator<<(std::ostream& out, drat::status st) {
@@ -77,6 +81,9 @@ namespace sat {
     void drat::dump(unsigned n, literal const* c, status st) {
         if (st == status::asserted || st == status::external) {
             return;
+        }
+        if (m_activity && ((m_num_add % 1000) == 0)) {
+            dump_activity();
         }
         
         char buffer[10000];
@@ -112,6 +119,14 @@ namespace sat {
 	buffer[len++] = '0';
 	buffer[len++] = '\n';
 	m_out->write(buffer, len);               
+    }
+
+    void drat::dump_activity() {
+        (*m_out) << "c a ";
+        for (unsigned v = 0; v < s.num_vars(); ++v) {
+            (*m_out) << s.m_activity[v] << " ";
+        }
+        (*m_out) << "\n";
     }
 
     void drat::bdump(unsigned n, literal const* c, status st) {
@@ -648,6 +663,7 @@ namespace sat {
     }
 
     void drat::add() {
+        ++m_num_add;
         if (m_out) (*m_out) << "0\n";
         if (m_bout) bdump(0, nullptr, status::learned);
         if (m_check_unsat) {
@@ -655,12 +671,14 @@ namespace sat {
         }
     }
     void drat::add(literal l, bool learned) {
+        ++m_num_add;
         status st = get_status(learned);
         if (m_out) dump(1, &l, st);
         if (m_bout) bdump(1, &l, st);
         if (m_check) append(l, st);
     }
     void drat::add(literal l1, literal l2, bool learned) {
+        ++m_num_add;
         literal ls[2] = {l1, l2};
         status st = get_status(learned);
         if (m_out) dump(2, ls, st);
@@ -668,6 +686,7 @@ namespace sat {
         if (m_check) append(l1, l2, st);
     }
     void drat::add(clause& c, bool learned) {
+        ++m_num_add;
         status st = get_status(learned);
         if (m_out) dump(c.size(), c.begin(), st);
         if (m_bout) bdump(c.size(), c.begin(), st);
@@ -677,6 +696,7 @@ namespace sat {
         }
     }
     void drat::add(literal_vector const& lits, svector<premise> const& premises) {
+        ++m_num_add;
         if (m_check) {
             switch (lits.size()) {
             case 0: add(); break;
@@ -690,6 +710,7 @@ namespace sat {
         }                        
     }
     void drat::add(literal_vector const& c) {
+        ++m_num_add;
         if (m_out) dump(c.size(), c.begin(), status::learned);
         if (m_bout) bdump(c.size(), c.begin(), status::learned);
         if (m_check) {
@@ -708,12 +729,14 @@ namespace sat {
     }
 
     void drat::del(literal l) {
+        ++m_num_del;
         if (m_out) dump(1, &l, status::deleted);
         if (m_bout) bdump(1, &l, status::deleted);
         if (m_check_unsat) append(l, status::deleted);
     }
 
     void drat::del(literal l1, literal l2) {
+        ++m_num_del;
         literal ls[2] = {l1, l2};
         SASSERT(!(l1 == literal(13923, false) && l2 == literal(14020, true)));
         if (m_out) dump(2, ls, status::deleted);
@@ -733,7 +756,7 @@ namespace sat {
             m_seen[lit.index()] = false;
         }
 #endif
-
+        ++m_num_del;
         //SASSERT(!(c.size() == 2 && c[0] == literal(13923, false) && c[1] == literal(14020, true)));
         if (m_out) dump(c.size(), c.begin(), status::deleted);
         if (m_bout) bdump(c.size(), c.begin(), status::deleted);
