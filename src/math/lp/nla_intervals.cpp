@@ -32,6 +32,30 @@ void intervals::set_var_interval_with_deps(lpvar v, interval& b) const {
     }
 }
 
+void intervals::set_var_interval(lpvar v, interval& b) const {
+    lp::constraint_index ci;
+    rational val;
+    bool is_strict;
+    if (ls().has_lower_bound(v, ci, val, is_strict)) {            
+        m_config.set_lower(b, val);
+        m_config.set_lower_is_open(b, is_strict);
+        m_config.set_lower_is_inf(b, false);
+    }
+    else {
+        m_config.set_lower_is_open(b, true);
+        m_config.set_lower_is_inf(b, true);
+    }
+    if (ls().has_upper_bound(v, ci, val, is_strict)) {
+        m_config.set_upper(b, val);
+        m_config.set_upper_is_open(b, is_strict);
+        m_config.set_upper_is_inf(b, false);
+    }
+    else {
+        m_config.set_upper_is_open(b, true);
+        m_config.set_upper_is_inf(b, true);
+    }
+}
+
 void intervals::set_zero_interval_with_explanation(interval& i, const lp::explanation& exp) const {
     auto val = rational(0);
     m_config.set_lower(i, val);
@@ -43,22 +67,50 @@ void intervals::set_zero_interval_with_explanation(interval& i, const lp::explan
     i.m_lower_dep = i.m_upper_dep = mk_dep(exp);
 }
 
+void intervals::set_zero_interval(interval& i) const {
+    auto val = rational(0);
+    m_config.set_lower(i, val);
+    m_config.set_lower_is_open(i, false);
+    m_config.set_lower_is_inf(i, false);
+    m_config.set_upper(i, val);
+    m_config.set_upper_is_open(i, false);
+    m_config.set_upper_is_inf(i, false);
+}
+
 void intervals::set_zero_interval_deps_for_mult(interval& a) {
     a.m_lower_dep = m_dep_manager.mk_join(a.m_lower_dep, a.m_upper_dep);
     a.m_upper_dep = a.m_lower_dep;
 }
 
-bool intervals::check_interval_for_conflict_on_zero(const interval & i) {
-    return check_interval_for_conflict_on_zero_lower(i) || check_interval_for_conflict_on_zero_upper(i);
+bool intervals::separated_from_zero_on_lower(const interval& i) const {
+    if (lower_is_inf(i))
+        return false;
+    if (unsynch_mpq_manager::is_neg(lower(i)))
+        return false;
+    if (unsynch_mpq_manager::is_zero(lower(i)) && !m_config.lower_is_open(i))
+        return false;
+    return true;
 }
 
-bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
+bool intervals::separated_from_zero_on_upper(const interval& i) const {
     if (upper_is_inf(i))
         return false;
     if (unsynch_mpq_manager::is_pos(upper(i)))
         return false;
     if (unsynch_mpq_manager::is_zero(upper(i)) && !m_config.upper_is_open(i))
         return false;
+    return true;
+}
+
+
+bool intervals::check_interval_for_conflict_on_zero(const interval & i) {
+    return check_interval_for_conflict_on_zero_lower(i) || check_interval_for_conflict_on_zero_upper(i);
+}
+
+bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
+    if (!separated_from_zero_on_upper(i))
+        return false;
+        
      add_empty_lemma();
      svector<lp::constraint_index> expl;
      m_dep_manager.linearize(i.m_upper_dep, expl); 
@@ -68,11 +120,7 @@ bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
 }
 
 bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
-    if (lower_is_inf(i))
-        return false;
-    if (unsynch_mpq_manager::is_neg(lower(i)))
-        return false;
-    if (unsynch_mpq_manager::is_zero(lower(i)) && !m_config.lower_is_open(i))
+    if (!separated_from_zero_on_lower(i))
         return false;
      add_empty_lemma();
      svector<lp::constraint_index> expl;
