@@ -94,6 +94,8 @@ namespace smt {
             void  push_scope() { m_limit.push_back(m_updates.size()); }
             void  pop_scope(unsigned num_scopes);
             void  display(std::ostream& out) const;
+            eqdep_map_t::iterator begin() { return m_map.begin(); }
+            eqdep_map_t::iterator end() { return m_map.end(); }
         };
 
         // Table of current disequalities
@@ -529,11 +531,11 @@ namespace smt {
         bool linearize(dependency* dep, enode_pair_vector& eqs, literal_vector& lits) const;
         void propagate_lit(dependency* dep, literal lit) { propagate_lit(dep, 0, nullptr, lit); }
         void propagate_lit(dependency* dep, unsigned n, literal const* lits, literal lit);
-        void propagate_eq(dependency* dep, enode* n1, enode* n2);
-        void propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
-        void propagate_eq(dependency* dep, literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs = true);
-        void propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
-        void propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, enode* n1, enode* n2);
+        bool propagate_eq(literal lit, expr* e1, expr* e2, bool add_to_eqs);
+        bool propagate_eq(dependency* dep, literal_vector const& lits, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, expr* e1, expr* e2, bool add_to_eqs = true);
+        bool propagate_eq(dependency* dep, literal lit, expr* e1, expr* e2, bool add_to_eqs = true);
         void set_conflict(dependency* dep, literal_vector const& lits = literal_vector());
 
         u_map<unsigned> m_branch_start;

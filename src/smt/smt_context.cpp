@@ -3348,7 +3348,7 @@ namespace smt {
                 if (lit.sign() ? m_model->is_true(v) : m_model->is_false(v)) {
                     IF_VERBOSE(10, verbose_stream() 
                                << "invalid assignment " << (lit.sign() ? "true" : "false") 
-                               << " to #" << v->get_id() << " := " << mk_bounded_pp(v, m_manager, 1) << "\n");
+                               << " to #" << v->get_id() << " := " << mk_bounded_pp(v, m_manager, 2) << "\n");
                 }
             }
             for (clause* cls : m_aux_clauses) {

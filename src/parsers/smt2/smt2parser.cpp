@@ -2642,6 +2642,11 @@ namespace smt2 {
 
             check_rparen("invalid get-value command, ')' expected");
             model_ref md;
+            if (m_ctx.ignore_check()) {
+                expr_stack().shrink(spos);
+                next();
+                return;
+            }
             if (!m_ctx.is_model_available(md) || m_ctx.get_check_sat_result() == nullptr)
                 throw cmd_exception("model is not available");
             if (index != 0) {

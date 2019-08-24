@@ -91,6 +91,30 @@ namespace smt {
             return v != null_theory_var && get_enode(v) == n;
         }
 
+        struct scoped_trace_stream {
+            ast_manager& m;
+            
+            scoped_trace_stream(ast_manager& m, std::function<void (void)>& fn): m(m) {
+                if (m.has_trace_stream()) {
+                    fn();
+                }
+            }
+
+            scoped_trace_stream(theory& th, std::function<expr* (void)>& fn): m(th.get_manager()) {
+                if (m.has_trace_stream()) {
+                    expr_ref body(fn(), m);
+                    th.log_axiom_instantiation(body);
+                }
+            }
+            
+            ~scoped_trace_stream() {
+                if (m.has_trace_stream()) {
+                    m.trace_stream() << "[end-of-instance]\n";
+                }
+            }
+        };
+
+
     protected:
         /**
            \brief Return true if the theory uses default internalization:
