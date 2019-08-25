@@ -268,8 +268,8 @@ namespace smt {
         };
 
         class replay_unit_literal : public apply {
-            bool     m_sign;
             expr_ref m_e;
+            bool     m_sign;
         public:
             replay_unit_literal(ast_manager& m, expr* e, bool sign) : m_e(e, m), m_sign(sign) {}
             ~replay_unit_literal() override {}

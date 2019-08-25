@@ -3885,7 +3885,14 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
         out << "\n";
     }
     for (unsigned j = 0; j < e.ls().size(); ++j) {
-        out << e.ls(j) << " != " << e.rs(j) << "\n";
+        for (expr* t : e.ls(j)) {
+            out << mk_bounded_pp(t, m) << " ";
+        }
+        out << " != ";
+        for (expr* t : e.rs(j)) {
+            out << mk_bounded_pp(t, m) << " ";
+        }
+        out << "\n";
     }
     if (e.dep()) {
         display_deps(out, e.dep());

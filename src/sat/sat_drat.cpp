@@ -29,12 +29,12 @@ namespace sat {
         m_out(nullptr),
         m_bout(nullptr),
         m_inconsistent(false),
+        m_num_add(0), 
+        m_num_del(0),
         m_check_unsat(false),
         m_check_sat(false),
         m_check(false),
-        m_activity(false),
-        m_num_add(0), 
-        m_num_del(0)
+        m_activity(false)
     {
         if (s.get_config().m_drat && s.get_config().m_drat_file != symbol()) {
             auto mode = s.get_config().m_drat_binary ? (std::ios_base::binary | std::ios_base::out | std::ios_base::trunc) : std::ios_base::out;

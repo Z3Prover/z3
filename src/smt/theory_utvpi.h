@@ -263,9 +263,9 @@ namespace smt {
 
         void enforce_parity();
 
-        void validate_model();
-
         bool eval(expr* e);
+
+        void model_validate();
 
         rational eval_num(expr* e);
 
