@@ -6044,6 +6044,12 @@ void theory_seq::propagate_not_prefix(expr* e) {
     VERIFY(m_util.str.is_prefix(e, e1, e2));
     literal lit = ctx.get_literal(e);
     SASSERT(ctx.get_assignment(lit) == l_false);
+    dependency * deps = nullptr;
+    expr_ref cont = canonize(e, deps);
+    if (m.is_true(cont)) {
+        propagate_lit(deps, 0, nullptr, lit);
+        return;
+    }
     propagate_non_empty(~lit, e1);
     literal e1_gt_e2 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(1)));
     sort* char_sort = nullptr;
@@ -6070,6 +6076,13 @@ void theory_seq::propagate_not_suffix(expr* e) {
     VERIFY(m_util.str.is_suffix(e, e1, e2));
     literal lit = ctx.get_literal(e);
     SASSERT(ctx.get_assignment(lit) == l_false);
+
+    dependency * deps = nullptr;
+    expr_ref cont = canonize(e, deps);
+    if (m.is_true(cont)) {
+        propagate_lit(deps, 0, nullptr, lit);
+        return;
+    }
     propagate_non_empty(~lit, e1);
     literal e1_gt_e2 = mk_simplified_literal(m_autil.mk_ge(mk_sub(mk_len(e1), mk_len(e2)), m_autil.mk_int(1)));    
     sort* char_sort = nullptr;
