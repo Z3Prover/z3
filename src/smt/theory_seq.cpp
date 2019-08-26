@@ -4186,7 +4186,6 @@ void theory_seq::validate_model(model& mdl) {
             IF_VERBOSE(0, verbose_stream() << l << " = " << r << " but " << mdl(l) << " != " << mdl(r) << "\n");
         }
     }
-
     for (auto const& ne : m_nqs) {
         expr_ref l = ne.l();
         expr_ref r = ne.r();

@@ -3342,6 +3342,7 @@ namespace smt {
             for (theory* t : m_theory_set) {
                 t->validate_model(*m_model);
             }
+#if 0
             for (literal lit : m_assigned_literals) {
                 if (!is_relevant(lit)) continue;
                 expr* v = m_bool_var2expr[lit.var()];
@@ -3364,6 +3365,7 @@ namespace smt {
                     IF_VERBOSE(10, display_clause_smt2(verbose_stream() << "not satisfied:\n", *cls) << "\n");                    
                 }
             }
+#endif
         }
         return r;
     }

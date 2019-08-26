@@ -1340,7 +1340,6 @@ namespace smt {
             break;
         }
         TRACE("mk_clause", tout << "after simplification:\n"; display_literals_verbose(tout, num_lits, lits) << "\n";);
-        TRACE("mk_clause", tout << "after simplification:\n"; display_literals_smt2(tout, num_lits, lits););
         unsigned activity = 0;
         if (activity == 0)
             activity = 1;

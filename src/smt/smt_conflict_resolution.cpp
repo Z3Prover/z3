@@ -506,6 +506,7 @@ namespace smt {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
                 TRACE("conflict", m_ctx.display_clause_detail(tout, cls););
+                TRACE("conflict", tout << literal_vector(cls->get_num_literals(), cls->begin()) << "\n";);
                 if (cls->is_lemma())
                     cls->inc_clause_activity();
                 unsigned num_lits = cls->get_num_literals();
