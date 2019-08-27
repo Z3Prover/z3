@@ -3282,6 +3282,12 @@ namespace nlsat {
         m_imp->m_bvalues.reset();
         m_imp->m_bvalues.append(vs);
         m_imp->m_bvalues.resize(m_imp->m_atoms.size(), l_undef);        
+        for (unsigned i = 0; i < m_imp->m_atoms.size(); ++i) {
+            atom* a = m_imp->m_atoms[i];
+            if (a) {
+                m_imp->m_bvalues[i] = to_lbool(m_imp->m_evaluator.eval(a, false));
+            }
+        }
         TRACE("nlsat", display(tout););
     }
     
@@ -3327,6 +3333,10 @@ namespace nlsat {
             out << ";  ";
         }
         return out;
+    }
+
+    std::ostream& solver::display(std::ostream & out, literal_vector const& ls) const {
+        return display(out, ls.size(), ls.c_ptr());
     }
 
     std::ostream& solver::display(std::ostream & out, var x) const {

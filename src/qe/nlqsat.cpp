@@ -25,6 +25,7 @@ Revision History:
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/rewriter/rewriter.h"
+#include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "ast/rewriter/quant_hoist.h"
 #include "qe/nlqsat.h"
@@ -617,7 +618,7 @@ namespace qe {
 
          */
 
-        void ackermanize_div(expr_ref& fml) {
+        void ackermanize_div(expr_ref& fml, expr_ref_vector& paxioms) {
             is_pure_proc is_pure(*this);
             {
                 expr_fast_mark1 visited;
@@ -626,10 +627,8 @@ namespace qe {
             if (is_pure.has_divs()) {
                 arith_util arith(m);
                 proof_ref pr(m);
-                expr_ref_vector paxioms(m);
                 div_rewriter_star rw(*this);
                 rw(fml, fml, pr);
-                paxioms.push_back(fml);
                 vector<div> const& divs = rw.divs();
                 for (unsigned i = 0; i < divs.size(); ++i) {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
@@ -640,7 +639,6 @@ namespace qe {
                                                   m.mk_eq(divs[i].name, divs[j].name)));
                     }
                 }
-                fml = mk_and(paxioms);
             }
         }
 
@@ -669,14 +667,16 @@ namespace qe {
         // expr -> nlsat::solver
 
         void hoist(expr_ref& fml) {
-            ackermanize_div(fml);
+            expr_ref_vector paxioms(m);
+            ackermanize_div(fml, paxioms);
             quantifier_hoister hoist(m);
             vector<app_ref_vector> qvars;
             app_ref_vector vars(m);
             bool is_forall = false;   
             pred_abs abs(m);
 
-            abs.get_free_vars(fml, vars);
+            expr_ref fml_a(m.mk_and(fml, mk_and(paxioms)), m);
+            abs.get_free_vars(fml_a, vars);
             insert_set(m_free_vars, vars);
             qvars.push_back(vars); 
             vars.reset();  
@@ -706,6 +706,9 @@ namespace qe {
             fml = m.mk_iff(is_true, fml);
             goal_ref g = alloc(goal, m);
             g->assert_expr(fml);
+            for (expr* f : paxioms) {
+                g->assert_expr(f);
+            }
             expr_dependency_ref core(m);
             goal_ref_buffer result;
             (*m_nftactic)(g, result);

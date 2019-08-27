@@ -488,7 +488,8 @@ namespace smt {
         bool lift_ite(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
         bool solve_unit_eq(expr* l, expr* r, dependency* dep);
         bool solve_unit_eq(expr_ref_vector const& l, expr_ref_vector const& r, dependency* dep);
-        bool solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
+        bool solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep);
         bool is_binary_eq(expr_ref_vector const& l, expr_ref_vector const& r, expr_ref& x, ptr_vector<expr>& xunits, ptr_vector<expr>& yunits, expr_ref& y);
         bool is_quat_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, expr_ref& x1, expr_ref_vector& xs, expr_ref& x2, expr_ref& y1, expr_ref_vector& ys, expr_ref& y2);

@@ -1467,10 +1467,7 @@ namespace nlsat {
             m_result = &result;
             svector<literal> lits;
             TRACE("nlsat", tout << "project x" << x << "\n"; 
-                  for (unsigned i = 0; i < num; ++i) {
-                      m_solver.display(tout, ls[i]) << " ";
-                  }
-                  tout << "\n";
+                  m_solver.display(tout, num, ls);
                   m_solver.display(tout););
                   
             DEBUG_CODE(
@@ -1514,12 +1511,7 @@ namespace nlsat {
                 result.set(i, ~result[i]);
             }
             DEBUG_CODE(
-                TRACE("nlsat", 
-                      for (literal l : result) {
-                          m_solver.display(tout << " ", l);
-                      }
-                      tout << "\n";
-                      );
+                TRACE("nlsat", m_solver.display(tout, result.size(), result.c_ptr()); );
                 for (literal l : result) {
                     CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
                     SASSERT(l_true == m_solver.value(l));

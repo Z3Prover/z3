@@ -2338,6 +2338,13 @@ bool theory_seq::propagate_eq(dependency* dep, enode* n1, enode* n2) {
           display_deps(tout, dep); 
           );
 
+    TRACE("seq", 
+          tout << "assert: " 
+          << mk_bounded_pp(n1->get_owner(), m) << " = " << mk_bounded_pp(n2->get_owner(), m) << " <-\n"
+          << lits << "\n";
+          );
+
+
     justification* js = ctx.mk_justification(
         ext_theory_eq_propagation_justification(
             get_id(), ctx.get_region(), lits.size(), lits.c_ptr(), eqs.size(), eqs.c_ptr(), n1, n2));
@@ -2473,7 +2480,24 @@ bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs
     return false;
 }
 
-bool theory_seq::solve_nth_eq(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
+bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
+    rational n; 
+    expr* s = nullptr, *idx = nullptr;
+    if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
+        expr_ref lhs(m_util.str.mk_at(s, idx), m);
+        expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr()), m);
+        expr_ref_vector ls1(m); ls1.push_back(lhs);
+        expr_ref_vector rs1(m); rs1.push_back(m_util.str.mk_unit(rhs));
+        m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
+        return true;
+    }   
+    return false;
+}
+
+bool theory_seq::solve_nth_eq1(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* dep) {
+    if (solve_nth_eq2(ls, rs, dep)) {
+        return true;
+    }
     if (ls.size() != 1 || rs.size() <= 1) {
         return false;
     }
@@ -2649,10 +2673,10 @@ bool theory_seq::solve_eq(expr_ref_vector const& l, expr_ref_vector const& r, de
         TRACE("seq", tout << "binary\n";);
         return true;
     }
-    if (!ctx.inconsistent() && solve_nth_eq(ls, rs, deps)) {
+    if (!ctx.inconsistent() && solve_nth_eq1(ls, rs, deps)) {
         return true;
     }
-    if (!ctx.inconsistent() && solve_nth_eq(rs, ls, deps)) {
+    if (!ctx.inconsistent() && solve_nth_eq1(rs, ls, deps)) {
         return true;
     }
     if (!ctx.inconsistent() && solve_itos(rs, ls, deps)) {
@@ -5557,6 +5581,11 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
     TRACE("seq_verbose",
           tout << "assert: " << mk_pp(e1, m) << " = " << mk_pp(e2, m) << " <- \n";
           if (!lits.empty()) { ctx.display_literals_verbose(tout, lits) << "\n"; });
+
+    TRACE("seq",
+          tout << "assert: " << mk_bounded_pp(e1, m) << " = " << mk_bounded_pp(e2, m) << " <- \n";
+          tout << lits << "\n";);
+
     justification* js =
         ctx.mk_justification(
             ext_theory_eq_propagation_justification(

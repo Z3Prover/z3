@@ -241,6 +241,8 @@ namespace nlsat {
 
         std::ostream& display(std::ostream & out, unsigned n, literal const* ls) const;
 
+        std::ostream& display(std::ostream & out, literal_vector const& ls) const;
+
         std::ostream& display(std::ostream & out, atom const& a) const;
 
         /**

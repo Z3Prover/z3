@@ -49,6 +49,7 @@ Author:
 Notes:
 
 --*/
+#include "ast/ast_pp.h"
 #include "tactic/tactical.h"
 #include "tactic/goal_shared_occs.h"
 #include "tactic/generic_model_converter.h"
@@ -268,6 +269,7 @@ class tseitin_cnf_tactic : public tactic {
                 !m.is_or(c1, c1, c2))
                 return false;
             
+            SASSERT(to_app(n)->get_num_args() == 3);
             swap_if_gt(a1, a2);
             swap_if_gt(b1, b2);
             swap_if_gt(c1, c2);
@@ -833,6 +835,8 @@ class tseitin_cnf_tactic : public tactic {
             fail_if_proof_generation("tseitin-cnf", g);
             m_produce_models      = g->models_enabled();
             m_produce_unsat_cores = g->unsat_core_enabled(); 
+
+            TRACE("tseitin_cnf", g->display(tout););
 
             m_occs(*g);
             reset_cache();
