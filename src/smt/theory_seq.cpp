@@ -1472,7 +1472,6 @@ bool theory_seq::branch_variable_mb() {
             break;
         }
     }
-    CTRACE("seq", change, get_context().display(tout << "branch_variable_mb\n"););
     return change;
 }
 
@@ -2290,6 +2289,7 @@ void theory_seq::propagate_lit(dependency* dep, unsigned n, literal const* _lits
         return;
     TRACE("seq",
           tout << "scope: " << ctx.get_scope_level() << "\n";
+          tout << lits << "\n";
           ctx.display_detailed_literal(tout << "assert:", lit);
           ctx.display_literals_verbose(tout << " <- ", lits);
           if (!lits.empty()) tout << "\n"; display_deps(tout, dep););
@@ -2601,7 +2601,6 @@ bool theory_seq::is_var(expr* a) const {
         !m_util.str.is_unit(a) &&
         !m_util.str.is_itos(a) &&
         !m_util.str.is_nth_i(a) && 
-        // !m_util.str.is_extract(a) && 
         !m.is_ite(a);
 }
 

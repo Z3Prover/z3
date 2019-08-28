@@ -199,7 +199,6 @@ namespace opt {
                 m_s->maximize_objective(obj_index, bound);
                 m_s->get_model(m_model);
                 SASSERT(m_model);
-                m_s->get_labels(m_labels);
                 inf_eps obj = m_s->saved_objective_value(obj_index);
                 update_lower_lex(obj_index, obj, is_maximize);
                 if (!is_int || !m_lower[obj_index].is_finite()) {
@@ -374,7 +373,8 @@ namespace opt {
                 m_s->maximize_objective(i, tmp);
                 m_lower[i] = m_s->saved_objective_value(i);
             }
-
+            m_best_model = m_model;
+            m_s->get_labels(m_labels);
             m_context.set_model(m_model);
         }
     }
@@ -525,7 +525,6 @@ namespace opt {
             
             m_s->maximize_objective(obj_index, bound);
             m_s->get_model(m_model);
-            m_s->get_labels(m_labels);
             inf_eps obj = m_s->saved_objective_value(obj_index);
             update_lower_lex(obj_index, obj, is_maximize);
             TRACE("opt", tout << "strengthen bound: " << bound << "\n";);
@@ -590,7 +589,7 @@ namespace opt {
     }
 
     void optsmt::get_model(model_ref& mdl, svector<symbol> & labels) {        
-        mdl = m_model.get();
+        mdl = m_best_model.get();
         labels = m_labels;
     }
 
