@@ -498,6 +498,7 @@ namespace opt {
 
     lbool optsmt::lex(unsigned obj_index, bool is_maximize) {
         TRACE("opt", tout << "optsmt:lex\n";);
+        m_context.get_base_model(m_best_model);
         solver::scoped_push _push(*m_s);
         SASSERT(obj_index < m_vars.size());
         if (is_maximize && m_optsmt_engine == symbol("farkas")) {
