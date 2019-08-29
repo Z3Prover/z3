@@ -27,12 +27,14 @@ Revision History:
 #include "ast/for_each_expr.h"
 #include "ast/for_each_ast.h"
 #include "model/model.h"
+#include "model/model_params.hpp"
 #include "model/model_evaluator.h"
 
 model::model(ast_manager & m):
     model_core(m),
     m_mev(*this),
-    m_cleaned(false) {
+    m_cleaned(false),
+    m_inline(false) {
 }
 
 model::~model() {
@@ -42,6 +44,13 @@ model::~model() {
         dealloc(kv.m_value);
     }
 }
+
+void model::updt_params(params_ref const & p) {
+    model_params mp(p);
+    m_inline = mp.inline_def();
+    m_mev.updt_params(p); 
+}
+
 
 void model::copy_const_interps(model const & source) {
     for (auto const& kv : source.m_interp) 
@@ -353,6 +362,7 @@ bool model::can_inline_def(top_sort& ts, func_decl* f) {
     func_interp* fi = get_func_interp(f);
     if (!fi) return false;
     if (fi->get_else() == nullptr) return false;
+    if (m_inline) return true;
     expr* e = fi->get_else();
     obj_hashtable<expr> subs;
     ptr_buffer<expr> todo;

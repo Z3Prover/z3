@@ -36,6 +36,7 @@ protected:
     sort2universe                 m_usort2universe;
     model_evaluator               m_mev;
     bool                          m_cleaned;
+    bool                          m_inline;
     struct value_proc;
 
     struct deps_collector;    
@@ -84,7 +85,7 @@ public:
     void compress();
 
     void set_model_completion(bool f) { m_mev.set_model_completion(f); }
-    void updt_params(params_ref const & p) { m_mev.updt_params(p); }
+    void updt_params(params_ref const & p);
 
     /**
      * evaluation using the model evaluator. Caches results.
