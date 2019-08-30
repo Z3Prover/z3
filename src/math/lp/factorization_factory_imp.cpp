@@ -22,8 +22,8 @@
 namespace nla {
         
 factorization_factory_imp::factorization_factory_imp(const monomial& rm, const core& s) :
-    factorization_factory(rm.rvars(), &s.m_emons[rm.var()]),
-    m_core(s), m_mon(s.m_emons[rm.var()]), m_rm(rm) { }
+    factorization_factory(rm.rvars(), &s.emons()[rm.var()]),
+    m_core(s), m_mon(s.emons()[rm.var()]), m_rm(rm) { }
         
 bool factorization_factory_imp::find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const {
     return m_core.find_canonical_monomial_of_vars(vars, i);

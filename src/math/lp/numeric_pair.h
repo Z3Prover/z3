@@ -148,6 +148,30 @@ struct numeric_pair {
     template <typename X, typename Y>
     numeric_pair(X xp, Y yp) : x(convert_struct<T, X>::convert(xp)), y(convert_struct<T, Y>::convert(yp)) {}
 
+    bool operator<(const T& a) const {
+        return x < a || (x == a && y < 0);
+    }
+
+    bool operator>(const T& a) const {
+        return x > a || (x == a && y > 0);
+    }
+
+    bool operator==(const T& a) const  {
+        return a == x && y == 0;
+    }
+
+    bool operator!=(const T& a) const  {
+        return !(*this == a);
+    }
+
+    bool operator<=(const T& a) const  {
+        return *this < a || *this == a;
+    }
+
+    bool operator>=(const T& a) const  {
+        return *this > a || *this == a;
+    }
+
     bool operator<(const numeric_pair& a) const {
         return x < a.x || (x == a.x && y < a.y);
     }
