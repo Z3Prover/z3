@@ -628,6 +628,7 @@ public:
     lar_core_solver & get_core_solver() { return m_mpq_lar_core_solver; }
     bool column_corresponds_to_term(unsigned) const;
     void catch_up_in_updating_int_solver();
+    var_index to_column(unsigned ext_j) const;
     bool tighten_term_bounds_by_delta(unsigned, const impq&);
     void round_to_integer_solution();
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);

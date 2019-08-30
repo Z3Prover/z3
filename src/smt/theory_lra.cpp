@@ -1050,7 +1050,7 @@ public:
         default:
             break;
         }         
-        auto vi = get_var_index(b->get_var());
+        auto vi = get_lpvar(b->get_var());
         return m_solver->compare_values(vi, k, b->get_value()) ? l_true : l_false;
     }
 

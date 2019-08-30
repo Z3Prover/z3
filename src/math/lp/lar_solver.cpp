@@ -2247,6 +2247,10 @@ bool lar_solver::column_corresponds_to_term(unsigned j) const {
     return m_var_register.local_to_external(j) >= m_terms_start_index;
 }
 
+var_index lar_solver::to_column(unsigned ext_j) const {
+    return m_var_register.external_to_local(ext_j);
+}
+
 bool lar_solver::tighten_term_bounds_by_delta(unsigned term_index, const impq& delta) {
     unsigned tj = term_index + m_terms_start_index;
     unsigned j;

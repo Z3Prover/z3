@@ -105,7 +105,7 @@ void order::order_lemma_on_factor_binomial_explore(const monomial& ac, bool k) {
     SASSERT(ac.size() == 2);    
     lpvar c = ac.vars()[k];
     
-    for (monomial const& bd : _().m_emons.get_products_of(c)) {
+    for (monomial const& bd : _().emons().get_products_of(c)) {
         if (bd.var() == ac.var()) continue;
         TRACE("nla_solver", tout << "bd = " << pp_mon_with_vars(_(), bd););
         order_lemma_on_factor_binomial_rm(ac, k, bd);
@@ -244,14 +244,14 @@ bool order::order_lemma_on_ac_explore(const monomial& rm, const factorization& a
     TRACE("nla_solver", tout << "c = "; _().print_factor_with_vars(c, tout); );
     if (c.is_var()) {
         TRACE("nla_solver", tout << "var(c) = " << var(c););
-        for (monomial const& bc : _().m_emons.get_use_list(c.var())) {
+        for (monomial const& bc : _().emons().get_use_list(c.var())) {
             if (order_lemma_on_ac_and_bc(rm ,ac, k, bc)) {
                 return true;
             }
         }
     } 
     else {
-        for (monomial const& bc : _().m_emons.get_products_of(c.var())) {
+        for (monomial const& bc : _().emons().get_products_of(c.var())) {
             if (order_lemma_on_ac_and_bc(rm , ac, k, bc)) {
                 return true;
             }

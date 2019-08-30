@@ -104,7 +104,7 @@ bool basics::basic_sign_lemma_model_based() {
     unsigned start = c().random();
     unsigned sz = c().m_to_refine.size();
     for (unsigned i = sz; i-- > 0; ) {
-        monomial const& m = c().m_emons[c().m_to_refine[(start + i) % sz]];
+        monomial const& m = c().emons()[c().m_to_refine[(start + i) % sz]];
         int mon_sign = nla::rat_sign(val(m));
         int product_sign = c().rat_sign(m);
         if (mon_sign != product_sign) {
@@ -327,7 +327,7 @@ bool basics::basic_lemma_for_mon_non_zero_derived(const monomial& rm, const fact
 bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_derived(const monomial& rm, const factorization& f) {
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout););
 
-    lpvar mon_var =  c().m_emons[rm.var()].var();
+    lpvar mon_var =  c().emons()[rm.var()].var();
     TRACE("nla_solver",  c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
     const auto mv = val(mon_var);
@@ -634,7 +634,7 @@ bool basics::basic_lemma_for_mon_neutral_from_factors_to_monomial_model_based_fm
 bool basics::basic_lemma_for_mon_neutral_monomial_to_factor_model_based(const monomial& rm, const factorization& f) {
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout););
 
-    lpvar mon_var = c().m_emons[rm.var()].var();
+    lpvar mon_var = c().emons()[rm.var()].var();
     TRACE("nla_solver_bl", c().trace_print_monomial_and_factorization(rm, f, tout); tout << "\nmon_var = " << mon_var << "\n";);
         
     const auto mv = val(mon_var);
