@@ -184,6 +184,7 @@ void asserted_formulas::push_scope() {
     SASSERT(inconsistent() || s.m_formulas_lim == m_qhead || m.canceled());
     s.m_inconsistent_old = m_inconsistent;
     m_defined_names.push();
+    m_elim_term_ite.push();
     m_bv_sharing.push_scope();
     m_macro_manager.push_scope();
     commit();
@@ -198,6 +199,7 @@ void asserted_formulas::pop_scope(unsigned num_scopes) {
     scope & s           = m_scopes[new_lvl];
     m_inconsistent      = s.m_inconsistent_old;
     m_defined_names.pop(num_scopes);
+    m_elim_term_ite.pop(num_scopes);
     m_scoped_substitution.pop(num_scopes);
     m_formulas.shrink(s.m_formulas_lim);
     m_qhead    = s.m_formulas_lim;

@@ -156,6 +156,8 @@ class asserted_formulas {
         void simplify(justified_expr const& j, expr_ref& n, proof_ref& p) override { m_elim(j.get_fml(), n, p); }
         bool should_apply() const override { return af.m_smt_params.m_eliminate_term_ite && af.m_smt_params.m_lift_ite != LI_FULL; }
         void post_op() override { af.m_formulas.append(m_elim.new_defs()); af.reduce_and_solve(); m_elim.reset(); }
+        void push() { m_elim.push(); }
+        void pop(unsigned n) { m_elim.pop(n); }
     };
 
 #define MK_SIMPLIFIERA(NAME, FUNCTOR, MSG, APP, ARG, REDUCE)            \

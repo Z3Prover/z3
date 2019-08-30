@@ -17,6 +17,7 @@ Revision History:
 
 --*/
 #include "model/model_core.h"
+#include "ast/ast_pp.h"
 
 model_core::~model_core() {
     for (auto & kv : m_interp) {
@@ -47,7 +48,9 @@ bool model_core::eval(func_decl* f, expr_ref & r) const {
 
 void model_core::register_decl(func_decl * d, expr * v) {
     SASSERT(d->get_arity() == 0);
-    TRACE("model", tout << "register " << d->get_name() << "\n";);
+    TRACE("model", tout << "register " << d->get_name() << "\n";
+          if (v) tout << mk_pp(v, m) << "\n";
+          );
     decl2expr::obj_map_entry * entry = m_interp.insert_if_not_there2(d, nullptr);
     if (entry->get_data().m_value == nullptr) {
         // new entry
