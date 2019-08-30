@@ -1597,6 +1597,9 @@ namespace smt {
                 value += coeff;
             }
         }
+        if (value >= 0) {
+            display_resolved_lemma(verbose_stream() << "not validated\n");
+        }
         // std::cout << "bound: " << m_bound << " value " << value << " coeffs: " << m_active_vars.size() << " lemma is " << (value >= 0 ? "sat" : "unsat") << "\n";    
         return value < 0;
     }
@@ -1804,8 +1807,8 @@ namespace smt {
         }
         if (g >= 2) {
             normalize_active_coeffs();
-            for (unsigned i = 0; i < m_active_vars.size(); ++i) {
-                m_coeffs[m_active_vars[i]] /= g;                
+            for (auto v : m_active_vars) {
+                m_coeffs[v] /= static_cast<int>(g);                
             }
             m_bound = (m_bound + g - 1) / g;
             TRACE("pb", display_resolved_lemma(tout << "cut\n"););
