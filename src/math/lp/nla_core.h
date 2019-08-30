@@ -359,7 +359,7 @@ struct pp_mon {
     core const& c;
     monomial const& m;
     pp_mon(core const& c, monomial const& m): c(c), m(m) {}
-    pp_mon(core const& c, lpvar v): c(c), m(c.m_emons[v]) {}
+    pp_mon(core const& c, lpvar v): c(c), m(c.emons()[v]) {}
 };
 struct pp_mon_with_vars {
     core const& c;

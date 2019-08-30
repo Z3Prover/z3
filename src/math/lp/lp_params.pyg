@@ -7,12 +7,7 @@ def_module_params('lp',
                    ('simplex_strategy', UINT, 0, 'simplex strategy for the solver'),
                    ('enable_hnf', BOOL, True, 'enable hnf cuts'),
                    ('bprop_on_pivoted_rows', BOOL, True, 'propagate bounds on rows changed by the pivot operation'),
-                   ('nla', BOOL, False, 'call nonlinear integer solver with incremental linearization')
-
-                          ))           
-
-
-    
+                   ('nla', BOOL, False, 'call nonlinear integer solver with incremental linearization'),
                    ('print_ext_var_names', BOOL, False, 'print external variable names')
                           ))
 
