@@ -251,7 +251,7 @@ namespace smt {
         context& ctx = th.get_context();
         unsigned sz = size();
         unsigned bound = k();
-        TRACE("pb", tout << "assign: " << m_lit << " " << ~alit << " " << bound << "\n";);
+        TRACE("pb", th.display(tout << "assign: " << m_lit << " " << ~alit << " " << bound << "\n", *this, true););
 
         SASSERT(0 < bound && bound < sz);
         SASSERT(ctx.get_assignment(alit) == l_false);
@@ -955,7 +955,8 @@ namespace smt {
         }
         c.inc_propagations(*this);
         m_stats.m_num_propagations++;
-        TRACE("pb", tout << "#prop: " << c.num_propagations() << " - " << c.lit() << " => " << l << "\n";);
+        TRACE("pb", tout << "#prop: " << c.num_propagations() << " - " << c.lit() << " => " << l << "\n";
+              display(tout, c, true) << "\n";);
         SASSERT(validate_unit_propagation(c));
         ctx.assign(l, ctx.mk_justification(card_justification(c, l, get_id())));
     }
@@ -1685,15 +1686,20 @@ namespace smt {
         return arg_max;
     }
 
+    /**
+       \brief retrieve asserting literal. Prefer p, otherwise find a literal with maximal level.
+       Note that an asserting literal should be false with respect to the resolvent inequality.
+     */
     literal theory_pb::get_asserting_literal(literal p) {
-        if (get_abs_coeff(p.var()) != 0) {
-            return p;
-        }
         context& ctx = get_context();
         unsigned lvl = 0;
+        TRACE("pb", tout << p << " " << ctx.get_assignment(p) << "\n";);
+
+        if (ctx.get_assignment(p) == l_false && get_abs_coeff(p.var()) != 0 && p == literal(p.var(), get_coeff(p.var()) < 0)) {
+            return p;
+        }
         
-        for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
-            bool_var v = m_active_vars[i];
+        for (bool_var v : m_active_vars) {
             literal lit(v, get_coeff(v) < 0);
             if (ctx.get_assignment(lit) == l_false && ctx.get_assign_level(lit) > lvl) {
                 p = lit;
@@ -1991,8 +1997,7 @@ namespace smt {
         }
 
         int slack = -m_bound;
-        for (unsigned i = 0; i < m_active_vars.size(); ++i) { 
-            bool_var v = m_active_vars[i];
+        for (bool_var v : m_active_vars) {
             slack += get_abs_coeff(v);
         }
 
@@ -2021,7 +2026,7 @@ namespace smt {
         SASSERT(slack < 0);
 
         SASSERT(validate_antecedents(m_antecedents));
-        TRACE("pb", tout << "antecedents " << m_antecedents << "\n";);
+        TRACE("pb", tout << "assign " << m_antecedents << " ==> " << alit << "\n";);
         ctx.assign(alit, ctx.mk_justification(theory_propagation_justification(get_id(), ctx.get_region(), m_antecedents.size(), m_antecedents.c_ptr(), alit, 0, nullptr)));
 
         DEBUG_CODE(
@@ -2229,8 +2234,7 @@ namespace smt {
         }
         uint_set seen;
         bool first = true;
-        for (unsigned i = 0; i < m_active_vars.size(); ++i) {
-            bool_var v = m_active_vars[i];
+        for (bool_var v: m_active_vars) {
             if (seen.contains(v)) {
                 continue;
             }
@@ -2242,18 +2246,14 @@ namespace smt {
             if (!first) {
                 out << " + ";
             }
-            if (coeff == 1) {
-                out << literal(v);
+            literal lit(v, coeff < 0);
+            if (coeff > 1) {
+                out << coeff << " * ";
             }
-            else if (coeff == -1) {
-                out << literal(v, true);
+            else if (coeff < -1) {
+                out << (-coeff) << " * ";
             }
-            else if (coeff > 0) {
-                out << coeff << " * " << literal(v);
-            }
-            else {
-                out << (-coeff) << " * " << literal(v, true);
-            }
+            out << lit << "(" << ctx.get_assignment(lit) << "@" << ctx.get_assign_level(lit) << ")";
             first = false;
         }
         out << " >= " << m_bound << "\n";
