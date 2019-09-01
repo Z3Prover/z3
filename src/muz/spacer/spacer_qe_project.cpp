@@ -170,7 +170,7 @@ void peq::mk_eq (app_ref_vector& aux_consts, app_ref& result, bool stores_on_rhs
             store_args.push_back (rhs);
             store_args.push_back (*it);
             store_args.push_back (val);
-            rhs = m_arr_u.mk_store (store_args.size (), store_args.c_ptr ());
+            rhs = m_arr_u.mk_store (store_args);
             aux_consts.push_back (val);
         }
         m_eq = m.mk_eq (lhs, rhs);

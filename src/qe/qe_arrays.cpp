@@ -139,7 +139,7 @@ namespace {
                     app_ref val(m.mk_fresh_const ("diff", val_sort), m);
                     store_args.push_back (val);
                     aux_consts.push_back (val);
-                    rhs = m_arr_u.mk_store (store_args.size (), store_args.c_ptr ());
+                    rhs = m_arr_u.mk_store (store_args);
                 }
                 m_eq = m.mk_eq (lhs, rhs);
             }

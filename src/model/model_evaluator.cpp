@@ -269,7 +269,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
                 expr_ref_vector args(m);
                 args.push_back(val);
                 args.append(stores[i].size(), stores[i].c_ptr());
-                val = m_ar.mk_store(args.size(), args.c_ptr());
+                val = m_ar.mk_store(args);
             }
         }
     }

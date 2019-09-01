@@ -152,8 +152,7 @@ public:
         for (unsigned i = lo; i < hi; ++i) {
             checkpoint();
 
-            std::string name(x->get_decl()->get_name().str());
-            expr_ref v(m.mk_fresh_const(name.c_str(), m.mk_bool_sort()), m);
+            expr_ref v(m.mk_fresh_const(x->get_decl()->get_name(), m.mk_bool_sort()), m);
             if (last_v) axioms.push_back(m.mk_implies(v, last_v));
             xs.push_back(m.mk_ite(v, a.mk_int(1), a.mk_int(0)));
             m_mc->hide(v);

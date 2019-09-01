@@ -184,6 +184,13 @@ public:
         return m_manager.mk_app(m_fid, OP_STORE, 0, nullptr, num_args, args);
     }
 
+    app * mk_store(expr_ref_vector const& args) {
+        return mk_store(args.size(), args.c_ptr());
+    }
+    app * mk_store(ptr_vector<expr> const& args) {
+        return mk_store(args.size(), args.c_ptr());
+    }
+
     app * mk_select(unsigned num_args, expr * const * args) {
         return m_manager.mk_app(m_fid, OP_SELECT, 0, nullptr, num_args, args);
     }

@@ -238,8 +238,7 @@ class nla2bv_tactic : public tactic {
                 set_satisfiability_preserving(false);
             }
             bv_sort = m_bv.mk_sort(num_bits);
-            std::string name = n->get_decl()->get_name().str();
-            s_bv = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            s_bv = m_manager.mk_fresh_const(n->get_decl()->get_name(), bv_sort);
             m_fmc->hide(s_bv);
             s_bv = m_bv.mk_bv2int(s_bv);
             if (low) {
@@ -275,9 +274,9 @@ class nla2bv_tactic : public tactic {
             bv_sort = m_bv.mk_sort(m_num_bits);
             set_satisfiability_preserving(false);
             std::string name = n->get_decl()->get_name().str();
-            s = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            s = m_manager.mk_fresh_const(name, bv_sort);
             name += "_r";
-            t = m_manager.mk_fresh_const(name.c_str(), bv_sort);
+            t = m_manager.mk_fresh_const(name, bv_sort);
             m_fmc->hide(s);
             m_fmc->hide(t);
             s_bv = m_bv2real.mk_bv2real(s, t);

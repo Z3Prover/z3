@@ -124,7 +124,7 @@ struct enum2bv_rewriter::imp {
 
                 // create a fresh variable, add bounds constraints for it.
                 unsigned nc = m_dt.get_datatype_num_constructors(s);
-                result = m.mk_fresh_const(f->get_name().str().c_str(), m_bv.mk_sort(bv_size));
+                result = m.mk_fresh_const(f->get_name(), m_bv.mk_sort(bv_size));
                 f_fresh = to_app(result)->get_decl();
                 if (!is_power_of_two(nc) || nc == 1) {
                     m_imp.m_bounds.push_back(m_bv.mk_ule(result, m_bv.mk_numeral(nc-1, bv_size)));

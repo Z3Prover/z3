@@ -17,16 +17,16 @@
 #ifndef LACKR_H_
 #define LACKR_H_
 
-#include "ackermannization/ackr_info.h"
-#include "ackermannization/ackr_helper.h"
+#include "util/lbool.h"
+#include "util/util.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/bv_decl_plugin.h"
-#include "util/lbool.h"
 #include "model/model.h"
 #include "solver/solver.h"
-#include "util/util.h"
 #include "tactic/tactic_exception.h"
 #include "tactic/goal.h"
+#include "ackermannization/ackr_info.h"
+#include "ackermannization/ackr_helper.h"
 
 struct lackr_stats {
     lackr_stats() : m_it(0), m_ackrs_sz(0) {}
@@ -71,25 +71,29 @@ class lackr {
         //  timeout mechanism
         //
         void checkpoint() {
-            if (m_m.canceled()) {
+            if (m.canceled()) {
                 throw tactic_exception(TACTIC_CANCELED_MSG);
             }
         }
     private:
         typedef ackr_helper::fun2terms_map fun2terms_map;
+        typedef ackr_helper::sel2terms_map sel2terms_map;
         typedef ackr_helper::app_set       app_set;
-        ast_manager&                         m_m;
+        ast_manager&                         m;
         params_ref                           m_p;
         const ptr_vector<expr>&              m_formulas;
+        array_util                           m_autil;
         expr_ref_vector                      m_abstr;
         fun2terms_map                        m_fun2terms;
+        sel2terms_map                        m_sel2terms;
         ackr_info_ref                        m_info;
-        solver*                              m_sat;
+        solver*                              m_solver;
         ackr_helper                          m_ackr_helper;
         th_rewriter                          m_simp;
         expr_ref_vector                      m_ackrs;
         model_ref                            m_model;
         bool                                 m_eager;
+        expr_mark                            m_non_select;
         lackr_stats&                         m_st;
         bool                                 m_is_init;
 
@@ -101,6 +105,8 @@ class lackr {
         // Introduce congruence ackermann lemma for the two given terms.
         //
         bool ackr(app * t1, app * t2);
+
+        void ackr(app_set const* ts);
 
         //
         // Introduce the ackermann lemma for each pair of terms.

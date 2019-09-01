@@ -16,9 +16,9 @@ Revision History:
 #ifndef ACKR_INFO_H_
 #define ACKR_INFO_H_
 
+#include "util/ref.h"
 #include "util/obj_hashtable.h"
 #include "ast/ast.h"
-#include "util/ref.h"
 #include "ast/rewriter/expr_replacer.h"
 #include "ast/ast_translation.h"
 
@@ -34,18 +34,18 @@ Revision History:
 **/
 class ackr_info {
     public:
-        ackr_info(ast_manager& m)
-        : m_m(m)
-        , m_er(mk_default_expr_replacer(m))
-        , m_subst(m_m)
-        , m_ref_count(0)
-        , m_sealed(false)
+        ackr_info(ast_manager& m) : 
+            m(m),
+            m_er(mk_default_expr_replacer(m)),
+            m_subst(m),
+            m_ref_count(0),
+            m_sealed(false)
         {}
 
         virtual ~ackr_info() {
-            for (t2ct::iterator i = m_t2c.begin(); i != m_t2c.end(); ++i) {
-                m_m.dec_ref(i->m_key);
-                m_m.dec_ref(i->m_value);
+            for (auto & kv : m_t2c) {
+                m.dec_ref(kv.m_key);
+                m.dec_ref(kv.m_value);
             }
         }
 
@@ -55,13 +55,15 @@ class ackr_info {
             m_t2c.insert(term,c);
             m_c2t.insert(c->get_decl(),term);
             m_subst.insert(term, c);
-            m_m.inc_ref(term);
-            m_m.inc_ref(c);
+            m.inc_ref(term);
+            m.inc_ref(c);
         }
 
-        inline void abstract(expr * e, expr_ref& res) {
+        inline expr_ref abstract(expr * e) {
+            expr_ref res(m);
             SASSERT(m_sealed);
             (*m_er)(e, res);
+            return res;
         }
 
         inline app* find_term(func_decl* c)  const {
@@ -71,22 +73,18 @@ class ackr_info {
         }
 
         inline app* get_abstr(app* term)  const {
-            app * const rv = m_t2c.find(term);
-            SASSERT(rv);
-            return rv;
+            return m_t2c.find(term);
         }
 
         inline void seal() {
-            m_sealed=true;
+            m_sealed = true;
             m_er->set_substitution(&m_subst);
         }
 
         virtual ackr_info * translate(ast_translation & translator) {
             ackr_info * const retv = alloc(ackr_info, translator.to());
-            for (t2ct::iterator i = m_t2c.begin(); i != m_t2c.end(); ++i) {
-                app * const k = translator(i->m_key);
-                app * const v = translator(i->m_value);
-                retv->set_abstr(k, v);
+            for (auto & kv : m_t2c) {
+                retv->set_abstr(translator(kv.m_key), translator(kv.m_value));
             }
             if (m_sealed) retv->seal();
             return retv;
@@ -102,10 +100,11 @@ class ackr_info {
                 dealloc(this);
             }
         }
+
     private:
         typedef obj_map<app, app*> t2ct;
         typedef obj_map<func_decl, app*> c2tt;
-        ast_manager& m_m;
+        ast_manager& m;
 
         t2ct m_t2c; // terms to constants
         c2tt m_c2t; // constants to terms (inversion of m_t2c)

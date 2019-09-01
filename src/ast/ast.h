@@ -1940,6 +1940,14 @@ public:
         return mk_const(mk_fresh_func_decl(prefix, 0, nullptr, s, skolem)); 
     }
 
+    app * mk_fresh_const(std::string const& prefix, sort * s, bool skolem = true) { 
+        return mk_fresh_const(prefix.c_str(), s, skolem);        
+    }
+
+    app * mk_fresh_const(symbol const& prefix, sort * s, bool skolem = true) { 
+        return mk_fresh_const(prefix.str().c_str(), s, skolem);
+    }
+
     symbol mk_fresh_var_name(char const * prefix = nullptr);
 
     var * mk_var(unsigned idx, sort * ty);

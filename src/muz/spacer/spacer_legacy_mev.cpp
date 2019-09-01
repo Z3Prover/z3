@@ -816,7 +816,7 @@ expr_ref model_evaluator::eval(const model_ref& model, expr* e){
                 args.resize(1);
                 args[0] = result;
                 args.append(stores[i]);
-                result = m_array.mk_store(args.size(), args.c_ptr());
+                result = m_array.mk_store(args);
             }
             return result;
         }

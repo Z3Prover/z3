@@ -13,9 +13,11 @@ Author:
 
 Revision History:
 --*/
-#include "ackermannization/ackr_model_converter.h"
-#include "model/model_evaluator.h"
+
 #include "ast/ast_smt2_pp.h"
+#include "ast/array_decl_plugin.h"
+#include "model/model_evaluator.h"
+#include "ackermannization/ackr_model_converter.h"
 #include "ackermannization/ackr_info.h"
 
 
@@ -24,17 +26,17 @@ public:
     ackr_model_converter(ast_manager & m,
                          const ackr_info_ref& info,
                          model_ref& abstr_model)
-        : m(m)
-        , info(info)
-        , abstr_model(abstr_model)
-        , fixed_model(true)
+        : m(m),
+          info(info),
+          abstr_model(abstr_model),
+          fixed_model(true)
     { }
 
     ackr_model_converter(ast_manager & m,
                          const ackr_info_ref& info)
-        : m(m)
-        , info(info)
-        , fixed_model(false)
+        : m(m),
+          info(info),
+          fixed_model(false)
     { }
 
     ~ackr_model_converter() override { }
@@ -74,6 +76,9 @@ protected:
     void add_entry(model_evaluator & evaluator,
                    app* term, expr* value,
                    obj_map<func_decl, func_interp*>& interpretations);
+    void add_entry(model_evaluator & evaluator,
+                   app* term, expr* value,
+                   obj_map<app, expr*>& interpretations);
     void convert_constants(model * source, model * destination);
 };
 
@@ -86,8 +91,11 @@ void ackr_model_converter::convert(model * source, model * destination) {
 void ackr_model_converter::convert_constants(model * source, model * destination) {
     TRACE("ackermannize", tout << "converting constants\n";);
     obj_map<func_decl, func_interp*> interpretations;
+    obj_map<app, expr*> array_interpretations; 
     model_evaluator evaluator(*source);
     evaluator.set_model_completion(true);
+    array_util autil(m);
+
     for (unsigned i = 0; i < source->get_num_constants(); i++) {
         func_decl * const c = source->get_constant(i);
         app * const term = info->find_term(c);
@@ -95,19 +103,53 @@ void ackr_model_converter::convert_constants(model * source, model * destination
         if (!term) {
             destination->register_decl(c, value);
         }
+        else if (autil.is_select(term)) {
+            add_entry(evaluator, term, value, array_interpretations);
+        }
         else {
             add_entry(evaluator, term, value, interpretations);
         }
     }
 
-    obj_map<func_decl, func_interp*>::iterator e = interpretations.end();
-    for (obj_map<func_decl, func_interp*>::iterator i = interpretations.begin();
-         i != e; ++i) {
-        func_decl* const fd = i->m_key;
-        func_interp* const fi = i->get_value();
+    for (auto & kv : interpretations) {
+        func_decl* const fd = kv.m_key;
+        func_interp* const fi = kv.m_value;
         fi->set_else(m.get_some_value(fd->get_range()));
         destination->register_decl(fd, fi);
     }
+    for (auto & kv : array_interpretations) {
+        destination->register_decl(kv.m_key->get_decl(), kv.m_value);
+    }
+}
+
+void ackr_model_converter::add_entry(model_evaluator & evaluator,
+                                     app* term, expr* value,
+                                     obj_map<app, expr*>& array_interpretations) {
+    
+    array_util autil(m);
+    app* A = to_app(term->get_arg(0));
+    expr * e = nullptr, *c = nullptr;
+    if (!array_interpretations.find(A, e)) {
+        e = autil.mk_const_array(m.get_sort(A), value);
+    }
+    else {
+        // avoid storing the same as the default value.
+        c = e;
+        while (autil.is_store(c)) c = to_app(c)->get_arg(0);
+        if (autil.is_const(c, c) && c == value) {
+            return;
+        }
+        expr_ref_vector args(m);
+        unsigned sz = term->get_num_args();
+        args.push_back(e);
+        for (unsigned i = 1; i < sz; ++i) {
+            expr * arg = term->get_arg(i);
+            args.push_back(evaluator(info->abstract(arg)));
+        }    
+        args.push_back(value);
+        e = autil.mk_store(args.size(), args.c_ptr());
+    }
+    array_interpretations.insert(A, e);
 }
 
 void ackr_model_converter::add_entry(model_evaluator & evaluator,
@@ -116,8 +158,7 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
     TRACE("ackermannize", tout << "add_entry"
           << mk_ismt2_pp(term, m, 2)
           << "->"
-          << mk_ismt2_pp(value, m, 2) << "\n";
-    );
+          << mk_ismt2_pp(value, m, 2) << "\n";);
 
     func_interp * fi = nullptr;
     func_decl * const declaration = term->get_decl();
@@ -128,20 +169,16 @@ void ackr_model_converter::add_entry(model_evaluator & evaluator,
         interpretations.insert(declaration, fi);
     }
     expr_ref_vector args(m);
-    for (unsigned gi = 0; gi < sz; ++gi) {
-        expr * const arg = term->get_arg(gi);
-        expr_ref aarg(m);
-        info->abstract(arg, aarg);
-        expr_ref arg_value(m);
-        evaluator(aarg, arg_value);
-        args.push_back(std::move(arg_value));
+    for (expr* arg : *term) {
+        args.push_back(evaluator(info->abstract(arg)));
     }
     if (fi->get_entry(args.c_ptr()) == nullptr) {
         TRACE("ackermannize",
               tout << mk_ismt2_pp(declaration, m) << " args: " << std::endl;
-                for (unsigned i = 0; i < args.size(); i++)
-                    tout << mk_ismt2_pp(args.get(i), m) << std::endl;
-                tout << " -> " << mk_ismt2_pp(value, m) << "\n"; );
+              for (expr* arg : args) {
+                  tout << mk_ismt2_pp(arg, m) << std::endl;
+              }
+              tout << " -> " << mk_ismt2_pp(value, m) << "\n"; );
         fi->insert_new_entry(args.c_ptr(), value);
     }
     else {

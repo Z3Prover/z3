@@ -401,7 +401,7 @@ expr* func_interp::get_array_interp_core(func_decl * f) const {
             args.push_back(curr->get_arg(i));
         }
         args.push_back(res);
-        r = autil.mk_store(args.size(), args.c_ptr());
+        r = autil.mk_store(args);
     }
     return r;    
 }

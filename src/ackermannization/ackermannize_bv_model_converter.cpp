@@ -18,5 +18,5 @@
 #include "ackermannization/ackermannize_bv_model_converter.h"
 
 model_converter * mk_ackermannize_bv_model_converter(ast_manager & m, const ackr_info_ref& info) {
- return mk_ackr_model_converter(m, info);
+    return mk_ackr_model_converter(m, info);
 }

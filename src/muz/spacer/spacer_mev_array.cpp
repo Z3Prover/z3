@@ -153,8 +153,8 @@ void model_evaluator_array_util::eval_array_eq(model& mdl, app* e, expr* arg1, e
         args2.resize(1);
         args1.append(store[i].size()-1, store[i].c_ptr());
         args2.append(store[i].size()-1, store[i].c_ptr());
-        s1 = m_array.mk_select(args1.size(), args1.c_ptr());
-        s2 = m_array.mk_select(args2.size(), args2.c_ptr());
+        s1 = m_array.mk_select(args1);
+        s2 = m_array.mk_select(args2);
         eval (mdl, s1, w1);
         eval (mdl, s2, w2);
         if (w1 == w2) {
@@ -207,7 +207,7 @@ void model_evaluator_array_util::eval(model& mdl, expr* e, expr_ref& r, bool mod
                 args.resize(1);
                 args[0] = r;
                 args.append(stores[i]);
-                r = m_array.mk_store(args.size(), args.c_ptr());
+                r = m_array.mk_store(args);
             }
             return;
         }
