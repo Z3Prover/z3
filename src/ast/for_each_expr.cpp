@@ -63,3 +63,49 @@ bool has_skolem_functions(expr * n) {
     }
     return false;
 }
+
+subterms::subterms(expr_ref_vector const& es): m_es(es) {}
+subterms::subterms(expr_ref& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms::iterator subterms::begin() { return iterator(*this, true); }
+subterms::iterator subterms::end() { return iterator(*this, false); }
+subterms::iterator::iterator(subterms& f, bool start): m_es(f.m_es) {
+    if (!start) m_es.reset();
+}
+expr* subterms::iterator::operator*() {
+    return m_es.back();
+}
+subterms::iterator subterms::iterator::operator++(int) {
+    iterator tmp = *this;
+    ++*this;
+    return tmp;
+}
+subterms::iterator& subterms::iterator::operator++() {
+    expr* e = m_es.back();
+    m_visited.mark(e, true);
+    if (is_app(e)) {
+        for (expr* arg : *to_app(e)) {
+            m_es.push_back(arg);
+        }
+    }
+    while (m_visited.is_marked(m_es.back())) {
+        m_es.pop_back();
+    }
+    return *this;
+}
+
+bool subterms::iterator::operator==(iterator const& other) const {
+    // ignore state of visited
+    if (other.m_es.size() != m_es.size()) {
+        return false;
+    }
+    for (unsigned i = m_es.size(); i-- > 0; ) {
+        if (m_es.get(i) != other.m_es.get(i))
+            return false;
+    }
+    return true;
+}
+
+bool subterms::iterator::operator!=(iterator const& other) const {
+    return !(*this == other);
+}
+

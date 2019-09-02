@@ -511,14 +511,14 @@ namespace qe {
 
     bool pred_abs::validate_defs(model& model) const {
         bool valid = true;
-        obj_map<expr, expr*>::iterator it = m_pred2lit.begin(), end = m_pred2lit.end();
-        for (; it != end; ++it) {
+        for (auto& kv : m_pred2lit) {
             expr_ref val_a(m), val_b(m);
-            expr* a = it->m_key;
-            expr* b = it->m_value;
+            expr* a = kv.m_key;
+            expr* b = kv.m_value;
             val_a = model(a);
             val_b = model(b);
-            if (val_a != val_b) {
+            if ((m.is_true(val_a) && m.is_false(val_b)) || 
+                (m.is_false(val_a) && m.is_true(val_b))) {
                 TRACE("qe", 
                       tout << mk_pp(a, m) << " := " << val_a << "\n";
                       tout << mk_pp(b, m) << " := " << val_b << "\n";

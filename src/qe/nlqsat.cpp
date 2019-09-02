@@ -666,7 +666,7 @@ namespace qe {
 
         // expr -> nlsat::solver
 
-        void hoist(expr_ref& fml) {
+        bool hoist(expr_ref& fml) {
             expr_ref_vector paxioms(m);
             ackermanize_div(fml, paxioms);
             quantifier_hoister hoist(m);
@@ -674,7 +674,6 @@ namespace qe {
             app_ref_vector vars(m);
             bool is_forall = false;   
             pred_abs abs(m);
-
             expr_ref fml_a(m.mk_and(fml, mk_and(paxioms)), m);
             abs.get_free_vars(fml_a, vars);
             insert_set(m_free_vars, vars);
@@ -752,6 +751,7 @@ namespace qe {
                 }
             }
             TRACE("qe", tout << fml << "\n";);
+            return true;
         }
 
 
@@ -836,7 +836,10 @@ namespace qe {
             }                         
             reset();
             TRACE("qe", tout << fml << "\n";);
-            hoist(fml);
+            if (!hoist(fml)) {
+                result.push_back(in.get());
+                return;
+            }
             TRACE("qe", tout << "ex: " << fml << "\n";);
             lbool is_sat = check_sat();
             

@@ -339,6 +339,7 @@ final_check_status theory_seq::final_check_eh() {
         m_rep.reset_cache(); 
         m_reset_cache = false;
     }
+
     m_new_propagation = false;
     TRACE("seq", display(tout << "level: " << get_context().get_scope_level() << "\n"););
     TRACE("seq_verbose", get_context().display(tout););
@@ -3320,7 +3321,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     expr_ref c = canonize(n.contains(), deps);
     expr* a = nullptr, *b = nullptr;
 
-    CTRACE("seq", c != n.contains(), tout << n.contains() << " => " << c << "\n";);
+    CTRACE("seq", c != n.contains(), tout << n.contains() << " =>\n" << c << "\n";);
 
     
     if (m.is_true(c)) {
@@ -3334,6 +3335,9 @@ bool theory_seq::solve_nc(unsigned idx) {
     }
 
     if (ctx.get_assignment(len_gt) == l_true) {
+        VERIFY(m_util.str.is_contains(n.contains(), a, b));
+        enforce_length(a);
+        enforce_length(b);
         TRACE("seq", tout << len_gt << " is true\n";);
         return true;
     }
@@ -3605,6 +3609,7 @@ bool theory_seq::internalize_term(app* term) {
 }
 
 void theory_seq::add_length(expr* e, expr* l) {
+    TRACE("seq", tout << get_context().get_scope_level() << " " << mk_pp(e, m) << "\n";);
     SASSERT(!m_length.contains(l));
     m_length.push_back(l);
     m_has_length.insert(e);
@@ -4278,9 +4283,9 @@ bool theory_seq::can_propagate() {
 
 expr_ref theory_seq::canonize(expr* e, dependency*& eqs) {
     expr_ref result = expand(e, eqs);
-    TRACE("seq", tout << mk_pp(e, m) << " expands to " << result << "\n";);
+    TRACE("seq", tout << mk_pp(e, m) << " expands to\n" << result << "\n";);
     m_rewrite(result);
-    TRACE("seq", tout << mk_pp(e, m) << " rewrites to " << result << "\n";);
+    TRACE("seq", tout << mk_pp(e, m) << " rewrites to\n" << result << "\n";);
     return result;
 }
 
