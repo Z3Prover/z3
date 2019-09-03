@@ -326,38 +326,25 @@ public:
     }
 
     void set(char const * name, char const * value) {
-        bool error = false;
-        std::string error_msg;
-        {
-            lock_guard lock(*gparams_mux);
-            try {
-                symbol m, p;
-                normalize(name, m, p);
-                if (m == symbol::null) {
-                    validate_type(p, value, get_param_descrs());
-                    set(get_param_descrs(), p, value, m);
-                }
-                else {
-                    param_descrs * d;
-                    if (get_module_param_descrs().find(m, d)) {
-                        validate_type(p, value, *d);
-                        set(*d, p, value, m);
-                    }
-                    else {
-                        std::stringstream strm;
-                        strm << "invalid parameter, unknown module '" << m << "'";
-                        throw exception(strm.str());
-                    }
-                }
+        lock_guard lock(*gparams_mux);
+        symbol m, p;
+        normalize(name, m, p);
+        if (m == symbol::null) {
+            validate_type(p, value, get_param_descrs());
+            set(get_param_descrs(), p, value, m);
+        }
+        else {
+            param_descrs * d;
+            if (get_module_param_descrs().find(m, d)) {
+                validate_type(p, value, *d);
+                set(*d, p, value, m);
             }
-            catch (z3_exception & ex) {
-                // Exception cannot cross critical section boundaries.
-                error = true;
-                error_msg = ex.msg();
+            else {
+                std::stringstream strm;
+                strm << "invalid parameter, unknown module '" << m << "'";
+                throw exception(strm.str());
             }
         }
-        if (error)
-            throw exception(std::move(error_msg));
     }
 
     std::string get_value(params_ref const & ps, symbol const & p) {
@@ -377,49 +364,32 @@ public:
     }
 
     std::string get_value(char const * name) {
-        std::string r;
-        bool error = false;
-        std::string error_msg;
-        {
-            lock_guard lock(*gparams_mux);
-            try {
-                symbol m, p;
-                normalize(name, m, p);
-                if (m == symbol::null) {
-                    if (m_params.contains(p)) {
-                        r = get_value(m_params, p);
-                    }
-                    else {
-                        r = get_default(get_param_descrs(), p, m);
-                    }
-                }
-                else {
-                    params_ref * ps = nullptr;
-                    if (m_module_params.find(m, ps) && ps->contains(p)) {
-                        r = get_value(*ps, p);
-                    }
-                    else {
-                        param_descrs * d;
-                        if (get_module_param_descrs().find(m, d)) {
-                            r = get_default(*d, p, m);
-                        }
-                        else {
-                            std::stringstream strm;
-                            strm << "unknown module '" << m << "'";
-                            throw exception(strm.str());
-                        }
-                    }
-                }
+        lock_guard lock(*gparams_mux);
+        symbol m, p;
+        normalize(name, m, p);
+        if (m == symbol::null) {
+            if (m_params.contains(p)) {
+                return get_value(m_params, p);
             }
-            catch (z3_exception & ex) {
-                // Exception cannot cross critical section boundaries.
-                error = true;
-                error_msg = ex.msg();
+            else {
+                return get_default(get_param_descrs(), p, m);
             }
         }
-        if (error)
-            throw exception(std::move(error_msg));
-        return r;
+        else {
+            params_ref * ps = nullptr;
+            if (m_module_params.find(m, ps) && ps->contains(p)) {
+                return get_value(*ps, p);
+            }
+            else {
+                param_descrs * d;
+                if (get_module_param_descrs().find(m, d)) {
+                    return get_default(*d, p, m);
+                }
+            }
+        }
+        std::stringstream strm;
+        strm << "unknown module '" << m << "'";
+        throw exception(strm.str());
     }
 
     // unfortunately, params_ref is not thread safe
@@ -480,72 +450,48 @@ public:
     }
 
     void display_module(std::ostream & out, symbol const & module_name) {
-        bool error = false;
-        std::string error_msg;
         lock_guard lock(*gparams_mux);
-        try {
-            param_descrs * d = nullptr;
-            if (!get_module_param_descrs().find(module_name, d)) {
-                std::stringstream strm;
-                strm << "unknown module '" << module_name << "'";                    
-                throw exception(strm.str());
-            }
-            out << "[module] " << module_name;
-            char const * descr = nullptr;
-            if (get_module_descrs().find(module_name, descr)) {
-                out << ", description: " << descr;
-            }
-            out << "\n";
-            d->display(out, 4, false);
+        param_descrs * d = nullptr;
+        if (!get_module_param_descrs().find(module_name, d)) {
+            std::stringstream strm;
+            strm << "unknown module '" << module_name << "'";                    
+            throw exception(strm.str());
         }
-        catch (z3_exception & ex) {
-            // Exception cannot cross critical section boundaries.
-            error = true;
-            error_msg = ex.msg();
+        out << "[module] " << module_name;
+        char const * descr = nullptr;
+        if (get_module_descrs().find(module_name, descr)) {
+            out << ", description: " << descr;
         }
-        if (error)
-            throw exception(std::move(error_msg));
+        out << "\n";
+        d->display(out, 4, false);
     }
 
     void display_parameter(std::ostream & out, char const * name) {
-        bool error = false;
-        std::string error_msg;
-        {
-            lock_guard lock(*gparams_mux);
-            try {
-                symbol m, p;
-                normalize(name, m, p);
-                out << name << " " << m << " " << p << "\n";
-                param_descrs * d;
-                if (m == symbol::null) {
-                    d = &get_param_descrs();
-                }
-                else {
-                    if (!get_module_param_descrs().find(m, d)) {
-                        std::stringstream strm;
-                        strm << "unknown module '" << m << "'";                    
-                        throw exception(strm.str());
-                    }
-                }
-                if (!d->contains(p))
-                    throw_unknown_parameter(p, *d, m);
-                out << "  name:           " << p << "\n";
-                if (m != symbol::null) {
-                    out << "  module:         " << m << "\n";
-                    out << "  qualified name: " << m << "." << p << "\n";
-                }
-                out << "  type:           " << d->get_kind(p) << "\n";
-                out << "  description:    " << d->get_descr(p) << "\n";
-                out << "  default value:  " << d->get_default(p) << "\n";
-            }
-            catch (z3_exception & ex) {
-                // Exception cannot cross critical section boundaries.
-                error = true;
-                error_msg = ex.msg();
+        lock_guard lock(*gparams_mux);
+        symbol m, p;
+        normalize(name, m, p);
+        out << name << " " << m << " " << p << "\n";
+        param_descrs * d;
+        if (m == symbol::null) {
+            d = &get_param_descrs();
+        }
+        else {
+            if (!get_module_param_descrs().find(m, d)) {
+                std::stringstream strm;
+                strm << "unknown module '" << m << "'";                    
+                throw exception(strm.str());
             }
         }
-        if (error)
-            throw exception(std::move(error_msg));
+        if (!d->contains(p))
+            throw_unknown_parameter(p, *d, m);
+        out << "  name:           " << p << "\n";
+        if (m != symbol::null) {
+            out << "  module:         " << m << "\n";
+            out << "  qualified name: " << m << "." << p << "\n";
+        }
+        out << "  type:           " << d->get_kind(p) << "\n";
+        out << "  description:    " << d->get_descr(p) << "\n";
+        out << "  default value:  " << d->get_default(p) << "\n";
     }
 };
 
@@ -637,5 +583,3 @@ void gparams::finalize() {
     dealloc(g_imp);
     delete gparams_mux;
 }
-
-
