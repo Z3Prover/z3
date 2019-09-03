@@ -129,10 +129,11 @@ uint64_t prime_iterator::next() {
 }
 
 void prime_iterator::initialize() {
+    ALLOC_MUTEX(g_prime_iterator);
     g_prime_generator.initialize();
 }
 
 void prime_iterator::finalize() {
     g_prime_generator.finalize();
-    delete g_prime_iterator;
+    DEALLOC_MUTEX(g_prime_iterator);
 }

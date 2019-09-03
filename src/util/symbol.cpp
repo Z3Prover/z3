@@ -64,12 +64,13 @@ static internal_symbol_table* g_symbol_table = nullptr;
 
 void initialize_symbols() {
     if (!g_symbol_table) {
+        ALLOC_MUTEX(g_symbol_lock);
         g_symbol_table = alloc(internal_symbol_table);
     }
 }
 
 void finalize_symbols() {
-    delete g_symbol_lock;
+    DEALLOC_MUTEX(g_symbol_lock);
     dealloc(g_symbol_table);
     g_symbol_table = nullptr;
 }

@@ -23,8 +23,12 @@ Revision History:
 
 static DECLARE_MUTEX(g_rlimit_mux);
 
+void initialize_rlimit() {
+    ALLOC_MUTEX(g_rlimit_mux);
+}
+
 void finalize_rlimit() {
-    delete g_rlimit_mux;
+    DEALLOC_MUTEX(g_rlimit_mux);
 }
 
 reslimit::reslimit():

@@ -35,7 +35,7 @@ out_of_memory_error::out_of_memory_error():z3_error(ERR_MEMOUT) {
 }
 
 
-static DECLARE_MUTEX(g_memory_mux);
+static DECLARE_INIT_MUTEX(g_memory_mux);
 static atomic<bool> g_memory_out_of_memory(false);
 static bool       g_memory_initialized       = false;
 static long long  g_memory_alloc_size        = 0;
@@ -134,7 +134,9 @@ void memory::finalize() {
     if (g_memory_initialized) {
         g_finalizing = true;
         mem_finalize();
-        delete g_memory_mux;
+        // we leak the mutex since we need it to be always live since memory may
+        // be reinitialized again
+        //delete g_memory_mux;
         g_memory_initialized = false;
         g_finalizing = false;
     }

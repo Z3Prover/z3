@@ -26,6 +26,9 @@ struct lock_guard {
 };
 
 #define DECLARE_MUTEX(name) mutex *name = nullptr
+#define DECLARE_INIT_MUTEX(name) mutex *name = nullptr
+#define ALLOC_MUTEX(name) (void)
+#define DEALLOC_MUTEX(name) (void)
 
 #else
 #include <atomic>
@@ -35,5 +38,9 @@ template<typename T> using atomic = std::atomic<T>;
 typedef std::mutex mutex;
 typedef std::lock_guard<std::mutex> lock_guard;
 
-#define DECLARE_MUTEX(name) mutex *name = new mutex
+#define DECLARE_MUTEX(name) mutex *name = nullptr
+#define DECLARE_INIT_MUTEX(name) mutex *name = new mutex
+#define ALLOC_MUTEX(name) name = alloc(mutex)
+#define DEALLOC_MUTEX(name) dealloc(name)
+
 #endif

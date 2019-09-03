@@ -63,6 +63,7 @@ void finalize_inf_int_rational();
 
 void rational::initialize() {
     if (!g_mpq_manager) {
+        ALLOC_MUTEX(g_powers_of_two);
         g_mpq_manager = alloc(synch_mpq_manager);
         m().set(m_zero.m_val, 0);
         m().set(m_one.m_val, 1);
@@ -81,6 +82,6 @@ void rational::finalize() {
     m_minus_one.~rational();
     dealloc(g_mpq_manager);
     g_mpq_manager = nullptr;
-    delete g_powers_of_two;
+    DEALLOC_MUTEX(g_powers_of_two);
 }
 

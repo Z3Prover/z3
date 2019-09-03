@@ -575,11 +575,12 @@ void gparams::display_parameter(std::ostream & out, char const * name) {
 
 void gparams::init() {
     TRACE("gparams", tout << "gparams::init()\n";);
+    ALLOC_MUTEX(gparams_mux);
     g_imp = alloc(imp);
 }
 
 void gparams::finalize() {
     TRACE("gparams", tout << "gparams::finalize()\n";);
     dealloc(g_imp);
-    delete gparams_mux;
+    DEALLOC_MUTEX(gparams_mux);
 }
