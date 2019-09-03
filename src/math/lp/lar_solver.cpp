@@ -367,6 +367,11 @@ void lar_solver::pop(unsigned k) {
         pop_tableau();
     }
     lp_assert(A_r().column_count() == n);
+    TRACE("lar_solver_details",
+          for( unsigned j = 0; j < n; j++) {
+              print_column_info(j, tout) << "\n";
+          }
+          );
     m_columns_to_ul_pairs.pop(k);
 
     m_mpq_lar_core_solver.pop(k);
@@ -1607,6 +1612,7 @@ void lar_solver::pop_tableau() {
 }
 
 void lar_solver::clean_inf_set_of_r_solver_after_pop() {
+    TRACE("lp_core", tout << ++lp_settings::ddd << "\n";);
     vector<unsigned> became_feas;
     clean_popped_elements(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
     std::unordered_set<unsigned> basic_columns_with_changed_cost;
@@ -1647,7 +1653,6 @@ void lar_solver::clean_inf_set_of_r_solver_after_pop() {
             m_mpq_lar_core_solver.m_r_solver.update_inf_cost_for_column_tableau(j);
         lp_assert(m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
     }
-    SASSERT(m_mpq_lar_core_solver.m_r_solver.inf_set_is_correct());
 }
 
 bool lar_solver::model_is_int_feasible() const {
