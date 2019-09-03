@@ -27,8 +27,8 @@ struct lock_guard {
 
 #define DECLARE_MUTEX(name) mutex *name = nullptr
 #define DECLARE_INIT_MUTEX(name) mutex *name = nullptr
-#define ALLOC_MUTEX(name) (void)
-#define DEALLOC_MUTEX(name) (void)
+#define ALLOC_MUTEX(name) (void)0
+#define DEALLOC_MUTEX(name) (void)0
 
 #else
 #include <atomic>
