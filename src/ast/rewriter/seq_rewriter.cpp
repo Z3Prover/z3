@@ -547,7 +547,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-    CTRACE("seq_verbose", st != BR_FAILED, tout << result << "\n";);
+    CTRACE("seq_verbose", st != BR_FAILED, tout << f->get_name() << " " << result << "\n";);
     return st;
 }
 
@@ -1142,16 +1142,35 @@ br_status seq_rewriter::mk_seq_replace(expr* a, expr* b, expr* c, expr_ref& resu
         result = m_util.str.mk_concat(c, a);
         return BR_REWRITE1;
     }
-    
-    if (m_util.str.is_string(b, s2)) {
-        m_lhs.reset();
-        m_util.str.get_concat(a, m_lhs);
-        if (!m_lhs.empty() && m_util.str.is_string(m_lhs.get(0), s1) && 
-            s1.contains(s2)) {
-            m_lhs[0] = m_util.str.mk_string(s1.replace(s2, s3));
-            result = m_util.str.mk_concat(m_lhs.size(), m_lhs.c_ptr());
-            return BR_REWRITE1;
+
+    m_lhs.reset();
+    m_util.str.get_concat(a, m_lhs);
+
+    // a = "", |b| > 0 -> replace("",b,c) = ""
+    if (m_lhs.empty()) {
+        unsigned len = 0;
+        m_util.str.get_concat(b, m_lhs);
+        min_length(m_lhs.size(), m_lhs.c_ptr(), len);
+        if (len > 0) {
+            result = a;
+            return BR_DONE;
         }
+        return BR_FAILED;
+    }
+
+    // a := b + rest
+    if (m_lhs.get(0) == b) {
+        m_lhs[0] = c;
+        result = m_util.str.mk_concat(m_lhs.size(), m_lhs.c_ptr());
+        return BR_REWRITE1;
+    }
+
+    // a : a' + rest string, b is string, c is string, a' contains b
+    if (m_util.str.is_string(b, s2) && m_util.str.is_string(c, s3) && 
+        m_util.str.is_string(m_lhs.get(0), s1) && s1.contains(s2) ) {
+        m_lhs[0] = m_util.str.mk_string(s1.replace(s2, s3));
+        result = m_util.str.mk_concat(m_lhs.size(), m_lhs.c_ptr());
+        return BR_REWRITE1;
     }
 
     return BR_FAILED;

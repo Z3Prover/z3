@@ -87,7 +87,7 @@ subterms::iterator& subterms::iterator::operator++() {
             m_es.push_back(arg);
         }
     }
-    while (m_visited.is_marked(m_es.back())) {
+    while (!m_es.empty() && m_visited.is_marked(m_es.back())) {
         m_es.pop_back();
     }
     return *this;
