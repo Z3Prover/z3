@@ -30,6 +30,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_order(this),
     m_monotone(this),
     m_horner(this),
+    m_grobner(this),
     m_emons(m_evars),
     m_reslim(lim)
 {}
@@ -1249,24 +1250,18 @@ bool core::conflict_found() const {
 bool core::done() const {
     return m_lemma_vec->size() >= 10 || conflict_found();
 }
-        
-lbool core::inner_check(bool derived) {
-    if (derived &&  (lp_settings().st().m_nla_calls % m_settings.horner_frequency() == 0))
-        m_horner.horner_lemmas();
-    if (done()) {
-        return l_false;
-    }
-       
+
+lbool core::incremental_linearization(bool constraint_derived) {
     TRACE("nla_solver", print_terms(tout); m_lar_solver.print_constraints(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
-        TRACE("nla_solver", tout << "derived = " << derived << ", search_level = " << search_level << "\n";);
+        TRACE("nla_solver", tout << "constraint_derived = " << constraint_derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {
-            m_basics.basic_lemma(derived);
+            m_basics.basic_lemma(constraint_derived);
             if (!m_lemma_vec->empty())
                 return l_false;
         }
-        if (derived) continue;
-        TRACE("nla_solver", tout << "passed derived and basic lemmas\n";);
+        if (constraint_derived) continue;
+        TRACE("nla_solver", tout << "passed constraint_derived and basic lemmas\n";);
         SASSERT(elists_are_consistent(true));
         if (search_level == 1) {
             m_order.order_lemma();
@@ -1276,6 +1271,20 @@ lbool core::inner_check(bool derived) {
         }
     }
     return m_lemma_vec->empty()? l_undef : l_false;
+}
+// constraint_derived is set to true when we do not use the model values to
+// obtain the lemmas
+lbool core::inner_check(bool constraint_derived) {
+    if (constraint_derived) {
+        if (need_to_call_horner())
+            m_horner.horner_lemmas();
+        else if (need_to_call_grobner())
+            m_grobner.grobner_lemmas();
+        if (done()) {
+            return l_false;
+        }
+    }
+    return incremental_linearization(constraint_derived);
 }
 
 bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {

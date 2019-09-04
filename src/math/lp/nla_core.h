@@ -29,6 +29,7 @@
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
+#include "math/lp/nla_grobner.h"
 namespace nla {
 
 template <typename A, typename B>
@@ -76,19 +77,19 @@ public:
     bool is_conflict() const { return m_ineqs.empty() && !m_expl.empty(); }
 };
 
-
 class core {
 public:
     var_eqs<emonomials>      m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
-    lp::int_set               m_to_refine;
+    lp::int_set              m_to_refine;
     tangents                 m_tangents;
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
     horner                   m_horner;
     nla_settings             m_settings;
+    nla_grobner              m_grobner;
 private:
     emonomials               m_emons;
     svector<lpvar>           m_add_buffer;
@@ -124,6 +125,12 @@ public:
     
     lpvar var(const factor& f) const { return f.var(); }
 
+    bool need_to_call_horner() const { return lp_settings().st().m_nla_calls % m_settings.horner_frequency() == 0; }
+
+    bool need_to_call_grobner() const { return lp_settings().st().m_nla_calls % m_settings.grobner_frequency() == 0; }
+
+    lbool incremental_linearization(bool);
+    
     svector<lpvar> sorted_rvars(const factor& f) const;
     bool done() const;
 

@@ -56,7 +56,7 @@ public:
             return false;        
         default:
             return true;
-         }
+        }
     }
 
     bool is_sum() const { return type() == expr_type::SUM; }
