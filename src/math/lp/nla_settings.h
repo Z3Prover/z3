@@ -21,18 +21,23 @@ Revision History:
 #pragma once
 namespace nla {
 class nla_settings {
-    bool m_run_order;
-    bool m_run_tangents;
-    bool m_run_horner;
+    bool     m_run_order;
+    bool     m_run_tangents;
+    bool     m_run_horner;
     // how often to call the horner heuristic
     unsigned m_horner_frequency;
     unsigned m_horner_row_length_limit;
+    bool     m_run_grobner;
+    unsigned m_grobner_frequency;
+
 public:
     nla_settings() : m_run_order(true),
                      m_run_tangents(true),
                      m_run_horner(true),
                      m_horner_frequency(4),
-                     m_horner_row_length_limit(10)
+                     m_horner_row_length_limit(10),
+                     m_run_grobner(true),
+                     m_grobner_frequency(5)
     {}
     
     bool run_order() const { return m_run_order; }
@@ -48,5 +53,11 @@ public:
     unsigned& horner_frequency() { return m_horner_frequency; }
     unsigned horner_row_length_limit() const { return m_horner_row_length_limit; }
     unsigned& horner_row_length_limit() { return m_horner_row_length_limit; }    
+
+    bool run_grobner() const { return m_run_grobner; }
+    bool& run_grobner() { return m_run_grobner; }    
+
+    unsigned grobner_frequency() const { return m_grobner_frequency; }
+    unsigned& grobner_frequency() { return m_grobner_frequency; }
 };
 }

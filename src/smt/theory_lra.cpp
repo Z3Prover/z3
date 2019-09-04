@@ -452,7 +452,9 @@ class theory_lra::imp {
             m_nla->get_core()->m_settings.run_tangents() = nla.tangents();
             m_nla->get_core()->m_settings.run_horner() = nla.horner();
             m_nla->get_core()->m_settings.horner_frequency() = nla.horner_frequency();
-            m_nla->get_core()->m_settings.horner_row_length_limit() = nla.horner_row_length_limit();            
+            m_nla->get_core()->m_settings.horner_row_length_limit() = nla.horner_row_length_limit();
+            m_nla->get_core()->m_settings.grobner_frequency() = nla.grobner_frequency();
+            m_nla->get_core()->m_settings.run_grobner() = nla.grobner();
         }
     }
 
