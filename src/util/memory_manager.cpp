@@ -322,7 +322,6 @@ void memory::deallocate(void * p) {
 
 void * memory::allocate(size_t s) {
     s = s + sizeof(size_t); // we allocate an extra field!
-    bool out_of_mem = false, counts_exceeded = false;
     {
         lock_guard lock(*g_memory_mux);
         g_memory_alloc_size += s;
@@ -330,14 +329,10 @@ void * memory::allocate(size_t s) {
         if (g_memory_alloc_size > g_memory_max_used_size)
             g_memory_max_used_size = g_memory_alloc_size;
         if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)
-            out_of_mem = true;
+            throw_out_of_memory();
         if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)
-            counts_exceeded = true;
+            throw_alloc_counts_exceeded();
     }
-    if (out_of_mem)
-        throw_out_of_memory();
-    if (counts_exceeded)
-        throw_alloc_counts_exceeded();
     void * r = malloc(s);
     if (r == nullptr) {
         throw_out_of_memory();
@@ -352,7 +347,6 @@ void* memory::reallocate(void *p, size_t s) {
     size_t sz      = *sz_p;
     void * real_p  = reinterpret_cast<void*>(sz_p);
     s = s + sizeof(size_t); // we allocate an extra field!
-    bool out_of_mem = false, counts_exceeded = false;
     {
         lock_guard lock(*g_memory_mux);
         g_memory_alloc_size += s - sz;
@@ -360,14 +354,10 @@ void* memory::reallocate(void *p, size_t s) {
         if (g_memory_alloc_size > g_memory_max_used_size)
             g_memory_max_used_size = g_memory_alloc_size;
         if (g_memory_max_size != 0 && g_memory_alloc_size > g_memory_max_size)
-            out_of_mem = true;
+            throw_out_of_memory();
         if (g_memory_max_alloc_count != 0 && g_memory_alloc_count > g_memory_max_alloc_count)
-            counts_exceeded = true;
+            throw_alloc_counts_exceeded();
     }
-    if (out_of_mem)
-        throw_out_of_memory();
-    if (counts_exceeded)
-        throw_alloc_counts_exceeded();
     void *r = realloc(real_p, s);
     if (r == nullptr) {
         throw_out_of_memory();
