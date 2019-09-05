@@ -45,7 +45,7 @@ bool horner::row_is_interesting(const T& row) const {
         return false;
     }
     SASSERT(row_has_monomial_to_refine(row));
-    m_row_var_set.clear();
+    c().clear_row_var_set();
     for (const auto& p : row) {
         lpvar j = p.var();
         if (!c().is_monomial_var(j))
@@ -53,11 +53,11 @@ bool horner::row_is_interesting(const T& row) const {
         auto & m = c().emons()[j];
         
         for (lpvar k : m.vars()) {
-            if (m_row_var_set.contains(k))
+            if (c().row_var_set_contains(k))
                 return true;
         }
         for (lpvar k : m.vars()) {
-            m_row_var_set.insert(k);
+            c().insert_to_row_var_set(k);
         }
     }
     return false;
@@ -113,7 +113,7 @@ void horner::horner_lemmas() {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
-    m_row_var_set.resize(c().m_lar_solver.number_of_vars());
+    c().prepare_row_var_set();
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
         if (row_is_interesting(matrix.m_rows[i]))

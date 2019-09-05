@@ -32,7 +32,6 @@ class core;
 class horner : common {
     intervals             m_intervals;
     nex_sum               m_row_sum;
-    mutable lp::int_set   m_row_var_set;
 public:
     typedef intervals::interval interv;
     horner(core *core);

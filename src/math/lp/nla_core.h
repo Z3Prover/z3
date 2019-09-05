@@ -93,14 +93,31 @@ public:
 private:
     emonomials               m_emons;
     svector<lpvar>           m_add_buffer;
+    mutable lp::int_set      m_row_var_set;
 public:
-    reslimit                   m_reslim;
+    reslimit                 m_reslim;
+
+    
+    const lp::int_set&  row_var_set () const { return m_row_var_set;}
+    bool row_var_set_contains(unsigned j) const { return m_row_var_set.contains(j); }
+
+    void insert_to_row_var_set(unsigned j) const { m_row_var_set.insert(j); }    
+
+    void clear_row_var_set() const {
+        m_row_var_set.clear();
+    }
+
+    void prepare_row_var_set() const {
+        m_row_var_set.clear();
+        m_row_var_set.resize(m_lar_solver.number_of_vars());
+    }
+    
     reslimit &               reslim() { return m_reslim; }  
     emonomials& emons() { return m_emons; }
     const emonomials& emons() const { return m_emons; }
     // constructor
     core(lp::lar_solver& s, reslimit &);
-
+   
     bool compare_holds(const rational& ls, llc cmp, const rational& rs) const;
     
     rational value(const lp::lar_term& r) const;

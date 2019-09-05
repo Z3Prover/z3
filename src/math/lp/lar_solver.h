@@ -636,6 +636,7 @@ public:
     void update_delta_for_terms(const impq & delta, unsigned j, const vector<unsigned>&);
     void fill_vars_to_terms(vector<vector<unsigned>> & vars_to_terms);
     unsigned column_count() const { return A_r().column_count(); }
+    unsigned row_count() const { return A_r().row_count(); }
     const vector<unsigned> & r_basis() const { return m_mpq_lar_core_solver.r_basis(); }
     const vector<unsigned> & r_nbasis() const { return m_mpq_lar_core_solver.r_nbasis(); }
     bool get_equality_and_right_side_for_term_on_current_x(unsigned i, mpq &rs, constraint_index& ci, bool &upper_bound) const;

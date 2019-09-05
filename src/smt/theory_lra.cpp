@@ -3791,6 +3791,8 @@ public:
         st.update("horner-calls", lp().settings().st().m_horner_calls);
         st.update("horner-conflicts", lp().settings().st().m_horner_conflicts);
         st.update("horner-cross-nested-forms", lp().settings().st().m_cross_nested_forms);
+        st.update("grobner-calls", lp().settings().st().m_grobner_calls);
+        st.update("grobner-conflicts", lp().settings().st().m_grobner_conflicts);
         st.update("nla-explanations", m_stats.m_nla_explanations);
         st.update("nla-lemmas", m_stats.m_nla_lemmas);
     }        
