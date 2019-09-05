@@ -2233,7 +2233,7 @@ void theory_arith<Ext>::update_statistics(grobner & gb) {
 }
 
 template<typename Ext>
-void theory_arith<Ext>::set_gb_exhausted(bool r) {
+void theory_arith<Ext>::set_gb_exhausted() {
     IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
     get_context().push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
     m_nl_gb_exhausted = true;
@@ -2305,6 +2305,19 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::scan_for_linear(ptr_vec
     return result;
 }
 
+
+template<typename Ext>
+bool theory_arith<Ext>::compute_basis_loop(grobner & gb) {
+    while (gb.get_num_new_equations() < m_params.m_nl_arith_gb_threshold) {
+        if (get_context().get_cancel_flag()) {
+            return false;
+        }
+        if (gb.compute_basis_step())
+            return true;
+    }
+    return false;
+}
+
 /**
    \brief Compute Grobner basis, return true if a conflict or new fixed variables were detected.
 */
@@ -2321,17 +2334,11 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
 
     while (true) {
         TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););
-        bool r = false;
         gb.compute_basis_init();
-        while (!r && gb.get_num_new_equations() < m_params.m_nl_arith_gb_threshold) {
-            if (get_context().get_cancel_flag()) {
-                return GB_FAIL;
-            }
-            r = gb.compute_basis_step();
-        }
+        bool r = compute_basis_loop(gb);
         update_statistics(gb);
         if (!r && !warn) {
-            set_gb_exhausted(r);
+            set_gb_exhausted();
             warn = true;
         }
         if (get_context().get_cancel_flag()) {
