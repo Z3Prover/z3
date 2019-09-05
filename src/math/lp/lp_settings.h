@@ -110,6 +110,8 @@ struct stats {
     unsigned m_horner_calls;
     unsigned m_horner_conflicts;
     unsigned m_cross_nested_forms;
+    unsigned m_grobner_calls;
+    unsigned m_grobner_conflicts;
     stats() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
