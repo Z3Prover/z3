@@ -2234,11 +2234,9 @@ void theory_arith<Ext>::update_statistics(grobner & gb) {
 
 template<typename Ext>
 void theory_arith<Ext>::set_gb_exhausted(bool r) {
-    if (!r) {
-        IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
-        get_context().push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
-        m_nl_gb_exhausted = true;
-    }
+    IF_VERBOSE(3, verbose_stream() << "Grobner basis computation interrupted. Increase threshold using NL_ARITH_GB_THRESHOLD=<limit>\n";);
+    get_context().push_trail(value_trail<context, bool>(m_nl_gb_exhausted));
+    m_nl_gb_exhausted = true;
 }
 
 // Scan the grobner basis eqs, and look for inconsistencies.
@@ -2261,7 +2259,6 @@ bool theory_arith<Ext>::pass_over_gb_eqs_for_conflict(ptr_vector<grobner::equati
 template<typename Ext>
 bool theory_arith<Ext>::try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, grobner& gb, unsigned & next_weight) {
     bool modified = false;
-
     for (grobner::equation const* eq : eqs) {
         unsigned num_monomials = eq->get_num_monomials();
         CTRACE("grobner_bug", num_monomials <= 0, gb.display_equation(tout, *eq););
@@ -2318,6 +2315,7 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
     grobner gb(get_manager(), m_dep_manager);
     init_grobner(nl_cluster, gb);
     TRACE("non_linear", display(tout););
+    bool warn            = false;
     unsigned next_weight = MAX_DEFAULT_WEIGHT + 1; // next weight using during perturbation phase.
     ptr_vector<grobner::equation> eqs;    
 
@@ -2332,7 +2330,10 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
             r = gb.compute_basis_step();
         }
         update_statistics(gb);
-        set_gb_exhausted(r);
+        if (!r && !warn) {
+            set_gb_exhausted(r);
+            warn = true;
+        }
         if (get_context().get_cancel_flag()) {
             return GB_FAIL;
         }
