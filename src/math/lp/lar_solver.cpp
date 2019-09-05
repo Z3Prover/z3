@@ -1612,7 +1612,6 @@ void lar_solver::pop_tableau() {
 }
 
 void lar_solver::clean_inf_set_of_r_solver_after_pop() {
-    TRACE("lp_core", tout << ++lp_settings::ddd << "\n";);
     vector<unsigned> became_feas;
     clean_popped_elements(A_r().column_count(), m_mpq_lar_core_solver.m_r_solver.m_inf_set);
     std::unordered_set<unsigned> basic_columns_with_changed_cost;
