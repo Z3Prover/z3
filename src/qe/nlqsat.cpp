@@ -102,7 +102,9 @@ namespace qe {
             void init_expr2var(app_ref_vector const& qvars) {
                 for (app* v : qvars) {
                     if (m.is_bool(v)) {
-                        m_a2b.insert(v, m_solver.mk_bool_var());
+                        nlsat::bool_var b = m_solver.mk_bool_var();
+                        m_solver.inc_ref(b);
+                        m_a2b.insert(v, b);
                     }
                     else {
                         // TODO: assert it is of type Real.
@@ -121,8 +123,12 @@ namespace qe {
             }
 
             void save_model(bool is_exists) {
+                svector<nlsat::bool_var> bvars;
+                for (auto const& kv : m_bvar2level) {
+                    bvars.push_back(kv.m_key);
+                }
                 m_solver.get_rvalues(m_rmodel);
-                m_solver.get_bvalues(m_bmodel);
+                m_solver.get_bvalues(bvars, m_bmodel);
                 m_valid_model = true;
                 if (is_exists) {
                     m_rmodel0.copy(m_rmodel);
@@ -311,6 +317,7 @@ namespace qe {
                 }
             }
             TRACE("qe", s.display(tout);
+                  tout << "assumptions\n";
                   for (nlsat::literal a : s.m_asms) {
                       s.m_solver.display(tout, a) << "\n";
                   });

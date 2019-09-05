@@ -507,6 +507,7 @@ namespace nlsat {
             m_num_bool_vars--;
             m_dead[b]  = true;
             m_atoms[b] = nullptr;
+            m_bvalues[b] = l_undef;
             m_bid_gen.recycle(b);
         }
 
@@ -3109,7 +3110,8 @@ namespace nlsat {
 
         std::ostream& display(std::ostream & out) const {
             display(out, m_display_var);
-            return display_assignment(out);
+            display_assignment(out << "assignment:\n");
+            return out << "---\n";
         }
 
         std::ostream& display_vars(std::ostream & out) const {
@@ -3263,15 +3265,12 @@ namespace nlsat {
         as.copy(m_imp->m_assignment);
     }
 
-    void solver::get_bvalues(svector<lbool>& vs) {
+    void solver::get_bvalues(svector<bool_var> const& bvars, svector<lbool>& vs) {
         vs.reset();
-        unsigned sz = m_imp->m_bvalues.size();
-        for (bool_var b = 0; b < sz; ++b) {
-            if (m_imp->m_atoms[b] == nullptr) {
-                vs.push_back(m_imp->m_bvalues[b]);
-            }
-            else {
-                vs.push_back(l_undef); // don't save values from atoms.
+        for (bool_var b : bvars) {
+            vs.reserve(b + 1, l_undef);
+            if (!m_imp->m_atoms[b]) {
+                vs[b] = m_imp->m_bvalues[b];
             }
         }
         TRACE("nlsat", display(tout););
@@ -3279,15 +3278,24 @@ namespace nlsat {
 
     void solver::set_bvalues(svector<lbool> const& vs) {
         TRACE("nlsat", display(tout););
+        for (bool_var b = 0; b < vs.size(); ++b) {
+            if (vs[b] != l_undef) {
+                m_imp->m_bvalues[b] = vs[b];
+                SASSERT(!m_imp->m_atoms[b]);
+            }
+        }
+#if 0        
         m_imp->m_bvalues.reset();
         m_imp->m_bvalues.append(vs);
         m_imp->m_bvalues.resize(m_imp->m_atoms.size(), l_undef);        
         for (unsigned i = 0; i < m_imp->m_atoms.size(); ++i) {
             atom* a = m_imp->m_atoms[i];
+            SASSERT(!a);
             if (a) {
                 m_imp->m_bvalues[i] = to_lbool(m_imp->m_evaluator.eval(a, false));
             }
         }
+#endif
         TRACE("nlsat", display(tout););
     }
     

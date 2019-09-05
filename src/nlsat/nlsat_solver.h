@@ -166,7 +166,7 @@ namespace nlsat {
         void get_rvalues(assignment& as);
         void set_rvalues(assignment const& as);
 
-        void get_bvalues(svector<lbool>& vs);
+        void get_bvalues(svector<bool_var> const& bvars, svector<lbool>& vs);
         void set_bvalues(svector<lbool> const& vs);
 
         /**
