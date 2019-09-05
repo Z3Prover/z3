@@ -1345,13 +1345,20 @@ namespace smt {
         }
         axiomatized_terms.insert(ex);
 
+        expr * exHaystack = nullptr;
+        expr * exNeedle = nullptr;
+        expr * exIndex = nullptr;
+        u.str.is_index(ex, exHaystack, exNeedle, exIndex);
+
         TRACE("str", tout << "instantiate str.indexof axiom for " << mk_pp(ex, m) << std::endl;);
 
         expr_ref x1(mk_str_var("x1"), m);
         expr_ref x2(mk_str_var("x2"), m);
         expr_ref indexAst(mk_int_var("index"), m);
 
-        expr_ref condAst(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
+        expr_ref condAst1(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
+        expr_ref condAst2(m.mk_not(ctx.mk_eq_atom(exNeedle, mk_string(""))), m);
+        expr_ref condAst(m.mk_and(condAst1, condAst2), m);
         SASSERT(condAst);
 
         // -----------------------
@@ -1385,8 +1392,10 @@ namespace smt {
         expr_ref reduceToIndex(ctx.mk_eq_atom(ex, indexAst), m);
         SASSERT(reduceToIndex);
 
-        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
-        SASSERT(finalAxiom);
+        expr_ref _finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
+        expr_ref finalAxiom(_finalAxiom);
+        th_rewriter rw(m);
+        rw(finalAxiom);
         assert_axiom(finalAxiom);
 
         {
@@ -1436,6 +1445,8 @@ namespace smt {
 
         expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
         expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+        expr_ref empty_string(mk_string(""), m);
+        th_rewriter rw(m);
 
         // case split
 
@@ -1446,9 +1457,23 @@ namespace smt {
             assert_implication(premise, conclusion);
         }
 
+        // case 1.5: N == ""
+        {
+            expr_ref premise(ctx.mk_eq_atom(N, empty_string), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            expr_ref _finalAxiom(rewrite_implication(premise, conclusion), m);
+            expr_ref finalAxiom(_finalAxiom);
+            rw(finalAxiom);
+            assert_axiom(finalAxiom);
+        }
+
         // case 2: i = 0
         {
-            expr_ref premise(ctx.mk_eq_atom(i, zero), m);
+            expr_ref premise1(ctx.mk_eq_atom(i, zero), m);
+            expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
+            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise(_premise);
+            rw(premise);
             // reduction to simpler case
             expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
             assert_implication(premise, conclusion);
@@ -1459,7 +1484,11 @@ namespace smt {
             //expr_ref premise(_premise);
             //th_rewriter rw(m);
             //rw(premise);
-            expr_ref premise(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premise1(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
+            expr_ref _premise(m.mk_and(premise1, premise2), m);
+            expr_ref premise(_premise);
+            rw(premise);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             assert_implication(premise, conclusion);
         }
@@ -1469,15 +1498,21 @@ namespace smt {
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             assert_implication(premise, conclusion);
         }
-        // case 4: 0 < i < len(H) and H contains N
+        // case 4: 0 < i < len(H), N non-empty, and H contains N
         {
             expr_ref premise1(m_autil.mk_gt(i, zero), m);
             //expr_ref premise2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref premise2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
             expr_ref premise3(u.str.mk_contains(H, N), m);
-            expr_ref _premise(m.mk_and(premise1, premise2, premise3), m);
+            expr_ref premise4(m.mk_not(ctx.mk_eq_atom(N, mk_string(""))), m);
+
+            expr_ref_vector premises(m);
+            premises.push_back(premise1);
+            premises.push_back(premise2);
+            premises.push_back(premise3);
+            premises.push_back(premise4);
+            expr_ref _premise(mk_and(premises), m);
             expr_ref premise(_premise);
-            th_rewriter rw(m);
             rw(premise);
 
             expr_ref hd(mk_str_var("hd"), m);
@@ -1500,9 +1535,9 @@ namespace smt {
             expr_ref precondition1(m_autil.mk_gt(i, minus_one), m);
             //expr_ref precondition2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref precondition2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
-            expr_ref _precondition(m.mk_and(precondition1, precondition2), m);
+            expr_ref precondition3(m.mk_not(ctx.mk_eq_atom(N, mk_string(""))), m);
+            expr_ref _precondition(m.mk_and(precondition1, precondition2, precondition3), m);
             expr_ref precondition(_precondition);
-            th_rewriter rw(m);
             rw(precondition);
 
             expr_ref premise(u.str.mk_contains(H, N), m);
