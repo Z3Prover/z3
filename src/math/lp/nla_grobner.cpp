@@ -80,9 +80,6 @@ void nla_grobner::prepare_rows_and_active_vars() {
 
 void nla_grobner::grobner_lemmas() {
     c().lp_settings().st().m_grobner_calls++;
-    if (c().lp_settings().st().m_grobner_calls == 2)
-        SASSERT(false);
-
 
     find_rows();
 
@@ -96,9 +93,10 @@ void nla_grobner::grobner_lemmas() {
           tout << "the matrix =\n";
           
           for (const auto & r : matrix.m_rows) {
-              c().print_term(r, tout) << "\n";
+              c().print_term(r, tout) << std::endl;
           }
           }
           );
+    SASSERT(false);
 }
 } // end of nla namespace
