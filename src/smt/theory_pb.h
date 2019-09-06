@@ -97,6 +97,7 @@ namespace smt {
             unsigned m_num_conflicts;
             unsigned m_num_propagations;
             unsigned m_num_predicates;
+            unsigned m_num_resolves;
             void reset() { memset(this, 0, sizeof(*this)); }
             stats() { reset(); }
         };

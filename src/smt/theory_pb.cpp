@@ -971,6 +971,7 @@ namespace smt {
     // 
 
     void theory_pb::collect_statistics(::statistics& st) const {
+        st.update("pb resolves", m_stats.m_num_resolves);
         st.update("pb conflicts", m_stats.m_num_conflicts);
         st.update("pb propagations", m_stats.m_num_propagations);
         st.update("pb predicates", m_stats.m_num_predicates);        
@@ -1829,6 +1830,8 @@ namespace smt {
        
         TRACE("pb", display(tout, c, true); );
 
+        return false;
+
         bool_var v;
         context& ctx = get_context();
         ast_manager& m = get_manager();
@@ -2024,6 +2027,8 @@ namespace smt {
             }
         }
         SASSERT(slack < 0);
+
+        ++m_stats.m_num_resolves;
 
         SASSERT(validate_antecedents(m_antecedents));
         TRACE("pb", tout << "assign " << m_antecedents << " ==> " << alit << "\n";);
