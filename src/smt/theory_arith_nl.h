@@ -2317,7 +2317,14 @@ bool theory_arith<Ext>::compute_basis_loop(grobner & gb) {
     }
     return false;
 }
-
+template<typename Ext>
+void theory_arith<Ext>::compute_basis(grobner& gb, bool& warn) {
+    gb.compute_basis_init();        
+    if (!compute_basis_loop(gb) && !warn) {
+        set_gb_exhausted();
+        warn = true;
+    }
+}
 /**
    \brief Compute Grobner basis, return true if a conflict or new fixed variables were detected.
 */
@@ -2334,16 +2341,11 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
 
     do {
         TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););
-        gb.compute_basis_init();        
-        if (!compute_basis_loop(gb) && !warn) {
-            set_gb_exhausted();
-            warn = true;
-        }
+        compute_basis(gb, warn);
         update_statistics(gb);
-        if (get_context().get_cancel_flag()) {
-            return GB_FAIL;
-        }
         TRACE("non_linear_gb", tout << "after:\n"; gb.display(tout););
+        if (get_context().get_cancel_flag())
+            return GB_FAIL;
         if (pass_over_gb_eqs_for_conflict(eqs, gb))
             return GB_PROGRESS;
     }
