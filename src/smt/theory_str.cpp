@@ -1359,6 +1359,7 @@ namespace smt {
         expr_ref condAst1(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
         expr_ref condAst2(m.mk_not(ctx.mk_eq_atom(exNeedle, mk_string(""))), m);
         expr_ref condAst(m.mk_and(condAst1, condAst2), m);
+        //expr_ref condAst(mk_contains(ex->get_arg(0), ex->get_arg(1)), m);
         SASSERT(condAst);
 
         // -----------------------
@@ -1383,7 +1384,11 @@ namespace smt {
 
         // -----------------------
         // false branch
-        expr_ref elseBranch(ctx.mk_eq_atom(indexAst, mk_int(-1)), m);
+        expr_ref elseBranch(m.mk_ite(
+                ctx.mk_eq_atom(exNeedle, mk_string("")),
+                ctx.mk_eq_atom(indexAst, mk_int(0)),
+                ctx.mk_eq_atom(indexAst, mk_int(-1))
+                ), m);
         SASSERT(elseBranch);
 
         expr_ref breakdownAssert(m.mk_ite(condAst, thenBranch, elseBranch), m);
@@ -1394,8 +1399,10 @@ namespace smt {
 
         expr_ref _finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
         expr_ref finalAxiom(_finalAxiom);
+        TRACE("str", tout << "pre-rewrite str.indexof axiom is " << mk_pp(finalAxiom, m) << std::endl;);
         th_rewriter rw(m);
         rw(finalAxiom);
+        TRACE("str", tout << "final str.indexof axiom is " << mk_pp(finalAxiom, m) << std::endl;);
         assert_axiom(finalAxiom);
 
         {
@@ -1457,10 +1464,30 @@ namespace smt {
             assert_implication(premise, conclusion);
         }
 
-        // case 1.5: N == ""
+        // case 1.1: N == "" and i out of range
         {
-            expr_ref premise(ctx.mk_eq_atom(N, empty_string), m);
+            expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
+            // range check
+            expr_ref premiseRangeLower(m_autil.mk_le(i, minus_one), m);
+            expr_ref premiseRangeUpper(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premiseRange(m.mk_or(premiseRangeLower, premiseRangeUpper), m);
+            expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            expr_ref _finalAxiom(rewrite_implication(premise, conclusion), m);
+            expr_ref finalAxiom(_finalAxiom);
+            rw(finalAxiom);
+            assert_axiom(finalAxiom);
+        }
+
+        // case 1.2: N == "" and i within range
+        {
+            expr_ref premiseNEmpty(ctx.mk_eq_atom(N, empty_string), m);
+            // range check
+            expr_ref premiseRangeLower(m_autil.mk_le(i, minus_one), m);
+            expr_ref premiseRangeUpper(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
+            expr_ref premiseRange(m.mk_not(m.mk_or(premiseRangeLower, premiseRangeUpper)), m);
+            expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
+            expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
             expr_ref _finalAxiom(rewrite_implication(premise, conclusion), m);
             expr_ref finalAxiom(_finalAxiom);
             rw(finalAxiom);
