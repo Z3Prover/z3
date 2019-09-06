@@ -1830,8 +1830,6 @@ namespace smt {
        
         TRACE("pb", display(tout, c, true); );
 
-        return false;
-
         bool_var v;
         context& ctx = get_context();
         ast_manager& m = get_manager();
