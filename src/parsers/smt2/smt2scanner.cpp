@@ -260,7 +260,7 @@ namespace smt2 {
                 throw scanner_exception("invalid empty bit-vector literal", m_line, m_spos);
             return BV_TOKEN;
         }
-        else if ('|') {
+        else if (c == '|') {
             read_multiline_comment();
             return NULL_TOKEN;
         }
