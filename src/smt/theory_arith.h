@@ -1040,6 +1040,7 @@ namespace smt {
         enum gb_result { GB_PROGRESS, GB_NEW_EQ, GB_FAIL };
         gb_result compute_grobner(svector<theory_var> const & nl_cluster);
         bool compute_basis_loop(grobner & gb);
+        void compute_basis(grobner&, bool&);
         void update_statistics(grobner&);
         void set_gb_exhausted();
         bool pass_over_gb_eqs_for_conflict(ptr_vector<grobner::equation>& eqs, grobner&);
