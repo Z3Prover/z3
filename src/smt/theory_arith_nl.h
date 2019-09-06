@@ -2290,15 +2290,15 @@ bool theory_arith<Ext>::try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, gr
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
 template<typename Ext>
-typename theory_arith<Ext>::gb_result theory_arith<Ext>::scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner& gb) {
-    gb_result result = GB_FAIL;
+bool theory_arith<Ext>::scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner& gb) {
+    bool result = false;
     if (m_params.m_nl_arith_gb_eqs) {
         for (grobner::equation* eq : eqs) {
             if (!eq->is_linear_combination()) {
                     TRACE("non_linear", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
                     TRACE("non_linear_bug", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
                     if (internalize_gb_eq(eq))
-                        result = GB_NEW_EQ;
+                        result = true;
                 }
             }
     }
@@ -2332,31 +2332,24 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
     unsigned next_weight = MAX_DEFAULT_WEIGHT + 1; // next weight using during perturbation phase.
     ptr_vector<grobner::equation> eqs;    
 
-    while (true) {
+    do {
         TRACE("non_linear_gb", tout << "before:\n"; gb.display(tout););
-        gb.compute_basis_init();
-        bool r = compute_basis_loop(gb);
-        update_statistics(gb);
-        if (!r && !warn) {
+        gb.compute_basis_init();        
+        if (!compute_basis_loop(gb) && !warn) {
             set_gb_exhausted();
             warn = true;
         }
+        update_statistics(gb);
         if (get_context().get_cancel_flag()) {
             return GB_FAIL;
         }
         TRACE("non_linear_gb", tout << "after:\n"; gb.display(tout););
         if (pass_over_gb_eqs_for_conflict(eqs, gb))
             return GB_PROGRESS;
-       
-        gb_result result = scan_for_linear(eqs, gb);
-        if ( result != GB_FAIL ||
-             (!m_params.m_nl_arith_gb_perturbate) ||
-             m_nl_gb_exhausted ||
-             (!try_to_modify_eqs(eqs, gb, next_weight))
-             ) {
-            return result;
-        }
     }
+    while(scan_for_linear(eqs, gb) && m_params.m_nl_arith_gb_perturbate && 
+          (!m_nl_gb_exhausted) && try_to_modify_eqs(eqs, gb, next_weight));
+    return GB_FAIL;
 }
 
 /**

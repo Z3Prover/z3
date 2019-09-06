@@ -1039,10 +1039,11 @@ namespace smt {
         bool internalize_gb_eq(grobner::equation const * eq);
         enum gb_result { GB_PROGRESS, GB_NEW_EQ, GB_FAIL };
         gb_result compute_grobner(svector<theory_var> const & nl_cluster);
+        bool compute_basis_loop(grobner & gb);
         void update_statistics(grobner&);
-        void set_gb_exhausted(bool r);
+        void set_gb_exhausted();
         bool pass_over_gb_eqs_for_conflict(ptr_vector<grobner::equation>& eqs, grobner&);
-        gb_result scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner&);
+        bool scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner&);
         bool try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, grobner&, unsigned &);
         bool max_min_nl_vars();
         final_check_status process_non_linear();
