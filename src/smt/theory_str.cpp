@@ -1326,6 +1326,7 @@ namespace smt {
 
     void theory_str::instantiate_axiom_Indexof(enode * e) {
         context & ctx = get_context();
+        th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
         app * ex = e->get_owner();
@@ -1397,12 +1398,8 @@ namespace smt {
         expr_ref reduceToIndex(ctx.mk_eq_atom(ex, indexAst), m);
         SASSERT(reduceToIndex);
 
-        expr_ref _finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
-        expr_ref finalAxiom(_finalAxiom);
-        TRACE("str", tout << "pre-rewrite str.indexof axiom is " << mk_pp(finalAxiom, m) << std::endl;);
-        th_rewriter rw(m);
+        expr_ref finalAxiom(m.mk_and(breakdownAssert, reduceToIndex), m);
         rw(finalAxiom);
-        TRACE("str", tout << "final str.indexof axiom is " << mk_pp(finalAxiom, m) << std::endl;);
         assert_axiom(finalAxiom);
 
         {
@@ -1424,6 +1421,7 @@ namespace smt {
 
     void theory_str::instantiate_axiom_Indexof_extended(enode * _e) {
         context & ctx = get_context();
+        th_rewriter & rw = ctx.get_rewriter();
         ast_manager & m = get_manager();
 
         app * e = _e->get_owner();
@@ -1453,7 +1451,6 @@ namespace smt {
         expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
         expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
         expr_ref empty_string(mk_string(""), m);
-        th_rewriter rw(m);
 
         // case split
 
@@ -1473,8 +1470,7 @@ namespace smt {
             expr_ref premiseRange(m.mk_or(premiseRangeLower, premiseRangeUpper), m);
             expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
-            expr_ref _finalAxiom(rewrite_implication(premise, conclusion), m);
-            expr_ref finalAxiom(_finalAxiom);
+            expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
             rw(finalAxiom);
             assert_axiom(finalAxiom);
         }
@@ -1488,8 +1484,7 @@ namespace smt {
             expr_ref premiseRange(m.mk_not(m.mk_or(premiseRangeLower, premiseRangeUpper)), m);
             expr_ref premise(m.mk_and(premiseNEmpty, premiseRange), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, i), m);
-            expr_ref _finalAxiom(rewrite_implication(premise, conclusion), m);
-            expr_ref finalAxiom(_finalAxiom);
+            expr_ref finalAxiom(rewrite_implication(premise, conclusion), m);
             rw(finalAxiom);
             assert_axiom(finalAxiom);
         }
@@ -1498,8 +1493,7 @@ namespace smt {
         {
             expr_ref premise1(ctx.mk_eq_atom(i, zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
-            expr_ref _premise(m.mk_and(premise1, premise2), m);
-            expr_ref premise(_premise);
+            expr_ref premise(m.mk_and(premise1, premise2), m);
             rw(premise);
             // reduction to simpler case
             expr_ref conclusion(ctx.mk_eq_atom(e, mk_indexof(H, N)), m);
@@ -1513,8 +1507,7 @@ namespace smt {
             //rw(premise);
             expr_ref premise1(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero), m);
             expr_ref premise2(m.mk_not(ctx.mk_eq_atom(N, empty_string)), m);
-            expr_ref _premise(m.mk_and(premise1, premise2), m);
-            expr_ref premise(_premise);
+            expr_ref premise(m.mk_and(premise1, premise2), m);
             rw(premise);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
             assert_implication(premise, conclusion);
@@ -1563,8 +1556,7 @@ namespace smt {
             //expr_ref precondition2(m_autil.mk_lt(i, mk_strlen(H)), m);
             expr_ref precondition2(m.mk_not(m_autil.mk_ge(m_autil.mk_add(i, m_autil.mk_mul(minus_one, mk_strlen(H))), zero)), m);
             expr_ref precondition3(m.mk_not(ctx.mk_eq_atom(N, mk_string(""))), m);
-            expr_ref _precondition(m.mk_and(precondition1, precondition2, precondition3), m);
-            expr_ref precondition(_precondition);
+            expr_ref precondition(m.mk_and(precondition1, precondition2, precondition3), m);
             rw(precondition);
 
             expr_ref premise(u.str.mk_contains(H, N), m);
