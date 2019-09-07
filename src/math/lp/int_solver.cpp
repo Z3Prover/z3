@@ -244,7 +244,7 @@ lia_move int_solver::find_cube() {
     if (m_number_of_calls % settings().m_int_find_cube_period != 0)
         return lia_move::undef;
     
-    settings().st().m_cube_calls++;
+    settings().stats().m_cube_calls++;
     TRACE("cube",
           for (unsigned j = 0; j < m_lar_solver->A_r().column_count(); j++)
               display_column(tout, j);
@@ -271,7 +271,7 @@ lia_move int_solver::find_cube() {
     m_lar_solver->set_status(lp_status::FEASIBLE);
     lp_assert(settings().get_cancel_flag() || is_feasible());
     TRACE("cube", tout << "success";);
-    settings().st().m_cube_success++;
+    settings().stats().m_cube_success++;
     return lia_move::sat;
 }
 
@@ -282,8 +282,8 @@ void int_solver::find_feasible_solution() {
 
 lia_move int_solver::run_gcd_test() {
     if (settings().m_int_run_gcd_test) {
-        settings().st().m_gcd_calls++;
-        TRACE("int_solver", tout << "gcd-test " << settings().st().m_gcd_calls << "\n";);
+        settings().stats().m_gcd_calls++;
+        TRACE("int_solver", tout << "gcd-test " << settings().stats().m_gcd_calls << "\n";);
         if (!gcd_test()) {
             settings().st().m_gcd_conflicts++;
             TRACE("gcd_test", tout << "gcd conflict\n";);
@@ -361,8 +361,8 @@ lia_move int_solver::make_hnf_cut() {
     if (!init_terms_for_hnf_cut()) {
         return lia_move::undef;
     }
-    settings().st().m_hnf_cutter_calls++;
-    TRACE("hnf_cut", tout << "settings().st().m_hnf_cutter_calls = " << settings().st().m_hnf_cutter_calls << "\n";
+    settings().stats().m_hnf_cutter_calls++;
+    TRACE("hnf_cut", tout << "settings().stats().m_hnf_cutter_calls = " << settings().stats().m_hnf_cutter_calls << "\n";
           for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
               m_lar_solver->print_constraint(i, tout);
           }              
@@ -384,7 +384,7 @@ lia_move int_solver::make_hnf_cut() {
               }              
               );
         lp_assert(current_solution_is_inf_on_cut());
-        settings().st().m_hnf_cuts++;
+        settings().stats().m_hnf_cuts++;
         m_ex->clear();        
         for (unsigned i : m_hnf_cutter.constraints_for_explanation()) {
              m_ex->push_justification(i);
@@ -511,14 +511,14 @@ void int_solver::patch_nbasic_column(unsigned j, bool patch_only_int_vals) {
 }
 
 lia_move int_solver::patch_nbasic_columns() {
-    settings().st().m_patches++;
+    settings().stats().m_patches++;
     lp_assert(is_feasible());
     for (unsigned j : m_lar_solver->m_mpq_lar_core_solver.m_r_nbasis) {
         patch_nbasic_column(j, settings().m_int_patch_only_integer_values);
     }
     lp_assert(is_feasible());
     if (!has_inf_int()) {
-        settings().st().m_patches_success++;
+        settings().stats().m_patches_success++;
         return lia_move::sat;
     }
     return lia_move::undef;

@@ -1316,8 +1316,8 @@ bool core::elists_are_consistent(bool check_in_model) const {
 }
 
 lbool core::check(vector<lemma>& l_vec) {
-    lp_settings().st().m_nla_calls++;
-    TRACE("nla_solver", tout << "calls = " << lp_settings().st().m_nla_calls << "\n";);
+    lp_settings().stats().m_nla_calls++;
+    TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
     m_lemma_vec =  &l_vec;
     if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);

@@ -2290,14 +2290,14 @@ public:
         if (BP_NONE == propagation_mode()) {
             return;
         }
-        int num_of_p = lp().settings().st().m_num_of_implied_bounds;
+        int num_of_p = lp().settings().stats().m_num_of_implied_bounds;
         (void)num_of_p;
         local_bound_propagator bp(*this);
         lp().propagate_bounds_for_touched_rows(bp);
         if (m.canceled()) {
             return;
         }
-        int new_num_of_p = lp().settings().st().m_num_of_implied_bounds;
+        int new_num_of_p = lp().settings().stats().m_num_of_implied_bounds;
         (void)new_num_of_p;
         CTRACE("arith", new_num_of_p > num_of_p, tout << "found " << new_num_of_p << " implied bounds\n";);
         if (is_infeasible()) {
@@ -2378,7 +2378,7 @@ public:
             }
             TRACE("arith", tout << lit << " bound: " << *b << " first: " << first << "\n";);
 
-            lp().settings().st().m_num_of_implied_bounds ++;
+            lp().settings().stats().m_num_of_implied_bounds ++;
             if (first) {
                 first = false;
                 m_core.reset();
@@ -3769,7 +3769,7 @@ public:
         st.update("arith-rows", m_stats.m_add_rows);
         st.update("arith-propagations", m_stats.m_bounds_propagations);
         st.update("arith-iterations", m_stats.m_num_iterations);
-        st.update("arith-factorizations", lp().settings().st().m_num_factorizations);
+        st.update("arith-factorizations", lp().settings().stats().m_num_factorizations);
         st.update("arith-pivots", m_stats.m_need_to_solve_inf);
         st.update("arith-plateau-iterations", m_stats.m_num_iterations_with_no_progress);
         st.update("arith-fixed-eqs", m_stats.m_fixed_eqs);
@@ -3777,21 +3777,21 @@ public:
         st.update("arith-bound-propagations-lp", m_stats.m_bound_propagations1);
         st.update("arith-bound-propagations-cheap", m_stats.m_bound_propagations2);
         st.update("arith-diseq", m_stats.m_assert_diseq);
-        st.update("arith-make-feasible", lp().settings().st().m_make_feasible);
-        st.update("arith-max-columns", lp().settings().st().m_max_cols);
-        st.update("arith-max-rows", lp().settings().st().m_max_rows);
-        st.update("gcd-calls", lp().settings().st().m_gcd_calls);
-        st.update("gcd-conflict", lp().settings().st().m_gcd_conflicts);
-        st.update("cube-calls", lp().settings().st().m_cube_calls);
-        st.update("cube-success", lp().settings().st().m_cube_success);
-        st.update("arith-patches", lp().settings().st().m_patches);
-        st.update("arith-patches-success", lp().settings().st().m_patches_success);
-        st.update("arith-hnf-calls", lp().settings().st().m_hnf_cutter_calls);
-        st.update("horner-calls", lp().settings().st().m_horner_calls);
-        st.update("horner-conflicts", lp().settings().st().m_horner_conflicts);
-        st.update("horner-cross-nested-forms", lp().settings().st().m_cross_nested_forms);
-        st.update("grobner-calls", lp().settings().st().m_grobner_calls);
-        st.update("grobner-conflicts", lp().settings().st().m_grobner_conflicts);
+        st.update("arith-make-feasible", lp().settings().stats().m_make_feasible);
+        st.update("arith-max-columns", lp().settings().stats().m_max_cols);
+        st.update("arith-max-rows", lp().settings().stats().m_max_rows);
+        st.update("gcd-calls", lp().settings().stats().m_gcd_calls);
+        st.update("gcd-conflict", lp().settings().stats().m_gcd_conflicts);
+        st.update("cube-calls", lp().settings().stats().m_cube_calls);
+        st.update("cube-success", lp().settings().stats().m_cube_success);
+        st.update("arith-patches", lp().settings().stats().m_patches);
+        st.update("arith-patches-success", lp().settings().stats().m_patches_success);
+        st.update("arith-hnf-calls", lp().settings().stats().m_hnf_cutter_calls);
+        st.update("horner-calls", lp().settings().stats().m_horner_calls);
+        st.update("horner-conflicts", lp().settings().stats().m_horner_conflicts);
+        st.update("horner-cross-nested-forms", lp().settings().stats().m_cross_nested_forms);
+        st.update("grobner-calls", lp().settings().stats().m_grobner_calls);
+        st.update("grobner-conflicts", lp().settings().stats().m_grobner_conflicts);
         st.update("nla-explanations", m_stats.m_nla_explanations);
         st.update("nla-lemmas", m_stats.m_nla_lemmas);
     }        
