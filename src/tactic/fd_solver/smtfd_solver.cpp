@@ -590,6 +590,10 @@ namespace smtfd {
             return mk_and(r);
         }
 
+        void check_extensionality(expr* a, expr* b) {
+            // sort* s = m.get_sort(a);
+        }
+
     public:
 
         a_plugin(smtfd_abs& a, expr_ref_vector& lemmas, model* mdl):
@@ -624,6 +628,30 @@ namespace smtfd {
         // TBD: enforce extensionality
 
         unsigned max_rounds() override { return 2; }
+
+        void global_check(expr_ref_vector const& core) {
+            obj_map<sort, obj_map<expr, expr*>*> sort2val2array;
+            expr_ref_vector pinned(m);
+            for (expr* t : subterms(core)) {
+                if (m_autil.is_array(t)) {
+                    sort* s = m.get_sort(t);
+                    obj_map<expr, expr*>* v2a = nullptr;
+                    if (!sort2val2array.find(s, v2a)) {
+                        v2a = alloc(obj_map<expr, expr*>);
+                        sort2val2array.insert(s, v2a);
+                    }
+                    expr* a = nullptr;
+                    expr_ref v = eval_abs(t);
+                    pinned.push_back(v);
+                    if (v2a->find(v, a)) {
+                        check_extensionality(a, t);
+                    }
+                    else {
+                        v2a->insert(v, t);
+                    }
+                }
+            }
+        }
 
     };
 
