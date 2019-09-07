@@ -805,7 +805,8 @@ namespace opt {
             and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
-                     mk_ackermannize_bv_tactic(m, m_params), 
+                     // NB: cannot ackermannize because max/min objectives would disappear
+                     // mk_ackermannize_bv_tactic(m, m_params), 
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);
