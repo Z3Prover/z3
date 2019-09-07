@@ -89,7 +89,7 @@ public:
     virtual bool get_cancel_flag() = 0;
 };
 
-struct stats {
+struct statistics {
     unsigned m_make_feasible;
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
@@ -111,8 +111,9 @@ struct stats {
     unsigned m_horner_conflicts;
     unsigned m_cross_nested_forms;
     unsigned m_grobner_calls;
+    unsigned m_grobner_basis_computatins;
     unsigned m_grobner_conflicts;
-    stats() { reset(); }
+    statistics() { reset(); }
     void reset() { memset(this, 0, sizeof(*this)); }
 };
 
@@ -137,7 +138,7 @@ private:
     // used for messages, for example, the computation progress messages
     std::ostream*             m_message_out;
 
-    stats                     m_stats;
+    statistics                     m_stats;
     random_gen                m_rand;
 
 public:
@@ -286,8 +287,8 @@ public:
     
     std::ostream* get_debug_ostream() { return m_debug_out; }
     std::ostream* get_message_ostream() { return m_message_out; }
-    stats& st() { return m_stats; }
-    stats const& st() const { return m_stats; }
+    statistics& stats() { return m_stats; }
+    statistics const& stats() const { return m_stats; }
 
     template <typename T> static bool is_eps_small_general(const T & t, const double & eps) {
         return (!numeric_traits<T>::precise())? is_epsilon_small<T>(t, eps) : numeric_traits<T>::is_zero(t);
