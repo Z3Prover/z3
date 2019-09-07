@@ -2244,6 +2244,10 @@ br_status bv_rewriter::mk_bv_mul(unsigned num_args, expr * const * args, expr_re
 br_status bv_rewriter::mk_bit2bool(expr * n, int idx, expr_ref & result) {
     rational v, bit;
     unsigned sz = 0;
+    if (m_util.is_mkbv(n)) {
+        result = to_app(n)->get_arg(idx);
+        return BR_DONE;
+    }
     if (!is_numeral(n, v, sz)) 
         return BR_FAILED;
     if (idx < 0 || idx >= static_cast<int>(sz)) 
