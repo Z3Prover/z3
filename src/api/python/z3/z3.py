@@ -296,6 +296,14 @@ class Z3PPObject:
     def use_pp(self):
         return True
 
+    def _repr_html_(self):
+        in_html = in_html_mode()
+        set_html_mode(True)
+        res = repr(self)
+        set_html_mode(in_html)
+        return res
+
+
 class AstRef(Z3PPObject):
     """AST are Direct Acyclic Graphs (DAGs) used to represent sorts, declarations and expressions."""
     def __init__(self, ast, ctx=None):
@@ -6417,6 +6425,13 @@ class CheckSatResult:
                 return "unsat"
             else:
                 return "unknown"
+
+    def _repr_html_(self):
+        in_html = in_html_mode()
+        set_html_mode(True)
+        res = repr(self)
+        set_html_mode(in_html)
+        return res
 
 sat     = CheckSatResult(Z3_L_TRUE)
 unsat   = CheckSatResult(Z3_L_FALSE)
