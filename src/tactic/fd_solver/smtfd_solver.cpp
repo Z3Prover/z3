@@ -239,7 +239,7 @@ namespace smtfd {
             m_nv_trail.shrink(m_nv_trail.size() - n);
         }
         
-        std::ostream& display(std::ostream& out) {
+        std::ostream& display(std::ostream& out) const {
             return out << "abs:\n" << m_atoms << "\n";
         }
         
@@ -639,15 +639,18 @@ namespace smtfd {
         ref<::solver>   m_fd_solver;
         ref<::solver>   m_smt_solver;
         expr_ref_vector m_assertions;
-        unsigned_vector m_assertions_lim;        
+        unsigned_vector m_assertions_lim;
         unsigned        m_assertions_qhead;
         expr_ref_vector m_toggles;
-        expr_ref        m_toggle, m_not_toggle;
+        expr_ref        m_toggle;
+        expr_ref        m_not_toggle;
         model_ref       m_model;
         std::string     m_reason_unknown;
         unsigned        m_max_lemmas;
         stats           m_stats;
-        unsigned        m_useful_smt, m_non_useful_smt, m_max_conflicts;
+        unsigned        m_useful_smt;
+        unsigned        m_non_useful_smt;
+        unsigned        m_max_conflicts;
         bool            m_smt_known;
 
         void flush_assertions() {
@@ -688,7 +691,7 @@ namespace smtfd {
             if (r == l_false) {
                 m_fd_solver->get_unsat_core(core);
                 TRACE("smtfd", display(tout << core););
-                core.erase(m_not_toggle); 
+                core.erase(m_not_toggle.get()); 
                 SASSERT(!asms.contains(m_not_toggle));
                 SASSERT(!asms.contains(m_toggle));
             }
@@ -772,7 +775,7 @@ namespace smtfd {
                     asms.push_back(m.mk_not(a));
                 }
             }
-            asms.erase(m_toggle);
+            asms.erase(m_toggle.get());
         }
 
         void checkpoint() {
@@ -794,8 +797,8 @@ namespace smtfd {
             }
         }
 
-        std::ostream& display(std::ostream& out) {
-            init();
+        std::ostream& display(std::ostream& out, unsigned n = 0, expr * const * assumptions = nullptr) const override {
+            if (!m_fd_solver) return out;
             m_fd_solver->display(out);
             m_smt_solver->display(out);
             out << m_assumptions << "\n";
@@ -811,9 +814,9 @@ namespace smtfd {
         solver(ast_manager& m, params_ref const& p):
             solver_na2as(m),
             m(m),
+            m_abs(m),
             m_assertions(m),
             m_assertions_qhead(0),
-            m_abs(m),
             m_toggles(m), 
             m_toggle(m.mk_true(), m), 
             m_not_toggle(m.mk_false(), m),
@@ -933,7 +936,7 @@ namespace smtfd {
         }
         void get_unsat_core(expr_ref_vector & r) override { 
             m_fd_solver->get_unsat_core(r);            
-            r.erase(m_toggle);
+            r.erase(m_toggle.get());
             rep(r);
         }
         void get_model_core(model_ref & mdl) override { 
