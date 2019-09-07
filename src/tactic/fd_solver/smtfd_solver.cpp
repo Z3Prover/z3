@@ -275,6 +275,9 @@ namespace smtfd {
                     if (m.is_eq(a)) {
                         r = m.mk_eq(m_args.get(0), m_args.get(1));
                     }
+                    else if (m.is_ite(a)) {
+                        r = m.mk_ite(m_args.get(0), m_args.get(1), m_args.get(2));
+                    }
                     else if (bvfid == fid || bfid == fid) {
                         r = m.mk_app(a->get_decl(), m_args.size(), m_args.c_ptr());
                     }
