@@ -153,10 +153,10 @@ void lackr::eager_enc() {
 }
 
 void lackr::ackr(app_set const* ts) {
-    const app_set::iterator r = ts->end();
-    for (app_set::iterator j = ts->begin(); j != r; ++j) {
+    auto r = ts->var_args.end();
+    for (auto j = ts->var_args.begin(); j != r; ++j) {
         app * const t1 = *j;
-        app_set::iterator k = j;
+        auto k = j;
         ++k;
         for (; k != r; ++k) {
             app * const t2 = *k;
@@ -164,27 +164,46 @@ void lackr::ackr(app_set const* ts) {
                 ackr(t1, t2);
             }
         }
+        for (app* t2 : ts->const_args) {
+            ackr(t1, t2);
+        }
     }
 }
 
-
-void lackr::abstract() {
-    for (auto const& kv : m_fun2terms) {
+void lackr::abstract_fun(fun2terms_map const& apps) {
+    for (auto const& kv : apps) {
         func_decl* fd = kv.m_key;
-        for (app * t : *kv.m_value) {
+        for (app * t : kv.m_value->var_args) {
+            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            SASSERT(t->get_decl() == fd);
+            m_info->set_abstr(t, fc);
+        }
+        for (app * t : kv.m_value->const_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
             SASSERT(t->get_decl() == fd);
             m_info->set_abstr(t, fc);
         }
     }
 
-    for (auto& kv : m_sel2terms) {
+}
+
+void lackr::abstract_sel(sel2terms_map const& apps) {
+    for (auto const& kv : apps) {
         func_decl * fd = kv.m_key->get_decl();
-        for (app * t : *kv.m_value) {
+        for (app * t : kv.m_value->const_args) {
+            app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
+            m_info->set_abstr(t, fc);
+        }
+        for (app * t : kv.m_value->var_args) {
             app * fc = m.mk_fresh_const(fd->get_name(), m.get_sort(t));
             m_info->set_abstr(t, fc);
         }
     }
+}
+
+void lackr::abstract() {
+    abstract_fun(m_fun2terms);
+    abstract_sel(m_sel2terms);
     m_info->seal();
     // perform abstraction of the formulas
     for (expr * f : m_formulas) {
@@ -194,28 +213,7 @@ void lackr::abstract() {
 }
 
 void lackr::add_term(app* a) {
-    app_set* ts = nullptr;
-    if (a->get_num_args() == 0) 
-        return;
-    if (m_ackr_helper.is_select(a)) {
-        app* sel = to_app(a->get_arg(0));
-        if (!m_sel2terms.find(sel, ts)) {
-            ts = alloc(app_set);
-            m_sel2terms.insert(sel, ts);
-        }
-    }
-    else if (m_ackr_helper.is_uninterp_fn(a)) {
-        func_decl* const fd = a->get_decl();
-        if (!m_fun2terms.find(fd, ts)) {
-            ts = alloc(app_set);
-            m_fun2terms.insert(fd, ts);
-        }
-    }
-    else {
-        return;
-    }
-    TRACE("ackermannize", tout << "term(" << mk_ismt2_pp(a, m, 2) << ")\n";);
-    ts->insert(a);
+    m_ackr_helper.insert(m_fun2terms, m_sel2terms, a);
 }
 
 void  lackr::push_abstraction() {

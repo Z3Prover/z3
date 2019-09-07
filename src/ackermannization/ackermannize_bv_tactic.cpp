@@ -25,7 +25,9 @@ class ackermannize_bv_tactic : public tactic {
 public:
     ackermannize_bv_tactic(ast_manager& m, params_ref const& p)
         : m(m), m_p(p)
-    {}
+    {
+        updt_params(p);
+    }
 
     ~ackermannize_bv_tactic() override { }
 

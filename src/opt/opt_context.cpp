@@ -38,6 +38,7 @@ Notes:
 #include "tactic/arith/eq2bv_tactic.h"
 #include "tactic/bv/dt2bv_tactic.h"
 #include "tactic/generic_model_converter.h"
+#include "ackermannization/ackermannize_bv_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "qe/qsat.h"
 #include "opt/opt_context.h"
@@ -804,6 +805,7 @@ namespace opt {
             and_then(mk_simplify_tactic(m, m_params), 
                      mk_propagate_values_tactic(m),
                      mk_solve_eqs_tactic(m),
+                     mk_ackermannize_bv_tactic(m, m_params), 
                      // NB: mk_elim_uncstr_tactic(m) is not sound with soft constraints
                      mk_simplify_tactic(m));   
         opt_params optp(m_params);

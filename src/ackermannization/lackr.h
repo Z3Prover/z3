@@ -123,5 +123,9 @@ class lackr {
         // Collect all uninterpreted terms, skipping 0-arity.
         //
         bool collect_terms();
+
+        void abstract_sel(sel2terms_map const& apps);
+        void abstract_fun(fun2terms_map const& apps);
+
 };
 #endif /* LACKR_H_ */

@@ -22,9 +22,13 @@
 
 class ackr_helper {
 public:
-    typedef obj_hashtable<app>           app_set;
+    struct app_occ {
+        obj_hashtable<app> const_args;
+        obj_hashtable<app> var_args;
+    };
+    typedef app_occ  app_set;
     typedef obj_map<func_decl, app_set*> fun2terms_map;
-    typedef obj_map<app, app_set*>      sel2terms_map;
+    typedef obj_map<app, app_set*>       sel2terms_map;
     
     ackr_helper(ast_manager& m) : m_bvutil(m), m_autil(m) {}
     
@@ -88,12 +92,47 @@ public:
     static double calculate_lemma_bound(fun2terms_map const& occs1, sel2terms_map const& occs2);
     
     /** \brief Calculate n choose 2. **/
-    inline static unsigned n_choose_2(unsigned n) { return n & 1 ? (n * (n >> 1)) : (n >> 1) * (n - 1); }
+    inline static unsigned n_choose_2(unsigned n) { return (n & 1) ? (n * (n >> 1)) : (n >> 1) * (n - 1); }
     
     /** \brief Calculate n choose 2 guarded for overflow. Returns infinity if unsafe. **/
     inline static double n_choose_2_chk(unsigned n) {
         SASSERT(std::numeric_limits<unsigned>().max() & 32);
         return n & (1 << 16) ? std::numeric_limits<double>().infinity() : n_choose_2(n);
+    }
+
+    void insert(fun2terms_map& f2t, sel2terms_map& s2t, app* a) {
+        if (a->get_num_args() == 0) return;
+        ast_manager& m = m_bvutil.get_manager();
+        app_set* ts = nullptr;
+        bool is_const_args = true;
+        if (is_select(a)) {
+            app* sel = to_app(a->get_arg(0));
+            if (!s2t.find(sel, ts)) {
+                ts = alloc(app_set);
+                s2t.insert(sel, ts);
+            }
+        }
+        else if (is_uninterp_fn(a)) {
+            func_decl* const fd = a->get_decl();
+            if (!f2t.find(fd, ts)) {
+                ts = alloc(app_set);
+                f2t.insert(fd, ts);
+            }
+            is_const_args = m.is_value(a->get_arg(0));
+        }
+        else {
+            return;
+        }
+        for (unsigned i = 1; is_const_args && i < a->get_num_args(); ++i) {
+            is_const_args &= m.is_value(a->get_arg(i));
+        }
+        
+        if (is_const_args) {
+            ts->const_args.insert(a);
+        }
+        else {
+            ts->var_args.insert(a);
+        }
     }
     
 private:

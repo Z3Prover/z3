@@ -53,29 +53,9 @@ class ackr_bound_probe : public probe {
 
         void operator()(quantifier *) {}
         void operator()(var *) {}
-        void operator()(app * a) {
-            if (a->get_num_args() == 0) return;
+        void operator()(app * a) { 
             m_ackr_helper.mark_non_select(a, m_non_select);
-            app_set* ts = nullptr;
-            if (m_ackr_helper.is_select(a)) {
-                app* sel = to_app(a->get_arg(0));
-                if (!m_sel2terms.find(sel, ts)) {
-                    ts = alloc(app_set);
-                    m_sel2terms.insert(sel, ts);
-                }
-            }
-            else if (m_ackr_helper.is_uninterp_fn(a)) {
-                func_decl* const fd = a->get_decl();
-                if (!m_fun2terms.find(fd, ts)) {
-                    ts = alloc(app_set);
-                    m_fun2terms.insert(fd, ts);
-                }
-            }
-            else {
-                return;
-            }
-            
-            ts->insert(a);
+            m_ackr_helper.insert(m_fun2terms, m_sel2terms, a); 
         }
     };
 
