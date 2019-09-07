@@ -274,7 +274,7 @@ void lar_core_solver::solve() {
             TRACE("lar_solver", tout << m_r_solver.get_status() << "\n";);
             return;
 	}
-    ++settings().st().m_need_to_solve_inf;
+    ++settings().stats().m_need_to_solve_inf;
     CASSERT("A_off", !m_r_solver.A_mult_x_is_off());
     lp_assert((!settings().use_tableau()) || r_basis_is_OK());
     if (need_to_presolve_with_double_solver()) {

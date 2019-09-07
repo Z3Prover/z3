@@ -35,7 +35,7 @@ template <typename T, typename X> // X represents the type of the x variable and
 class lp_core_solver_base {    
     unsigned m_total_iterations;
     unsigned m_iters_with_no_cost_growing;
-    unsigned inc_total_iterations() { ++m_settings.st().m_total_iterations; return m_total_iterations++; }
+    unsigned inc_total_iterations() { ++m_settings.stats().m_total_iterations; return m_total_iterations++; }
 private:
     lp_status m_status;
 public:

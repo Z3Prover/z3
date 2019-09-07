@@ -127,10 +127,48 @@ void nla_grobner::init() {
     find_nl_cluster();
 }
 
-void nla_grobner::grobner_lemmas() {
-    c().lp_settings().st().m_grobner_calls++;    
-    init();
+void nla_grobner::compute_basis(){
+    compute_basis_init();        
+    if (!compute_basis_loop()) {
+        set_gb_exhausted();
+    }
+}
+void nla_grobner::compute_basis_init(){
+    c().lp_settings().stats().m_grobner_basis_computatins++;    
+    m_num_new_equations = 0;
+    
+}        
 
+bool nla_grobner::compute_basis_loop(){
     SASSERT(false);
+    return false;
+}
+
+void nla_grobner::set_gb_exhausted(){ SASSERT(false); }
+
+void nla_grobner::update_statistics(){
+    SASSERT(false);
+}
+
+bool nla_grobner::find_conflict(){ SASSERT(false);
+    return false;
+}
+
+bool nla_grobner::push_calculation_forward(){ SASSERT(false);
+    return false;
+}
+
+void nla_grobner::grobner_lemmas() {
+    c().lp_settings().stats().m_grobner_calls++;    
+    init();
+    do {
+        TRACE("nla_gb", tout << "before:\n"; display(tout););
+        compute_basis();
+        update_statistics();
+        TRACE("nla_gb", tout << "after:\n"; display(tout););
+        if (find_conflict())
+            return;
+    }
+    while(push_calculation_forward());
 }
 } // end of nla namespace

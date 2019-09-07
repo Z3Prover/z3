@@ -119,7 +119,7 @@ lu<M>::lu(const M& A,
 #ifdef Z3DEBUG
     debug_test_of_basis(A, basis);
 #endif
-    ++m_settings.st().m_num_factorizations;
+    ++m_settings.stats().m_num_factorizations;
     create_initial_factorization();
 #ifdef Z3DEBUG
     // lp_assert(check_correctness());

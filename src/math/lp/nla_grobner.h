@@ -40,6 +40,7 @@ class nla_grobner : common {
     lp::int_set         m_rows;
     lp::int_set         m_active_vars;
     svector<var_weight> m_active_vars_weights;
+    unsigned            m_num_new_equations;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
@@ -51,5 +52,12 @@ private:
     void set_active_vars_weights();
     void init();
     var_weight get_var_weight(lpvar) const;
+    void compute_basis();
+    void update_statistics();
+    bool find_conflict();
+    bool push_calculation_forward();
+    void compute_basis_init();        
+    bool compute_basis_loop();
+    void set_gb_exhausted();
 }; // end of grobner
 }

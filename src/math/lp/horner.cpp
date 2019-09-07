@@ -72,7 +72,7 @@ bool horner::lemmas_on_expr(cross_nested& cn) {
 
 bool horner::check_cross_nested_expr(const nex* n) {
     TRACE("nla_horner", tout << "cross-nested n = " << *n << "\n";);
-    c().lp_settings().st().m_cross_nested_forms++;
+    c().lp_settings().stats().m_cross_nested_forms++;
 
     auto i = interval_of_expr(n);
     TRACE("nla_horner", tout << "callback n = " << *n << "\ni="; m_intervals.display(tout, i) << "\n";);
@@ -105,7 +105,7 @@ void horner::horner_lemmas() {
         TRACE("nla_solver", tout << "not generating horner lemmas\n";);
         return;
     }
-    c().lp_settings().st().m_horner_calls++;
+    c().lp_settings().stats().m_horner_calls++;
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
@@ -125,7 +125,7 @@ void horner::horner_lemmas() {
     for (unsigned i = 0; i < sz; i++) {
         unsigned row_index = rows[(i + r) % sz];
         if (lemmas_on_row(matrix.m_rows[row_index])) {
-            c().lp_settings().st().m_horner_conflicts++;
+            c().lp_settings().stats().m_horner_conflicts++;
             break;
         }
     }
