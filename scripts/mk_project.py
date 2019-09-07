@@ -58,7 +58,7 @@ def init_project_def():
     add_lib('sls_tactic', ['tactic', 'normal_forms', 'core_tactics', 'bv_tactics'], 'tactic/sls')
     add_lib('qe', ['smt','sat','nlsat','tactic','nlsat_tactic'], 'qe')
     add_lib('sat_solver', ['solver', 'core_tactics', 'aig_tactic', 'bv_tactics', 'arith_tactics', 'sat_tactic'], 'sat/sat_solver')
-    add_lib('fd_solver', ['core_tactics', 'arith_tactics', 'sat_solver'], 'tactic/fd_solver') 
+    add_lib('fd_solver', ['core_tactics', 'arith_tactics', 'sat_solver', 'smt'], 'tactic/fd_solver') 
     add_lib('muz', ['smt', 'sat', 'smt2parser', 'aig_tactic', 'qe'], 'muz/base')
     add_lib('dataflow', ['muz'], 'muz/dataflow')
     add_lib('transforms', ['muz', 'hilbert', 'dataflow'], 'muz/transforms')
