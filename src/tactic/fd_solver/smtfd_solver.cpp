@@ -116,10 +116,28 @@
      add abs(!core) to solver
 
      add abs(lemmas) to solver
-     
+
+
+TBD:
+- extract UF model without relying on SMT
+- hint to SMT solver using FD model (add equalities from FD model)
+- extensionality?
+- abstractions for multiplication and other BV operations:
+  - add ackerman reductions for BV
+  - commutativity?
+  - fix most bits using model, blast specialization.
+    Z = X * Y
+    X[range] = k1, Y[range] = k2 => Z = (k1++X') * (k2 ++ Y')
+- do something about arithmetic?
+- add equality resolution lemmas
+  For core: v = t & phi(v) 
+  and v = t occurs in several cores
+  set core := phi(t/v)
+ 
 */
 
 #include "util/scoped_ptr_vector.h"
+#include "util/obj_hashtable.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/for_each_expr.h"
@@ -355,16 +373,6 @@ namespace smtfd {
         scoped_ptr_vector<table> m_tables;
         obj_map<ast, unsigned>   m_ast2table;
 
-        table& ast2table(ast* f) {
-            unsigned idx = 0;
-            if (!m_ast2table.find(f, idx)) {
-                idx = m_tables.size();
-                m_tables.push_back(alloc(table, DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq));
-                m_ast2table.insert(f, idx);
-                m_pinned.push_back(f);
-            }
-            return *m_tables[idx];
-        }
 
         f_app mk_app(ast* f, app* t) {
             f_app r;
@@ -395,6 +403,17 @@ namespace smtfd {
             m_hash(*this)
         {}
 
+        table& ast2table(ast* f) {
+            unsigned idx = 0;
+            if (!m_ast2table.find(f, idx)) {
+                idx = m_tables.size();
+                m_tables.push_back(alloc(table, DEFAULT_HASHTABLE_INITIAL_CAPACITY, m_hash, m_eq));
+                m_ast2table.insert(f, idx);
+                m_pinned.push_back(f);
+            }
+            return *m_tables[idx];
+        }
+
         expr_ref_vector const& values() const { return m_values; }
 
         ast_manager& get_manager() { return m; }
@@ -409,7 +428,18 @@ namespace smtfd {
         
         expr* value_of(f_app const& f) const { return m_values[f.m_val_offset + f.m_t->get_num_args()]; }
 
-        void check_ackerman(ast* f, app* t) {
+        bool check_congruence(ast* f, app* t) {
+            f_app f1 = mk_app(f, t);
+            f_app const& f2 = insert(f1);
+            if (f2.m_val_offset == f1.m_val_offset) {
+                return true;
+            }
+            bool eq = value_of(f1) == value_of(f2);
+            m_values.shrink(f1.m_val_offset);
+            return eq;            
+        }
+
+        void enforce_congruence(ast* f, app* t) {
             f_app f1 = mk_app(f, t);
             f_app const& f2 = insert(f1);
             if (f2.m_val_offset == f1.m_val_offset) {
@@ -426,8 +456,11 @@ namespace smtfd {
             }
             add_lemma(m.mk_implies(mk_and(m_args), m.mk_eq(f1.m_t, f2.m_t)));
         }
+
         virtual void check_term(expr* t, unsigned round) = 0;
+        virtual bool term_covered(expr* t) = 0;
         virtual unsigned max_rounds() = 0;
+        virtual void populate_model(model_ref& mdl, expr_ref_vector const& core) {}
     };
 
     bool f_app_eq::operator()(f_app const& a, f_app const& b) const {
@@ -446,6 +479,50 @@ namespace smtfd {
         return get_composite_hash(p.values().c_ptr() + a.m_val_offset, a.m_t->get_num_args(), *this, *this);
     }
     
+    class basic_plugin : public theory_plugin {
+    public:
+        basic_plugin(smtfd_abs& a, expr_ref_vector& lemmas, model* mdl):
+            theory_plugin(a, lemmas, mdl) 
+        {}
+        void check_term(expr* t, unsigned round) override { }
+        bool term_covered(expr* t) override { return is_app(t) && to_app(t)->get_family_id() == m.get_basic_family_id();  }
+        unsigned max_rounds() override { return 0; }
+        void populate_model(model_ref& mdl, expr_ref_vector const& core) override {
+#if 0
+            // not needed
+            for (expr* t : subterms(core)) {
+                if (is_uninterp_const(t) && m.is_bool(t)) {
+                    expr_ref val = eval_abs(t);
+                    mdl->register_decl(to_app(t)->get_decl(), val);
+                }
+            }
+#endif
+        }
+    };
+
+    class bv_plugin : public theory_plugin {
+        bv_util m_butil;
+    public:
+        bv_plugin(smtfd_abs& a, expr_ref_vector& lemmas, model* mdl):
+            theory_plugin(a, lemmas, mdl),
+            m_butil(m)
+        {}
+        void check_term(expr* t, unsigned round) override { }
+        bool term_covered(expr* t) override { return is_app(t) && to_app(t)->get_family_id() == m_butil.get_family_id(); }
+        unsigned max_rounds() override { return 0; }
+        void populate_model(model_ref& mdl, expr_ref_vector const& core) override {
+#if 0
+            // not needed as model for abstraction already knows value.
+            for (expr* t : subterms(core)) {
+                if (is_uninterp_const(t) && m_butil.is_bv(t)) {
+                    expr_ref val = eval_abs(t);
+                    mdl->register_decl(to_app(t)->get_decl(), val);
+                }
+            }
+#endif
+        }
+    };
+
     class uf_plugin : public theory_plugin {               
 
         bool is_uf(expr* t) {
@@ -460,10 +537,36 @@ namespace smtfd {
         
         void check_term(expr* t, unsigned round) override {
             if (round == 0 && is_uf(t)) 
-                check_ackerman(to_app(t)->get_decl(), to_app(t));
+                enforce_congruence(to_app(t)->get_decl(), to_app(t));
+        }
+
+        bool term_covered(expr* t) override {
+            return is_uf(t) || is_uninterp_const(t);
         }
 
         unsigned max_rounds() override { return 1; }
+
+        void populate_model(model_ref& mdl, expr_ref_vector const& core) override {
+            expr_ref_vector args(m);
+            for (table* tb : m_tables) {
+                func_interp* fi = nullptr;
+                func_decl* fn = nullptr;
+                for (f_app const& f : *tb) {
+                    fn = to_func_decl(f.m_f);
+                    unsigned arity = fn->get_arity();
+                    if (!fi) {
+                        fi = alloc(func_interp, m, arity);
+                    }
+                    args.reset();
+                    for (expr* arg : *f.m_t) {
+                        args.push_back(eval_abs(arg));
+                    }
+                    expr_ref val = eval_abs(f.m_t);
+                    fi->insert_new_entry(args.c_ptr(),val);
+                }
+                mdl->register_decl(fn, fi);
+            }
+        }
         
     };
 
@@ -474,7 +577,7 @@ namespace smtfd {
         void check_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
-            check_ackerman(vA, t);                     
+            enforce_congruence(vA, t);                     
         }
 
         // check that (select(t, t.args) = t.value)
@@ -551,6 +654,7 @@ namespace smtfd {
         void beta_reduce(expr* t) {
             bool added = false;
             if (m_autil.is_map(t) ||
+                m_autil.is_const(t) ||
                 is_lambda(t)) {
                 expr_ref vT = eval_abs(t);
                 table& tT = ast2table(vT);
@@ -590,8 +694,91 @@ namespace smtfd {
             return mk_and(r);
         }
 
+#if 0
+        // TBD, the following does not make sense to use as the lemmas are true given the way they are defined.
+
+
+        bool same_table(table const& t1, table const& t2) {
+            if (t1.size() != t2.size()) {
+                return false;
+            }
+            for (f_app const& f1 : t1) {
+                if (!t2.find(f1, f2) || value_of(f1) != value_of(f2)) {
+                    return false;
+                } 
+            }
+            return true;
+        }
+
+        typedef obj_map<expr, expr*> val2array_map;
+
         void check_extensionality(expr* a, expr* b) {
-            // sort* s = m.get_sort(a);
+            sort* s = m.get_sort(a);
+            unsigned arity = get_array_arity(s);
+            expr_ref_vector args(m);
+            args.push_back(a);
+            for (unsigned i = 0; i < arity; ++i) {
+                args.push_back(m.mk_app(m_autil.mk_array_ext(s, i), a, b));
+            }
+            expr_ref a1(m_autil.mk_select(args), m);
+            args[0] = b;
+            expr_ref b1(m_autil.mk_select(args), m);
+            expr_ref vA = eval_abs(a1);
+            expr_ref vB = eval_abs(b1);
+            if (vA == vB) {
+                add_lemma(m.mk_implies(m.mk_eq(a1, b1), m.mk_eq(a, b)));
+            }
+        }
+
+        void global_check(expr_ref_vector const& core) {
+            
+            obj_map<sort, val2array_map*> sort2val2array;
+            expr_ref_vector pinned(m);
+            scoped_ptr_vector<val2array_map> maps;
+            for (expr* t : subterms(core)) {
+                if (m_autil.is_array(t)) {
+                    sort* s = m.get_sort(t);
+                    val2array_map* v2a = nullptr;
+                    if (!sort2val2array.find(s, v2a)) {
+                        v2a = alloc(val2array_map);
+                        sort2val2array.insert(s, v2a);
+                        maps.push_back(v2a);
+                    }
+                    expr* a = nullptr;
+                    expr_ref v = eval_abs(t);
+                    pinned.push_back(v);
+                    if (v2a->find(v, a)) {
+                        check_extensionality(a, t);
+                    }
+                    else {
+                        v2a->insert(v, t);
+                    }
+                }
+            }
+        }
+#endif 
+
+        expr_ref mk_array_value(table& t) {
+            expr_ref value(m);
+            SASSERT(!t.empty());
+            expr_ref_vector args(m);
+            for (f_app const& f : t) {
+                SASSERT(m_autil.is_select(f.m_t));
+                if (!value) {
+                    sort* s = m.get_sort(f.m_t->get_arg(0));
+                    value = m_autil.mk_const_array(s, eval_abs(f.m_t));
+                }
+                else {
+                    args.reset();
+                    args.push_back(value);
+                    for (unsigned i = 1; i < f.m_t->get_num_args(); ++i) {
+                        args.push_back(eval_abs(f.m_t->get_arg(i)));
+                    }
+                    args.push_back(eval_abs(f.m_t));
+                    value = m_autil.mk_store(args);
+                }
+            }
+            return value;
         }
 
     public:
@@ -625,33 +812,35 @@ namespace smtfd {
             }
         }
 
-        // TBD: enforce extensionality
+        bool term_covered(expr* t) override {
+            // populate congruence table for model building
+            if (m_autil.is_select(t)) {
+                expr* a = to_app(t)->get_arg(0);
+                expr_ref vA = eval_abs(a);
+                insert(mk_app(vA, to_app(t)));                
+                
+            }
+            return 
+                m_autil.is_store(t) ||
+                m_autil.is_select(t) ||
+                m_autil.is_map(t) ||
+                m_autil.is_const(t);
+        }
 
-        unsigned max_rounds() override { return 2; }
-
-        void global_check(expr_ref_vector const& core) {
-            obj_map<sort, obj_map<expr, expr*>*> sort2val2array;
-            expr_ref_vector pinned(m);
+        void populate_model(model_ref& mdl, expr_ref_vector const& core) override {
             for (expr* t : subterms(core)) {
-                if (m_autil.is_array(t)) {
-                    sort* s = m.get_sort(t);
-                    obj_map<expr, expr*>* v2a = nullptr;
-                    if (!sort2val2array.find(s, v2a)) {
-                        v2a = alloc(obj_map<expr, expr*>);
-                        sort2val2array.insert(s, v2a);
-                    }
-                    expr* a = nullptr;
-                    expr_ref v = eval_abs(t);
-                    pinned.push_back(v);
-                    if (v2a->find(v, a)) {
-                        check_extensionality(a, t);
-                    }
-                    else {
-                        v2a->insert(v, t);
+                if (is_uninterp_const(t) && m_autil.is_array(t)) {
+                    expr_ref vT = eval_abs(t);
+                    table& tb = ast2table(vT);
+                    if (!tb.empty()) {
+                        expr_ref val = mk_array_value(tb);
+                        mdl->register_decl(to_app(t)->get_decl(), val);
                     }
                 }
             }
         }
+
+        unsigned max_rounds() override { return 2; }
 
     };
 
@@ -679,7 +868,12 @@ namespace smtfd {
         unsigned        m_useful_smt;
         unsigned        m_non_useful_smt;
         unsigned        m_max_conflicts;
-        bool            m_smt_known;
+
+        void set_delay_simplify() {
+            params_ref p;
+            p.set_uint("simplify.delay", 10000);
+            m_fd_solver->updt_params(p);
+        }
 
         void flush_assertions() {
             SASSERT(m_assertions_qhead <= m_assertions.size());
@@ -702,8 +896,11 @@ namespace smtfd {
             init_assumptions(num_assumptions, assumptions, asms);
             TRACE("smtfd", display(tout << asms););
             SASSERT(asms.contains(m_toggle));
+            
+            // test: m_fd_solver->assert_expr(m_toggle);
             lbool r = m_fd_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_solver);
+            set_delay_simplify();
             return r;
         }
 
@@ -735,8 +932,8 @@ namespace smtfd {
             m_smt_solver->updt_params(p);
             lbool r = m_smt_solver->check_sat(core);
             update_reason_unknown(r, m_smt_solver);
-            m_smt_known = true;
-            if (r == l_false) {
+            switch (r) {
+            case l_false: {
                 unsigned sz0 = core.size();
                 m_smt_solver->get_unsat_core(core);
                 TRACE("smtfd", display(tout << core););
@@ -747,15 +944,17 @@ namespace smtfd {
                 }
                 else {
                     ++m_non_useful_smt;
-                    if (m_max_conflicts > 200) m_max_conflicts -= 5;
+                    if (m_max_conflicts > 20) m_max_conflicts -= 5;
                 }
-            }            
-            if (r == l_undef) {
+                break;
+            }
+            case l_undef:
                 ++m_non_useful_smt;
-                m_max_conflicts -= 5;
-                if (m_max_conflicts > 200) m_max_conflicts -= 5;
-                r = l_false;
-                m_smt_known = false;
+                if (m_max_conflicts > 20) m_max_conflicts -= 5;
+                break;
+            case l_true:
+                m_smt_solver->get_model(m_model);
+                break;
             }
             return r;
         }
@@ -779,6 +978,27 @@ namespace smtfd {
             }
             m_stats.m_num_lemmas += lemmas.size();
             return !lemmas.empty();
+        }
+
+        bool is_decided_sat(expr_ref_vector const& core) {
+            expr_ref_vector lemmas(m);
+            uf_plugin uf(m_abs, lemmas, m_model.get());            
+            a_plugin ap(m_abs, lemmas, m_model.get());
+            bv_plugin bv(m_abs, lemmas, m_model.get());
+            basic_plugin bs(m_abs, lemmas, m_model.get());
+
+            for (expr* t : subterms(core)) {
+                if (!uf.term_covered(t) && !ap.term_covered(t) && !bv.term_covered(t) && !bs.term_covered(t)) {
+                    return false;
+                }       
+            }
+
+            uf.populate_model(m_model, core);
+            ap.populate_model(m_model, core);
+            bv.populate_model(m_model, core);
+            bs.populate_model(m_model, core);
+
+            return true;
         }
 
         void init_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
@@ -850,9 +1070,8 @@ namespace smtfd {
             m_not_toggle(m.mk_false(), m),
             m_useful_smt(0),
             m_non_useful_smt(0),
-            m_max_conflicts(500)
+            m_max_conflicts(50)
         {            
-            m_max_lemmas = 10;
             updt_params(p);
         }
         
@@ -905,7 +1124,7 @@ namespace smtfd {
             lbool r;
             expr_ref_vector core(m);
             while (true) {
-                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds << ")\n");
+                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds << " " << m_stats.m_num_lemmas << ")\n");
                 m_stats.m_num_rounds++;
                 checkpoint();
 
@@ -923,17 +1142,21 @@ namespace smtfd {
 
                 // phase 3: prime implicate over SMT
                 r = check_smt(core);
-                if (r != l_false) {
+                if (r == l_true) {
                     return r;
                 }
 
                 // phase 4: add theory lemmas
-                if (add_theory_lemmas(core) || m_smt_known) {
-                    assert_fd(m.mk_not(mk_and(abs(core))));                
+                if (r == l_false) {
+                    assert_fd(m.mk_not(mk_and(abs(core))));
                 }
-                else {
+                if (!add_theory_lemmas(core) && r == l_undef) {
+                    if (is_decided_sat(core)) {
+                        return l_true;
+                    }
                     m_max_conflicts *= 2;
                 }
+                
             }
             return l_undef;
         }        
@@ -944,7 +1167,7 @@ namespace smtfd {
                 m_fd_solver->updt_params(p);  
                 m_smt_solver->updt_params(p);  
             }
-            m_max_lemmas = p.get_uint("max-lemmas", 10);
+            m_max_lemmas = p.get_uint("max-lemmas", 100);
         }        
 
         void collect_param_descrs(param_descrs & r) override { 
@@ -968,11 +1191,10 @@ namespace smtfd {
             rep(r);
         }
         void get_model_core(model_ref & mdl) override { 
-            SASSERT(m_smt_solver);
-            m_smt_solver->get_model(mdl);
+            mdl = m_model;
         } 
         
-        model_converter_ref get_model_converter() const override { 
+        model_converter_ref get_model_converter() const override {             
             SASSERT(m_smt_solver);
             return m_smt_solver->get_model_converter();
         }

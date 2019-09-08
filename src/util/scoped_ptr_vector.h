@@ -59,6 +59,8 @@ public:
         ptr = m_vector.back();
         m_vector[m_vector.size()-1] = tmp;
     }
+    typename ptr_vector<T>::const_iterator begin() const { return m_vector.begin(); }
+    typename ptr_vector<T>::const_iterator end() const { return m_vector.end(); }
 };
 
 #endif
