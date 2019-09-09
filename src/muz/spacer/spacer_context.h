@@ -954,6 +954,7 @@ class context {
     bool                 m_use_restarts;
     bool                 m_simplify_pob;
     bool                 m_use_euf_gen;
+    bool                 m_use_lim_num_gen;
     bool                 m_use_ctp;
     bool                 m_use_inc_clause;
     bool                 m_use_ind_gen;
@@ -1055,6 +1056,7 @@ public:
     bool weak_abs() const {return m_weak_abs;}
     bool use_qlemmas() const {return m_use_qlemmas;}
     bool use_euf_gen() const {return m_use_euf_gen;}
+    bool use_lim_num_gen() const {return m_use_lim_num_gen;}
     bool simplify_pob() const {return m_simplify_pob;}
     bool use_ctp() const {return m_use_ctp;}
     bool use_inc_clause() const {return m_use_inc_clause;}

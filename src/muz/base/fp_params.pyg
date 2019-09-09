@@ -179,5 +179,6 @@ def_module_params('fp',
                           ('spacer.gpdr', BOOL, False, 'Use GPDR solving strategy for non-linear CHC'),
                           ('spacer.gpdr.bfs', BOOL, True, 'Use BFS exploration strategy for expanding model search'),
                           ('spacer.use_bg_invs', BOOL, False, 'Enable external background invariants'),
+                          ('spacer.use_lim_num_gen', BOOL, False, 'Enable limit numbers generalizer to get smaller numbers'),
 
                           ))
