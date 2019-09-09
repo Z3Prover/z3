@@ -2323,6 +2323,7 @@ void context::updt_params() {
     m_children_order = static_cast<spacer_children_order>(m_params.spacer_order_children());
     m_simplify_pob = m_params.spacer_simplify_pob();
     m_use_euf_gen = m_params.spacer_use_euf_gen();
+    m_use_lim_num_gen = m_params.spacer_use_lim_num_gen();
     m_use_ctp = m_params.spacer_ctp();
     m_use_inc_clause = m_params.spacer_use_inc_clause();
     m_blast_term_ite_inflation = m_params.spacer_blast_term_ite_inflation();
@@ -2653,6 +2654,11 @@ void context::init_global_smt_params() {
 void context::init_lemma_generalizers()
 {
     reset_lemma_generalizers();
+
+    if (m_use_lim_num_gen) {
+        // first, to get small numbers before any other smt calls
+        m_lemma_generalizers.push_back(alloc(limit_num_generalizer, *this, 5));
+    }
 
     if (m_q3_qgen) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,
