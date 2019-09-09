@@ -80,14 +80,29 @@ namespace smt {
     }
 
     expr * model_checker::get_type_compatible_term(expr * val) {
-        for (expr* f : m_fresh_exprs) {
-            if (m.get_sort(f) == m.get_sort(val)) {
-                return f;
+        app* fresh_term;
+        if (is_app(val) && to_app(val)->get_num_args() > 0) {
+            ptr_buffer<expr> args;
+            for (expr* arg : *to_app(val)) {
+                args.push_back(get_type_compatible_term(arg));
             }
+            fresh_term = m.mk_app(to_app(val)->get_decl(), args.size(), args.c_ptr());
         }
-        app* fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
-        m_context->ensure_internalized(fresh_term);
+        else {
+            expr * sk_term = get_term_from_ctx(val);
+            if (sk_term != nullptr) {
+                return sk_term;
+            }
+
+            for (expr* f : m_fresh_exprs) {
+                if (m.get_sort(f) == m.get_sort(val)) {
+                    return f;
+                }
+            }
+            fresh_term = m.mk_fresh_const("sk", m.get_sort(val));
+        }
         m_fresh_exprs.push_back(fresh_term);
+        m_context->ensure_internalized(fresh_term);
         return fresh_term;
     }
 
@@ -279,7 +294,6 @@ namespace smt {
         return false;
     }
 
-
     bool model_checker::add_blocking_clause(model * cex, expr_ref_vector & sks) {
         SASSERT(cex != nullptr);
         expr_ref_buffer diseqs(m);
@@ -287,6 +301,7 @@ namespace smt {
             func_decl * sk_d = to_app(sk)->get_decl();
             expr_ref sk_value(cex->get_some_const_interp(sk_d), m);
             if (!sk_value) {
+                TRACE("model_checker", tout << "no constant interpretation for " << mk_pp(sk, m) << "\n";);
                 return false; // get_some_value failed... aborting add_blocking_clause
             }
             diseqs.push_back(m.mk_not(m.mk_eq(sk, sk_value)));

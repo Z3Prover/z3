@@ -390,7 +390,7 @@ final_check_status theory_seq::final_check_eh() {
     }
     if (branch_unit_variable()) {
         ++m_stats.m_branch_variable;
-        TRACEFIN("ranch_unit_variable");
+        TRACEFIN("branch_unit_variable");
         return FC_CONTINUE;
     }
     if (branch_binary_variable()) {
@@ -3321,7 +3321,7 @@ bool theory_seq::solve_nc(unsigned idx) {
     expr_ref c = canonize(n.contains(), deps);
     expr* a = nullptr, *b = nullptr;
 
-    CTRACE("seq", c != n.contains(), tout << n.contains() << " =>\n" << c << "\n";);
+    CTRACE("seq", c != n.contains(), tout << n.contains() << " =>\n" << c << "\n";);    
 
     
     if (m.is_true(c)) {

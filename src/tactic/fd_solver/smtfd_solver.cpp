@@ -1045,6 +1045,17 @@ namespace smtfd {
         expr* abs(expr* e) { return m_context.get_abs().abs(e);  }
         expr_ref eval_abs(expr* t) { return (*m_model)(abs(t)); }
 
+
+        void restrict_to_universe(expr * sk, ptr_vector<expr> const & universe) {
+            SASSERT(!universe.empty());
+            expr_ref_vector eqs(m);
+            for (expr * e : universe) {
+                eqs.push_back(m.mk_eq(sk, e));
+            }
+            expr_ref fml = mk_or(eqs);
+            m_solver->assert_expr(fml);
+        }
+
         // !Ex P(x) => !P(t)
         // Ax P(x) => P(t)
         // l_true: new instance
@@ -1056,13 +1067,17 @@ namespace smtfd {
             if (!m_model->eval_expr(q->get_expr(), tmp, true)) {
                 return l_undef;
             }
+
+            m_solver->push();
             expr_ref_vector vars(m), vals(m);
             vars.resize(sz, nullptr);
             vals.resize(sz, nullptr);
             for (unsigned i = 0; i < sz; ++i) {
-                vars[sz - i - 1] = m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));    
-
-                // TBD: finite domain variables
+                sort* s = q->get_decl_sort(i);
+                vars[i] = m.mk_fresh_const(q->get_decl_name(i), s);    
+                if (m_model->has_uninterpreted_sort(s)) {
+                    restrict_to_universe(vars.get(i), m_model->get_universe(s));
+                }
             }
             var_subst subst(m);
             expr_ref body = subst(tmp, vars.size(), vars.c_ptr());
@@ -1070,7 +1085,6 @@ namespace smtfd {
                 body = m.mk_not(body);
             }
 
-            m_solver->push();
             m_solver->assert_expr(body);
             lbool r = m_solver->check_sat(0, nullptr);
             model_ref mdl;
@@ -1115,12 +1129,8 @@ namespace smtfd {
             return r;
         }
 
-        bool is_enforced(quantifier* q) {
-            return m_enforced.contains(q);
-        }
-
         lbool check_exists(quantifier* q) {
-            if (is_enforced(q)) {
+            if (m_enforced.contains(q)) {
                 return l_true;
             }
             expr_ref tmp(m);
@@ -1504,7 +1514,7 @@ namespace smtfd {
             lbool r;
             expr_ref_vector core(m);
             while (true) {
-                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds << " " << m_stats.m_num_lemmas << ")\n");
+                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds << " " << m_stats.m_num_lemmas << " " << m_stats.m_num_mbqi << ")\n");
                 m_stats.m_num_rounds++;
                 checkpoint();
 
@@ -1542,7 +1552,7 @@ namespace smtfd {
                 case l_undef:
                     break;
                 case l_false:
-                    m_max_conflicts = UINT_MAX;
+                    // m_max_conflicts = UINT_MAX;
                     break;
                 }
             }
