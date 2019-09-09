@@ -156,7 +156,7 @@ namespace smt {
         TRACE("model_checker", tout << "q after applying interpretation:\n" << mk_ismt2_pp(tmp, m) << "\n";);
         ptr_buffer<expr> subst_args;
         unsigned num_decls = q->get_num_decls();
-        subst_args.resize(num_decls, 0);
+        subst_args.resize(num_decls, nullptr);
         sks.resize(num_decls, nullptr);
         for (unsigned i = 0; i < num_decls; i++) {
             sort * s  = q->get_decl_sort(num_decls - i - 1);
