@@ -35,6 +35,7 @@ bool smt_logics::logic_has_reals_only(symbol const& s) {
         s == "UFLRA" ||
         s == "LRA" ||
         s == "RDL" ||
+        s == "NRA" ||
         s == "QF_NRA" ||
         s == "QF_UFNRA" ||
         s == "QF_UFLRA";

@@ -447,6 +447,7 @@ app * arith_decl_plugin::mk_numeral(rational const & val, bool is_int) {
     }
     parameter p[2] = { parameter(val), parameter(static_cast<int>(is_int)) };
     func_decl * decl;
+
     if (is_int && !m_convert_int_numerals_to_real)
         decl = m_manager->mk_const_decl(m_intv_sym, m_int_decl, func_decl_info(m_family_id, OP_NUM, 2, p));
     else

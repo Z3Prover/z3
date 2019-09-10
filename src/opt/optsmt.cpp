@@ -181,6 +181,7 @@ namespace opt {
         for (unsigned i = 0; i < obj_index; ++i) {
             commit_assignment(i);
         }
+        m_s->get_model(m_model);
 
         unsigned steps = 0;
         unsigned step_incs = 0;
