@@ -171,6 +171,9 @@ namespace smt {
                 if (m_context.resource_limits_exceeded()) {
                     break;
                 }
+                if (m_context.get_cancel_flag()) {
+                    break;
+                }
                 since_last_check = 0;
             }
         }

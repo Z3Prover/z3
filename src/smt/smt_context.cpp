@@ -1711,39 +1711,36 @@ namespace smt {
        congruences cannot be retracted to a consistent state.
      */
     bool context::propagate() {
-        scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
         TRACE("propagate", tout << "propagating... " << m_qhead << ":" << m_assigned_literals.size() << "\n";);
         while (true) {
             if (inconsistent())
                 return false;
             unsigned qhead = m_qhead;
-            if (!bcp())
-                return false;
-            if (!propagate_th_case_split(qhead))
-                return false;
-            if (get_cancel_flag()) {
-                m_qhead = qhead;
-                return true;
+            {
+                scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
+                if (!bcp())
+                    return false;
+                if (!propagate_th_case_split(qhead))
+                    return false;
+                SASSERT(!inconsistent());
+                propagate_relevancy(qhead);
+                if (inconsistent())
+                    return false;
+                if (!propagate_atoms())
+                    return false;
+                if (!propagate_eqs())
+                    return false;
+                propagate_th_eqs();
+                propagate_th_diseqs();
+                if (inconsistent())
+                    return false;
+                if (!propagate_theories())
+                    return false;
             }
-            SASSERT(!inconsistent());
-            propagate_relevancy(qhead);
-            if (inconsistent())
-                return false;
-            if (!propagate_atoms())
-                return false;
-            if (!propagate_eqs())
-                return false;
-            if (get_cancel_flag()) {
-                m_qhead = qhead;
-                return true;
+            if (!get_cancel_flag()) {
+                scoped_suspend_rlimit _suspend_cancel(m_manager.limit(), at_base_level());
+                m_qmanager->propagate();
             }
-            propagate_th_eqs();
-            propagate_th_diseqs();
-            if (inconsistent())
-                return false;
-            if (!propagate_theories())
-                return false;
-            m_qmanager->propagate();
             if (inconsistent())
                 return false;
             if (resource_limits_exceeded()) {

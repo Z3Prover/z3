@@ -159,6 +159,12 @@ namespace smt {
             typename vector<row_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename vector<row_entry>::iterator end_entries() { return m_entries.end(); }
             typename vector<row_entry>::const_iterator end_entries() const { return m_entries.end(); }
+
+            typename vector<row_entry>::iterator begin() { return m_entries.begin(); }
+            typename vector<row_entry>::const_iterator begin() const { return m_entries.begin(); }
+            typename vector<row_entry>::iterator end() { return m_entries.end(); }
+            typename vector<row_entry>::const_iterator end() const { return m_entries.end(); }
+
             row_entry & add_row_entry(int & pos_idx);
             void del_row_entry(unsigned idx);
             void compress(vector<column> & cols); 
@@ -198,6 +204,10 @@ namespace smt {
             typename svector<col_entry>::const_iterator begin_entries() const { return m_entries.begin(); }
             typename svector<col_entry>::iterator end_entries() { return m_entries.end(); }
             typename svector<col_entry>::const_iterator end_entries() const { return m_entries.end(); }
+            typename svector<col_entry>::iterator begin() { return m_entries.begin(); }
+            typename svector<col_entry>::const_iterator begin() const { return m_entries.begin(); }
+            typename svector<col_entry>::iterator end() { return m_entries.end(); }
+            typename svector<col_entry>::const_iterator end() const { return m_entries.end(); }
             col_entry & add_col_entry(int & pos_idx);
             void del_col_entry(unsigned idx);
         };
