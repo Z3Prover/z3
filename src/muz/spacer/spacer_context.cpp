@@ -2655,11 +2655,6 @@ void context::init_lemma_generalizers()
 {
     reset_lemma_generalizers();
 
-    if (m_use_lim_num_gen) {
-        // first, to get small numbers before any other smt calls
-        m_lemma_generalizers.push_back(alloc(limit_num_generalizer, *this, 5));
-    }
-
     if (m_q3_qgen) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer,
                                              *this, 0, true));
@@ -2677,6 +2672,12 @@ void context::init_lemma_generalizers()
     if (m_use_ind_gen) {
         m_lemma_generalizers.push_back(alloc(lemma_bool_inductive_generalizer, *this, 0));
     }
+
+    // after the lemma is minimized (maybe should also do before)
+    if (m_use_lim_num_gen) {
+        m_lemma_generalizers.push_back(alloc(limit_num_generalizer, *this, 5));
+    }
+
 
     if (m_use_array_eq_gen) {
         m_lemma_generalizers.push_back(alloc(lemma_array_eq_generalizer, *this));
@@ -3051,9 +3052,10 @@ lbool context::solve_core (unsigned from_lvl)
 
         STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
         IF_VERBOSE(1,
-                   if (m_params.print_statistics ()) {
+                   if (m_params.print_statistics()) {
                        statistics st;
-                       collect_statistics (st);
+                       collect_statistics(st);
+                       st.display_smt2(verbose_stream());
                    };
             );
 

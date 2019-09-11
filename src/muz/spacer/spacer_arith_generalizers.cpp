@@ -20,6 +20,7 @@
 #include "ast/rewriter/rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
 #include "muz/spacer/spacer_generalizers.h"
+#include "smt/smt_solver.h"
 
 namespace spacer {
 
@@ -74,7 +75,7 @@ struct limit_denominator_rewriter_cfg : public default_rewriter_cfg {
             q2 = tj * q1 + q0;
             p2 = tj * p1 + p0;
             if (q2 >= m_limit) {
-                num = p2/q2;
+                num = p2 / q2;
                 return true;
             }
             rem = n - tj * d;
@@ -104,11 +105,11 @@ struct limit_denominator_rewriter_cfg : public default_rewriter_cfg {
 };
 } // namespace
 limit_num_generalizer::limit_num_generalizer(context &ctx,
-                                                   unsigned failure_limit)
+                                             unsigned failure_limit)
     : lemma_generalizer(ctx), m_failure_limit(failure_limit) {}
 
 bool limit_num_generalizer::limit_denominators(expr_ref_vector &lits,
-                                                  rational &limit) {
+                                               rational &limit) {
     ast_manager &m = m_ctx.get_ast_manager();
     limit_denominator_rewriter_cfg rw_cfg(m, limit);
     rewriter_tpl<limit_denominator_rewriter_cfg> rw(m, false, rw_cfg);
@@ -135,6 +136,10 @@ void limit_num_generalizer::operator()(lemma_ref &lemma) {
 
     expr_ref_vector cube(m);
 
+    // create a solver to check whether updated cube is in a generalization
+    ref<solver> sol = mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+    SASSERT(lemma->has_pob());
+    sol->assert_expr(lemma->get_pob()->post());
     unsigned weakness = lemma->weakness();
     rational limit(100);
     for (unsigned num_failures = 0; num_failures < m_failure_limit;
@@ -143,8 +148,33 @@ void limit_num_generalizer::operator()(lemma_ref &lemma) {
         cube.append(lemma->get_cube());
         // try to limit denominators
         if (!limit_denominators(cube, limit)) return;
-        // check that the result is inductive
-        if (pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
+
+        bool failed = false;
+        // check that pob->post() ==> cube
+        for (auto *lit : cube) {
+            solver::scoped_push _p_(*sol);
+            expr_ref nlit(m);
+            nlit = m.mk_not(lit);
+            sol->assert_expr(nlit);
+            lbool res = sol->check_sat(0, nullptr);
+            if (res == l_false) {
+                // good
+            } else {
+                failed = true;
+                TRACE("spacer.limnum", tout << "Failed to generalize: "
+                      << lemma->get_cube()
+                      << "\ninto\n"
+                      << cube << "\n";);
+                break;
+            }
+        }
+
+        // check that !cube & F & Tr ==> !cube'
+        if (!failed && pt.check_inductive(lemma->level(), cube, uses_level, weakness)) {
+            TRACE("spacer",
+                  tout << "Reduced fractions from:\n"
+                  << lemma->get_cube() << "\n\nto\n"
+                  << cube << "\n";);
             lemma->update_cube(lemma->get_pob(), cube);
             lemma->set_level(uses_level);
             // done
