@@ -355,7 +355,8 @@ namespace smt {
         SASSERT(v != null_theory_var);
         v = find(v);
         var_data* d = m_var_data[v];
-        TRACE("array", tout << "v" << v << " " << d->m_prop_upward << " " << m_params.m_array_delay_exp_axiom << "\n";);
+        TRACE("array", tout << "v" << v << " " << mk_pp(get_enode(v)->get_owner(), get_manager()) << " " 
+              << d->m_prop_upward << " " << m_params.m_array_delay_exp_axiom << "\n";);
         for (enode * store : d->m_stores) {
             SASSERT(is_store(store));
             instantiate_default_store_axiom(store);
@@ -690,7 +691,7 @@ namespace smt {
         app* store_app = store->get_owner();
         context& ctx = get_context();
         ast_manager& m = get_manager();
-        if (!ctx.add_fingerprint(this, m_default_store_fingerprint, 1, &store)) {
+        if (!ctx.add_fingerprint(this, m_default_store_fingerprint, store->get_num_args(), store->get_args())) {
             return false;
         }
 
@@ -723,15 +724,6 @@ namespace smt {
             eq = mk_and(eqs);
             expr* defA = mk_default(store_app->get_arg(0));
             def2 = m.mk_ite(eq, store_app->get_arg(num_args-1), defA); 
-#if 0
-            // 
-            // add soft constraints to guide model construction so that 
-            // epsilon agrees with the else case in the model construction.
-            // 
-            for (unsigned i = 0; i < eqs.size(); ++i) {
-                // assume_diseq(eqs[i]);
-            }
-#endif 
         }
 
         def1 = mk_default(store_app);
@@ -795,11 +787,10 @@ namespace smt {
         var_data* d = m_var_data[v];
         bool result = false;
         for (enode * store : d->m_parent_stores) {
-            TRACE("array", tout << expr_ref(store->get_owner(), get_manager()) << "\n";);
             SASSERT(is_store(store));
-            if (!m_params.m_array_cg || store->is_cgr()) {
-                if (instantiate_default_store_axiom(store))
-                    result = true;
+            if ((!m_params.m_array_cg || store->is_cgr()) && 
+                instantiate_default_store_axiom(store)) {
+                result = true;
             }
         }
         return result;
