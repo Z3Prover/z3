@@ -2306,21 +2306,6 @@ namespace smt {
         }
     }
 
-#if 0
-    /**
-       \brief Return true if it was possible to patch all variables in m_to_patch.
-    */
-    template<typename Ext>
-    bool theory_arith<Ext>::reduce_feasible() {
-        for (theory_vars v : sort_by_coefficients()) {
-            
-        }
-        m_value[v] += delta;
-        if (is_base(v) && !m_to_patch.contains(v) && (below_lower(v) || above_upper(v))) {
-            m_value[v] -= delta;
-        }
-    }
-#endif
 
     /**
        \brief Return true if it was possible to patch all variables in m_to_patch.

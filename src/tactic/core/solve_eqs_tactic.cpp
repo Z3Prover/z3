@@ -500,7 +500,6 @@ class solve_eqs_tactic : public tactic {
 
         bool is_compatible(goal const& g, unsigned idx, vector<nnf_context> const & path, expr* v, expr* eq) {
             expr_mark occ;
-            //std::cout << mk_pp(v, m()) << "\n";
             mark_occurs(occ, g, v);
             return is_goal_compatible(g, occ, idx, v, eq) && is_path_compatible(occ, path, v, eq);
         }
