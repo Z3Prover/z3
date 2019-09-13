@@ -2979,10 +2979,15 @@ bool theory_seq::reduce_length(unsigned i, unsigned j, bool front, expr_ref_vect
         expr_ref_vector lhs(m), rhs(m);
         lhs.append(l2, ls2);
         rhs.append(r2, rs2);
-        deps = mk_join(deps, lit);
+        for (auto const& e : m_eqs) {
+            if (e.ls() == lhs && e.rs() == rhs) {
+                return false;
+            }
+        }
+        deps = mk_join(deps, lit);                
         m_eqs.push_back(eq(m_eq_id++, lhs, rhs, deps));
         propagate_eq(deps, l, r, true);
-        TRACE("seq", tout << "propagate eq\nlhs: " << lhs << "\nrhs: " << rhs << "\n";);
+        TRACE("seq", tout << "propagate eq\n" << m_eqs.size() << "\nlhs: " << lhs << "\nrhs: " << rhs << "\n";);
         return true;
     }
     else {
