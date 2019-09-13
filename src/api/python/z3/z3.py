@@ -8955,14 +8955,13 @@ class FPRef(ExprRef):
         [a, b] = _coerce_fp_expr_list([other, self], self.ctx)
         return fpDiv(_dflt_rm(), a, b, self.ctx)
 
-    if not sys.version < '3':
-        def __truediv__(self, other):
-            """Create the Z3 expression division `self / other`."""
-            return self.__div__(other)
+    def __truediv__(self, other):
+        """Create the Z3 expression division `self / other`."""
+        return self.__div__(other)
 
-        def __rtruediv__(self, other):
-            """Create the Z3 expression division `other / self`."""
-            return self.__rdiv__(other)
+    def __rtruediv__(self, other):
+        """Create the Z3 expression division `other / self`."""
+        return self.__rdiv__(other)
 
     def __mod__(self, other):
         """Create the Z3 expression mod `self % other`."""
