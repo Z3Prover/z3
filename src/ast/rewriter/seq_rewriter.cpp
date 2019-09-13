@@ -1902,7 +1902,7 @@ br_status seq_rewriter::mk_re_opt(expr* a, expr_ref& result) {
 }
 
 br_status seq_rewriter::mk_eq_core(expr * l, expr * r, expr_ref & result) {
-    TRACE("seq", tout << mk_pp(l, m()) << " = " << mk_pp(r, m()) << "\n";);
+    TRACE("seq", tout << mk_bounded_pp(l, m(), 2) << " = " << mk_bounded_pp(r, m(), 2) << "\n";);
     expr_ref_vector lhs(m()), rhs(m()), res(m());
     bool changed = false;
     if (!reduce_eq(l, r, lhs, rhs, changed)) {

@@ -140,7 +140,6 @@ void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
     value.first = r;
     value.second = d;
     m_map.insert(e, value);
-    // std::cout << mk_pp(e, m) << " -> " << mk_pp(r, m) << "\n";
     add_trail(INS, e, r, d);
 }
 
@@ -225,7 +224,7 @@ void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
 
 void theory_seq::solution_map::display(std::ostream& out) const {
     for (auto const& kv : m_map) {
-        out << mk_bounded_pp(kv.m_key, m) << " |-> " << mk_bounded_pp(kv.m_value.first, m) << "\n";
+        out << mk_bounded_pp(kv.m_key, m, 2) << " |-> " << mk_bounded_pp(kv.m_value.first, m, 2) << "\n";
     }
 }
 
@@ -260,7 +259,7 @@ void theory_seq::exclusion_table::pop_scope(unsigned num_scopes) {
 
 void theory_seq::exclusion_table::display(std::ostream& out) const {
     for (auto const& kv : m_table) {
-        out << mk_pp(kv.first, m) << " != " << mk_pp(kv.second, m) << "\n";
+        out << mk_bounded_pp(kv.first, m, 2) << " != " << mk_bounded_pp(kv.second, m, 2) << "\n";
     }
 }
 
@@ -555,20 +554,20 @@ void theory_seq::branch_unit_variable(dependency* dep, expr* X, expr_ref_vector 
     context& ctx = get_context();
     rational lenX;
     if (!get_length(X, lenX)) {
-        TRACE("seq", tout << "enforce length on " << mk_pp(X, m) << "\n";);
+        TRACE("seq", tout << "enforce length on " << mk_bounded_pp(X, m, 2) << "\n";);
         enforce_length(X);
         return;
     }
     if (lenX > rational(units.size())) {
         expr_ref le(m_autil.mk_le(mk_len(X), m_autil.mk_int(units.size())), m);
-        TRACE("seq", tout << "propagate length on " << mk_pp(X, m) << "\n";);
+        TRACE("seq", tout << "propagate length on " << mk_bounded_pp(X, m, 2) << "\n";);
         propagate_lit(dep, 0, nullptr, mk_literal(le));
         return;
     }
     SASSERT(lenX.is_unsigned());
     unsigned lX = lenX.get_unsigned();
     if (lX == 0) {
-        TRACE("seq", tout << "set empty length " << mk_pp(X, m) << "\n";);
+        TRACE("seq", tout << "set empty length " << mk_bounded_pp(X, m, 2) << "\n";);
         set_empty(X);
     }
     else {
@@ -2223,15 +2222,27 @@ bool theory_seq::is_solved() {
             return false;
         }
     }
-    if (false && !m_nqs.empty()) {
-        TRACE("seq", display_disequation(tout << "(seq.giveup ", m_nqs[0]); tout << " is unsolved)\n";);
-        IF_VERBOSE(10, display_disequation(verbose_stream() << "(seq.giveup ", m_nqs[0]); verbose_stream() << " is unsolved)\n";);
-        return false;
-    }
     if (!m_ncs.empty()) {
         TRACE("seq", display_nc(tout << "(seq.giveup ", m_ncs[0]); tout << " is unsolved)\n";);
         IF_VERBOSE(10, display_nc(verbose_stream() << "(seq.giveup ", m_ncs[0]); verbose_stream() << " is unsolved)\n";);
         return false;
+    }
+
+    context& ctx = get_context();
+    for (enode* n : ctx.enodes()) {
+        expr* e = nullptr;
+        rational len1, len2;
+        if (m_util.str.is_length(n->get_owner(), e)) {
+            VERIFY(get_length(e, len1));
+            dependency* dep = nullptr;
+            expr_ref r = canonize(e, dep);
+            if (get_length(r, len2)) {
+                SASSERT(len1 == len2);
+            }
+            else {
+                std::cout << r << "does not have a length\n";
+            }
+        }        
     }
 
     return true;
@@ -2615,7 +2626,7 @@ bool theory_seq::add_solution(expr* l, expr* r, dependency* deps)  {
     m_rep.update(l, r, deps);
     enode* n1 = ensure_enode(l);
     enode* n2 = ensure_enode(r);    
-    TRACE("seq", tout << mk_pp(l, m) << " ==> " << mk_bounded_pp(r, m) << "\n"; display_deps(tout, deps);
+    TRACE("seq", tout << mk_bounded_pp(l, m, 2) << " ==> " << mk_bounded_pp(r, m, 2) << "\n"; display_deps(tout, deps);
           tout << (n1->get_root() == n2->get_root()) << "\n";);         
     propagate_eq(deps, n1, n2);
     return true;
@@ -3609,7 +3620,7 @@ bool theory_seq::internalize_term(app* term) {
 }
 
 void theory_seq::add_length(expr* e, expr* l) {
-    TRACE("seq", tout << get_context().get_scope_level() << " " << mk_pp(e, m) << "\n";);
+    TRACE("seq", tout << get_context().get_scope_level() << " " << mk_bounded_pp(e, m, 2) << "\n";);
     SASSERT(!m_length.contains(l));
     m_length.push_back(l);
     m_has_length.insert(e);
@@ -3878,7 +3889,7 @@ void theory_seq::display(std::ostream & out) const {
 }
 
 std::ostream& theory_seq::display_nc(std::ostream& out, nc const& nc) const {
-    out << "not " << mk_pp(nc.contains(), m) << "\n";
+    out << "not " << mk_bounded_pp(nc.contains(), m, 2) << "\n";
     display_deps(out << "  <- ", nc.deps()) << "\n";
     return out;
 }
@@ -3891,7 +3902,11 @@ std::ostream& theory_seq::display_equations(std::ostream& out) const {
 }
 
 std::ostream& theory_seq::display_equation(std::ostream& out, eq const& e) const {
-    out << e.ls() << " = " << e.rs() << " <- \n";
+    bool first = true;
+    for (expr* a : e.ls()) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
+    out << " = ";
+    for (expr* a : e.rs()) { if (first) first = false; else out << "\n"; out << mk_bounded_pp(a, m, 2); }
+    out << " <- \n";
     return display_deps(out, e.dep());    
 }
 
@@ -3914,11 +3929,11 @@ std::ostream& theory_seq::display_disequation(std::ostream& out, ne const& e) co
     }
     for (unsigned j = 0; j < e.ls().size(); ++j) {
         for (expr* t : e.ls(j)) {
-            out << mk_bounded_pp(t, m) << " ";
+            out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << " != ";
         for (expr* t : e.rs(j)) {
-            out << mk_bounded_pp(t, m) << " ";
+            out << mk_bounded_pp(t, m, 2) << " ";
         }
         out << "\n";
     }
@@ -3933,8 +3948,8 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
     smt2_pp_environment_dbg env(m);
     params_ref p;
     for (auto const& eq : eqs) {
-        out << "  (= " << mk_bounded_pp(eq.first->get_owner(), m)
-            << "\n     " << mk_bounded_pp(eq.second->get_owner(), m) 
+        out << "  (= " << mk_bounded_pp(eq.first->get_owner(), m, 2)
+            << "\n     " << mk_bounded_pp(eq.second->get_owner(), m, 2) 
             << ")\n";
     }
     for (literal l : lits) {
@@ -4283,9 +4298,9 @@ bool theory_seq::can_propagate() {
 
 expr_ref theory_seq::canonize(expr* e, dependency*& eqs) {
     expr_ref result = expand(e, eqs);
-    TRACE("seq", tout << mk_pp(e, m) << " expands to\n" << result << "\n";);
+    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " expands to\n" << mk_bounded_pp(result, m, 2) << "\n";);
     m_rewrite(result);
-    TRACE("seq", tout << mk_pp(e, m) << " rewrites to\n" << result << "\n";);
+    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " rewrites to\n" << mk_bounded_pp(result, m, 2) << "\n";);
     return result;
 }
 
@@ -4436,7 +4451,7 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
             case l_undef:
                 result = e;  
                 m_reset_cache = true;
-                TRACE("seq", tout << "undef: " << result << "\n";
+                TRACE("seq", tout << "undef: " << mk_bounded_pp(result, m, 2) << "\n";
                       tout << lit << "@ level: " << ctx.get_scope_level() << "\n";);
                 break;
             }
@@ -4444,9 +4459,9 @@ expr_ref theory_seq::expand1(expr* e0, dependency*& eqs) {
     }
     else if (m_util.str.is_itos(e, e1)) {
         rational val;
-        TRACE("seq", tout << mk_pp(e, m) << "\n";);
+        TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
         if (get_num_value(e1, val)) {
-            TRACE("seq", tout << mk_pp(e, m) << " -> " << val << "\n";);
+            TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " -> " << val << "\n";);
             expr_ref num(m), res(m);
             num = m_autil.mk_numeral(val, true);
             if (!ctx.e_internalized(num)) {
@@ -4536,7 +4551,7 @@ void theory_seq::enque_axiom(expr* e) {
 }
 
 void theory_seq::deque_axiom(expr* n) {
-    TRACE("seq", tout << "deque: " << mk_pp(n, m) << "\n";);
+    TRACE("seq", tout << "deque: " << mk_bounded_pp(n, m, 2) << "\n";);
     if (m_util.str.is_length(n)) {
         add_length_axiom(n);
     }
@@ -5141,7 +5156,7 @@ this translates to:
 
 
 void theory_seq::add_extract_axiom(expr* e) {
-    TRACE("seq", tout << mk_pp(e, m) << "\n";);
+    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << "\n";);
     expr* s = nullptr, *i = nullptr, *l = nullptr;
     VERIFY(m_util.str.is_extract(e, s, i, l));
     if (is_tail(s, i, l)) {
@@ -5247,7 +5262,7 @@ bool theory_seq::is_extract_suffix(expr* s, expr* i, expr* l) {
   l < 0 => e = empty
  */
 void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
-    TRACE("seq", tout << mk_pp(e, m) << " " << mk_pp(s, m) << " " << mk_pp(l, m) << "\n";);
+    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(l, m, 2) << "\n";);
     expr_ref le = mk_len(e);
     expr_ref ls = mk_len(s);
     expr_ref ls_minus_l(mk_sub(ls, l), m);
@@ -5362,7 +5377,7 @@ void theory_seq::add_nth_axiom(expr* e) {
     lit => s = (nth s 0) ++ (nth s 1) ++ ... ++ (nth s idx) ++ (tail s idx)
 */
 void theory_seq::ensure_nth(literal lit, expr* s, expr* idx) {
-    TRACE("seq", tout << "ensure-nth: " << lit << " " << mk_pp(s, m) << " " << mk_pp(idx, m) << "\n";);
+    TRACE("seq", tout << "ensure-nth: " << lit << " " << mk_bounded_pp(s, m, 2) << " " << mk_bounded_pp(idx, m, 2) << "\n";);
     rational r;
     SASSERT(get_context().get_assignment(lit) == l_true);
     VERIFY(m_autil.is_numeral(idx, r) && r.is_unsigned());
@@ -5587,7 +5602,7 @@ bool theory_seq::propagate_eq(dependency* deps, literal_vector const& _lits, exp
           if (!lits.empty()) { ctx.display_literals_verbose(tout, lits) << "\n"; });
 
     TRACE("seq",
-          tout << "assert: " << mk_bounded_pp(e1, m) << " = " << mk_bounded_pp(e2, m) << " <- \n";
+          tout << "assert: " << mk_bounded_pp(e1, m, 2) << " = " << mk_bounded_pp(e2, m, 2) << " <- \n";
           tout << lits << "\n";);
 
     justification* js =
@@ -5806,7 +5821,7 @@ void theory_seq::new_diseq_eh(theory_var v1, theory_var v2) {
     }
     m_exclude.update(e1, e2);
     expr_ref eq(m.mk_eq(e1, e2), m);
-    TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << eq << "\n";);
+    TRACE("seq", tout << "new disequality " << get_context().get_scope_level() << ": " << mk_bounded_pp(eq, m, 2) << "\n";);
     m_rewrite(eq);
     if (!m.is_false(eq)) {
         literal lit = mk_eq(e1, e2, false);
@@ -6207,7 +6222,7 @@ bool theory_seq::canonizes(bool sign, expr* e) {
     context& ctx = get_context();
     dependency* deps = nullptr;
     expr_ref cont = canonize(e, deps);
-    TRACE("seq", tout << mk_pp(e, m) << " -> " << cont << "\n";
+    TRACE("seq", tout << mk_bounded_pp(e, m, 2) << " -> " << mk_bounded_pp(cont, m, 2) << "\n";
           if (deps) display_deps(tout, deps););
     if ((m.is_true(cont) && !sign) ||
         (m.is_false(cont) && sign)) {

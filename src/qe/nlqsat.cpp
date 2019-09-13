@@ -350,6 +350,16 @@ namespace qe {
             }
         }
 
+        void display_project(std::ostream& out, nlsat::var v, nlsat::scoped_literal_vector const& r1, nlsat::scoped_literal_vector const& r2) {
+            for (auto const& kv : s.m_x2t) {
+                out << "(declare-const x" << kv.m_key << " Real)\n";
+            }
+            s.m_solver.display(out << "(assert (not (exists ((", v) << " Real)) \n";
+            s.m_solver.display_smt2(out << "(and ", r1.size(), r1.c_ptr()) << "))))\n";
+            s.m_solver.display_smt2(out << "(assert (and ", r2.size(), r2.c_ptr()); out << "))\n";
+            out << "(check-sat)\n(reset)\n";            
+        }
+
         void mbp(nlsat::var_vector const& vars, uint_set const& fvars, clause& result) {
             // 
             // Also project auxiliary variables from clausification.
@@ -370,11 +380,10 @@ namespace qe {
             // renaming variables. 
             for (unsigned i = vars.size(); i-- > 0;) {
                 new_result.reset();
-                TRACE("qe", s.m_solver.display(tout << "project: ", vars[i]) << "\n";);
                 ex.project(vars[i], result.size(), result.c_ptr(), new_result);
+                TRACE("qe", display_project(tout, vars[i], result, new_result););                
+                TRACE("qe", display_project(std::cout, vars[i], result, new_result););
                 result.swap(new_result);
-                TRACE("qe", s.m_solver.display(tout, vars[i]) << ": ";
-                      s.m_solver.display(tout, result.size(), result.c_ptr()); tout << "\n";);
             }
             negate_clause(result);
         }

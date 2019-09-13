@@ -421,6 +421,8 @@ public:
         }
         return num_bits;
     }
+
+    static bool limit_denominator(rational &num, rational const& limit);
 };
 
 inline bool operator!=(rational const & r1, rational const & r2) { 

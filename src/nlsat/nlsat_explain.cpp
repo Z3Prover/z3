@@ -1162,18 +1162,21 @@ namespace nlsat {
                 new_lit = m_solver.mk_ineq_literal(new_k, new_factors.size(), new_factors.c_ptr(), new_factors_even.c_ptr());
                 if (l.sign())
                     new_lit.neg();
-                TRACE("nlsat_simplify_core", tout << "simplified literal:\n"; display(tout, new_lit); tout << "\n";);
+                TRACE("nlsat_simplify_core", tout << "simplified literal:\n"; display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
+                
                 if (max_var(new_lit) < max) {
-                    // The conflicting core may have redundant literals.
-                    // We should check whether new_lit is true in the current model, and discard it if that is the case
-                    VERIFY(m_solver.value(new_lit) != l_undef);
-                    if (m_solver.value(new_lit) == l_false)
+                    if (m_solver.value(new_lit) == l_true) {
+                        new_lit = l;
+                    }
+                    else {
                         add_literal(new_lit);
-                    new_lit = true_literal;
-                    return;
+                        new_lit = true_literal;
+                    }
                 }
-                new_lit = normalize(new_lit, max);
-                TRACE("nlsat_simplify_core", tout << "simplified literal after normalization:\n"; display(tout, new_lit); tout << "\n";);
+                else {
+                    new_lit = normalize(new_lit, max);
+                    TRACE("nlsat_simplify_core", tout << "simplified literal after normalization:\n"; display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
+                }
             }
             else {
                 new_lit = l;
@@ -1333,6 +1336,7 @@ namespace nlsat {
                 poly * eq_p = eq->p(0);
                 VERIFY(simplify(C, eq_p, max));
                 // add equation as an assumption                
+                TRACE("nlsat_simpilfy_core", display(tout << "adding equality as assumption ", literal(eq->bvar(), true)); tout << "\n";);
                 add_literal(literal(eq->bvar(), true));
             }
         }
@@ -1511,7 +1515,7 @@ namespace nlsat {
                 result.set(i, ~result[i]);
             }
             DEBUG_CODE(
-                TRACE("nlsat", m_solver.display(tout, result.size(), result.c_ptr()); );
+                TRACE("nlsat", m_solver.display(tout, result.size(), result.c_ptr()) << "\n"; );
                 for (literal l : result) {
                     CTRACE("nlsat", l_true != m_solver.value(l), m_solver.display(tout, l) << " " << m_solver.value(l) << "\n";);
                     SASSERT(l_true == m_solver.value(l));
@@ -1619,12 +1623,12 @@ namespace nlsat {
             unsigned glb_index = 0, lub_index = 0;
             scoped_anum lub(m_am), glb(m_am), x_val(m_am);
             x_val = m_assignment.value(x);
+            bool glb_valid = false, lub_valid = false;
             for (unsigned i = 0; i < ps.size(); ++i) {
                 p = ps.get(i);
                 scoped_anum_vector & roots = m_roots_tmp;
                 roots.reset();
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, x), roots);
-                bool glb_valid = false, lub_valid = false;
                 for (auto const& r : roots) {
                     int s = m_am.compare(x_val, r);
                     SASSERT(s != 0);
@@ -1632,23 +1636,19 @@ namespace nlsat {
                     if (s < 0 && (!lub_valid || m_am.lt(r, lub))) {
                         lub_index = i;
                         m_am.set(lub, r);
+                        lub_valid = true;
                     }
 
                     if (s > 0 && (!glb_valid || m_am.lt(glb, r))) {
                         glb_index = i;
-                        m_am.set(glb, r);                        
+                        m_am.set(glb, r);
+                        glb_valid = true;
                     }
-                    lub_valid |= s < 0;
-                    glb_valid |= s > 0;
-                }
-                if (glb_valid) {
-                    ++num_glb;
-                }
-                if (lub_valid) {
-                    ++num_lub;
+                    if (s < 0) ++num_lub;
+                    if (s > 0) ++num_glb;
                 }
             }
-            TRACE("nlsat_explain", tout << ps << "\n";);
+            TRACE("nlsat_explain", tout << "glb: " << num_glb << " lub: " << num_lub << "\n" << lub_index << "\n" << glb_index << "\n" << ps << "\n";);
 
             if (num_lub == 0) {
                 project_plus_infinity(x, ps);

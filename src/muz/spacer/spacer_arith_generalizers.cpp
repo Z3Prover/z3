@@ -45,48 +45,7 @@ struct limit_denominator_rewriter_cfg : public default_rewriter_cfg {
     }
 
     bool limit_denominator(rational &num) {
-        rational n, d;
-        n = numerator(num);
-        d = denominator(num);
-        if (d < m_limit) return false;
-
-        /*
-          Iteratively computes approximation using continuous fraction
-          decomposition
-
-          p(-1) = 0, p(0) = 1
-          p(j) = t(j)*p(j-1) + p(j-2)
-
-          q(-1) = 1, q(0) = 0
-          q(j) = t(j)*q(j-1) + q(j-2)
-
-          cf[t1; t2, ..., tr] =  p(r) / q(r) for r >= 1
-          reference: https://www.math.u-bordeaux.fr/~pjaming/M1/exposes/MA2.pdf
-        */
-
-        rational p0(0), p1(1);
-        rational q0(1), q1(0);
-
-        while (d != rational(0)) {
-            rational tj(0), rem(0);
-            rational p2(0), q2(0);
-            tj = div(n, d);
-
-            q2 = tj * q1 + q0;
-            p2 = tj * p1 + p0;
-            if (q2 >= m_limit) {
-                num = p2 / q2;
-                return true;
-            }
-            rem = n - tj * d;
-            p0 = p1;
-            p1 = p2;
-            q0 = q1;
-            q1 = q2;
-            n = d;
-            d = rem;
-        }
-        return false;
+        return rational::limit_denominator(num, m_limit);
     }
 
     br_status reduce_app(func_decl *f, unsigned num, expr *const *args,

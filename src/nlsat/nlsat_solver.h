@@ -245,6 +245,13 @@ namespace nlsat {
 
         std::ostream& display(std::ostream & out, atom const& a) const;
 
+        std::ostream& display_smt2(std::ostream & out, literal l) const;
+
+        std::ostream& display_smt2(std::ostream & out, unsigned n, literal const* ls) const;
+
+        std::ostream& display_smt2(std::ostream & out, literal_vector const& ls) const;
+
+
         /**
            \brief Display variable
         */

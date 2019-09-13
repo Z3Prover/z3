@@ -410,8 +410,8 @@ namespace polynomial {
                         proc(out, x);
                     }
                 }
+                out << ")";
             }
-            out << ")";
         }
 
         bool is_unit() const { return m_size == 0; }
@@ -1576,12 +1576,20 @@ namespace polynomial {
                 display_num_smt2(out, nm, a_i);
             }
             else if (nm.is_one(a_i)) {
-                m_i->display(out, proc);
+                if (m_i->size() == 1) {
+                    m_i->display_smt2(out, proc);
+                }
+                else {
+                    out << "(* ";
+                    m_i->display_smt2(out, proc);
+                    out << ")";
+                }
             }
             else {
                 out << "(* ";
                 display_num_smt2(out, nm, a_i);
-                m_i->display(out, proc);
+                out << " ";
+                m_i->display_smt2(out, proc);
                 out << ")";
             }
         }
