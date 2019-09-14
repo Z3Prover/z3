@@ -157,32 +157,25 @@ namespace nlsat {
         ~imp() {
         }
 
-        void display(std::ostream & out, polynomial_ref const & p) const {
+        std::ostream& display(std::ostream & out, polynomial_ref const & p) const {
             m_pm.display(out, p, m_solver.display_proc());
+            return out;
         }
         
-        void display(std::ostream & out, polynomial_ref_vector const & ps, char const * delim = "\n") const {
+        std::ostream& display(std::ostream & out, polynomial_ref_vector const & ps, char const * delim = "\n") const {
             for (unsigned i = 0; i < ps.size(); i++) {
                 if (i > 0)
                     out << delim;
                 m_pm.display(out, ps.get(i), m_solver.display_proc());
             }
+            return out;
         }
         
-        void display(std::ostream & out, literal l) const { m_solver.display(out, l); }
-        void display_var(std::ostream & out, var x) const { m_solver.display(out, x); }
-        void display(std::ostream & out, unsigned sz, literal const * ls) {
-            for (unsigned i = 0; i < sz; i++) {
-                display(out, ls[i]);
-                out << "\n";
-            }
-        }
-        void display(std::ostream & out, literal_vector const & ls) {
-            display(out, ls.size(), ls.c_ptr()); 
-        }
-        void display(std::ostream & out, scoped_literal_vector const & ls) {
-            display(out, ls.size(), ls.c_ptr()); 
-        }
+        std::ostream& display(std::ostream & out, literal l) const { return m_solver.display(out, l); }
+        std::ostream& display_var(std::ostream & out, var x) const { return m_solver.display(out, x); }
+        std::ostream& display(std::ostream & out, unsigned sz, literal const * ls) const { return m_solver.display(out, sz, ls); }
+        std::ostream& display(std::ostream & out, literal_vector const & ls) const { return display(out, ls.size(), ls.c_ptr()); }
+        std::ostream& display(std::ostream & out, scoped_literal_vector const & ls) const { return display(out, ls.size(), ls.c_ptr()); }
 
         /**
            \brief Add literal to the result vector.
@@ -430,7 +423,7 @@ namespace nlsat {
                             bool lit_val  = l.sign() ? !atom_val : atom_val;
                             return lit_val ? true_literal : false_literal;
                         }
-                        else if (s == -1 && a->is_odd(i)) {
+                        else if (s < 0 && a->is_odd(i)) {
                             atom_sign = -atom_sign;
                         }
                         normalized = true;
@@ -1135,7 +1128,7 @@ namespace nlsat {
                                 info.add_lc_ineq();
                             }
                         }
-                        if (s == -1 && !is_even) {
+                        if (s < 0 && !is_even) {
                             atom_sign = -atom_sign;
                         }
                     }
@@ -1162,7 +1155,7 @@ namespace nlsat {
                 new_lit = m_solver.mk_ineq_literal(new_k, new_factors.size(), new_factors.c_ptr(), new_factors_even.c_ptr());
                 if (l.sign())
                     new_lit.neg();
-                TRACE("nlsat_simplify_core", tout << "simplified literal:\n"; display(tout, new_lit); tout << " " << m_solver.value(new_lit) << "\n";);
+                TRACE("nlsat_simplify_core", tout << "simplified literal:\n"; display(tout, new_lit) << " " << m_solver.value(new_lit) << "\n";);
                 
                 if (max_var(new_lit) < max) {
                     if (m_solver.value(new_lit) == l_true) {
@@ -1456,7 +1449,7 @@ namespace nlsat {
         void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
-            TRACE("nlsat_explain", tout << "[explain] set of literals is infeasible in the current interpretation\n"; display(tout, num, ls););
+            TRACE("nlsat_explain", tout << "[explain] set of literals is infeasible in the current interpretation\n"; display(tout, num, ls) << "\n";);
             m_result = &result;
             process(num, ls);
             reset_already_added();

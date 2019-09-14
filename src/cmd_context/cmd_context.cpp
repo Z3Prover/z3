@@ -1884,6 +1884,9 @@ void cmd_context::validate_model() {
                 if (m().is_true(r))
                     continue;
 
+                analyze_failure(evaluator, a, true);
+                IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
+
                 // The evaluator for array expressions is not complete
                 // If r contains as_array/store/map/const expressions, then we do not generate the error.
                 // TODO: improve evaluator for model expressions.
@@ -1899,8 +1902,6 @@ void cmd_context::validate_model() {
                     continue;
                 }
                 TRACE("model_validate", model_smt2_pp(tout, *this, *md, 0););
-                analyze_failure(evaluator, a, true);
-                IF_VERBOSE(11, model_smt2_pp(verbose_stream(), *this, *md, 0););                
                 invalid_model = true;
             }
         }

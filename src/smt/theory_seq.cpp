@@ -1962,7 +1962,7 @@ bool theory_seq::fixed_length(expr* len_e, bool is_zero) {
         }
         seq = mk_concat(elems.size(), elems.c_ptr());
     }
-    TRACE("seq", tout << "Fixed: " << mk_pp(e, m) << " " << lo << "\n";);
+    TRACE("seq", tout << "Fixed: " << mk_bounded_pp(e, m, 2) << " " << lo << "\n";);
     add_axiom(~mk_eq(len_e, m_autil.mk_numeral(lo, true), false), mk_seq_eq(seq, e));
     if (!ctx.at_base_level()) {
         m_trail_stack.push(push_replay(alloc(replay_fixed_length, m, len_e)));
@@ -3880,7 +3880,7 @@ void theory_seq::display(std::ostream & out) const {
         lower_bound(e, lo);
         upper_bound(e, hi);
         if (lo.is_pos() || !hi.is_minus_one()) {
-            out << mk_pp(e, m) << " [" << lo << ":" << hi << "]\n";
+            out << mk_bounded_pp(e, m, 3) << " [" << lo << ":" << hi << "]\n";
         }
     }
 
