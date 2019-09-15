@@ -475,9 +475,6 @@ namespace qe {
             else {
                 SASSERT(clevel.max() + 2 <= level());
                 num_scopes = level() - clevel.max();
-                if ((num_scopes % 2) != 0) {
-                    --num_scopes;
-                }
                 SASSERT(num_scopes >= 2);
             }
             
