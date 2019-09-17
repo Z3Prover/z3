@@ -24,7 +24,7 @@ Revision History:
 #include "util/params.h"
 #include "nlsat/nlsat_solver.h"
 #include "math/lp/lar_solver.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "math/lp/nla_core.h"
 
 namespace nla {
@@ -34,7 +34,7 @@ class solver {
     reslimit m_res_limit;
     core* m_core;
 public:
-    void add_monomial(lpvar v, unsigned sz, lpvar const* vs);
+    void add_monic(lpvar v, unsigned sz, lpvar const* vs);
     
     solver(lp::lar_solver& s);
     ~solver();
@@ -43,6 +43,6 @@ public:
     void pop(unsigned scopes);
     bool need_check();
     lbool check(vector<lemma>&);
-    bool is_monomial_var(lpvar) const;
+    bool is_monic_var(lpvar) const;
 };
 }

@@ -35,6 +35,8 @@ struct grobner_stats {
     grobner_stats() { reset(); }
 };
 
+struct monomial {
+};
 
 class equation {
     unsigned             m_scope_lvl;     //!< scope level when this equation was created.

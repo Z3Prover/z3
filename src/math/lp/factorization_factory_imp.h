@@ -24,12 +24,12 @@ namespace nla {
 
     struct factorization_factory_imp: factorization_factory {
         const core&  m_core;
-        const monomial & m_mon;
-        const monomial& m_rm;
+        const monic & m_mon;
+        const monic& m_rm;
         
-        factorization_factory_imp(const monomial& rm, const core& s);
-        bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned & i) const;
-        virtual bool canonize_sign(const monomial& m) const;
+        factorization_factory_imp(const monic& rm, const core& s);
+        bool find_canonical_monic_of_vars(const svector<lpvar>& vars, unsigned & i) const;
+        virtual bool canonize_sign(const monic& m) const;
         virtual bool canonize_sign(const factorization& m) const;
  };
 }

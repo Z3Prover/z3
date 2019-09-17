@@ -26,25 +26,25 @@ bool common::done() const { return c().done(); }
 template <typename T> void common::explain(const T& t) {
     c().explain(t, c().current_expl());
 }
-template void common::explain<monomial>(const monomial& t);
+template void common::explain<monic>(const monic& t);
 template void common::explain<factor>(const factor& t);
 template void common::explain<factorization>(const factorization& t);
 
 void common::explain(lpvar j) { c().explain(j, c().current_expl()); }
 
 template <typename T> rational common::val(T const& t) const { return c().val(t); }
-template rational common::val<monomial>(monomial const& t) const;
+template rational common::val<monic>(monic const& t) const;
 template rational common::val<factor>(factor const& t) const;
 rational common::val(lpvar t) const { return c().val(t); }
 template <typename T> lpvar common::var(T const& t) const { return c().var(t); }
 template lpvar common::var<factor>(factor const& t) const;
-template lpvar common::var<monomial>(monomial const& t) const;
+template lpvar common::var<monic>(monic const& t) const;
 void common::add_empty_lemma() { c().add_empty_lemma(); }
 template <typename T> bool common::canonize_sign(const T& t) const {
     return c().canonize_sign(t);
 }
 
-template bool common::canonize_sign<monomial>(const monomial&) const;
+template bool common::canonize_sign<monic>(const monic&) const;
 template bool common::canonize_sign<factor>(const factor&) const;
 template bool common::canonize_sign<lpvar>(const lpvar&) const;
 template bool common::canonize_sign<factorization>(const factorization&) const;
@@ -102,8 +102,8 @@ std::ostream& common::print_product(const T & m, std::ostream& out) const {
 template 
 std::ostream& common::print_product<unsigned_vector>(const unsigned_vector & m, std::ostream& out) const;
 
-std::ostream& common::print_monomial(const monomial & m, std::ostream& out) const {
-    return c().print_monomial(m, out);
+std::ostream& common::print_monic(const monic & m, std::ostream& out) const {
+    return c().print_monic(m, out);
 }
 
 std::ostream& common::print_factor(const factor & f, std::ostream& out) const {
@@ -114,8 +114,8 @@ std::ostream& common::print_var(lpvar j, std::ostream& out) const {
     return c().print_var(j, out);
 }
 
-bool common::check_monomial(const monomial& m) const {
-    return c().check_monomial(m);
+bool common::check_monic(const monic& m) const {
+    return c().check_monic(m);
 }
 
 unsigned common::random() {
