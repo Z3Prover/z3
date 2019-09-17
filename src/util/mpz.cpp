@@ -273,7 +273,11 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
     SASSERT(capacity(c) >= m_init_cell_capacity);
     uint64_t _v;
     if (v < 0) {
-        _v = -v;
+        if (v == std::numeric_limits<int64_t>::min()) {
+            _v = std::numeric_limits<int64_t>::min();
+        } else {
+            _v = -v;
+        }
         c.m_val = -1;
     }
     else {
@@ -300,7 +304,11 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
     uint64_t _v;
     bool sign;
     if (v < 0) {
-        _v   = -v;
+        if (v == std::numeric_limits<int64_t>::min()) {
+            _v = std::numeric_limits<int64_t>::min();
+        } else {
+            _v = -v;
+        }
         sign = true;
     }
     else {
