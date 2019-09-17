@@ -127,9 +127,52 @@ void nla_grobner::init() {
     find_nl_cluster();
 }
 
-equation* nla_grobner::pick_next() {
+bool nla_grobner::is_trivial(equation* eq) const {
+    return eq->m_monomials.empty();
+}
+
+bool nla_grobner:: is_better_choice(equation * eq1, equation * eq2) {
+    if (!eq2)
+        return true;
+    if (is_trivial(eq1))
+        return true;
+    if (is_trivial(eq2))
+        return false;
+    if (eq1->m_monomials[0]->get_degree() < eq2->m_monomials[0]->get_degree())
+        return true;
+    if (eq1->m_monomials[0]->get_degree() > eq2->m_monomials[0]->get_degree())
+        return false;
+    return eq1->m_monomials.size() < eq2->m_monomials.size();
+
+}
+
+void nla_grobner::del_equation(equation * eq) {
     SASSERT(false);
-    return nullptr;
+    /*
+    m_processed.erase(eq);
+    m_to_process.erase(eq);
+    SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
+    m_equations_to_delete[eq->m_bidx] = 0;
+    del_monomials(eq->m_monomials);
+    dealloc(eq);
+    */
+}
+
+equation* nla_grobner::pick_next() {
+    equation * r = nullptr;
+    ptr_buffer<equation> to_delete;
+    for (equation * curr : m_to_process) {
+        if (is_trivial(curr))
+            to_delete.push_back(curr);
+        else if (is_better_choice(curr, r))
+            r = curr;
+    }
+    for (equation * e : to_delete) 
+        del_equation(e);
+    if (r)
+        m_to_process.erase(r);
+    TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
+    return r;
 }
 
 equation* nla_grobner::simplify_using_processed(equation* eq) {
@@ -197,31 +240,101 @@ bool nla_grobner::compute_basis_loop(){
     return false;
 }
 
-void nla_grobner::set_gb_exhausted(){ SASSERT(false); }
-
-void nla_grobner::update_statistics(){
-    SASSERT(false);
+void nla_grobner::set_gb_exhausted(){
+        NOT_IMPLEMENTED_YET();
 }
 
-bool nla_grobner::find_conflict(){ SASSERT(false);
+void nla_grobner::update_statistics(){
+    /* todo : implement
+      m_stats.m_gb_simplify      += gb.m_stats.m_simplify;
+    m_stats.m_gb_superpose     += gb.m_stats.m_superpose;
+    m_stats.m_gb_num_processed += gb.m_stats.m_num_processed;
+    m_stats.m_gb_compute_basis++;*/
+}
+
+// Scan the grobner basis eqs, and look for inconsistencies.
+
+bool nla_grobner::find_conflict(ptr_vector<equation>& eqs){
+    eqs.reset();
+    get_equations(eqs);
+    TRACE("grobner_bug", tout << "after gb\n";);
+    for (equation* eq : eqs) {
+        TRACE("grobner_bug", display_equation(tout, *eq););
+        if (is_inconsistent(eq) || is_inconsistent2(eq))
+            return true;
+    }
     return false;
 }
 
-bool nla_grobner::push_calculation_forward(){ SASSERT(false);
+bool nla_grobner::is_inconsistent(equation*) {
+    NOT_IMPLEMENTED_YET();
+    return false;
+}
+
+bool nla_grobner::is_inconsistent2(equation*) {
+    NOT_IMPLEMENTED_YET();
+    return false;
+}
+
+template <typename T, typename V>
+void copy_to(const T& source, V& target ) {
+    for (auto e : source)
+        target.push_back(e);
+}
+
+void nla_grobner::get_equations(ptr_vector<equation>& result) {
+    copy_to(m_processed, result);
+    copy_to(m_to_process, result);
+}
+
+
+bool nla_grobner::push_calculation_forward(){
+    NOT_IMPLEMENTED_YET();
     return false;
 }
 
 void nla_grobner::grobner_lemmas() {
     c().lp_settings().stats().m_grobner_calls++;    
     init();
+    
+    ptr_vector<equation> eqs;
+    
     do {
         TRACE("nla_gb", tout << "before:\n"; display(tout););
         compute_basis();
         update_statistics();
         TRACE("nla_gb", tout << "after:\n"; display(tout););
-        if (find_conflict())
+        if (find_conflict(eqs))
             return;
     }
     while(push_calculation_forward());
 }
+void nla_grobner:: del_equations(unsigned old_size) {
+    SASSERT(m_equations_to_delete.size() >= old_size);
+    equation_vector::iterator it  = m_equations_to_delete.begin();
+    equation_vector::iterator end = m_equations_to_delete.end();
+    it += old_size;
+    for (; it != end; ++it) {
+        equation * eq = *it;
+        if (eq)
+            del_equation(eq);
+    }
+    m_equations_to_delete.shrink(old_size);    
+}
+
+void nla_grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
+    NOT_IMPLEMENTED_YET();
+}
+void nla_grobner::display_equation(std::ostream & out, equation const & eq) const {
+    NOT_IMPLEMENTED_YET();
+}
+
+void nla_grobner::display_monomial(std::ostream & out, monomial const & m) const {
+    NOT_IMPLEMENTED_YET();
+}
+
+void nla_grobner::display(std::ostream & out) const {
+    NOT_IMPLEMENTED_YET();
+}
+
 } // end of nla namespace
