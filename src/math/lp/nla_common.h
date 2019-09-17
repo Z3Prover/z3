@@ -22,7 +22,7 @@
 #include "math/lp/nla_defs.h"
 #include "math/lp/lar_term.h"
 #include "math/lp/monic.h"
-#include "math/lp/emonomials.h"
+#include "math/lp/emonics.h"
 #include "math/lp/factorization.h"
 namespace nla {
 

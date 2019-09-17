@@ -25,7 +25,7 @@
 #include "math/lp/nla_basics_lemmas.h"
 #include "math/lp/nla_order_lemmas.h"
 #include "math/lp/nla_monotone_lemmas.h"
-#include "math/lp/emonomials.h"
+#include "math/lp/emonics.h"
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"

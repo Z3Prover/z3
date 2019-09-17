@@ -19,7 +19,7 @@
 
   --*/
 
-#include "math/lp/emonomials.h"
+#include "math/lp/emonics.h"
 #include "math/lp/nla_defs.h"
 #include "math/lp/nla_core.h"
 
