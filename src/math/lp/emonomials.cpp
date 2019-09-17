@@ -26,29 +26,29 @@
 namespace nla {
 
 
-void emonomials::inc_visited() const {
+void emonics::inc_visited() const {
     ++m_visited;
     if (m_visited == 0) {
-        for (auto& svt : m_monomials) {
+        for (auto& svt : m_monics) {
             svt.visited() = 0;
         }
         ++m_visited;
     }
 }
 
-void emonomials::push() {
+void emonics::push() {
     m_u_f_stack.push_scope();
-    m_lim.push_back(m_monomials.size());
+    m_lim.push_back(m_monics.size());
     m_region.push_scope();
     m_ve.push();
-    SASSERT(monomials_are_canonized());
+    SASSERT(monics_are_canonized());
 }
 
-void emonomials::pop(unsigned n) {
+void emonics::pop(unsigned n) {
     m_ve.pop(n);
     unsigned old_sz = m_lim[m_lim.size() - n];
-    for (unsigned i = m_monomials.size(); i-- > old_sz; ) {
-        monomial & m = m_monomials[i];
+    for (unsigned i = m_monics.size(); i-- > old_sz; ) {
+        monic & m = m_monics[i];
         remove_cg_mon(m);
         m_var2index[m.var()] = UINT_MAX;
         lpvar last_var = UINT_MAX;
@@ -59,15 +59,15 @@ void emonomials::pop(unsigned n) {
             }
         }
     }
-    m_monomials.shrink(old_sz);
-    m_monomials.shrink(old_sz);
+    m_monics.shrink(old_sz);
+    m_monics.shrink(old_sz);
     m_region.pop_scope(n);
     m_lim.shrink(m_lim.size() - n);
-    SASSERT(monomials_are_canonized());
+    SASSERT(monics_are_canonized());
     m_u_f_stack.pop_scope(n);
 }
 
-void emonomials::remove_cell(head_tail& v, unsigned mIndex) {
+void emonics::remove_cell(head_tail& v, unsigned mIndex) {
     cell*& cur_head = v.m_head;
     cell*& cur_tail = v.m_tail;
     cell* old_head = cur_head->m_next;
@@ -81,7 +81,7 @@ void emonomials::remove_cell(head_tail& v, unsigned mIndex) {
     }
 }
 
-void emonomials::insert_cell(head_tail& v, unsigned mIndex) {
+void emonics::insert_cell(head_tail& v, unsigned mIndex) {
     cell*& cur_head = v.m_head;
     cell*& cur_tail = v.m_tail;
     cell* new_head = new (m_region) cell(mIndex, cur_head);
@@ -90,7 +90,7 @@ void emonomials::insert_cell(head_tail& v, unsigned mIndex) {
     cur_tail->m_next = new_head;
 }
 
-void emonomials::merge_cells(head_tail& root, head_tail& other) {
+void emonics::merge_cells(head_tail& root, head_tail& other) {
     if (&root == &other) return;
     cell*& root_head = root.m_head;
     cell*& root_tail = root.m_tail;
@@ -111,7 +111,7 @@ void emonomials::merge_cells(head_tail& root, head_tail& other) {
     }
 }
 
-void emonomials::unmerge_cells(head_tail& root, head_tail& other) {
+void emonics::unmerge_cells(head_tail& root, head_tail& other) {
     if (&root == &other) return;
     cell*& root_head = root.m_head;
     cell*& root_tail = root.m_tail;
@@ -131,26 +131,26 @@ void emonomials::unmerge_cells(head_tail& root, head_tail& other) {
     }
 }
 
-emonomials::cell* emonomials::head(lpvar v) const {
+emonics::cell* emonics::head(lpvar v) const {
     v = m_ve.find(v).var();
     m_use_lists.reserve(v + 1);
     return m_use_lists[v].m_head;
 }
 
-monomial const* emonomials::find_canonical(svector<lpvar> const& vars) const {
+monic const* emonics::find_canonical(svector<lpvar> const& vars) const {
     SASSERT(m_ve.is_root(vars));
     m_find_key = vars;
     std::sort(m_find_key.begin(), m_find_key.end());
-    monomial const* result = nullptr;
+    monic const* result = nullptr;
     lpvar w;
     if (m_cg_table.find(UINT_MAX, w)) {
-        result = &m_monomials[m_var2index[w]];
+        result = &m_monics[m_var2index[w]];
     }
     return result;
 }
 
 
-void emonomials::remove_cg(lpvar v) {
+void emonics::remove_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
     if (c == nullptr) {
         return;
@@ -160,7 +160,7 @@ void emonomials::remove_cg(lpvar v) {
     do {
         unsigned idx = c->m_index;
         c = c->m_next;
-        monomial & m = m_monomials[idx];
+        monic & m = m_monics[idx];
         if (!is_visited(m)) {
             set_visited(m);
             remove_cg_mon(m);
@@ -169,7 +169,7 @@ void emonomials::remove_cg(lpvar v) {
     while (c != first);
 }
 
-void emonomials::remove_cg_mon(const monomial& m) {
+void emonics::remove_cg_mon(const monic& m) {
     lpvar u = m.var(), w;
     // equivalence class of u:
     if (m_cg_table.find(u, w)) {
@@ -179,13 +179,13 @@ void emonomials::remove_cg_mon(const monomial& m) {
 }
 
 /**
-   \brief insert canonized monomials using v into a congruence table.
-   Prior to insertion, the monomials are canonized according to the current
-   variable equivalences. The canonized monomials (monomial) are considered
+   \brief insert canonized monics using v into a congruence table.
+   Prior to insertion, the monics are canonized according to the current
+   variable equivalences. The canonized monics (monic) are considered
    in the same equivalence class if they have the same set of representative
    variables. Their signs may differ.       
 */
-void emonomials::insert_cg(lpvar v) {
+void emonics::insert_cg(lpvar v) {
     cell* c = m_use_lists[v].m_head;
 
     if (c == nullptr) {
@@ -197,7 +197,7 @@ void emonomials::insert_cg(lpvar v) {
     do {
         unsigned idx = c->m_index;
         c = c->m_next;
-        monomial & m = m_monomials[idx];
+        monic & m = m_monics[idx];
         if (!is_visited(m)) {
             set_visited(m);
             insert_cg_mon(m);
@@ -206,8 +206,8 @@ void emonomials::insert_cg(lpvar v) {
     while (c != first);
 }
 
-bool emonomials::elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector>& lists) const {    
-    for (auto const & m : m_monomials) {
+bool emonics::elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector>& lists) const {    
+    for (auto const & m : m_monics) {
         auto it = lists.find(m.rvars());
         if (it == lists.end()) {
             std::unordered_set<lpvar> v;
@@ -217,12 +217,12 @@ bool emonomials::elists_are_consistent(std::unordered_map<unsigned_vector, std::
             it->second.insert(m.var());
         }
     }
-    for (auto const & m : m_monomials) {
+    for (auto const & m : m_monics) {
         SASSERT(is_canonized(m));
-        if (!is_canonical_monomial(m.var()))
+        if (!is_canonical_monic(m.var()))
             continue;
         std::unordered_set<lpvar> c;
-        for (const monomial& e : enum_sign_equiv_monomials(m))
+        for (const monic& e : enum_sign_equiv_monics(m))
             c.insert(e.var());
         auto it = lists.find(m.rvars());
         
@@ -244,7 +244,7 @@ bool emonomials::elists_are_consistent(std::unordered_map<unsigned_vector, std::
 }
 
 
-void emonomials::insert_cg_mon(monomial & m) {
+void emonics::insert_cg_mon(monic & m) {
     do_canonize(m);
     lpvar v = m.var(), w;
     if (m_cg_table.find(v, w)) {
@@ -266,25 +266,25 @@ void emonomials::insert_cg_mon(monomial & m) {
     }        
 }
 
-void emonomials::set_visited(monomial& m) const {
-    m_monomials[m_var2index[m.var()]].visited() = m_visited;
+void emonics::set_visited(monic& m) const {
+    m_monics[m_var2index[m.var()]].visited() = m_visited;
 }
 
-bool emonomials::is_visited(monomial const& m) const {
-    return m_visited == m_monomials[m_var2index[m.var()]].visited();
+bool emonics::is_visited(monic const& m) const {
+    return m_visited == m_monics[m_var2index[m.var()]].visited();
 }
 
 /**
-   \brief insert a new monomial.
+   \brief insert a new monic.
 
    Assume that the variables are canonical, that is, not equal in current
-   context to another variable. The monomial is inserted into a congruence
-   class of equal up-to var_eqs monomials.
+   context to another variable. The monic is inserted into a congruence
+   class of equal up-to var_eqs monics.
 */
-void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
+void emonics::add(lpvar v, unsigned sz, lpvar const* vs) {
     TRACE("nla_solver_mons", tout << "v = " << v << "\n";);
-    unsigned idx = m_monomials.size();
-    m_monomials.push_back(monomial(v, sz, vs, idx));
+    unsigned idx = m_monics.size();
+    m_monics.push_back(monic(v, sz, vs, idx));
     lpvar last_var = UINT_MAX;
     for (unsigned i = 0; i < sz; ++i) {
         lpvar w = vs[i];
@@ -297,10 +297,10 @@ void emonomials::add(lpvar v, unsigned sz, lpvar const* vs) {
     }
     SASSERT(m_ve.is_root(v));
     m_var2index.setx(v, idx, UINT_MAX);
-    insert_cg_mon(m_monomials[idx]);
+    insert_cg_mon(m_monics[idx]);
 }
 
-void emonomials::do_canonize(monomial & m) const {
+void emonics::do_canonize(monic & m) const {
     m.reset_rfields();
     for (lpvar v : m.vars()) {
         m.push_rvar(m_ve.find(v));
@@ -308,14 +308,14 @@ void emonomials::do_canonize(monomial & m) const {
     m.sort_rvars();
 }
 
-bool emonomials::is_canonized(const monomial & m) const {
-    monomial mm(m);
+bool emonics::is_canonized(const monic & m) const {
+    monic mm(m);
     do_canonize(mm);
     return mm.rvars() == m.rvars();
 }
 
-bool emonomials:: monomials_are_canonized() const {
-    for (auto & m: m_monomials) {
+bool emonics:: monics_are_canonized() const {
+    for (auto & m: m_monics) {
         if (! is_canonized(m)) {
             return false;
         }
@@ -324,7 +324,7 @@ bool emonomials:: monomials_are_canonized() const {
 }
 
 
-bool emonomials::canonize_divides(monomial& m, monomial & n) const {
+bool emonics::canonize_divides(monic& m, monic & n) const {
     if (m.size() > n.size()) return false;
     unsigned ms = m.size(), ns = n.size();
     unsigned i = 0, j = 0;
@@ -347,18 +347,18 @@ bool emonomials::canonize_divides(monomial& m, monomial & n) const {
     }
 }
 
-// yes, assume that monomials are non-empty.
-emonomials::pf_iterator::pf_iterator(emonomials const& m, monomial & mon, bool at_end):
+// yes, assume that monics are non-empty.
+emonics::pf_iterator::pf_iterator(emonics const& m, monic & mon, bool at_end):
     m_em(m), m_mon(&mon), m_it(iterator(m, m.head(mon.vars()[0]), at_end)), m_end(iterator(m, m.head(mon.vars()[0]), true)) {
     fast_forward();
 }
 
-emonomials::pf_iterator::pf_iterator(emonomials const& m, lpvar v, bool at_end):
+emonics::pf_iterator::pf_iterator(emonics const& m, lpvar v, bool at_end):
     m_em(m), m_mon(nullptr), m_it(iterator(m, m.head(v), at_end)), m_end(iterator(m, m.head(v), true)) {
     fast_forward();
 }
 
-void emonomials::pf_iterator::fast_forward() {
+void emonics::pf_iterator::fast_forward() {
     for (; m_it != m_end; ++m_it) {
         if (m_mon && m_mon->var() != (*m_it).var() && m_em.canonize_divides(*m_mon, *m_it) && !m_em.is_visited(*m_it)) {
             m_em.set_visited(*m_it);
@@ -371,11 +371,11 @@ void emonomials::pf_iterator::fast_forward() {
     }
 }
 
-void emonomials::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
+void emonics::merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
     // no-op
 }
 
-void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
+void emonics::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, signed_var v1) {
     TRACE("nla_solver_mons", tout << r2 << " <- " << r1 << "\n";);
     if (m_ve.find(~r1) == m_ve.find(~r2)) { // the other sign has also been merged
         m_use_lists.reserve(std::max(r2.var(), r1.var()) + 1);
@@ -385,7 +385,7 @@ void emonomials::after_merge_eh(signed_var r2, signed_var r1, signed_var v2, sig
     }   
 }
 
-void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
+void emonics::unmerge_eh(signed_var r2, signed_var r1) {
     TRACE("nla_solver_mons", tout << r2 << " -> " << r1 << "\n";);
     if (m_ve.find(~r1) != m_ve.find(~r2)) { // the other sign has also been unmerged
         unmerge_cells(m_use_lists[r2.var()], m_use_lists[r1.var()]);            
@@ -393,25 +393,25 @@ void emonomials::unmerge_eh(signed_var r2, signed_var r1) {
     }        
 }
 
-std::ostream& emonomials::display(const core& cr, std::ostream& out) const {
-    out << "monomials\n";
+std::ostream& emonics::display(const core& cr, std::ostream& out) const {
+    out << "monics\n";
     unsigned idx = 0;
-    for (auto const& m : m_monomials) {
+    for (auto const& m : m_monics) {
         out << "m" << (idx++) << ": " << pp_mon_with_vars(cr, m) << "\n";
     }    
     return display_use(out);
 }
 
-std::ostream& emonomials::display(std::ostream& out) const {
-    out << "monomials\n";
+std::ostream& emonics::display(std::ostream& out) const {
+    out << "monics\n";
     unsigned idx = 0;
-    for (auto const& m : m_monomials) {
+    for (auto const& m : m_monics) {
         out << "m" << (idx++) << ": " << m << "\n";
     }    
     return display_use(out);
 }
  
- std::ostream& emonomials::display_use(std::ostream& out) const {
+ std::ostream& emonics::display_use(std::ostream& out) const {
      out << "use lists\n";
      unsigned idx = 0;
      for (auto const& ht : m_use_lists) {

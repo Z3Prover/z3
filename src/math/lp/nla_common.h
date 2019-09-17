@@ -21,7 +21,7 @@
 #include "util/rational.h"
 #include "math/lp/nla_defs.h"
 #include "math/lp/lar_term.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "math/lp/emonomials.h"
 #include "math/lp/factorization.h"
 namespace nla {
@@ -51,7 +51,7 @@ struct common {
 
     template <typename T> rational val(T const& t) const;
     rational val(lpvar) const;
-    rational rval(const monomial&) const;
+    rational rval(const monic&) const;
     template <typename T> lpvar var(T const& t) const;
     bool done() const;
     template <typename T> void explain(const T&);
@@ -87,10 +87,10 @@ struct common {
     std::ostream& print_factor(const factor &, std::ostream& out) const;
     std::ostream& print_var(lpvar, std::ostream& out) const;
     
-    std::ostream& print_monomial(const monomial & m, std::ostream& out) const;
-    std::ostream& print_rooted_monomial(const monomial &, std::ostream& out) const;
-    std::ostream& print_rooted_monomial_with_vars(const monomial&, std::ostream& out) const;
-    bool check_monomial(const monomial&) const;
+    std::ostream& print_monic(const monic & m, std::ostream& out) const;
+    std::ostream& print_rooted_monic(const monic &, std::ostream& out) const;
+    std::ostream& print_rooted_monic_with_vars(const monic&, std::ostream& out) const;
+    bool check_monic(const monic&) const;
     unsigned random();
 };
 }

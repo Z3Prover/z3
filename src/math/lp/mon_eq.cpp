@@ -3,7 +3,7 @@
   Author: Nikolaj Bjorner
 */
 #include "math/lp/lar_solver.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 namespace nla {
 
 template <typename T>

@@ -308,14 +308,14 @@ class theory_lra::imp {
         }
 
         
-        void add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
+        void add_monic(lpvar v, unsigned sz, lpvar const* vs) {
             if (m_use_nla) {
                 m_th_imp.ensure_nla();
-                (*m_nla)->add_monomial(v, sz, vs);
+                (*m_nla)->add_monic(v, sz, vs);
             }
             else {
                 m_th_imp.ensure_nra();
-                (*m_nra)->add_monomial(v, sz, vs);
+                (*m_nra)->add_monic(v, sz, vs);
             }
         }
  
@@ -658,7 +658,7 @@ class theory_lra::imp {
                 m_solver->m_need_register_terms = true;
                 m_solver->register_existing_terms();
             }
-            m_switcher.add_monomial(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
+            m_switcher.add_monic(register_theory_var_in_lar_solver(v), vars.size(), vars.c_ptr());
         }
     }
 
