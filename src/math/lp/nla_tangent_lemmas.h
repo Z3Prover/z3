@@ -53,9 +53,9 @@ public:
     void tangent_lemma();
 private:    
     lpvar find_binomial_to_refine();
-    void generate_explanations_of_tang_lemma(const monomial& m, const factorization& bf, lp::explanation& exp);
-    void generate_simple_tangent_lemma(const monomial& m, const factorization&);    
-    void tangent_lemma_bf(const monomial& m,const factorization& bf);
+    void generate_explanations_of_tang_lemma(const monic& m, const factorization& bf, lp::explanation& exp);
+    void generate_simple_tangent_lemma(const monic& m, const factorization&);    
+    void tangent_lemma_bf(const monic& m,const factorization& bf);
     void generate_tang_plane(const rational & a, const rational& b, const factor& x, const factor& y, bool below, lpvar j);
     
     void generate_two_tang_lines(const factorization & bf, const point& xy, lpvar j);

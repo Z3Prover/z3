@@ -9,7 +9,7 @@
 #include "math/polynomial/polynomial.h"
 #include "math/polynomial/algebraic_numbers.h"
 #include "util/map.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 
 namespace nra {
 
@@ -23,8 +23,8 @@ typedef nla::variable_map_type variable_map_type;
         u_map<polynomial::var> m_lp2nl;  // map from lar_solver variables to nlsat::solver variables        
         scoped_ptr<nlsat::solver> m_nlsat;
         scoped_ptr<scoped_anum>   m_zero;
-        vector<mon_eq>            m_monomials;
-        unsigned_vector           m_monomials_lim;
+        vector<mon_eq>            m_monics;
+        unsigned_vector           m_monics_lim;
         mutable variable_map_type m_variable_values; // current model        
 
         imp(lp::lar_solver& s, reslimit& lim, params_ref const& p): 
@@ -34,21 +34,21 @@ typedef nla::variable_map_type variable_map_type;
         }
 
         bool need_check() {
-            return !m_monomials.empty() && !check_assignments(m_monomials, s, m_variable_values);
+            return !m_monics.empty() && !check_assignments(m_monics, s, m_variable_values);
         }
 
         void add(lp::var_index v, unsigned sz, lp::var_index const* vs) {
-            m_monomials.push_back(mon_eq(v, sz, vs));
+            m_monics.push_back(mon_eq(v, sz, vs));
         }
 
         void push() {
-            m_monomials_lim.push_back(m_monomials.size());
+            m_monics_lim.push_back(m_monics.size());
         }
 
         void pop(unsigned n) {
             if (n == 0) return;
-            m_monomials.shrink(m_monomials_lim[m_monomials_lim.size() - n]);
-            m_monomials_lim.shrink(m_monomials_lim.size() - n);       
+            m_monics.shrink(m_monics_lim[m_monics_lim.size() - n]);
+            m_monics_lim.shrink(m_monics_lim.size() - n);       
         }
 
         /*
@@ -67,7 +67,7 @@ typedef nla::variable_map_type variable_map_type;
 
         bool check_assignments() const {
             s.get_model(m_variable_values);
-            for (auto const& m : m_monomials) {
+            for (auto const& m : m_monics) {
                 if (!check_assignment(m)) return false;
             }
             return true;
@@ -97,8 +97,8 @@ typedef nla::variable_map_type variable_map_type;
             }
 
             // add polynomial definitions.
-            for (auto const& m : m_monomials) {
-                add_monomial_eq(m);
+            for (auto const& m : m_monics) {
+                add_monic_eq(m);
             }
             // TBD: add variable bounds?
 
@@ -134,7 +134,7 @@ typedef nla::variable_map_type variable_map_type;
             return r;
         }                
 
-        void add_monomial_eq(mon_eq const& m) {
+        void add_monic_eq(mon_eq const& m) {
             polynomial::manager& pm = m_nlsat->pm();
             svector<polynomial::var> vars;
             for (auto v : m.vars()) {
@@ -142,7 +142,7 @@ typedef nla::variable_map_type variable_map_type;
             }
             polynomial::monomial_ref m1(pm.mk_monomial(vars.size(), vars.c_ptr()), pm);
             polynomial::monomial_ref m2(pm.mk_monomial(lp2nl(m.var()), 1), pm);
-            polynomial::monomial* mls[2] = { m1, m2 };
+            polynomial::monomial * mls[2] = { m1, m2 };
             polynomial::scoped_numeral_vector coeffs(pm.m());
             coeffs.push_back(mpz(1));
             coeffs.push_back(mpz(-1));
@@ -226,7 +226,7 @@ typedef nla::variable_map_type variable_map_type;
         }
 
         std::ostream& display(std::ostream& out) const {
-            for (auto m : m_monomials) {
+            for (auto m : m_monics) {
                 out << "v" << m.var() << " = ";
                 for (auto v : m.vars()) {
                     out << "v" << v << " ";
@@ -245,7 +245,7 @@ typedef nla::variable_map_type variable_map_type;
         dealloc(m_imp);
     }
 
-    void solver::add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs) {
+    void solver::add_monic(lp::var_index v, unsigned sz, lp::var_index const* vs) {
         m_imp->add(v, sz, vs);
     }
 

@@ -20,7 +20,7 @@
   --*/
 #pragma once
 #include "util/rational.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "math/lp/nla_defs.h"
 
 namespace nla {
@@ -55,9 +55,9 @@ public:
 
 class factorization {
     svector<factor>       m_factors;
-    const monomial*       m_mon;
+    const monic*       m_mon;
 public:
-    factorization(const monomial* m): m_mon(m) {
+    factorization(const monic* m): m_mon(m) {
         if (m != nullptr) {
             for (lpvar j : m->vars())
                 m_factors.push_back(factor(j, factor_type::VAR));
@@ -75,8 +75,8 @@ public:
     void push_back(factor const& v) {
         m_factors.push_back(v);
     }
-    const monomial& mon() const { return *m_mon; }
-    void set_mon(const monomial* m) { m_mon = m; }
+    const monic& mon() const { return *m_mon; }
+    void set_mon(const monic* m) { m_mon = m; }
 
 };
 
@@ -109,19 +109,19 @@ struct const_iterator_mon {
             
     factorization create_binary_factorization(factor j, factor k) const;
     
-    factorization create_full_factorization(const monomial*) const;
+    factorization create_full_factorization(const monic*) const;
 };
 
 struct factorization_factory {
     const svector<lpvar>&  m_vars;
-    const monomial*       m_monomial;
+    const monic*       m_monic;
     // returns true if found
-    virtual bool find_canonical_monomial_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
-    virtual bool canonize_sign(const monomial& m) const = 0;
+    virtual bool find_canonical_monic_of_vars(const svector<lpvar>& vars, unsigned& i) const = 0;
+    virtual bool canonize_sign(const monic& m) const = 0;
     virtual bool canonize_sign(const factorization& m) const = 0;
 
-    factorization_factory(const svector<lpvar>& vars, const monomial* m) :
-        m_vars(vars), m_monomial(m) {
+    factorization_factory(const svector<lpvar>& vars, const monic* m) :
+        m_vars(vars), m_monic(m) {
     }
 
     svector<bool> get_mask() const {

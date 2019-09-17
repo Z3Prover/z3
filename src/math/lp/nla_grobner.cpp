@@ -38,10 +38,10 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
         }
     }
 
-    if (!c().is_monomial_var(j))
+    if (!c().is_monic_var(j))
         return;
 
-    const monomial& m = c().emons()[j];
+    const monic& m = c().emons()[j];
     for (auto fcn : factorization_factory_imp(m, c())) {
         for (const factor& fc: fcn) {
             lpvar j = var(fc);
@@ -71,7 +71,7 @@ var_weight nla_grobner::get_var_weight(lpvar j) const {
         UNREACHABLE();
         break;
     }
-    if (c().is_monomial_var(j)) {
+    if (c().is_monic_var(j)) {
         return (var_weight)((int)k + 1);
     }
     return k;
@@ -88,7 +88,7 @@ void nla_grobner::find_nl_cluster() {
     prepare_rows_and_active_vars();
     std::queue<lpvar> q;
     for (lpvar j : c().m_to_refine) {        
-        TRACE("nla_grobner", c().print_monomial(c().emons()[j], tout) << "\n";);
+        TRACE("nla_grobner", c().print_monic(c().emons()[j], tout) << "\n";);
         q.push(j);
     }
 

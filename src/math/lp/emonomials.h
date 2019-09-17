@@ -22,7 +22,7 @@
 #pragma once
 #include "math/lp/lp_utils.h"
 #include "math/lp/var_eqs.h"
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "util/region.h"
 
 namespace nla {
@@ -35,9 +35,9 @@ struct hash_svector {
 
 class core;
 
-class emonomials {
+class emonics {
     /**
-       \brief singly-lined cyclic list of monomial indices where variable occurs.
+       \brief singly-lined cyclic list of monic indices where variable occurs.
        Each variable points to the head and tail of the cyclic list.
        Initially, head and tail are nullptr.
        New elements are inserted in the beginning of the list.
@@ -55,11 +55,11 @@ class emonomials {
         cell* m_tail;
     };
     struct hash_canonical {
-        emonomials& em;
-        hash_canonical(emonomials& em): em(em) {}
+        emonics& em;
+        hash_canonical(emonics& em): em(em) {}
             
         unsigned operator()(lpvar v) const {
-            auto const& vec = v != UINT_MAX? em.m_monomials[em.m_var2index[v]].rvars() : em.m_find_key;
+            auto const& vec = v != UINT_MAX? em.m_monics[em.m_var2index[v]].rvars() : em.m_find_key;
             return string_hash(reinterpret_cast<char const*>(vec.c_ptr()), sizeof(lpvar)*vec.size(), 10);
         }
     };
@@ -67,29 +67,29 @@ class emonomials {
 
 
     /**
-       \brief private fields used by emonomials for maintaining state of canonized monomials.
+       \brief private fields used by emonics for maintaining state of canonized monics.
     */
 
     struct eq_canonical {
-        emonomials& em;
-        eq_canonical(emonomials& em): em(em) {}
+        emonics& em;
+        eq_canonical(emonics& em): em(em) {}
         bool operator()(lpvar u, lpvar v) const {
-            auto const& uvec = u != UINT_MAX? em.m_monomials[em.m_var2index[u]].rvars(): em.m_find_key;
-            auto const& vvec = v != UINT_MAX? em.m_monomials[em.m_var2index[v]].rvars(): em.m_find_key;
+            auto const& uvec = u != UINT_MAX? em.m_monics[em.m_var2index[u]].rvars(): em.m_find_key;
+            auto const& vvec = v != UINT_MAX? em.m_monics[em.m_var2index[v]].rvars(): em.m_find_key;
             return uvec == vvec;
         }
     };
     
-    union_find<emonomials>          m_u_f;
-    trail_stack<emonomials>         m_u_f_stack;
-    mutable svector<lpvar>          m_find_key; // the key used when looking for a monomial with the specific variables
-    var_eqs<emonomials>&            m_ve;
-    mutable vector<monomial>        m_monomials;     // set of monomials
+    union_find<emonics>          m_u_f;
+    trail_stack<emonics>         m_u_f_stack;
+    mutable svector<lpvar>          m_find_key; // the key used when looking for a monic with the specific variables
+    var_eqs<emonics>&            m_ve;
+    mutable vector<monic>           m_monics;     // set of monics
     mutable unsigned_vector         m_var2index;     // var_mIndex -> mIndex
     unsigned_vector                 m_lim;           // backtracking point
-    mutable unsigned                m_visited;       // timestamp of visited monomials during pf_iterator
+    mutable unsigned                m_visited;       // timestamp of visited monics during pf_iterator
     region                          m_region;        // region for allocating linked lists
-    mutable svector<head_tail>      m_use_lists;     // use list of monomials where variables occur.
+    mutable svector<head_tail>      m_use_lists;     // use list of monics where variables occur.
     hash_canonical                  m_cg_hash;
     eq_canonical                    m_cg_eq;
     hashtable<lpvar, hash_canonical, eq_canonical> m_cg_table; // congruence (canonical) table.
@@ -104,23 +104,23 @@ class emonomials {
 
     void remove_cg(lpvar v);
     void insert_cg(lpvar v);
-    void insert_cg_mon(monomial & m);
-    void remove_cg_mon(const monomial & m);
+    void insert_cg_mon(monic & m);
+    void remove_cg_mon(const monic & m);
     void rehash_cg(lpvar v) { remove_cg(v); insert_cg(v); }
 
-    void do_canonize(monomial& m) const; 
+    void do_canonize(monic& m) const; 
     cell* head(lpvar v) const;
-    void set_visited(monomial& m) const;
-    bool is_visited(monomial const& m) const;
+    void set_visited(monic& m) const;
+    bool is_visited(monic const& m) const;
     std::ostream& display_use(std::ostream& out) const; 
 public:
-    unsigned number_of_monomials() const { return m_monomials.size(); }
+    unsigned number_of_monics() const { return m_monics.size(); }
     /**
-       \brief emonomials builds on top of var_eqs.
-       push and pop on emonomials calls push/pop on var_eqs, so no 
+       \brief emonics builds on top of var_eqs.
+       push and pop on emonics calls push/pop on var_eqs, so no 
        other calls to push/pop to the var_eqs should take place. 
     */
-    emonomials(var_eqs<emonomials>& ve):
+    emonics(var_eqs<emonics>& ve):
         m_u_f(*this),
         m_u_f_stack(*this),
         m_ve(ve), 
@@ -139,7 +139,7 @@ public:
     void after_merge_eh(unsigned r2, unsigned r1, unsigned v2, unsigned v1) {}
 
     // this method is required by union_find
-    trail_stack<emonomials> & get_trail_stack() { return m_u_f_stack; }
+    trail_stack<emonics> & get_trail_stack() { return m_u_f_stack; }
 
     /**
        \brief push/pop scopes. 
@@ -150,7 +150,7 @@ public:
     void pop(unsigned n);
 
     /**
-       \brief create a monomial from an equality v := vs
+       \brief create a monic from an equality v := vs
     */
     void add(lpvar v, unsigned sz, lpvar const* vs);
     void add(lpvar v, svector<lpvar> const& vs) { add(v, vs.size(), vs.c_ptr()); }
@@ -158,44 +158,44 @@ public:
     void add(lpvar v, lpvar x, lpvar y, lpvar z) { lpvar vs[3] = { x, y, z }; add(v, 3, vs); }
 
     /**
-       \brief retrieve monomial corresponding to variable v from definition v := vs
+       \brief retrieve monic corresponding to variable v from definition v := vs
     */
-    monomial const& operator[](lpvar v) const { return m_monomials[m_var2index[v]]; }
-    monomial & operator[](lpvar v) { return m_monomials[m_var2index[v]]; }
-    bool is_canonized(const monomial&) const;    
-    bool monomials_are_canonized() const;
+    monic const& operator[](lpvar v) const { return m_monics[m_var2index[v]]; }
+    monic & operator[](lpvar v) { return m_monics[m_var2index[v]]; }
+    bool is_canonized(const monic&) const;    
+    bool monics_are_canonized() const;
     
     /**
-       \brief obtain the representative canonized monomial 
+       \brief obtain the representative canonized monic 
     */
 
-    monomial const& rep(monomial const& sv) const {
+    monic const& rep(monic const& sv) const {
         unsigned j = -1;
         m_cg_table.find(sv.var(), j);
-        return m_monomials[m_var2index[j]];
+        return m_monics[m_var2index[j]];
     }
 
     /**
        \brief determine if m1 divides m2 over the canonization obtained from merged variables.
     */
-    bool canonize_divides(monomial & m1, monomial& m2) const;
+    bool canonize_divides(monic & m1, monic& m2) const;
 
     /**
-       \brief iterator over monomials that are declared.
+       \brief iterator over monics that are declared.
     */
-    vector<monomial>::const_iterator begin() const { return m_monomials.begin(); }
-    vector<monomial>::const_iterator end() const { return m_monomials.end(); }
+    vector<monic>::const_iterator begin() const { return m_monics.begin(); }
+    vector<monic>::const_iterator end() const { return m_monics.end(); }
 
     /**
-       \brief iterators over monomials where a variable is used
+       \brief iterators over monics where a variable is used
     */
     class iterator {
-        emonomials const& m;
+        emonics const& m;
         cell*       m_cell;
         bool        m_touched;            
     public:
-        iterator(emonomials const& m, cell* c, bool at_end): m(m), m_cell(c), m_touched(at_end || c == nullptr) {}
-        monomial & operator*() { return m.m_monomials[m_cell->m_index]; }
+        iterator(emonics const& m, cell* c, bool at_end): m(m), m_cell(c), m_touched(at_end || c == nullptr) {}
+        monic & operator*() { return m.m_monics[m_cell->m_index]; }
         iterator& operator++() { m_touched = true; m_cell = m_cell->m_next; return *this; }
         iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
         bool operator==(iterator const& other) const { return m_cell == other.m_cell && m_touched == other.m_touched; }
@@ -203,11 +203,11 @@ public:
     };
         
     class use_list {
-        emonomials const& m;
+        emonics const& m;
         lpvar     m_var;
         cell*     head() { return m.head(m_var); } 
     public:
-        use_list(emonomials const& m, lpvar v): m(m), m_var(v) {}
+        use_list(emonics const& m, lpvar v): m(m), m_var(v) {}
         iterator begin() { return iterator(m, head(), false); }
         iterator end() { return iterator(m, head(), true); }
     };
@@ -215,19 +215,19 @@ public:
     use_list get_use_list(lpvar v) const { return use_list(*this, v); }
 
     /**
-       \brief retrieve monomials m' where m is a proper factor of modulo current equalities.
+       \brief retrieve monics m' where m is a proper factor of modulo current equalities.
     */
     class pf_iterator {
-        emonomials const& m_em;
-        monomial *   m_mon; // monomial
+        emonics const& m_em;
+        monic *           m_mon;
         iterator          m_it;  // iterator over the first variable occurs list, ++ filters out elements that do not have m as a factor
         iterator          m_end;
 
         void fast_forward();
     public:
-        pf_iterator(emonomials const& m, monomial& mon, bool at_end);
-        pf_iterator(emonomials const& m, lpvar v, bool at_end);
-        monomial & operator*() {
+        pf_iterator(emonics const& m, monic& mon, bool at_end);
+        pf_iterator(emonics const& m, lpvar v, bool at_end);
+        monic & operator*() {
             return *m_it;
         }
         pf_iterator& operator++() { ++m_it; fast_forward(); return *this; }
@@ -237,77 +237,77 @@ public:
     };
 
     class products_of {
-        emonomials const& m;
-        monomial * mon;
+        emonics const& m;
+        monic * mon;
         lpvar           m_var;
     public:
-        products_of(emonomials const& m, monomial & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
-        products_of(emonomials const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
+        products_of(emonics const& m, monic & mon): m(m), mon(&mon), m_var(UINT_MAX) {}
+        products_of(emonics const& m, lpvar v): m(m), mon(nullptr), m_var(v) {}
         pf_iterator begin() { if (mon) return pf_iterator(m, *mon, false); return pf_iterator(m, m_var, false); }
         pf_iterator end() { if (mon) return pf_iterator(m, *mon, true); return pf_iterator(m, m_var, true); }
     };
 
-    products_of get_products_of(monomial& m) const { inc_visited(); return products_of(*this, m); }
+    products_of get_products_of(monic& m) const { inc_visited(); return products_of(*this, m); }
     products_of get_products_of(lpvar v) const { inc_visited(); return products_of(*this, v); }
        
-    monomial const* find_canonical(svector<lpvar> const& vars) const;
-    bool is_canonical_monomial(lpvar j) const {
-        SASSERT(is_monomial_var(j));
+    monic const* find_canonical(svector<lpvar> const& vars) const;
+    bool is_canonical_monic(lpvar j) const {
+        SASSERT(is_monic_var(j));
         unsigned idx = m_var2index[j];
         if (idx >= m_u_f.get_num_vars())
             return true;
         return m_u_f.find(idx) == idx;
     }
     /**
-       \brief iterator over sign equivalent monomials.
-       These are monomials that are equivalent modulo m_var_eqs amd modulo signs.
+       \brief iterator over sign equivalent monics.
+       These are monics that are equivalent modulo m_var_eqs amd modulo signs.
     */
-    class sign_equiv_monomials_it {
-        emonomials const& m;
+    class sign_equiv_monics_it {
+        emonics const& m;
         unsigned          m_index;
         bool              m_touched;
     public:
-        sign_equiv_monomials_it(emonomials const& m, unsigned idx, bool at_end): 
+        sign_equiv_monics_it(emonics const& m, unsigned idx, bool at_end): 
             m(m), m_index(idx), m_touched(at_end) {}
 
-        monomial const& operator*() { return m.m_monomials[m_index]; }
+        monic const& operator*() { return m.m_monics[m_index]; }
 
-        sign_equiv_monomials_it& operator++() { 
+        sign_equiv_monics_it& operator++() { 
             m_touched = true;
             if (m_index < m.m_u_f.get_num_vars())
                 m_index = m.m_u_f.next(m_index);
             return *this; 
         }
 
-        sign_equiv_monomials_it operator++(int) { 
-            sign_equiv_monomials_it tmp = *this; 
+        sign_equiv_monics_it operator++(int) { 
+            sign_equiv_monics_it tmp = *this; 
             ++*this; 
             return tmp; 
         }
 
-        bool operator==(sign_equiv_monomials_it const& other) const { 
+        bool operator==(sign_equiv_monics_it const& other) const { 
             return m_index == other.m_index && m_touched == other.m_touched; 
         }
 
-        bool operator!=(sign_equiv_monomials_it const& other) const { 
+        bool operator!=(sign_equiv_monics_it const& other) const { 
             return m_index != other.m_index || m_touched != other.m_touched; 
         }
     };
 
-    class sign_equiv_monomials {
-        const emonomials&     em;
-        monomial const& m;
+    class sign_equiv_monics {
+        const emonics&     em;
+        monic const& m;
         unsigned index() const { return em.m_var2index[m.var()]; }
     public:
-        sign_equiv_monomials(const emonomials & em, monomial const& m): em(em), m(m) {}
-        sign_equiv_monomials_it begin() { return sign_equiv_monomials_it(em, index(), false); }
-        sign_equiv_monomials_it end() { return sign_equiv_monomials_it(em, index(), true); }
+        sign_equiv_monics(const emonics & em, monic const& m): em(em), m(m) {}
+        sign_equiv_monics_it begin() { return sign_equiv_monics_it(em, index(), false); }
+        sign_equiv_monics_it end() { return sign_equiv_monics_it(em, index(), true); }
     };
 
-    sign_equiv_monomials enum_sign_equiv_monomials(monomial const& m) const { return sign_equiv_monomials(*this, m); }
-    sign_equiv_monomials enum_sign_equiv_monomials(lpvar v) { return enum_sign_equiv_monomials((*this)[v]); }
+    sign_equiv_monics enum_sign_equiv_monics(monic const& m) const { return sign_equiv_monics(*this, m); }
+    sign_equiv_monics enum_sign_equiv_monics(lpvar v) { return enum_sign_equiv_monics((*this)[v]); }
     /**
-       \brief display state of emonomials
+       \brief display state of emonics
     */
     std::ostream& display(const core&, std::ostream& out) const;
     std::ostream& display(std::ostream& out) const;
@@ -323,16 +323,16 @@ public:
 
     void unmerge_eh(signed_var r2, signed_var r1);        
 
-    bool is_monomial_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
+    bool is_monic_var(lpvar v) const { return m_var2index.get(v, UINT_MAX) != UINT_MAX; }
 
     bool elists_are_consistent(std::unordered_map<unsigned_vector, std::unordered_set<lpvar>, hash_svector> &lists) const;
     
-}; // end of emonomials
+}; // end of emonics
 
 struct pp_emons {
     const core&       m_c;
-    const emonomials& m_em;
-    pp_emons(const core& c, const emonomials& e): m_c(c), m_em(e) {}
+    const emonics& m_em;
+    pp_emons(const core& c, const emonics& e): m_c(c), m_em(e) {}
     inline std::ostream& display(std::ostream& out) const {
         return m_em.display(m_c, out);
     }

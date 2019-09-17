@@ -104,7 +104,7 @@ bool core::canonize_sign(lpvar j) const {
     return m_evars.find(j).sign();        
 }
 
-bool core::canonize_sign_is_correct(const monomial& m) const {
+bool core::canonize_sign_is_correct(const monic& m) const {
     bool r = false;
     for (lpvar j : m.vars()) {
         r ^= canonize_sign(j);
@@ -112,7 +112,7 @@ bool core::canonize_sign_is_correct(const monomial& m) const {
     return r == m.rsign();
 }
 
-bool core::canonize_sign(const monomial& m) const {
+bool core::canonize_sign(const monic& m) const {
     SASSERT(canonize_sign_is_correct(m));
     return m.rsign();
 }
@@ -125,7 +125,7 @@ bool core::canonize_sign(const factorization& f) const {
     return r;
 }
 
-void core::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
+void core::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
     m_add_buffer.resize(sz);
     for (unsigned i = 0; i < sz; i++) {
         lpvar j = vs[i];
@@ -157,13 +157,13 @@ rational core::product_value(const unsigned_vector & m) const {
     return r;
 }
     
-// return true iff the monomial value is equal to the product of the values of the factors
-bool core::check_monomial(const monomial& m) const {
+// return true iff the monic value is equal to the product of the values of the factors
+bool core::check_monic(const monic& m) const {
     SASSERT(m_lar_solver.get_column_value(m.var()).is_int());        
     return product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var());
 }
     
-void core::explain(const monomial& m, lp::explanation& exp) const {       
+void core::explain(const monic& m, lp::explanation& exp) const {       
     for (lpvar j : m.vars())
         explain(j, exp);
 }
@@ -231,7 +231,7 @@ std::ostream & core::print_factor_with_vars(const factor& f, std::ostream& out) 
     return out;
 }
 
-std::ostream& core::print_monomial(const monomial& m, std::ostream& out) const {
+std::ostream& core::print_monic(const monic& m, std::ostream& out) const {
     if (lp_settings().m_print_external_var_name)
         out << "([" << m.var() << "] = " << m_lar_solver.get_variable_name(m.var()) << " = " << val(m.var()) << " = ";
     else 
@@ -250,8 +250,8 @@ std::ostream& core::print_bfc(const factorization& m, std::ostream& out) const {
     return out;
 }
 
-std::ostream& core::print_monomial_with_vars(lpvar v, std::ostream& out) const {
-    return print_monomial_with_vars(m_emons[v], out);
+std::ostream& core::print_monic_with_vars(lpvar v, std::ostream& out) const {
+    return print_monic_with_vars(m_emons[v], out);
 }
 template <typename T>
 std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const {
@@ -262,7 +262,7 @@ std::ostream& core::print_product_with_vars(const T& m, std::ostream& out) const
     return out;
 }
 
-std::ostream& core::print_monomial_with_vars(const monomial& m, std::ostream& out) const {
+std::ostream& core::print_monic_with_vars(const monic& m, std::ostream& out) const {
     out << "["; print_var(m.var(), out) << "]\n";
     out << "vars:"; print_product_with_vars(m.vars(), out) << "\n";
     if (m.vars() == m.rvars())
@@ -505,8 +505,8 @@ void core:: mk_ineq(lpvar j, llc cmp) {
     mk_ineq(j, cmp, rational::zero());
 }
     
-// the monomials should be equal by modulo sign but this is not so in the model
-void core:: fill_explanation_and_lemma_sign(const monomial& a, const monomial & b, rational const& sign) {
+// the monics should be equal by modulo sign but this is not so in the model
+void core:: fill_explanation_and_lemma_sign(const monic& a, const monic & b, rational const& sign) {
     SASSERT(sign == 1 || sign == -1);
     explain(a, current_expl());
     explain(b, current_expl());
@@ -523,7 +523,7 @@ void core:: fill_explanation_and_lemma_sign(const monomial& a, const monomial & 
 // Replaces each variable index by the root in the tree and flips the sign if the var comes with a minus.
 // Also sorts the result.
 // 
-svector<lpvar> core::reduce_monomial_to_rooted(const svector<lpvar> & vars, rational & sign) const {
+svector<lpvar> core::reduce_monic_to_rooted(const svector<lpvar> & vars, rational & sign) const {
     svector<lpvar> ret;
     bool s = false;
     for (lpvar v : vars) {
@@ -545,10 +545,10 @@ svector<lpvar> core::reduce_monomial_to_rooted(const svector<lpvar> & vars, rati
 // m_v = coeff * w1 * ... * wn, where w1, .., wn are canonical
 // representatives, which are the roots of the equivalence tree, under current equations.
 // 
-monomial_coeff core::canonize_monomial(monomial const& m) const {
+monic_coeff core::canonize_monic(monic const& m) const {
     rational sign = rational(1);
-    svector<lpvar> vars = reduce_monomial_to_rooted(m.vars(), sign);
-    return monomial_coeff(vars, sign);
+    svector<lpvar> vars = reduce_monic_to_rooted(m.vars(), sign);
+    return monic_coeff(vars, sign);
 }
 
 lemma& core::current_lemma() { return m_lemma_vec->back(); }
@@ -594,7 +594,7 @@ bool core::zero_is_an_inner_point_of_bounds(lpvar j) const {
     return true;
 }
     
-int core::rat_sign(const monomial& m) const {
+int core::rat_sign(const monic& m) const {
     int sign = 1;
     for (lpvar j : m.vars()) {
         auto v = val(j);
@@ -611,8 +611,8 @@ int core::rat_sign(const monomial& m) const {
     return sign;
 }
 
-// Returns true if the monomial sign is incorrect
-bool core::sign_contradiction(const monomial& m) const {
+// Returns true if the monic sign is incorrect
+bool core::sign_contradiction(const monic& m) const {
     return  nla::rat_sign(val(m)) != rat_sign(m);
 }
 
@@ -654,8 +654,8 @@ std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
 }
 
 std::ostream & core::print_var(lpvar j, std::ostream & out) const {
-    if (m_emons.is_monomial_var(j)) {
-        print_monomial(m_emons[j], out);
+    if (m_emons.is_monic_var(j)) {
+        print_monic(m_emons[j], out);
     }
         
     m_lar_solver.print_column_info(j, out);
@@ -664,9 +664,9 @@ std::ostream & core::print_var(lpvar j, std::ostream & out) const {
     return out;
 }
 
-std::ostream & core::print_monomials(std::ostream & out) const {
+std::ostream & core::print_monics(std::ostream & out) const {
     for (auto &m : m_emons) {
-        print_monomial_with_vars(m, out);
+        print_monic_with_vars(m, out);
     }
     return out;
 }    
@@ -707,13 +707,13 @@ std::ostream & core::print_factorization(const factorization& f, std::ostream& o
     return out;
 }
     
-bool core::find_canonical_monomial_of_vars(const svector<lpvar>& vars, lpvar & i) const {
-    monomial const* sv = m_emons.find_canonical(vars);
+bool core::find_canonical_monic_of_vars(const svector<lpvar>& vars, lpvar & i) const {
+    monic const* sv = m_emons.find_canonical(vars);
     return sv && (i = sv->var(), true);
 }
 
-bool core::is_canonical_monomial(lpvar j) const {
-    return m_emons.is_canonical_monomial(j);
+bool core::is_canonical_monic(lpvar j) const {
+    return m_emons.is_canonical_monic(j);
 }
 
 
@@ -735,7 +735,7 @@ void core::explain_separation_from_zero(lpvar j) {
         explain_existing_upper_bound(j);
 }
 
-void core::trace_print_monomial_and_factorization(const monomial& rm, const factorization& f, std::ostream& out) const {
+void core::trace_print_monic_and_factorization(const monic& rm, const factorization& f, std::ostream& out) const {
     out << "rooted vars: ";
     print_product(rm.rvars(), out);
     out << "\n";
@@ -926,14 +926,14 @@ void core::trace_print_rms(const T& p, std::ostream& out) {
     out << "}";
 }
 
-void core::print_monomial_stats(const monomial& m, std::ostream& out) {
+void core::print_monic_stats(const monic& m, std::ostream& out) {
     if (m.size() == 2) return;
-    monomial_coeff mc = canonize_monomial(m);
+    monic_coeff mc = canonize_monic(m);
     for(unsigned i = 0; i < mc.vars().size(); i++){
         if (abs(val(mc.vars()[i])) == rational(1)) {
             auto vv = mc.vars();
             vv.erase(vv.begin()+i);
-            monomial const* sv = m_emons.find_canonical(vv);
+            monic const* sv = m_emons.find_canonical(vv);
             if (!sv) {
                 out << "nf length" << vv.size() << "\n"; ;
             }
@@ -959,10 +959,10 @@ void core::init_to_refine() {
     TRACE("nla_solver_details", tout << "emons:" << pp_emons(*this, m_emons););
     m_to_refine.clear();
     m_to_refine.resize(m_lar_solver.number_of_vars());
-    unsigned r = random(), sz = m_emons.number_of_monomials();
+    unsigned r = random(), sz = m_emons.number_of_monics();
     for (unsigned k = 0; k < sz; k++) {
         auto const & m = *(m_emons.begin() + (k + r)% sz);
-        if (!check_monomial(m)) 
+        if (!check_monic(m)) 
             m_to_refine.insert(m.var());
     }
     
@@ -975,7 +975,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
     std::unordered_set<lpvar> vars;
     auto insert_j = [&](lpvar j) { 
         vars.insert(j);
-        if (m_emons.is_monomial_var(j)) {
+        if (m_emons.is_monic_var(j)) {
             for (lpvar k : m_emons[j].vars())
                 vars.insert(k);
         }
@@ -996,7 +996,7 @@ std::unordered_set<lpvar> core::collect_vars(const lemma& l) const {
 }
 
 // divides bc by c, so bc = b*c
-bool core::divide(const monomial& bc, const factor& c, factor & b) const {
+bool core::divide(const monic& bc, const factor& c, factor & b) const {
     svector<lpvar> c_rvars = sorted_rvars(c);
     TRACE("nla_solver_div", tout << "c_rvars = "; print_product(c_rvars, tout); tout << "\nbc_rvars = "; print_product(bc.rvars(), tout););
     if (!lp::is_proper_factor(c_rvars, bc.rvars()))
@@ -1008,7 +1008,7 @@ bool core::divide(const monomial& bc, const factor& c, factor & b) const {
     if (b_rvars.size() == 1) {
         b = factor(b_rvars[0], factor_type::VAR);
     } else {
-        monomial const* sv = m_emons.find_canonical(b_rvars);
+        monic const* sv = m_emons.find_canonical(b_rvars);
         if (sv == nullptr) {
             TRACE("nla_solver_div", tout << "not in rooted";);
             return false;
@@ -1064,10 +1064,10 @@ void core::print_specific_lemma(const lemma& l, std::ostream& out) const {
 }
     
 
-void core::trace_print_ol(const monomial& ac,
+void core::trace_print_ol(const monic& ac,
                           const factor& a,
                           const factor& c,
-                          const monomial& bc,
+                          const monic& bc,
                           const factor& b,
                           std::ostream& out) {
     out << "ac = " << pp_mon(*this, ac) << "\n";
@@ -1086,7 +1086,7 @@ void core::maybe_add_a_factor(lpvar i,
                               std::unordered_set<unsigned>& found_rm,
                               vector<factor> & r) const {
     SASSERT(abs(val(i)) == abs(val(c)));
-    if (!m_emons.is_monomial_var(i)) {
+    if (!m_emons.is_monic_var(i)) {
         i = m_evars.find(i).var();
         if (try_insert(i, found_vars)) {
             r.push_back(factor(i, factor_type::VAR));
@@ -1100,7 +1100,7 @@ void core::maybe_add_a_factor(lpvar i,
 }
     
 
-// Returns rooted monomials by arity
+// Returns rooted monics by arity
 std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
     std::unordered_map<unsigned, unsigned_vector> m;
     for (auto const& mon : m_emons) {
@@ -1116,8 +1116,8 @@ std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
 
     
 
-bool core::rm_check(const monomial& rm) const {
-    return check_monomial(m_emons[rm.var()]);
+bool core::rm_check(const monic& rm) const {
+    return check_monic(m_emons[rm.var()]);
 }
     
 
@@ -1174,7 +1174,7 @@ void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
 */
 
     
-bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf) {
+bool core::find_bfc_to_refine_on_monic(const monic& m, factorization & bf) {
     for (auto f : factorization_factory_imp(m, *this)) {
         if (f.size() == 2) {
             auto a = f[0];
@@ -1192,14 +1192,14 @@ bool core::find_bfc_to_refine_on_monomial(const monomial& m, factorization & bf)
     return false;
 }
 
-// finds a monomial to refine with its binary factorization
-bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
+// finds a monic to refine with its binary factorization
+bool core::find_bfc_to_refine(const monic* & m, factorization & bf){
     m = nullptr;
     unsigned r = random(), sz = m_to_refine.size();
     for (unsigned k = 0; k < sz; k++) {
         lpvar i = m_to_refine[(k + r) % sz];
         m = &m_emons[i];
-        SASSERT (!check_monomial(*m));
+        SASSERT (!check_monic(*m));
         if (m->size() == 2) {
             bf.set_mon(m);
             bf.push_back(factor(m->vars()[0], factor_type::VAR));
@@ -1207,7 +1207,7 @@ bool core::find_bfc_to_refine(const monomial* & m, factorization & bf){
             return true;
         }
                 
-        if (find_bfc_to_refine_on_monomial(*m, bf)) {
+        if (find_bfc_to_refine_on_monic(*m, bf)) {
             TRACE("nla_solver",
                   tout << "bf = "; print_factorization(bf, tout);
                   tout << "\nval(*m) = " << val(*m) << ", should be = (val(bf[0])=" << val(bf[0]) << ")*(val(bf[1]) = " << val(bf[1]) << ") = " << val(bf[0])*val(bf[1]) << "\n";);
@@ -1292,10 +1292,10 @@ bool core::elist_is_consistent(const std::unordered_set<lpvar> & list) const {
     bool p;
     for (lpvar j : list) {
         if (first) {
-            p = check_monomial(m_emons[j]);
+            p = check_monic(m_emons[j]);
             first = false;
         } else 
-            if (check_monomial(m_emons[j]) != p)
+            if (check_monic(m_emons[j]) != p)
                 return false;
     }
     return true;
@@ -1334,8 +1334,8 @@ lbool core::check(vector<lemma>& l_vec) {
         ret = inner_check(false);
 
     TRACE("nla_solver", tout << "ret = " << ret << ", lemmas count = " << m_lemma_vec->size() << "\n";);
-    IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monomials(verbose_stream());});
-    CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monomials(tout););
+    IF_VERBOSE(2, if(ret == l_undef) {verbose_stream() << "Monomials\n"; print_monics(verbose_stream());});
+    CTRACE("nla_solver", ret == l_undef, tout << "Monomials\n"; print_monics(tout););
     return ret;
 }
 
@@ -1383,7 +1383,7 @@ lbool core::test_check(
 //     nla_expr<rational> r(expr_type::SUM);
 //     for (const auto & p : coeffs) {
 //         lpvar j = p.second;
-//         if (is_monomial_var(j))
+//         if (is_monic_var(j))
 //             r.add_child(mk_expr(p.first, m_emons[j].vars()));
 //         else
 //             r.add_child(mk_expr(p.first, j));
@@ -1408,8 +1408,8 @@ std::ostream& core::print_terms(std::ostream& out) const {
 }
 
 std::string core::var_str(lpvar j) const {
-    return is_monomial_var(j)?
-        (product_indices_str(m_emons[j].vars()) + (check_monomial(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));        
+    return is_monic_var(j)?
+        (product_indices_str(m_emons[j].vars()) + (check_monic(m_emons[j])? "": "_")) : (std::string("v") + lp::T_to_string(j));        
 }
 
 std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const {

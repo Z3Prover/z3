@@ -33,7 +33,7 @@ namespace nra {
           \brief Add a definition v = vs[0]*vs[1]*...*vs[sz-1]
           The variable v is equal to the product of variables vs.
         */
-        void add_monomial(lp::var_index v, unsigned sz, lp::var_index const* vs);
+        void add_monic(lp::var_index v, unsigned sz, lp::var_index const* vs);
 
         /*
           \brief Check feasiblity of linear constraints augmented by polynomial definitions

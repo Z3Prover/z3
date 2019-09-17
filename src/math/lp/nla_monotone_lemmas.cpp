@@ -50,8 +50,8 @@ void monotone::negate_abs_a_le_abs_b(lpvar a, lpvar b, bool strict) {
 }
 
 void monotone::assert_abs_val_a_le_abs_var_b(
-    const monomial& a,
-    const monomial& b,
+    const monic& a,
+    const monic& b,
     bool strict) {
     lpvar aj = var(a);
     lpvar bj = var(b);
@@ -77,8 +77,8 @@ void monotone::negate_abs_a_lt_abs_b(lpvar a, lpvar b) {
     mk_ineq(as, a, -bs, b, llc::GE); // negate  |aj| < |bj|
 }
    
-void monotone::monotonicity_lemma(monomial const& m) {
-    SASSERT(!check_monomial(m));
+void monotone::monotonicity_lemma(monic const& m) {
+    SASSERT(!check_monic(m));
     if (c().mon_has_zero(m.vars()))
         return;
     const rational prod_val = abs(c().product_value(m.vars()));
@@ -89,7 +89,7 @@ void monotone::monotonicity_lemma(monomial const& m) {
         monotonicity_lemma_gt(m, prod_val);
 }
 
-void monotone::monotonicity_lemma_gt(const monomial& m, const rational& prod_val) {
+void monotone::monotonicity_lemma_gt(const monic& m, const rational& prod_val) {
     TRACE("nla_solver", tout << "prod_val = " << prod_val << "\n";);
     add_empty_lemma();
     for (lpvar j : m.vars()) {
@@ -106,7 +106,7 @@ void monotone::monotonicity_lemma_gt(const monomial& m, const rational& prod_val
     <=>
     \/_i |m[i]| < |val(m[i])} or |m| >= |product_i val(m[i])|
 */
-void monotone::monotonicity_lemma_lt(const monomial& m, const rational& prod_val) {
+void monotone::monotonicity_lemma_lt(const monic& m, const rational& prod_val) {
     add_empty_lemma();
     for (lpvar j : m.vars()) {
         c().add_abs_bound(j, llc::LT);

@@ -48,7 +48,7 @@ bool horner::row_is_interesting(const T& row) const {
     c().clear_row_var_set();
     for (const auto& p : row) {
         lpvar j = p.var();
-        if (!c().is_monomial_var(j))
+        if (!c().is_monic_var(j))
             continue;
         auto & m = c().emons()[j];
         
@@ -133,26 +133,26 @@ void horner::horner_lemmas() {
 
 nex * horner::nexvar(lpvar j, cross_nested& cn) const {
     // todo: consider deepen the recursion
-    if (!c().is_monomial_var(j))
+    if (!c().is_monic_var(j))
         return cn.mk_var(j);
-    const monomial& m = c().emons()[j];
+    const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul();
     for (lpvar k : m.vars()) {
         e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monomial_var(k), c().print_var(k, tout) << "\n";);
+        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
     return e;
 }
 
 nex * horner::nexvar(const rational & coeff, lpvar j, cross_nested& cn) const {
     // todo: consider deepen the recursion
-    if (!c().is_monomial_var(j))
+    if (!c().is_monic_var(j))
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
-    const monomial& m = c().emons()[j];
+    const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
         e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monomial_var(k), c().print_var(k, tout) << "\n";);
+        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
     return e;
 }

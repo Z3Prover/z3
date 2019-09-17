@@ -7,7 +7,7 @@
 #include "math/lp/lar_solver.h"
 #include "math/lp/lp_utils.h"
 #include <utility>
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "math/lp/gomory.h"
 namespace lp {
 

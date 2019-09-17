@@ -39,16 +39,16 @@ public:
 };
 
 // support the congruence    
-class monomial: public mon_eq {
+class monic: public mon_eq {
     // fields
     svector<lpvar>  m_rvars;
     bool            m_rsign;
     mutable unsigned m_visited;
 public:
     // constructors
-    monomial(lpvar v, unsigned sz, lpvar const* vs, unsigned idx):  monomial(v, svector<lpvar>(sz, vs), idx) {
+    monic(lpvar v, unsigned sz, lpvar const* vs, unsigned idx):  monic(v, svector<lpvar>(sz, vs), idx) {
     }
-    monomial(lpvar v, const svector<lpvar> &vs, unsigned idx) : mon_eq(v, vs), m_rsign(false),  m_visited(0) {
+    monic(lpvar v, const svector<lpvar> &vs, unsigned idx) : mon_eq(v, vs), m_rsign(false),  m_visited(0) {
         std::sort(vars().begin(), vars().end());
     }
 
@@ -63,7 +63,7 @@ public:
     }
 };
 
- inline std::ostream& operator<<(std::ostream& out, monomial const& m) {
+ inline std::ostream& operator<<(std::ostream& out, monic const& m) {
      return out << m.var() << " := " << m.vars() << " r ( " << sign_to_rat(m.rsign()) << " * " << m.rvars() << ")";
  }
 

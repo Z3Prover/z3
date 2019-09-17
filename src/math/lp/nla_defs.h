@@ -63,11 +63,11 @@ inline std::ostream& operator<<(std::ostream& out, signed_var const& sv) { retur
  *  represents definition m_v = coeff* v1*v2*...*vn, 
  *  where m_vs = [v1, v2, .., vn]
  */
-class monomial_coeff  {
+class monic_coeff  {
     svector<lp::var_index> m_vs;
     rational m_coeff;
 public:
-    monomial_coeff(const svector<lp::var_index>& vs, rational const& coeff): m_vs(vs), m_coeff(coeff) {}
+    monic_coeff(const svector<lp::var_index>& vs, rational const& coeff): m_vs(vs), m_coeff(coeff) {}
     rational const& coeff() const { return m_coeff; }
     const svector<lp::var_index> & vars() const { return m_vs; } 
 };

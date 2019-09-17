@@ -35,13 +35,13 @@ void tangents::tangent_lemma() {
         return;
     }
     factorization bf(nullptr);
-    const monomial* m;
+    const monic* m;
     if (c().find_bfc_to_refine(m, bf)) {
         tangent_lemma_bf(*m, bf);
     }
 }
 
-void tangents::generate_explanations_of_tang_lemma(const monomial& rm, const factorization& bf, lp::explanation& exp) {
+void tangents::generate_explanations_of_tang_lemma(const monic& rm, const factorization& bf, lp::explanation& exp) {
     // here we repeat the same explanation for each lemma
     c().explain(rm, exp);
     c().explain(bf[0], exp);
@@ -69,7 +69,7 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
     c().mk_ineq(t, below? llc::GT : llc::LT, - a*b);
 }
 
-void tangents::tangent_lemma_bf(const monomial& m, const factorization& bf){
+void tangents::tangent_lemma_bf(const monic& m, const factorization& bf){
     point a, b;
     point xy (val(bf[0]), val(bf[1]));
     rational correct_mult_val =  xy.x * xy.y;

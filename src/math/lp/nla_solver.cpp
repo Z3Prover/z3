@@ -19,19 +19,19 @@
   --*/
 #include "math/lp/nla_solver.h"
 #include <map>
-#include "math/lp/monomial.h"
+#include "math/lp/monic.h"
 #include "math/lp/lp_utils.h"
 #include "math/lp/var_eqs.h"
 #include "math/lp/factorization.h"
 #include "math/lp/nla_solver.h"
 namespace nla {
 
-void solver::add_monomial(lpvar v, unsigned sz, lpvar const* vs) {
-    m_core->add_monomial(v, sz, vs);
+void solver::add_monic(lpvar v, unsigned sz, lpvar const* vs) {
+    m_core->add_monic(v, sz, vs);
 }
 
-bool solver::is_monomial_var(lpvar v) const {
-    return m_core->is_monomial_var(v);
+bool solver::is_monic_var(lpvar v) const {
+    return m_core->is_monic_var(v);
 }
 
 bool solver::need_check() { return true; }
