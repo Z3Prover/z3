@@ -27,8 +27,10 @@ class nla_settings {
     // how often to call the horner heuristic
     unsigned m_horner_frequency;
     unsigned m_horner_row_length_limit;
+    // grobner fields
     bool     m_run_grobner;
     unsigned m_grobner_frequency;
+    unsigned m_grobner_eqs_threshold;
 
 public:
     nla_settings() : m_run_order(true),
@@ -37,9 +39,13 @@ public:
                      m_horner_frequency(4),
                      m_horner_row_length_limit(10),
                      m_run_grobner(true),
-                     m_grobner_frequency(5)
+                     m_grobner_frequency(5),
+                     m_grobner_eqs_threshold(512)
     {}
     
+    unsigned grobner_eqs_threshold() const { return m_grobner_eqs_threshold; }
+    unsigned& grobner_eqs_threshold() { return m_grobner_eqs_threshold; }
+
     bool run_order() const { return m_run_order; }
     bool& run_order() { return m_run_order; }
 

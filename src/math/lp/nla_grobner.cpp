@@ -127,6 +127,56 @@ void nla_grobner::init() {
     find_nl_cluster();
 }
 
+equation* nla_grobner::pick_next() {
+    SASSERT(false);
+    return nullptr;
+}
+
+equation* nla_grobner::simplify_using_processed(equation* eq) {
+    SASSERT(false);
+    return nullptr;
+}
+
+equation* nla_grobner::simplify_processed(equation* eq) {
+    SASSERT(false);
+    return nullptr;
+}
+
+equation*  nla_grobner::simplify_to_process(equation*) {
+    SASSERT(false);
+    return nullptr;
+}
+
+
+void nla_grobner::superpose(equation * eq1, equation * eq2) {
+    SASSERT(false);
+}
+
+void nla_grobner::superpose(equation * eq){
+    SASSERT(false);
+}
+
+
+bool nla_grobner::compute_basis_step() {
+    equation * eq = pick_next();
+    if (!eq)
+        return true;
+    m_stats.m_num_processed++;
+    equation * new_eq = simplify_using_processed(eq);
+    if (new_eq != nullptr && eq != new_eq) {
+        // equation was updated using non destructive updates
+        m_equations_to_unfreeze.push_back(eq);
+        eq = new_eq;
+    }
+    if (canceled()) return false;
+    if (!simplify_processed(eq)) return false;
+    superpose(eq);
+    m_processed.insert(eq);
+    simplify_to_process(eq);
+    TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    return false;
+}
+
 void nla_grobner::compute_basis(){
     compute_basis_init();        
     if (!compute_basis_loop()) {
@@ -135,12 +185,15 @@ void nla_grobner::compute_basis(){
 }
 void nla_grobner::compute_basis_init(){
     c().lp_settings().stats().m_grobner_basis_computatins++;    
-    m_num_new_equations = 0;
+    m_num_of_equations = 0;
     
 }        
 
 bool nla_grobner::compute_basis_loop(){
-    SASSERT(false);
+    while (m_num_of_equations < c().m_nla_settings.grobner_eqs_threshold()) {
+        if (compute_basis_step())
+            return true;
+    }
     return false;
 }
 
