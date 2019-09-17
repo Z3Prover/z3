@@ -259,8 +259,8 @@ func_decl* array_decl_plugin::mk_select(unsigned arity, sort * const * domain) {
             std::stringstream strm;
             strm << "domain sort " << sort_ref(domain[i+1], *m_manager) << " and parameter ";
             strm << parameter_pp(parameters[i], *m_manager) << " do not match";
-            m_manager->raise_exception(strm.str());
             UNREACHABLE();
+            m_manager->raise_exception(strm.str());
             return nullptr;
         }
         new_domain.push_back(to_sort(parameters[i].get_ast()));

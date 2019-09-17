@@ -2228,6 +2228,8 @@ bool theory_seq::is_solved() {
         return false;
     }
 
+#if 0
+	// debug code
     context& ctx = get_context();
     for (enode* n : ctx.enodes()) {
         expr* e = nullptr;
@@ -2244,6 +2246,7 @@ bool theory_seq::is_solved() {
             }
         }        
     }
+#endif
 
     return true;
 }
