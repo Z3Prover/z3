@@ -293,6 +293,19 @@ void tst_int_min_bug() {
     m.del(r);
 }
 
+void tst_int64_min_bug() {
+    synch_mpz_manager m;
+    mpz intmin;
+    mpz test;
+    m.set(test, "-9223372036854775808");
+    m.set(intmin, std::numeric_limits<int64_t>::min());
+    std::cout << "minint: " << m.to_string(intmin) << "\n";
+    ENSURE(m.eq(test, intmin));
+    m.del(intmin);
+    m.del(test);
+}
+
+
 void tst_scoped() {
     synch_mpz_manager m;
     scoped_synch_mpz a(m);
@@ -504,6 +517,7 @@ void tst_mpz() {
     // tst_gcd();
     tst_scoped();
     tst_int_min_bug();
+    tst_int64_min_bug();
     bug4();
     bug3();
     bug1();

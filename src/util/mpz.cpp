@@ -272,7 +272,12 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
     c.m_kind = mpz_large;
     SASSERT(capacity(c) >= m_init_cell_capacity);
     uint64_t _v;
-    if (v < 0) {
+    if (v == std::numeric_limits<int64_t>::min()) {
+        // min-int is even
+        _v = -(v/2);
+        c.m_val = -1;
+    }
+    else if (v < 0) {
         _v = -v;
         c.m_val = -1;
     }
@@ -298,14 +303,15 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
     }
     c.m_kind = mpz_large;
     uint64_t _v;
-    bool sign;
-    if (v < 0) {
+    bool sign = v < 0;
+    if (v == std::numeric_limits<int64_t>::min()) {
+        _v = -(v/2);
+    }
+    else if (v < 0) {
         _v   = -v;
-        sign = true;
     }
     else {
         _v   = v;
-        sign = false;
     }
     mpz_set_ui(*c.m_ptr, static_cast<unsigned>(_v));
     MPZ_BEGIN_CRITICAL();
@@ -316,6 +322,9 @@ void mpz_manager<SYNCH>::set_big_i64(mpz & c, int64_t v) {
     if (sign)
         mpz_neg(*c.m_ptr, *c.m_ptr);
 #endif
+    if (v == std::numeric_limits<int64_t>::min()) {
+        big_add(c, c, c);
+    }
 }
 
 template<bool SYNCH>
