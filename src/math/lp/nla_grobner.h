@@ -36,6 +36,18 @@ struct grobner_stats {
 };
 
 struct monomial {
+    rational         m_coeff;
+    svector<lpvar>   m_vars;  //!< sorted variables
+    
+    friend class grobner;
+    friend struct monomial_lt;
+    
+    monomial() {}
+public:
+    rational const & get_coeff() const { return m_coeff; }
+    unsigned get_degree() const { return m_vars.size(); }
+    unsigned get_size() const { return get_degree(); }
+    lpvar    get_var(unsigned idx) const { return m_vars[idx]; }
 };
 
 class equation {
@@ -43,8 +55,8 @@ class equation {
     unsigned             m_bidx:31;       //!< position at m_equations_to_delete
     unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
     ptr_vector<monomial> m_monomials;     //!< sorted monomials
-    v_dependency *         m_dep;           //!< justification for the equality
-    friend class grobner;
+    v_dependency *       m_dep;           //!< justification for the equality
+    friend class nla_grobner;
     equation() {}
 public:
     unsigned get_num_monomials() const { return m_monomials.size(); }
@@ -70,14 +82,15 @@ enum class var_weight {
 class nla_grobner : common {
     typedef obj_hashtable<equation> equation_set;
     typedef ptr_vector<equation> equation_vector;
-    equation_vector         m_equations_to_unfreeze;
-    equation_vector         m_equations_to_delete;
     
-    lp::int_set         m_rows;
-    lp::int_set         m_active_vars;
-    svector<var_weight> m_active_vars_weights;
-    unsigned            m_num_of_equations;
-    grobner_stats       m_stats;
+    // fields
+    equation_vector         m_equations_to_unfreeze;
+    equation_vector         m_equations_to_delete;    
+    lp::int_set             m_rows;
+    lp::int_set             m_active_vars;
+    svector<var_weight>     m_active_vars_weights;
+    unsigned                m_num_of_equations;
+    grobner_stats           m_stats;
     equation_set            m_processed;
     equation_set            m_to_process;
 public:
@@ -93,7 +106,9 @@ private:
     var_weight get_var_weight(lpvar) const;
     void compute_basis();
     void update_statistics();
-    bool find_conflict();
+    bool find_conflict(ptr_vector<equation>& eqs);
+    bool is_inconsistent(equation*);
+    bool is_inconsistent2(equation*);
     bool push_calculation_forward();
     void compute_basis_init();        
     bool compute_basis_loop();
@@ -106,5 +121,16 @@ private:
     bool canceled() { return false; } // todo, implement
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
+    bool is_trivial(equation* ) const; 
+    bool is_better_choice(equation * eq1, equation * eq2);
+    void del_equations(unsigned old_size);
+    void del_equation(equation * eq);
+    void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
+    void display_equation(std::ostream & out, equation const & eq) const;
+
+    void display_monomial(std::ostream & out, monomial const & m) const;
+
+    void display(std::ostream & out) const;
+    void get_equations(ptr_vector<equation>& eqs);
 }; // end of grobner
 }
