@@ -1145,7 +1145,9 @@ namespace nlsat {
                 checkpoint();
                 if (value(l) == l_false)
                     continue;
-                CTRACE("nlsat", max_var(l) != m_xk, display(tout); tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l); tout << "\n";);
+                CTRACE("nlsat", max_var(l) != m_xk, display(tout); 
+                       tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l) << "\n";
+                       display(tout, cls) << "\n";);
                 SASSERT(value(l) == l_undef);
                 SASSERT(max_var(l) == m_xk);
                 bool_var b = l.var();

@@ -19,6 +19,7 @@ Revision History:
 --*/
 
 #include "util/uint_set.h"
+#include "util/scoped_ptr_vector.h"
 #include "ast/expr2var.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/expr_safe_replace.h"
@@ -67,7 +68,7 @@ namespace qe {
             bool                   m_valid_model;
             vector<nlsat::var_vector>            m_bound_rvars;
             vector<svector<nlsat::bool_var> >    m_bound_bvars;
-            vector<nlsat::scoped_literal_vector> m_preds;
+            scoped_ptr_vector<nlsat::scoped_literal_vector> m_preds;
             svector<max_level>                   m_rvar2level;
             u_map<max_level>                     m_bvar2level;
             expr2var                             m_a2b, m_t2x;
@@ -210,7 +211,7 @@ namespace qe {
             
             void display_preds(std::ostream& out) {
                 for (unsigned i = 0; i < m_preds.size(); ++i) {                
-                    m_solver.display(out << i << ": ", m_preds[i].size(), m_preds[i].c_ptr());
+                    m_solver.display(out << i << ": ", m_preds[i]->size(), m_preds[i]->c_ptr());
                     out << "\n";
                 }
             }
@@ -298,15 +299,15 @@ namespace qe {
                 return;
             }
             if (lvl <= s.m_preds.size()) {
-                for (unsigned j = 0; j < s.m_preds[lvl - 1].size(); ++j) {
-                    s.add_literal(s.m_cached_asms, s.m_preds[lvl - 1][j]);
+                for (unsigned j = 0; j < s.m_preds[lvl - 1]->size(); ++j) {
+                    s.add_literal(s.m_cached_asms, (*s.m_preds[lvl - 1])[j]);
                 }
             }
             s.m_asms.append(s.m_cached_asms);
             
             for (unsigned i = lvl + 1; i < s.m_preds.size(); i += 2) {
-                for (unsigned j = 0; j < s.m_preds[i].size(); ++j) {
-                    nlsat::literal l = s.m_preds[i][j];
+                for (unsigned j = 0; j < s.m_preds[i]->size(); ++j) {
+                    nlsat::literal l = (*s.m_preds[i])[j];
                     max_level lv = s.m_bvar2level.find(l.var());
                     bool use = 
                         (lv.m_fa == i && (lv.m_ex == UINT_MAX || lv.m_ex < lvl)) ||
@@ -441,10 +442,10 @@ namespace qe {
         void set_level(nlsat::bool_var v, max_level const& level) {
             unsigned k = level.max();
             while (s.m_preds.size() <= k) {
-                s.m_preds.push_back(nlsat::scoped_literal_vector(s.m_solver));
+                s.m_preds.push_back(alloc(nlsat::scoped_literal_vector, s.m_solver));
             }
             nlsat::literal l(v, false);
-            s.m_preds[k].push_back(l);
+            s.m_preds[k]->push_back(l);
             s.m_solver.inc_ref(v);
             s.m_bvar2level.insert(v, level);            
             TRACE("qe", s.m_solver.display(tout, l); tout << ": " << level << "\n";);
