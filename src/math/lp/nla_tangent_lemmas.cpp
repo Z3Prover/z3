@@ -30,7 +30,7 @@ std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std
     return out << "(" << a <<  ", " << b << ")";
 }
 void tangents::tangent_lemma() {
-    if (!c().m_settings.run_tangents()) {
+    if (!c().m_nla_settings.run_tangents()) {
         TRACE("nla_solver", tout << "not generating tangent lemmas\n";);
         return;
     }

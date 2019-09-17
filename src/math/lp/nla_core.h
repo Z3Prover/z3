@@ -88,7 +88,7 @@ public:
     order                    m_order;
     monotone                 m_monotone;
     horner                   m_horner;
-    nla_settings             m_settings;
+    nla_settings             m_nla_settings;
     nla_grobner              m_grobner;
 private:
     emonomials               m_emons;
@@ -142,9 +142,9 @@ public:
     
     lpvar var(const factor& f) const { return f.var(); }
 
-    bool need_to_call_horner() const { return lp_settings().stats().m_nla_calls % m_settings.horner_frequency() == 0; }
+    bool need_to_call_horner() const { return lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; }
 
-    bool need_to_call_grobner() const { return lp_settings().stats().m_nla_calls % m_settings.grobner_frequency() == 0; }
+    bool need_to_call_grobner() const { return lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0; }
 
     lbool incremental_linearization(bool);
     
