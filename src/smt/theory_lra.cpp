@@ -448,13 +448,14 @@ class theory_lra::imp {
                 m_nla->push();
             }
             nla_params nla(ctx().get_params());
-            m_nla->get_core()->m_settings.run_order() = nla.order();
-            m_nla->get_core()->m_settings.run_tangents() = nla.tangents();
-            m_nla->get_core()->m_settings.run_horner() = nla.horner();
-            m_nla->get_core()->m_settings.horner_frequency() = nla.horner_frequency();
-            m_nla->get_core()->m_settings.horner_row_length_limit() = nla.horner_row_length_limit();
-            m_nla->get_core()->m_settings.grobner_frequency() = nla.grobner_frequency();
-            m_nla->get_core()->m_settings.run_grobner() = nla.grobner();
+            m_nla->get_core()->m_nla_settings.run_order() = nla.order();
+            m_nla->get_core()->m_nla_settings.run_tangents() = nla.tangents();
+            m_nla->get_core()->m_nla_settings.run_horner() = nla.horner();
+            m_nla->get_core()->m_nla_settings.horner_frequency() = nla.horner_frequency();
+            m_nla->get_core()->m_nla_settings.horner_row_length_limit() = nla.horner_row_length_limit();
+            m_nla->get_core()->m_nla_settings.grobner_frequency() = nla.grobner_frequency();
+            m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
+            m_nla->get_core()->m_nla_settings.grobner_eqs_threshold() = nla.grobner_eqs_threshold();
         }
     }
 
