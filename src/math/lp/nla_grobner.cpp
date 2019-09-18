@@ -21,7 +21,27 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 namespace nla {
-nla_grobner::nla_grobner(core *c) : common(c) {}
+nla_grobner::nla_grobner(core *c) : common(c), m_nl_gb_exhausted(false) {}
+
+// Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
+// then assert bounds for x, and continue
+bool nla_grobner::scan_for_linear(ptr_vector<equation>& eqs) {
+    bool result = false;
+    for (nla_grobner::equation* eq : eqs) {
+        if (!eq->is_linear_combination()) {
+            TRACE("non_linear", tout << "processing new equality:\n"; display_equation(tout, *eq););
+            TRACE("non_linear_bug", tout << "processing new equality:\n"; display_equation(tout, *eq););
+            if (internalize_gb_eq(eq))
+                result = true;
+        }
+    }
+    return result;
+}
+
+bool nla_grobner::internalize_gb_eq(equation* ) {
+    NOT_IMPLEMENTED_YET();
+    return false;
+}
 
 void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
     SASSERT(m_active_vars.contains(j) == false);
@@ -122,9 +142,20 @@ void nla_grobner::display(std::ostream & out) {
         c().print_term(r, out) << std::endl;
     }
 }
-
+void nla_grobner::add_row_to_gb(unsigned) {
+    NOT_IMPLEMENTED_YET();
+}
+void nla_grobner::add_monomial_def(lpvar) {
+    NOT_IMPLEMENTED_YET();
+}
 void nla_grobner::init() {
     find_nl_cluster();
+    for (unsigned i : m_rows) {
+        add_row_to_gb(i);
+    }
+    for (lpvar j : m_active_vars) {
+        add_monomial_def(j);
+    }
 }
 
 bool nla_grobner::is_trivial(equation* eq) const {
@@ -158,7 +189,7 @@ void nla_grobner::del_equation(equation * eq) {
     */
 }
 
-equation* nla_grobner::pick_next() {
+nla_grobner::equation* nla_grobner::pick_next() {
     equation * r = nullptr;
     ptr_buffer<equation> to_delete;
     for (equation * curr : m_to_process) {
@@ -175,18 +206,18 @@ equation* nla_grobner::pick_next() {
     return r;
 }
 
-equation* nla_grobner::simplify_using_processed(equation* eq) {
-    SASSERT(false);
+nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
+    NOT_IMPLEMENTED_YET();
     return nullptr;
 }
 
-equation* nla_grobner::simplify_processed(equation* eq) {
-    SASSERT(false);
+nla_grobner::equation* nla_grobner::simplify_processed(equation* eq) {
+    NOT_IMPLEMENTED_YET();
     return nullptr;
 }
 
-equation*  nla_grobner::simplify_to_process(equation*) {
-    SASSERT(false);
+nla_grobner::equation*  nla_grobner::simplify_to_process(equation*) {
+    NOT_IMPLEMENTED_YET();
     return nullptr;
 }
 
@@ -241,7 +272,7 @@ bool nla_grobner::compute_basis_loop(){
 }
 
 void nla_grobner::set_gb_exhausted(){
-        NOT_IMPLEMENTED_YET();
+    m_nl_gb_exhausted = true;
 }
 
 void nla_grobner::update_statistics(){
@@ -288,17 +319,26 @@ void nla_grobner::get_equations(ptr_vector<equation>& result) {
 }
 
 
-bool nla_grobner::push_calculation_forward(){
+bool nla_grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned & next_weight) {
+    return scan_for_linear(eqs)
+        &&
+        (!m_nl_gb_exhausted) &&
+        try_to_modify_eqs(eqs, next_weight);
+}
+
+bool nla_grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight) {
     NOT_IMPLEMENTED_YET();
     return false;
 }
+
 
 void nla_grobner::grobner_lemmas() {
     c().lp_settings().stats().m_grobner_calls++;    
     init();
     
     ptr_vector<equation> eqs;
-    
+    unsigned next_weight =
+        (unsigned)(var_weight::MAX_DEFAULT_WEIGHT) + 1; // next weight using during perturbation phase. 
     do {
         TRACE("nla_gb", tout << "before:\n"; display(tout););
         compute_basis();
@@ -307,7 +347,7 @@ void nla_grobner::grobner_lemmas() {
         if (find_conflict(eqs))
             return;
     }
-    while(push_calculation_forward());
+    while(push_calculation_forward(eqs, next_weight));
 }
 void nla_grobner:: del_equations(unsigned old_size) {
     SASSERT(m_equations_to_delete.size() >= old_size);

@@ -2241,7 +2241,7 @@ void theory_arith<Ext>::set_gb_exhausted() {
 
 // Scan the grobner basis eqs, and look for inconsistencies.
 template<typename Ext>
-bool theory_arith<Ext>::pass_over_gb_eqs_for_conflict(ptr_vector<grobner::equation>& eqs, grobner& gb) {
+bool theory_arith<Ext>::get_gb_eqs_and_look_for_conflict(ptr_vector<grobner::equation>& eqs, grobner& gb) {
     eqs.reset();
     gb.get_equations(eqs);
     TRACE("grobner_bug", tout << "after gb\n";);
@@ -2346,7 +2346,7 @@ typename theory_arith<Ext>::gb_result theory_arith<Ext>::compute_grobner(svector
         TRACE("non_linear_gb", tout << "after:\n"; gb.display(tout););
         if (get_context().get_cancel_flag())
             return GB_FAIL;
-        if (pass_over_gb_eqs_for_conflict(eqs, gb))
+        if (get_gb_eqs_and_look_for_conflict(eqs, gb))
             return GB_PROGRESS;
     }
     while(scan_for_linear(eqs, gb) && m_params.m_nl_arith_gb_perturbate && 
