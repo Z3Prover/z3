@@ -50,23 +50,6 @@ public:
     lpvar    get_var(unsigned idx) const { return m_vars[idx]; }
 };
 
-class equation {
-    unsigned             m_scope_lvl;     //!< scope level when this equation was created.
-    unsigned             m_bidx:31;       //!< position at m_equations_to_delete
-    unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
-    ptr_vector<monomial> m_monomials;     //!< sorted monomials
-    v_dependency *       m_dep;           //!< justification for the equality
-    friend class nla_grobner;
-    equation() {}
-public:
-    unsigned get_num_monomials() const { return m_monomials.size(); }
-    monomial const * get_monomial(unsigned idx) const { return m_monomials[idx]; }
-    monomial * const * get_monomials() const { return m_monomials.c_ptr(); }
-    v_dependency * get_dependency() const { return m_dep; }
-    unsigned hash() const { return m_bidx; }
-    bool is_linear_combination() const { return m_lc; }
-};
-
 enum class var_weight {
         FIXED = 0,
             QUOTED_FIXED =  1,
@@ -80,6 +63,24 @@ enum class var_weight {
             };
 
 class nla_grobner : common {
+
+    class equation {
+        unsigned             m_scope_lvl;     //!< scope level when this equation was created.
+        unsigned             m_bidx:31;       //!< position at m_equations_to_delete
+        unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
+        ptr_vector<monomial> m_monomials;     //!< sorted monomials
+        v_dependency *       m_dep;           //!< justification for the equality
+        friend class nla_grobner;
+        equation() {}
+    public:
+        unsigned get_num_monomials() const { return m_monomials.size(); }
+        monomial const * get_monomial(unsigned idx) const { return m_monomials[idx]; }
+        monomial * const * get_monomials() const { return m_monomials.c_ptr(); }
+        v_dependency * get_dependency() const { return m_dep; }
+        unsigned hash() const { return m_bidx; }
+        bool is_linear_combination() const { return m_lc; }
+    };
+
     typedef obj_hashtable<equation> equation_set;
     typedef ptr_vector<equation> equation_vector;
     
@@ -93,10 +94,12 @@ class nla_grobner : common {
     grobner_stats           m_stats;
     equation_set            m_processed;
     equation_set            m_to_process;
+    bool                    m_nl_gb_exhausted;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
 private:
+    bool scan_for_linear(ptr_vector<equation>& eqs);
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
@@ -109,7 +112,7 @@ private:
     bool find_conflict(ptr_vector<equation>& eqs);
     bool is_inconsistent(equation*);
     bool is_inconsistent2(equation*);
-    bool push_calculation_forward();
+    bool push_calculation_forward(ptr_vector<equation>& eqs, unsigned&);
     void compute_basis_init();        
     bool compute_basis_loop();
     bool compute_basis_step();
@@ -132,5 +135,9 @@ private:
 
     void display(std::ostream & out) const;
     void get_equations(ptr_vector<equation>& eqs);
+    bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
+    bool internalize_gb_eq(equation*);
+    void add_row_to_gb(unsigned);
+    void add_monomial_def(lpvar);
 }; // end of grobner
 }

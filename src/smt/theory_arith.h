@@ -1043,7 +1043,7 @@ namespace smt {
         void compute_basis(grobner&, bool&);
         void update_statistics(grobner&);
         void set_gb_exhausted();
-        bool pass_over_gb_eqs_for_conflict(ptr_vector<grobner::equation>& eqs, grobner&);
+        bool get_gb_eqs_and_look_for_conflict(ptr_vector<grobner::equation>& eqs, grobner&);
         bool scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner&);
         bool try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, grobner&, unsigned &);
         bool max_min_nl_vars();
