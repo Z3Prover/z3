@@ -137,11 +137,11 @@ jobs:
       artifactName: 'Python packages'
       targetPath: dist
   - task: DownloadSecureFile@1
-    name: pypirc
+    name: testpypirc
     inputs:
-      secureFile: 'pypirc'
+      secureFile: 'testpypirc'
   - script: python -m pip install --user -U setuptools wheel twine
-  - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+  - script: python -m twine upload --config-file $(testpypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
 
 # TBD: run regression tests on generated binaries.
