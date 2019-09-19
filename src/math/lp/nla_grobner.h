@@ -21,6 +21,7 @@
 
 #include "math/lp/nla_common.h"
 #include "math/lp/nex.h"
+#include "math/lp/nex_creator.h"
 #include "util/dependency.h"
 
 namespace nla {
@@ -33,21 +34,6 @@ struct grobner_stats {
     long m_num_processed;
     void reset() { memset(this, 0, sizeof(grobner_stats)); }
     grobner_stats() { reset(); }
-};
-
-struct monomial {
-    rational         m_coeff;
-    svector<lpvar>   m_vars;  //!< sorted variables
-    
-    friend class grobner;
-    friend struct monomial_lt;
-    
-    monomial() {}
-public:
-    rational const & get_coeff() const { return m_coeff; }
-    unsigned get_degree() const { return m_vars.size(); }
-    unsigned get_size() const { return get_degree(); }
-    lpvar    get_var(unsigned idx) const { return m_vars[idx]; }
 };
 
 enum class var_weight {
@@ -63,6 +49,21 @@ enum class var_weight {
             };
 
 class nla_grobner : common {
+
+    struct monomial {
+        rational         m_coeff;
+        svector<lpvar>   m_vars;  //!< sorted variables
+    
+        friend class grobner;
+        friend struct monomial_lt;
+    
+        monomial() {}
+    public:
+        rational const & get_coeff() const { return m_coeff; }
+        unsigned get_degree() const { return m_vars.size(); }
+        unsigned get_size() const { return get_degree(); }
+        lpvar    get_var(unsigned idx) const { return m_vars[idx]; }
+    };
 
     class equation {
         unsigned             m_scope_lvl;     //!< scope level when this equation was created.
@@ -95,6 +96,12 @@ class nla_grobner : common {
     equation_set            m_processed;
     equation_set            m_to_process;
     bool                    m_nl_gb_exhausted;
+    ptr_vector<nex>         m_allocated;
+    lp::int_set             m_tmp_var_set;
+    region                  m_alloc;
+    ci_value_manager        m_val_manager;
+    ci_dependency_manager   m_dep_manager;
+    nex_creator             m_nex_creator;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
@@ -137,7 +144,17 @@ private:
     void get_equations(ptr_vector<equation>& eqs);
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
-    void add_row_to_gb(unsigned);
+    void add_row(unsigned);
     void add_monomial_def(lpvar);
+    void assert_eq_0(ptr_buffer<monomial> &, v_dependency * dep);
+    void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
+
+    nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
+    rational get_monomial_coeff(const nex_mul* m) {        
+        const nex* a = m->children()[0];
+        if (a->is_scalar())
+            return static_cast<const nex_scalar*>(a)->value();
+        return rational(1);
+    }
 }; // end of grobner
 }

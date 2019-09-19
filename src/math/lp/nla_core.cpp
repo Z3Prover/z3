@@ -628,23 +628,17 @@ bool core::sign_contradiction(const monic& m) const {
 
 bool core:: var_is_fixed_to_zero(lpvar j) const {
     return 
-        m_lar_solver.column_has_upper_bound(j) &&
-        m_lar_solver.column_has_lower_bound(j) &&
-        m_lar_solver.get_upper_bound(j) == lp::zero_of_type<lp::impq>() &&
+        m_lar_solver.column_is_fixed(j) &&
         m_lar_solver.get_lower_bound(j) == lp::zero_of_type<lp::impq>();
 }
 bool core:: var_is_fixed_to_val(lpvar j, const rational& v) const {
     return 
-        m_lar_solver.column_has_upper_bound(j) &&
-        m_lar_solver.column_has_lower_bound(j) &&
-        m_lar_solver.get_upper_bound(j) == lp::impq(v) && m_lar_solver.get_lower_bound(j) == lp::impq(v);
+        m_lar_solver.column_is_fixed(j) &&
+        m_lar_solver.get_lower_bound(j) == lp::impq(v);
 }
 
 bool core:: var_is_fixed(lpvar j) const {
-    return 
-        m_lar_solver.column_has_upper_bound(j) &&
-        m_lar_solver.column_has_lower_bound(j) &&
-        m_lar_solver.get_upper_bound(j) == m_lar_solver.get_lower_bound(j);
+    return m_lar_solver.column_is_fixed(j);
 }
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {

@@ -130,11 +130,11 @@ bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
      return true;
 }
 
-intervals::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
+common::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }
 
-intervals::ci_dependency *intervals::mk_dep(const lp::explanation& expl) const {
+common::ci_dependency *intervals::mk_dep(const lp::explanation& expl) const {
     intervals::ci_dependency * r = nullptr;
     for (auto p : expl) {
         if (r == nullptr) {

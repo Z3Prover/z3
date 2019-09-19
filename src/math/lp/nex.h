@@ -63,6 +63,7 @@ public:
     bool is_mul() const { return type() == expr_type::MUL; }
     bool is_var() const { return type() == expr_type::VAR; }
     bool is_scalar() const { return type() == expr_type::SCALAR; }
+    virtual bool is_pure_monomial() const { return false; }
     std::string str() const { std::stringstream ss; print(ss); return ss.str(); }
     virtual ~nex() {}
     virtual bool contains(lpvar j) const { return false; }
@@ -182,7 +183,8 @@ public:
     const ptr_vector<nex>& children() const { return m_children;}
     const ptr_vector<nex>* children_ptr() const { return &m_children;}
     ptr_vector<nex>* children_ptr() { return &m_children;}
-    
+    // A monomial is 'pure' if does not have a numeric coefficient.
+    bool is_pure_monomial() { return size() == 0 || (!m_children[0]->is_scalar()); }    
     std::ostream & print(std::ostream& out) const {
         bool first = true;
         for (const nex* v : m_children) {            
