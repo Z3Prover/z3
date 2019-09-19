@@ -24,6 +24,8 @@
 #include "math/lp/monic.h"
 #include "math/lp/emonics.h"
 #include "math/lp/factorization.h"
+#include "util/dependency.h"
+#include "util/region.h"
 namespace nla {
 
 
@@ -92,5 +94,26 @@ struct common {
     std::ostream& print_rooted_monic_with_vars(const monic&, std::ostream& out) const;
     bool check_monic(const monic&) const;
     unsigned random();
+
+    class ci_value_manager {
+    public:
+        void inc_ref(lp::constraint_index const & v) {
+        }
+
+        void dec_ref(lp::constraint_index const & v) {
+        }
+    };
+
+    struct ci_dependency_config {
+        typedef ci_value_manager        value_manager;
+        typedef region  allocator;
+        static const bool ref_count = false;
+        typedef lp::constraint_index value;
+    };
+        
+    typedef dependency_manager<ci_dependency_config> ci_dependency_manager;
+
+    typedef ci_dependency_manager::dependency ci_dependency;
+
 };
 }

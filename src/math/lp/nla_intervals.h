@@ -29,25 +29,6 @@ namespace nla {
 class core;
 
 class intervals : common {
-    class ci_value_manager {
-    public:
-        void inc_ref(lp::constraint_index const & v) {
-        }
-
-        void dec_ref(lp::constraint_index const & v) {
-        }
-    };
-
-    struct ci_dependency_config {
-        typedef ci_value_manager        value_manager;
-        typedef region  allocator;
-        static const bool ref_count = false;
-        typedef lp::constraint_index value;
-    };
-        
-    typedef dependency_manager<ci_dependency_config> ci_dependency_manager;
-
-    typedef ci_dependency_manager::dependency ci_dependency;
 
     class im_config {
         unsynch_mpq_manager&        m_manager;
@@ -139,7 +120,7 @@ class intervals : common {
     ci_value_manager                    m_val_manager;
     mutable unsynch_mpq_manager         m_num_manager;
     mutable ci_dependency_manager       m_dep_manager;
-    im_config                   m_config;
+    im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
 
 public:
