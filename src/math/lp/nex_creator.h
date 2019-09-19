@@ -18,7 +18,7 @@
 
   --*/
 #pragma once
-
+#include "math/lp/nex.h"
 namespace nla {
 
 struct occ {

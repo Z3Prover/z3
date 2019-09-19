@@ -26,6 +26,7 @@
 #include "math/lp/factorization.h"
 #include "util/dependency.h"
 #include "util/region.h"
+#include "math/lp/nex_creator.h"
 namespace nla {
 
 
@@ -114,6 +115,10 @@ struct common {
     typedef dependency_manager<ci_dependency_config> ci_dependency_manager;
 
     typedef ci_dependency_manager::dependency ci_dependency;
+    nex* nexvar(lpvar j, nex_creator& ) const;
+    nex* nexvar(const rational& coeff, lpvar j, nex_creator&) const;
+    template <typename T>
+    void create_sum_from_row(const T&, nex_creator&, nex_sum&);
 
 };
 }
