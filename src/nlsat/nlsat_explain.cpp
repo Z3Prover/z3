@@ -1354,9 +1354,9 @@ namespace nlsat {
                 var max = max_var(num, ls);
                 SASSERT(max != null_var);
                 normalize(m_core2, max);
-                TRACE("nlsat_explain", tout << "core after normalization\n"; display(tout, m_core2););
+                TRACE("nlsat_explain", tout << "core after normalization\n"; display(tout, m_core2) << "\n";);
                 simplify(m_core2, max);
-                TRACE("nlsat_explain", tout << "core after simplify\n"; display(tout, m_core2););
+                TRACE("nlsat_explain", tout << "core after simplify\n"; display(tout, m_core2) << "\n";);
                 main(m_core2.size(), m_core2.c_ptr());
                 m_core2.reset();
             }
@@ -1454,7 +1454,7 @@ namespace nlsat {
             process(num, ls);
             reset_already_added();
             m_result = nullptr;
-            TRACE("nlsat_explain", display(tout << "[explain] result\n", result););
+            TRACE("nlsat_explain", display(tout << "[explain] result\n", result) << "\n";);
             CASSERT("nlsat", check_already_added());
         }
 
