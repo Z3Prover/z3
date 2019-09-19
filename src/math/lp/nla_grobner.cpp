@@ -199,13 +199,11 @@ nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * &
 }
 
 
-void nla_grobner::add_row(unsigned i) {
-    NOT_IMPLEMENTED_YET();
-    /*
-    const auto& row = c().m_lar_solver.A_r().m_rows[i];
+void nla_grobner::add_row(unsigned i) {    
+    const auto& row = c().m_lar_solver.A_r().m_rows[i];    
     TRACE("non_linear", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
-    nex * row_nex;
-    v_dependency * dep = nullptr;
+    nex * row_nex = nullptr;
+        /*    v_dependency * dep = nullptr;
     m_tmp_var_set.reset();
     for (const auto & p : row) {
         rational coeff            = p.coeff();

@@ -131,46 +131,6 @@ void horner::horner_lemmas() {
     }
 }
 
-nex * horner::nexvar(lpvar j, nex_creator& cn) const {
-    // todo: consider deepen the recursion
-    if (!c().is_monic_var(j))
-        return cn.mk_var(j);
-    const monic& m = c().emons()[j];
-    nex_mul * e = cn.mk_mul();
-    for (lpvar k : m.vars()) {
-        e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
-    }
-    return e;
-}
-
-nex * horner::nexvar(const rational & coeff, lpvar j, nex_creator& cn) const {
-    // todo: consider deepen the recursion
-    if (!c().is_monic_var(j))
-        return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
-    const monic& m = c().emons()[j];
-    nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
-    for (lpvar k : m.vars()) {
-        e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
-    }
-    return e;
-}
-
-
-template <typename T> void horner::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum) {
-    TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
-    SASSERT(row.size() > 1);
-    sum.children().clear();
-    for (const auto &p : row) {
-        if (p.coeff().is_one())
-            sum.add_child(nexvar(p.var(), cn));
-        else {           
-            sum.add_child(nexvar(p.coeff(), p.var(), cn));
-        }
-    }
-}
-
 
 void horner::set_interval_for_scalar(interv& a, const rational& v) {
     m_intervals.set_lower(a, v);
