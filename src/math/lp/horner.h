@@ -39,8 +39,6 @@ public:
     template <typename T> // T has an iterator of (coeff(), var())
     bool lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;
-    template <typename T>
-    void create_sum_from_row(const T&, nex_creator&, nex_sum&);
     intervals::interval interval_of_expr_with_deps(const nex* e);
     intervals::interval interval_of_expr(const nex* e);
     intervals::interval interval_of_sum(const nex_sum*);
@@ -51,8 +49,6 @@ public:
     bool interval_from_term(const nex* e, interv&) const;
 
     
-    nex* nexvar(lpvar j, nex_creator& ) const;
-    nex* nexvar(const rational& coeff, lpvar j, nex_creator&) const;
     intervals::interval interval_of_sum_with_deps(const nex_sum*);
     intervals::interval interval_of_sum_no_term_with_deps(const nex_sum*);
     intervals::interval interval_of_mul_with_deps(const nex_mul*);
