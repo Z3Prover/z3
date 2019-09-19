@@ -144,7 +144,10 @@ public:
 
     bool need_to_call_horner() const { return lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; }
 
-    bool need_to_call_grobner() const { return lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0; }
+    bool need_to_call_grobner() const {
+        return m_nla_settings.run_grobner() &&
+            lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0;
+    }
 
     lbool incremental_linearization(bool);
     
