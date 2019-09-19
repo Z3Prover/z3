@@ -20,19 +20,10 @@
 #pragma once
 #include <functional>
 #include "math/lp/nex.h"
+#include "math/lp/nex_creator.h"
+
 namespace nla {
 class cross_nested {
-    struct occ {
-        unsigned m_occs;
-        unsigned m_power;
-        occ() : m_occs(0), m_power(0) {}
-        occ(unsigned k, unsigned p) : m_occs(k), m_power(p) {}
-        // use the "name injection rule here"
-        friend std::ostream& operator<<(std::ostream& out, const occ& c) {
-            out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
-            return out;
-        }
-    };
 
     // fields
     nex *                                 m_e;
@@ -40,20 +31,17 @@ class cross_nested {
     std::function<bool (unsigned)>        m_var_is_fixed;
     std::function<unsigned ()>            m_random;    
     bool                                  m_done;
-    std::unordered_map<lpvar, occ>        m_occurences_map;
-    std::unordered_map<lpvar, unsigned>   m_powers;
-    ptr_vector<nex>                       m_allocated;
     ptr_vector<nex>                       m_b_split_vec;
     int                                   m_reported;
     bool                                  m_random_bit;
-    
+    nex_creator                           m_nex_creator;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
-    void add_to_allocated(nex* r) {
-        m_allocated.push_back(r);
-    }
 public:
+
+    nex_creator& get_nex_creator() { return m_nex_creator; }
+    
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
                  std::function<unsigned ()> random):
@@ -84,172 +72,25 @@ public:
         return c;
     }
 
-    nex_sum* mk_sum() {
-        auto r = new nex_sum();
-        add_to_allocated(r);
-        return r;
-    }
-    template <typename T>
-    void add_children(T) { }
-    
-    template <typename T, typename K, typename ...Args>
-    void add_children(T r, K e, Args ...  es) {
-        r->add_child(e);
-        add_children(r, es ...);
-    }
-
-    nex_sum* mk_sum(const ptr_vector<nex>& v) {
-        auto r = new nex_sum();
-        add_to_allocated(r);
-        r->children() = v;
-        return r;
-    }
-
-    nex_mul* mk_mul(const ptr_vector<nex>& v) {
-        auto r = new nex_mul();
-        add_to_allocated(r);
-        r->children() = v;
-        return r;
-    }
-
-    
-    template <typename K, typename...Args>
-    nex_sum* mk_sum(K e, Args... es) {
-        auto r = new nex_sum();
-        add_to_allocated(r);
-        r->add_child(e);
-        add_children(r, es...);
-        return r;
-    }
-    nex_var* mk_var(lpvar j) {
-        auto r = new nex_var(j);
-        add_to_allocated(r);
-        return r;
-    }
-    
-    nex_mul* mk_mul() {
-        auto r = new nex_mul();
-        add_to_allocated(r);
-        return r;
-    }
-
-    template <typename K, typename...Args>
-    nex_mul* mk_mul(K e, Args... es) {
-        auto r = new nex_mul();
-        add_to_allocated(r);
-        add_children(r, e, es...);
-        return r;
-    }
-    
-    nex_scalar* mk_scalar(const rational& v) {
-        auto r = new nex_scalar(v);
-        add_to_allocated(r);
-        return r;
-    }
-
-
-    nex * mk_div(const nex* a, lpvar j) {
-        TRACE("nla_cn_details", tout << "a=" << *a << ", v" << j << "\n";);
-        SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
-        if (a->is_var())
-            return mk_scalar(rational(1));
-        ptr_vector<nex> bv;
-        bool seenj = false;
-        for (nex* c : to_mul(a)->children()) {
-            if (!seenj) {
-                if (c->contains(j)) {
-                    if (!c->is_var())                     
-                        bv.push_back(mk_div(c, j));
-                    seenj = true;
-                    continue;
-                } 
-            }
-            bv.push_back(c);
-        }
-        if (bv.size() > 1) { 
-            return mk_mul(bv);
-        }
-        if (bv.size() == 1) {
-            return bv[0];
-        }
-
-        SASSERT(bv.size() == 0);
-        return mk_scalar(rational(1));
-    }
-
-    nex * mk_div(const nex* a, const nex* b) {
-        TRACE("nla_cn_details", tout << *a <<" / " << *b << "\n";);
-        if (b->is_var()) {
-            return mk_div(a, to_var(b)->var());
-        }
-        SASSERT(b->is_mul());
-        const nex_mul *bm = to_mul(b);
-        if (a->is_sum()) {
-            nex_sum * r = mk_sum();
-            const nex_sum * m = to_sum(a);
-            for (auto e : m->children()) {
-                r->add_child(mk_div(e, bm));
-            }
-            TRACE("nla_cn_details", tout << *r << "\n";);
-            return r;
-        }
-        if (a->is_var() || (a->is_mul() && to_mul(a)->children().size() == 1)) {
-            return mk_scalar(rational(1));
-        }
-        SASSERT(a->is_mul());
-        const nex_mul* am = to_mul(a);
-        bm->get_powers_from_mul(m_powers);
-        nex_mul* ret = new nex_mul();
-        for (auto e : am->children()) {
-            TRACE("nla_cn_details", tout << "e=" << *e << "\n";);
-            
-            if (!e->is_var()) {
-                SASSERT(e->is_scalar());
-                ret->add_child(e);
-                TRACE("nla_cn_details", tout << "continue\n";);
-                continue;
-            }
-            SASSERT(e->is_var());
-            lpvar j = to_var(e)->var();
-            auto it = m_powers.find(j);
-            if (it == m_powers.end()) {
-                 ret->add_child(e);
-            } else {
-                it->second --;
-                if (it->second == 0)
-                    m_powers.erase(it);
-            }
-            TRACE("nla_cn_details", tout << *ret << "\n";);            
-        }
-        SASSERT(m_powers.size() == 0);
-        if (ret->children().size() == 0) {
-            delete ret;
-            TRACE("nla_cn_details", tout << "return 1\n";);
-            return mk_scalar(rational(1));
-        }
-        add_to_allocated(ret);
-        TRACE("nla_cn_details", tout << *ret << "\n";);        
-        return ret;
-    }
 
     nex* extract_common_factor(nex* e) {
         nex_sum* c = to_sum(e);
-        TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, m_occurences_map) << "\n";);
+        TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
         unsigned size = c->children().size();
         bool have_factor = false;
-        for(const auto & p : m_occurences_map) {
+        for(const auto & p : m_nex_creator.occurences_map()) {
             if (p.second.m_occs == size) {
                 have_factor = true;
                 break;
             }
         }
         if (have_factor == false) return nullptr;
-        nex_mul* f = mk_mul();
-        for(const auto & p : m_occurences_map) { // randomize here: todo
+        nex_mul* f = m_nex_creator.mk_mul();
+        for(const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
             if (p.second.m_occs == size) {
                 unsigned pow = p.second.m_power;
                 while (pow --) {
-                    f->add_child(mk_var(p.first));
+                    f->add_child(m_nex_creator.mk_var(p.first));
                 }
             }
         }
@@ -282,9 +123,9 @@ public:
             return false;
         }
         
-        nex* c_over_f = mk_div(*c, f);
+        nex* c_over_f = m_nex_creator.mk_div(*c, f);
         to_sum(c_over_f)->simplify(&c_over_f);
-        *c = mk_mul(f, c_over_f);
+        *c = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
         
         explore_expr_on_front_elem(&(*((*c)->children_ptr()))[1],  front);
@@ -310,16 +151,14 @@ public:
     }
 
     void pop_allocated(unsigned sz) {
-        for (unsigned j = sz; j < m_allocated.size(); j ++)
-            delete m_allocated[j];
-        m_allocated.resize(sz);
+        m_nex_creator.pop(sz);
     }
     
     void explore_expr_on_front_elem_vars(nex** c, vector<nex**>& front, const svector<lpvar> & vars) {
         TRACE("nla_cn", tout << "save c=" << **c << "; front:"; print_front(front, tout) << "\n";);           
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
-        int alloc_size = m_allocated.size();
+        int alloc_size = m_nex_creator.size();
         for(lpvar j : vars) {
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
@@ -353,26 +192,26 @@ public:
         clear_maps();
         for (const auto * ce : e->children()) {
             if (ce->is_mul()) {
-                to_mul(ce)->get_powers_from_mul(m_powers);
+                to_mul(ce)->get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
             } else if (ce->is_var()) {
                 add_var_occs(to_var(ce)->var());
             }
         }
         remove_singular_occurences();
-        TRACE("nla_cn_details", tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_occurences_map) << "\n";);
+        TRACE("nla_cn_details", tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
     }
 
     void fill_vars_from_occurences_map(svector<lpvar>& vars) {
-        for (auto & p : m_occurences_map)
+        for (auto & p : m_nex_creator.occurences_map())
             vars.push_back(p.first);
 
         m_random_bit = m_random() % 2;
         TRACE("nla_cn", tout << "m_random_bit = " << m_random_bit << "\n";);
         std::sort(vars.begin(), vars.end(), [this](lpvar j, lpvar k)
                                             {
-                                                auto it_j = m_occurences_map.find(j);
-                                                auto it_k = m_occurences_map.find(k);
+                                                auto it_j = m_nex_creator.occurences_map().find(j);
+                                                auto it_k = m_nex_creator.occurences_map().find(k);
                                                 
 
                                                 const occ& a = it_j->second;
@@ -456,46 +295,46 @@ public:
     }
 
     void add_var_occs(lpvar j) {
-        auto it = m_occurences_map.find(j);
-        if (it != m_occurences_map.end()) {
+        auto it = m_nex_creator.occurences_map().find(j);
+        if (it != m_nex_creator.occurences_map().end()) {
             it->second.m_occs++;
             it->second.m_power = 1;
         } else {            
-            m_occurences_map.insert(std::make_pair(j, occ(1, 1)));
+            m_nex_creator.occurences_map().insert(std::make_pair(j, occ(1, 1)));
         }
     }    
 
     void update_occurences_with_powers() {
-        for (auto & p : m_powers) {
+        for (auto & p : m_nex_creator.powers()) {
             lpvar j = p.first;
             unsigned jp = p.second;
-            auto it = m_occurences_map.find(j);
-            if (it == m_occurences_map.end()) {
-                m_occurences_map[j] = occ(1, jp);
+            auto it = m_nex_creator.occurences_map().find(j);
+            if (it == m_nex_creator.occurences_map().end()) {
+                m_nex_creator.occurences_map()[j] = occ(1, jp);
             } else {
                 it->second.m_occs++;
                 it->second.m_power = std::min(it->second.m_power, jp);
             }
         }
-        TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, m_occurences_map) << "\n";);
+        TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
     }
 
     
     
     void remove_singular_occurences() {
         svector<lpvar> r;
-        for (const auto & p : m_occurences_map) {
+        for (const auto & p : m_nex_creator.occurences_map()) {
             if (p.second.m_occs <= 1) {
                 r.push_back(p.first);
             }
         }
         for (lpvar j : r)
-            m_occurences_map.erase(j);
+            m_nex_creator.occurences_map().erase(j);
     }
 
     void clear_maps() {
-        m_occurences_map.clear();
-        m_powers.clear();
+        m_nex_creator.occurences_map().clear();
+        m_nex_creator.powers().clear();
     }
     
     // j -> the number of expressions j appears in as a multiplier
@@ -504,16 +343,16 @@ public:
         clear_maps();
         for (const auto * ce : e->children()) {
             if (ce->is_mul()) {
-                to_mul(ce)->get_powers_from_mul(m_powers);
+                to_mul(ce)->get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
             } else if (ce->is_var()) {
                 add_var_occs(to_var(ce)->var());
             }
         }
         remove_singular_occurences();
-        TRACE("nla_cn_details", tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_occurences_map) << "\n";);
+        TRACE("nla_cn_details", tout << "e=" << *e << "\noccs="; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
         vector<std::pair<lpvar, occ>> ret;
-        for (auto & p : m_occurences_map)
+        for (auto & p : m_nex_creator.occurences_map())
             ret.push_back(p);
         std::sort(ret.begin(), ret.end(), [](const std::pair<lpvar, occ>& a, const std::pair<lpvar, occ>& b) {
                                               if (a.second.m_occs > b.second.m_occs)
@@ -536,11 +375,11 @@ public:
     }
     // all factors of j go to a, the rest to b
     void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {        
-        a = mk_sum();
+        a = m_nex_creator.mk_sum();
         m_b_split_vec.clear();
         for (nex * ce: e->children()) {
             if (is_divisible_by_var(ce, j)) {
-                a->add_child(mk_div(ce , j));
+                a->add_child(m_nex_creator.mk_div(ce , j));
             } else {
                 m_b_split_vec.push_back(ce);
                 TRACE("nla_cn_details", tout << "ce = " << *ce << "\n";);
@@ -557,14 +396,14 @@ public:
             TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         } else {
             SASSERT(m_b_split_vec.size() > 1);
-            b = mk_sum(m_b_split_vec);
+            b = m_nex_creator.mk_sum(m_b_split_vec);
             TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         }
     }
 
     void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
-        e = mk_sum(mk_mul(mk_var(j), a), b); // e = j*a + b
+        e = m_nex_creator.mk_sum(m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a), b); // e = j*a + b
         if (!a->is_linear()) {
             nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
             push_to_front(front, ptr_to_a);
@@ -578,7 +417,7 @@ public:
     
    void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
         if (b == nullptr) {
-            e = mk_mul(mk_var(j), a);
+            e = m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a);
             if (!to_sum(a)->is_linear())
                 push_to_front(front, &(to_mul(e)->children()[1]));
         } else {
@@ -635,9 +474,7 @@ public:
     }
     
     ~cross_nested() {
-        for (auto e: m_allocated)
-            delete e;
-        m_allocated.clear();
+        m_nex_creator.clear();
     }
 
     bool done() const { return m_done; }
@@ -646,16 +483,16 @@ public:
         switch (a->type()) {
         case expr_type::VAR: {
             auto v = to_var(a);
-            return mk_var(v->var());
+            return m_nex_creator.mk_var(v->var());
         }
             
         case expr_type::SCALAR: {
             auto v = to_scalar(a);
-            return mk_scalar(v->value());
+            return m_nex_creator.mk_scalar(v->value());
         }
         case expr_type::MUL: {
             auto m = to_mul(a);
-            auto r = mk_mul();
+            auto r = m_nex_creator.mk_mul();
             for (nex * e : m->children()) {
                 r->add_child(clone(e));
             }
@@ -663,7 +500,7 @@ public:
         }
         case expr_type::SUM: {
             auto m = to_sum(a);
-            auto r = mk_sum();
+            auto r = m_nex_creator.mk_sum();
             for (nex * e : m->children()) {
                 r->add_child(clone(e));
             }
@@ -701,10 +538,10 @@ public:
             return r;
         }
         
-        nex_sum *r = mk_sum();
+        nex_sum *r = m_nex_creator.mk_sum();
         nex_sum *as = to_sum(a->children()[sum_j]);
         for (unsigned k = 0; k < as->size(); k++) {
-            nex_mul *b = mk_mul(as->children()[k]);
+            nex_mul *b = m_nex_creator.mk_mul(as->children()[k]);
             for (unsigned j = 0; j < a->size(); j ++) {
                 if ((int)j != sum_j)
                     b->add_child(a->children()[j]);

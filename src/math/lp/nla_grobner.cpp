@@ -21,7 +21,7 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 namespace nla {
-nla_grobner::nla_grobner(core *c) : common(c), m_nl_gb_exhausted(false) {}
+nla_grobner::nla_grobner(core *c) : common(c), m_nl_gb_exhausted(false), m_dep_manager(m_val_manager, m_alloc) {}
 
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
@@ -142,8 +142,81 @@ void nla_grobner::display(std::ostream & out) {
         c().print_term(r, out) << std::endl;
     }
 }
-void nla_grobner::add_row_to_gb(unsigned) {
+
+void nla_grobner::process_var(nex_mul* m, lpvar j, ci_dependency* & dep, rational & coeff) {
+    if (c().var_is_fixed(j)) {                                       
+        if (!m_tmp_var_set.contains(j)) {
+            m_tmp_var_set.insert(j);
+            lp::constraint_index lc,uc;
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lc), m_dep_manager.mk_leaf(uc))); 
+        }
+        coeff *= c().m_lar_solver.column_upper_bound(j).x; 
+    }                                                           
+    else {                                                      
+        m->add_child(m_nex_creator.mk_var(j));                                    
+    }                                                           
+}                                                               
+
+/**
+   \brief Create a new monomial using the given coeff and m. Fixed
+   variables in m are substituted by their values.  The arg dep is
+   updated to store these dependencies. The set already_found is
+   updated with the fixed variables in m.  A variable is only
+   added to dep if it is not already in already_found.
+
+   Return null if the monomial was simplified to 0.
+*/
+nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * & dep) {
     NOT_IMPLEMENTED_YET();
+    return nullptr; 
+    /*
+      ptr_buffer<expr> vars;
+    rational r;
+
+    if (c().is_monic_var(j)) {
+        coeff *= get_monomial_coeff(m);
+        m      = get_monomial_body(m);
+        if (m_util.is_mul(m)) {
+            SASSERT(is_pure_monomial(m));
+            for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
+                expr * arg = to_app(m)->get_arg(i);
+                process_var(arg);
+            }
+        }
+        else {
+            process_var(m);
+        }
+    }
+    else {
+        process_var(m);
+    }
+    if (!coeff.is_zero())
+        return gb.mk_monomial(coeff, vars.size(), vars.c_ptr());
+    else
+        return nullptr;
+    */
+}
+
+
+void nla_grobner::add_row(unsigned i) {
+    NOT_IMPLEMENTED_YET();
+    /*
+    const auto& row = c().m_lar_solver.A_r().m_rows[i];
+    TRACE("non_linear", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
+    nex * row_nex;
+    v_dependency * dep = nullptr;
+    m_tmp_var_set.reset();
+    for (const auto & p : row) {
+        rational coeff            = p.coeff();
+        lpvar j                   = p.var();
+        //        TRACE("non_linear", tout << "monomial: " << mk_pp(m, get_manager()) << "\n";); 
+        nex * new_m = mk_monomial(coeff, j, dep, m_tmp_var_set);
+        TRACE("non_linear", tout << "new monomial:\n"; if (new_m) gb.display_monomial(tout, *new_m); else tout << "null"; tout << "\n";);
+        if (new_m)
+            monomials.push_back(new_m);
+    }
+    assert_eq_0(monomials, dep);*/
 }
 void nla_grobner::add_monomial_def(lpvar) {
     NOT_IMPLEMENTED_YET();
@@ -151,7 +224,7 @@ void nla_grobner::add_monomial_def(lpvar) {
 void nla_grobner::init() {
     find_nl_cluster();
     for (unsigned i : m_rows) {
-        add_row_to_gb(i);
+        add_row(i);
     }
     for (lpvar j : m_active_vars) {
         add_monomial_def(j);
@@ -178,7 +251,7 @@ bool nla_grobner:: is_better_choice(equation * eq1, equation * eq2) {
 }
 
 void nla_grobner::del_equation(equation * eq) {
-    SASSERT(false);
+    NOT_IMPLEMENTED_YET();
     /*
     m_processed.erase(eq);
     m_to_process.erase(eq);
@@ -376,5 +449,10 @@ void nla_grobner::display_monomial(std::ostream & out, monomial const & m) const
 void nla_grobner::display(std::ostream & out) const {
     NOT_IMPLEMENTED_YET();
 }
+
+void nla_grobner::assert_eq_0(ptr_buffer<monomial> &, v_dependency * dep) {
+    NOT_IMPLEMENTED_YET();
+}
+
 
 } // end of nla namespace
