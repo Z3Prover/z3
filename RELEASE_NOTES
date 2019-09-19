@@ -1,5 +1,17 @@
 RELEASE NOTES
 
+Version 4.8.6
+=============
+- Notes
+  - various bug fixes
+  - built in support for PIP, thanks to Audrey Dutcher
+  - VS compilation mode including misc flags for managed packages
+
+Version 4.8.5
+=============
+- Notes
+  - various bug fixes
+
 Version 4.8.4
 =============
 
