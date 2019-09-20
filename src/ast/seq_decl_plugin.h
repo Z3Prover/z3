@@ -366,6 +366,8 @@ public:
         app* mk_opt(expr* r) { return m.mk_app(m_fid, OP_RE_OPTION, r); }
         app* mk_loop(expr* r, unsigned lo);
         app* mk_loop(expr* r, unsigned lo, unsigned hi);
+        app* mk_loop(expr* r, expr* lo);
+        app* mk_loop(expr* r, expr* lo, expr* hi);
         app* mk_full_char(sort* s);
         app* mk_full_seq(sort* s);
         app* mk_empty(sort* s);
@@ -394,6 +396,8 @@ public:
         MATCH_UNARY(is_opt);
         bool is_loop(expr const* n, expr*& body, unsigned& lo, unsigned& hi);
         bool is_loop(expr const* n, expr*& body, unsigned& lo);
+        bool is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi);
+        bool is_loop(expr const* n, expr*& body, expr*& lo);
         bool is_unroll(expr const* n) const { return is_app_of(n, m_fid, _OP_RE_UNROLL); }
     };
     str str;

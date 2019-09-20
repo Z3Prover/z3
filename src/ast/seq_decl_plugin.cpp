@@ -1093,6 +1093,16 @@ app* seq_util::re::mk_loop(expr* r, unsigned lo, unsigned hi) {
     return m.mk_app(m_fid, OP_RE_LOOP, 2, params, 1, &r);
 }
 
+app* seq_util::re::mk_loop(expr* r, expr* lo) {
+    expr* rs[2] = { r, lo };
+    return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 2, rs);
+}
+
+app* seq_util::re::mk_loop(expr* r, expr* lo, expr* hi) {
+    expr* rs[3] = { r, lo, hi };
+    return m.mk_app(m_fid, OP_RE_LOOP, 0, nullptr, 3, rs);
+}
+
 app* seq_util::re::mk_full_char(sort* s) {
     return m.mk_app(m_fid, OP_RE_FULL_CHAR_SET, 0, nullptr, 0, nullptr, s);
 }
@@ -1124,6 +1134,31 @@ bool seq_util::re::is_loop(expr const* n, expr*& body, unsigned& lo)  {
         if (a->get_num_args() == 1 && a->get_decl()->get_num_parameters() == 1) {
             body = a->get_arg(0);
             lo = a->get_decl()->get_parameter(0).get_int();
+            return true;
+        }
+    }
+    return false;
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo, expr*& hi)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        if (a->get_num_args() == 3) {
+            body = a->get_arg(0);
+            lo = a->get_arg(1);
+            hi = a->get_arg(2);
+            return true;
+        }
+    }
+    return false;
+}
+
+bool seq_util::re::is_loop(expr const* n, expr*& body, expr*& lo)  {
+    if (is_loop(n)) {
+        app const* a = to_app(n);
+        if (a->get_num_args() == 2) {
+            body = a->get_arg(0);
+            lo = a->get_arg(1);
             return true;
         }
     }

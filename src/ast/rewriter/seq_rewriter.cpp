@@ -1673,6 +1673,37 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         result = a;
         return BR_DONE;
     }
+    expr* a1 = nullptr, *b1 = nullptr;
+    if (m_util.re.is_star(a, a1) && m_util.re.is_star(b, b1) && a1 == b1) {
+        result = a;
+        return BR_DONE;
+    }
+    if (m_util.re.is_star(a, a1) && a1 == b) {
+        result = m_util.re.mk_concat(b, a);
+        return BR_DONE;
+    }
+    {
+        unsigned lo1, hi1, lo2, hi2;
+        if (m_util.re.is_loop(a, a1, lo1, hi1) && m_util.re.is_loop(b, b1, lo2, hi2) && a1 == b1) {
+            result = m_util.re.mk_loop(a1, lo1 + lo2, hi1 + hi2);
+            return BR_DONE;
+        }
+        if (m_util.re.is_loop(a, a1, lo1) && m_util.re.is_loop(b, b1, lo2) && a1 == b1) {
+            result = m_util.re.mk_loop(a1, lo1 + lo2);
+            return BR_DONE;
+        }
+    }
+    {
+        expr* lo1, *hi1, *lo2, *hi2;
+        if (m_util.re.is_loop(a, a1, lo1, hi1) && m_util.re.is_loop(b, b1, lo2, hi2) && a1 == b1) {
+            result = m_util.re.mk_loop(a1, m_autil.mk_add(lo1, lo2), m_autil.mk_add(hi1, hi2));
+            return BR_DONE;
+        }
+        if (m_util.re.is_loop(a, a1, lo1) && m_util.re.is_loop(b, b1, lo2) && a1 == b1) {
+            result = m_util.re.mk_loop(a1, m_autil.mk_add(lo1, lo2));
+            return BR_DONE;
+        }
+    }
     return BR_FAILED;
 }
 /*
