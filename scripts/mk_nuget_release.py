@@ -24,10 +24,10 @@ release_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z
 release_tag_name = release_data['tag_name']
 release_tag_ref_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/z3/git/refs/tags/%s" % release_tag_name).read().decode())
 release_tag_sha = release_tag_ref_data['object']['sha']
-release_tag_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/z3/git/tags/%s" % release_tag_sha).read().decode())
+#release_tag_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/z3/commits/%s" % release_tag_sha).read().decode())
 
 release_version = release_tag_name[3:]
-release_commit = release_tag_data['object']['sha']
+release_commit = release_tag_sha # release_tag_data['object']['sha']
 
 print(release_version)
 
