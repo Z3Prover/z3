@@ -805,7 +805,7 @@ class elim_uncnstr_tactic : public tactic {
         bool produce_proofs = g->proofs_enabled();
         
         TRACE("elim_uncnstr_bug", g->display(tout););
-        tactic_report report("elim-uncnstr-vars", *g);
+        tactic_report report("elim-uncnstr", *g);
         m_vars.reset();
         collect_occs p;
         p(*g, m_vars);
