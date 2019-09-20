@@ -347,8 +347,8 @@ public:
     };
 
     class re {
-        ast_manager& m;
         seq_util&    u;
+        ast_manager& m;
         family_id    m_fid;
     public:
         re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
