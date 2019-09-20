@@ -348,11 +348,13 @@ public:
 
     class re {
         ast_manager& m;
+        seq_util&    u;
         family_id    m_fid;
     public:
-        re(seq_util& u): m(u.m), m_fid(u.m_fid) {}
+        re(seq_util& u): u(u), m(u.m), m_fid(u.m_fid) {}
 
         sort* mk_re(sort* seq) { parameter param(seq); return m.mk_sort(m_fid, RE_SORT, 1, &param); }
+        sort* to_seq(sort* re);
 
         app* mk_to_re(expr* s) { return m.mk_app(m_fid, OP_SEQ_TO_RE, 1, &s); }
         app* mk_in_re(expr* s, expr* r) { return m.mk_app(m_fid, OP_SEQ_IN_RE, s, r); }

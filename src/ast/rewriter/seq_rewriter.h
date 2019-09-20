@@ -133,7 +133,7 @@ class seq_rewriter {
     br_status mk_re_star(expr* a, expr_ref& result);
     br_status mk_re_plus(expr* a, expr_ref& result);
     br_status mk_re_opt(expr* a, expr_ref& result);
-    br_status mk_re_loop(unsigned num_args, expr* const* args, expr_ref& result);
+    br_status mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result);
     br_status mk_re_range(expr* lo, expr* hi, expr_ref& result);
 
     bool cannot_contain_prefix(expr* a, expr* b);

@@ -747,6 +747,9 @@ func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, 
             if (num_parameters == 0 || num_parameters > 2 || !parameters[0].is_int() || (num_parameters == 2 && !parameters[1].is_int())) {
                 m.raise_exception("Expecting two numeral parameters to function re-loop");
             }
+            if (num_parameters == 2 && parameters[0].get_int() > parameters[1].get_int()) {
+                m.raise_exception("Lower bound cannot be higher than upper bound in loop specfication");
+            }
             return m.mk_func_decl(m_sigs[k]->m_name, arity, domain, rng, func_decl_info(m_family_id, k, num_parameters, parameters));
         case 2:
             if (m_re != domain[0] || !arith_util(m).is_int(domain[1])) {
@@ -1082,6 +1085,11 @@ app* seq_util::str::mk_is_empty(expr* s) const {
     return m.mk_eq(s, mk_empty(get_sort(s)));
 }
 
+
+sort* seq_util::re::to_seq(sort* re) {
+    SASSERT(u.is_re(re));
+    return to_sort(re->get_parameter(0).get_ast());
+}
 
 app* seq_util::re::mk_loop(expr* r, unsigned lo) {
     parameter param(lo);
