@@ -38,33 +38,33 @@ void create_abcde(solver & nla,
     vec.push_back(lp_d);
     vec.push_back(lp_e);
 
-    nla.add_monomial(lp_abcde, vec.size(), vec.begin());
+    nla.add_monic(lp_abcde, vec.size(), vec.begin());
 
     // create monomial ac
     vec.clear();
     vec.push_back(lp_a);
     vec.push_back(lp_c);
-    nla.add_monomial(lp_ac, vec.size(), vec.begin());
+    nla.add_monic(lp_ac, vec.size(), vec.begin());
 
     // create monomial bde
     vec.clear();
     vec.push_back(lp_b);
     vec.push_back(lp_d);
     vec.push_back(lp_e);
-    nla.add_monomial(lp_bde, vec.size(), vec.begin());
+    nla.add_monic(lp_bde, vec.size(), vec.begin());
 
     // create monomial acd
     vec.clear();
     vec.push_back(lp_a);
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    nla.add_monomial(lp_acd, vec.size(), vec.begin());
+    nla.add_monic(lp_acd, vec.size(), vec.begin());
 
     // create monomial be
     vec.clear();
     vec.push_back(lp_b);
     vec.push_back(lp_e);
-    nla.add_monomial(lp_be, vec.size(), vec.begin());
+    nla.add_monic(lp_be, vec.size(), vec.begin());
 }
 
 
@@ -88,13 +88,13 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     params_ref p;
     solver nla(s);
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
-    nla.add_monomial(lp_bde, v.size(), v.begin());
+    nla.add_monic(lp_bde, v.size(), v.begin());
     v.clear();
     v.push_back(lp_a);v.push_back(lp_b);v.push_back(lp_c);v.push_back(lp_d);v.push_back(lp_e);
-    nla.add_monomial(lp_abcde, v.size(), v.begin());
+    nla.add_monic(lp_abcde, v.size(), v.begin());
     v.clear();
     v.push_back(lp_a);v.push_back(lp_c);
-    nla.add_monomial(lp_ac, v.size(), v.begin());
+    nla.add_monic(lp_ac, v.size(), v.begin());
      
     vector<lemma> lv;
 
@@ -165,7 +165,7 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_1() {
     params_ref p;
     solver nla(s);
     svector<lpvar> v; v.push_back(lp_b);v.push_back(lp_d);v.push_back(lp_e);
-    nla.add_monomial(lp_bde, v.size(), v.begin());
+    nla.add_monic(lp_bde, v.size(), v.begin());
 
     vector<lemma> lemma;
 
@@ -301,7 +301,7 @@ void test_basic_lemma_for_mon_zero_from_monomial_to_factors() {
     vec.push_back(lp_a);
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    nla.add_monomial(lp_acd, vec.size(), vec.begin());
+    nla.add_monic(lp_acd, vec.size(), vec.begin());
     
     vector<lemma> lemma;
     s_set_column_value(s, lp_a, rational(1));
@@ -436,19 +436,19 @@ void test_horner() {
     solver nla(s);
     vector<lpvar> v;
     v.push_back(a); v.push_back(b);
-    nla.add_monomial(lp_ab, v.size(), v.begin());
+    nla.add_monic(lp_ab, v.size(), v.begin());
     v.clear();
 
     v.push_back(c); v.push_back(e);
-    nla.add_monomial(lp_ce, v.size(), v.begin());
+    nla.add_monic(lp_ce, v.size(), v.begin());
     v.clear();
 
     v.push_back(b); v.push_back(d);
-    nla.add_monomial(lp_bd, v.size(), v.begin());
+    nla.add_monic(lp_bd, v.size(), v.begin());
     v.clear();
 
     v.push_back(a); v.push_back(c);
-    nla.add_monomial(lp_ac, v.size(), v.begin());
+    nla.add_monic(lp_ac, v.size(), v.begin());
     v.clear();
 
     */
@@ -478,14 +478,14 @@ void test_basic_sign_lemma() {
     vec.push_back(lp_d);
     vec.push_back(lp_e);
 
-    nla.add_monomial(lp_bde, vec.size(), vec.begin());
+    nla.add_monic(lp_bde, vec.size(), vec.begin());
     vec.clear();
 
     vec.push_back(lp_a);
     vec.push_back(lp_c);
     vec.push_back(lp_d);
 
-    nla.add_monomial(lp_acd, vec.size(), vec.begin());
+    nla.add_monic(lp_acd, vec.size(), vec.begin());
 
     // set the values of the factors so it should be bde = -acd according to the model
     
@@ -550,17 +550,17 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    int mon_ab = nla.add_monic(lp_ab, vec.size(), vec.begin());
     // create monomial cd
     vec.clear();
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    int mon_cd = nla.add_monomial(lp_cd, vec.size(), vec.begin());
+    int mon_cd = nla.add_monic(lp_cd, vec.size(), vec.begin());
     // create monomial ef
     vec.clear();
     vec.push_back(lp_e);
     vec.push_back(lp_f);
-    int mon_ef = nla.add_monomial(lp_ef, vec.size(), vec.begin());
+    int mon_ef = nla.add_monic(lp_ef, vec.size(), vec.begin());
     // create monomial ij
     vec.clear();
     vec.push_back(lp_i);
@@ -568,7 +568,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
         vec.push_back(lp_k);
     else
         vec.push_back(lp_j);
-    int mon_ij = nla.add_monomial(lp_ij, vec.size(), vec.begin());
+    int mon_ij = nla.add_monic(lp_ij, vec.size(), vec.begin());
 
     if (var_equiv) { // make k equivalent to j
         lp::lar_term t;
@@ -585,7 +585,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     vec.push_back(lp_a);
     vec.push_back(lp_b);
     vec.push_back(lp_f);
-    nla.add_monomial(lp_abef, vec.size(), vec.begin());
+    nla.add_monic(lp_abef, vec.size(), vec.begin());
 
     //create monomial (cd)(ij)
     vec.clear();
@@ -593,7 +593,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     vec.push_back(lp_j);
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    auto mon_cdij = nla.add_monomial(lp_cdij, vec.size(), vec.begin());
+    auto mon_cdij = nla.add_monic(lp_cdij, vec.size(), vec.begin());
 
     // set i == e
     s_set_column_value(s, lp_e, s.get_column_value(lp_i));
@@ -681,22 +681,22 @@ void test_monotone_lemma() {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    int mon_ab = nla.add_monic(lp_ab, vec.size(), vec.begin());
     // create monomial cd
     vec.clear();
     vec.push_back(lp_c);
     vec.push_back(lp_d);
-    int mon_cd = nla.add_monomial(lp_cd, vec.size(), vec.begin());
+    int mon_cd = nla.add_monic(lp_cd, vec.size(), vec.begin());
     // create monomial ef
     vec.clear();
     vec.push_back(lp_e);
     vec.push_back(lp_f);
-    nla.add_monomial(lp_ef, vec.size(), vec.begin());
+    nla.add_monic(lp_ef, vec.size(), vec.begin());
     // create monomial ij
     vec.clear();
     vec.push_back(lp_i);
     vec.push_back(lp_j);
-    int mon_ij = nla.add_monomial(lp_ij, vec.size(), vec.begin());
+    int mon_ij = nla.add_monic(lp_ij, vec.size(), vec.begin());
 
     // set e == i + 1
     s_set_column_value(s, lp_e, s.get_column_value(lp_i) + lp::impq(rational(1)));
@@ -745,7 +745,7 @@ void test_tangent_lemma_reg() {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    int mon_ab = nla.add_monic(lp_ab, vec.size(), vec.begin());
     
     s_set_column_value(s, lp_ab, nla.get_core()->mon_value_by_vars(mon_ab) + rational(10)); // greater by ten than the correct value
     vector<lemma> lemma;
@@ -791,7 +791,7 @@ void test_tangent_lemma_equiv() {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    int mon_ab = nla.add_monomial(lp_ab, vec.size(), vec.begin());
+    int mon_ab = nla.add_monic(lp_ab, vec.size(), vec.begin());
     
     s_set_column_value(s, lp_ab, nla.get_core()->mon_value_by_vars(mon_ab) + rational(10)); // greater by ten than the correct value
     vector<lemma> lemma;
