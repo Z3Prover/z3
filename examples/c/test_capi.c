@@ -646,6 +646,7 @@ void display_model(Z3_context c, FILE * out, Z3_model m)
         a = Z3_mk_app(c, cnst, 0, 0);
         v = a;
         ok = Z3_model_eval(c, m, a, 1, &v);
+        (void)ok;
         display_ast(c, out, v);
         fprintf(out, "\n");
     }
@@ -1377,12 +1378,11 @@ void tuple_example1()
     {
         /* demonstrate how to use the mk_tuple_update function */
         /* prove that p2 = update(p1, 0, 10) implies get_x(p2) = 10 */
-        Z3_ast p1, p2, one, ten, updt, x, y;
+        Z3_ast p1, p2, ten, updt, x, y;
         Z3_ast antecedent, consequent, thm;
 
         p1             = mk_var(ctx, "p1", pair_sort);
         p2             = mk_var(ctx, "p2", pair_sort);
-        one            = Z3_mk_numeral(ctx, "1", real_sort);
         ten            = Z3_mk_numeral(ctx, "10", real_sort);
         updt           = mk_tuple_update(ctx, p1, 0, ten);
         antecedent     = Z3_mk_eq(ctx, p2, updt);
@@ -1558,7 +1558,6 @@ void error_code_example1()
     Z3_ast x;
     Z3_model m;
     Z3_ast v;
-    Z3_func_decl x_decl;
     const char * str;
 
     printf("\nerror_code_example1\n");
@@ -1571,7 +1570,6 @@ void error_code_example1()
     s = mk_solver(ctx);
 
     x          = mk_bool_var(ctx, "x");
-    x_decl     = Z3_get_app_decl(ctx, Z3_to_app(ctx, x));
     Z3_solver_assert(ctx, s, x);
 
     if (Z3_solver_check(ctx, s) != Z3_L_TRUE) {
@@ -1588,6 +1586,7 @@ void error_code_example1()
     }
     /* The following call will fail since the value of x is a boolean */
     str = Z3_get_numeral_string(ctx, v);
+    (void)str;
     if (Z3_get_error_code(ctx) != Z3_OK) {
         printf("last call failed.\n");
     }
@@ -1619,6 +1618,7 @@ void error_code_example2() {
         printf("before Z3_mk_iff\n");
         /* the next call will produce an error */
         app = Z3_mk_iff(ctx, x, y);
+        (void)app;
         e = Z3_get_error_code(ctx);
         if (e != Z3_OK) goto err;
         unreachable();
@@ -2080,6 +2080,10 @@ void forest_example() {
     Z3_query_constructor(ctx, cons2_con, 2, &cons2_decl, &is_cons2_decl, cons_accessors);
     car2_decl = cons_accessors[0];
     cdr2_decl = cons_accessors[1];
+    (void)cdr2_decl;
+    (void)car2_decl;
+    (void)car1_decl;
+    (void)cdr1_decl;
 
     Z3_del_constructor_list(ctx, clist1);
     Z3_del_constructor_list(ctx, clist2);
@@ -2097,7 +2101,10 @@ void forest_example() {
     t4 = mk_binary_app(ctx, cons2_decl, nil1, f1);
     f2 = mk_binary_app(ctx, cons1_decl, t1, nil1);
     f3 = mk_binary_app(ctx, cons1_decl, t1, f1);
-
+    (void)f3;
+    (void)f2;
+    (void)t4;
+    (void)t2;
 
     /* nil != cons(nil,nil) */
     prove(ctx, s, Z3_mk_not(ctx, Z3_mk_eq(ctx, nil1, f1)), true);
@@ -2165,6 +2172,7 @@ void binary_tree_example() {
 
     /* create the new recursive datatype */
     cell = Z3_mk_datatype(ctx, Z3_mk_string_symbol(ctx, "BinTree"), 2, constructors);
+    (void)cell;
 
     /* retrieve the new declarations: constructors (nil_decl, node_decl), testers (is_nil_decl, is_cons_del), and
        accessors (value_decl, left_decl, right_decl */
@@ -2447,6 +2455,7 @@ void incremental_example1() {
     c3 = assert_retractable_cnstr(ext_ctx, Z3_mk_gt(ctx, x, two));
     /* assert y < 1 */
     c4 = assert_retractable_cnstr(ext_ctx, Z3_mk_lt(ctx, y, one));
+    (void)c1;
 
     result = ext_check(ext_ctx);
     if (result != Z3_L_FALSE)

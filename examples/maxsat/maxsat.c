@@ -407,7 +407,7 @@ int naive_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_ast *
 {
     Z3_ast * aux_vars;
     Z3_lbool is_sat;
-    unsigned r, k;
+    unsigned k;
     assert_hard_constraints(ctx, s, num_hard_cnstrs, hard_cnstrs);
     printf("checking whether hard constraints are satisfiable...\n");
     is_sat = Z3_solver_check(ctx, s);
@@ -419,7 +419,6 @@ int naive_maxsat(Z3_context ctx, Z3_solver s, unsigned num_hard_cnstrs, Z3_ast *
         return 0; // nothing to be done...
     aux_vars = assert_soft_constraints(ctx, s, num_soft_cnstrs, soft_cnstrs);
     // Perform linear search.
-    r = 0;
     k = num_soft_cnstrs - 1;
     for (;;) {
         Z3_model m;
