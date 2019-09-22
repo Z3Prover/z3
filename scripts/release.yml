@@ -125,10 +125,10 @@ jobs:
       action: 'create'
       target: '$(Build.SourceVersion)'
       tagSource: 'manual'
-      tag: 'z3-4.8.6'
-      title: 'z3-4.8.6'
+      tag: 'z3-4.8.7'
+      title: 'z3-4.8.7'
       releaseNotesSource: 'input'
-      releaseNotes: '4.8.6 release'
+      releaseNotes: '4.8.7 release'
       assets: 'tmp/*'
       isDraft: true
       isPreRelease: true
