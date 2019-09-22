@@ -565,7 +565,6 @@ namespace smt {
 
     // start exploring subgraph below `app`
     bool theory_datatype::occurs_check_enter(enode * app) {
-        context& ctx = get_context();
         app = app->get_root();
         theory_var v = app->get_th_var(get_id());
         if (v == null_theory_var) {
@@ -759,7 +758,6 @@ namespace smt {
         SASSERT(d->m_constructor);
         func_decl * c_decl = d->m_constructor->get_decl();
         datatype_value_proc * result = alloc(datatype_value_proc, c_decl);
-        unsigned num = d->m_constructor->get_num_args();
         for (enode* arg : enode::args(d->m_constructor)) {
             result->add_dependency(arg);
         }

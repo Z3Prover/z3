@@ -860,7 +860,6 @@ namespace smtfd {
            Enforce M[x] == rewrite(M[x]) for every A[x] such that M = A under current model.
          */
         void beta_reduce(expr* t) {
-            bool added = false;
             if (m_autil.is_map(t) ||
                 m_autil.is_const(t) ||
                 is_lambda(t)) {
