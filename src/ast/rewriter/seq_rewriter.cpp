@@ -1828,11 +1828,6 @@ br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const*
             result = m_util.re.mk_loop(args[0], f->get_parameter(1).get_int(), f->get_parameter(1).get_int());
             return BR_REWRITE1;
         }
-        // (loop (loop a lo hi) lo2 hi2) = (loop lo*lo2 hi*hi2)
-        if (m_util.re.is_loop(args[0], a, lo, hi) && f->get_num_parameters() == 2) {
-            result = m_util.re.mk_loop(a, f->get_parameter(0).get_int() * lo, f->get_parameter(1).get_int() * hi);
-            return BR_REWRITE1;
-        }
         // (loop (loop a lo hi) lo2) = (loop lo*lo2)
         if (m_util.re.is_loop(args[0], a, lo, hi) && f->get_num_parameters() == 1) {
             result = m_util.re.mk_loop(a, f->get_parameter(0).get_int() * lo);
