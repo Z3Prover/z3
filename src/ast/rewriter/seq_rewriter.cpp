@@ -1820,31 +1820,39 @@ br_status seq_rewriter::mk_re_inter(expr* a, expr* b, expr_ref& result) {
 
 br_status seq_rewriter::mk_re_loop(func_decl* f, unsigned num_args, expr* const* args, expr_ref& result) {
     rational n1, n2;
-    unsigned lo, hi;
+    unsigned lo, hi, lo2, hi2, np;
     expr* a = nullptr;
     switch (num_args) {
     case 1: 
-        if (f->get_num_parameters() == 2 && f->get_parameter(0).get_int() > f->get_parameter(1).get_int()) {
-            result = m_util.re.mk_loop(args[0], f->get_parameter(1).get_int(), f->get_parameter(1).get_int());
+        np = f->get_num_parameters();
+        lo2 = np > 0 ? f->get_parameter(0).get_int() : 0;
+        hi2 = np > 1 ? f->get_parameter(1).get_int() : 0;
+        if  (np == 2 && lo2 > hi2) {
+            result = m_util.re.mk_loop(args[0], hi2, hi2);
             return BR_REWRITE1;
         }
         // (loop (loop a lo) lo2) = (loop lo*lo2)
-        if (m_util.re.is_loop(args[0], a, lo) && f->get_num_parameters() == 1) {
-            result = m_util.re.mk_loop(a, f->get_parameter(0).get_int() * lo);
+        if (m_util.re.is_loop(args[0], a, lo) && np == 1) {
+            result = m_util.re.mk_loop(a, lo2 * lo);
+            return BR_REWRITE1;
+        }
+        // (loop (loop a l l) h h) = (loop a l*h l*h)
+        if (m_util.re.is_loop(args[0], a, lo, hi) && np == 2 && lo == hi && lo2 == hi2) {
+            result = m_util.re.mk_loop(a, lo2 * lo, hi2 * hi);
             return BR_REWRITE1;
         }
         // (loop a 0 0) = ""
-        if (f->get_num_parameters() == 2 && f->get_parameter(1).get_int() == 0) {
+        if (np == 2 && hi2 == 0) {
             result = m_util.re.mk_to_re(m_util.str.mk_empty(m_util.re.to_seq(m().get_sort(args[0]))));
             return BR_DONE;
         }
         // (loop a 1 1) = a
-        if (f->get_num_parameters() == 2 && f->get_parameter(0).get_int() == 1 && f->get_parameter(1).get_int() == 1) {
+        if (np == 2 && lo2 == 1 && hi2 == 1) {
             result = args[0];
             return BR_DONE;
         }
         // (loop a 0) = a*
-        if (f->get_num_parameters() == 1 && f->get_parameter(0).get_int() == 0) {
+        if (np == 1 && lo2 == 0) {
             result = m_util.re.mk_star(args[0]);
             return BR_DONE;
         }
