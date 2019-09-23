@@ -1955,9 +1955,8 @@ class MLComponent(Component):
                 OCAML_FLAGS += '-g'
 
             if OCAMLFIND:
-                # Load Big_int, which is no longer part of the standard library, via the num package: https://github.com/ocaml/num
-                OCAMLCF = OCAMLFIND + ' ' + 'ocamlc -package num' + ' ' + OCAML_FLAGS
-                OCAMLOPTF = OCAMLFIND + ' ' + 'ocamlopt -package num' + ' ' + OCAML_FLAGS
+                OCAMLCF = OCAMLC + ' ' + 'ocamlc -package zarith' + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLOPT + ' ' + 'ocamlopt -package zarith' + ' ' + OCAML_FLAGS
             else:
                 OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
                 OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
@@ -2285,7 +2284,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\t%s ' % OCAMLC)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-custom -o ml_example.byte -I api/ml -cclib "-L. -lz3" nums.cma z3ml.cma')
+            out.write('-custom -o ml_example.byte -I -zarith -I api/ml -cclib "-L. -lz3" zarith.cma z3ml.cma')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -2296,7 +2295,7 @@ class MLExampleComponent(ExampleComponent):
             out.write('\t%s ' % OCAMLOPT)
             if DEBUG_MODE:
                 out.write('-g ')
-            out.write('-o ml_example$(EXE_EXT) -I api/ml -cclib "-L. -lz3" nums.cmxa z3ml.cmxa')
+            out.write('-o ml_example$(EXE_EXT) -I -zarith -I api/ml -cclib "-L. -lz3" zarith.cmxa z3ml.cmxa')
             for mlfile in get_ml_files(self.ex_dir):
                 out.write(' %s/%s' % (self.to_ex_dir, mlfile))
             out.write('\n')
@@ -2619,11 +2618,11 @@ def mk_config():
         config.write('LINK=%s\n' % CXX)
         config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
-        config.write('LINK_EXTRA_FLAGS=-lpthread %s\n' % LDFLAGS)
+        config.write('LINK_EXTRA_FLAGS=-Wl,--whole-archive -lpthread -Wl,--no-whole-archive %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
         config.write('SLINK=%s\n' % CXX)
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
-        config.write('SLINK_EXTRA_FLAGS=-lpthread %s\n' % SLIBEXTRAFLAGS)
+        config.write('SLINK_EXTRA_FLAGS=-Wl,--whole-archive -lpthread -Wl,--no-whole-archive %s\n' % SLIBEXTRAFLAGS)
         config.write('SLINK_OUT_FLAG=-o \n')
         config.write('OS_DEFINES=%s\n' % OS_DEFINES)
         if is_verbose():
