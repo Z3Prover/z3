@@ -2618,7 +2618,7 @@ def mk_config():
         config.write('LINK=%s\n' % CXX)
         config.write('LINK_FLAGS=\n')
         config.write('LINK_OUT_FLAG=-o \n')
-        config.write('LINK_EXTRA_FLAGS=--lpthread %s\n' % LDFLAGS)
+        config.write('LINK_EXTRA_FLAGS= -lpthread %s\n' % LDFLAGS)
         config.write('SO_EXT=%s\n' % SO_EXT)
         config.write('SLINK=%s\n' % CXX)
         config.write('SLINK_FLAGS=%s\n' % SLIBFLAGS)
