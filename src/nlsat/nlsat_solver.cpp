@@ -1148,7 +1148,9 @@ namespace nlsat {
                 checkpoint();
                 if (value(l) == l_false)
                     continue;
-                CTRACE("nlsat", max_var(l) != m_xk, display(tout); 
+                if (value(l) == l_true)
+                    return true;  // could happen if clause is a tautology
+                CTRACE("nlsat", max_var(l) != m_xk || value(l) != l_undef, display(tout); 
                        tout << "xk: " << m_xk << ", max_var(l): " << max_var(l) << ", l: "; display(tout, l) << "\n";
                        display(tout, cls) << "\n";);
                 SASSERT(value(l) == l_undef);
