@@ -186,6 +186,7 @@ namespace nlsat {
         bool                   m_inline_vars;
         bool                   m_log_lemmas;
         unsigned               m_max_conflicts;
+        unsigned               m_lemma_count;
 
         // statistics
         unsigned               m_conflicts;
@@ -218,6 +219,7 @@ namespace nlsat {
             updt_params(p);
             reset_statistics();
             mk_true_bvar();
+            m_lemma_count = 0;
         }
         
         ~imp() {
@@ -738,7 +740,7 @@ namespace nlsat {
             display_smt2(out);
             out << "(assert (not ";
             display_smt2(out, cls) << "))\n";
-            display(out << "(echo \"", cls) << "\")\n";
+            display(out << "(echo \"#" << m_lemma_count << " ", cls) << "\")\n";
             out << "(check-sat)\n(reset)\n";
         }
 
@@ -750,9 +752,10 @@ namespace nlsat {
             for (unsigned i = 0; i < num_lits; i++)
                 inc_ref(lits[i]);
             inc_ref(a);
-            TRACE("nlsat_sort", tout << "mk_clause:\n"; display(tout, *cls); tout << "\n";);
+            ++m_lemma_count;
+            TRACE("nlsat_sort", display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
-            TRACE("nlsat_sort", tout << "after sort:\n"; display(tout, *cls); tout << "\n";);
+            TRACE("nlsat_sort", display(tout << "#" << m_lemma_count << " after sort:\n", *cls) << "\n";);
             if (learned && m_log_lemmas) {
                 log_lemma(std::cout, *cls);
             }
@@ -1599,7 +1602,7 @@ namespace nlsat {
         }
 
         void resolve_lazy_justification(bool_var b, lazy_justification const & jst) {
-            TRACE("nlsat_resolve", tout << "resolving lazy_justification for b: " << b << "\n";);
+            TRACE("nlsat_resolve", tout << "resolving lazy_justification for b" << b << "\n";);
             unsigned sz = jst.num_lits();
 
             // Dump lemma as Mathematica formula that must be true,
@@ -1785,7 +1788,7 @@ namespace nlsat {
                     if (t.m_kind == trail::BVAR_ASSIGNMENT) {
                         bool_var b = t.m_b;
                         if (is_marked(b)) {
-                            TRACE("nlsat_resolve", tout << "found marked bool_var: " << b << "\n"; display_atom(tout, b) << "\n";);
+                            TRACE("nlsat_resolve", tout << "found marked: b" << b << "\n"; display_atom(tout, b) << "\n";);
                             m_num_marks--;
                             reset_mark(b);
                             justification jst = m_justifications[b];
@@ -2737,7 +2740,7 @@ namespace nlsat {
                 break;
             case justification::LAZY: {
                 lazy_justification const& lz = *j.get_lazy();
-                display(out, lz.num_lits(), lz.lits()) << "\n";
+                display_not(out, lz.num_lits(), lz.lits()) << "\n";
                 for (unsigned i = 0; i < lz.num_clauses(); ++i) {
                     display(out, lz.clause(i)) << "\n";
                 }
@@ -3014,6 +3017,19 @@ namespace nlsat {
 
         std::ostream& display(std::ostream & out, unsigned num, literal const * ls) const {
             return display(out, num, ls, m_display_var);
+        }
+
+        std::ostream& display_not(std::ostream & out, unsigned num, literal const * ls, display_var_proc const & proc) const {
+            for (unsigned i = 0; i < num; i++) {
+                if (i > 0)
+                    out << " or ";
+                display(out, ~ls[i], proc);
+            }
+            return out;
+        }
+
+        std::ostream& display_not(std::ostream & out, unsigned num, literal const * ls) const {
+            return display_not(out, num, ls, m_display_var);
         }
         
         std::ostream& display(std::ostream & out, scoped_literal_vector const & cs) {
