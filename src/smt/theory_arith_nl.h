@@ -1537,7 +1537,7 @@ namespace smt {
         rational a, b;
         unsigned n  = UINT_MAX;
         unsigned nm = UINT_MAX;
-        if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm)) {
+        if (in_monovariate_monomials(p, var, i1, a, n, i2, b, nm) && n != nm) {
             CTRACE("in_monovariate_monomials", n == nm,
                    for (unsigned i = 0; i < p.size(); i++) {
                        if (i > 0) tout << " + "; tout << p[i].first << "*" << mk_pp(p[i].second, get_manager());
