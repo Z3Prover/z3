@@ -125,10 +125,10 @@ public:
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
         to_sum(c_over_f)->simplify(&c_over_f);
-        *c = m_nex_creator.mk_mul(f, c_over_f);
+        nex_mul* cm; 
+        *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
-        
-        explore_expr_on_front_elem(&(*((*c)->children_ptr()))[1],  front);
+        explore_expr_on_front_elem(cm->children()[1].ee(),  front);
         return true;
     }
 
@@ -405,7 +405,7 @@ public:
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = m_nex_creator.mk_sum(m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a), b); // e = j*a + b
         if (!a->is_linear()) {
-            nex **ptr_to_a = &(to_mul(to_sum(e)->children()[0]))->children()[1];
+            nex **ptr_to_a = (to_mul(to_sum(e)->children()[0]))->children()[1].ee();
             push_to_front(front, ptr_to_a);
         }
         
@@ -419,7 +419,7 @@ public:
         if (b == nullptr) {
             e = m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a);
             if (!to_sum(a)->is_linear())
-                push_to_front(front, &(to_mul(e)->children()[1]));
+                push_to_front(front, to_mul(e)->children()[1].ee());
         } else {
             update_front_with_split_with_non_empty_b(e, j, front, a, b);
         }
@@ -458,8 +458,8 @@ public:
             }
         case expr_type::MUL:
             {
-                for (auto c: to_mul(e)->children())
-                    for ( lpvar j : get_vars_of_expr(c))
+                for (auto &c: to_mul(e)->children())
+                    for ( lpvar j : get_vars_of_expr(c.e()))
                         r.insert(j);
             }
             return r;
@@ -479,7 +479,7 @@ public:
 
     bool done() const { return m_done; }
 #if Z3DEBUG
-    nex *clone (nex * a) {
+    nex *clone (const nex * a) {
         switch (a->type()) {
         case expr_type::VAR: {
             auto v = to_var(a);
@@ -493,8 +493,8 @@ public:
         case expr_type::MUL: {
             auto m = to_mul(a);
             auto r = m_nex_creator.mk_mul();
-            for (nex * e : m->children()) {
-                r->add_child(clone(e));
+            for (const auto& p : m->children()) {
+                r->add_child_in_power(clone(p.e()), p.pow());
             }
             return r;
         }
@@ -524,6 +524,9 @@ public:
 
     nex * normalize_mul(nex_mul* a) {
         TRACE("nla_cn", tout << *a << "\n";);
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
+        /*
         int sum_j = -1;
         for (unsigned j = 0; j < a->size(); j ++) {
             a->children()[j] = normalize(a->children()[j]);
@@ -554,7 +557,7 @@ public:
         nex *rs = normalize_sum(r);
         SASSERT(rs->is_simplified());
         return rs;
-
+        */
     }
 
     

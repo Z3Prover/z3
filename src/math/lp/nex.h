@@ -43,7 +43,7 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
 }
 
 
-// This class is needed in horner calculation with intervals
+// This is the class of non-linear expressions 
 class nex {
 public:
     virtual expr_type type() const = 0;
@@ -71,14 +71,6 @@ public:
     virtual void simplify(nex** ) = 0;
     virtual bool is_simplified() const {
         return true;
-    }
-    virtual const ptr_vector<nex> * children_ptr() const {
-        UNREACHABLE();
-        return nullptr;
-    }
-    virtual ptr_vector<nex> * children_ptr() {
-        UNREACHABLE();
-        return nullptr;
     }
     #ifdef Z3DEBUG
     virtual void sort() {};
@@ -132,7 +124,8 @@ public:
 };
 
 const nex_scalar * to_scalar(const nex* a);
-
+class nex_sum;
+const nex_sum* to_sum(const nex*a);
 static bool ignored_child(nex* e, expr_type t) {
     switch(t) {
     case expr_type::MUL:
@@ -144,77 +137,60 @@ static bool ignored_child(nex* e, expr_type t) {
     return false;
 }
 
-static void promote_children_by_type(ptr_vector<nex> * children, expr_type t) {
-    ptr_vector<nex> to_promote;
-    int skipped = 0;
-    for(unsigned j = 0; j < children->size(); j++) {
-        nex** e = &(*children)[j];
-        (*e)->simplify(e);
-        if ((*e)->type() == t) {
-            to_promote.push_back(*e);
-        } else if (ignored_child(*e, t)) {
-            skipped ++;
-            continue;
-        } else {
-            unsigned offset = to_promote.size() + skipped;
-            if (offset) {
-                (*children)[j - offset] = *e;
-            }
-        }
-    }
-    
-    children->shrink(children->size() - to_promote.size() - skipped);
-    
-    for (nex *e : to_promote) {
-        for (nex *ee : *(e->children_ptr())) {
-            if (!ignored_child(ee, t))
-                children->push_back(ee);            
-        }
-    }    
-}
+void promote_children_of_sum(ptr_vector<nex> & children);
+class nex_pow;
+void promote_children_of_mul(vector<nex_pow> & children);
+
+class nex_pow {
+    nex* m_e;
+    int  m_power;
+public:
+    explicit nex_pow(nex* e): m_e(e), m_power(1) {}
+    explicit nex_pow(nex* e, int p): m_e(e), m_power(p) {}
+    const nex * e() const { return m_e; }
+    nex * e() { return m_e; }
+    nex ** ee() { return & m_e; }
+    int pow() const { return m_power; }
+    int& pow() { return m_power; }
+    std::string to_string() const { std::stringstream s; s << "(" << *e() << ", " << pow() << ")";
+        return s.str(); }
+    friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
+};
 
 class nex_mul : public nex {
-    ptr_vector<nex> m_children;
+    vector<nex_pow> m_children;
 public:
     nex_mul()  {}
     unsigned size() const { return m_children.size(); }
     expr_type type() const { return expr_type::MUL; }
-    ptr_vector<nex>& children() { return m_children;}
-    const ptr_vector<nex>& children() const { return m_children;}
-    const ptr_vector<nex>* children_ptr() const { return &m_children;}
-    ptr_vector<nex>* children_ptr() { return &m_children;}
+    vector<nex_pow>& children() { return m_children;}
+    const vector<nex_pow>& children() const { return m_children;}
     // A monomial is 'pure' if does not have a numeric coefficient.
-    bool is_pure_monomial() const { return size() == 0 || (!m_children[0]->is_scalar()); }    
+    bool is_pure_monomial() const { return size() == 0 || (!m_children[0].e()->is_scalar()); }    
     std::ostream & print(std::ostream& out) const {
+        
         bool first = true;
-        for (const nex* v : m_children) {            
-            std::string s = v->str();
+        for (const nex_pow& v : m_children) {            
+            std::string s = v.to_string();
             if (first) {
                 first = false;
-                if (v->is_elementary())
-                    out << s;
-                else 
-                    out << "(" << s << ")";                            
+                out << s;
             } else {
-                if (v->is_elementary()) {
-                    if (s[0] == '-') {
-                        out << "*(" << s << ")";
-                    } else {
-                        out << "*" << s;
-                    }
-                } else {
-                    out << "*(" << s << ")";
-                }
+                out << "*" << s;                        
             }
         }
         return out;
     }
 
-    void add_child(nex* e) { m_children.push_back(e); }
+    void add_child(nex* e) {
+        add_child_in_power(e, 1);
+    }
+    
+    void add_child_in_power(nex* e, int power) { m_children.push_back(nex_pow(e, power)); }
 
     bool contains(lpvar j) const {
-        for (const nex* c : children()) {
-            if (c->contains(j))
+        for (const nex_pow& c : children()) {
+            if (c.e()->contains(j))
                 return true;
         }
         return false;
@@ -228,34 +204,32 @@ public:
     void get_powers_from_mul(std::unordered_map<lpvar, unsigned> & r) const {
         r.clear();
         for (const auto & c : children()) {
-            if (!c->is_var()) {
+            if (!c.e()->is_var()) {
                 continue;
             }
-            lpvar j = to_var(c)->var();
-            auto it = r.find(j);
-            if (it == r.end()) {
-                r[j] = 1;
-            } else {
-                it->second++;
-            }
+            lpvar j = to_var(c.e())->var();
+            SASSERT(r.find(j) == r.end());
+            r[j] = c.pow();
         }
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
     }
 
     int get_degree() const {
         int degree = 0;       
-        for (auto  e : children()) {
-            degree +=  e->get_degree();
+        for (const auto& p : children()) {
+            degree +=  p.e()->get_degree() * p.pow();
         }
         return degree;
     }
     
     void simplify(nex **e) {
+        TRACE("nla_cn_details", tout << *this << "\n";);
+        TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
         *e = this;
         TRACE("nla_cn_details", tout << *this << "\n";);
-        promote_children_by_type(&m_children, expr_type::MUL);
-        if (size() == 1) 
-            *e = m_children[0];
+        promote_children_of_mul(m_children);
+        if (size() == 1 && m_children[0].pow() == 1) 
+            *e = m_children[0].e();
         TRACE("nla_cn_details", tout << *this << "\n";);
         SASSERT((*e)->is_simplified());
     }
@@ -263,7 +237,8 @@ public:
     virtual bool is_simplified() const {
         if (size() < 2)
             return false;
-        for (nex * e : children()) {
+        for (const auto &p : children()) {
+            const nex* e = p.e();
             if (e->is_mul()) 
                 return false;
             if (e->is_scalar() && to_scalar(e)->value().is_one())
@@ -274,25 +249,17 @@ public:
 
     bool is_linear() const {
         SASSERT(is_simplified());
-        if (children().size() > 2)
-            return false;
-
-        SASSERT(children().size() == 2);
-        for (auto e : children()) {
-            if (e->is_scalar())
-                return true;
-        }
-        return false;
+        return get_degree() < 2; // todo: make it more efficient
     }
 
-#ifdef Z3DEBUG
-    virtual void sort() {
-        for (nex * c : m_children) {
-            c->sort();
-        }
-        std::sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
-    }
-    #endif
+// #ifdef Z3DEBUG
+//     virtual void sort() {
+//         for (nex * c : m_children) {
+//             c->sort();
+//         }
+//         std::sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
+//     }
+//     #endif
 
 };
 
@@ -361,7 +328,7 @@ public:
 
     void simplify(nex **e) {
         *e = this;
-        promote_children_by_type(&m_children, expr_type::SUM);
+        promote_children_of_sum(m_children);
         if (size() == 1)
             *e = m_children[0];
     }
@@ -387,12 +354,15 @@ public:
     void add_child(nex* e) { m_children.push_back(e); }
 #ifdef Z3DEBUG
     virtual void sort() {
+        NOT_IMPLEMENTED_YET();
+        /*
         for (nex * c : m_children) {
             c->sort();
         }
         
 
         std::sort(m_children.begin(), m_children.end(), [](const nex* a, const nex* b) { return *a < *b; });
+        */
     }
 #endif
 };
@@ -449,30 +419,6 @@ inline bool operator<(const ptr_vector<nex>&a , const ptr_vector<nex>& b) {
     return false;
 }
 
-inline bool operator<(const nex& a , const nex& b) {
-    int r = (int)(a.type()) - (int)(b.type());
-    ptr_vector<nex> ch;
-    if (r) {
-        return r < 0;
-    }
-    switch (a.type()) {
-    case expr_type::VAR: {
-        return to_var(&a)->var() < to_var(&b)->var();
-    }
-    case expr_type::SCALAR: {
-        return to_scalar(&a)->value() < to_scalar(&b)->value();
-    }        
-    case expr_type::MUL: {
-        return to_mul(&a)->children() < to_mul(&b)->children();
-    }
-    case expr_type::SUM: {
-        return to_sum(&a)->children() < to_sum(&b)->children();
-    }
-    default:
-        SASSERT(false);
-        return false;
-    }
-}
 #endif
 }
     

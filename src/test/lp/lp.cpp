@@ -73,6 +73,22 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
     cn.run(t);
 }
 
+void test_simplify(cross_nested& cn, nex_var* a, nex_var* b, nex_var* c) {
+    auto & r = cn.get_nex_creator();
+    auto m = r.mk_mul(); m->add_child_in_power(c, 2);
+    TRACE("nla_cn", tout << "m = " << *m << "\n";); 
+    auto n = r.mk_mul(a);
+    n->add_child_in_power(b, 7);
+    TRACE("nla_cn", tout << "n = " << *n << "\n";); 
+    m->add_child_in_power(n, 3);
+    TRACE("nla_cn", tout << "m = " << *m << "\n";); 
+    
+    nex * e = r.mk_sum(a, r.mk_sum(b, m));
+    TRACE("nla_cn", tout << "e = " << *e << "\n";);
+    e->simplify(&e);
+    TRACE("nla_cn", tout << "simplified e = " << *e << "\n";);
+}
+
 void test_cn() {
     cross_nested cn(
         [](const nex* n) {
@@ -91,6 +107,7 @@ void test_cn() {
     nex_var* e = cn.get_nex_creator().mk_var(4);
     nex_var* g = cn.get_nex_creator().mk_var(6);
     nex* min_1 = cn.get_nex_creator().mk_scalar(rational(-1));
+    test_simplify(cn, a, b, c);
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
     nex* bcd = cn.get_nex_creator().mk_mul(b, c, d);
     nex_mul* bcg = cn.get_nex_creator().mk_mul(b, c, g);
