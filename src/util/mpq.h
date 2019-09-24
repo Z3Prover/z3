@@ -521,7 +521,7 @@ public:
 
     static unsigned hash(mpz const & a) { return mpz_manager<SYNCH>::hash(a); }
 
-    static unsigned hash(mpq const & a) { return hash(a.m_num); }
+    static unsigned hash(mpq const & a) { return hash(a.m_num) + 3*hash(a.m_den); }
 
     bool eq(mpz const & a, mpz const & b) { return mpz_manager<SYNCH>::eq(a, b); }
     
