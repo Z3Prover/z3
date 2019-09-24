@@ -1051,6 +1051,8 @@ extern "C" {
             case OP_SET_SUBSET: return Z3_OP_SET_SUBSET;
             case OP_AS_ARRAY: return Z3_OP_AS_ARRAY;
             case OP_ARRAY_EXT: return Z3_OP_ARRAY_EXT;
+            case OP_SET_CARD: return Z3_OP_SET_CARD;
+            case OP_SET_HAS_SIZE: return Z3_OP_SET_HAS_SIZE;
             default:
                 return Z3_OP_INTERNAL;
             }

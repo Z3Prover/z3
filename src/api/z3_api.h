@@ -1051,6 +1051,8 @@ typedef enum {
     Z3_OP_SET_SUBSET,
     Z3_OP_AS_ARRAY,
     Z3_OP_ARRAY_EXT,
+    Z3_OP_SET_HAS_SIZE,
+    Z3_OP_SET_CARD,
 
     // Bit-vectors
     Z3_OP_BNUM = 0x400,
