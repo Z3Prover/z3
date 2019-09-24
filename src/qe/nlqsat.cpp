@@ -609,7 +609,7 @@ namespace qe {
                 if (a.is_power(n, n1, n2) && a.is_numeral(n2, r) && r.is_unsigned()) {
                     return;
                 }
-                if (a.is_div(n) && s.m_mode == qsat_t) {
+                if (a.is_div(n) && s.m_mode == qsat_t && is_ground(n)) {
                     m_has_divs = true;
                     return;
                 }

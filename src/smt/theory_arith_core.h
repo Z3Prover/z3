@@ -339,22 +339,32 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mul(app * m) {
         rational _val;
+        TRACE("arith", tout << mk_pp(m, get_manager()) << "\n";);
         SASSERT(m_util.is_mul(m));
-        SASSERT(!m_util.is_numeral(m->get_arg(1)));
-        if (m_util.is_numeral(m->get_arg(0), _val)) {
+        expr* arg0 = m->get_arg(0);
+        expr* arg1 = m->get_arg(1);
+        if (m_util.is_numeral(arg1)) {
+            std::swap(arg0, arg1);
+        }
+        SASSERT(!m_util.is_numeral(arg1));
+        if (m_util.is_numeral(arg0, _val)) {
             SASSERT(m->get_num_args() == 2);
             numeral val(_val);
+            if (_val.is_zero()) {
+                return internalize_numeral(m, val);
+            }
+            SASSERT(!val.is_zero());
             SASSERT(!val.is_one());
             unsigned r_id = mk_row();
             scoped_row_vars _sc(m_row_vars, m_row_vars_top);
-            if (is_var(m->get_arg(1))) {
+            if (is_var(arg1)) {
                 std::ostringstream strm;
                 strm << mk_pp(m, get_manager()) << " contains a free variable";
                 throw default_exception(strm.str());
             }
             if (reflection_enabled())
-                internalize_term_core(to_app(m->get_arg(0)));
-            theory_var v = internalize_mul_core(to_app(m->get_arg(1)));
+                internalize_term_core(to_app(arg0));
+            theory_var v = internalize_mul_core(to_app(arg1));
             add_row_entry<true>(r_id, val, v);
             enode * e      = mk_enode(m);
             theory_var s   = mk_var(e);
