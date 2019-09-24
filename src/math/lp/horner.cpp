@@ -193,11 +193,11 @@ interv horner::interval_of_mul_with_deps(const nex_mul* e) {
         
     SASSERT(e->is_mul());
     auto & es = to_mul(e)->children();
-    interv a = interval_of_expr_with_deps(es[0]);
-    TRACE("nla_horner_details", tout << "es[0]= "<< *es[0] << std::endl << "a = "; m_intervals.display(tout, a); );
+    interv a = interval_of_expr_with_deps(es[0].e());
+    TRACE("nla_horner_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); );
     for (unsigned k = 1; k < es.size(); k++) {
-        interv b = interval_of_expr_with_deps(es[k]);
-        TRACE("nla_horner_details", tout << "es[" << k << "] "<< *es[k] << ", "; m_intervals.display(tout, b); );
+        interv b = interval_of_expr_with_deps(es[k].e());
+        TRACE("nla_horner_details", tout << "es[" << k << "] "<< es[k] << ", "; m_intervals.display(tout, b); );
         interv c;
         interval_deps_combine_rule comb_rule;
         m_intervals.mul(a, b, c, comb_rule);
@@ -224,11 +224,11 @@ interv horner::interval_of_mul(const nex_mul* e) {
         
     SASSERT(e->is_mul());
     auto & es = to_mul(e)->children();
-    interv a = interval_of_expr(es[0]);
-    TRACE("nla_horner_details", tout << "es[0]= "<< *es[0] << std::endl << "a = "; m_intervals.display(tout, a); );
+    interv a = interval_of_expr(es[0].e());
+    TRACE("nla_horner_details", tout << "es[0]= "<< es[0] << std::endl << "a = "; m_intervals.display(tout, a); );
     for (unsigned k = 1; k < es.size(); k++) {
-        interv b = interval_of_expr(es[k]);
-        TRACE("nla_horner_details", tout << "es[" << k << "] "<< *es[k] << ", "; m_intervals.display(tout, b); );
+        interv b = interval_of_expr(es[k].e());
+        TRACE("nla_horner_details", tout << "es[" << k << "] "<< es[k] << ", "; m_intervals.display(tout, b); );
         interv c;
         interval_deps_combine_rule comb_rule;
         m_intervals.mul(a, b, c, comb_rule);
@@ -249,12 +249,13 @@ void horner::add_mul_to_vector(const nex_mul* e, vector<std::pair<rational, lpva
     TRACE("nla_horner_details", tout << *e << "\n";);
     SASSERT(e->size() > 0);
     if (e->size() == 1) {
-        add_linear_to_vector(*(e->children().begin()), v);
+        add_linear_to_vector(e->children().begin()->e(), v);
         return;
     }
     rational r;
     lpvar j = -1;
-    for (const nex * c : e->children()) {
+    for (const auto & p: e->children()) {
+        const nex * c = p.e();
         switch (c->type()) {
         case expr_type::SCALAR:
             r = to_scalar(c)->value();
@@ -331,7 +332,8 @@ lp::lar_term horner::expression_to_normalized_term(const nex_sum* e, rational& a
 
 bool horner::mul_has_inf_interval(const nex_mul* e) const {
     bool has_inf = false;
-    for (const nex *c : e->children()) {
+    for (const auto & p  : e->children()) {
+        const nex *c = p.e();
         if (!c->is_elementary())
             return false; 
         if (has_zero_interval(c))
@@ -364,7 +366,8 @@ bool horner::has_zero_interval(const nex* e) const {
 }
 
 const nex* horner::get_zero_interval_child(const nex_mul* e) const {
-    for (auto * c : e->children()) {
+    for (const auto & p : e->children()) {
+        const nex * c = p.e();
         if (has_zero_interval(c))
             return c;        
     }

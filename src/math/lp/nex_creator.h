@@ -84,7 +84,7 @@ public:
         return r;
     }
 
-    nex_mul* mk_mul(const ptr_vector<nex>& v) {
+    nex_mul* mk_mul(const vector<nex_pow>& v) {
         auto r = new nex_mul();
         add_to_allocated(r);
         r->children() = v;
@@ -129,10 +129,13 @@ public:
 
     nex * mk_div(const nex* a, lpvar j) {
         TRACE("nla_cn_details", tout << "a=" << *a << ", v" << j << "\n";);
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
+        /*
         SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
         if (a->is_var())
             return mk_scalar(rational(1));
-        ptr_vector<nex> bv;
+        ptr_vector<nex> bv; 
         bool seenj = false;
         for (nex* c : to_mul(a)->children()) {
             if (!seenj) {
@@ -153,11 +156,11 @@ public:
         }
 
         SASSERT(bv.size() == 0);
-        return mk_scalar(rational(1));
+        return mk_scalar(rational(1));*/
     }
 
     nex * mk_div(const nex* a, const nex* b) {
-        TRACE("nla_cn_details", tout << *a <<" / " << *b << "\n";);
+        TRACE("nla_cn_details", tout <<"("  << *a << ") / (" << *b << ")\n";);
         if (b->is_var()) {
             return mk_div(a, to_var(b)->var());
         }
@@ -176,15 +179,18 @@ public:
             return mk_scalar(rational(1));
         }
         SASSERT(a->is_mul());
+        
         const nex_mul* am = to_mul(a);
         bm->get_powers_from_mul(m_powers);
+        TRACE("nla_cn_details", print_vector(m_powers, tout););
         nex_mul* ret = new nex_mul();
-        for (auto e : am->children()) {
+        for (const nex_pow& p : am->children()) {
+            const nex *e = p.e();
             TRACE("nla_cn_details", tout << "e=" << *e << "\n";);
             
             if (!e->is_var()) {
                 SASSERT(e->is_scalar());
-                ret->add_child(e);
+                ret->add_child(mk_scalar(to_scalar(e)->value()));
                 TRACE("nla_cn_details", tout << "continue\n";);
                 continue;
             }
@@ -192,7 +198,7 @@ public:
             lpvar j = to_var(e)->var();
             auto it = m_powers.find(j);
             if (it == m_powers.end()) {
-                 ret->add_child(e);
+                ret->add_child(mk_var(j));
             } else {
                 it->second --;
                 if (it->second == 0)

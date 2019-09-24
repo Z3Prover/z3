@@ -151,7 +151,7 @@ private:
 
     nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
     rational get_monomial_coeff(const nex_mul* m) {        
-        const nex* a = m->children()[0];
+        const nex* a = m->children()[0].e();
         if (a->is_scalar())
             return static_cast<const nex_scalar*>(a)->value();
         return rational(1);
