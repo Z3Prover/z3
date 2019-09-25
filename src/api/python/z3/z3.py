@@ -1627,7 +1627,7 @@ def Implies(a, b, ctx=None):
     >>> Implies(p, q)
     Implies(p, q)
     >>> simplify(Implies(p, q))
-    Or(q, Not(p))
+    Or(Not(p), q)
     """
     ctx = _get_ctx(_ctx_from_ast_arg_list([a, b], ctx))
     s = BoolSort(ctx)
