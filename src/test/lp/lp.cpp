@@ -96,7 +96,8 @@ void test_cn() {
                            return false;
                        } ,
         [](unsigned) { return false; },
-        []{ return 1; }
+        []{ return 1; },
+        less_than_nex_standard        
         );
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
