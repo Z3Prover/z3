@@ -38,10 +38,13 @@ struct occ {
 
 class nex_creator {
 
-    ptr_vector<nex>                       m_allocated;
-    std::unordered_map<lpvar, occ>        m_occurences_map;
-    std::unordered_map<lpvar, unsigned>   m_powers;
+    ptr_vector<nex>                              m_allocated;
+    std::unordered_map<lpvar, occ>               m_occurences_map;
+    std::unordered_map<lpvar, unsigned>          m_powers;
+    // the "less than" operator on expressions
+    std::function<bool (const nex*, const nex*)> m_lt; 
 public:
+    nex_creator(std::function<bool (const nex*, const nex*)> lt)  {}
     const std::unordered_map<lpvar, occ>& occurences_map() const { return m_occurences_map; }
     std::unordered_map<lpvar, occ>& occurences_map() { return m_occurences_map; }
     const std::unordered_map<lpvar, unsigned> & powers() const { return m_powers; }

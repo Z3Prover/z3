@@ -92,7 +92,9 @@ bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
         [this](const nex* n) { return check_cross_nested_expr(n); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
-        [this]() { return c().random(); }
+        [this]() { return c().random(); },
+        [](const nex* a, const nex* b) { return
+                less_than_nex(a, b, [](lpvar j, lpvar k) { return j < k;}); }
                     );
 
     SASSERT (row_is_interesting(row));

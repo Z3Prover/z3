@@ -37,7 +37,7 @@ struct grobner_stats {
 };
 
 enum class var_weight {
-        FIXED = 0,
+            FIXED = 0,
             QUOTED_FIXED =  1,
             BOUNDED    =    2,
             QUOTED_BOUNDED = 3,
@@ -86,22 +86,23 @@ class nla_grobner : common {
     typedef ptr_vector<equation> equation_vector;
     
     // fields
-    equation_vector         m_equations_to_unfreeze;
-    equation_vector         m_equations_to_delete;    
-    lp::int_set             m_rows;
-    lp::int_set             m_active_vars;
-    svector<var_weight>     m_active_vars_weights;
-    unsigned                m_num_of_equations;
-    grobner_stats           m_stats;
-    equation_set            m_processed;
-    equation_set            m_to_process;
-    bool                    m_nl_gb_exhausted;
-    ptr_vector<nex>         m_allocated;
-    lp::int_set             m_tmp_var_set;
-    region                  m_alloc;
-    ci_value_manager        m_val_manager;
-    ci_dependency_manager   m_dep_manager;
-    nex_creator             m_nex_creator;
+    equation_vector                              m_equations_to_unfreeze;
+    equation_vector                              m_equations_to_delete;    
+    lp::int_set                                  m_rows;
+    lp::int_set                                  m_active_vars;
+    svector<var_weight>                          m_active_vars_weights;
+    unsigned                                     m_num_of_equations;
+    grobner_stats                                m_stats;
+    equation_set                                 m_processed;
+    equation_set                                 m_to_process;
+    bool                                         m_nl_gb_exhausted;
+    ptr_vector<nex>                              m_allocated;
+    lp::int_set                                  m_tmp_var_set;
+    region                                       m_alloc;
+    ci_value_manager                             m_val_manager;
+    ci_dependency_manager                        m_dep_manager;
+    nex_creator                                  m_nex_creator;
+    std::function<bool (const nex*, const nex*)> m_lt;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
@@ -156,5 +157,22 @@ private:
             return static_cast<const nex_scalar*>(a)->value();
         return rational(1);
     }
+
+    bool less_than_on_vars(lpvar a, lpvar b) const {
+        const auto &aw = m_active_vars_weights[a];
+        const auto &ab = m_active_vars_weights[b];
+        if (aw < ab)
+            return true;
+        if (aw > ab)
+            return false;
+        // aw == ab
+        return a < b;
+    }
+
+    bool less_than_on_expr(const nex* a, const nex* b) const {
+        return less_than_nex(a, b, [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);});
+    }
+    
+    
 }; // end of grobner
 }

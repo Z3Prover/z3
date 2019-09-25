@@ -26,15 +26,17 @@ namespace nla {
 class cross_nested {
 
     // fields
-    nex *                                 m_e;
-    std::function<bool (const nex*)>      m_call_on_result;
-    std::function<bool (unsigned)>        m_var_is_fixed;
-    std::function<unsigned ()>            m_random;    
-    bool                                  m_done;
-    ptr_vector<nex>                       m_b_split_vec;
-    int                                   m_reported;
-    bool                                  m_random_bit;
-    nex_creator                           m_nex_creator;
+    nex *                                             m_e;
+    std::function<bool (const nex*)>                  m_call_on_result;
+    std::function<bool (unsigned)>                    m_var_is_fixed;
+    std::function<unsigned ()>                        m_random;    
+    bool                                              m_done;
+    ptr_vector<nex>                                   m_b_split_vec;
+    int                                               m_reported;
+    bool                                              m_random_bit;
+    nex_creator                                       m_nex_creator;
+    std::function<bool (const nex*, const nex*)>      m_lt;
+    
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
@@ -44,13 +46,14 @@ public:
     
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
-                 std::function<unsigned ()> random):
+                 std::function<unsigned ()> random,
+                 std::function<bool (const nex*, const nex*)> lt):
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
         m_random(random),
         m_done(false),
-        m_reported(0)
-    {}
+        m_reported(0),
+        m_nex_creator(lt) {}
 
     
     void run(nex *e) {
@@ -124,7 +127,7 @@ public:
         }
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
-        to_sum(c_over_f)->simplify(&c_over_f);
+        to_sum(c_over_f)->simplify(&c_over_f, m_lt);
         nex_mul* cm; 
         *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
@@ -389,7 +392,7 @@ public:
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
         SASSERT(a->children().size() >= 2 && m_b_split_vec.size());
         nex* f;
-        a->simplify(&f); 
+        a->simplify(&f, m_lt); 
         
         if (m_b_split_vec.size() == 1) {
             b = m_b_split_vec[0];
@@ -518,7 +521,7 @@ public:
             a->children()[j] = normalize(a->children()[j]);            
         }
         nex *r;
-        a->simplify(&r);
+        a->simplify(&r, m_lt);
         return r;
     }
 

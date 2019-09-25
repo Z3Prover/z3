@@ -19,6 +19,7 @@
 #pragma once
 #include <initializer_list>
 #include "math/lp/nla_defs.h"
+#include <functional>
 namespace nla {
 enum class expr_type { VAR, SUM, MUL, SCALAR, UNDEF };
 inline std::ostream & operator<<(std::ostream& out, expr_type t) {
@@ -42,6 +43,8 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
     return out;
 }
 
+class nex;
+bool less_than_nex_standard(const nex* a, const nex* b);
 
 // This is the class of non-linear expressions 
 class nex {
@@ -68,7 +71,9 @@ public:
     virtual ~nex() {}
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
-    virtual void simplify(nex** ) = 0;
+    // simplifies the expression and also assigns the address of "this" to *e
+    virtual void simplify(nex** e, std::function<bool (const nex*, const nex*)> lt) { *e = this; }
+    void simplify(nex** e) { return simplify(e, less_than_nex_standard); }
     virtual bool is_simplified() const {
         return true;
     }
@@ -100,7 +105,6 @@ public:
 
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
-    virtual void simplify(nex** e) { *e = this; }
     bool virtual is_linear() const { return true; }
 };
 
@@ -118,7 +122,6 @@ public:
     }
     
     int get_degree() const { return 0; }
-    virtual void simplify(nex** e) { *e = this; }
     bool is_linear() const { return true; }
 
 };
@@ -126,20 +129,10 @@ public:
 const nex_scalar * to_scalar(const nex* a);
 class nex_sum;
 const nex_sum* to_sum(const nex*a);
-static bool ignored_child(nex* e, expr_type t) {
-    switch(t) {
-    case expr_type::MUL:
-        return e->is_scalar() && to_scalar(e)->value().is_one();
-    case expr_type::SUM:        
-        return e->is_scalar() && to_scalar(e)->value().is_zero();
-    default: return false;
-    }
-    return false;
-}
 
-void promote_children_of_sum(ptr_vector<nex> & children);
+void promote_children_of_sum(ptr_vector<nex> & children, std::function<bool (const nex*, const nex*)>);
 class nex_pow;
-void promote_children_of_mul(vector<nex_pow> & children);
+void promote_children_of_mul(vector<nex_pow> & children,  std::function<bool (const nex*, const nex*)> lt);
 
 class nex_pow {
     nex* m_e;
@@ -202,6 +195,7 @@ public:
     }
 
     void get_powers_from_mul(std::unordered_map<lpvar, unsigned> & r) const {
+        TRACE("nla_cn_details", tout << "powers of " << *this << "\n";);
         r.clear();
         for (const auto & c : children()) {
             if (!c.e()->is_var()) {
@@ -221,13 +215,13 @@ public:
         }
         return degree;
     }
-    
-    void simplify(nex **e) {
+    // the second argument is the comparison less than operator
+    void simplify(nex **e, std::function<bool (const nex*, const nex*)> lt) {
         TRACE("nla_cn_details", tout << *this << "\n";);
         TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
         *e = this;
         TRACE("nla_cn_details", tout << *this << "\n";);
-        promote_children_of_mul(m_children);
+        promote_children_of_mul(m_children, lt);
         if (size() == 1 && m_children[0].pow() == 1) 
             *e = m_children[0].e();
         TRACE("nla_cn_details", tout << *this << "\n";);
@@ -326,12 +320,13 @@ public:
         return out;
     }
 
-    void simplify(nex **e) {
+    void simplify(nex **e, std::function<bool (const nex*, const nex*)> lt ) {
         *e = this;
-        promote_children_of_sum(m_children);
+        promote_children_of_sum(m_children, lt);
         if (size() == 1)
             *e = m_children[0];
     }
+    
     virtual bool is_simplified() const {
         if (size() < 2) return false;
         for (nex * e : children()) {
@@ -402,6 +397,16 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
     return e.print(out);
 }
 
+
+inline bool less_than_nex(const nex* a, const nex* b, std::function<bool (lpvar, lpvar)> lt) {
+    NOT_IMPLEMENTED_YET();
+    return false;
+}
+
+inline bool less_than_nex_standard(const nex* a, const nex* b) {
+    return less_than_nex(a, b, [](lpvar j, lpvar k) { return j < k; });
+}
+
 #if Z3DEBUG
 
 inline bool operator<(const ptr_vector<nex>&a , const ptr_vector<nex>& b) {
@@ -420,5 +425,6 @@ inline bool operator<(const ptr_vector<nex>&a , const ptr_vector<nex>& b) {
 }
 
 #endif
+
 }
     
