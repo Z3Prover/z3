@@ -20,8 +20,14 @@
 #include <initializer_list>
 #include "math/lp/nla_defs.h"
 #include <functional>
+#include <set>
 namespace nla {
-enum class expr_type { VAR, SUM, MUL, SCALAR, UNDEF };
+class nex;
+typedef std::function<bool (const nex*, const nex*)> nex_lt;
+
+typedef std::function<bool (lpvar, lpvar)> lt_on_vars;
+
+enum class expr_type { SCALAR, VAR, SUM, MUL, UNDEF };
 inline std::ostream & operator<<(std::ostream& out, expr_type t) {
     switch (t) {
     case expr_type::SUM:
@@ -72,11 +78,14 @@ public:
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e
-    virtual void simplify(nex** e, std::function<bool (const nex*, const nex*)> lt) { *e = this; }
+    virtual void simplify(nex** e, nex_lt) { *e = this; }
     void simplify(nex** e) { return simplify(e, less_than_nex_standard); }
-    virtual bool is_simplified() const {
+    virtual bool is_simplified(nex_lt) const {
         return true;
     }
+    
+    virtual bool is_simplified() const { return is_simplified(less_than_nex_standard); }
+
     #ifdef Z3DEBUG
     virtual void sort() {};
     #endif
@@ -130,9 +139,9 @@ const nex_scalar * to_scalar(const nex* a);
 class nex_sum;
 const nex_sum* to_sum(const nex*a);
 
-void promote_children_of_sum(ptr_vector<nex> & children, std::function<bool (const nex*, const nex*)>);
+void promote_children_of_sum(ptr_vector<nex> & children, nex_lt);
 class nex_pow;
-void promote_children_of_mul(vector<nex_pow> & children,  std::function<bool (const nex*, const nex*)> lt);
+void promote_children_of_mul(vector<nex_pow> & children, nex_lt);
 
 class nex_pow {
     nex* m_e;
@@ -145,10 +154,23 @@ public:
     nex ** ee() { return & m_e; }
     int pow() const { return m_power; }
     int& pow() { return m_power; }
-    std::string to_string() const { std::stringstream s; s << "(" << *e() << ", " << pow() << ")";
-        return s.str(); }
+    std::string to_string() const {
+        std::stringstream s;
+        if (pow() == 1) {           
+            s <<"(" <<  *e() << ")";
+        } else {
+            s << "(" << *e() << "^" << pow() << ")";
+        }
+        return s.str();
+    }
     friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
 };
+
+
+inline bool less_than(const nex_pow & a, const nex_pow& b, nex_lt lt) {
+    return (a.pow() < b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
+}
+
 
 class nex_mul : public nex {
     vector<nex_pow> m_children;
@@ -216,7 +238,7 @@ public:
         return degree;
     }
     // the second argument is the comparison less than operator
-    void simplify(nex **e, std::function<bool (const nex*, const nex*)> lt) {
+    void simplify(nex **e, nex_lt lt) {
         TRACE("nla_cn_details", tout << *this << "\n";);
         TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
         *e = this;
@@ -225,24 +247,43 @@ public:
         if (size() == 1 && m_children[0].pow() == 1) 
             *e = m_children[0].e();
         TRACE("nla_cn_details", tout << *this << "\n";);
-        SASSERT((*e)->is_simplified());
+        SASSERT((*e)->is_simplified(lt));
     }
 
-    virtual bool is_simplified() const {
-        if (size() < 2)
-            return false;
-        for (const auto &p : children()) {
-            const nex* e = p.e();
-            if (e->is_mul()) 
-                return false;
-            if (e->is_scalar() && to_scalar(e)->value().is_one())
+    bool is_sorted(nex_lt lt) const {
+        for (unsigned j = 0; j < m_children.size() - 1; j++) {
+            if (!(less_than(m_children[j], m_children[j+1], lt)))
                 return false;
         }
         return true;
     }
+    
+    virtual bool is_simplified(nex_lt lt) const {
+        if (size() == 1 && m_children.begin()->pow() == 1)
+            return false;
+        std::set<const nex*, nex_lt> s(lt);
+        for (const auto &p : children()) {
+            const nex* e = p.e();
+            if (p.pow() == 0)
+                return false;
+            if (e->is_mul()) 
+                return false;
+            if (e->is_scalar() && to_scalar(e)->value().is_one())
+                return false;
+
+            auto it = s.find(e);
+            if (it == s.end()) {
+                s.insert(e);
+            } else {
+                TRACE("nla_cn_details", tout << "not simplified " << *e << "\n";);
+                return false;
+            }
+        }
+        return is_sorted(lt);
+    }
 
     bool is_linear() const {
-        SASSERT(is_simplified());
+        //        SASSERT(is_simplified());
         return get_degree() < 2; // todo: make it more efficient
     }
 
@@ -320,7 +361,7 @@ public:
         return out;
     }
 
-    void simplify(nex **e, std::function<bool (const nex*, const nex*)> lt ) {
+    void simplify(nex **e, nex_lt lt ) {
         *e = this;
         promote_children_of_sum(m_children, lt);
         if (size() == 1)
@@ -398,8 +439,32 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
 }
 
 
-inline bool less_than_nex(const nex* a, const nex* b, std::function<bool (lpvar, lpvar)> lt) {
-    NOT_IMPLEMENTED_YET();
+inline bool less_than_nex(const nex* a, const nex* b, lt_on_vars lt) {
+    int r = (int)(a->type()) - (int)(b->type());
+    if (r) {
+        return r < 0;
+    }
+    // here a and b have the same type
+    switch (a->type()) {
+    case expr_type::VAR: {
+        return lt(to_var(a)->var() , to_var(b)->var());
+    }
+    case expr_type::SCALAR: {
+        return to_scalar(a)->value() < to_scalar(b)->value();
+    }        
+    case expr_type::MUL: {
+        NOT_IMPLEMENTED_YET();
+        return false; // to_mul(a)->children() < to_mul(b)->children();
+    }
+    case expr_type::SUM: {
+        NOT_IMPLEMENTED_YET();
+        return false; //to_sum(a)->children() < to_sum(b)->children();
+    }
+    default:
+        SASSERT(false);
+        return false;
+    }
+
     return false;
 }
 
