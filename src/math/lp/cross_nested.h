@@ -35,7 +35,7 @@ class cross_nested {
     int                                               m_reported;
     bool                                              m_random_bit;
     nex_creator                                       m_nex_creator;
-    std::function<bool (const nex*, const nex*)>      m_lt;
+    nex_lt                                            m_lt;
     
 #ifdef Z3DEBUG
     nex* m_e_clone;
@@ -47,18 +47,19 @@ public:
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
                  std::function<unsigned ()> random,
-                 std::function<bool (const nex*, const nex*)> lt):
+                 nex_lt lt):
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
         m_random(random),
         m_done(false),
         m_reported(0),
-        m_nex_creator(lt) {}
+        m_nex_creator(lt),
+        m_lt(lt) {}
 
     
     void run(nex *e) {
         TRACE("nla_cn", tout << *e << "\n";);
-        SASSERT(e->is_simplified());
+        SASSERT(e->is_simplified(m_lt));
         m_e = e;
 #ifdef Z3DEBUG
         //        m_e_clone = clone(m_e);
@@ -482,40 +483,6 @@ public:
 
     bool done() const { return m_done; }
 #if Z3DEBUG
-    nex *clone (const nex * a) {
-        switch (a->type()) {
-        case expr_type::VAR: {
-            auto v = to_var(a);
-            return m_nex_creator.mk_var(v->var());
-        }
-            
-        case expr_type::SCALAR: {
-            auto v = to_scalar(a);
-            return m_nex_creator.mk_scalar(v->value());
-        }
-        case expr_type::MUL: {
-            auto m = to_mul(a);
-            auto r = m_nex_creator.mk_mul();
-            for (const auto& p : m->children()) {
-                r->add_child_in_power(clone(p.e()), p.pow());
-            }
-            return r;
-        }
-        case expr_type::SUM: {
-            auto m = to_sum(a);
-            auto r = m_nex_creator.mk_sum();
-            for (nex * e : m->children()) {
-                r->add_child(clone(e));
-            }
-            return r;
-        }
-        default:
-            SASSERT(false);
-            break;
-        }
-        return nullptr;
-    }
-
     nex * normalize_sum(nex_sum* a) {
         for (unsigned j = 0; j < a->size(); j ++) {
             a->children()[j] = normalize(a->children()[j]);            

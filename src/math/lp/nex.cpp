@@ -18,6 +18,7 @@
   --*/
 
 #include "math/lp/nex.h"
+#include <map>
 namespace nla {
 
 
@@ -32,9 +33,28 @@ bool ignored_child(nex* e, expr_type t) {
     return false;
 }
 
+void mul_to_powers(vector<nex_pow>& children, nex_lt lt) {
+    std::map<nex*, int, nex_lt> m(lt);
 
+    for (auto & p : children) {
+        auto it = m.find(p.e());
+        if (it == m.end()) {
+            m[p.e()] = p.pow();
+        } else {
+            it->second+= p.pow();
+        }
+    }
+    children.clear();
+    for (auto & p : m) {
+        children.push_back(nex_pow(p.first, p.second));
+    }
 
-void promote_children_of_sum(ptr_vector<nex> & children,std::function<bool (const nex*, const nex*)> lt ) {
+    std::sort(children.begin(), children.end(), [lt](const nex_pow& a, const nex_pow& b) {
+                                                    return less_than(a, b, lt);
+                                                });
+}
+
+void promote_children_of_sum(ptr_vector<nex> & children, nex_lt lt ) {
     ptr_vector<nex> to_promote;
     int skipped = 0;
     for(unsigned j = 0; j < children.size(); j++) {
@@ -63,7 +83,7 @@ void promote_children_of_sum(ptr_vector<nex> & children,std::function<bool (cons
     } 
 }
 
-void promote_children_of_mul(vector<nex_pow> & children, std::function<bool (const nex*, const nex*)> lt) {
+void promote_children_of_mul(vector<nex_pow> & children, nex_lt lt) {
     TRACE("nla_cn_details", print_vector(children, tout););
     vector<nex_pow> to_promote;
     int skipped = 0;
@@ -92,6 +112,8 @@ void promote_children_of_mul(vector<nex_pow> & children, std::function<bool (con
         }
     }
 
+    mul_to_powers(children, lt);
+    
     TRACE("nla_cn_details", print_vector(children, tout););
     
 }

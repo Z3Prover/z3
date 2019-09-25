@@ -42,9 +42,42 @@ class nex_creator {
     std::unordered_map<lpvar, occ>               m_occurences_map;
     std::unordered_map<lpvar, unsigned>          m_powers;
     // the "less than" operator on expressions
-    std::function<bool (const nex*, const nex*)> m_lt; 
+    nex_lt m_lt; 
 public:
-    nex_creator(std::function<bool (const nex*, const nex*)> lt)  {}
+    nex * clone(const nex* a) {
+        switch (a->type()) {
+        case expr_type::VAR: {
+            auto v = to_var(a);
+            return mk_var(v->var());
+        }
+            
+        case expr_type::SCALAR: {
+            auto v = to_scalar(a);
+            return mk_scalar(v->value());
+        }
+        case expr_type::MUL: {
+            auto m = to_mul(a);
+            auto r = mk_mul();
+            for (const auto& p : m->children()) {
+                r->add_child_in_power(clone(p.e()), p.pow());
+            }
+            return r;
+        }
+        case expr_type::SUM: {
+            auto m = to_sum(a);
+            auto r = mk_sum();
+            for (nex * e : m->children()) {
+                r->add_child(clone(e));
+            }
+            return r;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+        return nullptr;
+    }
+    nex_creator(nex_lt lt) : m_lt(lt) {}
     const std::unordered_map<lpvar, occ>& occurences_map() const { return m_occurences_map; }
     std::unordered_map<lpvar, occ>& occurences_map() { return m_occurences_map; }
     const std::unordered_map<lpvar, unsigned> & powers() const { return m_powers; }
@@ -129,37 +162,45 @@ public:
         return r;
     }
 
-
     nex * mk_div(const nex* a, lpvar j) {
+        SASSERT(a->is_simplified(m_lt));
         TRACE("nla_cn_details", tout << "a=" << *a << ", v" << j << "\n";);
-        NOT_IMPLEMENTED_YET();
-        return nullptr;
-        /*
         SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
         if (a->is_var())
             return mk_scalar(rational(1));
-        ptr_vector<nex> bv; 
+        vector<nex_pow> bv; 
         bool seenj = false;
-        for (nex* c : to_mul(a)->children()) {
+        for (auto& p : to_mul(a)->children()) {
+            const nex * c = p.e();
+            int pow = p.pow();
             if (!seenj) {
                 if (c->contains(j)) {
-                    if (!c->is_var())                     
-                        bv.push_back(mk_div(c, j));
+                    if (!c->is_var()) {                    
+                        bv.push_back(nex_pow(mk_div(c, j)));
+                        if (pow != 1) {
+                            bv.push_back(nex_pow(clone(c), pow)); 
+                        }
+                    } else {
+                        SASSERT(to_var(c)->var() == j);
+                        if (p.pow() != 1) {
+                            bv.push_back(nex_pow(mk_var(j), pow - 1));
+                        }
+                    }
                     seenj = true;
-                    continue;
                 } 
+            } else {
+                bv.push_back(nex_pow(clone(c)));
             }
-            bv.push_back(c);
         }
         if (bv.size() > 1) { 
             return mk_mul(bv);
         }
-        if (bv.size() == 1) {
-            return bv[0];
+        if (bv.size() == 1 && bv.begin()->pow() == 1) {
+            return bv.begin()->e();
         }
-
-        SASSERT(bv.size() == 0);
-        return mk_scalar(rational(1));*/
+        if (bv.size() == 0)
+            return mk_scalar(rational(1));
+        return mk_mul(bv);
     }
 
     nex * mk_div(const nex* a, const nex* b) {
