@@ -73,7 +73,21 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
     cn.run(t);
 }
 
-void test_simplify(cross_nested& cn, nex_var* a, nex_var* b, nex_var* c) {
+void test_simplify() {
+    cross_nested cn(
+        [](const nex* n) {
+                           TRACE("nla_cn_test", tout << *n << "\n";);
+                           return false;
+                       } ,
+        [](unsigned) { return false; },
+        []{ return 1; },
+        less_than_nex_standard        
+        );
+    enable_trace("nla_cn");
+    enable_trace("nla_cn_details");
+    nex_var* a = cn.get_nex_creator().mk_var(0);
+    nex_var* b = cn.get_nex_creator().mk_var(1);
+    nex_var* c = cn.get_nex_creator().mk_var(2);
     auto & r = cn.get_nex_creator();
     auto m = r.mk_mul(); m->add_child_in_power(c, 2);
     TRACE("nla_cn", tout << "m = " << *m << "\n";); 
@@ -108,7 +122,6 @@ void test_cn() {
     nex_var* e = cn.get_nex_creator().mk_var(4);
     nex_var* g = cn.get_nex_creator().mk_var(6);
     nex* min_1 = cn.get_nex_creator().mk_scalar(rational(-1));
-    test_simplify(cn, a, b, c);
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
     nex* bcd = cn.get_nex_creator().mk_mul(b, c, d);
     nex_mul* bcg = cn.get_nex_creator().mk_mul(b, c, g);
@@ -124,11 +137,13 @@ void test_cn() {
     nex* ed = cn.get_nex_creator().mk_mul(e, d);
     nex* _6aad = cn.get_nex_creator().mk_mul(cn.get_nex_creator().mk_scalar(rational(6)), a, a, d);
 #ifdef Z3DEBUG
-    nex * clone = cn.clone(cn.get_nex_creator().mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
+    nex * clone = cn.get_nex_creator().clone(cn.get_nex_creator().mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
+    clone->simplify(&clone);
+    SASSERT(clone->is_simplified());
     TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
 #endif
     //    test_cn_on_expr(cn.get_nex_creator().mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
-    test_cn_on_expr(cn.get_nex_creator().mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed), cn);
+    test_cn_on_expr(to_sum(clone), cn);
     // TRACE("nla_cn", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
     // TRACE("nla_cn", tout << "done\n";);
@@ -1981,6 +1996,7 @@ void test_replace_column() {
 
 void setup_args_parser(argument_parser & parser) {
     parser.add_option_with_help_string("-nla_cn", "test cross nornmal form");
+    parser.add_option_with_help_string("-nla_sim", "test nex simplify");
     parser.add_option_with_help_string("-nla_blfmz_mf", "test_basic_lemma_for_mon_zero_from_factor_to_monomial");
     parser.add_option_with_help_string("-nla_blfmz_fm", "test_basic_lemma_for_mon_zero_from_monomials_to_factor");
     parser.add_option_with_help_string("-nla_order", "test nla_solver order lemma");
@@ -3684,6 +3700,14 @@ void test_lp_local(int argn, char**argv) {
         return finalize(0);
     }
 
+    if (args_parser.option_is_used("-nla_sim")) {
+#ifdef Z3DEBUG
+        nla::test_simplify();
+#endif
+        return finalize(0);
+    }
+
+    
     if (args_parser.option_is_used("-nla_order")) {
 #ifdef Z3DEBUG
         test_nla_order_lemma();

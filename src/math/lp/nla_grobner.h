@@ -102,7 +102,7 @@ class nla_grobner : common {
     ci_value_manager                             m_val_manager;
     ci_dependency_manager                        m_dep_manager;
     nex_creator                                  m_nex_creator;
-    std::function<bool (const nex*, const nex*)> m_lt;
+    nex_lt                                       m_lt;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
