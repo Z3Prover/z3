@@ -280,14 +280,13 @@ namespace smt {
         SASSERT(m_util.is_add(n));
         unsigned r_id = mk_row();
         scoped_row_vars _sc(m_row_vars, m_row_vars_top);
-        unsigned num_args = n->get_num_args();
-        for (unsigned i = 0; i < num_args; i++) {
-            if (is_var(n->get_arg(i))) {
+        for (expr* arg : *n) {
+            if (is_var(arg)) {
                 std::ostringstream strm;
                 strm << mk_pp(n, get_manager()) << " contains a free variable";
                 throw default_exception(strm.str());
             }
-            internalize_internal_monomial(to_app(n->get_arg(i)), r_id);
+            internalize_internal_monomial(to_app(arg), r_id);
         }
         enode * e = mk_enode(n);
         theory_var v = e->get_th_var(get_id());
@@ -315,13 +314,11 @@ namespace smt {
     theory_var theory_arith<Ext>::internalize_mul_core(app * m) {
         TRACE("internalize_mul_core", tout << "internalizing...\n" << mk_pp(m,get_manager()) << "\n";);
         if (!m_util.is_mul(m))
-            return internalize_term_core(m);
-        for (unsigned i = 0; i < m->get_num_args(); i++) {
-            app * arg = to_app(m->get_arg(i));
-            SASSERT(!m_util.is_numeral(arg));
-            theory_var v = internalize_term_core(arg);
+            return internalize_term_core(m);       
+        for (expr* arg : *m) {
+            theory_var v = internalize_term_core(to_app(arg));
             if (v == null_theory_var) {
-                mk_var(mk_enode(arg));
+                mk_var(mk_enode(to_app(arg)));
             }
         }
         enode * e    = mk_enode(m);
@@ -346,9 +343,7 @@ namespace smt {
         if (m_util.is_numeral(arg1)) {
             std::swap(arg0, arg1);
         }
-        SASSERT(!m_util.is_numeral(arg1));
-        if (m_util.is_numeral(arg0, _val)) {
-            SASSERT(m->get_num_args() == 2);
+        if (m_util.is_numeral(arg0, _val) && !m_util.is_numeral(arg1) && m->get_num_args() == 2) {
             numeral val(_val);
             if (_val.is_zero()) {
                 return internalize_numeral(m, val);
