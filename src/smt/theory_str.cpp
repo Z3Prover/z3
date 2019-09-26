@@ -8374,6 +8374,21 @@ namespace smt {
         }
     }
 
+    bool theory_str::is_var(expr * e) const {
+        ast_manager & m = get_manager();
+        sort * ex_sort = m.get_sort(e);
+        sort * str_sort = u.str.mk_string_sort();
+        // non-string-sort terms cannot be string variables
+        if (ex_sort != str_sort) return false;
+        // string constants cannot be variables
+        if (u.str.is_string(e)) return false;
+        if (u.str.is_concat(e) || u.str.is_at(e) || u.str.is_extract(e) || u.str.is_replace(e) || u.str.is_itos(e))
+            return false;
+        if (m.is_ite(e))
+            return false;
+        return true;
+    }
+
     void theory_str::set_up_axioms(expr * ex) {
         ast_manager & m = get_manager();
         context & ctx = get_context();
@@ -8417,7 +8432,7 @@ namespace smt {
                     TRACE("str", tout << "found string-integer conversion term: " << mk_pp(ex, get_manager()) << std::endl;);
                     string_int_conversion_terms.push_back(ap);
                     m_library_aware_axiom_todo.push_back(n);
-                } else if (/*ap->get_num_args() == 0 &&*/ !u.str.is_string(ap)) {
+                } else if (is_var(ex)) {
                     // if ex is a variable, add it to our list of variables
                     TRACE("str", tout << "tracking variable " << mk_ismt2_pp(ap, get_manager()) << std::endl;);
                     variable_set.insert(ex);
