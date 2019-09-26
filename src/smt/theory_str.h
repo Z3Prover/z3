@@ -572,6 +572,7 @@ protected:
     expr * z3str2_get_eqc_value(expr * n , bool & hasEqcValue);
     bool in_same_eqc(expr * n1, expr * n2);
     expr * collect_eq_nodes(expr * n, expr_ref_vector & eqcSet);
+    bool is_var(expr * e) const;
 
     bool get_arith_value(expr* e, rational& val) const;
     bool get_len_value(expr* e, rational& val);
