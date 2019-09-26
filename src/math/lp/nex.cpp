@@ -83,18 +83,33 @@ void promote_children_of_sum(ptr_vector<nex> & children, nex_lt lt ) {
     } 
 }
 
-void promote_children_of_mul(vector<nex_pow> & children, nex_lt lt) {
+bool eat_scalar(nex_scalar *& r, nex_pow& p) {
+    if (!p.e()->is_scalar())
+        return false;
+    nex_scalar *pe = to_scalar(p.e());
+    if (r == nullptr) {
+        r = pe;
+        r->value() = r->value().expt(p.pow());                
+    } else {
+        r->value() *= pe->value().expt(p.pow());
+    }
+    return true;
+}
+
+void simplify_children_of_mul(vector<nex_pow> & children, nex_lt lt) {
+    nex_scalar* r = nullptr;
     TRACE("nla_cn_details", print_vector(children, tout););
     vector<nex_pow> to_promote;
     int skipped = 0;
-    for(unsigned j = 0; j < children.size(); j++) {
+    for(unsigned j = 0; j < children.size(); j++) {        
         nex_pow& p = children[j];
+        if (eat_scalar(r, p)) {
+            skipped++;
+            continue;
+        }
         (p.e())->simplify(p.ee(), lt);
         if ((p.e())->is_mul()) {
             to_promote.push_back(p);
-        } else if (ignored_child(p.e(), expr_type::MUL)) {
-            skipped ++;
-            continue;
         } else {
             unsigned offset = to_promote.size() + skipped;
             if (offset) {
@@ -104,14 +119,18 @@ void promote_children_of_mul(vector<nex_pow> & children, nex_lt lt) {
     }
     
     children.shrink(children.size() - to_promote.size() - skipped);
-    
+
     for (nex_pow & p : to_promote) {
         for (nex_pow& pp : to_mul(p.e())->children()) {
-            SASSERT(!ignored_child(pp.e(), expr_type::MUL));
-            children.push_back(nex_pow(pp.e(), pp.pow() * p.pow()));            
+            if (!eat_scalar(r, pp))
+                children.push_back(nex_pow(pp.e(), pp.pow() * p.pow()));            
         }
     }
 
+    if (r != nullptr) {
+        children.push_back(nex_pow(r));
+    }
+        
     mul_to_powers(children, lt);
     
     TRACE("nla_cn_details", print_vector(children, tout););
