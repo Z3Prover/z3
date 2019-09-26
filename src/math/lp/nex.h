@@ -108,7 +108,7 @@ public:
     lpvar var() const {  return m_j; }
     lpvar& var() {  return m_j; } // the setter
     std::ostream & print(std::ostream& out) const {
-        out << 'v' <<  m_j;
+        out <<  (char)('a' + m_j);
         return out;
     }    
 
@@ -141,7 +141,7 @@ const nex_sum* to_sum(const nex*a);
 
 void promote_children_of_sum(ptr_vector<nex> & children, nex_lt);
 class nex_pow;
-void promote_children_of_mul(vector<nex_pow> & children, nex_lt);
+void simplify_children_of_mul(vector<nex_pow> & children, nex_lt);
 
 class nex_pow {
     nex* m_e;
@@ -243,7 +243,7 @@ public:
         TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
         *e = this;
         TRACE("nla_cn_details", tout << *this << "\n";);
-        promote_children_of_mul(m_children, lt);
+        simplify_children_of_mul(m_children, lt);
         if (size() == 1 && m_children[0].pow() == 1) 
             *e = m_children[0].e();
         TRACE("nla_cn_details", tout << *this << "\n";);
@@ -422,6 +422,11 @@ inline const nex_var* to_var(const nex*a)  {
 inline const nex_scalar* to_scalar(const nex*a)  {
     SASSERT(a->is_scalar());
     return static_cast<const nex_scalar*>(a);
+}
+
+inline nex_scalar* to_scalar(nex*a)  {
+    SASSERT(a->is_scalar());
+    return static_cast<nex_scalar*>(a);
 }
 
 inline const nex_mul* to_mul(const nex*a) {
