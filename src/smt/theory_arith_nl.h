@@ -811,15 +811,13 @@ namespace smt {
     bool theory_arith<Ext>::is_monomial_linear(expr * m) const {
         SASSERT(is_pure_monomial(m));
         unsigned num_nl_vars = 0;
-        for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-            expr * arg = to_app(m)->get_arg(i);
+        for (expr* arg : *to_app(m)) {
             theory_var _var = expr2var(arg);
             if (!is_fixed(_var)) {
                 num_nl_vars++;
             }
-            else {
-                if (lower_bound(_var).is_zero())
-                     return true;
+            else if (lower_bound(_var).is_zero()) {
+                return true;
             }
         }
         return num_nl_vars <= 1;

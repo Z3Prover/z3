@@ -478,7 +478,7 @@ br_status arith_rewriter::mk_le_ge_eq_core(expr * arg1, expr * arg2, op_kind kin
             return BR_REWRITE_FULL;
         case EQ: 
             result = m().mk_ite(is_zero, m().mk_eq(div0, arg2), m().mk_eq(e1, mul2));
-            return BR_REWRITE2;
+            return BR_REWRITE_FULL;
         }        
     }
     if ((m_arith_lhs || m_arith_ineq_lhs) && is_numeral(arg2, a2) && is_neg_poly(arg1, new_arg1)) {
