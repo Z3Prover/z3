@@ -23,7 +23,7 @@ Revision History:
 #include "util/z3_version.h"
 
 std::ostream * g_z3_log = nullptr;
-bool g_z3_log_enabled   = false;
+std::atomic<bool> g_z3_log_enabled;
 
 #ifdef Z3_LOG_SYNC
 static std::mutex g_log_mux;
