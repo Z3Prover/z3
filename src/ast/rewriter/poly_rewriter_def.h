@@ -289,6 +289,18 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         }
     }
 
+    if (num_coeffs > 1 || (num_coeffs == 1 && !is_numeral(args[0]))) {
+        ptr_buffer<expr> m_args;
+        for (unsigned i = 0; i < num_args; i ++) {
+            if (!is_numeral(args[i])) {
+                m_args.push_back(args[i]);
+            }
+        }
+        result = mk_mul_app(c, mk_mul_app(m_args.size(), m_args.c_ptr()));
+        return BR_REWRITE2;
+    }
+
+
     SASSERT(num_coeffs <= num_args - 2);
 
     if (!m_som || num_add == 0) {
@@ -363,7 +375,7 @@ br_status poly_rewriter<Config>::mk_nflat_mul_core(unsigned num_args, expr * con
         for (unsigned i = 0; i < num_args; i++) {
             expr * const * v = sums[i];
             expr * arg       = v[it[i]];
-            m_args.push_back(arg);
+            m_args.push_back(arg);            
         }
         sum.push_back(mk_mul_app(m_args.size(), m_args.c_ptr()));
     }

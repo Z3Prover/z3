@@ -1217,10 +1217,8 @@ namespace smt {
             m_var2num_occs.insert(VAR, occs);                                                           \
         }
 
-        typename sbuffer<coeff_expr>::const_iterator it  = p.begin();
-        typename sbuffer<coeff_expr>::const_iterator end = p.end();
-        for (; it != end; ++it) {
-            expr * m = it->second;
+        for (coeff_expr const& kv : p) {
+            expr * m = kv.second;
             if (is_pure_monomial(m)) {
                 unsigned num_vars = get_num_vars_in_monomial(m);
                 for (unsigned i = 0; i < num_vars; i++) {
@@ -1237,6 +1235,7 @@ namespace smt {
             else {
                 TRACE("non_linear", tout << mk_pp(m, get_manager()) << "\n";);
                 UNREACHABLE();
+                return;
             }
         }
 
@@ -1253,7 +1252,6 @@ namespace smt {
     template<typename Ext>
     expr * theory_arith<Ext>::p2expr(sbuffer<coeff_expr> & p) {
         SASSERT(!p.empty());
-        TRACE("p2expr_bug", display_coeff_exprs(tout, p););
         ptr_buffer<expr> args;
         for (coeff_expr const& ce : p) {
             rational const & c = ce.first;
@@ -1275,6 +1273,7 @@ namespace smt {
         SASSERT(!args.empty());
         expr * r = mk_nary_add(args.size(), args.c_ptr());
         m_nl_new_exprs.push_back(r);
+        TRACE("p2expr_bug", display_coeff_exprs(tout, p); tout << mk_pp(r, get_manager()) << "\n";);
         return r;
     }
 
