@@ -52,6 +52,7 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
 class nex;
 bool less_than_nex_standard(const nex* a, const nex* b);
 
+class nex_scalar;
 // This is the class of non-linear expressions 
 class nex {
 public:
@@ -78,8 +79,8 @@ public:
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e
-    virtual void simplify(nex** e, nex_lt) { *e = this; }
-    void simplify(nex** e) { return simplify(e, less_than_nex_standard); }
+    virtual void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) = 0;
+    void simplify(nex** e, std::function<nex_scalar*()> mk_scalar) { return simplify(e, less_than_nex_standard, mk_scalar); }
     virtual bool is_simplified(nex_lt) const {
         return true;
     }
@@ -115,6 +116,7 @@ public:
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
     bool virtual is_linear() const { return true; }
+    void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) {*e = this;}
 };
 
 class nex_scalar : public nex {
@@ -132,6 +134,7 @@ public:
     
     int get_degree() const { return 0; }
     bool is_linear() const { return true; }
+    void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) {*e = this;}
 
 };
 
@@ -139,9 +142,9 @@ const nex_scalar * to_scalar(const nex* a);
 class nex_sum;
 const nex_sum* to_sum(const nex*a);
 
-void promote_children_of_sum(ptr_vector<nex> & children, nex_lt);
+void simplify_children_of_sum(ptr_vector<nex> & children, nex_lt, std::function<nex_scalar*()>);
 class nex_pow;
-void simplify_children_of_mul(vector<nex_pow> & children, nex_lt);
+void simplify_children_of_mul(vector<nex_pow> & children, nex_lt, std::function<nex_scalar*()>);
 
 class nex_pow {
     nex* m_e;
@@ -238,12 +241,12 @@ public:
         return degree;
     }
     // the second argument is the comparison less than operator
-    void simplify(nex **e, nex_lt lt) {
+    void simplify(nex **e, nex_lt lt, std::function<nex_scalar*()> mk_scalar) {
         TRACE("nla_cn_details", tout << *this << "\n";);
         TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
         *e = this;
         TRACE("nla_cn_details", tout << *this << "\n";);
-        simplify_children_of_mul(m_children, lt);
+        simplify_children_of_mul(m_children, lt, mk_scalar);
         if (size() == 1 && m_children[0].pow() == 1) 
             *e = m_children[0].e();
         TRACE("nla_cn_details", tout << *this << "\n";);
@@ -361,9 +364,9 @@ public:
         return out;
     }
 
-    void simplify(nex **e, nex_lt lt ) {
+    void simplify(nex **e, nex_lt lt, std::function<nex_scalar*()> mk_scalar) {
         *e = this;
-        promote_children_of_sum(m_children, lt);
+        simplify_children_of_sum(m_children, lt, mk_scalar);
         if (size() == 1)
             *e = m_children[0];
     }
@@ -444,37 +447,11 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
 }
 
 
-inline bool less_than_nex(const nex* a, const nex* b, lt_on_vars lt) {
-    int r = (int)(a->type()) - (int)(b->type());
-    if (r) {
-        return r < 0;
-    }
-    // here a and b have the same type
-    switch (a->type()) {
-    case expr_type::VAR: {
-        return lt(to_var(a)->var() , to_var(b)->var());
-    }
-    case expr_type::SCALAR: {
-        return to_scalar(a)->value() < to_scalar(b)->value();
-    }        
-    case expr_type::MUL: {
-        NOT_IMPLEMENTED_YET();
-        return false; // to_mul(a)->children() < to_mul(b)->children();
-    }
-    case expr_type::SUM: {
-        NOT_IMPLEMENTED_YET();
-        return false; //to_sum(a)->children() < to_sum(b)->children();
-    }
-    default:
-        SASSERT(false);
-        return false;
-    }
-
-    return false;
-}
+bool less_than_nex(const nex* a, const nex* b, lt_on_vars lt);
 
 inline bool less_than_nex_standard(const nex* a, const nex* b) {
-    return less_than_nex(a, b, [](lpvar j, lpvar k) { return j < k; });
+    lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
+    return less_than_nex(a, b, lt);
 }
 
 #if Z3DEBUG

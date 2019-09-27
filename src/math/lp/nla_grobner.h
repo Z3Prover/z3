@@ -170,7 +170,8 @@ private:
     }
 
     bool less_than_on_expr(const nex* a, const nex* b) const {
-        return less_than_nex(a, b, [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);});
+        lt_on_vars lt = [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);};
+        return less_than_nex(a, b, lt);
     }
     
     
