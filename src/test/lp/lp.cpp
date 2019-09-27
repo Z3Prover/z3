@@ -85,26 +85,31 @@ void test_simplify() {
         );
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
-    auto & creator = cn.get_nex_creator();
-    nex_var* a = creator.mk_var(0);
-    nex_var* b = creator.mk_var(1);
-    nex_var* c = creator.mk_var(2);
-    auto m = creator.mk_mul(); m->add_child_in_power(c, 2);
+    nex_creator & r = cn.get_nex_creator();
+    nex_var* a = r.mk_var(0);
+    nex_var* b = r.mk_var(1);
+    nex_var* c = r.mk_var(2);
+    auto m = r.mk_mul(); m->add_child_in_power(c, 2);
     TRACE("nla_cn", tout << "m = " << *m << "\n";); 
-    auto n = creator.mk_mul(a);
+    auto n = r.mk_mul(a);
     n->add_child_in_power(b, 7);
-    n->add_child(creator.mk_scalar(rational(3)));
-    n->add_child_in_power(creator.mk_scalar(rational(4)), 2);
-    n->add_child(creator.mk_scalar(rational(1)));
+    n->add_child(r.mk_scalar(rational(3)));
+    n->add_child_in_power(r.mk_scalar(rational(4)), 2);
+    n->add_child(r.mk_scalar(rational(1)));
     TRACE("nla_cn", tout << "n = " << *n << "\n";); 
     m->add_child_in_power(n, 3);
-    n->add_child_in_power(creator.mk_scalar(rational(1, 3)), 2);
+    n->add_child_in_power(r.mk_scalar(rational(1, 3)), 2);
     TRACE("nla_cn", tout << "m = " << *m << "\n";); 
     
-    nex * e = creator.mk_sum(a, creator.mk_sum(b, m));
+    nex * e = r.mk_sum(a, r.mk_sum(b, m));
     TRACE("nla_cn", tout << "e = " << *e << "\n";);
-    e->simplify(&e);
+    std::function<nex_scalar*()> mks = [&r] {return r.mk_scalar(rational(1)); };
+    e->simplify(&e, mks);
     TRACE("nla_cn", tout << "simplified e = " << *e << "\n";);
+    nex * l = r.mk_sum(e, r.mk_mul(r.mk_scalar(rational(3)), r.clone(e)));
+    TRACE("nla_cn", tout << "sum l = " << *l << "\n";);
+    l->simplify(&l, mks);
+    TRACE("nla_cn", tout << "simplified sum l = " << *l << "\n";);
 }
 
 void test_cn() {
@@ -142,7 +147,7 @@ void test_cn() {
     nex* _6aad = cn.get_nex_creator().mk_mul(cn.get_nex_creator().mk_scalar(rational(6)), a, a, d);
 #ifdef Z3DEBUG
     nex * clone = cn.get_nex_creator().clone(cn.get_nex_creator().mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
-    clone->simplify(&clone);
+    clone->simplify(&clone,[&cn] {return cn.get_nex_creator().mk_scalar(rational(1));});
     SASSERT(clone->is_simplified());
     TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
 #endif
