@@ -36,12 +36,12 @@ class cross_nested {
     bool                                              m_random_bit;
     nex_creator                                       m_nex_creator;
     nex_lt                                            m_lt;
-    
+    std::function<nex_scalar*()>                      m_mk_scalar;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
 public:
-
+    
     nex_creator& get_nex_creator() { return m_nex_creator; }
     
     cross_nested(std::function<bool (const nex*)> call_on_result,
@@ -54,7 +54,9 @@ public:
         m_done(false),
         m_reported(0),
         m_nex_creator(lt),
-        m_lt(lt) {}
+        m_lt(lt),
+        m_mk_scalar([this]{return m_nex_creator.mk_scalar(rational(1));})
+    {}
 
     
     void run(nex *e) {
@@ -128,7 +130,7 @@ public:
         }
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
-        to_sum(c_over_f)->simplify(&c_over_f, m_lt);
+        to_sum(c_over_f)->simplify(&c_over_f, m_lt, m_mk_scalar);
         nex_mul* cm; 
         *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
@@ -393,7 +395,7 @@ public:
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
         SASSERT(a->children().size() >= 2 && m_b_split_vec.size());
         nex* f;
-        a->simplify(&f, m_lt); 
+        a->simplify(&f, m_lt, m_mk_scalar); 
         
         if (m_b_split_vec.size() == 1) {
             b = m_b_split_vec[0];
@@ -488,7 +490,7 @@ public:
             a->children()[j] = normalize(a->children()[j]);            
         }
         nex *r;
-        a->simplify(&r, m_lt);
+        a->simplify(&r, m_lt, m_mk_scalar);
         return r;
     }
 
