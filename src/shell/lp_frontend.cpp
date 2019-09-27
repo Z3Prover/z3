@@ -91,7 +91,6 @@ void run_solver(lp_params & params, char const * mps_file_name) {
     }
 
     display_statistics();
-    register_on_timeout_proc(nullptr);
     g_solver = nullptr;
     delete solver;
 }

@@ -257,7 +257,6 @@ unsigned read_datalog(char const * file) {
             true);
         return ERR_MEMOUT;
     }
-    register_on_timeout_proc(nullptr);
     return 0;
 }
 

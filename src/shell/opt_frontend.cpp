@@ -127,7 +127,6 @@ static unsigned parse_opt(std::istream& in, opt_format f) {
         std::cerr << ex.msg() << "\n";
     }
     display_statistics();
-    register_on_timeout_proc(nullptr);
     g_opt = nullptr;
     return 0;
 }
