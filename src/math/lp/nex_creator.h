@@ -18,6 +18,7 @@
 
   --*/
 #pragma once
+#include <map>
 #include "math/lp/nex.h"
 namespace nla {
 
@@ -33,17 +34,57 @@ struct occ {
     }
 };
 
+enum class var_weight {
+            FIXED = 0,
+            QUOTED_FIXED =  1,
+            BOUNDED    =    2,
+            QUOTED_BOUNDED = 3,
+            NOT_FREE      =  4,
+            QUOTED_NOT_FREE = 5,
+            FREE          =   6,
+            QUOTED_FREE    = 7,
+            MAX_DEFAULT_WEIGHT = 7
+            };
 
-// the purpose of this class is to create nex objects, keep them, and delete them
+
+// the purpose of this class is to create nex objects, keep them,
+// sort them, and delete them
 
 class nex_creator {
-
     ptr_vector<nex>                              m_allocated;
     std::unordered_map<lpvar, occ>               m_occurences_map;
     std::unordered_map<lpvar, unsigned>          m_powers;
-    // the "less than" operator on expressions
-    nex_lt m_lt; 
+    svector<var_weight>                          m_active_vars_weights;
+
 public:
+
+    nex* simplify(nex* e) {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    rational extract_coeff_from_mul(const nex_mul* m);
+    
+    rational extract_coeff(const nex* );
+    
+    bool is_simplified(const nex *e) {
+        NOT_IMPLEMENTED_YET();
+    }
+    
+    bool less_than(lpvar j, lpvar k) const{
+        unsigned wj = (unsigned)m_active_vars_weights[j];
+        unsigned wk = (unsigned)m_active_vars_weights[k];
+        return wj != wk ? wj < wk : j < k;
+    }
+
+    bool less_than_nex(const nex* a, const nex* b) const;
+    
+    bool less_than_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
+        return (a.pow() < b.pow()) || (a.pow() == b.pow() && less_than_nex(a.e(), b.e()));
+    }
+    
+    void simplify_children_of_mul(vector<nex_pow> & children);
+
+
     nex * clone(const nex* a) {
         switch (a->type()) {
         case expr_type::VAR: {
@@ -77,7 +118,7 @@ public:
         }
         return nullptr;
     }
-    nex_creator(nex_lt lt) : m_lt(lt) {}
+
     const std::unordered_map<lpvar, occ>& occurences_map() const { return m_occurences_map; }
     std::unordered_map<lpvar, occ>& occurences_map() { return m_occurences_map; }
     const std::unordered_map<lpvar, unsigned> & powers() const { return m_powers; }
@@ -162,104 +203,60 @@ public:
         return r;
     }
 
-    nex * mk_div(const nex* a, lpvar j) {
-        SASSERT(a->is_simplified(m_lt));
-        TRACE("nla_cn_details", tout << "a=" << *a << ", v" << j << "\n";);
-        SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
-        if (a->is_var())
-            return mk_scalar(rational(1));
-        vector<nex_pow> bv; 
-        bool seenj = false;
-        for (auto& p : to_mul(a)->children()) {
-            const nex * c = p.e();
-            int pow = p.pow();
-            if (!seenj) {
-                if (c->contains(j)) {
-                    if (!c->is_var()) {                    
-                        bv.push_back(nex_pow(mk_div(c, j)));
-                        if (pow != 1) {
-                            bv.push_back(nex_pow(clone(c), pow)); 
-                        }
-                    } else {
-                        SASSERT(to_var(c)->var() == j);
-                        if (p.pow() != 1) {
-                            bv.push_back(nex_pow(mk_var(j), pow - 1));
-                        }
-                    }
-                    seenj = true;
-                } 
-            } else {
-                bv.push_back(nex_pow(clone(c)));
-            }
-        }
-        if (bv.size() > 1) { 
-            return mk_mul(bv);
-        }
-        if (bv.size() == 1 && bv.begin()->pow() == 1) {
-            return bv.begin()->e();
-        }
-        if (bv.size() == 0)
-            return mk_scalar(rational(1));
-        return mk_mul(bv);
+    nex * mk_div(const nex* a, lpvar j);
+    nex * mk_div(const nex* a, const nex* b);
+    
+    nex * simplify_mul(nex_mul *e);    
+    bool is_sorted(const nex_mul * e) const;    
+    bool mul_is_simplified(const nex_mul*e ) const;
+
+    nex* simplify_sum(nex_sum *e);    
+
+    bool sum_is_simplified(nex_sum* e) const;
+    
+    void mul_to_powers(vector<nex_pow>& children);
+    
+    nex* create_child_from_nex_and_coeff(nex *e,
+                                         const rational& coeff) ;
+
+    void sort_join_sum(ptr_vector<nex> & children);
+
+    void simplify_children_of_sum(ptr_vector<nex> & children);
+    
+    bool eat_scalar_pow(nex_scalar *& r, nex_pow& p);
+    void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
+
+bool sum_simplify_lt(const nex* a, const nex* b);
+    
+bool less_than_nex(const nex* a, const nex* b, const lt_on_vars& lt) {
+    int r = (int)(a->type()) - (int)(b->type());
+    if (r) {
+        return r < 0;
+    }
+    SASSERT(a->type() == b->type());
+    switch (a->type()) {
+    case expr_type::VAR: {
+        return lt(to_var(a)->var() , to_var(b)->var());
+    }
+    case expr_type::SCALAR: {
+        return to_scalar(a)->value() < to_scalar(b)->value();
+    }        
+    case expr_type::MUL: {
+        NOT_IMPLEMENTED_YET();
+        return false; // to_mul(a)->children() < to_mul(b)->children();
+    }
+    case expr_type::SUM: {
+        NOT_IMPLEMENTED_YET();
+        return false; //to_sum(a)->children() < to_sum(b)->children();
+    }
+    default:
+        SASSERT(false);
+        return false;
     }
 
-    nex * mk_div(const nex* a, const nex* b) {
-        TRACE("nla_cn_details", tout <<"("  << *a << ") / (" << *b << ")\n";);
-        if (b->is_var()) {
-            return mk_div(a, to_var(b)->var());
-        }
-        SASSERT(b->is_mul());
-        const nex_mul *bm = to_mul(b);
-        if (a->is_sum()) {
-            nex_sum * r = mk_sum();
-            const nex_sum * m = to_sum(a);
-            for (auto e : m->children()) {
-                r->add_child(mk_div(e, bm));
-            }
-            TRACE("nla_cn_details", tout << *r << "\n";);
-            return r;
-        }
-        if (a->is_var() || (a->is_mul() && to_mul(a)->children().size() == 1)) {
-            return mk_scalar(rational(1));
-        }
-        SASSERT(a->is_mul());
-        
-        const nex_mul* am = to_mul(a);
-        bm->get_powers_from_mul(m_powers);
-        TRACE("nla_cn_details", print_vector(m_powers, tout););
-        nex_mul* ret = new nex_mul();
-        for (const nex_pow& p : am->children()) {
-            const nex *e = p.e();
-            TRACE("nla_cn_details", tout << "e=" << *e << "\n";);
-            
-            if (!e->is_var()) {
-                SASSERT(e->is_scalar());
-                ret->add_child(mk_scalar(to_scalar(e)->value()));
-                TRACE("nla_cn_details", tout << "continue\n";);
-                continue;
-            }
-            SASSERT(e->is_var());
-            lpvar j = to_var(e)->var();
-            auto it = m_powers.find(j);
-            if (it == m_powers.end()) {
-                ret->add_child(mk_var(j));
-            } else {
-                it->second --;
-                if (it->second == 0)
-                    m_powers.erase(it);
-            }
-            TRACE("nla_cn_details", tout << *ret << "\n";);            
-        }
-        SASSERT(m_powers.size() == 0);
-        if (ret->children().size() == 0) {
-            delete ret;
-            TRACE("nla_cn_details", tout << "return 1\n";);
-            return mk_scalar(rational(1));
-        }
-        add_to_allocated(ret);
-        TRACE("nla_cn_details", tout << *ret << "\n";);        
-        return ret;
-    }
-
+    return false;
+}
+    bool mul_simplify_lt(const nex_mul* a, const nex_mul* b);
+    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
 };
 }

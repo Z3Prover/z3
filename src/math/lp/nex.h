@@ -79,13 +79,7 @@ public:
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e
-    virtual void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) = 0;
-    void simplify(nex** e, std::function<nex_scalar*()> mk_scalar) { return simplify(e, less_than_nex_standard, mk_scalar); }
-    virtual bool is_simplified(nex_lt) const {
-        return true;
-    }
-    
-    virtual bool is_simplified() const { return is_simplified(less_than_nex_standard); }
+      
 
     #ifdef Z3DEBUG
     virtual void sort() {};
@@ -116,7 +110,6 @@ public:
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
     bool virtual is_linear() const { return true; }
-    void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) {*e = this;}
 };
 
 class nex_scalar : public nex {
@@ -134,17 +127,11 @@ public:
     
     int get_degree() const { return 0; }
     bool is_linear() const { return true; }
-    void simplify(nex** e, nex_lt, std::function<nex_scalar*()>) {*e = this;}
-
 };
 
 const nex_scalar * to_scalar(const nex* a);
 class nex_sum;
 const nex_sum* to_sum(const nex*a);
-
-void simplify_children_of_sum(ptr_vector<nex> & children, nex_lt, std::function<nex_scalar*()>);
-class nex_pow;
-void simplify_children_of_mul(vector<nex_pow> & children, nex_lt, std::function<nex_scalar*()>);
 
 class nex_pow {
     nex* m_e;
@@ -153,7 +140,8 @@ public:
     explicit nex_pow(nex* e): m_e(e), m_power(1) {}
     explicit nex_pow(nex* e, int p): m_e(e), m_power(p) {}
     const nex * e() const { return m_e; }
-    nex * e() { return m_e; }
+    nex *& e() { return m_e; }
+    
     nex ** ee() { return & m_e; }
     int pow() const { return m_power; }
     int& pow() { return m_power; }
@@ -169,10 +157,8 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
 };
 
+bool less_than_nex(const nex* a, const nex* b, const lt_on_vars& lt);
 
-inline bool less_than(const nex_pow & a, const nex_pow& b, nex_lt lt) {
-    return (a.pow() < b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
-}
 
 
 class nex_mul : public nex {
@@ -239,50 +225,6 @@ public:
             degree +=  p.e()->get_degree() * p.pow();
         }
         return degree;
-    }
-    // the second argument is the comparison less than operator
-    void simplify(nex **e, nex_lt lt, std::function<nex_scalar*()> mk_scalar) {
-        TRACE("nla_cn_details", tout << *this << "\n";);
-        TRACE("nla_cn_details", tout << "**e = " << **e << "\n";);
-        *e = this;
-        TRACE("nla_cn_details", tout << *this << "\n";);
-        simplify_children_of_mul(m_children, lt, mk_scalar);
-        if (size() == 1 && m_children[0].pow() == 1) 
-            *e = m_children[0].e();
-        TRACE("nla_cn_details", tout << *this << "\n";);
-        SASSERT((*e)->is_simplified(lt));
-    }
-
-    bool is_sorted(nex_lt lt) const {
-        for (unsigned j = 0; j < m_children.size() - 1; j++) {
-            if (!(less_than(m_children[j], m_children[j+1], lt)))
-                return false;
-        }
-        return true;
-    }
-    
-    virtual bool is_simplified(nex_lt lt) const {
-        if (size() == 1 && m_children.begin()->pow() == 1)
-            return false;
-        std::set<const nex*, nex_lt> s(lt);
-        for (const auto &p : children()) {
-            const nex* e = p.e();
-            if (p.pow() == 0)
-                return false;
-            if (e->is_mul()) 
-                return false;
-            if (e->is_scalar() && to_scalar(e)->value().is_one())
-                return false;
-
-            auto it = s.find(e);
-            if (it == s.end()) {
-                s.insert(e);
-            } else {
-                TRACE("nla_cn_details", tout << "not simplified " << *e << "\n";);
-                return false;
-            }
-        }
-        return is_sorted(lt);
     }
 
     bool is_linear() const {
@@ -364,24 +306,6 @@ public:
         return out;
     }
 
-    void simplify(nex **e, nex_lt lt, std::function<nex_scalar*()> mk_scalar) {
-        *e = this;
-        simplify_children_of_sum(m_children, lt, mk_scalar);
-        if (size() == 1)
-            *e = m_children[0];
-    }
-    
-    virtual bool is_simplified() const {
-        if (size() < 2) return false;
-        for (nex * e : children()) {
-            if (e->is_sum())
-                return false;
-            if (e->is_scalar() && to_scalar(e)->value().is_zero())
-                return false;
-        }
-        return true;
-    }
-    
     int get_degree() const {
         int degree = 0;       
         for (auto  e : children()) {
@@ -445,9 +369,6 @@ inline nex_mul* to_mul(nex*a) {
 inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
     return e.print(out);
 }
-
-
-bool less_than_nex(const nex* a, const nex* b, lt_on_vars lt);
 
 inline bool less_than_nex_standard(const nex* a, const nex* b) {
     lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
