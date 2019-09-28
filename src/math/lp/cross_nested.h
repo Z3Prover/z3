@@ -35,7 +35,7 @@ class cross_nested {
     int                                               m_reported;
     bool                                              m_random_bit;
     nex_creator                                       m_nex_creator;
-    nex_lt                                            m_lt;
+    const lt_on_vars&                                 m_lt;
     std::function<nex_scalar*()>                      m_mk_scalar;
 #ifdef Z3DEBUG
     nex* m_e_clone;
@@ -47,14 +47,12 @@ public:
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
                  std::function<unsigned ()> random,
-                 nex_lt lt):
+                 lt_on_vars lt):
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
         m_random(random),
         m_done(false),
         m_reported(0),
-        m_nex_creator(lt),
-        m_lt(lt),
         m_mk_scalar([this]{return m_nex_creator.mk_scalar(rational(1));})
     {}
 

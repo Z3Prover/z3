@@ -36,17 +36,6 @@ struct grobner_stats {
     grobner_stats() { reset(); }
 };
 
-enum class var_weight {
-            FIXED = 0,
-            QUOTED_FIXED =  1,
-            BOUNDED    =    2,
-            QUOTED_BOUNDED = 3,
-            NOT_FREE      =  4,
-            QUOTED_NOT_FREE = 5,
-            FREE          =   6,
-            QUOTED_FREE    = 7,
-            MAX_DEFAULT_WEIGHT = 7
-            };
 
 class nla_grobner : common {
 
@@ -90,7 +79,6 @@ class nla_grobner : common {
     equation_vector                              m_equations_to_delete;    
     lp::int_set                                  m_rows;
     lp::int_set                                  m_active_vars;
-    svector<var_weight>                          m_active_vars_weights;
     unsigned                                     m_num_of_equations;
     grobner_stats                                m_stats;
     equation_set                                 m_processed;
@@ -158,21 +146,21 @@ private:
         return rational(1);
     }
 
-    bool less_than_on_vars(lpvar a, lpvar b) const {
-        const auto &aw = m_active_vars_weights[a];
-        const auto &ab = m_active_vars_weights[b];
-        if (aw < ab)
-            return true;
-        if (aw > ab)
-            return false;
-        // aw == ab
-        return a < b;
-    }
+    // bool less_than_on_vars(lpvar a, lpvar b) const {
+    //     const auto &aw = m_nex_creatorm_active_vars_weights[a];
+    //     const auto &ab = m_active_vars_weights[b];
+    //     if (aw < ab)
+    //         return true;
+    //     if (aw > ab)
+    //         return false;
+    //     // aw == ab
+    //     return a < b;
+    // }
 
-    bool less_than_on_expr(const nex* a, const nex* b) const {
-        lt_on_vars lt = [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);};
-        return less_than_nex(a, b, lt);
-    }
+    // bool less_than_on_expr(const nex* a, const nex* b) const {
+    //     lt_on_vars lt = [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);};
+    //     return less_than_nex(a, b, lt);
+    // }
     
     
 }; // end of grobner

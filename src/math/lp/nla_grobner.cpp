@@ -26,8 +26,11 @@ nla_grobner::nla_grobner(core *c
     common(c),
     m_nl_gb_exhausted(false),
     m_dep_manager(m_val_manager, m_alloc),
-    m_nex_creator([this](const nex* a, const nex* b) { return
-                this->less_than_on_expr(a, b); }) {}
+    m_nex_creator([this](lpvar a, lpvar b) {
+                      if (m_active_vars_weights[a] != m_active_vars_weights[b])
+                          return m_active_vars_weights[a] < m_active_vars_weights[b];
+                      return a < b;
+                  }) {}
 
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
