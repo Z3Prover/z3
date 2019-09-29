@@ -318,6 +318,7 @@ namespace smt2 {
         m_normalized[static_cast<int>('.')] = 'a';
         m_normalized[static_cast<int>('?')] = 'a';
         m_normalized[static_cast<int>('/')] = 'a';
+        m_normalized[static_cast<int>(',')] = 'a';
         next();
     }
 
