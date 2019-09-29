@@ -92,8 +92,7 @@ bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
         [this](const nex* n) { return check_cross_nested_expr(n); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
-        [this]() { return c().random(); },
-        [](lpvar j, lpvar k) { return j < k;});  // todo : consider using weights here - the same way they are used in Grobner basis
+        [this]() { return c().random(); });
 
     SASSERT (row_is_interesting(row));
     create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);

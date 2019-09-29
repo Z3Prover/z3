@@ -25,12 +25,7 @@ nla_grobner::nla_grobner(core *c
                          ) :
     common(c),
     m_nl_gb_exhausted(false),
-    m_dep_manager(m_val_manager, m_alloc),
-    m_nex_creator([this](lpvar a, lpvar b) {
-                      if (m_active_vars_weights[a] != m_active_vars_weights[b])
-                          return m_active_vars_weights[a] < m_active_vars_weights[b];
-                      return a < b;
-                  }) {}
+    m_dep_manager(m_val_manager, m_alloc) {}
 
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
@@ -107,9 +102,9 @@ var_weight nla_grobner::get_var_weight(lpvar j) const {
 }
 
 void nla_grobner::set_active_vars_weights() {
-    m_active_vars_weights.resize(c().m_lar_solver.column_count());
+    m_nex_creator.active_vars_weights().resize(c().m_lar_solver.column_count());
     for (lpvar j : m_active_vars) {
-        m_active_vars_weights[j] = get_var_weight(j);
+        m_nex_creator.active_vars_weights()[j] = get_var_weight(j);
     }
 }
 
