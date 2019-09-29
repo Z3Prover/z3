@@ -57,14 +57,15 @@ class nex_creator {
     svector<var_weight>                          m_active_vars_weights;
 
 public:
+    svector<var_weight>& active_vars_weights() { return m_active_vars_weights;}
+    const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
 
     nex* simplify(nex* e) {
         NOT_IMPLEMENTED_YET();
     }
 
     rational extract_coeff_from_mul(const nex_mul* m);
-    
-    rational extract_coeff(const nex* );
+    rational extract_coeff(const nex*);
     
     bool is_simplified(const nex *e) {
         NOT_IMPLEMENTED_YET();
@@ -205,6 +206,7 @@ public:
 
     nex * mk_div(const nex* a, lpvar j);
     nex * mk_div(const nex* a, const nex* b);
+    nex * mk_div_by_mul(const nex* a, const nex_mul* b);
     
     nex * simplify_mul(nex_mul *e);    
     bool is_sorted(const nex_mul * e) const;    
@@ -226,36 +228,8 @@ public:
     bool eat_scalar_pow(nex_scalar *& r, nex_pow& p);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
-bool sum_simplify_lt(const nex* a, const nex* b);
+    bool sum_simplify_lt(const nex* a, const nex* b);
     
-bool less_than_nex(const nex* a, const nex* b, const lt_on_vars& lt) {
-    int r = (int)(a->type()) - (int)(b->type());
-    if (r) {
-        return r < 0;
-    }
-    SASSERT(a->type() == b->type());
-    switch (a->type()) {
-    case expr_type::VAR: {
-        return lt(to_var(a)->var() , to_var(b)->var());
-    }
-    case expr_type::SCALAR: {
-        return to_scalar(a)->value() < to_scalar(b)->value();
-    }        
-    case expr_type::MUL: {
-        NOT_IMPLEMENTED_YET();
-        return false; // to_mul(a)->children() < to_mul(b)->children();
-    }
-    case expr_type::SUM: {
-        NOT_IMPLEMENTED_YET();
-        return false; //to_sum(a)->children() < to_sum(b)->children();
-    }
-    default:
-        SASSERT(false);
-        return false;
-    }
-
-    return false;
-}
     bool mul_simplify_lt(const nex_mul* a, const nex_mul* b);
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
 };

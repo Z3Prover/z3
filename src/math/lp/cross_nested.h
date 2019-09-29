@@ -35,7 +35,6 @@ class cross_nested {
     int                                               m_reported;
     bool                                              m_random_bit;
     nex_creator                                       m_nex_creator;
-    const lt_on_vars&                                 m_lt;
     std::function<nex_scalar*()>                      m_mk_scalar;
 #ifdef Z3DEBUG
     nex* m_e_clone;
@@ -46,8 +45,7 @@ public:
     
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
-                 std::function<unsigned ()> random,
-                 lt_on_vars lt):
+                 std::function<unsigned ()> random) :
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
         m_random(random),
@@ -59,7 +57,7 @@ public:
     
     void run(nex *e) {
         TRACE("nla_cn", tout << *e << "\n";);
-        SASSERT(e->is_simplified(m_lt));
+        SASSERT(m_nex_creator.is_simplified(e));
         m_e = e;
 #ifdef Z3DEBUG
         //        m_e_clone = clone(m_e);
@@ -128,7 +126,7 @@ public:
         }
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
-        to_sum(c_over_f)->simplify(&c_over_f, m_lt, m_mk_scalar);
+        c_over_f = m_nex_creator.simplify(c_over_f);
         nex_mul* cm; 
         *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
@@ -392,8 +390,7 @@ public:
         }
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
         SASSERT(a->children().size() >= 2 && m_b_split_vec.size());
-        nex* f;
-        a->simplify(&f, m_lt, m_mk_scalar); 
+        a = to_sum(m_nex_creator.simplify_sum(a));
         
         if (m_b_split_vec.size() == 1) {
             b = m_b_split_vec[0];
@@ -484,12 +481,8 @@ public:
     bool done() const { return m_done; }
 #if Z3DEBUG
     nex * normalize_sum(nex_sum* a) {
-        for (unsigned j = 0; j < a->size(); j ++) {
-            a->children()[j] = normalize(a->children()[j]);            
-        }
-        nex *r;
-        a->simplify(&r, m_lt, m_mk_scalar);
-        return r;
+        NOT_IMPLEMENTED_YET();
+        return nullptr;
     }
 
     nex * normalize_mul(nex_mul* a) {

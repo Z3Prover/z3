@@ -158,6 +158,36 @@ bool nex_creator::is_sorted(const nex_mul* e) const {
     return true;
 }
 
+bool nex_creator::less_than_nex(const nex* a, const nex* b) const {
+    int r = (int)(a->type()) - (int)(b->type());
+    if (r) {
+        return r < 0;
+    }
+    SASSERT(a->type() == b->type());
+    switch (a->type()) {
+    case expr_type::VAR: {
+        return less_than(to_var(a)->var() , to_var(b)->var());
+    }
+    case expr_type::SCALAR: {
+        return to_scalar(a)->value() < to_scalar(b)->value();
+    }        
+    case expr_type::MUL: {
+        NOT_IMPLEMENTED_YET();
+        return false; // to_mul(a)->children() < to_mul(b)->children();
+    }
+    case expr_type::SUM: {
+        NOT_IMPLEMENTED_YET();
+        return false; //to_sum(a)->children() < to_sum(b)->children();
+    }
+    default:
+        SASSERT(false);
+        return false;
+    }
+
+    return false;
+}
+
+
 bool nex_creator::mul_is_simplified(const nex_mul* e) const {
     if (size() == 1 && e->children().begin()->pow() == 1)
         return false;
@@ -282,10 +312,19 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
 
 rational nex_creator::extract_coeff_from_mul(const nex_mul* m) {
     const nex* e = m->children().begin()->e();
-    if (e->is_scalar())
+    if (e->is_scalar()) {
+        SASSERT(m->children().begin()->pow() == 1);
         return to_scalar(e)->value();
+    }
     return rational(1);
 }
+
+rational nex_creator::extract_coeff(const nex* m) {
+    if (!m->is_mul())
+        return rational(1);
+    return extract_coeff_from_mul(to_mul(m));
+}
+
 
 void nex_creator::fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children) {
     nex_scalar * scalar = nullptr;
@@ -345,6 +384,90 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
     }
 
     sort_join_sum(children);
+}
+
+bool all_factors_are_elementary(const nex_mul* a) {
+    for (auto & p : a->children())
+        if (!p.e()->is_elementary())
+            return false;
+
+    return true;
+}
+
+bool have_no_scalars(const nex_mul* a) {
+    for (auto & p : a->children())
+        if (p.e()->is_scalar() && !to_scalar(p.e())->value().is_one())
+            return false;
+
+    return true;
+}
+
+
+nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
+    if (a->is_sum()) {
+        nex_sum * r = mk_sum();
+        const nex_sum * m = to_sum(a);
+        for (auto e : m->children()) {
+            r->add_child(mk_div_by_mul(e, b));
+        }
+        TRACE("nla_cn_details", tout << *r << "\n";);
+        return r;
+    }
+    if (a->is_var() || (a->is_mul() && to_mul(a)->children().size() == 1)) {
+        return mk_scalar(rational(1));
+    }
+    const nex_mul* am = to_mul(a);
+    SASSERT(all_factors_are_elementary(am) && all_factors_are_elementary(b) && have_no_scalars(b));
+    b->get_powers_from_mul(m_powers);
+    nex_mul* ret = new nex_mul();
+    for (auto& p : am->children()) {
+        TRACE("nla_cn_details", tout << "p = " << p << "\n";);
+        const nex* e = p.e();
+        if (!e->is_var()) {
+            SASSERT(e->is_scalar());
+            ret->add_child_in_power(clone(e), p.pow());
+            TRACE("nla_cn_details", tout << "processed scalar\n";);
+            continue;
+        }
+        SASSERT(e->is_var());
+        lpvar j = to_var(e)->var();
+        auto it = m_powers.find(j);
+        if (it == m_powers.end()) {
+            ret->add_child_in_power(clone(e), p.pow());
+        } else {
+            unsigned pw = p.pow();
+            SASSERT(pw);
+            while (pw--) {
+                SASSERT(it->second);
+                it->second --;
+                if (it->second == 0) {
+                    m_powers.erase(it);
+                    break;
+                }
+            }
+            if (pw) {
+                ret->add_child_in_power(clone(e), pw);
+            }
+        }
+        TRACE("nla_cn_details", tout << *ret << "\n";);            
+    }
+    SASSERT(m_powers.size() == 0);
+    if (ret->children().size() == 0) {
+        delete ret;
+        TRACE("nla_cn_details", tout << "return 1\n";);
+        return mk_scalar(rational(1));
+    }
+    add_to_allocated(ret);
+    TRACE("nla_cn_details", tout << *ret << "\n";);        
+    return ret;
+}
+
+nex * nex_creator::mk_div(const nex* a, const nex* b) {
+    TRACE("nla_cn_details", tout << *a <<" / " << *b << "\n";);
+    if (b->is_var()) {
+        return mk_div(a, to_var(b)->var());
+    }
+    return mk_div_by_mul(a, to_mul(b));
 }
 
 }
