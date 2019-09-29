@@ -2384,8 +2384,6 @@ namespace polynomial {
 
         void checkpoint() {
             if (!m_limit.inc()) {
-                m_som_buffer.reset();
-                m_som_buffer2.reset();
                 throw polynomial_exception(Z3_CANCELED_MSG);
             }
         }
