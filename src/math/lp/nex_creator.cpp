@@ -116,7 +116,7 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children) {
     TRACE("nla_cn_details", print_vector(children, tout););    
 }
 
-bool nex_creator::mul_simplify_lt(const nex_mul* a, const nex_mul* b) {
+bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b) {
     NOT_IMPLEMENTED_YET();
 }
 
@@ -135,7 +135,7 @@ bool nex_creator::sum_simplify_lt(const nex* a, const nex* b) {
         return to_scalar(a)->value() < to_scalar(b)->value();
     }        
     case expr_type::MUL: {
-        return mul_simplify_lt(to_mul(a), to_mul(b));
+        return less_than_on_mul(to_mul(a), to_mul(b));
     }
     case expr_type::SUM: {
         UNREACHABLE();
@@ -229,7 +229,7 @@ nex* nex_creator::simplify_sum(nex_sum *e) {
     return e;
 }
 
-bool nex_creator::sum_is_simplified(nex_sum* e) const {
+bool nex_creator::sum_is_simplified(const nex_sum* e) const {
     if (e->size() < 2) return false;
     for (nex * ee : e->children()) {
         if (ee->is_sum())
@@ -470,4 +470,20 @@ nex * nex_creator::mk_div(const nex* a, const nex* b) {
     return mk_div_by_mul(a, to_mul(b));
 }
 
+nex* nex_creator::simplify(nex* e) {
+    if (e->is_mul())
+        return simplify_mul(to_mul(e));
+    if (e->is_sum())
+        return simplify_sum(to_sum(e));
+    return e;
+}
+
+bool nex_creator::is_simplified(const nex *e) const 
+{
+    if (e->is_mul())
+        return mul_is_simplified(to_mul(e));
+    if (e->is_sum())
+        return sum_is_simplified(to_sum(e));
+    return true;
+}
 }

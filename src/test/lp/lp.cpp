@@ -86,6 +86,9 @@ void test_simplify() {
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
     nex_creator & r = cn.get_nex_creator();
+    r.active_vars_weights().resize(3);
+    for (unsigned j = 0; j < r.active_vars_weights().size(); j++)
+        r.active_vars_weights()[j] = static_cast<var_weight>(5 - j);
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
