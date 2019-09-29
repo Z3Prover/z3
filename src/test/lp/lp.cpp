@@ -73,7 +73,6 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
     cn.run(t);
 }
 
-lt_on_vars  lpvar_lt() { return [](lpvar a, lpvar b) { return a < b; };}
 
 void test_simplify() {
     cross_nested cn(
@@ -82,7 +81,8 @@ void test_simplify() {
                            return false;
                        } ,
         [](unsigned) { return false; },
-        []{ return 1; }, lpvar_lt());
+        []() { return 1; } // for random
+                    );
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
     nex_creator & r = cn.get_nex_creator();
@@ -103,12 +103,11 @@ void test_simplify() {
     
     nex * e = r.mk_sum(a, r.mk_sum(b, m));
     TRACE("nla_cn", tout << "e = " << *e << "\n";);
-    std::function<nex_scalar*()> mks = [&r] {return r.mk_scalar(rational(1)); };
-    e->simplify(&e, lpvar_lt(), mks);
+    e = r.simplify(e);
     TRACE("nla_cn", tout << "simplified e = " << *e << "\n";);
     nex * l = r.mk_sum(e, r.mk_mul(r.mk_scalar(rational(3)), r.clone(e)));
     TRACE("nla_cn", tout << "sum l = " << *l << "\n";);
-    l->simplify(&l, lpvar_lt(), mks);
+    l = r.simplify(l);
     TRACE("nla_cn", tout << "simplified sum l = " << *l << "\n";);
 }
 
@@ -119,7 +118,7 @@ void test_cn() {
                            return false;
                        } ,
         [](unsigned) { return false; },
-        []{ return 1; }, lpvar_lt());
+        []{ return 1; });
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
     nex_var* a = cn.get_nex_creator().mk_var(0);
@@ -145,8 +144,8 @@ void test_cn() {
     nex* _6aad = cn.get_nex_creator().mk_mul(cn.get_nex_creator().mk_scalar(rational(6)), a, a, d);
 #ifdef Z3DEBUG
     nex * clone = cn.get_nex_creator().clone(cn.get_nex_creator().mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
-    clone->simplify(&clone, lpvar_lt(), [&cn] {return cn.get_nex_creator().mk_scalar(rational(1));});
-    SASSERT(clone->is_simplified(lpvar_lt()));
+    clone = cn.get_nex_creator().simplify(clone);
+    SASSERT(cn.get_nex_creator().is_simplified(clone));
     TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
 #endif
     //    test_cn_on_expr(cn.get_nex_creator().mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
