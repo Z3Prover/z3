@@ -60,16 +60,10 @@ public:
     svector<var_weight>& active_vars_weights() { return m_active_vars_weights;}
     const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
 
-    nex* simplify(nex* e) {
-        NOT_IMPLEMENTED_YET();
-    }
+    nex* simplify(nex* e);
 
     rational extract_coeff_from_mul(const nex_mul* m);
     rational extract_coeff(const nex*);
-    
-    bool is_simplified(const nex *e) {
-        NOT_IMPLEMENTED_YET();
-    }
     
     bool less_than(lpvar j, lpvar k) const{
         unsigned wj = (unsigned)m_active_vars_weights[j];
@@ -210,11 +204,12 @@ public:
     
     nex * simplify_mul(nex_mul *e);    
     bool is_sorted(const nex_mul * e) const;    
-    bool mul_is_simplified(const nex_mul*e ) const;
 
     nex* simplify_sum(nex_sum *e);    
 
-    bool sum_is_simplified(nex_sum* e) const;
+    bool is_simplified(const nex *e) const;
+    bool sum_is_simplified(const nex_sum* e) const;
+    bool mul_is_simplified(const nex_mul*e ) const;
     
     void mul_to_powers(vector<nex_pow>& children);
     
@@ -230,7 +225,7 @@ public:
 
     bool sum_simplify_lt(const nex* a, const nex* b);
     
-    bool mul_simplify_lt(const nex_mul* a, const nex_mul* b);
+    bool less_than_on_mul(const nex_mul* a, const nex_mul* b);
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
 };
 }
