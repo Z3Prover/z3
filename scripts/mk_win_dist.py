@@ -263,7 +263,6 @@ VS_RUNTIME_PATS = [re.compile('vcomp.*\.dll'),
 def cp_vs_runtime(x64):
     if x64:
         platform = "x64"
-
     else:
         platform = "x86"
     vcdir = os.environ['VCINSTALLDIR']

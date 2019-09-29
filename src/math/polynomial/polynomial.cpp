@@ -2184,10 +2184,16 @@ namespace polynomial {
             }
 
             ~som_buffer_vector() {
+                clear();
+            }
+
+            void clear() {
+                reset();
                 unsigned sz = m_buffers.size();
                 for (unsigned i = 0; i < sz; i++) {
                     dealloc(m_buffers[i]);
                 }
+                m_buffers.reset();
             }
 
             void set_owner(imp * owner) {
@@ -2372,11 +2378,14 @@ namespace polynomial {
                 m_polynomials.reset();
             });
             SASSERT(m_polynomials.empty());
+            m_iccp_ZpX_buffers.clear();
             m_monomial_manager->dec_ref();
         }
 
         void checkpoint() {
             if (!m_limit.inc()) {
+                m_som_buffer.reset();
+                m_som_buffer2.reset();
                 throw polynomial_exception(Z3_CANCELED_MSG);
             }
         }
