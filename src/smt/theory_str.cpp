@@ -8483,6 +8483,10 @@ namespace smt {
                 }
             }
         } else {
+            if (u.str.is_non_string_sequence(ex)) {
+                TRACE("str", tout << "ERROR: Z3str3 does not support non-string sequence terms. Aborting." << std::endl;);
+                m.raise_exception("Z3str3 does not support non-string sequence terms.");
+            }
             TRACE("str", tout << "setting up axioms for " << mk_ismt2_pp(ex, get_manager()) <<
                   ": expr is of wrong sort, ignoring" << std::endl;);
         }
