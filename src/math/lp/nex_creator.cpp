@@ -116,12 +116,82 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children) {
     TRACE("nla_cn_details", print_vector(children, tout););    
 }
 
-bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b) {
-    NOT_IMPLEMENTED_YET();
+bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) {
+    // the scalar, if it is there, is at the beginning of the children()
+    TRACE("nla_cn_details", tout << "a = " << *a << ", b = " << *b << ", skip_scalar = " << skip_scalar << "\n";);
+    SASSERT(is_simplified(a) && is_simplified(b));
+    unsigned a_deg = a->get_degree();
+    unsigned b_deg = b->get_degree();
+    if (a_deg > b_deg)
+        return true;
+    if (a_deg < b_deg)
+        return false;
+    auto it_a  = a->children().begin();
+    if (skip_scalar && it_a->e()->is_scalar())
+        it_a ++;
+    auto it_b  = b->children().begin();
+    if (skip_scalar && it_b->e()->is_scalar())
+        it_b ++;
+    auto a_end = a->children().end();
+    auto b_end = b->children().end();
+    unsigned a_pow, b_pow;
+    bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
+    bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
+    const nex* ae = nullptr;
+    const nex *be = nullptr;
+    if (it_a == a_end) {
+        return it_b != b_end;
+    }
+    if (it_b == b_end)
+        return false;
+    for (; ;) {
+        if (!inside_a_p) {
+            ae = it_a->e();
+            a_pow = it_a->pow();
+        }
+        if (!inside_b_p) {
+            be = it_b->e();
+            b_pow = it_b->pow();
+        }
+
+        if (lt(ae, be, skip_scalar))
+            return true;
+        if (lt(be, ae, skip_scalar))
+            return false;
+        if (a_pow == b_pow) {
+            inside_a_p = inside_b_p = false;
+            it_a++; it_b++;
+            if (it_a == a_end) {
+                return it_b != b_end;
+            } else if (it_b == b_end) {
+                return true;                
+            }
+            // no iterator reached the end
+            continue;
+        }
+        if (a_pow < b_pow) {
+            inside_a_p = false;
+            inside_b_p = true;
+            b_pow -= a_pow;
+            it_a++;
+            if (it_a == a_end)
+                return true;
+        } else {
+            inside_a_p = true;
+            inside_b_p = false;
+            SASSERT(b_pow < a_pow);
+            it_b++;
+            if (it_b == b_end)
+                return false;
+        }
+    }
+    return false;
+
 }
 
 
-bool nex_creator::sum_simplify_lt(const nex* a, const nex* b) {
+bool nex_creator::lt(const nex* a, const nex* b, bool skip_scalar) {
+    TRACE("nla_cn_details", tout << "a = " << *a << ", b = " << *b << ", skip_scalar = " << skip_scalar << "\n";);
     int r = (int)(a->type()) - (int)(b->type());
     if (r) {
         return r < 0;
@@ -135,7 +205,7 @@ bool nex_creator::sum_simplify_lt(const nex* a, const nex* b) {
         return to_scalar(a)->value() < to_scalar(b)->value();
     }        
     case expr_type::MUL: {
-        return less_than_on_mul(to_mul(a), to_mul(b));
+        return less_than_on_mul(to_mul(a), to_mul(b), skip_scalar);
     }
     case expr_type::SUM: {
         UNREACHABLE();
@@ -302,8 +372,10 @@ nex* nex_creator::create_child_from_nex_and_coeff(nex *e,
     // a + 3bc + 2bc => a + 5bc 
 void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
     std::map<nex*, rational, nex_lt> m([this](const nex *a , const nex *b)
-                                       { return sum_simplify_lt(a, b); });
+                                       { return lt(a, b, true); });
+    TRACE("nla_cn_details", print_vector_of_ptrs(children, tout););
     fill_map_with_children(m, children);
+    TRACE("nla_cn_details", for (auto & p : m ) { tout << "(" << *p.first << ", " << p.second << ") ";});
     children.clear();
     for (auto& p : m) {
         children.push_back(create_child_from_nex_and_coeff(p.first, p.second));
@@ -357,6 +429,7 @@ bool is_zero_scalar(nex *e) {
 }
 
 void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
+    TRACE("nla_cn_details", print_vector_of_ptrs(children, tout););
     ptr_vector<nex> to_promote;
     int skipped = 0;
     for(unsigned j = 0; j < children.size(); j++) {
@@ -374,6 +447,7 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
         }
     }
     
+    TRACE("nla_cn_details", print_vector_of_ptrs(children, tout););
     children.shrink(children.size() - to_promote.size() - skipped);
     
     for (nex *e : to_promote) {

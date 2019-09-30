@@ -104,14 +104,21 @@ void test_simplify() {
     n->add_child_in_power(r.mk_scalar(rational(1, 3)), 2);
     TRACE("nla_cn", tout << "m = " << *m << "\n";); 
     
-    nex * e = r.mk_sum(a, r.mk_sum(b, m));
+    nex_sum * e = r.mk_sum(a, r.mk_sum(b, m));
     TRACE("nla_cn", tout << "e = " << *e << "\n";);
-    e = r.simplify(e);
+    e = to_sum(r.simplify(e));
     TRACE("nla_cn", tout << "simplified e = " << *e << "\n";);
-    nex * l = r.mk_sum(e, r.mk_mul(r.mk_scalar(rational(3)), r.clone(e)));
-    TRACE("nla_cn", tout << "sum l = " << *l << "\n";);
-    l = r.simplify(l);
-    TRACE("nla_cn", tout << "simplified sum l = " << *l << "\n";);
+    nex_sum * e_m = r.mk_sum();
+    for (const nex* ex: to_sum(e)->children()) {
+        nex* ce = r.mk_mul(r.clone(ex), r.mk_scalar(rational(3)));        
+        ce = r.simplify(ce);
+        TRACE("nla_cn", tout << "simplified ce = " << *ce << "\n";);        
+        e_m->add_child(ce);
+    }
+    e->add_child(e_m);    
+    TRACE("nla_cn", tout << "before simplify sum e = " << *e << "\n";);
+    e = to_sum(r.simplify(e));
+    TRACE("nla_cn", tout << "simplified sum e = " << *e << "\n";);
 }
 
 void test_cn() {
