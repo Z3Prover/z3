@@ -50,7 +50,6 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
 }
 
 class nex;
-bool less_than_nex_standard(const nex* a, const nex* b);
 
 class nex_scalar;
 // This is the class of non-linear expressions 

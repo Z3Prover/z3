@@ -116,7 +116,7 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children) {
     TRACE("nla_cn_details", print_vector(children, tout););    
 }
 
-bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) {
+bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) const {
     // the scalar, if it is there, is at the beginning of the children()
     TRACE("nla_cn_details", tout << "a = " << *a << ", b = " << *b << ", skip_scalar = " << skip_scalar << "\n";);
     SASSERT(is_simplified(a) && is_simplified(b));
@@ -170,19 +170,20 @@ bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip
             continue;
         }
         if (a_pow < b_pow) {
-            inside_a_p = false;
-            inside_b_p = true;
-            b_pow -= a_pow;
             it_a++;
             if (it_a == a_end)
                 return true;
+            inside_a_p = false;
+            inside_b_p = true;
+            b_pow -= a_pow;
         } else {
-            inside_a_p = true;
-            inside_b_p = false;
-            SASSERT(b_pow < a_pow);
+            SASSERT(a_pow > b_pow);
+            a_pow -= b_pow;
             it_b++;
             if (it_b == b_end)
                 return false;
+            inside_a_p = true;
+            inside_b_p = false;
         }
     }
     return false;
@@ -190,22 +191,68 @@ bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip
 }
 
 
-bool nex_creator::lt(const nex* a, const nex* b, bool skip_scalar) {
+bool nex_creator::less_than_on_var_nex(const nex_var* a, const nex* b, bool skip_scalar) const {
+    switch(b->type()) {
+    case expr_type::SCALAR: return false;
+    case expr_type::VAR:            
+        return less_than(a->var() , to_var(b)->var());
+    case expr_type::MUL:
+        {
+            nex_mul m;
+            m.add_child(const_cast<nex_var*>(a));
+            return less_than_on_mul(&m, to_mul(b), skip_scalar);
+        }
+            
+    case expr_type::SUM:
+        {
+            nex_sum m;
+            m.add_child(const_cast<nex_var*>(a));
+            return lt(&m, to_sum(b), skip_scalar);
+        }
+    default:
+        UNREACHABLE();
+        return false;
+    }
+}
+
+
+bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b, bool skip_scalar) const {
+    switch(b->type()) {
+    case expr_type::SCALAR: return false;
+    case expr_type::VAR:            
+        {
+            nex_mul m;
+            m.add_child(const_cast<nex*>(b));
+            return less_than_on_mul(a, &m, skip_scalar);
+        }
+    case expr_type::MUL:
+        return less_than_on_mul(a, to_mul(b), skip_scalar);            
+    case expr_type::SUM:
+        {
+            const nex* fc = *(to_sum(b)->children().begin());
+            return lt(a, fc, skip_scalar);
+        }
+    default:
+        UNREACHABLE();
+        return false;
+    }    
+}
+
+bool nex_creator::lt(const nex* a, const nex* b, bool skip_scalar) const {
     TRACE("nla_cn_details", tout << "a = " << *a << ", b = " << *b << ", skip_scalar = " << skip_scalar << "\n";);
-    int r = (int)(a->type()) - (int)(b->type());
-    if (r) {
-        return r < 0;
-    }
-    SASSERT(a->type() == b->type());
+
     switch (a->type()) {
-    case expr_type::VAR: {
-        return less_than(to_var(a)->var() , to_var(b)->var());
-    }
+    case expr_type::VAR: 
+        return less_than_on_var_nex(to_var(a), b, skip_scalar);
+
     case expr_type::SCALAR: {
-        return to_scalar(a)->value() < to_scalar(b)->value();
+        if (b->is_scalar())
+            return
+                to_scalar(a)->value() < to_scalar(b)->value();
+        return true; // the scalars are the smallest
     }        
     case expr_type::MUL: {
-        return less_than_on_mul(to_mul(a), to_mul(b), skip_scalar);
+        return less_than_on_mul_nex(to_mul(a), b, skip_scalar);
     }
     case expr_type::SUM: {
         UNREACHABLE();
@@ -228,6 +275,7 @@ bool nex_creator::is_sorted(const nex_mul* e) const {
     return true;
 }
 
+ 
 bool nex_creator::less_than_nex(const nex* a, const nex* b) const {
     int r = (int)(a->type()) - (int)(b->type());
     if (r) {
