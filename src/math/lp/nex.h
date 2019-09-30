@@ -86,12 +86,7 @@ public:
     #endif
     bool virtual is_linear() const = 0;
 };
-#if Z3DEBUG
-bool operator<(const nex& a , const nex& b);
-inline bool operator ==(const nex& a , const nex& b) {
-    return ! (a < b || b < a) ;
-}
-#endif
+
 std::ostream& operator<<(std::ostream& out, const nex&);
 
 class nex_var : public nex {
@@ -228,7 +223,6 @@ public:
     }
 
     bool is_linear() const {
-        //        SASSERT(is_simplified());
         return get_degree() < 2; // todo: make it more efficient
     }
 
@@ -374,25 +368,5 @@ inline bool less_than_nex_standard(const nex* a, const nex* b) {
     lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
     return less_than_nex(a, b, lt);
 }
-
-#if Z3DEBUG
-
-inline bool operator<(const ptr_vector<nex>&a , const ptr_vector<nex>& b) {
-    int r = (int)a.size()  - (int)b.size();
-    if (r)
-        return r < 0;
-    for (unsigned j = 0; j < a.size(); j++) {
-        if (*a[j] < *b[j]) {
-            return true;
-        }
-        if (*b[j] < *a[j]) {
-            return false;
-        }
-    }
-    return false;
-}
-
-#endif
-
 }
     
