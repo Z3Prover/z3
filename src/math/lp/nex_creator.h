@@ -223,9 +223,11 @@ public:
     bool eat_scalar_pow(nex_scalar *& r, nex_pow& p);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
-    bool lt(const nex* a, const nex* b, bool skip_scalar);
+    bool lt(const nex* a, const nex* b, bool skip_scalar) const;
     
-    bool less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar);
+    bool less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) const;
+    bool less_than_on_var_nex(const nex_var* a, const nex* b, bool skip_scalar) const;
+    bool less_than_on_mul_nex(const nex_mul* a, const nex* b, bool skip_scalar) const;
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
 };
 }
