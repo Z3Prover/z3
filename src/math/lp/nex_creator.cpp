@@ -20,9 +20,9 @@
 #include "math/lp/nex_creator.h"
 #include <map>
 namespace nla {
+
 nex * nex_creator::mk_div(const nex* a, lpvar j) {
     SASSERT(is_simplified(a));
-    TRACE("nla_cn_details", tout << "a=" << *a << ", " << ch(j) << "\n";);
     SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
     if (a->is_var())
         return mk_scalar(rational(1));
@@ -31,23 +31,21 @@ nex * nex_creator::mk_div(const nex* a, lpvar j) {
     for (auto& p : to_mul(a)->children()) {
         const nex * c = p.e();
         int pow = p.pow();
-        if (!seenj) {
-            if (c->contains(j)) {
-                if (!c->is_var()) {                    
-                    bv.push_back(nex_pow(mk_div(c, j)));
-                    if (pow != 1) {
-                        bv.push_back(nex_pow(clone(c), pow)); 
-                    }
-                } else {
-                    SASSERT(to_var(c)->var() == j);
-                    if (p.pow() != 1) {
-                        bv.push_back(nex_pow(mk_var(j), pow - 1));
-                    }
+        if (!seenj && c->contains(j)) {
+            if (!c->is_var()) {                    
+                bv.push_back(nex_pow(mk_div(c, j)));
+                if (pow != 1) {
+                    bv.push_back(nex_pow(clone(c), pow - 1)); 
                 }
-                seenj = true;
-            } 
+            } else {
+                SASSERT(to_var(c)->var() == j);
+                if (p.pow() != 1) {
+                    bv.push_back(nex_pow(mk_var(j), pow - 1));
+                }
+            }
+            seenj = true;
         } else {
-            bv.push_back(nex_pow(clone(c)));
+            bv.push_back(nex_pow(clone(c), pow));
         }
     }
     if (bv.size() > 1) { 
