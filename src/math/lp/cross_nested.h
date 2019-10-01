@@ -370,7 +370,8 @@ public:
             || (ce->is_var() && to_var(ce)->var() == j);
     }
     // all factors of j go to a, the rest to b
-    void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {        
+    void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {
+        TRACE("nla_cn_details", tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
         a = m_nex_creator.mk_sum();
         m_b_split_vec.clear();
         for (nex * ce: e->children()) {
