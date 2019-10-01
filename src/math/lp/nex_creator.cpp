@@ -22,7 +22,7 @@
 namespace nla {
 nex * nex_creator::mk_div(const nex* a, lpvar j) {
     SASSERT(is_simplified(a));
-    TRACE("nla_cn_details", tout << "a=" << *a << ", v" << j << "\n";);
+    TRACE("nla_cn_details", tout << "a=" << *a << ", " << ch(j) << "\n";);
     SASSERT((a->is_mul() && a->contains(j)) || (a->is_var() && to_var(a)->var() == j));
     if (a->is_var())
         return mk_scalar(rational(1));
@@ -391,8 +391,7 @@ nex* nex_creator::create_child_from_nex_and_coeff(nex *e,
             return mk_mul(mk_scalar(coeff), e);
         }
         case expr_type::SCALAR: {
-            UNREACHABLE();
-            return nullptr;
+            return mk_scalar(coeff);
         }        
         case expr_type::MUL: {
             nex_mul * em = to_mul(e);
