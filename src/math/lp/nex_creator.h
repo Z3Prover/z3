@@ -68,7 +68,6 @@ public:
     const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
 
     nex* simplify(nex* e);
-
     rational extract_coeff_from_mul(const nex_mul* m);
     rational extract_coeff(const nex*);
     
@@ -235,6 +234,6 @@ public:
     bool less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b, bool skip_scalar) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b, bool skip_scalar) const;
-    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
+    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);    
 };
 }

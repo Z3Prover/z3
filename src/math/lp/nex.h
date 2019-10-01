@@ -141,10 +141,18 @@ public:
     int& pow() { return m_power; }
     std::string to_string() const {
         std::stringstream s;
-        if (pow() == 1) {           
-            s <<"(" <<  *e() << ")";
+        if (pow() == 1) {
+            if (e()->is_elementary()) {
+                s << *e();
+            } else {
+                s <<"(" <<  *e() << ")";
+            }
         } else {
-            s << "(" << *e() << "^" << pow() << ")";
+            if (e()->is_elementary()){
+                s << "(" << *e() << "^" << pow() << ")";
+            } else {
+                s << "((" << *e() << ")^" << pow() << ")";
+            }
         }
         return s.str();
     }
