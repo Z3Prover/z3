@@ -464,7 +464,7 @@ void nex_creator::fill_map_with_children(std::map<nex*, rational, nex_lt> & m, p
         }
     }
     if (scalar && scalar->value().is_zero() == false) {
-        m[scalar] = rational();
+        m[scalar] = rational(scalar->value());
     }
     
 }
@@ -590,11 +590,17 @@ nex * nex_creator::mk_div(const nex* a, const nex* b) {
 }
 
 nex* nex_creator::simplify(nex* e) {
+    nex* es;
+    TRACE("nla_cn_details", tout << *e << std::endl;);
     if (e->is_mul())
-        return simplify_mul(to_mul(e));
-    if (e->is_sum())
-        return simplify_sum(to_sum(e));
-    return e;
+        es =  simplify_mul(to_mul(e));
+    else if (e->is_sum())
+        es =  simplify_sum(to_sum(e));
+    else
+        es = e;
+    TRACE("nla_cn_details", tout << "simplified = " << *es << std::endl;);
+    SASSERT(is_simplified(es));
+    return es;
 }
 
 bool nex_creator::is_simplified(const nex *e) const 
