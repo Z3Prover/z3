@@ -1168,7 +1168,7 @@ namespace smt {
             SASSERT(r->is_eq());
             literal l = enode2literal(r->get_root());
             // SASSERT(result == is_diseq_slow(n1, n2));
-            return l == false_literal || (is_relevant(l) && get_assignment(l) == l_false);
+            return l != true_literal && (l == false_literal || (is_relevant(l) && get_assignment(l) == l_false));
         }
         CTRACE("is_diseq_bug", is_diseq_slow(n1, n2), tout << "#" << n1->get_owner_id() << " #" << n2->get_owner_id() << "\n";);
         return false;

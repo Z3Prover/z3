@@ -198,9 +198,8 @@ namespace nlsat {
          */
         void reset_already_added() {
             SASSERT(m_result != 0);
-            unsigned sz = m_result->size();
-            for (unsigned i = 0; i < sz; i++) 
-                m_already_added_literal[(*m_result)[i].index()] = false;
+            for (literal lit : *m_result) 
+                m_already_added_literal[lit.index()] = false;
         }
 
 

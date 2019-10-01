@@ -38,7 +38,10 @@ namespace nlsat {
 
     class solver {
         struct imp;
+        struct ctx;
         imp * m_imp;
+        ctx * m_ctx;
+        solver(ctx& c);
     public:
         solver(reslimit& rlim, params_ref const & p, bool incremental);
         ~solver();

@@ -2370,7 +2370,7 @@ namespace polynomial {
                 TRACE("polynomial",
                       tout << "leaked polynomials\n";
                       for (unsigned i = 0; i < m_polynomials.size(); i++) {
-                          if (m_polynomials[i] != 0) {
+                          if (m_polynomials[i] != nullptr) {
                               m_polynomials[i]->display(tout, m_manager);
                               tout << "\n";
                           }

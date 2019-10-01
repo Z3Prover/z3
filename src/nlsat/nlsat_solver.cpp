@@ -52,6 +52,22 @@ namespace nlsat {
         std::swap(c1, c2);
     }
 
+    struct solver::ctx {
+        params_ref             m_params;
+        reslimit&              m_rlimit;
+        small_object_allocator m_allocator;
+        unsynch_mpq_manager    m_qm;
+        pmanager               m_pm;
+        anum_manager           m_am;
+        ctx(reslimit& rlim, params_ref const & p):
+            m_params(p),
+            m_rlimit(rlim),
+            m_allocator("nlsat"),
+            m_pm(rlim, m_qm, &m_allocator),
+            m_am(rlim, m_qm, p, &m_allocator)
+        {}
+    };
+
     struct solver::imp {
         struct dconfig {
             typedef imp                      value_manager;
@@ -67,13 +83,15 @@ namespace nlsat {
         typedef polynomial::cache cache;
         typedef ptr_vector<interval_set> interval_set_vector;
 
-        reslimit&              m_rlimit;
-        small_object_allocator m_allocator;
-        bool                   m_incremental;
-        unsynch_mpq_manager    m_qm;
-        pmanager               m_pm;
-        cache                  m_cache;
-        anum_manager           m_am;
+        ctx&                    m_ctx;
+        solver&                 m_solver;
+        reslimit&               m_rlimit;
+        small_object_allocator& m_allocator;
+        bool                    m_incremental;
+        unsynch_mpq_manager&    m_qm;
+        pmanager&               m_pm;
+        cache                   m_cache;
+        anum_manager&           m_am;
         mutable assumption_manager     m_asm;
         assignment             m_assignment; // partial interpretation
         evaluator              m_evaluator;
@@ -185,6 +203,7 @@ namespace nlsat {
         unsigned               m_random_seed;
         bool                   m_inline_vars;
         bool                   m_log_lemmas;
+        bool                   m_check_lemmas;
         unsigned               m_max_conflicts;
         unsigned               m_lemma_count;
 
@@ -195,13 +214,16 @@ namespace nlsat {
         unsigned               m_stages;
         unsigned               m_irrational_assignments; // number of irrational witnesses
 
-        imp(solver& s, reslimit& rlim, params_ref const & p, bool incremental):
-            m_rlimit(rlim),
-            m_allocator("nlsat"),
+        imp(solver& s, ctx& c, bool incremental):
+            m_ctx(c),
+            m_solver(s),
+            m_rlimit(c.m_rlimit),
+            m_allocator(c.m_allocator),
             m_incremental(incremental),
-            m_pm(rlim, m_qm, &m_allocator),
+            m_qm(c.m_qm),
+            m_pm(c.m_pm),
             m_cache(m_pm),
-            m_am(rlim, m_qm, p, &m_allocator),
+            m_am(c.m_am),
             m_asm(*this, m_allocator),
             m_assignment(m_am),
             m_evaluator(s, m_assignment, m_pm, m_allocator), 
@@ -216,7 +238,7 @@ namespace nlsat {
             m_lemma(s),
             m_lazy_clause(s),
             m_lemma_assumptions(m_asm) {
-            updt_params(p);
+            updt_params(c.m_params);
             reset_statistics();
             mk_true_bvar();
             m_lemma_count = 0;
@@ -246,6 +268,7 @@ namespace nlsat {
             m_random_seed    = p.seed();
             m_inline_vars    = p.inline_vars();
             m_log_lemmas     = p.log_lemmas();
+            m_check_lemmas   = p.check_lemmas();
             m_ism.set_seed(m_random_seed);
             m_explain.set_simplify_cores(m_simplify_cores);
             m_explain.set_minimize_cores(min_cores);
@@ -452,6 +475,10 @@ namespace nlsat {
 
         var mk_var(bool is_int) {
             var x = m_pm.mk_var();
+            register_var(x, is_int);
+            return x;
+        }
+        void register_var(var x, bool is_int) {
             SASSERT(x == num_vars());
             m_is_int.    push_back(is_int);
             m_watches.   push_back(clause_vector());
@@ -464,7 +491,6 @@ namespace nlsat {
             SASSERT(m_is_int.size() == m_var2eq.size());
             SASSERT(m_is_int.size() == m_perm.size());
             SASSERT(m_is_int.size() == m_inv_perm.size());
-            return x;
         }
 
         svector<bool> m_found_vars;
@@ -736,6 +762,76 @@ namespace nlsat {
             }
         };
 
+        void check_lemma(unsigned n, literal const* cls, bool is_valid, assumption_set a) {
+            TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
+                  display(tout););
+            IF_VERBOSE(0, display(verbose_stream() << "check lemma: ", n, cls) << "\n");
+            for (clause* c : m_learned) IF_VERBOSE(0, display(verbose_stream() << "lemma: ", *c) << "\n"); 
+            
+            solver solver2(m_ctx);
+            imp& checker = *(solver2.m_imp);
+            checker.m_check_lemmas = false;
+            checker.m_log_lemmas = false;
+
+            // need to translate Boolean variables and literals
+            svector<bool_var> tr;
+            for (var x = 0; x < m_is_int.size(); ++x) {
+                checker.register_var(x, m_is_int[x]);
+            }
+            bool_var bv = 0;
+            tr.push_back(bv);
+            checker.inc_ref(bv);
+            for (bool_var b = 1; b < m_atoms.size(); ++b) {
+                atom* a = m_atoms[b];
+                if (a == nullptr) {
+                    bv = checker.mk_bool_var();
+                }
+                else if (a->is_ineq_atom()) {
+                    ineq_atom& ia = *to_ineq_atom(a);
+                    unsigned sz = ia.size();
+                    ptr_vector<poly> ps;
+                    svector<bool> is_even;
+                    for (unsigned i = 0; i < sz; ++i) {
+                        ps.push_back(ia.p(i));
+                        is_even.push_back(ia.is_even(i));
+                    }
+                    bv = checker.mk_ineq_atom(ia.get_kind(), sz, ps.c_ptr(), is_even.c_ptr());
+                }
+                else if (a->is_root_atom()) {
+                    root_atom& r = *to_root_atom(a);
+                    bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), r.p());
+                }
+                else {
+                    UNREACHABLE();
+                }
+                checker.inc_ref(bv);
+                tr.push_back(bv);
+            }
+            if (!is_valid) {
+                for (clause* c : m_clauses) {
+                    if (!a && c->assumptions()) {
+                        continue;
+                    }
+                    literal_vector lits;
+                    for (literal lit : *c) {
+                        lits.push_back(literal(tr[lit.var()], lit.sign()));
+                    }
+                    checker.mk_clause(lits.size(), lits.c_ptr(), nullptr);
+                }
+            }
+            for (unsigned i = 0; i < n; ++i) {
+                literal lit = cls[i];
+                literal nlit(tr[lit.var()], !lit.sign());
+                checker.mk_clause(1, &nlit, nullptr);
+            }
+            IF_VERBOSE(0, verbose_stream() << "check\n";);
+            lbool r = checker.check();
+            VERIFY(r == l_false);
+            for (bool_var b : tr) {
+                checker.dec_ref(b);
+            }
+        }
+
         void log_lemma(std::ostream& out, clause const& cls) {
             display_smt2(out);
             out << "(assert (not ";
@@ -757,7 +853,10 @@ namespace nlsat {
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
             TRACE("nlsat_sort", display(tout << "#" << m_lemma_count << " after sort:\n", *cls) << "\n";);
             if (learned && m_log_lemmas) {
-                log_lemma(std::cout, *cls);
+                log_lemma(verbose_stream(), *cls);
+            }
+            if (learned && m_check_lemmas) {
+                check_lemma(cls->size(), cls->c_ptr(), false, cls->assumptions());
             }
             if (learned)
                 m_learned.push_back(cls);
@@ -1437,8 +1536,9 @@ namespace nlsat {
             sort_watched_clauses();
             lbool r = search_check();
             CTRACE("nlsat_model", r == l_true, tout << "model before restore order\n"; display_assignment(tout););
-            if (reordered)
+            if (reordered) {
                 restore_order();
+            }
             CTRACE("nlsat_model", r == l_true, tout << "model\n"; display_assignment(tout););
             CTRACE("nlsat", r == l_false, display(tout););
             SASSERT(r != l_true || check_satisfied(m_clauses));
@@ -1481,7 +1581,11 @@ namespace nlsat {
             }
             collect(assumptions, m_clauses);
             collect(assumptions, m_learned);
-            
+            if (m_check_lemmas) {
+                for (clause* c : m_learned) {
+                    check_lemma(c->size(), c->c_ptr(), false, nullptr);
+                }
+            }
             assumptions.reset();
             assumptions.append(result);
             return r;
@@ -1557,12 +1661,11 @@ namespace nlsat {
 
         void process_antecedent(literal antecedent) {
             bool_var b  = antecedent.var();
-            TRACE("nlsat_resolve", tout << "resolving antecedent, l:\n"; display(tout, antecedent); tout << "\n";);
+            TRACE("nlsat_resolve", display(tout << "resolving antecedent: ", antecedent) << "\n";);
             if (assigned_value(antecedent) == l_undef) {
                 // antecedent must be false in the current arith interpretation
                 SASSERT(value(antecedent) == l_false);
                 if (!is_marked(b)) {
-                    TRACE("nlsat_resolve", tout << max_var(b) << " " << m_xk << "\n";);
                     SASSERT(is_arith_atom(b) && max_var(b) < m_xk); // must be in a previous stage
                     TRACE("nlsat_resolve", tout << "literal is unassigned, but it is false in arithmetic interpretation, adding it to lemma\n";); 
                     mark(b);
@@ -1629,6 +1732,10 @@ namespace nlsat {
                   tout << "m_xk: " << m_xk << ", "; m_display_var(tout, m_xk) << "\n";
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()) << "\n";);
+
+            if (m_check_lemmas) {
+                check_lemma(m_lazy_clause.size(), m_lazy_clause.c_ptr(), true, nullptr);
+            }
 
             DEBUG_CODE({
                 unsigned sz = m_lazy_clause.size();
@@ -1763,6 +1870,7 @@ namespace nlsat {
         */
         bool resolve(clause const & conflict) {
             clause const * conflict_clause = &conflict;
+            m_lemma_assumptions = nullptr;
         start:
             SASSERT(check_marks());
             TRACE("nlsat_proof", tout << "STARTING RESOLUTION\n";);
@@ -1854,6 +1962,10 @@ namespace nlsat {
             reset_marks(); // remove marks from the literals in m_lemmas.
             TRACE("nlsat", tout << "new lemma:\n"; display(tout, m_lemma.size(), m_lemma.c_ptr()); tout << "\n";
                   tout << "found_decision: " << found_decision << "\n";);
+            
+            if (false && m_check_lemmas) {
+                check_lemma(m_lemma.size(), m_lemma.c_ptr(), false, m_lemma_assumptions.get());
+            }
     
             // There are two possibilities:
             // 1) m_lemma contains only literals from previous stages, and they
@@ -2146,10 +2258,11 @@ namespace nlsat {
         }
 
         bool can_reorder() const {
-            for (atom * a : m_atoms) {
-                if (a) {
-                    if (a->is_root_atom()) return false;
-                }
+            for (clause* c : m_learned) {
+                if (has_root_atom(*c)) return false;
+            }
+            for (clause* c : m_clauses) {
+                if (has_root_atom(*c)) return false;
             }
             return true;
         }
@@ -2159,6 +2272,8 @@ namespace nlsat {
            p maps internal variables to their new positions
         */
         void reorder(unsigned sz, var const * p) {
+            remove_learned_roots();
+            SASSERT(can_reorder());
             TRACE("nlsat_reorder", tout << "solver before variable reorder\n"; display(tout);
                   display_vars(tout);
                   tout << "\npermutation:\n";
@@ -2205,7 +2320,6 @@ namespace nlsat {
                 }
             });
             m_pm.rename(sz, p);
-            del_ill_formed_lemmas();
             TRACE("nlsat_bool_assignment_bug", tout << "before reinit cache\n"; display_bool_assignment(tout););
             reinit_cache();
             m_assignment.swap(new_assignment);
@@ -2213,13 +2327,14 @@ namespace nlsat {
             reattach_arith_clauses(m_learned);
             TRACE("nlsat_reorder", tout << "solver after variable reorder\n"; display(tout); display_vars(tout););
         }
+
         
         /**
            \brief Restore variable order.
         */
         void restore_order() {
             // m_perm: internal -> external
-            // m_inv_perm: external -> internal
+            // m_inv_perm: external -> internal            
             var_vector p;
             p.append(m_perm);
             reorder(p.size(), p.c_ptr());
@@ -2234,10 +2349,10 @@ namespace nlsat {
         /**
            \brief After variable reordering some lemmas containing root atoms may be ill-formed.
         */
-        void del_ill_formed_lemmas() {
+        void remove_learned_roots() {
             unsigned j  = 0;
             for (clause* c : m_learned) {
-                if (ill_formed(*c)) {
+                if (has_root_atom(*c)) {
                     del_clause(c);
                 }
                 else {
@@ -2250,15 +2365,11 @@ namespace nlsat {
         /** 
             \brief Return true if the clause contains an ill formed root atom
         */
-        bool ill_formed(clause const & c) {
+        bool has_root_atom(clause const & c) const {
             for (literal lit : c) {
                 bool_var b = lit.var();
                 atom * a = m_atoms[b];
-                if (a == nullptr)
-                    continue;
-                if (a->is_ineq_atom())
-                    continue;
-                if (to_root_atom(a)->x() < max_var(to_root_atom(a)->p()))
+                if (a && a->is_root_atom()) 
                     return true;
             }
             return false;
@@ -3236,11 +3347,18 @@ namespace nlsat {
     };
     
     solver::solver(reslimit& rlim, params_ref const & p, bool incremental) {
-        m_imp = alloc(imp, *this, rlim, p, incremental);
+        m_ctx = alloc(ctx, rlim, p);
+        m_imp = alloc(imp, *this, *m_ctx, incremental);
+    }
+
+    solver::solver(ctx& ctx) {
+        m_ctx = nullptr;
+        m_imp = alloc(imp, *this, ctx, false);
     }
         
     solver::~solver() {
         dealloc(m_imp);
+        dealloc(m_ctx);
     }
 
     lbool solver::check() {
