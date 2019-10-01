@@ -57,6 +57,13 @@ class nex_creator {
     svector<var_weight>                          m_active_vars_weights;
 
 public:
+    static char ch(unsigned j) {
+        // std::stringstream s;
+        // s << "v" << j;        
+        //    return s.str();
+        return (char)('a'+j);
+    }
+
     svector<var_weight>& active_vars_weights() { return m_active_vars_weights;}
     const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
 

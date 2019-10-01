@@ -268,12 +268,6 @@ public:
             explore_expr_on_front_elem_vars(c, front, vars);
         }
     }
-    static std::string ch(unsigned j) {
-        std::stringstream s;
-        s << "v" << j;
-        return s.str();
-        //        return (char)('a'+j);
-    }
 
     std::ostream& print_front(const vector<nex**>& front, std::ostream& out) const {
         for (auto e : front) {
@@ -284,7 +278,7 @@ public:
     // c is the sub expressiond which is going to be changed from sum to the cross nested form
     // front will be explored more
     void explore_of_expr_on_sum_and_var(nex** c, lpvar j, vector<nex**> front) {
-        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << ch(j) << "\nfront="; print_front(front, tout) << "\n";);
+        TRACE("nla_cn", tout << "m_e=" << *m_e << "\nc=" << **c << "\nj = " << nex_creator::ch(j) << "\nfront="; print_front(front, tout) << "\n";);
         if (!split_with_var(*c, j, front))
             return;
         TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
@@ -428,7 +422,7 @@ public:
     // it returns true if the recursion brings a cross-nested form
     bool split_with_var(nex*& e, lpvar j, vector<nex**> & front) {
         SASSERT(e->is_sum());
-        TRACE("nla_cn", tout << "e = " << *e << ", j=" << ch(j) << "\n";);
+        TRACE("nla_cn", tout << "e = " << *e << ", j=" << nex_creator::ch(j) << "\n";);
         nex_sum* a; nex * b;
         pre_split(to_sum(e), j, a, b);
         /*
