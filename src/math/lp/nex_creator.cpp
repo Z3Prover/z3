@@ -410,19 +410,20 @@ bool nex_creator::register_in_join_map(std::map<nex*, rational, nex_lt>& map, ne
 void nex_creator::process_mul_in_simplify_sum(nex_mul* em, std::map<nex*, rational, nex_lt> &map, vector<nex_mul> & tmp) {
     auto it = em->children().begin();
     if (it->e()->is_scalar()) {
+        SASSERT(it->pow() == 1);
         rational r = to_scalar(it->e())->value();              
         auto end = em->children().end();
         if (em->children().size() == 2 && em->children()[1].pow() == 1) {
             register_in_join_map(map, em->children()[1].e(), r);
-        }
-        SASSERT(it->pow() == 1);
-        tmp.push_back(nex_mul());
-        nex_mul * m = &tmp[tmp.size()-1];
-        for (it++; it != end; it++) {
-            m->add_child_in_power(it->e(), it->pow());
-        }
-        if (!register_in_join_map(map, m, r))
-            tmp.pop_back(); 
+        } else {
+            tmp.push_back(nex_mul());
+            nex_mul * m = &tmp[tmp.size()-1];
+            for (it++; it != end; it++) {
+                m->add_child_in_power(it->e(), it->pow());
+            }
+            if (!register_in_join_map(map, m, r))
+                tmp.pop_back();
+        } 
     } else {
         register_in_join_map(map, em, rational(1));
     }
