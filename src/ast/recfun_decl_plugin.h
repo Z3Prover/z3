@@ -114,7 +114,7 @@ namespace recfun {
         void compute_cases(util& u, replace& subst, is_immediate_pred &, 
                            unsigned n_vars, var *const * vars, expr* rhs);
         void add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr* rhs, bool is_imm = false);
-        bool contains_ite(util& u, expr* e); // expression contains a test?
+        bool contains_ite(util& u, expr* e); // expression contains a test over a def?
         bool contains_def(util& u, expr* e); // expression contains a def
     public:
         symbol const & get_name() const { return m_name; }
