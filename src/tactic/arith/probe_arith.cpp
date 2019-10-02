@@ -465,6 +465,7 @@ struct is_non_nira_functor {
         if (!compatible_sort(n))
             throw_found(n);
         family_id fid = n->get_family_id();
+        rational r;
         if (fid == m.get_basic_family_id())
             return; 
         if (fid == u.get_family_id()) {
@@ -483,6 +484,8 @@ struct is_non_nira_functor {
                 return;
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (m_linear && !u.is_numeral(n->get_arg(1)))
+                    throw_found(n); 
+                if (m_linear && u.is_numeral(n->get_arg(1), r) && r.is_zero())
                     throw_found(n); 
                 if (!is_ground(n->get_arg(0)) || !is_ground(n->get_arg(1))) 
                     throw_found(n);

@@ -503,8 +503,8 @@ namespace qe {
             if (is_uninterp_const(a)) { // TBD generalize for uninterpreted functions.
                 vars.push_back(a);
             }
-            for (unsigned i = 0; i < a->get_num_args(); ++i) {
-                todo.push_back(a->get_arg(i));
+            for (expr* arg : *a) {
+                todo.push_back(arg);
             }
         }
     }
