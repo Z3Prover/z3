@@ -196,7 +196,7 @@ bool nex_creator::less_than_on_var_nex(const nex_var* a, const nex* b) const {
     case expr_type::MUL:
         {
             if (b->get_degree() > 1)
-                return false;
+                return true;
             auto it = to_mul(b)->children().begin();
             const nex_pow & c  = *it;
             const nex * f = c.e();
@@ -319,10 +319,11 @@ nex * nex_creator::simplify_mul(nex_mul *e) {
 }
 
 nex* nex_creator::simplify_sum(nex_sum *e) {
+    TRACE("nla_cn_details", tout << "was e = " << *e << "\n";);
     simplify_children_of_sum(e->children());
-    if (e->size() == 1)
-        return e->children()[0];
-    return e;
+    nex *r = e->size() == 1? e->children()[0]: e;
+    TRACE("nla_cn_details", tout << "became r = " << *r << "\n";);    
+    return r;
 }
 
 bool nex_creator::sum_is_simplified(const nex_sum* e) const {
