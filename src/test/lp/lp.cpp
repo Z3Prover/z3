@@ -83,9 +83,9 @@ void test_simplify() {
         [](unsigned) { return false; },
         []() { return 1; } // for random
                     );
-    enable_trace("nla_cn");
-    enable_trace("nla_cn_details");
-    enable_trace("nla_cn_details_");
+    // enable_trace("nla_cn");
+    // enable_trace("nla_cn_details");
+    //    enable_trace("nla_cn_details_");
     enable_trace("nla_test");
     
     nex_creator & r = cn.get_nex_creator();
@@ -99,7 +99,6 @@ void test_simplify() {
     auto a_plus_bc = r.mk_sum(a, bc);
     auto simp_a_plus_bc = r.simplify(a_plus_bc);
     SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
-    return;
     auto m = r.mk_mul(); m->add_child_in_power(c, 2);
     TRACE("nla_test_", tout << "m = " << *m << "\n";); 
     auto n = r.mk_mul(a);

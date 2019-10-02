@@ -208,7 +208,7 @@ public:
     bool is_sorted(const nex_mul * e) const;    
 
     nex* simplify_sum(nex_sum *e);
-    void process_mul_in_simplify_sum(nex_mul* e, std::map<nex*, rational, nex_lt> &, vector<nex_mul> &);
+    bool process_mul_in_simplify_sum(nex_mul* e, std::map<nex*, rational, nex_lt> &);
 
     bool is_simplified(const nex *e) const;
     bool sum_is_simplified(const nex_sum* e) const;
