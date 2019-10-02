@@ -111,10 +111,11 @@ namespace recfun {
         def(ast_manager &m, family_id fid, symbol const & s, unsigned arity, sort *const * domain, sort* range, bool is_generated);
 
         // compute cases for a function, given its RHS (possibly containing `ite`).
-        void compute_cases(replace& subst, is_immediate_pred &, 
+        void compute_cases(util& u, replace& subst, is_immediate_pred &, 
                            unsigned n_vars, var *const * vars, expr* rhs);
         void add_case(std::string & name, unsigned case_index, expr_ref_vector const& conditions, expr* rhs, bool is_imm = false);
-        bool contains_ite(expr* e); // expression contains a test?
+        bool contains_ite(util& u, expr* e); // expression contains a test?
+        bool contains_def(util& u, expr* e); // expression contains a def
     public:
         symbol const & get_name() const { return m_name; }
         vars const & get_vars() const { return m_vars; }
