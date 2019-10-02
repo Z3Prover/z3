@@ -85,6 +85,9 @@ void test_simplify() {
                     );
     enable_trace("nla_cn");
     enable_trace("nla_cn_details");
+    enable_trace("nla_cn_details_");
+    enable_trace("nla_test");
+    
     nex_creator & r = cn.get_nex_creator();
     r.active_vars_weights().resize(3);
     for (unsigned j = 0; j < r.active_vars_weights().size(); j++)
@@ -92,45 +95,52 @@ void test_simplify() {
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
+    auto bc = r.mk_mul(b, c);
+    auto a_plus_bc = r.mk_sum(a, bc);
+    auto simp_a_plus_bc = r.simplify(a_plus_bc);
+    SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
+    return;
     auto m = r.mk_mul(); m->add_child_in_power(c, 2);
-    TRACE("nla_cn", tout << "m = " << *m << "\n";); 
+    TRACE("nla_test_", tout << "m = " << *m << "\n";); 
     auto n = r.mk_mul(a);
     n->add_child_in_power(b, 7);
     n->add_child(r.mk_scalar(rational(3)));
     n->add_child_in_power(r.mk_scalar(rational(4)), 2);
     n->add_child(r.mk_scalar(rational(1)));
-    TRACE("nla_cn", tout << "n = " << *n << "\n";); 
+    TRACE("nla_test_", tout << "n = " << *n << "\n";); 
     m->add_child_in_power(n, 3);
     n->add_child_in_power(r.mk_scalar(rational(1, 3)), 2);
-    TRACE("nla_cn", tout << "m = " << *m << "\n";); 
+    TRACE("nla_test_", tout << "m = " << *m << "\n";); 
     
     nex_sum * e = r.mk_sum(a, r.mk_sum(b, m));
-    TRACE("nla_cn", tout << "e = " << *e << "\n";);
+    TRACE("nla_test", tout << "before simplify e = " << *e << "\n";);
     e = to_sum(r.simplify(e));
-    TRACE("nla_cn", tout << "simplified e = " << *e << "\n";);
+    TRACE("nla_test", tout << "simplified e = " << *e << "\n";);
+    SASSERT(e->children().size() > 2);
     nex_sum * e_m = r.mk_sum();
     for (const nex* ex: to_sum(e)->children()) {
         nex* ce = r.mk_mul(r.clone(ex), r.mk_scalar(rational(3)));        
+        TRACE("nla_test", tout << "before simpl ce = " << *ce << "\n";);        
         ce = r.simplify(ce);
-        TRACE("nla_cn", tout << "simplified ce = " << *ce << "\n";);        
+        TRACE("nla_test", tout << "simplified ce = " << *ce << "\n";);        
         e_m->add_child(ce);
     }
     e->add_child(e_m);    
-    TRACE("nla_cn", tout << "before simplify sum e = " << *e << "\n";);
+    TRACE("nla_test", tout << "before simplify sum e = " << *e << "\n";);
     e = to_sum(r.simplify(e));
-    TRACE("nla_cn", tout << "simplified sum e = " << *e << "\n";);
+    TRACE("nla_test", tout << "simplified sum e = " << *e << "\n";);
 }
 
 void test_cn() {
     cross_nested cn(
         [](const nex* n) {
-                           TRACE("nla_cn_test", tout << *n << "\n";);
+                           TRACE("nla_test", tout << *n << "\n";);
                            return false;
                        } ,
         [](unsigned) { return false; },
         []{ return 1; });
-    enable_trace("nla_cn");
-    enable_trace("nla_cn_details");
+    enable_trace("nla_test");
+    enable_trace("nla_test_details");
     auto & cr = cn.get_nex_creator();
     cr.active_vars_weights().resize(20);
     for (unsigned j = 0; j < cr.active_vars_weights().size(); j++)
@@ -161,15 +171,15 @@ void test_cn() {
     nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
     clone = cr.simplify(clone);
     SASSERT(cr.is_simplified(clone));
-    TRACE("nla_cn", tout << "clone = " << *clone << "\n";);
+    TRACE("nla_test", tout << "clone = " << *clone << "\n";);
 #endif
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(to_sum(clone), cn);
-    // TRACE("nla_cn", tout << "done\n";);
+    // TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
-    // TRACE("nla_cn", tout << "done\n";);
+    // TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
-    // TRACE("nla_cn", tout << "done\n";);
+    // TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
 }
 
