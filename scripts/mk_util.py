@@ -1955,8 +1955,8 @@ class MLComponent(Component):
                 OCAML_FLAGS += '-g'
 
             if OCAMLFIND:
-                OCAMLCF = OCAMLC + ' ' + 'ocamlc -package zarith' + ' ' + OCAML_FLAGS
-                OCAMLOPTF = OCAMLOPT + ' ' + 'ocamlopt -package zarith' + ' ' + OCAML_FLAGS
+                OCAMLCF = OCAMLFIND + ' ' + 'ocamlc -package zarith' + ' ' + OCAML_FLAGS
+                OCAMLOPTF = OCAMLFIND + ' ' + 'ocamlopt -package zarith' + ' ' + OCAML_FLAGS
             else:
                 OCAMLCF = OCAMLC + ' ' + OCAML_FLAGS
                 OCAMLOPTF = OCAMLOPT + ' ' + OCAML_FLAGS
