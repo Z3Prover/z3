@@ -68,8 +68,6 @@ public:
     const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
 
     nex* simplify(nex* e);
-    rational extract_coeff_from_mul(const nex_mul* m);
-    rational extract_coeff(const nex*);
     
     bool less_than(lpvar j, lpvar k) const{
         unsigned wj = (unsigned)m_active_vars_weights[j];
@@ -77,10 +75,8 @@ public:
         return wj != wk ? wj < wk : j < k;
     }
 
-    bool less_than_nex(const nex* a, const nex* b) const;
-    
     bool less_than_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
-        return (a.pow() < b.pow()) || (a.pow() == b.pow() && less_than_nex(a.e(), b.e()));
+        return (a.pow() < b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
     }
     
     void simplify_children_of_mul(vector<nex_pow> & children);
@@ -211,7 +207,8 @@ public:
     nex * simplify_mul(nex_mul *e);    
     bool is_sorted(const nex_mul * e) const;    
 
-    nex* simplify_sum(nex_sum *e);    
+    nex* simplify_sum(nex_sum *e);
+    void process_mul_in_simplify_sum(nex_mul* e, std::map<nex*, rational, nex_lt> &, vector<nex_mul> &);
 
     bool is_simplified(const nex *e) const;
     bool sum_is_simplified(const nex_sum* e) const;
@@ -223,17 +220,17 @@ public:
                                          const rational& coeff) ;
 
     void sort_join_sum(ptr_vector<nex> & children);
+    bool register_in_join_map(std::map<nex*, rational, nex_lt>&, nex*, const rational&) const;
 
     void simplify_children_of_sum(ptr_vector<nex> & children);
     
     bool eat_scalar_pow(nex_scalar *& r, nex_pow& p);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
-    bool lt(const nex* a, const nex* b, bool skip_scalar) const;
-    
-    bool less_than_on_mul(const nex_mul* a, const nex_mul* b, bool skip_scalar) const;
-    bool less_than_on_var_nex(const nex_var* a, const nex* b, bool skip_scalar) const;
-    bool less_than_on_mul_nex(const nex_mul* a, const nex* b, bool skip_scalar) const;
+    bool lt(const nex* a, const nex* b) const;    
+    bool less_than_on_mul(const nex_mul* a, const nex_mul* b) const;
+    bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
+    bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);    
 };
 }

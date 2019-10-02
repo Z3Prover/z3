@@ -127,7 +127,7 @@ public:
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
         c_over_f = m_nex_creator.simplify(c_over_f);
-        TRACE("nla_cn", tout << "c_over_f =" << *c_over_f << std::endl;);
+        TRACE("nla_cn", tout << "c_over_f = " << *c_over_f << std::endl;);
         nex_mul* cm; 
         *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
