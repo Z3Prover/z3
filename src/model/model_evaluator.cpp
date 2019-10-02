@@ -51,6 +51,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
     fpa_rewriter                    m_f_rw;
     seq_rewriter                    m_seq_rw;
     array_util                      m_ar;
+    arith_util                      m_au;
     unsigned long long              m_max_memory;
     unsigned                        m_max_steps;
     bool                            m_model_completion;
@@ -75,6 +76,7 @@ struct evaluator_cfg : public default_rewriter_cfg {
         m_f_rw(m),
         m_seq_rw(m),
         m_ar(m),
+        m_au(m),
         m_pinned(m) {
         bool flat = true;
         m_b_rw.set_flat(flat);
@@ -329,6 +331,16 @@ struct evaluator_cfg : public default_rewriter_cfg {
             var_subst vs(m, false);
             result = vs(fi->get_interp(), num, args);
             return BR_REWRITE_FULL;
+        }
+
+        rational r;
+        if (is_decl_of(f, m_au.get_family_id(), OP_DIV) && m_au.is_numeral(args[1], r) && r.is_zero()) {
+            result = m_au.mk_real(0);
+            return BR_DONE;
+        }
+        if (is_decl_of(f, m_au.get_family_id(), OP_IDIV) && m_au.is_numeral(args[1], r) && r.is_zero()) {
+            result = m_au.mk_int(0);
+            return BR_DONE;
         }
 
         return BR_FAILED;
