@@ -202,6 +202,8 @@ public:
         return !r.is_one();
     }
 
+    const nex_pow& operator[](unsigned j) const { return m_children[j]; }
+    nex_pow& operator[](unsigned j) { return m_children[j]; }
     const nex_pow* begin() const { return m_children.begin(); }
     const nex_pow* end() const { return m_children.end(); }
     nex_pow* begin() { return m_children.begin(); }
@@ -210,7 +212,7 @@ public:
     void add_child_in_power(nex* e, int power) { m_children.push_back(nex_pow(e, power)); }
 
     bool contains(lpvar j) const {
-        for (const nex_pow& c : children()) {
+        for (const nex_pow& c : *this) {
             if (c.e()->contains(j))
                 return true;
         }
@@ -225,7 +227,7 @@ public:
     void get_powers_from_mul(std::unordered_map<lpvar, unsigned> & r) const {
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n";);
         r.clear();
-        for (const auto & c : children()) {
+        for (const auto & c : *this) {
             if (!c.e()->is_var()) {
                 continue;
             }
@@ -238,7 +240,7 @@ public:
 
     int get_degree() const {
         int degree = 0;       
-        for (const auto& p : children()) {
+        for (const auto& p : *this) {
             degree +=  p.e()->get_degree() * p.pow();
         }
         return degree;
@@ -274,7 +276,7 @@ public:
 
     bool is_linear() const {
         TRACE("nex_details", tout << *this << "\n";);
-        for (auto  e : children()) {
+        for (auto  e : *this) {
             if (!e->is_linear())
                 return false;
         }
@@ -286,7 +288,7 @@ public:
     bool is_a_linear_term() const {
         TRACE("nex_details", tout << *this << "\n";);
         unsigned number_of_non_scalars = 0;
-        for (auto  e : children()) {
+        for (auto  e : *this) {
             int d = e->get_degree();
             if (d == 0) continue;
             if (d > 1) return false;
@@ -324,12 +326,13 @@ public:
 
     int get_degree() const {
         int degree = 0;       
-        for (auto  e : children()) {
+        for (auto  e : *this) {
             degree = std::max(degree, e->get_degree());
         }
         return degree;
     }
-    
+    const nex* operator[](unsigned j) const { return m_children[j]; }
+    nex*& operator[](unsigned j) { return m_children[j]; }
     const ptr_vector<nex>::const_iterator begin() const { return m_children.begin(); }
     const ptr_vector<nex>::const_iterator end() const { return m_children.end(); }
     ptr_vector<nex>::iterator begin() { return m_children.begin(); }
