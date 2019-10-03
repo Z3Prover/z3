@@ -69,7 +69,8 @@ void test_basic_lemma_for_mon_neutral_from_monomial_to_factors();
 void test_basic_lemma_for_mon_neutral_from_factors_to_monomial();
 
 void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
-    TRACE("nla_cn", tout << "t=" << *t << '\n';);
+    t = to_sum(cn.get_nex_creator().simplify(t));
+    TRACE("nla_test", tout << "t=" << *t << '\n';);
     cn.run(t);
 }
 
@@ -146,13 +147,14 @@ void test_simplify() {
 void test_cn() {
     cross_nested cn(
         [](const nex* n) {
-                           TRACE("nla_test", tout << *n << "\n";);
-                           return false;
-                       } ,
+            TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";);
+            return false;
+        } ,
         [](unsigned) { return false; },
         []{ return 1; });
     enable_trace("nla_test");
-    enable_trace("nla_test_details");
+    //    enable_trace("nla_cn");
+    //   enable_trace("nla_test_details");
     auto & cr = cn.get_nex_creator();
     cr.active_vars_weights().resize(20);
     for (unsigned j = 0; j < cr.active_vars_weights().size(); j++)
@@ -164,6 +166,10 @@ void test_cn() {
     nex_var* d = cr.mk_var(3);
     nex_var* e = cr.mk_var(4);
     nex_var* g = cr.mk_var(6);
+    nex_sum * a_p_ae_sq = cr.mk_sum(a, cr.mk_mul(a, e, e));
+    a_p_ae_sq = to_sum(cr.simplify(a_p_ae_sq));
+    test_cn_on_expr(a_p_ae_sq, cn);
+
     nex* min_1 = cr.mk_scalar(rational(-1));
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
     nex* bcd = cr.mk_mul(b, c, d);
@@ -171,7 +177,6 @@ void test_cn() {
     bcg->add_child(min_1);
     nex_sum* t = cr.mk_sum(bcd, bcg);
     test_cn_on_expr(t, cn);
-    nex* aad = cr.mk_mul(a, a, d);
     nex* abcd = cr.mk_mul(a, b, c, d);
     nex* aaccd = cr.mk_mul(a, a, c, c, d);
     nex* add = cr.mk_mul(a, d, d);
