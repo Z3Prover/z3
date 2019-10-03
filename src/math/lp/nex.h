@@ -191,6 +191,21 @@ public:
     void add_child(nex* e) {
         add_child_in_power(e, 1);
     }
+
+    // returns true if the product of scalars gives a number different from 1
+    bool has_a_coeff() const {
+        rational r(1);
+        for (auto & p : *this) {
+            if (p.e()->is_scalar())
+                r *= to_scalar(p.e())->value();
+        }
+        return !r.is_one();
+    }
+
+    const nex_pow* begin() const { return m_children.begin(); }
+    const nex_pow* end() const { return m_children.end(); }
+    nex_pow* begin() { return m_children.begin(); }
+    nex_pow* end() { return m_children.end(); }
     
     void add_child_in_power(nex* e, int power) { m_children.push_back(nex_pow(e, power)); }
 
