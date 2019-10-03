@@ -143,7 +143,6 @@ public:
             if (e != nullptr) {
                 m_trail_stack.push_back(e->m_data);
                 e->m_data.m_data = data;
-                return;
             }
             else {
                 m_trail_stack.push_back(dummy);

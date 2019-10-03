@@ -87,8 +87,10 @@ br_status arith_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     default: st = BR_FAILED; break;
     }
     CTRACE("arith_rewriter", st != BR_FAILED, tout << st << ": " << mk_pp(f, m());
-            for (unsigned i = 0; i < num_args; ++i) tout << mk_pp(args[i], m()) << " ";
-            tout << "\n==>\n" << mk_pp(result.get(), m()) << "\n";);
+           for (unsigned i = 0; i < num_args; ++i) tout << mk_pp(args[i], m()) << " ";
+           tout << "\n==>\n" << mk_pp(result.get(), m()) << "\n";
+           tout << "args: " << to_app(result)->get_num_args() << "\n";
+           );
     return st;
 }
 
@@ -527,14 +529,15 @@ bool arith_rewriter::is_arith_term(expr * n) const {
 }
 
 br_status arith_rewriter::mk_eq_core(expr * arg1, expr * arg2, expr_ref & result) {
+    br_status st = BR_FAILED;
     if (m_eq2ineq) {
         result = m().mk_and(m_util.mk_le(arg1, arg2), m_util.mk_ge(arg1, arg2));
-        return BR_REWRITE2;
+        st = BR_REWRITE2;
     }
-    if (m_arith_lhs || is_arith_term(arg1) || is_arith_term(arg2)) {
-        return mk_le_ge_eq_core(arg1, arg2, EQ, result);
+    else if (m_arith_lhs || is_arith_term(arg1) || is_arith_term(arg2)) {
+        st = mk_le_ge_eq_core(arg1, arg2, EQ, result);
     }
-    return BR_FAILED;
+    return st;
 }
 
 expr_ref arith_rewriter::neg_monomial(expr* e) const {

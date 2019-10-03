@@ -117,10 +117,18 @@ expr * poly_rewriter<Config>::mk_mul_app(unsigned num_args, expr * const * args)
                 return new_args[0];
             }
             else {
+                numeral a;
+                if (new_args.size() > 2 && is_numeral(new_args.get(0), a)) {
+                    return mk_mul_app(a, mk_mul_app(new_args.size() - 1, new_args.c_ptr() + 1));
+                }
                 return m().mk_app(get_fid(), mul_decl_kind(), new_args.size(), new_args.c_ptr());
             }
         }
         else {
+            numeral a;
+            if (num_args > 2 && is_numeral(args[0], a)) {
+                return mk_mul_app(a, mk_mul_app(num_args - 1, args + 1));
+            }
             return m().mk_app(get_fid(), mul_decl_kind(), num_args, args);
         }
     }
@@ -180,12 +188,14 @@ br_status poly_rewriter<Config>::mk_flat_mul_core(unsigned num_args, expr * cons
                     flat_args.push_back(args[j]);
                 }
             }
+            br_status st = mk_nflat_mul_core(flat_args.size(), flat_args.c_ptr(), result);
             TRACE("poly_rewriter",
                   tout << "flat mul:\n";
                   for (unsigned i = 0; i < num_args; i++) tout << mk_bounded_pp(args[i], m()) << "\n";
                   tout << "---->\n";
-                  for (unsigned i = 0; i < flat_args.size(); i++) tout << mk_bounded_pp(flat_args[i], m()) << "\n";);
-            br_status st = mk_nflat_mul_core(flat_args.size(), flat_args.c_ptr(), result);
+                  for (unsigned i = 0; i < flat_args.size(); i++) tout << mk_bounded_pp(flat_args[i], m()) << "\n";
+                  tout << st << "\n";
+                  );
             if (st == BR_FAILED) {
                 result = mk_mul_app(flat_args.size(), flat_args.c_ptr());
                 return BR_DONE;

@@ -336,7 +336,7 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_mul(app * m) {
         rational _val;
-        TRACE("arith", tout << mk_pp(m, get_manager()) << "\n";);
+        TRACE("arith", tout << m->get_num_args() << " " << mk_pp(m, get_manager()) << "\n";);
         SASSERT(m_util.is_mul(m));
         expr* arg0 = m->get_arg(0);
         expr* arg1 = m->get_arg(1);
@@ -366,7 +366,7 @@ namespace smt {
             add_row_entry<false>(r_id, numeral::one(), s);
             init_row(r_id);
             return s;
-        }
+        }        
         else {
             return internalize_mul_core(m);
         }
