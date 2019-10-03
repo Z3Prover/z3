@@ -11,7 +11,7 @@ if (POLICY CMP0042)
 endif()
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.8.9.0 LANGUAGES CXX)
+project(Z3 VERSION 4.8.7.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version

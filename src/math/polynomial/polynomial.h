@@ -644,7 +644,7 @@ namespace polynomial {
         /**
            \brief Return true if m2 divides m1, and store the result in r.
         */
-        bool div(monomial const * m1, monomial const * m2, monomial * & r);
+        bool div(monomial const * m1, monomial const * m2, monomial_ref & r);
 
         /**
            \brief Newton interpolation algorithm for multivariate polynomials.

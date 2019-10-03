@@ -342,7 +342,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             result = m_au.mk_int(0);
             return BR_DONE;
         }
-
         return BR_FAILED;
     }
 
