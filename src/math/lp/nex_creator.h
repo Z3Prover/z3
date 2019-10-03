@@ -203,6 +203,7 @@ public:
     nex * mk_div(const nex* a, lpvar j);
     nex * mk_div(const nex* a, const nex* b);
     nex * mk_div_by_mul(const nex* a, const nex_mul* b);
+    nex * mk_div_sum_by_mul(const nex_sum* a, const nex_mul* b);
     
     nex * simplify_mul(nex_mul *e);    
     bool is_sorted(const nex_mul * e) const;    
@@ -236,6 +237,6 @@ public:
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
-    void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);   
+    void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);
 };
 }
