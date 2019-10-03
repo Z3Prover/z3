@@ -61,15 +61,15 @@ nex * nex_creator::mk_div(const nex* a, lpvar j) {
     return mk_mul(bv);
 }
 
-bool nex_creator::eat_scalar_pow(nex_scalar *& r, nex_pow& p) {
+bool nex_creator::eat_scalar_pow(nex_scalar *& r, nex_pow& p, unsigned pow) {
     if (!p.e()->is_scalar())
         return false;
     nex_scalar *pe = to_scalar(p.e());
     if (r == nullptr) {
         r = pe;
-        r->value() = r->value().expt(p.pow());                
+        r->value() = r->value().expt(p.pow()*pow);                
     } else {
-        r->value() *= pe->value().expt(p.pow());
+        r->value() *= pe->value().expt(p.pow()*pow);
     }
     return true;
 }
@@ -82,7 +82,7 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children) {
     int skipped = 0;
     for(unsigned j = 0; j < children.size(); j++) {        
         nex_pow& p = children[j];
-        if (eat_scalar_pow(r, p)) {
+        if (eat_scalar_pow(r, p, 1)) {
             skipped++;
             continue;
         }
@@ -101,8 +101,10 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children) {
     children.shrink(children.size() - to_promote.size() - skipped);
 
     for (nex_pow & p : to_promote) {
+        TRACE("nla_cn_details", tout << p << "\n";);
         for (nex_pow& pp : to_mul(p.e())->children()) {
-            if (!eat_scalar_pow(r, pp))
+            TRACE("nla_cn_details", tout << pp << "\n";);
+            if (!eat_scalar_pow(r, pp, p.pow()))
                 children.push_back(nex_pow(pp.e(), pp.pow() * p.pow()));            
         }
     }

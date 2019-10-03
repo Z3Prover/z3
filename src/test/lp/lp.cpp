@@ -83,8 +83,8 @@ void test_simplify() {
         [](unsigned) { return false; },
         []() { return 1; } // for random
                     );
-    // enable_trace("nla_cn");
-    // enable_trace("nla_cn_details");
+    enable_trace("nla_cn");
+    enable_trace("nla_cn_details");
     //    enable_trace("nla_cn_details_");
     enable_trace("nla_test");
     
@@ -99,6 +99,14 @@ void test_simplify() {
     auto a_plus_bc = r.mk_sum(a, bc);
     auto simp_a_plus_bc = r.simplify(a_plus_bc);
     SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
+    auto three_ab = r.mk_mul(r.mk_scalar(rational(3)), a, b);
+    auto three_ab_square = r.mk_mul();
+    three_ab_square->add_child_in_power(three_ab, 3);
+    TRACE("nla_test", tout << "before simplify " << *three_ab_square << "\n";);
+    three_ab_square = to_mul(r.simplify(three_ab_square));
+    TRACE("nla_test", tout << *three_ab_square << "\n";);
+    nex_scalar * s = to_scalar(three_ab_square->children()[0].e());
+    SASSERT(s->value() == rational(27));
     auto m = r.mk_mul(); m->add_child_in_power(c, 2);
     TRACE("nla_test_", tout << "m = " << *m << "\n";); 
     auto n = r.mk_mul(a);
