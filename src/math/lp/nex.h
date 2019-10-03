@@ -330,6 +330,11 @@ public:
         return degree;
     }
     
+    const ptr_vector<nex>::const_iterator begin() const { return m_children.begin(); }
+    const ptr_vector<nex>::const_iterator end() const { return m_children.end(); }
+    ptr_vector<nex>::iterator begin() { return m_children.begin(); }
+    ptr_vector<nex>::iterator end() { return m_children.end(); }
+
     void add_child(nex* e) { m_children.push_back(e); }
 #ifdef Z3DEBUG
     virtual void sort() {
