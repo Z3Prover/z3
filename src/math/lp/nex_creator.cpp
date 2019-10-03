@@ -129,10 +129,10 @@ bool nex_creator::less_than_on_mul(const nex_mul* a, const nex_mul* b) const {
         return true;
     if (a_deg < b_deg)
         return false;
-    auto it_a  = a->children().begin();
-    auto it_b  = b->children().begin();
-    auto a_end = a->children().end();
-    auto b_end = b->children().end();
+    auto it_a  = a->begin();
+    auto it_b  = b->begin();
+    auto a_end = a->end();
+    auto b_end = b->end();
     unsigned a_pow, b_pow;
     bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
     bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
@@ -199,7 +199,7 @@ bool nex_creator::less_than_on_var_nex(const nex_var* a, const nex* b) const {
         {
             if (b->get_degree() > 1)
                 return true;
-            auto it = to_mul(b)->children().begin();
+            auto it = to_mul(b)->begin();
             const nex_pow & c  = *it;
             const nex * f = c.e();
             return less_than_on_var_nex(a, f);
@@ -225,7 +225,7 @@ bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b) const {
         {
             if (a->get_degree() > 1)
                 return false;
-            auto it = a->children().begin();
+            auto it = a->begin();
             const nex_pow & c  = *it;
             const nex * f = c.e();
             return lt(f, a);
@@ -234,7 +234,7 @@ bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b) const {
         return less_than_on_mul(a, to_mul(b));            
     case expr_type::SUM:
         {
-            const nex* fc = *(to_sum(b)->children().begin());
+            const nex* fc = *(to_sum(b)->begin());
             return lt(a, fc);
         }
     default:
@@ -276,7 +276,7 @@ bool nex_creator::lt(const nex* a, const nex* b) const {
 }
 
 bool nex_creator::is_sorted(const nex_mul* e) const {
-    for (unsigned j = 0; j < e->children().size() - 1; j++) {
+    for (unsigned j = 0; j < e->size() - 1; j++) {
         if (!(less_than_on_nex_pow(e->children()[j], e->children()[j+1])))
             return false;
     }
@@ -287,7 +287,7 @@ bool nex_creator::is_sorted(const nex_mul* e) const {
 
 
 bool nex_creator::mul_is_simplified(const nex_mul* e) const {
-    if (e->size() == 1 && e->children().begin()->pow() == 1)
+    if (e->size() == 1 && e->begin()->pow() == 1)
         return false;
     std::set<const nex*, nex_lt> s([this](const nex* a, const nex* b) {return lt(a, b); });
     for (const auto &p : e->children()) {
@@ -420,7 +420,7 @@ bool nex_creator::process_mul_in_simplify_sum(nex_mul* em, std::map<nex*, ration
         SASSERT(it->pow() == 1);
         rational r = to_scalar(it->e())->value();              
         auto end = em->end();
-        if (em->children().size() == 2 && em->children()[1].pow() == 1) {
+        if (em->size() == 2 && em->children()[1].pow() == 1) {
             found = register_in_join_map(map, em->children()[1].e(), r);
         } else {
             nex_mul * m = new nex_mul();
@@ -521,7 +521,7 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
 }
 
 bool all_factors_are_elementary(const nex_mul* a) {
-    for (auto & p : a->children())
+    for (auto & p : *a)
         if (!p.e()->is_elementary())
             return false;
 
@@ -529,7 +529,7 @@ bool all_factors_are_elementary(const nex_mul* a) {
 }
 
 bool have_no_scalars(const nex_mul* a) {
-    for (auto & p : a->children())
+    for (auto & p : *a)
         if (p.e()->is_scalar() && !to_scalar(p.e())->value().is_one())
             return false;
 
@@ -549,7 +549,7 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
     if (a->is_sum()) {
         return mk_div_sum_by_mul(to_sum(a), b);
     }
-    if (a->is_var() || (a->is_mul() && to_mul(a)->children().size() == 1)) {
+    if (a->is_var() || (a->is_mul() && to_mul(a)->size() == 1)) {
         SASSERT(b->get_degree() == 1 && !b->has_a_coeff() && b->contains(to_var(a)->var()));        
         return mk_scalar(rational(1));
     }
@@ -589,7 +589,7 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
         TRACE("nla_cn_details", tout << *ret << "\n";);            
     }
     SASSERT(m_powers.size() == 0);
-    if (ret->children().size() == 0) {
+    if (ret->size() == 0) {
         delete ret;
         TRACE("nla_cn_details", tout << "return 1\n";);
         return mk_scalar(rational(1));
