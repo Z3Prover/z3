@@ -1546,8 +1546,7 @@ struct
   end
 
   let get_const_interp (x:model) (f:func_decl) =
-    if FuncDecl.get_arity f <> 0 ||
-       (sort_kind_of_int (Z3native.get_sort_kind (FuncDecl.gc f) (Z3native.get_range (FuncDecl.gc f) f))) = ARRAY_SORT then
+    if FuncDecl.get_arity f <> 0 then
       raise (Error "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
     else
       let np = Z3native.model_get_const_interp (gc x) x f  in
