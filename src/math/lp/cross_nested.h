@@ -78,7 +78,7 @@ public:
     nex* extract_common_factor(nex* e) {
         nex_sum* c = to_sum(e);
         TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
-        unsigned size = c->children().size();
+        unsigned size = c->size();
         bool have_factor = false;
         for(const auto & p : m_nex_creator.occurences_map()) {
             if (p.second.m_occs == size) {
@@ -131,7 +131,7 @@ public:
         nex_mul* cm; 
         *c = cm = m_nex_creator.mk_mul(f, c_over_f);
         TRACE("nla_cn", tout << "common factor=" << *f << ", c=" << **c << "\ne = " << *m_e << "\n";);
-        explore_expr_on_front_elem(cm->children()[1].ee(),  front);
+        explore_expr_on_front_elem((*cm)[1].ee(),  front);
         return true;
     }
 
@@ -193,7 +193,7 @@ public:
 
     void calc_occurences(nex_sum* e) {
         clear_maps();
-        for (const auto * ce : e->children()) {
+        for (const auto * ce : *e) {
             if (ce->is_mul()) {
                 to_mul(ce)->get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
@@ -338,7 +338,7 @@ public:
     // The result is sorted by large number of occurences first
     vector<std::pair<lpvar, occ>> get_mult_occurences(const nex_sum* e) {
         clear_maps();
-        for (const auto * ce : e->children()) {
+        for (const auto * ce : *e) {
             if (ce->is_mul()) {
                 to_mul(ce)->get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
@@ -375,7 +375,7 @@ public:
         TRACE("nla_cn_details", tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
         a = m_nex_creator.mk_sum();
         m_b_split_vec.clear();
-        for (nex * ce: e->children()) {
+        for (nex * ce: *e) {
             if (is_divisible_by_var(ce, j)) {
                 a->add_child(m_nex_creator.mk_div(ce , j));
             } else {
@@ -385,7 +385,7 @@ public:
             }        
         }
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
-        SASSERT(a->children().size() >= 2 && m_b_split_vec.size());
+        SASSERT(a->size() >= 2 && m_b_split_vec.size());
         a = to_sum(m_nex_creator.simplify_sum(a));
         
         if (m_b_split_vec.size() == 1) {
@@ -402,12 +402,12 @@ public:
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = m_nex_creator.mk_sum(m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a), b); // e = j*a + b
         if (!a->is_linear()) {
-            nex **ptr_to_a = (to_mul(to_sum(e)->children()[0]))->children()[1].ee();
+            nex **ptr_to_a = ((*to_mul((*to_sum(e))[0])))[1].ee();
             push_to_front(front, ptr_to_a);
         }
         
         if (b->is_sum() && !to_sum(b)->is_linear()) {
-            nex **ptr_to_a = &(to_sum(e)->children()[1]);
+            nex **ptr_to_a = &((*to_sum(e))[1]);
             push_to_front(front, ptr_to_a);
         }
     }
@@ -416,7 +416,7 @@ public:
         if (b == nullptr) {
             e = m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a);
             if (!to_sum(a)->is_linear())
-                push_to_front(front, to_mul(e)->children()[1].ee());
+                push_to_front(front, (*to_mul(e))[1].ee());
         } else {
             update_front_with_split_with_non_empty_b(e, j, front, a, b);
         }
@@ -442,33 +442,6 @@ public:
         return true;
     }
 
-    static std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
-        std::unordered_set<lpvar> r;
-        switch (e->type()) {
-        case expr_type::SCALAR:
-            return r;
-        case expr_type::SUM:
-            {
-                for (auto c: to_sum(e)->children())
-                    for ( lpvar j : get_vars_of_expr(c))
-                        r.insert(j);
-            }
-        case expr_type::MUL:
-            {
-                for (auto &c: to_mul(e)->children())
-                    for ( lpvar j : get_vars_of_expr(c.e()))
-                        r.insert(j);
-            }
-            return r;
-        case expr_type::VAR:
-            r.insert(to_var(e)->var());
-            return r;
-        default:
-            TRACE("nla_cn_details", tout << e->type() << "\n";);
-            SASSERT(false);
-            return r;
-        }
-    }
     
     ~cross_nested() {
         m_nex_creator.clear();

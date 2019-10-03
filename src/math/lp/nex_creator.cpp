@@ -329,13 +329,22 @@ nex* nex_creator::simplify_sum(nex_sum *e) {
 }
 
 bool nex_creator::sum_is_simplified(const nex_sum* e) const {
-    TRACE("nla_cn_details",  tout << ++ lp::lp_settings::ddd << std::endl;);
     
     if (e->size() < 2) return false;
+    bool scalar = false;
     for (nex * ee : *e) {
         if (ee->is_sum())
             return false;
-        if (ee->is_scalar() && to_scalar(ee)->value().is_zero())
+        if (ee->is_scalar()) {
+            if (scalar) {
+                return false;
+            }
+            if (to_scalar(ee)->value().is_zero()) {
+                return false;
+            }
+            scalar = true;
+        }
+        if (!is_simplified(ee))
             return false;
     }
     return true;
@@ -550,7 +559,7 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
         return mk_div_sum_by_mul(to_sum(a), b);
     }
     if (a->is_var() || (a->is_mul() && to_mul(a)->size() == 1)) {
-        SASSERT(b->get_degree() == 1 && !b->has_a_coeff() && b->contains(to_var(a)->var()));        
+        SASSERT(b->get_degree() == 1 && !b->has_a_coeff() && get_vars_of_expr(a) == get_vars_of_expr(b));        
         return mk_scalar(rational(1));
     }
     const nex_mul* am = to_mul(a);
