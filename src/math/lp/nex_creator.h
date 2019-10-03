@@ -220,6 +220,10 @@ public:
                                          const rational& coeff) ;
 
     void sort_join_sum(ptr_vector<nex> & children);
+    bool fill_join_map_for_sum(ptr_vector<nex> & children,
+                           std::map<nex*, rational, nex_lt>& map,
+                           std::unordered_set<nex*>& existing_nex,
+                               nex_scalar*& common_scalar);
     bool register_in_join_map(std::map<nex*, rational, nex_lt>&, nex*, const rational&) const;
 
     void simplify_children_of_sum(ptr_vector<nex> & children);
@@ -231,6 +235,7 @@ public:
     bool less_than_on_mul(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
-    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);    
+    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
+    void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);   
 };
 }
