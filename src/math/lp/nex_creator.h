@@ -224,7 +224,7 @@ public:
 
     void simplify_children_of_sum(ptr_vector<nex> & children);
     
-    bool eat_scalar_pow(nex_scalar *& r, nex_pow& p);
+    bool eat_scalar_pow(nex_scalar *& r, nex_pow& p, unsigned);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
     bool lt(const nex* a, const nex* b) const;    
