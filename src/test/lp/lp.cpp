@@ -74,6 +74,60 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
     cn.run(t);
 }
 
+unsigned find_power_of_var(lpvar j, const nex* e) {
+    if (e->is_scalar())
+        return 0;
+    if (e->is_var()) {
+        return to_var(e)->var() == j? 1: 0;            
+    }
+    if (e->is_sum()) {
+        unsigned r = 0;        
+        for (auto ee : *to_sum(e)) {
+            r = std::max(r, find_power_of_var(j, ee));
+        }
+        return r;
+    }
+    if (e->is_mul()) {
+        unsigned r = 0;
+        for (auto p : *to_mul(e)) {
+            r += find_power_of_var(j, p.e()) * p.pow();
+        }
+        return r;
+    }
+    
+}
+
+bool mul_has_var_in_power(lpvar j, unsigned k, const nex_mul* e) {
+    for (auto c : *e) {
+        unsigned p = find_power_of_var(j, c.e())*c.pow();
+        if (p >= k)
+            return true;
+        k -= p;
+    }
+    SASSERT(k);
+    return false;
+}
+
+bool has_var_in_power(lpvar j, unsigned k, const nex* e) {
+    TRACE("nla_cn", tout << "j = " << nex_creator::ch(j) << ", e = " << *e << ", k = " << k << "\n";);
+    if (k == 0)
+        return true;
+    if (e->is_scalar())
+        return false;
+    if (e->is_var()) {
+        return k == 1 && to_var(e)->var() == j;
+    }
+    if (e->is_sum()) {
+        for (auto ee : *to_sum(e)) {
+            if (has_var_in_power(j, k, ee))
+                return true;
+        }
+        return false;
+    }
+    if (e->is_mul()) {
+        return mul_has_var_in_power(j, k, to_mul(e));
+    }
+}
 
 void test_simplify() {
     cross_nested cn(
@@ -144,7 +198,64 @@ void test_simplify() {
     TRACE("nla_test", tout << "simplified sum e = " << *pr << "\n";);
 }
 
+void test_cn_shorter() {
+    cross_nested cn(
+        [](const nex* n) {
+            TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";
+                  SASSERT(has_var_in_power(4, // stands for e
+                                           2, n));
+);
+            return false;
+        } ,
+        [](unsigned) { return false; },
+        []{ return 1; });
+    enable_trace("nla_test");
+    // enable_trace("nla_cn");
+    // enable_trace("nla_cn_details");
+    // enable_trace("nla_test_details");
+    auto & cr = cn.get_nex_creator();
+    cr.active_vars_weights().resize(20);
+    for (unsigned j = 0; j < cr.active_vars_weights().size(); j++)
+        cr.active_vars_weights()[j] = static_cast<var_weight>(1);
+        
+    nex_var* a = cr.mk_var(0);
+    nex_var* b = cr.mk_var(1);
+    nex_var* c = cr.mk_var(2);
+    nex_var* d = cr.mk_var(3);
+    nex_var* e = cr.mk_var(4);
+    nex_var* g = cr.mk_var(6);
+
+    nex* min_1 = cr.mk_scalar(rational(-1));
+    // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
+    nex* bcd = cr.mk_mul(b, c, d);
+    nex_mul* bcg = cr.mk_mul(b, c, g);
+    bcg->add_child(min_1);
+    nex_sum* t = cr.mk_sum(bcd, bcg);
+    nex* abcd = cr.mk_mul(a, b, c, d);
+    nex* aaccd = cr.mk_mul(a, a, c, c, d);
+    nex* add = cr.mk_mul(a, d, d);
+    nex* eae = cr.mk_mul(e, a, e);
+    nex* eac = cr.mk_mul(e, a, c);
+    nex* ed = cr.mk_mul(e, d);
+    nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
+#ifdef Z3DEBUG
+    nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, eae, eac));
+    clone = cr.simplify(clone);
+    SASSERT(cr.is_simplified(clone));
+    TRACE("nla_test", tout << "clone = " << *clone << "\n";);
+#endif
+    //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
+    test_cn_on_expr(to_sum(clone), cn);
+    // TRACE("nla_test", tout << "done\n";);
+    // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
+    // TRACE("nla_test", tout << "done\n";);
+    // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
+    // TRACE("nla_test", tout << "done\n";);
+    // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
+}
+
 void test_cn() {
+    test_cn_shorter();
     cross_nested cn(
         [](const nex* n) {
             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";);

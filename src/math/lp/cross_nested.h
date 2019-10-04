@@ -124,6 +124,7 @@ public:
             TRACE("nla_cn", tout << "no common factor\n"; );
             return false;
         }
+        TRACE("nla_cn", tout << "common factor f=" << *f << "\n";);
         
         nex* c_over_f = m_nex_creator.mk_div(*c, f);
         c_over_f = m_nex_creator.simplify(c_over_f);
