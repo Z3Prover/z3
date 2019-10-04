@@ -562,8 +562,8 @@ namespace nlsat {
 
         void del(atom * a) {
             if (a == nullptr)
-                return ;
-            TRACE("nlsat", display(tout << "del: b" << a->m_bool_var << " ", *a) << "\n";);
+                return;
+            TRACE("nlsat_verbose", display(tout << "del: b" << a->m_bool_var << " ", *a) << "\n";);
             if (a->is_ineq_atom())
                 del(to_ineq_atom(a));
             else
@@ -625,7 +625,7 @@ namespace nlsat {
                 bool_var b = mk_bool_var_core();
                 m_atoms[b] = atom;
                 atom->m_bool_var = b;
-                TRACE("nlsat", display(tout << "create: b" << atom->m_bool_var << " ", *atom) << "\n";);
+                TRACE("nlsat_verbose", display(tout << "create: b" << atom->m_bool_var << " ", *atom) << "\n";);
                 return b;
             }
         }
@@ -1733,7 +1733,7 @@ namespace nlsat {
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()) << "\n";);
 
-            if (m_check_lemmas) {
+            if (m_check_lemmas && false) {
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.c_ptr(), true, nullptr);
             }
 

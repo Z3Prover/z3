@@ -945,6 +945,7 @@ namespace smt {
         func_decl * r         = nullptr;
         m_stats.m_splits++;
 
+
         if (d->m_recognizers.empty()) {
             r = m_util.get_constructor_is(non_rec_c);
         }
