@@ -1547,7 +1547,7 @@ struct
 
   let get_const_interp (x:model) (f:func_decl) =
     if FuncDecl.get_arity f <> 0 then
-      raise (Error "Non-zero arity functions and arrays have FunctionInterpretations as a model. Use FuncInterp.")
+      raise (Error "Non-zero arity functions have FunctionInterpretations as a model. Use FuncInterp.")
     else
       let np = Z3native.model_get_const_interp (gc x) x f  in
       if Z3native.is_null_ast np then
