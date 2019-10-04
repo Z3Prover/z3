@@ -554,25 +554,15 @@ nex * nex_creator::mk_div_sum_by_mul(const nex_sum* m, const nex_mul* b) {
     return r;
 }
 
-nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
-    if (a->is_sum()) {
-        return mk_div_sum_by_mul(to_sum(a), b);
-    }
-    
-    if (a->is_var()) {
-        SASSERT(b->get_degree() == 1 && !b->has_a_coeff() && get_vars_of_expr(a) == get_vars_of_expr(b));        
-        return mk_scalar(rational(1));
-    }
-    const nex_mul* am = to_mul(a);
-    SASSERT(all_factors_are_elementary(am) && all_factors_are_elementary(b) && have_no_scalars(b));
+nex * nex_creator::mk_div_mul_by_mul(const nex_mul *a, const nex_mul* b) {
+    SASSERT(all_factors_are_elementary(a) && all_factors_are_elementary(b));
     b->get_powers_from_mul(m_powers);
     nex_mul* ret = new nex_mul();
-    for (auto& p : *am) {
-        TRACE("nla_cn_details", tout << "p = " << p << "\n";);
-        const nex* e = p.e();
-        if (!e->is_var()) {
-            SASSERT(e->is_scalar());
-            ret->add_child_in_power(clone(e), p.pow());
+    for (auto& p_from_a : *a) {
+        TRACE("nla_cn_details", tout << "p_from_a = " << p_from_a << "\n";);
+        const nex* e = p_from_a.e();
+        if (e->is_scalar()) {
+            ret->add_child_in_power(clone(e), p_from_a.pow());
             TRACE("nla_cn_details", tout << "processed scalar\n";);
             continue;
         }
@@ -580,20 +570,21 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
         lpvar j = to_var(e)->var();
         auto it = m_powers.find(j);
         if (it == m_powers.end()) {
-            ret->add_child_in_power(clone(e), p.pow());
+            ret->add_child_in_power(clone(e), p_from_a.pow());
         } else {
-            unsigned pw = p.pow();
-            SASSERT(pw);
-            while (pw--) {
-                SASSERT(it->second);
-                it->second --;
-                if (it->second == 0) {
-                    m_powers.erase(it);
-                    break;
-                }
-            }
-            if (pw) {
-                ret->add_child_in_power(clone(e), pw);
+            unsigned pa = p_from_a.pow(); 
+            unsigned& pb = it->second;
+            SASSERT(pa);
+            if (pa > pb) {
+                ret->add_child_in_power(mk_var(j), pa - pb);
+                m_powers.erase(it); 
+            } else if (pa == pb) {
+                m_powers.erase(it);                 
+            } else {
+                SASSERT(pa < pb);
+                // not adding the factor here, it was eaten by b,
+                // but the key j in m_powers remains
+                pb -= pa; 
             }
         }
         TRACE("nla_cn_details", tout << *ret << "\n";);            
@@ -607,6 +598,19 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
     add_to_allocated(ret);
     TRACE("nla_cn_details", tout << *ret << "\n";);        
     return ret;
+}
+
+nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
+    SASSERT(have_no_scalars(b));
+    if (a->is_sum()) {
+        return mk_div_sum_by_mul(to_sum(a), b);
+    }
+    
+    if (a->is_var()) {
+        SASSERT(b->get_degree() == 1 && get_vars_of_expr(a) == get_vars_of_expr(b));
+        return mk_scalar(rational(1));
+    }    
+    return mk_div_mul_by_mul(to_mul(a), b);
 }
 
 nex * nex_creator::mk_div(const nex* a, const nex* b) {
