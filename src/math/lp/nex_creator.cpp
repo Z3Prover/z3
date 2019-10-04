@@ -65,6 +65,8 @@ bool nex_creator::eat_scalar_pow(nex_scalar *& r, nex_pow& p, unsigned pow) {
     if (!p.e()->is_scalar())
         return false;
     nex_scalar *pe = to_scalar(p.e());
+    if (pe->value().is_one())
+        return true; // but do not change r here
     if (r == nullptr) {
         r = pe;
         r->value() = r->value().expt(p.pow()*pow);                
@@ -207,9 +209,7 @@ bool nex_creator::less_than_on_var_nex(const nex_var* a, const nex* b) const {
             
     case expr_type::SUM:
         {
-            nex_sum m;
-            m.add_child(const_cast<nex_var*>(a));
-            return lt(&m, to_sum(b));
+            return !lt((*to_sum(b))[0], a);
         }
     default:
         UNREACHABLE();
@@ -243,7 +243,20 @@ bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b) const {
     }    
 }
 
+bool nex_creator::less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const {
+    unsigned size = std::min(a->size(), b->size());
+    for (unsigned j = 0; j < size; j++) {
+        if (lt((*a)[j], (*b)[j]))
+            return true;
+        if (lt((*b)[j], (*a)[j]))
+            return false;
+    }
+    return size < b->size();
+            
+}
+
 bool nex_creator::lt(const nex* a, const nex* b) const {
+    TRACE("nla_cn_details", tout << *a << " ^ " << *b << "\n";);
     bool ret;
     switch (a->type()) {
     case expr_type::VAR: 
@@ -261,8 +274,9 @@ bool nex_creator::lt(const nex* a, const nex* b) const {
         break;
     }
     case expr_type::SUM: {
-        UNREACHABLE();
-        return false;
+        if (b->is_sum())
+            return less_than_on_sum_sum(to_sum(a), to_sum(b));
+        return lt((*to_sum(a))[0], b);
     }
     default:
         UNREACHABLE();
@@ -479,9 +493,7 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
                                        { return lt(a, b); });
     std::unordered_set<nex*> existing_nex; // handling (nex*) as numbers
     nex_scalar * common_scalar;
-    bool simplified = fill_join_map_for_sum(children, map, existing_nex, common_scalar);
-    if (!simplified)
-        return;
+    fill_join_map_for_sum(children, map, existing_nex, common_scalar);
 
     TRACE("nla_cn_details", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
     children.clear();
@@ -676,4 +688,78 @@ bool nex_creator::is_simplified(const nex *e) const
         return sum_is_simplified(to_sum(e));
     return true;
 }
+
+#ifdef Z3DEBUG
+unsigned nex_creator::find_sum_in_mul(const nex_mul* a) const {
+    for (unsigned j = 0; j < a->size(); j++)
+        if ((*a)[j].e()->is_sum())
+            return j;
+
+    return -1;
+}
+nex* nex_creator::canonize_mul(nex_mul *a) {    
+    unsigned j = find_sum_in_mul(a);
+    if (j + 1 == 0)
+        return a;
+    nex_pow& np = (*a)[j];
+    SASSERT(np.pow());
+    unsigned power = np.pow();
+    nex_sum * s = to_sum(np.e()); // s is going to explode        
+    nex_sum * r = mk_sum();
+    nex *sclone = power > 1? clone(s) : nullptr;
+    for (nex *e : *s) {
+        nex_mul *m = mk_mul();
+        if (power > 1)
+            m->add_child_in_power(sclone, power - 1);
+        m->add_child(e);
+        for (unsigned k = 0; k < a->size(); k++) {
+            if (k == j)
+                continue;
+            m->add_child_in_power(clone((*a)[k].e()), (*a)[k].pow());
+        }
+        r->add_child(m);
+    }
+    TRACE("nla_cn_details", tout << *r << "\n";);
+    return canonize(r);
+}
+
+
+nex* nex_creator::canonize(const nex *a) {
+    if (a->is_elementary())
+        return clone(a);
+    
+    nex *t = simplify(clone(a));
+    if (t->is_sum()) {
+        nex_sum * s = to_sum(t);
+        for (unsigned j = 0; j < s->size(); j++) {
+            (*s)[j] = canonize((*s)[j]);
+        }
+        t = simplify(s);
+        TRACE("nla_cn_details", tout << *t << "\n";);
+        return t;
+    }
+    return canonize_mul(to_mul(t));
+}
+
+bool nex_creator::equal(const nex* a, const nex* b) {
+    nex_creator cn;
+    unsigned n = 0;
+    for (lpvar j : get_vars_of_expr(a)) {
+        n = std::max(j + 1, n);
+    }
+    for (lpvar j : get_vars_of_expr(b)) {
+        n = std::max(j + 1, n);
+    }
+    cn.set_number_of_vars(n);
+    for (lpvar j = 0; j < n; j++) {
+        cn.set_var_weight(j, j);
+    }
+    nex * ca = cn.canonize(a);
+    nex * cb = cn.canonize(b);
+    TRACE("nla_cn_test", tout << "a = " << *a << ", canonized a = " << *ca << "\n";);
+    TRACE("nla_cn_test", tout << "b = " << *b << ", canonized b = " << *cb << "\n";);
+    return !(cn.lt(ca, cb) || cn.lt(cb, ca));
+}
+#endif
+
 }

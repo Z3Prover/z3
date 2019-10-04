@@ -60,8 +60,7 @@ public:
         SASSERT(m_nex_creator.is_simplified(e));
         m_e = e;
 #ifdef Z3DEBUG
-        //        m_e_clone = clone(m_e);
-        //        m_e_clone = normalize(m_e_clone);
+        m_e_clone = m_nex_creator.clone(m_e);
 #endif
         vector<nex**> front;
         explore_expr_on_front_elem(&m_e, front);
@@ -255,13 +254,9 @@ public:
             if(front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e) || ++m_reported > 100;
-// #ifdef Z3DEBUG
-//                 nex *ce = clone(m_e);
-//                 TRACE("nla_cn", tout << "ce = " << *ce <<  "\n";);
-//                 nex *n = normalize(ce);
-//                 TRACE("nla_cn", tout << "n = " << *n << "\nm_e_clone=" << * m_e_clone << "\n";);
-//                 SASSERT(*n == *m_e_clone);
-// #endif
+ #ifdef Z3DEBUG
+                SASSERT(nex_creator::equal(m_e, m_e_clone));
+ #endif
             } else {
                 nex** f = pop_front(front);
                 explore_expr_on_front_elem(f, front);     

@@ -54,7 +54,7 @@ class nex_creator {
     ptr_vector<nex>                              m_allocated;
     std::unordered_map<lpvar, occ>               m_occurences_map;
     std::unordered_map<lpvar, unsigned>          m_powers;
-    svector<var_weight>                          m_active_vars_weights;
+    svector<unsigned>                            m_active_vars_weights;
 
 public:
     static char ch(unsigned j) {
@@ -64,9 +64,23 @@ public:
         return (char)('a'+j);
     }
 
-    svector<var_weight>& active_vars_weights() { return m_active_vars_weights;}
-    const svector<var_weight>& active_vars_weights() const { return m_active_vars_weights;}
+    // assuming that every lpvar is less than this number
+    void set_number_of_vars(unsigned k) {
+        m_active_vars_weights.resize(k);
+    }
 
+    unsigned get_number_of_vars() const {
+        return m_active_vars_weights.size();
+    }
+
+    
+    void set_var_weight(unsigned j, unsigned weight) {
+        m_active_vars_weights[j] = weight;
+    }
+private:
+    svector<unsigned>& active_vars_weights() { return m_active_vars_weights;}
+    const svector<unsigned>& active_vars_weights() const { return m_active_vars_weights;}
+public:
     nex* simplify(nex* e);
     
     bool less_than(lpvar j, lpvar k) const{
@@ -237,7 +251,15 @@ public:
     bool less_than_on_mul(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
+    bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
     void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);
+#ifdef Z3DEBUG
+    static
+    bool equal(const nex*, const nex* );
+    nex* canonize(const nex*);
+    nex* canonize_mul(nex_mul*);
+    unsigned find_sum_in_mul(const nex_mul* a) const;
+#endif
 };
 }

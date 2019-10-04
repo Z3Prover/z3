@@ -102,9 +102,9 @@ var_weight nla_grobner::get_var_weight(lpvar j) const {
 }
 
 void nla_grobner::set_active_vars_weights() {
-    m_nex_creator.active_vars_weights().resize(c().m_lar_solver.column_count());
+    m_nex_creator.set_number_of_vars(c().m_lar_solver.column_count());
     for (lpvar j : m_active_vars) {
-        m_nex_creator.active_vars_weights()[j] = get_var_weight(j);
+        m_nex_creator.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
     }
 }
 

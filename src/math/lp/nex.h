@@ -410,6 +410,7 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
                     for ( lpvar j : get_vars_of_expr(c))
                         r.insert(j);
             }
+            return r;
         case expr_type::MUL:
             {
                 for (auto &c: *to_mul(e))

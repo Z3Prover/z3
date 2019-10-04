@@ -108,27 +108,6 @@ bool mul_has_var_in_power(lpvar j, unsigned k, const nex_mul* e) {
     return false;
 }
 
-bool has_var_in_power(lpvar j, unsigned k, const nex* e) {
-    TRACE("nla_cn", tout << "j = " << nex_creator::ch(j) << ", e = " << *e << ", k = " << k << "\n";);
-    if (k == 0)
-        return true;
-    if (e->is_scalar())
-        return false;
-    if (e->is_var()) {
-        return k == 1 && to_var(e)->var() == j;
-    }
-    if (e->is_sum()) {
-        for (auto ee : *to_sum(e)) {
-            if (has_var_in_power(j, k, ee))
-                return true;
-        }
-        return false;
-    }
-    if (e->is_mul()) {
-        return mul_has_var_in_power(j, k, to_mul(e));
-    }
-}
-
 void test_simplify() {
     cross_nested cn(
         [](const nex* n) {
@@ -144,9 +123,9 @@ void test_simplify() {
     enable_trace("nla_test");
     
     nex_creator & r = cn.get_nex_creator();
-    r.active_vars_weights().resize(3);
-    for (unsigned j = 0; j < r.active_vars_weights().size(); j++)
-        r.active_vars_weights()[j] = static_cast<var_weight>(5 - j);
+    r.set_number_of_vars(3);
+    for (unsigned j = 0; j < r.get_number_of_vars(); j++)
+        r.set_var_weight(j, j);
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
@@ -199,24 +178,25 @@ void test_simplify() {
 }
 
 void test_cn_shorter() {
+    nex_sum *clone;
     cross_nested cn(
         [](const nex* n) {
             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";
-                  SASSERT(has_var_in_power(4, // stands for e
-                                           2, n));
+                  
 );
             return false;
         } ,
         [](unsigned) { return false; },
         []{ return 1; });
     enable_trace("nla_test");
-    // enable_trace("nla_cn");
-    // enable_trace("nla_cn_details");
-    // enable_trace("nla_test_details");
+    enable_trace("nla_cn");
+    enable_trace("nla_cn_test");
+    enable_trace("nla_cn_details");
+    enable_trace("nla_test_details");
     auto & cr = cn.get_nex_creator();
-    cr.active_vars_weights().resize(20);
-    for (unsigned j = 0; j < cr.active_vars_weights().size(); j++)
-        cr.active_vars_weights()[j] = static_cast<var_weight>(1);
+    cr.set_number_of_vars(20);
+    for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+        cr.set_var_weight(j,j);
         
     nex_var* a = cr.mk_var(0);
     nex_var* b = cr.mk_var(1);
@@ -238,20 +218,11 @@ void test_cn_shorter() {
     nex* eac = cr.mk_mul(e, a, c);
     nex* ed = cr.mk_mul(e, d);
     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
-#ifdef Z3DEBUG
-    nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, eae, eac));
-    clone = cr.simplify(clone);
-    SASSERT(cr.is_simplified(clone));
+    clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, eac)));
+    clone = to_sum(cr.simplify(clone));
     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
-#endif
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
-    test_cn_on_expr(to_sum(clone), cn);
-    // TRACE("nla_test", tout << "done\n";);
-    // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
-    // TRACE("nla_test", tout << "done\n";);
-    // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
-    // TRACE("nla_test", tout << "done\n";);
-    // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
+    test_cn_on_expr(clone, cn);
 }
 
 void test_cn() {
@@ -264,12 +235,13 @@ void test_cn() {
         [](unsigned) { return false; },
         []{ return 1; });
     enable_trace("nla_test");
+    enable_trace("nla_cn_test");
     //    enable_trace("nla_cn");
     //   enable_trace("nla_test_details");
     auto & cr = cn.get_nex_creator();
-    cr.active_vars_weights().resize(20);
-    for (unsigned j = 0; j < cr.active_vars_weights().size(); j++)
-        cr.active_vars_weights()[j] = static_cast<var_weight>(1);
+    cr.set_number_of_vars(20);
+    for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+        cr.set_var_weight(j, j);
         
     nex_var* a = cr.mk_var(0);
     nex_var* b = cr.mk_var(1);
