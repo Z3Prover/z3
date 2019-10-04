@@ -558,7 +558,8 @@ nex * nex_creator::mk_div_by_mul(const nex* a, const nex_mul* b) {
     if (a->is_sum()) {
         return mk_div_sum_by_mul(to_sum(a), b);
     }
-    if (a->is_var() || (a->is_mul() && to_mul(a)->size() == 1)) {
+    
+    if (a->is_var()) {
         SASSERT(b->get_degree() == 1 && !b->has_a_coeff() && get_vars_of_expr(a) == get_vars_of_expr(b));        
         return mk_scalar(rational(1));
     }
