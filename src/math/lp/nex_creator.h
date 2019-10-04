@@ -204,6 +204,7 @@ public:
     nex * mk_div(const nex* a, const nex* b);
     nex * mk_div_by_mul(const nex* a, const nex_mul* b);
     nex * mk_div_sum_by_mul(const nex_sum* a, const nex_mul* b);
+    nex * mk_div_mul_by_mul(const nex_mul* a, const nex_mul* b);
     
     nex * simplify_mul(nex_mul *e);    
     bool is_sorted(const nex_mul * e) const;    
