@@ -74,41 +74,8 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
     cn.run(t);
 }
 
-unsigned find_power_of_var(lpvar j, const nex* e) {
-    if (e->is_scalar())
-        return 0;
-    if (e->is_var()) {
-        return to_var(e)->var() == j? 1: 0;            
-    }
-    if (e->is_sum()) {
-        unsigned r = 0;        
-        for (auto ee : *to_sum(e)) {
-            r = std::max(r, find_power_of_var(j, ee));
-        }
-        return r;
-    }
-    if (e->is_mul()) {
-        unsigned r = 0;
-        for (auto p : *to_mul(e)) {
-            r += find_power_of_var(j, p.e()) * p.pow();
-        }
-        return r;
-    }
-    
-}
-
-bool mul_has_var_in_power(lpvar j, unsigned k, const nex_mul* e) {
-    for (auto c : *e) {
-        unsigned p = find_power_of_var(j, c.e())*c.pow();
-        if (p >= k)
-            return true;
-        k -= p;
-    }
-    SASSERT(k);
-    return false;
-}
-
 void test_simplify() {
+#ifdef Z3DEBUG
     cross_nested cn(
         [](const nex* n) {
                            TRACE("nla_cn_test", tout << *n << "\n";);
@@ -175,6 +142,7 @@ void test_simplify() {
     TRACE("nla_test", tout << "before simplify pr = " << *pr << "\n";);
     r.simplify(pr);
     TRACE("nla_test", tout << "simplified sum e = " << *pr << "\n";);
+#endif
 }
 
 void test_cn_shorter() {
@@ -221,6 +189,7 @@ void test_cn_shorter() {
 }
 
 void test_cn() {
+#ifdef Z3DEBUG
     test_cn_shorter();
     cross_nested cn(
         [](const nex* n) {
@@ -267,17 +236,16 @@ void test_cn() {
     nex* acd = cr.mk_mul(a, c, d);
         
     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
-#ifdef Z3DEBUG
     nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
     clone = cr.simplify(clone);
     SASSERT(cr.is_simplified(clone));
     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
-#endif
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(to_sum(clone), cn);
     TRACE("nla_test", tout << "done\n";);
     test_cn_on_expr(cr.mk_sum(abd,  abc, cbd, acd), cn);
     TRACE("nla_test", tout << "done\n";);
+#endif
     // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
     // TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
@@ -2006,10 +1974,12 @@ void solve_rational() {
     expected_sol["x8"] = lp::mpq(0);
     solver.find_maximal_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
+#ifdef Z3DEBUG
     for (const auto & it : expected_sol) {
         (void)it;
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
+#endif
 }
 
 

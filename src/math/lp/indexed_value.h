@@ -26,7 +26,7 @@ public:
     T m_value;
     // the idea is that m_index for a row element gives its column, and for a column element its row
     unsigned m_index;
-    // m_other point is the offset of the corresponding element in its vector : for a row element it point to the column element offset,
+    // m_other is the offset of the corresponding element in its vector : for a row element it points to the column element offset,
     // for a column element it points to the row element offset
     unsigned m_other;
     indexed_value() {}
