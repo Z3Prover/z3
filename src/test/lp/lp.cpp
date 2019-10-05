@@ -207,16 +207,11 @@ void test_cn_shorter() {
 
     nex* min_1 = cr.mk_scalar(rational(-1));
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
-    nex* bcd = cr.mk_mul(b, c, d);
     nex_mul* bcg = cr.mk_mul(b, c, g);
     bcg->add_child(min_1);
-    nex_sum* t = cr.mk_sum(bcd, bcg);
     nex* abcd = cr.mk_mul(a, b, c, d);
-    nex* aaccd = cr.mk_mul(a, a, c, c, d);
-    nex* add = cr.mk_mul(a, d, d);
     nex* eae = cr.mk_mul(e, a, e);
     nex* eac = cr.mk_mul(e, a, c);
-    nex* ed = cr.mk_mul(e, d);
     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
     clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, eac)));
     clone = to_sum(cr.simplify(clone));
@@ -260,12 +255,17 @@ void test_cn() {
     bcg->add_child(min_1);
     nex_sum* t = cr.mk_sum(bcd, bcg);
     test_cn_on_expr(t, cn);
+    nex* abd = cr.mk_mul(a, b, d);
+    nex* abc = cr.mk_mul(a, b, c);
     nex* abcd = cr.mk_mul(a, b, c, d);
     nex* aaccd = cr.mk_mul(a, a, c, c, d);
     nex* add = cr.mk_mul(a, d, d);
     nex* eae = cr.mk_mul(e, a, e);
     nex* eac = cr.mk_mul(e, a, c);
     nex* ed = cr.mk_mul(e, d);
+    nex* cbd = cr.mk_mul(c, b, d);
+    nex* acd = cr.mk_mul(a, c, d);
+        
     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
 #ifdef Z3DEBUG
     nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
@@ -275,9 +275,9 @@ void test_cn() {
 #endif
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(to_sum(clone), cn);
-    // TRACE("nla_test", tout << "done\n";);
-    // test_cn_on_expr(a*b*d + a*b*c + c*b*d + a*c*d);
-    // TRACE("nla_test", tout << "done\n";);
+    TRACE("nla_test", tout << "done\n";);
+    test_cn_on_expr(cr.mk_sum(abd,  abc, cbd, acd), cn);
+    TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
     // TRACE("nla_test", tout << "done\n";);
     // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
