@@ -96,7 +96,7 @@ public:
     void simplify_children_of_mul(vector<nex_pow> & children);
 
 
-    nex * clone(const nex* a) {
+    nex * clone(const nex* a) {        
         switch (a->type()) {
         case expr_type::VAR: {
             auto v = to_var(a);
@@ -148,7 +148,10 @@ public:
             delete e;
         m_allocated.clear();
     }
-    
+
+    ~nex_creator() {
+        clear();
+    }
     unsigned size() const { return m_allocated.size(); }
     
     nex_sum* mk_sum() {

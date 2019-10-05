@@ -233,10 +233,7 @@ bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b) const {
     case expr_type::MUL:
         return less_than_on_mul(a, to_mul(b));            
     case expr_type::SUM:
-        {
-            const nex* fc = *(to_sum(b)->begin());
-            return lt(a, fc);
-        }
+        return lt(a, (*to_sum(b))[0]);
     default:
         UNREACHABLE();
         return false;
@@ -446,7 +443,7 @@ bool nex_creator::process_mul_in_simplify_sum(nex_mul* em, std::map<nex*, ration
         if (em->size() == 2 && (*em)[1].pow() == 1) {
             found = register_in_join_map(map, (*em)[1].e(), r);
         } else {
-            nex_mul * m = new nex_mul();
+            nex_mul * m = mk_mul();
             for (it++; it != end; it++) {
                 m->add_child_in_power(it->e(), it->pow());
             }
