@@ -442,6 +442,9 @@ public:
 
     expr_ref mk_add_simplify(expr_ref_vector const& args);
     expr_ref mk_add_simplify(unsigned sz, expr* const* args);
+
+    bool is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args);
+
 };
 
 

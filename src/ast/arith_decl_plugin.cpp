@@ -779,3 +779,20 @@ expr_ref arith_util::mk_add_simplify(unsigned sz, expr* const* args) {
     }
     return result;
 }
+
+bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args) {
+    rational r;
+    if (is_decl_of(f, m_afid, OP_DIV) && is_numeral(args[1], r) && r.is_zero()) {
+        return true;
+    }
+    if (is_decl_of(f, m_afid, OP_IDIV) && is_numeral(args[1], r) && r.is_zero()) {
+        return true;
+    }
+    if (is_decl_of(f, m_afid, OP_MOD) && is_numeral(args[1], r) && r.is_zero()) {
+        return true;
+    }
+    if (is_decl_of(f, m_afid, OP_REM) && is_numeral(args[1], r) && r.is_zero()) {
+        return true;
+    }
+    return plugin().is_considered_uninterpreted(f);
+}

@@ -592,7 +592,7 @@ namespace smt {
 
         bool has_length(expr *e) const { return m_has_length.contains(e); }
         void add_length(expr* e, expr* l);
-        void enforce_length(expr* n);
+        bool add_length_to_eqc(expr* n);
         bool enforce_length(expr_ref_vector const& es, vector<rational>& len);
         void enforce_length_coherence(enode* n1, enode* n2);
 

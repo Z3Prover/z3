@@ -1327,25 +1327,25 @@ namespace upolynomial {
         div(sz, p, 2, two_x_1, buffer);
     }
 
-    int manager::sign_of(numeral const & c) {
+    polynomial::sign manager::sign_of(numeral const & c) {
         if (m().is_zero(c))
-            return 0;
+            return polynomial::sign_zero;
         if (m().is_pos(c))
-            return 1;
+            return polynomial::sign_pos;
         else
-            return -1;
+            return polynomial::sign_neg;
     }
 
     // Return the number of sign changes in the coefficients of p
     unsigned manager::sign_changes(unsigned sz, numeral const * p) {
         unsigned r = 0;
-        int prev_sign = 0;
+        auto prev_sign = polynomial::sign_zero;
         unsigned i = 0;
         for (; i < sz; i++) {
-            int sign = sign_of(p[i]);
-            if (sign == 0)
+            auto sign = sign_of(p[i]);
+            if (sign == polynomial::sign_zero)
                 continue;
-            if (sign != prev_sign && prev_sign != 0)
+            if (sign != prev_sign && prev_sign != polynomial::sign_zero)
                 r++;
             prev_sign = sign;
         }
@@ -1729,14 +1729,14 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    int manager::eval_sign_at(unsigned sz, numeral const * p, mpbq const & b) {
+    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpbq const & b) {
         // Actually, given b = c/2^k, we compute the sign of (2^k)^n*p(b)
         // Original Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         // Variation of the Horner Sequence for (2^k)^n*p(b)
         //     ((a_n * c + a_{n-1}*2_k)*c + a_{n-2}*(2_k)^2)*c + a_{n-3}*(2_k)^3 ... + a_0*(2_k)^n
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         numeral const & c = b.numerator();
@@ -1762,14 +1762,14 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    int manager::eval_sign_at(unsigned sz, numeral const * p, mpq const & b) {
+    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpq const & b) {
         // Actually, given b = c/d, we compute the sign of (d^n)*p(b)
         // Original Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         // Variation of the Horner Sequence for (d^n)*p(b)
         //     ((a_n * c + a_{n-1}*d)*c + a_{n-2}*d^2)*c + a_{n-3}*d^3 ... + a_0*d^n
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         numeral const & c = b.numerator();
@@ -1796,11 +1796,11 @@ namespace upolynomial {
     }
 
     // Evaluate the sign of p(b)
-    int manager::eval_sign_at(unsigned sz, numeral const * p, mpz const & b) {
+    polynomial::sign manager::eval_sign_at(unsigned sz, numeral const * p, mpz const & b) {
         // Using Horner Sequence
         //     ((a_n * b + a_{n-1})*b + a_{n-2})*b + a_{n-3} ...
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         if (sz == 1)
             return sign_of(p[0]);
         scoped_numeral r(m());
@@ -1817,21 +1817,21 @@ namespace upolynomial {
         return sign_of(r);
     }
 
-    int manager::eval_sign_at_zero(unsigned sz, numeral const * p) {
+    polynomial::sign manager::eval_sign_at_zero(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         return sign_of(p[0]);
     }
 
-    int manager::eval_sign_at_plus_inf(unsigned sz, numeral const * p) {
+    polynomial::sign manager::eval_sign_at_plus_inf(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         return sign_of(p[sz-1]);
     }
 
-    int manager::eval_sign_at_minus_inf(unsigned sz, numeral const * p) {
+    polynomial::sign manager::eval_sign_at_minus_inf(unsigned sz, numeral const * p) {
         if (sz == 0)
-            return 0;
+            return polynomial::sign_zero;
         unsigned degree = sz - 1;
         if (degree % 2 == 0)
             return sign_of(p[sz-1]);

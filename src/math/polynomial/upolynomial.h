@@ -554,7 +554,7 @@ namespace upolynomial {
         numeral_vector    m_tr_tmp;
         numeral_vector    m_push_tmp;
 
-        int sign_of(numeral const & c);
+        polynomial::sign sign_of(numeral const & c);
         struct drs_frame;
         void pop_top_frame(numeral_vector & p_stack, svector<drs_frame> & frame_stack);
         void push_child_frames(unsigned sz, numeral const * p, numeral_vector & p_stack, svector<drs_frame> & frame_stack);
@@ -735,32 +735,32 @@ namespace upolynomial {
         /**
            \brief Evaluate the sign of p(b) 
         */
-        int eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
+        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpbq const & b);
+        
+        /**
+           \brief Evaluate the sign of p(b)
+        */
+        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
 
         /**
            \brief Evaluate the sign of p(b)
         */
-        int eval_sign_at(unsigned sz, numeral const * p, mpq const & b);
-
-        /**
-           \brief Evaluate the sign of p(b)
-        */
-        int eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
+        polynomial::sign eval_sign_at(unsigned sz, numeral const * p, mpz const & b);
 
         /**
            \brief Evaluate the sign of p(0)
         */
-        int eval_sign_at_zero(unsigned sz, numeral const * p);
+        polynomial::sign eval_sign_at_zero(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(+oo)
         */
-        int eval_sign_at_plus_inf(unsigned sz, numeral const * p);
+        polynomial::sign eval_sign_at_plus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign of p(-oo)
         */
-        int eval_sign_at_minus_inf(unsigned sz, numeral const * p);
+        polynomial::sign eval_sign_at_minus_inf(unsigned sz, numeral const * p);
 
         /**
            \brief Evaluate the sign variations in the polynomial sequence at -oo

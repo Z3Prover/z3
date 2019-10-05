@@ -139,6 +139,7 @@ namespace polynomial {
         polynomial * mk_unique(polynomial * p) {
             if (m_in_cache.get(pid(p), false))
                 return p;
+            // m.gcd_simplify(p);
             polynomial * p_prime = m_poly_table.insert_if_not_there(p);
             if (p == p_prime) {
                 m_cached_polys.push_back(p_prime); 

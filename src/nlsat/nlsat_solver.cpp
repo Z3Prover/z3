@@ -766,7 +766,7 @@ namespace nlsat {
             TRACE("nlsat", display(tout << "check lemma: ", n, cls) << "\n";
                   display(tout););
             IF_VERBOSE(0, display(verbose_stream() << "check lemma: ", n, cls) << "\n");
-            for (clause* c : m_learned) IF_VERBOSE(0, display(verbose_stream() << "lemma: ", *c) << "\n"); 
+            for (clause* c : m_learned) IF_VERBOSE(1, display(verbose_stream() << "lemma: ", *c) << "\n"); 
             
             solver solver2(m_ctx);
             imp& checker = *(solver2.m_imp);

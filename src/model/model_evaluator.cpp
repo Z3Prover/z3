@@ -333,13 +333,8 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_REWRITE_FULL;
         }
 
-        rational r;
-        if (is_decl_of(f, m_au.get_family_id(), OP_DIV) && m_au.is_numeral(args[1], r) && r.is_zero()) {
-            result = m_au.mk_real(0);
-            return BR_DONE;
-        }
-        if (is_decl_of(f, m_au.get_family_id(), OP_IDIV) && m_au.is_numeral(args[1], r) && r.is_zero()) {
-            result = m_au.mk_int(0);
+        if (m_au.is_considered_uninterpreted(f, num, args)) {
+            result = m_au.mk_numeral(rational(0), f->get_range());
             return BR_DONE;
         }
         return BR_FAILED;

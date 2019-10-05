@@ -197,9 +197,10 @@ namespace nlsat {
            \brief Reset m_already_added vector using m_result
          */
         void reset_already_added() {
-            SASSERT(m_result != 0);
+            SASSERT(m_result != nullptr);
             for (literal lit : *m_result) 
                 m_already_added_literal[lit.index()] = false;
+            SASSERT(check_already_added());
         }
 
 
@@ -207,9 +208,9 @@ namespace nlsat {
            \brief evaluate the given polynomial in the current interpretation.
            max_var(p) must be assigned in the current interpretation.
         */
-        int sign(polynomial_ref const & p) {
+        polynomial::sign sign(polynomial_ref const & p) {
             SASSERT(max_var(p) == null_var || m_assignment.is_assigned(max_var(p)));
-            int s = m_am.eval_sign_at(p, m_assignment);
+            auto s = m_am.eval_sign_at(p, m_assignment);
             TRACE("nlsat_explain", tout << "p: " << p << " var: " << max_var(p) << " sign: " << s << "\n";);
             return s;
         }
@@ -270,7 +271,7 @@ namespace nlsat {
             polynomial_ref f(m_pm);
             for (unsigned i = 0; i < num_factors; i++) {
                 f = m_factors.get(i);
-                if (sign(f) == 0) {
+                if (sign(f) == polynomial::sign_zero) {
                     m_zero_fs.push_back(m_factors.get(i));
                     m_is_even.push_back(false);
                 } 
@@ -323,7 +324,7 @@ namespace nlsat {
                     return; // lc is a nonzero constant
                 lc = m_pm.coeff(p, x, k, reduct);
                 if (!is_zero(lc)) {
-                    if (sign(lc) != 0)
+                    if (sign(lc) != polynomial::sign_zero)
                         return;
                     // lc is not the zero polynomial, but it vanished in the current interpretation.
                     // so we keep searching...
@@ -959,8 +960,9 @@ namespace nlsat {
             if (ps.empty())
                 return;
             m_todo.reset();
-            for (unsigned i = 0; i < ps.size(); i++) 
-                m_todo.insert(ps.get(i));
+            for (poly* p : ps) {
+                m_todo.insert(p);
+            }
             var x = m_todo.remove_max_polys(ps);
             // Remark: after vanishing coefficients are eliminated, ps may not contain max_x anymore
             if (x < max_x)
@@ -983,8 +985,8 @@ namespace nlsat {
         }
 
         bool check_already_added() const {
-            for (unsigned i = 0; i < m_already_added_literal.size(); i++) {
-                SASSERT(m_already_added_literal[i] == false);
+            for (bool b : m_already_added_literal) {
+                SASSERT(!b);
             }
             return true;
         }
@@ -1062,7 +1064,7 @@ namespace nlsat {
         void simplify(literal l, eq_info & info, var max, scoped_literal & new_lit) {
             bool_var b = l.var();
             atom * a   = m_atoms[b];
-            SASSERT(a != 0);
+            SASSERT(a);
             if (a->is_root_atom()) {
                 new_lit = l;
                 return;
@@ -1091,19 +1093,24 @@ namespace nlsat {
                 modified_lit = true;
                 unsigned d;
                 m_pm.pseudo_remainder(f, info.m_eq, info.m_x, d, new_factor);
+                polynomial_ref        fact(f, m_pm), eq(const_cast<poly*>(info.m_eq), m_pm);
+                
+                TRACE("nlsat_simplify_core", tout << "d: " << d << " factor " << fact << " eq " << eq << " new factor " << new_factor << "\n";);
                 // adjust sign based on sign of lc of eq
-                if (d % 2 == 1 && // d is odd
-                    !is_even   && // degree of the factor is odd
-                    info.m_lc_sign < 0 // lc of the eq is negative 
-                    ) {
+                if (d % 2 == 1 &&         // d is odd
+                    !is_even   &&         // degree of the factor is odd
+                    info.m_lc_sign < 0) { // lc of the eq is negative 
                     atom_sign = -atom_sign; // flipped the sign of the current literal
+                    TRACE("nlsat_simplify_core", tout << "odd degree\n";);
                 }
                 if (is_const(new_factor)) {
-                    int s = sign(new_factor); 
-                    if (s == 0) {
+                    TRACE("nlsat_simplify_core", tout << "new factor is const\n";);
+                    polynomial::sign s = sign(new_factor); 
+                    if (s == polynomial::sign_zero) {
                         bool atom_val = a->get_kind() == atom::EQ;
                         bool lit_val  = l.sign() ? !atom_val : atom_val;
                         new_lit = lit_val ? true_literal : false_literal;
+                        TRACE("nlsat_simplify_core", tout << "zero sign: " << info.m_lc_const << "\n";);
                         if (!info.m_lc_const) {
                             // We have essentially shown the current factor must be zero If the leading coefficient is not zero.
                             // Note that, if the current factor is zero, then the whole polynomial is zero.
@@ -1115,6 +1122,7 @@ namespace nlsat {
                         return;
                     }
                     else {
+                        TRACE("nlsat_simplify_core", tout << "non-zero sign: " << info.m_lc_const << "\n";);
                         // We have shown the current factor is a constant MODULO the sign of the leading coefficient (of the equation used to rewrite the factor). 
                         if (!info.m_lc_const) {
                             // If the leading coefficient is not a constant, we must store this information as an extra assumption.
@@ -1266,11 +1274,9 @@ namespace nlsat {
         var_vector m_select_tmp;
         ineq_atom * select_lower_stage_eq(scoped_literal_vector & C, var max) {
             var_vector & xs = m_select_tmp;
-            unsigned sz = C.size();
-            for (unsigned i = 0; i < sz; i++) {
-                literal l = C[i];
+            for (literal l : C) {
                 bool_var b = l.var();
-                atom * a   = m_atoms[b];
+                atom * a = m_atoms[b];
                 if (a->is_root_atom())
                     continue; // we don't rewrite root atoms
                 ineq_atom * _a = to_ineq_atom(a);
@@ -1279,9 +1285,7 @@ namespace nlsat {
                     poly * p = _a->p(j);
                     xs.reset();
                     m_pm.vars(p, xs);
-                    unsigned xs_sz = xs.size();
-                    for (unsigned k = 0; k < xs_sz; k++) {
-                        var y = xs[k];
+                    for (var y : xs) {
                         if (y >= max)
                             continue;
                         atom * eq = m_x2eq[y];

@@ -173,7 +173,7 @@ namespace algebraic_numbers {
         /**
            \brief Isolate the roots of the given polynomial, and compute its sign between them.
         */
-        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<int> & signs);
+        void isolate_roots(polynomial_ref const & p, polynomial::var2anum const & x2v, numeral_vector & roots, svector<polynomial::sign> & signs);
 
         /**
            \brief Store in r the i-th root of p.
@@ -304,7 +304,7 @@ namespace algebraic_numbers {
            Return 0                if p(alpha_1, ..., alpha_n) == 0
            Return positive number  if p(alpha_1, ..., alpha_n) >  0
         */
-        int eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v);
+        polynomial::sign eval_sign_at(polynomial_ref const & p, polynomial::var2anum const & x2v);
 
         void get_polynomial(numeral const & a, svector<mpz> & r);
         

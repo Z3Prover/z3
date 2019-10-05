@@ -439,7 +439,6 @@ void asserted_formulas::commit() {
 }
 
 void asserted_formulas::commit(unsigned new_qhead) {
-    TRACE("asserted_formulas", tout << "commit " << new_qhead << "\n";);
     m_macro_manager.mark_forbidden(new_qhead - m_qhead, m_formulas.c_ptr() + m_qhead);
     m_expr2depth.reset();
     for (unsigned i = m_qhead; i < new_qhead; ++i) {

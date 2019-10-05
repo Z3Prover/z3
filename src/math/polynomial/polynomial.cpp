@@ -1068,12 +1068,12 @@ namespace polynomial {
             g.reserve(std::min(sz1, sz2));
             r1.reserve(sz2); // r1 has at most num_args2 arguments
             r2.reserve(sz1); // r2 has at most num_args1 arguments
-            bool found   = false;
-            unsigned i1  = 0;
-            unsigned i2  = 0;
-            unsigned j1  = 0;
-            unsigned j2  = 0;
-            unsigned j3  = 0;
+            bool found  = false;
+            unsigned i1 = 0;
+            unsigned i2 = 0;
+            unsigned j1 = 0;
+            unsigned j2 = 0;
+            unsigned j3 = 0;
             while (true) {
                 if (i1 == sz1) {
                     if (found) {
@@ -2499,6 +2499,32 @@ namespace polynomial {
             SASSERT(m_polynomials[id] == 0);
             m_polynomials[id] = p;
             return p;
+        }
+
+        void gcd_simplify(polynomial * p) {
+            if (m_manager.finite()) return;
+            auto& m = m_manager.m();
+            unsigned sz = p->size();
+            if (sz == 0) 
+                return;
+            unsigned g = 0;
+            for (unsigned i = 0; i < sz; i++) {
+                if (!m.is_int(p->a(i))) {
+                    return;
+                }
+                int j = m.get_int(p->a(i));
+                if (j == INT_MIN || j == 1 || j == -1)
+                    return;
+                g = u_gcd(abs(j), g);
+                if (g == 1) 
+                    return;
+            }
+            scoped_mpz r(m), gg(m);
+            m.set(gg, g);
+            for (unsigned i = 0; i < sz; ++i) {
+                m.div_gcd(p->a(i), gg, r);
+                m.set(p->a(i), r);
+            }
         }
 
         polynomial * mk_zero() {
@@ -7039,6 +7065,10 @@ namespace polynomial {
 
     unsigned manager::hash(polynomial const * p) {
         return m_imp->hash(p);
+    }
+
+    void manager::gcd_simplify(polynomial * p) {
+        m_imp->gcd_simplify(p);
     }
 
     polynomial * manager::coeff(polynomial const * p, var x, unsigned k) {
