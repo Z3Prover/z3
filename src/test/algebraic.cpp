@@ -397,7 +397,7 @@ static void tst_isolate_roots(polynomial_ref const & p, anum_manager & am,
     std::cout << "x1 -> "; am.display_root(std::cout, v1); std::cout << "\n";
     std::cout << "x2 -> "; am.display_root(std::cout, v2); std::cout << "\n";
     scoped_anum_vector roots(am);
-    svector<int> signs;
+    svector<polynomial::sign> signs;
     am.isolate_roots(p, x2v, roots, signs);
     ENSURE(roots.size() + 1 == signs.size());
     std::cout << "roots:\n";
