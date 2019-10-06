@@ -1904,7 +1904,6 @@ bool theory_seq::check_length_coherence() {
             return true;
         }
     }
-    bool change = false;
     for (expr* l : m_length) {
         expr* e = nullptr;
         VERIFY(m_util.str.is_length(l, e));
@@ -1912,10 +1911,9 @@ bool theory_seq::check_length_coherence() {
             return true;
         }
         if (add_length_to_eqc(e)) {
-            change = true;
+            return true;
         }
     }
-    return change;
 }
 
 bool theory_seq::fixed_length(bool is_zero) {
