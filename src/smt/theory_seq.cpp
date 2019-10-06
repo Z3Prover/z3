@@ -1904,16 +1904,25 @@ bool theory_seq::check_length_coherence() {
             return true;
         }
     }
-    for (expr* l : m_length) {
+    bool change = false;
+    unsigned sz = m_length.size();
+    for (unsigned i = 0; i < sz; ++i) {
+        expr* l = m_length.get(i);
         expr* e = nullptr;
         VERIFY(m_util.str.is_length(l, e));
         if (check_length_coherence(e)) {
             return true;
         }
+        enode* n = ensure_enode(e);
+        enode* r = n->get_root();
+        if (r != n && has_length(r->get_owner())) {
+            continue;
+        }
         if (add_length_to_eqc(e)) {
-            return true;
+            change = true;
         }
     }
+    return change;
 }
 
 bool theory_seq::fixed_length(bool is_zero) {
