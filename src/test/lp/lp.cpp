@@ -76,20 +76,20 @@ void test_cn_on_expr(nex_sum *t, cross_nested& cn) {
 
 void test_simplify() {
 #ifdef Z3DEBUG
+    nex_creator r;
     cross_nested cn(
         [](const nex* n) {
                            TRACE("nla_cn_test", tout << *n << "\n";);
                            return false;
                        } ,
         [](unsigned) { return false; },
-        []() { return 1; } // for random
-                    );
+        []() { return 1; }, // for random
+                    r);
     // enable_trace("nla_cn");
     // enable_trace("nla_cn_details");
     //    enable_trace("nla_cn_details_");
     enable_trace("nla_test");
     
-    nex_creator & r = cn.get_nex_creator();
     r.set_number_of_vars(3);
     for (unsigned j = 0; j < r.get_number_of_vars(); j++)
         r.set_var_weight(j, j);
@@ -147,6 +147,7 @@ void test_simplify() {
 
 void test_cn_shorter() {
     nex_sum *clone;
+    nex_creator cr;
     cross_nested cn(
         [](const nex* n) {
             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";
@@ -155,13 +156,12 @@ void test_cn_shorter() {
             return false;
         } ,
         [](unsigned) { return false; },
-        []{ return 1; });
+        []{ return 1; }, cr);
     enable_trace("nla_test");
     enable_trace("nla_cn");
     enable_trace("nla_cn_test");
     enable_trace("nla_cn_details");
     enable_trace("nla_test_details");
-    auto & cr = cn.get_nex_creator();
     cr.set_number_of_vars(20);
     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
         cr.set_var_weight(j,j);
@@ -191,18 +191,18 @@ void test_cn_shorter() {
 void test_cn() {
 #ifdef Z3DEBUG
     test_cn_shorter();
+    nex_creator cr;
     cross_nested cn(
         [](const nex* n) {
             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";);
             return false;
         } ,
         [](unsigned) { return false; },
-        []{ return 1; });
+        []{ return 1; }, cr);
     enable_trace("nla_test");
     enable_trace("nla_cn_test");
     //    enable_trace("nla_cn");
     //   enable_trace("nla_test_details");
-    auto & cr = cn.get_nex_creator();
     cr.set_number_of_vars(20);
     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
         cr.set_var_weight(j, j);
