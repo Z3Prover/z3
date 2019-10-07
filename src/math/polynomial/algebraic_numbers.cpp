@@ -16,16 +16,16 @@ Author:
 Notes:
 
 --*/
-#include "math/polynomial/algebraic_numbers.h"
-#include "math/polynomial/upolynomial.h"
 #include "util/mpbq.h"
 #include "util/basic_interval.h"
-#include "math/polynomial/sexpr2upolynomial.h"
 #include "util/scoped_ptr_vector.h"
 #include "util/mpbqi.h"
 #include "util/timeit.h"
-#include "math/polynomial/algebraic_params.hpp"
 #include "util/common_msgs.h"
+#include "math/polynomial/algebraic_numbers.h"
+#include "math/polynomial/upolynomial.h"
+#include "math/polynomial/sexpr2upolynomial.h"
+#include "math/polynomial/algebraic_params.hpp"
 
 namespace algebraic_numbers {
 
@@ -122,6 +122,10 @@ namespace algebraic_numbers {
         }
 
         ~imp() {
+        }
+
+        bool acell_inv(algebraic_cell const& c) {
+            return c.m_sign_lower == (upm().eval_sign_at(c.m_p_sz, c.m_p, lower(&c)) == polynomial::sign_neg);
         }
 
         void checkpoint() {
@@ -366,17 +370,17 @@ namespace algebraic_numbers {
             return c;
         }
 
-        int sign_lower(algebraic_cell * c) {
-            return c->m_sign_lower == 0 ? 1 : -1;
+        polynomial::sign sign_lower(algebraic_cell * c) const {
+            return c->m_sign_lower == 0 ? polynomial::sign_pos : polynomial::sign_neg;
         }
 
-        mpbq & lower(algebraic_cell * c) {
-            return c->m_interval.lower();
-        }
+        mpbq const & lower(algebraic_cell const * c) const { return c->m_interval.lower(); }
 
-        mpbq & upper(algebraic_cell * c) {
-            return c->m_interval.upper();
-        }
+        mpbq const & upper(algebraic_cell const * c) const { return c->m_interval.upper(); }
+
+        mpbq & lower(algebraic_cell * c) { return c->m_interval.lower(); }
+
+        mpbq & upper(algebraic_cell * c) { return c->m_interval.upper(); }
 
         void update_sign_lower(algebraic_cell * c) {
             polynomial::sign sl = upm().eval_sign_at(c->m_p_sz, c->m_p, lower(c));
@@ -384,6 +388,7 @@ namespace algebraic_numbers {
             SASSERT(sl != polynomial::sign_zero);
             SASSERT(upm().eval_sign_at(c->m_p_sz, c->m_p, upper(c)) == -sl);
             c->m_sign_lower = sl == polynomial::sign_neg;
+            SASSERT(acell_inv(*c));
         }
 
         // Make sure the GCD of the coefficients is one and the leading coefficient is positive
@@ -393,6 +398,7 @@ namespace algebraic_numbers {
             if (upm().m().is_neg(c->m_p[c->m_p_sz-1])) {
                 upm().neg(c->m_p_sz, c->m_p);
                 c->m_sign_lower = !(c->m_sign_lower);
+                SASSERT(acell_inv(*c));
             }
         }
 
@@ -469,6 +475,8 @@ namespace algebraic_numbers {
             target->m_sign_lower   = source->m_sign_lower;
             target->m_not_rational = source->m_not_rational;
             target->m_i            = source->m_i;
+            SASSERT(acell_inv(*source));
+            SASSERT(acell_inv(*target));
         }
 
         void set(numeral & a, unsigned sz, mpz const * p, mpbq const & lower, mpbq const & upper, bool minimal) {
@@ -499,7 +507,7 @@ namespace algebraic_numbers {
                     update_sign_lower(c);
                     normalize_coeffs(c);
                 }
-                SASSERT(sign_lower(a.to_algebraic()) == upm().eval_sign_at(a.to_algebraic()->m_p_sz, a.to_algebraic()->m_p, a.to_algebraic()->m_interval.lower()));
+                SASSERT(acell_inv(*a.to_algebraic()));
             }
             TRACE("algebraic", tout << "a: "; display_root(tout, a); tout << "\n";);
         }
@@ -519,6 +527,7 @@ namespace algebraic_numbers {
                     algebraic_cell * c = new (mem) algebraic_cell();
                     a.m_cell = TAG(void *, c, ROOT);
                     copy(c, b.to_algebraic());
+                    SASSERT(acell_inv(*c));
                 }
             }
             else {
@@ -532,6 +541,7 @@ namespace algebraic_numbers {
                     del_poly(a.to_algebraic());
                     del_interval(a.to_algebraic());
                     copy(a.to_algebraic(), b.to_algebraic());
+                    SASSERT(acell_inv(*a.to_algebraic()));
                 }
             }
         }
@@ -693,6 +703,7 @@ namespace algebraic_numbers {
                 algebraic_cell * c = a.to_algebraic();
                 if (!upm().normalize_interval_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c)))
                     reset(a);
+                SASSERT(acell_inv(*c));
             }
         }
 
@@ -727,7 +738,9 @@ namespace algebraic_numbers {
            Return FALSE, if actual root was found.
         */
         bool refine_core(algebraic_cell * c) {
-            return upm().refine_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c));
+            bool r = upm().refine_core(c->m_p_sz, c->m_p, sign_lower(c), bqm(), lower(c), upper(c));
+            SASSERT(acell_inv(*c));
+            return r;
         }
 
         /**
@@ -746,7 +759,10 @@ namespace algebraic_numbers {
             if (a.is_basic())
                 return false;
             algebraic_cell * c = a.to_algebraic();
-            if (!refine_core(c)) {
+            if (refine_core(c)) {
+                return true;
+            }
+            else {
                 // root was found
                 scoped_mpq r(qm());
                 to_mpq(qm(), lower(c), r);
@@ -754,7 +770,6 @@ namespace algebraic_numbers {
                 a.m_cell = mk_basic_cell(r);
                 return false;
             }
-            return true;
         }
 
         bool refine(numeral & a, unsigned k) {
@@ -776,6 +791,7 @@ namespace algebraic_numbers {
                 a.m_cell = mk_basic_cell(r);
                 return false;
             }
+            SASSERT(acell_inv(*c));
             return true;
         }
 
@@ -1573,6 +1589,7 @@ namespace algebraic_numbers {
                 upm().p_minus_x(c->m_p_sz, c->m_p);
                 bqim().neg(c->m_interval);
                 update_sign_lower(c);
+                SASSERT(acell_inv(*c));
             }
         }
 
@@ -1583,38 +1600,41 @@ namespace algebraic_numbers {
             if (a.is_basic())
                 return;
             algebraic_cell * cell_a = a.to_algebraic();
-            mpbq & lower = cell_a->m_interval.lower();
-            mpbq & upper = cell_a->m_interval.upper();
-            if (!bqm().is_zero(lower) && !bqm().is_zero(upper))
+            SASSERT(acell_inv(*cell_a));
+            mpbq & _lower = cell_a->m_interval.lower();
+            mpbq & _upper = cell_a->m_interval.upper();
+            if (!bqm().is_zero(_lower) && !bqm().is_zero(_upper))
                 return;
-            int sign_l = sign_lower(cell_a);
-            SASSERT(sign_l != 0);
-            int sign_u = -sign_l;
+            auto sign_l = sign_lower(cell_a);
+            SASSERT(!polynomial::is_zero(sign_l));
+            auto sign_u = -sign_l;
 
-#define REFINE_LOOP(BOUND, TARGET_SIGN)                                                 \
-            while (true) {                                                              \
-                bqm().div2(BOUND);                                                      \
+#define REFINE_LOOP(BOUND, TARGET_SIGN)                                 \
+            while (true) {                                              \
+                bqm().div2(BOUND);                                      \
                 polynomial::sign new_sign = upm().eval_sign_at(cell_a->m_p_sz, cell_a->m_p, BOUND); \
-                if (new_sign == polynomial::sign_zero) {                                \
-                    /* found actual root */                                             \
-                    scoped_mpq r(qm());                                                 \
-                    to_mpq(qm(), BOUND, r);                                             \
-                    set(a, r);                                                          \
-                    return;                                                             \
-                }                                                                       \
-                if (new_sign == TARGET_SIGN)                                            \
-                    return;                                                             \
+                if (new_sign == polynomial::sign_zero) {                \
+                    /* found actual root */                             \
+                    scoped_mpq r(qm());                                 \
+                    to_mpq(qm(), BOUND, r);                             \
+                    set(a, r);                                          \
+                    break;                                              \
+                }                                                       \
+                if (new_sign == TARGET_SIGN) {                          \
+                    break;                                              \
+                }                                                       \
             }
 
-            if (bqm().is_zero(lower)) {
-                bqm().set(lower, upper);
-                REFINE_LOOP(lower, sign_l);
+            if (bqm().is_zero(_lower)) {
+                bqm().set(_lower, _upper);
+                REFINE_LOOP(_lower, sign_l);
             }
             else {
-                SASSERT(bqm().is_zero(upper));
-                bqm().set(upper, lower);
-                REFINE_LOOP(upper, sign_u);
+                SASSERT(bqm().is_zero(_upper));
+                bqm().set(_upper, _lower);
+                REFINE_LOOP(_upper, sign_u);
             }
+            SASSERT(acell_inv(*cell_a));       
         }
 
         void inv(numeral & a) {
@@ -1642,6 +1662,8 @@ namespace algebraic_numbers {
                 // convert isolating interval back as a binary rational bound
                 upm().convert_q2bq_interval(cell_a->m_p_sz, cell_a->m_p, inv_lower, inv_upper, bqm(), lower(cell_a), upper(cell_a));
                 TRACE("algebraic_bug", tout << "after inv: "; display_root(tout, a); tout << "\n"; display_interval(tout, a); tout << "\n";);
+                update_sign_lower(cell_a);
+                SASSERT(acell_inv(*cell_a));       
             }
         }
 
@@ -2118,7 +2140,6 @@ namespace algebraic_numbers {
                 // compute the resultants
                 polynomial_ref q_i(pm());
                 std::stable_sort(xs.begin(), xs.end(), var_degree_lt(*this, x2v));
-                // std::cout << "R: " << R << "\n";
                 for (unsigned i = 0; i < xs.size(); i++) {
                     checkpoint();
                     polynomial::var x_i = xs[i];
@@ -2127,7 +2148,6 @@ namespace algebraic_numbers {
                     SASSERT(!v_i.is_basic());
                     algebraic_cell * c = v_i.to_algebraic();
                     q_i = pm().to_polynomial(c->m_p_sz, c->m_p, x_i);
-                    // std::cout << "q_i: " << q_i << std::endl;
                     pm().resultant(R, q_i, x_i, R);
                     SASSERT(!pm().is_zero(R));
                 }
@@ -2136,7 +2156,6 @@ namespace algebraic_numbers {
                 upm().to_numeral_vector(R, _R);
                 unsigned k = upm().nonzero_root_lower_bound(_R.size(), _R.c_ptr());
                 TRACE("anum_eval_sign", tout << "R: " << R << "\nk: " << k << "\nri: "<< ri << "\n";);
-                // std::cout << "R: " << R << "\n";
                 scoped_mpbq mL(bqm()), L(bqm());
                 bqm().set(mL, -1);
                 bqm().set(L,   1);

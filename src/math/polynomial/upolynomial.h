@@ -863,11 +863,11 @@ namespace upolynomial {
         // Return FALSE, if the actual root was found, it is stored in a.
         // 
         // See upolynomial.cpp for additional comments
-        bool refine_core(unsigned sz, numeral const * p, int sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
+        bool refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b);
 
-        bool refine_core(unsigned sz, numeral const * p, int sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
+        bool refine_core(unsigned sz, numeral const * p, polynomial::sign sign_a, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         
         bool refine(unsigned sz, numeral const * p, mpbq_manager & bqm, mpbq & a, mpbq & b, unsigned prec_k);
         /////////////////////
