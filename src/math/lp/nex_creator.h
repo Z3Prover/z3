@@ -57,11 +57,11 @@ class nex_creator {
     svector<unsigned>                            m_active_vars_weights;
 
 public:
-    static char ch(unsigned j) {
-        // std::stringstream s;
-        // s << "v" << j;        
-        //    return s.str();
-        return (char)('a'+j);
+    static std::string ch(unsigned j) {
+        std::stringstream s;
+        s << "v" << j;        
+        return s.str();
+          // return (char)('a'+j);
     }
 
     // assuming that every lpvar is less than this number

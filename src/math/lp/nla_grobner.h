@@ -89,7 +89,6 @@ class nla_grobner : common {
     region                                       m_alloc;
     ci_value_manager                             m_val_manager;
     ci_dependency_manager                        m_dep_manager;
-    nex_creator                                  m_nex_creator;
     nex_lt                                       m_lt;
 public:
     nla_grobner(core *core);
@@ -100,9 +99,7 @@ private:
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
     void display(std::ostream&);
-    void set_active_vars_weights();
     void init();
-    var_weight get_var_weight(lpvar) const;
     void compute_basis();
     void update_statistics();
     bool find_conflict(ptr_vector<equation>& eqs);

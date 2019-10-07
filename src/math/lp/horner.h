@@ -53,7 +53,7 @@ public:
     intervals::interval interval_of_sum_no_term_with_deps(const nex_sum*);
     intervals::interval interval_of_mul_with_deps(const nex_mul*);
     void set_var_interval_with_deps(lpvar j, intervals::interval&) const;
-    bool lemmas_on_expr(cross_nested&);
+    bool lemmas_on_expr(cross_nested&, nex_sum*);
     
     template <typename T> // T has an iterator of (coeff(), var())
     bool row_has_monomial_to_refine(const T&) const;

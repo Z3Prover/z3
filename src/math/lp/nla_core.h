@@ -79,7 +79,7 @@ public:
 
 class core {
 public:
-    var_eqs<emonics>      m_evars;
+    var_eqs<emonics>         m_evars;
     lp::lar_solver&          m_lar_solver;
     vector<lemma> *          m_lemma_vec;
     lp::int_set              m_to_refine;
@@ -91,25 +91,25 @@ public:
     nla_settings             m_nla_settings;
     nla_grobner              m_grobner;
 private:
-    emonics               m_emons;
+    emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
-    mutable lp::int_set      m_row_var_set;
+    mutable lp::int_set      m_active_var_set;
 public:
     reslimit                 m_reslim;
 
     
-    const lp::int_set&  row_var_set () const { return m_row_var_set;}
-    bool row_var_set_contains(unsigned j) const { return m_row_var_set.contains(j); }
+    const lp::int_set&  active_var_set () const { return m_active_var_set;}
+    bool active_var_set_contains(unsigned j) const { return m_active_var_set.contains(j); }
 
-    void insert_to_row_var_set(unsigned j) const { m_row_var_set.insert(j); }    
+    void insert_to_active_var_set(unsigned j) const { m_active_var_set.insert(j); }    
 
-    void clear_row_var_set() const {
-        m_row_var_set.clear();
+    void clear_active_var_set() const {
+        m_active_var_set.clear();
     }
 
-    void prepare_row_var_set() const {
-        m_row_var_set.clear();
-        m_row_var_set.resize(m_lar_solver.number_of_vars());
+    void prepare_active_var_set() const {
+        m_active_var_set.clear();
+        m_active_var_set.resize(m_lar_solver.number_of_vars());
     }
     
     reslimit &               reslim() { return m_reslim; }  

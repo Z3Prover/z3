@@ -97,7 +97,8 @@ public:
     lpvar var() const {  return m_j; }
     lpvar& var() {  return m_j; } // the setter
     std::ostream & print(std::ostream& out) const {
-        out <<  (char)('a' + m_j);
+        //        out <<  (char)('a' + m_j);
+        out << "v" << m_j;
         return out;
     }    
 

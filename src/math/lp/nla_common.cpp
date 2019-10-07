@@ -122,26 +122,32 @@ unsigned common::random() {
     return c().random();
 }
 
-nex * common::nexvar(lpvar j, nex_creator& cn) const {
+nex * common::nexvar(lpvar j, nex_creator& cn) {
     // todo: consider deepen the recursion
-    if (!c().is_monic_var(j))
+    if (!c().is_monic_var(j)) {
+        c().insert_to_active_var_set(j);
         return cn.mk_var(j);
+    }
     const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul();
     for (lpvar k : m.vars()) {
+        c().insert_to_active_var_set(k);
         e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
     return e;
 }
 
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) const {
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     // todo: consider deepen the recursion
-    if (!c().is_monic_var(j))
+    if (!c().is_monic_var(j)) {
+        c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
+    }
     const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
+        c().insert_to_active_var_set(j);
         e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
@@ -151,6 +157,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) const {
 
 template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
+    c().prepare_active_var_set();
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
@@ -160,7 +167,43 @@ template <typename T> void common::create_sum_from_row(const T& row, nex_creator
             sum.add_child(nexvar(p.coeff(), p.var(), cn));
         }
     }
+    set_active_vars_weights();
 }
+
+void common::set_active_vars_weights() {
+    m_nex_creator.set_number_of_vars(c().m_lar_solver.column_count());
+    for (lpvar j : c().active_var_set()) {
+        m_nex_creator.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
+    }
+}
+
+var_weight common::get_var_weight(lpvar j) const {
+    var_weight k;
+    switch (c().m_lar_solver.get_column_type(j)) {
+        
+    case lp::column_type::fixed:
+        k = var_weight::FIXED;
+        break;
+    case lp::column_type::boxed:
+        k = var_weight::BOUNDED;
+        break;
+    case lp::column_type::lower_bound:
+    case lp::column_type::upper_bound:
+        k = var_weight::NOT_FREE;
+    case lp::column_type::free_column:
+        k = var_weight::FREE;
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+    if (c().is_monic_var(j)) {
+        return (var_weight)((int)k + 1);
+    }
+    return k;
+}
+
+
 }
 template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&);
 
