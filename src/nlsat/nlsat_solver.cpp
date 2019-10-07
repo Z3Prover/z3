@@ -1586,9 +1586,11 @@ namespace nlsat {
                     check_lemma(c->size(), c->c_ptr(), false, nullptr);
                 }
             }
+#if 0
             for (clause* c : m_learned) {
                 IF_VERBOSE(0, display(verbose_stream() << "KEEP: ", c->size(), c->c_ptr()) << "\n");
             }
+#endif
             assumptions.reset();
             assumptions.append(result);
             return r;
