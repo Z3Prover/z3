@@ -1105,20 +1105,16 @@ namespace datatype {
     */
     func_decl * util::get_non_rec_constructor(sort * ty) {
         SASSERT(is_datatype(ty));
-        func_decl * r = nullptr;
-        if (m_datatype2nonrec_constructor.find(ty, r))
-            return r;
-        r = nullptr;
+        cnstr_depth cd;
+        if (m_datatype2nonrec_constructor.find(ty, cd))
+            return cd.first;
         ptr_vector<sort> forbidden_set;
         forbidden_set.push_back(ty);
         TRACE("util_bug", tout << "invoke get-non-rec: " << sort_ref(ty, m) << "\n";);
-        r = get_non_rec_constructor_core(ty, forbidden_set);
+        cd = get_non_rec_constructor_core(ty, forbidden_set);
         SASSERT(forbidden_set.back() == ty);
-        SASSERT(r);
-        m_asts.push_back(ty);
-        m_asts.push_back(r);
-        m_datatype2nonrec_constructor.insert(ty, r);
-        return r;
+        SASSERT(cd.first);
+        return cd.first;
     }
 
     /**
@@ -1126,7 +1122,7 @@ namespace datatype {
        each T_i is not a datatype or it is a datatype t not in forbidden_set,
        and get_non_rec_constructor_core(T_i, forbidden_set union { T_i })
     */
-    func_decl * util::get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set) {
+    util::cnstr_depth util::get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set) {
         // We must select a constructor c(T_1, ..., T_n):T such that
         //   1) T_i's are not recursive
         // If there is no such constructor, then we select one that 
@@ -1135,6 +1131,9 @@ namespace datatype {
         ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
         unsigned sz = constructors.size();
         array_util autil(m);
+        cnstr_depth result(nullptr, 0);
+        if (m_datatype2nonrec_constructor.find(ty, result))
+            return result;
         TRACE("util_bug", tout << "get-non-rec constructor: " << sort_ref(ty, m) << "\n";
               tout << "forbidden: ";
               for (sort* s : forbidden_set) tout << sort_ref(s, m) << " ";
@@ -1142,25 +1141,12 @@ namespace datatype {
               tout << "constructors: " << sz << "\n";
               for (func_decl* f : constructors) tout << func_decl_ref(f, m) << "\n";
               );
-        // step 1)
-        unsigned start = ++m_start;
-        for (unsigned j = 0; j < sz; ++j) {        
-            func_decl * c = constructors[(j + start) % sz];
-            TRACE("util_bug", tout << "checking " << sort_ref(ty, m) << ": " << func_decl_ref(c, m) << "\n";);
+        unsigned min_depth = INT_MAX;
+        for (func_decl * c : constructors) {
+            TRACE("util_bug", tout << "non_rec_constructor c: " << func_decl_ref(c, m) << "\n";);
             unsigned num_args = c->get_arity();
             unsigned i = 0;
-            for (; i < num_args && !is_datatype(autil.get_array_range_rec(c->get_domain(i))); i++);
-            if (i == num_args) {
-                TRACE("util_bug", tout << "found non-rec " << func_decl_ref(c, m) << "\n";);
-                return c;
-            }
-        }
-        // step 2)
-        for (unsigned j = 0; j < sz; ++j) {        
-            func_decl * c = constructors[(j + start) % sz];
-            TRACE("util_bug", tout << "non_rec_constructor c: " << j << " " << func_decl_ref(c, m) << "\n";);
-            unsigned num_args = c->get_arity();
-            unsigned i = 0;
+            unsigned max_depth = 0;
             for (; i < num_args; i++) {
                 sort * T_i = autil.get_array_range_rec(c->get_domain(i));
                 TRACE("util_bug", tout << "c: " << i << " " << sort_ref(T_i, m) << "\n";);
@@ -1173,17 +1159,26 @@ namespace datatype {
                     break;
                 }
                 forbidden_set.push_back(T_i);
-                func_decl * nested_c = get_non_rec_constructor_core(T_i, forbidden_set);
+                cnstr_depth nested_c = get_non_rec_constructor_core(T_i, forbidden_set);
                 SASSERT(forbidden_set.back() == T_i);
                 forbidden_set.pop_back();
-                if (nested_c == nullptr)
+                if (nested_c.first == nullptr)
                     break;
-                TRACE("util_bug", tout << "nested_c: " << nested_c->get_name() << "\n";);
+                TRACE("util_bug", tout << "nested_c: " << nested_c.first->get_name() << "\n";);
+                max_depth = std::max(nested_c.second + 1, max_depth);
             }
-            if (i == num_args)
-                return c;
+            if (i == num_args && max_depth < min_depth) {
+                result.first = c;
+                result.second = max_depth;
+                min_depth = max_depth;
+            }
         }
-        return nullptr;
+        if (result.first) {
+            m_asts.push_back(result.first);
+            m_asts.push_back(ty);
+            m_datatype2nonrec_constructor.insert(ty, result);
+        }
+        return result;
     }
 
     unsigned util::get_constructor_idx(func_decl * f) const {

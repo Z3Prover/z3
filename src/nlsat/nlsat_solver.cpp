@@ -826,6 +826,24 @@ namespace nlsat {
             }
             IF_VERBOSE(0, verbose_stream() << "check\n";);
             lbool r = checker.check();
+            if (r == l_true) {
+                for (bool_var b : tr) {
+                    literal lit(b, false);
+                    IF_VERBOSE(0, checker.display(verbose_stream(), lit) << " := " << checker.value(lit) << "\n");
+                    TRACE("nlsat", checker.display(tout, lit) << " := " << checker.value(lit) << "\n";);
+                }
+                for (clause* c : m_learned) {
+                    bool found = false;
+                    for (literal lit: *c) {
+                        literal tlit(tr[lit.var()], lit.sign());
+                        found |= checker.value(tlit) == l_true;
+                    }
+                    if (!found) {
+                        IF_VERBOSE(0, display(verbose_stream() << "violdated clause: ", *c) << "\n");
+                        TRACE("nlsat", display(tout << "violdated clause: ", *c) << "\n";);
+                    }
+                }
+            }
             VERIFY(r == l_false);
             for (bool_var b : tr) {
                 checker.dec_ref(b);
@@ -1738,7 +1756,7 @@ namespace nlsat {
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()) << "\n";);
 
-            if (m_check_lemmas && false) {
+            if (false && m_check_lemmas) {
                 check_lemma(m_lazy_clause.size(), m_lazy_clause.c_ptr(), true, nullptr);
             }
 

@@ -423,7 +423,7 @@ namespace nlsat {
             scoped_anum_vector & roots = m_tmp_values;
             roots.reset();
             m_am.isolate_roots(polynomial_ref(a->p(), m_pm), undef_var_assignment(m_assignment, a->x()), roots);
-            TRACE("nlsat",
+            TRACE("nlsat_evaluator",
                   m_solver.display(tout << (neg?"!":""), *a); tout << "\n";
                   if (roots.empty()) {
                       tout << "No roots\n";

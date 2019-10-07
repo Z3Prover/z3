@@ -292,10 +292,10 @@ namespace datatype {
         ast_manager & m;
         family_id     m_family_id;
         mutable decl::plugin* m_plugin;
-
+        typedef std::pair<func_decl*, unsigned> cnstr_depth;
                 
         obj_map<sort, ptr_vector<func_decl> *>      m_datatype2constructors;
-        obj_map<sort, func_decl *>                  m_datatype2nonrec_constructor;
+        obj_map<sort, cnstr_depth>                  m_datatype2nonrec_constructor;
         obj_map<func_decl, ptr_vector<func_decl> *> m_constructor2accessors;
         obj_map<func_decl, func_decl *>             m_constructor2recognizer;
         obj_map<func_decl, func_decl *>             m_recognizer2constructor;
@@ -309,7 +309,7 @@ namespace datatype {
         unsigned                                    m_start;
         mutable ptr_vector<sort>                    m_fully_interp_trail;
         
-        func_decl * get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
+        cnstr_depth get_non_rec_constructor_core(sort * ty, ptr_vector<sort> & forbidden_set);
 
         friend class decl::plugin;
 
