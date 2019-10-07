@@ -981,20 +981,18 @@ br_status seq_rewriter::mk_seq_contains(expr* a, expr* b, expr_ref& result) {
 br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     zstring c;
     rational r;
-    if (!m_autil.is_numeral(b, r)) {
+    expr_ref_vector lens(m());
+    if (!get_lengths(b, lens, r)) {
         return BR_FAILED;
     }
-    if (r.is_neg()) {
+    if (lens.empty() && r.is_neg()) {
         result = m_util.str.mk_empty(m().get_sort(a));
         return BR_DONE;
     } 
-    if (!r.is_unsigned()) {
-        return BR_FAILED;
-    }
-    unsigned len = r.get_unsigned();
+
     expr* a2 = nullptr, *i2 = nullptr;
-    if (m_util.str.is_at(a, a2, i2)) {
-        if (len > 0) {
+    if (lens.empty() && m_util.str.is_at(a, a2, i2)) {
+        if (r.is_pos()) {
             result = m_util.str.mk_empty(m().get_sort(a));
         }
         else {
@@ -1003,29 +1001,36 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;            
     }
 
-    expr_ref_vector as(m());
-    m_util.str.get_concat_units(a, as);
-
-    for (unsigned i = 0; i < as.size(); ++i) {
-        expr* a = as.get(i);
-        if (m_util.str.is_unit(a)) {
-            if (len == i) {
-                result = a;
-                return BR_REWRITE1;
-            }            
+    m_lhs.reset();
+    m_util.str.get_concat_units(a, m_lhs);
+    
+    unsigned i = 0;
+    for (; i < m_lhs.size(); ++i) {
+        expr* lhs = m_lhs.get(i);
+        if (lens.contains(lhs)) {
+            lens.erase(lhs);
         }
-        else if (i > 0) {
-            SASSERT(len >= i);
-            result = m_util.str.mk_concat(as.size() - i, as.c_ptr() + i);
-            result = m().mk_app(m_util.get_family_id(), OP_SEQ_AT, result, m_autil.mk_int(len - i));
-            return BR_REWRITE2;
+        else if (m_util.str.is_unit(lhs) && r.is_pos()) {
+            r -= rational(1);
         }
         else {
-            return BR_FAILED;
+            break;
         }
     }
-    result = m_util.str.mk_empty(m().get_sort(a));
-    return BR_DONE;
+    if (i == 0) {
+        return BR_FAILED;
+    }
+    if (m_lhs.size() == i) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        return BR_DONE;
+    }
+    expr_ref pos(m_autil.mk_int(r), m());
+    for (expr* rhs : lens) {
+        pos = m_autil.mk_add(pos, m_util.str.mk_length(rhs));
+    }
+    result = m_util.str.mk_concat(m_lhs.size() - i , m_lhs.c_ptr() + i);
+    result = m_util.str.mk_at(result, pos);
+    return BR_REWRITE2;   
 }
 
 br_status seq_rewriter::mk_seq_nth(expr* a, expr* b, expr_ref& result) {

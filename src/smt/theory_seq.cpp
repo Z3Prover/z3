@@ -3701,8 +3701,8 @@ void theory_seq::add_stoi_axiom(expr* e) {
     literal l = mk_simplified_literal(m_autil.mk_ge(e, m_autil.mk_int(-1)));
     add_axiom(l);    
 
-    // stoi("") = -1
-    add_axiom(mk_eq(m_util.str.mk_stoi(m_util.str.mk_empty(m.get_sort(s))), m_autil.mk_int(-1), false));
+    // stoi("") = -1    
+    add_axiom(~mk_literal(m_util.str.mk_is_empty(s)), mk_eq(m_util.str.mk_stoi(s), m_autil.mk_int(-1), false));
 }
 
 void theory_seq::add_itos_axiom(expr* e) {
