@@ -45,7 +45,7 @@ bool horner::row_is_interesting(const T& row) const {
         return false;
     }
     SASSERT(row_has_monomial_to_refine(row));
-    c().clear_row_var_set();
+    c().clear_active_var_set();
     for (const auto& p : row) {
         lpvar j = p.var();
         if (!c().is_monic_var(j))
@@ -53,19 +53,19 @@ bool horner::row_is_interesting(const T& row) const {
         auto & m = c().emons()[j];
         
         for (lpvar k : m.vars()) {
-            if (c().row_var_set_contains(k))
+            if (c().active_var_set_contains(k))
                 return true;
         }
         for (lpvar k : m.vars()) {
-            c().insert_to_row_var_set(k);
+            c().insert_to_active_var_set(k);
         }
     }
     return false;
 }
 
-bool horner::lemmas_on_expr(cross_nested& cn) {
-    TRACE("nla_horner", tout << "m_row_sum = " << m_row_sum << "\n";);
-    cn.run(&m_row_sum);
+bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
+    TRACE("nla_horner", tout << "e = " << *e << "\n";);
+    cn.run(e);
     return cn.done();
 }
 
@@ -92,11 +92,15 @@ bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
         [this](const nex* n) { return check_cross_nested_expr(n); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
-        [this]() { return c().random(); });
+        [this]() { return c().random(); }, m_nex_creator);
 
     SASSERT (row_is_interesting(row));
     create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
-    return lemmas_on_expr(cn);
+    nex* e =  m_nex_creator.simplify(&m_row_sum);
+    if (!e->is_sum())
+        return false;
+    
+    return lemmas_on_expr(cn, to_sum(e));
 }
 
 void horner::horner_lemmas() {
@@ -112,7 +116,7 @@ void horner::horner_lemmas() {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
-    c().prepare_row_var_set();
+    c().prepare_active_var_set();
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
         if (row_is_interesting(matrix.m_rows[i]))

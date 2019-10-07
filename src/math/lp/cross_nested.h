@@ -34,8 +34,8 @@ class cross_nested {
     ptr_vector<nex>                                   m_b_split_vec;
     int                                               m_reported;
     bool                                              m_random_bit;
-    nex_creator                                       m_nex_creator;
     std::function<nex_scalar*()>                      m_mk_scalar;
+    nex_creator&                                      m_nex_creator;
 #ifdef Z3DEBUG
     nex* m_e_clone;
 #endif
@@ -45,13 +45,15 @@ public:
     
     cross_nested(std::function<bool (const nex*)> call_on_result,
                  std::function<bool (unsigned)> var_is_fixed,
-                 std::function<unsigned ()> random) :
+                 std::function<unsigned ()> random,
+                 nex_creator& nex_cr) :
         m_call_on_result(call_on_result),
         m_var_is_fixed(var_is_fixed),
         m_random(random),
         m_done(false),
         m_reported(0),
-        m_mk_scalar([this]{return m_nex_creator.mk_scalar(rational(1));})
+        m_mk_scalar([this]{return m_nex_creator.mk_scalar(rational(1));}),
+        m_nex_creator(nex_cr)
     {}
 
     
@@ -369,15 +371,15 @@ public:
     // all factors of j go to a, the rest to b
     void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {
         TRACE("nla_cn_details", tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
+        SASSERT(m_nex_creator.is_simplified(e));
         a = m_nex_creator.mk_sum();
         m_b_split_vec.clear();
         for (nex * ce: *e) {
+            TRACE("nla_cn_details", tout << "ce = " << *ce << "\n";);
             if (is_divisible_by_var(ce, j)) {
                 a->add_child(m_nex_creator.mk_div(ce , j));
             } else {
                 m_b_split_vec.push_back(ce);
-                TRACE("nla_cn_details", tout << "ce = " << *ce << "\n";);
-                
             }        
         }
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);

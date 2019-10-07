@@ -288,8 +288,12 @@ bool nex_creator::lt(const nex* a, const nex* b) const {
 
 bool nex_creator::is_sorted(const nex_mul* e) const {
     for (unsigned j = 0; j < e->size() - 1; j++) {
-        if (!(less_than_on_nex_pow((*e)[j], (*e)[j+1])))
+        if (!(less_than_on_nex_pow((*e)[j], (*e)[j+1]))) {
+            TRACE("nla_cn_details", tout << "not sorted e " << * e << "\norder is incorrect " <<
+                  (*e)[j] << " >= " << (*e)[j + 1]<< "\n";);
+
             return false;
+        }
     }
     return true;
 }
@@ -298,22 +302,29 @@ bool nex_creator::is_sorted(const nex_mul* e) const {
 
 
 bool nex_creator::mul_is_simplified(const nex_mul* e) const {
+    TRACE("nla_cn_details", tout <<  "e = " << *e << "\n";);
     if (e->size() == 1 && e->begin()->pow() == 1)
         return false;
     std::set<const nex*, nex_lt> s([this](const nex* a, const nex* b) {return lt(a, b); });
     for (const auto &p : *e) {
         const nex* ee = p.e();
-        if (p.pow() == 0)
+        if (p.pow() == 0) {
+            TRACE("nla_cn_details", tout << "not simplified " << *ee << "\n";);
             return false;
-        if (ee->is_mul()) 
+        }
+        if (ee->is_mul()) {
+            TRACE("nla_cn_details", tout << "not simplified " << *ee << "\n";);
             return false;
-        if (ee->is_scalar() && to_scalar(ee)->value().is_one())
+        }
+        if (ee->is_scalar() && to_scalar(ee)->value().is_one()) {
+            TRACE("nla_cn_details", tout << "not simplified " << *ee << "\n";);
             return false;
+        }
 
         auto it = s.find(ee);
         if (it == s.end()) {
             s.insert(ee);
-        } else {
+        } else {            
             TRACE("nla_cn_details", tout << "not simplified " << *ee << "\n";);
             return false;
         }
@@ -340,20 +351,29 @@ nex* nex_creator::simplify_sum(nex_sum *e) {
 }
 
 bool nex_creator::sum_is_simplified(const nex_sum* e) const {
-    
     if (e->size() < 2) return false;
     bool scalar = false;
     for (nex * ee : *e) {
-        if (ee->is_sum())
+        if (ee->is_sum()) {
+            TRACE("nla_cn", tout << "not simplified e = " << *e << "\n"
+                  << " has a child which is a sum " << *ee << "\n";);
             return false;
+        }
         if (ee->is_scalar()) {
             if (scalar) {
+                TRACE("nla_cn", tout <<  "not simplified e = " << *e << "\n"
+                      << " have more than one scalar " << *ee << "\n";);
+                
                 return false;
             }
             if (to_scalar(ee)->value().is_zero()) {
-                return false;
+                if (scalar) {
+                    TRACE("nla_cn", tout << "have a zero scalar " << *ee << "\n";);
+                    
+                    return false;
+                }
+                scalar = true;
             }
-            scalar = true;
         }
         if (!is_simplified(ee))
             return false;

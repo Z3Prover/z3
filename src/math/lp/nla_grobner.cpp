@@ -75,39 +75,6 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
     }            
 }
 
-var_weight nla_grobner::get_var_weight(lpvar j) const {
-    var_weight k;
-    switch (c().m_lar_solver.get_column_type(j)) {
-        
-    case lp::column_type::fixed:
-        k = var_weight::FIXED;
-        break;
-    case lp::column_type::boxed:
-        k = var_weight::BOUNDED;
-        break;
-    case lp::column_type::lower_bound:
-    case lp::column_type::upper_bound:
-        k = var_weight::NOT_FREE;
-    case lp::column_type::free_column:
-        k = var_weight::FREE;
-        break;
-    default:
-        UNREACHABLE();
-        break;
-    }
-    if (c().is_monic_var(j)) {
-        return (var_weight)((int)k + 1);
-    }
-    return k;
-}
-
-void nla_grobner::set_active_vars_weights() {
-    m_nex_creator.set_number_of_vars(c().m_lar_solver.column_count());
-    for (lpvar j : m_active_vars) {
-        m_nex_creator.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
-    }
-}
-
 void nla_grobner::find_nl_cluster() {
     prepare_rows_and_active_vars();
     std::queue<lpvar> q;

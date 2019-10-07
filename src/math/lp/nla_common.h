@@ -45,7 +45,9 @@ inline llc negate(llc cmp) {
 
 class core;
 struct common {
-    core* m_core;
+    core*                                        m_core;
+    nex_creator                                  m_nex_creator;
+    
     common(core* c): m_core(c) {}
     core& c() { return *m_core; }
     const core& c() const { return *m_core; }
@@ -115,10 +117,11 @@ struct common {
     typedef dependency_manager<ci_dependency_config> ci_dependency_manager;
 
     typedef ci_dependency_manager::dependency ci_dependency;
-    nex* nexvar(lpvar j, nex_creator& ) const;
-    nex* nexvar(const rational& coeff, lpvar j, nex_creator&) const;
+    nex* nexvar(lpvar j, nex_creator& );
+    nex* nexvar(const rational& coeff, lpvar j, nex_creator&);
     template <typename T>
     void create_sum_from_row(const T&, nex_creator&, nex_sum&);
-
+    void set_active_vars_weights();
+    var_weight get_var_weight(lpvar) const;
 };
 }
