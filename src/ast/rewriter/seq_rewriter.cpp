@@ -1007,8 +1007,12 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
     unsigned i = 0;
     for (; i < m_lhs.size(); ++i) {
         expr* lhs = m_lhs.get(i);
-        if (lens.contains(lhs)) {
+        if (lens.contains(lhs) && !r.is_neg()) {
             lens.erase(lhs);
+        }
+        else if (m_util.str.is_unit(lhs) && r.is_zero() && lens.empty()) {
+            result = lhs;
+            return BR_REWRITE1;
         }
         else if (m_util.str.is_unit(lhs) && r.is_pos()) {
             r -= rational(1);
