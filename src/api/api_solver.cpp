@@ -98,9 +98,7 @@ extern "C" {
 
     solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file) {
         if (!m_out) {
-            std::string msg;
-            msg = msg + "could not open " + file + " for output";
-            throw default_exception(msg.c_str());
+            throw default_exception("could not open " + std::string(file) + " for output");
         }
     }
 
