@@ -90,22 +90,6 @@ void grobner::unfreeze_equations(unsigned old_size) {
     m_equations_to_unfreeze.shrink(old_size);
 }
 
-void grobner::push_scope() {
-    m_scopes.push_back(scope());
-    scope & s = m_scopes.back();
-    s.m_equations_to_unfreeze_lim = m_equations_to_unfreeze.size();
-    s.m_equations_to_delete_lim   = m_equations_to_delete.size();
-}
-
-void grobner::pop_scope(unsigned num_scopes) {
-    SASSERT(num_scopes >= get_scope_level());
-    unsigned new_lvl = get_scope_level() - num_scopes;
-    scope & s        = m_scopes[new_lvl];
-    unfreeze_equations(s.m_equations_to_unfreeze_lim);
-    del_equations(s.m_equations_to_delete_lim);
-    m_scopes.shrink(new_lvl);
-}
-
 void grobner::reset() {
     flush();
     m_processed.reset();
@@ -312,7 +296,6 @@ grobner::monomial * grobner::mk_monomial(rational const & coeff, expr * m) {
 }
 
 void grobner::init_equation(equation * eq, v_dependency * d) {
-    eq->m_scope_lvl = get_scope_level();
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
     eq->m_dep       = d;
@@ -626,10 +609,6 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
             if (is_subset(LT, curr, rest)) {
                 if (i == 0)
                     m_changed_leading_term = true;
-                if (source->m_scope_lvl > target->m_scope_lvl) {
-                    target = copy_equation(target);
-                    SASSERT(target->m_scope_lvl >= source->m_scope_lvl);
-                }
                 if (!result) {
                     // first time that source is being applied.
                     target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
