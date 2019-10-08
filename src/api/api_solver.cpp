@@ -72,6 +72,7 @@ extern "C" {
             m_pp_util.display_expr(m_out, asms[i]);            
         }
         m_out << ")\n";
+        m_out.flush();
     }
 
     solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file) {
