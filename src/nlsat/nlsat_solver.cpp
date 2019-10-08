@@ -104,6 +104,7 @@ namespace nlsat {
         id_gen                 m_cid_gen;
         clause_vector          m_clauses; // set of clauses
         clause_vector          m_learned; // set of learned clauses
+        clause_vector          m_valids;
 
         unsigned               m_num_bool_vars;
         atom_vector            m_atoms;        // bool_var -> atom
@@ -716,11 +717,13 @@ namespace nlsat {
         void del_clauses(ptr_vector<clause> & cs) {
             for (clause* cp : cs) 
                 del_clause(cp);
+            cs.reset();
         }
 
         void del_clauses() {
             del_clauses(m_clauses);
             del_clauses(m_learned);
+            del_clauses(m_valids);
         }
 
         // We use a simple heuristic to sort literals
@@ -843,8 +846,19 @@ namespace nlsat {
                         TRACE("nlsat", display(tout << "violdated clause: ", *c) << "\n";);
                     }
                 }
+                for (clause* c : m_valids) {
+                    bool found = false;
+                    for (literal lit: *c) {
+                        literal tlit(tr[lit.var()], lit.sign());
+                        found |= checker.value(tlit) == l_true;
+                    }
+                    if (!found) {
+                        IF_VERBOSE(0, display(verbose_stream() << "violdated tautology clause: ", *c) << "\n");
+                        TRACE("nlsat", display(tout << "violdated tautology clause: ", *c) << "\n";);
+                    }                    
+                }
+                UNREACHABLE();
             }
-            VERIFY(r == l_false);
             for (bool_var b : tr) {
                 checker.dec_ref(b);
             }
@@ -858,7 +872,7 @@ namespace nlsat {
             out << "(check-sat)\n(reset)\n";
         }
 
-        clause * mk_clause(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
+        clause * mk_clause_core(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
             SASSERT(num_lits > 0);
             unsigned cid = m_cid_gen.mk();
             void * mem = m_allocator.allocate(clause::get_obj_size(num_lits));
@@ -866,6 +880,12 @@ namespace nlsat {
             for (unsigned i = 0; i < num_lits; i++)
                 inc_ref(lits[i]);
             inc_ref(a);
+            return cls;
+        }
+
+        clause * mk_clause(unsigned num_lits, literal const * lits, bool learned, _assumption_set a) {
+            SASSERT(num_lits > 0);
+            clause * cls = mk_clause_core(num_lits, lits, learned, a);
             ++m_lemma_count;
             TRACE("nlsat_sort", display(tout << "mk_clause:\n", *cls) << "\n";);
             std::sort(cls->begin(), cls->end(), lit_lt(*this));
@@ -1599,11 +1619,13 @@ namespace nlsat {
             }
             collect(assumptions, m_clauses);
             collect(assumptions, m_learned);
+            del_clauses(m_valids);
             if (m_check_lemmas) {
                 for (clause* c : m_learned) {
-                    check_lemma(c->size(), c->c_ptr(), false, nullptr);
+                    //check_lemma(c->size(), c->c_ptr(), false, nullptr);
                 }
             }
+
 #if 0
             for (clause* c : m_learned) {
                 IF_VERBOSE(0, display(verbose_stream() << "KEEP: ", c->size(), c->c_ptr()) << "\n");
@@ -1756,8 +1778,8 @@ namespace nlsat {
                   tout << "new valid clause:\n";
                   display(tout, m_lazy_clause.size(), m_lazy_clause.c_ptr()) << "\n";);
 
-            if (false && m_check_lemmas) {
-                check_lemma(m_lazy_clause.size(), m_lazy_clause.c_ptr(), true, nullptr);
+            if (m_check_lemmas) {
+                m_valids.push_back(mk_clause_core(m_lazy_clause.size(), m_lazy_clause.c_ptr(), false, nullptr));
             }
 
             DEBUG_CODE({

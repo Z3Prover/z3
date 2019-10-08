@@ -47,6 +47,7 @@ namespace recfun {
 
     class replace {
     public:
+        virtual ~replace() {}
         virtual void reset() = 0;
         virtual void insert(expr* d, expr* r) = 0;
         virtual expr_ref operator()(expr* e) = 0;
@@ -197,7 +198,7 @@ namespace recfun {
         };
     }
 
-    // Varus utils for recursive functions
+    // Various utils for recursive functions
     class util {
         friend class decl::plugin;
         

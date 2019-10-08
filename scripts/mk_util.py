@@ -1666,7 +1666,7 @@ class DotNetDLLComponent(Component):
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\%s\*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
+    <Compile Include="..\%s\*.cs;*.cs" Exclude="bin\**;obj\**;**\*.xproj;packages\**" />
   </ItemGroup>
 
 </Project>""" % (version, key, self.to_src_dir)
