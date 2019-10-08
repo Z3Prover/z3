@@ -2989,6 +2989,7 @@ extern "C" {
        of \c t1 and \c t2 does not overflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvadd_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
@@ -2999,6 +3000,7 @@ extern "C" {
        of \c t1 and \c t2 does not underflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvadd_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
@@ -3009,6 +3011,7 @@ extern "C" {
        of \c t1 and \c t2 does not overflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvsub_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
@@ -3019,6 +3022,7 @@ extern "C" {
        of \c t1 and \c t2 does not underflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvsub_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
@@ -3029,6 +3033,7 @@ extern "C" {
        of \c t1 and \c t2 does not overflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvsdiv_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
@@ -3039,6 +3044,7 @@ extern "C" {
        \c t1 is interpreted as a signed bit-vector.
 
        The node \c t1 must have bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvneg_no_overflow', AST, (_in(CONTEXT), _in(AST)))
     */
@@ -3049,6 +3055,7 @@ extern "C" {
        of \c t1 and \c t2 does not overflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvmul_no_overflow', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(BOOL)))
     */
@@ -3059,6 +3066,7 @@ extern "C" {
        of \c t1 and \c t2 does not underflow.
 
        The nodes \c t1 and \c t2 must have the same bit-vector sort.
+       The returned node is of sort Bool.
 
        def_API('Z3_mk_bvmul_no_underflow', AST, (_in(CONTEXT), _in(AST), _in(AST)))
     */
