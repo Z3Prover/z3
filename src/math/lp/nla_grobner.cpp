@@ -172,31 +172,19 @@ nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * &
 
 void nla_grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
-    TRACE("non_linear", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
-    nex * row_nex = nullptr;
-        /*    v_dependency * dep = nullptr;
-    m_tmp_var_set.reset();
-    for (const auto & p : row) {
-        rational coeff            = p.coeff();
-        lpvar j                   = p.var();
-        //        TRACE("non_linear", tout << "monomial: " << mk_pp(m, get_manager()) << "\n";); 
-        nex * new_m = mk_monomial(coeff, j, dep, m_tmp_var_set);
-        TRACE("non_linear", tout << "new monomial:\n"; if (new_m) gb.display_monomial(tout, *new_m); else tout << "null"; tout << "\n";);
-        if (new_m)
-            monomials.push_back(new_m);
-    }
-    assert_eq_0(monomials, dep);*/
+    TRACE("nla_grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
+    nex_sum * ns = m_nex_creator.mk_sum();
+    create_sum_from_row(row, m_nex_creator, *ns);
+    TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
+    ci_dependency * dep = nullptr;
+    m_tmp_var_set.clear();
+    assert_eq_0(ns, dep);
 }
-void nla_grobner::add_monomial_def(lpvar) {
-    NOT_IMPLEMENTED_YET();
-}
+
 void nla_grobner::init() {
     find_nl_cluster();
     for (unsigned i : m_rows) {
         add_row(i);
-    }
-    for (lpvar j : m_active_vars) {
-        add_monomial_def(j);
     }
 }
 
@@ -419,9 +407,23 @@ void nla_grobner::display(std::ostream & out) const {
     NOT_IMPLEMENTED_YET();
 }
 
-void nla_grobner::assert_eq_0(ptr_buffer<monomial> &, v_dependency * dep) {
-    NOT_IMPLEMENTED_YET();
+void nla_grobner::assert_eq_0(const nex* e, ci_dependency * dep) {
+    if (e == nullptr)
+        return;
+    equation * eq = new equation();
+    init_equation(eq, dep);
+    m_to_process.insert(eq);
 }
 
+void nla_grobner::init_equation(equation* e, ci_dependency * dep) {
+    NOT_IMPLEMENTED_YET();
+    /*    eq->m_scope_lvl = get_scope_level();
+    unsigned bidx   = m_equations_to_delete.size();
+    eq->m_bidx      = bidx;
+    eq->m_dep       = d;
+    eq->m_lc        = true;
+    m_equations_to_delete.push_back(eq);
+    SASSERT(m_equations_to_delete[eq->m_bidx] == eq);*/
+}
 
 } // end of nla namespace
