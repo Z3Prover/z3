@@ -1659,6 +1659,7 @@ class DotNetDLLComponent(Component):
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <Authors>Microsoft</Authors>
     <Company>Microsoft</Company>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
     <Description>Z3 is a satisfiability modulo theories solver from Microsoft Research.</Description>
     <Copyright>Copyright Microsoft Corporation. All rights reserved.</Copyright>
     <PackageTags>smt constraint solver theorem prover</PackageTags>
