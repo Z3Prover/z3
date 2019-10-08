@@ -1777,7 +1777,7 @@ namespace z3 {
         check_context(a, b); Z3_ast r = Z3_mk_bvsdiv_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
     }
     inline expr bvneg_no_overflow(expr const& a) {
-        Z3_ast r = Z3_mk_bvneg_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+        Z3_ast r = Z3_mk_bvneg_no_overflow(a.ctx(), a); a.check_error(); return expr(a.ctx(), r); 
     }
     inline expr bvmul_no_overflow(expr const& a, expr const& b, bool is_signed) {
         check_context(a, b); Z3_ast r = Z3_mk_bvmul_no_overflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
