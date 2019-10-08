@@ -58,7 +58,6 @@ public:
     };
 
     class equation {
-        unsigned             m_scope_lvl;     //!< scope level when this equation was created.
         unsigned             m_bidx:31;       //!< position at m_equations_to_delete
         unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
         ptr_vector<monomial> m_monomials;     //!< sorted monomials
@@ -108,7 +107,6 @@ protected:
         unsigned m_equations_to_unfreeze_lim;
         unsigned m_equations_to_delete_lim;
     };
-    svector<scope>          m_scopes;
     ptr_vector<monomial>    m_tmp_monomials;
     ptr_vector<monomial>    m_del_monomials;
     ptr_vector<expr>        m_tmp_vars1;
@@ -191,8 +189,6 @@ public:
     grobner(ast_manager & m, v_dependency_manager & dep_m);
 
     ~grobner();
-
-    unsigned get_scope_level() const { return m_scopes.size(); }
 
     /**
        \brief Set the weight of a term that is viewed as a variable by this module.
@@ -278,10 +274,6 @@ public:
 
     void get_equations(ptr_vector<equation> & result) const;
     
-    void push_scope();
-
-    void pop_scope(unsigned num_scopes);
-
     void display_equation(std::ostream & out, equation const & eq) const;
 
     void display_monomial(std::ostream & out, monomial const & m) const;
