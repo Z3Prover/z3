@@ -150,7 +150,7 @@ extern "C" {
         Z3_CATCH_RETURN("");
     }
 
-    Z3_char_ptr Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length) {
+    Z3_string Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length) {
         Z3_TRY;
         LOG_Z3_get_lstring(c, s, length);
         RESET_ERROR_CODE();
