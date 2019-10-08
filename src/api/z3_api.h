@@ -6333,6 +6333,21 @@ extern "C" {
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s);
 
     /**
+       \brief Log solver interactions into an SMT2 file.
+       The tracked interactions are:
+       - Z3_solver_assert
+       - Z3_solver_assert_and_track
+       - Z3_solver_push
+       - Z3_solver_pop
+       - Z3_solver_check
+       - Z3_solver_check_assumptions
+       Assertions that are loaded from a file are also going to be tracked.
+
+       def_API('Z3_solver_open_smt2log', VOID, (_in(CONTEXT), _in(SOLVER), _in(STRING)))
+    */
+    void Z3_API Z3_solver_open_smt2log(Z3_context c, Z3_solver s, Z3_string file);
+    
+    /**
        \brief Create a backtracking point.
 
        The solver contains a stack of assertions.

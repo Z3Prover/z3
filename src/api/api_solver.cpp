@@ -44,6 +44,52 @@ Revision History:
 
 extern "C" {
 
+    void solver2smt2_pp::assert_expr(expr* e) {
+        m_pp_util.collect(e);
+        m_pp_util.display_decls(m_out);
+        m_pp_util.display_assert(m_out, e, true);
+    }
+
+    void solver2smt2_pp::assert_expr(expr* e, expr* t) {
+        m_pp_util.collect(e);
+        m_pp_util.collect(t);
+        m_pp_util.display_decls(m_out);
+        m_pp_util.display_assert_and_track(m_out, e, t, true);
+    }
+
+    void solver2smt2_pp::push() {
+        m_out << "(push)\n";
+    }
+
+    void solver2smt2_pp::pop(unsigned n) {
+        m_out << "(pop " << n << ")\n";
+    }
+
+    void solver2smt2_pp::check(unsigned n, expr* const* asms) {
+        m_out << "(check-sat";
+        for (unsigned i = 0; i < n; ++i) {
+            m_out << "\n";
+            m_pp_util.display_expr(m_out, asms[i]);            
+        }
+        m_out << ")\n";
+    }
+
+    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file) {
+        if (!m_out) {
+            throw default_exception("could not open file for output");
+        }
+    }
+
+    void Z3_solver_ref::assert_expr(expr * e) {
+        if (m_pp) m_pp->assert_expr(e);
+        m_solver->assert_expr(e);
+    }
+
+    void Z3_solver_ref::assert_expr(expr * e, expr* t) {
+        if (m_pp) m_pp->assert_expr(e, t);
+        m_solver->assert_expr(e, t);
+    }
+
     static void init_solver_core(Z3_context c, Z3_solver _s) {
         Z3_solver_ref * s = to_solver(_s);
         bool proofs_enabled, models_enabled, unsat_core_enabled;
@@ -83,6 +129,13 @@ extern "C" {
         Z3_solver r = of_solver(s);
         RETURN_Z3(r);
         Z3_CATCH_RETURN(nullptr);
+    }
+
+    void Z3_API Z3_solver_open_smt2log(Z3_context c, Z3_solver s, Z3_string file) {
+        Z3_TRY;
+        LOG_Z3_solver_open_smt2log(c, s, file);
+        to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), file);
+        Z3_CATCH;
     }
 
     Z3_solver Z3_API Z3_mk_solver_for_logic(Z3_context c, Z3_symbol logic) {
@@ -154,7 +207,7 @@ extern "C" {
         if (!initialized)
             init_solver(c, s);
         for (expr * e : ctx->assertions()) {
-            to_solver_ref(s)->assert_expr(e);
+            to_solver(s)->assert_expr(e);
         }
         to_solver_ref(s)->set_model_converter(ctx->get_model_converter());
     }
@@ -177,7 +230,7 @@ extern "C" {
         goal g(m);            
         s2g(solver, a2b, to_solver_ref(s)->get_params(), g, mc);
         for (unsigned i = 0; i < g.size(); ++i) {
-            to_solver_ref(s)->assert_expr(g.form(i));
+            to_solver(s)->assert_expr(g.form(i));
         }
     }
 
@@ -302,6 +355,7 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         to_solver_ref(s)->push();
+        if (to_solver(s)->m_pp) to_solver(s)->m_pp->push();
         Z3_CATCH;
     }
 
@@ -314,8 +368,10 @@ extern "C" {
             SET_ERROR_CODE(Z3_IOB, nullptr);
             return;
         }
-        if (n > 0)
+        if (n > 0) {
             to_solver_ref(s)->pop(n);
+            if (to_solver(s)->m_pp) to_solver(s)->m_pp->pop(n);
+        }
         Z3_CATCH;
     }
 
@@ -342,7 +398,7 @@ extern "C" {
         RESET_ERROR_CODE();
         init_solver(c, s);
         CHECK_FORMULA(a,);
-        to_solver_ref(s)->assert_expr(to_expr(a));
+        to_solver(s)->assert_expr(to_expr(a));
         Z3_CATCH;
     }
 
@@ -353,7 +409,7 @@ extern "C" {
         init_solver(c, s);
         CHECK_FORMULA(a,);
         CHECK_FORMULA(p,);
-        to_solver_ref(s)->assert_expr(to_expr(a), to_expr(p));
+        to_solver(s)->assert_expr(to_expr(a), to_expr(p));
         Z3_CATCH;
     }
 
@@ -461,6 +517,7 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
+                if (to_solver(s)->m_pp) to_solver(s)->m_pp->check(num_assumptions, _assumptions); 
                 result = to_solver_ref(s)->check_sat(num_assumptions, _assumptions);
             }
             catch (z3_exception & ex) {

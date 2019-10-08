@@ -113,11 +113,14 @@ void decl_collector::visit(ast* n) {
     }
 }
 
-void decl_collector::order_deps() {
+void decl_collector::order_deps(unsigned n) {
     top_sort<sort> st;
-    for (sort * s : m_sorts) st.insert(s, collect_deps(s));
+    for (unsigned i = n; i < m_sorts.size(); ++i) {
+        sort* s = m_sorts.get(i);
+        st.insert(s, collect_deps(s));
+    }
     st.topological_sort();
-    m_sorts.reset();
+    m_sorts.shrink(n);
     for (sort* s : st.top_sorted()) m_sorts.push_back(s);
 }
 

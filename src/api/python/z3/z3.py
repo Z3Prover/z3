@@ -6436,7 +6436,7 @@ unknown = CheckSatResult(Z3_L_UNDEF)
 class Solver(Z3PPObject):
     """Solver API provides methods for implementing the main SMT 2.0 commands: push, pop, check, get-model, etc."""
 
-    def __init__(self, solver=None, ctx=None):
+    def __init__(self, solver=None, ctx=None, logFile=None):
         assert solver is None or ctx is not None
         self.ctx    = _get_ctx(ctx)
         self.backtrack_level = 4000000000
@@ -6446,6 +6446,8 @@ class Solver(Z3PPObject):
         else:
             self.solver = solver
         Z3_solver_inc_ref(self.ctx.ref(), self.solver)
+        if logFile is not None:
+            Z3_solver_open_smt2log(self.ctx.ref(), self.solver, logFile)
 
     def __del__(self):
         if self.solver is not None and self.ctx.ref() is not None:
@@ -6906,7 +6908,7 @@ class Solver(Z3PPObject):
             e = BoolVal(True, self.ctx).as_ast()
         return Z3_benchmark_to_smtlib_string(self.ctx.ref(), "benchmark generated from python API", "", "unknown", "", sz1, v, e)
 
-def SolverFor(logic, ctx=None):
+def SolverFor(logic, ctx=None, logFile=None):
     """Create a solver customized for the given logic.
 
     The parameter `logic` is a string. It should be contains
@@ -6924,9 +6926,9 @@ def SolverFor(logic, ctx=None):
     """
     ctx = _get_ctx(ctx)
     logic = to_symbol(logic)
-    return Solver(Z3_mk_solver_for_logic(ctx.ref(), logic), ctx)
+    return Solver(Z3_mk_solver_for_logic(ctx.ref(), logic), ctx, logFile)
 
-def SimpleSolver(ctx=None):
+def SimpleSolver(ctx=None, logFile=None):
     """Return a simple general purpose solver with limited amount of preprocessing.
 
     >>> s = SimpleSolver()
@@ -6936,7 +6938,7 @@ def SimpleSolver(ctx=None):
     sat
     """
     ctx = _get_ctx(ctx)
-    return Solver(Z3_mk_simple_solver(ctx.ref()), ctx)
+    return Solver(Z3_mk_simple_solver(ctx.ref()), ctx, logFile)
 
 #########################################
 #
@@ -7662,7 +7664,7 @@ class Tactic:
         if self.tactic is not None and self.ctx.ref() is not None:
             Z3_tactic_dec_ref(self.ctx.ref(), self.tactic)
 
-    def solver(self):
+    def solver(self, logFile=None):
         """Create a solver using the tactic `self`.
 
         The solver supports the methods `push()` and `pop()`, but it
@@ -7677,7 +7679,7 @@ class Tactic:
         >>> s.model()
         [x = 1.4142135623?]
         """
-        return Solver(Z3_mk_solver_from_tactic(self.ctx.ref(), self.tactic), self.ctx)
+        return Solver(Z3_mk_solver_from_tactic(self.ctx.ref(), self.tactic), self.ctx, logFile)
 
     def apply(self, goal, *arguments, **keywords):
         """Apply tactic `self` to the given goal or Z3 Boolean expression using the given options.
