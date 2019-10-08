@@ -80,6 +80,7 @@ typedef bool Z3_bool;
    \brief Z3 string type. It is just an alias for \ccode{const char *}.
 */
 typedef const char * Z3_string;
+typedef char const*  Z3_char_ptr;
 typedef Z3_string * Z3_string_ptr;
 
 /**
@@ -2495,6 +2496,17 @@ extern "C" {
     Z3_ast Z3_API Z3_mk_ge(Z3_context c, Z3_ast t1, Z3_ast t2);
 
     /**
+        \brief Create division predicate.
+
+        The nodes \c t1 and \c t2 must be of integer sort.
+        The predicate is true when \c t1 divides \c t2. For the predicate to be part of 
+        linear integer arithmetic, the first argument \c t1 must be a non-zero integer.
+        
+        def_API('Z3_mk_divides', AST, (_in(CONTEXT), _in(AST), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_divides(Z3_context c, Z3_ast t1, Z3_ast t2);
+
+    /**
         \brief Coerce an integer to a real.
 
         There is also a converse operation exposed.
@@ -3454,9 +3466,9 @@ extern "C" {
 
        \pre  Z3_is_string(c, s)
 
-       def_API('Z3_get_lstring' ,STRING ,(_in(CONTEXT), _in(AST), _out(UINT)))
+       def_API('Z3_get_lstring' ,CHAR_PTR ,(_in(CONTEXT), _in(AST), _out(UINT)))
      */
-    Z3_string Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
+    Z3_char_ptr Z3_API Z3_get_lstring(Z3_context c, Z3_ast s, unsigned* length);
 
     /**
        \brief Create an empty sequence of the sequence sort \c seq.
