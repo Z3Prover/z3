@@ -1622,7 +1622,7 @@ namespace nlsat {
             del_clauses(m_valids);
             if (m_check_lemmas) {
                 for (clause* c : m_learned) {
-                    //check_lemma(c->size(), c->c_ptr(), false, nullptr);
+                    check_lemma(c->size(), c->c_ptr(), false, nullptr);
                 }
             }
 

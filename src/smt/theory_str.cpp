@@ -1920,19 +1920,23 @@ namespace smt {
             u.str.is_string(range2, range2val);
             return zstring("[") + range1val + zstring("-") + range2val + zstring("]");
         } else if (u.re.is_loop(a_regex)) {
-        	expr * body;
-        	unsigned lo, hi;
-        	// There are two variants of loop: a 2-argument version and a 3-argument version.
-        	if (u.re.is_loop(a_regex, body, lo, hi)) {
-        	    rational rLo(lo);
-        	    rational rHi(hi);
-        	    zstring bodyStr = get_std_regex_str(body);
-        	    return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
-        	} else if (u.re.is_loop(a_regex, body, lo)) {
-        	    rational rLo(lo);
-        	    zstring bodyStr = get_std_regex_str(body);
-        	    return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring("+") + zstring("})");
-        	}
+            expr * body;
+            unsigned lo, hi;
+            // There are two variants of loop: a 2-argument version and a 3-argument version.
+            if (u.re.is_loop(a_regex, body, lo, hi)) {
+                rational rLo(lo);
+                rational rHi(hi);
+                zstring bodyStr = get_std_regex_str(body);
+                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring(",") + zstring(rHi.to_string().c_str()) + zstring("})");
+            } else if (u.re.is_loop(a_regex, body, lo)) {
+                rational rLo(lo);
+                zstring bodyStr = get_std_regex_str(body);
+                return zstring("(") + bodyStr + zstring("{") + zstring(rLo.to_string().c_str()) + zstring("+") + zstring("})");
+            }
+            else {
+                TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
+                UNREACHABLE(); return zstring("");
+            }
         } else if (u.re.is_full_seq(a_regex)) {
             return zstring("(.*)");
         } else if (u.re.is_full_char(a_regex)) {
@@ -1941,6 +1945,7 @@ namespace smt {
             TRACE("str", tout << "BUG: unrecognized regex term " << mk_pp(regex, get_manager()) << std::endl;);
             UNREACHABLE(); return zstring("");
         }
+        
     }
 
     void theory_str::instantiate_axiom_RegexIn(enode * e) {
