@@ -157,7 +157,7 @@ extern "C" {
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
                 expr_ref_vector asms(mk_c(c)->m());
-                asms.append(num_assumptions, to_exprs(assumptions));
+                asms.append(num_assumptions, to_exprs(num_assumptions, assumptions));
                 r = to_optimize_ptr(o)->optimize(asms);
             }
             catch (z3_exception& ex) {

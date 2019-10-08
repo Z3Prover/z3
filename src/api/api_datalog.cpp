@@ -350,7 +350,7 @@ extern "C" {
         unsigned num_queries,
         Z3_ast _queries[]) {
         Z3_TRY;
-        expr*const* queries = to_exprs(_queries);        
+        expr*const* queries = to_exprs(num_queries, _queries);        
         LOG_Z3_fixedpoint_to_string(c, d, num_queries, _queries);
         RESET_ERROR_CODE();
         return mk_c(c)->mk_external_string(to_fixedpoint_ref(d)->to_string(num_queries, queries));

@@ -54,7 +54,7 @@ inline Z3_ast of_ast(ast* a) { return reinterpret_cast<Z3_ast>(a); }
 inline expr * to_expr(Z3_ast a) { return reinterpret_cast<expr*>(a); }
 inline Z3_ast of_expr(expr* e) { return reinterpret_cast<Z3_ast>(e); }
 
-inline expr * const * to_exprs(Z3_ast const* a) { return reinterpret_cast<expr* const*>(a); }
+inline expr * const * to_exprs(unsigned n, Z3_ast const* a) { return reinterpret_cast<expr* const*>(a); }
 inline Z3_ast * const * of_exprs(expr* const* e) { return reinterpret_cast<Z3_ast* const*>(e); }
 
 inline app * to_app(Z3_app a) { return reinterpret_cast<app*>(a); }
@@ -165,7 +165,7 @@ Z3_ast Z3_API NAME(Z3_context c, unsigned num_args, Z3_ast const* args) { \
     LOG_ ## NAME(c, num_args, args);                                    \
     RESET_ERROR_CODE();                                                 \
     EXTRA_CODE;                                                         \
-    ast* a = mk_c(c)->m().mk_app(FID, OP, 0, 0, num_args, to_exprs(args)); \
+    ast* a = mk_c(c)->m().mk_app(FID, OP, 0, 0, num_args, to_exprs(num_args, args)); \
     mk_c(c)->save_ast_trail(a);                                         \
     check_sorts(c, a);                                                  \
     RETURN_Z3(of_ast(a));                                               \

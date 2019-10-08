@@ -449,7 +449,7 @@ extern "C" {
                 return Z3_L_UNDEF;
             }
         }
-        expr * const * _assumptions = to_exprs(assumptions);
+        expr * const * _assumptions = to_exprs(num_assumptions, assumptions);
         unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
@@ -605,7 +605,7 @@ extern "C" {
         RESET_ERROR_CODE();
         CHECK_SEARCHING(c);
         init_solver(c, s);
-        lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(terms), class_ids);
+        lbool result = smt::implied_equalities(m, *to_solver_ref(s), num_terms, to_exprs(num_terms, terms), class_ids);
         return static_cast<Z3_lbool>(result); 
         Z3_CATCH_RETURN(Z3_L_UNDEF);
     }

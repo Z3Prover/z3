@@ -327,7 +327,7 @@ extern "C" {
                 RETURN_Z3(nullptr);
             }
         }
-        app* a = mk_c(c)->m().mk_pattern(num_patterns, reinterpret_cast<app*const*>(to_exprs(terms)));
+        app* a = mk_c(c)->m().mk_pattern(num_patterns, reinterpret_cast<app*const*>(to_exprs(num_patterns, terms)));
         mk_c(c)->save_ast_trail(a);
         RETURN_Z3(of_pattern(a));
         Z3_CATCH_RETURN(nullptr);
