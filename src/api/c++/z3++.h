@@ -1119,11 +1119,11 @@ namespace z3 {
         friend expr max(expr const& a, expr const& b);
 
         friend expr bv2int(expr const& a, bool is_signed); 
-        friend expr int2bv(expr const& a, unsigned n);
-        friend expr bvadd_no_overflow(expr const& a, expr const& b);
+        friend expr int2bv(unsigned n, expr const& a);
+        friend expr bvadd_no_overflow(expr const& a, expr const& b, bool is_signed);
         friend expr bvadd_no_underflow(expr const& a, expr const& b);
         friend expr bvsub_no_overflow(expr const& a, expr const& b);
-        friend expr bvsub_no_underflow(expr const& a, expr const& b);
+        friend expr bvsub_no_underflow(expr const& a, expr const& b, bool is_signed);
         friend expr bvsdiv_no_overflow(expr const& a, expr const& b);
         friend expr bvneg_no_overflow(expr const& a);
         friend expr bvmul_no_overflow(expr const& a, expr const& b, bool is_signed);
@@ -1756,13 +1756,13 @@ namespace z3 {
        \brief bit-vector and integer conversions.
     */
     inline expr bv2int(expr const& a, bool is_signed) { Z3_ast r = Z3_mk_bv2int(a.ctx(), a, is_signed); a.check_error(); return expr(a.ctx(), r); }
-    inline expr int2bv(expr const& a, unsigned n) { Z3_ast r = Z3_mk_intbv2(a.ctx(), a, n); a.check_error(); return expr(a.ctx(), r); }
+    inline expr int2bv(unsigned n, expr const& a) { Z3_ast r = Z3_mk_int2bv(a.ctx(), n, a); a.check_error(); return expr(a.ctx(), r); }
 
     /**
        \brief bit-vector overflow/underflow checks
     */
-    inline expr bvadd_no_overflow(expr const& a, expr const& b) { 
-        check_context(a, b); Z3_ast r = Z3_mk_bvadd_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    inline expr bvadd_no_overflow(expr const& a, expr const& b, bool is_signed) { 
+        check_context(a, b); Z3_ast r = Z3_mk_bvadd_no_overflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
     }
     inline expr bvadd_no_underflow(expr const& a, expr const& b) {
         check_context(a, b); Z3_ast r = Z3_mk_bvadd_no_underflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
@@ -1770,8 +1770,8 @@ namespace z3 {
     inline expr bvsub_no_overflow(expr const& a, expr const& b) {
         check_context(a, b); Z3_ast r = Z3_mk_bvsub_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
     }
-    inline expr bvsub_no_underflow(expr const& a, expr const& b) {
-        check_context(a, b); Z3_ast r = Z3_mk_bvsub_no_underflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
+    inline expr bvsub_no_underflow(expr const& a, expr const& b, bool is_signed) {
+        check_context(a, b); Z3_ast r = Z3_mk_bvsub_no_underflow(a.ctx(), a, b, is_signed); a.check_error(); return expr(a.ctx(), r); 
     }
     inline expr bvsdiv_no_overflow(expr const& a, expr const& b) {
         check_context(a, b); Z3_ast r = Z3_mk_bvsdiv_no_overflow(a.ctx(), a, b); a.check_error(); return expr(a.ctx(), r); 
