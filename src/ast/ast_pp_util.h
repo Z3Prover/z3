@@ -35,6 +35,8 @@ class ast_pp_util {
 
     ast_pp_util(ast_manager& m): m(m), m_env(m), m_num_sorts(0), m_num_decls(0), coll(m) {}
 
+    void reset() { coll.reset(); m_removed.reset(); m_num_sorts = 0; m_num_decls = 0; }
+
     void collect(expr* e);
 
     void collect(unsigned n, expr* const* es);

@@ -61,6 +61,11 @@ extern "C" {
         m_out << "(push)\n";
     }
 
+    void solver2smt2_pp::reset() {
+        m_out << "(reset)\n";
+        m_pp_util.reset();
+    }
+
     void solver2smt2_pp::pop(unsigned n) {
         m_out << "(pop " << n << ")\n";
     }
@@ -74,6 +79,22 @@ extern "C" {
         m_out << ")\n";
         m_out.flush();
     }
+
+    void solver2smt2_pp::get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& variables) {
+        m_out << "(get-consequences (";
+        for (expr* f : assumptions) {
+            m_out << "\n";
+            m_pp_util.display_expr(m_out, f);
+        }
+        m_out << ") (";
+        for (expr* f : variables) {
+            m_out << "\n";
+            m_pp_util.display_expr(m_out, f);
+        }
+        m_out << ")\n";
+        m_out.flush();
+    }
+
 
     solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file) {
         if (!m_out) {
@@ -383,6 +404,7 @@ extern "C" {
         LOG_Z3_solver_reset(c, s);
         RESET_ERROR_CODE();
         to_solver(s)->m_solver = nullptr;
+        if (to_solver(s)->m_pp) to_solver(s)->m_pp->reset();
         Z3_CATCH;
     }
     
@@ -711,6 +733,7 @@ extern "C" {
             scoped_timer timer(timeout, &eh);
             scoped_rlimit _rlimit(mk_c(c)->m().limit(), rlimit);
             try {
+                if (to_solver(s)->m_pp) to_solver(s)->m_pp->get_consequences(_assumptions, _variables); 
                 result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
             }
             catch (z3_exception & ex) {

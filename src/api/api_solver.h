@@ -29,7 +29,9 @@ struct solver2smt2_pp {
     void assert_expr(expr* e, expr* t);
     void push();
     void pop(unsigned n);
+    void reset();
     void check(unsigned n, expr* const* asms);
+    void get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& variables);
 };
 
 struct Z3_solver_ref : public api::object {

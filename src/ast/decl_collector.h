@@ -48,6 +48,7 @@ public:
     decl_collector(ast_manager & m);
     ast_manager & m() { return m_manager; }
 
+    void reset() { m_sorts.reset(); m_decls.reset(); m_visited.reset(); m_trail.reset(); }
     void visit_func(func_decl* n);
     void visit(ast * n);
     void visit(unsigned n, expr* const* es);
