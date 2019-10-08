@@ -13,7 +13,7 @@ jobs:
   strategy:
     matrix:
       MT:
-        cmdLine: 'python scripts/mk_make.py -d --java --dotnet'
+        cmdLine: 'python scripts/mk_make.py -d --java'
       ST:
         cmdLine: './configure --single-threaded'
   steps:
