@@ -1291,6 +1291,22 @@ public class Expr extends AST
     }
 
     /**
+     * TBD: sketch for #2522, 'Pointer' seems deprecated and instead 
+     * approach seems to be around Set/Get CharArrayRegion and updating Native.cpp
+     * code generation to produce the char[].
+     * 
+    public char[] getNativeString()
+    {
+        Native.IntPtr len = new Native.IntPtr();
+        long s = Native.getLstring(getContext().nCtx(), getNativeObject(), len);
+        char[] result = new char[len.value];
+        Pointer ptr = Pointer.createConstant(s);
+        for (int i = 0; i < len.value; ++i) result[i] = ptr.getChar(i);
+        return result;
+    }
+    */
+
+    /**
      * Check whether expression is a concatenation
      * @return a boolean
      */
