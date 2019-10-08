@@ -29,6 +29,7 @@ class decl_collector {
     ptr_vector<sort>      m_sorts;
     ptr_vector<func_decl> m_decls;
     ast_mark              m_visited;
+    ast_ref_vector        m_trail;
     family_id             m_basic_fid;
     family_id             m_dt_fid;
     datatype_util         m_dt_util;

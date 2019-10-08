@@ -53,18 +53,23 @@ void decl_collector::visit_func(func_decl * n) {
             m_decls.push_back(n);
         }
         m_visited.mark(n, true);
+        m_trail.push_back(n);
     }
 }
 
 decl_collector::decl_collector(ast_manager & m):
     m_manager(m),
+    m_trail(m),
     m_dt_util(m) {
     m_basic_fid = m_manager.get_basic_family_id();
     m_dt_fid = m_dt_util.get_family_id();
 }
 
 void decl_collector::visit(ast* n) {
+    if (m_visited.is_marked(n)) 
+        return;
     datatype_util util(m());
+    m_trail.push_back(n);
     m_todo.push_back(n);
     while (!m_todo.empty()) {
         n = m_todo.back();
