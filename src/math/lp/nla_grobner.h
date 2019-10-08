@@ -131,8 +131,7 @@ private:
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
     void add_row(unsigned);
-    void add_monomial_def(lpvar);
-    void assert_eq_0(ptr_buffer<monomial> &, v_dependency * dep);
+    void assert_eq_0(const nex*, ci_dependency * dep);
     void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
 
     nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
@@ -143,6 +142,8 @@ private:
         return rational(1);
     }
 
+    void init_equation(equation* eq, ci_dependency* d);
+    
     // bool less_than_on_vars(lpvar a, lpvar b) const {
     //     const auto &aw = m_nex_creatorm_active_vars_weights[a];
     //     const auto &ab = m_active_vars_weights[b];
