@@ -55,6 +55,8 @@ class nex_scalar;
 // This is the class of non-linear expressions 
 class nex {
 public:
+    // the scalar and the variable have size 1
+    virtual unsigned size() const { return 1; }
     virtual expr_type type() const = 0;
     virtual std::ostream& print(std::ostream&) const = 0;
     nex() {}
@@ -159,9 +161,6 @@ public:
     }
     friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
 };
-
-bool less_than_nex(const nex* a, const nex* b, const lt_on_vars& lt);
-
 
 
 class nex_mul : public nex {
@@ -395,10 +394,10 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
     return e.print(out);
 }
 
-inline bool less_than_nex_standard(const nex* a, const nex* b) {
-    lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
-    return less_than_nex(a, b, lt);
-}
+// inline bool less_than_nex_standard(const nex* a, const nex* b) {
+//     lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
+//     return less_than_nex(a, b, lt);
+// }
 
 inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
         std::unordered_set<lpvar> r;
