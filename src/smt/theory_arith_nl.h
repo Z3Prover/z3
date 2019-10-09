@@ -1232,14 +1232,9 @@ namespace smt {
             else if (ctx.e_internalized(m)) {
                 ADD_OCC(m);
             }
-            else if (!ctx.e_internalized(m)) {
+            else {
                 ctx.internalize(m, false);
                 ADD_OCC(m);
-            }
-            else {
-                TRACE("non_linear", tout << mk_pp(m, get_manager()) << "\n";);
-                UNREACHABLE();
-                return;
             }
         }
 
