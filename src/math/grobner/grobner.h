@@ -153,9 +153,9 @@ protected:
     
     void normalize_coeff(ptr_vector<monomial> & monomials);
 
-    void simplify(ptr_vector<monomial> & monomials);
+    void simplify_ptr_monomials(ptr_vector<monomial> & monomials);
 
-    void simplify(equation * eq);
+    void simplify_eq(equation * eq);
 
     bool is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const;
 
@@ -165,8 +165,8 @@ protected:
 
     equation * copy_equation(equation const * eq);
 
-    equation * simplify(equation const * source, equation * target);
-    bool simplify_for_loop(equation const * source, equation * target, bool&, unsigned &);
+    equation * simplify_source_target(equation const * source, equation * target);
+    unsigned simplify_loop_on_target_monomials(equation const * source, equation * target, bool&);
 
     equation * simplify_using_processed(equation * eq);
 
