@@ -1232,6 +1232,10 @@ namespace smt {
             else if (ctx.e_internalized(m)) {
                 ADD_OCC(m);
             }
+            else if (!ctx.e_internalized(m)) {
+                ctx.internalize(m, false);
+                ADD_OCC(m);
+            }
             else {
                 TRACE("non_linear", tout << mk_pp(m, get_manager()) << "\n";);
                 UNREACHABLE();
@@ -1484,14 +1488,15 @@ namespace smt {
                 r.push_back(coeff_expr(kv.first, f));
             }
         }
+
         expr * s = cross_nested(e, nullptr);
         if (!r.empty()) {
             expr * q = horner(r, var);
             // TODO: improve here
-            s        = m_util.mk_add(q, s);
+            s = m_util.mk_add(q, s);
         }
 
-        expr * result   = s;
+        expr * result = s;
         if (d != 0) {
             expr * xd = power(var, d);
             result = m_util.mk_mul(xd, s);
@@ -1694,11 +1699,9 @@ namespace smt {
 
         TRACE("non_linear", tout << "check problematic row:\n"; display_row(tout, r); display_row(tout, r, false););
         sbuffer<coeff_expr> p;
-        typename vector<row_entry>::const_iterator it  = r.begin_entries();
-        typename vector<row_entry>::const_iterator end = r.end_entries();
-        for (; it != end; ++it) {
-            if (!it->is_dead())
-                p.push_back(coeff_expr(it->m_coeff.to_rational() * c, var2expr(it->m_var)));
+        for (row_entry const& re : r) {
+            if (!re.is_dead())
+                p.push_back(coeff_expr(re.m_coeff.to_rational() * c, var2expr(re.m_var)));
         }
         SASSERT(!p.empty());
         CTRACE("cross_nested_bug", !c.is_one(), tout << "c: " << c << "\n"; display_row(tout, r); tout << "---> p (coeffs, exprs):\n"; display_coeff_exprs(tout, p););

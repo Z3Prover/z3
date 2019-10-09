@@ -40,7 +40,8 @@ struct Z3_solver_ref : public api::object {
     params_ref                 m_params;
     symbol                     m_logic;
     scoped_ptr<solver2smt2_pp> m_pp;
-    Z3_solver_ref(api::context& c, solver_factory * f): api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null) {}
+    Z3_solver_ref(api::context& c, solver_factory * f): 
+    api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null) {}
     ~Z3_solver_ref() override {}
 
     void assert_expr(expr* e);

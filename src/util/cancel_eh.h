@@ -39,6 +39,7 @@ public:
         }
     }
     bool canceled() const { return m_canceled; }
+    void reset() { m_canceled = false; }
 };
 
 #endif
