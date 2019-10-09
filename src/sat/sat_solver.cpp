@@ -1464,7 +1464,7 @@ namespace sat {
         if (finished_id == -1) {
             switch (ex_kind) {
             case ERROR_EX: throw z3_error(error_code);
-            default: throw default_exception(ex_msg.c_str());
+            default: throw default_exception(std::move(ex_msg));
             }
         }
         return result;

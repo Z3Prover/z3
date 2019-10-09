@@ -79,7 +79,7 @@ struct z3_replayer::imp {
             strm << "expecting " << kind2string(k) << " at position "
                  << pos << " but got " << kind2string(m_args[pos].m_kind);
             TRACE("z3_replayer", tout << strm.str() << "\n";);
-            throw z3_replayer_exception(strm.str().c_str());
+            throw z3_replayer_exception(strm.str());
         }
     }
 
