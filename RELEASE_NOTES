@@ -1,5 +1,12 @@
 RELEASE NOTES
 
+Version 4.8.7
+- New features
+  - setting parameter on solver over the API by
+    solver.smtlib2_log=<filename>
+    enables tracing calls into the solver as SMTLIB2 commands.
+    It traces, assert, push, pop, check_sat, get_consequences.
+
 Version 4.8.6
 =============
 - Notes
