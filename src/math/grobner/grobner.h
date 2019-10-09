@@ -166,6 +166,7 @@ protected:
     equation * copy_equation(equation const * eq);
 
     equation * simplify(equation const * source, equation * target);
+    bool simplify_for_loop(equation const * source, equation * target, bool&, unsigned &);
 
     equation * simplify_using_processed(equation * eq);
 
