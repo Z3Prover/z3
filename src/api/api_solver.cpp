@@ -155,13 +155,6 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-    void Z3_API Z3_solver_open_smt2log(Z3_context c, Z3_solver s, Z3_string file) {
-        Z3_TRY;
-        LOG_Z3_solver_open_smt2log(c, s, file);
-        to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), file);
-        Z3_CATCH;
-    }
-
     Z3_solver Z3_API Z3_mk_solver_for_logic(Z3_context c, Z3_symbol logic) {
         Z3_TRY;
         LOG_Z3_mk_solver_for_logic(c, logic);
@@ -338,10 +331,13 @@ extern "C" {
         RESET_ERROR_CODE();
 
         symbol logic = to_param_ref(p).get_sym("smt.logic", symbol::null);
+        symbol smt2log = to_param_ref(p).get_sym("solver.smtlib2_log", symbol::null);
         if (logic != symbol::null) {
             to_solver(s)->m_logic = logic;
         }
-
+        if (smt2log != symbol::null && !to_solver(s)->m_pp) {
+            to_solver(s)->m_pp = alloc(solver2smt2_pp, mk_c(c)->m(), smt2log.str().c_str());
+        }
         if (to_solver(s)->m_solver) {
             bool old_model = to_solver(s)->m_params.get_bool("model", true);
             bool new_model = to_param_ref(p).get_bool("model", true);
@@ -354,6 +350,7 @@ extern "C" {
             to_solver_ref(s)->updt_params(to_param_ref(p));
         }
         to_solver(s)->m_params.append(to_param_ref(p));
+        
         Z3_CATCH;
     }
     
