@@ -90,7 +90,7 @@ script:
   # have long link times during which it will not show any output which
   # TravisCI might kill due to perceived inactivity.
   - if [ "X${USE_LTO}" = "X1" ]; then
-      travis_wait 45 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
+      travis_wait 55 contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
     else
       contrib/ci/scripts/travis_ci_entry_point.sh || exit 1;
     fi
