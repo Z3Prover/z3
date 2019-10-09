@@ -475,9 +475,9 @@ nla_grobner::equation * nla_grobner::simplify(equation const * source, equation 
 }
 
 std::ostream& nla_grobner::display_equation(std::ostream & out, equation & eq) {
-    tout << "m_exp = " << *eq.m_exp << "\n";
-    tout << "dep = "; display_dependency(tout, eq.m_dep) << "\n";
-    return tout;
+    out << "m_exp = " << *eq.m_exp << "\n";
+    out << "dep = "; display_dependency(out, eq.m_dep) << "\n";
+    return out;
 }
 
 void nla_grobner::display_monomial(std::ostream & out, monomial const & m) const {
