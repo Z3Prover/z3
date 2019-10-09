@@ -272,7 +272,7 @@ void fpa2bv_converter::mk_uf(func_decl * f, unsigned num, expr * const * args, e
 {
     TRACE("fpa2bv", tout << "UF: " << mk_ismt2_pp(f, m) << std::endl; );
 
-    expr_ref fapp(m), feq(m);
+    expr_ref fapp(m);
     sort_ref rng(m);
     app_ref bv_app(m), flt_app(m);
     rng = f->get_range();

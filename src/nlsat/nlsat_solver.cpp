@@ -1685,6 +1685,7 @@ namespace nlsat {
 
         bool check_marks() {
             for (unsigned m : m_marks) {
+                (void)m;
                 SASSERT(m == 0);
             }
             return true;

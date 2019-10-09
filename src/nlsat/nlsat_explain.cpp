@@ -986,6 +986,7 @@ namespace nlsat {
 
         bool check_already_added() const {
             for (bool b : m_already_added_literal) {
+                (void)b;
                 SASSERT(!b);
             }
             return true;

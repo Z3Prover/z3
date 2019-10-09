@@ -156,10 +156,9 @@ expr_ref bv2fpa_converter::convert_bv2fp(model_core * mc, sort * s, app * bv) {
 
 expr_ref bv2fpa_converter::convert_bv2rm(expr * bv_rm) {
     expr_ref res(m);
-    rational bv_val(0);
-    unsigned sz = 0;
+    rational bv_val;
 
-    if (m_bv_util.is_numeral(bv_rm, bv_val, sz)) {
+    if (m_bv_util.is_numeral(bv_rm, bv_val)) {
         SASSERT(bv_val.is_uint64());
         switch (bv_val.get_uint64()) {
         case BV_RM_TIES_TO_AWAY: res = m_fpa_util.mk_round_nearest_ties_to_away(); break;
@@ -266,7 +265,6 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
 
     if (bv_fi) {
         fpa_rewriter rw(m);
-        expr_ref ai(m);
 
         for (unsigned i = 0; i < bv_fi->num_entries(); i++) {
             func_entry const * bv_fe = bv_fi->get_entry(i);
@@ -276,14 +274,14 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             for (unsigned j = 0; j < arity; j++) {
                 sort * ft_dj = dmn[j];
                 expr * bv_aj = bv_args[j];
-                ai = rebuild_floats(mc, ft_dj, to_app(bv_aj));
+                expr_ref ai = rebuild_floats(mc, ft_dj, to_app(bv_aj));
                 m_th_rw(ai);
-                new_args.push_back(ai);
+                new_args.push_back(std::move(ai));
             }
 
-            expr_ref bv_fres(m), ft_fres(m);
+            expr_ref bv_fres(m);
             bv_fres = bv_fe->get_result();
-            ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
+            expr_ref ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
             m_th_rw(ft_fres);
             TRACE("bv2fpa",
                   for (unsigned i = 0; i < new_args.size(); i++)
@@ -303,10 +301,9 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         }
 
         app_ref bv_els(m);
-        expr_ref ft_els(m);
         bv_els = (app*)bv_fi->get_else();
         if (bv_els != 0) {
-            ft_els = rebuild_floats(mc, rng, bv_els);
+            expr_ref ft_els = rebuild_floats(mc, rng, bv_els);
             m_th_rw(ft_els);
             result->set_else(ft_els);
         }
@@ -378,8 +375,7 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
         if (!sgn && !sig && !exp)
             continue;
 
-        expr_ref cv(m);
-        cv = convert_bv2fp(var->get_range(), sgn, exp, sig);
+        expr_ref cv = convert_bv2fp(var->get_range(), sgn, exp, sig);
         target_model->register_decl(var, cv);
 
         TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(cv, m) << std::endl;);
@@ -396,8 +392,7 @@ void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_mo
         expr * val = it->m_value;
         SASSERT(m_fpa_util.is_bv2rm(val));
         expr * bvval = to_app(val)->get_arg(0);
-        expr_ref fv(m);
-        fv = convert_bv2rm(mc, to_app(bvval));
+        expr_ref fv = convert_bv2rm(mc, to_app(bvval));
         TRACE("bv2fpa", tout << var->get_name() << " == " << mk_ismt2_pp(fv, m) << std::endl;);
         target_model->register_decl(var, fv);
         seen.insert(to_app(bvval)->get_decl());
@@ -457,7 +452,7 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
             else {
                 // Just keep.
                 SASSERT(!m_fpa_util.is_float(f->get_range()) && !m_fpa_util.is_rm(f->get_range()));
-                expr_ref var(m), val(m);
+                expr_ref val(m);
                 if (mc->eval(it->m_value, val))
                     target_model->register_decl(f, val);
             }

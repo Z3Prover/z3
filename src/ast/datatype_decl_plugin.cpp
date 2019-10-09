@@ -1129,7 +1129,6 @@ namespace datatype {
         //   2) each type T_i is not recursive or contains a constructor that does not depend on T
 
         ptr_vector<func_decl> const& constructors = *get_datatype_constructors(ty);
-        unsigned sz = constructors.size();
         array_util autil(m);
         cnstr_depth result(nullptr, 0);
         if (m_datatype2nonrec_constructor.find(ty, result))
@@ -1138,7 +1137,7 @@ namespace datatype {
               tout << "forbidden: ";
               for (sort* s : forbidden_set) tout << sort_ref(s, m) << " ";
               tout << "\n";
-              tout << "constructors: " << sz << "\n";
+              tout << "constructors: " << constructors.size() << "\n";
               for (func_decl* f : constructors) tout << func_decl_ref(f, m) << "\n";
               );
         unsigned min_depth = INT_MAX;
