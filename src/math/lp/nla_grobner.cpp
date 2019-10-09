@@ -189,22 +189,17 @@ void nla_grobner::init() {
 }
 
 bool nla_grobner::is_trivial(equation* eq) const {
-    return eq->m_monomials.empty();
+    return eq->m_exp->size() == 0;
 }
 
-bool nla_grobner:: is_better_choice(equation * eq1, equation * eq2) {
+bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
     if (!eq2)
         return true;
     if (is_trivial(eq1))
         return true;
     if (is_trivial(eq2))
         return false;
-    if (eq1->m_monomials[0]->get_degree() < eq2->m_monomials[0]->get_degree())
-        return true;
-    if (eq1->m_monomials[0]->get_degree() > eq2->m_monomials[0]->get_degree())
-        return false;
-    return eq1->m_monomials.size() < eq2->m_monomials.size();
-
+    return m_nex_creator.lt(eq1->m_exp, eq2->m_exp);
 }
 
 void nla_grobner::del_equation(equation * eq) {
@@ -214,7 +209,7 @@ void nla_grobner::del_equation(equation * eq) {
     m_to_process.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
     m_equations_to_delete[eq->m_bidx] = 0;
-    del_monomials(eq->m_monomials);
+    del_monomials(eq->m_exp);
     dealloc(eq);
     */
 }
@@ -237,8 +232,27 @@ nla_grobner::equation* nla_grobner::pick_next() {
 }
 
 nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
-    NOT_IMPLEMENTED_YET();
-    return nullptr;
+    bool result = false;
+    bool simplified;
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
+    do {
+        simplified = false;
+        for (equation const* p : m_processed) {
+            equation * new_eq  = simplify(p, eq);
+            if (new_eq) {
+                result     = true;
+                simplified = true;
+                eq         = new_eq;
+            }
+            if (canceled()) {
+                return nullptr;
+            }
+        }        
+    }
+    while (simplified);
+    TRACE("grobner", tout << "simplification result: "; display_equation(tout, *eq););
+    return result ? eq : nullptr;
+
 }
 
 nla_grobner::equation* nla_grobner::simplify_processed(equation* eq) {
@@ -395,8 +409,75 @@ void nla_grobner:: del_equations(unsigned old_size) {
 void nla_grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
     NOT_IMPLEMENTED_YET();
 }
-void nla_grobner::display_equation(std::ostream & out, equation const & eq) const {
+
+
+// void nla_grobner::simplify(ptr_vector<monomial> & monomials) {
+//     NOT_IMPLEMENTED_YET();
+//     // std::stable_sort(monomials.begin(), monomials.end(), m_monomial_lt);
+//     // merge_monomials(monomials);
+//     // normalize_coeff(monomials);
+// }
+
+nla_grobner::equation * nla_grobner::simplify(equation const * source, equation * target) {
     NOT_IMPLEMENTED_YET();
+    /*
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
+    if (source->get_num_monomials() == 0)
+        return nullptr;
+    m_stats.m_simplify++;
+    bool result = false;
+    bool simplified;
+    do {
+        simplified          = false;
+        unsigned i          = 0;
+        unsigned j          = 0;
+        unsigned sz         = target->m_monomials.size();
+        monomial const * LT = source->get_monomial(0); 
+        ptr_vector<monomial> & new_monomials = m_tmp_monomials;
+        new_monomials.reset();
+        ptr_vector<expr>  & rest = m_tmp_vars1;
+        for (; i < sz; i++) {
+            monomial * curr = target->m_monomials[i];
+            rest.reset();
+            if (is_subset(LT, curr, rest)) {
+                if (i == 0)
+                    m_changed_leading_term = true;
+                if (!result) {
+                    // first time that source is being applied.
+                    target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+                }
+                simplified     = true;
+                result         = true;
+                rational coeff = curr->m_coeff;
+                coeff         /= LT->m_coeff;
+                coeff.neg();
+                if (!rest.empty())
+                    target->m_lc = false;
+                mul_append(1, source, coeff, rest, new_monomials);
+                del_monomial(curr);
+                target->m_monomials[i] = 0;
+            }
+            else {
+                target->m_monomials[j] = curr;
+                j++;
+            }
+        }
+        if (simplified) {
+            target->m_monomials.shrink(j);
+            target->m_monomials.append(new_monomials.size(), new_monomials.c_ptr());
+            simplify(target);
+        }
+    }
+    while (simplified && !m_manager.canceled());
+    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+    return result ? target : nullptr;*/
+    return nullptr;
+}
+
+std::ostream& nla_grobner::display_equation(std::ostream & out, equation & eq) {
+    tout << "m_exp = " << *eq.m_exp << "\n";
+    tout << "dep = "; display_dependency(tout, eq.m_dep) << "\n";
+    return tout;
 }
 
 void nla_grobner::display_monomial(std::ostream & out, monomial const & m) const {
@@ -408,22 +489,37 @@ void nla_grobner::display(std::ostream & out) const {
 }
 
 void nla_grobner::assert_eq_0(const nex* e, ci_dependency * dep) {
+    TRACE("nla_grobner", tout << "e = " << *e << "\n";);
     if (e == nullptr)
         return;
     equation * eq = new equation();
-    init_equation(eq, dep);
+    init_equation(eq, e, dep);
     m_to_process.insert(eq);
 }
 
-void nla_grobner::init_equation(equation* e, ci_dependency * dep) {
-    NOT_IMPLEMENTED_YET();
-    /*    eq->m_scope_lvl = get_scope_level();
+void nla_grobner::init_equation(equation* eq, const nex*e, ci_dependency * dep) {
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
-    eq->m_dep       = d;
+    eq->m_dep       = dep;
     eq->m_lc        = true;
+    eq->m_exp =       e;
     m_equations_to_delete.push_back(eq);
-    SASSERT(m_equations_to_delete[eq->m_bidx] == eq);*/
+    SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
 }
 
+std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* dep) {
+    svector<lp::constraint_index> expl;
+    m_dep_manager.linearize(dep, expl);   
+    {
+        lp::explanation e(expl);
+        if (!expl.empty()) {
+            out << "upper constraints\n";    
+            m_core->print_explanation(e, out);
+        }else {
+            out << "no constraints\n";
+        }
+    }
+    return out;
+}
+    
 } // end of nla namespace

@@ -22,7 +22,7 @@
 #include "math/lp/nla_common.h"
 #include "math/lp/nex.h"
 #include "math/lp/nex_creator.h"
-#include "util/dependency.h"
+//#include "util/dependency.h"
 
 namespace nla {
 class core;
@@ -55,18 +55,17 @@ class nla_grobner : common {
     };
 
     class equation {
-        unsigned             m_scope_lvl;     //!< scope level when this equation was created.
-        unsigned             m_bidx:31;       //!< position at m_equations_to_delete
-        unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
-        ptr_vector<monomial> m_monomials;     //!< sorted monomials
-        v_dependency *       m_dep;           //!< justification for the equality
+        unsigned                   m_bidx:31;       //!< position at m_equations_to_delete
+        unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
+        const nex *                m_exp;           //!< sorted monomials
+        ci_dependency *            m_dep;           //!< justification for the equality
         friend class nla_grobner;
         equation() {}
     public:
-        unsigned get_num_monomials() const { return m_monomials.size(); }
-        monomial const * get_monomial(unsigned idx) const { return m_monomials[idx]; }
-        monomial * const * get_monomials() const { return m_monomials.c_ptr(); }
-        v_dependency * get_dependency() const { return m_dep; }
+        unsigned get_num_monomials() const { return m_exp->size(); }
+        nex_mul* const * get_monomial(unsigned idx) const { NOT_IMPLEMENTED_YET();
+            return nullptr; }
+        ci_dependency * get_dependency() const { return m_dep; }
         unsigned hash() const { return m_bidx; }
         bool is_linear_combination() const { return m_lc; }
     };
@@ -122,7 +121,7 @@ private:
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
     void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
-    void display_equation(std::ostream & out, equation const & eq) const;
+    std::ostream& display_equation(std::ostream & out, equation & eq);
 
     void display_monomial(std::ostream & out, monomial const & m) const;
 
@@ -142,8 +141,8 @@ private:
         return rational(1);
     }
 
-    void init_equation(equation* eq, ci_dependency* d);
-    
+    void init_equation(equation* eq, const nex*, ci_dependency* d);
+    equation * simplify(equation const * source, equation * target);    
     // bool less_than_on_vars(lpvar a, lpvar b) const {
     //     const auto &aw = m_nex_creatorm_active_vars_weights[a];
     //     const auto &ab = m_active_vars_weights[b];
@@ -160,6 +159,7 @@ private:
     //     return less_than_nex(a, b, lt);
     // }
     
+    std::ostream& display_dependency(std::ostream& out, ci_dependency*);
     
 }; // end of grobner
 }
