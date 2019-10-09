@@ -344,8 +344,4 @@ public:
         }
     }
 };  // end of var_eqs
-
-// template <typename T>
-// std::ostream& operator<<(var_eqs<T> const& ve, std::ostream& out) { return ve.display(out); }
-
 }

@@ -581,6 +581,45 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
     return r;
 }
 
+bool grobner::simplify_for_loop(equation const * source, equation * target, bool & result, unsigned& j ) {
+    bool simplified          = false;
+    unsigned i          = 0;
+    j = 0;
+    unsigned sz         = target->m_monomials.size();
+    monomial const * LT = source->get_monomial(0); 
+    ptr_vector<monomial> & new_monomials = m_tmp_monomials;
+    new_monomials.reset();
+    ptr_vector<expr>  & rest = m_tmp_vars1;
+    
+    for (; i < sz; i++) {
+        monomial * curr = target->m_monomials[i];
+        rest.reset();
+        if (is_subset(LT, curr, rest)) {
+            if (i == 0)
+                m_changed_leading_term = true;
+            if (!result) {
+                // first time that source is being applied.
+                target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+            }
+            simplified     = true;
+            result         = true;
+            rational coeff = curr->m_coeff;
+            coeff         /= LT->m_coeff;
+            coeff.neg();
+            if (!rest.empty())
+                target->m_lc = false;
+            mul_append(1, source, coeff, rest, new_monomials);
+            del_monomial(curr);
+            target->m_monomials[i] = 0;
+        }
+        else {
+            target->m_monomials[j] = curr;
+            j++;
+        }
+    }
+    return simplified;
+}
+
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
@@ -593,49 +632,18 @@ grobner::equation * grobner::simplify(equation const * source, equation * target
         return nullptr;
     m_stats.m_simplify++;
     bool result = false;
-    bool simplified;
+    
     do {
-        simplified          = false;
-        unsigned i          = 0;
-        unsigned j          = 0;
-        unsigned sz         = target->m_monomials.size();
-        monomial const * LT = source->get_monomial(0); 
-        ptr_vector<monomial> & new_monomials = m_tmp_monomials;
-        new_monomials.reset();
-        ptr_vector<expr>  & rest = m_tmp_vars1;
-        for (; i < sz; i++) {
-            monomial * curr = target->m_monomials[i];
-            rest.reset();
-            if (is_subset(LT, curr, rest)) {
-                if (i == 0)
-                    m_changed_leading_term = true;
-                if (!result) {
-                    // first time that source is being applied.
-                    target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
-                }
-                simplified     = true;
-                result         = true;
-                rational coeff = curr->m_coeff;
-                coeff         /= LT->m_coeff;
-                coeff.neg();
-                if (!rest.empty())
-                    target->m_lc = false;
-                mul_append(1, source, coeff, rest, new_monomials);
-                del_monomial(curr);
-                target->m_monomials[i] = 0;
-            }
-            else {
-                target->m_monomials[j] = curr;
-                j++;
-            }
-        }
-        if (simplified) {
+        unsigned j;
+        if( simplify_for_loop(source, target, result, j)) {
             target->m_monomials.shrink(j);
-            target->m_monomials.append(new_monomials.size(), new_monomials.c_ptr());
+            target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
             simplify(target);
+        } else {
+            break;
         }
     }
-    while (simplified && !m_manager.canceled());
+    while (!m_manager.canceled());
     TRACE("grobner", tout << "result: "; display_equation(tout, *target););
     return result ? target : nullptr;
 }
