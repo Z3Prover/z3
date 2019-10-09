@@ -608,13 +608,12 @@ unsigned grobner::simplify_loop_on_target_monomials(equation const * source, equ
                 target->m_lc = false;
             mul_append(1, source, coeff, rest, new_monomials);
             del_monomial(curr);
-            target->m_monomials[i] = nullptr;
         }
         else {
             target->m_monomials[n_sz++] = curr;
         }
     }
-    return n_sz < target->m_monomials.size();
+    return n_sz;
 }
 
 /**
