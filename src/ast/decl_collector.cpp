@@ -126,7 +126,9 @@ void decl_collector::order_deps(unsigned n) {
     }
     st.topological_sort();
     m_sorts.shrink(n);
-    for (sort* s : st.top_sorted()) m_sorts.push_back(s);
+    for (sort* s : st.top_sorted()) {
+        m_sorts.push_back(s);
+    }
 }
 
 decl_collector::sort_set* decl_collector::collect_deps(sort* s) {
