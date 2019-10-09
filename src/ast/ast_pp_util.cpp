@@ -113,3 +113,17 @@ void ast_pp_util::display_asserts(std::ostream& out, expr_ref_vector const& fmls
         }
     }
 }
+
+void ast_pp_util::push() {
+    coll.push();
+    m_num_sorts_trail.push_back(m_num_sorts);
+    m_num_decls_trail.push_back(m_num_decls);
+}
+
+void ast_pp_util::pop(unsigned n) {
+    coll.pop(n);
+    m_num_sorts = m_num_sorts_trail[m_num_sorts_trail.size() - n];
+    m_num_decls = m_num_decls_trail[m_num_decls_trail.size() - n];
+    m_num_sorts_trail.shrink(m_num_sorts_trail.size() - n);
+    m_num_decls_trail.shrink(m_num_decls_trail.size() - n);
+}

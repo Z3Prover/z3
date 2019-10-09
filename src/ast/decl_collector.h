@@ -30,6 +30,9 @@ class decl_collector {
     ptr_vector<func_decl> m_decls;
     ast_mark              m_visited;
     ast_ref_vector        m_trail;
+    unsigned_vector       m_trail_lim;
+    unsigned_vector       m_sorts_lim;
+    unsigned_vector       m_decls_lim;
     family_id             m_basic_fid;
     family_id             m_dt_fid;
     datatype_util         m_dt_util;
@@ -53,6 +56,9 @@ public:
     void visit(ast * n);
     void visit(unsigned n, expr* const* es);
     void visit(expr_ref_vector const& es);
+
+    void push();
+    void pop(unsigned n);
 
     void order_deps(unsigned n);
 

@@ -59,6 +59,7 @@ extern "C" {
 
     void solver2smt2_pp::push() {
         m_out << "(push)\n";
+        m_pp_util.push();
     }
 
     void solver2smt2_pp::reset() {
@@ -68,6 +69,7 @@ extern "C" {
 
     void solver2smt2_pp::pop(unsigned n) {
         m_out << "(pop " << n << ")\n";
+        m_pp_util.pop(n);
     }
 
     void solver2smt2_pp::check(unsigned n, expr* const* asms) {
