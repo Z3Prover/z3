@@ -25,7 +25,9 @@ nla_grobner::nla_grobner(core *c
                          ) :
     common(c),
     m_nl_gb_exhausted(false),
-    m_dep_manager(m_val_manager, m_alloc) {}
+    m_dep_manager(m_val_manager, m_alloc),
+    m_changed_leading_term(false)
+{}
 
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
@@ -255,23 +257,149 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
 
 }
 
-nla_grobner::equation* nla_grobner::simplify_processed(equation* eq) {
+unsigned nla_grobner::simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result) {
+    unsigned i          = 0;
+    unsigned n_sz = 0;
+    unsigned sz         = target->m_exp->size();
     NOT_IMPLEMENTED_YET();
-    return nullptr;
+    /*
+    monomial const * LT = source->get_monomial(0); 
+    ptr_vector<monomial> & new_monomials = m_tmp_monomials;
+    new_monomials.reset();
+    ptr_vector<expr>  & rest = m_tmp_vars1;
+    
+    for (; i < sz; i++) {
+        monomial * curr = target->m_monomials[i];
+        rest.reset();
+        if (is_subset(LT, curr, rest)) {
+            if (i == 0)
+                m_changed_leading_term = true;
+            if (!result) {
+                // first time that source is being applied.
+                target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+            }
+            result         = true;
+            rational coeff = curr->m_coeff;
+            coeff         /= LT->m_coeff;
+            coeff.neg();
+            if (!rest.empty())
+                target->m_lc = false;
+            mul_append(1, source, coeff, rest, new_monomials);
+            del_monomial(curr);
+        }
+        else {
+            target->m_monomials[n_sz++] = curr;
+        }
+        }*/
+    return n_sz;
 }
 
-nla_grobner::equation*  nla_grobner::simplify_to_process(equation*) {
-    NOT_IMPLEMENTED_YET();
-    return nullptr;
+
+nla_grobner::equation * nla_grobner::simplify_source_target(equation const * source, equation * target) {
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
+    if (source->get_num_monomials() == 0)
+        return nullptr;
+    m_stats.m_simplify++;
+    bool result = false;
+    do {
+        unsigned target_new_size = simplify_loop_on_target_monomials(source, target, result);
+        if (target_new_size < target->m_exp->size()) {
+            NOT_IMPLEMENTED_YET();
+            /*
+              target->m_monomials.shrink(target_new_size);
+            target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
+            simplify_eq(target);
+            */
+        } else {
+            NOT_IMPLEMENTED_YET();
+            break;
+        }
+    }
+    while (!canceled());
+    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+    return result ? target : nullptr;
+}
+ 
+void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove) {
+    if (new_target != target) {
+        m_equations_to_unfreeze.push_back(target);
+        to_remove.push_back(target);
+        if (m_changed_leading_term) {
+            m_to_process.insert(new_target);
+            to_remove.push_back(target);
+        }
+        else {
+            to_insert.push_back(new_target);
+        }
+        target = new_target;
+    }
+    else {
+        if (m_changed_leading_term) {
+            m_to_process.insert(target);
+            to_remove.push_back(target);
+        }
+    }
+}
+
+bool nla_grobner::simplify_processed_with_eq(equation* eq) {
+    ptr_buffer<equation> to_insert;
+    ptr_buffer<equation> to_remove;
+    ptr_buffer<equation> to_delete;
+    equation_set::iterator it  = m_processed.begin();
+    equation_set::iterator end = m_processed.end();
+    for (; it != end && !canceled(); ++it) {
+        equation * target        = *it;
+        m_changed_leading_term = false;
+        // if the leading term is simplified, then the equation has to be moved to m_to_process
+        equation * new_target    = simplify_source_target(eq, target);
+        if (new_target != nullptr) {
+            process_simplified_target(to_insert, new_target, target, to_remove);
+        }
+        if (is_trivial(target))
+            to_delete.push_back(target);
+    }
+    for (equation* eq : to_insert) 
+        m_processed.insert(eq);
+    for (equation* eq : to_remove)
+        m_processed.erase(eq);
+    for (equation* eq : to_delete) 
+        del_equation(eq);
+    return !canceled();
+}
+
+void  nla_grobner::simplify_to_process(equation* eq) {
+    ptr_buffer<equation> to_insert;
+    ptr_buffer<equation> to_remove;
+    ptr_buffer<equation> to_delete;
+    for (equation* target : m_to_process) {
+        equation * new_target = simplify_source_target(eq, target);
+        if (new_target != nullptr && new_target != target) {
+            m_equations_to_unfreeze.push_back(target);
+            to_insert.push_back(new_target);
+            to_remove.push_back(target);
+            target = new_target;
+        }
+        if (is_trivial(target))
+            to_delete.push_back(target);
+    }
+    for (equation* eq : to_insert)
+        m_to_process.insert(eq);
+    for (equation* eq : to_remove)
+        m_to_process.erase(eq);
+    for (equation* eq : to_delete)
+        del_equation(eq);
+
 }
 
 
 void nla_grobner::superpose(equation * eq1, equation * eq2) {
-    SASSERT(false);
+    NOT_IMPLEMENTED_YET();
 }
 
-void nla_grobner::superpose(equation * eq){
-    SASSERT(false);
+void nla_grobner::superpose(equation * eq) {
+    for (equation * target : m_processed) {
+        superpose(eq, target);
+    }
 }
 
 
@@ -287,7 +415,7 @@ bool nla_grobner::compute_basis_step() {
         eq = new_eq;
     }
     if (canceled()) return false;
-    if (!simplify_processed(eq)) return false;
+    if (!simplify_processed_with_eq(eq)) return false;
     superpose(eq);
     m_processed.insert(eq);
     simplify_to_process(eq);
@@ -474,7 +602,7 @@ nla_grobner::equation * nla_grobner::simplify(equation const * source, equation 
     return nullptr;
 }
 
-std::ostream& nla_grobner::display_equation(std::ostream & out, equation & eq) {
+std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) {
     out << "m_exp = " << *eq.m_exp << "\n";
     out << "dep = "; display_dependency(out, eq.m_dep) << "\n";
     return out;

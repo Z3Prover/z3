@@ -89,6 +89,7 @@ class nla_grobner : common {
     ci_value_manager                             m_val_manager;
     ci_dependency_manager                        m_dep_manager;
     nex_lt                                       m_lt;
+    bool                                         m_changed_leading_term;
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
@@ -108,9 +109,12 @@ private:
     void compute_basis_init();        
     bool compute_basis_loop();
     bool compute_basis_step();
+    equation * simplify_source_target(equation const * source, equation * target);
     equation* simplify_using_processed(equation*);
-    equation* simplify_processed(equation*);
-    equation* simplify_to_process(equation*);
+    unsigned simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result);
+    void process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove);
+bool simplify_processed_with_eq(equation*);
+    void simplify_to_process(equation*);
     equation* pick_next();
     void set_gb_exhausted();
     bool canceled() { return false; } // todo, implement
@@ -121,7 +125,7 @@ private:
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
     void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
-    std::ostream& display_equation(std::ostream & out, equation & eq);
+    std::ostream& display_equation(std::ostream & out, const equation & eq);
 
     void display_monomial(std::ostream & out, monomial const & m) const;
 
