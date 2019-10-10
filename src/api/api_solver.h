@@ -24,6 +24,8 @@ Revision History:
 struct solver2smt2_pp {
     ast_pp_util m_pp_util;
     std::ofstream m_out;
+    expr_ref_vector m_tracked;
+    unsigned_vector m_tracked_lim;
     solver2smt2_pp(ast_manager& m, char const* file);
     void assert_expr(expr* e);
     void assert_expr(expr* e, expr* t);

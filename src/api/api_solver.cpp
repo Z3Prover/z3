@@ -21,6 +21,7 @@ Revision History:
 #include "util/cancel_eh.h"
 #include "util/file_path.h"
 #include "util/scoped_timer.h"
+#include "util/file_path.h"
 #include "ast/ast_pp.h"
 #include "api/z3.h"
 #include "api/api_log_macros.h"
@@ -30,11 +31,10 @@ Revision History:
 #include "api/api_model.h"
 #include "api/api_stats.h"
 #include "api/api_ast_vector.h"
-#include "solver/tactic2solver.h"
-#include "util/file_path.h"
 #include "smt/smt_solver.h"
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
+#include "solver/tactic2solver.h"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"
@@ -55,28 +55,34 @@ extern "C" {
         m_pp_util.collect(t);
         m_pp_util.display_decls(m_out);
         m_pp_util.display_assert_and_track(m_out, e, t, true);
+        m_tracked.push_back(t);
     }
 
     void solver2smt2_pp::push() {
         m_out << "(push)\n";
         m_pp_util.push();
-    }
-
-    void solver2smt2_pp::reset() {
-        m_out << "(reset)\n";
-        m_pp_util.reset();
+        m_tracked_lim.push_back(m_tracked.size());
     }
 
     void solver2smt2_pp::pop(unsigned n) {
         m_out << "(pop " << n << ")\n";
         m_pp_util.pop(n);
+        m_tracked.shrink(m_tracked_lim[m_tracked_lim.size() - n]);
+        m_tracked_lim.shrink(m_tracked_lim.size() - n);
+    }
+
+    void solver2smt2_pp::reset() {
+        m_out << "(reset)\n";
+        m_pp_util.reset();        
     }
 
     void solver2smt2_pp::check(unsigned n, expr* const* asms) {
-        m_out << "(check-sat";
+        m_out << "(check-sat";        
         for (unsigned i = 0; i < n; ++i) {
-            m_out << "\n";
-            m_pp_util.display_expr(m_out, asms[i]);            
+            m_pp_util.display_expr(m_out << "\n", asms[i]);            
+        }
+        for (expr* e : m_tracked) {
+            m_pp_util.display_expr(m_out << "\n", e);
         }
         m_out << ")\n";
         m_out.flush();
@@ -98,7 +104,7 @@ extern "C" {
     }
 
 
-    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file) {
+    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file), m_tracked(m) {
         if (!m_out) {
             throw default_exception("could not open " + std::string(file) + " for output");
         }

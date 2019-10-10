@@ -70,6 +70,8 @@ class skolemizer {
     bool          m_sk_hack_enabled;
     cache         m_cache;
     cache         m_cache_pr;
+    bool          m_proofs_enabled;
+
 
     void process(quantifier * q, expr_ref & r, proof_ref & p) {
         if (q->get_kind() == lambda_k) {
@@ -142,7 +144,7 @@ class skolemizer {
         }
         r = s(body, substitution.size(), substitution.c_ptr());
         p = nullptr;
-        if (m.proofs_enabled()) {
+        if (m_proofs_enabled) {
             if (q->get_kind() == forall_k) 
                 p = m.mk_skolemization(m.mk_not(q), m.mk_not(r));
             else
@@ -156,7 +158,8 @@ public:
         m_sk_hack("sk_hack"),
         m_sk_hack_enabled(false),
         m_cache(m),
-        m_cache_pr(m) {
+        m_cache_pr(m),
+        m_proofs_enabled(m.proofs_enabled()) {
     }
 
     void set_sk_hack(bool f) {
@@ -167,13 +170,13 @@ public:
         r = m_cache.find(q);
         if (r.get() != nullptr) {
             p = nullptr;
-            if (m.proofs_enabled())
+            if (m_proofs_enabled)
                 p = static_cast<proof*>(m_cache_pr.find(q));
         }
         else {
             process(q, r, p);
             m_cache.insert(q, r);
-            if (m.proofs_enabled())
+            if (m_proofs_enabled)
                 m_cache_pr.insert(q, p);
         }
     }
@@ -273,14 +276,12 @@ struct nnf::imp {
         updt_params(p);
         for (unsigned i = 0; i < 4; i++) {
             m_cache[i] = alloc(act_cache, m);
-            if (m.proofs_enabled())
+            if (proofs_enabled())
                 m_cache_pr[i] = alloc(act_cache, m);
         }
         m_name_nested_formulas = mk_nested_formula_namer(m, n);
         m_name_quant           = mk_quantifier_label_namer(m, n);
     }
-
-    // ast_manager & m() const { return m; }
 
     bool proofs_enabled() const { return m.proofs_enabled(); }
 

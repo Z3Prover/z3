@@ -3240,7 +3240,7 @@ namespace smt {
                 else
                     assign(l, b_justification::mk_axiom());
                 m_assumptions.push_back(l);
-                get_bdata(l.var()).m_assumption = true;
+                get_bdata(l.var()).m_assumption = true;                
             }
         }
         m_search_lvl = m_scope_lvl;
