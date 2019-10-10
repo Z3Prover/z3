@@ -174,7 +174,7 @@ protected:
 
     equation * pick_next();
 
-    bool simplify_processed(equation * eq);
+    bool simplify_processed_with_eq(equation * eq);
 
     void simplify_to_process(equation * eq);
 
@@ -280,6 +280,7 @@ public:
     void display_monomial(std::ostream & out, monomial const & m) const;
 
     void display(std::ostream & out) const;
+    void process_simplified_target(ptr_buffer<equation>& to_delete, equation* new_curr, equation*& curr, ptr_buffer<equation>& to_remove);
 };
 
 #endif /* GROBNER_H_ */
