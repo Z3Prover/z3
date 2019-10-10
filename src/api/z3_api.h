@@ -6333,6 +6333,18 @@ extern "C" {
     void Z3_API Z3_solver_dec_ref(Z3_context c, Z3_solver s);
     
     /**
+       \brief Solver local interrupt.
+       Normally you should use Z3_interrupt to cancel solvers because only
+       one solver is enabled concurrently per context.
+       However, per GitHub issue #1006, there are use cases where
+       it is more convenient to cancel a specific solver. Solvers 
+       that are not selected for interrupts are left alone.
+
+       def_API('Z3_solver_interrupt', VOID, (_in(CONTEXT), _in(SOLVER)))
+     */
+    void Z3_API Z3_solver_interrupt(Z3_context c, Z3_solver s);
+
+    /**
        \brief Create a backtracking point.
 
        The solver contains a stack of assertions.

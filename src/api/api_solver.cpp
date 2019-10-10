@@ -103,11 +103,21 @@ extern "C" {
         m_out.flush();
     }
 
-
-    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): m_pp_util(m), m_out(file), m_tracked(m) {
+    solver2smt2_pp::solver2smt2_pp(ast_manager& m, char const* file): 
+        m_pp_util(m), m_out(file), m_tracked(m) {
         if (!m_out) {
             throw default_exception("could not open " + std::string(file) + " for output");
         }
+    }
+
+    void Z3_solver_ref::set_eh(event_handler* eh) {
+        std::lock_guard<std::mutex> lock(m_mux);
+        m_eh = eh;
+    }
+
+    void Z3_solver_ref::set_cancel() {
+        std::lock_guard<std::mutex> lock(m_mux);
+        if (m_eh) (*m_eh)(API_INTERRUPT_EH_CALLER);
     }
 
     void Z3_solver_ref::assert_expr(expr * e) {
@@ -386,6 +396,10 @@ extern "C" {
         Z3_CATCH;
     }
 
+    void Z3_API Z3_solver_interrupt(Z3_context c, Z3_solver s) {
+        to_solver(s)->set_cancel();
+    }
+
     void Z3_API Z3_solver_pop(Z3_context c, Z3_solver s, unsigned n) {
         Z3_TRY;
         LOG_Z3_solver_pop(c, s, n);
@@ -538,6 +552,7 @@ extern "C" {
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
         lbool result;
         {
@@ -550,12 +565,16 @@ extern "C" {
             }
             catch (z3_exception & ex) {
                 to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver(s)->set_eh(nullptr);
                 if (!mk_c(c)->m().canceled()) {
                     mk_c(c)->handle_exception(ex);
                 }
                 return Z3_L_UNDEF;
             }
+            catch (...) {
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
@@ -730,6 +749,7 @@ extern "C" {
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
@@ -740,12 +760,16 @@ extern "C" {
                 result = to_solver_ref(s)->get_consequences(_assumptions, _variables, _consequences);
             }
             catch (z3_exception & ex) {
+                to_solver(s)->set_eh(nullptr);
                 to_solver_ref(s)->set_reason_unknown(eh);
                 _assumptions.finalize(); _consequences.finalize(); _variables.finalize();
                 mk_c(c)->handle_exception(ex);
                 return Z3_L_UNDEF;
             }
+            catch (...) {
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         if (result == l_undef) {
             to_solver_ref(s)->set_reason_unknown(eh);
         }
@@ -773,6 +797,7 @@ extern "C" {
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
+        to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
@@ -782,10 +807,14 @@ extern "C" {
                 result.append(to_solver_ref(s)->cube(vars, cutoff));
             }
             catch (z3_exception & ex) {
+                to_solver(s)->set_eh(nullptr);
                 mk_c(c)->handle_exception(ex);
                 return nullptr;
             }
+            catch (...) {
+            }
         }
+        to_solver(s)->set_eh(nullptr);
         Z3_ast_vector_ref * v = alloc(Z3_ast_vector_ref, *mk_c(c), mk_c(c)->m());
         mk_c(c)->save_object(v);
         for (expr* e : result) {

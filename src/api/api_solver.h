@@ -22,10 +22,11 @@ Revision History:
 #include "solver/solver.h"
 
 struct solver2smt2_pp {
-    ast_pp_util m_pp_util;
-    std::ofstream m_out;
+    ast_pp_util     m_pp_util;
+    std::ofstream   m_out;
     expr_ref_vector m_tracked;
     unsigned_vector m_tracked_lim;
+
     solver2smt2_pp(ast_manager& m, char const* file);
     void assert_expr(expr* e);
     void assert_expr(expr* e, expr* t);
@@ -34,6 +35,7 @@ struct solver2smt2_pp {
     void reset();
     void check(unsigned n, expr* const* asms);
     void get_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& variables);
+
 };
 
 struct Z3_solver_ref : public api::object {
@@ -42,12 +44,18 @@ struct Z3_solver_ref : public api::object {
     params_ref                 m_params;
     symbol                     m_logic;
     scoped_ptr<solver2smt2_pp> m_pp;
+    std::mutex                 m_mux;
+    event_handler*             m_eh;
+
     Z3_solver_ref(api::context& c, solver_factory * f): 
-    api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null) {}
+        api::object(c), m_solver_factory(f), m_solver(nullptr), m_logic(symbol::null), m_eh(nullptr) {}
     ~Z3_solver_ref() override {}
 
     void assert_expr(expr* e);
     void assert_expr(expr* e, expr* t);
+    void set_eh(event_handler* eh);
+    void set_cancel();
+
 };
 
 inline Z3_solver_ref * to_solver(Z3_solver s) { return reinterpret_cast<Z3_solver_ref *>(s); }
