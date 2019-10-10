@@ -619,7 +619,9 @@ unsigned grobner::simplify_loop_on_target_monomials(equation const * source, equ
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
-   Return target if target was simplified but source->m_scope_lvl <= target->m_scope_lvl.
+
+   LN. The rest of the comment seems to be incorrect: there is no m_scope_lvl
+   Return target if target was simplified
    Return new_equation if source->m_scope_lvl > target->m_scope_lvl, moreover target is freezed, and new_equation contains the result.
 */
 grobner::equation * grobner::simplify_source_target(equation const * source, equation * target) {
