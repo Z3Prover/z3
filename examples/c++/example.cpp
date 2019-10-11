@@ -835,6 +835,8 @@ void tst_visit() {
     std::cout << "visit example\n";
     context c;
 
+    // only one of the occurrences of x*x is visited 
+    // because they are the same subterms
     expr x = c.int_const("x");
     expr y = c.int_const("y");
     expr z = c.int_const("z");
