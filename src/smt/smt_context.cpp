@@ -1091,10 +1091,9 @@ namespace smt {
               tout << mk_ll_pp(r2->get_owner(), m_manager) << "\n";
               );
 
-#ifdef Z3DEBUG
-        push_trail(push_back_trail<context, enode_pair, false>(m_diseq_vector));
-        m_diseq_vector.push_back(enode_pair(n1, n2));
-#endif
+        DEBUG_CODE(
+            push_trail(push_back_trail<context, enode_pair, false>(m_diseq_vector));
+            m_diseq_vector.push_back(enode_pair(n1, n2)););
 
         if (r1 == r2) {
             TRACE("add_diseq_inconsistent", tout << "add_diseq #" << n1->get_owner_id() << " #" << n2->get_owner_id() << " inconsistency, scope_lvl: " << m_scope_lvl << "\n";);
@@ -1299,7 +1298,7 @@ namespace smt {
         enode * tmp = m_tmp_enode.set(f, num_args, args);
         enode * r   = m_cg_table.find(tmp);
 #ifdef Z3DEBUG
-        if (r != 0) {
+        if (r != nullptr) {
             SASSERT(r->get_owner()->get_decl() == f);
             SASSERT(r->get_num_args() == num_args);
             if (r->is_commutative()) {
@@ -1592,9 +1591,7 @@ namespace smt {
             }
         }
         TRACE("propagate_relevancy", tout << "marking as relevant:\n" << mk_bounded_pp(n, m_manager) << " " << m_scope_lvl << "\n";);
-#ifndef SMTCOMP
         m_case_split_queue->relevant_eh(n);
-#endif
 
         if (is_app(n)) {
             if (e_internalized(n)) {
@@ -1662,10 +1659,9 @@ namespace smt {
             theory * th = get_theory(curr.m_th_id);
             SASSERT(th);
             th->new_eq_eh(curr.m_lhs, curr.m_rhs);
-#ifdef Z3DEBUG
-            push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_eqs));
-            m_propagated_th_eqs.push_back(curr);
-#endif
+            DEBUG_CODE(
+                push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_eqs));
+                m_propagated_th_eqs.push_back(curr););
         }
         m_th_eq_propagation_queue.reset();
     }
@@ -1676,10 +1672,9 @@ namespace smt {
             theory * th = get_theory(curr.m_th_id);
             SASSERT(th);
             th->new_diseq_eh(curr.m_lhs, curr.m_rhs);
-#ifdef Z3DEBUG
-            push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_diseqs));
-            m_propagated_th_diseqs.push_back(curr);
-#endif
+            DEBUG_CODE(
+                push_trail(push_back_trail<context, new_th_eq, false>(m_propagated_th_diseqs));
+                m_propagated_th_diseqs.push_back(curr););
         }
         m_th_diseq_propagation_queue.reset();
     }
@@ -3407,15 +3402,6 @@ namespace smt {
             return;
         m_setup(get_config_mode(use_static_features));
         setup_components();
-#ifndef _EXTERNAL_RELEASE
-        if (m_fparams.m_display_installed_theories) {
-            std::cout << "(theories";
-            for (theory* th : m_theory_set) {
-                std::cout << " " << th->get_name();
-            }
-            std::cout << ")" << std::endl;
-        }
-#endif
     }
 
     void context::setup_components() {
@@ -3542,11 +3528,6 @@ namespace smt {
 
 
     lbool context::search() {
-#ifndef _EXTERNAL_RELEASE
-        if (m_fparams.m_abort_after_preproc) {
-            exit(1);
-        }
-#endif
         if (m_asserted_formulas.inconsistent()) 
             return l_false;
         if (inconsistent()) {

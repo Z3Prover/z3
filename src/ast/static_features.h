@@ -29,7 +29,7 @@ Revision History:
 #include "util/map.h"
 
 struct static_features {
-    ast_manager &            m_manager;
+    ast_manager &            m;
     arith_util               m_autil;
     bv_util                  m_bvutil;
     array_util               m_arrayutil;
@@ -120,7 +120,7 @@ struct static_features {
 
     bool is_marked(ast * e) const { return m_already_visited.is_marked(e); }
     void mark(ast * e) { m_already_visited.mark(e, true); }
-    bool is_bool(expr const * e) const { return m_manager.is_bool(e); }
+    bool is_bool(expr const * e) const { return m.is_bool(e); }
     bool is_basic_expr(expr const * e) const { return is_app(e) && to_app(e)->get_family_id() == m_bfid; }
     bool is_arith_expr(expr const * e) const { return is_app(e) && to_app(e)->get_family_id() == m_afid; }
     bool is_numeral(expr const * e) const { return m_autil.is_numeral(e); }
@@ -130,7 +130,7 @@ struct static_features {
     bool is_diff_atom(expr const * e) const;
     bool is_gate(expr const * e) const;
     void mark_theory(family_id fid) { 
-        if (fid != null_family_id && !m_manager.is_builtin_family_id(fid) && !m_theories.get(fid, false)) {
+        if (fid != null_family_id && !m.is_builtin_family_id(fid) && !m_theories.get(fid, false)) {
             m_theories.setx(fid, true, false);
             m_num_theories++; 
         }

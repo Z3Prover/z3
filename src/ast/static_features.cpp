@@ -20,7 +20,7 @@ Revision History:
 #include "ast/ast_pp.h"
 
 static_features::static_features(ast_manager & m):
-    m_manager(m),
+    m(m),
     m_autil(m),
     m_bvutil(m),
     m_arrayutil(m),
@@ -123,31 +123,32 @@ bool static_features::is_diff_term(expr const * e, rational & r) const {
     }
     if (is_numeral(e, r))
         return true;
-    return m_autil.is_add(e) && to_app(e)->get_num_args() == 2 && is_numeral(to_app(e)->get_arg(0), r) && !is_arith_expr(to_app(e)->get_arg(1));
+    expr* a1 = nullptr, *a2 = nullptr;
+    return m_autil.is_add(e, a1, a2) && is_numeral(a1, r) && !is_arith_expr(a2) && !m.is_ite(a2);
 }
 
 bool static_features::is_diff_atom(expr const * e) const {
     if (!is_bool(e))
         return false;
-    if (!m_manager.is_eq(e) && !is_arith_expr(e))
+    if (!m.is_eq(e) && !is_arith_expr(e))
         return false;
     SASSERT(to_app(e)->get_num_args() == 2);
     expr * lhs = to_app(e)->get_arg(0);
     expr * rhs = to_app(e)->get_arg(1);
-    if (!is_arith_expr(lhs) && !is_arith_expr(rhs)) 
+    if (!is_arith_expr(lhs) && !is_arith_expr(rhs) && !m.is_ite(lhs) && !m.is_ite(rhs)) 
         return true;    
     if (!is_numeral(rhs)) 
         return false;    
     // lhs can be 'x' or '(+ x (* -1 y))' or '(+ (* -1 x) y)'
-    if (!is_arith_expr(lhs))
+    if (!is_arith_expr(lhs) && !m.is_ite(lhs))
         return true;
     expr* arg1, *arg2;
     if (!m_autil.is_add(lhs, arg1, arg2)) 
         return false;    
     expr* m1, *m2;
-    if (!is_arith_expr(arg1) && m_autil.is_mul(arg2, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2))
+    if (!is_arith_expr(arg1) && m_autil.is_mul(arg2, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2) && !m.is_ite(m2))
         return true;
-    if (!is_arith_expr(arg2) && m_autil.is_mul(arg1, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2))
+    if (!is_arith_expr(arg2) && m_autil.is_mul(arg1, m1, m2) &&  is_minus_one(m1) && !is_arith_expr(m2) && !m.is_ite(m2))
         return true;
     return false;
     
@@ -159,7 +160,7 @@ bool static_features::is_gate(expr const * e) const {
         case OP_ITE: case OP_AND: case OP_OR: case OP_XOR: case OP_IMPLIES:
             return true;
         case OP_EQ:
-            return m_manager.is_bool(e);
+            return m.is_bool(e);
         }
     }
     return false;
@@ -170,12 +171,12 @@ void static_features::update_core(expr * e) {
     
     // even if a benchmark does not contain any theory interpreted function decls, we still have to install
     // the theory if the benchmark contains constants or function applications of an interpreted sort.
-    sort * s      = m_manager.get_sort(e);
-    if (!m_manager.is_uninterp(s))
+    sort * s      = m.get_sort(e);
+    if (!m.is_uninterp(s))
         mark_theory(s->get_family_id());
     
     bool _is_gate = is_gate(e);
-    bool _is_eq   = m_manager.is_eq(e);
+    bool _is_eq   = m.is_eq(e);
     if (_is_gate) {
         m_cnf = false;
         m_num_nested_formulas++;
@@ -191,12 +192,12 @@ void static_features::update_core(expr * e) {
                     acc_num(arg);
                     // Must check whether arg is diff logic or not.
                     // Otherwise, problem can be incorrectly tagged as diff logic.
-                    sort * arg_s = m_manager.get_sort(arg); 
+                    sort * arg_s = m.get_sort(arg); 
                     family_id fid_arg = arg_s->get_family_id();
                     if (fid_arg == m_afid) {
                         m_num_arith_terms++;
                         rational k;
-                        TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m_manager) << "\n";);
+                        TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
                         if (is_diff_term(arg, k)) {
                             m_num_diff_terms++;
                             acc_num(k);
@@ -238,7 +239,7 @@ void static_features::update_core(expr * e) {
     bool _is_le_ge = m_autil.is_le(e) || m_autil.is_ge(e);
     if (_is_le_ge) {
         m_num_arith_ineqs++;
-        TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m_manager) << "\n";);
+        TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
         if (is_diff_atom(e))
             m_num_diff_ineqs++;
         if (!is_arith_expr(to_app(e)->get_arg(0)))
@@ -255,14 +256,14 @@ void static_features::update_core(expr * e) {
         if (is_numeral(to_app(e)->get_arg(1))) {
             acc_num(to_app(e)->get_arg(1));
             m_num_arith_eqs++;
-            TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m_manager) << "\n";);
+            TRACE("diff_atom", tout << "diff_atom: " << is_diff_atom(e) << "\n" << mk_pp(e, m) << "\n";);
             if (is_diff_atom(e))
                 m_num_diff_eqs++;
             if (!is_arith_expr(to_app(e)->get_arg(0)))
                 m_num_simple_eqs++;
         }
-        sort * s      = m_manager.get_sort(to_app(e)->get_arg(0));
-        if (!m_manager.is_uninterp(s)) {
+        sort * s      = m.get_sort(to_app(e)->get_arg(0));
+        if (!m.is_uninterp(s)) {
             family_id fid = s->get_family_id();
             if (fid != null_family_id && fid != m_bfid)
                 inc_theory_eqs(fid);
@@ -300,7 +301,7 @@ void static_features::update_core(expr * e) {
                 m_num_interpreted_constants++;
         }
         if (fid == m_afid) {
-            // std::cout << mk_pp(e, m_manager) << "\n";
+            // std::cout << mk_pp(e, m) << "\n";
             switch (to_app(e)->get_decl_kind()) {
             case OP_MUL:
                 if (!is_numeral(to_app(e)->get_arg(0)) || to_app(e)->get_num_args() > 2) {
@@ -320,8 +321,8 @@ void static_features::update_core(expr * e) {
             m_num_uninterpreted_exprs++;
             if (to_app(e)->get_num_args() == 0) {
                 m_num_uninterpreted_constants++;
-                sort * s      = m_manager.get_sort(e);
-                if (!m_manager.is_uninterp(s)) {
+                sort * s      = m.get_sort(e);
+                if (!m.is_uninterp(s)) {
                     family_id fid = s->get_family_id();
                     if (fid != null_family_id && fid != m_bfid)
                         inc_theory_constants(fid);
@@ -329,7 +330,7 @@ void static_features::update_core(expr * e) {
             }
         }
         if (m_arrayutil.is_array(e)) {
-            TRACE("sf_array", tout << mk_ismt2_pp(e, m_manager) << "\n";);
+            TRACE("sf_array", tout << mk_ismt2_pp(e, m) << "\n";);
             sort * ty = to_app(e)->get_decl()->get_range();
             mark_theory(ty->get_family_id());
             unsigned n = ty->get_num_parameters();
@@ -347,8 +348,8 @@ void static_features::update_core(expr * e) {
         }
         if (!_is_eq && !_is_gate) {
             for (expr * arg : *to_app(e)) {
-                sort * arg_s = m_manager.get_sort(arg); 
-                if (!m_manager.is_uninterp(arg_s)) {
+                sort * arg_s = m.get_sort(arg); 
+                if (!m.is_uninterp(arg_s)) {
                     family_id fid_arg = arg_s->get_family_id();
                     if (fid_arg != fid && fid_arg != null_family_id) {
                         m_num_aliens++;
@@ -357,7 +358,7 @@ void static_features::update_core(expr * e) {
                             SASSERT(!_is_le_ge);
                             m_num_arith_terms++;
                             rational k;
-                            TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m_manager) << "\n";);
+                            TRACE("diff_term", tout << "diff_term: " << is_diff_term(arg, k) << "\n" << mk_pp(arg, m) << "\n";);
                             if (is_diff_term(arg, k)) {
                                 m_num_diff_terms++;
                                 acc_num(k);
@@ -385,7 +386,7 @@ void static_features::update_core(sort * s) {
 }
 
 void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite_ctx, unsigned stack_depth) {
-    TRACE("static_features", tout << "processing\n" << mk_pp(e, m_manager) << "\n";);
+    TRACE("static_features", tout << "processing\n" << mk_pp(e, m) << "\n";);
     if (is_var(e))
         return;
     if (is_marked(e)) {
@@ -413,7 +414,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     if (is_basic_expr(e)) {
         switch (to_app(e)->get_decl_kind()) {
         case OP_ITE:
-            form_ctx_new = m_manager.is_bool(e);
+            form_ctx_new = m.is_bool(e);
             ite_ctx_new  = true;
             break;
         case OP_AND: 
@@ -435,7 +436,7 @@ void static_features::process(expr * e, bool form_ctx, bool or_and_ctx, bool ite
     unsigned num_args = to_app(e)->get_num_args();
     for (unsigned i = 0; i < num_args; i++) {
         expr * arg = to_app(e)->get_arg(i);
-        if (m_manager.is_not(arg))
+        if (m.is_not(arg))
             arg = to_app(arg)->get_arg(0);
         process(arg, form_ctx_new, or_and_ctx_new, ite_ctx_new, stack_depth+1);
         depth        = std::max(depth, get_depth(arg));
@@ -490,7 +491,7 @@ void static_features::process_root(expr * e) {
         return;
     }
     m_num_roots++;
-    if (m_manager.is_or(e)) {
+    if (m.is_or(e)) {
         mark(e);
         m_num_clauses++;
         m_num_bool_exprs++;
@@ -503,7 +504,7 @@ void static_features::process_root(expr * e) {
         unsigned or_and_depth = 0;
         for (unsigned i = 0; i < num_args; i++) {
             expr * arg = to_app(e)->get_arg(i);
-            if (m_manager.is_not(arg))
+            if (m.is_not(arg))
                 arg = to_app(arg)->get_arg(0);
             process(arg, true, true, false, 0);
             depth        = std::max(depth, get_depth(arg));
@@ -547,7 +548,7 @@ bool static_features::internal_family(symbol const & f_name) const {
 
 void static_features::display_family_data(std::ostream & out, char const * prefix, unsigned_vector const & data) const {
     for (unsigned fid = 0; fid < data.size(); fid++) {
-        symbol const & n = m_manager.get_family_name(fid);
+        symbol const & n = m.get_family_name(fid);
         if (!internal_family(n))
             out << prefix << "_" << n << " " << data[fid] << "\n";
     }

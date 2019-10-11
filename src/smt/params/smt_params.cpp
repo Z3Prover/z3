@@ -142,7 +142,6 @@ void smt_params::display(std::ostream & out) const {
     DISPLAY_PARAM(m_profile_res_sub);
     DISPLAY_PARAM(m_display_bool_var2expr);
     DISPLAY_PARAM(m_display_ll_bool_var2expr);
-    DISPLAY_PARAM(m_abort_after_preproc);
 
     DISPLAY_PARAM(m_model);
     DISPLAY_PARAM(m_model_compact);
@@ -151,7 +150,6 @@ void smt_params::display(std::ostream & out) const {
 
     DISPLAY_PARAM(m_progress_sampling_freq);
 
-    DISPLAY_PARAM(m_display_installed_theories);
     DISPLAY_PARAM(m_core_validate);
 
     DISPLAY_PARAM(m_preprocess);

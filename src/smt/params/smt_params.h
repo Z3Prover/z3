@@ -181,7 +181,6 @@ struct smt_params : public preprocessor_params,
     bool              m_profile_res_sub;
     bool              m_display_bool_var2expr;
     bool              m_display_ll_bool_var2expr;
-    bool              m_abort_after_preproc;
 
     // -----------------------------------
     //
@@ -205,7 +204,6 @@ struct smt_params : public preprocessor_params,
     // Debugging goodies
     //
     // -----------------------------------
-    bool             m_display_installed_theories;
     bool             m_core_validate;
 
     // -----------------------------------
@@ -292,13 +290,11 @@ struct smt_params : public preprocessor_params,
         m_profile_res_sub(false),
         m_display_bool_var2expr(false),
         m_display_ll_bool_var2expr(false),
-        m_abort_after_preproc(false),
         m_model(true),
         m_model_compact(false),
         m_model_on_timeout(false),
         m_model_on_final_check(false),
         m_progress_sampling_freq(0),
-        m_display_installed_theories(false),
         m_core_validate(false),
         m_preprocess(true), // temporary hack for disabling all preprocessing..
         m_user_theory_preprocess_axioms(false),
