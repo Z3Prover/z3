@@ -1,0 +1,7 @@
+steps:
+- script: |
+   cd doc
+   apt-get install doxygen
+   apt-get install graphviz
+   python mk_api_doc.py
+   cd ..
