@@ -257,6 +257,7 @@ public:
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e) || ++m_reported > 100;
  #ifdef Z3DEBUG
+                TRACE("nla_cn", tout << "m_e_clone" << *m_e_clone << "\n";);
                 SASSERT(nex_creator::equal(m_e, m_e_clone));
  #endif
             } else {

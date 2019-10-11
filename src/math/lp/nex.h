@@ -164,9 +164,19 @@ public:
 
 
 class nex_mul : public nex {
+    rational        m_coeff;
     vector<nex_pow> m_children;
 public:
-    nex_mul()  {}
+    nex_mul() : m_coeff(rational(1)) {}
+
+    const rational& coeff() const {
+        return m_coeff;
+    }
+
+    rational& coeff() {
+        return m_coeff;
+    }
+    
     unsigned size() const { return m_children.size(); }
     expr_type type() const { return expr_type::MUL; }
     vector<nex_pow>& children() { return m_children;}
@@ -176,6 +186,10 @@ public:
     std::ostream & print(std::ostream& out) const {
         
         bool first = true;
+        if (!m_coeff.is_one()) {
+            out << m_coeff;
+            first = false;
+        }
         for (const nex_pow& v : m_children) {            
             std::string s = v.to_string();
             if (first) {
@@ -189,18 +203,13 @@ public:
     }
 
     void add_child(nex* e) {
+        if (e->is_scalar()) {
+            m_coeff *= to_scalar(e)->value();
+            return;
+        }
         add_child_in_power(e, 1);
     }
 
-    // returns true if the product of scalars gives a number different from 1
-    bool has_a_coeff() const {
-        rational r(1);
-        for (auto & p : *this) {
-            if (p.e()->is_scalar())
-                r *= to_scalar(p.e())->value();
-        }
-        return !r.is_one();
-    }
 
     const nex_pow& operator[](unsigned j) const { return m_children[j]; }
     nex_pow& operator[](unsigned j) { return m_children[j]; }
@@ -209,7 +218,13 @@ public:
     nex_pow* begin() { return m_children.begin(); }
     nex_pow* end() { return m_children.end(); }
     
-    void add_child_in_power(nex* e, int power) { m_children.push_back(nex_pow(e, power)); }
+    void add_child_in_power(nex* e, int power) {        
+        if (e->is_scalar()) {
+            m_coeff *= (to_scalar(e)->value()).expt(power);
+            return;
+        }
+        m_children.push_back(nex_pow(e, power));
+    }
 
     bool contains(lpvar j) const {
         for (const nex_pow& c : *this) {
