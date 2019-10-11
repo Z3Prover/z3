@@ -9926,6 +9926,12 @@ namespace smt {
             expr * str = nullptr;
             expr * re = nullptr;
             u.str.is_in_re(str_in_re, str, re);
+            if (!ctx.b_internalized(str_in_re)) {
+                TRACE("str", tout << "regex term " << mk_pp(str_in_re, m) << " not internalized; fixing and continuing" << std::endl;);
+                ctx.internalize(str_in_re, false);
+                finalCheckProgressIndicator = true;
+                continue;
+            }
             lbool current_assignment = ctx.get_assignment(str_in_re);
             TRACE("str", tout << "regex term: " << mk_pp(str, m) << " in " << mk_pp(re, m) << " : " << current_assignment << std::endl;);
             if (current_assignment == l_undef) {
