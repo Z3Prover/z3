@@ -93,7 +93,7 @@ public:
         return (a.pow() < b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
     }
     
-    void simplify_children_of_mul(vector<nex_pow> & children);
+    void simplify_children_of_mul(vector<nex_pow> & children, rational&);
 
 
     nex * clone(const nex* a) {        
@@ -113,6 +113,7 @@ public:
             for (const auto& p : m->children()) {
                 r->add_child_in_power(clone(p.e()), p.pow());
             }
+            r->coeff() = m->coeff();
             return r;
         }
         case expr_type::SUM: {
@@ -163,7 +164,7 @@ public:
     void add_children(T) { }
     
     template <typename T, typename K, typename ...Args>
-    void add_children(T r, K e, Args ...  es) {
+    void add_children(T r, K e, Args ...  es) {        
         r->add_child(e);
         add_children(r, es ...);
     }
@@ -247,11 +248,11 @@ public:
 
     void simplify_children_of_sum(ptr_vector<nex> & children);
     
-    bool eat_scalar_pow(nex_scalar *& r, nex_pow& p, unsigned);
+    bool eat_scalar_pow(rational& r, const nex_pow& p, unsigned);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
     bool lt(const nex* a, const nex* b) const;    
-    bool less_than_on_mul(const nex_mul* a, const nex_mul* b) const;
+    bool less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;

@@ -38,22 +38,6 @@ struct grobner_stats {
 
 
 class nla_grobner : common {
-
-    struct monomial {
-        rational         m_coeff;
-        svector<lpvar>   m_vars;  //!< sorted variables
-    
-        friend class grobner;
-        friend struct monomial_lt;
-    
-        monomial() {}
-    public:
-        rational const & get_coeff() const { return m_coeff; }
-        unsigned get_degree() const { return m_vars.size(); }
-        unsigned get_size() const { return get_degree(); }
-        lpvar    get_var(unsigned idx) const { return m_vars[idx]; }
-    };
-
     class equation {
         unsigned                   m_bidx:31;       //!< position at m_equations_to_delete
         unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
@@ -127,8 +111,6 @@ bool simplify_processed_with_eq(equation*);
     void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
     std::ostream& display_equation(std::ostream & out, const equation & eq);
 
-    void display_monomial(std::ostream & out, monomial const & m) const;
-
     void display(std::ostream & out) const;
     void get_equations(ptr_vector<equation>& eqs);
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
@@ -138,13 +120,8 @@ bool simplify_processed_with_eq(equation*);
     void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
 
     nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
-    rational get_monomial_coeff(const nex_mul* m) {        
-        const nex* a = m->children()[0].e();
-        if (a->is_scalar())
-            return static_cast<const nex_scalar*>(a)->value();
-        return rational(1);
-    }
 
+    
     void init_equation(equation* eq, const nex*, ci_dependency* d);
     equation * simplify(equation const * source, equation * target);    
     // bool less_than_on_vars(lpvar a, lpvar b) const {
