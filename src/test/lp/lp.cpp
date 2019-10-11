@@ -85,9 +85,9 @@ void test_simplify() {
         [](unsigned) { return false; },
         []() { return 1; }, // for random
                     r);
-    // enable_trace("nla_cn");
-    // enable_trace("nla_cn_details");
-    //    enable_trace("nla_cn_details_");
+    enable_trace("nla_cn");
+    enable_trace("nla_cn_details");
+    // enable_trace("nla_cn_details_");
     enable_trace("nla_test");
     
     r.set_number_of_vars(3);
@@ -98,6 +98,10 @@ void test_simplify() {
     nex_var* c = r.mk_var(2);
     auto bc = r.mk_mul(b, c);
     auto a_plus_bc = r.mk_sum(a, bc);
+    auto two_a_plus_bc = r.mk_mul(r.mk_scalar(rational(2)), a_plus_bc);
+    auto simp_two_a_plus_bc = r.simplify(two_a_plus_bc);
+    TRACE("nla_test", tout << * simp_two_a_plus_bc << "\n";);
+    SASSERT(nex_creator::equal(simp_two_a_plus_bc, two_a_plus_bc));
     auto simp_a_plus_bc = r.simplify(a_plus_bc);
     SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
     auto three_ab = r.mk_mul(r.mk_scalar(rational(3)), a, b);
@@ -106,8 +110,8 @@ void test_simplify() {
     TRACE("nla_test", tout << "before simplify " << *three_ab_square << "\n";);
     three_ab_square = to_mul(r.simplify(three_ab_square));
     TRACE("nla_test", tout << *three_ab_square << "\n";);
-    nex_scalar * s = to_scalar(three_ab_square->children()[0].e());
-    SASSERT(s->value() == rational(27));
+    const rational& s = three_ab_square->coeff();
+    SASSERT(s == rational(27));
     auto m = r.mk_mul(); m->add_child_in_power(c, 2);
     TRACE("nla_test_", tout << "m = " << *m << "\n";); 
     auto n = r.mk_mul(a);
@@ -161,6 +165,7 @@ void test_cn_shorter() {
     enable_trace("nla_cn");
     enable_trace("nla_cn_test");
     enable_trace("nla_cn_details");
+    //    enable_trace("nla_cn_details_");
     enable_trace("nla_test_details");
     cr.set_number_of_vars(20);
     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)

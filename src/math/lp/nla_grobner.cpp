@@ -608,10 +608,6 @@ std::ostream& nla_grobner::display_equation(std::ostream & out, const equation &
     return out;
 }
 
-void nla_grobner::display_monomial(std::ostream & out, monomial const & m) const {
-    NOT_IMPLEMENTED_YET();
-}
-
 void nla_grobner::display(std::ostream & out) const {
     NOT_IMPLEMENTED_YET();
 }
