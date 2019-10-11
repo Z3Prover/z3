@@ -802,11 +802,19 @@ void tactic_qe() {
     std::cout << s.get_model() << "\n";
 }
 
-void visit(expr const & e) {
+void visit(std::vector<bool>& visited, expr const & e) {
+    if (visited.size() <= e.id()) {
+        visited.resize(e.id()+1, false);
+    }
+    if (visited[e.id()]) {
+        return;
+    }
+    visited[e.id()] = true;
+
     if (e.is_app()) {
         unsigned num = e.num_args();
         for (unsigned i = 0; i < num; i++) {
-            visit(e.arg(i));
+            visit(visited, e.arg(i));
         }
         // do something
         // Example: print the visited expression
@@ -814,7 +822,7 @@ void visit(expr const & e) {
         std::cout << "application of " << f.name() << ": " << e << "\n";
     }
     else if (e.is_quantifier()) {
-        visit(e.body());
+        visit(visited, e.body());
         // do something
     }
     else { 
@@ -830,12 +838,13 @@ void tst_visit() {
     expr x = c.int_const("x");
     expr y = c.int_const("y");
     expr z = c.int_const("z");
-    expr f = x*x - y*y >= 0;
-    
-    visit(f);
+    expr f = x*x + x*x - y*y >= 0;
+    std::vector<bool> visited;
+    visit(visited, f);
 }
 
 void tst_numeral() {
+    std::cout << "numeral example\n";
     context c;
     expr x = c.real_val("1/3");
     double d = 0;
