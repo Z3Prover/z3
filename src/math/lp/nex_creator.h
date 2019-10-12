@@ -95,7 +95,6 @@ public:
     
     void simplify_children_of_mul(vector<nex_pow> & children, rational&);
 
-
     nex * clone(const nex* a) {        
         switch (a->type()) {
         case expr_type::VAR: {
@@ -253,6 +252,8 @@ public:
 
     bool lt(const nex* a, const nex* b) const;    
     bool less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const;
+    bool less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_mul* b) const;
+    bool less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;

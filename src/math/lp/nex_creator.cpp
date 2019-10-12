@@ -115,29 +115,17 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
     TRACE("nla_cn_details", print_vector(children, tout););    
 }
 
-bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const {
-    SASSERT(is_simplified(a));
-    SASSERT(is_simplified(b));
-    unsigned a_deg = a->get_degree();
-    unsigned b_deg = b->get_degree();
-    if (a_deg > b_deg)
-        return true;
-    if (a_deg < b_deg)
-        return false;
+bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, const nex_mul* b) const {
+    bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
+    bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
+    const nex* ae = nullptr;
+    const nex* be = nullptr;
     auto it_a  = a->begin();
     auto it_b  = b->begin();
     auto a_end = a->end();
     auto b_end = b->end();
     unsigned a_pow, b_pow;
-    bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
-    bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
-    const nex* ae = nullptr;
-    const nex *be = nullptr;
-    if (it_a == a_end) {
-        return it_b != b_end;
-    }
-    if (it_b == b_end)
-        return false;
+
     for (; ;) {
         if (!inside_a_p) {
             ae = it_a->e();
@@ -185,6 +173,28 @@ bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const
     }
     TRACE("nla_cn_details", tout << "a = " << *a << " >= b = " << *b << "\n";);
     return false;
+    
+}
+
+bool nex_creator::less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_mul* b) const {
+    SASSERT(a->get_degree() == b->get_degree());
+    SASSERT(a->size() && b->size());
+    return less_than_on_mul_mul_same_degree_iterate(a, b);    
+}
+
+bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const {
+    SASSERT(is_simplified(a) && is_simplified(b));
+    unsigned a_deg = a->get_degree();
+    unsigned b_deg = b->get_degree();
+    bool ret;
+    if (a_deg > b_deg) {
+        ret = true;
+    } else if (a_deg < b_deg) {
+        ret = false;
+    } else {
+        ret = less_than_on_mul_mul_same_degree(a, b);
+    }
+    return ret;
 
 }
 
@@ -752,8 +762,8 @@ bool nex_creator::equal(const nex* a, const nex* b) {
     }
     nex * ca = cn.canonize(a);
     nex * cb = cn.canonize(b);
-    TRACE("nla_cn_test", tout << "a = " << *a << ", canonized a = " << *ca << "\n";);
-    TRACE("nla_cn_test", tout << "b = " << *b << ", canonized b = " << *cb << "\n";);
+    TRACE("nla_cn_details", tout << "a = " << *a << ", canonized a = " << *ca << "\n";);
+    TRACE("nla_cn_details", tout << "b = " << *b << ", canonized b = " << *cb << "\n";);
     return !(cn.lt(ca, cb) || cn.lt(cb, ca));
 }
 #endif

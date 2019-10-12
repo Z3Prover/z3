@@ -184,9 +184,9 @@ void test_cn_shorter() {
     bcg->add_child(min_1);
     nex* abcd = cr.mk_mul(a, b, c, d);
     nex* eae = cr.mk_mul(e, a, e);
-    nex* eac = cr.mk_mul(e, a, c);
+    nex* three_eac = cr.mk_mul(e, a, c); to_mul(three_eac)->coeff() = rational(3);
     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
-    clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, eac)));
+    clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, three_eac)));
     clone = to_sum(cr.simplify(clone));
     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
