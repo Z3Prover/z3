@@ -91,10 +91,7 @@ public:
         nex_mul* f = m_nex_creator.mk_mul();
         for(const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
             if (p.second.m_occs == size) {
-                unsigned pow = p.second.m_power;
-                while (pow --) {
-                    f->add_child(m_nex_creator.mk_var(p.first));
-                }
+                f->add_child_in_power(m_nex_creator.mk_var(p.first), p.second.m_power);
             }
         }
         return f;
