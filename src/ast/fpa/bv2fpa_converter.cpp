@@ -417,7 +417,6 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
         seen.insert(kv.m_value);
 
         func_decl * f = kv.m_key;
-        std::cout << f->get_name() << "\n";
         if (f->get_arity() == 0)
         {
             array_util au(m);
