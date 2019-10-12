@@ -118,46 +118,49 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
 bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, const nex_mul* b) const {
     bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
     bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
-    const nex* ae = nullptr;
-    const nex* be = nullptr;
     auto it_a  = a->begin();
     auto it_b  = b->begin();
     auto a_end = a->end();
     auto b_end = b->end();
     unsigned a_pow, b_pow;
-
-    for (; ;) {
-        if (!inside_a_p) {
-            ae = it_a->e();
-            a_pow = it_a->pow();
+    bool ret;
+    do {
+        if (!inside_a_p) { a_pow = it_a->pow(); }
+        if (!inside_b_p) { b_pow = it_b->pow(); }
+        if (lt(it_a->e(), it_b->e())){
+            ret = true;
+            break;
         }
-        if (!inside_b_p) {
-            be = it_b->e();
-            b_pow = it_b->pow();
+        if (lt(it_b->e(), it_a->e())) {
+            ret = false;
+            break;
         }
 
-        if (lt(ae, be))
-            return true;
-        if (lt(be, ae))
-            return false;
         if (a_pow == b_pow) {
             inside_a_p = inside_b_p = false;
             it_a++; it_b++;
             if (it_a == a_end) {
                 if (it_b != b_end) {
-                    return true;
+                    ret = true;
+                    break;
                 }
-                return a->coeff() < b->coeff();
-            } else if (it_b == b_end) {
-                return false;                
+                SASSERT(it_a == a_end && it_b == b_end);
+                ret = a->coeff() < b->coeff();
+                break;
+            }
+            if (it_b == b_end) {
+                ret = false;
+                break;
             }
             // no iterator reached the end
             continue;
-        }
+        }            
         if (a_pow < b_pow) {
             it_a++;
-            if (it_a == a_end)
-                return true;
+            if (it_a == a_end) {
+                ret = true;
+                break;
+            }
             inside_a_p = false;
             inside_b_p = true;
             b_pow -= a_pow;
@@ -165,15 +168,17 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
             SASSERT(a_pow > b_pow);
             a_pow -= b_pow;
             it_b++;
-            if (it_b == b_end)
-                return false;
+            if (it_b == b_end) {
+                ret = false;
+                break;
+            }
             inside_a_p = true;
             inside_b_p = false;
         }
-    }
-    TRACE("nla_cn_details", tout << "a = " << *a << " >= b = " << *b << "\n";);
-    return false;
+    } while (true);
     
+    TRACE("nla_cn_details", tout << "a = " << *a << (ret == 1?" < ":" >= ") << *b << "\n";);
+    return ret;
 }
 
 bool nex_creator::less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_mul* b) const {
