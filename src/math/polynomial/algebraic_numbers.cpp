@@ -125,7 +125,8 @@ namespace algebraic_numbers {
         }
 
         bool acell_inv(algebraic_cell const& c) {
-            return c.m_sign_lower == (upm().eval_sign_at(c.m_p_sz, c.m_p, lower(&c)) == polynomial::sign_neg);
+            auto s = upm().eval_sign_at(c.m_p_sz, c.m_p, lower(&c));
+            return s == polynomial::sign_zero || c.m_sign_lower == (s == polynomial::sign_neg);
         }
 
         void checkpoint() {
