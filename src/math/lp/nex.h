@@ -202,6 +202,10 @@ public:
         return out;
     }
 
+    void add_child(const rational& r) {
+        m_coeff *= r;
+    }
+    
     void add_child(nex* e) {
         if (e->is_scalar()) {
             m_coeff *= to_scalar(e)->value();

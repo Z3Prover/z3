@@ -123,7 +123,7 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
     auto a_end = a->end();
     auto b_end = b->end();
     unsigned a_pow, b_pow;
-    bool ret;
+    int ret = - 1;
     do {
         if (!inside_a_p) { a_pow = it_a->pow(); }
         if (!inside_b_p) { b_pow = it_b->pow(); }
@@ -141,14 +141,14 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
             it_a++; it_b++;
             if (it_a == a_end) {
                 if (it_b != b_end) {
-                    ret = true;
+                    ret = false;
                     break;
                 }
                 SASSERT(it_a == a_end && it_b == b_end);
                 ret = a->coeff() < b->coeff();
                 break;
             }
-            if (it_b == b_end) {
+            if (it_b == b_end) { // it_a is not at the end
                 ret = false;
                 break;
             }
@@ -176,7 +176,8 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
             inside_b_p = false;
         }
     } while (true);
-    
+    if (ret == -1)
+        ret = true;
     TRACE("nla_cn_details", tout << "a = " << *a << (ret == 1?" < ":" >= ") << *b << "\n";);
     return ret;
 }
@@ -193,9 +194,9 @@ bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const
     unsigned b_deg = b->get_degree();
     bool ret;
     if (a_deg > b_deg) {
-        ret = true;
-    } else if (a_deg < b_deg) {
         ret = false;
+    } else if (a_deg < b_deg) {
+        ret = true;
     } else {
         ret = less_than_on_mul_mul_same_degree(a, b);
     }
