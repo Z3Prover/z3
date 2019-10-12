@@ -1394,6 +1394,7 @@ namespace smtfd {
                 }
             }
             ap.global_check(core);
+            
             TRACE("smtfd", context.display(tout););
             for (expr* f : context) {
                 IF_VERBOSE(10, verbose_stream() << "lemma: " << expr_ref(rep(f), m) << "\n");
@@ -1623,6 +1624,79 @@ namespace smtfd {
             }
             return l_undef;
         }        
+
+#if 0
+
+        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
+            init();
+            flush_assertions();
+            lbool r = l_undef;
+            expr_ref_vector core(m);
+            while (true) {
+                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds << " " << m_stats.m_num_lemmas << " " << m_stats.m_num_mbqi << ")\n");
+                m_stats.m_num_rounds++;
+                checkpoint();
+
+                // phase 1: check sat of abs
+                r = check_abs(num_assumptions, assumptions);
+                if (r != l_true) {
+                    break;
+                }
+
+                // phase 2: find prime implicate over FD (abstraction)
+                r = get_prime_implicate(num_assumptions, assumptions, core);
+                if (r != l_false) {
+                    break;
+                }
+
+                // phase 3: check if prime implicate is really valid, or add theory lemmas until there is a theory core
+                r = refine_core(core);
+                if (r != l_false) {
+                    break;
+                }
+                assert_fd(m.mk_not(mk_and(abs(core))));
+            }
+            return r;
+        }
+
+        lbool refine_core(expr_ref_vector & core) {
+            plugin_context context(m_abs, m, UINT_MAX);
+            a_plugin  ap(context, m_model);
+            uf_plugin uf(context, m_model);
+
+            lbool r = l_undef;
+            unsigned max_rounds = std::max(ap.max_rounds(), uf.max_rounds());
+            for (unsigned round = 0; round < max_rounds; ++round) {
+                for (expr* t : subterms(core)) {
+                    ap.check_term(t, round);
+                    uf.check_term(t, round);
+                }
+                r = refine_core(context, core);
+                if (r != l_true) {
+                    return r;
+                }
+            }
+            ap.global_check(core);
+            r = refine_core(context, core);
+            if (r != l_true) {
+                return r;
+            }
+
+            // m_stats.m_num_lemmas += number of literals that are not from original core;
+
+            return l_undef;
+        }
+
+        lbool refine_core(plugin_context& context, expr_ref_vector& core) {
+            // add theory axioms to core
+            // check sat
+            // return unsat cores if unsat
+            // update m_model by checking satisfiability after round
+            return l_undef;
+        }
+
+#endif
+
 
         void updt_params(params_ref const & p) override { 
             ::solver::updt_params(p); 

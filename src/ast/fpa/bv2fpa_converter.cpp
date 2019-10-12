@@ -38,37 +38,26 @@ bv2fpa_converter::bv2fpa_converter(ast_manager & m, fpa2bv_converter & conv) :
     m_fpa_util(m),
     m_bv_util(m),
     m_th_rw(m) {
-    for (obj_map<func_decl, expr*>::iterator it = conv.m_const2bv.begin();
-        it != conv.m_const2bv.end();
-        it++)
-    {
-        m_const2bv.insert(it->m_key, it->m_value);
-        m.inc_ref(it->m_key);
-        m.inc_ref(it->m_value);
+    for (auto const& kv : conv.m_const2bv) {
+        m_const2bv.insert(kv.m_key, kv.m_value);
+        m.inc_ref(kv.m_key);
+        m.inc_ref(kv.m_value);
     }
-    for (obj_map<func_decl, expr*>::iterator it = conv.m_rm_const2bv.begin();
-        it != conv.m_rm_const2bv.end();
-        it++)
-    {
-        m_rm_const2bv.insert(it->m_key, it->m_value);
-        m.inc_ref(it->m_key);
-        m.inc_ref(it->m_value);
+    for (auto const& kv : conv.m_rm_const2bv) {
+        m_rm_const2bv.insert(kv.m_key, kv.m_value);
+        m.inc_ref(kv.m_key);
+        m.inc_ref(kv.m_value);
     }
-    for (obj_map<func_decl, func_decl*>::iterator it = conv.m_uf2bvuf.begin();
-        it != conv.m_uf2bvuf.end();
-        it++)
-    {
-        m_uf2bvuf.insert(it->m_key, it->m_value);
-        m.inc_ref(it->m_key);
-        m.inc_ref(it->m_value);
+    for (auto const& kv : conv.m_uf2bvuf) {
+        m_uf2bvuf.insert(kv.m_key, kv.m_value);
+        m.inc_ref(kv.m_key);
+        m.inc_ref(kv.m_value);
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = conv.m_min_max_ufs.begin();
-        it != conv.m_min_max_ufs.end();
-        it++) {
-        m_specials.insert(it->m_key, it->m_value);
-        m.inc_ref(it->m_key);
-        m.inc_ref(it->m_value.first);
-        m.inc_ref(it->m_value.second);
+    for (auto const& kv : conv.m_min_max_ufs) {
+        m_specials.insert(kv.m_key, kv.m_value);
+        m.inc_ref(kv.m_key);
+        m.inc_ref(kv.m_value.first);
+        m.inc_ref(kv.m_value.second);
     }
 }
 
@@ -76,12 +65,10 @@ bv2fpa_converter::~bv2fpa_converter() {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
-        it != m_specials.end();
-        it++) {
-        m.dec_ref(it->m_key);
-        m.dec_ref(it->m_value.first);
-        m.dec_ref(it->m_value.second);
+    for (auto const& kv : m_specials) {
+        m.dec_ref(kv.m_key);
+        m.dec_ref(kv.m_value.first);
+        m.dec_ref(kv.m_value.second);
     }
 }
 
@@ -313,12 +300,9 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
 }
 
 void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
-    for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
-        it != m_const2bv.end();
-        it++)
-    {
-        func_decl * var = it->m_key;
-        app * val = to_app(it->m_value);
+    for (auto const& kv : m_const2bv) {
+        func_decl * var = kv.m_key;
+        app * val = to_app(kv.m_value);
         SASSERT(m_fpa_util.is_float(var->get_range()));
         SASSERT(var->get_range()->get_num_parameters() == 2);
         unsigned ebits = m_fpa_util.get_ebits(var->get_range());
@@ -383,13 +367,10 @@ void bv2fpa_converter::convert_consts(model_core * mc, model_core * target_model
 }
 
 void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
-    for (obj_map<func_decl, expr*>::iterator it = m_rm_const2bv.begin();
-        it != m_rm_const2bv.end();
-        it++)
-    {
-        func_decl * var = it->m_key;
+    for (auto const& kv : m_rm_const2bv) {
+        func_decl * var = kv.m_key;
         SASSERT(m_fpa_util.is_rm(var->get_range()));
-        expr * val = it->m_value;
+        expr * val = kv.m_value;
         SASSERT(m_fpa_util.is_bv2rm(val));
         expr * bvval = to_app(val)->get_arg(0);
         expr_ref fv = convert_bv2rm(mc, to_app(bvval));
@@ -400,12 +381,10 @@ void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_mo
 }
 
 void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
-        it != m_specials.end();
-        it++) {
-        func_decl * f = it->m_key;
-        app * pn_cnst = it->m_value.first;
-        app * np_cnst = it->m_value.second;
+    for (auto const& kv : m_specials) {
+        func_decl * f = kv.m_key;
+        app * pn_cnst = kv.m_value.first;
+        app * np_cnst = kv.m_value.second;
 
         expr_ref pzero(m), nzero(m);
         pzero = m_fpa_util.mk_pzero(f->get_range());
@@ -434,17 +413,16 @@ void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * ta
 }
 
 void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
-    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
-        it != m_uf2bvuf.end();
-        it++) {
-        seen.insert(it->m_value);
+    for (auto const& kv : m_uf2bvuf) {
+        seen.insert(kv.m_value);
 
-        func_decl * f = it->m_key;
+        func_decl * f = kv.m_key;
+        std::cout << f->get_name() << "\n";
         if (f->get_arity() == 0)
         {
             array_util au(m);
             if (au.is_array(f->get_range())) {
-                array_model am = convert_array_func_interp(mc, f, it->m_value);
+                array_model am = convert_array_func_interp(mc, f, kv.m_value);
                 if (am.new_float_fd) target_model->register_decl(am.new_float_fd, am.new_float_fi);
                 if (am.result) target_model->register_decl(f, am.result);
                 if (am.bv_fd) seen.insert(am.bv_fd);
@@ -453,92 +431,82 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
                 // Just keep.
                 SASSERT(!m_fpa_util.is_float(f->get_range()) && !m_fpa_util.is_rm(f->get_range()));
                 expr_ref val(m);
-                if (mc->eval(it->m_value, val))
+                if (mc->eval(kv.m_value, val))
                     target_model->register_decl(f, val);
             }
         }
-        else {
-            if (it->get_key().get_family_id() == m_fpa_util.get_fid()) {
-                // it->m_value contains the model for the unspecified cases of it->m_key.
-                target_model->register_decl(f, convert_func_interp(mc, f, it->m_value));
-            }
+        else if (f->get_family_id() == m_fpa_util.get_fid()) {
+            
+            // kv.m_value contains the model for the unspecified cases of kv.m_key.
+            // TBD: instead of mapping the interpretation of f to just the graph for the
+            // uninterpreted case, map it to a condition, ite, that filters out the
+            // pre-condition for which argument combinations are interpreted vs. uninterpreted.
+            // if (m_fpa_util.is_to_ieee_bv(f)) {
+            // }
+            // if (m_fpa_util.is_to_sbv(f)) {
+            // }
+
+
+            target_model->register_decl(f, convert_func_interp(mc, f, kv.m_value));            
         }
     }
 }
 
 void bv2fpa_converter::display(std::ostream & out) {
-    for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
-        it != m_const2bv.end();
-        it++) {
-        const symbol & n = it->m_key->get_name();
+    for (auto const& kv : m_const2bv) {
+        const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
-        out << mk_ismt2_pp(it->m_value, m, indent) << ")";
+        out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
-    for (obj_map<func_decl, expr*>::iterator it = m_rm_const2bv.begin();
-        it != m_rm_const2bv.end();
-        it++) {
-        const symbol & n = it->m_key->get_name();
+    for (auto const& kv : m_rm_const2bv) {
+        const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
-        out << mk_ismt2_pp(it->m_value, m, indent) << ")";
+        out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
-    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
-        it != m_uf2bvuf.end();
-        it++) {
-        const symbol & n = it->m_key->get_name();
+    for (auto const& kv : m_uf2bvuf) {
+        const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
-        out << mk_ismt2_pp(it->m_value, m, indent) << ")";
+        out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
-        it != m_specials.end();
-        it++) {
-        const symbol & n = it->m_key->get_name();
+    for (auto const& kv : m_specials) {
+        const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
-        out << mk_ismt2_pp(it->m_value.first, m, indent) << "; " <<
-            mk_ismt2_pp(it->m_value.second, m, indent) << ")";
+        out << mk_ismt2_pp(kv.m_value.first, m, indent) << "; " <<
+            mk_ismt2_pp(kv.m_value.second, m, indent) << ")";
     }
 }
 
 bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
     bv2fpa_converter * res = alloc(bv2fpa_converter, translator.to());
-    for (obj_map<func_decl, expr*>::iterator it = m_const2bv.begin();
-        it != m_const2bv.end();
-        it++)
-    {
-        func_decl * k = translator(it->m_key);
-        expr * v = translator(it->m_value);
+    for (auto const& kv : m_const2bv) {
+        func_decl * k = translator(kv.m_key);
+        expr * v = translator(kv.m_value);
         res->m_const2bv.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
-    for (obj_map<func_decl, expr*>::iterator it = m_rm_const2bv.begin();
-        it != m_rm_const2bv.end();
-        it++)
-    {
-        func_decl * k = translator(it->m_key);
-        expr * v = translator(it->m_value);
+    for (auto const& kv : m_rm_const2bv) {
+        func_decl * k = translator(kv.m_key);
+        expr * v = translator(kv.m_value);
         res->m_rm_const2bv.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
-    for (obj_map<func_decl, func_decl*>::iterator it = m_uf2bvuf.begin();
-        it != m_uf2bvuf.end();
-        it++) {
-        func_decl * k = translator(it->m_key);
-        func_decl * v = translator(it->m_value);
+    for (auto const& kv : m_uf2bvuf) {
+        func_decl * k = translator(kv.m_key);
+        func_decl * v = translator(kv.m_value);
         res->m_uf2bvuf.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
     }
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_specials.begin();
-        it != m_specials.end();
-        it++) {
-        func_decl * k = translator(it->m_key);
-        app * v1 = translator(it->m_value.first);
-        app * v2 = translator(it->m_value.second);
+    for (auto const& kv : m_specials) {
+        func_decl * k = translator(kv.m_key);
+        app * v1 = translator(kv.m_value.first);
+        app * v2 = translator(kv.m_value.second);
         res->m_specials.insert(k, std::pair<app*, app*>(v1, v2));
         translator.to().inc_ref(k);
         translator.to().inc_ref(v1);

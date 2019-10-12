@@ -4174,12 +4174,10 @@ void fpa2bv_converter::reset() {
     dec_ref_map_key_values(m, m_const2bv);
     dec_ref_map_key_values(m, m_rm_const2bv);
     dec_ref_map_key_values(m, m_uf2bvuf);
-    for (obj_map<func_decl, std::pair<app*, app*> >::iterator it = m_min_max_ufs.begin();
-        it != m_min_max_ufs.end();
-        it++) {
-        m.dec_ref(it->m_key);
-        m.dec_ref(it->m_value.first);
-        m.dec_ref(it->m_value.second);
+    for (auto const& kv : m_min_max_ufs) {
+        m.dec_ref(kv.m_key);
+        m.dec_ref(kv.m_value.first);
+        m.dec_ref(kv.m_value.second);
     }
     m_min_max_ufs.reset();
     m_extra_assertions.reset();
