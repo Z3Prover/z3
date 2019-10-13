@@ -251,7 +251,7 @@ eautomaton* re2automaton::operator()(expr* e) {
     if (r) {        
         r->compress(); 
         bool_rewriter br(m);
-        TRACE("seq", display_expr1 disp(m); r->display(tout, disp););
+        TRACE("seq", display_expr1 disp(m); r->display(tout << mk_pp(e, m) << " -->\n", disp););
     }
     return r;
 } 
@@ -348,7 +348,9 @@ eautomaton* re2automaton::re2aut(expr* e) {
         return a.detach();
     }
     else if (u.re.is_intersection(e, e1, e2) && m_sa && (a = re2aut(e1)) && (b = re2aut(e2))) {
-        return m_sa->mk_product(*a, *b);
+        eautomaton* r = m_sa->mk_product(*a, *b);
+        TRACE("seq", display_expr1 disp(m); a->display(tout << "a:", disp); b->display(tout << "b:", disp); r->display(tout << "intersection:", disp););
+        return r;
     }
     else {
         TRACE("seq", tout << "not handled " << mk_pp(e, m) << "\n";);
