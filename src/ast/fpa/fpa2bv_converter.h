@@ -35,7 +35,7 @@ class fpa2bv_converter {
 public:
     typedef obj_map<func_decl, std::pair<app *, app *> > special_t;
     typedef obj_map<func_decl, expr*> const2bv_t;
-    typedef obj_map<func_decl, func_decl*> uf2bvuf_t;
+    typedef obj_map<func_decl, std::pair<func_decl*, expr*> > uf2bvuf_t;
 
 protected:
     ast_manager              & m;
@@ -74,7 +74,7 @@ public:
 
     void mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result);
 
-    void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
+    // void split_fp(expr * e, expr * & sgn, expr * & exp, expr * & sig) const;
     void split_fp(expr * e, expr_ref & sgn, expr_ref & exp, expr_ref & sig) const;
     void join_fp(expr * e, expr_ref & res);
 
@@ -219,6 +219,9 @@ private:
     void mk_to_fp_float(sort * s, expr * rm, expr * x, expr_ref & result);
 
     func_decl * mk_bv_uf(func_decl * f, sort * const * domain, sort * range);
+    void set_bv_def(func_decl * f, expr* def);
+    expr* get_bv_def(func_decl * f);
+
     expr_ref nan_wrap(expr * n);
 
     expr_ref extra_quantify(expr * e);
