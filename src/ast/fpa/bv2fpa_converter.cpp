@@ -304,9 +304,9 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             }
         }
 
-        app_ref bv_els(m);
-        bv_els = to_app(bv_fi->get_else());
-        if (bv_els != nullptr) {
+        expr_ref bv_els(m);
+        bv_els = bv_fi->get_else();
+        if (bv_els) {
             expr_ref ft_els = rebuild_floats(mc, rng, bv_els);
             m_th_rw(ft_els);
             result->set_else(ft_els);
