@@ -1159,7 +1159,7 @@ sig
     val mk_sort : context -> Sort.sort
 
     (** Get a big_int from an integer numeral *)
-    val get_big_int : Expr.expr -> Big_int.big_int
+    val get_big_int : Expr.expr -> Z.t
 
     (** Returns a string representation of a numeral. *)
     val numeral_to_string : Expr.expr -> string
@@ -1217,7 +1217,7 @@ sig
     val get_denominator : Expr.expr -> Expr.expr
 
     (** Get a ratio from a real numeral *)
-    val get_ratio : Expr.expr -> Ratio.ratio
+    val get_ratio : Expr.expr -> Q.t
 
     (** Returns a string representation in decimal notation.
         The result has at most as many decimal places as indicated by the int argument.*)
