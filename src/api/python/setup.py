@@ -116,35 +116,6 @@ def _build_z3():
                     env=build_env, cwd=BUILD_DIR) != 0:
             raise LibError("Unable to build Z3.")
 
-def _cp_vs_runtime():
-    platform = "x64"
-    vcdir = os.environ['VCINSTALLDIR']
-    path  = '%sredist' % vcdir
-    vs_runtime_files = []
-    # Everything changes with every release of VS
-    # Prior versions of VS had DLLs under "redist\x64"
-    # There are now several variants of redistributables
-    # The naming convention defies my understanding so 
-    # we use a "check_root" filter to find some hopefully suitable
-    # redistributable.
-    def check_root(root):
-        return platform in root and ("CRT" in root or "MP" in root) and "onecore" not in root and "debug" not in root
-    for root, dirs, files in os.walk(path):
-        for filename in files:
-            if fnmatch(filename, '*.dll') and check_root(root):
-                print("Checking %s %s" % (root, filename))
-                for pat in VS_RUNTIME_PATS:
-                    if pat.match(filename):
-                        fname = os.path.join(root, filename)
-                        if not os.path.isdir(fname):
-                            vs_runtime_files.append(fname)
-    if not vs_runtime_files:
-        raise MKException("Did not find any runtime files to include")       
-    for f in vs_runtime_files:
-        shutil.copy(f, bin_dist_path)
-        if is_verbose():
-            print("Copied '%s' to '%s'" % (f, LIBS_DIR))
-
 
 def _copy_bins():
     """
@@ -171,7 +142,6 @@ def _copy_bins():
     os.mkdir(HEADERS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, LIBRARY_FILE), LIBS_DIR)
     shutil.copy(os.path.join(BUILD_DIR, EXECUTABLE_FILE), BINS_DIR)
-    _cp_vs_runtime()
 
     for header_dir in HEADER_DIRS:
         for fname in os.listdir(header_dir):
