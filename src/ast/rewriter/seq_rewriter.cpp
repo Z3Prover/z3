@@ -1005,6 +1005,11 @@ br_status seq_rewriter::mk_seq_at(expr* a, expr* b, expr_ref& result) {
 
     m_lhs.reset();
     m_util.str.get_concat_units(a, m_lhs);
+
+    if (m_lhs.empty()) {
+        result = m_util.str.mk_empty(m().get_sort(a));
+        return BR_DONE;        
+    }
     
     unsigned i = 0;
     for (; i < m_lhs.size(); ++i) {

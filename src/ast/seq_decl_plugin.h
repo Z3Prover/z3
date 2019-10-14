@@ -279,8 +279,9 @@ public:
         app* mk_lex_le(expr* a, expr* b) const { expr* es[2] = { a, b }; return m.mk_app(m_fid, OP_STRING_LE, 2, es); }
 
 
-        bool is_nth_i(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_I); }
-        bool is_nth_u(func_decl* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_U); }
+        bool is_nth_i(func_decl const* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_I); }
+        bool is_nth_u(func_decl const* f)       const { return is_decl_of(f, m_fid, OP_SEQ_NTH_U); }
+        bool is_skolem(func_decl const* f)      const { return is_decl_of(f, m_fid, _OP_SEQ_SKOLEM); }
 
         bool is_string(expr const * n) const { return is_app_of(n, m_fid, OP_STRING_CONST); }
         bool is_string(expr const* n, symbol& s) const {
