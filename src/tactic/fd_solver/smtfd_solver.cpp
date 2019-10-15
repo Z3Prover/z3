@@ -123,6 +123,7 @@ Note:
 #include "util/obj_hashtable.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/for_each_expr.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/rewriter/th_rewriter.h"
@@ -337,12 +338,14 @@ namespace smtfd {
     class theory_plugin;
 
     class plugin_context {
+        ast_manager&    m;
         smtfd_abs&      m_abs;
         expr_ref_vector m_lemmas;
         unsigned        m_max_lemmas;
         ptr_vector<theory_plugin> m_plugins;
     public:
         plugin_context(smtfd_abs& a, ast_manager& m, unsigned max):
+            m(m),
             m_abs(a),
             m_lemmas(m), 
             m_max_lemmas(max)
@@ -350,7 +353,12 @@ namespace smtfd {
         
         smtfd_abs& get_abs() { return m_abs; }
 
-        void add(expr* f) { m_lemmas.push_back(f); }
+        void add(expr* f) { 
+            expr_ref _fml(f, m);
+            // std::cout << "add " << mk_bounded_pp(f, m, 2) << "\n";
+            TRACE("smtfd", tout << _fml << "\n";);            
+            m_lemmas.push_back(m_abs.abs(f));
+        }
 
         ast_manager& get_manager() { return m_lemmas.get_manager(); }
 
@@ -360,6 +368,7 @@ namespace smtfd {
         expr_ref_vector::iterator end() { return m_lemmas.end(); }
         unsigned size() const { return m_lemmas.size(); }
         bool empty() const { return m_lemmas.empty(); }
+        void reset_lemmas() { m_lemmas.reset(); }
 
         void add_plugin(theory_plugin* p) { m_plugins.push_back(p); }
 
@@ -367,8 +376,26 @@ namespace smtfd {
         expr_ref model_value(sort* s);
         bool term_covered(expr* t);
         bool sort_covered(sort* s);
+
+        /**
+         * \brief use propositional model to create a model of uninterpreted functions
+         */
         void populate_model(model_ref& mdl, expr_ref_vector const& core);
+
+        /**
+         * \brief check consistency properties that can only be achived using a global analysis of terms
+         */
+        void global_check(expr_ref_vector const& core);
+
+        /**
+         * \brief add theory axioms that are violdated in the current model
+         * the round indicator is used to prioritize "cheap" axioms before
+         * expensive axiom instantiation. 
+         */
+        bool add_theory_axioms(expr_ref_vector const& core, unsigned round);
+
         std::ostream& display(std::ostream& out);
+
     };
 
     struct f_app_eq {
@@ -391,6 +418,7 @@ namespace smtfd {
         ast_manager&             m;
         smtfd_abs&               m_abs;    
         plugin_context&          m_context;
+        th_rewriter              m_rewriter;
         model_ref                m_model;
         expr_ref_vector          m_values;
         ast_ref_vector           m_pinned;
@@ -422,6 +450,7 @@ namespace smtfd {
             m(context.get_manager()), 
             m_abs(context.get_abs()),
             m_context(context),
+            m_rewriter(m),
             m_model(mdl),
             m_values(m),
             m_pinned(m),
@@ -448,10 +477,8 @@ namespace smtfd {
 
         ast_manager& get_manager() { return m; }
 
-        void add_lemma(expr* fml) {
-            expr_ref _fml(fml, m);
-            TRACE("smtfd", tout << _fml << "\n";);
-            m_context.add(m_abs.abs(fml));
+        void add_lemma(expr* fml) { 
+            m_context.add(fml);             
         }
 
         expr_ref eval_abs(expr* t) { return (*m_model)(m_abs.abs(t)); }
@@ -483,7 +510,7 @@ namespace smtfd {
             m_args.reset();
             for (unsigned i = 0; i < t->get_num_args(); ++i) {
                 m_args.push_back(m.mk_eq(f1.m_t->get_arg(i), f2.m_t->get_arg(i)));
-            }
+            }            
             add_lemma(m.mk_implies(mk_and(m_args), m.mk_eq(f1.m_t, f2.m_t)));
         }
 
@@ -510,6 +537,7 @@ namespace smtfd {
         expr_ref model_value(expr* t) { return m_context.model_value(t); }
         expr_ref model_value(sort* s) { return m_context.model_value(s); }
 
+        virtual void global_check(expr_ref_vector const& core) {}
         virtual void check_term(expr* t, unsigned round) = 0;
         virtual expr_ref model_value_core(expr* t) = 0;
         virtual expr_ref model_value_core(sort* s) = 0;
@@ -518,6 +546,33 @@ namespace smtfd {
         virtual unsigned max_rounds() = 0;
         virtual void populate_model(model_ref& mdl, expr_ref_vector const& core) {}
     };
+
+    void plugin_context::global_check(expr_ref_vector const& core) {
+        for (theory_plugin* p : m_plugins) {
+            p->global_check(core);
+        }
+    }
+
+    bool plugin_context::add_theory_axioms(expr_ref_vector const& core, unsigned round) {
+        unsigned max_rounds = 0;
+        for (theory_plugin* p : m_plugins) {
+            max_rounds = std::max(max_rounds, p->max_rounds());
+        }
+        if (max_rounds < round) {
+            return false;
+        }
+        else if (round < max_rounds) {
+            for (expr* t : subterms(core)) {
+                for (theory_plugin* p : m_plugins) {
+                    p->check_term(t, round);
+                }
+            }
+        }
+        else if (round == max_rounds) {
+            global_check(core);
+        }
+        return true;
+    }
 
     expr_ref plugin_context::model_value(expr* t) {
         expr_ref r(get_manager());
@@ -771,7 +826,7 @@ namespace smtfd {
                 add_lemma(m.mk_eq(sel, stored_value));
             }
             m_pinned.push_back(sel);
-            TRACE("smtfd", tout << sel << "\n";);
+            TRACE("smtfd", tout << mk_bounded_pp(sel, m, 2) << "\n";);
             check_select(sel);
         }
 
@@ -1055,7 +1110,7 @@ namespace smtfd {
 
         unsigned max_rounds() override { return 2; }
 
-        void global_check(expr_ref_vector const& core) {  
+        void global_check(expr_ref_vector const& core) override {  
             expr_mark seen;
             expr_ref_vector shared(m), sharedvals(m);
             for (expr* t : subterms(core)) {
@@ -1183,7 +1238,6 @@ namespace smtfd {
                     else {
                         body = m.mk_implies(body, q);
                     }
-                    body = abs(body);
                     m_context.add(body);
                 }
             }
@@ -1211,7 +1265,7 @@ namespace smtfd {
                 body = m.mk_implies(body, q);
             }
             m_enforced.insert(q);
-            m_context.add(abs(body));
+            m_context.add(body);
             return l_true;
         }
 
@@ -1331,7 +1385,7 @@ namespace smtfd {
             expr_ref_vector asms(m);
             m_fd_sat_solver->get_model(m_model);
             m_model->set_model_completion(true);
-            init_literals(num_assumptions, assumptions, asms);
+            init_model_assumptions(num_assumptions, assumptions, asms);
             TRACE("smtfd", display(tout << asms););
             SASSERT(asms.contains(m_not_toggle));
             lbool r = m_fd_core_solver->check_sat(asms);
@@ -1342,12 +1396,12 @@ namespace smtfd {
                 core.erase(m_not_toggle.get()); 
                 SASSERT(asms.contains(m_not_toggle));
                 SASSERT(!asms.contains(m_toggle));
+                rep(core);
             }
             return r;
         }
 
         lbool check_smt(expr_ref_vector& core) {
-            rep(core);
             IF_VERBOSE(10, verbose_stream() << "core: " << core.size() << "\n");
             params_ref p;
             p.set_uint("max_conflicts", m_max_conflicts);
@@ -1380,20 +1434,11 @@ namespace smtfd {
         }
 
 
-        bool add_theory_lemmas(expr_ref_vector const& core) {
+        bool add_theory_axioms(expr_ref_vector const& core) {
             plugin_context context(m_abs, m, m_max_lemmas);
             a_plugin  ap(context, m_model);
             uf_plugin uf(context, m_model);
-
-            unsigned max_rounds = std::max(ap.max_rounds(), uf.max_rounds());
-            for (unsigned round = 0; round < max_rounds; ++round) {
-                for (expr* t : subterms(core)) {
-                    if (context.at_max()) break;
-                    ap.check_term(t, round);
-                    uf.check_term(t, round);
-                }
-            }
-            ap.global_check(core);
+            for (unsigned round = 0; !context.at_max() && context.add_theory_axioms(core, round); ++round);
             
             TRACE("smtfd", context.display(tout););
             for (expr* f : context) {
@@ -1417,19 +1462,20 @@ namespace smtfd {
             
             bool has_q = false;
             bool has_non_covered = false;
+            lbool is_decided = l_true;
             for (expr* t : subterms(core)) {
                 if (is_forall(t) || is_exists(t)) {
                     has_q = true;
                 }
                 else if (!context.term_covered(t) || !context.sort_covered(m.get_sort(t))) {
-                    has_non_covered = true;
+                    is_decided = l_false;
                 }
             }
             context.populate_model(m_model, core);
             
             TRACE("smtfd", tout << has_q << " " << has_non_covered << "\n";);
             if (!has_q) {
-                return has_non_covered ? l_false : l_true;
+                return is_decided;
             }
             if (!m_mbqi_solver) {
                 m_mbqi_solver = alloc(solver, m, get_params());
@@ -1443,13 +1489,7 @@ namespace smtfd {
                 assert_fd(f);
             }
             m_stats.m_num_mbqi += context.size();
-
-            if (context.empty()) {                
-                return has_non_covered ? l_false : l_true;
-            }
-            else {
-                return l_undef;
-            }
+            return context.empty() ? is_decided : l_undef;
         }
 
         void init_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
@@ -1460,7 +1500,7 @@ namespace smtfd {
             }
         }
 
-        void init_literals(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
+        void init_model_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
             asms.reset();
             asms.push_back(m_not_toggle);
             for (unsigned i = 0; i < sz; ++i) {
@@ -1564,16 +1604,25 @@ namespace smtfd {
             m_assertions_qhead = m_assertions.size();
         }
 
-        void assert_fd(expr* fml) {
-            m_fd_sat_solver->assert_expr(fml);
-            m_fd_core_solver->assert_expr(fml);
+        void flush_atom_defs() {
             for (expr* f : m_abs.atom_defs()) {
                 m_fd_sat_solver->assert_expr(f);
                 m_fd_core_solver->assert_expr(f);
             }
             m_abs.reset_atom_defs();
         }
-        
+
+        void assert_fd(expr* fml) {
+            m_fd_sat_solver->assert_expr(fml);
+            m_fd_core_solver->assert_expr(fml);
+            flush_atom_defs();
+        }
+
+        void block_core(expr_ref_vector& core) {
+            assert_fd(m.mk_not(mk_and(abs(core))));            
+        }
+
+#if 1        
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             init();
             flush_assertions();
@@ -1604,9 +1653,9 @@ namespace smtfd {
 
                 // phase 4: add theory lemmas
                 if (r == l_false) {
-                    assert_fd(m.mk_not(mk_and(abs(core))));
+                    block_core(core);
                 }
-                if (add_theory_lemmas(core)) {
+                if (add_theory_axioms(core)) {
                     continue;
                 }
                 if (r != l_undef) {
@@ -1625,7 +1674,7 @@ namespace smtfd {
             return l_undef;
         }        
 
-#if 0
+#else
 
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             init();
@@ -1651,10 +1700,32 @@ namespace smtfd {
 
                 // phase 3: check if prime implicate is really valid, or add theory lemmas until there is a theory core
                 r = refine_core(core);
-                if (r != l_false) {
+                switch (r) {
+                case l_true:
+                    switch (is_decided_sat(core)) {
+                    case l_true:
+                        return l_true;
+                    case l_undef:
+                        break;
+                    case l_false:
+                        r = check_smt(core);
+                        switch (r) {
+                        case l_true:
+                            return r;
+                        case l_false:
+                            block_core(core);
+                            break;
+                        case l_undef:
+                            break;
+                        }
+                    }
                     break;
+                case l_false:
+                    block_core(core);
+                    break;
+                case l_undef:
+                    return r;
                 }
-                assert_fd(m.mk_not(mk_and(abs(core))));
             }
             return r;
         }
@@ -1665,34 +1736,46 @@ namespace smtfd {
             uf_plugin uf(context, m_model);
 
             lbool r = l_undef;
-            unsigned max_rounds = std::max(ap.max_rounds(), uf.max_rounds());
-            for (unsigned round = 0; round < max_rounds; ++round) {
-                for (expr* t : subterms(core)) {
-                    ap.check_term(t, round);
-                    uf.check_term(t, round);
-                }
+            unsigned round = 0;
+            while (context.add_theory_axioms(core, round)) {
+                std::cout << round << "\n";
+                round = context.empty() ? round + 1 : 0;
                 r = refine_core(context, core);
                 if (r != l_true) {
                     return r;
-                }
+                }                    
             }
-            ap.global_check(core);
-            r = refine_core(context, core);
-            if (r != l_true) {
-                return r;
-            }
-
-            // m_stats.m_num_lemmas += number of literals that are not from original core;
-
-            return l_undef;
+            // context is satisfiable
+            SASSERT(r == l_true);
+            return r;
         }
 
-        lbool refine_core(plugin_context& context, expr_ref_vector& core) {
-            // add theory axioms to core
-            // check sat
-            // return unsat cores if unsat
-            // update m_model by checking satisfiability after round
-            return l_undef;
+        lbool refine_core(plugin_context& context, expr_ref_vector& core) {            
+            if (context.empty()) {
+                return l_true;
+            }
+            abs(core);
+            for (expr* f : context) {
+                // std::cout << "refine: " << mk_pp(f, m) << "\n";
+                core.push_back(f);
+            }
+            flush_atom_defs();
+            context.reset_lemmas();
+            lbool r = m_fd_sat_solver->check_sat(core);
+            update_reason_unknown(r, m_fd_sat_solver);
+            switch (r) {
+            case l_false:
+                m_fd_sat_solver->get_unsat_core(core);
+                rep(core);
+                break;
+            case l_true:
+                m_fd_sat_solver->get_model(m_model);
+                rep(core);
+                break;
+            default:
+                break;
+            }
+            return r;
         }
 
 #endif
