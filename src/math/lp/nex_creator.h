@@ -86,11 +86,11 @@ public:
     bool less_than(lpvar j, lpvar k) const{
         unsigned wj = (unsigned)m_active_vars_weights[j];
         unsigned wk = (unsigned)m_active_vars_weights[k];
-        return wj != wk ? wj < wk : j < k;
+        return wj != wk ? wj > wk : j > k;
     }
 
     bool less_than_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
-        return (a.pow() < b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
+        return (a.pow() > b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
     }
     
     void simplify_children_of_mul(vector<nex_pow> & children, rational&);
