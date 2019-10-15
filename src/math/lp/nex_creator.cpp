@@ -145,7 +145,7 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
                     break;
                 }
                 SASSERT(it_a == a_end && it_b == b_end);
-                ret = a->coeff() < b->coeff();
+                ret = a->coeff() > b->coeff();
                 break;
             }
             if (it_b == b_end) { // it_a is not at the end
@@ -155,7 +155,7 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
             // no iterator reached the end
             continue;
         }            
-        if (a_pow < b_pow) {
+        if (a_pow > b_pow) {
             it_a++;
             if (it_a == a_end) {
                 ret = true;
@@ -165,7 +165,7 @@ bool nex_creator::less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, con
             inside_b_p = true;
             b_pow -= a_pow;
         } else {
-            SASSERT(a_pow > b_pow);
+            SASSERT(a_pow < b_pow);
             a_pow -= b_pow;
             it_b++;
             if (it_b == b_end) {
@@ -194,9 +194,9 @@ bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const
     unsigned b_deg = b->get_degree();
     bool ret;
     if (a_deg > b_deg) {
-        ret = false;
-    } else if (a_deg < b_deg) {
         ret = true;
+    } else if (a_deg < b_deg) {
+        ret = false;
     } else {
         ret = less_than_on_mul_mul_same_degree(a, b);
     }
@@ -207,13 +207,13 @@ bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const
 
 bool nex_creator::less_than_on_var_nex(const nex_var* a, const nex* b) const {
     switch(b->type()) {
-    case expr_type::SCALAR: return false;
+    case expr_type::SCALAR: return true;
     case expr_type::VAR:            
         return less_than(a->var() , to_var(b)->var());
     case expr_type::MUL:
         {
             if (b->get_degree() > 1)
-                return true;
+                return false;
             auto it = to_mul(b)->begin();
             const nex_pow & c  = *it;
             const nex * f = c.e();
@@ -236,10 +236,12 @@ bool nex_creator::less_than_on_mul_nex(const nex_mul* a, const nex* b) const {
     case expr_type::VAR:            
         {
             if (a->get_degree() > 1)
-                return false;
+                return true;
             auto it = a->begin();
             const nex_pow & c  = *it;
+            SASSERT(c.pow() == 1);
             const nex * f = c.e();
+            SASSERT(!f->is_scalar());
             return lt(f, b);
         }
     case expr_type::MUL:
@@ -260,7 +262,7 @@ bool nex_creator::less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const
         if (lt((*b)[j], (*a)[j]))
             return false;
     }
-    return size < b->size();
+    return size > b->size();
             
 }
 
@@ -275,9 +277,9 @@ bool nex_creator::lt(const nex* a, const nex* b) const {
         break;
     case expr_type::SCALAR: {
         if (b->is_scalar())
-            ret = to_scalar(a)->value() < to_scalar(b)->value();
+            ret = to_scalar(a)->value() > to_scalar(b)->value();
         else
-            ret = true; // the scalars are the smallest
+            ret = false; // the scalars are the largest
         break;
     }        
     case expr_type::MUL: {

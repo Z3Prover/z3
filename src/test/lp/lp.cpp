@@ -82,11 +82,16 @@ void test_nex_order() {
     nex_creator r;
     r.set_number_of_vars(3);
     for (unsigned j = 0; j < r.get_number_of_vars(); j++)
-        r.set_var_weight(j, j);
+        r.set_var_weight(j, 10 - j);
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
     SASSERT(r.lt(a, b));
+    SASSERT(r.lt(b, c));
+    SASSERT(r.lt(a, c));
+    
+
+    
     nex* ab = r.mk_mul(a, b);
     nex* ba = r.mk_mul(b, a);
     nex* ac = r.mk_mul(a, c);
@@ -96,14 +101,18 @@ void test_nex_order() {
     nex* _2ab = r.mk_mul(rational(2), a, b);
     SASSERT(r.lt(ab, _3ac));
     SASSERT(!r.lt(_3ac, ab));
-    SASSERT(r.lt(a, ab));
-    SASSERT(!r.lt(ab, a));
+    SASSERT(!r.lt(a, ab));
+    SASSERT(r.lt(ab, a));
     SASSERT(r.lt(_2ab, _3ac));
     SASSERT(!r.lt(_3ac, _2ab));
     nex* _2a = r.mk_mul(rational(2), a);
-    SASSERT(r.lt(_2a, _2ab));
-    SASSERT(!r.lt(_2ab, _2a));
+    SASSERT(!r.lt(_2a, _2ab));
+    SASSERT(r.lt(_2ab, _2a));
     SASSERT(nex_creator::equal(ab, ba));
+    nex_sum * five_a_pl_one = r.mk_sum(r.mk_mul(rational(5), a), r.mk_scalar(rational(1)));
+    nex_mul * poly = r.mk_mul(five_a_pl_one, b);
+    nex * p = r.simplify(poly);
+    std::cout << "poly = " << *poly << " , p = " << *p << "\n";
 }
 
 void test_simplify() {
