@@ -63,6 +63,8 @@ public:
         m_e = e;
 #ifdef Z3DEBUG
         m_e_clone = m_nex_creator.clone(m_e);
+        TRACE("nla_cn", tout << "m_e_clone = " <<  * m_e_clone << "\n";);
+        
 #endif
         vector<nex**> front;
         explore_expr_on_front_elem(&m_e, front);
@@ -254,7 +256,7 @@ public:
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e) || ++m_reported > 100;
  #ifdef Z3DEBUG
-                TRACE("nla_cn", tout << "m_e_clone" << *m_e_clone << "\n";);
+                TRACE("nla_cn", tout << "m_e_clone " << *m_e_clone << "\n";);
                 SASSERT(nex_creator::equal(m_e, m_e_clone));
  #endif
             } else {
@@ -280,7 +282,11 @@ public:
             return;
         TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         if (front.empty()) {
+            TRACE("nla_cn", tout << "got the cn form: =" << *m_e <<  ", clone = " << *m_e_clone << "\n";);
             m_done = m_call_on_result(m_e) || ++m_reported > 100;
+#ifdef Z3DEBUG
+            SASSERT(nex_creator::equal(m_e, m_e_clone));
+#endif
             return;
         }
         auto n = pop_front(front);

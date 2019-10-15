@@ -266,6 +266,8 @@ bool nex_creator::less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const
 
 bool nex_creator::lt(const nex* a, const nex* b) const {
     TRACE("nla_cn_details_", tout << *a << " ? " << *b <<  "\n";);
+    if (a == b)
+        return false;
     bool ret;
     switch (a->type()) {
     case expr_type::VAR: 

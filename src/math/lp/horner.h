@@ -39,8 +39,8 @@ public:
     template <typename T> // T has an iterator of (coeff(), var())
     bool lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;
-    intervals::interval interval_of_expr_with_deps(const nex* e);
-    intervals::interval interval_of_expr(const nex* e);
+    intervals::interval interval_of_expr_with_deps(const nex* e, unsigned power);
+    intervals::interval interval_of_expr(const nex* e, unsigned power);
     intervals::interval interval_of_sum(const nex_sum*);
     intervals::interval interval_of_sum_no_term(const nex_sum*);
     intervals::interval interval_of_mul(const nex_mul*);
@@ -60,7 +60,7 @@ public:
     lpvar find_term_column(const lp::lar_term &, rational & a) const;
     static lp::lar_term expression_to_normalized_term(const nex_sum*, rational& a, rational & b);
     static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>> &);
-    static void add_mul_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>> &);
+    static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>> &);
     bool interval_from_term_with_deps(const nex* e, interv&) const;
     const nex* get_zero_interval_child(const nex_mul*) const;
     const nex* get_inf_interval_child(const nex_sum*) const;
