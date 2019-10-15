@@ -164,7 +164,7 @@ public:
         }
     }                   
 
-    void mul(const rational& r, const interval& a, interval& b, int foo) const {       
+    void mul_no_deps(const rational& r, const interval& a, interval& b) const {       
         m_imanager.mul(r.to_mpq(), a, b);
     }                   
 
@@ -190,12 +190,21 @@ public:
         m_imanager.set(a, b);
     }
 
-    void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
+    void mul_two_intervals(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
+    
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);
     }
 
+    void power(interval const & a, unsigned n, interval & b, interval_deps_combine_rule & b_deps) {
+        m_imanager.power(a, n, b, b_deps);
+    }
+
+    void power(interval const & a, unsigned n, interval & b) {
+        m_imanager.power(a, n, b);
+    }
+    
     void update_lower_for_intersection(const interval& a, const interval& b, interval & i) const {
         if (a.m_lower_inf)  {
             if (b.m_lower_inf)

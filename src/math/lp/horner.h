@@ -68,5 +68,6 @@ public:
     bool has_inf_interval(const nex* ) const;    
     bool mul_has_inf_interval(const nex_mul* ) const;
     bool check_cross_nested_expr(const nex*);
+    interv power_with_deps(const interv& a, unsigned);
 }; // end of horner
 }
