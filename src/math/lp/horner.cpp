@@ -144,32 +144,42 @@ void horner::set_interval_for_scalar(interv& a, const rational& v) {
     m_intervals.set_upper_is_inf(a, false);
 }
 
+interv horner::power_with_deps(const interv& a, unsigned n) {
+    interv b;
+    interval_deps_combine_rule combine_rule;
+    m_intervals.power(a, n, b, combine_rule);
+    TRACE("nla_horner_details", tout << "power of "; m_intervals.display(tout, a) << " = ";
+          m_intervals.display(tout, b) << "\n";);
+    return b; 
+}
+
 interv horner::interval_of_expr_with_deps(const nex* e, unsigned power) {
     interv a;
     switch (e->type()) {
     case expr_type::SCALAR:
         set_interval_for_scalar(a, to_scalar(e)->value());
-        if (power != 1)
-            NOT_IMPLEMENTED_YET();
+        if (power != 1) {
+            return power_with_deps(a, power);
+        }
         return a;
     case expr_type::SUM:
         {
         interv b = interval_of_sum_with_deps(to_sum(e));
         if (power != 1)
-            NOT_IMPLEMENTED_YET();
+            return power_with_deps(b, power);
         return b;
         }
     case expr_type::MUL:
         {
         interv b = interval_of_mul_with_deps(to_mul(e));
         if (power != 1)
-            NOT_IMPLEMENTED_YET();
+            return power_with_deps(b, power);;
         return b;        
     }
     case expr_type::VAR: 
         set_var_interval_with_deps(to_var(e)->var(), a);
         if (power != 1)
-            NOT_IMPLEMENTED_YET();
+            return power_with_deps(a, power);;
         return a;
     default:
         TRACE("nla_horner_details", tout << e->type() << "\n";);
@@ -189,17 +199,17 @@ interv horner::interval_of_expr(const nex* e, unsigned power) {
         {
             interv b = interval_of_sum(to_sum(e));
             if (power != 1) {
-                NOT_IMPLEMENTED_YET();
+                return power_with_deps(b, power);;
             }
             return b;
         }
     case expr_type::MUL:
         {
         interv b  = interval_of_mul(to_mul(e));
-         if (power != 1) {
-                NOT_IMPLEMENTED_YET();
-         }
-         return b;
+        if (power != 1) {
+            return power_with_deps(b, power);;
+        }
+        return b;
     }
     case expr_type::VAR:
         set_var_interval(to_var(e)->var(), a);
@@ -210,7 +220,7 @@ interv horner::interval_of_expr(const nex* e, unsigned power) {
         return interv();
     }
     if (power != 1) {
-        NOT_IMPLEMENTED_YET();
+        return power_with_deps(a, power);;
     }
     return a;
 }
@@ -234,7 +244,7 @@ interv horner::interval_of_mul_with_deps(const nex_mul* e) {
         TRACE("nla_horner_details", tout << "ep = " << ep << ", "; m_intervals.display(tout, b); );
         interv c;
         interval_deps_combine_rule comb_rule;
-        m_intervals.mul(a, b, c, comb_rule);
+        m_intervals.mul_two_intervals(a, b, c, comb_rule);
         TRACE("nla_horner_details", tout << "c before combine_deps() "; m_intervals.display(tout, c););
         m_intervals.combine_deps(a, b, comb_rule, c);
         TRACE("nla_horner_details", tout << "a "; m_intervals.display(tout, a););
@@ -266,7 +276,7 @@ interv horner::interval_of_mul(const nex_mul* e) {
         TRACE("nla_horner_details", tout << "ep = " << ep << ", "; m_intervals.display(tout, b); );
         interv c;
         interval_deps_combine_rule comb_rule;
-        m_intervals.mul(a, b, c, comb_rule);
+        m_intervals.mul_two_intervals(a, b, c, comb_rule);
         TRACE("nla_horner_details", tout << "c before combine_deps() "; m_intervals.display(tout, c););
         m_intervals.combine_deps(a, b, comb_rule, c);
         TRACE("nla_horner_details", tout << "a "; m_intervals.display(tout, a););
@@ -499,7 +509,7 @@ bool horner::interval_from_term(const nex* e, interv & i) const {
 
     set_var_interval(j, i);
     interv bi;
-    m_intervals.mul(a, i, bi, 22);
+    m_intervals.mul_no_deps(a, i, bi);
     m_intervals.add(b, bi);
     m_intervals.set(i, bi, 44);
     
