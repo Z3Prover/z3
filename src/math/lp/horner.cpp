@@ -148,8 +148,10 @@ interv horner::power_with_deps(const interv& a, unsigned n) {
     interv b;
     interval_deps_combine_rule combine_rule;
     m_intervals.power(a, n, b, combine_rule);
+    m_intervals.combine_deps(a, combine_rule, b);
     TRACE("nla_horner_details", tout << "power of "; m_intervals.display(tout, a) << " = ";
-          m_intervals.display(tout, b) << "\n";);
+          m_intervals.display(tout, b) << "\n"; );
+    
     return b; 
 }
 

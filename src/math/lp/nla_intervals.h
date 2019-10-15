@@ -60,6 +60,12 @@ class intervals : common {
             i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_upper_combine);
         }
 
+        void add_deps(interval const& a,
+                      interval_deps_combine_rule const& deps, interval& i) const {
+            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, deps.m_lower_combine);
+            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, deps.m_upper_combine);
+        }
+
         
         // Should be NOOPs for precise mpq types.
         // For imprecise types (e.g., floats) it should set the rounding mode.
@@ -114,6 +120,18 @@ class intervals : common {
             }
             return dep;
         }
+
+        ci_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
+            ci_dependency* dep = nullptr;
+            if (dep_in_lower1(bd)) {
+                dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
+            }
+            if (dep_in_upper1(bd)) {
+                dep = m_dep_manager.mk_join(dep, a.m_upper_dep);
+            }
+            return dep;
+        }
+
     };
 
     region                              m_alloc;
@@ -195,6 +213,11 @@ public:
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);
+    }
+
+    void combine_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
+        SASSERT(&a != &i);
+        m_config.add_deps(a, deps, i);
     }
 
     void power(interval const & a, unsigned n, interval & b, interval_deps_combine_rule & b_deps) {
