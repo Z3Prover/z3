@@ -35,6 +35,7 @@ Revision History:
 #include "smt/smt_implied_equalities.h"
 #include "solver/smt_logics.h"
 #include "solver/tactic2solver.h"
+#include "solver/solver_params.hpp"
 #include "cmd_context/cmd_context.h"
 #include "parsers/smt2/smt2parser.h"
 #include "sat/dimacs.h"
@@ -548,7 +549,10 @@ extern "C" {
             }
         }
         expr * const * _assumptions = to_exprs(num_assumptions, assumptions);
-        unsigned timeout     = to_solver(s)->m_params.get_uint("timeout", mk_c(c)->get_timeout());
+        solver_params sp(to_solver(s)->m_params);
+        unsigned timeout     = mk_c(c)->get_timeout();
+        timeout              = to_solver(s)->m_params.get_uint("timeout", timeout);
+        timeout              = sp.timeout() != UINT_MAX ? sp.timeout() : timeout;
         unsigned rlimit      = to_solver(s)->m_params.get_uint("rlimit", mk_c(c)->get_rlimit());
         bool     use_ctrl_c  = to_solver(s)->m_params.get_bool("ctrl_c", true);
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
