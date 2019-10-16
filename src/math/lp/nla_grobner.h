@@ -41,15 +41,16 @@ class nla_grobner : common {
     class equation {
         unsigned                   m_bidx:31;       //!< position at m_equations_to_delete
         unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
-        nex *                      m_exp;           //  simplified expressionted monomials
+        nex *                      m_expr;           //  simplified expressionted monomials
         ci_dependency *            m_dep;           //!< justification for the equality
         friend class nla_grobner;
         equation() {}
     public:
-        unsigned get_num_monomials() const { return m_exp->size(); }
+        unsigned get_num_monomials() const { return m_expr->size(); }
         nex_mul* const * get_monomial(unsigned idx) const { NOT_IMPLEMENTED_YET();
             return nullptr; }
-        nex* & exp() { return m_exp; }
+        nex* & exp() { return m_expr; }
+        const nex*  exp() const { return m_expr; }
         ci_dependency * get_dependency() const { return m_dep; }
         unsigned hash() const { return m_bidx; }
         bool is_linear_combination() const { return m_lc; }

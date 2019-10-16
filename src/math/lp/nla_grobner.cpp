@@ -200,7 +200,7 @@ void nla_grobner::init() {
 }
 
 bool nla_grobner::is_trivial(equation* eq) const {
-    return eq->m_exp->size() == 0;
+    return eq->m_expr->size() == 0;
 }
 
 bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
@@ -210,7 +210,7 @@ bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
         return true;
     if (is_trivial(eq2))
         return false;
-    return m_nex_creator.lt(eq1->m_exp, eq2->m_exp);
+    return m_nex_creator.lt(eq1->m_expr, eq2->m_expr);
 }
 
 void nla_grobner::del_equation(equation * eq) {
@@ -266,10 +266,15 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
 
 }
 
+// source 3f + k = 0, so f = -k/3
+// target 2fg + e = 0  
+// target is replaced by 2(-k/3)g + e = -2/3kg + e
 unsigned nla_grobner::simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result) {
+    TRACE("nla_grobner", tout << "source = " << *source->exp() << " , target = " << *target->exp() << "\n";);
     unsigned i          = 0;
-    unsigned n_sz = 0;
-    unsigned sz         = target->m_exp->size();
+    unsigned new_target_sz = 0;
+    unsigned sz         = target->exp()->size();
+    //if (source->exp()->is_sum() && target->exp()->is_su
     NOT_IMPLEMENTED_YET();
     /*
     monomial const * LT = source->get_monomial(0); 
@@ -300,7 +305,7 @@ unsigned nla_grobner::simplify_loop_on_target_monomials(equation const * source,
             target->m_monomials[n_sz++] = curr;
         }
         }*/
-    return n_sz;
+    return 1;
 }
 
 
@@ -312,7 +317,7 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation const * sou
     bool result = false;
     do {
         unsigned target_new_size = simplify_loop_on_target_monomials(source, target, result);
-        if (target_new_size < target->m_exp->size()) {
+        if (target_new_size < target->exp()->size()) {
             NOT_IMPLEMENTED_YET();
             /*
               target->m_monomials.shrink(target_new_size);
@@ -612,7 +617,7 @@ nla_grobner::equation * nla_grobner::simplify(equation const * source, equation 
 }
 
 std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) {
-    out << "m_exp = " << *eq.m_exp << "\n";
+    out << "m_exp = " << *eq.exp() << "\n";
     out << "dep = "; display_dependency(out, eq.m_dep) << "\n";
     return out;
 }
@@ -635,7 +640,7 @@ void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     eq->m_bidx      = bidx;
     eq->m_dep       = dep;
     eq->m_lc        = true;
-    eq->m_exp =       e;
+    eq->exp()       = e;
     m_equations_to_delete.push_back(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
 }
