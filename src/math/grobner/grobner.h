@@ -157,9 +157,9 @@ protected:
 
     void simplify_eq(equation * eq);
 
-    bool is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const;
+    bool divide_ignore_coeffs(monomial const * m1, monomial const * m2);
 
-    void mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result);
+    void mul_append_skip_first(equation const * source, rational const & coeff, ptr_vector<expr> const & vars);
 
     monomial * copy_monomial(monomial const * m);
 
