@@ -586,25 +586,20 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
 // source 3f + k = 0, so f = -k/3
 // target 2fg + e = 0  
 // target is replaced by 2(-k/3)g + e = -2/3kg + e
-unsigned grobner::simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result) {
+bool grobner::simplify_target_monomials(equation const * source, equation * target) {
     unsigned i          = 0;
     unsigned new_target_sz = 0;
-    unsigned sz         = target->m_monomials.size();
+    unsigned target_sz         = target->m_monomials.size();
     monomial const * LT = source->get_monomial(0); 
     m_tmp_monomials.reset();
-    for (; i < sz; i++) {
+    for (; i < target_sz; i++) {
         monomial * targ_i = target->m_monomials[i];
         if (divide_ignore_coeffs(targ_i, LT)) {
             if (i == 0)
                 m_changed_leading_term = true;
-            if (!result) {  // first time that source is being applied.
-                target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
-                result         = true;
-            }
-            rational coeff = - targ_i->m_coeff / (LT->m_coeff);
             if (!m_tmp_vars1.empty())
                 target->m_lc = false;
-            mul_append_skip_first(source, coeff, m_tmp_vars1);
+            mul_append_skip_first(source, - targ_i->m_coeff / (LT->m_coeff), m_tmp_vars1);
             del_monomial(targ_i);
         }
         else {
@@ -614,16 +609,20 @@ unsigned grobner::simplify_loop_on_target_monomials(equation const * source, equ
             new_target_sz++;
         }
     }
-    return new_target_sz;
+    if (new_target_sz < target_sz) {
+        target->m_monomials.shrink(new_target_sz);
+        target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
+        simplify_eq(target);
+        TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+        return true;
+    }
+    return false;
 }
 
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
 
-   LN. The rest of the comment seems to be incorrect: there is no m_scope_lvl
-   Return target if target was simplified
-   Return new_equation if source->m_scope_lvl > target->m_scope_lvl, moreover target is freezed, and new_equation contains the result.
 */
 grobner::equation * grobner::simplify_source_target(equation const * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
@@ -632,18 +631,18 @@ grobner::equation * grobner::simplify_source_target(equation const * source, equ
     m_stats.m_simplify++;
     bool result = false;
     do {
-        unsigned target_new_size = simplify_loop_on_target_monomials(source, target, result);
-        if (target_new_size < target->m_monomials.size()) {
-            target->m_monomials.shrink(target_new_size);
-            target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
-            simplify_eq(target);
+        if (simplify_target_monomials(source, target)) {
+            result = true;
         } else {
             break;
         }
-    }
-    while (!m_manager.canceled());
+    }  while (!m_manager.canceled());
     TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-    return result ? target : nullptr;
+    if (result) {
+        target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+        return target;
+    }
+    return nullptr;
 }
 
 /**
