@@ -166,7 +166,7 @@ protected:
     equation * copy_equation(equation const * eq);
 
     equation * simplify_source_target(equation const * source, equation * target);
-    unsigned simplify_loop_on_target_monomials(equation const * source, equation * target, bool&);
+    bool simplify_target_monomials(equation const * source, equation * target);
 
     equation * simplify_using_processed(equation * eq);
 
