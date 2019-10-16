@@ -183,11 +183,20 @@ void nla_grobner::add_row(unsigned i) {
     assert_eq_0(ns, dep);
 }
 
+void nla_grobner::simplify_equations_to_process() {
+    for (equation *eq : m_to_process) {
+        eq->exp() = m_nex_creator.simplify(eq->exp());
+    }
+}
+
 void nla_grobner::init() {
     find_nl_cluster();
+    c().prepare_active_var_set();
     for (unsigned i : m_rows) {
         add_row(i);
     }
+    set_active_vars_weights();
+    simplify_equations_to_process();
 }
 
 bool nla_grobner::is_trivial(equation* eq) const {
@@ -325,7 +334,7 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
         m_equations_to_unfreeze.push_back(target);
         to_remove.push_back(target);
         if (m_changed_leading_term) {
-            m_to_process.insert(new_target);
+            insert_to_process(new_target);
             to_remove.push_back(target);
         }
         else {
@@ -335,7 +344,7 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
     }
     else {
         if (m_changed_leading_term) {
-            m_to_process.insert(target);
+            insert_to_process(target);
             to_remove.push_back(target);
         }
     }
@@ -383,7 +392,7 @@ void  nla_grobner::simplify_to_process(equation* eq) {
             to_delete.push_back(target);
     }
     for (equation* eq : to_insert)
-        m_to_process.insert(eq);
+        insert_to_process(eq);
     for (equation* eq : to_remove)
         m_to_process.erase(eq);
     for (equation* eq : to_delete)
@@ -612,16 +621,16 @@ void nla_grobner::display(std::ostream & out) const {
     NOT_IMPLEMENTED_YET();
 }
 
-void nla_grobner::assert_eq_0(const nex* e, ci_dependency * dep) {
+void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
     TRACE("nla_grobner", tout << "e = " << *e << "\n";);
     if (e == nullptr)
         return;
     equation * eq = new equation();
     init_equation(eq, e, dep);
-    m_to_process.insert(eq);
+    insert_to_process(eq);
 }
 
-void nla_grobner::init_equation(equation* eq, const nex*e, ci_dependency * dep) {
+void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
     eq->m_dep       = dep;

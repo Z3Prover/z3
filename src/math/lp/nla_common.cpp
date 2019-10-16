@@ -157,7 +157,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
 
 template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
-    c().prepare_active_var_set();
+    
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
@@ -167,8 +167,7 @@ template <typename T> void common::create_sum_from_row(const T& row, nex_creator
             sum.add_child(nexvar(p.coeff(), p.var(), cn));
         }
     }
-    set_active_vars_weights();
-}
+   }
 
 void common::set_active_vars_weights() {
     m_nex_creator.set_number_of_vars(c().m_lar_solver.column_count());
