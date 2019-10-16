@@ -189,6 +189,7 @@ bool nex_creator::less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_m
 }
 
 bool nex_creator::less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const {
+    TRACE("nla_cn_details", tout << "a = " << *a << " , b = " << *b << "\n";);
     SASSERT(is_simplified(a) && is_simplified(b));
     unsigned a_deg = a->get_degree();
     unsigned b_deg = b->get_degree();

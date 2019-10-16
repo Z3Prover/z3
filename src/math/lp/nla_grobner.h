@@ -41,7 +41,7 @@ class nla_grobner : common {
     class equation {
         unsigned                   m_bidx:31;       //!< position at m_equations_to_delete
         unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
-        const nex *                m_exp;           //!< sorted monomials
+        nex *                      m_exp;           //  simplified expressionted monomials
         ci_dependency *            m_dep;           //!< justification for the equality
         friend class nla_grobner;
         equation() {}
@@ -49,6 +49,7 @@ class nla_grobner : common {
         unsigned get_num_monomials() const { return m_exp->size(); }
         nex_mul* const * get_monomial(unsigned idx) const { NOT_IMPLEMENTED_YET();
             return nullptr; }
+        nex* & exp() { return m_exp; }
         ci_dependency * get_dependency() const { return m_dep; }
         unsigned hash() const { return m_bidx; }
         bool is_linear_combination() const { return m_lc; }
@@ -116,13 +117,13 @@ bool simplify_processed_with_eq(equation*);
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
     void add_row(unsigned);
-    void assert_eq_0(const nex*, ci_dependency * dep);
+    void assert_eq_0(nex*, ci_dependency * dep);
     void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
 
     nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
 
     
-    void init_equation(equation* eq, const nex*, ci_dependency* d);
+    void init_equation(equation* eq, nex*, ci_dependency* d);
     equation * simplify(equation const * source, equation * target);    
     // bool less_than_on_vars(lpvar a, lpvar b) const {
     //     const auto &aw = m_nex_creatorm_active_vars_weights[a];
@@ -141,6 +142,7 @@ bool simplify_processed_with_eq(equation*);
     // }
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
-    
+    void insert_to_process(equation *eq) { m_to_process.insert(eq); }
+    void simplify_equations_to_process();
 }; // end of grobner
 }
