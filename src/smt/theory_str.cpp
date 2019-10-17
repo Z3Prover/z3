@@ -8164,10 +8164,12 @@ namespace smt {
         if (!existing_toplevel_exprs.contains(lhs)) {
             existing_toplevel_exprs.insert(lhs);
             set_up_axioms(lhs);
+            propagate();
         }
         if (!existing_toplevel_exprs.contains(rhs)) {
             existing_toplevel_exprs.insert(rhs);
             set_up_axioms(rhs);
+            propagate();
         }
 
         if (lhs_sort != str_sort || rhs_sort != str_sort) {
@@ -8630,6 +8632,7 @@ namespace smt {
         if (!existing_toplevel_exprs.contains(e)) {
             existing_toplevel_exprs.insert(e);
             set_up_axioms(e);
+            propagate();
         }
     }
 
