@@ -106,7 +106,7 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
-You can install a nuget package for the latest release Z3 from [nuget.org][https://www.nuget.org/packages/Microsoft.Z3.x64/].
+You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3.x64/).
 
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
 
