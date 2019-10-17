@@ -66,6 +66,9 @@ public:
     bool eval_expr(expr * e, expr_ref & result, bool model_completion = false);
 
     expr * get_some_value(sort * s) override;
+    expr * get_fresh_value(sort * s) override;
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
+
     ptr_vector<expr> const & get_universe(sort * s) const override;
     unsigned get_num_uninterpreted_sorts() const override;
     sort * get_uninterpreted_sort(unsigned idx) const override;

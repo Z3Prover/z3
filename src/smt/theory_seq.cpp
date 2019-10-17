@@ -92,7 +92,7 @@ Outline:
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_trail.h"
 #include "ast/for_each_expr.h"
-#include "smt/proto_model/value_factory.h"
+#include "model/value_factory.h"
 #include "smt/smt_context.h"
 #include "smt/smt_model_generator.h"
 #include "smt/theory_seq.h"

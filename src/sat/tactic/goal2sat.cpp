@@ -29,6 +29,7 @@ Notes:
 #include "util/ref_util.h"
 #include "ast/ast_smt2_pp.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/pb_decl_plugin.h"
 #include "ast/ast_util.h"
 #include "ast/for_each_expr.h"
@@ -142,7 +143,7 @@ struct goal2sat::imp {
                 sat::bool_var v = m_solver.add_var(ext);
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
-                TRACE("sat", tout << "new_var: " << v << ": " << mk_ismt2_pp(t, m) << "\n";);
+                TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
                 if (ext && !is_uninterp_const(t)) {
                     m_interpreted_atoms.push_back(t);
                 }
@@ -228,7 +229,7 @@ struct goal2sat::imp {
     }
 
     void convert_or(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_or:\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_or:\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned num = t->get_num_args();
         if (root) {
             SASSERT(num == m_result_stack.size());
@@ -348,7 +349,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff2(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         SASSERT(sz >= 2);
         sat::literal  l1 = m_result_stack[sz-1];
@@ -381,7 +382,7 @@ struct goal2sat::imp {
     }
 
     void convert_iff(app * t, bool root, bool sign) {
-        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_ismt2_pp(t, m) << "\n";);
+        TRACE("goal2sat", tout << "convert_iff " << root << " " << sign << "\n" << mk_bounded_pp(t, m, 2) << "\n";);
         unsigned sz = m_result_stack.size();
         unsigned num = get_num_args(t);
         SASSERT(sz >= num && num >= 2);
@@ -512,7 +513,6 @@ struct goal2sat::imp {
     }
 
     void convert_pb_eq(app* t, bool root, bool sign) {
-        //IF_VERBOSE(0, verbose_stream() << "pbeq: " << mk_pp(t, m) << "\n";);
         rational k = pb.get_k(t);
         SASSERT(k.is_unsigned());
         svector<wliteral> wlits;
@@ -741,7 +741,7 @@ struct goal2sat::imp {
     
     void process(expr * n) {
         //SASSERT(m_result_stack.empty());
-        TRACE("goal2sat", tout << "converting: " << mk_ismt2_pp(n, m) << "\n";);
+        TRACE("goal2sat", tout << "converting: " << mk_bounded_pp(n, m, 2) << "\n";);
         if (visit(n, true, false)) {
             SASSERT(m_result_stack.empty());
             return;
@@ -839,7 +839,7 @@ struct goal2sat::imp {
                 }                
                 f = m.mk_or(fmls.size(), fmls.c_ptr());
             }
-            TRACE("goal2sat", tout << f << "\n";);
+            TRACE("goal2sat", tout << mk_bounded_pp(f, m, 2) << "\n";);
             process(f);
         skip_dep:
             ;

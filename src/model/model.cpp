@@ -98,12 +98,23 @@ struct model::value_proc : public some_value_proc {
                 return u->get(0);
         }
         return nullptr;
-    }
+    }    
 };
 
 expr * model::get_some_value(sort * s) {
     value_proc p(*this);
     return m.get_some_value(s, &p);
+}
+
+expr * model::get_fresh_value(sort * s) {
+    value_proc p(*this);
+    return m.get_some_value(s, &p);
+}
+
+bool model::get_some_values(sort * s, expr_ref& v1, expr_ref& v2) {
+    v1 = get_some_value(s);
+    v2 = get_some_value(s);
+    return true;
 }
 
 ptr_vector<expr> const & model::get_universe(sort * s) const {

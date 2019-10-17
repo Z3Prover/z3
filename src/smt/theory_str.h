@@ -26,9 +26,9 @@
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/seq_decl_plugin.h"
+#include "model/value_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_str_params.h"
-#include "smt/proto_model/value_factory.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_arith_value.h"
 #include<set>

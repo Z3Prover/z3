@@ -30,7 +30,7 @@ Revision History:
 
 #include "model/model_core.h"
 #include "model/model_evaluator.h"
-#include "smt/proto_model/value_factory.h"
+#include "model/value_factory.h"
 #include "util/plugin_manager.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/func_decl_dependencies.h"
@@ -71,10 +71,10 @@ public:
     value_factory * get_factory(family_id fid);
 
     expr * get_some_value(sort * s) override;
+    expr * get_fresh_value(sort * s) override;
 
-    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2);
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
 
-    expr * get_fresh_value(sort * s);
 
     void register_value(expr * n);
 

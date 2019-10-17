@@ -19,7 +19,7 @@ Revision History:
 #ifndef DATATYPE_FACTORY_H_
 #define DATATYPE_FACTORY_H_
 
-#include "smt/proto_model/struct_factory.h"
+#include "model/struct_factory.h"
 #include "ast/datatype_decl_plugin.h"
 
 class datatype_factory : public struct_factory {
@@ -32,7 +32,7 @@ class datatype_factory : public struct_factory {
     bool is_subterm_of_last_value(app* e);
 
 public:
-    datatype_factory(ast_manager & m, proto_model & md);
+    datatype_factory(ast_manager & m, model_core & md);
     ~datatype_factory() override {}
     expr * get_some_value(sort * s) override;
     expr * get_fresh_value(sort * s) override;

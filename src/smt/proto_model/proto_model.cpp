@@ -192,9 +192,8 @@ void proto_model::cleanup_func_interp(func_interp * fi, func_decl_set & found_au
 
 void proto_model::remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s) {
     unsigned sz = decls.size();
-    unsigned i  = 0;
     unsigned j  = 0;
-    for (; i < sz; i++) {
+    for (unsigned i = 0; i < sz; i++) {
         func_decl * f = decls[i];
         if (!m_aux_decls.contains(f) || s.contains(f)) {
             decls[j] = f;
@@ -280,11 +279,10 @@ expr * proto_model::get_some_value(sort * s) {
     if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_some_value(s);
     }
+    else if (value_factory * f = get_factory(s->get_family_id())) {
+        return f->get_some_value(s);
+    }
     else {
-        family_id fid = s->get_family_id();
-        value_factory * f = get_factory(fid);
-        if (f)
-            return f->get_some_value(s);
         // there is no factory for the family id, then assume s is uninterpreted.
         return m_user_sort_factory->get_some_value(s);
     }
@@ -294,13 +292,11 @@ bool proto_model::get_some_values(sort * s, expr_ref & v1, expr_ref & v2) {
     if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_some_values(s, v1, v2);
     }
+    else if (value_factory * f = get_factory(s->get_family_id())) {
+        return f->get_some_values(s, v1, v2);
+    }
     else {
-        family_id fid = s->get_family_id();
-        value_factory * f = get_factory(fid);
-        if (f)
-            return f->get_some_values(s, v1, v2);
-        else
-            return false;
+        return false;
     }
 }
 
@@ -308,15 +304,13 @@ expr * proto_model::get_fresh_value(sort * s) {
     if (m.is_uninterp(s)) {
         return m_user_sort_factory->get_fresh_value(s);
     }
+    else if (value_factory * f = get_factory(s->get_family_id())) {
+        return f->get_fresh_value(s);
+    }
     else {
-        family_id fid = s->get_family_id();
-        value_factory * f = get_factory(fid);
-        if (f)
-            return f->get_fresh_value(s);
-        else
-            // Use user_sort_factory if the theory has no support for model construnction.
-            // This is needed when dummy theories are used for arithmetic or arrays.
-            return m_user_sort_factory->get_fresh_value(s);
+        // Use user_sort_factory if the theory has no support for model construnction.
+        // This is needed when dummy theories are used for arithmetic or arrays.
+        return m_user_sort_factory->get_fresh_value(s);
     }
 }
 
@@ -336,7 +330,7 @@ void proto_model::register_value(expr * n) {
 void proto_model::compress() {
     for (func_decl* f : m_func_decls) {
         func_interp * fi = get_func_interp(f);
-        SASSERT(fi != 0);
+        SASSERT(fi != nullptr);
         fi->compress();
     }
 }

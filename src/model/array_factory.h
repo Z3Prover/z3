@@ -19,7 +19,7 @@ Revision History:
 #ifndef ARRAY_FACTORY_H_
 #define ARRAY_FACTORY_H_
 
-#include "smt/proto_model/struct_factory.h"
+#include "model/struct_factory.h"
 
 class func_interp;
 
@@ -30,7 +30,7 @@ class array_factory : public struct_factory {
     void get_some_args_for(sort * s, ptr_buffer<expr> & args);
     bool mk_two_diff_values_for(sort * s);
 public:
-    array_factory(ast_manager & m, proto_model & md);
+    array_factory(ast_manager & m, model_core & md);
 
     ~array_factory() override {}
 

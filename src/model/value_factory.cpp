@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 
-#include "smt/proto_model/value_factory.h"
+#include "model/value_factory.h"
 
 value_factory::value_factory(ast_manager & m, family_id fid):
     m_manager(m), 

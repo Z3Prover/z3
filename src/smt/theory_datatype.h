@@ -22,9 +22,9 @@ Revision History:
 #include "util/union_find.h"
 #include "ast/array_decl_plugin.h"
 #include "ast/datatype_decl_plugin.h"
+#include "model/datatype_factory.h"
 #include "smt/smt_theory.h"
 #include "smt/params/theory_datatype_params.h"
-#include "smt/proto_model/datatype_factory.h"
 
 namespace smt {
     class theory_datatype : public theory {

@@ -22,7 +22,7 @@ Revision History:
 #include "smt/smt_theory.h"
 #include "smt/theory_array_bapa.h"
 #include "ast/array_decl_plugin.h"
-#include "smt/proto_model/array_factory.h"
+#include "model/array_factory.h"
 
 namespace smt {
 
