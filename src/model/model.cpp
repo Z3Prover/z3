@@ -29,6 +29,12 @@ Revision History:
 #include "model/model.h"
 #include "model/model_params.hpp"
 #include "model/model_evaluator.h"
+#include "model/array_factory.h"
+#include "model/value_factory.h"
+#include "model/seq_factory.h"
+#include "model/datatype_factory.h"
+#include "model/numeral_factory.h"
+
 
 model::model(ast_manager & m):
     model_core(m),
@@ -88,40 +94,38 @@ bool model::eval_expr(expr * e, expr_ref & result, bool model_completion) {
     }
 }
 
-struct model::value_proc : public some_value_proc {
-    model & m_model;
-    value_proc(model & m):m_model(m) {}
-    expr * operator()(sort * s) override {
-        ptr_vector<expr> * u = nullptr;
-        if (m_model.m_usort2universe.find(s, u)) {
-            if (!u->empty())
-                return u->get(0);
-        }
-        return nullptr;
-    }    
-};
+value_factory* model::get_factory(sort* s) {
+    if (m_factories.plugins().empty()) {
+        seq_util su(m);
+        m_factories.register_plugin(alloc(array_factory, m, *this));
+        m_factories.register_plugin(alloc(datatype_factory, m, *this));
+        m_factories.register_plugin(alloc(bv_factory, m));
+        m_factories.register_plugin(alloc(arith_factory, m));
+        m_factories.register_plugin(alloc(seq_factory, m, su.get_family_id(), *this));
+    }
+    family_id fid = s->get_family_id();
+    return m_factories.get_plugin(fid);
+}
 
 expr * model::get_some_value(sort * s) {
-    value_proc p(*this);
-    return m.get_some_value(s, &p);
+    ptr_vector<expr> * u = nullptr;
+    if (m_usort2universe.find(s, u)) {
+        if (!u->empty())
+            return u->get(0);
+    }    
+    return m.get_some_value(s);
 }
 
 expr * model::get_fresh_value(sort * s) {
-    value_proc p(*this);
-    return m.get_some_value(s, &p);
+    return get_factory(s)->get_fresh_value(s);
 }
 
 bool model::get_some_values(sort * s, expr_ref& v1, expr_ref& v2) {
-    v1 = get_some_value(s);
-    v2 = get_some_value(s);
-    return true;
+    return get_factory(s)->get_some_values(s, v1, v2);
 }
 
 ptr_vector<expr> const & model::get_universe(sort * s) const {
-    ptr_vector<expr> * u = nullptr;
-    m_usort2universe.find(s, u);
-    SASSERT(u != nullptr);
-    return *u;
+    return *m_usort2universe[s];
 }
 
 bool model::has_uninterpreted_sort(sort * s) const {

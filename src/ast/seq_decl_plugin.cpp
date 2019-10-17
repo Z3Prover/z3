@@ -913,6 +913,11 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
 }
 
 
+bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
+    seq_util util(*m_manager);
+    return util.str.is_nth_u(f);
+}
+
 bool seq_decl_plugin::is_value(app* e) const {
     while (true) {
         if (is_app_of(e, m_family_id, OP_SEQ_EMPTY)) {

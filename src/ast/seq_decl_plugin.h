@@ -207,6 +207,7 @@ public:
 
     bool has_re() const { return m_has_re; }
 
+    bool is_considered_uninterpreted(func_decl * f) override;
 };
 
 class seq_util {

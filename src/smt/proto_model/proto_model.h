@@ -31,7 +31,6 @@ Revision History:
 #include "model/model_core.h"
 #include "model/model_evaluator.h"
 #include "model/value_factory.h"
-#include "util/plugin_manager.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/func_decl_dependencies.h"
 #include "model/model.h"
