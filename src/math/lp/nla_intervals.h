@@ -425,9 +425,9 @@ public:
         return separated_from_zero_on_upper(i) ||
             separated_from_zero_on_lower(i);            
         }
-    bool check_interval_for_conflict_on_zero(const interval & i);
-    bool check_interval_for_conflict_on_zero_lower(const interval & i);
-    bool check_interval_for_conflict_on_zero_upper(const interval & i);
+    bool check_interval_for_conflict_on_zero(const interval & i, ci_dependency*);
+    bool check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency*);
+    bool check_interval_for_conflict_on_zero_upper(const interval & i, ci_dependency*);
     mpq const & lower(interval const & a) const { return m_config.lower(a); }
     mpq const & upper(interval const & a) const { return m_config.upper(a); }
     inline

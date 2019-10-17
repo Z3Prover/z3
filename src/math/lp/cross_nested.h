@@ -24,7 +24,7 @@
 
 namespace nla {
 class cross_nested {
-
+    
     // fields
     nex *                                             m_e;
     std::function<bool (const nex*)>                  m_call_on_result;

@@ -116,7 +116,7 @@ private:
     bool compute_basis_step();
     equation * simplify_source_target(equation const * source, equation * target);
     equation* simplify_using_processed(equation*);
-    unsigned simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result);
+    bool simplify_target_monomials(equation const * source, equation * target);
     void process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove);
 bool simplify_processed_with_eq(equation*);
     void simplify_to_process(equation*);
@@ -164,5 +164,6 @@ bool simplify_processed_with_eq(equation*);
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
     void insert_to_process(equation *eq) { m_to_process.insert(eq); }
     void simplify_equations_to_process();
+    const nex_mul * get_highest_monomial(const nex * e) const;
 }; // end of grobner
 }

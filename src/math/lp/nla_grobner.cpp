@@ -176,9 +176,9 @@ void nla_grobner::add_row(unsigned i) {
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
     TRACE("nla_grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
     nex_sum * ns = m_nex_creator.mk_sum();
-    create_sum_from_row(row, m_nex_creator, *ns);
+    ci_dependency * dep;
+    create_sum_from_row(row, m_nex_creator, *ns, dep);
     TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
-    ci_dependency * dep = nullptr;
     m_tmp_var_set.clear();
     assert_eq_0(ns, dep);
 }
@@ -195,7 +195,6 @@ void nla_grobner::init() {
     for (unsigned i : m_rows) {
         add_row(i);
     }
-    set_active_vars_weights();
     simplify_equations_to_process();
 }
 
@@ -266,17 +265,35 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
 
 }
 
+const nex_mul* nla_grobner::get_highest_monomial(const nex* e) const {
+    switch (e->type()) {
+    case expr_type::MUL:
+        return to_mul(e);
+    case expr_type::SUM:
+        return to_mul((*to_sum(e))[0]);
+    default:
+        return nullptr;
+    }    
+}
 // source 3f + k = 0, so f = -k/3
 // target 2fg + e = 0  
 // target is replaced by 2(-k/3)g + e = -2/3kg + e
-unsigned nla_grobner::simplify_loop_on_target_monomials(equation const * source, equation * target, bool & result) {
-    TRACE("nla_grobner", tout << "source = " << *source->exp() << " , target = " << *target->exp() << "\n";);
+bool nla_grobner::simplify_target_monomials(equation const * source, equation * target) {
+    const nex_mul * high_mon = get_highest_monomial(source->exp());
+    if (high_mon == nullptr)
+        return false;
+    SASSERT(high_mon->all_factors_are_elementary());
+    TRACE("nla_grobner", tout << "source = "; display_equation(tout, *source) << " , target = "; display_equation(tout, *target) << " , high_mon = " << *high_mon << "\n";);
+
+    NOT_IMPLEMENTED_YET();
+    
+    /*
     unsigned i          = 0;
     unsigned new_target_sz = 0;
     unsigned sz         = target->exp()->size();
     //if (source->exp()->is_sum() && target->exp()->is_su
     NOT_IMPLEMENTED_YET();
-    /*
+    
     monomial const * LT = source->get_monomial(0); 
     ptr_vector<monomial> & new_monomials = m_tmp_monomials;
     new_monomials.reset();
@@ -305,7 +322,7 @@ unsigned nla_grobner::simplify_loop_on_target_monomials(equation const * source,
             target->m_monomials[n_sz++] = curr;
         }
         }*/
-    return 1;
+    return false;
 }
 
 
@@ -316,23 +333,18 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation const * sou
     m_stats.m_simplify++;
     bool result = false;
     do {
-        unsigned target_new_size = simplify_loop_on_target_monomials(source, target, result);
-        if (target_new_size < target->exp()->size()) {
-            NOT_IMPLEMENTED_YET();
-            /*
-              target->m_monomials.shrink(target_new_size);
-            target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
-            simplify_eq(target);
-            */
+        if (simplify_target_monomials(source, target)) {
+            result = true;
         } else {
-            NOT_IMPLEMENTED_YET();
             break;
         }
+    } while (!canceled());
+    TRACE("grobner", tout << "result: " << result << "\n"; if (result) display_equation(tout, *target););
+    if (result) {
+        target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+        return target;
     }
-    while (!canceled());
-    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-    return result ? target : nullptr;
-}
+    return nullptr;}
  
 void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove) {
     if (new_target != target) {
@@ -549,6 +561,7 @@ void nla_grobner:: del_equations(unsigned old_size) {
 }
 
 void nla_grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
+    out << header << "\n";
     NOT_IMPLEMENTED_YET();
 }
 

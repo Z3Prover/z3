@@ -120,7 +120,7 @@ struct common {
     nex* nexvar(lpvar j, nex_creator& );
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&);
     template <typename T>
-    void create_sum_from_row(const T&, nex_creator&, nex_sum&);
+    void create_sum_from_row(const T&, nex_creator&, nex_sum&, ci_dependency*&);
     void set_active_vars_weights();
     var_weight get_var_weight(lpvar) const;
 };
