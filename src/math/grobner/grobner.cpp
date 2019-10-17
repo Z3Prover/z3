@@ -636,7 +636,7 @@ grobner::equation * grobner::simplify_source_target(equation const * source, equ
             break;
         }
     } while (!m_manager.canceled());
-    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+    TRACE("grobner", tout << "result: " << result << "\n"; if (result) display_equation(tout, *target););
     if (result) {
         target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
         return target;
