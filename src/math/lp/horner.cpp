@@ -69,7 +69,6 @@ bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
     return cn.done();
 }
 
-
 bool horner::check_cross_nested_expr(const nex* n) {
     TRACE("nla_horner", tout << "cross-nested n = " << *n << ", n->type() == " << n->type() << "\n";);
     c().lp_settings().stats().m_cross_nested_forms++;
@@ -80,9 +79,9 @@ bool horner::check_cross_nested_expr(const nex* n) {
         m_intervals.reset();
         return false;
     }
-    auto id = interval_of_expr_with_deps(n, 1);
-    TRACE("nla_horner", tout << "conflict: id = "; m_intervals.display(tout, id ) << *n << "\n";);
-    m_intervals.check_interval_for_conflict_on_zero(id);
+    auto interv_wd = interval_of_expr_with_deps(n, 1);
+    TRACE("nla_horner", tout << "conflict: interv_wd = "; m_intervals.display(tout, interv_wd ) << *n << "\n";);
+    m_intervals.check_interval_for_conflict_on_zero(interv_wd, m_fixed_var_deps);
     m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
 }
@@ -95,7 +94,7 @@ bool horner::lemmas_on_row(const T& row) {
         [this]() { return c().random(); }, m_nex_creator);
 
     SASSERT (row_is_interesting(row));
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
+    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_var_deps);    
     nex* e =  m_nex_creator.simplify(&m_row_sum);
     if (!e->is_sum())
         return false;
@@ -109,6 +108,7 @@ void horner::horner_lemmas() {
         return;
     }
     c().lp_settings().stats().m_horner_calls++;
+    set_active_vars_weights();
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
