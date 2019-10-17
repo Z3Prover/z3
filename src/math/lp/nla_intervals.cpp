@@ -103,27 +103,33 @@ bool intervals::separated_from_zero_on_upper(const interval& i) const {
 }
 
 
-bool intervals::check_interval_for_conflict_on_zero(const interval & i) {
-    return check_interval_for_conflict_on_zero_lower(i) || check_interval_for_conflict_on_zero_upper(i);
+bool intervals::check_interval_for_conflict_on_zero(const interval & i, ci_dependency * fixed_var_deps) {
+    return check_interval_for_conflict_on_zero_lower(i, fixed_var_deps) || check_interval_for_conflict_on_zero_upper(i, fixed_var_deps);
 }
 
-bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i) {
+bool intervals::check_interval_for_conflict_on_zero_upper(const interval & i, ci_dependency* fixed_var_deps) {
     if (!separated_from_zero_on_upper(i))
         return false;
         
      add_empty_lemma();
      svector<lp::constraint_index> expl;
+     if (fixed_var_deps)
+         m_dep_manager.linearize(fixed_var_deps, expl); 
+         
      m_dep_manager.linearize(i.m_upper_dep, expl); 
      _().current_expl().add_expl(expl);
      TRACE("nla_solver", print_lemma(tout););
      return true;
 }
 
-bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i) {
+bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency* fixed_var_deps) {
     if (!separated_from_zero_on_lower(i))
         return false;
      add_empty_lemma();
      svector<lp::constraint_index> expl;
+     if (fixed_var_deps)
+         m_dep_manager.linearize(fixed_var_deps, expl); 
+
      m_dep_manager.linearize(i.m_lower_dep, expl); 
      _().current_expl().add_expl(expl);
      TRACE("nla_solver", print_lemma(tout););

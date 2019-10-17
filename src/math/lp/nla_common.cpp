@@ -155,8 +155,10 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
 }
 
 
-template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum) {
+template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum, ci_dependency*& fixed_var_deps) {
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
+
+    fixed_var_deps = nullptr;
     
     SASSERT(row.size() > 1);
     sum.children().clear();
@@ -204,5 +206,5 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&);
+template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, ci_dependency*&);
 

@@ -561,17 +561,18 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
     sort_join_sum(children);
 }
 
-bool all_factors_are_elementary(const nex_mul* a) {
+
+bool have_no_scalars(const nex_mul* a) {
     for (auto & p : *a)
-        if (!p.e()->is_elementary())
+        if (p.e()->is_scalar() && !to_scalar(p.e())->value().is_one())
             return false;
 
     return true;
 }
 
-bool have_no_scalars(const nex_mul* a) {
-    for (auto & p : *a)
-        if (p.e()->is_scalar() && !to_scalar(p.e())->value().is_one())
+bool nex_mul::all_factors_are_elementary() const {
+    for (auto & p : *this)
+        if (!p.e()->is_elementary())
             return false;
 
     return true;
@@ -587,7 +588,7 @@ nex * nex_creator::mk_div_sum_by_mul(const nex_sum* m, const nex_mul* b) {
 }
 
 nex * nex_creator::mk_div_mul_by_mul(const nex_mul *a, const nex_mul* b) {
-    SASSERT(all_factors_are_elementary(a) && all_factors_are_elementary(b));
+    SASSERT(a->all_factors_are_elementary() && b->all_factors_are_elementary());
     b->get_powers_from_mul(m_powers);
     nex_mul* ret = new nex_mul();
     for (auto& p_from_a : *a) {

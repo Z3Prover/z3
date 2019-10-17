@@ -269,6 +269,8 @@ public:
         return get_degree() < 2; // todo: make it more efficient
     }
 
+     bool all_factors_are_elementary() const;
+
 // #ifdef Z3DEBUG
 //     virtual void sort() {
 //         for (nex * c : m_children) {
@@ -417,6 +419,7 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
 //     lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
 //     return less_than_nex(a, b, lt);
 // }
+
 
 inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
         std::unordered_set<lpvar> r;
