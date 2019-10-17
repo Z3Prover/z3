@@ -46,9 +46,28 @@ class nla_grobner : common {
         friend class nla_grobner;
         equation() {}
     public:
-        unsigned get_num_monomials() const { return m_expr->size(); }
-        nex_mul* const * get_monomial(unsigned idx) const { NOT_IMPLEMENTED_YET();
-            return nullptr; }
+        unsigned get_num_monomials() const {
+            switch(m_expr->type()) {
+            case expr_type::VAR:
+            case expr_type::SCALAR: return 0;
+            case expr_type::MUL: return 1;
+            case expr_type::SUM: return m_expr->size();
+            default: return 0;
+            }
+        }
+        // can return not a nex_mul
+        nex* get_monomial(unsigned idx) const {
+            switch(m_expr->type()) {
+            case expr_type::VAR:
+            case expr_type::SCALAR: UNREACHABLE();;
+            case expr_type::MUL:
+                SASSERT(idx == 0);
+                return m_expr;
+            case expr_type::SUM:
+                return (*to_sum(m_expr))[idx];
+            default: return 0;
+            }
+}
         nex* & exp() { return m_expr; }
         const nex*  exp() const { return m_expr; }
         ci_dependency * get_dependency() const { return m_dep; }
