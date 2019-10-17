@@ -622,7 +622,6 @@ bool grobner::simplify_target_monomials(equation const * source, equation * targ
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
-
 */
 grobner::equation * grobner::simplify_source_target(equation const * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
@@ -636,7 +635,7 @@ grobner::equation * grobner::simplify_source_target(equation const * source, equ
         } else {
             break;
         }
-    }  while (!m_manager.canceled());
+    } while (!m_manager.canceled());
     TRACE("grobner", tout << "result: "; display_equation(tout, *target););
     if (result) {
         target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
