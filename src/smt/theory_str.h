@@ -346,6 +346,9 @@ protected:
     // include an occurrence of the term for which axioms are being generated
     obj_hashtable<expr> axiomatized_terms;
 
+    // hashtable of all top-level exprs for which set_up_axioms() has been called
+    obj_hashtable<expr> existing_toplevel_exprs;
+
     int tmpStringVarCount;
     int tmpXorVarCount;
     int tmpLenTestVarCount;

@@ -8160,6 +8160,16 @@ namespace smt {
         sort * rhs_sort = m.get_sort(rhs);
         sort * str_sort = u.str.mk_string_sort();
 
+        // Pick up new terms added during the search (e.g. recursive function expansion).
+        if (!existing_toplevel_exprs.contains(lhs)) {
+            existing_toplevel_exprs.insert(lhs);
+            set_up_axioms(lhs);
+        }
+        if (!existing_toplevel_exprs.contains(rhs)) {
+            existing_toplevel_exprs.insert(rhs);
+            set_up_axioms(rhs);
+        }
+
         if (lhs_sort != str_sort || rhs_sort != str_sort) {
             TRACE("str", tout << "skip equality: not String sort" << std::endl;);
             return;
@@ -8615,7 +8625,12 @@ namespace smt {
     }
 
     void theory_str::assign_eh(bool_var v, bool is_true) {
-        TRACE("str", tout << "assert: v" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
+        expr * e = get_context().bool_var2expr(v);
+        TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
+        if (!existing_toplevel_exprs.contains(e)) {
+            existing_toplevel_exprs.insert(e);
+            set_up_axioms(e);
+        }
     }
 
     void theory_str::push_scope_eh() {
