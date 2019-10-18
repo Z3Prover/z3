@@ -99,8 +99,7 @@ void nla_grobner::find_nl_cluster() {
 void nla_grobner::prepare_rows_and_active_vars() {
     m_rows.clear();
     m_rows.resize(c().m_lar_solver.row_count());
-    m_active_vars.clear();
-    m_active_vars.resize(c().m_lar_solver.column_count());
+    c().clear_and_resize_active_var_set();
 }
 
 void nla_grobner::display(std::ostream & out) {
@@ -171,16 +170,23 @@ nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * &
     */
 }
 
+common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index> & cs) {
+    ci_dependency * d = nullptr;
+    for (auto c : cs)
+        d = m_dep_manager.mk_join(d, m_dep_manager.mk_leaf(c));
+    return d;
+}
 
 void nla_grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
     TRACE("nla_grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
     nex_sum * ns = m_nex_creator.mk_sum();
-    ci_dependency * dep;
-    create_sum_from_row(row, m_nex_creator, *ns, dep);
+
+    svector<lp::constraint_index> fixed_vars_constraints;
+    create_sum_from_row(row, m_nex_creator, *ns, fixed_vars_constraints);
     TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
-    m_tmp_var_set.clear();
-    assert_eq_0(ns, dep);
+    m_tmp_var_set.clear();    
+    assert_eq_0(ns, dep_from_vector(fixed_vars_constraints));
 }
 
 void nla_grobner::simplify_equations_to_process() {
@@ -191,7 +197,7 @@ void nla_grobner::simplify_equations_to_process() {
 
 void nla_grobner::init() {
     find_nl_cluster();
-    c().prepare_active_var_set();
+    c().clear_and_resize_active_var_set();
     for (unsigned i : m_rows) {
         add_row(i);
     }

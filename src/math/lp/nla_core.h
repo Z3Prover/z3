@@ -107,7 +107,7 @@ public:
         m_active_var_set.clear();
     }
 
-    void prepare_active_var_set() const {
+    void clear_and_resize_active_var_set() const {
         m_active_var_set.clear();
         m_active_var_set.resize(m_lar_solver.number_of_vars());
     }
