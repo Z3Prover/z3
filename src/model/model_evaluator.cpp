@@ -16,10 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "model/model.h"
-#include "model/model_evaluator_params.hpp"
-#include "model/model_evaluator.h"
-#include "model/model_v2_pp.h"
+#include "ast/ast_pp.h"
+#include "ast/ast_util.h"
 #include "ast/rewriter/rewriter_types.h"
 #include "ast/rewriter/bool_rewriter.h"
 #include "ast/rewriter/arith_rewriter.h"
@@ -31,10 +29,13 @@ Revision History:
 #include "ast/rewriter/fpa_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
 #include "ast/rewriter/rewriter_def.h"
-#include "ast/ast_pp.h"
-#include "ast/ast_util.h"
-#include "model/model_smt2_pp.h"
 #include "ast/rewriter/var_subst.h"
+#include "model/model_smt2_pp.h"
+#include "model/model.h"
+#include "model/model_evaluator_params.hpp"
+#include "model/model_evaluator.h"
+#include "model/model_v2_pp.h"
+
 
 namespace {
 

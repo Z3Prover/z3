@@ -249,8 +249,13 @@ namespace smtfd {
             m_nv_trail.shrink(m_nv_trail.size() - n);
         }
         
-        std::ostream& display(std::ostream& out) const {
-            return out << "abs:\n" << m_atoms << "\n";
+        std::ostream& display(std::ostream& out)  {
+            out << "abs: " << m_atoms.size() << "\n";
+            for (expr* a : m_atoms) {
+                out << mk_pp(a, m) << ": ";
+                out << mk_bounded_pp(rep(a), m, 2) << "\n";
+            }
+            return out;
         }
 
         expr* abs_assumption(expr* e) {
@@ -363,15 +368,23 @@ namespace smtfd {
         smtfd_abs&      m_abs;
         expr_ref_vector m_lemmas;
         unsigned        m_max_lemmas;
+        th_rewriter     m_rewriter;
         ptr_vector<theory_plugin> m_plugins;
+        model_ref       m_model;
     public:
-        plugin_context(smtfd_abs& a, ast_manager& m, unsigned max):
+        plugin_context(smtfd_abs& a, ast_manager& m):
             m(m),
             m_abs(a),
             m_lemmas(m), 
-            m_max_lemmas(max)
+            m_rewriter(m)
         {}
-        
+
+        void set_max_lemmas(unsigned max) {            
+            m_max_lemmas = max;
+        }
+
+        unsigned get_max_lemmas() const { return m_max_lemmas; }
+
         smtfd_abs& get_abs() { return m_abs; }
 
         void add(expr* f) { m_lemmas.push_back(f); }
@@ -379,6 +392,8 @@ namespace smtfd {
         ast_manager& get_manager() { return m_lemmas.get_manager(); }
 
         bool at_max() const { return m_lemmas.size() >= m_max_lemmas; }
+
+        model& get_model() { return *m_model; }
 
         expr_ref_vector::iterator begin() { return m_lemmas.begin(); }
         expr_ref_vector::iterator end() { return m_lemmas.end(); }
@@ -392,6 +407,8 @@ namespace smtfd {
         expr_ref model_value(sort* s);
         bool term_covered(expr* t);
         bool sort_covered(sort* s);
+        void reset(model_ref& mdl);
+        void rewrite(expr_ref& r) { m_rewriter(r); }
 
         /**
          * \brief use propositional model to create a model of uninterpreted functions
@@ -434,7 +451,6 @@ namespace smtfd {
         ast_manager&             m;
         smtfd_abs&               m_abs;    
         plugin_context&          m_context;
-        th_rewriter              m_rewriter;
         model_ref                m_model;
         expr_ref_vector          m_values;
         ast_ref_vector           m_pinned;
@@ -462,12 +478,10 @@ namespace smtfd {
         }
 
     public:
-        theory_plugin(plugin_context& context, model_ref& mdl) : 
+        theory_plugin(plugin_context& context) : 
             m(context.get_manager()), 
             m_abs(context.get_abs()),
             m_context(context),
-            m_rewriter(m),
-            m_model(mdl),
             m_values(m),
             m_pinned(m),
             m_args(m), 
@@ -497,7 +511,7 @@ namespace smtfd {
             m_context.add(fml);             
         }
 
-        expr_ref eval_abs(expr* t) { return (*m_model)(m_abs.abs(t)); }
+        expr_ref eval_abs(expr* t) { return m_context.get_model()(m_abs.abs(t)); }
         
         expr* value_of(f_app const& f) const { return m_values[f.m_val_offset + f.m_t->get_num_args()]; }
 
@@ -566,6 +580,11 @@ namespace smtfd {
         virtual bool sort_covered(sort* s) = 0;
         virtual unsigned max_rounds() = 0;
         virtual void populate_model(model_ref& mdl, expr_ref_vector const& core) {}
+        virtual void reset() {
+            m_pinned.reset();
+            m_tables.reset();
+            m_ast2table.reset();
+        }
     };
 
     void plugin_context::global_check(expr_ref_vector const& core) {
@@ -613,6 +632,14 @@ namespace smtfd {
         return r;
     }
 
+    void plugin_context::reset(model_ref& mdl) {
+        m_lemmas.reset();
+        m_model = mdl;
+        for (theory_plugin* p : m_plugins) {
+            p->reset();
+        }
+    }
+
     bool plugin_context::sort_covered(sort* s) {
         for (theory_plugin* p : m_plugins) {
             if (p->sort_covered(s)) return true;
@@ -658,8 +685,8 @@ namespace smtfd {
     
     class basic_plugin : public theory_plugin {
     public:
-        basic_plugin(plugin_context& context, model_ref& mdl):
-            theory_plugin(context, mdl) 
+        basic_plugin(plugin_context& context):
+            theory_plugin(context) 
         {}
         void check_term(expr* t, unsigned round) override { }
         bool term_covered(expr* t) override { return is_app(t) && to_app(t)->get_family_id() == m.get_basic_family_id();  }
@@ -673,8 +700,8 @@ namespace smtfd {
     class pb_plugin : public theory_plugin {
         pb_util m_pb;
     public:
-        pb_plugin(plugin_context& context, model_ref& mdl):
-            theory_plugin(context, mdl),
+        pb_plugin(plugin_context& context):
+            theory_plugin(context),
             m_pb(m)
         {}
         void check_term(expr* t, unsigned round) override { }
@@ -689,8 +716,8 @@ namespace smtfd {
     class bv_plugin : public theory_plugin {
         bv_util m_butil;
     public:
-        bv_plugin(plugin_context& context, model_ref& mdl):
-            theory_plugin(context, mdl),
+        bv_plugin(plugin_context& context):
+            theory_plugin(context),
             m_butil(m)
         {}
         void check_term(expr* t, unsigned round) override { }
@@ -698,14 +725,13 @@ namespace smtfd {
         bool sort_covered(sort* s) override { return m_butil.is_bv_sort(s); }
         unsigned max_rounds() override { return 0; }
         void populate_model(model_ref& mdl, expr_ref_vector const& core) override { }
-        expr_ref model_value_core(expr* t) override { return m_butil.is_bv(t) ? (*m_model)(m_abs.abs(t)) : expr_ref(m); }
+        expr_ref model_value_core(expr* t) override { return m_butil.is_bv(t) ? m_context.get_model()(m_abs.abs(t)) : expr_ref(m); }
         expr_ref model_value_core(sort* s) override { return m_butil.is_bv_sort(s) ? expr_ref(m_butil.mk_numeral(rational(0), s), m) : expr_ref(m); }
     };
 
     
     class uf_plugin : public theory_plugin {               
 
-        expr_ref_vector m_pinned;
         obj_map<sort, unsigned> m_sort2idx;
         typedef obj_map<expr, expr*> val2elem_t;
         scoped_ptr_vector<val2elem_t> m_val2elem;
@@ -736,7 +762,7 @@ namespace smtfd {
                 values.push_back(m.mk_model_value(values.size(), s));
                 m_pinned.push_back(values.back());                
             }
-            m_model->register_usort(s, values.size(), values.c_ptr());
+            m_context.get_model().register_usort(s, values.size(), values.c_ptr());
             for (unsigned i = 0; i < keys.size(); ++i) {
                 v2e.insert(keys[i], values[i]);
             }
@@ -745,9 +771,8 @@ namespace smtfd {
 
     public:
 
-        uf_plugin(plugin_context& context, model_ref& mdl):
-            theory_plugin(context, mdl),
-            m_pinned(m)
+        uf_plugin(plugin_context& context):
+            theory_plugin(context)
         {}
         
         void check_term(expr* t, unsigned round) override {
@@ -770,6 +795,13 @@ namespace smtfd {
 
         bool sort_covered(sort* s) override {
             return s->get_family_id() == m.get_user_sort_family_id();
+        }
+
+        void reset() override {
+            theory_plugin::reset();
+            for (auto& v2e : m_val2elem) {
+                v2e->reset();
+            }
         }
 
         unsigned max_rounds() override { return 1; }
@@ -822,7 +854,6 @@ namespace smtfd {
 
     class ar_plugin : public theory_plugin {
         array_util m_autil;
-        th_rewriter m_rewriter;
 
         void check_select(app* t) {
             expr* a = t->get_arg(0);
@@ -844,6 +875,7 @@ namespace smtfd {
             expr_ref val2 = eval_abs(stored_value);
             // A[i] = v
             if (val1 != val2) {
+                TRACE("smtfd", tout << "select/store: " << mk_pp(t, m) << "\n";);
                 add_lemma(m.mk_eq(sel, stored_value));
             }
             m_pinned.push_back(sel);
@@ -949,7 +981,7 @@ namespace smtfd {
                     m_args[0] = t;
                     expr_ref sel(m_autil.mk_select(m_args), m);
                     expr_ref selr = sel;
-                    m_rewriter(selr);
+                    m_context.rewrite(selr);
                     expr_ref vS = eval_abs(sel);
                     expr_ref vR = eval_abs(selr);
                     if (vS != vR) {
@@ -1008,9 +1040,9 @@ namespace smtfd {
             expr_ref a1(m_autil.mk_select(args), m);
             args[0] = b;
             expr_ref b1(m_autil.mk_select(args), m);
-            TRACE("smtfd", tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
-            expr_ref ext(m.mk_implies(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
+            expr_ref ext(m.mk_iff(m.mk_eq(a1, b1), m.mk_eq(a, b)), m);
             if (!m.is_true(eval_abs(ext))) {
+                TRACE("smtfd", tout << mk_bounded_pp(a, m, 2) << " " << mk_bounded_pp(b, m, 2) << "\n";);
                 add_lemma(ext);            
             }
         }
@@ -1042,10 +1074,9 @@ namespace smtfd {
 
     public:
 
-        ar_plugin(plugin_context& context, model_ref& mdl):
-            theory_plugin(context, mdl),
-            m_autil(m),
-            m_rewriter(m)
+        ar_plugin(plugin_context& context):
+            theory_plugin(context),
+            m_autil(m)
         {}
         
         void check_term(expr* t, unsigned round) override {
@@ -1350,7 +1381,13 @@ namespace smtfd {
 
     class solver : public solver_na2as {
         ast_manager&    m;
-        smtfd_abs       m_abs;
+        mutable smtfd_abs       m_abs;
+        plugin_context  m_context;
+        uf_plugin       m_uf;
+        ar_plugin       m_ar;
+        bv_plugin       m_bv;
+        basic_plugin    m_bs;
+        pb_plugin       m_pb;
         ref<::solver>   m_fd_sat_solver;
         ref<::solver>   m_fd_core_solver;
         ref<::solver>   m_smt_solver;
@@ -1387,6 +1424,7 @@ namespace smtfd {
                 m_not_toggle = abs(m_not_toggle);
                 m_assertions_qhead = m_assertions.size();
                 fml = m.mk_iff(m_toggle, fml);
+                TRACE("smtfd_verbose", tout << fml << "\n";);
                 assert_fd(fml);
             }
         }
@@ -1394,7 +1432,7 @@ namespace smtfd {
         lbool check_abs(unsigned num_assumptions, expr * const * assumptions) {
             expr_ref_vector asms(m);
             init_assumptions(num_assumptions, assumptions, asms);
-            TRACE("smtfd", display(tout << asms););
+            TRACE("smtfd", display(tout << asms << "\n"););
             SASSERT(asms.contains(m_toggle));
             m_fd_sat_solver->assert_expr(m_toggle);
             lbool r = m_fd_sat_solver->check_sat(asms);
@@ -1409,13 +1447,13 @@ namespace smtfd {
             m_fd_sat_solver->get_model(m_model);
             m_model->set_model_completion(true);
             init_model_assumptions(num_assumptions, assumptions, asms);
-            TRACE("smtfd", display(tout << asms););
+            TRACE("smtfd", display(tout << asms << "\n"););
             SASSERT(asms.contains(m_not_toggle));
             lbool r = m_fd_core_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_core_solver);
             if (r == l_false) {
                 m_fd_core_solver->get_unsat_core(core);
-                TRACE("smtfd", display(tout << core););
+                TRACE("smtfd", display(tout << core << "\n"););
                 core.erase(m_not_toggle.get()); 
                 SASSERT(asms.contains(m_not_toggle));
                 SASSERT(!asms.contains(m_toggle));
@@ -1458,43 +1496,35 @@ namespace smtfd {
 
 
         bool add_theory_axioms(expr_ref_vector const& core) {
-            plugin_context context(m_abs, m, m_max_lemmas);
-            ar_plugin ap(context, m_model);
-            uf_plugin uf(context, m_model);
-            for (unsigned round = 0; !context.at_max() && context.add_theory_axioms(core, round); ++round);
+            m_context.reset(m_model);           
+            for (unsigned round = 0; !m_context.at_max() && m_context.add_theory_axioms(core, round); ++round);
             
-            TRACE("smtfd", context.display(tout););
-            for (expr* f : context) {
+            TRACE("smtfd", m_context.display(tout););
+            for (expr* f : m_context) {
                 IF_VERBOSE(10, verbose_stream() << "lemma: " << expr_ref(f, m) << "\n");
                 assert_fd(f);
             }
-            m_stats.m_num_lemmas += context.size();
-            if (context.at_max()) {
-                m_max_lemmas = (3*m_max_lemmas)/2;
+            m_stats.m_num_lemmas += m_context.size();
+            if (m_context.at_max()) {
+                m_context.set_max_lemmas(3*m_context.get_max_lemmas()/2);
             }
-            return !context.empty();
+            return !m_context.empty();
         }
 
         lbool is_decided_sat(expr_ref_vector const& core) {
-            plugin_context context(m_abs, m, m_max_lemmas);
-            uf_plugin    uf(context, m_model);            
-            ar_plugin    ap(context, m_model);
-            bv_plugin    bv(context, m_model);
-            basic_plugin bs(context, m_model);
-            pb_plugin    pb(context, m_model);
-            
             bool has_q = false;
             bool has_non_covered = false;
             lbool is_decided = l_true;
+            m_context.reset(m_model);
             for (expr* t : subterms(core)) {
                 if (is_forall(t) || is_exists(t)) {
                     has_q = true;
                 }
-                else if (!context.term_covered(t) || !context.sort_covered(m.get_sort(t))) {
+                else if (!m_context.term_covered(t) || !m_context.sort_covered(m.get_sort(t))) {
                     is_decided = l_false;
                 }
             }
-            context.populate_model(m_model, core);
+            m_context.populate_model(m_model, core);
             
             TRACE("smtfd", tout << "has quantifier: " << has_q << " has non-converted: " << has_non_covered << "\n";);
             if (!has_q) {
@@ -1503,16 +1533,16 @@ namespace smtfd {
             if (!m_mbqi_solver) {
                 m_mbqi_solver = alloc(solver, m, get_params());
             }
-            mbqi mb(m_mbqi_solver.get(), context, m_enforced_quantifier, m_model);
-            if (!mb.check_quantifiers(core) && context.empty()) {
+            mbqi mb(m_mbqi_solver.get(), m_context, m_enforced_quantifier, m_model);
+            if (!mb.check_quantifiers(core) && m_context.empty()) {
                 return l_false;
             }
-            for (expr* f : context) {
+            for (expr* f : m_context) {
                 IF_VERBOSE(10, verbose_stream() << "lemma: " << expr_ref(f, m) << "\n");
                 assert_fd(f);
             }
-            m_stats.m_num_mbqi += context.size();
-            return context.empty() ? is_decided : l_undef;
+            m_stats.m_num_mbqi += m_context.size();
+            return m_context.empty() ? is_decided : l_undef;
         }
 
         void init_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
@@ -1579,6 +1609,12 @@ namespace smtfd {
             solver_na2as(m),
             m(m),
             m_abs(m),
+            m_context(m_abs, m),
+            m_uf(m_context),
+            m_ar(m_context),
+            m_bv(m_context),
+            m_bs(m_context),
+            m_pb(m_context),
             m_assertions(m),
             m_assertions_qhead(0),
             m_toggles(m), 
@@ -1629,6 +1665,7 @@ namespace smtfd {
 
         void flush_atom_defs() {
             for (expr* f : m_abs.atom_defs()) {
+                TRACE("smtfd", tout << mk_bounded_pp(f, m, 4) << "\n";);
                 m_fd_sat_solver->assert_expr(f);
                 m_fd_core_solver->assert_expr(f);
             }
@@ -1637,6 +1674,7 @@ namespace smtfd {
 
         void assert_fd(expr* fml) {
             expr_ref _fml(fml, m);
+            TRACE("smtfd", tout << mk_bounded_pp(fml, m, 3) << "\n";);
             _fml = abs(fml);
             m_fd_sat_solver->assert_expr(_fml);
             m_fd_core_solver->assert_expr(_fml);
@@ -1757,48 +1795,40 @@ namespace smtfd {
         }
 
         lbool refine_core(expr_ref_vector & core) {
-            lbool r = l_undef;
+            lbool r = l_true;
             unsigned round = 0;
             while (true) {
-                plugin_context context(m_abs, m, UINT_MAX);
-                ar_plugin ap(context, m_model);
-                uf_plugin uf(context, m_model);            
-                if (!context.add_theory_axioms(core, round)) {
+                m_context.reset(m_model);
+                if (!m_context.add_theory_axioms(core, round)) {
                     break;
                 }
-                round = context.empty() ? round + 1 : 0;
-                r = refine_core(context, core);
-                if (r != l_true) {
+                if (m_context.empty()) {
+                    ++round;
+                    continue;
+                }
+                round = 0;
+                for (expr* f : m_context) {
+                    TRACE("smtfd_verbose", tout << "refine " << mk_bounded_pp(f, m, 3) << "\n";);
+                    core.push_back(f);
+                }
+                m_stats.m_num_lemmas += m_context.size();
+                r = check_abs(core.size(), core.c_ptr());
+                update_reason_unknown(r, m_fd_sat_solver);
+                switch (r) {
+                case l_false:
+                    m_fd_sat_solver->get_unsat_core(core);
+                    rep(core);
                     return r;
-                }                    
+                case l_true:
+                    m_fd_sat_solver->get_model(m_model);
+                    m_model->set_model_completion(true);
+                    break;
+                default:
+                    return r;
+                }
             }
             // context is satisfiable
             SASSERT(r == l_true);
-            return r;
-        }
-
-        lbool refine_core(plugin_context& context, expr_ref_vector& core) {            
-            if (context.empty()) {
-                return l_true;
-            }            
-            for (expr* f : context) {
-                core.push_back(f);
-            }
-            m_stats.m_num_lemmas += context.size();
-            lbool r = check_abs(core.size(), core.c_ptr());
-            update_reason_unknown(r, m_fd_sat_solver);
-            switch (r) {
-            case l_false:
-                m_fd_sat_solver->get_unsat_core(core);
-                rep(core);
-                break;
-            case l_true:
-                m_fd_sat_solver->get_model(m_model);
-                m_model->set_model_completion(true);
-                break;
-            default:
-                break;
-            }
             return r;
         }
 
@@ -1812,7 +1842,7 @@ namespace smtfd {
                 m_fd_core_solver->updt_params(p);  
                 m_smt_solver->updt_params(p);  
             }
-            m_max_lemmas = p.get_uint("max-lemmas", 100);
+            m_context.set_max_lemmas(p.get_uint("max-lemmas", 100));
         }        
 
         void collect_param_descrs(param_descrs & r) override { 

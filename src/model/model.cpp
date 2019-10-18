@@ -178,8 +178,9 @@ model * model::translate(ast_translation & translator) const {
     // Translate usort interps
     for (auto const& kv : m_usort2universe) {
         ptr_vector<expr> new_universe;
-        for (expr* e : *kv.m_value) 
+        for (expr* e : *kv.m_value) {
             new_universe.push_back(translator(e));
+        }
         res->register_usort(translator(kv.m_key),
                             new_universe.size(),
                             new_universe.c_ptr());
@@ -342,7 +343,6 @@ void model::cleanup_interp(top_sort& ts, func_decl* f) {
                 fi->insert_entry(fe->get_args(), e2);
             }
         }
-
     }
 }
 
