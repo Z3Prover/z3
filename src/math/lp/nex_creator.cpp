@@ -500,15 +500,23 @@ nex * nex_creator::simplify_mul(nex_mul *e) {
 }
 
 nex* nex_creator::simplify_sum(nex_sum *e) {
+    TRACE("nla_cn", tout << lp::lp_settings::ddd << "\n";);
     TRACE("nla_cn_details", tout << "was e = " << *e << "\n";);
     simplify_children_of_sum(e->children());
-    nex *r = e->size() == 1? (*e)[0]: e;
+    nex *r;
+    if (e->size() == 1) {
+        r = (*e)[0];
+    } else if (e->size() == 0) {
+        r = mk_scalar(rational(0));
+    } else {
+        r = e;
+    }
     TRACE("nla_cn_details", tout << "became r = " << *r << "\n";);    
     return r;
 }
 
 bool nex_creator::sum_is_simplified(const nex_sum* e) const {
-    if (e->size() < 2) return false;
+    if (e->size() < 2)  return false;
     bool scalar = false;
     for (nex * ee : *e) {
         if (ee->is_sum()) {
