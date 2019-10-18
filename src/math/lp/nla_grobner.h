@@ -165,5 +165,6 @@ bool simplify_processed_with_eq(equation*);
     void insert_to_process(equation *eq) { m_to_process.insert(eq); }
     void simplify_equations_to_process();
     const nex_mul * get_highest_monomial(const nex * e) const;
+    ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
 }; // end of grobner
 }
