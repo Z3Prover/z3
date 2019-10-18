@@ -122,7 +122,9 @@ unsigned common::random() {
     return c().random();
 }
 
-nex * common::nexvar(lpvar j, nex_creator& cn) {
+// it also inserts variables into m_active_vars
+// and updates fixed_var_deps
+nex * common::nexvar(lpvar j, nex_creator& cn,  svector<lp::constraint_index> & fixed_vars_constraints) {
     // todo: consider deepen the recursion
     if (!c().is_monic_var(j)) {
         c().insert_to_active_var_set(j);
@@ -138,15 +140,30 @@ nex * common::nexvar(lpvar j, nex_creator& cn) {
     return e;
 }
 
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
-    // todo: consider deepen the recursion
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
+                     svector<lp::constraint_index> & fixed_vars_constraints) {
     if (!c().is_monic_var(j)) {
+        if (c().var_is_fixed(j)) {
+            lp::constraint_index lc,uc;
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            fixed_vars_constraints.push_back(lc);
+            fixed_vars_constraints.push_back(uc);
+            return cn.mk_scalar(c().m_lar_solver.get_lower_bound(j).x);
+        } 
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
     }
     const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
+        if (c().var_is_fixed(j)) {
+            lp::constraint_index lc,uc;
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            fixed_vars_constraints.push_back(lc);
+            fixed_vars_constraints.push_back(uc);
+            e->coeff() *=  c().m_lar_solver.get_lower_bound(j).x;
+            continue;
+        }  
         c().insert_to_active_var_set(j);
         e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
@@ -155,21 +172,24 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
 }
 
 
-template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn, nex_sum& sum, ci_dependency*& fixed_var_deps) {
+template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn,
+                                                       nex_sum& sum,
+                                                       svector<lp::constraint_index> & fixed_vars_constraints) {
+
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
 
-    fixed_var_deps = nullptr;
-    
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
-        if (p.coeff().is_one())
-            sum.add_child(nexvar(p.var(), cn));
-        else {           
-            sum.add_child(nexvar(p.coeff(), p.var(), cn));
+        if (p.coeff().is_one()) {
+            nex* e = nexvar(p.var(), cn, fixed_vars_constraints);
+            sum.add_child(e);
+        } else {
+            nex* e = nexvar(p.coeff(), p.var(), cn, fixed_vars_constraints);
+            sum.add_child(e);
         }
     }
-   }
+}
 
 void common::set_active_vars_weights() {
     m_nex_creator.set_number_of_vars(c().m_lar_solver.column_count());
@@ -206,5 +226,6 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, ci_dependency*&);
+template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, svector<lp::constraint_index>&);  
+
 

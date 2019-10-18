@@ -357,6 +357,9 @@ nex * nex_creator::simplify_mul(nex_mul *e) {
     simplify_children_of_mul(e->children(), coeff);
     if (e->size() == 1 && (*e)[0].pow() == 1 && coeff.is_one()) 
         return (*e)[0].e();
+    
+    if (e->size() == 0 || e->coeff().is_zero())
+        return mk_scalar(e->coeff());
     TRACE("nla_cn_details", tout << *e << "\n";);
     SASSERT(is_simplified(e));
     return e;
@@ -540,7 +543,10 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
         } else if (is_zero_scalar(e)) {
             skipped ++;
             continue;
-        } else {
+        } else if (e->is_mul() && to_mul(e)->coeff().is_zero() ) {
+            skipped ++;
+            continue;
+        }else {
             unsigned offset = to_promote.size() + skipped;
             if (offset) {
                 children[j - offset] = e;

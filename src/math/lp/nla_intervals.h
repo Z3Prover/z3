@@ -156,6 +156,9 @@ public:
         m_config(m_num_manager, m_dep_manager),
         m_imanager(lim, im_config(m_num_manager, m_dep_manager))
     {}
+    ci_dependency* mk_join(ci_dependency* a, ci_dependency* b) { return m_dep_manager.mk_join(a, b);}
+    ci_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_manager.mk_leaf(ci);}
+    
     interval mul(const svector<lpvar>&) const;
     void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
@@ -425,9 +428,9 @@ public:
         return separated_from_zero_on_upper(i) ||
             separated_from_zero_on_lower(i);            
         }
-    bool check_interval_for_conflict_on_zero(const interval & i, ci_dependency*);
-    bool check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency*);
-    bool check_interval_for_conflict_on_zero_upper(const interval & i, ci_dependency*);
+    bool check_interval_for_conflict_on_zero(const interval & i, const svector<lp::constraint_index>&);
+    bool check_interval_for_conflict_on_zero_lower(const interval & i, const svector<lp::constraint_index>&);
+    bool check_interval_for_conflict_on_zero_upper(const interval & i, const svector<lp::constraint_index>&);
     mpq const & lower(interval const & a) const { return m_config.lower(a); }
     mpq const & upper(interval const & a) const { return m_config.upper(a); }
     inline

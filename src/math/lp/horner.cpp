@@ -81,7 +81,7 @@ bool horner::check_cross_nested_expr(const nex* n) {
     }
     auto interv_wd = interval_of_expr_with_deps(n, 1);
     TRACE("nla_horner", tout << "conflict: interv_wd = "; m_intervals.display(tout, interv_wd ) << *n << "\n";);
-    m_intervals.check_interval_for_conflict_on_zero(interv_wd, m_fixed_var_deps);
+    m_intervals.check_interval_for_conflict_on_zero(interv_wd, m_fixed_var_constraints_for_row);
     m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
 }
@@ -94,7 +94,10 @@ bool horner::lemmas_on_row(const T& row) {
         [this]() { return c().random(); }, m_nex_creator);
 
     SASSERT (row_is_interesting(row));
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_var_deps);    
+    c().clear_and_resize_active_var_set();
+    m_fixed_var_constraints_for_row.clear();
+    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_var_constraints_for_row);
+    set_active_vars_weights(); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(&m_row_sum);
     if (!e->is_sum())
         return false;
@@ -108,7 +111,6 @@ void horner::horner_lemmas() {
         return;
     }
     c().lp_settings().stats().m_horner_calls++;
-    set_active_vars_weights();
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
     std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
@@ -116,7 +118,7 @@ void horner::horner_lemmas() {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
     }
-    c().prepare_active_var_set();
+    c().clear_and_resize_active_var_set();
     svector<unsigned> rows;
     for (unsigned i : rows_to_check) {
         if (row_is_interesting(matrix.m_rows[i]))
