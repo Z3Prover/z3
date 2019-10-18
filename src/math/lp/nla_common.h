@@ -117,11 +117,13 @@ struct common {
     typedef dependency_manager<ci_dependency_config> ci_dependency_manager;
 
     typedef ci_dependency_manager::dependency ci_dependency;
-    nex* nexvar(lpvar j, nex_creator&, svector<lp::constraint_index> & fixed_vars_constraints);
+    //    nex* nexvar(lpvar j, nex_creator&, svector<lp::constraint_index> & fixed_vars_constraints);
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, svector<lp::constraint_index> & fixed_vars_constraints);
     template <typename T>
     void create_sum_from_row(const T&, nex_creator&, nex_sum&,
                              svector<lp::constraint_index> & fixed_vars_constraints);
+    template <typename T>
+    ci_dependency* get_fixed_vars_dep_from_row(const T&, ci_dependency_manager& dep_manager);
     void set_active_vars_weights();
     var_weight get_var_weight(lpvar) const;
 };

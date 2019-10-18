@@ -124,22 +124,6 @@ unsigned common::random() {
 
 // it also inserts variables into m_active_vars
 // and updates fixed_var_deps
-nex * common::nexvar(lpvar j, nex_creator& cn,  svector<lp::constraint_index> & fixed_vars_constraints) {
-    // todo: consider deepen the recursion
-    if (!c().is_monic_var(j)) {
-        c().insert_to_active_var_set(j);
-        return cn.mk_var(j);
-    }
-    const monic& m = c().emons()[j];
-    nex_mul * e = cn.mk_mul();
-    for (lpvar k : m.vars()) {
-        c().insert_to_active_var_set(k);
-        e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
-    }
-    return e;
-}
-
 nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
                      svector<lp::constraint_index> & fixed_vars_constraints) {
     if (!c().is_monic_var(j)) {
@@ -148,7 +132,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
             c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
             fixed_vars_constraints.push_back(lc);
             fixed_vars_constraints.push_back(uc);
-            return cn.mk_scalar(c().m_lar_solver.get_lower_bound(j).x);
+            return cn.mk_scalar(coeff * c().m_lar_solver.get_lower_bound(j).x);
         } 
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
@@ -156,15 +140,15 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
     const monic& m = c().emons()[j];
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
-        if (c().var_is_fixed(j)) {
+        if (c().var_is_fixed(k)) {
             lp::constraint_index lc,uc;
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
             fixed_vars_constraints.push_back(lc);
             fixed_vars_constraints.push_back(uc);
-            e->coeff() *=  c().m_lar_solver.get_lower_bound(j).x;
+            e->coeff() *=  c().m_lar_solver.get_lower_bound(k).x;
             continue;
         }  
-        c().insert_to_active_var_set(j);
+        c().insert_to_active_var_set(k);
         e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
@@ -181,14 +165,40 @@ template <typename T> void common::create_sum_from_row(const T& row, nex_creator
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
-        if (p.coeff().is_one()) {
-            nex* e = nexvar(p.var(), cn, fixed_vars_constraints);
-            sum.add_child(e);
-        } else {
-            nex* e = nexvar(p.coeff(), p.var(), cn, fixed_vars_constraints);
-            sum.add_child(e);
+        nex* e = nexvar(p.coeff(), p.var(), cn, fixed_vars_constraints);
+        sum.add_child(e);        
+    }
+    TRACE("nla_horner", tout << "sum =" << sum << "\n";);
+}
+
+template <typename T>
+common::ci_dependency* common::get_fixed_vars_dep_from_row(const T& row, ci_dependency_manager& dep_manager) {
+    TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
+    ci_dependency* dep = nullptr;
+    for (const auto &p : row) {
+        lpvar j = p.var();
+        
+        if (!c().is_monic_var(j)) {
+            if (c().var_is_fixed(j)) {
+                lp::constraint_index lc,uc;
+                c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+                dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
+                dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));
+            } else {
+                const monic& m = c().emons()[j];
+                for (lpvar k : m.vars()) {
+                    if (!c().var_is_fixed(k))
+                        continue;
+                    lp::constraint_index lc,uc;
+                    c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
+                    c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
+                    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
+                    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));
+                }
+            }
         }
     }
+    return dep;
 }
 
 void common::set_active_vars_weights() {
@@ -197,6 +207,8 @@ void common::set_active_vars_weights() {
         m_nex_creator.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
     }
 }
+
+
 
 var_weight common::get_var_weight(lpvar j) const {
     var_weight k;

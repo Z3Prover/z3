@@ -250,10 +250,14 @@ public:
     bool eat_scalar_pow(rational& r, const nex_pow& p, unsigned);
     void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
 
+    bool children_are_simplified(const vector<nex_pow>& children) const;
     bool lt(const nex* a, const nex* b) const;    
+    bool lt_nex_powers(const vector<nex_pow>&, const nex* b) const;    
+    bool less_than_on_powers_mul(const vector<nex_pow>&, const nex_mul* b) const;    
+    bool less_than_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul* b) const;    
+    bool lt_for_sort_join_sum(const nex* a, const nex* b) const;    
     bool less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_mul* b) const;
-    bool less_than_on_mul_mul_same_degree_iterate(const nex_mul* a, const nex_mul* b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;

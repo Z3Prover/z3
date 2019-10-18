@@ -162,12 +162,22 @@ public:
     friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
 };
 
+inline unsigned get_degree_children(const vector<nex_pow>& children) {
+    int degree = 0;       
+    for (const auto& p : children) {
+        degree +=  p.e()->get_degree() * p.pow();
+    }
+    return degree;
+}
 
 class nex_mul : public nex {
     rational        m_coeff;
     vector<nex_pow> m_children;
 public:
     nex_mul() : m_coeff(rational(1)) {}
+
+    template <typename T> 
+    nex_mul() : m_coeff() {}
 
     const rational& coeff() const {
         return m_coeff;
@@ -258,13 +268,9 @@ public:
     }
 
     int get_degree() const {
-        int degree = 0;       
-        for (const auto& p : *this) {
-            degree +=  p.e()->get_degree() * p.pow();
-        }
-        return degree;
-    }
-
+        return get_degree_children(children());
+    }    
+    
     bool is_linear() const {
         return get_degree() < 2; // todo: make it more efficient
     }
