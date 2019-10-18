@@ -180,7 +180,10 @@ ATOMIC_CMD(get_proof_cmd, "get-proof", "retrieve proof", {
     if (ctx.ignore_check())
         return;
     expr_ref pr(ctx.m());
-    pr = ctx.get_check_sat_result()->get_proof();
+    auto* chsr = ctx.get_check_sat_result();
+    if (!chsr)
+        throw cmd_exception("proof is not available");
+    pr = chsr->get_proof();
     if (!pr && !ctx.produce_proofs())
         throw cmd_exception("proof construction is not enabled, use command (set-option :produce-proofs true)");
     if (!pr) 
