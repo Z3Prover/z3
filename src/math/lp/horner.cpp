@@ -99,6 +99,9 @@ bool horner::lemmas_on_row(const T& row) {
     create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_var_constraints_for_row);
     set_active_vars_weights(); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(&m_row_sum);
+    TRACE("nla_horner", tout << "e = " << * e << "\n";);
+    if (e->get_degree() < 2)
+        return false;
     if (!e->is_sum())
         return false;
     
