@@ -584,6 +584,8 @@ namespace smtfd {
             m_pinned.reset();
             m_tables.reset();
             m_ast2table.reset();
+            m_values.reset();
+            m_model = nullptr;
         }
     };
 
@@ -875,7 +877,7 @@ namespace smtfd {
             expr_ref val2 = eval_abs(stored_value);
             // A[i] = v
             if (val1 != val2) {
-                TRACE("smtfd", tout << "select/store: " << mk_pp(t, m) << "\n";);
+                TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);
                 add_lemma(m.mk_eq(sel, stored_value));
             }
             m_pinned.push_back(sel);
@@ -1080,6 +1082,7 @@ namespace smtfd {
         {}
         
         void check_term(expr* t, unsigned round) override {
+            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
             switch (round) {
             case 0:
                 if (m_autil.is_select(t)) {
@@ -1797,8 +1800,8 @@ namespace smtfd {
         lbool refine_core(expr_ref_vector & core) {
             lbool r = l_true;
             unsigned round = 0;
+            m_context.reset(m_model);
             while (true) {
-                m_context.reset(m_model);
                 if (!m_context.add_theory_axioms(core, round)) {
                     break;
                 }
@@ -1822,6 +1825,7 @@ namespace smtfd {
                 case l_true:
                     m_fd_sat_solver->get_model(m_model);
                     m_model->set_model_completion(true);
+                    m_context.reset(m_model);
                     break;
                 default:
                     return r;
