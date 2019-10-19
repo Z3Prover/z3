@@ -282,7 +282,9 @@ public:
             return;
         TRACE("nla_cn", tout << "after split c=" << **c << "\nfront="; print_front(front, tout) << "\n";);
         if (front.empty()) {
+#ifdef Z3DEBUG
             TRACE("nla_cn", tout << "got the cn form: =" << *m_e <<  ", clone = " << *m_e_clone << "\n";);
+#endif
             m_done = m_call_on_result(m_e) || ++m_reported > 100;
 #ifdef Z3DEBUG
             SASSERT(nex_creator::equal(m_e, m_e_clone));

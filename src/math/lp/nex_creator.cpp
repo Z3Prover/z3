@@ -500,7 +500,6 @@ nex * nex_creator::simplify_mul(nex_mul *e) {
 }
 
 nex* nex_creator::simplify_sum(nex_sum *e) {
-    TRACE("nla_cn", tout << lp::lp_settings::ddd << "\n";);
     TRACE("nla_cn_details", tout << "was e = " << *e << "\n";);
     simplify_children_of_sum(e->children());
     nex *r;
