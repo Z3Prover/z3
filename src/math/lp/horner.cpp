@@ -25,7 +25,7 @@
 
 namespace nla {
 typedef intervals::interval interv;
-horner::horner(core * c) : common(c), m_intervals(c, c->reslim()), m_fixed_as_scalars(true) {}
+horner::horner(core * c) : common(c), m_intervals(c, c->reslim()), m_fixed_as_scalars(false) {}
 
 template <typename T>
 bool horner::row_has_monomial_to_refine(const T& row) const {
