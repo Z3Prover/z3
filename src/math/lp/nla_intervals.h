@@ -142,6 +142,7 @@ class intervals : common {
     mutable interval_manager<im_config> m_imanager;
 
 public:
+    ci_dependency_manager&  dep_manager() { return m_dep_manager; }
     typedef interval_manager<im_config>::interval interval;
 private:
     ci_dependency* mk_dep(lp::constraint_index ci) const;
@@ -428,9 +429,9 @@ public:
         return separated_from_zero_on_upper(i) ||
             separated_from_zero_on_lower(i);            
         }
-    bool check_interval_for_conflict_on_zero(const interval & i, const svector<lp::constraint_index>&);
-    bool check_interval_for_conflict_on_zero_lower(const interval & i, const svector<lp::constraint_index>&);
-    bool check_interval_for_conflict_on_zero_upper(const interval & i, const svector<lp::constraint_index>&);
+    bool check_interval_for_conflict_on_zero(const interval & i, ci_dependency *);
+    bool check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency*);
+    bool check_interval_for_conflict_on_zero_upper(const interval & i, ci_dependency*);
     mpq const & lower(interval const & a) const { return m_config.lower(a); }
     mpq const & upper(interval const & a) const { return m_config.upper(a); }
     inline

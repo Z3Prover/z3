@@ -103,37 +103,32 @@ bool intervals::separated_from_zero_on_upper(const interval& i) const {
 }
 
 
-bool intervals::check_interval_for_conflict_on_zero(const interval & i, const svector<lp::constraint_index>& cs) {
-    return check_interval_for_conflict_on_zero_lower(i, cs) || check_interval_for_conflict_on_zero_upper(i, cs);
+bool intervals::check_interval_for_conflict_on_zero(const interval & i, ci_dependency* dep) {
+    return check_interval_for_conflict_on_zero_lower(i, dep) || check_interval_for_conflict_on_zero_upper(i, dep);
 }
 
 bool intervals::check_interval_for_conflict_on_zero_upper(
     const interval & i,
-    const svector<lp::constraint_index>& fixed_vars_constraints) {
+    ci_dependency* dep) {
     if (!separated_from_zero_on_upper(i))
         return false;
         
      add_empty_lemma();
      svector<lp::constraint_index> expl;
-     for (auto c : fixed_vars_constraints) {
-         expl.push_back(c);
-     }
-     m_dep_manager.linearize(i.m_upper_dep, expl); 
+     dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
+     m_dep_manager.linearize(dep, expl); 
      _().current_expl().add_expl(expl);
      TRACE("nla_solver", print_lemma(tout););
      return true;
 }
 
-bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i,  const svector<lp::constraint_index>& fixed_vars_constraints) {
+bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency* dep) {
     if (!separated_from_zero_on_lower(i))
         return false;
      add_empty_lemma();
      svector<lp::constraint_index> expl;
-     for (auto c : fixed_vars_constraints) {
-         expl.push_back(c);
-     }
-
-     m_dep_manager.linearize(i.m_lower_dep, expl); 
+     dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
+     m_dep_manager.linearize(dep, expl); 
      _().current_expl().add_expl(expl);
      TRACE("nla_solver", print_lemma(tout););
      return true;
@@ -154,7 +149,6 @@ common::ci_dependency *intervals::mk_dep(const lp::explanation& expl) const {
     }
     return r;
 }
-
 
 std::ostream& intervals::display(std::ostream& out, const interval& i) const {
     if (m_imanager.lower_is_inf(i)) {

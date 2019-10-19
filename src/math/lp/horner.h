@@ -30,9 +30,9 @@ class core;
 
 
 class horner : common {
-    intervals                                                     m_intervals;
-    nex_sum                                                       m_row_sum;
-    svector<lp::constraint_index>                                 m_fixed_var_constraints_for_row;
+    intervals    m_intervals;
+    nex_sum      m_row_sum;
+    unsigned     m_row_index;                      
 public:
     typedef intervals::interval interv;
     horner(core *core);
