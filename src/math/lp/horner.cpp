@@ -25,7 +25,7 @@
 
 namespace nla {
 typedef intervals::interval interv;
-horner::horner(core * c) : common(c), m_intervals(c, c->reslim()) {}
+horner::horner(core * c) : common(c), m_intervals(c, c->reslim()), m_fixed_as_scalars(true) {}
 
 template <typename T>
 bool horner::row_has_monomial_to_refine(const T& row) const {
@@ -81,7 +81,7 @@ bool horner::check_cross_nested_expr(const nex* n) {
     }
     auto interv_wd = interval_of_expr_with_deps(n, 1);
     TRACE("nla_horner", tout << "conflict: interv_wd = "; m_intervals.display(tout, interv_wd ) << *n << "\n";);
-    ci_dependency* dep = get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals.dep_manager());
+    ci_dependency* dep = m_fixed_as_scalars? get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals.dep_manager()) : nullptr;
     m_intervals.check_interval_for_conflict_on_zero(interv_wd, dep);
     m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
@@ -96,7 +96,7 @@ bool horner::lemmas_on_row(const T& row) {
 
     SASSERT (row_is_interesting(row));
     c().clear_and_resize_active_var_set();
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
+    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_as_scalars);
     set_active_vars_weights(); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(&m_row_sum);
     TRACE("nla_horner", tout << "e = " << * e << "\n";);
