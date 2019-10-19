@@ -30,9 +30,10 @@ class core;
 
 
 class horner : common {
-    intervals    m_intervals;
-    nex_sum      m_row_sum;
+    intervals       m_intervals;
+    nex_sum     m_row_sum;
     unsigned     m_row_index;                      
+    bool             m_fixed_as_scalars;
 public:
     typedef intervals::interval interv;
     horner(core *core);

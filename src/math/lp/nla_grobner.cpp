@@ -183,7 +183,7 @@ void nla_grobner::add_row(unsigned i) {
     nex_sum * ns = m_nex_creator.mk_sum();
 
     svector<lp::constraint_index> fixed_vars_constraints;
-    create_sum_from_row(row, m_nex_creator, *ns);
+    create_sum_from_row(row, m_nex_creator, *ns, true); // true to treat fixed vars as scalars
     TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
     m_tmp_var_set.clear();    
     assert_eq_0(ns, get_fixed_vars_dep_from_row(row, m_dep_manager));
