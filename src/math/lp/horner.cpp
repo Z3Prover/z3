@@ -81,7 +81,8 @@ bool horner::check_cross_nested_expr(const nex* n) {
     }
     auto interv_wd = interval_of_expr_with_deps(n, 1);
     TRACE("nla_horner", tout << "conflict: interv_wd = "; m_intervals.display(tout, interv_wd ) << *n << "\n";);
-    m_intervals.check_interval_for_conflict_on_zero(interv_wd, m_fixed_var_constraints_for_row);
+    ci_dependency* dep = get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals.dep_manager());
+    m_intervals.check_interval_for_conflict_on_zero(interv_wd, dep);
     m_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
 }
@@ -95,8 +96,7 @@ bool horner::lemmas_on_row(const T& row) {
 
     SASSERT (row_is_interesting(row));
     c().clear_and_resize_active_var_set();
-    m_fixed_var_constraints_for_row.clear();
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, m_fixed_var_constraints_for_row);
+    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
     set_active_vars_weights(); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(&m_row_sum);
     TRACE("nla_horner", tout << "e = " << * e << "\n";);
@@ -131,8 +131,8 @@ void horner::horner_lemmas() {
     unsigned r = c().random();
     unsigned sz = rows.size();
     for (unsigned i = 0; i < sz; i++) {
-        unsigned row_index = rows[(i + r) % sz];
-        if (lemmas_on_row(matrix.m_rows[row_index])) {
+        m_row_index = rows[(i + r) % sz];
+        if (lemmas_on_row(matrix.m_rows[m_row_index])) {
             c().lp_settings().stats().m_horner_conflicts++;
             break;
         }

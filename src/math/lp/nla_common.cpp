@@ -122,16 +122,11 @@ unsigned common::random() {
     return c().random();
 }
 
-// it also inserts variables into m_active_vars
-// and updates fixed_var_deps
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
-                     svector<lp::constraint_index> & fixed_vars_constraints) {
+// creates a nex expression for the coeff and var, 
+// replaces the fixed vars with scalars
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     if (!c().is_monic_var(j)) {
         if (c().var_is_fixed(j)) {
-            lp::constraint_index lc,uc;
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-            fixed_vars_constraints.push_back(lc);
-            fixed_vars_constraints.push_back(uc);
             return cn.mk_scalar(coeff * c().m_lar_solver.get_lower_bound(j).x);
         } 
         c().insert_to_active_var_set(j);
@@ -141,10 +136,6 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
         if (c().var_is_fixed(k)) {
-            lp::constraint_index lc,uc;
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
-            fixed_vars_constraints.push_back(lc);
-            fixed_vars_constraints.push_back(uc);
             e->coeff() *=  c().m_lar_solver.get_lower_bound(k).x;
             continue;
         }  
@@ -156,16 +147,16 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
 }
 
 
-template <typename T> void common::create_sum_from_row(const T& row, nex_creator& cn,
-                                                       nex_sum& sum,
-                                                       svector<lp::constraint_index> & fixed_vars_constraints) {
+template <typename T> void common::create_sum_from_row(const T& row,
+                                                       nex_creator& cn,
+                                                       nex_sum& sum) {
 
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
 
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
-        nex* e = nexvar(p.coeff(), p.var(), cn, fixed_vars_constraints);
+        nex* e = nexvar(p.coeff(), p.var(), cn);
         sum.add_child(e);        
     }
     TRACE("nla_horner", tout << "sum =" << sum << "\n";);
@@ -176,25 +167,25 @@ common::ci_dependency* common::get_fixed_vars_dep_from_row(const T& row, ci_depe
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     ci_dependency* dep = nullptr;
     for (const auto &p : row) {
-        lpvar j = p.var();
-        
+        lpvar j = p.var();        
         if (!c().is_monic_var(j)) {
-            if (c().var_is_fixed(j)) {
+            if (!c().var_is_fixed(j)) {
+                continue;
+            }
+            lp::constraint_index lc,uc;
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
+            dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));            
+        }
+        else {
+            const monic& m = c().emons()[j];
+            for (lpvar k : m.vars()) {
+                if (!c().var_is_fixed(k))
+                    continue;
                 lp::constraint_index lc,uc;
-                c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+                c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
                 dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
                 dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));
-            } else {
-                const monic& m = c().emons()[j];
-                for (lpvar k : m.vars()) {
-                    if (!c().var_is_fixed(k))
-                        continue;
-                    lp::constraint_index lc,uc;
-                    c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
-                    c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
-                    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(lc));
-                    dep = dep_manager.mk_join(dep, dep_manager.mk_leaf(uc));
-                }
             }
         }
     }
@@ -238,6 +229,6 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, svector<lp::constraint_index>&);  
+template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&);  
 
-
+template dependency_manager<nla::common::ci_dependency_config>::dependency* nla::common::get_fixed_vars_dep_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, dependency_manager<nla::common::ci_dependency_config>&);
