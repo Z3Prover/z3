@@ -512,6 +512,7 @@ namespace smtfd {
         }
 
         expr_ref eval_abs(expr* t) { return m_context.get_model()(m_abs.abs(t)); }
+        bool is_true_abs(expr* t) { return m_context.get_model().is_true(m_abs.abs(t)); }
         
         expr* value_of(f_app const& f) const { return m_values[f.m_val_offset + f.m_t->get_num_args()]; }
 
@@ -559,10 +560,10 @@ namespace smtfd {
         std::ostream& display(std::ostream& out, table& t) {
             out << "table\n";
             for (auto const& k : t) {
-                out << "key: " << mk_pp(k.m_f, m) << "\nterm: " << mk_pp(k.m_t, m) << "\n";
+                out << "key: " << mk_bounded_pp(k.m_f, m, 2) << "\nterm: " << mk_bounded_pp(k.m_t, m, 2) << "\n";
                 out << "args:\n";
                 for (unsigned i = 0; i <= k.m_t->get_num_args(); ++i) {
-                    out << mk_pp(m_values.get(k.m_val_offset + i), m) << "\n";
+                    out << mk_bounded_pp(m_values.get(k.m_val_offset + i), m, 3) << "\n";
                 }
                 out << "\n";
             }
@@ -855,12 +856,47 @@ namespace smtfd {
     };
 
     class ar_plugin : public theory_plugin {
-        array_util m_autil;
+        array_util      m_autil;
+        unsigned_vector m_num_stores;
+
+        // count number of equivalent stores
+        void update_lambda(expr* t) {
+            if (m_autil.is_store(t)) {
+                expr_ref tV = eval_abs(t);
+                inc_lambda(tV);
+            }
+        }
+
+        unsigned get_lambda(expr* tV) {
+            unsigned id = tV->get_id();
+            if (id >= m_num_stores.size()) {
+                m_num_stores.resize(id + 1, 0);
+            }
+            return m_num_stores[id];
+        }
+
+        void inc_lambda(expr* tV) {
+            unsigned id = tV->get_id();
+            if (id >= m_num_stores.size()) {
+                m_num_stores.resize(id + 1, 0);
+            }
+            if (0 == m_num_stores[id]++) {
+                m_pinned.push_back(tV);
+            }
+        }
+
+        void insert_select(app* t) {
+            expr* a = t->get_arg(0);
+            expr_ref vA = eval_abs(a);
+            check_congruence(vA, t);
+        }
 
         void check_select(app* t) {
             expr* a = t->get_arg(0);
-            expr_ref vA = eval_abs(a);
-            enforce_congruence(vA, t);                     
+            if (!m_autil.is_store(a)) {
+                expr_ref vA = eval_abs(a);
+                enforce_congruence(vA, t);    
+            }                 
         }
 
         // check that (select(t, t.args) = t.value)
@@ -879,9 +915,41 @@ namespace smtfd {
             if (val1 != val2) {
                 TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);
                 add_lemma(m.mk_eq(sel, stored_value));
+                m_pinned.push_back(sel);
+                insert_select(sel);
             }
-            m_pinned.push_back(sel);
-            check_select(sel);
+        }
+
+        // store(A, i, v)[j] = A[i] or i = j
+        void check_select_store(app * t) {
+            SASSERT(m_autil.is_select(t));
+            if (!m_autil.is_store(t->get_arg(0))) {
+                return;
+            }
+            app* store = to_app(t->get_arg(0));
+            expr* a = store->get_arg(0);
+            expr_ref_vector eqs(m);
+            m_args.reset();
+            m_args.push_back(a);
+            bool all_eq = true;
+            for (unsigned i = 1; i < t->get_num_args(); ++i) {
+                expr_ref v1 = eval_abs(t->get_arg(i));
+                expr_ref v2 = eval_abs(store->get_arg(i));
+                if (v1 != v2) all_eq = false;
+                m_args.push_back(t->get_arg(i));
+                eqs.push_back(m.mk_eq(t->get_arg(i), store->get_arg(i)));
+            }
+            if (all_eq) return;
+            
+            app_ref sel(m_autil.mk_select(m_args), m);
+            expr_ref val1 = eval_abs(sel);
+            expr_ref val2 = eval_abs(t);
+            if (val1 != val2) {
+                TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);                
+                add_lemma(m.mk_or(m.mk_eq(sel, t), mk_and(eqs)));
+                m_pinned.push_back(sel);
+                insert_select(sel);
+            }
         }
 
         /** 
@@ -897,7 +965,7 @@ namespace smtfd {
             where j is in tableA and value equal to some index in tableT
 
         */
-        void check_store1(app* t) {
+        void check_store2(app* t) {
             SASSERT(m_autil.is_store(t));
 
             expr* arg = t->get_arg(0);
@@ -915,7 +983,7 @@ namespace smtfd {
             for (unsigned i = 0; i + 1 < t->get_num_args(); ++i) {
                 m_vargs.push_back(eval_abs(t->get_arg(i)));
             }            
-            reconcile_stores(t, tT, tA);
+            reconcile_stores(t, vT, tT, vA, tA);
         }
         
         //
@@ -923,24 +991,41 @@ namespace smtfd {
         // T[j] = w: i = j or A[j] = T[j]
         // A[j] = w: i = j or T[j] = A[j]
         // 
-        void reconcile_stores(app* t, table& tT, table& tA) {
+        void reconcile_stores(app* t, expr* vT, table& tT, expr* vA, table& tA) {
+            unsigned r = 0;
+            if (get_lambda(vA) <= 1) {
+                return;
+            }
+            inc_lambda(vT);
             for (auto& fA : tA) {
                 f_app fT;
                 if (m_context.at_max()) {
                     break;
                 }
                 if (!tT.find(fA, fT) || (value_of(fA) != value_of(fT) && !eq(m_vargs, fA))) {
+                    TRACE("smtfd", tout << "found: " << tT.find(fA, fT) << "\n";);
                     add_select_store_axiom(t, fA);
+                    ++r;
                 }
             }            
+#if 0
+    // only up-propagation really needed.
             for (auto& fT : tT) {
                 f_app fA;
                 if (m_context.at_max()) {
                     break;
                 }
                 if (!tA.find(fT, fA)) {
+                    TRACE("smtfd", tout << "not found\n";);
                     add_select_store_axiom(t, fT);
+                    ++r;
                 }
+            }
+#endif
+            if (r > 0 && false) {
+                std::cout << r << " " << mk_bounded_pp(t, m, 3) << "\n"; 
+                display(std::cout, tT); 
+                display(std::cout, tA);
             }
         }
 
@@ -956,8 +1041,10 @@ namespace smtfd {
             expr_ref sel1(m_autil.mk_select(m_args), m);
             m_args[0] = a;
             expr_ref sel2(m_autil.mk_select(m_args), m);
-            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
-            add_lemma(m.mk_or(eq, m.mk_eq(sel1, sel2)));
+            expr_ref fml(m.mk_or(eq, m.mk_eq(sel1, sel2)), m);
+            if (!is_true_abs(fml)) {
+                add_lemma(fml);
+            }
         }
 
         bool same_array_sort(f_app const& fA, f_app const& fT) const {
@@ -1080,24 +1167,34 @@ namespace smtfd {
             theory_plugin(context),
             m_autil(m)
         {}
+
+        void reset() override {
+            theory_plugin::reset();
+            m_num_stores.reset();
+        }
         
         void check_term(expr* t, unsigned round) override {
-            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
             switch (round) {
             case 0:
                 if (m_autil.is_select(t)) {
-                    check_select(to_app(t));
+                    insert_select(to_app(t));
                 }
-                if (m_autil.is_store(t)) {
+                else if (m_autil.is_store(t)) {
+                    update_lambda(t);
                     check_store0(to_app(t));
                 }
                 break;
             case 1:
-                if (m_autil.is_store(t)) {
-                    check_store1(to_app(t));
+                if (m_autil.is_select(t)) {
+                    check_select(to_app(t));
                 }
                 else {
                     beta_reduce(t);
+                }
+                break;
+            case 2:
+                if (m_autil.is_store(t)) {
+                    check_store2(to_app(t));
                 }
                 break;
             default:
@@ -1165,7 +1262,7 @@ namespace smtfd {
             }
         }
 
-        unsigned max_rounds() override { return 2; }
+        unsigned max_rounds() override { return 3; }
 
         void global_check(expr_ref_vector const& core) override {  
             expr_mark seen;
@@ -1667,8 +1764,8 @@ namespace smtfd {
         }
 
         void flush_atom_defs() {
+            TRACE("smtfd", for (expr* f : m_abs.atom_defs()) tout << mk_bounded_pp(f, m, 4) << "\n";);
             for (expr* f : m_abs.atom_defs()) {
-                TRACE("smtfd", tout << mk_bounded_pp(f, m, 4) << "\n";);
                 m_fd_sat_solver->assert_expr(f);
                 m_fd_core_solver->assert_expr(f);
             }
@@ -1809,11 +1906,14 @@ namespace smtfd {
                     ++round;
                     continue;
                 }
+                IF_VERBOSE(1, verbose_stream() << "(smtfd-round " << round << " " << m_context.size() << ")\n");
                 round = 0;
+                TRACE("smtfd_verbose", 
+                      for (expr* f : m_context) tout << "refine " << mk_bounded_pp(f, m, 3) << "\n";
+                      m_context.display(tout););
                 for (expr* f : m_context) {
-                    TRACE("smtfd_verbose", tout << "refine " << mk_bounded_pp(f, m, 3) << "\n";);
                     core.push_back(f);
-                }
+                }                
                 m_stats.m_num_lemmas += m_context.size();
                 r = check_abs(core.size(), core.c_ptr());
                 update_reason_unknown(r, m_fd_sat_solver);
@@ -1846,7 +1946,7 @@ namespace smtfd {
                 m_fd_core_solver->updt_params(p);  
                 m_smt_solver->updt_params(p);  
             }
-            m_context.set_max_lemmas(p.get_uint("max-lemmas", 100));
+            m_context.set_max_lemmas(UINT_MAX); // p.get_uint("max-lemmas", 100));
         }        
 
         void collect_param_descrs(param_descrs & r) override { 

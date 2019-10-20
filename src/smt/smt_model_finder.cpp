@@ -483,7 +483,7 @@ namespace smt {
             }
 
             void set_context(context * ctx) {
-                SASSERT(m_context==0);
+                SASSERT(m_context== nullptr);
                 m_context = ctx;
             }
             
@@ -1065,12 +1065,14 @@ namespace smt {
 
             void mk_inverse(node * n) {
                 SASSERT(n->is_root());
-                instantiation_set * s                 = n->get_instantiation_set();
+                instantiation_set * s = n->get_instantiation_set();
                 s->mk_inverse(*this);
             }
 
             void mk_inverses() {
-                for (node * n : m_root_nodes) {
+                unsigned offset = m_context->get_random_value();
+                for (unsigned i = m_root_nodes.size(); i-- > 0; ) {
+                    node* n = m_root_nodes[(i + offset) % m_root_nodes.size()];
                     SASSERT(n->is_root());
                     mk_inverse(n);
                 }
@@ -1838,7 +1840,7 @@ namespace smt {
                 for (qinfo* qi : m_qinfo_vect)
                     qi->populate_inst_sets(m_flat_q, m_the_one, *m_uvar_inst_sets, ctx);
                 for (instantiation_set * s : *m_uvar_inst_sets) {
-                    if (s != nullptr)
+                    if (s != nullptr) 
                         s->mk_inverse(ev);
                 }
             }

@@ -388,15 +388,15 @@ namespace sat {
         m_touched[l1.var()] = m_touch_index;
         m_touched[l2.var()] = m_touch_index;
         
-        if (find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
+        if (learned && find_binary_watch(get_wlist(~l1), ~l2) && value(l1) == l_undef) {
             assign_unit(l1);
             return;
         }
-        if (find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
+        if (learned && find_binary_watch(get_wlist(~l2), ~l1) && value(l2) == l_undef) {
             assign_unit(l2);
             return;
         }
-        watched* w0 = find_binary_watch(get_wlist(~l1), l2);
+        watched* w0 = learned ? find_binary_watch(get_wlist(~l1), l2) : nullptr;
         if (w0) {
             TRACE("sat", tout << "found binary " << l1 << " " << l2 << "\n";);
             if (w0->is_learned() && !learned) {
