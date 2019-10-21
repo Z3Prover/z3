@@ -90,7 +90,7 @@ jobs:
      targetPath: tmp
   - script: |
        cd scripts 
-       python mk_nuget_task.py ../tmp
+       python mk_nuget_task.py ../tmp 4.8.7 3424ffa
        cd ..
 
 - job: Python

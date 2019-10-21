@@ -2,7 +2,7 @@
 # Copyright (c) 2018 Microsoft Corporation
 #
 
-# 1. download releases from github
+# 1. copy over dlls
 # 2. copy over libz3.dll for the different architectures
 # 3. copy over Microsoft.Z3.dll from suitable distribution
 # 4. copy nuspec file from packages
@@ -16,8 +16,6 @@ import sys
 import os.path
 import shutil
 import subprocess
-import mk_util
-import mk_project
 
 def mk_dir(d):
     if not os.path.exists(d):
@@ -59,7 +57,7 @@ def unpack(packages):
             zip_ref = zipfile.ZipFile(path, 'r')
             zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
             mk_dir("out/runtimes/%s/native" % dst)
-            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst, "/y")
+            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst)
             if "x64-win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
@@ -70,7 +68,7 @@ def mk_targets():
     mk_dir("out/build")
     shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.targets")
     
-def create_nuget_spec():
+def create_nuget_spec(release_version, release_commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -156,13 +154,15 @@ def sign_nuget_package():
     
 def main():
     packages = sys.argv[1]
+    release_version = sys.argv[2]
+    release_commit = sys.argv[3]
     print(packages)
     mk_dir(packages)    
     unpack(packages)
     mk_targets()
-    create_nuget_spec()
+    create_nuget_spec(release_version, release_commit)
     create_nuget_package()
-    sign_nuget_package()
+    sign_nuget_package(release_version)
 
 
 main()
