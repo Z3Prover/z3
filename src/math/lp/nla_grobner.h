@@ -82,7 +82,6 @@ class nla_grobner : common {
     equation_vector                              m_equations_to_unfreeze;
     equation_vector                              m_equations_to_delete;    
     lp::int_set                                  m_rows;
-    lp::int_set                                  m_active_vars;
     unsigned                                     m_num_of_equations;
     grobner_stats                                m_stats;
     equation_set                                 m_processed;
