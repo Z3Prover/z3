@@ -117,14 +117,14 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-#  - task: GitHubRelease@0
-#    inputs:
-#      gitHubConnection: Z3GitHub
-#      repositoryName: 'Z3Prover/z3'
-#      action: 'delete'
-##     target: '$(Build.SourceVersion)'
-#      tagSource: 'manual'
-#      tag: 'Nightly'
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'delete'
+#     target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
