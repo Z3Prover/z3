@@ -50,15 +50,15 @@ bool nla_grobner::internalize_gb_eq(equation* ) {
 }
 
 void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
-    SASSERT(m_active_vars.contains(j) == false);
+    SASSERT(!c().active_var_set_contains(j));
     const auto& matrix = c().m_lar_solver.A_r();
-    m_active_vars.insert(j);
+    c().insert_to_active_var_set(j);
     for (auto & s : matrix.m_columns[j]) {
         unsigned row = s.var();
         if (m_rows.contains(row)) continue;
         m_rows.insert(row);
         for (auto& rc : matrix.m_rows[row]) {
-            if (m_active_vars.contains(rc.var()))
+            if (c().active_var_set_contains(rc.var()))
                 continue;
             q.push(rc.var());
         }
@@ -71,7 +71,7 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
     for (auto fcn : factorization_factory_imp(m, c())) {
         for (const factor& fc: fcn) {
             lpvar j = var(fc);
-            if (! m_active_vars.contains(j))
+            if (! c().active_var_set_contains(j))
                 add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
         }
     }            
@@ -88,7 +88,7 @@ void nla_grobner::find_nl_cluster() {
     while (!q.empty()) {
         unsigned j = q.front();        
         q.pop();
-        if (m_active_vars.contains(j))
+        if (c().active_var_set_contains(j))
             continue;
         add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
     }
