@@ -1,3 +1,6 @@
+variables:
+  z3Version: '4.8.7'
+
 jobs:
 
 - job: Mac
@@ -90,8 +93,16 @@ jobs:
      targetPath: tmp
   - script: |
        cd scripts 
-       python mk_nuget_task.py ../tmp 4.8.7 3424ffa
+       python mk_nuget_task.py ../tmp $(z3Version) 3424ffa
        cd ..
+  - task: NuGetCommand@2
+    inputs:
+     command: pack
+     basePath: scripts/out
+  - script: | 
+      cd scripts
+      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
+      cd ..
 
 - job: Python
   displayName: "Python packaging"
