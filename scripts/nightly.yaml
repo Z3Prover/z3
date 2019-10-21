@@ -93,18 +93,19 @@ jobs:
      targetPath: tmp
   - script: |
        cd scripts 
-       python mk_nuget_task.py ../tmp $(z3Version) 3424ffa
+       python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
        cd ..
-  - task: DotNetCoreCLI@2
+  - task: NuGetCommand@2
     inputs:
-     command: pack
-     basePath: scripts/out
-  - task: DotNetCoreCLI@2
+      command: pack
+      packagesToPack: scripts/out/*.nuspec
+      packDestination: $(Build.ArtifactStagingDirectory)
+  - task: NuGetCommand@2
     inputs: 
       command: 'pack'
-      basePath: scripts/out
+      packagesToPack: scripts/out/*.nuspec
       includesymbols: true
-# TBD: access packages 
+      packDestination: $(Build.ArtifactStagingDirectory)
 
 # Not available as a task?
 #  - script: | 
