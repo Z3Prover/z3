@@ -143,25 +143,10 @@ bool simplify_processed_with_eq(equation*);
 
     
     void init_equation(equation* eq, nex*, ci_dependency* d);
-    equation * simplify(equation const * source, equation * target);    
-    // bool less_than_on_vars(lpvar a, lpvar b) const {
-    //     const auto &aw = m_nex_creatorm_active_vars_weights[a];
-    //     const auto &ab = m_active_vars_weights[b];
-    //     if (aw < ab)
-    //         return true;
-    //     if (aw > ab)
-    //         return false;
-    //     // aw == ab
-    //     return a < b;
-    // }
-
-    // bool less_than_on_expr(const nex* a, const nex* b) const {
-    //     lt_on_vars lt = [this](lpvar j, lpvar k) {return less_than_on_vars(j, k);};
-    //     return less_than_nex(a, b, lt);
-    // }
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
     void insert_to_process(equation *eq) { m_to_process.insert(eq); }
+    void insert_processed(equation *eq) { m_processed.insert(eq); }
     void simplify_equations_to_process();
     const nex_mul * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);

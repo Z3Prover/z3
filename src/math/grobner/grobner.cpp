@@ -653,7 +653,7 @@ grobner::equation * grobner::simplify_source_target(equation const * source, equ
 grobner::equation * grobner::simplify_using_processed(equation * eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_processed.size() <<  "\n";);
     do {
         simplified = false;
         for (equation const* p : m_processed) {

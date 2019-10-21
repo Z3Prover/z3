@@ -81,7 +81,7 @@ void nla_grobner::find_nl_cluster() {
     prepare_rows_and_active_vars();
     std::queue<lpvar> q;
     for (lpvar j : c().m_to_refine) {        
-        TRACE("nla_grobner", c().print_monic(c().emons()[j], tout) << "\n";);
+        TRACE("grobner", c().print_monic(c().emons()[j], tout) << "\n";);
         q.push(j);
     }
 
@@ -93,7 +93,7 @@ void nla_grobner::find_nl_cluster() {
         add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
     }
     set_active_vars_weights();
-    TRACE("nla_grobner", display(tout););
+    TRACE("grobner", display(tout););
 }
 
 void nla_grobner::prepare_rows_and_active_vars() {
@@ -179,12 +179,12 @@ common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index
 
 void nla_grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
-    TRACE("nla_grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
+    TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
     nex_sum * ns = m_nex_creator.mk_sum();
 
     svector<lp::constraint_index> fixed_vars_constraints;
     create_sum_from_row(row, m_nex_creator, *ns, true); // true to treat fixed vars as scalars
-    TRACE("nla_grobner", tout << "ns = " << *ns << "\n";);
+    TRACE("grobner", tout << "ns = " << *ns << "\n";);
     m_tmp_var_set.clear();    
     assert_eq_0(ns, get_fixed_vars_dep_from_row(row, m_dep_manager));
 }
@@ -250,11 +250,11 @@ nla_grobner::equation* nla_grobner::pick_next() {
 nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_processed.size() << "\n";);
     do {
         simplified = false;
         for (equation const* p : m_processed) {
-            equation * new_eq  = simplify(p, eq);
+            equation * new_eq  = simplify_source_target(p, eq);
             if (new_eq) {
                 result     = true;
                 simplified = true;
@@ -289,7 +289,7 @@ bool nla_grobner::simplify_target_monomials(equation const * source, equation * 
     if (high_mon == nullptr)
         return false;
     SASSERT(high_mon->all_factors_are_elementary());
-    TRACE("nla_grobner", tout << "source = "; display_equation(tout, *source) << "target = "; display_equation(tout, *target) << "high_mon = " << *high_mon << "\n";);
+    TRACE("grobner", tout << "source = "; display_equation(tout, *source) << "target = "; display_equation(tout, *target) << "high_mon = " << *high_mon << "\n";);
 
     nex * te = target->exp();    
     nex_sum * targ_sum;
@@ -298,7 +298,7 @@ bool nla_grobner::simplify_target_monomials(equation const * source, equation * 
     } else if (te->is_mul()) {
         targ_sum = m_nex_creator.mk_sum(te);
     } else {
-        TRACE("nla_grobner", tout << "return false\n";);
+        TRACE("grobner", tout << "return false\n";);
         return false;
     }
 
@@ -341,11 +341,11 @@ bool nla_grobner::divide_ignore_coeffs_check_only(nex_mul* t , const nex_mul* h)
             }
         }
         if (!p_swallowed) {
-            TRACE("nla_grobner", tout << "no div " << *t << " / " << *h << "\n";);
+            TRACE("grobner", tout << "no div " << *t << " / " << *h << "\n";);
             return false;
         }
     }
-    TRACE("nla_grobner", tout << "division " << *t << " / " << *h << "\n";);
+    TRACE("grobner", tout << "division " << *t << " / " << *h << "\n";);
     return true;
 }
 
@@ -457,7 +457,7 @@ bool nla_grobner::simplify_processed_with_eq(equation* eq) {
             to_delete.push_back(target);
     }
     for (equation* eq : to_insert) 
-        m_processed.insert(eq);
+        insert_processed(eq);
     for (equation* eq : to_remove)
         m_processed.erase(eq);
     for (equation* eq : to_delete) 
@@ -515,7 +515,7 @@ bool nla_grobner::compute_basis_step() {
     if (canceled()) return false;
     if (!simplify_processed_with_eq(eq)) return false;
     superpose(eq);
-    m_processed.insert(eq);
+    insert_processed(eq);
     simplify_to_process(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
@@ -637,70 +637,6 @@ void nla_grobner::display_equations(std::ostream & out, equation_set const & v, 
     NOT_IMPLEMENTED_YET();
 }
 
-
-// void nla_grobner::simplify(ptr_vector<monomial> & monomials) {
-//     NOT_IMPLEMENTED_YET();
-//     // std::stable_sort(monomials.begin(), monomials.end(), m_monomial_lt);
-//     // merge_monomials(monomials);
-//     // normalize_coeff(monomials);
-// }
-
-nla_grobner::equation * nla_grobner::simplify(equation const * source, equation * target) {
-    NOT_IMPLEMENTED_YET();
-    /*
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
-    if (source->get_num_monomials() == 0)
-        return nullptr;
-    m_stats.m_simplify++;
-    bool result = false;
-    bool simplified;
-    do {
-        simplified          = false;
-        unsigned i          = 0;
-        unsigned j          = 0;
-        unsigned sz         = target->m_monomials.size();
-        monomial const * LT = source->get_monomial(0); 
-        ptr_vector<monomial> & new_monomials = m_tmp_monomials;
-        new_monomials.reset();
-        ptr_vector<expr>  & rest = m_tmp_vars1;
-        for (; i < sz; i++) {
-            monomial * curr = target->m_monomials[i];
-            rest.reset();
-            if (is_subset(LT, curr, rest)) {
-                if (i == 0)
-                    m_changed_leading_term = true;
-                if (!result) {
-                    // first time that source is being applied.
-                    target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
-                }
-                simplified     = true;
-                result         = true;
-                rational coeff = curr->m_coeff;
-                coeff         /= LT->m_coeff;
-                coeff.neg();
-                if (!rest.empty())
-                    target->m_lc = false;
-                mul_append(1, source, coeff, rest, new_monomials);
-                del_monomial(curr);
-                target->m_monomials[i] = 0;
-            }
-            else {
-                target->m_monomials[j] = curr;
-                j++;
-            }
-        }
-        if (simplified) {
-            target->m_monomials.shrink(j);
-            target->m_monomials.append(new_monomials.size(), new_monomials.c_ptr());
-            simplify(target);
-        }
-    }
-    while (simplified && !m_manager.canceled());
-    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-    return result ? target : nullptr;*/
-    return nullptr;
-}
-
 std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) {
     out << "m_exp = " << *eq.exp() << "\n";
     out << "dep = "; display_dependency(out, eq.dep()) << "\n";
@@ -712,7 +648,7 @@ void nla_grobner::display(std::ostream & out) const {
 }
 
 void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
-    TRACE("nla_grobner", tout << "e = " << *e << "\n";);
+    TRACE("grobner", tout << "e = " << *e << "\n";);
     if (e == nullptr)
         return;
     equation * eq = new equation();
