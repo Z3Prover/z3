@@ -95,14 +95,22 @@ jobs:
        cd scripts 
        python mk_nuget_task.py ../tmp $(z3Version) 3424ffa
        cd ..
-  - task: NuGetCommand@2
+  - task: DotNetCoreCLI@2
     inputs:
      command: pack
      basePath: scripts/out
-  - script: | 
-      cd scripts
-      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
-      cd ..
+  - task: DotNetCoreCLI@2
+    inputs: 
+      command: 'pack'
+      basePath: scripts/out
+      includesymbols: true
+# TBD: access packages 
+
+# Not available as a task?
+#  - script: | 
+#      cd scripts
+#      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
+#      cd ..
 
 - job: Python
   displayName: "Python packaging"
@@ -140,6 +148,7 @@ jobs:
   - Mac
   - Ubuntu
   - Windows
+  - NuGet
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -152,6 +161,10 @@ jobs:
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Ubuntu'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'NuGet'
      targetPath: tmp
   - task: GitHubRelease@0
     inputs:
