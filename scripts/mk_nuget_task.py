@@ -86,17 +86,12 @@ Linux Dependencies:
         <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/package/icon.jpg</iconUrl>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
         <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/LICENSE.txt</licenseUrl>
-        <repository
-            type="git"
-            url="https://github.com/Z3Prover/z3.git"
-            branch="master"
-            commit="{1}"
-        />
+        <repository type="git" url="https://github.com/Z3Prover/z3.git" branch="master" commit="{1}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
     </metadata>
 </package>""".format(release_version, release_commit)
-
+    print(contents)
     with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
         f.write(contents)
         
