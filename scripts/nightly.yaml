@@ -68,6 +68,28 @@ jobs:
       artifactName: 'Windows'
       targetPath: $(Build.ArtifactStagingDirectory)
 
+
+- job: NuGet
+  displayName: "Create Nuget Package"
+  dependsOn:
+  - Mac
+  - Ubuntu
+  - Windows
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: tmp
+  - script: python scripts/mk_nuget_task.py tmp
+
 - job: Python
   displayName: "Python packaging"
   dependsOn:

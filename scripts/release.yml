@@ -66,6 +66,7 @@ jobs:
       artifactName: 'Windows'
       targetPath: $(Build.ArtifactStagingDirectory)
 
+
 - job: Python
   displayName: "Python packaging"
   dependsOn:
@@ -141,7 +142,8 @@ jobs:
     inputs:
       secureFile: 'pypirc'
   - script: python -m pip install --user -U setuptools wheel twine
-  - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+# Uncomment on release:
+# - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
 
 # TBD: run regression tests on generated binaries.
