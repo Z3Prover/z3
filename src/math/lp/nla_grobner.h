@@ -43,8 +43,6 @@ class nla_grobner : common {
         unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
         nex *                      m_expr;           //  simplified expressionted monomials
         ci_dependency *            m_dep;           //!< justification for the equality
-        friend class nla_grobner;
-        equation() {}
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
@@ -67,12 +65,14 @@ class nla_grobner : common {
                 return (*to_sum(m_expr))[idx];
             default: return 0;
             }
-}
+        }
         nex* & exp() { return m_expr; }
         const nex*  exp() const { return m_expr; }
-        ci_dependency * get_dependency() const { return m_dep; }
+        ci_dependency * dep() const { return m_dep; }
+        ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
         bool is_linear_combination() const { return m_lc; }
+        friend class nla_grobner;
     };
 
     typedef obj_hashtable<equation> equation_set;
@@ -165,5 +165,10 @@ bool simplify_processed_with_eq(equation*);
     void simplify_equations_to_process();
     const nex_mul * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
+    bool simplify_target_monomials_sum(equation const *, equation *, nex_sum*, const nex_mul*);    
+    bool simplify_target_monomials_sum_j(equation const *, equation *, nex_sum*, const nex_mul*, unsigned);
+    nex_mul * divide_ignore_coeffs(nex* ej, const nex_mul*);
+    bool divide_ignore_coeffs_check_only(nex_mul* , const nex_mul*);
+    nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex_mul*);
 }; // end of grobner
 }
