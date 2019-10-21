@@ -88,7 +88,10 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-  - script: python scripts/mk_nuget_task.py tmp
+  - script |
+       cd scripts 
+       python mk_nuget_task.py ../tmp
+       cd ..
 
 - job: Python
   displayName: "Python packaging"

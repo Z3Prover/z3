@@ -11,7 +11,6 @@
 
 import json
 import os
-import urllib.request
 import zipfile
 import sys
 import os.path
@@ -19,16 +18,6 @@ import shutil
 import subprocess
 import mk_util
 import mk_project
-
-#release_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/z3/releases/latest").read().decode())
-#release_tag_name = release_data['tag_name']
-#release_tag_ref_data = json.loads(urllib.request.urlopen("https://api.github.com/repos/Z3Prover/z3/git/refs/tags/%s" % release_tag_name).read().decode())
-#release_tag_sha = release_tag_ref_data['object']['sha']
-
-#release_version = release_tag_name[3:]
-#release_commit = release_tag_sha # release_tag_data['object']['sha']
-
-#print(release_version)
 
 def mk_dir(d):
     if not os.path.exists(d):
@@ -166,7 +155,7 @@ def sign_nuget_package():
     
     
 def main():
-    packages = sys.argv[0]
+    packages = sys.argv[1]
     print(packages)
     mk_dir(packages)    
     unpack(packages)
