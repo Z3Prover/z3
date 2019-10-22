@@ -1335,6 +1335,23 @@ namespace smt {
             return;
         }
         SASSERT(ex->get_num_args() == 3);
+
+        {
+            // Attempt to rewrite to an integer constant. If this succeeds,
+            // assert equality with that constant.
+            // The rewriter normally takes care of this for terms that are in scope
+            // at the beginning of the search.
+            // We perform the check here to catch terms that are added during the search.
+            expr_ref rwex(ex, m);
+            rw(rwex);
+            if (m_autil.is_numeral(rwex)) {
+                TRACE("str", tout << "constant expression " << mk_pp(ex, m) << " simplifies to " << mk_pp(rwex, m) << std::endl;);
+                assert_axiom(ctx.mk_eq_atom(ex, rwex));
+                axiomatized_terms.insert(ex);
+                return;
+            }
+        }
+
         // if the third argument is exactly the integer 0, we can use this "simple" indexof;
         // otherwise, we call the "extended" version
         expr * startingPosition = ex->get_arg(2);
@@ -1516,6 +1533,7 @@ namespace smt {
         {
             expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            rw(premise);
             assert_implication(premise, conclusion);
         }
         // case 4: 0 < i < len(H), N non-empty, and H contains N
