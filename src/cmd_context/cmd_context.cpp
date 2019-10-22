@@ -466,7 +466,6 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     m_interactive_mode(false),
     m_global_decls(false),
     m_print_success(m_params.m_smtlib2_compliant),
-    m_random_seed(0),
     m_produce_unsat_cores(false),
     m_produce_unsat_assumptions(false),
     m_produce_assignments(false),
