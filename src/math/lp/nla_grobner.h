@@ -84,8 +84,8 @@ class nla_grobner : common {
     lp::int_set                                  m_rows;
     unsigned                                     m_num_of_equations;
     grobner_stats                                m_stats;
-    equation_set                                 m_processed;
-    equation_set                                 m_to_process;
+    equation_set                                 m_to_superpose;
+    equation_set                                 m_to_simplify;
     bool                                         m_nl_gb_exhausted;
     ptr_vector<nex>                              m_allocated;
     lp::int_set                                  m_tmp_var_set;
@@ -145,8 +145,8 @@ bool simplify_processed_with_eq(equation*);
     void init_equation(equation* eq, nex*, ci_dependency* d);
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
-    void insert_to_process(equation *eq) { m_to_process.insert(eq); }
-    void insert_processed(equation *eq) { m_processed.insert(eq); }
+    void insert_to_process(equation *eq) { m_to_simplify.insert(eq); }
+    void insert_processed(equation *eq) { m_to_superpose.insert(eq); }
     void simplify_equations_to_process();
     const nex_mul * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);

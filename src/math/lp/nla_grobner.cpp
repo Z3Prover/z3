@@ -190,7 +190,7 @@ void nla_grobner::add_row(unsigned i) {
 }
 
 void nla_grobner::simplify_equations_to_process() {
-    for (equation *eq : m_to_process) {
+    for (equation *eq : m_to_simplify) {
         eq->exp() = m_nex_creator.simplify(eq->exp());
     }
 }
@@ -221,8 +221,8 @@ bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
 void nla_grobner::del_equation(equation * eq) {
     NOT_IMPLEMENTED_YET();
     /*
-    m_processed.erase(eq);
-    m_to_process.erase(eq);
+    m_to_superpose.erase(eq);
+    m_to_simplify.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
     m_equations_to_delete[eq->m_bidx] = 0;
     del_monomials(eq->m_exp);
@@ -233,7 +233,7 @@ void nla_grobner::del_equation(equation * eq) {
 nla_grobner::equation* nla_grobner::pick_next() {
     equation * r = nullptr;
     ptr_buffer<equation> to_delete;
-    for (equation * curr : m_to_process) {
+    for (equation * curr : m_to_simplify) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
         else if (is_better_choice(curr, r))
@@ -242,7 +242,7 @@ nla_grobner::equation* nla_grobner::pick_next() {
     for (equation * e : to_delete) 
         del_equation(e);
     if (r)
-        m_to_process.erase(r);
+        m_to_simplify.erase(r);
     TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
     return r;
 }
@@ -250,10 +250,10 @@ nla_grobner::equation* nla_grobner::pick_next() {
 nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_processed.size() << "\n";);
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_to_superpose.size() << "\n";);
     do {
         simplified = false;
-        for (equation const* p : m_processed) {
+        for (equation const* p : m_to_superpose) {
             equation * new_eq  = simplify_source_target(p, eq);
             if (new_eq) {
                 result     = true;
@@ -443,12 +443,12 @@ bool nla_grobner::simplify_processed_with_eq(equation* eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
-    equation_set::iterator it  = m_processed.begin();
-    equation_set::iterator end = m_processed.end();
+    equation_set::iterator it  = m_to_superpose.begin();
+    equation_set::iterator end = m_to_superpose.end();
     for (; it != end && !canceled(); ++it) {
         equation * target        = *it;
         m_changed_leading_term = false;
-        // if the leading term is simplified, then the equation has to be moved to m_to_process
+        // if the leading term is simplified, then the equation has to be moved to m_to_simplify
         equation * new_target    = simplify_source_target(eq, target);
         if (new_target != nullptr) {
             process_simplified_target(to_insert, new_target, target, to_remove);
@@ -459,7 +459,7 @@ bool nla_grobner::simplify_processed_with_eq(equation* eq) {
     for (equation* eq : to_insert) 
         insert_processed(eq);
     for (equation* eq : to_remove)
-        m_processed.erase(eq);
+        m_to_superpose.erase(eq);
     for (equation* eq : to_delete) 
         del_equation(eq);
     return !canceled();
@@ -469,7 +469,7 @@ void  nla_grobner::simplify_to_process(equation* eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
-    for (equation* target : m_to_process) {
+    for (equation* target : m_to_simplify) {
         equation * new_target = simplify_source_target(eq, target);
         if (new_target != nullptr && new_target != target) {
             m_equations_to_unfreeze.push_back(target);
@@ -483,7 +483,7 @@ void  nla_grobner::simplify_to_process(equation* eq) {
     for (equation* eq : to_insert)
         insert_to_process(eq);
     for (equation* eq : to_remove)
-        m_to_process.erase(eq);
+        m_to_simplify.erase(eq);
     for (equation* eq : to_delete)
         del_equation(eq);
 
@@ -500,7 +500,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
 }
 
 void nla_grobner::superpose(equation * eq) {
-    for (equation * target : m_processed) {
+    for (equation * target : m_to_superpose) {
         superpose(eq, target);
     }
 }
@@ -554,7 +554,7 @@ void nla_grobner::update_statistics(){
     /* todo : implement
       m_stats.m_gb_simplify      += gb.m_stats.m_simplify;
     m_stats.m_gb_superpose     += gb.m_stats.m_superpose;
-    m_stats.m_gb_num_processed += gb.m_stats.m_num_processed;
+    m_stats.m_gb_num_to_superpose += gb.m_stats.m_num_to_superpose;
     m_stats.m_gb_compute_basis++;*/
 }
 
@@ -589,8 +589,8 @@ void copy_to(const T& source, V& target ) {
 }
 
 void nla_grobner::get_equations(ptr_vector<equation>& result) {
-    copy_to(m_processed, result);
-    copy_to(m_to_process, result);
+    copy_to(m_to_superpose, result);
+    copy_to(m_to_simplify, result);
 }
 
 
