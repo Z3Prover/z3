@@ -253,7 +253,7 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_to_superpose.size() << "\n";);
     do {
         simplified = false;
-        for (equation const* p : m_to_superpose) {
+        for (equation * p : m_to_superpose) {
             equation * new_eq  = simplify_source_target(p, eq);
             if (new_eq) {
                 result     = true;
@@ -271,7 +271,7 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
 
 }
 
-const nex_mul* nla_grobner::get_highest_monomial(const nex* e) const {
+nex_mul* nla_grobner::get_highest_monomial(nex* e) const {
     switch (e->type()) {
     case expr_type::MUL:
         return to_mul(e);
@@ -284,7 +284,7 @@ const nex_mul* nla_grobner::get_highest_monomial(const nex* e) const {
 // source 3f + k + l = 0, so f = (-k - l)/3
 // target 2fg + 3fp + e = 0  
 // target is replaced by 2(-k/3 - l/3)g + 3(-k/3 - l/3)p + e = -2/3kg -2/3lg - kp -lp + e
-bool nla_grobner::simplify_target_monomials(equation const * source, equation * target) {
+bool nla_grobner::simplify_target_monomials(equation * source, equation * target) {
     const nex_mul * high_mon = get_highest_monomial(source->exp());
     if (high_mon == nullptr)
         return false;
@@ -398,7 +398,7 @@ bool nla_grobner::simplify_target_monomials_sum_j(equation const * source, equat
 }
 
 
-nla_grobner::equation * nla_grobner::simplify_source_target(equation const * source, equation * target) {
+nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     if (source->get_num_monomials() == 0)
         return nullptr;
@@ -492,12 +492,63 @@ void  nla_grobner::simplify_to_process(equation* eq) {
 // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
 void nla_grobner::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
-    const nex_mul * ab = get_highest_monomial(eq1->exp()); 
-    const nex_mul * ac = get_highest_monomial(eq2->exp()); 
+    nex_mul * ab = get_highest_monomial(eq1->exp()); 
+    nex_mul * ac = get_highest_monomial(eq2->exp());
+    nex_mul *b, *c;
     TRACE("grobner", tout << "ab=" << *ab << " , " << " ac = " << *ac << "\n";);
-
-    NOT_IMPLEMENTED_YET();
+    if (!find_b_c(ab, ac, b, c)) {
+        return;
+    }
+    
 }
+
+bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
+    if (!find_b_c_check(ab, ac))
+        return false;
+    unsigned i = 0, j = 0; // i points to ab, j points to ac
+    b = m_nex_creator.mk_mul(); c = m_nex_creator.mk_mul();
+    nex_pow* bp = ab->begin();
+    nex_pow* cp = ac->begin();
+    for (;;) {
+        if (m_nex_creator.lt(bp->e(), cp->e())) {
+            b->add_child_in_power(*bp);
+            if (++bp == ab->end())
+                break;
+        } else if (m_nex_creator.lt(cp->e(), bp->e())) {
+            c->add_child_in_power(*cp);
+            if (++cp == ac->end())
+                break;
+        } else {
+            NOT_IMPLEMENTED_YET();
+        }
+        
+    }
+    NOT_IMPLEMENTED_YET();
+    return true;
+}
+
+bool nla_grobner::find_b_c_check(const nex_mul*ab, const nex_mul* ac) const {
+    SASSERT(m_nex_creator.is_simplified(ab) && m_nex_creator.is_simplified(ab));
+    unsigned i = 0, j = 0; // i points to ab, j points to ac
+    for (;;) {
+        if (m_nex_creator.lt((*ab)[i].e(), (*ac)[j].e())) {
+            i++;
+            if (i == ab->size())
+                return false;
+        } else if (m_nex_creator.lt((*ac)[j].e(), (*ab)[i].e())) {
+            j++;
+            if (j == ac->size())
+                return false;
+        } else {
+            TRACE("grobner", tout << "found common " << *(*ac)[j].e() << " in " << *ab << " and " << *ac << "\n";);
+            return true;
+        }
+    }
+
+    TRACE("grobner", tout << "not found common " << " in " << *ab << " and " << *ac << "\n";);
+    return false;
+}
+
 
 void nla_grobner::superpose(equation * eq) {
     for (equation * target : m_to_superpose) {

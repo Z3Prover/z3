@@ -224,6 +224,10 @@ public:
         add_child_in_power(e, 1);
     }
 
+    void add_child_in_power(nex_pow&  p) {
+        add_child_in_power(p.e(), p.pow());
+    }
+
 
     const nex_pow& operator[](unsigned j) const { return m_children[j]; }
     nex_pow& operator[](unsigned j) { return m_children[j]; }

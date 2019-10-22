@@ -113,9 +113,9 @@ private:
     void compute_basis_init();        
     bool compute_basis_loop();
     bool compute_basis_step();
-    equation * simplify_source_target(equation const * source, equation * target);
+    equation * simplify_source_target(equation * source, equation * target);
     equation* simplify_using_processed(equation*);
-    bool simplify_target_monomials(equation const * source, equation * target);
+    bool simplify_target_monomials(equation * source, equation * target);
     void process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove);
 bool simplify_processed_with_eq(equation*);
     void simplify_to_process(equation*);
@@ -124,6 +124,8 @@ bool simplify_processed_with_eq(equation*);
     bool canceled() { return false; } // todo, implement
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
+    bool find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c);
+    bool find_b_c_check(const nex_mul*ab, const nex_mul* ac) const;
     bool is_trivial(equation* ) const; 
     bool is_better_choice(equation * eq1, equation * eq2);
     void del_equations(unsigned old_size);
@@ -148,7 +150,7 @@ bool simplify_processed_with_eq(equation*);
     void insert_to_process(equation *eq) { m_to_simplify.insert(eq); }
     void insert_processed(equation *eq) { m_to_superpose.insert(eq); }
     void simplify_equations_to_process();
-    const nex_mul * get_highest_monomial(const nex * e) const;
+    nex_mul * get_highest_monomial(nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
     bool simplify_target_monomials_sum(equation const *, equation *, nex_sum*, const nex_mul*);    
     bool simplify_target_monomials_sum_j(equation const *, equation *, nex_sum*, const nex_mul*, unsigned);
