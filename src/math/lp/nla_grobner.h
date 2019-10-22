@@ -147,8 +147,8 @@ bool simplify_processed_with_eq(equation*);
     void init_equation(equation* eq, nex*, ci_dependency* d);
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
-    void insert_to_process(equation *eq) { m_to_simplify.insert(eq); }
-    void insert_processed(equation *eq) { m_to_superpose.insert(eq); }
+    void insert_to_simplify(equation *eq) { m_to_simplify.insert(eq); }
+    void insert_to_superpose(equation *eq) { m_to_superpose.insert(eq); }
     void simplify_equations_to_process();
     nex_mul * get_highest_monomial(nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
