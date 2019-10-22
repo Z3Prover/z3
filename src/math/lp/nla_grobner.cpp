@@ -499,13 +499,13 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     if (!find_b_c(ab, ac, b, c)) {
         return;
     }
-    
+
+    NOT_IMPLEMENTED_YET();
 }
 
 bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
     if (!find_b_c_check(ab, ac))
         return false;
-    unsigned i = 0, j = 0; // i points to ab, j points to ac
     b = m_nex_creator.mk_mul(); c = m_nex_creator.mk_mul();
     nex_pow* bp = ab->begin();
     nex_pow* cp = ac->begin();
@@ -519,12 +519,30 @@ bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
             if (++cp == ac->end())
                 break;
         } else {
-            NOT_IMPLEMENTED_YET();
+            unsigned b_pow = bp->pow();
+            unsigned c_pow = cp->pow();
+            if (b_pow > c_pow) {
+                b->add_child_in_power(bp->e(), b_pow - c_pow);
+            } else if (c_pow > b_pow) {
+                c->add_child_in_power(cp->e(), c_pow - b_pow);
+            } // otherwise the power are equal and no child added to either b or c
+            bp++; cp++;
+           
+            if (bp == ab->end() || cp == ac->end()) {
+                break;
+            }
         }
-        
     }
-    NOT_IMPLEMENTED_YET();
-    return true;
+    
+    while (cp != ac->end()) {
+        c->add_child_in_power(*cp);
+        cp++;
+    }
+    while (bp != ab->end()) {
+        b->add_child_in_power(*bp);
+        bp++;
+    }
+    TRACE("nla_grobner", tout << "b=" << *b << ", c=" <<*c << "\n";);
 }
 
 bool nla_grobner::find_b_c_check(const nex_mul*ab, const nex_mul* ac) const {
