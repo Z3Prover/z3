@@ -489,8 +489,13 @@ void  nla_grobner::simplify_to_process(equation* eq) {
 
 }
 
-
+// let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
 void nla_grobner::superpose(equation * eq1, equation * eq2) {
+    TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
+    const nex_mul * ab = get_highest_monomial(eq1->exp()); 
+    const nex_mul * ac = get_highest_monomial(eq2->exp()); 
+    TRACE("grobner", tout << "ab=" << *ab << " , " << " ac = " << *ac << "\n";);
+
     NOT_IMPLEMENTED_YET();
 }
 
