@@ -423,7 +423,7 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
         m_equations_to_unfreeze.push_back(target);
         to_remove.push_back(target);
         if (m_changed_leading_term) {
-            insert_to_process(new_target);
+            insert_to_simplify(new_target);
             to_remove.push_back(target);
         }
         else {
@@ -433,7 +433,7 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
     }
     else {
         if (m_changed_leading_term) {
-            insert_to_process(target);
+            insert_to_simplify(target);
             to_remove.push_back(target);
         }
     }
@@ -457,7 +457,7 @@ bool nla_grobner::simplify_processed_with_eq(equation* eq) {
             to_delete.push_back(target);
     }
     for (equation* eq : to_insert) 
-        insert_processed(eq);
+        insert_to_superpose(eq);
     for (equation* eq : to_remove)
         m_to_superpose.erase(eq);
     for (equation* eq : to_delete) 
@@ -481,7 +481,7 @@ void  nla_grobner::simplify_to_process(equation* eq) {
             to_delete.push_back(target);
     }
     for (equation* eq : to_insert)
-        insert_to_process(eq);
+        insert_to_simplify(eq);
     for (equation* eq : to_remove)
         m_to_simplify.erase(eq);
     for (equation* eq : to_delete)
@@ -499,8 +499,8 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     if (!find_b_c(ab, ac, b, c)) {
         return;
     }
-
     NOT_IMPLEMENTED_YET();
+    //    insert_to_
 }
 
 bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
@@ -543,6 +543,7 @@ bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
         bp++;
     }
     TRACE("nla_grobner", tout << "b=" << *b << ", c=" <<*c << "\n";);
+    return true;
 }
 
 bool nla_grobner::find_b_c_check(const nex_mul*ab, const nex_mul* ac) const {
@@ -589,7 +590,7 @@ bool nla_grobner::compute_basis_step() {
     if (canceled()) return false;
     if (!simplify_processed_with_eq(eq)) return false;
     superpose(eq);
-    insert_processed(eq);
+    insert_to_superpose(eq);
     simplify_to_process(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
@@ -727,7 +728,7 @@ void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
         return;
     equation * eq = new equation();
     init_equation(eq, e, dep);
-    insert_to_process(eq);
+    insert_to_simplify(eq);
 }
 
 void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
