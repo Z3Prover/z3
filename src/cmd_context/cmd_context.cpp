@@ -2184,7 +2184,7 @@ void cmd_context::dt_eh::operator()(sort * dt, pdecl* pd) {
             m_owner.insert(a);
         }
     }
-    if (!m_owner.m_scopes.empty()) {
+    if (!m_owner.m_scopes.empty() && !m_owner.m_global_decls) {
         m_owner.pm().inc_ref(pd);
         m_owner.m_psort_inst_stack.push_back(pd);
     }

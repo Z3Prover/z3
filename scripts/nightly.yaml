@@ -95,17 +95,17 @@ jobs:
        cd scripts 
        python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
        cd ..
-  - task: NuGetCommand@2
-    inputs:
-      command: pack
-      packagesToPack: scripts/out/*.nuspec
-      packDestination: $(Build.ArtifactStagingDirectory)
-  - task: NuGetCommand@2
-    inputs: 
-      command: 'pack'
-      packagesToPack: scripts/out/*.nuspec
-      includesymbols: true
-      packDestination: $(Build.ArtifactStagingDirectory)
+#  - task: NuGetCommand@2
+#    inputs:
+#      command: pack
+#      packagesToPack: scripts/out/*.nuspec
+#      packDestination: $(Build.ArtifactStagingDirectory)
+#  - task: NuGetCommand@2
+#    inputs: 
+#      command: 'pack'
+#      packagesToPack: scripts/out/*.nuspec
+#      includesymbols: true
+#      packDestination: $(Build.ArtifactStagingDirectory)
 
 # Not available as a task?
 #  - script: | 
