@@ -97,8 +97,8 @@ protected:
     obj_map<expr, int>      m_var2weight;
     var_lt                  m_var_lt;
     monomial_lt             m_monomial_lt;
-    equation_set            m_processed;
-    equation_set            m_to_process;
+    equation_set            m_to_superpose;
+    equation_set            m_to_simplify;
     equation_vector         m_equations_to_unfreeze;
     equation_vector         m_equations_to_delete;
     bool                    m_changed_leading_term; // set to true, if the leading term was simplified.
