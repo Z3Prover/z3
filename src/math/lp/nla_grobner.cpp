@@ -488,7 +488,38 @@ void  nla_grobner::simplify_to_process(equation* eq) {
         del_equation(eq);
 
 }
+// let e1: alpha*ab+q=0, and e2: beta*ac+e=0, then beta*qc - alpha*eb = 0
+nex * nla_grobner::expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, nex_mul* b, nex_mul* c) {
+    TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\n";);    
+    nex_sum * r = m_nex_creator.mk_sum();
+    rational alpha = - ab->coeff();
+    TRACE("grobner", tout << "e2 *= " << alpha << "*(" <<  *b << ")\n";);
+    if (e2->is_sum()) {
+        nex_sum *e2s = to_sum(e2);
+        for (unsigned j = 1; j < e2s->size(); j++) {
+            r->add_child(m_nex_creator.mk_mul(alpha, (*e2s)[j], b));
+        }
+        TRACE("grobner", tout << "r = " << *r << "\n";);
+    } else {
+        NOT_IMPLEMENTED_YET();
+    }
 
+    rational beta = ac->coeff();
+    TRACE("grobner", tout << "e1 *= " << beta << "*(" <<  *c << ")\n";);
+    if (e1->is_sum()) {
+        nex_sum *e1s = to_sum(e1);
+        for (unsigned j = 1; j < e1s->size(); j++) {
+            r->add_child(m_nex_creator.mk_mul(beta, (*e1s)[j], c));
+        }
+        TRACE("grobner", tout << "r = " << *r << "\n";);        
+    } else {
+        NOT_IMPLEMENTED_YET();
+    }
+
+    nex * ret = m_nex_creator.simplify(r);
+    TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\nsuperpose = " << *ret << "\n";);
+    return ret;
+}
 // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
 void nla_grobner::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
@@ -499,8 +530,9 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     if (!find_b_c(ab, ac, b, c)) {
         return;
     }
-    NOT_IMPLEMENTED_YET();
-    //    insert_to_
+    equation* eq = new equation(); // to do - need no remove !!!!!!!!!!!!!!!!!!!
+    init_equation(eq, expr_superpose( eq1->exp(), eq2->exp(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));  
+    insert_to_simplify(eq);
 }
 
 bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
