@@ -466,16 +466,14 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
                 }
                 continue;
             }
-            // kv.m_value contains the model for the unspecified cases of kv.m_key.
-            // TBD: instead of mapping the interpretation of f to just the graph for the
-            // uninterpreted case, map it to a condition, ite, that filters out the
-            // pre-condition for which argument combinations are interpreted vs. uninterpreted.
-            // if (m_fpa_util.is_to_ieee_bv(f)) {
-            // }
-            // if (m_fpa_util.is_to_sbv(f)) {
-            // }
 
 
+            //  f is a floating point function: f(x,y) : Float
+            //  f_uf is a bit-vector function: f_uf(xB,yB) : BitVec
+            //  then there is f_def: f_Bv(xB, yB) := if(range(xB),.., f_uf(xB,yB))
+            //  f(x,y) := to_float(if(range(to_bv(x)), ... f_uf(to_bv(xB), to_bv(yB)))) - not practical
+            //         := if(range_fp(x), ...., to_float(f_uf(...))                     - approach
+                                                               
             target_model->register_decl(f, convert_func_interp(mc, f, f_uf));            
         }
     }

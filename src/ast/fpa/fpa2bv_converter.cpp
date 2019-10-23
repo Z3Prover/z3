@@ -3201,26 +3201,6 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     sort * xs = m.get_sort(x);
     sort * bv_srt = f->get_range();
 
-#if 0
-    // for this to work, the following is required:
-    // 1. split_fp should succeed even if the argument does not satisfy is_fp
-    //    we would need functions to access the sgn, exp and sig fields
-    // 2. an inverse of bv2rm, here called rm2bv. 
-    expr_ref arg1(m), arg2(m), _rm(m);
-    
-    var_subst vsubst(m, false);
-    expr* def = get_bv_def(f);
-    if (def) {
-        result = vsubst(def, 2, args);
-        return;
-    }    
-    arg1 = m.mk_var(0, m.get_sort(args[0]));
-    arg2 = m.mk_var(1, m.get_sort(args[1]));
-    _rm = m_util.mk_rm2bv(arg1);    
-    rm = _rm;
-    x = arg2;
-#endif
-
     expr_ref sgn(m), sig(m), exp(m), lz(m);
     unpack(x, sgn, sig, exp, lz, true);
     
@@ -3370,10 +3350,6 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     result = m.mk_ite(c2, v2, result);
     result = m.mk_ite(c1, v1, result);
 
-#if 0
-    set_bv_def(f, result);    
-    result = vsubst(result, 2, args);
-#endif
     SASSERT(is_well_sorted(m, result));
 }
 

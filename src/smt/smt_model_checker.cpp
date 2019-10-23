@@ -238,7 +238,7 @@ namespace smt {
                 sk_value = get_type_compatible_term(sk_value);
             }
             func_decl * f = nullptr;
-            if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f)) {
+            if (autil.is_as_array(sk_value, f) && cex->get_func_interp(f) && cex->get_func_interp(f)->get_interp()) {
                 expr_ref body(cex->get_func_interp(f)->get_interp(), m);
                 ptr_vector<sort> sorts(f->get_arity(), f->get_domain());
                 svector<symbol> names;
