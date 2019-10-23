@@ -158,5 +158,6 @@ bool simplify_processed_with_eq(equation*);
     bool divide_ignore_coeffs_check_only(nex_mul* , const nex_mul*);
     nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex_mul*);
     nex * expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, nex_mul* b, nex_mul* c);
+    void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
 }; // end of grobner
 }
