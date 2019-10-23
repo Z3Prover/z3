@@ -488,34 +488,30 @@ void  nla_grobner::simplify_to_process(equation* eq) {
         del_equation(eq);
 
 }
+
+void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
+     if (e->is_sum()) {
+        nex_sum *es = to_sum(e);
+        for (unsigned j = 1; j < es->size(); j++) {
+            r->add_child(m_nex_creator.mk_mul(beta, (*es)[j], c));
+        }
+        TRACE("grobner", tout << "r = " << *r << "\n";);        
+    } else {
+        NOT_IMPLEMENTED_YET();
+    }
+}
+
+
 // let e1: alpha*ab+q=0, and e2: beta*ac+e=0, then beta*qc - alpha*eb = 0
 nex * nla_grobner::expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, nex_mul* b, nex_mul* c) {
     TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\n";);    
     nex_sum * r = m_nex_creator.mk_sum();
     rational alpha = - ab->coeff();
     TRACE("grobner", tout << "e2 *= " << alpha << "*(" <<  *b << ")\n";);
-    if (e2->is_sum()) {
-        nex_sum *e2s = to_sum(e2);
-        for (unsigned j = 1; j < e2s->size(); j++) {
-            r->add_child(m_nex_creator.mk_mul(alpha, (*e2s)[j], b));
-        }
-        TRACE("grobner", tout << "r = " << *r << "\n";);
-    } else {
-        NOT_IMPLEMENTED_YET();
-    }
-
+    add_mul_skip_first(r, alpha, e2, b);
     rational beta = ac->coeff();
     TRACE("grobner", tout << "e1 *= " << beta << "*(" <<  *c << ")\n";);
-    if (e1->is_sum()) {
-        nex_sum *e1s = to_sum(e1);
-        for (unsigned j = 1; j < e1s->size(); j++) {
-            r->add_child(m_nex_creator.mk_mul(beta, (*e1s)[j], c));
-        }
-        TRACE("grobner", tout << "r = " << *r << "\n";);        
-    } else {
-        NOT_IMPLEMENTED_YET();
-    }
-
+    add_mul_skip_first(r, beta, e1, c);
     nex * ret = m_nex_creator.simplify(r);
     TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\nsuperpose = " << *ret << "\n";);
     return ret;
