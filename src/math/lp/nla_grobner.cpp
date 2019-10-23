@@ -305,15 +305,30 @@ bool nla_grobner::simplify_target_monomials(equation * source, equation * target
     return simplify_target_monomials_sum(source, target, targ_sum, high_mon);   
 }
 
+bool nla_grobner::simplify_target_monomials_sum_check_only(nex_sum* targ_sum,
+                                                           const nex_mul* high_mon) {
+    for (auto t : *targ_sum) {
+        if (!t->is_mul()) continue; // what if t->is_var()
+        if (divide_ignore_coeffs_check_only(to_mul(t), high_mon)) {
+            TRACE("grobner", tout << "yes div: " << *targ_sum << " / " << high_mon << "\n";);
+            return true;
+        }
+    }
+    TRACE("grobner", tout << "no div: " << *targ_sum << " / " << high_mon << "\n";);
+    return false;
+}
+
+
 bool nla_grobner::simplify_target_monomials_sum(equation const * source,
                                                 equation *target, nex_sum* targ_sum,
                                                 const nex_mul* high_mon) {
-    bool ret = false;
+    if (!simplify_target_monomials_sum_check_only(targ_sum, high_mon))
+        return false;
     unsigned targ_orig_size = targ_sum->size();
     for (unsigned j = 0; j < targ_orig_size; j++) {
-        ret |= simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
+        simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
-    return ret;
+    return true;
 }
 
 nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex_mul* h) {
@@ -349,8 +364,28 @@ bool nla_grobner::divide_ignore_coeffs_check_only(nex_mul* t , const nex_mul* h)
     return true;
 }
 
+// perform the division t / h, but ignores the coefficients
 nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex_mul* h) {
-    NOT_IMPLEMENTED_YET();
+    nex_mul * r = m_nex_creator.mk_mul();
+    unsigned j = 0; // points to t
+    for(auto & p : *h) {
+        bool p_swallowed = false;
+        lpvar h_var = to_var(p.e())->var();
+        for (; j < t->size() && !p_swallowed; j++) {
+            auto &tp = (*t)[j];
+            if (to_var(tp.e())->var() == h_var) {
+                if (tp.pow() >= p.pow()) {
+                    p_swallowed = true;
+                    if (tp.pow() > p.pow())
+                        r->add_child_in_power(tp.e(), tp.pow() - p.pow());
+                } 
+            } else {
+                r->add_child_in_power(tp);
+            }
+        }
+    }
+    TRACE("grobner", tout << "r = " << *r << " = " << *t << " / " << *h << "\n";);
+    return r;
 }
 
 bool nla_grobner::simplify_target_monomials_sum_j(equation const * source, equation *target, nex_sum* targ_sum, const nex_mul* high_mon, unsigned j) {    
@@ -489,6 +524,8 @@ void  nla_grobner::simplify_to_process(equation* eq) {
 
 }
 
+// if e is the sum adds to r all children of e multiplied by beta, except the first one
+// which corresponds to the highest monomial
 void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
      if (e->is_sum()) {
         nex_sum *es = to_sum(e);
@@ -496,8 +533,6 @@ void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, n
             r->add_child(m_nex_creator.mk_mul(beta, (*es)[j], c));
         }
         TRACE("grobner", tout << "r = " << *r << "\n";);        
-    } else {
-        NOT_IMPLEMENTED_YET();
     }
 }
 
@@ -532,7 +567,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
 }
 
 bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
-    if (!find_b_c_check(ab, ac))
+    if (!find_b_c_check_only(ab, ac))
         return false;
     b = m_nex_creator.mk_mul(); c = m_nex_creator.mk_mul();
     nex_pow* bp = ab->begin();
@@ -574,7 +609,7 @@ bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
     return true;
 }
 
-bool nla_grobner::find_b_c_check(const nex_mul*ab, const nex_mul* ac) const {
+bool nla_grobner::find_b_c_check_only(const nex_mul*ab, const nex_mul* ac) const {
     SASSERT(m_nex_creator.is_simplified(ab) && m_nex_creator.is_simplified(ab));
     unsigned i = 0, j = 0; // i points to ab, j points to ac
     for (;;) {
