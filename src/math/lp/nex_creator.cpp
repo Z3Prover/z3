@@ -65,6 +65,17 @@ nex * nex_creator::mk_div(const nex* a, lpvar j) {
 }
 
 bool nex_creator::eat_scalar_pow(rational& r, const nex_pow& p, unsigned pow) {
+    if (p.e()->is_mul()) {
+        const nex_mul *m = to_mul(p.e());
+        if (m->size() == 0) {
+            const rational& coeff = m->coeff();
+            if (coeff.is_one())
+                return true;
+            r *= coeff.expt(p.pow() * pow);
+            return true;
+        }
+        return false;
+    }
     if (!p.e()->is_scalar())
         return false;
     const nex_scalar *pe = to_scalar(p.e());

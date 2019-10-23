@@ -130,45 +130,6 @@ void nla_grobner::process_var(nex_mul* m, lpvar j, ci_dependency* & dep, rationa
     }                                                           
 }                                                               
 
-/**
-   \brief Create a new monomial using the given coeff and m. Fixed
-   variables in m are substituted by their values.  The arg dep is
-   updated to store these dependencies. The set already_found is
-   updated with the fixed variables in m.  A variable is only
-   added to dep if it is not already in already_found.
-
-   Return null if the monomial was simplified to 0.
-*/
-nex * nla_grobner::mk_monomial_in_row(rational coeff, lpvar j, ci_dependency * & dep) {
-    NOT_IMPLEMENTED_YET();
-    return nullptr; 
-    /*
-      ptr_buffer<expr> vars;
-    rational r;
-
-    if (c().is_monic_var(j)) {
-        coeff *= get_monomial_coeff(m);
-        m      = get_monomial_body(m);
-        if (m_util.is_mul(m)) {
-            SASSERT(is_pure_monomial(m));
-            for (unsigned i = 0; i < to_app(m)->get_num_args(); i++) {
-                expr * arg = to_app(m)->get_arg(i);
-                process_var(arg);
-            }
-        }
-        else {
-            process_var(m);
-        }
-    }
-    else {
-        process_var(m);
-    }
-    if (!coeff.is_zero())
-        return gb.mk_monomial(coeff, vars.size(), vars.c_ptr());
-    else
-        return nullptr;
-    */
-}
 
 common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index> & cs) {
     ci_dependency * d = nullptr;
@@ -319,8 +280,8 @@ bool nla_grobner::simplify_target_monomials_sum_check_only(nex_sum* targ_sum,
 }
 
 
-bool nla_grobner::simplify_target_monomials_sum(equation const * source,
-                                                equation *target, nex_sum* targ_sum,
+bool nla_grobner::simplify_target_monomials_sum(equation * source,
+                                                equation * target, nex_sum* targ_sum,
                                                 const nex_mul* high_mon) {
     if (!simplify_target_monomials_sum_check_only(targ_sum, high_mon))
         return false;
@@ -328,6 +289,8 @@ bool nla_grobner::simplify_target_monomials_sum(equation const * source,
     for (unsigned j = 0; j < targ_orig_size; j++) {
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
+    target->exp() = m_nex_creator.simplify(targ_sum);
+    TRACE("grobner", tout << "target = "; display_equation(tout, *target););
     return true;
 }
 
@@ -388,48 +351,22 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex_mul* h
     return r;
 }
 
-bool nla_grobner::simplify_target_monomials_sum_j(equation const * source, equation *target, nex_sum* targ_sum, const nex_mul* high_mon, unsigned j) {    
+// if targ_sum->children()[j] = c*high_mon*p,
+// and  b*high_mon + e = 0, so high_mon = -e/b
+// then targ_sum->children()[j] =  - (c/b) * e*p
+
+void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex_mul* high_mon, unsigned j) {    
 
     nex * ej = (*targ_sum)[j];
-    nex * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
-    if (ej_over_high_mon == nullptr)
-        return false;
-    
-    NOT_IMPLEMENTED_YET();
-    return false;
-    /*
-          unsigned i          = 0;
-    unsigned new_target_sz = 0;
-    unsigned target_sz         = target->m_monomials.size();
-    monomial const * LT = source->get_monomial(0); 
-    m_tmp_monomials.reset();
-    for (; i < target_sz; i++) {
-        monomial * targ_i = target->m_monomials[i];
-        if (divide_ignore_coeffs(targ_i, LT)) {
-            if (i == 0)
-                m_changed_leading_term = true;
-            if (!m_tmp_vars1.empty())
-                target->m_lc = false;
-            mul_append_skip_first(source, - targ_i->m_coeff / (LT->m_coeff), m_tmp_vars1);
-            del_monomial(targ_i);
-        }
-        else {
-            if (i != new_target_sz) {
-                target->m_monomials[new_target_sz] = targ_i;
-            }
-            new_target_sz++;
-        }
+    nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
+    if (ej_over_high_mon == nullptr) {
+        return;
     }
-    if (new_target_sz < target_sz) {
-        target->m_monomials.shrink(new_target_sz);
-        target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
-        simplify_eq(target);
-        TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-        return true;
-    }
-    return false;
-    */
-    return false;
+    rational c = ej->is_mul()? to_mul(ej)->coeff() : rational(1);
+    nex_sum * ej_sum = m_nex_creator.mk_sum();
+    (*targ_sum)[j] = ej_sum;
+    add_mul_skip_first(ej_sum ,-c/high_mon->coeff(), source->exp(), ej_over_high_mon);
+    TRACE("grobner", tout << "targ_sum = " << *targ_sum << "\n";);    
 }
 
 
@@ -441,6 +378,7 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, e
     bool result = false;
     do {
         if (simplify_target_monomials(source, target)) {
+            TRACE("grobner", tout << "simplified target = ";display_equation(tout, *target) << "\n";);
             result = true;
         } else {
             break;
@@ -527,7 +465,8 @@ void  nla_grobner::simplify_to_process(equation* eq) {
 // if e is the sum adds to r all children of e multiplied by beta, except the first one
 // which corresponds to the highest monomial
 void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
-     if (e->is_sum()) {
+    SASSERT(e->is_sum());
+    if (e->is_sum()) {
         nex_sum *es = to_sum(e);
         for (unsigned j = 1; j < es->size(); j++) {
             r->add_child(m_nex_creator.mk_mul(beta, (*es)[j], c));

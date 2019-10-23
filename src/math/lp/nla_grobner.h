@@ -141,9 +141,6 @@ bool simplify_processed_with_eq(equation*);
     void assert_eq_0(nex*, ci_dependency * dep);
     void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
 
-    nex* mk_monomial_in_row(rational, lpvar, ci_dependency*&);
-
-    
     void init_equation(equation* eq, nex*, ci_dependency* d);
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*);
@@ -152,9 +149,9 @@ bool simplify_processed_with_eq(equation*);
     void simplify_equations_to_process();
     nex_mul * get_highest_monomial(nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
-    bool simplify_target_monomials_sum(equation const *, equation *, nex_sum*, const nex_mul*);    
+    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex_mul*);    
     bool simplify_target_monomials_sum_check_only(nex_sum*, const nex_mul*);    
-    bool simplify_target_monomials_sum_j(equation const *, equation *, nex_sum*, const nex_mul*, unsigned);
+    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex_mul*, unsigned);
     nex_mul * divide_ignore_coeffs(nex* ej, const nex_mul*);
     bool divide_ignore_coeffs_check_only(nex_mul* , const nex_mul*);
     nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex_mul*);
