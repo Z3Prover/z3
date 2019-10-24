@@ -315,6 +315,20 @@ static void project(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned
     std::cout << "\n";
 }
 
+static void project_fa(nlsat::solver& s, nlsat::explain& ex, nlsat::var x, unsigned num, nlsat::literal const* lits) {
+    std::cout << "Project ";
+    nlsat::scoped_literal_vector result(s);
+    ex(num, lits, result);
+    std::cout << "(or";
+    for (auto l : result) {
+        s.display(std::cout << " ", l);
+    }
+    for (unsigned i = 0; i < num; ++i) {
+        s.display(std::cout << " ", ~lits[i]);
+    }
+    std::cout << ")\n";
+}
+
 static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
     nlsat::poly * _p[1] = { p };
     bool is_even[1] = { false };
@@ -695,7 +709,56 @@ static void tst10() {
     std::cout << "\n";
 }
 
+static void tst11() {
+    params_ref      ps;
+    reslimit        rlim;
+    nlsat::solver s(rlim, ps, false);
+    anum_manager & am     = s.am();
+    nlsat::pmanager & pm  = s.pm();
+    nlsat::assignment as(am);
+    nlsat::explain& ex    = s.get_explain();
+    nlsat::var x, y, z;
+    y = s.mk_var(false);
+    z = s.mk_var(false);
+    x = s.mk_var(false);
+    polynomial_ref p1(pm), p2(pm), _x(pm), _y(pm), _z(pm);
+    _x = pm.mk_polynomial(x);
+    _y = pm.mk_polynomial(y);
+    _z = pm.mk_polynomial(z);
+
+    nlsat::scoped_literal_vector lits(s);
+    scoped_anum zero(am), one(am), five(am);
+    am.set(zero, 0);
+    am.set(one, 1);
+    am.set(five, 5);
+    as.set(z, zero);
+    as.set(y, five);
+    as.set(x, five);
+    s.set_rvalues(as);
+
+
+    p1 = (_x - _y);
+    p2 = ((_x*_x) - (_x*_y) - _z);
+    lits.reset();
+    lits.push_back(mk_gt(s, p1));
+    lits.push_back(mk_eq(s, p2));
+    project_fa(s, ex, x, 2, lits.c_ptr());
+    return;
+    
+    p1 = (_x - _y);
+    p2 = ((_x*_x) - (_x*_y));
+    lits.reset();
+    lits.push_back(mk_gt(s, p1));
+    lits.push_back(mk_eq(s, p2));
+    project_fa(s, ex, x, 2, lits.c_ptr());
+
+
+}
+
 void tst_nlsat() {
+    tst11();
+    std::cout << "------------------\n";
+    return;
     tst10();
     std::cout << "------------------\n";
     tst9();

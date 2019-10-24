@@ -707,15 +707,14 @@ namespace nlsat {
             m_result = nullptr;
         }
 
+        
         void add_root_literal(atom::kind k, var y, unsigned i, poly * p) {
             polynomial_ref pr(p, m_pm);
             TRACE("nlsat_explain", 
                   display(tout << "x" << y << " " << k << "[" << i << "](", pr); tout << ")\n";);
-
+            
             if (!mk_linear_root(k, y, i, p) &&
-                //!mk_plinear_root(k, y, i, p) &&
-                !mk_quadratic_root(k, y, i, p)&&
-                true) {                
+                !mk_quadratic_root(k, y, i, p)) {
                 bool_var b = m_solver.mk_root_atom(k, y, i, p);
                 literal l(b, true);
                 TRACE("nlsat_explain", tout << "adding literal\n"; display(tout, l); tout << "\n";);
@@ -726,7 +725,7 @@ namespace nlsat {
         /**
          * literal can be expressed using a linear ineq_atom
          */
-        bool mk_linear_root(atom::kind k, var y, unsigned i, poly * p) {
+        bool mk_linear_root(atom::kind k, var y, unsigned i, poly * p) {            
             scoped_mpz c(m_pm.m());
             if (m_pm.degree(p, y) == 1 && m_pm.const_coeff(p, y, 1, c)) {
                 SASSERT(!m_pm.m().is_zero(c));
@@ -949,11 +948,9 @@ namespace nlsat {
             }
 
             if (!lower_inf) {
-                TRACE("nlsat_explain", tout << "lower_inf: " << lower_inf << " upper_inf: " << upper_inf << " " << p_lower << "\n";);            
                 add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, i_lower, p_lower);
             }
             if (!upper_inf) {
-                TRACE("nlsat_explain", tout << "lower_inf: " << lower_inf << " upper_inf: " << upper_inf << " " << p_upper << "\n";);            
                 add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, i_upper, p_upper);
             }
         }
@@ -1475,7 +1472,11 @@ namespace nlsat {
         void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
-            TRACE("nlsat_explain", tout << "[explain] set of literals is infeasible in the current interpretation\n"; display(tout, num, ls) << "\n";);
+            TRACE("nlsat_explain", 
+                  tout << "[explain] set of literals is infeasible in the current interpretation\n"; 
+                  display(tout, num, ls) << "\n";
+                  m_assignment.display(tout);
+                  );
             m_result = &result;
             process(num, ls);
             reset_already_added();
