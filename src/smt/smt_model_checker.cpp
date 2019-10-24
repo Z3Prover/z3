@@ -213,7 +213,7 @@ namespace smt {
                 return false; // get_some_value failed... giving up
             }
             TRACE("model_checker", tout << "Got some value " << sk_value << "\n";);
-            
+
             if (use_inv) {
                 unsigned sk_term_gen;
                 expr * sk_term = m_model_finder.get_inv(q, i, sk_value, sk_term_gen);
@@ -337,18 +337,18 @@ namespace smt {
         flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
         lbool r = m_aux_context->check();
         TRACE("model_checker", tout << "[complete] model-checker result: " << to_sat_str(r) << "\n";);
-        if (r != l_true) {            
+        if (r != l_true) {
             return r == l_false; // quantifier is satisfied by m_curr_model
         }
 
         model_ref complete_cex;
         m_aux_context->get_model(complete_cex);
-        
+
         // try to find new instances using instantiation sets.
         m_model_finder.restrict_sks_to_inst_set(m_aux_context.get(), q, sks);
-        
+
         unsigned num_new_instances = 0;
-        
+
         while (true) {
             flet<bool> l(m_aux_context->get_fparams().m_array_fake_support, true);
             lbool r = m_aux_context->check();
@@ -400,7 +400,7 @@ namespace smt {
                     add_instance(q, args, 0, nullptr);
                     return false;
                 }
-                TRACE("model_checker", tout << tmp << "\nevaluates to:\n" << result << "\n";);                
+                TRACE("model_checker", tout << tmp << "\nevaluates to:\n" << result << "\n";);
             }
         }
         return true;
@@ -501,7 +501,7 @@ namespace smt {
         for (quantifier * q : *m_qm) {
             if (m.is_rec_fun_def(q)) {
                 rec_funs.insert(m.get_rec_fun_decl(q));
-            }            
+            }
         }
         expr_fast_mark1 visited;
         has_rec_fun_proc proc(rec_funs);
@@ -509,21 +509,21 @@ namespace smt {
             if (!m.is_rec_fun_def(q)) {
                 quick_for_each_expr(proc, visited, q);
                 if (proc.has_rec_fun()) return true;
-            }            
+            }
         }
         return false;
     }
 
-    // 
+    //
     // (repeated from defined_names.cpp)
     // NB. The pattern for lambdas is incomplete.
     // consider store(a, i, v) == \lambda j . if i = j then v else a[j]
     // the instantiation rules for store(a, i, v) are:
     //     sotre(a, i, v)[j] = if i = j then v else a[j] with patterns {a[j], store(a, i, v)} { store(a, i, v)[j] }
     // The first pattern is not included.
-    // TBD use a model-based scheme for exracting instantiations instead of
+    // TBD use a model-based scheme for extracting instantiations instead of
     // using multi-patterns.
-    // 
+    //
 
     void model_checker::check_quantifiers(bool strict_rec_fun, bool& found_relevant, unsigned& num_failures) {
         for (quantifier * q : *m_qm) {
@@ -607,7 +607,7 @@ namespace smt {
                 if (inst.m_def) {
                     m_context->internalize_assertion(inst.m_def, nullptr, gen);
                 }
-                
+
                 TRACE("model_checker_bug_detail", tout << "instantiating... q:\n" << mk_pp(q, m) << "\n";
                       tout << "inconsistent: " << m_context->inconsistent() << "\n";
                       tout << "bindings:\n" << expr_ref_vector(m, num_decls, m_pinned_exprs.c_ptr() + offset) << "\n";);
