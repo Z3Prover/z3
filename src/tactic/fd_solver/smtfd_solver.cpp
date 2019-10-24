@@ -893,10 +893,8 @@ namespace smtfd {
 
         void check_select(app* t) {
             expr* a = t->get_arg(0);
-            if (!m_autil.is_store(a)) {
-                expr_ref vA = eval_abs(a);
-                enforce_congruence(vA, t);    
-            }                 
+            expr_ref vA = eval_abs(a);
+            enforce_congruence(vA, t);                                 
         }
 
         // check that (select(t, t.args) = t.value)
@@ -927,24 +925,34 @@ namespace smtfd {
                 return;
             }
             app* store = to_app(t->get_arg(0));
+            expr* val = store->get_arg(store->get_num_args()-1);
             expr* a = store->get_arg(0);
             expr_ref_vector eqs(m);
             m_args.reset();
             m_args.push_back(a);
             bool all_eq = true;
             for (unsigned i = 1; i < t->get_num_args(); ++i) {
-                expr_ref v1 = eval_abs(t->get_arg(i));
-                expr_ref v2 = eval_abs(store->get_arg(i));
+                expr* arg1 = t->get_arg(i);
+                expr* arg2 = store->get_arg(i);
+                if (arg1 == arg2) continue;
+                expr_ref v1 = eval_abs(arg1);
+                expr_ref v2 = eval_abs(arg2);
                 if (v1 != v2) all_eq = false;
-                m_args.push_back(t->get_arg(i));
-                eqs.push_back(m.mk_eq(t->get_arg(i), store->get_arg(i)));
+                m_args.push_back(arg1);
+                eqs.push_back(m.mk_eq(arg1, arg2));
             }
-            if (all_eq) return;
+            if (eqs.empty()) return;
+            expr_ref eq = mk_and(eqs);
+            expr_ref eqV = eval_abs(eq);
+            expr_ref val1 = eval_abs(t);
+            expr_ref val2 = eval_abs(val);
+            if (val1 != val2 && !m.is_false(eqV)) {
+                add_lemma(m.mk_implies(mk_and(eqs), m.mk_eq(t, val)));
+            }
             
             app_ref sel(m_autil.mk_select(m_args), m);
-            expr_ref val1 = eval_abs(sel);
-            expr_ref val2 = eval_abs(t);
-            if (val1 != val2) {
+            val2 = eval_abs(sel);
+            if (val1 != val2 && !m.is_true(eqV)) {
                 TRACE("smtfd", tout << "select/store: " << mk_bounded_pp(t, m, 2) << "\n";);                
                 add_lemma(m.mk_or(m.mk_eq(sel, t), mk_and(eqs)));
                 m_pinned.push_back(sel);
@@ -993,7 +1001,7 @@ namespace smtfd {
         // 
         void reconcile_stores(app* t, expr* vT, table& tT, expr* vA, table& tA) {
             unsigned r = 0;
-            if (get_lambda(vA) <= 1) {
+            if (false && get_lambda(vA) <= 1) {
                 return;
             }
             inc_lambda(vT);
@@ -1008,7 +1016,7 @@ namespace smtfd {
                     ++r;
                 }
             }            
-#if 0
+#if 1
     // only up-propagation really needed.
             for (auto& fT : tT) {
                 f_app fA;
@@ -1195,6 +1203,9 @@ namespace smtfd {
             case 2:
                 if (m_autil.is_store(t)) {
                     check_store2(to_app(t));
+                }
+                else if (m_autil.is_select(t)) {
+                    check_select_store(to_app(t));
                 }
                 break;
             default:
@@ -1532,7 +1543,11 @@ namespace smtfd {
         lbool check_abs(unsigned num_assumptions, expr * const * assumptions) {
             expr_ref_vector asms(m);
             init_assumptions(num_assumptions, assumptions, asms);
-            TRACE("smtfd", display(tout << asms << "\n"););
+            TRACE("smtfd", 
+                  for (unsigned i = 0; i < num_assumptions; ++i) {
+                      tout << mk_bounded_pp(assumptions[i], m, 3) << "\n";
+                  }
+                  display(tout << asms << "\n"););
             SASSERT(asms.contains(m_toggle));
             m_fd_sat_solver->assert_expr(m_toggle);
             lbool r = m_fd_sat_solver->check_sat(asms);
