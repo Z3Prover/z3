@@ -170,17 +170,6 @@ foreach (_build_type ${_build_types_as_upper})
     string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /TLBID:1")
 
     # FIXME: This is not necessary. This is MSVC's default.
-    # Address space layout randomization
-    # See https://msdn.microsoft.com/en-us/library/bb384887.aspx
-    string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /DYNAMICBASE")
-    if(ENABLE_CFI)
-      # CFI requires /DYNAMICBASE to be enabled.
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /DYNAMICBASE")
-    else()
-      string(APPEND CMAKE_SHARED_LINKER_FLAGS_${_build_type} " /DYNAMICBASE:NO")
-    endif()
-
-    # FIXME: This is not necessary. This is MSVC's default.
     # Indicate that the executable is compatible with DEP
     # See https://msdn.microsoft.com/en-us/library/ms235442.aspx
     string(APPEND CMAKE_EXE_LINKER_FLAGS_${_build_type} " /NXCOMPAT")
