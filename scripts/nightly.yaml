@@ -149,7 +149,6 @@ jobs:
   - Mac
   - Ubuntu
   - Windows
-  - NuGet
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -163,10 +162,10 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-  - task: DownloadPipelineArtifact@0
-    inputs:
-     artifactName: 'NuGet'
-     targetPath: tmp
+#  - task: DownloadPipelineArtifact@0
+#    inputs:
+#     artifactName: 'NuGet'
+#     targetPath: tmp
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub
