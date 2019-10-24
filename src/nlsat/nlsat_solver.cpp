@@ -652,9 +652,11 @@ namespace nlsat {
             SASSERT(i > 0);
             SASSERT(x >= max_var(p));
             SASSERT(k == atom::ROOT_LT || k == atom::ROOT_GT || k == atom::ROOT_EQ || k == atom::ROOT_LE || k == atom::ROOT_GE);
-            polynomial_ref p1(m_pm);
+            polynomial_ref p1(m_pm), uniq_p(m_pm);
             p1 = m_pm.flip_sign_if_lm_neg(p); // flipping the sign of the polynomial will not change its roots.
-            poly * uniq_p = m_cache.mk_unique(p1); 
+            uniq_p = m_cache.mk_unique(p1); 
+            TRACE("nlsat_solver", tout << p1 << " " << uniq_p << "\n";);
+
             void * mem = m_allocator.allocate(sizeof(root_atom));
             root_atom * new_atom = new (mem) root_atom(k, x, i, uniq_p);
             root_atom * old_atom = m_root_atoms.insert_if_not_there(new_atom);
