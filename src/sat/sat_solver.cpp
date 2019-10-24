@@ -30,7 +30,7 @@ Revision History:
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
 
@@ -895,7 +895,9 @@ namespace sat {
 #if defined(__GNUC__) || defined(__clang__)
             __builtin_prefetch((const char*)((m_watches[l.index()].c_ptr())));
 #else
+    #if !defined(_M_ARM) && !defined(_M_ARM64)
             _mm_prefetch((const char*)((m_watches[l.index()].c_ptr())), _MM_HINT_T1);
+    #endif
 #endif
         }
 
