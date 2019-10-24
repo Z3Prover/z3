@@ -590,7 +590,7 @@ bool grobner::simplify_target_monomials(equation const * source, equation * targ
     unsigned i          = 0;
     unsigned new_target_sz = 0;
     unsigned target_sz         = target->m_monomials.size();
-    monomial const * LT = source->get_monomial(0); 
+    monomial const * LT = source->get_monomial(0);
     m_tmp_monomials.reset();
     for (; i < target_sz; i++) {
         monomial * targ_i = target->m_monomials[i];
@@ -889,6 +889,9 @@ bool grobner::compute_basis_step() {
     }
 #endif
     equation * new_eq = simplify_using_processed(eq);
+    if (new_eq == nullptr || new_eq->get_num_monomials() == 0) {
+        TRACE("grobner",);
+    }
     if (new_eq != nullptr && eq != new_eq) {
         // equation was updated using non destructive updates
         m_equations_to_unfreeze.push_back(eq);
