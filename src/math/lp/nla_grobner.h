@@ -46,7 +46,7 @@ class nla_grobner : common {
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
-            case expr_type::VAR:
+            case expr_type::VAR: return 1;
             case expr_type::SCALAR: return 0;
             case expr_type::MUL: return 1;
             case expr_type::SUM: return m_expr->size();
@@ -91,7 +91,7 @@ class nla_grobner : common {
     lp::int_set                                  m_tmp_var_set;
     region                                       m_alloc;
     ci_value_manager                             m_val_manager;
-    ci_dependency_manager                        m_dep_manager;
+    mutable ci_dependency_manager                m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
 public:
@@ -102,7 +102,6 @@ private:
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
-    void display(std::ostream&);
     void init();
     void compute_basis();
     void update_statistics();
@@ -131,9 +130,10 @@ bool simplify_processed_with_eq(equation*);
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
     void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
-    std::ostream& display_equation(std::ostream & out, const equation & eq);
+    std::ostream& display_equation(std::ostream & out, const equation & eq) const;
 
-    void display(std::ostream & out) const;
+    void display_matrix(std::ostream & out) const;
+    std::ostream& display(std::ostream & out) const;
     void get_equations(ptr_vector<equation>& eqs);
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
@@ -143,9 +143,13 @@ bool simplify_processed_with_eq(equation*);
 
     void init_equation(equation* eq, nex*, ci_dependency* d);
     
-    std::ostream& display_dependency(std::ostream& out, ci_dependency*);
-    void insert_to_simplify(equation *eq) { m_to_simplify.insert(eq); }
-    void insert_to_superpose(equation *eq) { m_to_superpose.insert(eq); }
+    std::ostream& display_dependency(std::ostream& out, ci_dependency*) const;
+    void insert_to_simplify(equation *eq) {
+        m_to_simplify.insert(eq);
+    }
+    void insert_to_superpose(equation *eq) {
+        m_to_superpose.insert(eq);
+    }
     void simplify_equations_to_process();
     nex_mul * get_highest_monomial(nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
