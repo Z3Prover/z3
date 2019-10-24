@@ -109,10 +109,10 @@ namespace datalog {
             }
 
             /**
-               \brief Into \c result assign signature of result of join of relations with signatures \c s1 
+               \brief Into \c result assign signature of result of join of relations with signatures \c s1
                and \c s2.
             */
-            static void from_join(const signature & s1, const signature & s2, unsigned col_cnt, 
+            static void from_join(const signature & s1, const signature & s2, unsigned col_cnt,
                     const unsigned * cols1, const unsigned * cols2, signature & result) {
                 result.reset();
 
@@ -137,14 +137,14 @@ namespace datalog {
 
                The array of removed columns must be sorted in ascending order.
             */
-            static void from_project(const signature & src, unsigned col_cnt, 
+            static void from_project(const signature & src, unsigned col_cnt,
                     const unsigned * removed_cols, signature & result) {
                 result = src;
                 project_out_vector_columns(result, col_cnt, removed_cols);
             }
 
-            static void from_join_project(const signature & s1, const signature & s2, unsigned joined_col_cnt, 
-                    const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
+            static void from_join_project(const signature & s1, const signature & s2, unsigned joined_col_cnt,
+                    const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt,
                     const unsigned * removed_cols, signature & result) {
                 signature aux(s1);
                 from_join(s1, s2, joined_col_cnt, cols1, cols2, aux);
@@ -156,7 +156,7 @@ namespace datalog {
 
                For description of the permutation format see \c relation_base::rename
             */
-            static void from_rename(const signature & src, unsigned cycle_len, 
+            static void from_rename(const signature & src, unsigned cycle_len,
                     const unsigned * permutation_cycle, signature & result) {
                 SASSERT(cycle_len>=2);
                 result=src;
@@ -167,7 +167,7 @@ namespace datalog {
             /**
                \brief Into \c result assign signature \c src with reordered columns.
             */
-            static void from_permutation_rename(const signature & src, 
+            static void from_permutation_rename(const signature & src,
                     const unsigned * permutation, signature & result) {
                 result.reset();
                 unsigned n = src.size();
@@ -211,11 +211,11 @@ namespace datalog {
            combination.
 
            - supports_attachment
-             is used to query the mutator if it allows communicating 
+             is used to query the mutator if it allows communicating
              constraints to relations of the kind of the relation.
 
-           - attach 
-             is used to associate downstream clients. 
+           - attach
+             is used to associate downstream clients.
              It assumes that the relation kind is supported (supports_kind returns true)
         */
         class mutator_fn : public base_fn {
@@ -256,7 +256,7 @@ namespace datalog {
             symbol    m_name;
             relation_manager & m_manager;
         protected:
-            plugin_object(symbol const& name, relation_manager & manager) 
+            plugin_object(symbol const& name, relation_manager & manager)
                 : m_kind(null_family_id), m_name(name), m_manager(manager) {}
 
             /**
@@ -283,7 +283,7 @@ namespace datalog {
             }
 
             /**
-               \brief Create empty table/relation with given signature and return pointer to it. 
+               \brief Create empty table/relation with given signature and return pointer to it.
 
                Precondition: can_handle_signature(s)==true
             */
@@ -300,7 +300,7 @@ namespace datalog {
             }
 
             /**
-               \brief Create empty table/relation of the same specification as \c orig and return pointer to it. 
+               \brief Create empty table/relation of the same specification as \c orig and return pointer to it.
 
                Precondition: &orig.get_plugin()==this
             */
@@ -309,7 +309,7 @@ namespace datalog {
             }
 
             /**
-               \brief Create full table/relation with given signature and return pointer to it. 
+               \brief Create full table/relation with given signature and return pointer to it.
 
                Precondition: can_handle_signature(s)==true
             */
@@ -337,31 +337,31 @@ namespace datalog {
             virtual join_fn * mk_join_fn(const base_object & t1, const base_object & t2,
                 unsigned col_cnt, const unsigned * cols1, const unsigned * cols2) { return nullptr; }
 
-            virtual transformer_fn * mk_project_fn(const base_object & t, unsigned col_cnt, 
+            virtual transformer_fn * mk_project_fn(const base_object & t, unsigned col_cnt,
                 const unsigned * removed_cols) { return nullptr; }
 
             virtual join_fn * mk_join_project_fn(const base_object & t1, const base_object & t2,
-                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
+                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2,
                     unsigned removed_col_cnt, const unsigned * removed_cols) { return nullptr; }
 
-            virtual transformer_fn * mk_rename_fn(const base_object & t, unsigned permutation_cycle_len, 
+            virtual transformer_fn * mk_rename_fn(const base_object & t, unsigned permutation_cycle_len,
                 const unsigned * permutation_cycle) { return nullptr; }
 
             virtual transformer_fn * mk_permutation_rename_fn(const base_object & t,
                 const unsigned * permutation) { return nullptr; }
 
         public:
-            virtual union_fn * mk_union_fn(const base_object & tgt, const base_object & src, 
+            virtual union_fn * mk_union_fn(const base_object & tgt, const base_object & src,
                 const base_object * delta) { return nullptr; }
         protected:
 
-            virtual union_fn * mk_widen_fn(const base_object & tgt, const base_object & src, 
+            virtual union_fn * mk_widen_fn(const base_object & tgt, const base_object & src,
                 const base_object * delta) { return nullptr; }
 
-            virtual mutator_fn * mk_filter_identical_fn(const base_object & t, unsigned col_cnt, 
+            virtual mutator_fn * mk_filter_identical_fn(const base_object & t, unsigned col_cnt,
                 const unsigned * identical_cols) { return nullptr; }
 
-            virtual mutator_fn * mk_filter_equal_fn(const base_object & t, const element & value, 
+            virtual mutator_fn * mk_filter_equal_fn(const base_object & t, const element & value,
                 unsigned col) { return nullptr; }
 
             virtual mutator_fn * mk_filter_interpreted_fn(const base_object & t, app * condition)
@@ -371,28 +371,28 @@ namespace datalog {
                 app * condition, unsigned removed_col_cnt, const unsigned * removed_cols)
             { return nullptr; }
 
-            virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t, 
+            virtual transformer_fn * mk_select_equal_and_project_fn(const base_object & t,
                     const element & value, unsigned col) { return nullptr; }
 
-            virtual intersection_filter_fn * mk_filter_by_intersection_fn(const base_object & t, 
-                const base_object & src, unsigned joined_col_cnt, 
-                const unsigned * t_cols, const unsigned * src_cols) 
+            virtual intersection_filter_fn * mk_filter_by_intersection_fn(const base_object & t,
+                const base_object & src, unsigned joined_col_cnt,
+                const unsigned * t_cols, const unsigned * src_cols)
             { return nullptr; }
 
 
-            virtual intersection_filter_fn * mk_filter_by_negation_fn(const base_object & t, 
-                const base_object & negated_obj, unsigned joined_col_cnt, 
-                const unsigned * t_cols, const unsigned * negated_cols) 
+            virtual intersection_filter_fn * mk_filter_by_negation_fn(const base_object & t,
+                const base_object & negated_obj, unsigned joined_col_cnt,
+                const unsigned * t_cols, const unsigned * negated_cols)
             { return nullptr; }
 
             virtual intersection_join_filter_fn * mk_filter_by_negated_join_fn(
-                const base_object & t, 
-                const base_object & src1, 
-                const base_object & src2, 
+                const base_object & t,
+                const base_object & src1,
+                const base_object & src2,
                 unsigned_vector const& t_cols,
                 unsigned_vector const& src_cols,
                 unsigned_vector const& src1_cols,
-                unsigned_vector const& src2_cols) 
+                unsigned_vector const& src2_cols)
             { return nullptr; }
 
         };
@@ -405,8 +405,8 @@ namespace datalog {
             sort_ref m_leak_guard;
 #endif
         protected:
-            base_ancestor(plugin & p, const signature & s) 
-                : m_plugin(p), m_signature(s), m_kind(p.get_kind()) 
+            base_ancestor(plugin & p, const signature & s)
+                : m_plugin(p), m_signature(s), m_kind(p.get_kind())
 #if DL_LEAK_HUNTING
                 , m_leak_guard(p.get_ast_manager().mk_fresh_sort(p.get_name().bare_str()), p.get_ast_manager())
 #endif
@@ -417,11 +417,11 @@ namespace datalog {
             }
 
 #if DL_LEAK_HUNTING
-            base_ancestor(const base_ancestor & o) 
+            base_ancestor(const base_ancestor & o)
                     : m_plugin(o.m_plugin),
                     m_signature(o.m_signature),
                     m_kind(o.m_kind),
-                    m_leak_guard(m_plugin.get_ast_manager().mk_fresh_sort(m_plugin.get_name().bare_str()), 
+                    m_leak_guard(m_plugin.get_ast_manager().mk_fresh_sort(m_plugin.get_name().bare_str()),
                         m_plugin.get_ast_manager()) {
                 leak_guard_check(m_leak_guard->get_name());
             }
@@ -435,7 +435,7 @@ namespace datalog {
                Since the destructor is protected, we cannot use the \c dealloc macro.
             */
             void destroy() {
-                SASSERT(this);
+                SASSERT(this != nullptr);
                 this->~base_ancestor();
                 memory::deallocate(this);
             }
@@ -445,15 +445,15 @@ namespace datalog {
 
                Pointers and references to the current object become invalid after a call to this function.
             */
-            virtual void deallocate() { 
+            virtual void deallocate() {
                 destroy();
             }
             /**
                It must hold that operations created for particular table/relation are able to operate on
                tables/relations of the same signature and kind. In most cases it is sufficient to use the kind
                of the plugin object.
-               
-               However, it there is some parameter that is not reflected in the signature, the plugin may need to 
+
+               However, it there is some parameter that is not reflected in the signature, the plugin may need to
                allocate different kind numbers to the tables is creates.
             */
             family_id get_kind() const { return m_kind; }
@@ -464,7 +464,7 @@ namespace datalog {
             virtual bool empty() const = 0;
             /**
                \brief fast emptiness check. This may be partial.
-               The requirement is that if fast_empty returns true 
+               The requirement is that if fast_empty returns true
                then the table or relation is in fact empty.
                It is allowed to return false even if the relation is empty.
             */
@@ -489,7 +489,7 @@ namespace datalog {
 
             virtual bool can_swap(const base_object & o) const { return false; }
 
-            virtual void swap(base_object & o) { 
+            virtual void swap(base_object & o) {
                 std::swap(m_kind, o.m_kind);
 #if DL_LEAK_HUNTING
                 m_leak_guard = get_plugin().get_ast_manager().mk_fresh_sort(get_plugin().get_name().bare_str());
@@ -515,8 +515,8 @@ namespace datalog {
             unsigned_vector m_cols2;
 
             convenient_join_fn(const signature & o1_sig, const signature & o2_sig, unsigned col_cnt,
-                const unsigned * cols1, const unsigned * cols2) 
-                : m_cols1(col_cnt, cols1), 
+                const unsigned * cols1, const unsigned * cols2)
+                : m_cols1(col_cnt, cols1),
                   m_cols2(col_cnt, cols2) {
                 signature::from_join(o1_sig, o2_sig, col_cnt, cols1, cols2, m_result_sig);
             }
@@ -532,14 +532,14 @@ namespace datalog {
             //it is non-const because it needs to be modified in sparse_table version of the join_project operator
             unsigned_vector m_removed_cols;
 
-            convenient_join_project_fn(const signature & o1_sig, const signature & o2_sig, 
-                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, 
-                    unsigned removed_col_cnt, const unsigned * removed_cols) 
-                    : m_cols1(joined_col_cnt, cols1), 
+            convenient_join_project_fn(const signature & o1_sig, const signature & o2_sig,
+                    unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2,
+                    unsigned removed_col_cnt, const unsigned * removed_cols)
+                    : m_cols1(joined_col_cnt, cols1),
                     m_cols2(joined_col_cnt, cols2),
                     m_removed_cols(removed_col_cnt, removed_cols) {
 
-                signature::from_join_project(o1_sig, o2_sig, joined_col_cnt, cols1, cols2, 
+                signature::from_join_project(o1_sig, o2_sig, joined_col_cnt, cols1, cols2,
                     removed_col_cnt, removed_cols, m_result_sig);
             }
 
@@ -557,9 +557,9 @@ namespace datalog {
         protected:
             unsigned_vector m_removed_cols;
 
-            convenient_project_fn(const signature & orig_sig, unsigned col_cnt, const unsigned * removed_cols) 
+            convenient_project_fn(const signature & orig_sig, unsigned col_cnt, const unsigned * removed_cols)
                     : m_removed_cols(col_cnt, removed_cols) {
-                signature::from_project(orig_sig, col_cnt, removed_cols, 
+                signature::from_project(orig_sig, col_cnt, removed_cols,
                     convenient_transformer_fn::get_result_signature());
             }
         };
@@ -569,9 +569,9 @@ namespace datalog {
             const unsigned_vector m_cycle;
 
             convenient_rename_fn(const signature & orig_sig, unsigned cycle_len,
-                const unsigned * permutation_cycle) 
+                const unsigned * permutation_cycle)
                     : m_cycle(cycle_len, permutation_cycle) {
-                signature::from_rename(orig_sig, cycle_len, permutation_cycle, 
+                signature::from_rename(orig_sig, cycle_len, permutation_cycle,
                     convenient_transformer_fn::get_result_signature());
             }
         };
@@ -585,9 +585,9 @@ namespace datalog {
             bool m_overlap; //one column in negated table is bound multiple times
             svector<bool> m_bound;
 
-            convenient_negation_filter_fn(const base_object & tgt, const base_object & neg_t, 
-                    unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * negated_cols) 
-                    : m_joined_col_cnt(joined_col_cnt), m_cols1(joined_col_cnt, t_cols), 
+            convenient_negation_filter_fn(const base_object & tgt, const base_object & neg_t,
+                    unsigned joined_col_cnt, const unsigned * t_cols, const unsigned * negated_cols)
+                    : m_joined_col_cnt(joined_col_cnt), m_cols1(joined_col_cnt, t_cols),
                     m_cols2(joined_col_cnt, negated_cols) {
                 unsigned neg_sig_size = neg_t.get_signature().size();
                 m_overlap = false;
@@ -598,12 +598,12 @@ namespace datalog {
                     }
                     m_bound[negated_cols[i]]=true;
                 }
-                m_all_neg_bound = neg_sig_size<=joined_col_cnt && 
+                m_all_neg_bound = neg_sig_size<=joined_col_cnt &&
                     std::find(m_bound.begin(), m_bound.end(), false)== m_bound.end();
             }
 
             /**
-               \brief Assign values in src to corresponding columns in tgt_neg. If one column should 
+               \brief Assign values in src to corresponding columns in tgt_neg. If one column should
                be assigned two different values, return false; otherwise return true.
 
                Each negative column must correspond to exactly column in the first table.
@@ -651,7 +651,7 @@ namespace datalog {
             bool m_renamers_initialized;
             renamer_vector m_renamers;
         public:
-            default_permutation_rename_fn(const base_object & o, const unsigned * permutation) 
+            default_permutation_rename_fn(const base_object & o, const unsigned * permutation)
                 : m_permutation(o.get_signature().size(), permutation),
                 m_renamers_initialized(false) {}
 
@@ -755,7 +755,7 @@ namespace datalog {
         void output(ast_manager & m, std::ostream & out) const;
 
         struct hash {
-            unsigned operator()(relation_signature const& s) const { 
+            unsigned operator()(relation_signature const& s) const {
                 return obj_vector_hash<relation_signature>(s);
             }
         };
@@ -779,8 +779,8 @@ namespace datalog {
     private:
         special_relation_type m_special_type;
     protected:
-        relation_plugin(symbol const& name, relation_manager & manager, 
-                special_relation_type special_type = ST_ORDINARY) 
+        relation_plugin(symbol const& name, relation_manager & manager,
+                special_relation_type special_type = ST_ORDINARY)
             : plugin_object(name, manager),
             m_special_type(special_type) {}
     public:
@@ -801,7 +801,7 @@ namespace datalog {
 
     class relation_base : public relation_infrastructure::base_ancestor {
     protected:
-        relation_base(relation_plugin & plugin, const relation_signature & s) 
+        relation_base(relation_plugin & plugin, const relation_signature & s)
             : base_ancestor(plugin, s) {}
         ~relation_base() override {}
     public:
@@ -827,7 +827,7 @@ namespace datalog {
     // table_base
     //
     // -----------------------------------
-    
+
     class table_signature;
     class table_plugin;
     class table_base;
@@ -873,11 +873,11 @@ namespace datalog {
     public:
         virtual ~table_row_mutator_fn() {}
         /**
-            \brief The function is called for a particular table row. The \c func_columns contains 
-            a pointer to an array of functional column values that can be modified. If the function 
+            \brief The function is called for a particular table row. The \c func_columns contains
+            a pointer to an array of functional column values that can be modified. If the function
             returns true, the modification will appear in the table; otherwise the row will be deleted.
 
-            It is possible that one call to the function stands for multiple table rows that share 
+            It is possible that one call to the function stands for multiple table rows that share
             the same functional column values.
             */
         virtual bool operator()(table_element * func_columns) = 0;
@@ -888,7 +888,7 @@ namespace datalog {
         virtual ~table_row_pair_reduce_fn() {}
         /**
             \brief The function is called for pair of table rows that became duplicit due to projection.
-            The values that are in the first array after return from the function will be used for the 
+            The values that are in the first array after return from the function will be used for the
             resulting row.
 
             It is assumed that the function is idempotent: when the two functional sub-tuples are equal,
@@ -901,7 +901,7 @@ namespace datalog {
     class table_signature : public table_infrastructure::signature_base {
     public:
         struct hash {
-            unsigned operator()(table_signature const& s) const { 
+            unsigned operator()(table_signature const& s) const {
                 return svector_hash<table_sort_hash>()(s);
             }
         };
@@ -915,7 +915,7 @@ namespace datalog {
         unsigned m_functional_columns;
     public:
         table_signature() : m_functional_columns(0) {}
-        
+
         void swap(table_signature & s) {
             signature_base::swap(s);
             std::swap(m_functional_columns, s.m_functional_columns);
@@ -931,7 +931,7 @@ namespace datalog {
         void set_functional_columns(unsigned val) { SASSERT(size()>=val); m_functional_columns = val; }
 
         /**
-           \brief Return index of the first functional column, or the size of the signature if there 
+           \brief Return index of the first functional column, or the size of the signature if there
            are no functional columns.
          */
         unsigned first_functional() const { return size()-m_functional_columns; }
@@ -952,16 +952,16 @@ namespace datalog {
 
 
         /**
-            \brief Into \c result assign signature of result of join of relations with signatures \c s1 
-            and \c s2. The result is 
-            
+            \brief Into \c result assign signature of result of join of relations with signatures \c s1
+            and \c s2. The result is
+
             (non-functional of s1)(non-functional of s2)(functional of s1)(functional of s2)
         */
-        static void from_join(const table_signature & s1, const table_signature & s2, unsigned col_cnt, 
+        static void from_join(const table_signature & s1, const table_signature & s2, unsigned col_cnt,
                 const unsigned * cols1, const unsigned * cols2, table_signature & result);
 
-        static void from_join_project(const table_signature & s1, const table_signature & s2, 
-                unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt, 
+        static void from_join_project(const table_signature & s1, const table_signature & s2,
+                unsigned joined_col_cnt, const unsigned * cols1, const unsigned * cols2, unsigned removed_col_cnt,
                 const unsigned * removed_cols, table_signature & result);
 
 
@@ -972,10 +972,10 @@ namespace datalog {
 
             If we remove at least one non-functional column, all the columns in the result are non-functional.
         */
-        static void from_project(const table_signature & src, unsigned col_cnt, 
+        static void from_project(const table_signature & src, unsigned col_cnt,
                 const unsigned * removed_cols, table_signature & result);
 
-        static void from_project_with_reduce(const table_signature & src, unsigned col_cnt, 
+        static void from_project_with_reduce(const table_signature & src, unsigned col_cnt,
                 const unsigned * removed_cols, table_signature & result);
 
         /**
@@ -983,7 +983,7 @@ namespace datalog {
 
             Permutations between functional and nonfunctional columns are not allowed.
         */
-        static void from_rename(const table_signature & src, unsigned cycle_len, 
+        static void from_rename(const table_signature & src, unsigned cycle_len,
                 const unsigned * permutation_cycle, table_signature & result) {
             signature_base::from_rename(src, cycle_len, permutation_cycle, result);
             result.set_functional_columns(src.functional_columns());
@@ -998,10 +998,10 @@ namespace datalog {
 
         /**
             \brief Into \c result assign signature \c src with reordered columns.
-    
+
             Permutations mixing functional and nonfunctional columns are not allowed.
         */
-        static void from_permutation_rename(const table_signature & src, 
+        static void from_permutation_rename(const table_signature & src,
                 const unsigned * permutation, table_signature & result) {
             signature_base::from_permutation_rename(src, permutation, result);
             result.set_functional_columns(src.functional_columns());
@@ -1035,14 +1035,14 @@ namespace datalog {
            If the returned value is non-zero, the returned object must take ownership of \c reducer.
            Otherwise \c reducer must remain unmodified.
         */
-        virtual table_transformer_fn * mk_project_with_reduce_fn(const table_base & t, unsigned col_cnt, 
+        virtual table_transformer_fn * mk_project_with_reduce_fn(const table_base & t, unsigned col_cnt,
             const unsigned * removed_cols, table_row_pair_reduce_fn * reducer) { return nullptr; }
 
     };
 
     class table_base : public table_infrastructure::base_ancestor {
     protected:
-        table_base(table_plugin & plugin, const table_signature & s) 
+        table_base(table_plugin & plugin, const table_signature & s)
             : base_ancestor(plugin, s) {}
         ~table_base() override {}
     public:
@@ -1057,15 +1057,15 @@ namespace datalog {
         bool contains_fact(const table_fact & f) const override;
 
         /**
-           \brief If \c f (i.e. its non-functional part) is not present in the table, 
-           add it and return true. Otherwise update \c f, so that the values of functional 
+           \brief If \c f (i.e. its non-functional part) is not present in the table,
+           add it and return true. Otherwise update \c f, so that the values of functional
            columns correspond to the ones present in the table.
          */
         virtual bool suggest_fact(table_fact & f);
 
         /**
-           \brief If \c f (i.e. its non-functional part) is not present in the table, 
-           return false. Otherwise update \c f, so that the values of functional 
+           \brief If \c f (i.e. its non-functional part) is not present in the table,
+           return false. Otherwise update \c f, so that the values of functional
            columns correspond to the ones present in the table and return true.
          */
         virtual bool fetch_fact(table_fact & f) const;
@@ -1075,7 +1075,7 @@ namespace datalog {
         */
         virtual void ensure_fact(const table_fact & f);
 
-        virtual void remove_fact(const table_fact & fact) { 
+        virtual void remove_fact(const table_fact & fact) {
             SASSERT(fact.size() == get_signature().size());
             remove_fact(fact.c_ptr()); }
 
@@ -1105,7 +1105,7 @@ namespace datalog {
             virtual ~iterator_core() {}
 
             void inc_ref() { m_ref_cnt++; }
-            void dec_ref() { 
+            void dec_ref() {
                 SASSERT(m_ref_cnt>0);
                 m_ref_cnt--;
                 if(m_ref_cnt==0) {
@@ -1118,7 +1118,7 @@ namespace datalog {
             virtual row_interface & operator*() = 0;
             virtual void operator++() = 0;
             virtual bool operator==(const iterator_core & it) {
-                //we worry about the equality operator only because of checking 
+                //we worry about the equality operator only because of checking
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
             }
@@ -1135,7 +1135,7 @@ namespace datalog {
             virtual ~row_iterator_core() {}
 
             void inc_ref() { m_ref_cnt++; }
-            void dec_ref() { 
+            void dec_ref() {
                 SASSERT(m_ref_cnt>0);
                 m_ref_cnt--;
                 if(m_ref_cnt==0) {
@@ -1148,7 +1148,7 @@ namespace datalog {
             virtual table_element operator*() = 0;
             virtual void operator++() = 0;
             virtual bool operator==(const row_iterator_core & it) {
-                //we worry about the equality operator only because of checking 
+                //we worry about the equality operator only because of checking
                 //the equality with the end() iterator
                 return is_finished() && it.is_finished();
             }
@@ -1231,8 +1231,8 @@ namespace datalog {
             mutable table_fact m_current;
 
             bool populated() const { return !m_current.empty(); }
-            void ensure_populated() const { 
-                if(!populated()) { 
+            void ensure_populated() const {
+                if(!populated()) {
                     get_fact(m_current);
                 }
             }
@@ -1254,7 +1254,7 @@ namespace datalog {
         };
 
         //This function is here to create iterator instances in classes that derive from table_base.
-        //We do not want to make the constructor of the iterator class public, and being private, the 
+        //We do not want to make the constructor of the iterator class public, and being private, the
         //inheritor classes cannot see it directly.
         static iterator mk_iterator(iterator_core * core) {
             return iterator(core);
@@ -1264,14 +1264,13 @@ namespace datalog {
     /**
        \brief Populate vector \c renaming_args so that it can be used as an argument to \c var_subst.
          The renaming we want is one that transforms variables with numbers of indexes of \c map into the
-         values of at those indexes. If a value if \c UINT_MAX, it means we do not transform the index 
+         values of at those indexes. If a value if \c UINT_MAX, it means we do not transform the index
          corresponding to it.
     */
-    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig, 
+    void get_renaming_args(const unsigned_vector & map, const relation_signature & orig_sig,
             expr_ref_vector & renaming_arg);
 
 
 };
 
 #endif /* DL_BASE_H_ */
-

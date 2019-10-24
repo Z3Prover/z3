@@ -45,7 +45,7 @@ unsigned get_num_exprs(expr * n) {
 }
 
 namespace has_skolem_functions_ns {
-    struct found {}; 
+    struct found {};
     struct proc {
         void operator()(var * n) const {}
         void operator()(app const * n) const { if (n->get_decl()->is_skolem() && n->get_num_args() > 0) throw found(); }
@@ -148,11 +148,10 @@ void subterms_postorder::iterator::next() {
             break;
         }
     }
-    
+
 }
 
 subterms_postorder::iterator& subterms_postorder::iterator::operator++() {
-    expr* e = m_es.back();
     next();
     return *this;
 }
@@ -172,4 +171,3 @@ bool subterms_postorder::iterator::operator==(iterator const& other) const {
 bool subterms_postorder::iterator::operator!=(iterator const& other) const {
     return !(*this == other);
 }
-
