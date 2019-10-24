@@ -98,6 +98,8 @@ if (("${TARGET_ARCHITECTURE}" STREQUAL "x86_64") OR ("${TARGET_ARCHITECTURE}" ST
   z3_add_cxx_flag("/Gd" REQUIRED)
 endif()
 
+z3_add_cxx_flag("/EHsc" REQUIRED)
+
 ################################################################################
 # Linker flags
 ################################################################################
