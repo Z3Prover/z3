@@ -52,13 +52,16 @@ inline std::ostream & operator<<(std::ostream& out, expr_type t) {
 class nex;
 
 class nex_scalar;
+class nex_pow; // forward definitions
+
 // This is the class of non-linear expressions 
+
 class nex {
 public:
     // the scalar and the variable have size 1
     virtual unsigned size() const { return 1; }
     virtual expr_type type() const = 0;
-    virtual std::ostream& print(std::ostream&) const = 0;
+    virtual std::ostream& print(std::ostream&) const = 0;    
     nex() {}
     bool is_elementary() const {
         switch(type()) {
@@ -69,7 +72,10 @@ public:
             return true;
         }
     }
-
+    virtual unsigned number_of_child_powers() const { return 0; }    
+    virtual const nex* get_child_exp(unsigned) const { return this; }
+    virtual unsigned get_child_pow(unsigned) const { return 1; }
+    virtual bool all_factors_are_elementary() const { return true; }
     bool is_sum() const { return type() == expr_type::SUM; }
     bool is_mul() const { return type() == expr_type::MUL; }
     bool is_var() const { return type() == expr_type::VAR; }
@@ -80,7 +86,7 @@ public:
     virtual bool contains(lpvar j) const { return false; }
     virtual int get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e
-      
+    virtual const rational& coeff() const { return rational::one(); }
 
     #ifdef Z3DEBUG
     virtual void sort() {};
@@ -93,6 +99,8 @@ std::ostream& operator<<(std::ostream& out, const nex&);
 class nex_var : public nex {
     lpvar m_j;
 public:
+    unsigned number_of_child_powers() const { return 1; }
+    nex_pow get_nex_pow(unsigned j);
     nex_var(lpvar j) : m_j(j) {}
     nex_var() {}
     expr_type type() const { return expr_type::VAR; }
@@ -174,6 +182,11 @@ class nex_mul : public nex {
     rational        m_coeff;
     vector<nex_pow> m_children;
 public:
+    virtual const nex* get_child_exp(unsigned j) const { return m_children[j].e(); }
+    virtual unsigned get_child_pow(unsigned j) const { return m_children[j].pow(); }
+
+    unsigned number_of_child_powers() const { return m_children.size(); }
+
     nex_mul() : m_coeff(rational(1)) {}
 
     template <typename T> 
