@@ -649,13 +649,13 @@ namespace nlsat {
         }
 
         bool_var mk_root_atom(atom::kind k, var x, unsigned i, poly * p) {
-            SASSERT(i > 0);
-            SASSERT(x >= max_var(p));
-            SASSERT(k == atom::ROOT_LT || k == atom::ROOT_GT || k == atom::ROOT_EQ || k == atom::ROOT_LE || k == atom::ROOT_GE);
             polynomial_ref p1(m_pm), uniq_p(m_pm);
             p1 = m_pm.flip_sign_if_lm_neg(p); // flipping the sign of the polynomial will not change its roots.
             uniq_p = m_cache.mk_unique(p1); 
-            TRACE("nlsat_solver", tout << p1 << " " << uniq_p << "\n";);
+            TRACE("nlsat_solver", tout << x << " " << p1 << " " << uniq_p << "\n";);
+            SASSERT(i > 0);
+            SASSERT(x >= max_var(p));
+            SASSERT(k == atom::ROOT_LT || k == atom::ROOT_GT || k == atom::ROOT_EQ || k == atom::ROOT_LE || k == atom::ROOT_GE);
 
             void * mem = m_allocator.allocate(sizeof(root_atom));
             root_atom * new_atom = new (mem) root_atom(k, x, i, uniq_p);
@@ -804,7 +804,11 @@ namespace nlsat {
                 }
                 else if (a->is_root_atom()) {
                     root_atom& r = *to_root_atom(a);
-                    bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), r.p());
+                    if (r.x() >= max_var(r.p())) {
+                        // permutation may be reverted after check completes, 
+                        // but then root atoms are not used in lemmas.
+                        bv = checker.mk_root_atom(r.get_kind(), r.x(), r.i(), r.p());
+                    }
                 }
                 else {
                     UNREACHABLE();
