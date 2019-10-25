@@ -244,12 +244,14 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
 
 }
 
-nex_mul* nla_grobner::get_highest_monomial(nex* e) const {
+const nex* nla_grobner::get_highest_monomial(const nex* e) const {
     switch (e->type()) {
     case expr_type::MUL:
         return to_mul(e);
     case expr_type::SUM:
-        return to_mul((*to_sum(e))[0]);        
+        return *(to_sum(e)->begin());
+    case expr_type::VAR:
+        return e;
     default:
         TRACE("grobner", tout << *e << "\n";);
         return nullptr;
@@ -259,7 +261,7 @@ nex_mul* nla_grobner::get_highest_monomial(nex* e) const {
 // target 2fg + 3fp + e = 0  
 // target is replaced by 2(-k/3 - l/3)g + 3(-k/3 - l/3)p + e = -2/3kg -2/3lg - kp -lp + e
 bool nla_grobner::simplify_target_monomials(equation * source, equation * target) {
-    const nex_mul * high_mon = get_highest_monomial(source->exp());
+    auto * high_mon = get_highest_monomial(source->exp());
     if (high_mon == nullptr)
         return false;
     SASSERT(high_mon->all_factors_are_elementary());
@@ -280,7 +282,7 @@ bool nla_grobner::simplify_target_monomials(equation * source, equation * target
 }
 
 bool nla_grobner::simplify_target_monomials_sum_check_only(nex_sum* targ_sum,
-                                                           const nex_mul* high_mon) {
+                                                           const nex* high_mon) const {
     for (auto t : *targ_sum) {
         if (!t->is_mul()) continue; // what if t->is_var()
         if (divide_ignore_coeffs_check_only(to_mul(t), high_mon)) {
@@ -295,7 +297,7 @@ bool nla_grobner::simplify_target_monomials_sum_check_only(nex_sum* targ_sum,
 
 bool nla_grobner::simplify_target_monomials_sum(equation * source,
                                                 equation * target, nex_sum* targ_sum,
-                                                const nex_mul* high_mon) {
+                                                const nex* high_mon) {
     if (!simplify_target_monomials_sum_check_only(targ_sum, high_mon))
         return false;
     unsigned targ_orig_size = targ_sum->size();
@@ -307,7 +309,7 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
     return true;
 }
 
-nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex_mul* h) {
+nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex* h) {
     if (!ej->is_mul())
         return nullptr;
     nex_mul* m = to_mul(ej);
@@ -317,16 +319,16 @@ nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex_mul* h) {
 }
 
 // return true if h divides t
-bool nla_grobner::divide_ignore_coeffs_check_only(nex_mul* t , const nex_mul* h) {
+bool nla_grobner::divide_ignore_coeffs_check_only(nex_mul* t , const nex* h) const {
     SASSERT(m_nex_creator.is_simplified(t) && m_nex_creator.is_simplified(h));
     unsigned j = 0; // points to t
-    for(auto & p : *h) {
+    for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
+        lpvar h_var = to_var(h->get_child_exp(k))->var();
         bool p_swallowed = false;
-        lpvar h_var = to_var(p.e())->var();
         for (; j < t->size() && !p_swallowed; j++) {
             auto &tp = (*t)[j];
             if (to_var(tp.e())->var() == h_var) {
-                if (tp.pow() >= p.pow()) {
+                if (tp.pow() >= static_cast<int>(h->get_child_pow(k))) {
                     p_swallowed = true;
                 }
             }
@@ -341,20 +343,21 @@ bool nla_grobner::divide_ignore_coeffs_check_only(nex_mul* t , const nex_mul* h)
 }
 
 // perform the division t / h, but ignores the coefficients
-nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex_mul* h) {
+// h does not change
+nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex* h) {
     nex_mul * r = m_nex_creator.mk_mul();
     unsigned j = 0; // points to t
-    for(auto & p : *h) {
-        bool p_swallowed = false;
-        lpvar h_var = to_var(p.e())->var();
-        for (; j < t->size() && !p_swallowed; j++) {
+    for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
+        lpvar h_var = to_var(h->get_child_exp(k))->var();
+        for (; j < t->size(); j++) {
             auto &tp = (*t)[j];
             if (to_var(tp.e())->var() == h_var) {
-                if (tp.pow() >= p.pow()) {
-                    p_swallowed = true;
-                    if (tp.pow() > p.pow())
-                        r->add_child_in_power(tp.e(), tp.pow() - p.pow());
-                } 
+                int h_pow = h->get_child_pow(k);
+                SASSERT(tp.pow() >= h_pow);
+                j++;
+                if (tp.pow() > h_pow)
+                    r->add_child_in_power(tp.e(), tp.pow() - h_pow);
+                break;
             } else {
                 r->add_child_in_power(tp);
             }
@@ -368,7 +371,7 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex_mul* h
 // and  b*high_mon + e = 0, so high_mon = -e/b
 // then targ_sum->children()[j] =  - (c/b) * e*p
 
-void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex_mul* high_mon, unsigned j) {    
+void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
 
     nex * ej = (*targ_sum)[j];
     nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
@@ -479,22 +482,24 @@ void  nla_grobner::simplify_to_process(equation* eq) {
 
 }
 
-// if e is the sum adds to r all children of e multiplied by beta, except the first one
-// which corresponds to the highest monomial
+// if e is the sum then add to r all children of e multiplied by beta, except the first one
+// which corresponds to the highest monomial,
+// otherwise do nothing
 void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
-    SASSERT(e->is_sum());
     if (e->is_sum()) {
         nex_sum *es = to_sum(e);
         for (unsigned j = 1; j < es->size(); j++) {
             r->add_child(m_nex_creator.mk_mul(beta, (*es)[j], c));
         }
         TRACE("grobner", tout << "r = " << *r << "\n";);        
+    } else {
+        TRACE("grobner", tout << "e = " << *e << "\n";);
     }
 }
 
 
 // let e1: alpha*ab+q=0, and e2: beta*ac+e=0, then beta*qc - alpha*eb = 0
-nex * nla_grobner::expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, nex_mul* b, nex_mul* c) {
+nex * nla_grobner::expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c) {
     TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\n";);    
     nex_sum * r = m_nex_creator.mk_sum();
     rational alpha = - ab->coeff();
@@ -513,8 +518,8 @@ nex * nla_grobner::expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, ne
 // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
 void nla_grobner::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
-    nex_mul * ab = get_highest_monomial(eq1->exp()); 
-    nex_mul * ac = get_highest_monomial(eq2->exp());
+    const nex * ab = get_highest_monomial(eq1->exp()); 
+    const nex * ac = get_highest_monomial(eq2->exp());
     nex_mul *b, *c;
     TRACE("grobner", tout << "ab="; if(ab) { tout << *ab; } else { tout << "null"; };
           tout  << " , " << " ac="; if(ac) { tout << *ac; } else { tout << "null"; }; tout << "\n";);
@@ -525,66 +530,74 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     init_equation(eq, expr_superpose( eq1->exp(), eq2->exp(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));  
     insert_to_simplify(eq);
 }
-
-bool nla_grobner::find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c) {
+// Let a be the greatest common divider of ab and bc,
+// then ab/a is stored in b, and ac/a is stored in c
+bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& c) {
     if (!find_b_c_check_only(ab, ac))
         return false;
     b = m_nex_creator.mk_mul(); c = m_nex_creator.mk_mul();
-    nex_pow* bp = ab->begin();
-    nex_pow* cp = ac->begin();
+    unsigned ab_size = ab->number_of_child_powers();
+    unsigned ac_size = ac->number_of_child_powers();
+    unsigned i = 0, j = 0;
+    //    nex_pow* bp = ab->begin();
+    //    nex_pow* cp = ac->begin();
     for (;;) {
-        if (m_nex_creator.lt(bp->e(), cp->e())) {
-            b->add_child_in_power(*bp);
-            if (++bp == ab->end())
+        const nex* m = ab->get_child_exp(i);
+        const nex* n = ac->get_child_exp(j);
+        if (m_nex_creator.lt(m, n)) {
+            b->add_child_in_power(const_cast<nex*>(m), ab->get_child_pow(i));
+            if (++i == ab_size)
                 break;
-        } else if (m_nex_creator.lt(cp->e(), bp->e())) {
-            c->add_child_in_power(*cp);
-            if (++cp == ac->end())
+        } else if (m_nex_creator.lt(n, m)) {
+            c->add_child_in_power(const_cast<nex*>(n), ac->get_child_pow(j));
+            if (++j == ac_size)
                 break;
         } else {
-            unsigned b_pow = bp->pow();
-            unsigned c_pow = cp->pow();
+            unsigned b_pow = ab->get_child_pow(i);
+            unsigned c_pow = ac->get_child_pow(j);
             if (b_pow > c_pow) {
-                b->add_child_in_power(bp->e(), b_pow - c_pow);
+                b->add_child_in_power(const_cast<nex*>(m), b_pow - c_pow);
             } else if (c_pow > b_pow) {
-                c->add_child_in_power(cp->e(), c_pow - b_pow);
+                c->add_child_in_power(const_cast<nex*>(n), c_pow - b_pow);
             } // otherwise the power are equal and no child added to either b or c
-            bp++; cp++;
+            i++; j++;
            
-            if (bp == ab->end() || cp == ac->end()) {
+            if (i == ab_size || j == ac_size) {
                 break;
             }
         }
     }
     
-    while (cp != ac->end()) {
-        c->add_child_in_power(*cp);
-        cp++;
+    while (i != ab_size) {
+        c->add_child_in_power(const_cast<nex*>(ab->get_child_exp(i)), ab->get_child_pow(i));
+        i++;
     }
-    while (bp != ab->end()) {
-        b->add_child_in_power(*bp);
-        bp++;
+    while (j != ac_size) {
+        c->add_child_in_power(const_cast<nex*>(ac->get_child_exp(j)), ac->get_child_pow(j));
+        j++;
     }
     TRACE("nla_grobner", tout << "b=" << *b << ", c=" <<*c << "\n";);
     return true;
 }
-
-bool nla_grobner::find_b_c_check_only(const nex_mul*ab, const nex_mul* ac) const {
+// Finds out if ab and bc have a non-trivial common divider
+bool nla_grobner::find_b_c_check_only(const nex* ab, const nex* ac) const {
     if (ab == nullptr || ac == nullptr)
         return false;
     SASSERT(m_nex_creator.is_simplified(ab) && m_nex_creator.is_simplified(ab));
     unsigned i = 0, j = 0; // i points to ab, j points to ac
     for (;;) {
-        if (m_nex_creator.lt((*ab)[i].e(), (*ac)[j].e())) {
+        const nex* m = ab->get_child_exp(i);
+        const nex* n = ac->get_child_exp(j);
+        if (m_nex_creator.lt(m , n)) {
             i++;
-            if (i == ab->size())
+            if (i == ab->number_of_child_powers())
                 return false;
-        } else if (m_nex_creator.lt((*ac)[j].e(), (*ab)[i].e())) {
+        } else if (m_nex_creator.lt(n, m)) {
             j++;
-            if (j == ac->size())
+            if (j == ac->number_of_child_powers())
                 return false;
         } else {
-            TRACE("grobner", tout << "found common " << *(*ac)[j].e() << " in " << *ab << " and " << *ac << "\n";);
+            TRACE("grobner", tout << "found common " << *m << "\n";);
             return true;
         }
     }
@@ -659,23 +672,16 @@ void nla_grobner::update_statistics(){
 bool nla_grobner::find_conflict(ptr_vector<equation>& eqs){
     eqs.reset();
     get_equations(eqs);
-    TRACE("grobner_bug", tout << "after gb\n";);
     for (equation* eq : eqs) {
         TRACE("grobner_bug", display_equation(tout, *eq););
-        if (is_inconsistent(eq) || is_inconsistent2(eq))
+        if (is_inconsistent(eq))
             return true;
     }
     return false;
 }
 
-bool nla_grobner::is_inconsistent(equation*) {
-    //    NOT_IMPLEMENTED_YET(); todo implement
-    return false;
-}
-
-bool nla_grobner::is_inconsistent2(equation*) {
-    //    NOT_IMPLEMENTED_YET(); todo implement
-    return false;
+bool nla_grobner::is_inconsistent(equation* e ) {
+    return e->exp()->is_scalar() && (!to_scalar(e->exp())->value().is_zero());
 }
 
 template <typename T, typename V>

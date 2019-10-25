@@ -107,7 +107,6 @@ private:
     void update_statistics();
     bool find_conflict(ptr_vector<equation>& eqs);
     bool is_inconsistent(equation*);
-    bool is_inconsistent2(equation*);
     bool push_calculation_forward(ptr_vector<equation>& eqs, unsigned&);
     void compute_basis_init();        
     bool compute_basis_loop();
@@ -123,8 +122,8 @@ bool simplify_processed_with_eq(equation*);
     bool canceled() { return false; } // todo, implement
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
-    bool find_b_c(nex_mul*ab, nex_mul* ac, nex_mul*& b, nex_mul*& c);
-    bool find_b_c_check_only(const nex_mul*ab, const nex_mul* ac) const;
+    bool find_b_c(const nex *ab, const nex* ac, nex_mul*& b, nex_mul*& c);
+    bool find_b_c_check_only(const nex* ab, const nex* ac) const;
     bool is_trivial(equation* ) const; 
     bool is_better_choice(equation * eq1, equation * eq2);
     void del_equations(unsigned old_size);
@@ -151,15 +150,15 @@ bool simplify_processed_with_eq(equation*);
         m_to_superpose.insert(eq);
     }
     void simplify_equations_to_process();
-    nex_mul * get_highest_monomial(nex * e) const;
+    const nex * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
-    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex_mul*);    
-    bool simplify_target_monomials_sum_check_only(nex_sum*, const nex_mul*);    
-    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex_mul*, unsigned);
-    nex_mul * divide_ignore_coeffs(nex* ej, const nex_mul*);
-    bool divide_ignore_coeffs_check_only(nex_mul* , const nex_mul*);
-    nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex_mul*);
-    nex * expr_superpose(nex* e1, nex* e2, nex_mul* ab, nex_mul* ac, nex_mul* b, nex_mul* c);
+    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    
+    bool simplify_target_monomials_sum_check_only(nex_sum*, const nex*) const;    
+    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned);
+    nex_mul * divide_ignore_coeffs(nex* ej, const nex*);
+    bool divide_ignore_coeffs_check_only(nex_mul* , const nex*) const;
+    nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex*);
+    nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
     void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
 }; // end of grobner
 }
