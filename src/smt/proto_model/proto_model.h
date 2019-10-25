@@ -55,8 +55,8 @@ class proto_model : public model_core {
     // Invariant: m_const_decls subset m_decls
     
     void remove_aux_decls_not_in_set(ptr_vector<func_decl> & decls, func_decl_set const & s);
-    void cleanup_func_interp(func_interp * fi, func_decl_set & found_aux_fs);
-
+    void cleanup_func_interp(expr_ref_vector& trail, func_interp * fi, func_decl_set & found_aux_fs);
+    expr* cleanup_expr(expr_ref_vector& trail, expr* fi_else, func_decl_set& found_aux_fs);
 
 public:
     proto_model(ast_manager & m, params_ref const & p = params_ref());

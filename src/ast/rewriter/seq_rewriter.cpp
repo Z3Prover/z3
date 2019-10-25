@@ -18,16 +18,16 @@ Notes:
 
 --*/
 
+#include "util/uint_set.h"
 #include "ast/rewriter/seq_rewriter.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/ast_util.h"
-#include "util/uint_set.h"
-#include "math/automata/automaton.h"
 #include "ast/well_sorted.h"
 #include "ast/rewriter/var_subst.h"
 #include "ast/rewriter/bool_rewriter.h"
+#include "math/automata/automaton.h"
 #include "math/automata/symbolic_automata_def.h"
 
 
@@ -808,6 +808,10 @@ br_status seq_rewriter::mk_seq_extract(expr* a, expr* b, expr* c, expr_ref& resu
         for (; i < as.size() && m_util.str.is_unit(as.get(i)) && i - offset < _len; ++i);
         if (i - offset == _len) {
             result = m_util.str.mk_concat(_len, as.c_ptr() + offset);
+            return BR_DONE;
+        }
+        if (i == as.size()) {
+            result = m_util.str.mk_concat(as.size() - offset, as.c_ptr() + offset);
             return BR_DONE;
         }
     }

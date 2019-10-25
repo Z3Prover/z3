@@ -312,6 +312,7 @@ namespace nlsat {
             polynomial_ref lc(m_pm);
             polynomial_ref reduct(m_pm);
             while (true) {
+                TRACE("nlsat_explain", tout << "elim vanishing x" << x << " k:" << k << " " << p << "\n";);
                 if (is_const(p))
                     return;
                 if (k == 0) {
@@ -320,9 +321,22 @@ namespace nlsat {
                     SASSERT(x != null_var);
                     k = degree(p, x);
                 }
-                if (m_pm.nonzero_const_coeff(p, x, k))
+#if 0
+                anum const & x_val = m_assignment.value(x);
+                if (m_am.is_zero(x_val)) {
+                    // add_zero_assumption(lc);
+                    lc = m_pm.coeff(p, x, k, reduct);
+                    k--;
+                    p = reduct;
+                    continue;
+                }
+#endif
+                if (m_pm.nonzero_const_coeff(p, x, k)) {
+                    TRACE("nlsat_explain", tout << "nonzero const x" << x << "\n";);
                     return; // lc is a nonzero constant
+                }
                 lc = m_pm.coeff(p, x, k, reduct);
+                TRACE("nlsat_explain", tout << "lc: " << lc << " reduct: " << reduct << "\n";);
                 if (!is_zero(lc)) {
                     if (sign(lc) != polynomial::sign_zero)
                         return;
@@ -630,7 +644,7 @@ namespace nlsat {
 
             for (unsigned i = 0; i < sz; i++) {
                 s = S.get(i);
-                TRACE("nlsat_explain", tout << "processing psc(" << i << ")\n"; display(tout, s); tout << "\n";); 
+                TRACE("nlsat_explain", display(tout << "processing psc(" << i << ")\n", s) << "\n";); 
                 if (is_zero(s)) {
                     TRACE("nlsat_explain", tout << "skipping psc is the zero polynomial\n";);
                     continue;
