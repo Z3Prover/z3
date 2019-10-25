@@ -16,8 +16,8 @@ Author:
 Revision History:
 
 --*/
-#include "smt/proto_model/struct_factory.h"
-#include "smt/proto_model/proto_model.h"
+#include "model/struct_factory.h"
+#include "model/model_core.h"
 
 struct_factory::value_set * struct_factory::get_value_set(sort * s) {
     value_set * set = nullptr;
@@ -31,7 +31,7 @@ struct_factory::value_set * struct_factory::get_value_set(sort * s) {
     return set;
 }
 
-struct_factory::struct_factory(ast_manager & m, family_id fid, proto_model & md):
+struct_factory::struct_factory(ast_manager & m, family_id fid, model_core & md):
     value_factory(m, fid),
     m_model(md),
     m_values(m),

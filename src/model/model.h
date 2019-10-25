@@ -19,10 +19,13 @@ Revision History:
 #ifndef MODEL_H_
 #define MODEL_H_
 
+#include "util/ref.h"
+#include "util/vector.h"
+#include "ast/ast_translation.h"
+#include "util/plugin_manager.h"
 #include "model/model_core.h"
 #include "model/model_evaluator.h"
-#include "util/ref.h"
-#include "ast/ast_translation.h"
+#include "model/value_factory.h"
 
 class model;
 typedef ref<model> model_ref;
@@ -37,7 +40,7 @@ protected:
     model_evaluator               m_mev;
     bool                          m_cleaned;
     bool                          m_inline;
-    struct value_proc;
+    plugin_manager<value_factory> m_factories;
 
     struct deps_collector;    
     struct occs_collector;    
@@ -52,6 +55,7 @@ protected:
     expr_ref cleanup_expr(top_sort& ts, expr* e, unsigned current_partition);
     void remove_decls(ptr_vector<func_decl> & decls, func_decl_set const & s);
     bool can_inline_def(top_sort& ts, func_decl* f);
+    value_factory* get_factory(sort* s);
 
 public:
     model(ast_manager & m);
@@ -66,6 +70,9 @@ public:
     bool eval_expr(expr * e, expr_ref & result, bool model_completion = false);
 
     expr * get_some_value(sort * s) override;
+    expr * get_fresh_value(sort * s) override;
+    bool get_some_values(sort * s, expr_ref & v1, expr_ref & v2) override;
+
     ptr_vector<expr> const & get_universe(sort * s) const override;
     unsigned get_num_uninterpreted_sorts() const override;
     sort * get_uninterpreted_sort(unsigned idx) const override;

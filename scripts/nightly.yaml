@@ -1,3 +1,6 @@
+variables:
+  z3Version: '4.8.7'
+
 jobs:
 
 - job: Mac
@@ -68,6 +71,48 @@ jobs:
       artifactName: 'Windows'
       targetPath: $(Build.ArtifactStagingDirectory)
 
+
+- job: NuGet
+  displayName: "Create Nuget Package"
+  dependsOn:
+  - Mac
+  - Ubuntu
+  - Windows
+  steps:
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Mac'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Ubuntu'
+     targetPath: tmp
+  - script: |
+       cd scripts 
+       python mk_nuget_task.py ../tmp $(z3Version) $(Build.SourceVersion)
+       cd ..
+#  - task: NuGetCommand@2
+#    inputs:
+#      command: pack
+#      packagesToPack: scripts/out/*.nuspec
+#      packDestination: $(Build.ArtifactStagingDirectory)
+#  - task: NuGetCommand@2
+#    inputs: 
+#      command: 'pack'
+#      packagesToPack: scripts/out/*.nuspec
+#      includesymbols: true
+#      packDestination: $(Build.ArtifactStagingDirectory)
+
+# Not available as a task?
+#  - script: | 
+#      cd scripts
+#      EsprClient.exe sign -a authorization.json -p policy.json -i out/nuget_sign_input.json -o out/diagnostics.json       
+#      cd ..
+
 - job: Python
   displayName: "Python packaging"
   dependsOn:
@@ -117,14 +162,18 @@ jobs:
     inputs:
      artifactName: 'Ubuntu'
      targetPath: tmp
-#  - task: GitHubRelease@0
+#  - task: DownloadPipelineArtifact@0
 #    inputs:
-#      gitHubConnection: Z3GitHub
-#      repositoryName: 'Z3Prover/z3'
-#      action: 'delete'
-##     target: '$(Build.SourceVersion)'
-#      tagSource: 'manual'
-#      tag: 'Nightly'
+#     artifactName: 'NuGet'
+#     targetPath: tmp
+  - task: GitHubRelease@0
+    inputs:
+      gitHubConnection: Z3GitHub
+      repositoryName: 'Z3Prover/z3'
+      action: 'delete'
+#     target: '$(Build.SourceVersion)'
+      tagSource: 'manual'
+      tag: 'Nightly'
   - task: GitHubRelease@0
     inputs:
       gitHubConnection: Z3GitHub

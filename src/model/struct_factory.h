@@ -19,10 +19,10 @@ Revision History:
 #ifndef STRUCT_FACTORY_H_
 #define STRUCT_FACTORY_H_
 
-#include "smt/proto_model/value_factory.h"
+#include "model/value_factory.h"
 #include "util/obj_hashtable.h"
 
-class proto_model;
+class model_core;
 
 /**
    \brief Abstract factory for structured values such as: arrays and algebraic datatypes.
@@ -32,7 +32,7 @@ protected:
     typedef obj_hashtable<expr> value_set;
     typedef obj_map<sort, value_set *> sort2value_set;
 
-    proto_model &         m_model;
+    model_core &          m_model;
     sort2value_set        m_sort2value_set;
     expr_ref_vector       m_values;
     sort_ref_vector       m_sorts;
@@ -41,7 +41,7 @@ protected:
     value_set * get_value_set(sort * s);
 
 public:
-    struct_factory(ast_manager & m, family_id fid, proto_model & md);
+    struct_factory(ast_manager & m, family_id fid, model_core & md);
 
     ~struct_factory() override;
 

@@ -106,6 +106,8 @@ Z3 has bindings for various programming languages.
 
 ### ``.NET``
 
+You can install a nuget package for the latest release Z3 from [nuget.org](https://www.nuget.org/packages/Microsoft.Z3.x64/).
+
 Use the ``--dotnet`` command line flag with ``mk_make.py`` to enable building these.
 
 On non-windows platforms [mono](http://www.mono-project.com/) is required. On these
@@ -155,6 +157,12 @@ Use the ``--ml`` command line flag with ``mk_make.py`` to enable building these.
 See [``examples/ml``](examples/ml) for examples.
 
 ### ``Python``
+
+You can install the Python wrapper for Z3 for the latest release from pypi using the command
+
+```bash
+   pip install z3-solver
+```
 
 Use the ``--python`` command line flag with ``mk_make.py`` to enable building these.
 

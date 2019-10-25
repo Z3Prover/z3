@@ -5810,6 +5810,7 @@ namespace polynomial {
                 ps = coeff(B, x, d-1);
                 if (!is_zero(ps))
                     S.push_back(ps);
+                SASSERT(d >= e);
                 unsigned delta = d - e;
                 if (delta > 1) {
                     // C <- S_e
@@ -5932,8 +5933,8 @@ namespace polynomial {
 
         void psc_chain(polynomial const * A, polynomial const * B, var x, polynomial_ref_vector & S) {
             // psc_chain1(A, B, x, S);
-            // psc_chain2(A, B, x, S);
-            // psc_chain_classic(A, B, x, S);
+            //psc_chain2(A, B, x, S);
+            //psc_chain_classic(A, B, x, S);
             psc_chain_optimized(A, B, x, S);
         }
 

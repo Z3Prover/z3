@@ -19,13 +19,13 @@ Revision History:
 #ifndef THEORY_BV_H_
 #define THEORY_BV_H_
 
-#include "smt/smt_theory.h"
-#include "smt/params/theory_bv_params.h"
 #include "ast/rewriter/bit_blaster/bit_blaster.h"
 #include "util/trail.h"
 #include "util/union_find.h"
 #include "ast/arith_decl_plugin.h"
-#include "smt/proto_model/numeral_factory.h"
+#include "model/numeral_factory.h"
+#include "smt/smt_theory.h"
+#include "smt/params/theory_bv_params.h"
 
 namespace smt {
     

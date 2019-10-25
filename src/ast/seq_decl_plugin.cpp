@@ -667,6 +667,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
     match_right_assoc(*m_sigs[k], arity, domain, range, rng);
     func_decl_info info(m_family_id, k_seq);
     info.set_right_associative(true);
+    info.set_left_associative(true);
     return m.mk_func_decl(m_sigs[(rng == m_string)?k_string:k_seq]->m_name, rng, rng, rng, info);
 }
 
@@ -912,6 +913,11 @@ app* seq_decl_plugin::mk_string(zstring const& s) {
     return m_manager->mk_const(f);
 }
 
+
+bool seq_decl_plugin::is_considered_uninterpreted(func_decl * f) {
+    seq_util util(*m_manager);
+    return util.str.is_nth_u(f);
+}
 
 bool seq_decl_plugin::is_value(app* e) const {
     while (true) {

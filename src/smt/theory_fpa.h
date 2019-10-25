@@ -24,7 +24,7 @@ Revision History:
 #include "ast/fpa/fpa2bv_converter.h"
 #include "ast/fpa/fpa2bv_rewriter.h"
 #include "ast/rewriter/th_rewriter.h"
-#include "smt/proto_model/value_factory.h"
+#include "model/value_factory.h"
 #include "smt/smt_model_generator.h"
 
 namespace smt {

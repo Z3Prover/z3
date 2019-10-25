@@ -19,9 +19,9 @@ Revision History:
 #ifndef NUMERAL_FACTORY_H_
 #define NUMERAL_FACTORY_H_
 
-#include "smt/proto_model/value_factory.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "model/value_factory.h"
 
 class numeral_factory : public simple_factory<rational> {
 public:

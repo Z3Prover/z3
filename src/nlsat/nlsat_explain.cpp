@@ -188,7 +188,7 @@ namespace nlsat {
             unsigned lidx = l.index();
             if (m_already_added_literal.get(lidx, false))
                 return;
-            TRACE("nlsat_explain", tout << "adding literal: " << lidx << "\n"; m_solver.display(tout, l); tout << "\n";);
+            TRACE("nlsat_explain", tout << "adding literal: " << lidx << "\n"; m_solver.display(tout, l) << "\n";);
             m_already_added_literal.setx(lidx, true, false);
             m_result->push_back(l);
         }
@@ -312,6 +312,7 @@ namespace nlsat {
             polynomial_ref lc(m_pm);
             polynomial_ref reduct(m_pm);
             while (true) {
+                TRACE("nlsat_explain", tout << "elim vanishing x" << x << " k:" << k << " " << p << "\n";);
                 if (is_const(p))
                     return;
                 if (k == 0) {
@@ -320,9 +321,22 @@ namespace nlsat {
                     SASSERT(x != null_var);
                     k = degree(p, x);
                 }
-                if (m_pm.nonzero_const_coeff(p, x, k))
+#if 0
+                anum const & x_val = m_assignment.value(x);
+                if (m_am.is_zero(x_val)) {
+                    // add_zero_assumption(lc);
+                    lc = m_pm.coeff(p, x, k, reduct);
+                    k--;
+                    p = reduct;
+                    continue;
+                }
+#endif
+                if (m_pm.nonzero_const_coeff(p, x, k)) {
+                    TRACE("nlsat_explain", tout << "nonzero const x" << x << "\n";);
                     return; // lc is a nonzero constant
+                }
                 lc = m_pm.coeff(p, x, k, reduct);
+                TRACE("nlsat_explain", tout << "lc: " << lc << " reduct: " << reduct << "\n";);
                 if (!is_zero(lc)) {
                     if (sign(lc) != polynomial::sign_zero)
                         return;
@@ -619,13 +633,18 @@ namespace nlsat {
         void psc(polynomial_ref & p, polynomial_ref & q, var x) {
             polynomial_ref_vector & S = m_psc_tmp;
             polynomial_ref s(m_pm);
-            TRACE("nlsat_explain", tout << "computing psc of\n"; display(tout, p); tout << "\n"; display(tout, q); tout << "\n";);
 
             psc_chain(p, q, x, S);
             unsigned sz = S.size();
+            TRACE("nlsat_explain", tout << "computing psc of\n"; display(tout, p); tout << "\n"; display(tout, q); tout << "\n";
+                  for (unsigned i = 0; i < sz; ++i) {
+                      s = S.get(i);
+                      tout << "psc: " << s << "\n";
+                  });
+
             for (unsigned i = 0; i < sz; i++) {
                 s = S.get(i);
-                TRACE("nlsat_explain", tout << "processing psc(" << i << ")\n"; display(tout, s); tout << "\n";); 
+                TRACE("nlsat_explain", display(tout << "processing psc(" << i << ")\n", s) << "\n";); 
                 if (is_zero(s)) {
                     TRACE("nlsat_explain", tout << "skipping psc is the zero polynomial\n";);
                     continue;
@@ -634,7 +653,7 @@ namespace nlsat {
                     TRACE("nlsat_explain", tout << "done, psc is a constant\n";);
                     return;
                 }
-                if (sign(s) == 0) {
+                if (sign(s) == polynomial::sign_zero) {
                     TRACE("nlsat_explain", tout << "psc vanished, adding zero assumption\n";);
                     add_zero_assumption(s);
                     continue;
@@ -702,15 +721,14 @@ namespace nlsat {
             m_result = nullptr;
         }
 
+        
         void add_root_literal(atom::kind k, var y, unsigned i, poly * p) {
             polynomial_ref pr(p, m_pm);
             TRACE("nlsat_explain", 
                   display(tout << "x" << y << " " << k << "[" << i << "](", pr); tout << ")\n";);
-
+            
             if (!mk_linear_root(k, y, i, p) &&
-                //!mk_plinear_root(k, y, i, p) &&
-                !mk_quadratic_root(k, y, i, p)&&
-                true) {                
+                !mk_quadratic_root(k, y, i, p)) {
                 bool_var b = m_solver.mk_root_atom(k, y, i, p);
                 literal l(b, true);
                 TRACE("nlsat_explain", tout << "adding literal\n"; display(tout, l); tout << "\n";);
@@ -721,7 +739,7 @@ namespace nlsat {
         /**
          * literal can be expressed using a linear ineq_atom
          */
-        bool mk_linear_root(atom::kind k, var y, unsigned i, poly * p) {
+        bool mk_linear_root(atom::kind k, var y, unsigned i, poly * p) {            
             scoped_mpz c(m_pm.m());
             if (m_pm.degree(p, y) == 1 && m_pm.const_coeff(p, y, 1, c)) {
                 SASSERT(!m_pm.m().is_zero(c));
@@ -825,6 +843,7 @@ namespace nlsat {
 #else
             int s = sign(p);
             if (!is_const(p)) {
+                TRACE("nlsat_explain", tout << p << "\n";);
                 add_simple_assumption(s == 0 ? atom::EQ : (s < 0 ? atom::LT : atom::GT), p);
             }
             return s;
@@ -833,6 +852,11 @@ namespace nlsat {
 
         /**
            Auxiliary function to linear roots.
+           y > root[1](-2*y - z)
+           y > -z/2
+           y + z/2 > 0
+           2y + z > 0
+           
          */
         void mk_linear_root(atom::kind k, var y, unsigned i, poly * p, bool mk_neg) {
             polynomial_ref p_prime(m_pm);
@@ -898,8 +922,13 @@ namespace nlsat {
                 m_am.isolate_roots(p, undef_var_assignment(m_assignment, y), roots);
                 unsigned num_roots = roots.size();
                 for (unsigned i = 0; i < num_roots; i++) {
-                    TRACE("nlsat_explain", tout << "comparing root: "; m_am.display_decimal(tout, roots[i]); tout << "\n";);
                     int s = m_am.compare(y_val, roots[i]);
+                    TRACE("nlsat_explain", 
+                          m_am.display_decimal(tout << "comparing root: ", roots[i]); tout << "\n";
+                          m_am.display_decimal(tout << "with y_val:", y_val); 
+                          tout << "\nsign " << s << "\n";
+                          tout << "poly: " << p << "\n";
+                          );
                     if (s == 0) {
                         // y_val == roots[i]
                         // add literal
@@ -931,11 +960,13 @@ namespace nlsat {
                     }
                 }
             }
-            
-            if (!lower_inf) 
+
+            if (!lower_inf) {
                 add_root_literal(m_full_dimensional ? atom::ROOT_GE : atom::ROOT_GT, y, i_lower, p_lower);
-            if (!upper_inf)
+            }
+            if (!upper_inf) {
                 add_root_literal(m_full_dimensional ? atom::ROOT_LE : atom::ROOT_LT, y, i_upper, p_upper);
+            }
         }
 
         /**
@@ -1076,7 +1107,7 @@ namespace nlsat {
                 new_lit = l;
                 return;
             }
-            TRACE("nlsat_simplify_core", tout << "trying to simplify literal\n"; display(tout, l); tout << "\nusing equation\n";
+            TRACE("nlsat_simplify_core", display(tout << "trying to simplify literal\n", l) << "\nusing equation\n";
                   m_pm.display(tout, info.m_eq, m_solver.display_proc()); tout << "\n";);
             int  atom_sign = 1;
             bool modified_lit = false;
@@ -1348,7 +1379,9 @@ namespace nlsat {
             var max_x = max_var(m_ps);
             TRACE("nlsat_explain", tout << "polynomials in the conflict:\n"; display(tout, m_ps); tout << "\n";);
             elim_vanishing(m_ps);
+            TRACE("nlsat_explain", tout << "elim vanishing\n"; display(tout, m_ps); tout << "\n";);
             project(m_ps, max_x);
+            TRACE("nlsat_explain", tout << "after projection\n"; display(tout, m_ps); tout << "\n";);
         }
 
         void process2(unsigned num, literal const * ls) {
@@ -1453,7 +1486,11 @@ namespace nlsat {
         void operator()(unsigned num, literal const * ls, scoped_literal_vector & result) {
             SASSERT(check_already_added());
             SASSERT(num > 0);
-            TRACE("nlsat_explain", tout << "[explain] set of literals is infeasible in the current interpretation\n"; display(tout, num, ls) << "\n";);
+            TRACE("nlsat_explain", 
+                  tout << "[explain] set of literals is infeasible in the current interpretation\n"; 
+                  display(tout, num, ls) << "\n";
+                  m_assignment.display(tout);
+                  );
             m_result = &result;
             process(num, ls);
             reset_already_added();

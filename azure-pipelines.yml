@@ -90,6 +90,13 @@ jobs:
   steps:
     - script: scripts\vsts-vs2017.cmd x64
 
+- job: "Windows2017ARM64"
+  displayName: "Windows 2017 ARM64 build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+    - script: scripts\vsts-vs2017.cmd amd64_arm64
+
 - job: "MacOS"
   displayName: "MacOS build"
   pool:

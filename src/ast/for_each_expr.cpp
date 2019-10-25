@@ -109,3 +109,67 @@ bool subterms::iterator::operator!=(iterator const& other) const {
     return !(*this == other);
 }
 
+
+subterms_postorder::subterms_postorder(expr_ref_vector const& es): m_es(es) {}
+subterms_postorder::subterms_postorder(expr_ref& e) : m_es(e.m()) { m_es.push_back(e); }
+subterms_postorder::iterator subterms_postorder::begin() { return iterator(*this, true); }
+subterms_postorder::iterator subterms_postorder::end() { return iterator(*this, false); }
+subterms_postorder::iterator::iterator(subterms_postorder& f, bool start): m_es(f.m_es) {
+    if (!start) m_es.reset();
+    next();
+}
+expr* subterms_postorder::iterator::operator*() {
+    return m_es.back();
+}
+subterms_postorder::iterator subterms_postorder::iterator::operator++(int) {
+    iterator tmp = *this;
+    ++*this;
+    return tmp;
+}
+
+void subterms_postorder::iterator::next() {
+    while (!m_es.empty()) {
+        expr* e = m_es.back();
+        if (m_visited.is_marked(e)) {
+            m_es.pop_back();
+            continue;
+        }
+        bool all_visited = true;
+        if (is_app(e)) {
+            for (expr* arg : *to_app(e)) {
+                if (!m_visited.is_marked(arg)) {
+                    m_es.push_back(arg);
+                    all_visited = false;
+                }
+            }
+        }
+        if (all_visited) {
+            m_visited.mark(e, true);
+            break;
+        }
+    }
+    
+}
+
+subterms_postorder::iterator& subterms_postorder::iterator::operator++() {
+    expr* e = m_es.back();
+    next();
+    return *this;
+}
+
+bool subterms_postorder::iterator::operator==(iterator const& other) const {
+    // ignore state of visited
+    if (other.m_es.size() != m_es.size()) {
+        return false;
+    }
+    for (unsigned i = m_es.size(); i-- > 0; ) {
+        if (m_es.get(i) != other.m_es.get(i))
+            return false;
+    }
+    return true;
+}
+
+bool subterms_postorder::iterator::operator!=(iterator const& other) const {
+    return !(*this == other);
+}
+

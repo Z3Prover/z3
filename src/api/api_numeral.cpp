@@ -62,7 +62,6 @@ extern "C" {
         }
         sort * _ty = to_sort(ty);
         bool is_float = mk_c(c)->fpautil().is_float(_ty);
-        std::string fixed_num;
         char const* m = n;
         while (*m) {
             if (!(('0' <= *m && *m <= '9') ||

@@ -22,11 +22,11 @@ Revision History:
 #ifndef THEORY_DIFF_LOGIC_DEF_H_
 #define THEORY_DIFF_LOGIC_DEF_H_
 
+#include "util/map.h"
+#include "util/warning.h"
+#include "ast/ast_pp.h"
 #include "smt/theory_diff_logic.h"
 #include "smt/smt_context.h"
-#include "util/map.h"
-#include "ast/ast_pp.h"
-#include "util/warning.h"
 #include "smt/smt_model_generator.h"
 #include "model/model_implicant.h"
 

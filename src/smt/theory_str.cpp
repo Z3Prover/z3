@@ -1335,6 +1335,23 @@ namespace smt {
             return;
         }
         SASSERT(ex->get_num_args() == 3);
+
+        {
+            // Attempt to rewrite to an integer constant. If this succeeds,
+            // assert equality with that constant.
+            // The rewriter normally takes care of this for terms that are in scope
+            // at the beginning of the search.
+            // We perform the check here to catch terms that are added during the search.
+            expr_ref rwex(ex, m);
+            rw(rwex);
+            if (m_autil.is_numeral(rwex)) {
+                TRACE("str", tout << "constant expression " << mk_pp(ex, m) << " simplifies to " << mk_pp(rwex, m) << std::endl;);
+                assert_axiom(ctx.mk_eq_atom(ex, rwex));
+                axiomatized_terms.insert(ex);
+                return;
+            }
+        }
+
         // if the third argument is exactly the integer 0, we can use this "simple" indexof;
         // otherwise, we call the "extended" version
         expr * startingPosition = ex->get_arg(2);
@@ -1516,6 +1533,7 @@ namespace smt {
         {
             expr_ref premise(m.mk_not(u.str.mk_contains(H, N)), m);
             expr_ref conclusion(ctx.mk_eq_atom(e, minus_one), m);
+            rw(premise);
             assert_implication(premise, conclusion);
         }
         // case 4: 0 < i < len(H), N non-empty, and H contains N
@@ -8142,6 +8160,18 @@ namespace smt {
         sort * rhs_sort = m.get_sort(rhs);
         sort * str_sort = u.str.mk_string_sort();
 
+        // Pick up new terms added during the search (e.g. recursive function expansion).
+        if (!existing_toplevel_exprs.contains(lhs)) {
+            existing_toplevel_exprs.insert(lhs);
+            set_up_axioms(lhs);
+            propagate();
+        }
+        if (!existing_toplevel_exprs.contains(rhs)) {
+            existing_toplevel_exprs.insert(rhs);
+            set_up_axioms(rhs);
+            propagate();
+        }
+
         if (lhs_sort != str_sort || rhs_sort != str_sort) {
             TRACE("str", tout << "skip equality: not String sort" << std::endl;);
             return;
@@ -8597,7 +8627,13 @@ namespace smt {
     }
 
     void theory_str::assign_eh(bool_var v, bool is_true) {
-        TRACE("str", tout << "assert: v" << v << " #" << get_context().bool_var2expr(v)->get_id() << " is_true: " << is_true << std::endl;);
+        expr * e = get_context().bool_var2expr(v);
+        TRACE("str", tout << "assert: v" << v << " " << mk_pp(e, get_manager()) << " is_true: " << is_true << std::endl;);
+        if (!existing_toplevel_exprs.contains(e)) {
+            existing_toplevel_exprs.insert(e);
+            set_up_axioms(e);
+            propagate();
+        }
     }
 
     void theory_str::push_scope_eh() {

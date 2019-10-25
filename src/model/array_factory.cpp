@@ -20,8 +20,8 @@ Revision History:
 #include "ast/array_decl_plugin.h"
 #include "ast/ast_pp.h"
 #include "model/func_interp.h"
-#include "smt/proto_model/array_factory.h"
-#include "smt/proto_model/proto_model.h"
+#include "model/model_core.h"
+#include "model/array_factory.h"
 
 func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     ptr_buffer<sort> domain;
@@ -33,7 +33,7 @@ func_decl * mk_aux_decl_for_array_sort(ast_manager & m, sort * s) {
     return m.mk_fresh_func_decl(symbol::null, symbol::null, arity, domain.c_ptr(), range);
 }
 
-array_factory::array_factory(ast_manager & m, proto_model & md):
+array_factory::array_factory(ast_manager & m, model_core & md):
     struct_factory(m, m.mk_family_id("array"), md) {
 }
 
@@ -67,13 +67,7 @@ expr * array_factory::get_some_value(sort * s) {
         return *(set->begin());
     func_interp * fi;
     expr * val = mk_array_interp(s, fi);
-#if 0
-    ptr_buffer<expr> args;
-    get_some_args_for(s, args);
-    fi->insert_entry(args.c_ptr(), m_model.get_some_value(get_array_range(s)));
-#else
     fi->set_else(m_model.get_some_value(get_array_range(s)));
-#endif
     return val;
 }
 
@@ -147,13 +141,7 @@ expr * array_factory::get_fresh_value(sort * s) {
         // easy case
         func_interp * fi;
         expr * val = mk_array_interp(s, fi);
-#if 0
-        ptr_buffer<expr> args;
-        get_some_args_for(s, args);
-        fi->insert_entry(args.c_ptr(), range_val);
-#else
         fi->set_else(range_val);
-#endif
         return val;
     }
     else {
