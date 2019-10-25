@@ -19,6 +19,7 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/arith_decl_plugin.h"
 #include "ast/bv_decl_plugin.h"
+#include "ast/ast_smt2_pp.h"
 
 fpa_decl_plugin::fpa_decl_plugin():
     m_values(m_fm),
@@ -66,6 +67,10 @@ void fpa_decl_plugin::recycled_id(unsigned id) {
     m_value_table.erase(id);
     m_id_gen.recycle(id);
     m_fm.del(m_values[id]);
+}
+
+bool fpa_decl_plugin::is_considered_uninterpreted(func_decl * f) {
+    return false;
 }
 
 func_decl * fpa_decl_plugin::mk_numeral_decl(mpf const & v) {
@@ -1043,4 +1048,45 @@ bool fpa_util::contains_floats(ast * a) {
     }
 
     return false;
+}
+
+bool fpa_util::is_considered_uninterpreted(func_decl * f, unsigned n, expr* const* args) {
+    TRACE("fpa_util", expr_ref t(m().mk_app(f, n, args), m()); tout << mk_ismt2_pp(t, m()) << std::endl; );
+
+    family_id ffid = plugin().get_family_id();
+    if (f->get_family_id() != ffid)
+        return false;
+
+    if (is_decl_of(f, ffid, OP_FPA_TO_IEEE_BV)) {
+        SASSERT(n == 1);
+        expr* x = args[0];
+        return is_nan(x);
+    }
+    else if (is_decl_of(f, ffid, OP_FPA_TO_SBV) ||
+             is_decl_of(f, ffid, OP_FPA_TO_UBV)) {
+        SASSERT(n == 2);
+        SASSERT(f->get_num_parameters() == 1);
+        bool is_signed = f->get_decl_kind() == OP_FPA_TO_SBV;
+        expr* rm = args[0];
+        expr* x = args[1];
+        unsigned bv_sz = f->get_parameter(0).get_int();
+        mpf_rounding_mode rmv;
+        mpf v;
+        if (!is_rm_numeral(rm, rmv) || !is_numeral(x, v)) return false;
+        if (is_nan(x) || is_inf(x)) return true;
+        unsynch_mpq_manager& mpqm = plugin().fm().mpq_manager();
+        scoped_mpq r(mpqm);
+        plugin().fm().to_sbv_mpq(rmv, v, r);
+        if (is_signed)
+            return mpqm.bitsize(r) >= bv_sz;
+        else
+            return mpqm.is_neg(r) || mpqm.bitsize(r) > bv_sz;
+    }
+    else if (is_decl_of(f, ffid, OP_FPA_TO_REAL)) {
+        SASSERT(n == 1);
+        expr* x = args[0];
+        return is_nan(x) || is_inf(x);
+    }
+
+    return plugin().is_considered_uninterpreted(f);
 }

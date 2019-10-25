@@ -51,11 +51,10 @@ bv2fpa_converter::bv2fpa_converter(ast_manager & m, fpa2bv_converter & conv) :
     for (auto const& kv : conv.m_uf2bvuf) {
         m_uf2bvuf.insert(kv.m_key, kv.m_value);
         m.inc_ref(kv.m_key);
-        m.inc_ref(kv.m_value.first);
-        m.inc_ref(kv.m_value.second);
+        m.inc_ref(kv.m_value);
     }
     for (auto const& kv : conv.m_min_max_ufs) {
-        m_specials.insert(kv.m_key, kv.m_value);
+        m_min_max_specials.insert(kv.m_key, kv.m_value);
         m.inc_ref(kv.m_key);
         m.inc_ref(kv.m_value.first);
         m.inc_ref(kv.m_value.second);
@@ -67,16 +66,15 @@ bv2fpa_converter::~bv2fpa_converter() {
     dec_ref_map_key_values(m, m_rm_const2bv);
     for (auto const& kv : m_uf2bvuf) {
         m.dec_ref(kv.m_key);
-        m.dec_ref(kv.m_value.first);
-        m.dec_ref(kv.m_value.second);
+        m.dec_ref(kv.m_value);
     }
-    for (auto const& kv : m_specials) {
+    for (auto const& kv : m_min_max_specials) {
         m.dec_ref(kv.m_key);
         m.dec_ref(kv.m_value.first);
         m.dec_ref(kv.m_value.second);
     }
     m_uf2bvuf.reset();
-    m_specials.reset();
+    m_min_max_specials.reset();
 }
 
 expr_ref bv2fpa_converter::convert_bv2fp(sort * s, expr * sgn, expr * exp, expr * sig) {
@@ -191,7 +189,7 @@ expr_ref bv2fpa_converter::convert_bv2rm(model_core * mc, expr * val) {
 
 expr_ref bv2fpa_converter::rebuild_floats(model_core * mc, sort * s, expr * e) {
     expr_ref result(m);
-    TRACE("bv2fpa", tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for ";
+    TRACE("bv2fpa_rebuild", tout << "rebuild floats in " << mk_ismt2_pp(s, m) << " for ";
                     if (e) tout << mk_ismt2_pp(e, m);
                     else tout << "nil";
                     tout << std::endl; );
@@ -288,13 +286,23 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
             expr_ref ft_fres = rebuild_floats(mc, rng, to_app(bv_fres));
             m_th_rw(ft_fres);
             TRACE("bv2fpa",
+                  tout << "func_interp entry #" << i << ":" << std::endl;
+                  tout << "(" << bv_f->get_name();
+                  for (unsigned i = 0; i < bv_f->get_arity(); i++)
+                      tout << " " << mk_ismt2_pp(bv_args[i], m);
+                  tout << ") = " << mk_ismt2_pp(bv_fres, m) << std::endl;
+                  tout << " --> " << std::endl;
+                  tout << "(" << f->get_name();
                   for (unsigned i = 0; i < new_args.size(); i++)
-                      tout << mk_ismt2_pp(bv_args[i], m) << " == " <<
-                        mk_ismt2_pp(new_args[i], m) << std::endl;
-                  tout << mk_ismt2_pp(bv_fres, m) << " == " << mk_ismt2_pp(ft_fres, m) << std::endl;);
+                      tout << " " << mk_ismt2_pp(new_args[i], m);
+                  tout << ") = " << mk_ismt2_pp(ft_fres, m) << std::endl;);
             func_entry * fe = result->get_entry(new_args.c_ptr());
-            if (fe == nullptr)
-                result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            if (fe == nullptr) {
+                // Avoid over-specification of a partially interpreted theory function
+                if (f->get_family_id() != m_fpa_util.get_family_id() ||
+                    m_fpa_util.is_considered_uninterpreted(f, new_args.size(), new_args.c_ptr()))
+                    result->insert_new_entry(new_args.c_ptr(), ft_fres);
+            }
             else {
                 // The BV model may have multiple equivalent entries using different
                 // representations of NaN. We can only keep one and we check that
@@ -309,6 +317,7 @@ func_interp * bv2fpa_converter::convert_func_interp(model_core * mc, func_decl *
         if (bv_els) {
             expr_ref ft_els = rebuild_floats(mc, rng, bv_els);
             m_th_rw(ft_els);
+            TRACE("bv2fpa", tout << "else=" << mk_ismt2_pp(ft_els, m) << std::endl;);
             result->set_else(ft_els);
         }
     }
@@ -398,7 +407,7 @@ void bv2fpa_converter::convert_rm_consts(model_core * mc, model_core * target_mo
 }
 
 void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
-    for (auto const& kv : m_specials) {
+    for (auto const& kv : m_min_max_specials) {
         func_decl * f = kv.m_key;
         app * pn_cnst = kv.m_value.first;
         app * np_cnst = kv.m_value.second;
@@ -432,8 +441,7 @@ void bv2fpa_converter::convert_min_max_specials(model_core * mc, model_core * ta
 void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_model, obj_hashtable<func_decl> & seen) {
     for (auto const& kv : m_uf2bvuf) {
         func_decl * f = kv.m_key;
-        func_decl* f_uf = kv.m_value.first;
-        expr*      f_def = kv.m_value.second;
+        func_decl * f_uf = kv.m_value;
         seen.insert(f_uf);
 
         if (f->get_arity() == 0)
@@ -454,29 +462,22 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
             }
         }
         else if (f->get_family_id() == m_fpa_util.get_fid()) {
-            if (f_def) {
-                func_interp* fi = alloc(func_interp, m, f->get_arity());
-                expr_ref def = rebuild_floats(mc, f->get_range(), to_app(f_def));
-                fi->set_else(def);
-                SASSERT(m.get_sort(def) == f->get_range());
-                target_model->register_decl(f, fi);
-                func_interp* fj = mc->get_func_interp(f_uf);
-                if (fj) {
-                    target_model->register_decl(f_uf, fj->copy());
-                }
-                continue;
-            }
-
+            // kv.m_value contains the model for the unspecified cases of kv.m_key in terms of bit-vectors.
+            // convert_func_interp rebuilds a func_interp on floats.
 
             //  f is a floating point function: f(x,y) : Float
             //  f_uf is a bit-vector function: f_uf(xB,yB) : BitVec
             //  then there is f_def: f_Bv(xB, yB) := if(range(xB),.., f_uf(xB,yB))
             //  f(x,y) := to_float(if(range(to_bv(x)), ... f_uf(to_bv(xB), to_bv(yB)))) - not practical
-            //         := if(range_fp(x), ...., to_float(f_uf(...))                     - approach
-                                                               
-            target_model->register_decl(f, convert_func_interp(mc, f, f_uf));            
+            //         := if(range_fp(x), ...., to_float(f_uf(...))                     - approach (via fpa_util::is_considered_uninterpreted)
+
+            func_interp *fi = convert_func_interp(mc, f, f_uf);
+            if (fi->num_entries() > 0 || fi->get_else() != nullptr)
+                target_model->register_decl(f, fi);
         }
     }
+
+    TRACE("bv2fpa", tout << "Target model: " << *target_model; );
 }
 
 void bv2fpa_converter::display(std::ostream & out) {
@@ -496,9 +497,9 @@ void bv2fpa_converter::display(std::ostream & out) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
-        out << mk_ismt2_pp(kv.m_value.first, m, indent) << ")";
+        out << mk_ismt2_pp(kv.m_value, m, indent) << ")";
     }
-    for (auto const& kv : m_specials) {
+    for (auto const& kv : m_min_max_specials) {
         const symbol & n = kv.m_key->get_name();
         out << "\n  (" << n << " ";
         unsigned indent = n.size() + 4;
@@ -525,22 +526,19 @@ bv2fpa_converter * bv2fpa_converter::translate(ast_translation & translator) {
     }
     for (auto const& kv : m_uf2bvuf) {
         func_decl * k = translator(kv.m_key);
-        func_decl * v = translator(kv.m_value.first);
-        expr*       d = translator(kv.m_value.second);
-        res->m_uf2bvuf.insert(k, std::make_pair(v, d));
+        func_decl * v = translator(kv.m_value);
+        res->m_uf2bvuf.insert(k, v);
         translator.to().inc_ref(k);
         translator.to().inc_ref(v);
-        translator.to().inc_ref(d);
     }
-    for (auto const& kv : m_specials) {
+    for (auto const& kv : m_min_max_specials) {
         func_decl * k = translator(kv.m_key);
         app * v1 = translator(kv.m_value.first);
         app * v2 = translator(kv.m_value.second);
-        res->m_specials.insert(k, std::pair<app*, app*>(v1, v2));
+        res->m_min_max_specials.insert(k, std::pair<app*, app*>(v1, v2));
         translator.to().inc_ref(k);
         translator.to().inc_ref(v1);
         translator.to().inc_ref(v2);
     }
     return res;
 }
-

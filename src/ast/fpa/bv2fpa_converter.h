@@ -34,8 +34,8 @@ class bv2fpa_converter {
 
     obj_map<func_decl, expr*>   m_const2bv;
     obj_map<func_decl, expr*>   m_rm_const2bv;
-    obj_map<func_decl, std::pair<func_decl*, expr*>>  m_uf2bvuf;
-    obj_map<func_decl, std::pair<app*, app*> > m_specials;
+    obj_map<func_decl, func_decl*>  m_uf2bvuf;
+    obj_map<func_decl, std::pair<app*, app*> > m_min_max_specials;
 
 public:
     bv2fpa_converter(ast_manager & m);

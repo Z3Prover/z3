@@ -3203,7 +3203,6 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
 
     expr_ref sgn(m), sig(m), exp(m), lz(m);
     unpack(x, sgn, sig, exp, lz, true);
-    
 
     unsigned ebits = m_util.get_ebits(xs);
     unsigned sbits = m_util.get_sbits(xs);
@@ -4166,8 +4165,7 @@ void fpa2bv_converter::reset() {
     dec_ref_map_key_values(m, m_rm_const2bv);
     for (auto const& kv : m_uf2bvuf) {
         m.dec_ref(kv.m_key);
-        m.dec_ref(kv.m_value.first);
-        m.dec_ref(kv.m_value.second);
+        m.dec_ref(kv.m_value);
     }
     for (auto const& kv : m_min_max_ufs) {
         m.dec_ref(kv.m_key);
@@ -4180,36 +4178,13 @@ void fpa2bv_converter::reset() {
 }
 
 func_decl * fpa2bv_converter::mk_bv_uf(func_decl * f, sort * const * domain, sort * range) {
-    std::pair<func_decl*, expr*> res;
+    func_decl* res;
     if (!m_uf2bvuf.find(f, res)) {
-        res.first = m.mk_fresh_func_decl(nullptr, f->get_arity(), domain, range);
-        res.second = nullptr;
+        res = m.mk_fresh_func_decl(nullptr, f->get_arity(), domain, range);
         m.inc_ref(f);
-        m.inc_ref(res.first);
+        m.inc_ref(res);
         m_uf2bvuf.insert(f, res);
-        TRACE("fpa2bv", tout << "New UF func_decl: " << res.first->get_id() << std::endl << mk_ismt2_pp(res.first, m) << std::endl;);
+        TRACE("fpa2bv", tout << "New UF func_decl: " << res->get_id() << std::endl << mk_ismt2_pp(res, m) << std::endl;);
     }
-    return res.first;
-}
-
-expr* fpa2bv_converter::get_bv_def(func_decl* f) {
-    std::pair<func_decl*, expr*> res(nullptr, nullptr);
-    m_uf2bvuf.find(f, res);
-    TRACE("fpa2bv", tout << "get_bv_def " << mk_ismt2_pp(res.first, m) << " " << res.second << std::endl;);
-    return res.second;
-}
-
-/**
-   \brief expand the definition of bit-vector function f
-   as an expression of what is defined and what is not
-   defined.
-*/
-void fpa2bv_converter::set_bv_def(func_decl* f, expr* def) {
-    auto res = m_uf2bvuf[f];
-    SASSERT(res.first);
-    SASSERT(!res.second);
-    res.second = def;
-    m.inc_ref(def);
-    m_uf2bvuf.insert(f, res);
-
+    return res;
 }
