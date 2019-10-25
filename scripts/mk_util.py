@@ -1975,12 +1975,7 @@ class MLComponent(Component):
             else:
                 out.write('CXXFLAGS_OCAML=$(subst -std=c++11,,$(CXXFLAGS))\n')
 
-            if IS_WINDOWS:
-                prefix_lib = '-L' + os.path.abspath(BUILD_DIR).replace('\\', '\\\\')
-            else:
-                prefix_lib = '-L' + PREFIX + '/lib'
-            substitutions = { 'LEXTRA': prefix_lib,
-                              'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
+            substitutions = { 'VERSION': "{}.{}.{}.{}".format(VER_MAJOR, VER_MINOR, VER_BUILD, VER_TWEAK) }
 
             configure_file(os.path.join(self.src_dir, 'META.in'),
                            os.path.join(BUILD_DIR, self.sub_dir, 'META'),
