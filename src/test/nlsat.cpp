@@ -335,6 +335,13 @@ static nlsat::literal mk_gt(nlsat::solver& s, nlsat::poly* p) {
     return s.mk_ineq_literal(nlsat::atom::GT, 1, _p, is_even);
 }
 
+
+static nlsat::literal mk_lt(nlsat::solver& s, nlsat::poly* p) {
+    nlsat::poly * _p[1] = { p };
+    bool is_even[1] = { false };
+    return s.mk_ineq_literal(nlsat::atom::LT, 1, _p, is_even);
+}
+
 static nlsat::literal mk_eq(nlsat::solver& s, nlsat::poly* p) {
     nlsat::poly * _p[1] = { p };
     bool is_even[1] = { false };
@@ -736,21 +743,35 @@ static void tst11() {
     as.set(x, five);
     s.set_rvalues(as);
 
-
     p1 = (_x - _y);
     p2 = ((_x*_x) - (_x*_y) - _z);
     lits.reset();
     lits.push_back(mk_gt(s, p1));
     lits.push_back(mk_eq(s, p2));
     project_fa(s, ex, x, 2, lits.c_ptr());
+//    return;
+
+    p1 = ((_x * _x) - (2 * _y * _x)  - _z + (_y *_y));
+    p2 = _x + _y;
+    as.set(_x, one);
+    as.set(_y, zero);
+    as.set(_z, one);
+    lits.reset();
+    lits.push_back(mk_lt(s, p1));
+    lits.push_back(mk_eq(s, p2));
+    project_fa(s, ex, x, 2, lits.c_ptr());
     return;
-    
+
+    as.set(z, zero);
+    as.set(y, five);
+    as.set(x, five);    
     p1 = (_x - _y);
     p2 = ((_x*_x) - (_x*_y));
     lits.reset();
     lits.push_back(mk_gt(s, p1));
     lits.push_back(mk_eq(s, p2));
     project_fa(s, ex, x, 2, lits.c_ptr());
+
 
 
 }
