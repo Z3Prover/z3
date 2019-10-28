@@ -184,15 +184,11 @@ bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
 }
 
 void nla_grobner::del_equation(equation * eq) {
-    NOT_IMPLEMENTED_YET();
-    /*
     m_to_superpose.erase(eq);
     m_to_simplify.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
     m_equations_to_delete[eq->m_bidx] = 0;
-    del_monomials(eq->m_exp);
     dealloc(eq);
-    */
 }
 
 nla_grobner::equation* nla_grobner::pick_next() {
@@ -526,7 +522,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     if (!find_b_c(ab, ac, b, c)) {
         return;
     }
-    equation* eq = new equation(); // to do - need no remove !!!!!!!!!!!!!!!!!!!
+    equation* eq = alloc(equation);
     init_equation(eq, expr_superpose( eq1->exp(), eq2->exp(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));  
     insert_to_simplify(eq);
 }
@@ -764,7 +760,7 @@ void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
     TRACE("grobner", tout << "e = " << *e << "\n";);
     if (e == nullptr)
         return;
-    equation * eq = new equation();
+    equation * eq = alloc(equation);
     init_equation(eq, e, dep);
     insert_to_simplify(eq);
 }
@@ -777,6 +773,10 @@ void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     eq->exp()       = e;
     m_equations_to_delete.push_back(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
+}
+
+nla_grobner::~nla_grobner() {
+    del_equations(0);
 }
 
 std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* dep) const {
