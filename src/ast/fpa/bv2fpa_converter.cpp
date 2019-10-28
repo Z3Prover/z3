@@ -474,6 +474,8 @@ void bv2fpa_converter::convert_uf2bvuf(model_core * mc, model_core * target_mode
             func_interp *fi = convert_func_interp(mc, f, f_uf);
             if (fi->num_entries() > 0 || fi->get_else() != nullptr)
                 target_model->register_decl(f, fi);
+            else
+                dealloc(fi);
         }
     }
 
