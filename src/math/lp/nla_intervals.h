@@ -452,5 +452,28 @@ public:
         return false;
     }
     void reset() { m_alloc.reset(); }
+    bool check_cross_nested_expr(const nex*, ci_dependency*);
+    interval interval_of_expr_with_deps(const nex* e, unsigned power);
+    interval interval_of_expr(const nex* e, unsigned power);
+    interval interval_of_sum(const nex_sum*);
+    interval interval_of_sum_no_term(const nex_sum*);
+    interval interval_of_mul(const nex_mul*);
+    interval interval_of_sum_no_term_with_deps(const nex_sum* e);
+    bool interval_from_term_with_deps(const nex* e, interval & i) const;
+    bool interval_from_term(const nex* e, interval & i) const;
+    interval interval_of_sum_with_deps(const nex_sum* e);
+    typedef interval interv;
+    void set_interval_for_scalar(interv&, const rational&);
+    interv power_with_deps(const interv& a, unsigned);
+    interv interval_of_mul_with_deps(const nex_mul*);
+    const nex* get_zero_interval_child(const nex_mul*) const;
+    const nex* get_inf_interval_child(const nex_sum*) const;
+    bool has_zero_interval(const nex* ) const;
+    bool has_inf_interval(const nex* ) const;    
+    bool mul_has_inf_interval(const nex_mul* ) const;
+    static lp::lar_term expression_to_normalized_term(const nex_sum*, rational& a, rational & b);
+    static void add_linear_to_vector(const nex*, vector<std::pair<rational, lpvar>> &);
+    static void add_mul_of_degree_one_to_vector(const nex_mul*, vector<std::pair<rational, lpvar>> &);
+    lpvar find_term_column(const lp::lar_term &, rational & a) const;
 }; // end of intervals
 } // end of namespace nla
