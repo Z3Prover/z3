@@ -115,9 +115,9 @@ private:
     equation * simplify_source_target(equation * source, equation * target);
     equation* simplify_using_processed(equation*);
     bool simplify_target_monomials(equation * source, equation * target);
-    void process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove);
-bool simplify_processed_with_eq(equation*);
-    void simplify_to_process(equation*);
+    void process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove);    
+    bool simplify_to_superpose_with_eq(equation*);
+    void simplify_to_superpose(equation*);
     equation* pick_next();
     void set_gb_exhausted();
     bool canceled() const;
