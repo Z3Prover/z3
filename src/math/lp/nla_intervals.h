@@ -28,11 +28,13 @@
 namespace nla {
 class core;
 
-class intervals : common {
+class intervals {
+    typedef common::ci_dependency_manager ci_dependency_manager;
+    typedef ci_dependency_manager::dependency ci_dependency;
 
     class im_config {
         unsynch_mpq_manager&        m_manager;
-        ci_dependency_manager&       m_dep_manager;
+        common::ci_dependency_manager&       m_dep_manager;
 
     public:
         typedef unsynch_mpq_manager numeral_manager;
@@ -135,11 +137,12 @@ class intervals : common {
     };
 
     region                              m_alloc;
-    ci_value_manager                    m_val_manager;
+    common::ci_value_manager            m_val_manager;
     mutable unsynch_mpq_manager         m_num_manager;
     mutable ci_dependency_manager       m_dep_manager;
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
+    core *                              m_core;
 
 public:
     ci_dependency_manager&  dep_manager() { return m_dep_manager; }
@@ -151,11 +154,11 @@ private:
     const lp::lar_solver& ls() const;
 public:
     intervals(core* c, reslimit& lim) :
-        common(c),
         m_alloc(),
         m_dep_manager(m_val_manager, m_alloc),
         m_config(m_num_manager, m_dep_manager),
-        m_imanager(lim, im_config(m_num_manager, m_dep_manager))
+        m_imanager(lim, im_config(m_num_manager, m_dep_manager)),
+        m_core(c)
     {}
     ci_dependency* mk_join(ci_dependency* a, ci_dependency* b) { return m_dep_manager.mk_join(a, b);}
     ci_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_manager.mk_leaf(ci);}

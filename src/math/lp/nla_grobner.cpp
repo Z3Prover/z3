@@ -21,13 +21,11 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 namespace nla {
-nla_grobner::nla_grobner(core *c
-                         ) :
-    common(c),
-    m_nl_gb_exhausted(false),
-    m_dep_manager(m_val_manager, m_alloc),
-    m_changed_leading_term(false)
-{}
+nla_grobner::nla_grobner(core *c)
+    : common(c),
+      m_nl_gb_exhausted(false),
+      m_dep_manager(m_val_manager, m_alloc),
+      m_changed_leading_term(false) {}
 
 // Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
 // then assert bounds for x, and continue
@@ -301,7 +299,7 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
     target->exp() = m_nex_creator.simplify(targ_sum);
-    target->dep = m_dep_manager.mk_join(source->dep, target->dep);
+    target->dep() = m_dep_manager.mk_join(source->dep(), target->dep());
     TRACE("grobner", tout << "target = "; display_equation(tout, *target););
     return true;
 }
