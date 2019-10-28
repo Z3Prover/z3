@@ -2034,8 +2034,9 @@ void mpz_manager<SYNCH>::machine_div2k(mpz & a, unsigned k) {
         return;
     if (is_small(a)) {
         if (k < 32) {
-            int twok = 1 << k;
-            a.m_val /= twok;
+            int64_t twok = 1ull << ((int64_t)k);
+            int64_t val = a.m_val;
+            a.m_val = (int)(val/twok);
         }
         else {
             a.m_val = 0;
