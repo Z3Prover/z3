@@ -119,7 +119,7 @@ bool simplify_processed_with_eq(equation*);
     void simplify_to_process(equation*);
     equation* pick_next();
     void set_gb_exhausted();
-    bool canceled() { return false; } // todo, implement
+    bool canceled() const;
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
     bool find_b_c(const nex *ab, const nex* ac, nex_mul*& b, nex_mul*& c);
@@ -160,5 +160,6 @@ bool simplify_processed_with_eq(equation*);
     nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex*);
     nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
     void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
+    bool done() const;
 }; // end of grobner
 }
