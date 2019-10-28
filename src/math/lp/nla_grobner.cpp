@@ -301,6 +301,7 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
     target->exp() = m_nex_creator.simplify(targ_sum);
+    target->dep = m_dep_manager.mk_join(source->dep, target->dep);
     TRACE("grobner", tout << "target = "; display_equation(tout, *target););
     return true;
 }
@@ -428,7 +429,7 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
     }
 }
 
-bool nla_grobner::simplify_processed_with_eq(equation* eq) {
+bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
@@ -454,7 +455,7 @@ bool nla_grobner::simplify_processed_with_eq(equation* eq) {
     return !canceled();
 }
 
-void  nla_grobner::simplify_to_process(equation* eq) {
+void  nla_grobner::simplify_to_superpose(equation* eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
@@ -622,11 +623,11 @@ bool nla_grobner::compute_basis_step() {
         eq = new_eq;
     }
     if (canceled()) return false;
-    if (!simplify_processed_with_eq(eq)) return false;
+    if (!simplify_to_superpose_with_eq(eq)) return false;
     TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
     superpose(eq);
     insert_to_superpose(eq);
-    simplify_to_process(eq);
+    simplify_to_superpose(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
 }
