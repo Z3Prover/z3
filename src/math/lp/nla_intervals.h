@@ -23,6 +23,7 @@
 #include "math/lp/nla_common.h"
 #include "math/lp/lar_solver.h"
 #include "math/interval/interval.h"
+#include "util/dependency.h"
 
 
 namespace nla {
