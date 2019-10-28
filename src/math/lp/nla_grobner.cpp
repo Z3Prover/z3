@@ -647,8 +647,17 @@ void nla_grobner::compute_basis_init(){
     
 }        
 
+bool nla_grobner::canceled() const {
+    return c().lp_settings().get_cancel_flag();
+}
+
+
+bool nla_grobner::done() const {
+    return m_num_of_equations >= c().m_nla_settings.grobner_eqs_threshold() || canceled();
+}
+
 bool nla_grobner::compute_basis_loop(){
-    while (m_num_of_equations < c().m_nla_settings.grobner_eqs_threshold()) {
+    while (!done()) {
         if (compute_basis_step())
             return true;
     }
