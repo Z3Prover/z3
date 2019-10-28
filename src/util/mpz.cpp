@@ -68,11 +68,16 @@ inline uint64_t _trailing_zeros64(uint64_t x) {
     for (; 0 == (x & 1) && r < 64; ++r, x >>= 1);
     return r;
 }
+
+#if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
+// _trailing_zeros32 already defined using intrinsics
+#else
 inline uint32_t _trailing_zeros32(uint32_t x) {
     uint32_t r = 0;
     for (; 0 == (x & 1) && r < 32; ++r, x >>= 1);
     return r;
 }
+#endif
 #endif
 
 
