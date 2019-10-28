@@ -46,6 +46,7 @@ Revision History:
 #define LEHMER_GCD
 #endif
 
+
 #if defined(_WINDOWS) && !defined(_M_ARM) && !defined(_M_ARM64)
 // This is needed for _tzcnt_u32 and friends.
 #include <immintrin.h>
