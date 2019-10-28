@@ -97,6 +97,7 @@ class nla_grobner : common {
 public:
     nla_grobner(core *core);
     void grobner_lemmas();
+    ~nla_grobner();
 private:
     bool scan_for_linear(ptr_vector<equation>& eqs);
     void find_nl_cluster();
