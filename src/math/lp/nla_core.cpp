@@ -29,8 +29,9 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_basics(this),
     m_order(this),
     m_monotone(this),
-    m_horner(this),
-    m_grobner(this),
+    m_intervals(this, lim),
+    m_horner(this, &m_intervals),
+    m_grobner(this, &m_intervals),
     m_emons(m_evars),
     m_reslim(lim)
 {}

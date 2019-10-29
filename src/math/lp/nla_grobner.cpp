@@ -21,8 +21,8 @@
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 namespace nla {
-nla_grobner::nla_grobner(core *c)
-    : common(c),
+nla_grobner::nla_grobner(core *c, intervals *s)
+    : common(c, s),
       m_nl_gb_exhausted(false),
       m_dep_manager(m_val_manager, m_alloc),
       m_changed_leading_term(false) {}

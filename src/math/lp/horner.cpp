@@ -25,7 +25,7 @@
 
 namespace nla {
 typedef intervals::interval interv;
-horner::horner(core * c) : common(c), m_intervals(c, c->reslim()), m_fixed_as_scalars(false) {}
+horner::horner(core * c, intervals * i) : common(c, i), m_fixed_as_scalars(false) {}
 
 template <typename T>
 bool horner::row_has_monomial_to_refine(const T& row) const {
@@ -34,8 +34,8 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
             return true;
     }
     return false;
-    
 }
+
 // Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
@@ -69,11 +69,10 @@ bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
     return cn.done();
 }
 
-
 template <typename T> 
 bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
-        [this](const nex* n) { return m_intervals.check_cross_nested_expr(n,  m_fixed_as_scalars? get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals.dep_manager()) : nullptr); },
+        [this](const nex* n) { return m_intervals->check_cross_nested_expr(n,  m_fixed_as_scalars? get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals->dep_manager()) : nullptr); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
         [this]() { return c().random(); }, m_nex_creator);
 
@@ -121,12 +120,5 @@ void horner::horner_lemmas() {
         }
     }
 }
-
-
-
-
-
-
-
 }
 
