@@ -94,6 +94,8 @@ class nla_grobner : common {
     mutable ci_dependency_manager                m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
+    unsigned                                     m_reported;
+    bool                                         m_conflict;
 public:
     nla_grobner(core *core, intervals *);
     void grobner_lemmas();
@@ -157,10 +159,12 @@ private:
     bool simplify_target_monomials_sum_check_only(nex_sum*, const nex*) const;    
     void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned);
     nex_mul * divide_ignore_coeffs(nex* ej, const nex*);
-    bool divide_ignore_coeffs_check_only(nex_mul* , const nex*) const;
+    bool divide_ignore_coeffs_check_only(nex* , const nex*) const;
+    bool divide_ignore_coeffs_check_only_nex_mul(nex_mul* , const nex*) const;
     nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex*);
     nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
     void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
     bool done() const;
+    void register_report();
 }; // end of grobner
 }
