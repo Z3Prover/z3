@@ -95,7 +95,7 @@ class nla_grobner : common {
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
 public:
-    nla_grobner(core *core);
+    nla_grobner(core *core, intervals *);
     void grobner_lemmas();
     ~nla_grobner();
 private:

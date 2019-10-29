@@ -87,6 +87,7 @@ public:
     basics                   m_basics;
     order                    m_order;
     monotone                 m_monotone;
+    intervals                m_intervals;                
     horner                   m_horner;
     nla_settings             m_nla_settings;
     nla_grobner              m_grobner;

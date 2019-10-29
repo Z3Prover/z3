@@ -25,7 +25,7 @@ namespace nla {
 class core;
 class order: common {
 public:
-    order(core *c) : common(c) {}
+    order(core *c) : common(c, nullptr) {}
     void order_lemma();
     
 private:

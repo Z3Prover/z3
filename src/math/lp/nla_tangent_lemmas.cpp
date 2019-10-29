@@ -23,7 +23,7 @@
 namespace nla {
 template <typename T> rational tangents::val(T const& t) const { return m_core->val(t); }
 
-tangents::tangents(core * c) : common(c) {}
+tangents::tangents(core * c) : common(c, nullptr) {}
 
     
 std::ostream& tangents::print_tangent_domain(const point &a, const point &b, std::ostream& out) const {
