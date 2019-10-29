@@ -185,6 +185,7 @@ protected:
     bool                         m_interactive_mode;
     bool                         m_global_decls;
     bool                         m_print_success;
+    unsigned                     m_random_seed;
     bool                         m_produce_unsat_cores;
     bool                         m_produce_unsat_assumptions;
     bool                         m_produce_assignments;
@@ -336,6 +337,8 @@ public:
     void print_unsupported(symbol const & s, int line, int pos) { print_unsupported_msg(); print_unsupported_info(s, line, pos); }
     bool global_decls() const { return m_global_decls; }
     void set_global_decls(bool flag) { SASSERT(!has_manager()); m_global_decls = flag; }
+    unsigned random_seed() const { return m_random_seed; }
+    void set_random_seed(unsigned s) { m_random_seed = s; }
     bool produce_models() const;
     bool produce_proofs() const;
     bool produce_unsat_cores() const;

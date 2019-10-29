@@ -323,6 +323,7 @@ protected:
     symbol      m_produce_assertions;
     symbol      m_regular_output_channel;
     symbol      m_diagnostic_output_channel;
+    symbol      m_random_seed;
     symbol      m_verbosity;
     symbol      m_global_decls;
     symbol      m_global_declarations;
@@ -337,7 +338,7 @@ protected:
             s == m_interactive_mode || s == m_produce_proofs || s == m_produce_unsat_cores || s == m_produce_unsat_assumptions ||
             s == m_produce_models || s == m_produce_assignments ||
             s == m_regular_output_channel || s == m_diagnostic_output_channel ||
-            s == m_verbosity || s == m_global_decls || s == m_global_declarations ||
+            s == m_random_seed || s == m_verbosity || s == m_global_decls || s == m_global_declarations ||
             s == m_produce_assertions || s == m_reproducible_resource_limit;
     }
 
@@ -358,6 +359,7 @@ public:
         m_produce_assertions(":produce-assertions"),
         m_regular_output_channel(":regular-output-channel"),
         m_diagnostic_output_channel(":diagnostic-output-channel"),
+        m_random_seed(":random-seed"),
         m_verbosity(":verbosity"),
         m_global_decls(":global-decls"),
         m_global_declarations(":global-declarations"),
@@ -501,7 +503,10 @@ public:
     }
 
     void set_next_arg(cmd_context & ctx, rational const & val) override {
-        if (m_option == m_reproducible_resource_limit) {
+        if (m_option == m_random_seed) {
+            ctx.set_random_seed(to_unsigned(val));
+        }
+        else if (m_option == m_reproducible_resource_limit) {
             ctx.params().set_rlimit(to_unsigned(val));
         }
         else if (m_option == m_verbosity) {
@@ -588,6 +593,9 @@ public:
         }
         else if (opt == m_global_decls || opt == m_global_declarations) {
             print_bool(ctx, ctx.global_decls());
+        }
+        else if (opt == m_random_seed) {
+            print_unsigned(ctx, ctx.random_seed());
         }
         else if (opt == m_verbosity) {
             print_unsigned(ctx, get_verbosity_level());
