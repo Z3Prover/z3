@@ -271,8 +271,6 @@ public:
     /**
        \brief Reset state. Remove all equalities asserted with assert_eq.
     */
-    void reset();
-
     void get_equations(ptr_vector<equation> & result) const;
     
     void display_equation(std::ostream & out, equation const & eq) const;

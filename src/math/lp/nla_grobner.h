@@ -150,18 +150,20 @@ private:
         m_to_simplify.insert(eq);
     }
     void insert_to_superpose(equation *eq) {
+        SASSERT(m_nex_creator.is_simplified(eq->exp()));
         m_to_superpose.insert(eq);
     }
     void simplify_equations_to_process();
     const nex * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
     bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    
-    bool simplify_target_monomials_sum_check_only(nex_sum*, const nex*) const;    
+    unsigned find_divisible(nex_sum*, const nex*) const;    
     void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned);
     nex_mul * divide_ignore_coeffs(nex* ej, const nex*);
     bool divide_ignore_coeffs_check_only(nex* , const nex*) const;
     bool divide_ignore_coeffs_check_only_nex_mul(nex_mul* , const nex*) const;
-    nex_mul * divide_ignore_coeffs_perform(nex_mul* , const nex*);
+    nex_mul * divide_ignore_coeffs_perform(nex* , const nex*);
+    nex_mul * divide_ignore_coeffs_perform_nex_mul(nex_mul* , const nex*);
     nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
     void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
     bool done() const;

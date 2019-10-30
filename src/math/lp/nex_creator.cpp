@@ -672,11 +672,11 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
 
     TRACE("nla_cn_details", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
     children.clear();
-    if (common_scalar) {
-        children.push_back(common_scalar);
-    }
     for (auto& p : map) {
         process_map_pair(p.first, p.second, children, existing_nex);
+    }
+    if (common_scalar) {
+        children.push_back(common_scalar);
     }
     TRACE("nla_cn_details", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});    
 }
@@ -856,7 +856,7 @@ void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex
 }
 
 bool nex_creator::is_simplified(const nex *e) const 
-{
+{   
     if (e->is_mul())
         return mul_is_simplified(to_mul(e));
     if (e->is_sum())
