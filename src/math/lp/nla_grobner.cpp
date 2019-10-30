@@ -159,6 +159,14 @@ void nla_grobner::simplify_equations_to_process() {
 
 void nla_grobner::init() {
     m_reported = 0;
+    m_conflict = false;
+    m_equations_to_unfreeze.clear();
+    del_equations(0);
+    SASSERT(m_equations_to_delete.size() == 0);    
+    m_num_of_equations = 0;
+    m_to_superpose.reset();
+    m_to_simplify.reset();
+
     find_nl_cluster();
     c().clear_and_resize_active_var_set();
     for (unsigned i : m_rows) {
@@ -276,26 +284,28 @@ bool nla_grobner::simplify_target_monomials(equation * source, equation * target
     return simplify_target_monomials_sum(source, target, targ_sum, high_mon);   
 }
 
-bool nla_grobner::simplify_target_monomials_sum_check_only(nex_sum* targ_sum,
+unsigned nla_grobner::find_divisible(nex_sum* targ_sum,
                                                            const nex* high_mon) const {
-    for (auto t : *targ_sum) {
+    for (unsigned j = 0; j < targ_sum->size(); j++) {
+        auto t = (*targ_sum)[j];
         if (divide_ignore_coeffs_check_only(t, high_mon)) {
             TRACE("grobner", tout << "yes div: " << *targ_sum << " / " << *high_mon << "\n";);
-            return true;
+            return j;
         }
     }
     TRACE("grobner", tout << "no div: " << *targ_sum << " / " << *high_mon << "\n";);
-    return false;
+    return -1;
 }
 
 
 bool nla_grobner::simplify_target_monomials_sum(equation * source,
                                                 equation * target, nex_sum* targ_sum,
                                                 const nex* high_mon) {
-    if (!simplify_target_monomials_sum_check_only(targ_sum, high_mon))
+    unsigned j = find_divisible(targ_sum, high_mon);
+    if (j + 1 == 0)
         return false;
     unsigned targ_orig_size = targ_sum->size();
-    for (unsigned j = 0; j < targ_orig_size; j++) {
+    for (; j < targ_orig_size; j++) {
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
     target->exp() = m_nex_creator.simplify(targ_sum);
@@ -305,15 +315,14 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
 }
 
 nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex* h) {
-    if (!ej->is_mul())
+    TRACE("grobner", tout << "ej = " << *ej << " , h = " << *h << "\n";);
+    if (!divide_ignore_coeffs_check_only(ej, h))
         return nullptr;
-    nex_mul* m = to_mul(ej);
-    if (!divide_ignore_coeffs_check_only(m, h))
-        return nullptr;
-    return divide_ignore_coeffs_perform(m, h);
+    return divide_ignore_coeffs_perform(ej, h);
 }
 
 bool nla_grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex* h) const {
+    TRACE("grobner", tout << "t = " << *t << ", h=" << *h << "\n";);  
     SASSERT(m_nex_creator.is_simplified(t) && m_nex_creator.is_simplified(h));
     unsigned j = 0; // points to t
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
@@ -361,9 +370,7 @@ bool nla_grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
     return false;        
 }
 
-// perform the division t / h, but ignores the coefficients
-// h does not change
-nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex* h) {
+nex_mul * nla_grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h) {
     nex_mul * r = m_nex_creator.mk_mul();
     unsigned j = 0; // points to t
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
@@ -384,6 +391,15 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex_mul* t, const nex* h) {
     }
     TRACE("grobner", tout << "r = " << *r << " = " << *t << " / " << *h << "\n";);
     return r;
+}
+
+// perform the division t / h, but ignores the coefficients
+// h does not change
+nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
+    if (e->is_mul())
+        return divide_ignore_coeffs_perform_nex_mul(to_mul(e), h);
+    SASSERT(e->is_var());
+    return m_nex_creator.mk_mul(); // return the empty nex_mul
 }
 
 // if targ_sum->children()[j] = c*high_mon*p,
@@ -407,6 +423,8 @@ void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *t
 
 nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
+    SASSERT(m_nex_creator.is_simplified(source->exp()));
+    SASSERT(m_nex_creator.is_simplified(target->exp()));
     if (target->exp()->is_scalar()) {
         return nullptr;
     }
@@ -470,6 +488,8 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
         }
         if (is_trivial(target))
             to_delete.push_back(target);
+        else 
+            SASSERT(m_nex_creator.is_simplified(target->exp()));
     }
     for (equation* eq : to_insert) 
         insert_to_superpose(eq);
@@ -684,7 +704,18 @@ bool nla_grobner::canceled() const {
 
 
 bool nla_grobner::done() const {
-    return m_num_of_equations >= c().m_nla_settings.grobner_eqs_threshold() || canceled() || m_reported > 10 || m_conflict;
+    if (
+        m_num_of_equations >= c().m_nla_settings.grobner_eqs_threshold() 
+        ||
+        canceled()
+        ||
+        m_reported > 10
+        ||
+        m_conflict) {
+        TRACE("grobner", tout << "done()\n";);
+        return true;
+    }
+    return false;
 }
 
 bool nla_grobner::compute_basis_loop(){
@@ -739,6 +770,7 @@ void nla_grobner::grobner_lemmas() {
     while(push_calculation_forward(eqs, next_weight));
 }
 void nla_grobner:: del_equations(unsigned old_size) {
+    TRACE("grobner", );
     SASSERT(m_equations_to_delete.size() >= old_size);
     equation_vector::iterator it  = m_equations_to_delete.begin();
     equation_vector::iterator end = m_equations_to_delete.end();

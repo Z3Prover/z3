@@ -90,15 +90,6 @@ void grobner::unfreeze_equations(unsigned old_size) {
     m_equations_to_unfreeze.shrink(old_size);
 }
 
-void grobner::reset() {
-    flush();
-    m_to_superpose.reset();
-    m_to_simplify.reset();
-    m_equations_to_unfreeze.reset();
-    m_equations_to_delete.reset();
-    m_unsat = nullptr;
-}
-
 void grobner::display_var(std::ostream & out, expr * var) const {
     if (is_app(var) && to_app(var)->get_num_args() > 0)
         out << mk_bounded_pp(var, m_manager);
