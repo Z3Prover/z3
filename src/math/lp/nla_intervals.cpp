@@ -5,6 +5,7 @@
 
 namespace nla {
 void intervals::set_var_interval_with_deps(lpvar v, interval& b) const {
+    TRACE("nla_intervals_details", m_core->print_var(v, tout) << "\n";);
     lp::constraint_index ci;
     rational val;
     bool is_strict;
@@ -181,6 +182,7 @@ const nex* intervals::get_zero_interval_child(const nex_mul* e) const {
 
 
 intervals::interv intervals::interval_of_mul_with_deps(const nex_mul* e) {
+    TRACE("nla_intervals_details", tout << "e = " << *e << "\n";);
     const nex * zero_interval_child = get_zero_interval_child(e);
     if (zero_interval_child) {
         interv a = interval_of_expr_with_deps(zero_interval_child, 1);
@@ -189,7 +191,6 @@ intervals::interv intervals::interval_of_mul_with_deps(const nex_mul* e) {
         return a;   
     } 
         
-    SASSERT(e->is_mul());
     interv a;
     set_interval_for_scalar(a, e->coeff());
     TRACE("nla_intervals_details", tout << "a = "; display(tout, a); );
@@ -235,7 +236,7 @@ intervals::interv intervals::interval_of_mul(const nex_mul* e) {
         combine_deps(a, b, comb_rule, c);
         TRACE("nla_intervals_details", tout << "a "; display(tout, a););
         TRACE("nla_intervals_details", tout << "c "; display(tout, c););
-        set(a, c, 33); 
+        set_with_no_deps(a, c); 
         TRACE("nla_intervals_details", tout << "part mult "; display(tout, a););
     }
     TRACE("nla_intervals_details",  tout << "e=" << *e << "\n";
@@ -296,11 +297,9 @@ intervals::interv intervals::interval_of_sum_no_term(const nex_sum* e) {
         TRACE("nla_intervals_details_sum", tout <<  "es[" << k << "]= " << *es[k] << "\n";);
         interv b = interval_of_expr(es[k], 1);
         interv c;
-        interval_deps_combine_rule combine_rule;
         TRACE("nla_intervals_details_sum", tout << "a = "; display(tout, a) << "\nb = "; display(tout, b) << "\n";);
-        add(a, b, c, combine_rule);
-        combine_deps(a, b, combine_rule, c);
-        set(a, c, 22);
+        add(a, b, c);
+        set_with_no_deps(a, c);
         TRACE("nla_intervals_details_sum", tout << *es[k] << ", ";
               display(tout, a); tout << "\n";);
     }
@@ -434,7 +433,7 @@ bool intervals::interval_from_term(const nex* e, interv & i) const {
     interv bi;
     mul_no_deps(a, i, bi);
     add(b, bi);
-    set(i, bi, 44);
+    set_with_no_deps(i, bi);
     
     TRACE("nla_intervals",
           m_core->m_lar_solver.print_column_info(j, tout) << "\n";
