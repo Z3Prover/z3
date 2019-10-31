@@ -212,7 +212,7 @@ public:
         a.m_upper_dep = b.m_upper_dep;
     }
 
-    void set(interval& a, const interval& b, int fooo) const {
+    void set_with_no_deps(interval& a, const interval& b) const {
         m_imanager.set(a, b);
     }
 

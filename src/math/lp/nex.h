@@ -443,6 +443,34 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
 //     return less_than_nex(a, b, lt);
 // }
 
+inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var_val) {
+    switch (e->type()) {
+    case expr_type::SCALAR:
+        return to_scalar(e)->value();
+    case expr_type::SUM:
+        {
+            rational r(0);
+            for (auto c: *to_sum(e)) {
+                r += get_nex_val(c, var_val);
+            }
+            return r;
+        }
+    case expr_type::MUL:
+        {
+            const nex_mul * m = to_mul(e);
+            rational t = m->coeff();
+            for (auto& c: *m)
+                t *= get_nex_val(c.e(), var_val).expt(c.pow());
+            return t;
+        }
+    case expr_type::VAR:
+        return var_val(to_var(e)->var());
+    default:
+        TRACE("nla_cn_details", tout << e->type() << "\n";);
+        SASSERT(false);
+        return rational();
+    }
+}
 
 inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
         std::unordered_set<lpvar> r;

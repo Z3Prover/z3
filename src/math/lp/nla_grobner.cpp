@@ -449,9 +449,6 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, e
 }
  
 void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove) {
-    if(m_intervals->check_cross_nested_expr(target->exp(), target->dep())) {
-        register_report();
-    }
     if (new_target != target) {
         m_equations_to_unfreeze.push_back(target);
         to_remove.push_back(target);
@@ -469,6 +466,15 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
             insert_to_simplify(target);
             to_remove.push_back(target);
         }
+    }
+    if(m_intervals->check_cross_nested_expr(target->exp(), target->dep())) {
+        TRACE("grobner", tout << "created a lemma for "; display_equation(tout, *target) << "\n";
+              tout << "vars = \n";
+              for (lpvar j : get_vars_of_expr(target->exp())) {
+                  c().print_var(j, tout);
+              }
+              tout << "\ntarget->exp() val = " << get_nex_val(target->exp(), [this](unsigned j) { return c().val(j); }) << "\n";);
+        register_report();       
     }
 }
 
