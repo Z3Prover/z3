@@ -624,14 +624,9 @@ bool nex_creator::register_in_join_map(std::map<nex*, rational, nex_lt>& map, ne
         return false;
     } else {
         map_it->second += r;
-        TRACE("nla_cn_details",  tout << "adding" << r << std::endl;);
+        TRACE("nla_cn_details",  tout << "adding " << r << " , got " << map_it->second << std::endl;);
         return true;
     }
-}
-
-// returns true if a simplificatian happens
-bool nex_creator::process_mul_in_simplify_sum(nex_mul* em, std::map<nex*, rational, nex_lt> &map) {    
-    return register_in_join_map(map, em, em->coeff());
 }
 
 bool nex_creator::fill_join_map_for_sum(ptr_vector<nex> & children,
@@ -653,7 +648,8 @@ bool nex_creator::fill_join_map_for_sum(ptr_vector<nex> & children,
         }
         existing_nex.insert(e);
         if (e->is_mul()) {
-            simplified |= process_mul_in_simplify_sum(to_mul(e), map);
+            nex_mul * m = to_mul(e);
+            simplified |= register_in_join_map(map, m, m->coeff());
         } else {
             SASSERT(e->is_var());
             simplified |= register_in_join_map(map, e, rational(1));
@@ -666,14 +662,14 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
     TRACE("nla_cn_details", print_vector_of_ptrs(children, tout););
     std::map<nex*, rational, nex_lt> map([this](const nex *a , const nex *b)
                                        { return lt_for_sort_join_sum(a, b); });
-    std::unordered_set<nex*> existing_nex; // handling (nex*) as numbers
+    std::unordered_set<nex*> allocated_nexs; // handling (nex*) as numbers
     nex_scalar * common_scalar;
-    fill_join_map_for_sum(children, map, existing_nex, common_scalar);
+    fill_join_map_for_sum(children, map, allocated_nexs, common_scalar);
 
     TRACE("nla_cn_details", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
     children.clear();
     for (auto& p : map) {
-        process_map_pair(p.first, p.second, children, existing_nex);
+        process_map_pair(p.first, p.second, children, allocated_nexs);
     }
     if (common_scalar) {
         children.push_back(common_scalar);
@@ -828,29 +824,21 @@ nex* nex_creator::simplify(nex* e) {
     return es;
 }
 
-void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>& existing_nex) {
-    // todo : break on shorter functions
+void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>& allocated_nexs) {
     if (coeff.is_zero())
         return;
-    bool e_is_old = existing_nex.find(e) != existing_nex.end();
-    if (e_is_old) {
+    bool e_is_old = allocated_nexs.find(e) != allocated_nexs.end();
+    if (!e_is_old) {
+        m_allocated.push_back(e);
+    }
+    if (e->is_mul()) {
+        to_mul(e)->coeff() = coeff;            
+    } else {
+        SASSERT(e->is_var());
         if (coeff.is_one()) {
             children.push_back(e);
         } else {
-            if (e->is_var()) {
-                children.push_back(mk_mul(mk_scalar(coeff), e));
-            } else {
-                to_mul(e)->coeff() = coeff;
-                e = simplify(e);
-                children.push_back(e);
-            }
-        }                
-    } else { // e is new
-        if (coeff.is_one()) {
-            m_allocated.push_back(e);
-            children.push_back(e);
-        } else {
-            children.push_back(simplify(mk_mul(mk_scalar(coeff), e)));
+            children.push_back(mk_mul(mk_scalar(coeff), e));
         }
     }
 }

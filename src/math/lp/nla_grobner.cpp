@@ -304,6 +304,7 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
     unsigned j = find_divisible(targ_sum, high_mon);
     if (j + 1 == 0)
         return false;
+    m_changed_leading_term = (j == 0);
     unsigned targ_orig_size = targ_sum->size();
     for (; j < targ_orig_size; j++) {
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
@@ -407,12 +408,14 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
 // then targ_sum->children()[j] =  - (c/b) * e*p
 
 void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
-
     nex * ej = (*targ_sum)[j];
+    TRACE("grobner", tout << "high_mon = " << *high_mon << ", ej = " << *ej << "\n";);
     nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
     if (ej_over_high_mon == nullptr) {
+        TRACE("grobner", tout << "no div\n";);
         return;
     }
+    TRACE("grobner", tout << "ej_over_high_mon = " << *ej_over_high_mon << "\n";);
     rational c = ej->is_mul()? to_mul(ej)->coeff() : rational(1);
     nex_sum * ej_sum = m_nex_creator.mk_sum();
     (*targ_sum)[j] = ej_sum;
@@ -484,7 +487,7 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
     ptr_buffer<equation> to_delete;
     equation_set::iterator it  = m_to_superpose.begin();
     equation_set::iterator end = m_to_superpose.end();
-    for (; it != end && !canceled(); ++it) {
+    for (; it != end && !canceled() && !done(); ++it) {
         equation * target        = *it;
         m_changed_leading_term = false;
         // if the leading term is simplified, then the equation has to be moved to m_to_simplify
@@ -715,7 +718,7 @@ bool nla_grobner::done() const {
         ||
         canceled()
         ||
-        m_reported > 10
+        m_reported > 0 // 10
         ||
         m_conflict) {
         TRACE("grobner", tout << "done()\n";);
