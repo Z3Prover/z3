@@ -241,7 +241,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
     }
 
     expr* c, *th, *el;
-    if (m_expand_select_ite && m().is_ite(args[0], c, th, el)) {
+    if (m().is_ite(args[0], c, th, el) && (m_expand_select_ite || (th->get_ref_count() == 1 || el->get_ref_count() == 1))) {
         ptr_vector<expr> args1, args2;
         args1.push_back(th);
         args1.append(num_args-1, args + 1);
