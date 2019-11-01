@@ -125,9 +125,13 @@ unsigned common::random() {
 // creates a nex expression for the coeff and var, 
 // replaces the fixed vars with scalars
 nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixed_as_scalars) {
+    SASSERT(!coeff.is_zero());
     if (!c().is_monic_var(j)) {
         if (fixed_as_scalars && c().var_is_fixed(j)) {
-            return cn.mk_scalar(coeff * c().m_lar_solver.get_lower_bound(j).x);
+            auto & b = c().m_lar_solver.get_lower_bound(j).x;
+            if (b.is_zero())
+                return nullptr;
+            return cn.mk_scalar(coeff * b);
         } 
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
@@ -136,7 +140,10 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
         if (fixed_as_scalars && c().var_is_fixed(k)) {
-            e->coeff() *=  c().m_lar_solver.get_lower_bound(k).x;
+            auto & b = c().m_lar_solver.get_lower_bound(j).x;
+            if (b.is_zero())
+                return nullptr;
+            e->coeff() *=  b;
             continue;
         }  
         c().insert_to_active_var_set(k);
@@ -157,7 +164,8 @@ template <typename T> void common::create_sum_from_row(const T& row,
     sum.children().clear();
     for (const auto &p : row) {
         nex* e = nexvar(p.coeff(), p.var(), cn, fixed_as_scalars);
-        sum.add_child(e);        
+        if (e)
+            sum.add_child(e);        
     }
     TRACE("nla_horner", tout << "sum =" << sum << "\n";);
 }
