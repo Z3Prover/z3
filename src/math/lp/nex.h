@@ -473,32 +473,36 @@ inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var
 }
 
 inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
-        std::unordered_set<lpvar> r;
-        switch (e->type()) {
-        case expr_type::SCALAR:
-            return r;
-        case expr_type::SUM:
-            {
-                for (auto c: *to_sum(e))
-                    for ( lpvar j : get_vars_of_expr(c))
-                        r.insert(j);
-            }
-            return r;
-        case expr_type::MUL:
-            {
-                for (auto &c: *to_mul(e))
-                    for ( lpvar j : get_vars_of_expr(c.e()))
-                        r.insert(j);
-            }
-            return r;
-        case expr_type::VAR:
-            r.insert(to_var(e)->var());
-            return r;
-        default:
-            TRACE("nla_cn_details", tout << e->type() << "\n";);
-            SASSERT(false);
-            return r;
+    std::unordered_set<lpvar> r;
+    switch (e->type()) {
+    case expr_type::SCALAR:
+        return r;
+    case expr_type::SUM:
+        {
+            for (auto c: *to_sum(e))
+                for ( lpvar j : get_vars_of_expr(c))
+                    r.insert(j);
         }
+        return r;
+    case expr_type::MUL:
+        {
+            for (auto &c: *to_mul(e))
+                for ( lpvar j : get_vars_of_expr(c.e()))
+                    r.insert(j);
+        }
+        return r;
+    case expr_type::VAR:
+        r.insert(to_var(e)->var());
+        return r;
+    default:
+        TRACE("nla_cn_details", tout << e->type() << "\n";);
+        SASSERT(false);
+        return r;
     }
+}
+
+inline bool is_zero_scalar(nex *e) {
+    return e->is_scalar() && to_scalar(e)->value().is_zero();
+}
 }
     

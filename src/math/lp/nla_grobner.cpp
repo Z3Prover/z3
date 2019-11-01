@@ -309,9 +309,10 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
     for (; j < targ_orig_size; j++) {
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
     }
+    TRACE("grobner_d", tout << "targ_sum = " << *targ_sum << "\n";);    
     target->exp() = m_nex_creator.simplify(targ_sum);
     target->dep() = m_dep_manager.mk_join(source->dep(), target->dep());
-    TRACE("grobner", tout << "target = "; display_equation(tout, *target););
+    TRACE("grobner_d", tout << "target = "; display_equation(tout, *target););
     return true;
 }
 
@@ -409,30 +410,36 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
 
 void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
     nex * ej = (*targ_sum)[j];
-    TRACE("grobner", tout << "high_mon = " << *high_mon << ", ej = " << *ej << "\n";);
+    TRACE("grobner_d", tout << "high_mon = " << *high_mon << ", ej = " << *ej << "\n";);
     nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
     if (ej_over_high_mon == nullptr) {
-        TRACE("grobner", tout << "no div\n";);
+        TRACE("grobner_d", tout << "no div\n";);
         return;
     }
-    TRACE("grobner", tout << "ej_over_high_mon = " << *ej_over_high_mon << "\n";);
+    TRACE("grobner_d", tout << "ej_over_high_mon = " << *ej_over_high_mon << "\n";);
     rational c = ej->is_mul()? to_mul(ej)->coeff() : rational(1);
+    TRACE("grobner_d", tout << "c = " << c << "\n";);
+    
     nex_sum * ej_sum = m_nex_creator.mk_sum();
     (*targ_sum)[j] = ej_sum;
     add_mul_skip_first(ej_sum ,-c/high_mon->coeff(), source->exp(), ej_over_high_mon);
-    TRACE("grobner", tout << "targ_sum = " << *targ_sum << "\n";);    
+    TRACE("grobner_d", tout << "targ_sum = " << *targ_sum << "\n";);    
 }
 
 
 nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
+    TRACE("grobner_d", tout << "simplifying: " << *(target->exp()) <<  " using " << *(source->exp()) << "\n";);
     SASSERT(m_nex_creator.is_simplified(source->exp()));
     SASSERT(m_nex_creator.is_simplified(target->exp()));
     if (target->exp()->is_scalar()) {
+        TRACE("grobner_d", tout << "no simplification\n";);
         return nullptr;
     }
-    if (source->get_num_monomials() == 0)
+    if (source->get_num_monomials() == 0) {
+        TRACE("grobner_d", tout << "no simplification\n";);
         return nullptr;
+    }
     m_stats.m_simplify++;
     bool result = false;
     do {
@@ -446,8 +453,10 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, e
     TRACE("grobner", tout << "result: " << result << "\n"; if (result) display_equation(tout, *target););
     if (result) {
         target->dep() = m_dep_manager.mk_join(target->dep(), source->dep());
+        TRACE("grobner_d", tout << "simplied to " << *(target->exp()) << "\n";);
         return target;
     }
+    TRACE("grobner_d", tout << "no simplification\n";);
     return nullptr;
 }
  
@@ -482,6 +491,8 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
 }
 
 bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
+    TRACE("grobner_d", tout << "eq->exp " << *(eq->exp()) <<  "\n";);
+
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
@@ -510,6 +521,7 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
 }
 
 void  nla_grobner::simplify_to_superpose(equation* eq) {
+    TRACE("grobner_d", tout << "eq->exp " << *(eq->exp()) <<  "\n";);
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
@@ -805,8 +817,8 @@ std::ostream& nla_grobner::display_equation(std::ostream & out, const equation &
 }
 
 void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
-    TRACE("grobner", tout << "e = " << *e << "\n";);
-    if (e == nullptr)
+    TRACE("grobner_e", tout << "e = " << *e << "\n";);
+    if (e == nullptr || is_zero_scalar(e))
         return;
     equation * eq = alloc(equation);
     init_equation(eq, e, dep);
