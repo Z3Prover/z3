@@ -671,7 +671,7 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
     for (auto& p : map) {
         process_map_pair(p.first, p.second, children, allocated_nexs);
     }
-    if (common_scalar) {
+    if (common_scalar && !common_scalar->value().is_zero()) {
         children.push_back(common_scalar);
     }
     TRACE("nla_cn_details", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});    
