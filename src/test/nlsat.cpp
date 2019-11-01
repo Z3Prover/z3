@@ -772,7 +772,20 @@ static void tst11() {
     lits.push_back(mk_eq(s, p2));
     project_fa(s, ex, x, 2, lits.c_ptr());
 
+#if 0
 
+!(x5^4 - 2 x3^2 x5^2 - 2 x1^2 x5^2 + 4 x0 x1 x5^2 - 2 x0^2 x5^2 + x3^4 - 2 x1^2 x3^2 + 4 x0 x1 x3^2 - 2 x0^2 x3^2 + x1^4 - 4 x0 x1^3 + 6 x0^2 x1^2 - 4 x0^3 x1 + x0^4 = 0) or !(x5 < 0) or !(x4 > root[1](x1 x4 - x0 x4 + x3)) or !(x3 + x1 - x0 > 0) or !(x1 - x0 < 0) or !(x7 > root[1](x1^2 x7 - 2 x0 x1 x7 + x0^2 x7 + x1 x3 - x0 x3)) or x7 - x4 = 0 or !(x1 x3 x7^2 - x0 x3 x7^2 - x5^2 x7 + x3^2 x7 + x1^2 x7 - 2 x0 x1 x7 + x0^2 x7 + x1 x3 - x0 x3 = 0)
+
+x0 := -1
+x1 := -21.25
+x2 := 0.0470588235?
+x3 := 2
+x4 := -0.03125
+x5 := -18.25
+x6 := -0.5
+x7 := 1
+
+#endif
 
 }
 
