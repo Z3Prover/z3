@@ -533,7 +533,7 @@ bool nex_creator::sum_is_simplified(const nex_sum* e) const {
     if (e->size() < 2)  return false;
     bool scalar = false;
     for (nex * ee : *e) {
-        TRACE("nla_cn", tout << "ee = " << *ee << "\n";);
+        TRACE("nla_cn_details", tout << "ee = " << *ee << "\n";);
         if (ee->is_sum()) {
             TRACE("nla_cn", tout << "not simplified e = " << *e << "\n"
                   << " has a child which is a sum " << *ee << "\n";);
@@ -854,7 +854,7 @@ void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex
 
 bool nex_creator::is_simplified(const nex *e) const 
 {
-    TRACE("nla_cn", tout << "e = " << *e << "\n";);
+    TRACE("nla_cn_details", tout << "e = " << *e << "\n";);
     if (e->is_mul())
         return mul_is_simplified(to_mul(e));
     if (e->is_sum())

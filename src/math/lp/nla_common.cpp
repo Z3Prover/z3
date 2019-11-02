@@ -140,7 +140,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
     nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
     for (lpvar k : m.vars()) {
         if (fixed_as_scalars && c().var_is_fixed(k)) {
-            auto & b = c().m_lar_solver.get_lower_bound(j).x;
+            auto & b = c().m_lar_solver.get_lower_bound(k).x;
             if (b.is_zero())
                 return nullptr;
             e->coeff() *=  b;
@@ -150,6 +150,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
         e->add_child(cn.mk_var(k));
         CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
+    TRACE("nla_cn", tout << *e;);
     return e;
 }
 

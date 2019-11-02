@@ -147,9 +147,11 @@ private:
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*) const;
     void insert_to_simplify(equation *eq) {
+        SASSERT(!eq->exp()->is_scalar() || to_scalar(eq->exp())->value().is_zero());
         m_to_simplify.insert(eq);
     }
     void insert_to_superpose(equation *eq) {
+        SASSERT(!eq->exp()->is_scalar() || to_scalar(eq->exp())->value().is_zero());
         SASSERT(m_nex_creator.is_simplified(eq->exp()));
         m_to_superpose.insert(eq);
     }
