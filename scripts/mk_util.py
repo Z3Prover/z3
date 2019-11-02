@@ -70,6 +70,7 @@ PYTHON_COMPONENT='python'
 #####################
 IS_WINDOWS=False
 IS_LINUX=False
+IS_HURD=False
 IS_OSX=False
 IS_FREEBSD=False
 IS_NETBSD=False
@@ -144,6 +145,9 @@ def is_windows():
 
 def is_linux():
     return IS_LINUX
+
+def is_hurd():
+    return IS_HURD
 
 def is_freebsd():
     return IS_FREEBSD
@@ -591,6 +595,8 @@ elif os.name == 'posix':
         PREFIX="/usr/local"
     elif os.uname()[0] == 'Linux':
         IS_LINUX=True
+    elif os.uname()[0] == 'GNU':
+        IS_HURD=True
     elif os.uname()[0] == 'FreeBSD':
         IS_FREEBSD=True
     elif os.uname()[0] == 'NetBSD':
@@ -1258,7 +1264,7 @@ def get_so_ext():
     sysname = os.uname()[0]
     if sysname == 'Darwin':
         return 'dylib'
-    elif sysname == 'Linux' or sysname == 'FreeBSD' or sysname == 'NetBSD' or sysname == 'OpenBSD':
+    elif sysname == 'Linux' or sysname == 'GNU' or sysname == 'FreeBSD' or sysname == 'NetBSD' or sysname == 'OpenBSD':
         return 'so'
     elif sysname == 'CYGWIN' or sysname.startswith('MSYS_NT') or sysname.startswith('MINGW'):
         return 'dll'
@@ -1825,6 +1831,8 @@ class JavaDLLComponent(Component):
                 t = t.replace('PLATFORM', 'darwin')
             elif IS_LINUX:
                 t = t.replace('PLATFORM', 'linux')
+            elif IS_GNU:
+                t = t.replace('PLATFORM', 'hurd')
             elif IS_FREEBSD:
                 t = t.replace('PLATFORM', 'freebsd')
             elif IS_NETBSD:
@@ -2553,6 +2561,11 @@ def mk_config():
             SO_EXT         = '.so'
             SLIBFLAGS      = '-shared'
             SLIBEXTRAFLAGS = '%s -Wl,-soname,libz3.so' % SLIBEXTRAFLAGS
+        elif sysname == 'GNU':
+            CXXFLAGS       = '%s -D_HURD_' % CXXFLAGS
+            OS_DEFINES     = '-D_HURD_'
+            SO_EXT         = '.so'
+            SLIBFLAGS      = '-shared'
         elif sysname == 'FreeBSD':
             CXXFLAGS       = '%s -D_FREEBSD_' % CXXFLAGS
             OS_DEFINES     = '-D_FREEBSD_'
