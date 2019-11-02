@@ -140,8 +140,13 @@ common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index
 
 void nla_grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
-    TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout););
+    TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout) << '\n';
+          for (auto p : row) {
+              c().print_var(p.var(), tout) << "\n";
+          }
+          );
     nex_sum * ns = m_nex_creator.mk_sum();
+    
 
     svector<lp::constraint_index> fixed_vars_constraints;
     create_sum_from_row(row, m_nex_creator, *ns, true); // true to treat fixed vars as scalars
@@ -817,11 +822,14 @@ std::ostream& nla_grobner::display_equation(std::ostream & out, const equation &
 }
 
 void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
-    TRACE("grobner_e", tout << "e = " << *e << "\n";);
     if (e == nullptr || is_zero_scalar(e))
         return;
     equation * eq = alloc(equation);
     init_equation(eq, e, dep);
+    TRACE("grobner", display_equation(tout, *eq);
+    for (unsigned j : get_vars_of_expr(e)) {
+        c().print_var(j, tout) << "\n";
+    });
     insert_to_simplify(eq);
 }
 
