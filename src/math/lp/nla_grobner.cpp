@@ -756,7 +756,7 @@ bool nla_grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned &
 }
 
 bool nla_grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight) {
-    NOT_IMPLEMENTED_YET();
+    //    NOT_IMPLEMENTED_YET();
     return false;
 }
 
