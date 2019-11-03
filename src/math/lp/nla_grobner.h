@@ -39,8 +39,8 @@ struct grobner_stats {
 
 class nla_grobner : common {
     class equation {
-        unsigned                   m_bidx:31;       //!< position at m_equations_to_delete
-        unsigned                   m_lc:1;          //!< true if equation if a linear combination of the input equations.
+        unsigned                   m_bidx;       //!< position at m_equations_to_delete
+
         nex *                      m_expr;           //  simplified expressionted monomials
         ci_dependency *            m_dep;           //!< justification for the equality
     public:
@@ -71,7 +71,6 @@ class nla_grobner : common {
         ci_dependency * dep() const { return m_dep; }
         ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
-        bool is_linear_combination() const { return m_lc; }
         friend class nla_grobner;
     };
 
@@ -101,7 +100,6 @@ public:
     void grobner_lemmas();
     ~nla_grobner();
 private:
-    bool scan_for_linear(ptr_vector<equation>& eqs);
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
