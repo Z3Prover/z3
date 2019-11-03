@@ -27,21 +27,6 @@ nla_grobner::nla_grobner(core *c, intervals *s)
       m_dep_manager(m_val_manager, m_alloc),
       m_changed_leading_term(false) {}
 
-// Scan the grobner basis eqs for equations of the form x - k = 0 or x = 0 is found, and x is not fixed,
-// then assert bounds for x, and continue
-bool nla_grobner::scan_for_linear(ptr_vector<equation>& eqs) {
-    bool result = false;
-    for (nla_grobner::equation* eq : eqs) {
-        if (!eq->is_linear_combination()) {
-            TRACE("non_linear", tout << "processing new equality:\n"; display_equation(tout, *eq););
-            TRACE("non_linear_bug", tout << "processing new equality:\n"; display_equation(tout, *eq););
-            if (internalize_gb_eq(eq))
-                result = true;
-        }
-    }
-    return result;
-}
-
 bool nla_grobner::internalize_gb_eq(equation* ) {
     NOT_IMPLEMENTED_YET();
     return false;
@@ -735,7 +720,7 @@ bool nla_grobner::done() const {
         ||
         canceled()
         ||
-        m_reported > 0 // 10
+        m_reported > 10
         ||
         m_conflict) {
         TRACE("grobner", tout << "done()\n";);
@@ -766,9 +751,7 @@ void nla_grobner::update_statistics(){
 
 
 bool nla_grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned & next_weight) {
-    return scan_for_linear(eqs)
-        &&
-        (!m_nl_gb_exhausted) &&
+    return  (!m_nl_gb_exhausted) &&
         try_to_modify_eqs(eqs, next_weight);
 }
 
@@ -837,7 +820,6 @@ void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
     eq->dep()       = dep;
-    eq->m_lc        = true;
     eq->exp()       = e;
     m_equations_to_delete.push_back(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);

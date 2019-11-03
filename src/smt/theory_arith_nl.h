@@ -2292,7 +2292,7 @@ bool theory_arith<Ext>::try_to_modify_eqs(ptr_vector<grobner::equation>& eqs, gr
 template<typename Ext>
 bool theory_arith<Ext>::scan_for_linear(ptr_vector<grobner::equation>& eqs, grobner& gb) {
     bool result = false;
-    if (m_params.m_nl_arith_gb_eqs) {
+    if (m_params.m_nl_arith_gb_eqs) { // m_nl_arith_gb_eqs is false by default
         for (grobner::equation* eq : eqs) {
             if (!eq->is_linear_combination()) {
                     TRACE("non_linear", tout << "processing new equality:\n"; gb.display_equation(tout, *eq););
