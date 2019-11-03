@@ -28,6 +28,7 @@ void array_rewriter::updt_params(params_ref const & _p) {
     m_sort_store = p.sort_store();
     m_expand_select_store = p.expand_select_store();
     m_expand_store_eq = p.expand_store_eq();
+    m_expand_nested_stores = p.expand_nested_stores();
     m_expand_select_ite = false;
 }
 
@@ -630,6 +631,49 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
     return true;
 }
 
+bool array_rewriter::is_expandable_store(expr* s) {
+    unsigned count = s->get_ref_count();
+    unsigned depth = 0;
+    while (m_util.is_store(s)) {
+        s = to_app(s)->get_arg(0);
+        count += s->get_ref_count();
+        depth++;
+    }
+    return (depth >= 3 && count <= depth*2);
+}
+
+expr_ref array_rewriter::expand_store(expr* s) {
+    ptr_vector<app> stores;
+    expr_ref result(m());
+    while (m_util.is_store(s)) {
+        stores.push_back(to_app(s));
+        s = to_app(s)->get_arg(0);
+    }
+    stores.reverse();
+    expr_ref_vector args(m()), eqs(m());
+    ptr_vector<sort> sorts;
+    svector<symbol> names;
+    sort* srt = m().get_sort(s);    
+    args.push_back(s);
+    for (unsigned i = get_array_arity(srt); i-- > 0; ) {
+        args.push_back(m().mk_var(i, get_array_domain(srt, i)));
+        sorts.push_back(get_array_domain(srt, i));
+        names.push_back(symbol(i));
+    }
+    names.reverse();
+    sorts.reverse();
+    result = m_util.mk_select(args);
+    for (app* st : stores) {
+        eqs.reset();
+        for (unsigned i = 1; i < args.size(); ++i) {
+            eqs.push_back(m().mk_eq(args.get(i), st->get_arg(i)));
+        }
+        result = m().mk_ite(mk_and(eqs), st->get_arg(args.size()), result);
+    }
+    result = m().mk_lambda(sorts.size(), sorts.c_ptr(), names.c_ptr(), result);
+    return result;
+}
+
 br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
     TRACE("array_rewriter", tout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
     expr* v = nullptr;
@@ -642,6 +686,22 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         result = m().update_quantifier(lam, quantifier_kind::forall_k, e);
         return BR_REWRITE2; 
     }
+    expr_ref lh1(m()), rh1(m());
+    if (m_expand_nested_stores) {
+        if (is_expandable_store(lhs)) {
+            lh1 = expand_store(lhs);        
+        }
+        if (is_expandable_store(rhs)) {
+            rh1 = expand_store(rhs);        
+        }
+        if (lh1 || rh1) {
+            if (!lh1) lh1 = lhs;
+            if (!rh1) rh1 = rhs;
+            result = m().mk_eq(lh1, rh1);
+            return BR_REWRITE_FULL;
+        }
+    }
+
     if (!m_expand_store_eq) {
         return BR_FAILED;
     }
@@ -666,6 +726,7 @@ br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) 
         }
     }
 #endif
+
     expr* lhs1 = lhs;
     while (m_util.is_store(lhs1)) {
         lhs1 = to_app(lhs1)->get_arg(0);

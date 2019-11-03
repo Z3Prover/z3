@@ -33,6 +33,7 @@ class array_rewriter {
     bool          m_expand_select_store;
     bool          m_expand_store_eq;
     bool          m_expand_select_ite;
+    bool          m_expand_nested_stores;
     template<bool CHECK_DISEQ>
     lbool compare_args(unsigned num_args, expr * const * args1, expr * const * args2);
     void mk_eq(expr* e, expr* lhs, expr* rhs, expr_ref_vector& fmls);
@@ -40,6 +41,9 @@ class array_rewriter {
     sort_ref get_map_array_sort(func_decl* f, unsigned num_args, expr* const* args);
 
     bool add_store(expr_ref_vector& args, unsigned num_idxs, expr* e, expr* store_val, vector<expr_ref_vector>& stores);
+
+    bool is_expandable_store(expr* s);
+    expr_ref expand_store(expr* s);
 
 public:    
     array_rewriter(ast_manager & m, params_ref const & p = params_ref()):

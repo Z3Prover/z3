@@ -133,6 +133,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     m_params.set_bool("eq2ineq", m_smt_params.m_arith_eq2ineq);
     m_params.set_bool("gcd_rounding", true);
     m_params.set_bool("expand_select_store", true);
+    m_params.set_bool("expand_nested_stores", true);
     m_params.set_bool("bv_sort_ac", true);
     m_params.set_bool("som", true);
     m_rewriter.updt_params(m_params);

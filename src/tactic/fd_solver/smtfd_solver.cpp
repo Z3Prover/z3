@@ -163,7 +163,7 @@ namespace smtfd {
         expr* try_rep(expr* e) { return m_rep.get(e->get_id(), nullptr); }
         
         expr* fresh_var(expr* t) {
-            symbol name = is_app(t) ? to_app(t)->get_name() : symbol("X");
+            symbol name = is_app(t) ? to_app(t)->get_name() : (is_quantifier(t) ? symbol("Q") : symbol("X"));
             if (m.is_bool(t)) {
                 return m.mk_fresh_const(name, m.mk_bool_sort());
             }        
@@ -1012,7 +1012,6 @@ namespace smtfd {
                     continue;
                 }
                 if (!tT.find(fA, fT) || (value_of(fA) != value_of(fT) && !eq(m_vargs, fA))) {
-                    TRACE("smtfd", tout << "found: " << tT.find(fA, fT) << "\n";);
                     add_select_store_axiom(t, fA);
                     ++r;
                 }
@@ -1229,6 +1228,7 @@ namespace smtfd {
                 m_autil.is_select(t) ||
                 m_autil.is_map(t) ||
                 m_autil.is_ext(t) ||
+                is_lambda(t) ||
                 m_autil.is_const(t);
         }
 
@@ -1352,9 +1352,10 @@ namespace smtfd {
             if (!m_model->eval_expr(q->get_expr(), tmp, true)) {
                 return l_undef;
             }
-            if (m.is_true(tmp)) {
-                return l_false;
-            }
+            TRACE("smtfd", 
+                  tout << mk_pp(q, m) << "\n";
+                  tout << "eval: " << tmp << "\n";
+                  tout << *m_model << "\n";);
 
             m_solver->push();
             expr_ref_vector vars(m), vals(m);
@@ -1369,6 +1370,7 @@ namespace smtfd {
             }
             var_subst subst(m);
             expr_ref body = subst(tmp, vars.size(), vars.c_ptr());
+            
             if (is_forall(q)) {
                 body = m.mk_not(body);
             }
@@ -1376,6 +1378,7 @@ namespace smtfd {
             m_solver->assert_expr(body);
             lbool r = m_solver->check_sat(0, nullptr);
             model_ref mdl;
+            TRACE("smtfd", tout << "check: " << r << "\n";);
             
             if (r == l_true) {
                 expr_ref qq(q->get_expr(), m);
@@ -1406,6 +1409,7 @@ namespace smtfd {
                 if (r == l_true) {
                     body = subst(q->get_expr(), vals.size(), vals.c_ptr());
                     m_context.rewrite(body);
+                    TRACE("smtfd", tout << vals << "\n" << body << "\n";);
                     if (is_forall(q)) {
                         body = m.mk_implies(q, body);
                     }
@@ -1520,8 +1524,7 @@ namespace smtfd {
         unsigned_vector m_assertions_lim;
         unsigned        m_assertions_qhead;
         expr_ref_vector m_toggles;
-        expr_ref        m_toggle;
-        expr_ref        m_not_toggle;
+        unsigned_vector m_toggles_lim;
         model_ref       m_model;
         std::string     m_reason_unknown;
         unsigned        m_max_lemmas;
@@ -1536,20 +1539,30 @@ namespace smtfd {
             m_fd_core_solver->updt_params(p);
         }
 
+        expr* add_toggle(expr* toggle) {
+            m_toggles.push_back(abs(toggle));
+            return toggle;
+        }
+
+        bool is_toggle(expr* e) {
+            return m_toggles.contains(e);
+        }
+
         void flush_assertions() {
             SASSERT(m_assertions_qhead <= m_assertions.size());
             unsigned sz = m_assertions.size() - m_assertions_qhead;
             if (sz > 0) {
-                m_assertions.push_back(m_toggle);
+                m_assertions.push_back(m_toggles.back());                
                 expr_ref fml(m.mk_and(sz + 1, m_assertions.c_ptr() + m_assertions_qhead), m);
-                m_assertions.pop_back();
-                m_toggle = m.mk_fresh_const("toggle", m.mk_bool_sort());
-                m_not_toggle = m.mk_not(m_toggle);
-                m_not_toggle = abs(m_not_toggle);
+                m_assertions.pop_back();                
+                expr* toggle = add_toggle(m.mk_fresh_const("toggle", m.mk_bool_sort()));
                 m_assertions_qhead = m_assertions.size();
-                fml = m.mk_iff(m_toggle, fml);
-                TRACE("smtfd_verbose", tout << fml << "\n";);
-                assert_fd(fml);
+                TRACE("smtfd", tout << "flush: " << m_assertions_qhead << " " << mk_bounded_pp(fml, m, 3) << "\n";);
+                fml = abs(fml);
+                m_fd_sat_solver->assert_expr(fml);                
+                fml = m.mk_not(m.mk_and(toggle, fml));
+                m_fd_core_solver->assert_expr(fml);
+                flush_atom_defs();
             }
         }
 
@@ -1563,8 +1576,6 @@ namespace smtfd {
                   display(tout << asms << "\n"););
             TRACE("smtfd_verbose", m_fd_sat_solver->display(tout););
 
-            SASSERT(asms.contains(m_toggle));
-            m_fd_sat_solver->assert_expr(m_toggle);
             lbool r = m_fd_sat_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_sat_solver);
             set_delay_simplify();
@@ -1578,15 +1589,14 @@ namespace smtfd {
             m_model->set_model_completion(true);
             init_model_assumptions(num_assumptions, assumptions, asms);
             TRACE("smtfd", display(tout << asms << "\n"););
-            SASSERT(asms.contains(m_not_toggle));
             lbool r = m_fd_core_solver->check_sat(asms);
             update_reason_unknown(r, m_fd_core_solver);
             if (r == l_false) {
                 m_fd_core_solver->get_unsat_core(core);
                 TRACE("smtfd", display(tout << core << "\n"););
-                core.erase(m_not_toggle.get()); 
-                SASSERT(asms.contains(m_not_toggle));
-                SASSERT(!asms.contains(m_toggle));
+                SASSERT(asms.contains(m_toggles.back()));
+                SASSERT(core.contains(m_toggles.back()));
+                core.erase(m_toggles.back());
                 rep(core);
             }
             return r;
@@ -1643,7 +1653,6 @@ namespace smtfd {
 
         lbool is_decided_sat(expr_ref_vector const& core) {
             bool has_q = false;
-            bool has_non_covered = false;
             lbool is_decided = l_true;
             m_context.reset(m_model);
             for (expr* t : subterms(core)) {
@@ -1656,7 +1665,7 @@ namespace smtfd {
             }
             m_context.populate_model(m_model, core);
             
-            TRACE("smtfd", tout << "has quantifier: " << has_q << " has non-converted: " << has_non_covered << "\n";);
+            TRACE("smtfd", tout << "has quantifier: " << has_q << "\n" << core << "\n";);
             if (!has_q) {
                 return is_decided;
             }
@@ -1679,7 +1688,6 @@ namespace smtfd {
 
         void init_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
             asms.reset();
-            asms.push_back(m_toggle);
             for (unsigned i = 0; i < sz; ++i) {
                 asms.push_back(abs_assumption(user_asms[i]));
             }
@@ -1688,19 +1696,22 @@ namespace smtfd {
 
         void init_model_assumptions(unsigned sz, expr* const* user_asms, expr_ref_vector& asms) {
             asms.reset();
-            asms.push_back(m_not_toggle);
+            asms.push_back(m_toggles.back());
             for (unsigned i = 0; i < sz; ++i) {
                 asms.push_back(abs(user_asms[i]));
             }
             for (expr* a : m_abs.atoms()) {
-                if (m_model->is_true(a)) {
+                if (is_toggle(a)) {
+                    
+                }
+                else if (m_model->is_true(a)) {
                     asms.push_back(a);
                 }
                 else {
                     asms.push_back(m.mk_not(a));
                 }
             }
-            asms.erase(m_toggle.get());
+            std::cout << "asms: " << asms << "\n";
         }
 
         void checkpoint() {
@@ -1749,12 +1760,11 @@ namespace smtfd {
             m_pb(m_context),
             m_assertions(m),
             m_assertions_qhead(0),
-            m_toggles(m), 
-            m_toggle(m.mk_true(), m), 
-            m_not_toggle(m.mk_false(), m),
+            m_toggles(m),
             m_max_conflicts(50)
         {            
             updt_params(p);
+            add_toggle(m.mk_true());
         }
         
         ~solver() override {}
@@ -1774,12 +1784,12 @@ namespace smtfd {
         void push_core() override {
             init();
             flush_assertions();
-            m_toggles.push_back(m_toggle);
             m_abs.push();
             m_fd_sat_solver->push();
             m_fd_core_solver->push();
             m_smt_solver->push();
             m_assertions_lim.push_back(m_assertions.size());
+            m_toggles_lim.push_back(m_toggles.size());
         }
         
         void pop_core(unsigned n) override {
@@ -1787,9 +1797,9 @@ namespace smtfd {
             m_fd_core_solver->pop(n);
             m_smt_solver->pop(n);
             m_abs.pop(n);
-            m_toggle = m_toggles.get(m_toggles.size() - n);
-            m_not_toggle = m.mk_not(m_toggle);
-            m_toggles.shrink(m_toggles.size() - n);
+            unsigned sz = m_toggles_lim[m_toggles_lim.size() - n];
+            m_toggles.shrink(sz);
+            m_toggles_lim.shrink(m_toggles_lim.size() - n);
             m_assertions.shrink(m_assertions_lim[m_assertions_lim.size() - n]);
             m_assertions_lim.shrink(m_assertions_lim.size() - n);
             m_assertions_qhead = m_assertions.size();
@@ -1876,11 +1886,14 @@ namespace smtfd {
             flush_assertions();
             lbool r = l_undef;
             expr_ref_vector core(m);
+            unsigned nt = m_toggles.size();
             while (true) {
                 IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat " << m_stats.m_num_rounds 
                            << " " << m_stats.m_num_lemmas << " " << m_stats.m_num_mbqi << ")\n");
                 m_stats.m_num_rounds++;
                 checkpoint();
+                m_toggles.shrink(nt);
+                std::cout << "toggles: " << m_toggles << "\n";
             
                 // phase 1: check sat of abs
                 r = check_abs(num_assumptions, assumptions);
@@ -1905,6 +1918,7 @@ namespace smtfd {
                         break;
                     case l_false:
                         break;
+                        // disable for now
                         r = check_smt(core);
                         switch (r) {
                         case l_true:
@@ -2002,8 +2016,7 @@ namespace smtfd {
             st.update("smtfd-num-mbqi", m_stats.m_num_mbqi);
         }
         void get_unsat_core(expr_ref_vector & r) override { 
-            m_fd_sat_solver->get_unsat_core(r);            
-            r.erase(m_toggle.get());
+            m_fd_sat_solver->get_unsat_core(r);
             rep(r);
         }
         void get_model_core(model_ref & mdl) override { 
