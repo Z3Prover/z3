@@ -25,6 +25,7 @@ Revision History:
 #include "ast/normal_forms/nnf.h"
 #include "ast/pattern/pattern_inference.h"
 #include "ast/macros/quasi_macros.h"
+#include "ast/occurs.h"
 #include "smt/asserted_formulas.h"
 
 asserted_formulas::asserted_formulas(ast_manager & m, smt_params & sp, params_ref const& p):
@@ -133,7 +134,7 @@ void asserted_formulas::set_eliminate_and(bool flag) {
     m_params.set_bool("eq2ineq", m_smt_params.m_arith_eq2ineq);
     m_params.set_bool("gcd_rounding", true);
     m_params.set_bool("expand_select_store", true);
-    m_params.set_bool("expand_nested_stores", true);
+    //m_params.set_bool("expand_nested_stores", true);
     m_params.set_bool("bv_sort_ac", true);
     m_params.set_bool("som", true);
     m_rewriter.updt_params(m_params);
@@ -555,6 +556,14 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
         return false;
     }
     SASSERT(is_ground(lhs) && is_ground(rhs));
+#if 0
+    if (is_uninterp_const(lhs) && is_app(rhs) && to_app(rhs)->get_num_args() > 0 && !occurs(lhs, rhs)) {
+        return true;
+    }
+    if (is_uninterp_const(rhs) && is_app(lhs) && to_app(lhs)->get_num_args() > 0 && !occurs(rhs, lhs)) {
+        return false;
+    }
+#endif
     if (depth(lhs) > depth(rhs)) {
         return true;
     }
