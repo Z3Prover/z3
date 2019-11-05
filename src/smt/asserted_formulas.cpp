@@ -556,14 +556,6 @@ bool asserted_formulas::is_gt(expr* lhs, expr* rhs) {
         return false;
     }
     SASSERT(is_ground(lhs) && is_ground(rhs));
-#if 0
-    if (is_uninterp_const(lhs) && is_app(rhs) && to_app(rhs)->get_num_args() > 0 && !occurs(lhs, rhs)) {
-        return true;
-    }
-    if (is_uninterp_const(rhs) && is_app(lhs) && to_app(lhs)->get_num_args() > 0 && !occurs(rhs, lhs)) {
-        return false;
-    }
-#endif
     if (depth(lhs) > depth(rhs)) {
         return true;
     }
