@@ -25,10 +25,9 @@ namespace smt {
         if (m_lemmas.empty())
             return 0;
         unsigned long long acc            = 0;
-        clause_vector::const_iterator it  = m_lemmas.begin();
-        clause_vector::const_iterator end = m_lemmas.end();
-        for (; it != end; ++it)
-            acc += (*it)->get_activity();
+        for (clause const* cp : m_lemmas) {
+            acc += cp->get_activity();
+        }
         return static_cast<unsigned>(acc / m_lemmas.size());
     }
 
@@ -39,10 +38,9 @@ namespace smt {
     }
 
     static void acc_num_occs(clause_vector const & v, unsigned_vector & lit2num_occs) {
-        clause_vector::const_iterator it  = v.begin();
-        clause_vector::const_iterator end = v.end();
-        for (; it != end; ++it)
-            acc_num_occs(*it, lit2num_occs);
+        for (auto cp : v) {
+            acc_num_occs(cp, lit2num_occs);
+        }
     }
 
     void context::display_literal_num_occs(std::ostream & out) const {
@@ -56,7 +54,7 @@ namespace smt {
             if (lit2num_occs[lidx] > 0) {
                 out << lit2num_occs[lidx] << " ";
                 // display_literal(out, l);
-                out << l.sign() << " " << mk_pp(bool_var2expr(l.var()), m_manager);
+                out << l.sign() << " " << mk_pp(bool_var2expr(l.var()), m);
                 out << "\n";
             }
         }
@@ -64,11 +62,8 @@ namespace smt {
 
     void context::display_num_assigned_literals_per_lvl(std::ostream & out) const {
         unsigned n = 0;
-        svector<scope>::const_iterator it  = m_scopes.begin();
-        svector<scope>::const_iterator end = m_scopes.end();
         out << "[";
-        for (; it != end; ++it) {
-            scope const & s = *it;
+        for (scope const& s : m_scopes) {
             SASSERT(n <= s.m_assigned_literals_lim);
             out << (s.m_assigned_literals_lim - n) << " ";
             n = s.m_assigned_literals_lim;
@@ -84,10 +79,9 @@ namespace smt {
     }
 
     static void acc_var_num_occs(clause_vector const & v, unsigned_vector & var2num_occs) {
-        clause_vector::const_iterator it  = v.begin();
-        clause_vector::const_iterator end = v.end();
-        for (; it != end; ++it)
-            acc_var_num_occs(*it, var2num_occs);
+        for (auto const& n : v) {
+            acc_var_num_occs(n, var2num_occs);
+        }
     }
 
     void context::display_var_occs_histogram(std::ostream & out) const {
@@ -122,10 +116,9 @@ namespace smt {
     }
 
     static void acc_var_num_min_occs(clause_vector const & v, unsigned_vector & var2num_min_occs) {
-        clause_vector::const_iterator it  = v.begin();
-        clause_vector::const_iterator end = v.end();
-        for (; it != end; ++it)
-            acc_var_num_min_occs(*it, var2num_min_occs);
+        for (auto const& c : v) {
+            acc_var_num_min_occs(c, var2num_min_occs);
+        }
     }
 
     void context::display_num_min_occs(std::ostream & out) const {

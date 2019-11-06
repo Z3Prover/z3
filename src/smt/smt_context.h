@@ -79,7 +79,7 @@ namespace smt {
 
 
     protected:
-        ast_manager &               m_manager;
+        ast_manager &               m;
         smt_params &                m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
@@ -95,9 +95,7 @@ namespace smt {
         progress_callback *         m_progress_callback;
         unsigned                    m_next_progress_sample;
         clause_proof                m_clause_proof;
-
         region                      m_region;
-
         fingerprint_set             m_fingerprints;
 
         expr_ref_vector             m_b_internalized_stack; // stack of the boolean expressions already internalized.
@@ -126,7 +124,6 @@ namespace smt {
         vector<enode_vector>        m_decl2enodes;  // decl -> enode (for decls with arity > 0)
         enode_vector                m_empty_vector;
         cg_table                    m_cg_table;
-        dyn_ack_manager             m_dyn_ack_manager;
         struct new_eq {
             enode *                 m_lhs;
             enode *                 m_rhs;
@@ -201,6 +198,7 @@ namespace smt {
 
         obj_map<expr, unsigned>      m_cached_generation;
         obj_hashtable<expr>          m_cache_generation_visited;
+        dyn_ack_manager             m_dyn_ack_manager;
 
         // -----------------------------------
         //
@@ -258,7 +256,7 @@ namespace smt {
         // -----------------------------------
     public:
         ast_manager & get_manager() const {
-            return m_manager;
+            return m;
         }
 
         th_rewriter & get_rewriter() {
@@ -519,17 +517,17 @@ namespace smt {
 
         void literal2expr(literal l, expr_ref & result) const {
             if (l == true_literal)
-                result = m_manager.mk_true();
+                result = m.mk_true();
             else if (l == false_literal)
-                result = m_manager.mk_false();
+                result = m.mk_false();
             else if (l.sign())
-                result = m_manager.mk_not(bool_var2expr(l.var()));
+                result = m.mk_not(bool_var2expr(l.var()));
             else
                 result = bool_var2expr(l.var());
         }
 
         expr_ref literal2expr(literal l) const {
-            expr_ref result(m_manager);
+            expr_ref result(m);
             literal2expr(l, result);
             return result;
         }
@@ -701,7 +699,7 @@ namespace smt {
         }
 
         bool lit_internalized(expr const * n) const {
-            return m_manager.is_false(n) || (m_manager.is_not(n) ? b_internalized(to_app(n)->get_arg(0)) : b_internalized(n));
+            return m.is_false(n) || (m.is_not(n) ? b_internalized(to_app(n)->get_arg(0)) : b_internalized(n));
         }
 
         bool e_internalized(expr const * n) const {
@@ -737,7 +735,7 @@ namespace smt {
 
     public:
         bool binary_clause_opt_enabled() const {
-            return !m_manager.proofs_enabled() && m_fparams.m_binary_clause_opt;
+            return !m.proofs_enabled() && m_fparams.m_binary_clause_opt;
         }
     protected:
         bool_var_data & get_bdata(expr const * n) {
@@ -1304,7 +1302,7 @@ namespace smt {
 
         std::ostream& display_literal(std::ostream & out, literal l) const;
 
-        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m_manager, m_bool_var2expr.c_ptr()); return out; }
+        std::ostream& display_detailed_literal(std::ostream & out, literal l) const { l.display(out, m, m_bool_var2expr.c_ptr()); return out; }
 
         void display_literal_info(std::ostream & out, literal l) const;
 

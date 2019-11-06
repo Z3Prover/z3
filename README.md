@@ -97,8 +97,9 @@ To clean Z3 you can delete the build directory and run the ``mk_make.py`` script
 
 ## Building Z3 using CMake
 
-Z3 has an unofficial build system using CMake. Read the [README-CMake.md](README-CMake.md)
-file for details.
+Z3 has a build system using CMake. Read the [README-CMake.md](README-CMake.md)
+file for details. It is recommended for most build tasks, 
+except for building OCaml bindings.
 
 ## Z3 bindings
 

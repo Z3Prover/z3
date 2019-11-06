@@ -27,12 +27,12 @@ Revision History:
 namespace smt {
 
     expr_ref context::antecedent2fml(index_set const& vars) {
-        expr_ref_vector premises(m_manager);
+        expr_ref_vector premises(m);
         index_set::iterator it = vars.begin(), end = vars.end();
         for (; it != end; ++it) {
             expr* e =  bool_var2expr(*it);
             e = m_assumption2orig.find(e);
-            premises.push_back(get_assignment(*it) != l_false ? e : m_manager.mk_not(e));
+            premises.push_back(get_assignment(*it) != l_false ? e : m.mk_not(e));
         }
         return mk_and(premises);
     }
@@ -47,7 +47,6 @@ namespace smt {
     // - e is a data-type recognizer of a variable that is to be fixed.
     // 
     void context::extract_fixed_consequences(literal lit, index_set const& assumptions, expr_ref_vector& conseq) {
-        ast_manager& m = m_manager;
         datatype_util dt(m);
         expr* e1, *e2;       
         expr_ref fml(m);        
@@ -103,7 +102,6 @@ namespace smt {
     }
 
     void context::justify(literal lit, index_set& s) {
-        ast_manager& m = m_manager;
         (void)m;
         b_justification js = get_justification(lit.var());
         switch (js.get_kind()) {
@@ -163,7 +161,6 @@ namespace smt {
     // 
 
     unsigned context::delete_unfixed(expr_ref_vector& unfixed) {
-        ast_manager& m = m_manager;
         ptr_vector<expr> to_delete;
         obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
         for (; it != end; ++it) {
@@ -216,7 +213,6 @@ namespace smt {
     // 
     unsigned context::extract_fixed_eqs(expr_ref_vector& conseq) {
         TRACE("context", tout << "extract fixed consequences\n";);
-        ast_manager& m = m_manager;
         ptr_vector<expr> to_delete;
         expr_ref fml(m), eq(m);
         obj_map<expr,expr*>::iterator it = m_var2val.begin(), end = m_var2val.end();
@@ -253,7 +249,6 @@ namespace smt {
     }
 
     literal context::mk_diseq(expr* e, expr* val) {
-        ast_manager& m = m_manager;
         if (m.is_bool(e) && b_internalized(e)) {
             return literal(get_bool_var(e), m.is_true(val));
         }
@@ -276,7 +271,6 @@ namespace smt {
         m_antecedents.reset();
         m_antecedents.insert(true_literal.var(), index_set());
         pop_to_base_lvl();
-        ast_manager& m = m_manager;
         expr_ref_vector vars(m), assumptions(m);
         m_var2val.reset();
         m_var2orig.reset();
@@ -459,7 +453,7 @@ namespace smt {
             }
             m_antecedents.insert(lit.var(), s);
             if (_nasms.contains(lit.index())) {
-                expr_ref_vector core(m_manager);
+                expr_ref_vector core(m);
                 index_set::iterator it = s.begin(), end = s.end();
                 for (; it != end; ++it) {
                     core.push_back(var2expr[*it]);
@@ -528,7 +522,7 @@ namespace smt {
         unsigned num_restarts = 0;
 
         while (true) {
-            if (m_manager.canceled()) {
+            if (m.canceled()) {
                 is_sat = l_undef;
                 break;
             }
@@ -581,10 +575,10 @@ namespace smt {
     lbool context::find_mutexes(expr_ref_vector const& vars, vector<expr_ref_vector>& mutexes) {
         unsigned_vector ps;
         max_cliques<neg_literal> mc;
-        expr_ref lit(m_manager);
+        expr_ref lit(m);
         for (unsigned i = 0; i < vars.size(); ++i) {
             expr* n = vars[i];
-            bool neg = m_manager.is_not(n, n);
+            bool neg = m.is_not(n, n);
             if (b_internalized(n)) {
                 ps.push_back(literal(get_bool_var(n), neg).index());
             }
@@ -602,7 +596,7 @@ namespace smt {
         vector<unsigned_vector> _mutexes;
         mc.cliques(ps, _mutexes);
         for (unsigned i = 0; i < _mutexes.size(); ++i) {
-            expr_ref_vector lits(m_manager);
+            expr_ref_vector lits(m);
             for (unsigned j = 0; j < _mutexes[i].size(); ++j) {
                 literal2expr(to_literal(_mutexes[i][j]), lit);
                 lits.push_back(lit);
@@ -618,7 +612,6 @@ namespace smt {
     // 
     void context::validate_consequences(expr_ref_vector const& assumptions, expr_ref_vector const& vars, 
                                         expr_ref_vector const& conseq, expr_ref_vector const& unfixed) {
-        ast_manager& m = m_manager;
         expr_ref tmp(m);
         SASSERT(!inconsistent());
         for (unsigned i = 0; i < conseq.size(); ++i) {

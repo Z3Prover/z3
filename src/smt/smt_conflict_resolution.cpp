@@ -16,10 +16,11 @@ Author:
 Revision History:
 
 --*/
-#include "smt/smt_context.h"
-#include "smt/smt_conflict_resolution.h"
+
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
+#include "smt/smt_context.h"
+#include "smt/smt_conflict_resolution.h"
 
 namespace smt {
 
