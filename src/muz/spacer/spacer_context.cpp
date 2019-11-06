@@ -3414,9 +3414,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
         return l_undef;
 
     }
-    case l_false:
+    case l_false: {
         // n is unreachable, create new summary facts
-    {
         timeit _timer (is_trace_enabled("spacer_timeit"),
                        "spacer::expand_pob::false",
                        verbose_stream ());
@@ -3494,8 +3493,9 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
             m_stats.m_expand_pob_undef++;
             if (r && r->get_uninterpreted_tail_size() > 0) {
                 // do not trust reach_pred_used
-                for (unsigned i = 0, sz = reach_pred_used.size(); i < sz; ++i)
-                { reach_pred_used[i] = false; }
+                for (unsigned i = 0, sz = reach_pred_used.size(); i < sz; ++i) {
+                    reach_pred_used[i] = false; 
+                }
                 has_new_child = create_children(n, *r, *model, reach_pred_used, out);
             }
             IF_VERBOSE(1, verbose_stream() << " UNDEF "
