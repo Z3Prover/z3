@@ -440,6 +440,7 @@ namespace smt {
         arith_eq_solver         m_arith_eq_solver;
         bool                    m_found_unsupported_op;
         bool                    m_found_underspecified_op;
+        ptr_vector<app>         m_underspecified_ops;
         arith_eq_adapter        m_arith_eq_adapter;
         vector<row>             m_rows;
         svector<unsigned>       m_dead_rows;
@@ -1077,6 +1078,7 @@ namespace smt {
         //
         // -----------------------------------
         bool get_value(enode * n, expr_ref & r) override;
+        bool include_func_interp(func_decl* f) override;
 
         bool get_lower(enode* n, expr_ref& r);
         bool get_upper(enode* n, expr_ref& r);

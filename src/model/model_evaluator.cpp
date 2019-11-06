@@ -334,6 +334,21 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_interp * fi = m_model.get_func_interp(f);
 
+
+        func_decl_ref f_ui(m);
+        if (!fi && m_au.is_considered_uninterpreted(f, num, args, f_ui)) {
+            if (f_ui) {
+                fi = m_model.get_func_interp(f);                
+            }
+            if (!fi) {
+                result = m_au.mk_numeral(rational(0), f->get_range());
+                return BR_DONE;
+            }
+        }
+        else if (!fi && m_fpau.is_considered_uninterpreted(f, num, args)) {
+            result = m.get_some_value(f->get_range());
+            return BR_DONE;
+        }
         if (fi) {
             if (fi->is_partial())
                 fi->set_else(m.get_some_value(f->get_range()));
@@ -343,14 +358,6 @@ struct evaluator_cfg : public default_rewriter_cfg {
             return BR_REWRITE_FULL;
         }
 
-        if (m_au.is_considered_uninterpreted(f, num, args)) {
-            result = m_au.mk_numeral(rational(0), f->get_range());
-            return BR_DONE;
-        }
-        else if (m_fpau.is_considered_uninterpreted(f, num, args)) {
-            result = m.get_some_value(f->get_range());
-            return BR_DONE;
-        }
         return BR_FAILED;
     }
 

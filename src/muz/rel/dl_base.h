@@ -435,7 +435,6 @@ namespace datalog {
                Since the destructor is protected, we cannot use the \c dealloc macro.
             */
             void destroy() {
-                SASSERT(this != nullptr);
                 this->~base_ancestor();
                 memory::deallocate(this);
             }
