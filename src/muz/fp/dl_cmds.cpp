@@ -305,7 +305,6 @@ public:
 
             case datalog::OK:
                 (void)query_exn;
-                SASSERT(query_exn);
                 break;
 
             case datalog::CANCELED:

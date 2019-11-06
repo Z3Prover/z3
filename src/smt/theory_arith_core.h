@@ -19,12 +19,12 @@ Revision History:
 #ifndef THEORY_ARITH_CORE_H_
 #define THEORY_ARITH_CORE_H_
 
-#include "smt/smt_context.h"
-#include "smt/theory_arith.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
-#include "smt/smt_model_generator.h"
 #include "ast/ast_smt2_pp.h"
+#include "smt/smt_context.h"
+#include "smt/theory_arith.h"
+#include "smt/smt_model_generator.h"
 
 namespace smt {
 
@@ -3266,6 +3266,7 @@ namespace smt {
     template<typename Ext>
     void theory_arith<Ext>::init_model(model_generator & m) {
         TRACE("theory_arith", tout << "init model invoked...\n";);
+        context& ctx = get_context();
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         compute_epsilon();
@@ -3273,20 +3274,25 @@ namespace smt {
             refine_epsilon();
         }
         for (app* n : m_underspecified_ops) {
+            enode* e = nullptr;
             if (m_util.is_div(n)) {                
-                mk_enode(m_util.mk_div0(n->get_arg(0), n->get_arg(1)));
+                e = mk_enode(m_util.mk_div0(n->get_arg(0), n->get_arg(1)));
             }
             else if (m_util.is_idiv(n)) {                
-                mk_enode(m_util.mk_idiv0(n->get_arg(0), n->get_arg(1)));
+                e = mk_enode(m_util.mk_idiv0(n->get_arg(0), n->get_arg(1)));
             }
             else if (m_util.is_rem(n)) {                
-                mk_enode(m_util.mk_rem0(n->get_arg(0), n->get_arg(1)));
+                e = mk_enode(m_util.mk_rem0(n->get_arg(0), n->get_arg(1)));
             }
             else if (m_util.is_mod(n)) {                
-                mk_enode(m_util.mk_mod0(n->get_arg(0), n->get_arg(1)));
+                e = mk_enode(m_util.mk_mod0(n->get_arg(0), n->get_arg(1)));
             }
             else if (m_util.is_power(n)) {                
-                mk_enode(m_util.mk_power0(n->get_arg(0), n->get_arg(1)));
+                e = mk_enode(m_util.mk_power0(n->get_arg(0), n->get_arg(1)));
+            }
+            if (e) {
+                ctx.mark_as_relevant(e);
+                ctx.add_eq(e, ctx.get_enode(n), eq_justification());
             }
         }
     }

@@ -3800,6 +3800,7 @@ bool context::create_children(pob& n, datalog::rule const& r,
 
 void context::collect_statistics(statistics& st) const
 {
+	// m_params is not necessarily live when collect_statistics is called.
     m_pool0->collect_statistics(st);
     m_pool1->collect_statistics(st);
     m_pool2->collect_statistics(st);
@@ -3841,7 +3842,6 @@ void context::collect_statistics(statistics& st) const
     // -- time in creating new predecessors
     st.update ("time.spacer.solve.reach.children",
                m_create_children_watch.get_seconds ());
-    st.update("spacer.random_seed", m_params.spacer_random_seed());
     st.update("spacer.lemmas_imported", m_stats.m_num_lemmas_imported);
     st.update("spacer.lemmas_discarded", m_stats.m_num_lemmas_discarded);
 

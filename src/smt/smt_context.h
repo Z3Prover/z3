@@ -74,7 +74,7 @@ namespace smt {
 
         std::ostream& display_last_failure(std::ostream& out) const;
         std::string last_failure_as_string() const;
-        void set_reason_unknown(char const* msg) { m_unknown = msg; }
+        void set_reason_unknown(char const* msg) { m_unknown = msg; std::cout << m_unknown << "\n"; }
         void set_progress_callback(progress_callback *callback);
 
 
@@ -1009,6 +1009,8 @@ namespace smt {
         }
 #endif
 
+        void add_eq(enode * n1, enode * n2, eq_justification js);
+
     protected:
         void push_new_th_eq(theory_id th, theory_var lhs, theory_var rhs);
 
@@ -1016,7 +1018,6 @@ namespace smt {
 
         friend class add_eq_trail;
 
-        void add_eq(enode * n1, enode * n2, eq_justification js);
 
         void remove_parents_from_cg_table(enode * r1);
 

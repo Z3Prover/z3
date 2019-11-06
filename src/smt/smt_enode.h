@@ -201,6 +201,10 @@ namespace smt {
             return m_root; 
         }
 
+        void set_root(enode* r) {
+            m_root = r;
+        }
+
         enode * get_next() const { 
             return m_next; 
         }

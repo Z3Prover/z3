@@ -362,7 +362,7 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_IDIVIDES: UNREACHABLE(); 
     case OP_REM:     return m_i_rem_decl;
     case OP_MOD:     return m_i_mod_decl;
-    case OP_DIV0:    return m_manager->mk_func_decl(symbol("div0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_DIV0));
+    case OP_DIV0:    return m_manager->mk_func_decl(symbol("/0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_DIV0));
     case OP_IDIV0:   return m_manager->mk_func_decl(symbol("idiv0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_IDIV0));
     case OP_REM0:    return m_manager->mk_func_decl(symbol("rem0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_REM0));
     case OP_MOD0:    return m_manager->mk_func_decl(symbol("mod0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_MOD0));
@@ -788,8 +788,7 @@ expr_ref arith_util::mk_add_simplify(unsigned sz, expr* const* args) {
 bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* const* args, func_decl_ref& f_out) {
     rational r;
     if (is_decl_of(f, m_afid, OP_DIV) && is_numeral(args[1], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
-        f_out = m_manager.mk_func_decl(m_afid, OP_DIV0, 0, nullptr, 2, rs, mk_real());
+        f_out = mk_div0();
         return true;
     }
     if (is_decl_of(f, m_afid, OP_IDIV) && is_numeral(args[1], r) && r.is_zero()) {
@@ -813,4 +812,9 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
         return true;
     }
     return plugin().is_considered_uninterpreted(f);
+}
+
+func_decl* arith_util::mk_div0() {
+    sort* rs[2] = { mk_real(), mk_real() };
+    return m_manager.mk_func_decl(m_afid, OP_DIV0, 0, nullptr, 2, rs, mk_real());
 }

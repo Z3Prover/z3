@@ -213,6 +213,11 @@ public:
         case OP_NEG_ROOT:
         case OP_U_ASIN:
         case OP_U_ACOS:
+        case OP_DIV0:
+        case OP_IDIV0:
+        case OP_REM0:
+        case OP_MOD0:
+        case OP_POWER0:
             return true;
         default:
             return false;
@@ -361,6 +366,9 @@ public:
 
     sort * mk_int() { return m_manager.mk_sort(m_afid, INT_SORT); }
     sort * mk_real() { return m_manager.mk_sort(m_afid, REAL_SORT); }
+
+    func_decl* mk_div0();
+
 
     app * mk_numeral(rational const & val, bool is_int) const {
         return plugin().mk_numeral(val, is_int);

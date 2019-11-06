@@ -795,6 +795,15 @@ struct purify_arith_proc {
                 SASSERT(is_uninterp_const(v));
                 fmc->hide(v->get_decl());
             }
+            if (!divs.empty()) {
+                expr_ref body(u().mk_real(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_real()), m());
+                expr_ref v1(m().mk_var(1, u().mk_real()), m());
+                for (auto const& p : divs) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_div0(), body);
+            }
         }
         if (produce_models && !m_sin_cos.empty()) {
             generic_model_converter* emc = alloc(generic_model_converter, m(), "purify_sin_cos");

@@ -334,11 +334,10 @@ struct evaluator_cfg : public default_rewriter_cfg {
 
         func_interp * fi = m_model.get_func_interp(f);
 
-
         func_decl_ref f_ui(m);
         if (!fi && m_au.is_considered_uninterpreted(f, num, args, f_ui)) {
             if (f_ui) {
-                fi = m_model.get_func_interp(f);                
+                fi = m_model.get_func_interp(f_ui); 
             }
             if (!fi) {
                 result = m_au.mk_numeral(rational(0), f->get_range());

@@ -841,7 +841,7 @@ public:
         else {
             m_out << "(declare-sort ";
             visit_sort(s);
-            m_out << ")";
+            m_out << " 0)";
             newline();
         }
         mark.mark(s, true);

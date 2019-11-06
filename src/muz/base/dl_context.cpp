@@ -765,10 +765,15 @@ namespace datalog {
         ast_manager&  m;
         arith_util    a;
         datatype_util dt;
+        bv_util       bv;
         DL_ENGINE     m_engine_type;
 
+        bool is_large_bv(sort* s) {
+            return false;
+        }
+
     public:
-        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), m_engine_type(DATALOG_ENGINE) {}
+        engine_type_proc(ast_manager& m): m(m), a(m), dt(m), bv(m), m_engine_type(DATALOG_ENGINE) {}
 
         DL_ENGINE get_engine() const { return m_engine_type; }
 
@@ -780,6 +785,9 @@ namespace datalog {
                 m_engine_type = SPACER_ENGINE;
             }
             else if (dt.is_datatype(m.get_sort(e))) {
+                m_engine_type = SPACER_ENGINE;
+            }
+            else if (is_large_bv(m.get_sort(e))) {
                 m_engine_type = SPACER_ENGINE;
             }
         }
