@@ -74,7 +74,7 @@ namespace smt {
 
         std::ostream& display_last_failure(std::ostream& out) const;
         std::string last_failure_as_string() const;
-        void set_reason_unknown(char const* msg) { m_unknown = msg; std::cout << m_unknown << "\n"; }
+        void set_reason_unknown(char const* msg) { m_unknown = msg; }
         void set_progress_callback(progress_callback *callback);
 
 

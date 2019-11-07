@@ -489,7 +489,7 @@ namespace smt {
 
     proto_model * model_generator::mk_model() {
         SASSERT(!m_model);
-        TRACE("model", m_context->display(tout););
+        TRACE("model_verbose", m_context->display(tout););
         init_model();
         register_existing_model_values();
         mk_bool_model();

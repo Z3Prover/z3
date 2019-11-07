@@ -39,13 +39,35 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::found_underspecified_op(app * n) {
+        context& ctx = get_context();
         m_underspecified_ops.push_back(n);
-        get_context().push_trail(push_back_vector<context, ptr_vector<app>>(m_underspecified_ops));
+        ctx.push_trail(push_back_vector<context, ptr_vector<app>>(m_underspecified_ops));
         if (!m_found_underspecified_op) {
             TRACE("arith", tout << "found underspecified expression:\n" << mk_pp(n, get_manager()) << "\n";);
-            get_context().push_trail(value_trail<context, bool>(m_found_underspecified_op));
+            ctx.push_trail(value_trail<context, bool>(m_found_underspecified_op));
             m_found_underspecified_op = true;
         }
+
+        expr* e = nullptr;
+        if (m_util.is_div(n)) {                
+            e = m_util.mk_div0(n->get_arg(0), n->get_arg(1));
+        }
+        else if (m_util.is_idiv(n)) {                
+            e = m_util.mk_idiv0(n->get_arg(0), n->get_arg(1));
+        }
+        else if (m_util.is_rem(n)) {                
+            e = m_util.mk_rem0(n->get_arg(0), n->get_arg(1));
+        }
+        else if (m_util.is_mod(n)) {                
+            e = m_util.mk_mod0(n->get_arg(0), n->get_arg(1));
+        }
+        else if (m_util.is_power(n)) {                
+            e = m_util.mk_power0(n->get_arg(0), n->get_arg(1));
+        }
+        if (e) {
+            ctx.assign(mk_eq(e, n, false), nullptr);
+        }
+
     }
 
     template<typename Ext>
@@ -389,9 +411,9 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_div(app * n) {
         rational r(1);
-        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         if (!ctx.relevancy())
             mk_div_axiom(n->get_arg(0), n->get_arg(1));
         return s;
@@ -400,9 +422,9 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_idiv(app * n) {
         rational r;
-        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         app * mod         = m_util.mk_mod(n->get_arg(0), n->get_arg(1));
         ctx.internalize(mod, false);
         if (ctx.relevancy())
@@ -414,9 +436,9 @@ namespace smt {
     theory_var theory_arith<Ext>::internalize_mod(app * n) {
         TRACE("arith_mod", tout << "internalizing...\n" << mk_pp(n, get_manager()) << "\n";);
         rational r(1);
-        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s      = mk_binary_op(n);
         context & ctx     = get_context();
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         if (!ctx.relevancy())
             mk_idiv_mod_axioms(n->get_arg(0), n->get_arg(1));
         return s;
@@ -425,9 +447,9 @@ namespace smt {
     template<typename Ext>
     theory_var theory_arith<Ext>::internalize_rem(app * n) {
         rational r(1);
-        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         theory_var s  = mk_binary_op(n);
         context & ctx = get_context();
+        if (!m_util.is_numeral(n->get_arg(1), r) || r.is_zero()) found_underspecified_op(n);
         if (!ctx.relevancy()) {
             mk_rem_axiom(n->get_arg(0), n->get_arg(1));
         }
@@ -3265,35 +3287,16 @@ namespace smt {
 
     template<typename Ext>
     void theory_arith<Ext>::init_model(model_generator & m) {
-        TRACE("theory_arith", tout << "init model invoked...\n";);
+        TRACE("theory_arith", tout << "init model invoked...\n";
+              for (app* n : m_underspecified_ops) {
+                  tout << mk_pp(n, get_manager()) << "\n";
+              });
         context& ctx = get_context();
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         compute_epsilon();
         if (!m_model_depends_on_computed_epsilon) {
             refine_epsilon();
-        }
-        for (app* n : m_underspecified_ops) {
-            enode* e = nullptr;
-            if (m_util.is_div(n)) {                
-                e = mk_enode(m_util.mk_div0(n->get_arg(0), n->get_arg(1)));
-            }
-            else if (m_util.is_idiv(n)) {                
-                e = mk_enode(m_util.mk_idiv0(n->get_arg(0), n->get_arg(1)));
-            }
-            else if (m_util.is_rem(n)) {                
-                e = mk_enode(m_util.mk_rem0(n->get_arg(0), n->get_arg(1)));
-            }
-            else if (m_util.is_mod(n)) {                
-                e = mk_enode(m_util.mk_mod0(n->get_arg(0), n->get_arg(1)));
-            }
-            else if (m_util.is_power(n)) {                
-                e = mk_enode(m_util.mk_power0(n->get_arg(0), n->get_arg(1)));
-            }
-            if (e) {
-                ctx.mark_as_relevant(e);
-                ctx.add_eq(e, ctx.get_enode(n), eq_justification());
-            }
         }
     }
 
