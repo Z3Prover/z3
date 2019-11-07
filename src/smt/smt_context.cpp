@@ -3318,7 +3318,6 @@ namespace smt {
        \brief Execute some finalization code after performing the search.
     */
     lbool context::check_finalize(lbool r) {
-        if (r == l_undef) std::cout << m_unknown << "\n";
         TRACE("after_search", display(tout << "result: " << r << "\n"););
         display_profile(verbose_stream());
         if (r == l_true && get_cancel_flag()) {
