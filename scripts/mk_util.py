@@ -1829,9 +1829,9 @@ class JavaDLLComponent(Component):
             t = '\t$(CXX) $(CXXFLAGS) $(CXX_OUT_FLAG)api/java/Native$(OBJ_EXT) -I"%s" -I"%s/PLATFORM" -I%s %s/Native.cpp\n' % (JNI_HOME, JNI_HOME, get_component('api').to_src_dir, self.to_src_dir)
             if IS_OSX:
                 t = t.replace('PLATFORM', 'darwin')
-            elif IS_LINUX:
+            elif is_linux():
                 t = t.replace('PLATFORM', 'linux')
-            elif IS_GNU:
+            elif is_hurd():
                 t = t.replace('PLATFORM', 'hurd')
             elif IS_FREEBSD:
                 t = t.replace('PLATFORM', 'freebsd')
