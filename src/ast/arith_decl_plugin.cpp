@@ -363,10 +363,14 @@ inline func_decl * arith_decl_plugin::mk_func_decl(decl_kind k, bool is_real) {
     case OP_REM:     return m_i_rem_decl;
     case OP_MOD:     return m_i_mod_decl;
     case OP_DIV0:    return m_manager->mk_func_decl(symbol("/0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_DIV0));
-    case OP_IDIV0:   return m_manager->mk_func_decl(symbol("idiv0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_IDIV0));
-    case OP_REM0:    return m_manager->mk_func_decl(symbol("rem0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_REM0));
-    case OP_MOD0:    return m_manager->mk_func_decl(symbol("mod0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_MOD0));
-    case OP_POWER0:  return m_manager->mk_func_decl(symbol("power0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_POWER0));
+    case OP_IDIV0:   return m_manager->mk_func_decl(symbol("div0"), m_int_decl, m_int_decl, m_int_decl, func_decl_info(m_family_id, OP_IDIV0));
+    case OP_REM0:    return m_manager->mk_func_decl(symbol("rem0"), m_int_decl, m_int_decl, m_int_decl, func_decl_info(m_family_id, OP_REM0));
+    case OP_MOD0:    return m_manager->mk_func_decl(symbol("mod0"), m_int_decl, m_int_decl, m_int_decl, func_decl_info(m_family_id, OP_MOD0));
+    case OP_POWER0:  
+        if (is_real) { 
+            return m_manager->mk_func_decl(symbol("^0"), m_real_decl, m_real_decl, m_real_decl, func_decl_info(m_family_id, OP_POWER0));
+        }
+        return m_manager->mk_func_decl(symbol("^0"), m_int_decl, m_int_decl, m_int_decl, func_decl_info(m_family_id, OP_POWER0));
     case OP_TO_REAL: return m_to_real_decl;
     case OP_TO_INT:  return m_to_int_decl;
     case OP_IS_INT:  return m_is_int_decl;
