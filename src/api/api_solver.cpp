@@ -558,7 +558,7 @@ extern "C" {
         cancel_eh<reslimit> eh(mk_c(c)->m().limit());
         to_solver(s)->set_eh(&eh);
         api::context::set_interruptable si(*(mk_c(c)), eh);
-        lbool result;
+        lbool result = l_undef;
         {
             scoped_ctrl_c ctrlc(eh, false, use_ctrl_c);
             scoped_timer timer(timeout, &eh);
@@ -576,6 +576,9 @@ extern "C" {
                 return Z3_L_UNDEF;
             }
             catch (...) {
+                to_solver_ref(s)->set_reason_unknown(eh);
+                to_solver(s)->set_eh(nullptr);
+                return Z3_L_UNDEF;
             }
         }
         to_solver(s)->set_eh(nullptr);
