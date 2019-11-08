@@ -697,8 +697,6 @@ namespace datalog {
             strats_index++;
         }
         //we have managed to topologicaly order all the components
-        SASSERT(std::find_if(m_components.begin(), m_components.end(),
-            std::bind1st(std::not_equal_to<item_set*>(), (item_set*)0)) == m_components.end());
 
         //reverse the strats array, so that the only the later components would depend on earlier ones
         std::reverse(m_strats.begin(), m_strats.end());

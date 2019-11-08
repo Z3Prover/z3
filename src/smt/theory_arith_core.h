@@ -3291,7 +3291,6 @@ namespace smt {
               for (app* n : m_underspecified_ops) {
                   tout << mk_pp(n, get_manager()) << "\n";
               });
-        context& ctx = get_context();
         m_factory = alloc(arith_factory, get_manager());
         m.register_factory(m_factory);
         compute_epsilon();

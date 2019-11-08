@@ -928,14 +928,12 @@ namespace smtfd {
             expr_ref_vector eqs(m);
             m_args.reset();
             m_args.push_back(a);
-            bool all_eq = true;
             for (unsigned i = 1; i < t->get_num_args(); ++i) {
                 expr* arg1 = t->get_arg(i);
                 expr* arg2 = store->get_arg(i);
                 if (arg1 == arg2) continue;
                 expr_ref v1 = eval_abs(arg1);
                 expr_ref v2 = eval_abs(arg2);
-                if (v1 != v2) all_eq = false;
                 m_args.push_back(arg1);
                 eqs.push_back(m.mk_eq(arg1, arg2));
             }
