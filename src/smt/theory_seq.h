@@ -332,6 +332,7 @@ namespace smt {
             unsigned m_propagate_automata;
             unsigned m_check_length_coherence;
             unsigned m_branch_variable;
+            unsigned m_branch_nqs;
             unsigned m_solve_nqs;
             unsigned m_solve_eqs;
             unsigned m_add_axiom;
@@ -512,6 +513,8 @@ namespace smt {
         bool solve_nqs(unsigned i);
         bool solve_ne(unsigned i);
         bool solve_nc(unsigned i);
+        bool branch_nqs();
+        void branch_nq(ne const& n);
 
         struct cell {
             cell*       m_parent;

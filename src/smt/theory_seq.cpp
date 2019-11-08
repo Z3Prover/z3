@@ -405,6 +405,11 @@ final_check_status theory_seq::final_check_eh() {
         TRACEFIN("extensionality");
         return FC_CONTINUE;
     }
+    if (branch_nqs()) {
+        ++m_stats.m_branch_nqs;
+        TRACEFIN("branch_ne");
+        return FC_CONTINUE;
+    }
     if (is_solved()) {
         //scoped_enable_trace _se;
         TRACEFIN("is_solved");
@@ -3177,6 +3182,56 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
 }
 
 
+bool theory_seq::branch_nqs() {
+   context & ctx = get_context();
+   if (m_nqs.empty()) {
+       return false;
+   }
+   ne n = m_nqs[0];
+   branch_nq(n);
+   if (m_nqs.size() > 1) {
+       ne n2 = m_nqs[m_nqs.size() - 1];
+       m_nqs.set(0, n2);
+   }
+   m_nqs.pop_back();
+   return true;
+}
+
+void theory_seq::branch_nq(ne const& n) {
+    context& ctx = get_context();
+    literal_vector lits;
+    enode_pair_vector eqs;
+    VERIFY(linearize(n.dep(), eqs, lits));
+    for (literal & l : lits) {
+        l.neg();
+    }
+    for (enode_pair const& p : eqs) {
+        lits.push_back(mk_eq(p.first->get_owner(), p.second->get_owner(), false));
+    }
+    literal eq_len = mk_eq(mk_len(n.l()), mk_len(n.r()), false);
+    literal len_gt = mk_literal(m_autil.mk_ge(mk_len(n.l()), m_autil.mk_int(1)));
+    expr_ref h1(m), t1(m), h2(m), t2(m);
+    mk_decompose(n.l(), h1, t1);
+    mk_decompose(n.r(), h2, t2);
+    ctx.mark_as_relevant(eq_len);
+    ctx.mark_as_relevant(len_gt);
+    lits.push_back(~eq_len);
+
+    // Deps => |l| != |r| or |l| > 0
+    lits.push_back(len_gt);
+    literal_vector lits1(lits);
+    lits.pop_back();
+
+    // Deps => |l| != |r| or h1 != h2 or t1 != t2
+    lits.push_back(~mk_eq(h1, h2, false));
+    lits.push_back(~mk_eq(t1, t2, false));
+    literal_vector lits2(lits);
+    lits.pop_back();
+
+    ctx.mk_th_axiom(get_id(), lits1.size(), lits1.c_ptr());
+    ctx.mk_th_axiom(get_id(), lits2.size(), lits2.c_ptr());
+}
+
 bool theory_seq::solve_nqs(unsigned i) {
     context & ctx = get_context();
     for (; !ctx.inconsistent() && i < m_nqs.size(); ++i) {
@@ -3347,8 +3402,9 @@ bool theory_seq::solve_ne(unsigned idx) {
         }
         else {
             m_nqs.push_back(ne(n.l(), n.r(), new_ls, new_rs, new_lits, new_deps));
+            TRACE("seq", display_disequation(tout << "updated: ", m_nqs[m_nqs.size()-1]););
         }
-    }
+    }    
     return updated;
 }
 
@@ -3997,10 +4053,10 @@ std::ostream& theory_seq::display_deps(std::ostream& out, literal_vector const& 
         else {
             expr* e = ctx.bool_var2expr(l.var());
             if (l.sign()) {
-                out << "(not " << mk_bounded_pp(e, m) << ")";
+                out << "  (not " << mk_bounded_pp(e, m) << ")";
             }
             else {
-                out << mk_bounded_pp(e, m);
+                out << "  " << mk_bounded_pp(e, m);
             }
         }
         out << "\n";
@@ -4023,6 +4079,7 @@ void theory_seq::collect_statistics(::statistics & st) const {
     st.update("seq branch", m_stats.m_branch_variable);
     st.update("seq solve !=", m_stats.m_solve_nqs);
     st.update("seq solve =", m_stats.m_solve_eqs);
+    st.update("seq branch !=", m_stats.m_branch_nqs);
     st.update("seq add axiom", m_stats.m_add_axiom);
     st.update("seq extensionality", m_stats.m_extensionality);
     st.update("seq fixed length", m_stats.m_fixed_length);
