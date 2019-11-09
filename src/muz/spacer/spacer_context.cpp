@@ -943,25 +943,7 @@ void pred_transformer::add_lemma_core(lemma* lemma, bool ground_only)
     SASSERT(!lemma->is_ground() || is_clause(m, l));
     SASSERT(!is_quantifier(l) || is_clause(m, to_quantifier(l)->get_expr()));
 
-    TRACE("spacer", tout << "add-lemma-core: " << pp_level (lvl)
-          << " " << head ()->get_name ()
-          << " " << mk_pp (l, m) << "\n";);
-
-    TRACE("core_array_eq", tout << "add-lemma-core: " << pp_level (lvl)
-          << " " << head ()->get_name ()
-          << " " << mk_pp (l, m) << "\n";);
-
-    STRACE ("spacer_progress",
-            tout << "** add-lemma: " << pp_level (lvl) << " "
-            << head ()->get_name () << " "
-            << mk_epp (l, m) << "\n";
-
-            if (!lemma->is_ground()) {
-                tout << "Bindings: " << lemma->get_bindings() << "\n";
-            }
-            tout << "\n";
-        );
-
+    get_context().log_add_lemma(*this, *lemma);
 
     if (is_infty_level(lvl)) { m_stats.m_num_invariants++; }
 
@@ -2296,7 +2278,8 @@ context::context(fp_params const& params, ast_manager& m) :
     m_last_result(l_undef),
     m_inductive_lvl(0),
     m_expanded_lvl(0),
-    m_json_marshaller(this) {
+    m_json_marshaller(this),
+    m_trace_stream(nullptr) {
     ref<solver> pool0_base =
         mk_smt_solver(m, params_ref::get_empty(), symbol::null);
     ref<solver> pool1_base =
@@ -2310,12 +2293,24 @@ context::context(fp_params const& params, ast_manager& m) :
     m_pool2 = alloc(solver_pool, pool2_base.get(), max_num_contexts);
 
     updt_params();
+
+    if (m_params.spacer_trace_file().is_non_empty_string()) {
+        m_trace_stream = alloc(std::fstream,
+                               m_params.spacer_trace_file().bare_str(),
+                               std::ios_base::out);
+    }
 }
 
 context::~context()
 {
     reset_lemma_generalizers();
     reset();
+
+    if (m_trace_stream) {
+        m_trace_stream->close();
+        dealloc(m_trace_stream);
+        m_trace_stream = nullptr;
+    }
 }
 
 void context::updt_params() {
@@ -3048,21 +3043,90 @@ lbool context::solve_core (unsigned from_lvl)
         m_pob_queue.inc_level ();
         lvl = m_pob_queue.max_level ();
         m_stats.m_max_depth = std::max(m_stats.m_max_depth, lvl);
-        IF_VERBOSE(1,verbose_stream() << "Entering level "<< lvl << "\n";);
-
-        STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
-        IF_VERBOSE(1,
-                   if (m_params.print_statistics()) {
-                       statistics st;
-                       collect_statistics(st);
-                       st.display_smt2(verbose_stream());
-                   };
-            );
-
+        log_enter_level(lvl);
     }
     // communicate failure to datalog::context
     if (m_context) { m_context->set_status(datalog::BOUNDED); }
     return l_undef;
+}
+
+void context::log_enter_level(unsigned lvl) {
+
+    if (m_trace_stream) { *m_trace_stream << "\n* LEVEL " << lvl << "\n\n"; }
+
+    IF_VERBOSE(1, verbose_stream() << "Entering level " << lvl << "\n";);
+    STRACE("spacer_progress", tout << "\n* LEVEL " << lvl << "\n";);
+
+    IF_VERBOSE(
+        1, if (m_params.print_statistics()) {
+            statistics st;
+            collect_statistics(st);
+            st.display_smt2(verbose_stream());
+        };);
+}
+
+void context::log_propagate() {
+    if (m_trace_stream) *m_trace_stream << "Propagating\n\n";
+    STRACE("spacer_progress", tout << "Propagating\n";);
+    IF_VERBOSE(1, verbose_stream() << "Propagating: " << std::flush;);
+}
+
+void context::log_expand_pob(pob &n) {
+    if (m_trace_stream) {
+        std::string pob_id = "none";
+        if (n.parent()) pob_id = std::to_string(n.parent()->post()->get_id());
+
+        *m_trace_stream << "** expand-pob: " << n.pt().head()->get_name()
+                        << " level: " << n.level()
+                        << " depth: " << (n.depth() - m_pob_queue.min_depth())
+                        << " exprID: " << n.post()->get_id() << " pobID: " << pob_id << "\n"
+                        << mk_epp(n.post(), m) << "\n\n";
+    }
+
+    TRACE("spacer", tout << "expand-pob: " << n.pt().head()->get_name()
+                         << " level: " << n.level()
+                         << " depth: " << (n.depth() - m_pob_queue.min_depth())
+                         << " fvsz: " << n.get_free_vars_size() << "\n"
+                         << mk_pp(n.post(), m) << "\n";);
+
+    STRACE("spacer_progress",
+           tout << "** expand-pob: " << n.pt().head()->get_name()
+                << " level: " << n.level()
+                << " depth: " << (n.depth() - m_pob_queue.min_depth()) << "\n"
+                << mk_epp(n.post(), m) << "\n\n";);
+}
+
+void context::log_add_lemma(pred_transformer &pt, lemma &new_lemma) {
+    unsigned lvl = new_lemma.level();
+    expr *fml = new_lemma.get_expr();
+    std::string pob_id = "none";
+    if (new_lemma.get_pob())
+        pob_id = std::to_string(new_lemma.get_pob()->post()->get_id());
+    if (m_trace_stream) {
+        *m_trace_stream << "** add-lemma: "
+                        << pp_level(lvl) << " "
+                        << "exprID: " << fml->get_id() << " "
+                        << "pobID: " << pob_id << "\n"
+                        << pt.head()->get_name() << "\n"
+                        << mk_epp(fml, m) << "\n";
+        if (!new_lemma.is_ground()) {
+            *m_trace_stream << "Bindings: " << new_lemma.get_bindings()
+                            << "\n";
+        }
+        *m_trace_stream << "\n";
+    }
+
+    TRACE("spacer", tout << "add-lemma-core: " << pp_level(lvl) << " "
+                         << pt.head()->get_name() << " " << mk_pp(fml, m) << "\n";);
+
+    STRACE("spacer_progress",
+           tout << "** add-lemma: " << pp_level(lvl) << " "
+           << pt.head()->get_name() << " " << mk_epp(fml, m)
+           << "\n";
+           if (!new_lemma.is_ground()) {
+               tout << "Bindings: " << new_lemma.get_bindings() << "\n";
+           }
+           tout << "\n";);
 }
 
 
@@ -3295,24 +3359,8 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
 {
     SASSERT(out.empty());
     pob::on_expand_event _evt(n);
-    TRACE ("spacer",
-           tout << "expand-pob: " << n.pt().head()->get_name()
-           << " level: " << n.level()
-           << " depth: " << (n.depth () - m_pob_queue.min_depth ())
-           << " fvsz: " << n.get_free_vars_size() << "\n"
-           << mk_pp(n.post(), m) << "\n";);
 
-    STRACE ("spacer_progress",
-            tout << "** expand-pob: " << n.pt().head()->get_name()
-            << " level: " << n.level()
-            << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
-            << mk_epp(n.post(), m) << "\n\n";);
-
-    TRACE ("core_array_eq",
-           tout << "expand-pob: " << n.pt().head()->get_name()
-           << " level: " << n.level()
-           << " depth: " << (n.depth () - m_pob_queue.min_depth ()) << "\n"
-           << mk_pp(n.post(), m) << "\n";);
+    log_expand_pob(n);
 
     stopwatch watch;
     IF_VERBOSE (1, verbose_stream () << "expand: " << n.pt ().head ()->get_name ()
@@ -3520,6 +3568,7 @@ lbool context::expand_pob(pob& n, pob_ref_buffer &out)
     throw unknown_exception();
 }
 
+
 //
 // check if predicate transformer has a satisfiable predecessor state.
 // returns either a satisfiable predecessor state or
@@ -3543,9 +3592,9 @@ bool context::propagate(unsigned min_prop_lvl,
     if (m_simplify_formulas_pre) {
         simplify_formulas();
     }
-    STRACE ("spacer_progress", tout << "Propagating\n";);
 
-    IF_VERBOSE (1, verbose_stream () << "Propagating: " << std::flush;);
+    log_propagate();
+
 
     for (unsigned lvl = min_prop_lvl; lvl <= full_prop_lvl; lvl++) {
         IF_VERBOSE (1,
