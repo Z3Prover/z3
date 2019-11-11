@@ -2636,6 +2636,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create the empty regular expression.
+	/// The sort s should be a regular expression.
         /// </summary>
         public ReExpr MkEmptyRe(Sort s) 
         {
@@ -2645,6 +2646,7 @@ namespace Microsoft.Z3
 
         /// <summary>
         /// Create the full regular expression.
+	/// The sort s should be a regular expression.
         /// </summary>
         public ReExpr MkFullRe(Sort s) 
         {
