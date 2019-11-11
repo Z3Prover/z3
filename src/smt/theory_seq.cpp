@@ -3183,7 +3183,6 @@ bool theory_seq::get_length(expr* e, expr_ref& len, literal_vector& lits) {
 
 
 bool theory_seq::branch_nqs() {
-   context & ctx = get_context();
    if (m_nqs.empty()) {
        return false;
    }
