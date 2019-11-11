@@ -379,7 +379,9 @@ namespace smtfd {
             m_abs(a),
             m_lemmas(m), 
             m_rewriter(m)
-        {}
+        {
+            (void)m;
+        }
 
         void set_max_lemmas(unsigned max) {            
             m_max_lemmas = max;
