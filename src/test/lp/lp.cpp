@@ -1776,6 +1776,7 @@ void solve_rational() {
     solver.find_maximal_solution();
     lp_assert(solver.get_status() == lp_status::OPTIMAL);
     for (const auto & it : expected_sol) {
+        (void)it;
         lp_assert(it.second == solver.get_column_value_by_name(it.first));
     }
 }

@@ -1531,7 +1531,6 @@ namespace smtfd {
         unsigned_vector m_toggles_lim;
         model_ref       m_model;
         std::string     m_reason_unknown;
-        unsigned        m_max_lemmas;
         stats           m_stats;
         unsigned        m_max_conflicts;
         obj_hashtable<quantifier> m_enforced_quantifier;
@@ -1644,7 +1643,7 @@ namespace smtfd {
             expr_ref_vector terms(core);
             terms.append(m_axioms);
 
-            for (unsigned round = 0; !m_context.at_max() && m_context.add_theory_axioms(terms, round); ++round);
+            for (unsigned round = 0; !m_context.at_max() && m_context.add_theory_axioms(terms, round); ++round) {}
             
             TRACE("smtfd", m_context.display(tout););
             for (expr* f : m_context) {
