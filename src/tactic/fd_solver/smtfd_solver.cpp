@@ -1437,10 +1437,10 @@ namespace smtfd {
             unsigned sz = q->get_num_decls();
             vars.resize(sz, nullptr);
             for (unsigned i = 0; i < sz; ++i) {
-                vars[sz - i - 1] = m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));    
+                vars[i] = m.mk_fresh_const(q->get_decl_name(i), q->get_decl_sort(i));    
             }
             var_subst subst(m);
-            expr_ref body = subst(tmp, vars.size(), vars.c_ptr());
+            expr_ref body = subst(q->get_expr(), vars.size(), vars.c_ptr());
             if (is_exists(q)) {
                 body = m.mk_implies(q, body);
             }
