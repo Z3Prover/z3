@@ -20,30 +20,27 @@ Revision History:
 #include "util/warning.h"
 
 cost_evaluator::cost_evaluator(ast_manager & m):
-    m_manager(m), 
+    m(m), 
     m_util(m) {
 }
 
 float cost_evaluator::eval(expr * f) const {
 #define E(IDX) eval(to_app(f)->get_arg(IDX))
     if (is_app(f)) {
-        unsigned num_args;
         family_id fid = to_app(f)->get_family_id();
-        if (fid == m_manager.get_basic_family_id()) {
+        if (fid == m.get_basic_family_id()) {
             switch (to_app(f)->get_decl_kind()) {
             case OP_TRUE:     return 1.0f;
             case OP_FALSE:    return 0.0f;
             case OP_NOT:      return E(0) == 0.0f ? 1.0f : 0.0f;
-            case OP_AND:      
-                num_args = to_app(f)->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) 
-                    if (E(i) == 0.0f)
+            case OP_AND:  
+                for (expr* arg : *to_app(f))
+                    if (eval(arg) == 0.0f)
                         return 0.0f;
                 return 1.0f;
             case OP_OR:
-                num_args = to_app(f)->get_num_args();
-                for (unsigned i = 0; i < num_args; i++) 
-                    if (E(i) != 0.0f)
+                for (expr* arg : *to_app(f))
+                    if (eval(arg) != 0.0f)
                         return 1.0f;
                 return 0.0f;
             case OP_ITE:      return E(0) != 0.0f ? E(1) : E(2);

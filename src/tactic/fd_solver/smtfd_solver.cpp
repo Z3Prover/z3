@@ -780,9 +780,27 @@ namespace smtfd {
         {}
         
         void check_term(expr* t, unsigned round) override {
+            sort* s = m.get_sort(t);
             if (round == 0 && is_uf(t)) {
                 TRACE("smtfd_verbose", tout << "check-term: " << mk_bounded_pp(t, m, 2) << "\n";);
-                enforce_congruence(to_app(t)->get_decl(), to_app(t), m.get_sort(t));
+                enforce_congruence(to_app(t)->get_decl(), to_app(t), s);
+            }
+            else if (round == 1 && sort_covered(s) && m.is_value(t)) {
+                expr_ref v = eval_abs(t);
+                val2elem_t& v2e = get_table(s);
+                expr* e;
+                if (v2e.find(v, e)) {
+                    if (e != t) {
+                        m_context.add(m.mk_not(m.mk_eq(e, t)), __FUNCTION__);
+                    }
+                }
+                else {
+                    m_pinned.push_back(v);
+                    v2e.insert(v, t);
+                }
+            }
+            if (m.is_value(t)) {
+                // std::cout << mk_bounded_pp(t, m, 2) << " " << eval_abs(t) << " " << mk_pp(s, m) << "\n";
             }
         }
 
@@ -797,7 +815,7 @@ namespace smtfd {
                 }
             }
             check_term(t, 0);
-            return is_uf(t) || is_uninterp_const(t);
+            return is_uf(t) || is_uninterp_const(t) || sort_covered(s);
         }
 
         bool sort_covered(sort* s) override {
@@ -1352,7 +1370,10 @@ namespace smtfd {
             if (!m_model->eval_expr(q->get_expr(), tmp, true)) {
                 return l_undef;
             }
-            if (m.is_true(tmp)) {
+            if (is_forall(q) && m.is_true(tmp)) {
+                return l_false;
+            }
+            if (is_exists(q) && m.is_false(tmp)) {
                 return l_false;
             }
             TRACE("smtfd", 
@@ -1664,27 +1685,31 @@ namespace smtfd {
             m_context.reset(m_model);
             expr_ref_vector terms(core);
             terms.append(m_axioms);
-            TRACE("smtfd", tout << "axioms: " << m_axioms << "\n";);
             for (expr* t : subterms(core)) {
                 if (is_forall(t) || is_exists(t)) {
                     has_q = true;
                 }
             }
             for (expr* t : subterms(terms)) {
-                if (!m_context.term_covered(t) || !m_context.sort_covered(m.get_sort(t))) {
+                if (!is_forall(t) && !is_exists(t) && (!m_context.term_covered(t) || !m_context.sort_covered(m.get_sort(t)))) {
                     is_decided = l_false;
                 }
             }
             m_context.populate_model(m_model, terms);
             TRACE("smtfd", 
-            for (expr* a : subterms(terms)) {
-                expr_ref val0 = (*m_model)(a);
-                expr_ref val1 = (*m_model)(abs(a));
-                if (val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
-                    tout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
-                }
-            });
-            TRACE("smtfd", tout << "has quantifier: " << has_q << "\n" << core << "\n";);
+                  tout << "axioms: " << m_axioms << "\n";
+                  for (expr* a : subterms(terms)) {
+                      expr_ref val0 = (*m_model)(a);
+                      expr_ref val1 = (*m_model)(abs(a));
+                      if (val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                          tout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+                      }
+                      if (!is_forall(a) && !is_exists(a) && (!m_context.term_covered(a) || !m_context.sort_covered(m.get_sort(a)))) {
+                          tout << "not covered: " << mk_pp(a, m) << " " << mk_pp(m.get_sort(a), m) << " "; 
+                          tout << m_context.term_covered(a) << " " << m_context.sort_covered(m.get_sort(a)) << "\n";
+                      }
+                  }
+                  tout << "has quantifier: " << has_q << "\n" << core << "\n";);
             if (!has_q) {
                 return is_decided;
             }
@@ -1850,59 +1875,6 @@ namespace smtfd {
             TRACE("smtfd", tout << "block:\n" << mk_bounded_pp(fml, m, 3) << "\n" << mk_bounded_pp(abs(fml), m, 3) << "\n";);
             assert_fd(fml);
         }
-#if 0       
-        lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
-            init();
-            flush_assertions();
-            lbool r;
-            expr_ref_vector core(m);
-            while (true) {
-                IF_VERBOSE(1, verbose_stream() << "(smtfd-check-sat :rounds " << m_stats.m_num_rounds << " lemmas: " << m_stats.m_num_lemmas << " :qi " << m_stats.m_num_mbqi << ")\n");
-                m_stats.m_num_rounds++;
-                checkpoint();
-
-                // phase 1: check sat of abs
-                r = check_abs(num_assumptions, assumptions);
-                if (r != l_true) {
-                    return r;
-                }
-
-                // phase 2: find prime implicate over FD (abstraction)
-                r = get_prime_implicate(num_assumptions, assumptions, core);
-                if (r != l_false) {
-                    return r;
-                }
-
-                // phase 3: prime implicate over SMT
-                r = check_smt(core);
-                if (r == l_true) {
-                    return r;
-                }
-
-                // phase 4: add theory lemmas
-                if (r == l_false) {
-                    block_core(core);
-                }
-                if (add_theory_axioms(core)) {
-                    continue;
-                }
-                if (r != l_undef) {
-                    continue;
-                }
-                switch (is_decided_sat(core)) {
-                case l_true:
-                    return l_true;
-                case l_undef:
-                    break;
-                case l_false:
-                    // m_max_conflicts = UINT_MAX;
-                    break;
-                }
-            }
-            return l_undef;
-        }        
-
-#else
 
         lbool check_sat_core2(unsigned num_assumptions, expr * const * assumptions) override {
             init();
@@ -2007,9 +1979,6 @@ namespace smtfd {
             SASSERT(r == l_true);
             return r;
         }
-
-#endif
-
 
         void updt_params(params_ref const & p) override { 
             ::solver::updt_params(p); 
