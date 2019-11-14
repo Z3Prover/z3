@@ -401,7 +401,7 @@ quantifier::quantifier(unsigned num_decls, sort * const * decl_sorts, symbol con
     m_expr(body),
     m_sort(s),
     m_depth(::get_depth(body) + 1),
-    m_weight(0),
+    m_weight(1),
     m_has_unused_vars(true),
     m_has_labels(::has_labels(body)),
     m_qid(symbol()),

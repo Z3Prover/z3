@@ -469,7 +469,7 @@ private:
             }
             if (has_new_var) {
                 sub(new_body, result);
-                result = m.mk_quantifier(old_q->get_kind(), new_sorts.size(), new_sorts.c_ptr(), old_q->get_decl_names(), result);
+                result = m.mk_quantifier(old_q->get_kind(), new_sorts.size(), new_sorts.c_ptr(), old_q->get_decl_names(), result, old_q->get_weight());
                 result_pr = nullptr;
                 return true;
             }

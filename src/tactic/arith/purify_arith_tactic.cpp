@@ -740,7 +740,7 @@ struct purify_arith_proc {
             scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m());
             replacer->set_substitution(&subst);
             (*replacer)(new_body, new_body);
-            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body);
+            new_body = m().mk_exists(num_vars, sorts.c_ptr(), names.c_ptr(), new_body, q->get_weight());
             result = m().update_quantifier(q, new_body);
             if (m_produce_proofs) {
                 proof_ref_vector & cnstr_prs = r.cfg().m_new_cnstr_prs;
