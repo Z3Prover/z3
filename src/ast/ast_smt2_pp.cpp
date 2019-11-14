@@ -957,8 +957,8 @@ class smt2_printer {
         unsigned num_lets = 0;
         format * f_body = pp_let(m_format_stack.back(), num_lets);
         // The current SMT2 frontend uses weight 1 as default.
-#define MIN_WEIGHT 1
-        if (q->has_patterns() || q->get_weight() > MIN_WEIGHT ||
+#define DEFAULT_WEIGHT 1
+        if (q->has_patterns() || q->get_weight() != DEFAULT_WEIGHT ||
             q->get_skid() != symbol::null || (q->get_qid() != symbol::null && !q->get_qid().is_numerical())) {
             ptr_buffer<format> buf;
             buf.push_back(f_body);
@@ -976,7 +976,7 @@ class smt2_printer {
                     buf.push_back(pp_attribute(":no-pattern ", *it));
                 }
             }
-            if (q->get_weight() > MIN_WEIGHT) {
+            if (q->get_weight() != DEFAULT_WEIGHT) {
                 buf.push_back(pp_simple_attribute(":weight ", q->get_weight()));
             }
             if (q->get_skid() != symbol::null) {
