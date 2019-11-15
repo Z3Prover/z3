@@ -69,6 +69,44 @@ Notes:
 
 namespace spacer {
 
+    bool is_clause(ast_manager &m, expr *n) {
+      if (spacer::is_literal(m, n))
+        return true;
+      if (m.is_or(n)) {
+        for (expr *arg : *to_app(n)){
+          if (!spacer::is_literal(m, arg))
+            return false;
+          return true;
+        }
+      }
+      return false;
+    }
+
+    bool is_literal(ast_manager &m, expr *n) {
+      return spacer::is_atom(m, n) || (m.is_not(n) && spacer::is_atom(m, to_app(n)->get_arg(0)));
+    }
+
+    bool is_atom(ast_manager &m, expr *n) {
+      if (is_quantifier(n) || !m.is_bool(n))
+        return false;
+      if (is_var(n))
+        return true;
+      SASSERT(is_app(n));
+      if (to_app(n)->get_family_id() != m.get_basic_family_id()) {
+        return true;
+      }
+
+      if ((m.is_eq(n) && !m.is_bool(to_app(n)->get_arg(0))) ||
+          m.is_true(n) || m.is_false(n))
+        return true;
+
+      // x=y is atomic if x and y are Bool and atomic
+      expr *e1, *e2;
+      if (m.is_eq(n, e1, e2) && spacer::is_atom(m, e1) && spacer::is_atom(m, e2))
+        return true;
+      return false;
+    }
+
     void subst_vars(ast_manager& m,
                     app_ref_vector const& vars, model& mdl, expr_ref& fml) {
         model::scoped_model_completion _sc_(mdl, true);

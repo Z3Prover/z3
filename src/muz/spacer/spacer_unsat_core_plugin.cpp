@@ -73,7 +73,7 @@ namespace spacer {
                 // the current step needs to be interpolated:
                 expr* fact = m.get_fact(pf);
                 // if we trust the current step and we are able to use it
-                if (m_ctx.is_b_pure (pf) && (m.is_asserted(pf) || is_literal(m, fact))) {
+                if (m_ctx.is_b_pure (pf) && (m.is_asserted(pf) || spacer::is_literal(m, fact))) {
                     // just add it to the core
                     m_ctx.add_lemma_to_core(fact);
                 }
@@ -558,7 +558,7 @@ namespace spacer {
                     // if we trust the current step and we are able to use it
                     if (m_ctx.is_b_pure (current) &&
                         (m.is_asserted(current) ||
-                         is_literal(m, m.get_fact(current))))
+                         spacer::is_literal(m, m.get_fact(current))))
                     {
                         // we found a leaf of the subproof, so
                         // 1) we add corresponding edges
