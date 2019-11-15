@@ -1674,9 +1674,9 @@ void cmd_context::display_dimacs() {
 void cmd_context::display_model(model_ref& mdl) {
     if (mdl) {
         if (m_mc0) (*m_mc0)(mdl);
-        if (m_params.m_model_compress) mdl->compress();
-        add_declared_functions(*mdl);
         model_params p;
+        if (p.compact()) mdl->compress();
+        add_declared_functions(*mdl);
         if (p.v1() || p.v2()) {
             std::ostringstream buffer;
             model_v2_pp(buffer, *mdl, p.partial());

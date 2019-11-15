@@ -3,7 +3,7 @@ def_module_params('model',
                   params=(('partial', BOOL, False, 'enable/disable partial function interpretations'),
                           ('v1', BOOL, False, 'use Z3 version 1.x pretty printer'),
                           ('v2', BOOL, False, 'use Z3 version 2.x (x <= 16) pretty printer'),
-                          ('compact', BOOL, False, 'try to compact function graph (i.e., function interpretations that are lookup tables)'),
+                          ('compact', BOOL, True, 'try to compact function graph (i.e., function interpretations that are lookup tables)'),
                           ('inline_def', BOOL, False, 'inline local function definitions ignoring possible expansion'),
                           ('completion', BOOL, False, 'enable/disable model completion'),
                           ))

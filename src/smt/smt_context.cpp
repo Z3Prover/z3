@@ -4387,8 +4387,6 @@ namespace smt {
             m_proto_model->complete_partial_funcs(false);
             TRACE("mbqi_bug", tout << "before cleanup:\n"; model_pp(tout, *m_proto_model););
             m_proto_model->cleanup();
-            if (m_fparams.m_model_compact)
-                m_proto_model->compress();
             TRACE("mbqi_bug", tout << "after cleanup:\n"; model_pp(tout, *m_proto_model););
             IF_VERBOSE(11, model_pp(verbose_stream(), *m_proto_model););
         }

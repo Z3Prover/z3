@@ -21,6 +21,7 @@ Revision History:
 #include "util/scoped_ctrl_c.h"
 #include "util/file_path.h"
 #include "parsers/smt2/smt2parser.h"
+#include "model/model_params.hpp"
 #include "opt/opt_context.h"
 #include "opt/opt_cmds.h"
 #include "opt/opt_parse.h"
@@ -210,7 +211,8 @@ extern "C" {
         to_optimize_ptr(o)->get_model(_m);
         Z3_model_ref * m_ref = alloc(Z3_model_ref, *mk_c(c)); 
         if (_m) {
-            if (mk_c(c)->params().m_model_compress) _m->compress();
+            model_params mp(to_optimize_ptr(o)->get_params());
+            if (mp.compact()) _m->compress();
             m_ref->m_model = _m;
         }
         else {

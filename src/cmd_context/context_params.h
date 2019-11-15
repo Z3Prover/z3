@@ -40,7 +40,6 @@ public:
     bool        m_well_sorted_check;
     bool        m_model;
     bool        m_model_validate;
-    bool        m_model_compress;
     bool        m_dump_models;
     bool        m_unsat_core;
     bool        m_smtlib2_compliant; // it must be here because it enable/disable the use of coercions in the ast_manager.
