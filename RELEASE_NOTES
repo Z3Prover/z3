@@ -1,11 +1,27 @@
 RELEASE NOTES
 
+Version 4.8.next
+================
+- Planned features
+  - rewritten NIA (non-linear integer arithmetic) core solver 
+  - self-contained character theory, direct support for UTF8, Unicode character sets
+  - recursive function representation without hoisting ite expressions. Issue #2601
+  - specialized solver support for QF_ABV and ABV based on lazy SMT and dual reduction
+  - model-based interpolation for quantifier-free UF, arithmetic, arrays
+  - circuit optimization techniques for BV pre-processing
+
 Version 4.8.7
+=============
 - New features
   - setting parameter on solver over the API by
     solver.smtlib2_log=<filename>
     enables tracing calls into the solver as SMTLIB2 commands.
     It traces, assert, push, pop, check_sat, get_consequences.
+- Notes
+  - various bug fixes
+  - rewmove model_compress. Use model.compact
+  - print weights with quantifiers when weight is != 1
+  
 
 Version 4.8.6
 =============
