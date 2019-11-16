@@ -19,7 +19,7 @@ Version 4.8.7
     It traces, assert, push, pop, check_sat, get_consequences.
 - Notes
   - various bug fixes
-  - rewmove model_compress. Use model.compact
+  - remove model_compress. Use model.compact
   - print weights with quantifiers when weight is != 1
   
 
