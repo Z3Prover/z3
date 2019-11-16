@@ -372,8 +372,6 @@ namespace smt {
             if (_val.is_zero()) {
                 return internalize_numeral(m, val);
             }
-            SASSERT(!val.is_zero());
-            SASSERT(!val.is_one());
             unsigned r_id = mk_row();
             scoped_row_vars _sc(m_row_vars, m_row_vars_top);
             if (is_var(arg1)) {
