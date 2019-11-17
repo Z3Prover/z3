@@ -54,7 +54,8 @@ namespace smt {
         set_prop_upward(v,d);
         d_full->m_maps.push_back(s);
         m_trail_stack.push(push_back_trail<theory_array, enode *, false>(d_full->m_maps));
-        for (enode* n : d->m_parent_selects) {
+        for (unsigned i = 0; i < d->m_parent_selects.size(); ++i) {
+            enode* n = d->m_parent_selects[i];
             SASSERT(is_select(n));
             instantiate_select_map_axiom(n, s);
         }
