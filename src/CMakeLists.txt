@@ -209,13 +209,24 @@ endif()
 ################################################################################
 # Z3 executable
 ################################################################################
-add_subdirectory(shell)
+cmake_dependent_option(Z3_BUILD_EXECUTABLE
+    "Build the z3 executable" ON
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
+
+if(Z3_BUILD_EXECUTABLE)
+    add_subdirectory(shell)
+endif()
 
 ################################################################################
 # z3-test
 ################################################################################
-add_subdirectory(test)
+cmake_dependent_option(Z3_BUILD_TEST_EXECUTABLES
+    "Build test executables" ON
+    "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
 
+if(Z3_BUILD_TEST_EXECUTABLES)
+    add_subdirectory(test)
+endif()
 
 ################################################################################
 # Z3 API bindings

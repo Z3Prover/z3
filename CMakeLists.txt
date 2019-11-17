@@ -114,6 +114,7 @@ endif()
 # Useful CMake functions/Macros
 ################################################################################
 include(CheckCXXSourceCompiles)
+include(CMakeDependentOption)
 
 ################################################################################
 # Compiler flags for Z3 components.
