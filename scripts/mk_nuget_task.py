@@ -83,7 +83,7 @@ Linux Dependencies:
         </description>
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
-        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/package/icon.jpg</iconUrl>
+        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/resources/icon.jpg</iconUrl>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
         <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/LICENSE.txt</licenseUrl>
         <repository type="git" url="https://github.com/Z3Prover/z3.git" branch="master" commit="{1}" />
