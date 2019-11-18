@@ -675,18 +675,7 @@ class elim_uncnstr_tactic : public tactic {
         }
         
         app * process_datatype_app(func_decl * f, unsigned num, expr * const * args) {
-            if (m_dt_util.is_recognizer(f)) {
-                SASSERT(num == 1);
-                if (uncnstr(args[0])) {
-                    if (!m_mc) {
-                        app * r;
-                        mk_fresh_uncnstr_var_for(f, num, args, r);
-                        return r;
-                    }
-                    // TODO: handle model generation
-                }
-            }
-            else if (m_dt_util.is_accessor(f)) {
+            if (m_dt_util.is_accessor(f)) {
                 SASSERT(num == 1);
                 if (uncnstr(args[0])) {
                     if (!m_mc) {
@@ -710,20 +699,6 @@ class elim_uncnstr_tactic : public tactic {
                             new_args.push_back(m().get_some_value(c->get_domain(i)));
                     }
                     add_def(args[0], m().mk_app(c, new_args.size(), new_args.c_ptr()));
-                    return u;
-                }
-            }
-            else if (m_dt_util.is_constructor(f)) {
-                if (uncnstr(num, args)) {
-                    app * u;
-                    if (!mk_fresh_uncnstr_var_for(f, num, args, u))
-                        return u;
-                    if (!m_mc)
-                        return u;
-                    ptr_vector<func_decl> const & accs = *m_dt_util.get_constructor_accessors(f);
-                    for (unsigned i = 0; i < num; i++) {
-                        add_def(args[i], m().mk_app(accs[i], u));
-                    }
                     return u;
                 }
             }
