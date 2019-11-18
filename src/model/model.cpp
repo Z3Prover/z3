@@ -215,6 +215,7 @@ struct model::top_sort : public ::top_sort<func_decl> {
 };
 
 void model::compress() {
+    SASSERT(false);
     if (m_cleaned) return;
 
     // stratify m_finterp and m_decls in a topological sort
