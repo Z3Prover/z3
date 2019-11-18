@@ -3793,6 +3793,11 @@ void theory_seq::add_itos_axiom(expr* e) {
     app_ref stoi(m_util.str.mk_stoi(e), m);
     add_axiom(~ge0, mk_preferred_eq(stoi, n));
 
+    // itos(n) does not start with "0"
+    // at(itos(n),0) != "0"
+    // alternative: n >= 0 => itos(stoi(itos(n))) = itos(n)
+    add_axiom(~mk_eq(m_util.str.mk_at(e,zero), m_util.str.mk_string(symbol("0")), false));
+    // add_axiom(~ge0, mk_preferred_eq(m_util.str.mk_itos(stoi), e));
 }
 
 
