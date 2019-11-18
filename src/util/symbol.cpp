@@ -141,6 +141,10 @@ bool lt(symbol const & s1, symbol const & s2) {
         SASSERT(!s1.is_numerical());
         return false;
     }
+    if (!s1.bare_str())
+        return true;
+    if (!s2.bare_str())
+        return false;
     SASSERT(!s1.is_numerical() && !s2.is_numerical());
     auto cmp = strcmp(s1.bare_str(), s2.bare_str());
     SASSERT(cmp != 0);

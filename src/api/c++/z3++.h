@@ -1675,6 +1675,20 @@ namespace z3 {
     }
 
     /**
+       \brief signed less than or equal to operator for bitvectors.
+    */
+    inline expr sle(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvsle(a.ctx(), a, b)); }
+    inline expr sle(expr const & a, int b) { return sle(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr sle(int a, expr const & b) { return sle(b.ctx().num_val(a, b.get_sort()), b); }
+    /**
+       \brief signed less than operator for bitvectors.
+    */
+    inline expr slt(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvslt(a.ctx(), a, b)); }
+    inline expr slt(expr const & a, int b) { return slt(a, a.ctx().num_val(b, a.get_sort())); }
+    inline expr slt(int a, expr const & b) { return slt(b.ctx().num_val(a, b.get_sort()), b); }
+
+
+    /**
        \brief unsigned less than or equal to operator for bitvectors.
     */
     inline expr ule(expr const & a, expr const & b) { return to_expr(a.ctx(), Z3_mk_bvule(a.ctx(), a, b)); }
@@ -2337,7 +2351,7 @@ namespace z3 {
             check_error();
             return to_check_result(r);
         }
-        check_result check(expr_vector assumptions) {
+        check_result check(expr_vector const& assumptions) {
             unsigned n = assumptions.size();
             array<Z3_ast> _assumptions(n);
             for (unsigned i = 0; i < n; i++) {
