@@ -814,6 +814,7 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
         }
     }
 
+#if 0
     if (!m_util.is_int(arg1)) {
         // (/ (* v1 b) (* v2 d)) --> (* v1/v2 (/ b d))
         expr * a, * b, * c, * d;
@@ -836,9 +837,12 @@ br_status arith_rewriter::mk_div_core(expr * arg1, expr * arg2, expr_ref & resul
             v1 /= v2;
             result = m_util.mk_mul(m_util.mk_numeral(v1, false),
                                    m_util.mk_div(b, d));
+            expr_ref z(m_util.mk_real(0), m());
+            result = m().mk_ite(m().mk_eq(d, z), m_util.mk_div(arg1, z), result);
             return BR_REWRITE2;
         }
     }
+#endif
 
     return BR_FAILED;
 }
