@@ -143,7 +143,7 @@ jobs:
       secureFile: 'pypirc'
   - script: python -m pip install --user -U setuptools wheel twine
 # Uncomment on release:
-# - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
+  - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
 
 # TBD: run regression tests on generated binaries.
