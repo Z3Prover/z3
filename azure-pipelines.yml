@@ -1,6 +1,6 @@
 
 variables:
-  cmakeStdArgs: '-DBUILD_DOTNET_BINDINGS=True -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
+  cmakeStdArgs: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
   asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
 
@@ -126,7 +126,7 @@ jobs:
         set -e
         mkdir build
         cd build
-        CC=clang CXX=clang++ cmake -DBUILD_JAVA_BINDINGS=True -DBUILD_PYTHON_BINDINGS=True -DBUILD_DOTNET_BINDINGS=False -G "Ninja" ../
+        CC=clang CXX=clang++ cmake -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -DZ3_BUILD_DOTNET_BINDINGS=False -G "Ninja" ../
         ninja
         ninja test-z3
         cd ..
