@@ -348,7 +348,7 @@ endif()
 ################################################################################
 # Option to control what type of library we build
 ################################################################################
-option(BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
+option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise build a static library" ON)
 
 
 ################################################################################
@@ -375,7 +375,7 @@ endif()
 # This is required because code built in the components will end up in a shared
 # library. If not building a shared library ``-fPIC`` isn't needed and would add
 # unnecessary overhead.
-if (BUILD_LIBZ3_SHARED)
+if (Z3_BUILD_LIBZ3_SHARED)
   # Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
   # support the flag) or if we target Windows, which generally does not use
   # position independent code for native code shared libraries (DLLs).
