@@ -41,8 +41,8 @@ else()
   list(APPEND JAVA_API_OPTIONS "--no-java")
 endif()
 
-option(ALWAYS_BUILD_DOCS "Always build documentation for API bindings" ON)
-if (ALWAYS_BUILD_DOCS)
+option(Z3_ALWAYS_BUILD_DOCS "Always build documentation for API bindings" ON)
+if (Z3_ALWAYS_BUILD_DOCS)
   set(ALWAYS_BUILD_DOCS_ARG "ALL")
 else()
   set(ALWAYS_BUILD_DOCS_ARG "")
@@ -51,7 +51,7 @@ else()
   message(WARNING "Building documentation for API bindings is not part of the"
     " all target. This may result in stale files being installed when running"
     " the install target. You should run the api_docs target before running"
-    " the install target. Alternatively Set ALWAYS_BUILD_DOCS to ON to"
+    " the install target. Alternatively Set Z3_ALWAYS_BUILD_DOCS to ON to"
     " automatically build documentation when running the install target."
   )
 endif()

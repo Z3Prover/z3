@@ -1,6 +1,6 @@
-option(LINK_TIME_OPTIMIZATION "Use link time optimiziation" OFF)
+option(Z3_LINK_TIME_OPTIMIZATION "Use link time optimiziation" OFF)
 
-if (LINK_TIME_OPTIMIZATION)
+if (Z3_LINK_TIME_OPTIMIZATION)
   message(STATUS "LTO enabled")
   set(build_types_with_lto "RELEASE" "RELWITHDEBINFO")
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
@@ -12,7 +12,7 @@ if (LINK_TIME_OPTIMIZATION)
     list(FIND build_types_with_lto "${_build_type_upper}" _index)
     if ("${_index}" EQUAL -1)
       message(FATAL_ERROR "Configuration ${CMAKE_BUILD_TYPE} does not support LTO."
-        "You should set LINK_TIME_OPTIMIZATION to OFF.")
+        "You should set Z3_LINK_TIME_OPTIMIZATION to OFF.")
     endif()
   endif()
 
@@ -27,7 +27,7 @@ if (LINK_TIME_OPTIMIZATION)
     set(_lto_linker_flag "/LTCG")
   else()
     message(FATAL_ERROR "Can't enable LTO for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set LINK_TIME_OPTIMIZATION to OFF.")
+      "You should set Z3_LINK_TIME_OPTIMIZATION to OFF.")
   endif()
   CHECK_CXX_COMPILER_FLAG("${_lto_compiler_flag}" HAS_LTO)
   if (NOT HAS_LTO)

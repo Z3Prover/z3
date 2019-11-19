@@ -392,12 +392,12 @@ include(${PROJECT_SOURCE_DIR}/cmake/compiler_lto.cmake)
 ################################################################################
 # Control flow integrity
 ################################################################################
-option(ENABLE_CFI "Enable control flow integrity checking" OFF)
-if (ENABLE_CFI)
+option(Z3_ENABLE_CFI "Enable control flow integrity checking" OFF)
+if (Z3_ENABLE_CFI)
   set(build_types_with_cfi "RELEASE" "RELWITHDEBINFO")
-  if (NOT LINK_TIME_OPTIMIZATION)
+  if (NOT Z3_LINK_TIME_OPTIMIZATION)
     message(FATAL_ERROR "Cannot enable control flow integrity checking without link-time optimization."
-      "You should set LINK_TIME_OPTIMIZATION to ON or ENABLE_CFI to OFF.")
+      "You should set Z3_LINK_TIME_OPTIMIZATION to ON or Z3_ENABLE_CFI to OFF.")
   endif()
   if (DEFINED CMAKE_CONFIGURATION_TYPES)
     # Multi configuration generator
@@ -417,7 +417,7 @@ if (ENABLE_CFI)
     endforeach()
   else()
     message(FATAL_ERROR "Can't enable control flow integrity for compiler \"${CMAKE_CXX_COMPILER_ID}\"."
-      "You should set ENABLE_CFI to OFF or use Clang or MSVC to compile.")
+      "You should set Z3_ENABLE_CFI to OFF or use Clang or MSVC to compile.")
   endif()
 endif()
 
