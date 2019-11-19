@@ -91,8 +91,8 @@ add_custom_target(build_z3_python_bindings
 ###############################################################################
 # Install
 ###############################################################################
-option(INSTALL_PYTHON_BINDINGS "Install Python bindings when invoking install target" ON)
-if (INSTALL_PYTHON_BINDINGS)
+option(Z3_INSTALL_PYTHON_BINDINGS "Install Python bindings when invoking install target" ON)
+if (Z3_INSTALL_PYTHON_BINDINGS)
   message(STATUS "Emitting rules to install Z3 python bindings")
   # Try to guess the installation path for the bindings
   if (NOT DEFINED CMAKE_INSTALL_PYTHON_PKG_DIR)

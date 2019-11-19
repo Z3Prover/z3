@@ -1,7 +1,7 @@
 # Install assembly to the GAC
 set(GAC_ROOT "$ENV{DESTDIR}@CMAKE_INSTALL_FULL_LIBDIR@")
 execute_process(COMMAND
-  "@DOTNET_GACUTIL_EXECUTABLE@"
+  "@Z3_DOTNET_GACUTIL_EXECUTABLE@"
   "-i"
   "@Z3_DOTNET_ASSEMBLY_DLL@"
   "-f"

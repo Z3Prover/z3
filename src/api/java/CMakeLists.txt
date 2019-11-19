@@ -210,8 +210,8 @@ add_jar(z3JavaJar
 ###############################################################################
 # Install
 ###############################################################################
-option(INSTALL_JAVA_BINDINGS "Install Java bindings when invoking install target" ON)
-if (INSTALL_JAVA_BINDINGS)
+option(Z3_INSTALL_JAVA_BINDINGS "Install Java bindings when invoking install target" ON)
+if (Z3_INSTALL_JAVA_BINDINGS)
   # Provide cache variables for the install locations that the user can change.
   # This defaults to ``/usr/local/java`` which seems to be the location for ``.jar``
   # files on Linux distributions

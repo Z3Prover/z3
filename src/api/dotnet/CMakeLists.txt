@@ -173,9 +173,9 @@ DOTNET_REGISTER_LOCAL_REPOSITORY(${Z3_DOTNET_LOCALREPO_NAME} ${PROJECT_BINARY_DI
 #          the build step depends on the 'purge' target, making sure that
 #          a user will always restore the freshly-built package.
 ###############################################################################
-option(INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install target" ON)
+option(Z3_INSTALL_DOTNET_BINDINGS "Install .NET bindings when invoking install target" ON)
 
-if(INSTALL_DOTNET_BINDINGS)
+if(Z3_INSTALL_DOTNET_BINDINGS)
     install(FILES "${PROJECT_BINARY_DIR}/Microsoft.Z3/Microsoft.Z3.${Z3_DOTNET_NUPKG_VERSION}.nupkg" DESTINATION "${CMAKE_INSTALL_LIBDIR}/z3.nuget")
     # move the local repo to the installation directory (cancel the build-time repo)
     install(CODE "include(${CMAKE_CURRENT_LIST_DIR}/../../../cmake/modules/FindDotnet.cmake)\n DOTNET_REGISTER_LOCAL_REPOSITORY(\"${Z3_DOTNET_LOCALREPO_NAME}\" \"${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/z3.nuget\")")
