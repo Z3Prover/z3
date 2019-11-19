@@ -241,8 +241,8 @@ list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
 ################################################################################
 # GNU multiple precision library support
 ################################################################################
-option(USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
-if (USE_LIB_GMP)
+option(Z3_USE_LIB_GMP "Use GNU Multiple Precision Library" OFF)
+if (Z3_USE_LIB_GMP)
   # Because this is off by default we will make the configure fail if libgmp
   # can't be found
   find_package(GMP REQUIRED)

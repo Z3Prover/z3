@@ -12,7 +12,7 @@ set -o pipefail
 : ${Z3_BUILD_TYPE?"Z3_BUILD_TYPE must be specified"}
 : ${Z3_CMAKE_GENERATOR?"Z3_CMAKE_GENERATOR must be specified"}
 : ${Z3_STATIC_BUILD?"Z3_STATIC_BUILD must be specified"}
-: ${USE_LIBGMP?"USE_LIBGMP must be specified"}
+: ${Z3_USE_LIBGMP?"Z3_USE_LIBGMP must be specified"}
 : ${BUILD_DOCS?"BUILD_DOCS must be specified"}
 : ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
 : ${PYTHON_BINDINGS?"PYTHON_BINDINGS must be specified"}
@@ -33,10 +33,10 @@ else
 fi
 
 # Use LibGMP?
-if [ "X${USE_LIBGMP}" = "X1" ]; then
-  ADDITIONAL_Z3_OPTS+=('-DUSE_LIB_GMP=ON')
+if [ "X${Z3_USE_LIBGMP}" = "X1" ]; then
+  ADDITIONAL_Z3_OPTS+=('-DZ3_USE_LIB_GMP=ON')
 else
-  ADDITIONAL_Z3_OPTS+=('-DUSE_LIB_GMP=OFF')
+  ADDITIONAL_Z3_OPTS+=('-DZ3_USE_LIB_GMP=OFF')
 fi
 
 # Use link time optimziation?

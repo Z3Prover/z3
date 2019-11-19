@@ -30,7 +30,7 @@ if [ "X${Z3_CMAKE_GENERATOR}" = "XNinja" ]; then
   brew_install_or_upgrade ninja
 fi
 
-if [ "X${USE_LIBGMP}" = "X1" ]; then
+if [ "X${Z3_USE_LIBGMP}" = "X1" ]; then
   brew_install_or_upgrade gmp
 fi
 
