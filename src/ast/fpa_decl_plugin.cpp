@@ -205,7 +205,9 @@ sort * fpa_decl_plugin::mk_float_sort(unsigned ebits, unsigned sbits) {
         m_manager->raise_exception("minimum number of significand bits is 1");
     if (ebits < 2)
         m_manager->raise_exception("minimum number of exponent bits is 2");
-
+    if (ebits > 63)
+        m_manager->raise_exception("maximum number of exponent bits is 63");
+    
     parameter p1(ebits), p2(sbits);
     parameter ps[2] = { p1, p2 };
     sort_size sz;
