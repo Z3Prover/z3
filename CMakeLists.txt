@@ -259,13 +259,13 @@ endif()
 ################################################################################
 # API Log sync
 ################################################################################
-option(API_LOG_SYNC
+option(Z3_API_LOG_SYNC
   "Use locking when logging Z3 API calls (experimental)"
   OFF
 )
-if (API_LOG_SYNC)
+if (Z3_API_LOG_SYNC)
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-DZ3_LOG_SYNC")
-  message(STATUS "Using API_LOG_SYNC")
+  message(STATUS "Using Z3_API_LOG_SYNC")
 else()
   message(STATUS "Not using API_LOG_SYNC")
 endif()

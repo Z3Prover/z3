@@ -21,7 +21,6 @@ export TEST_INSTALL="${TEST_INSTALL:-1}"
 export UBSAN_BUILD="${UBSAN_BUILD:-0}"
 export USE_LIBGMP="${USE_LIBGMP:-0}"
 export USE_LTO="${USE_LTO:-0}"
-export USE_OPENMP="${USE_OPENMP:-1}"
 
 export Z3_BUILD_TYPE="${Z3_BUILD_TYPE:-RelWithDebInfo}"
 export Z3_CMAKE_GENERATOR="${Z3_CMAKE_GENERATOR:-Ninja}"
