@@ -141,7 +141,7 @@ jobs:
     name: pypirc
     inputs:
       secureFile: 'pypirc'
-  - script: python -m pip install --user -U setuptools wheel twine
+  - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
 # Uncomment on release:
   - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
