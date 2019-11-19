@@ -109,13 +109,13 @@ set_target_properties(z3_tptp5 PROPERTIES EXCLUDE_FROM_ALL TRUE)
 ################################################################################
 # Build Python examples
 ################################################################################
-if (BUILD_PYTHON_BINDINGS)
+if (Z3_BUILD_PYTHON_BINDINGS)
   add_subdirectory(python)
 endif()
 
 ################################################################################
 # Build dotnet examples
 ################################################################################
-if (BUILD_DOTNET_BINDINGS)
+if (Z3_BUILD_DOTNET_BINDINGS)
     add_subdirectory(dotnet)
 endif()
