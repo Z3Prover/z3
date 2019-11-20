@@ -91,10 +91,6 @@ namespace smt {
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
             for (enode * n : d->m_parent_selects) {
                 if (!m_params.m_array_cg || n->is_cgr()) {
-                    if (m_params.m_array_weak) {
-                        found_unsupported_op(s);
-                        break;
-                    }
                     instantiate_select_map_axiom(n, s);
                 }                
             }
@@ -108,13 +104,13 @@ namespace smt {
         v = find(v);
         var_data * d = m_var_data[v];
         if (!d->m_prop_upward) {
+            if (m_params.m_array_weak) {
+                add_weak_var(v);
+                return;
+            }
             m_trail_stack.push(reset_flag_trail<theory_array>(d->m_prop_upward));
             d->m_prop_upward = true;
             TRACE("array", tout << "#" << v << "\n";);
-            if (m_params.m_array_weak) {
-                found_unsupported_op(v);
-                return;
-            }
             if (!m_params.m_array_delay_exp_axiom) {
                 instantiate_axiom2b_for(v);
                 instantiate_axiom_map_for(v);
@@ -364,12 +360,7 @@ namespace smt {
         }        
 
         if (!m_params.m_array_delay_exp_axiom && d->m_prop_upward) {
-            if (m_params.m_array_weak) {
-                found_unsupported_op(v);
-            }
-            else {
-                instantiate_parent_stores_default(v);
-            }
+            instantiate_parent_stores_default(v);            
         }
     }
 
@@ -393,10 +384,6 @@ namespace smt {
             for (enode * map : d_full->m_parent_maps) {
                 SASSERT(is_map(map));
                 if (!m_params.m_array_cg || map->is_cgr()) {
-                    if (m_params.m_array_weak) {
-                        found_unsupported_op(s);
-                        break;
-                    }
                     instantiate_select_map_axiom(s, map);
                 }
             }
@@ -757,10 +744,7 @@ namespace smt {
                 if (d->m_prop_upward && instantiate_axiom_map_for(v))
                     r = FC_CONTINUE;
                 if (d->m_prop_upward) {
-                    if (m_params.m_array_weak) {
-                        found_unsupported_op(v);
-                    }
-                    else if (instantiate_parent_stores_default(v))
+                    if (instantiate_parent_stores_default(v))
                         r = FC_CONTINUE;
                 }
             }
@@ -775,8 +759,8 @@ namespace smt {
         if (r == FC_DONE && m_bapa) {
             r = m_bapa->final_check();
         }
-
-        if (r == FC_DONE && m_found_unsupported_op)
+        bool should_giveup = m_found_unsupported_op || has_propagate_up_trail();
+        if (r == FC_DONE && should_giveup)
             r = FC_GIVEUP;
         return r;
     }

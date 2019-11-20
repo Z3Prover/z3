@@ -30,7 +30,11 @@ namespace smt {
         friend class theory_array_bapa;
     protected:
         bool m_found_unsupported_op;
-
+        unsigned m_array_weak_head;
+        svector<theory_var> m_array_weak_trail;
+        bool has_propagate_up_trail() const { return m_array_weak_head < m_array_weak_trail.size(); }
+        void add_weak_var(theory_var v);
+        virtual void set_prop_upward(theory_var v) {}
         void found_unsupported_op(expr * n);
         void found_unsupported_op(enode* n) { found_unsupported_op(n->get_owner()); }
         void found_unsupported_op(theory_var v) { found_unsupported_op(get_enode(v)->get_owner()); }

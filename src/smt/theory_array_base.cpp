@@ -28,8 +28,14 @@ namespace smt {
 
     theory_array_base::theory_array_base(ast_manager & m):
         theory(m.mk_family_id("array")),
-        m_found_unsupported_op(false)
+        m_found_unsupported_op(false),
+        m_array_weak_head(0)
     {
+    }
+
+    void theory_array_base::add_weak_var(theory_var v) {
+        get_context().push_trail(push_back_vector<context, svector<theory_var>>(m_array_weak_trail));
+        m_array_weak_trail.push_back(v);
     }
 
     void theory_array_base::found_unsupported_op(expr * n) {
@@ -404,7 +410,12 @@ namespace smt {
     }
 
     bool theory_array_base::can_propagate() {
-        return !m_axiom1_todo.empty() || !m_axiom2_todo.empty() || !m_extensionality_todo.empty() || !m_congruent_todo.empty();
+        return 
+            !m_axiom1_todo.empty() || 
+            !m_axiom2_todo.empty() || 
+            !m_extensionality_todo.empty() || 
+            !m_congruent_todo.empty() ||
+            (!get_context().get_fparams().m_array_weak && has_propagate_up_trail());
     }
 
     void theory_array_base::propagate() {
@@ -421,6 +432,12 @@ namespace smt {
                 assert_congruent_core(m_congruent_todo[i].first, m_congruent_todo[i].second);
             m_extensionality_todo.reset();
             m_congruent_todo.reset();
+            if (!get_context().get_fparams().m_array_weak && has_propagate_up_trail()) {
+                get_context().push_trail(value_trail<context, unsigned>(m_array_weak_head));
+                for (; m_array_weak_head < m_array_weak_trail.size(); ++m_array_weak_head) {
+                    set_prop_upward(m_array_weak_trail[m_array_weak_head]);
+                }                
+            }
         }
     }
 

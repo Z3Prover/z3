@@ -69,7 +69,7 @@ namespace smt {
         void reset_eh() override;
         void init_search_eh() override { m_final_check_idx = 0; }
 
-        virtual void set_prop_upward(theory_var v);
+        void set_prop_upward(theory_var v) override;
         virtual void set_prop_upward(enode* n);
         virtual void set_prop_upward(theory_var v, var_data* d);
 
