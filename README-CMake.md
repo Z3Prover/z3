@@ -270,6 +270,9 @@ The following useful options can be passed to CMake whilst configuring.
 * ``WARNINGS_AS_ERRORS`` - STRING. If set to ``TRUE`` compiler warnings will be treated as errors. If set to ``False`` compiler warnings will not be treated as errors.
     If set to ``SERIOUS_ONLY`` a subset of compiler warnings will be treated as errors.
 * ``Z3_C_EXAMPLES_FORCE_CXX_LINKER`` - BOOL. If set to ``TRUE`` the C API examples will request that the C++ linker is used rather than the C linker.
+* ``Z3_BUILD_EXECUTABLE`` - BOOL. If set to ``TRUE`` build the z3 executable. Defaults to ``TRUE`` unless z3 is being built as a submodule in which case it defaults to ``FALSE``.
+* ``Z3_BUILD_TEST_EXECUTABLES`` - BOOL. If set to ``TRUE`` build the z3 test executables. Defaults to ``TRUE`` unless z3 is being built as a submodule in which case it defaults to ``FALSE``.
+
 
 On the command line these can be passed to ``cmake`` using the ``-D`` option. In ``ccmake`` and ``cmake-gui`` these can be set in the user interface.
 
