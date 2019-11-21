@@ -629,6 +629,8 @@ namespace smt {
         expr_ref mk_add(expr* a, expr* b);
         expr_ref mk_len(expr* s);
         enode* ensure_enode(expr* a);
+        ptr_vector<expr> m_ensure_todo;
+        void ensure_enodes(expr* e);
         enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
         dependency* mk_join(dependency* deps, literal lit);
         dependency* mk_join(dependency* deps, literal_vector const& lits);

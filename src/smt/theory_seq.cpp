@@ -3683,7 +3683,8 @@ bool theory_seq::internalize_term(app* term) {
         mk_var(e);
         return true;
     }
-    for (auto arg : *term) {
+    for (auto arg : *term) {        
+        ensure_enodes(arg);
         mk_var(ensure_enode(arg));
     }
     if (m.is_bool(term)) {
@@ -5117,6 +5118,29 @@ enode* theory_seq::ensure_enode(expr* e) {
     return n;
 }
 
+void theory_seq::ensure_enodes(expr* e) {
+    if (!m_ensure_todo.empty()) return;
+    context& ctx = get_context();
+    if (ctx.e_internalized(e)) return;
+    m_ensure_todo.push_back(e);
+    expr_mark visited;
+    for (unsigned i = 0; i < m_ensure_todo.size(); ++i) {
+        e = m_ensure_todo[i];
+        if (is_app(e) && to_app(e)->get_family_id() == m_util.get_family_id()) {
+            for (expr* arg : *to_app(e)) {
+                if (!ctx.e_internalized(arg) && !visited.is_marked(arg)) {
+                    m_ensure_todo.push_back(arg);
+                    visited.mark(arg);
+                }
+            }
+        }
+    }	
+    for (unsigned i = m_ensure_todo.size(); i-- > 0; ) {
+        ensure_enode(m_ensure_todo[i]);
+    }
+    m_ensure_todo.reset();
+}
+
 template <class T>
 static T* get_th_arith(context& ctx, theory_id afid, expr* e) {
     theory* th = ctx.get_theory(afid);
@@ -5430,6 +5454,7 @@ void theory_seq::add_at_axiom(expr* e) {
         unsigned k = iv.get_unsigned();
         for (unsigned j = 0; j <= k; ++j) {
             es.push_back(m_util.str.mk_unit(mk_nth(s, m_autil.mk_int(j))));
+            ensure_enode(es.back());
         }
         nth = es.back();
         es.push_back(mk_skolem(m_tail, s, i));
