@@ -4284,6 +4284,7 @@ namespace smt {
                     // adding length constraint for _ = constStr seems slowing things down.
 
                     expr_ref option1(mk_and(and_item), mgr);
+                    ctx.get_rewriter()(option1);
                     arrangement_disjunction.push_back(option1);
                     double priority;
                     if (i == strValue.length()) {
@@ -7681,7 +7682,6 @@ namespace smt {
     void theory_str::add_theory_assumptions(expr_ref_vector & assumptions) {
         TRACE("str", tout << "add overlap assumption for theory_str" << std::endl;);
         const char* strOverlap = "!!TheoryStrOverlapAssumption!!";
-        seq_util m_sequtil(get_manager());
         sort * s = get_manager().mk_bool_sort();
         m_theoryStrOverlapAssumption_term = expr_ref(mk_fresh_const(strOverlap, s), get_manager());
         assumptions.push_back(get_manager().mk_not(m_theoryStrOverlapAssumption_term));

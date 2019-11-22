@@ -363,8 +363,7 @@ namespace smt {
         }
         idx--;
         // skip literals from levels above the conflict level
-        while (m_ctx.get_assign_level(m_assigned_literals[idx]) > m_conflict_lvl) {
-            SASSERT(idx > 0);
+        while (m_ctx.get_assign_level(m_assigned_literals[idx]) > m_conflict_lvl && idx > 0) {
             idx--;
         }
         return idx;
