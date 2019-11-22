@@ -604,7 +604,7 @@ namespace smt {
         }
     }
 
-    app * theory_str::mk_nonempty_str_var() {
+    app_ref theory_str::mk_nonempty_str_var() {
         context & ctx = get_context();
         ast_manager & m = get_manager();
 
@@ -616,7 +616,7 @@ namespace smt {
         TRACE("str", tout << "creating nonempty string variable " << name << " at scope level " << sLevel << std::endl;);
 
         sort * string_sort = u.str.mk_string_sort();
-        app * a = mk_fresh_const(name.c_str(), string_sort);
+        app_ref a(mk_fresh_const(name.c_str(), string_sort), m);
 
         ctx.internalize(a, false);
         SASSERT(ctx.get_enode(a) != nullptr);
@@ -3300,8 +3300,7 @@ namespace smt {
               << "split type " << splitType << std::endl;
               );
 
-        expr * t1 = nullptr;
-        expr * t2 = nullptr;
+        expr_ref t1(mgr), t2(mgr);
         expr * xorFlag = nullptr;
 
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
@@ -3705,7 +3704,7 @@ namespace smt {
         // setup
 
         expr * xorFlag = nullptr;
-        expr * temp1 = nullptr;
+        expr_ref temp1(mgr);
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
         std::pair<expr*, expr*> key2(concatAst2, concatAst1);
 
@@ -4643,7 +4642,7 @@ namespace smt {
         }
 
         //----------------------------------------------------------------
-        expr * commonVar = nullptr;
+        expr_ref commonVar(mgr);
         expr * xorFlag = nullptr;
         std::pair<expr*, expr*> key1(concatAst1, concatAst2);
         std::pair<expr*, expr*> key2(concatAst2, concatAst1);

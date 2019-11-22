@@ -515,7 +515,7 @@ protected:
     void track_variable_scope(expr * var);
     app * mk_str_var(std::string name);
     app * mk_int_var(std::string name);
-    app * mk_nonempty_str_var();
+    app_ref mk_nonempty_str_var();
     app * mk_internal_xor_var();
     expr * mk_internal_valTest_var(expr * node, int len, int vTries);
     app * mk_regex_rep_var();
