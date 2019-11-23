@@ -2281,11 +2281,11 @@ context::context(fp_params const& params, ast_manager& m) :
     m_json_marshaller(this),
     m_trace_stream(nullptr) {
     ref<solver> pool0_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
     ref<solver> pool1_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
     ref<solver> pool2_base =
-        mk_smt_solver(m, params_ref::get_empty(), symbol::null);
+        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
 
     unsigned max_num_contexts = params.spacer_max_num_contexts();
     m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
