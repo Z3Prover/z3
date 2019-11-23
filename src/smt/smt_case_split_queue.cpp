@@ -1253,7 +1253,7 @@ namespace smt {
 
 
     case_split_queue * mk_case_split_queue(context & ctx, smt_params & p) {
-        if (p.m_relevancy_lvl < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
+        if (ctx.relevancy_lvl() < 2 && (p.m_case_split_strategy == CS_RELEVANCY || p.m_case_split_strategy == CS_RELEVANCY_ACTIVITY || 
                 p.m_case_split_strategy == CS_RELEVANCY_GOAL)) {
             warning_msg("relevancy must be enabled to use option CASE_SPLIT=3, 4 or 5");
             p.m_case_split_strategy = CS_ACTIVITY;

@@ -34,6 +34,7 @@ Revision History:
 #include "sat/sat_iff3_finder.h"
 #include "sat/sat_probing.h"
 #include "sat/sat_mus.h"
+#include "sat/sat_binspr.h"
 #include "sat/sat_drat.h"
 #include "sat/sat_parallel.h"
 #include "sat/sat_local_search.h"
@@ -102,6 +103,7 @@ namespace sat {
         asymm_branch            m_asymm_branch;
         probing                 m_probing;
         mus                     m_mus;           // MUS for minimal core extraction
+        binspr                  m_binspr;
         bool                    m_inconsistent;
         bool                    m_searching;
         // A conflict is usually a single justification. That is, a justification
@@ -323,6 +325,8 @@ namespace sat {
         bool  at_base_lvl() const override { return m_scope_lvl == 0; }
         lbool value(literal l) const { return m_assignment[l.index()]; }
         lbool value(bool_var v) const { return m_assignment[literal(v, false).index()]; }
+        justification get_justification(literal l) const { return m_justification[l.var()]; }
+        justification get_justification(bool_var v) const { return m_justification[v]; }
         unsigned lvl(bool_var v) const { return m_justification[v].level(); }
         unsigned lvl(literal l) const { return m_justification[l.var()].level(); }
         unsigned init_trail_size() const override { return at_base_lvl() ? m_trail.size() : m_scopes[0].m_trail_lim; }
@@ -612,6 +616,7 @@ namespace sat {
         void pop_to_base_level() override;
         unsigned num_user_scopes() const override { return m_user_scope_literals.size(); }
         reslimit& rlimit() { return m_rlimit; }
+        params_ref const& params() { return m_params; }
         // -----------------------
         //
         // Simplification

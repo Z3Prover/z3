@@ -497,7 +497,7 @@ namespace smt {
         mk_func_interps();
         finalize_theory_models();
         register_macros();
-        TRACE("model", model_v2_pp(tout, *m_model, true););
+        TRACE("model", model_v2_pp(tout, *m_model, true););        
         return m_model.get();
     }
     

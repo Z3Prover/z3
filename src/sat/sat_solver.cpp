@@ -53,6 +53,7 @@ namespace sat {
         m_asymm_branch(*this, p),
         m_probing(*this, p),
         m_mus(*this),
+        m_binspr(*this),
         m_inconsistent(false),
         m_searching(false),
         m_conflict(justification(0)),
@@ -1919,6 +1920,10 @@ namespace sat {
             if (m_par->to_solver(*this)) {
                 m_activity_inc = 128;
             }
+        }
+
+        if (m_config.m_binspr && !inconsistent()) {
+            m_binspr();
         }
 
 #if 0

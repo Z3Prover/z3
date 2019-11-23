@@ -46,6 +46,7 @@ namespace smt {
         m_fparams(p),
         m_params(_p),
         m_setup(*this, p),
+        m_relevancy_lvl(2),
         m_asserted_formulas(m, p, _p),
         m_rewriter(m),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
@@ -321,7 +322,7 @@ namespace smt {
 
         TRACE("relevancy",
               tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << "\n";);
-        if (d.is_atom() && (m_fparams.m_relevancy_lvl == 0 || (m_fparams.m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(l)))
+        if (d.is_atom() && (m_relevancy_lvl == 0 || (m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 
         if (m.has_trace_stream())
@@ -1582,7 +1583,7 @@ namespace smt {
             SASSERT(relevancy());
             // Quantifiers are only asserted when marked as relevant.
             // Other atoms are only asserted when marked as relevant if m_relevancy_lvl >= 2
-            if (d.is_atom() && (d.is_quantifier() || m_fparams.m_relevancy_lvl >= 2)) {
+            if (d.is_atom() && (d.is_quantifier() || m_relevancy_lvl >= 2)) {
                 lbool val  = get_assignment(v);
                 if (val != l_undef)
                     m_atom_propagation_queue.push_back(literal(v, val == l_false));
@@ -3391,9 +3392,12 @@ namespace smt {
     }
 
     void context::setup_context(bool use_static_features) {
-        if (m_setup.already_configured() || inconsistent())
+        if (m_setup.already_configured() || inconsistent()) {
+            m_relevancy_lvl = std::min(m_fparams.m_relevancy_lvl, m_relevancy_lvl);
             return;
+        }
         m_setup(get_config_mode(use_static_features));
+        m_relevancy_lvl = m_fparams.m_relevancy_lvl;
         setup_components();
     }
 

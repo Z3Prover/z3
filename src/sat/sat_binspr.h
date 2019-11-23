@@ -37,7 +37,8 @@ namespace sat {
             not_pr              = 0x0
         };
 
-        solver& s;
+        solver&                              m_solver;
+        scoped_ptr<solver>                   s;
         unsigned                             m_bin_clauses;
         unsigned                             m_stopped_at;
         vector<clause_vector>                m_use_list;
@@ -92,7 +93,7 @@ namespace sat {
 
     public:
 
-        binspr(solver& s, params_ref const& p): s(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}
+        binspr(solver& s): m_solver(s), m_stopped_at(0), m_limit1(1000), m_limit2(300) {}
 
         ~binspr() {}
 

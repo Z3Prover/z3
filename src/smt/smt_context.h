@@ -83,6 +83,7 @@ namespace smt {
         smt_params &                m_fparams;
         params_ref                  m_params;
         setup                       m_setup;
+        unsigned                    m_relevancy_lvl;
         timer                       m_timer;
         asserted_formulas           m_asserted_formulas;
         th_rewriter                 m_rewriter;
@@ -196,8 +197,8 @@ namespace smt {
 
         literal_vector              m_atom_propagation_queue;
 
-        obj_map<expr, unsigned>      m_cached_generation;
-        obj_hashtable<expr>          m_cache_generation_visited;
+        obj_map<expr, unsigned>     m_cached_generation;
+        obj_hashtable<expr>         m_cache_generation_visited;
         dyn_ack_manager             m_dyn_ack_manager;
 
         // -----------------------------------
@@ -280,8 +281,10 @@ namespace smt {
         }
 
         bool relevancy() const {
-            return m_fparams.m_relevancy_lvl > 0;
+            return m_relevancy_lvl > 0;
         }
+
+        unsigned relevancy_lvl() const { return m_relevancy_lvl; }
 
         enode * get_enode(expr const * n) const {
             SASSERT(e_internalized(n));

@@ -132,21 +132,43 @@ namespace sat {
     };
 
     void binspr::operator()() {
-        unsigned num = s.num_vars();
+        s = alloc(solver, m_solver.params(), m_solver.rlimit());
+        m_solver.pop_to_base_level();
+        s->copy(m_solver, true);
+        unsigned num = s->num_vars();
         m_bin_clauses = 0;
 
         report _rep(*this);
         m_use_list.reset();
-        m_use_list.reserve(num*2);
-        for (clause* c : s.m_clauses) {
+        m_use_list.reserve(num * 2);
+        for (clause* c : s->m_clauses) {
             if (!c->frozen() && !c->was_removed()) { 
                 for (literal lit : *c) {
                     m_use_list[lit.index()].push_back(c);
                 }
             }
         }
-        TRACE("sat", s.display(tout););
+        TRACE("sat", s->display(tout););
         algorithm2();
+        if (!s->inconsistent()) {
+            params_ref p;
+            p.set_uint("sat.max_conflicts", 10000);
+            p.set_bool("sat.binspr", false);
+            s->updt_params(p);
+            lbool r = s->check(0, nullptr);
+        }
+
+        if (s->inconsistent()) {
+            s->set_conflict();
+        }
+        else {
+            s->pop_to_base_level();
+            for (unsigned i = m_solver.init_trail_size(); i < s->init_trail_size(); ++i) {
+                literal lit = s->trail_literal(i);
+                m_solver.assign(lit, s->get_justification(lit));
+            }
+            TRACE("sat", tout << "added " << (s->init_trail_size() - m_solver.init_trail_size()) << " units\n";);
+        }
     }
 
 
@@ -167,48 +189,48 @@ namespace sat {
 
     void binspr::algorithm2() {
         mk_masks();
-        unsigned num_lits = 2 * s.num_vars();
-        for (unsigned l_idx = 0; l_idx < num_lits && !s.inconsistent(); ++l_idx) {
-            s.checkpoint();
+        unsigned num_lits = 2 * s->num_vars();
+        for (unsigned l_idx = 0; l_idx < num_lits && !s->inconsistent(); ++l_idx) {
+            s->checkpoint();
             literal p = to_literal(l_idx);
-            TRACE("sat", tout << "p " << p << " " << s.value(p) << "\n";);
-            if (is_used(p) && s.value(p) == l_undef) {
-                s.push();
-                s.assign_scoped(p);
-                unsigned sz_p = s.m_trail.size();
-                s.propagate(false);
-                if (s.inconsistent()) {
-                    s.pop(1);
-                    s.assign_unit(~p);
-                    s.propagate(false);
-                    TRACE("sat", s.display(tout << "unit\n"););
+            TRACE("sat", tout << "p " << p << " " << s->value(p) << "\n";);
+            if (is_used(p) && s->value(p) == l_undef) {
+                s->push();
+                s->assign_scoped(p);
+                unsigned sz_p = s->m_trail.size();
+                s->propagate(false);
+                if (s->inconsistent()) {
+                    s->pop(1);
+                    s->assign_unit(~p);
+                    s->propagate(false);
+                    TRACE("sat", s->display(tout << "unit\n"););
                     IF_VERBOSE(0, verbose_stream() << "unit " << (~p) << "\n");
                     continue;
                 }
-                for (unsigned i = sz_p; !s.inconsistent() && i < s.m_trail.size(); ++i) {
-                    literal u = ~s.m_trail[i];
+                for (unsigned i = sz_p; !s->inconsistent() && i < s->m_trail.size(); ++i) {
+                    literal u = ~s->m_trail[i];
                     TRACE("sat", tout << "p " << p << " u " << u << "\n";);
                     for (clause* cp : m_use_list[u.index()]) {
                         for (literal q : *cp) {
-                            if (s.inconsistent()) 
+                            if (s->inconsistent()) 
                                 break;
-                            if (s.value(q) != l_undef) 
+                            if (s->value(q) != l_undef) 
                                 continue;
 
-                            s.push();
-                            s.assign_scoped(q);
-                            unsigned sz_q = s.m_trail.size();
-                            s.propagate(false);
-                            if (s.inconsistent()) {
+                            s->push();
+                            s->assign_scoped(q);
+                            unsigned sz_q = s->m_trail.size();
+                            s->propagate(false);
+                            if (s->inconsistent()) {
                                 // learn ~p or ~q
-                                s.pop(1);
+                                s->pop(1);
                                 block_binary(p, q, true);
-                                s.propagate(false);
+                                s->propagate(false);
                                 continue;
                             }
                             bool found = false;
-                            for (unsigned j = sz_q; !found && j < s.m_trail.size(); ++j) {
-                                literal v = ~s.m_trail[j];
+                            for (unsigned j = sz_q; !found && j < s->m_trail.size(); ++j) {
+                                literal v = ~s->m_trail[j];
                                 for (clause* cp2 : m_use_list[v.index()]) {                                    
                                     if (cp2->contains(p)) {
                                         if (check_spr(p, q, u, v)) {
@@ -218,29 +240,29 @@ namespace sat {
                                     }
                                 }
                             }
-                            s.pop(1);
+                            s->pop(1);
                             if (found) {
                                 block_binary(p, q, false);
-                                s.propagate(false);
-                                TRACE("sat", s.display(tout););
+                                s->propagate(false);
+                                TRACE("sat", s->display(tout););
                             }
                         }
                     }
                 }
-                s.pop(1);
+                s->pop(1);
             }
         }               
     }
 
     bool binspr::is_used(literal lit) const {
-        return !m_use_list[lit.index()].empty() || !s.get_wlist(~lit).empty();
+        return !m_use_list[lit.index()].empty() || !s->get_wlist(~lit).empty();
     }
     
     bool binspr::check_spr(literal p, literal q, literal u, literal v) {
-        SASSERT(s.value(p) == l_true);
-        SASSERT(s.value(q) == l_true);
-        SASSERT(s.value(u) == l_false);
-        SASSERT(s.value(v) == l_false);
+        SASSERT(s->value(p) == l_true);
+        SASSERT(s->value(q) == l_true);
+        SASSERT(s->value(u) == l_false);
+        SASSERT(s->value(v) == l_false);
         init_g(p, q, u, v);
         literal lits[4] = { p, q, ~u, ~v };
         for (unsigned i = 0; g_is_sat() && i < 4; ++i) {
@@ -252,7 +274,7 @@ namespace sat {
     }
 
     void binspr::binary_are_unit_implied(literal p) {
-        for (watched const& w : s.get_wlist(~p)) {
+        for (watched const& w : s->get_wlist(~p)) {
             if (!g_is_sat()) {
                 break;
             }
@@ -270,13 +292,13 @@ namespace sat {
                 continue;
             }
 
-            bool inconsistent = (s.value(lit) == l_true);
-            if (s.value(lit) == l_undef) {
-                s.push();
-                s.assign_scoped(~lit);
-                s.propagate(false);
-                inconsistent = s.inconsistent();
-                s.pop(1);
+            bool inconsistent = (s->value(lit) == l_true);
+            if (s->value(lit) == l_undef) {
+                s->push();
+                s->assign_scoped(~lit);
+                s->propagate(false);
+                inconsistent = s->inconsistent();
+                s->pop(1);
             }
 
             if (!inconsistent) {            
@@ -295,23 +317,23 @@ namespace sat {
     }
 
     void binspr::clause_is_unit_implied(clause const& c) {
-        s.push();
+        s->push();
         clear_alpha();
         for (literal lit : c) {
             if (touch(lit)) {
                 continue;
             }
-            else if (s.value(lit) == l_true) {
-                s.pop(1);
+            else if (s->value(lit) == l_true) {
+                s->pop(1);
                 return;
             }
-            else if (s.value(lit) != l_false) {
-                s.assign_scoped(~lit);
+            else if (s->value(lit) != l_false) {
+                s->assign_scoped(~lit);
             }
         }
-        s.propagate(false);
-        bool inconsistent = s.inconsistent();
-        s.pop(1);
+        s->propagate(false);
+        bool inconsistent = s->inconsistent();
+        s->pop(1);
         if (!inconsistent) {
             add_touched();
         }
@@ -321,7 +343,7 @@ namespace sat {
     void binspr::block_binary(literal lit1, literal lit2, bool learned) {
         IF_VERBOSE(2, verbose_stream() << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n");
         TRACE("sat", tout << "SPR: " << learned << " " << ~lit1 << " " << ~lit2 << "\n";);
-        s.mk_clause(~lit1, ~lit2, learned);
+        s->mk_clause(~lit1, ~lit2, learned);
         ++m_bin_clauses;
     }
 

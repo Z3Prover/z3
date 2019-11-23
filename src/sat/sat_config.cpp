@@ -99,7 +99,7 @@ namespace sat {
         m_local_search_dbg_flips = p.local_search_dbg_flips();
         m_unit_walk       = p.unit_walk();
         m_unit_walk_threads = p.unit_walk_threads();
-        m_binspr            = false; // unsound :-( p.binspr();
+        m_binspr            = p.binspr();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

@@ -3684,7 +3684,6 @@ bool theory_seq::internalize_term(app* term) {
         return true;
     }
     for (auto arg : *term) {        
-        ensure_enodes(arg);
         mk_var(ensure_enode(arg));
     }
     if (m.is_bool(term)) {
@@ -5135,6 +5134,7 @@ void theory_seq::ensure_enodes(expr* e) {
             }
         }
     }	
+    // TBD: std::stable_sort(m_ensure_todo.begin(), m_ensure_todo.end(), compare_depth);
     for (unsigned i = m_ensure_todo.size(); i-- > 0; ) {
         ensure_enode(m_ensure_todo[i]);
     }
