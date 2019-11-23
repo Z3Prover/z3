@@ -182,4 +182,5 @@ def_module_params('fp',
                           ('spacer.use_bg_invs', BOOL, False, 'Enable external background invariants'),
                           ('spacer.use_lim_num_gen', BOOL, False, 'Enable limit numbers generalizer to get smaller numbers'),
                           ('spacer.logic', SYMBOL, '', 'SMT-LIB logic to configure internal SMT solvers'),
+                          ('spacer.arith.solver', UINT, 2, 'arithmetic solver: 0 - no solver, 1 - bellman-ford based solver (diff. logic only), 2 - simplex based solver, 3 - floyd-warshall based solver (diff. logic only) and no theory combination 4 - utvpi, 5 - infinitary lra, 6 - lra solver'),
                           ))

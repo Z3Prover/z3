@@ -2280,12 +2280,16 @@ context::context(fp_params const& params, ast_manager& m) :
     m_expanded_lvl(0),
     m_json_marshaller(this),
     m_trace_stream(nullptr) {
+
+    params_ref p;
+    p.set_uint("arith.solver", params.spacer_arith_solver());
+
     ref<solver> pool0_base =
-        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
+        mk_smt_solver(m, p, params.spacer_logic());
     ref<solver> pool1_base =
-        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
+        mk_smt_solver(m, p, params.spacer_logic());
     ref<solver> pool2_base =
-        mk_smt_solver(m, params_ref::get_empty(), params.spacer_logic());
+        mk_smt_solver(m, p, params.spacer_logic());
 
     unsigned max_num_contexts = params.spacer_max_num_contexts();
     m_pool0 = alloc(solver_pool, pool0_base.get(), max_num_contexts);
