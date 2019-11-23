@@ -7,7 +7,7 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/database.h")
 endif()
 
 add_custom_command(OUTPUT "database.h"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
           "${PROJECT_SOURCE_DIR}/scripts/mk_pat_db.py"
           "${CMAKE_CURRENT_SOURCE_DIR}/database.smt2"
           "${CMAKE_CURRENT_BINARY_DIR}/database.h"

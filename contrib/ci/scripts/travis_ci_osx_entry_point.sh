@@ -21,7 +21,7 @@ fi
 
 # These variables are specific to the macOS TravisCI
 # implementation and are not set in `ci_defaults.sh`.
-export PYTHON_EXECUTABLE="${PYTHON_EXECUTABLE:-$(which python)}"
+export Z3_PYTHON_EXECUTABLE="${Z3_PYTHON_EXECUTABLE:-$(which python)}"
 export Z3_SRC_DIR="${TRAVIS_BUILD_DIR}"
 export Z3_BUILD_DIR="${Z3_SRC_DIR}/build"
 export Z3_SYSTEM_TEST_DIR="${Z3_SRC_DIR}/z3_system_test"

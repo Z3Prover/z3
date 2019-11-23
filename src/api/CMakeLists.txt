@@ -18,7 +18,7 @@ foreach (gen_file ${generated_files})
 endforeach()
 
 add_custom_command(OUTPUT ${generated_files}
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
   "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
   ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
   "--api_output_dir"

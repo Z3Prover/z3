@@ -38,8 +38,8 @@ if [ -n "${BUILD_DOCS}" ]; then
   BUILD_OPTS+=("--build-arg" "BUILD_DOCS=${BUILD_DOCS}")
 fi
 
-if [ -n "${PYTHON_EXECUTABLE}" ]; then
-  BUILD_OPTS+=("--build-arg" "PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE}")
+if [ -n "${Z3_PYTHON_EXECUTABLE}" ]; then
+  BUILD_OPTS+=("--build-arg" "Z3_PYTHON_EXECUTABLE=${Z3_PYTHON_EXECUTABLE}")
 fi
 
 if [ -n "${PYTHON_BINDINGS}" ]; then

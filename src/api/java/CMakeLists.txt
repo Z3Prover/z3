@@ -16,7 +16,7 @@ set(Z3_JAVA_PACKAGE_NAME "com.microsoft.z3")
 set(Z3_JAVA_NATIVE_JAVA "${CMAKE_CURRENT_BINARY_DIR}/Native.java")
 set(Z3_JAVA_NATIVE_CPP "${CMAKE_CURRENT_BINARY_DIR}/Native.cpp")
 add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--java-output-dir"
@@ -74,7 +74,7 @@ foreach (enum_file ${Z3_JAVA_ENUMERATION_PACKAGE_FILES})
   )
 endforeach()
 add_custom_command(OUTPUT ${Z3_JAVA_ENUMERATION_PACKAGE_FILES_FULL_PATH}
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--java-output-dir"

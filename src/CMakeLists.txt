@@ -186,7 +186,7 @@ if (MSVC)
   set(dll_module_exports_file "${CMAKE_CURRENT_BINARY_DIR}/api_dll.def")
   add_custom_command(OUTPUT "${dll_module_exports_file}"
     COMMAND
-      "${PYTHON_EXECUTABLE}"
+      "${Z3_PYTHON_EXECUTABLE}"
       "${PROJECT_SOURCE_DIR}/scripts/mk_def_file.py"
       "${dll_module_exports_file}"
       "libz3"

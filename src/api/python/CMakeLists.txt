@@ -33,7 +33,7 @@ endforeach()
 
 # Generate z3core.py
 add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3core.py"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--z3py-output-dir"
@@ -51,7 +51,7 @@ list(APPEND build_z3_python_bindings_target_depends "${z3py_bindings_build_dest}
 
 # Generate z3consts.py
 add_custom_command(OUTPUT "${z3py_bindings_build_dest}/z3/z3consts.py"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--z3py-output-dir"
@@ -98,7 +98,7 @@ if (Z3_INSTALL_PYTHON_BINDINGS)
   if (NOT DEFINED CMAKE_INSTALL_PYTHON_PKG_DIR)
     message(STATUS "CMAKE_INSTALL_PYTHON_PKG_DIR not set. Trying to guess")
     execute_process(
-      COMMAND "${PYTHON_EXECUTABLE}" "-c"
+      COMMAND "${Z3_PYTHON_EXECUTABLE}" "-c"
         "import distutils.sysconfig; print(distutils.sysconfig.get_python_lib())"
       RESULT_VARIABLE exit_code
       OUTPUT_VARIABLE CMAKE_INSTALL_PYTHON_PKG_DIR

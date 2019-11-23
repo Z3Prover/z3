@@ -52,7 +52,7 @@ unset PLATFORM
 
 # NOTE: The following variables are not set here because
 # they are specific to the CI implementation
-# PYTHON_EXECUTABLE
+# Z3_PYTHON_EXECUTABLE
 # ASAN_DSO
 # Z3_SRC_DIR
 # Z3_BUILD_DIR

@@ -11,7 +11,7 @@ set -o pipefail
 : ${Z3_SRC_DIR?"Z3_SRC_DIR must be specified"}
 : ${Z3_BUILD_DIR?"Z3_BUILD_DIR must be specified"}
 : ${PYTHON_BINDINGS?"PYTHON_BINDINGS must be specified"}
-: ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
+: ${Z3_PYTHON_EXECUTABLE?"Z3_PYTHON_EXECUTABLE must be specified"}
 : ${DOTNET_BINDINGS?"DOTNET_BINDINGS must be specified"}
 : ${JAVA_BINDINGS?"JAVA_BINDINGS must be specified"}
 : ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
@@ -74,17 +74,17 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
     # Too slow when doing ASan Debug build
     echo "Skipping all_interval_series.py under ASan Debug build"
   else
-    run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/all_interval_series.py
+    run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/all_interval_series.py
   fi
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/complex.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/example.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/complex.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/example.py
   # FIXME: `hamiltonian.py` example is disabled because its too slow.
-  #${PYTHON_EXECUTABLE} python/hamiltonian.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/marco.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/mss.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/socrates.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/visitor.py
-  run_quiet run_non_native_binding ${PYTHON_EXECUTABLE} python/z3test.py
+  #${Z3_PYTHON_EXECUTABLE} python/hamiltonian.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/marco.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/mss.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/socrates.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/visitor.py
+  run_quiet run_non_native_binding ${Z3_PYTHON_EXECUTABLE} python/z3test.py
 fi
 
 if [ "X${DOTNET_BINDINGS}" = "X1" ]; then

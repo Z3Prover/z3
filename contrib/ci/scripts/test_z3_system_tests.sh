@@ -8,7 +8,7 @@ set -o pipefail
 : ${Z3_BUILD_TYPE?"Z3_BUILD_TYPE must be specified"}
 : ${RUN_SYSTEM_TESTS?"RUN_SYSTEM_TESTS must be speicifed"}
 : ${PYTHON_BINDINGS?"PYTHON_BINDINGS must be specified"}
-: ${PYTHON_EXECUTABLE?"PYTHON_EXECUTABLE must be specified"}
+: ${Z3_PYTHON_EXECUTABLE?"Z3_PYTHON_EXECUTABLE must be specified"}
 : ${Z3_SYSTEM_TEST_DIR?"Z3_SYSTEM_TEST_DIR must be specified"}
 : ${UBSAN_BUILD?"UBSAN_BUILD must be specified"}
 
@@ -43,12 +43,12 @@ fi
 ###############################################################################
 
 # SMTLIBv2 tests
-${PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2
+${Z3_PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2
 
-${PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2-extra
+${Z3_PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2-extra
 
 if [ "X${Z3_BUILD_TYPE}" = "XDebug" ]; then
-  ${PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2-debug
+  ${Z3_PYTHON_EXECUTABLE} scripts/test_benchmarks.py "${Z3_EXE}" regressions/smt2-debug
 fi
 
 if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
@@ -63,7 +63,7 @@ if [ "X${PYTHON_BINDINGS}" = "X1" ]; then
     # to work.
     echo "FIXME: Skipping python binding tests when building with ASan"
   else
-    run_non_native_binding ${PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
+    run_non_native_binding ${Z3_PYTHON_EXECUTABLE} scripts/test_pyscripts.py "${Z3_LIB_DIR}" regressions/python/
   fi
 fi
 

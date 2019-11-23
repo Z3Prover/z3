@@ -9,7 +9,7 @@ set(VER_TWEAK "${Z3_VERSION_TWEAK}")
 # Generate Native.cs
 set(Z3_DOTNET_NATIVE_FILE "${CMAKE_CURRENT_BINARY_DIR}/Native.cs")
 add_custom_command(OUTPUT "${Z3_DOTNET_NATIVE_FILE}"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--dotnet-output-dir"
@@ -27,7 +27,7 @@ add_custom_command(OUTPUT "${Z3_DOTNET_NATIVE_FILE}"
 # Generate Enumerations.cs
 set(Z3_DOTNET_CONST_FILE "${CMAKE_CURRENT_BINARY_DIR}/Enumerations.cs")
 add_custom_command(OUTPUT "${Z3_DOTNET_CONST_FILE}"
-  COMMAND "${PYTHON_EXECUTABLE}"
+  COMMAND "${Z3_PYTHON_EXECUTABLE}"
     "${PROJECT_SOURCE_DIR}/scripts/mk_consts_files.py"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "--dotnet-output-dir"
