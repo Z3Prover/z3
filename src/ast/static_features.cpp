@@ -312,7 +312,7 @@ void static_features::update_core(expr * e) {
             case OP_IDIV:
             case OP_REM:
             case OP_MOD:
-                if (!is_numeral(to_app(e)->get_arg(1)))
+                if (!is_numeral(to_app(e)->get_arg(1), r) || r.is_zero()) 
                     m_num_non_linear++;
                 break;
             }
