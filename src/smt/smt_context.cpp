@@ -46,7 +46,7 @@ namespace smt {
         m_fparams(p),
         m_params(_p),
         m_setup(*this, p),
-        m_relevancy_lvl(2),
+        m_relevancy_lvl(p.m_relevancy_lvl),
         m_asserted_formulas(m, p, _p),
         m_rewriter(m),
         m_qmanager(alloc(quantifier_manager, *this, p, _p)),
