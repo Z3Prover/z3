@@ -476,7 +476,7 @@ class theory_lra::imp {
                     internalize_eq(v, v1);                    
                 }
                 else if (a.is_idiv(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r)) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
                     m_idiv_terms.push_back(n);
                     app * mod = a.mk_mod(n1, n2);
                     ctx().internalize(mod, false);
@@ -486,11 +486,11 @@ class theory_lra::imp {
                     if (!ctx().relevancy()) mk_idiv_mod_axioms(n1, n2);                    
                 }
                 else if (a.is_rem(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r)) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
                     if (!ctx().relevancy()) mk_rem_axiom(n1, n2);                    
                 }
                 else if (a.is_div(n, n1, n2)) {
-                    if (!a.is_numeral(n2, r)) found_not_handled(n);
+                    if (!a.is_numeral(n2, r) || r.is_zero()) found_not_handled(n);
                     if (!ctx().relevancy()) mk_div_axiom(n1, n2);                    
                 }
                 else if (a.is_power(n)) {
