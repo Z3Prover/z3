@@ -1195,7 +1195,7 @@ namespace smt {
         // Reason: when a learned clause becomes unit, it should mark the
         // unit literal as relevant. When binary_clause_opt is used,
         // it is not possible to distinguish between learned and non-learned clauses.
-        if (lemma && m_relevancy_lvl >= 2)
+        if (lemma && relevancy_lvl() >= 2)
             return false; 
         if (m_base_lvl > 0)
             return false;

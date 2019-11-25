@@ -281,10 +281,10 @@ namespace smt {
         }
 
         bool relevancy() const {
-            return m_relevancy_lvl > 0;
+            return relevancy_lvl() > 0;
         }
 
-        unsigned relevancy_lvl() const { return m_relevancy_lvl; }
+        unsigned relevancy_lvl() const;
 
         enode * get_enode(expr const * n) const {
             SASSERT(e_internalized(n));

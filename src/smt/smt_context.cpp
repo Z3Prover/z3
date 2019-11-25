@@ -148,6 +148,10 @@ namespace smt {
         m_asserted_formulas.updt_params(p);
     }
 
+    unsigned context::relevancy_lvl() const {
+        return std::min(m_relevancy_lvl, m_fparams.m_relevancy_lvl);
+    }
+
     void context::copy(context& src_ctx, context& dst_ctx) {
         ast_manager& dst_m = dst_ctx.get_manager();
         ast_manager& src_m = src_ctx.get_manager();
@@ -322,7 +326,7 @@ namespace smt {
 
         TRACE("relevancy",
               tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << "\n";);
-        if (d.is_atom() && (m_relevancy_lvl == 0 || (m_relevancy_lvl == 1 && !d.is_quantifier()) || is_relevant_core(l)))
+        if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 
         if (m.has_trace_stream())
@@ -1582,8 +1586,8 @@ namespace smt {
             bool_var_data & d = get_bdata(v);
             SASSERT(relevancy());
             // Quantifiers are only asserted when marked as relevant.
-            // Other atoms are only asserted when marked as relevant if m_relevancy_lvl >= 2
-            if (d.is_atom() && (d.is_quantifier() || m_relevancy_lvl >= 2)) {
+            // Other atoms are only asserted when marked as relevant if relevancy_lvl >= 2
+            if (d.is_atom() && (d.is_quantifier() || relevancy_lvl() >= 2)) {
                 lbool val  = get_assignment(v);
                 if (val != l_undef)
                     m_atom_propagation_queue.push_back(literal(v, val == l_false));
