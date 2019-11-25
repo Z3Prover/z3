@@ -5062,7 +5062,7 @@ namespace smt {
         }
 
         TRACE("str", tout << "length of " << mk_ismt2_pp(e, m) << " is " << val << std::endl;);
-        return val.is_int();
+        return val.is_int() && val.is_nonneg();
     }
 
     /*
