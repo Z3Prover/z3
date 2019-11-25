@@ -988,6 +988,12 @@ void arith_rewriter::remove_divisor(expr* d, ptr_buffer<expr>& args) {
     } 
     UNREACHABLE(); 
 } 
+
+static rational symmod(rational const& a, rational const& b) {
+    rational r = mod(a, b);
+    if (2*r > b) r -= b;
+    return r;
+}
     
 br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & result) {
     set_curr_sort(m().get_sort(arg1));
@@ -1030,6 +1036,10 @@ br_status arith_rewriter::mk_mod_core(expr * arg1, expr * arg2, expr_ref & resul
             else if (m_util.is_mod(arg, t1, t2) && t2 == arg2) {
                 change = true;
                 args.push_back(t1);
+            }
+            else if (m_util.is_mul(arg, t1, t2) && m_util.is_numeral(t1, arg_v) && symmod(arg_v, v2) != arg_v) {
+                change = true;
+                args.push_back(m_util.mk_mul(m_util.mk_numeral(symmod(arg_v, v2), true), t2));
             }
             else {
                 args.push_back(arg);

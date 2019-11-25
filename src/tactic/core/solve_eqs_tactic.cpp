@@ -327,28 +327,53 @@ class solve_eqs_tactic : public tactic {
                 pr = m().mk_rewrite(eq, m().mk_eq(var, def));
             return true;
         }
+
+        bool solve_mod(expr * lhs, expr * rhs, expr * eq, app_ref & var, expr_ref & def, proof_ref & pr) {
+            rational r1, r2;
+            expr* arg1, *arg2, *arg3, *arg4;
+            if (m_produce_proofs) {
+                return false;
+            }
+            VERIFY(m_a_util.is_mod(lhs, arg1, arg2));
+            if (!m_a_util.is_numeral(arg2, r1) || !r1.is_pos()) {
+                return false;
+            }
+            if (m_a_util.is_mod(rhs, arg3, arg4) && m_a_util.is_numeral(arg4, r2) && r1 == r2) {
+                rhs = arg3;
+            }
+            else if (!m_a_util.is_numeral(rhs, r2) || !r2.is_zero()) {
+                return false;
+            }
+            if (solve_eq(arg1, rhs, eq, var, def, pr)) {
+                def = m_a_util.mk_add(def, m_a_util.mk_mul(m().mk_fresh_const("mod", m_a_util.mk_int()), m_a_util.mk_int(r1)));
+                return true;
+            }
+            return false;
+        }
         
         bool solve_arith(expr * lhs, expr * rhs, expr * eq, app_ref & var, expr_ref & def, proof_ref & pr) {
             return 
                 (m_a_util.is_add(lhs) && solve_arith_core(to_app(lhs), rhs, eq, var, def, pr)) ||
-                (m_a_util.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, var, def, pr));
-#if 0
-            // better done inside of nlsat
-                (m_a_util.is_add(lhs) && solve_nl(to_app(lhs), rhs, eq, var, def, pr)) ||
-                (m_a_util.is_add(rhs) && solve_nl(to_app(rhs), lhs, eq, var, def, pr));
-#endif
+                (m_a_util.is_add(rhs) && solve_arith_core(to_app(rhs), lhs, eq, var, def, pr)) ||
+                (m_a_util.is_mod(lhs) && solve_mod(lhs, rhs, eq, var, def, pr)) ||
+                (m_a_util.is_mod(rhs) && solve_mod(rhs, lhs, eq, var, def, pr));                 
+        }
+
+                
+        bool solve_eq(expr* arg1, expr* arg2, expr* eq, app_ref& var, expr_ref & def, proof_ref& pr) {
+            if (trivial_solve(arg1, arg2, var, def, pr))
+                return true;
+            if (m_theory_solver) {
+                if (solve_arith(arg1, arg2, eq, var, def, pr))
+                    return true;
+            }
+            return false;
         }
         
         bool solve(expr * f, app_ref & var, expr_ref & def, proof_ref & pr) {
             expr* arg1 = nullptr, *arg2 = nullptr;
             if (m().is_eq(f, arg1, arg2)) {
-                if (trivial_solve(arg1, arg2, var, def, pr))
-                    return true;
-                if (m_theory_solver) {
-                    if (solve_arith(arg1, arg2, f, var, def, pr))
-                        return true;
-                }
-                return false;
+                return solve_eq(arg1, arg2, f, var, def, pr);
             }
                         
 #if 0
