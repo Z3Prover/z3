@@ -1144,7 +1144,7 @@ namespace z3 {
         /**
            \brief FloatingPoint fused multiply-add.
           */
-        friend expr fma(expr const& a, expr const& b, expr const& c);
+        friend expr fma(expr const& a, expr const& b, expr const& c, expr const& rm);
 
         /**
            \brief sequence and regular expression operations.
