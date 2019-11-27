@@ -70,7 +70,7 @@ jobs:
       - template: scripts/test-examples-cmake.yml
 #   - template: scripts/test-jupyter.yml
 #   - template: scripts/test-java-cmake.yml
-    - template: scripts/test-regressions.yml
+#   - template: scripts/test-regressions.yml
 
 
 - job: "LinuxCMake"
