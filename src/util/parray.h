@@ -216,9 +216,7 @@ private:
         unsigned sz = r->m_size;
         vs = nullptr;
         copy_values(r->m_values, sz, vs);
-        unsigned i = cs.size();
-        while (i > 0) {
-            --i;
+        for (unsigned i = cs.size(); i-- > 0; ) {
             cell * curr = cs[i];
             switch (curr->kind()) {
             case SET:
@@ -309,6 +307,26 @@ public:
             case ROOT:
                 return c->size();
             }
+        }
+    }
+
+    void check_size(cell* c) const {
+        unsigned r;
+        while (c) {
+            switch (c->kind()) {
+            case SET:
+                break;
+            case PUSH_BACK:
+                r = size(c->next());
+                break;
+            case POP_BACK:
+                r = size(c->next());
+                SASSERT(c->idx() == r);
+                break;
+            case ROOT:
+                return;
+            }
+            c = c->next();
         }
     }
 
@@ -528,7 +546,7 @@ public:
         unsigned r_sz = size(r);
         unsigned trail_split_idx = r_sz / C::factor;
         unsigned i = 0;
-        cell * c   = r.m_ref;
+        cell * c   = r.m_ref;        
         while (c->kind() != ROOT && i < trail_split_idx) {
             cs.push_back(c);
             c = c->next();
@@ -538,10 +556,9 @@ public:
             // root is too far away.
             unfold(c);
         }
-        SASSERT(c->kind() == ROOT);
-        i = cs.size();
-        while (i > 0) {
-            --i;
+        DEBUG_CODE(check_size(c););
+        SASSERT(c->kind() == ROOT);      
+        for (i = cs.size(); i-- > 0; ) {
             cell * p = cs[i];
             SASSERT(c->m_kind == ROOT);
             unsigned sz = c->m_size;
@@ -558,10 +575,10 @@ public:
             case PUSH_BACK:
                 c->m_kind = POP_BACK;
                 if (sz == capacity(vs))
-                    expand(vs);
-                c->m_idx  = sz;
-                vs[sz]    = p->m_elem;
-                sz++;
+                    expand(vs);                
+                vs[sz] = p->m_elem;
+                ++sz;
+                c->m_idx = sz;
                 break;
             case POP_BACK:
                 c->m_kind = PUSH_BACK;
@@ -575,11 +592,12 @@ public:
             }
             inc_ref(p);
             c->m_next   = p;
-            // p does not point to c anymore
-            dec_ref(c);
+
             p->m_kind   = ROOT;
             p->m_size   = sz;
             p->m_values = vs;
+            // p does not point to c anymore
+            dec_ref(c);
             c = p;
         }
         SASSERT(c == r.m_ref);
@@ -604,9 +622,11 @@ public:
             case ROOT: out << "root, " << c->m_size << ", " << capacity(c->m_values); break;
             }
             out << "]#" << c->m_ref_count;
-            if (c->kind() == ROOT)
+            if (c->kind() == ROOT) {
+                out << "\n";
                 break;
-            out << " -> ";
+            }
+            out << " -> \n";
             c = c->next();
         }
     }

@@ -822,3 +822,8 @@ func_decl* arith_util::mk_div0() {
     sort* rs[2] = { mk_real(), mk_real() };
     return m_manager.mk_func_decl(m_afid, OP_DIV0, 0, nullptr, 2, rs, mk_real());
 }
+
+func_decl* arith_util::mk_idiv0() {
+    sort* rs[2] = { mk_int(), mk_int() };
+    return m_manager.mk_func_decl(m_afid, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
+}

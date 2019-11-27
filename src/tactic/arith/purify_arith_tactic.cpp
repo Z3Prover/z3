@@ -193,7 +193,7 @@ struct purify_arith_proc {
         expr_ref_vector      m_pinned;
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
-        svector<div_def>     m_divs;
+        svector<div_def>     m_divs, m_idivs;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -361,6 +361,7 @@ struct purify_arith_proc {
                 push_cnstr(OR(NOT(EQ(y, zero)), EQ(k2, u().mk_mod(x, zero))));
                 push_cnstr_pr(mod_pr);
             }
+            m_idivs.push_back(div_def(x, y, k1));
         }
    
         void process_mod(func_decl * f, unsigned num, expr * const * args, expr_ref & result, proof_ref & result_pr) { 
@@ -775,10 +776,20 @@ struct purify_arith_proc {
             m_goal.assert_expr(r.cfg().m_new_cnstrs.get(i), m_produce_proofs ? r.cfg().m_new_cnstr_prs.get(i) : nullptr, nullptr);
         }
         auto const& divs = r.cfg().m_divs;
+        auto const& idivs = r.cfg().m_idivs;
         for (unsigned i = 0; i < divs.size(); ++i) {
             auto const& p1 = divs[i];
             for (unsigned j = i + 1; j < divs.size(); ++j) {
                 auto const& p2 = divs[j];
+                m_goal.assert_expr(m().mk_implies(
+                                       m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
+                                       m().mk_eq(p1.d, p2.d)));
+            }
+        }
+        for (unsigned i = 0; i < idivs.size(); ++i) {
+            auto const& p1 = idivs[i];
+            for (unsigned j = i + 1; j < idivs.size(); ++j) {
+                auto const& p2 = idivs[j];
                 m_goal.assert_expr(m().mk_implies(
                                        m().mk_and(m().mk_eq(p1.x, p2.x), m().mk_eq(p1.y, p2.y)), 
                                        m().mk_eq(p1.d, p2.d)));
@@ -803,6 +814,15 @@ struct purify_arith_proc {
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_div0(), body);
+            }
+            if (!idivs.empty()) {
+                expr_ref body(u().mk_int(0), m());
+                expr_ref v0(m().mk_var(0, u().mk_int()), m());
+                expr_ref v1(m().mk_var(1, u().mk_int()), m());
+                for (auto const& p : idivs) {
+                    body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
+                }
+                fmc->add(u().mk_idiv0(), body);
             }
         }
         if (produce_models && !m_sin_cos.empty()) {

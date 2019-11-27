@@ -368,6 +368,7 @@ public:
     sort * mk_real() { return m_manager.mk_sort(m_afid, REAL_SORT); }
 
     func_decl* mk_div0();
+    func_decl* mk_idiv0();
 
 
     app * mk_numeral(rational const & val, bool is_int) const {
