@@ -1882,14 +1882,16 @@ namespace smt {
         }
 
         // axiom 2: The only (str.from-int N) that starts with a "0" is "0".
-        expr_ref zero(mk_string("0"), m);
-        // let (the result starts with a "0") be p
-        expr_ref p(u.str.mk_prefix(zero, ex), m);
-        // let (the result is "0") be q  
-        expr_ref q(ctx.mk_eq_atom(ex, zero), m);
-        // encoding: the result does NOT start with a "0" (~p) xor the result is "0" (q)
-        // ~p xor q == (~p or q) and (p or ~q)
-        assert_axiom(m.mk_and(m.mk_or(mk_not(m, p), q), m.mk_or(p, mk_not(m, q))));
+        {
+            expr_ref zero(mk_string("0"), m);
+            // let (the result starts with a "0") be p
+            expr_ref starts_with_zero(u.str.mk_prefix(zero, ex), m);
+            // let (the result is "0") be q  
+            expr_ref is_zero(ctx.mk_eq_atom(ex, zero), m);
+            // encoding: the result does NOT start with a "0" (~p) xor the result is "0" (q)
+            // ~p xor q == (~p or q) and (p or ~q)
+            assert_axiom(m.mk_and(m.mk_or(m.mk_not(starts_with_zero), is_zero), m.mk_or(starts_with_zero, m.mk_not(is_zero))));
+        }
     }
 
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
