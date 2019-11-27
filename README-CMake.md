@@ -142,8 +142,13 @@ nmake
 
 ### Visual Studio
 
-For the Visual Studio generators you need to know which version of Visual Studio you wish
-to use and also what architecture you want to build for.
+Visual Studio 19 comes with integrated support for CMake.
+It suffices to open the (z3) folder where this file and the Z3 project CMakeLists.txt resides, 
+and Visual Studio does the rest.
+
+For legacy versions of Visual Studio a process is as follows:
+For the Visual Studio generators you need to know which version of 
+Visual Studio you wish to use and also what architecture you want to build for.
 
 We'll use the ``cmake-gui`` here as it is easier to pick the right generator but this can
 be scripted if need be.
