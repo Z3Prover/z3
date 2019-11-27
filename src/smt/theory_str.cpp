@@ -1879,6 +1879,10 @@ namespace smt {
             expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
             SASSERT(axiom1);
             assert_axiom(axiom1);
+
+            expr_ref zero(mk_string("0"), m);
+            expr_ref pref(u.str.mk_prefix(zero, ex), m);
+            assert_implication(pref, ctx.mk_eq_atom(ex, zero));
         }
     }
 
