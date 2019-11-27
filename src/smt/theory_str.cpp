@@ -1884,8 +1884,9 @@ namespace smt {
         // axiom 2: (str.from-int N) should not result in a string with leading zeros.
         expr_ref zero(mk_string("0"), m);
         expr_ref pref(u.str.mk_prefix(zero, ex), m);
-        // The result does not start with a "0" xor the result is "0"
-        assert_axiom(m.mk_or(m.mk_and(mk_not(m, pref), ctx.mk_eq_atom(ex, zero)), m.mk_and(pref, mk_not(m, ctx.mk_eq_atom(ex, zero)))));
+        // The result does not start with a "0" (~p) xor the result is "0" (q)
+        // ~p xor q == (p or q) and (~p or ~q)
+        assert_axiom(m.mk_and(m.mk_or(pref, ctx.mk_eq_atom(ex, zero)), m.mk_or(mk_not(m, pref), mk_not(m, ctx.mk_eq_atom(ex, zero)))));
     }
 
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
