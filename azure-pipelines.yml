@@ -3,6 +3,7 @@ variables:
   cmakeStdArgs: '-DZ3_BUILD_DOTNET_BINDINGS=True -DZ3_BUILD_JAVA_BINDINGS=True -DZ3_BUILD_PYTHON_BINDINGS=True -G "Ninja" ../'
   asanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=address -fno-omit-frame-pointer" CFLAGS="${CFLAGS} -fsanitize=address -fno-omit-frame-pointer"'
   ubsanEnv: 'CXXFLAGS="${CXXFLAGS} -fsanitize=undefined" CFLAGS="${CFLAGS} -fsanitize=undefined"'
+  msanEnv: 'CC=clang LDFLAGS="-L../libcxx/libcxx_msan/lib -lc++abi -Wl,-rpath=../libcxx/libcxx_msan/lib" CXX=clang++ CXXFLAGS="${CXXFLAGS} -stdlib=libc++ -fsanitize-memory-track-origins -fsanitize=memory -fPIE -fno-omit-frame-pointer -g -O2" CFLAGS="${CFLAGS} -stdlib=libc -fsanitize=memory -fsanitize-memory-track-origins -fno-omit-frame-pointer -g -O2"'
 
 jobs:
 
@@ -38,6 +39,40 @@ jobs:
 #   build documentation
 #   Asan, ubsan, msan
 
+- job: "LinuxMSan"
+  displayName: "Ubuntu build - cmake"
+  pool:
+    vmImage: "Ubuntu-16.04"
+  strategy:
+    matrix:
+      msanClang:
+        cmdLine: '$(msanEnv) cmake $(cmakeStdArgs)'
+        runUnitTest: 'True'
+        runExample: 'False' # Examples don't seem to build with MSAN
+  steps:
+    - script: sudo apt-get install ninja-build libc++-dev libc++abi-dev
+    - script: ./scripts/build_libcxx_msan.sh
+    - script: |
+        set -e
+        mkdir build
+        cd build
+        $(cmdLine)
+        ninja
+        ninja test-z3
+        cd ..
+    - script: |
+         cd build
+         export MSAN_SYMBOLIZER_PATH=/usr/lib/llvm-6.0/bin/llvm-symbolizer
+         ./test-z3 -a
+         cd ..
+      condition: eq(variables['runUnitTest'], 'True')
+    - ${{if eq(variables['runExample'], 'True')}}:
+      - template: scripts/test-examples-cmake.yml
+#   - template: scripts/test-jupyter.yml
+#   - template: scripts/test-java-cmake.yml
+    - template: scripts/test-regressions.yml
+
+
 - job: "LinuxCMake"
   displayName: "Ubuntu build - cmake"
   pool:
@@ -63,7 +98,7 @@ jobs:
 #        cmdLine: '$(asanEnv) cmake $(cmakeStdArgs)'
 #        runUnitTest: 'False'
   steps:
-    - script: sudo apt-get install ninja-build
+    - script: sudo apt-get install ninja-build 
     - script: |
         set -e
         mkdir build
