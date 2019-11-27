@@ -1879,11 +1879,13 @@ namespace smt {
             expr_ref axiom1(ctx.mk_eq_atom(axiom1_lhs, axiom1_rhs), m);
             SASSERT(axiom1);
             assert_axiom(axiom1);
-
-            expr_ref zero(mk_string("0"), m);
-            expr_ref pref(u.str.mk_prefix(zero, ex), m);
-            assert_implication(pref, ctx.mk_eq_atom(ex, zero));
         }
+
+        // axiom 2: (str.from-int N) should not result in a string with leading zeros.
+        expr_ref zero(mk_string("0"), m);
+        expr_ref pref(u.str.mk_prefix(zero, ex), m);
+        // The result does not start with a "0" xor the result is "0"
+        assert_axiom(m.mk_or(m.mk_and(mk_not(m, pref), ctx.mk_eq_atom(ex, zero)), m.mk_and(pref, mk_not(m, ctx.mk_eq_atom(ex, zero)))));
     }
 
     expr * theory_str::mk_RegexIn(expr * str, expr * regexp) {
