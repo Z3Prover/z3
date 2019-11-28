@@ -1090,6 +1090,7 @@ app* seq_util::str::mk_is_empty(expr* s) const {
 
 
 sort* seq_util::re::to_seq(sort* re) {
+    (void)u;
     SASSERT(u.is_re(re));
     return to_sort(re->get_parameter(0).get_ast());
 }

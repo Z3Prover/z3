@@ -325,7 +325,7 @@ namespace smt {
         TRACE("phase_selection", tout << "saving phase, is_pos: " << d.m_phase << " l: " << l << "\n";);
 
         TRACE("relevancy",
-              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << "\n";);
+              tout << "is_atom: " << d.is_atom() << " is relevant: " << is_relevant_core(l) << " relevancy-lvl: " << relevancy_lvl() << "\n";);
         if (d.is_atom() && (relevancy_lvl() == 0 || (relevancy_lvl() == 1 && !d.is_quantifier()) || is_relevant_core(l)))
             m_atom_propagation_queue.push_back(l);
 

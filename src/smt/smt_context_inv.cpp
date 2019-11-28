@@ -430,6 +430,7 @@ namespace smt {
         if (!get_fparams().m_core_validate) {
             return;
         }
+        warning_msg("Users should not set smt.core.validate. This option is for debugging only.");
         context ctx(get_manager(), get_fparams(), get_params());
         ptr_vector<expr> assertions;
         get_assertions(assertions);
@@ -443,10 +444,13 @@ namespace smt {
         }
         lbool res = ctx.check();
         switch (res) {
-        case l_false:
+        case l_false:        
             break;
-        default: 
+        case l_true:
             throw default_exception("Core could not be validated");
+        case l_undef:
+            IF_VERBOSE(1, verbose_stream() << "core validation produced unknown\n");
+            break;
         }
     }
 

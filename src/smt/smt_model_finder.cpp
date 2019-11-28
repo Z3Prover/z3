@@ -92,8 +92,9 @@ namespace smt {
             obj_map<expr, unsigned> const & get_elems() const { return m_elems; }
 
             void insert(expr * n, unsigned generation) {
-                if (m_elems.contains(n) || contains_model_value(n))
+                if (m_elems.contains(n) || contains_model_value(n)) {
                     return;
+                }
                 TRACE("model_finder", tout << mk_pp(n, m) << "\n";);
                 m.inc_ref(n);
                 m_elems.insert(n, generation);
@@ -255,8 +256,8 @@ namespace smt {
             void merge(node * other) {
                 node * r1 = get_root();
                 node * r2 = other->get_root();
-                SASSERT(r1->m_set == 0);
-                SASSERT(r2->m_set == 0);
+                SASSERT(r1->m_set == nullptr);
+                SASSERT(r2->m_set == nullptr);
                 SASSERT(r1->get_sort() == r2->get_sort());
                 if (r1 == r2)
                     return;

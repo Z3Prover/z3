@@ -7701,11 +7701,11 @@ namespace smt {
     lbool theory_str::validate_unsat_core(expr_ref_vector & unsat_core) {
         app * target_term = to_app(get_manager().mk_not(m_theoryStrOverlapAssumption_term));
         get_context().internalize(target_term, false);
-		enode* e1 = get_context().get_enode(target_term);
+        enode* e1 = get_context().get_enode(target_term);
         for (unsigned i = 0; i < unsat_core.size(); ++i) {
             app * core_term = to_app(unsat_core.get(i));
             // not sure if this is the correct way to compare terms in this context
-			if (!get_context().e_internalized(core_term)) continue;
+            if (!get_context().e_internalized(core_term)) continue;
             enode *e2 = get_context().get_enode(core_term);
             if (e1 == e2) {
                 TRACE("str", tout << "overlap detected in unsat core, changing UNSAT to UNKNOWN" << std::endl;);

@@ -321,6 +321,11 @@ namespace smtfd {
                     else if (is_uninterp_const(t) && m_butil.is_bv(t)) {
                         r = t;
                     }
+                    else if (m.is_model_value(t)) {
+                        int idx = a->get_parameter(0).get_int();
+                        r = m_butil.mk_numeral(rational(idx), 24); 
+                        // std::cout << expr_ref(t, m) << " --> " << mk_pp(r, m) << "\n";
+                    }
                     else {
                         r = fresh_var(t);                    
                     }
@@ -797,8 +802,8 @@ namespace smtfd {
                     v2e.insert(v, t);
                 }
             }
-            if (m.is_value(t)) {
-                // std::cout << mk_bounded_pp(t, m, 2) << " " << eval_abs(t) << " " << mk_pp(s, m) << "\n";
+            if (m.is_model_value(t)) {
+                //std::cout << "model value: " << mk_bounded_pp(t, m, 2) << " " << eval_abs(t) << " " << mk_pp(s, m) << "\n";
             }
         }
 
@@ -1342,8 +1347,9 @@ namespace smtfd {
         ref<::solver>                   m_solver;
         obj_pair_map<expr, sort, expr*> m_val2term;
         expr_ref_vector                 m_val2term_trail;
-        obj_map<sort, expr*>            m_fresh;
         expr_ref_vector                 m_fresh_trail;
+        obj_map<sort, obj_hashtable<expr>*> m_fresh;
+        scoped_ptr_vector<obj_hashtable<expr>> m_values;
 
         expr* abs(expr* e) { return m_context.get_abs().abs(e);  }
         expr_ref eval_abs(expr* t) { return (*m_model)(abs(t)); }
@@ -1358,20 +1364,30 @@ namespace smtfd {
             m_solver->assert_expr(fml);
         }
 
-        expr_ref fresh(sort* s) {
-            expr* e = nullptr;
-            if (!m_fresh.find(s, e)) {
-                e = m.mk_fresh_const(s->get_name(), s, false);
-                m_fresh.insert(s, e);
+        void register_value(expr* e) {
+            sort* s = m.get_sort(e);
+            obj_hashtable<expr>* values = nullptr;
+            if (!m_fresh.find(s, values)) {
+                values = alloc(obj_hashtable<expr>);
+                m_fresh.insert(s, values);
+                m_values.push_back(values);
+            }
+            if (!values->contains(e)) {
+                for (expr* b : *values) {
+                    m_context.add(m.mk_not(m.mk_eq(e, b)), __FUNCTION__);
+                }
+                values->insert(e);
                 m_fresh_trail.push_back(e);
             }
-            return expr_ref(e, m);
         }
 
+        // sort -> [ value -> expr ]
+        // for fixed value return expr
+        // new fixed value is distinct from other expr
         expr_ref replace_model_value(expr* e) {
-            if (m.is_model_value(e)) {                
-                expr_ref r = fresh(m.get_sort(e));
-                std::cout << expr_ref(e, m) << " |-> " << r << "\n";
+            if (m.is_model_value(e)) { 
+                register_value(e);
+                expr_ref r(e, m);
                 return r;
             }
             if (is_app(e) && to_app(e)->get_num_args() > 0) {
@@ -1467,7 +1483,7 @@ namespace smtfd {
                 else {
                     body = m.mk_implies(body, q);
                 }
-                IF_VERBOSE(1, verbose_stream() << body << "\n");
+                IF_VERBOSE(10, verbose_stream() << body << "\n");
                 m_context.add(body, __FUNCTION__);
             }
             m_solver->pop(1);
@@ -1543,7 +1559,7 @@ namespace smtfd {
                        });
             for (expr* c : core) {
                 lbool r = l_false;
-                IF_VERBOSE(1, verbose_stream() << "core: " << mk_bounded_pp(c, m, 2) << "\n");
+                IF_VERBOSE(10, verbose_stream() << "core: " << mk_bounded_pp(c, m, 2) << "\n");
                 if (is_forall(c)) {
                     r = check_forall(to_quantifier(c));
                 }
@@ -1742,12 +1758,13 @@ namespace smtfd {
                 }
             }
             m_context.populate_model(m_model, terms);
+
             TRACE("smtfd", 
                   tout << "axioms: " << m_axioms << "\n";
                   for (expr* a : subterms(terms)) {
                       expr_ref val0 = (*m_model)(a);
                       expr_ref val1 = (*m_model)(abs(a));
-                      if (val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                      if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
                           tout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
                       }
                       if (!is_forall(a) && !is_exists(a) && (!m_context.term_covered(a) || !m_context.sort_covered(m.get_sort(a)))) {
@@ -1758,6 +1775,18 @@ namespace smtfd {
                   tout << "has quantifier: " << has_q << "\n" << core << "\n";
                   tout << *m_model.get() << "\n";
                   );
+
+            for (expr* a : subterms(core)) {
+                expr_ref val0 = (*m_model)(a);
+                expr_ref val1 = (*m_model)(abs(a));
+                if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                    std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+                    std::cout << "core: " << core << "\n";
+                    std::cout << *m_model.get() << "\n";
+                    exit(0);
+                }
+            }
+
             if (!has_q) {
                 return is_decided;
             }
@@ -1797,6 +1826,9 @@ namespace smtfd {
                     
                 }
                 else if (m_model->is_true(a)) {
+                    //for (expr* t : subterms(expr_ref(a, m))) {
+                    //    std::cout << expr_ref(t, m) << " " << (*m_model.get())(t) << "\n";
+                    //}
                     asms.push_back(a);
                 }
                 else {
@@ -1811,8 +1843,8 @@ namespace smtfd {
             }
         }
 
-        expr* rep(expr* e) { return m_abs.rep(e);  }
-        expr* abs(expr* e) { return m_abs.abs(e);  }
+        expr* rep(expr* e) { return m_abs.rep(e); }
+        expr* abs(expr* e) { return m_abs.abs(e); }
         expr* abs_assumption(expr* e) { return m_abs.abs_assumption(e);  }
         expr_ref_vector& rep(expr_ref_vector& v) { for (unsigned i = v.size(); i-- > 0; ) v[i] = rep(v.get(i)); return v; }        
         expr_ref_vector& abs(expr_ref_vector& v) { for (unsigned i = v.size(); i-- > 0; ) v[i] = abs(v.get(i)); return v; }
@@ -1843,8 +1875,8 @@ namespace smtfd {
         solver(unsigned indent, ast_manager& m, params_ref const& p):
             solver_na2as(m),
             m(m),
-            m_indent(indent),
             m_abs(m),
+            m_indent(indent),
             m_context(m_abs, m),
             m_uf(m_context),
             m_ar(m_context),
@@ -1908,6 +1940,7 @@ namespace smtfd {
             for (expr* f : m_abs.atom_defs()) {
                 m_fd_sat_solver->assert_expr(f);
                 m_fd_core_solver->assert_expr(f);
+                // TBD we want these too: m_axioms.push_back(f);
             }
             m_abs.reset_atom_defs();
         }
