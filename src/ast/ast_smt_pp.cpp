@@ -33,6 +33,8 @@ Revision History:
 #include "ast/fpa_decl_plugin.h"
 #include "ast/for_each_ast.h"
 #include "ast/decl_collector.h"
+#include "math/polynomial/algebraic_numbers.h"
+
 
 // ---------------------------------------
 // smt_renaming
@@ -371,6 +373,12 @@ class smt_printer {
             else {
                 display_rational(val, is_int);
             }
+        }
+        else if (m_autil.is_irrational_algebraic_numeral(n)) {
+            anum const & aval = m_autil.to_irrational_algebraic_numeral(n);
+            std::ostringstream buffer;
+            m_autil.am().display_root_smt2(buffer, aval);            
+            m_out << buffer.str();
         }
         else if (m_sutil.str.is_string(n, s)) {
             std::string encs = s.encode();
