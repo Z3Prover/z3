@@ -4184,6 +4184,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, mk_and(r_items)), mgr);
+                    ctx.get_rewriter()(ax_strong);
                     assert_axiom(ax_strong);
                 } else {
                     assert_implication(ax_l, mk_and(r_items));
