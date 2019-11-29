@@ -210,7 +210,7 @@ protected:
                 else if (!n2) {
                     n2 = mk_fresh(id, m.get_sort(arg));
                     trail.push_back(n2);
-                    todo.push_back(expr_pos(self_pos, child_id++, i, arg));
+                    todo.push_back(expr_pos(self_pos, ++child_id, i, arg));
                     names.push_back(n2);
                     args.push_back(n2);
                 }
