@@ -1581,6 +1581,11 @@ br_status seq_rewriter::mk_str_in_regexp(expr* a, expr* b, expr_ref& result) {
         result = m().mk_true();
         return BR_DONE;
     }
+    expr* b1 = nullptr;
+    if (m_util.re.is_to_re(b, b1)) {
+        result = m().mk_eq(a, b1);
+        return BR_REWRITE1;
+    }
     scoped_ptr<eautomaton> aut;
     expr_ref_vector seq(m());
     if (!(aut = m_re2aut(b))) {
@@ -1694,6 +1699,10 @@ br_status seq_rewriter::mk_re_concat(expr* a, expr* b, expr_ref& result) {
         return BR_DONE;
     }
     expr* a1 = nullptr, *b1 = nullptr;
+    if (m_util.re.is_to_re(a, a1) && m_util.re.is_to_re(b, b1)) {
+        result = m_util.re.mk_to_re(m_util.str.mk_concat(a1, b1));
+        return BR_REWRITE2;
+    }
     if (m_util.re.is_star(a, a1) && m_util.re.is_star(b, b1) && a1 == b1) {
         result = a;
         return BR_DONE;
