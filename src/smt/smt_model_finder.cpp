@@ -739,7 +739,7 @@ namespace smt {
                     }
                     // TBD: add support for the else of bitvectors.
                     // Idea: get the term t with the minimal interpretation and use t - 1.
-                }
+                } 
                 n->set_else((*(elems.begin())).m_key);
             }
 
@@ -881,7 +881,6 @@ namespace smt {
             }
 
             void mk_simple_proj(node * n) {
-                TRACE("model_finder", n->display(tout, m););
                 set_projection_else(n);
                 ptr_buffer<expr> values;
                 get_instantiation_set_values(n, values);
@@ -897,6 +896,7 @@ namespace smt {
                     pi->insert_new_entry(&v, v);
                 }
                 n->set_proj(p);
+                TRACE("model_finder", n->display(tout << p->get_name() << "\n", m););
             }
 
             void mk_projections() {

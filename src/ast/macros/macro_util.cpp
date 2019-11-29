@@ -175,15 +175,14 @@ bool macro_util::is_macro_head(expr * n, unsigned num_decls) const {
 
 */
 bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const {
-    if (m_manager.is_eq(n)) {
-        expr * lhs = to_app(n)->get_arg(0);
-        expr * rhs = to_app(n)->get_arg(1);
-        if (is_macro_head(lhs, num_decls) && !is_forbidden(to_app(lhs)->get_decl()) &&
-            !occurs(to_app(lhs)->get_decl(), rhs)) {
-            head = to_app(lhs);
-            def  = rhs;
-            return true;
-        }
+    expr * lhs = nullptr, * rhs = nullptr;
+    if (m_manager.is_eq(n, lhs, rhs) && 
+        is_macro_head(lhs, num_decls) && 
+        !is_forbidden(to_app(lhs)->get_decl()) &&
+        !occurs(to_app(lhs)->get_decl(), rhs)) {
+        head = to_app(lhs);
+        def  = rhs;
+        return true;
     }
     return false;
 }
@@ -207,15 +206,14 @@ bool macro_util::is_left_simple_macro(expr * n, unsigned num_decls, app_ref & he
 
 */
 bool macro_util::is_right_simple_macro(expr * n, unsigned num_decls, app_ref & head, expr_ref & def) const {
-    if (m_manager.is_eq(n)) {
-        expr * lhs = to_app(n)->get_arg(0);
-        expr * rhs = to_app(n)->get_arg(1);
-        if (is_macro_head(rhs, num_decls) && !is_forbidden(to_app(rhs)->get_decl()) &&
-            !occurs(to_app(rhs)->get_decl(), lhs)) {
-            head = to_app(rhs);
-            def  = lhs;
-            return true;
-        }
+    expr * lhs = nullptr, * rhs = nullptr;
+    if (m_manager.is_eq(n, lhs, rhs) &&
+        is_macro_head(rhs, num_decls) && 
+        !is_forbidden(to_app(rhs)->get_decl()) &&
+        !occurs(to_app(rhs)->get_decl(), lhs)) {
+        head = to_app(rhs);
+        def  = lhs;
+        return true;
     }
     return false;
 }
@@ -304,10 +302,9 @@ bool macro_util::is_arith_macro(expr * n, unsigned num_decls, app_ref & head, ex
    \brief Auxiliary function for is_pseudo_predicate_macro. It detects the pattern (= (f X) t)
 */
 bool macro_util::is_pseudo_head(expr * n, unsigned num_decls, app_ref & head, app_ref & t) {
-    if (!m_manager.is_eq(n))
+    expr* lhs = nullptr, *rhs = nullptr;
+    if (!m_manager.is_eq(n, lhs, rhs))
         return false;
-    expr * lhs = to_app(n)->get_arg(0);
-    expr * rhs = to_app(n)->get_arg(1);
     if (!is_ground(lhs) && !is_ground(rhs))
         return false;
     sort * s = m_manager.get_sort(lhs);
@@ -675,6 +672,7 @@ void macro_util::insert_macro(app * head, unsigned num_decls, expr * def, expr *
 
 void macro_util::insert_quasi_macro(app * head, unsigned num_decls, expr * def, expr * cond, bool ineq, bool satisfy_atom,
                                     bool hint, macro_candidates & r) {
+    TRACE("macro_util", tout << expr_ref(head, m_manager) << "\n";);
     if (!is_macro_head(head, head->get_num_args())) {
         app_ref  new_head(m_manager);
         expr_ref extra_cond(m_manager);
@@ -874,7 +872,7 @@ void macro_util::collect_macro_candidates_core(expr * atom, unsigned num_decls, 
 
     TRACE("macro_util", tout << "Candidate check for: " << mk_ismt2_pp(atom, m_manager) << std::endl;);
 
-    if (m_manager.is_eq(atom, lhs, rhs) || m_manager.is_iff(atom, lhs, rhs)) {
+    if (m_manager.is_eq(atom, lhs, rhs)) {
         if (is_quasi_macro_head(lhs, num_decls) &&
             !is_forbidden(to_app(lhs)->get_decl()) &&
             !occurs(to_app(lhs)->get_decl(), rhs) &&
