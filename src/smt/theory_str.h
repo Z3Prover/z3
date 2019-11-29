@@ -489,6 +489,8 @@ protected:
     void assert_axiom(expr * e);
     void assert_implication(expr * premise, expr * conclusion);
     expr * rewrite_implication(expr * premise, expr * conclusion);
+    // Use the rewriter to simplify an axiom, then assert it.
+    void assert_axiom_rw(expr * e);
 
     expr * mk_string(zstring const& str);
     expr * mk_string(const char * str);

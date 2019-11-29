@@ -225,7 +225,16 @@ namespace smt {
         m_trail.push_back(e);
 
         //TRACE("str", tout << "done asserting " << mk_ismt2_pp(e, get_manager()) << std::endl;);
+    }
 
+    void theory_str::assert_axiom_rw(expr * e) {
+        if (e == nullptr)
+            return;
+        context & ctx = get_context();
+        ast_manager & m = get_manager();
+        expr_ref _e(e, m);
+        ctx.get_rewriter()(_e);
+        assert_axiom(_e);
     }
 
     expr * theory_str::rewrite_implication(expr * premise, expr * conclusion) {
@@ -3419,7 +3428,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
@@ -3482,7 +3491,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
@@ -3993,7 +4002,7 @@ namespace smt {
                 if (m_params.m_StrongArrangements) {
                     expr_ref implyLHS(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
                     expr_ref ax_strong(ctx.mk_eq_atom(implyLHS, implyR), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                 }
@@ -4184,8 +4193,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, mk_and(r_items)), mgr);
-                    ctx.get_rewriter()(ax_strong);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, mk_and(r_items));
                 }
@@ -4243,7 +4251,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ax_l, ax_r);
                     }
@@ -4357,7 +4365,7 @@ namespace smt {
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_lhs(ctx.mk_eq_atom(concatAst1, concatAst2), mgr);
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_lhs, implyR), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                 }
@@ -4436,7 +4444,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(n, tmpAst), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4448,7 +4456,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4461,7 +4469,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(y, tmpAst), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4536,7 +4544,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(m, x_deltaStr), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4547,7 +4555,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(x, m), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4559,7 +4567,7 @@ namespace smt {
                     expr_ref implyR(ctx.mk_eq_atom(x, m_deltaStr), mgr);
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
                     }
@@ -4799,7 +4807,7 @@ namespace smt {
 
         if (m_params.m_StrongArrangements) {
             expr_ref ax_strong(ctx.mk_eq_atom( ctx.mk_eq_atom(concatAst1, concatAst2), implyR ), mgr);
-            assert_axiom(ax_strong);
+            assert_axiom_rw(ax_strong);
         } else {
             assert_implication(ctx.mk_eq_atom(concatAst1, concatAst2), implyR);
         }
