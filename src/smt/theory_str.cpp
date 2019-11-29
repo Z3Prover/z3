@@ -7748,10 +7748,6 @@ namespace smt {
             set_up_axioms(ex);
         }
 
-        // this might be cheating but we need to make sure that certain maps are populated
-        // before the first call to new_eq_eh()
-        propagate();
-
         TRACE("str", tout << "search started" << std::endl;);
         search_started = true;
     }
