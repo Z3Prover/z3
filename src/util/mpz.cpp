@@ -1788,8 +1788,8 @@ void mpz_manager<SYNCH>::display_hex(std::ostream & out, mpz const & a, unsigned
 }
 
 void display_binary_data(std::ostream &out, unsigned val, unsigned numBits) {
-    SASSERT(numBits <= sizeof(unsigned)*8);
-    for (int shift = numBits-1; shift >= 0; --shift) {
+	for (unsigned shift = numBits; shift-- > 32; ) out << "0";
+    for (unsigned shift = std::min(32u, numBits); shift-- > 0; ) {
         if (val & (1 << shift)) {
             out << "1";
         } else {
