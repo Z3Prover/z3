@@ -46,100 +46,6 @@ namespace jlcxx
     template<> struct SuperType<func_decl>    { typedef ast type; };
 }
 
-JLCXX_MODULE define_context(jlcxx::TypeWrapper<context> &c)
-{
-    c.constructor<config &>();
-    c.method("set", static_cast<void (context::*)(char const *, char const *)>(&context::set));
-    c.method("set", static_cast<void (context::*)(char const *, bool)>(&context::set));
-    c.method("set", static_cast<void (context::*)(char const *, int)>(&context::set));
-
-    c.MM(context, interrupt);
-
-    c.MM(context, str_symbol);
-    c.MM(context, int_symbol);
-    c.MM(context, bool_sort);
-    c.MM(context, int_sort);
-    c.MM(context, real_sort);
-    c.MM(context, bv_sort);
-    c.MM(context, string_sort);
-    c.MM(context, seq_sort);
-    c.MM(context, re_sort);
-    c.method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort));
-    c.method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort));
-    c.method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort));
-    //  template<size_t precision>
-    //  sort fpa_sort();
-    c.MM(context, fpa_rounding_mode);
-    c.MM(context, set_rounding_mode);
-    // c.MM(context, enumeration_sort);
-    // c.MM(context, tuple_sort);
-    c.method("uninterpreted_sort", static_cast<sort (context::*)(char const*)>(&context::uninterpreted_sort));
-    c.method("uninterpreted_sort", static_cast<sort (context::*)(symbol const&)>(&context::uninterpreted_sort));
-
-    c.method("func", static_cast<func_decl (context::*)(symbol const &, unsigned, sort const *, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, unsigned, sort const *, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(symbol const &, sort_vector const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort_vector const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &, sort const &)>(&context::function));
-    c.method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &, sort const &, sort const &)>(&context::function));
-
-    c.method("recfun", static_cast<func_decl (context::*)(symbol const &, unsigned, sort const *, sort const &)>(&context::recfun));
-    c.method("recfun", static_cast<func_decl (context::*)(char const *, unsigned, sort const *, sort const &)>(&context::recfun));
-    c.method("recfun", static_cast<func_decl (context::*)(char const *, sort const &, sort const &)>(&context::recfun));
-    c.method("recfun", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &)>(&context::recfun));
-
-    c.MM(context, recdef);
-
-    c.method("constant", static_cast<expr (context::*)(symbol const &, sort const &)>(&context::constant));
-    c.method("constant", static_cast<expr (context::*)(char const *, sort const &)>(&context::constant));
-    c.MM(context, bool_const);
-    c.MM(context, int_const);
-    c.MM(context, real_const);
-    c.MM(context, bv_const);
-    c.method("fpa_const", static_cast<expr (context::*)(char const *, unsigned, unsigned)>(&context::fpa_const));
-    // template<size_t precision>
-    // expr fpa_const(char const * name);
-
-    c.MM(context, bool_val);
-
-    c.method("int_val", static_cast<expr (context::*)(int)>(&context::int_val));
-    c.method("int_val", static_cast<expr (context::*)(unsigned)>(&context::int_val));
-    c.method("int_val", static_cast<expr (context::*)(int64_t)>(&context::int_val));
-    c.method("int_val", static_cast<expr (context::*)(uint64_t)>(&context::int_val));
-    c.method("int_val", static_cast<expr (context::*)(char const *)>(&context::int_val));
-
-    c.method("real_val", static_cast<expr (context::*)(int, int)>(&context::real_val));
-    c.method("real_val", static_cast<expr (context::*)(int)>(&context::real_val));
-    c.method("real_val", static_cast<expr (context::*)(unsigned)>(&context::real_val));
-    c.method("real_val", static_cast<expr (context::*)(int64_t)>(&context::real_val));
-    c.method("real_val", static_cast<expr (context::*)(uint64_t)>(&context::real_val));
-    c.method("real_val", static_cast<expr (context::*)(char const *)>(&context::real_val));
-
-    c.method("bv_val", static_cast<expr (context::*)(int, unsigned)>(&context::bv_val));
-    c.method("bv_val", static_cast<expr (context::*)(unsigned, unsigned)>(&context::bv_val));
-    c.method("bv_val", static_cast<expr (context::*)(int64_t, unsigned)>(&context::bv_val));
-    c.method("bv_val", static_cast<expr (context::*)(uint64_t, unsigned)>(&context::bv_val));
-    c.method("bv_val", static_cast<expr (context::*)(char const *, unsigned)>(&context::bv_val));
-    c.method("bv_val", static_cast<expr (context::*)(unsigned, bool const *)>(&context::bv_val));
-
-    c.method("fpa_val", static_cast<expr (context::*)(double)>(&context::fpa_val));
-    c.method("fpa_val", static_cast<expr (context::*)(float)>(&context::fpa_val));
-
-    // c.method("string_val", static_cast<expr (context::*)(char const*)>(&context::string_val));
-    c.method("string_val", static_cast<expr (context::*)(char const*, unsigned)>(&context::string_val));
-    c.method("string_val", static_cast<expr (context::*)(std::string const&)>(&context::string_val));
-
-    c.MM(context, num_val);
-
-    c.method("parse_string", static_cast<expr_vector (context::*)(char const*)>(&context::parse_string));
-    c.method("parse_string", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_string));
-    c.method("parse_file", static_cast<expr_vector (context::*)(char const*)>(&context::parse_file));
-    c.method("parse_file", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_file));;
-}
-
 JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 {
     m.add_bits<rounding_mode>("RoundingMode", jlcxx::julia_type("CppEnum"));
@@ -149,17 +55,113 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.set_const("RTN", RTN);
     m.set_const("RTZ", RTZ);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<config>("Config")
         .method("set", static_cast<void (config::*)(char const *, char const *)>(&config::set))
         .method("set", static_cast<void (config::*)(char const *, bool)>(&config::set))
         .method("set", static_cast<void (config::*)(char const *, int)>(&config::set));
 
-    jlcxx::TypeWrapper<context> t = m.add_type<context>("Context");
-    define_context(t);
+    // -------------------------------------------------------------------------
+
+    m.add_type<context>("Context")
+        .constructor<config &>()
+        .method("set", static_cast<void (context::*)(char const *, char const *)>(&context::set))
+        .method("set", static_cast<void (context::*)(char const *, bool)>(&context::set))
+        .method("set", static_cast<void (context::*)(char const *, int)>(&context::set))
+        //
+        .MM(context, interrupt)
+        //
+        .MM(context, str_symbol)
+        .MM(context, int_symbol)
+        .MM(context, bool_sort)
+        .MM(context, int_sort)
+        .MM(context, real_sort)
+        .MM(context, bv_sort)
+        .MM(context, string_sort)
+        .MM(context, seq_sort)
+        .MM(context, re_sort)
+        .method("array_sort", static_cast<sort (context::*)(sort, sort)>(&context::array_sort))
+        .method("array_sort", static_cast<sort (context::*)(sort_vector const&, sort)>(&context::array_sort))
+        .method("fpa_sort", static_cast<sort (context::*)(unsigned, unsigned)>(&context::fpa_sort))
+        //  template<size_t precision>
+        //  sort fpa_sort();
+        .MM(context, fpa_rounding_mode)
+        .MM(context, set_rounding_mode)
+        // .MM(context, enumeration_sort)
+        // .MM(context, tuple_sort)
+        .method("uninterpreted_sort", static_cast<sort (context::*)(char const*)>(&context::uninterpreted_sort))
+        .method("uninterpreted_sort", static_cast<sort (context::*)(symbol const&)>(&context::uninterpreted_sort))
+        //
+        .method("func", static_cast<func_decl (context::*)(symbol const &, unsigned, sort const *, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, unsigned, sort const *, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(symbol const &, sort_vector const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort_vector const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &, sort const &)>(&context::function))
+        .method("func", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &, sort const &, sort const &, sort const &)>(&context::function))
+        //
+        .method("recfun", static_cast<func_decl (context::*)(symbol const &, unsigned, sort const *, sort const &)>(&context::recfun))
+        .method("recfun", static_cast<func_decl (context::*)(char const *, unsigned, sort const *, sort const &)>(&context::recfun))
+        .method("recfun", static_cast<func_decl (context::*)(char const *, sort const &, sort const &)>(&context::recfun))
+        .method("recfun", static_cast<func_decl (context::*)(char const *, sort const &, sort const &, sort const &)>(&context::recfun))
+        //
+        .MM(context, recdef)
+        //
+        .method("constant", static_cast<expr (context::*)(symbol const &, sort const &)>(&context::constant))
+        .method("constant", static_cast<expr (context::*)(char const *, sort const &)>(&context::constant))
+        .MM(context, bool_const)
+        .MM(context, int_const)
+        .MM(context, real_const)
+        .MM(context, bv_const)
+        .method("fpa_const", static_cast<expr (context::*)(char const *, unsigned, unsigned)>(&context::fpa_const))
+        // template<size_t precision>
+        // expr fpa_const(char const * name);
+        //
+        .MM(context, bool_val)
+        //
+        .method("int_val", static_cast<expr (context::*)(int)>(&context::int_val))
+        .method("int_val", static_cast<expr (context::*)(unsigned)>(&context::int_val))
+        .method("int_val", static_cast<expr (context::*)(int64_t)>(&context::int_val))
+        .method("int_val", static_cast<expr (context::*)(uint64_t)>(&context::int_val))
+        .method("int_val", static_cast<expr (context::*)(char const *)>(&context::int_val))
+        //
+        .method("real_val", static_cast<expr (context::*)(int, int)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(int)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(unsigned)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(int64_t)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(uint64_t)>(&context::real_val))
+        .method("real_val", static_cast<expr (context::*)(char const *)>(&context::real_val))
+        //
+        .method("bv_val", static_cast<expr (context::*)(int, unsigned)>(&context::bv_val))
+        .method("bv_val", static_cast<expr (context::*)(unsigned, unsigned)>(&context::bv_val))
+        .method("bv_val", static_cast<expr (context::*)(int64_t, unsigned)>(&context::bv_val))
+        .method("bv_val", static_cast<expr (context::*)(uint64_t, unsigned)>(&context::bv_val))
+        .method("bv_val", static_cast<expr (context::*)(char const *, unsigned)>(&context::bv_val))
+        .method("bv_val", static_cast<expr (context::*)(unsigned, bool const *)>(&context::bv_val))
+        //
+        .method("fpa_val", static_cast<expr (context::*)(double)>(&context::fpa_val))
+        .method("fpa_val", static_cast<expr (context::*)(float)>(&context::fpa_val))        
+        //
+        .method("string_val", static_cast<expr (context::*)(char const*, unsigned)>(&context::string_val))
+        .method("string_val", static_cast<expr (context::*)(std::string const&)>(&context::string_val))
+        //
+        .MM(context, num_val)
+        //
+        .method("parse_string", static_cast<expr_vector (context::*)(char const*)>(&context::parse_string))
+        .method("parse_string", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_string))
+        .method("parse_file", static_cast<expr_vector (context::*)(char const*)>(&context::parse_file))
+        .method("parse_file", static_cast<expr_vector (context::*)(char const*, sort_vector const&, func_decl_vector const&)>(&context::parse_file));
+
+    // -------------------------------------------------------------------------
 
     m.add_type<object>("Object")
         .constructor<context &>()
         .MM(object, ctx);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<ast>("Ast", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -167,6 +169,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("string", &ast::to_string);
 
     m.method("isequal", &eq);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<sort>("Sort", jlcxx::julia_type<ast>())
         .constructor<context &>()
@@ -190,6 +194,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(sort, array_domain)
         .MM(sort, array_range);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<func_decl>("FuncDecl", jlcxx::julia_type<ast>())
         .constructor<context &>()
         .MM(func_decl, id)
@@ -209,6 +215,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method(static_cast<expr (func_decl::*)(expr const &, expr const &, expr const &) const>(&func_decl::operator()))
         .method(static_cast<expr (func_decl::*)(expr const &, expr const &, expr const &, expr const &) const>(&func_decl::operator()))
         .method(static_cast<expr (func_decl::*)(expr const &, expr const &, expr const &, expr const &, expr const &) const>(&func_decl::operator()));
+
+    // -------------------------------------------------------------------------
 
     m.add_type<expr>("Expr", jlcxx::julia_type<ast>())
         .constructor<context &>()
@@ -271,6 +279,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.method("fma", static_cast<expr (*)(expr const &, expr const &, expr const &, expr const &)>(&fma));
     m.method("range", &range);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<jlcxx::Parametric<jlcxx::TypeVar<1>>>("AstVectorTpl")
         .apply<ast_vector_tpl<ast>, ast_vector_tpl<expr>, ast_vector_tpl<sort>, ast_vector_tpl<func_decl>>(
             [](auto wrapped) {
@@ -281,6 +291,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
                 wrapped.method("push!", &WrappedT::push_back);
                 wrapped.STRING(WrappedT);
             });
+
+    // -------------------------------------------------------------------------
 
     m.add_type<model>("Model", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -298,10 +310,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .GETINDEX(model)
         .STRING(model);
 
+    // -------------------------------------------------------------------------
+
     m.add_bits<check_result>("CheckResult", jlcxx::julia_type("CppEnum"));
     m.set_const("unsat", unsat);
     m.set_const("sat", sat);
     m.set_const("unknown", unknown);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<solver>("Solver", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -343,9 +359,13 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         // .method("cubes", static_cast<cube_generator (solver::*)(expr_vector &)>(&solver::cubes))
         .STRING(solver);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<symbol>("Symbol", jlcxx::julia_type<object>())
         .MM(symbol, to_int)
         .method("string", &symbol::str);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<params>("Params", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -355,12 +375,16 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("set", static_cast<void (params::*)(char const *, symbol const &)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, char const *)>(&params::set))
         .STRING(params);
+
+    // -------------------------------------------------------------------------
     
     m.add_type<param_descrs>("ParamDescrs", jlcxx::julia_type<object>())
         .MM(param_descrs, size)
         .MM(param_descrs, name)
         .MM(param_descrs, documentation)
         .method("string", &param_descrs::to_string);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<goal>("Goal", jlcxx::julia_type<object>())
         .method("add", static_cast<void (goal::*)(expr const &)>(&goal::add))
@@ -380,6 +404,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(goal, dimacs)
         .STRING(goal);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<tactic>("Tactic", jlcxx::julia_type<object>())
         .constructor<context &, char const *>()
         .method(&tactic::operator())
@@ -387,6 +413,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(tactic, apply)
         .MM(tactic, help)
         .MM(tactic, get_param_descrs);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<probe>("Probe", jlcxx::julia_type<object>())
         .constructor<context &, char const *>()
@@ -396,6 +424,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     // TODO: Friends of z3::probe
 
+    // -------------------------------------------------------------------------
+
     m.add_type<func_interp>("FuncInterp", jlcxx::julia_type<object>())
         .MM(func_interp, else_value)
         .MM(func_interp, num_entries)
@@ -403,10 +433,14 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(func_interp, add_entry)
         .MM(func_interp, set_else);
 
+    // -------------------------------------------------------------------------
+
     m.add_type<func_entry>("FuncEntry", jlcxx::julia_type<object>())
         .MM(func_entry, value)
         .MM(func_entry, num_args)
         .MM(func_entry, arg);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<stats>("Stats", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -416,6 +450,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(stats, is_double)
         .MM(stats, uint_value)
         .MM(stats, double_value);
+
+    // -------------------------------------------------------------------------
 
     m.add_type<apply_result>("ApplyResult", jlcxx::julia_type<object>())
         .GETINDEX(apply_result)
