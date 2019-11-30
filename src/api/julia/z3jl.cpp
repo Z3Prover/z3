@@ -3,30 +3,29 @@
 
 using namespace z3;
 
-#define EXPR_OPCALL(MOD, OP, TYPE) EXPR_NAMED_OPCALL(MOD, OP, OP, TYPE)
-#define EXPR_NAMED_OPCALL(MOD, FNAME, OP, TYPE)                              \
-    MOD.method(#FNAME, [](const expr &a, const expr &b) { return a OP b; }); \
-    MOD.method(#FNAME, [](const expr &a, TYPE b) { return a OP b; });        \
-    MOD.method(#FNAME, [](TYPE a, const expr &b) { return a OP b; });
-#define EXPR_FNCALL(MOD, FNAME, F, TYPE)                                      \
-    MOD.method(#FNAME, [](const expr &a, const expr &b) { return F(a, b); }); \
-    MOD.method(#FNAME, [](const expr &a, TYPE b) { return F(a, b); });        \
-    MOD.method(#FNAME, [](TYPE a, const expr &b) { return F(a, b); });
-
-#define STRING(TYPE)               \
-    method("string", [](TYPE x) {  \
-        std::ostringstream stream; \
-        stream << x;               \
-        return stream.str();       \
-    })
-
 #define MM(CLASS, FUNC) method(#FUNC, &CLASS::FUNC)
+
+#define BINARY_OP(TYPE, FNAME, OP) \
+    method(#FNAME, [](const TYPE &a, const TYPE &b) { return a OP b; })
+#define UNARY_OP(TYPE, FNAME, OP) \
+    method(#FNAME, [](const TYPE &a) { return OP a; })
+#define BINARY_FN(TYPE, FNAME, FN) \
+    method(#FNAME, static_cast<expr (*)(const TYPE &, const TYPE &)>(&FN))
+
+#define GETINDEX(TYPE) \
+    method("getindex", [](const TYPE &x, int i) { return x[i - 1]; })
+
+#define STRING(TYPE)                     \
+    method("string", [](const TYPE &x) { \
+        std::ostringstream stream;       \
+        stream << x;                     \
+        return stream.str();             \
+    })
 
 namespace jlcxx
 {
-    template<> struct IsBits<check_result> : std::true_type {};
+    template<> struct IsBits<check_result>  : std::true_type {};
     template<> struct IsBits<rounding_mode> : std::true_type {};
-    // template<> struct jlcxx::IsBits<Z3_error_code> : std::true_type {};
 
     template<> struct SuperType<solver>       { typedef object type; };
     template<> struct SuperType<goal>         { typedef object type; };
@@ -161,7 +160,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.add_type<object>("Object")
         .constructor<context &>()
         .MM(object, ctx);
-    // MM(object, check_error);
 
     m.add_type<ast>("Ast", jlcxx::julia_type<object>())
         .constructor<context &>()
@@ -229,32 +227,32 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     // Friends of expr
     m.method("mk_or", &mk_or);
     m.method("mk_and", &mk_and);
-    m.method("not", [](const expr &a) { return !a; });
-    EXPR_FNCALL(m, implies, implies, bool)
+    m.UNARY_OP(expr, not, !);
+    m.BINARY_FN(expr, implies, implies);
     m.method("distinct", &distinct);
     m.method("concat", static_cast<expr (*)(expr const &, expr const &)>(&concat));
     m.method("concat", static_cast<expr (*)(expr_vector const &)>(&concat));
 
-    EXPR_OPCALL(m, +, int)
-    EXPR_OPCALL(m, -, int)
-    m.method("-", [](const expr &a) { return -a; });
-    EXPR_OPCALL(m, *, int)
-    EXPR_OPCALL(m, /, int)
-    EXPR_FNCALL(m, ^, pw, int)
-    EXPR_FNCALL(m, mod, mod, int)
-    EXPR_FNCALL(m, rem, rem, int)
+    m.BINARY_OP(expr, +, +);
+    m.BINARY_OP(expr, -, -);
+    m.UNARY_OP(expr, -, -);
+    m.BINARY_OP(expr, *, *);
+    m.BINARY_OP(expr, /, /);
+    m.BINARY_FN(expr, ^, pw);
+    m.BINARY_FN(expr, mod, mod);
+    m.BINARY_FN(expr, rem, rem);
 
-    EXPR_OPCALL(m, ==, int)
-    EXPR_OPCALL(m, !=, int)
-    EXPR_OPCALL(m, <=, int)
-    EXPR_OPCALL(m, >=, int)
-    EXPR_OPCALL(m, <, int)
-    EXPR_OPCALL(m, >, int)
+    m.BINARY_OP(expr, &, &);
+    m.BINARY_OP(expr, |, |);
+    m.BINARY_OP(expr, xor, ^);
+    m.UNARY_OP(expr, ~, ~);
 
-    EXPR_OPCALL(m, &, int)
-    EXPR_OPCALL(m, |, int)
-    EXPR_NAMED_OPCALL(m, xor, ^, int)
-    m.method("~", [](const expr &a) { return ~a; });
+    m.BINARY_OP(expr, ==, ==);
+    m.BINARY_OP(expr, !=, !=);
+    m.BINARY_OP(expr, <=, <=);
+    m.BINARY_OP(expr, >=, >=);
+    m.BINARY_OP(expr, <, <);
+    m.BINARY_OP(expr, >, >);
 
     m.method("ite", &ite);
     m.method("sum", &sum);
@@ -279,9 +277,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
                 typedef typename decltype(wrapped)::type WrappedT;
                 wrapped.template constructor<context &>();
                 wrapped.method("length", &WrappedT::size);
-                wrapped.method("getindex", [](const WrappedT &m, int i) { return m[i - 1]; });
+                wrapped.GETINDEX(WrappedT);
                 wrapped.method("push!", &WrappedT::push_back);
-                wrapped.STRING(const WrappedT &);
+                wrapped.STRING(WrappedT);
             });
 
     m.add_type<model>("Model", jlcxx::julia_type<object>())
@@ -297,8 +295,8 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(model, add_func_interp)
         .MM(model, add_const_interp)
         .method("__eval", &model::eval)
-        .method("getindex", [](const model &m, int i) { return m[i - 1]; })
-        .STRING(const model &);
+        .GETINDEX(model)
+        .STRING(model);
 
     m.add_bits<check_result>("CheckResult", jlcxx::julia_type("CppEnum"));
     m.set_const("unsat", unsat);
@@ -343,7 +341,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(solver, cube)
         // .method("cubes", static_cast<cube_generator (solver::*)()>(&solver::cubes))
         // .method("cubes", static_cast<cube_generator (solver::*)(expr_vector &)>(&solver::cubes))
-        .STRING(const solver &);
+        .STRING(solver);
 
     m.add_type<symbol>("Symbol", jlcxx::julia_type<object>())
         .MM(symbol, to_int)
@@ -356,7 +354,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method("set", static_cast<void (params::*)(char const *, double)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, symbol const &)>(&params::set))
         .method("set", static_cast<void (params::*)(char const *, char const *)>(&params::set))
-        .STRING(const params &);
+        .STRING(params);
     
     m.add_type<param_descrs>("ParamDescrs", jlcxx::julia_type<object>())
         .MM(param_descrs, size)
@@ -367,7 +365,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.add_type<goal>("Goal", jlcxx::julia_type<object>())
         .method("add", static_cast<void (goal::*)(expr const &)>(&goal::add))
         .method("add", static_cast<void (goal::*)(expr_vector const &)>(&goal::add))
-        .method("getindex", [](const goal &g, int i) { return g[i - 1]; })
+        .GETINDEX(goal)
         .MM(goal, size)
         // .MM(goal, precision)
         .MM(goal, inconsistent)
@@ -380,7 +378,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(goal, get_model)
         .MM(goal, as_expr)
         .MM(goal, dimacs)
-        .STRING(const goal &);
+        .STRING(goal);
 
     m.add_type<tactic>("Tactic", jlcxx::julia_type<object>())
         .constructor<context &, char const *>()
@@ -420,6 +418,6 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(stats, double_value);
 
     m.add_type<apply_result>("ApplyResult", jlcxx::julia_type<object>())
-        .method("getindex", [](const apply_result &r, int i) { return r[i - 1]; })
+        .GETINDEX(apply_result)
         .MM(apply_result, size);
 }
