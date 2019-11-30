@@ -232,7 +232,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(expr, id)
         .MM(expr, is_true);
 
-    // Friends of expr
+    // Friends of z3::expr
     m.method("mk_or", &mk_or);
     m.method("mk_and", &mk_and);
     m.UNARY_OP(expr, not, !);
@@ -414,6 +414,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .MM(tactic, help)
         .MM(tactic, get_param_descrs);
 
+    // Friends of z3::tactic
+    m.BINARY_OP(tactic, &, &);
+    m.BINARY_OP(tactic, |, |);
+    m.method("repeat", &repeat);
+    m.method("with", &with);
+    m.method("try_for", &try_for);
+    m.method("par_or", &par_or);
+    m.method("par_and_then", &par_and_then);
+
     // -------------------------------------------------------------------------
 
     m.add_type<probe>("Probe", jlcxx::julia_type<object>())
@@ -422,7 +431,15 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
         .method(&probe::operator())
         .MM(probe, apply);
 
-    // TODO: Friends of z3::probe
+    // Friends of z3::probe
+    m.BINARY_OP(probe, ==, ==);
+    m.BINARY_OP(probe, <=, <=);
+    m.BINARY_OP(probe, >=, >=);
+    m.BINARY_OP(probe, <, <);
+    m.BINARY_OP(probe, >, >);
+    m.BINARY_OP(probe, and, &&);
+    m.BINARY_OP(probe, or, ||);
+    m.UNARY_OP(probe, not, !);
 
     // -------------------------------------------------------------------------
 
