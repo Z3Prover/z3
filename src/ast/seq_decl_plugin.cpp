@@ -365,11 +365,13 @@ seq_decl_plugin::seq_decl_plugin(): m_init(false),
                                     m_string(nullptr),
                                     m_char(nullptr),
                                     m_re(nullptr),
-                                    m_has_re(false) {}
+                                    m_has_re(false),
+                                    m_has_seq(false) {}
 
 void seq_decl_plugin::finalize() {
-    for (unsigned i = 0; i < m_sigs.size(); ++i)
-        dealloc(m_sigs[i]);
+    for (psig* s : m_sigs) {
+        dealloc(s);
+    }
     m_manager->dec_ref(m_string);
     m_manager->dec_ref(m_char);
     m_manager->dec_ref(m_re);
@@ -518,7 +520,7 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
 
 
 void seq_decl_plugin::init() {
-    if(m_init) return;
+    if (m_init) return;
     ast_manager& m = *m_manager;
     m_init = true;
     sort* A = m.mk_uninterpreted_sort(symbol((unsigned)0));
@@ -674,6 +676,7 @@ func_decl* seq_decl_plugin::mk_assoc_fun(decl_kind k, unsigned arity, sort* cons
 func_decl * seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, parameter const * parameters,
                                           unsigned arity, sort * const * domain, sort * range) {
     init();
+    m_has_seq = true;
     ast_manager& m = *m_manager;
     sort_ref rng(m);
     switch(k) {
