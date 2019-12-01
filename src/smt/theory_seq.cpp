@@ -1895,7 +1895,8 @@ bool theory_seq::check_length_coherence0(expr* e) {
             r = assume_equality(e, emp);
             expr* t;
             unsigned idx;
-            if (r != l_true && is_tail(e, t, idx) && idx > m_max_unfolding_depth) {
+            if (r != l_true && is_tail(e, t, idx) && 
+                idx > m_max_unfolding_depth && m_max_unfolding_lit != null_literal) {
                 TRACE("seq", tout << "limit unfolding " << m_max_unfolding_depth << " " << mk_pp(e, m) << "\n";);
                 add_axiom(~m_max_unfolding_lit, mk_eq(e, emp, false)); 
             }
@@ -5449,7 +5450,7 @@ void theory_seq::add_at_axiom(expr* e) {
         expr_ref_vector es(m);
         expr_ref nth(m);
         unsigned k = iv.get_unsigned();
-        if (k > m_max_unfolding_depth) {
+        if (k > m_max_unfolding_depth && m_max_unfolding_lit != null_literal) {
             add_axiom(~m_max_unfolding_lit, i_ge_len_s);
         }
         else {
