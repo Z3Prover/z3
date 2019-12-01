@@ -385,7 +385,6 @@ namespace smtfd {
             m_lemmas(m), 
             m_rewriter(m)
         {
-            (void)m;
         }
 
         void set_max_lemmas(unsigned max) {            
@@ -398,7 +397,7 @@ namespace smtfd {
 
         void add(expr* f, char const* msg) { m_lemmas.push_back(f); TRACE("smtfd", tout << msg << " " << mk_bounded_pp(f, m, 2) << "\n";); }
 
-        ast_manager& get_manager() { return m_lemmas.get_manager(); }
+        ast_manager& get_manager() { return m; }
 
         bool at_max() const { return m_lemmas.size() >= m_max_lemmas; }
 

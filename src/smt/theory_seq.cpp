@@ -3215,7 +3215,6 @@ bool theory_seq::branch_nqs() {
 }
 
 void theory_seq::branch_nq(ne const& n) {
-    context& ctx = get_context();
     literal eq = mk_eq(n.l(), n.r(), false);
     literal eq_len = mk_eq(mk_len(n.l()), mk_len(n.r()), false);
     literal len_gt = mk_literal(m_autil.mk_ge(mk_len(n.l()), m_autil.mk_int(1)));
