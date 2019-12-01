@@ -389,21 +389,23 @@ template<typename Ext>
 bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
     for (unsigned i = 0; i < terms.size(); ++i) {
         app* n = terms[i].get();
+        bool sign;
         if (m_util.is_add(n)) {
             expr* arg = n->get_arg(0);
             if (!is_app(arg)) return false;
+            expr_ref _n(n, get_manager());
             terms[i] = to_app(arg);
+            sign = signs[i];
             for (unsigned j = 1; j < n->get_num_args(); ++j) {
                 arg = n->get_arg(j);
                 if (!is_app(arg)) return false;
                 terms.push_back(to_app(arg));
-                signs.push_back(signs[i]);
+                signs.push_back(sign);
             }
             --i;
             continue;
         }
         expr* x, *y;
-        bool sign;
         if (m_util.is_mul(n, x, y)) {
             if (is_sign(x, sign) && is_app(y)) {
                 terms[i] = to_app(y);
