@@ -6210,7 +6210,7 @@ void theory_seq::add_theory_assumptions(expr_ref_vector & assumptions) {
 
 bool theory_seq::should_research(expr_ref_vector & unsat_core) {
     TRACE("seq", tout << unsat_core << " " << m_util.has_re() << "\n";);
-    if (!m_util.has_re()) {
+    if (!m_util.has_seq()) {
         return false;
     }
     for (auto & e : unsat_core) {
