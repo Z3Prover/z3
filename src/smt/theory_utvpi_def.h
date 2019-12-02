@@ -62,7 +62,8 @@ namespace smt {
             theory(m.mk_family_id("arith")),
             a(m),
             m_arith_eq_adapter(*this, m_params, a),
-            m_zero(null_theory_var),
+            m_izero(null_theory_var),
+            m_rzero(null_theory_var),
             m_nc_functor(*this),
             m_asserted_qhead(0),
             m_agility(0.5),
@@ -133,7 +134,8 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::reset_eh() {
         m_graph            .reset();
-        m_zero              = null_theory_var;
+        m_izero              = null_theory_var;
+        m_rzero              = null_theory_var;
         m_atoms            .reset();
         m_asserted_atoms   .reset();
         m_stats            .reset();
@@ -259,13 +261,13 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::init(context* ctx) {
         theory::init(ctx);
-        m_zero = null_theory_var;
     }
 
     template<typename Ext>
     void theory_utvpi<Ext>::init_zero() {
-        if (m_zero == null_theory_var) {
-            m_zero  = mk_var(get_context().mk_enode(a.mk_numeral(rational(0), true), false, false, true));
+        if (m_izero == null_theory_var) {
+            m_izero  = mk_var(get_context().mk_enode(a.mk_numeral(rational(0), true), false, false, true));
+            m_rzero  = mk_var(get_context().mk_enode(a.mk_numeral(rational(0), false), false, false, true));
         }
     }
 
@@ -783,7 +785,8 @@ namespace smt {
         m.register_factory(m_factory);
         enforce_parity();
         init_zero();
-        m_graph.set_to_zero(to_var(m_zero), neg(to_var(m_zero)));
+        m_graph.set_to_zero(to_var(m_izero), neg(to_var(m_izero)));
+        m_graph.set_to_zero(to_var(m_rzero), neg(to_var(m_rzero)));
         compute_delta();   
         DEBUG_CODE(model_validate(););
     }

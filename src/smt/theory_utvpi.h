@@ -138,7 +138,7 @@ namespace smt {
         smt_params              m_params;
         arith_util              a;
         arith_eq_adapter        m_arith_eq_adapter;
-        th_var                  m_zero; //cache the variable representing the zero variable.
+        th_var                  m_izero, m_rzero; //cache the variable representing the zero variable.
 
         dl_graph<GExt>          m_graph;
         nc_functor              m_nc_functor;
@@ -299,7 +299,7 @@ namespace smt {
 
         void new_eq_or_diseq(bool is_eq, th_var v1, th_var v2, justification& eq_just);
         
-        th_var get_zero(sort* s) { init_zero(); return m_zero; }
+        th_var get_zero(sort* s) { init_zero(); return a.is_int(s) ? m_izero : m_rzero; }
 
         th_var get_zero(expr* e) { return get_zero(get_manager().get_sort(e)); }
 
