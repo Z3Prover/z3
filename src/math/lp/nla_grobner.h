@@ -145,6 +145,7 @@ private:
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*) const;
     void insert_to_simplify(equation *eq) {
+        TRACE("nla_grobner", display_equation(tout, *eq););
         SASSERT(!eq->exp()->is_scalar() || to_scalar(eq->exp())->value().is_zero());
         m_to_simplify.insert(eq);
     }
@@ -167,6 +168,8 @@ private:
     nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
     void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
     bool done() const;
+    void check_eq(equation*);
     void register_report();
+    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex *e );
 }; // end of grobner
 }
