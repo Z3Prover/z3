@@ -974,6 +974,12 @@ public:
         m_arith_eq_adapter.new_diseq_eh(v1, v2);
     }
 
+    void apply_sort_cnstr(enode* n, sort*) {
+        if (!th.is_attached_to_var(n)) {
+            mk_var(n->get_owner(), false);
+        }
+    }
+
     void push_scope_eh() {
         TRACE("arith", tout << "push\n";);
         m_scopes.push_back(scope());
@@ -1393,7 +1399,6 @@ public:
         
         if (v == null_theory_var || 
             v >= static_cast<theory_var>(m_theory_var2var_index.size())) {
-            TRACE("arith", tout << "Variable v" << v << " not internalized\n";);
             return rational::zero();
         }
             
@@ -1402,7 +1407,6 @@ public:
             return m_variable_values[vi];
         
         if (!m_solver->is_term(vi)) {
-            TRACE("arith", tout << "not a term v" << v << "\n";);
             return rational::zero();
         }
         
@@ -3590,6 +3594,9 @@ bool theory_lra::use_diseqs() const {
 }
 void theory_lra::new_diseq_eh(theory_var v1, theory_var v2) {
     m_imp->new_diseq_eh(v1, v2);
+}
+void theory_lra::apply_sort_cnstr(enode* n, sort* s) {
+    m_imp->apply_sort_cnstr(n, s);
 }
 void theory_lra::push_scope_eh() {
     theory::push_scope_eh();
