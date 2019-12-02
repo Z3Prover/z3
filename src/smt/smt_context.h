@@ -1598,8 +1598,6 @@ namespace smt {
                 m_case_split_queue->internalize_instance_eh(body, generation);
         }
 
-        bool already_internalized() const { return m_e_internalized_stack.size() > 2 || m_b_internalized_stack.size() > 1; }
-
         unsigned get_unsat_core_size() const {
             return m_unsat_core.size();
         }

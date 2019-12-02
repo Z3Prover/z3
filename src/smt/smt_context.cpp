@@ -2820,14 +2820,15 @@ namespace smt {
     /**
        \brief Auxiliary method for #already_internalized_theory.
     */
-    bool context::already_internalized_theory_core(theory * th, expr_ref_vector const & s) const {
+    bool context::already_internalized_theory_core(theory * th, expr_ref_vector const & s) const {        
         expr_mark visited;
         family_id fid = th->get_id();
         unsigned sz = s.size();
         for (unsigned i = 0; i < sz; i++) {
             expr * n = s.get(i);
-            if (uses_theory(n, fid, visited))
+            if (uses_theory(n, fid, visited)) {
                 return true;
+            }
         }
         return false;
     }
@@ -2838,6 +2839,7 @@ namespace smt {
             dealloc(th);
             return; // context already has a theory for the given family id.
         }
+        TRACE("internalize", tout << this << " " << th->get_family_id() << "\n";);
         SASSERT(std::find(m_theory_set.begin(), m_theory_set.end(), th) == m_theory_set.end());
         SASSERT(!already_internalized_theory(th));
         th->init(this);

@@ -299,9 +299,11 @@ namespace smt {
 
         void new_eq_or_diseq(bool is_eq, th_var v1, th_var v2, justification& eq_just);
         
-        th_var get_zero(sort* s) const { return m_zero; }
+        th_var get_zero(sort* s) { init_zero(); return m_zero; }
 
-        th_var get_zero(expr* e) const { return get_zero(get_manager().get_sort(e)); }
+        th_var get_zero(expr* e) { return get_zero(get_manager().get_sort(e)); }
+
+        void init_zero();
 
         void inc_conflicts();
 

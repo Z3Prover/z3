@@ -66,17 +66,6 @@ void theory_diff_logic<Ext>::nc_functor::reset() {
 template<typename Ext>
 void theory_diff_logic<Ext>::init(context * ctx) {
     theory::init(ctx);
-    app* zero;
-    enode* e;
-    zero = m_util.mk_numeral(rational(0), true);
-    e = ctx->mk_enode(zero, false, false, true);
-    SASSERT(!is_attached_to_var(e));
-    m_izero = mk_var(e);
-
-    zero = m_util.mk_numeral(rational(0), false);
-    e = ctx->mk_enode(zero, false, false, true);
-    SASSERT(!is_attached_to_var(e));
-    m_rzero = mk_var(e);
 }
 
 
@@ -220,6 +209,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         k.neg();
     }
 
+	if (ctx.b_internalized(n)) return true;
     bv = ctx.mk_bool_var(n);
     ctx.set_var_theory(bv, get_id());
     literal l(bv);
@@ -365,8 +355,8 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
 
     TRACE("arith_final", display(tout); );
     // either will already be zero (as we don't do mixed constraints).
-    m_graph.set_to_zero(m_izero);
-    m_graph.set_to_zero(m_rzero);
+    m_graph.set_to_zero(get_zero(true));
+    m_graph.set_to_zero(get_zero(false));
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
@@ -810,14 +800,12 @@ theory_var theory_diff_logic<Ext>::mk_var(app* n) {
     context & ctx = get_context();
     enode* e = nullptr;
     theory_var v = null_theory_var;
-    if (ctx.e_internalized(n)) {
-        e = ctx.get_enode(n);
-        v = e->get_th_var(get_id());
-    }
-    else {
-        ctx.internalize(n, false);
-        e = ctx.get_enode(n);
-    }
+	if (!ctx.e_internalized(n)) {
+		ctx.internalize(n, false);
+	}
+    e = ctx.get_enode(n);
+    v = e->get_th_var(get_id());
+
     if (v == null_theory_var) {
         v = mk_var(e);
     }      
@@ -1391,6 +1379,22 @@ theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
     return alloc(theory_diff_logic<Ext>, new_ctx->get_manager(), m_params); 
 }
 
+template<typename Ext>
+void theory_diff_logic<Ext>::init_zero() {
+    if (m_izero != null_theory_var) return;
+    context & ctx = get_context();
+    app* zero;
+    enode* e;
+    zero = m_util.mk_numeral(rational(0), true);
+    e = ctx.mk_enode(zero, false, false, true);
+    SASSERT(!is_attached_to_var(e));
+    m_izero = mk_var(e);
+
+    zero = m_util.mk_numeral(rational(0), false);
+    e = ctx.mk_enode(zero, false, false, true);
+    SASSERT(!is_attached_to_var(e));
+    m_rzero = mk_var(e);   
+}
 
 #endif /* THEORY_DIFF_LOGIC_DEF_H_ */
 

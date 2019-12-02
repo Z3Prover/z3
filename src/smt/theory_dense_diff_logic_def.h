@@ -184,6 +184,7 @@ namespace smt {
             std::swap(source, target);
             offset.neg();
         }
+		if (ctx.b_internalized(n)) return true;
         bool_var bv = ctx.mk_bool_var(n);
         ctx.set_var_theory(bv, get_id());
         atom * a    = alloc(atom, bv, source, target, offset);

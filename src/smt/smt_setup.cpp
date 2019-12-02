@@ -49,8 +49,8 @@ namespace smt {
     }
 
     void setup::operator()(config_mode cm) {
+        TRACE("internalize", tout << "setup " << &m_context << "\n";);
         SASSERT(m_context.get_scope_level() == 0);
-        SASSERT(!m_context.already_internalized());
         SASSERT(!m_already_configured);
         // if (m_params.m_mbqi && m_params.m_model_compact) {
         //    warning_msg("ignoring MODEL_COMPACT=true because it cannot be used with MBQI=true");

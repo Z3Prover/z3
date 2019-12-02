@@ -375,7 +375,9 @@ namespace smt {
 
         void get_implied_bound_antecedents(edge_id bridge_edge, edge_id subsumed_edge, conflict_resolution & cr);
 
-        theory_var get_zero(bool is_int) const { return is_int ? m_izero : m_rzero; }
+        void init_zero();
+
+        theory_var get_zero(bool is_int) { init_zero(); return is_int ? m_izero : m_rzero; }
 
         void inc_conflicts();
 
