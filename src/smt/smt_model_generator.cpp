@@ -430,6 +430,10 @@ namespace smt {
                           tout << "#" << n->get_arg(i)->get_owner_id() << " ";
                       }
                       tout << "\n";
+                      for (expr* arg : args) {
+                          tout << mk_pp(arg, m) << " ";
+                      }
+                      tout << "\n";
                       tout << "value: #" << n->get_owner_id() << "\n" << mk_ismt2_pp(result, m) << "\n";);
                 if (fi->get_entry(args.c_ptr()) == nullptr)
                     fi->insert_new_entry(args.c_ptr(), result);

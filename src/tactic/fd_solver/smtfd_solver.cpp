@@ -138,8 +138,17 @@ Note:
 
 namespace smtfd {
 
+    struct stats {
+        unsigned m_num_lemmas;
+        unsigned m_num_rounds;
+        unsigned m_num_mbqi;
+        unsigned m_num_fresh_bool;
+        stats() { memset(this, 0, sizeof(stats)); }
+    };
+
     class smtfd_abs {
         ast_manager&    m;
+        stats&          m_stats;
         expr_ref_vector m_abs, m_rep, m_atoms, m_atom_defs; // abstraction and representation maps
         array_util      m_autil;
         bv_util         m_butil;
@@ -166,6 +175,7 @@ namespace smtfd {
         expr* fresh_var(expr* t) {
             symbol name = is_app(t) ? to_app(t)->get_name() : (is_quantifier(t) ? symbol("Q") : symbol("X"));
             if (m.is_bool(t)) {
+                ++m_stats.m_num_fresh_bool;
                 return m.mk_fresh_const(name, m.mk_bool_sort());
             }        
             else if (m_butil.is_bv(t)) {
@@ -207,8 +217,9 @@ namespace smtfd {
         }
         
     public:
-        smtfd_abs(ast_manager& m):
+        smtfd_abs(ast_manager& m, stats& s):
             m(m),
+            m_stats(s),
             m_abs(m),
             m_rep(m),
             m_atoms(m),
@@ -335,7 +346,8 @@ namespace smtfd {
                 }
                 if (is_atom(r) && !is_uninterp_const(r)) {
                     expr* rr = fresh_var(r);
-                    m_atom_defs.push_back(m.mk_iff(rr, r));
+                    m_atom_defs.push_back(m.mk_implies(rr, r));
+                    m_atom_defs.push_back(m.mk_implies(r, rr));
                     r = rr;
                 }
                 push_trail(m_abs, m_abs_trail, t, r);
@@ -919,6 +931,7 @@ namespace smtfd {
         void check_select(app* t) {
             expr* a = t->get_arg(0);
             expr_ref vA = eval_abs(a);
+            TRACE("smtfd", tout << mk_bounded_pp(t, m, 2) << "\n";);
             enforce_congruence(vA, t, m.get_sort(a));                                 
         }
 
@@ -958,13 +971,18 @@ namespace smtfd {
             for (unsigned i = 1; i < t->get_num_args(); ++i) {
                 expr* arg1 = t->get_arg(i);
                 expr* arg2 = store->get_arg(i);
-                if (arg1 == arg2) continue;
-                expr_ref v1 = eval_abs(arg1);
-                expr_ref v2 = eval_abs(arg2);
                 m_args.push_back(arg1);
-                eqs.push_back(m.mk_eq(arg1, arg2));
+                if (arg1 == arg2) {
+                    // skip
+                }
+                else if (m.are_distinct(arg1, arg2)) {
+                    eqs.push_back(m.mk_false());
+                }
+                else {
+                    eqs.push_back(m.mk_eq(arg1, arg2));
+                }
             }
-            if (eqs.empty()) return;
+            //if (eqs.empty()) return;
             expr_ref eq = mk_and(eqs);
             expr_ref eqV = eval_abs(eq);
             expr_ref val1 = eval_abs(t);
@@ -1024,9 +1042,10 @@ namespace smtfd {
         // 
         void reconcile_stores(app* t, expr* vT, table& tT, expr* vA, table& tA) {
             unsigned r = 0;
-            if (get_lambda(vA) <= 1) {
-                return;
-            }
+            //if (get_lambda(vA) <= 1) {
+            //    return;
+            //}
+            //std::cout << get_lambda(vA) << " " << get_lambda(vT) << "\n";
             inc_lambda(vT);
             for (auto& fA : tA) {
                 f_app fT;
@@ -1581,17 +1600,10 @@ namespace smtfd {
         }
     };
 
-
-    struct stats {
-        unsigned m_num_lemmas;
-        unsigned m_num_rounds;
-        unsigned m_num_mbqi;
-        stats() { memset(this, 0, sizeof(stats)); }
-    };
-
     class solver : public solver_na2as {
+        stats           m_stats;
         ast_manager&    m;
-        mutable smtfd_abs       m_abs;
+        mutable smtfd_abs m_abs;
         unsigned        m_indent;
         plugin_context  m_context;
         uf_plugin       m_uf;
@@ -1612,7 +1624,6 @@ namespace smtfd {
         unsigned_vector m_toggles_lim;
         model_ref       m_model;
         std::string     m_reason_unknown;
-        stats           m_stats;
         unsigned        m_max_conflicts;
 
         void set_delay_simplify() {
@@ -1775,15 +1786,19 @@ namespace smtfd {
                   tout << *m_model.get() << "\n";
                   );
 
+            bool found_bad = false;
             for (expr* a : subterms(core)) {
                 expr_ref val0 = (*m_model)(a);
                 expr_ref val1 = (*m_model)(abs(a));
                 if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
                     std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
-                    std::cout << "core: " << core << "\n";
-                    std::cout << *m_model.get() << "\n";
-                    exit(0);
+                    found_bad = true;
                 }
+            }
+            if (found_bad) {
+                std::cout << "core: " << core << "\n";
+                std::cout << *m_model.get() << "\n";
+                exit(0);
             }
 
             if (!has_q) {
@@ -1874,7 +1889,7 @@ namespace smtfd {
         solver(unsigned indent, ast_manager& m, params_ref const& p):
             solver_na2as(m),
             m(m),
-            m_abs(m),
+            m_abs(m, m_stats),
             m_indent(indent),
             m_context(m_abs, m),
             m_uf(m_context),
@@ -1952,6 +1967,7 @@ namespace smtfd {
                    tout << "axioms:\n" << m_axioms << "\n";
                    tout << "assertions:\n" << m_assertions << "\n";);
 
+            // if (m_axioms.contains(fml)) return;
             SASSERT(!m_axioms.contains(fml));
             m_axioms.push_back(fml);
             _fml = abs(fml);
@@ -2099,6 +2115,7 @@ namespace smtfd {
             st.update("smtfd-num-lemmas", m_stats.m_num_lemmas);
             st.update("smtfd-num-rounds", m_stats.m_num_rounds);
             st.update("smtfd-num-mbqi",   m_stats.m_num_mbqi);
+            st.update("smtfd-num-fresh-bool", m_stats.m_num_fresh_bool);
         }
         void get_unsat_core(expr_ref_vector & r) override { 
             m_fd_sat_solver->get_unsat_core(r);

@@ -789,7 +789,7 @@ namespace smt {
                  false /* CC is not enabled */);
         internalize(c, true);
         internalize(t, false);
-        internalize(e, false);
+        internalize(e, false);        
         internalize(eq1, true);
         internalize(eq2, true);
         literal c_lit   = get_literal(c);

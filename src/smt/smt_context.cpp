@@ -4312,9 +4312,12 @@ namespace smt {
             theory_id th_id     = l->get_th_id();
 
             for (enode * parent : enode::parents(n)) {
-                family_id fid = parent->get_owner()->get_family_id();
+                app* p = parent->get_owner();
+                family_id fid = p->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
-                    TRACE("is_shared", tout << enode_pp(n, *this) << "\nis shared because of:\n" << enode_pp(parent, *this) << "\n";);
+                    TRACE("is_shared", tout << enode_pp(n, *this) 
+                          << "\nis shared because of:\n" 
+                          << enode_pp(parent, *this) << "\n";);
                     return true;
                 }
             }

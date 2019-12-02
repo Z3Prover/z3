@@ -21,6 +21,7 @@ Notes:
 #include "ast/ast_lt.h"
 #include "ast/ast_util.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/rewriter/var_subst.h"
 
 void array_rewriter::updt_params(params_ref const & _p) {
@@ -74,9 +75,9 @@ br_status array_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * c
     CTRACE("array_rewriter", st != BR_FAILED, 
            tout << mk_pp(f, m()) << "\n";
            for (unsigned i = 0; i < num_args; ++i) {
-               tout << mk_pp(args[i], m()) << "\n";
+               tout << mk_bounded_pp(args[i], m(), 2) << "\n";
            }
-           tout << "\n --> " << result << "\n";);
+           tout << "\n --> " << mk_bounded_pp(result, m(), 2) << "\n";);
     return st;
 }
 
@@ -178,7 +179,7 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
             return BR_REWRITE1;
         }
         default:
-            if (m_expand_select_store) {
+            if (m_expand_select_store && to_app(args[0])->get_arg(0)->get_ref_count() == 1) {
                 // select(store(a, I, v), J) --> ite(I=J, v, select(a, J))
                 ptr_buffer<expr> new_args;
                 new_args.push_back(to_app(args[0])->get_arg(0));
@@ -632,7 +633,7 @@ bool array_rewriter::add_store(expr_ref_vector& args, unsigned num_idxs, expr* e
 }
 
 bool array_rewriter::is_expandable_store(expr* s) {
-    unsigned count = s->get_ref_count();
+    unsigned count = 0;
     unsigned depth = 0;
     while (m_util.is_store(s)) {
         s = to_app(s)->get_arg(0);
@@ -675,7 +676,7 @@ expr_ref array_rewriter::expand_store(expr* s) {
 }
 
 br_status array_rewriter::mk_eq_core(expr * lhs, expr * rhs, expr_ref & result) {
-    TRACE("array_rewriter", tout << mk_pp(lhs, m()) << " " << mk_pp(rhs, m()) << "\n";);
+    TRACE("array_rewriter", tout << mk_bounded_pp(lhs, m(), 2) << " " << mk_bounded_pp(rhs, m(), 2) << "\n";);
     expr* v = nullptr;
     if (m_util.is_const(rhs) && is_lambda(lhs)) {
         std::swap(lhs, rhs);
