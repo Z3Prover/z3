@@ -288,6 +288,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_autil(m),
     m_arith_value(m),
     m_trail_stack(*this),
+    m_internalize_depth(0),
     m_ls(m), m_rs(m),
     m_lhs(m), m_rhs(m),
     m_res(m),
@@ -3681,6 +3682,13 @@ bool theory_seq::internalize_term(app* term) {
         mk_var(e);
         return true;
     }
+    flet<unsigned> _depth(m_internalize_depth, m_internalize_depth+1);
+
+    if (m_internalize_depth > 50 && m_ensure_todo.empty()) {
+        ensure_enodes(term);
+        return true;
+    }
+
     for (auto arg : *term) {        
         mk_var(ensure_enode(arg));
     }
@@ -5115,6 +5123,14 @@ enode* theory_seq::ensure_enode(expr* e) {
     return n;
 }
 
+struct theory_seq::compare_depth {
+    bool operator()(expr* a, expr* b) const {
+        unsigned d1 = get_depth(a);
+        unsigned d2 = get_depth(b);
+        return d1 < d2 || (d1 == d2 && a->get_id() < b->get_id());
+    }
+};
+
 void theory_seq::ensure_enodes(expr* e) {
     if (!m_ensure_todo.empty()) return;
     context& ctx = get_context();
@@ -5132,9 +5148,11 @@ void theory_seq::ensure_enodes(expr* e) {
             }
         }
     }	
-    // TBD: std::stable_sort(m_ensure_todo.begin(), m_ensure_todo.end(), compare_depth);
-    for (unsigned i = m_ensure_todo.size(); i-- > 0; ) {
-        ensure_enode(m_ensure_todo[i]);
+    compare_depth cd;
+    std::stable_sort(m_ensure_todo.begin(), m_ensure_todo.end(), cd);
+
+    for (expr* e : m_ensure_todo) {
+        ensure_enode(e);
     }
     m_ensure_todo.reset();
 }

@@ -51,6 +51,7 @@ namespace smt {
 
         class seq_value_proc;
         struct validate_model_proc;
+        struct compare_depth;
         
         // cache to track evaluations under equalities
         class eval_cache {
@@ -383,6 +384,7 @@ namespace smt {
         symbol           m_tail, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq, m_seq_align;
         ptr_vector<expr> m_todo;
+        unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
         // maintain automata with regular expressions.
