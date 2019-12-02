@@ -469,6 +469,9 @@ void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equ
             to_remove.push_back(target);
         }
     }
+}
+
+void nla_grobner::check_eq(equation* target) {
     if(m_intervals->check_cross_nested_expr(target->exp(), target->dep())) {
         TRACE("grobner", tout << "created a lemma for "; display_equation(tout, *target) << "\n";
               tout << "vars = \n";
@@ -581,9 +584,6 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     }
     equation* eq = alloc(equation);
     init_equation(eq, expr_superpose( eq1->exp(), eq2->exp(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
-    if(m_intervals->check_cross_nested_expr(eq->exp(), eq->dep())) {
-        register_report();
-    }
     insert_to_simplify(eq);
 }
 
@@ -678,8 +678,10 @@ void nla_grobner::superpose(equation * eq) {
 
 bool nla_grobner::compute_basis_step() {
     equation * eq = pick_next();
-    if (!eq)
+    if (!eq) {
+        TRACE("grobner", tout << "cannot pick an equation\n";);
         return true;
+    }
     m_stats.m_num_processed++;
     equation * new_eq = simplify_using_processed(eq);
     if (new_eq != nullptr && eq != new_eq) {
@@ -701,6 +703,14 @@ void nla_grobner::compute_basis(){
     compute_basis_init();        
     if (!compute_basis_loop()) {
         set_gb_exhausted();
+    } else {
+        TRACE("grobner", tout << "m_to_simplify.size() = " << m_to_simplify.size() << " , m_to_superpose.size() == " << m_to_superpose.size() << "\n";);
+        for (equation* e : m_to_simplify) {
+            check_eq(e);
+        }
+        for (equation* e : m_to_superpose) {
+            check_eq(e);
+        }
     }
 }
 void nla_grobner::compute_basis_init(){
@@ -731,9 +741,13 @@ bool nla_grobner::done() const {
 
 bool nla_grobner::compute_basis_loop(){
     while (!done()) {
-        if (compute_basis_step())
+        if (compute_basis_step()) {
+            TRACE("grobner", tout << "progress in compute_basis_step\n";);
             return true;
+        }
+        TRACE("grobner", tout << "continue compute_basis_loop\n";);
     }
+    TRACE("grobner", tout << "return false from compute_basis_loop\n";);
     return false;
 }
 
@@ -799,9 +813,30 @@ void nla_grobner::display_equations(std::ostream & out, equation_set const & v, 
 }
 
 std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) const {
-    out << "m_exp = " << *eq.exp() << "\n";
-    out << "dep = "; display_dependency(out, eq.dep()) << "\n";
+    out << "expr = " << *eq.exp() << "\n";
+    out << "deps = "; display_dependency(out, eq.dep()) << "\n";
     return out;
+}
+std::unordered_set<lpvar> nla_grobner::get_vars_of_expr_with_opening_terms(const nex *e ) {
+    auto ret = get_vars_of_expr(e);
+    auto & ls = c().m_lar_solver;
+    do {
+        svector<lpvar> added;
+        for (lpvar j : ret) {
+            if (ls.column_corresponds_to_term(j)) {
+                const auto & t = c().m_lar_solver.get_term(ls.local_to_external(j));
+                for (auto p : t) {
+                    if (ret.find(p.var()) == ret.end())
+                        added.push_back(p.var());
+                }
+            }
+        }
+        if (added.size() == 0)
+            return ret;
+        for (lpvar j: added)
+            ret.insert(j);
+        added.clear();
+    } while (true);
 }
 
 void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
@@ -809,10 +844,12 @@ void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
         return;
     equation * eq = alloc(equation);
     init_equation(eq, e, dep);
-    TRACE("grobner", display_equation(tout, *eq);
-    for (unsigned j : get_vars_of_expr(e)) {
-        c().print_var(j, tout) << "\n";
-    });
+    TRACE("grobner",
+          display_equation(tout, *eq);
+          for (unsigned j : get_vars_of_expr_with_opening_terms(e)) {
+              tout << "(";
+              c().print_var(j, tout) << ")\n";
+          });
     insert_to_simplify(eq);
 }
 

@@ -655,7 +655,12 @@ std::ostream & core::print_var(lpvar j, std::ostream & out) const {
         
     m_lar_solver.print_column_info(j, out);
     signed_var jr = m_evars.find(j);
-    out << "root=" << (jr.sign()? "-v":"v") << jr.var() << "\n";
+    out << "root=";
+    if (jr.sign()) {
+        out << "-";
+    }
+        
+    out << m_lar_solver.get_variable_name(jr.var()) << "\n";
     return out;
 }
 

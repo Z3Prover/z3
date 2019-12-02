@@ -847,6 +847,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
         if (new_monomials.empty())
             return;
         m_num_new_equations++;
+        TRACE("grobner", tout << "success superposing\n";);
         equation * new_eq = alloc(equation);
         new_eq->m_monomials.swap(new_monomials);
         init_equation(new_eq, m_dep_manager.mk_join(eq1->m_dep, eq2->m_dep));
