@@ -85,6 +85,8 @@ namespace smt {
             if (m_params.m_arith_reflect)
                 internalize_term_core(to_app(to_app(n)->get_arg(0)));
             theory_var s = internalize_term_core(to_app(to_app(n)->get_arg(1)));
+            if (null_theory_var == s)
+                return s;
             enode * e    = ctx.mk_enode(n, !m_params.m_arith_reflect, false, true);
             theory_var v = mk_var(e);
             add_edge(s, v, k, null_literal);
