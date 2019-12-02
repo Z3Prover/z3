@@ -1452,7 +1452,8 @@ public:
         theory_var sz = static_cast<theory_var>(th.get_num_vars());
         for (theory_var v = 0; v < sz; ++v) {
             if (th.is_relevant_and_shared(get_enode(v))) { 
-                vars.push_back(m_theory_var2var_index[v]);
+                lp:: var_index vi = m_theory_var2var_index[v];
+                if (vi != UINT_MAX) vars.push_back(vi);
             }
         }
         if (vars.empty()) {
