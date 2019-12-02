@@ -220,6 +220,7 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
 
     m.add_type<expr>("Expr", jlcxx::julia_type<ast>())
         .constructor<context &>()
+        .MM(expr, get_sort)
         .MM(expr, is_bool)
         .MM(expr, is_int)
         .MM(expr, is_real)
@@ -473,4 +474,9 @@ JLCXX_MODULE define_julia_module(jlcxx::Module &m)
     m.add_type<apply_result>("ApplyResult", jlcxx::julia_type<object>())
         .GETINDEX(apply_result)
         .MM(apply_result, size);
+
+    m.method("set_param", static_cast<void (*)(char const * param, char const * value)>(&set_param));
+    m.method("set_param", static_cast<void (*)(char const * param, bool value)>(&set_param));
+    m.method("set_param", static_cast<void (*)(char const * param, int value)>(&set_param));
+    m.method("reset_params", &reset_params);
 }
