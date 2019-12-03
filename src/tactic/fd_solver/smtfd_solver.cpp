@@ -335,7 +335,6 @@ namespace smtfd {
                     else if (m.is_model_value(t)) {
                         int idx = a->get_parameter(0).get_int();
                         r = m_butil.mk_numeral(rational(idx), 24); 
-                        // std::cout << expr_ref(t, m) << " --> " << mk_pp(r, m) << "\n";
                     }
                     else {
                         r = fresh_var(t);                    
@@ -346,8 +345,7 @@ namespace smtfd {
                 }
                 if (is_atom(r) && !is_uninterp_const(r)) {
                     expr* rr = fresh_var(r);
-                    m_atom_defs.push_back(m.mk_implies(rr, r));
-                    m_atom_defs.push_back(m.mk_implies(r, rr));
+                    m_atom_defs.push_back(m.mk_iff(rr, r));
                     r = rr;
                 }
                 push_trail(m_abs, m_abs_trail, t, r);
@@ -1786,20 +1784,21 @@ namespace smtfd {
                   tout << *m_model.get() << "\n";
                   );
 
-            bool found_bad = false;
-            for (expr* a : subterms(core)) {
-                expr_ref val0 = (*m_model)(a);
-                expr_ref val1 = (*m_model)(abs(a));
-                if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
-                    std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
-                    found_bad = true;
+            DEBUG_CODE(
+                bool found_bad = false;
+                for (expr* a : subterms(core)) {
+                    expr_ref val0 = (*m_model)(a);
+                    expr_ref val1 = (*m_model)(abs(a));
+                    if (is_ground(a) && val0 != val1 && m.get_sort(val0) == m.get_sort(val1)) {
+                        std::cout << mk_bounded_pp(a, m, 2) << " := " << val0 << " " << val1 << "\n";
+                        found_bad = true;
+                    }
                 }
-            }
-            if (found_bad) {
-                std::cout << "core: " << core << "\n";
-                std::cout << *m_model.get() << "\n";
-                exit(0);
-            }
+                if (found_bad) {
+                    std::cout << "core: " << core << "\n";
+                    std::cout << *m_model.get() << "\n";
+                    exit(0);
+                });
 
             if (!has_q) {
                 return is_decided;
