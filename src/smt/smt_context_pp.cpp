@@ -103,9 +103,9 @@ namespace smt {
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
         if (l.sign())
-            out << "  (not " << mk_bounded_pp(bool_var2expr(l.var()), m, 10) << ") ";
+            out << "  (not " << mk_pp(bool_var2expr(l.var()), m) << ") ";
         else
-            out << "  " << mk_bounded_pp(bool_var2expr(l.var()), m, 10) << " ";
+            out << "  " << mk_pp(bool_var2expr(l.var()), m) << " ";
         return out;
     }
 
