@@ -299,7 +299,7 @@ namespace smt {
 
         void new_eq_or_diseq(bool is_eq, th_var v1, th_var v2, justification& eq_just);
         
-        th_var get_zero(sort* s) { init_zero(); return a.is_int(s) ? m_izero : m_rzero; }
+        th_var get_zero(sort* s) { return a.is_int(s) ? m_izero : m_rzero; }
 
         th_var get_zero(expr* e) { return get_zero(get_manager().get_sort(e)); }
 

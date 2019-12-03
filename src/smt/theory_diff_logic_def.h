@@ -66,6 +66,7 @@ void theory_diff_logic<Ext>::nc_functor::reset() {
 template<typename Ext>
 void theory_diff_logic<Ext>::init(context * ctx) {
     theory::init(ctx);
+    init_zero();
 }
 
 
@@ -192,10 +193,10 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         found_non_diff_logic_expr(n);        
         return false;
     }
-	SASSERT(m_signs.size() == m_terms.size());
+    SASSERT(m_signs.size() == m_terms.size());
     if (m_terms.size() == 2 && m_signs[0] != m_signs[1]) {
-		app* a = m_terms.get(0), *b = m_terms.get(1);
-		bool sign0 = m_signs[0];
+        app* a = m_terms.get(0), *b = m_terms.get(1);
+        bool sign0 = m_signs[0];
         target = mk_var(a);
         source = mk_var(b);
         if (!sign0) {
@@ -212,7 +213,7 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         k.neg();
     }
 
-	if (ctx.b_internalized(n)) return true;
+    if (ctx.b_internalized(n)) return true;
     bv = ctx.mk_bool_var(n);
     ctx.set_var_theory(bv, get_id());
     literal l(bv);
@@ -318,7 +319,7 @@ void theory_diff_logic<Ext>::collect_statistics(::statistics & st) const {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::push_scope_eh() {
-
+    TRACE("arith", tout << "push\n";);
     theory::push_scope_eh();
     m_graph.push();
     m_scopes.push_back(scope());
@@ -330,6 +331,7 @@ void theory_diff_logic<Ext>::push_scope_eh() {
 
 template<typename Ext>
 void theory_diff_logic<Ext>::pop_scope_eh(unsigned num_scopes) {
+    TRACE("arith", tout << "pop " << num_scopes << "\n";);
     unsigned lvl     = m_scopes.size();
     SASSERT(num_scopes <= lvl);
     unsigned new_lvl = lvl - num_scopes;
@@ -803,9 +805,9 @@ theory_var theory_diff_logic<Ext>::mk_var(app* n) {
     context & ctx = get_context();
     enode* e = nullptr;
     theory_var v = null_theory_var;
-	if (!ctx.e_internalized(n)) {
-		ctx.internalize(n, false);
-	}
+    if (!ctx.e_internalized(n)) {
+        ctx.internalize(n, false);
+    }
     e = ctx.get_enode(n);
     v = e->get_th_var(get_id());
 
@@ -1154,9 +1156,9 @@ void theory_diff_logic<Ext>::update_simplex(Simplex& S) {
         // add objective function as row.
         coeffs.reset();
         vars.reset();
-        for (unsigned i = 0; i < objective.size(); ++i) {
-            coeffs.push_back(objective[i].second.to_mpq());
-            vars.push_back(node2simplex(objective[i].first));
+        for (auto const& o : objective) {
+            coeffs.push_back(o.second.to_mpq());
+            vars.push_back(node2simplex(o.first));
         }
         coeffs.push_back(mpq(1));
         vars.push_back(w);
@@ -1169,11 +1171,11 @@ template<typename Ext>
 typename theory_diff_logic<Ext>::inf_eps theory_diff_logic<Ext>::value(theory_var v) {
      objective_term const& objective = m_objectives[v];   
      inf_eps r = inf_eps(m_objective_consts[v]);
-     for (unsigned i = 0; i < objective.size(); ++i) {
+     for (auto const& o : objective) {
          numeral n = m_graph.get_assignment(v);
          rational r1 = n.get_rational().to_rational();
          rational r2 = n.get_infinitesimal().to_rational();
-         r += objective[i].second * inf_eps(rational(0), inf_rational(r1, r2));
+         r += o.second * inf_eps(rational(0), inf_rational(r1, r2));
      }
      return r;
 }
@@ -1190,9 +1192,9 @@ theory_diff_logic<Ext>::maximize(theory_var v, expr_ref& blocker, bool& has_shar
 
     TRACE("arith",
           objective_term const& objective = m_objectives[v];
-          for (unsigned i = 0; i < objective.size(); ++i) {
-              tout << "Coefficient " << objective[i].second 
-                   << " of theory_var " << objective[i].first << "\n";
+          for (auto const& o : objective) {
+              tout << "Coefficient " << o.second 
+                   << " of theory_var " << o.first << "\n";
           }
           tout << "Free coefficient " << m_objective_consts[v] << "\n";
           );
@@ -1385,6 +1387,7 @@ theory* theory_diff_logic<Ext>::mk_fresh(context* new_ctx) {
 template<typename Ext>
 void theory_diff_logic<Ext>::init_zero() {
     if (m_izero != null_theory_var) return;
+    TRACE("arith", tout << "init zero\n";);
     context & ctx = get_context();
     app* zero;
     enode* e;

@@ -377,7 +377,7 @@ namespace smt {
 
         void init_zero();
 
-        theory_var get_zero(bool is_int) { init_zero(); return is_int ? m_izero : m_rzero; }
+        theory_var get_zero(bool is_int) { return is_int ? m_izero : m_rzero; }
 
         void inc_conflicts();
 

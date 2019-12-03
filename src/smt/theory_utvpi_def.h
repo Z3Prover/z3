@@ -261,6 +261,7 @@ namespace smt {
     template<typename Ext>
     void theory_utvpi<Ext>::init(context* ctx) {
         theory::init(ctx);
+        init_zero();
     }
 
     template<typename Ext>
