@@ -192,10 +192,13 @@ bool theory_diff_logic<Ext>::internalize_atom(app * n, bool gate_ctx) {
         found_non_diff_logic_expr(n);        
         return false;
     }
+	SASSERT(m_signs.size() == m_terms.size());
     if (m_terms.size() == 2 && m_signs[0] != m_signs[1]) {
-        target = mk_var(m_terms[0].get());
-        source = mk_var(m_terms[1].get());
-        if (!m_signs[0]) {
+		app* a = m_terms.get(0), *b = m_terms.get(1);
+		bool sign0 = m_signs[0];
+        target = mk_var(a);
+        source = mk_var(b);
+        if (!sign0) {
             std::swap(target, source);
         }
     }
@@ -384,7 +387,7 @@ void theory_diff_logic<Ext>::del_atoms(unsigned old_size) {
 template<typename Ext>
 bool theory_diff_logic<Ext>::decompose_linear(app_ref_vector& terms, svector<bool>& signs) {
     for (unsigned i = 0; i < terms.size(); ++i) {
-        app* n = terms[i].get();
+        app* n = terms.get(i);
         bool sign;
         if (m_util.is_add(n)) {
             expr* arg = n->get_arg(0);
