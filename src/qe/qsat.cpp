@@ -520,6 +520,7 @@ namespace qe {
             if ((m.is_true(val_a) && m.is_false(val_b)) || 
                 (m.is_false(val_a) && m.is_true(val_b))) {
                 TRACE("qe", 
+                      tout << model << "\n";
                       tout << mk_pp(a, m) << " := " << val_a << "\n";
                       tout << mk_pp(b, m) << " := " << val_b << "\n";
                       tout << m_elevel.find(a) << "\n";);

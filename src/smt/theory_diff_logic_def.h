@@ -360,8 +360,7 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
 
     TRACE("arith_final", display(tout); );
     // either will already be zero (as we don't do mixed constraints).
-    m_graph.set_to_zero(get_zero(true));
-    m_graph.set_to_zero(get_zero(false));
+    m_graph.set_to_zero(get_zero(true), get_zero(false));
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 

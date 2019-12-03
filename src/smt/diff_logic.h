@@ -915,6 +915,24 @@ public:
     // so the graph is disconnected.
     // assumption: the current assignment is feasible.
     //
+    void set_to_zero(unsigned n, dl_var const* vs) {
+        for (unsigned i = 0; i < n; ++i) {
+            dl_var v = vs[i];
+            if (!m_assignment[v].is_zero()) {
+                set_to_zero(v);
+                for (unsigned j = 0; j < n; ++j) {
+                    dl_var w = vs[j];
+                    if (!m_assignment[w].is_zero()) {
+                        enable_edge(add_edge(v, w, numeral(0), explanation()));
+                        enable_edge(add_edge(w, v, numeral(0), explanation()));
+                        SASSERT(is_feasible());                        
+                    }
+                }
+                return;
+            }
+        }
+    }
+
     void set_to_zero(dl_var v, dl_var w) {
         if (!m_assignment[v].is_zero()) {
             set_to_zero(v);

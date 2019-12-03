@@ -786,8 +786,8 @@ namespace smt {
         m.register_factory(m_factory);
         enforce_parity();
         init_zero();
-        m_graph.set_to_zero(to_var(m_izero), neg(to_var(m_izero)));
-        m_graph.set_to_zero(to_var(m_rzero), neg(to_var(m_rzero)));
+        dl_var vs[4] = { to_var(m_izero), neg(to_var(m_izero)), to_var(m_rzero), neg(to_var(m_rzero)) };
+        m_graph.set_to_zero(4, vs);
         compute_delta();   
         DEBUG_CODE(model_validate(););
     }
