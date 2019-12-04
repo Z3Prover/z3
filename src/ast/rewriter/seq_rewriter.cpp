@@ -549,7 +549,7 @@ br_status seq_rewriter::mk_app_core(func_decl * f, unsigned num_args, expr * con
     case _OP_STRING_STRIDOF: 
         UNREACHABLE();
     }
-    CTRACE("seq_verbose", st != BR_FAILED, tout << f->get_name() << " " << result << "\n";);
+    CTRACE("seq_verbose", st != BR_FAILED, tout << expr_ref(m().mk_app(f, num_args, args), m()) << " -> " << result << "\n";);
     return st;
 }
 
@@ -616,32 +616,31 @@ br_status seq_rewriter::mk_seq_length(expr* a, expr_ref& result) {
     m_util.str.get_concat(a, m_es);
     unsigned len = 0;
     unsigned j = 0;
-    for (unsigned i = 0; i < m_es.size(); ++i) {
-        if (m_util.str.is_string(m_es[i].get(), b)) {
+    for (expr* e : m_es) {
+        if (m_util.str.is_string(e, b)) {
             len += b.length();
         }
-        else if (m_util.str.is_unit(m_es[i].get())) {
+        else if (m_util.str.is_unit(e)) {
             len += 1;
         }
-        else if (m_util.str.is_empty(m_es[i].get())) {
+        else if (m_util.str.is_empty(e)) {
             // skip
         }
         else {
-            m_es[j] = m_es[i].get();
-            ++j;
+            m_es[j++] = e;
         }
     }
     if (j == 0) {
-        result = m_autil.mk_numeral(rational(len, rational::ui64()), true);
+        result = m_autil.mk_int(len);
         return BR_DONE;
     }
     if (j != m_es.size() || j != 1) {
         expr_ref_vector es(m());        
         for (unsigned i = 0; i < j; ++i) {
-            es.push_back(m_util.str.mk_length(m_es[i].get()));
+            es.push_back(m_util.str.mk_length(m_es.get(i)));
         }
         if (len != 0) {
-            es.push_back(m_autil.mk_numeral(rational(len, rational::ui64()), true));
+            es.push_back(m_autil.mk_int(len));
         }
         result = m_autil.mk_add(es.size(), es.c_ptr());
         return BR_REWRITE2;

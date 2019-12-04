@@ -101,7 +101,7 @@ namespace smt {
     */
     void conflict_resolution::eq_justification2literals(enode * lhs, enode * rhs, eq_justification js) {
         SASSERT(m_antecedents);
-        TRACE("conflict_detail",
+        TRACE("conflict_",
               ast_manager& m = get_manager();
               tout << mk_pp(lhs->get_owner(), m) << " = " << mk_pp(rhs->get_owner(), m);
               switch (js.get_kind()) {
@@ -333,7 +333,6 @@ namespace smt {
             }
 
             if (lvl == m_conflict_lvl) {
-                TRACE("conflict", m_ctx.display_literal(tout << "marking:", antecedent) << "\n";);
                 num_marks++;
             }
             else {
@@ -343,12 +342,21 @@ namespace smt {
         }
     }
 
-    void conflict_resolution::process_justification(justification * js, unsigned & num_marks) {
+    void conflict_resolution::process_justification(literal consequent, justification * js, unsigned & num_marks) {
         literal_vector & antecedents = m_tmp_literal_vector;
         antecedents.reset();
         justification2literals_core(js, antecedents);
         for (literal l : antecedents)
             process_antecedent(l, num_marks);
+        (void)consequent;
+        TRACE("conflict_smt2", 
+              for (literal& l : antecedents) {
+                  l.neg();
+                  SASSERT(m_ctx.get_assignment(l) == l_false);
+              }
+              antecedents.push_back(consequent);
+              m_ctx.display_literals_smt2(tout, antecedents););
+        
     }
 
     /**
@@ -505,8 +513,7 @@ namespace smt {
             switch (js.get_kind()) {
             case b_justification::CLAUSE: {
                 clause * cls = js.get_clause();
-                TRACE("conflict", m_ctx.display_clause_detail(tout, cls););
-                TRACE("conflict", tout << literal_vector(cls->get_num_literals(), cls->begin()) << "\n";);
+                TRACE("conflict_smt2", m_ctx.display_clause_smt2(tout, *cls););
                 if (cls->is_lemma())
                     cls->inc_clause_activity();
                 unsigned num_lits = cls->get_num_literals();
@@ -530,17 +537,18 @@ namespace smt {
                 }
                 justification * js = cls->get_justification();
                 if (js)
-                    process_justification(js, num_marks);
+                    process_justification(consequent, js, num_marks);
                 break;
             }
             case b_justification::BIN_CLAUSE:
+                TRACE("conflict_smt2", m_ctx.display_literals_smt2(tout, consequent, ~js.get_literal()) << "\n";);
                 SASSERT(consequent.var() != js.get_literal().var());
                 process_antecedent(js.get_literal(), num_marks);
                 break;
             case b_justification::AXIOM:
                 break;
             case b_justification::JUSTIFICATION:
-                process_justification(js.get_justification(), num_marks);
+                process_justification(consequent, js.get_justification(), num_marks);
                 break;
             default:
                 UNREACHABLE();
@@ -572,10 +580,12 @@ namespace smt {
         }
         while (num_marks > 0);
 
-        TRACE("conflict", tout << "FUIP: "; m_ctx.display_literal(tout, consequent); tout << "\n";);
+        TRACE("conflict", tout << "FUIP: "; m_ctx.display_literal(tout, consequent)<< "\n";);
 
         m_lemma[0]       = ~consequent;
         m_lemma_atoms.set(0, m_ctx.bool_var2expr(consequent.var()));
+
+        TRACE("conflict_smt2", m_ctx.display_literals_smt2(tout << "lemma:", m_lemma) << "\n";);
 
         // TODO:
         //

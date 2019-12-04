@@ -3935,7 +3935,7 @@ namespace smt {
                   for (unsigned i = 0; i < num_lits; i++) {
                       literal l = lits[i];
                       tout << l << " ";
-                      display_literal(tout, l);
+                      display_literal_smt2(tout, l);
                       tout << ", ilvl: " << get_intern_level(l.var()) << "\n"
                            << mk_pp(bool_var2expr(l.var()), m) << "\n";
                   });

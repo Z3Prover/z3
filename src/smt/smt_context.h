@@ -1318,7 +1318,11 @@ namespace smt {
 
         std::ostream& display_literal_smt2(std::ostream& out, literal lit) const;
 
+        std::ostream& display_literals_smt2(std::ostream& out, literal l1, literal l2) const { literal ls[2] = { l1, l2 }; return display_literals_smt2(out, 2, ls); }
+
         std::ostream& display_literals_smt2(std::ostream& out, unsigned num_lits, literal const* lits) const;
+
+        std::ostream& display_literals_smt2(std::ostream& out, literal_vector const& ls) const { return display_literals_smt2(out, ls.size(), ls.c_ptr()); }
 
         std::ostream& display_literal_verbose(std::ostream & out, literal lit) const;
 

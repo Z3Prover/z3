@@ -177,7 +177,7 @@ namespace smt {
         unsigned get_max_lvl(literal consequent, b_justification js);
         unsigned skip_literals_above_conflict_level();
         void process_antecedent(literal antecedent, unsigned & num_marks);
-        void process_justification(justification * js, unsigned & num_marks);
+        void process_justification(literal consequent, justification * js, unsigned & num_marks);
 
         bool_var_vector m_unmark;
         bool_var_vector m_lemma_min_stack;

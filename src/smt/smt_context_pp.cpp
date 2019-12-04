@@ -103,9 +103,9 @@ namespace smt {
 
     std::ostream& context::display_literal_smt2(std::ostream& out, literal l) const {
         if (l.sign())
-            out << "  (not " << mk_pp(bool_var2expr(l.var()), m) << ") ";
+            out << "(not " << mk_pp(bool_var2expr(l.var()), m) << ") ";
         else
-            out << "  " << mk_pp(bool_var2expr(l.var()), m) << " ";
+            out << mk_pp(bool_var2expr(l.var()), m) << " ";
         return out;
     }
 
@@ -173,8 +173,7 @@ namespace smt {
     }
 
     std::ostream& context::display_clause_smt2(std::ostream & out, clause const& cls) const {
-        cls.display_smt2(out, m, m_bool_var2expr.c_ptr());
-        return out;
+        return display_literals_smt2(out, cls.get_num_literals(), cls.begin());
     }
 
     std::ostream& context::display_clauses(std::ostream & out, ptr_vector<clause> const & v) const {
@@ -604,7 +603,8 @@ namespace smt {
         case b_justification::JUSTIFICATION: {
             literal_vector lits;
             const_cast<conflict_resolution&>(*m_conflict_resolution).justification2literals(j.get_justification(), lits);
-            out << "justification " << j.get_justification()->get_from_theory() << ": " << lits;
+            out << "justification " << j.get_justification()->get_from_theory() << ": ";
+            display_literals_smt2(out, lits);
             break;
         }
         default:

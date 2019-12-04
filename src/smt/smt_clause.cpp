@@ -123,7 +123,7 @@ namespace smt {
             if (lit.sign()) args[args.size()-1] = m.mk_not(args.back());
         }
         expr_ref disj(m.mk_or(args.size(), args.c_ptr()), m);
-        return out << mk_bounded_pp(disj, m, 3);
+        return out << mk_pp(disj, m, 3);
     }
 
 };
