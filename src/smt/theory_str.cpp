@@ -3638,7 +3638,7 @@ namespace smt {
                 expr_ref conclusion(mk_or(arrangement_disjunction), mgr);
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(premise, conclusion), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(premise, conclusion);
                 }
