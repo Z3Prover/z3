@@ -511,6 +511,9 @@ public:
     bool enable_edge(edge_id id) {
         edge& e = m_edges[id];
         bool r = true;
+        if (!is_feasible()) {
+            return false;
+        }
         if (!e.is_enabled()) {
             e.enable(m_timestamp);
             m_last_enabled_edge = id;
