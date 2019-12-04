@@ -287,6 +287,7 @@ public:
     bool var_is_fixed_to_val(lpvar j, const rational& v) const;
 
     bool var_is_fixed(lpvar j) const;
+    bool var_is_free(lpvar j) const;
         
     bool find_canonical_monic_of_vars(const svector<lpvar>& vars, lpvar & i) const;
     bool is_canonical_monic(lpvar) const;

@@ -151,6 +151,7 @@ public:
 
     bool is_term(var_index j) const;
     bool column_is_fixed(unsigned j) const;
+    bool column_is_free(unsigned j) const;
 public:
 
     // init region
