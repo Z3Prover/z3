@@ -976,7 +976,8 @@ public:
 
     void apply_sort_cnstr(enode* n, sort*) {
         if (!th.is_attached_to_var(n)) {
-            mk_var(n->get_owner(), false);
+            theory_var v = mk_var(n->get_owner(), false);
+            get_var_index(v);
         }
     }
 
