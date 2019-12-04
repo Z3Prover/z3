@@ -842,7 +842,7 @@ namespace smt {
     }
 
     bool theory_str::can_propagate() {
-        return !m_basicstr_axiom_todo.empty() || !m_str_eq_todo.empty()
+        return !m_basicstr_axiom_todo.empty()
             || !m_concat_axiom_todo.empty() || !m_concat_eval_todo.empty()
             || !m_library_aware_axiom_todo.empty()
             || !m_delayed_axiom_setup_terms.empty()
@@ -872,13 +872,6 @@ namespace smt {
             }
             m_basicstr_axiom_todo.reset();
             TRACE("str", tout << "reset m_basicstr_axiom_todo" << std::endl;);
-
-            for (auto const& pair : m_str_eq_todo) {
-                enode * lhs = pair.first;
-                enode * rhs = pair.second;
-                handle_equality(lhs->get_owner(), rhs->get_owner());
-            }
-            m_str_eq_todo.reset();
 
             for (auto const& el : m_concat_axiom_todo) {
                 instantiate_concat_axiom(el);
@@ -2136,7 +2129,6 @@ namespace smt {
         m_trail_stack.reset();
 
         m_basicstr_axiom_todo.reset();
-        m_str_eq_todo.reset();
         m_concat_axiom_todo.reset();
         pop_scope_eh(get_context().get_scope_level());
     }
@@ -3842,7 +3834,7 @@ namespace smt {
 
                     if (m_params.m_StrongArrangements) {
                         expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                        assert_axiom(ax_strong);
+                        assert_axiom_rw(ax_strong);
                     } else {
                         assert_implication(ax_l, ax_r);
                     }
@@ -3919,7 +3911,7 @@ namespace smt {
 
                 if (m_params.m_StrongArrangements) {
                     expr_ref ax_strong(ctx.mk_eq_atom(ax_l, ax_r), mgr);
-                    assert_axiom(ax_strong);
+                    assert_axiom_rw(ax_strong);
                 } else {
                     assert_implication(ax_l, ax_r);
                 }
