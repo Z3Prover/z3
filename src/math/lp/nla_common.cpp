@@ -141,8 +141,10 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
     for (lpvar k : m.vars()) {
         if (fixed_as_scalars && c().var_is_fixed(k)) {
             auto & b = c().m_lar_solver.get_lower_bound(k).x;
-            if (b.is_zero())
+            if (b.is_zero()) {
+                TRACE("nla_grobner", tout << "[" << k << "] is fixed to zero\n";); 
                 return nullptr;
+            }
             e->coeff() *=  b;
             continue;
         }  

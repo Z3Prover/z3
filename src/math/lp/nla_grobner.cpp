@@ -34,11 +34,19 @@ bool nla_grobner::internalize_gb_eq(equation* ) {
 
 void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
     SASSERT(!c().active_var_set_contains(j));
+    TRACE("grobner", tout << "j = " << j << ", "; c().print_var(j, tout) << "\n";);
     const auto& matrix = c().m_lar_solver.A_r();
     c().insert_to_active_var_set(j);
+    const auto & core_slv = c().m_lar_solver.m_mpq_lar_core_solver;
     for (auto & s : matrix.m_columns[j]) {
         unsigned row = s.var();
         if (m_rows.contains(row)) continue;
+        lpvar basic_in_row = core_slv.m_r_basis[row];
+        if (c().var_is_free(basic_in_row)) {
+            TRACE("grobner", tout << "ignore the row " << row << " with the free basic var\n";); 
+            continue; // mimic the behavior of the legacy solver
+            
+        }
         m_rows.insert(row);
         for (auto& rc : matrix.m_rows[row]) {
             if (c().active_var_set_contains(rc.var()))
@@ -159,6 +167,7 @@ void nla_grobner::init() {
 
     find_nl_cluster();
     c().clear_and_resize_active_var_set();
+    TRACE("grobner", tout << "m_rows.size() = " << m_rows.size() << "\n";);
     for (unsigned i : m_rows) {
         add_row(i);
     }
@@ -730,7 +739,7 @@ bool nla_grobner::done() const {
         ||
         canceled()
         ||
-        m_reported > 10
+        m_reported > 100000
         ||
         m_conflict) {
         TRACE("grobner", tout << "done()\n";);
@@ -776,7 +785,8 @@ bool nla_grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_we
 
 
 void nla_grobner::grobner_lemmas() {
-    c().lp_settings().stats().m_grobner_calls++;    
+    c().lp_settings().stats().m_grobner_calls++;
+
     init();
     
     ptr_vector<equation> eqs;
