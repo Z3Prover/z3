@@ -641,6 +641,10 @@ bool core:: var_is_fixed_to_val(lpvar j, const rational& v) const {
 bool core:: var_is_fixed(lpvar j) const {
     return m_lar_solver.column_is_fixed(j);
 }
+
+bool core:: var_is_free(lpvar j) const {
+    return m_lar_solver.column_is_free(j);
+}
     
 std::ostream & core::print_ineq(const ineq & in, std::ostream & out) const {
     m_lar_solver.print_term_as_indices(in.m_term, out);

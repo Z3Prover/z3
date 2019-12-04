@@ -1693,6 +1693,10 @@ bool lar_solver::column_is_fixed(unsigned j) const {
     return m_mpq_lar_core_solver.column_is_fixed(j);
 }
 
+bool lar_solver::column_is_free(unsigned j) const {
+    return m_mpq_lar_core_solver.column_is_free(j);
+}
+
 // below is the initialization functionality of lar_solver
 
 bool lar_solver::strategy_is_undecided() const {

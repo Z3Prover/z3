@@ -799,6 +799,11 @@ public:
             ( m_column_types()[j] == column_type::boxed &&
               m_r_solver.m_lower_bounds[j] == m_r_solver.m_upper_bounds[j]);
     }
+
+    bool column_is_free(unsigned j) const {
+        return m_column_types()[j] == column_type::free_column;
+    }
+
     
     const impq & lower_bound(unsigned j) const {
         lp_assert(m_column_types()[j] == column_type::fixed ||
