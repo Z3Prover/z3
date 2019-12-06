@@ -215,7 +215,7 @@ nla_grobner::equation* nla_grobner::pick_next() {
 nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_to_superpose.size() << "\n";);
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
     do {
         simplified = false;
         for (equation * p : m_to_superpose) {
@@ -447,7 +447,7 @@ bool nla_grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "result: " << result << "\n"; if (result) display_equation(tout, *target););
     if (result) {
         target->dep() = m_dep_manager.mk_join(target->dep(), source->dep());
-        TRACE("grobner_d", tout << "simplied to " << *(target->exp()) << "\n";);
+        TRACE("grobner_d", tout << "simplified to " << *(target->exp()) << "\n";);
         return true;
     }
     TRACE("grobner_d", tout << "no simplification\n";);
@@ -578,8 +578,6 @@ bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& 
     unsigned ab_size = ab->number_of_child_powers();
     unsigned ac_size = ac->number_of_child_powers();
     unsigned i = 0, j = 0;
-    //    nex_pow* bp = ab->begin();
-    //    nex_pow* cp = ac->begin();
     for (;;) {
         const nex* m = ab->get_child_exp(i);
         const nex* n = ac->get_child_exp(j);
@@ -608,7 +606,7 @@ bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& 
     }
     
     while (i != ab_size) {
-        c->add_child_in_power(const_cast<nex*>(ab->get_child_exp(i)), ab->get_child_pow(i));
+        b->add_child_in_power(const_cast<nex*>(ab->get_child_exp(i)), ab->get_child_pow(i));
         i++;
     }
     while (j != ac_size) {
@@ -652,7 +650,7 @@ void nla_grobner::superpose(equation * eq) {
     }
 }
 
-
+// return true iff cannot pick_next()
 bool nla_grobner::compute_basis_step() {
     equation * eq = pick_next();
     if (!eq) {
@@ -716,14 +714,17 @@ bool nla_grobner::done() const {
 }
 
 bool nla_grobner::compute_basis_loop(){
+    int i = 0;
     while (!done()) {
         if (compute_basis_step()) {
             TRACE("grobner", tout << "progress in compute_basis_step\n";);
             return true;
         }
-        TRACE("grobner", tout << "continue compute_basis_loop\n";);
+        TRACE("grobner", tout << "continue compute_basis_loop i= " << i << "\n";);
+        if (++i > 50)
+            exit(0);
     }
-    TRACE("grobner", tout << "return false from compute_basis_loop\n";);
+    TRACE("grobner", tout << "return false from compute_basis_loop i= " << i << "\n";);
     return false;
 }
 
