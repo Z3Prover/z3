@@ -219,11 +219,9 @@ nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
     do {
         simplified = false;
         for (equation * p : m_to_superpose) {
-            equation * new_eq  = simplify_source_target(p, eq);           
-            if (new_eq) {
+            if (simplify_source_target(p, eq)) {
                 result     = true;
                 simplified = true;
-                eq         = new_eq;
             }            
             if (canceled()) {
                 return nullptr;
@@ -422,19 +420,19 @@ void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *t
     TRACE("grobner_d", tout << "targ_sum = " << *targ_sum << "\n";);    
 }
 
-
-nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, equation * target) {
+// return true iff simplified
+bool nla_grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     TRACE("grobner_d", tout << "simplifying: " << *(target->exp()) <<  " using " << *(source->exp()) << "\n";);
     SASSERT(m_nex_creator.is_simplified(source->exp()));
     SASSERT(m_nex_creator.is_simplified(target->exp()));
     if (target->exp()->is_scalar()) {
         TRACE("grobner_d", tout << "no simplification\n";);
-        return nullptr;
+        return false;
     }
     if (source->get_num_monomials() == 0) {
         TRACE("grobner_d", tout << "no simplification\n";);
-        return nullptr;
+        return false;
     }
     m_stats.m_simplify++;
     bool result = false;
@@ -450,29 +448,18 @@ nla_grobner::equation * nla_grobner::simplify_source_target(equation * source, e
     if (result) {
         target->dep() = m_dep_manager.mk_join(target->dep(), source->dep());
         TRACE("grobner_d", tout << "simplied to " << *(target->exp()) << "\n";);
-        return target;
+        return true;
     }
     TRACE("grobner_d", tout << "no simplification\n";);
-    return nullptr;
+    return false;
 }
  
-void nla_grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove) {
-    if (new_target != target) {
+void nla_grobner::process_simplified_target(equation* target, ptr_buffer<equation>& to_remove) {
+    if (is_trivial(target)) {
         to_remove.push_back(target);
-        if (m_changed_leading_term) {
-            insert_to_simplify(new_target);
-            to_remove.push_back(target);
-        }
-        else {
-            to_insert.push_back(new_target);
-        }
-        target = new_target;
-    }
-    else {
-        if (m_changed_leading_term) {
-            insert_to_simplify(target);
-            to_remove.push_back(target);
-        }
+    } else if (m_changed_leading_term) {
+        insert_to_simplify(target);
+        to_remove.push_back(target);
     }
 }
 
@@ -500,9 +487,8 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
         equation * target        = *it;
         m_changed_leading_term = false;
         // if the leading term is simplified, then the equation has to be moved to m_to_simplify
-        equation * new_target    = simplify_source_target(eq, target);
-        if (new_target != nullptr) {
-            process_simplified_target(to_insert, new_target, target, to_remove);
+        if (simplify_source_target(eq, target)) {
+            process_simplified_target(target, to_remove);
         }
         if (is_trivial(target))
             to_delete.push_back(target);
@@ -520,26 +506,13 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
 
 void  nla_grobner::simplify_to_superpose(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->exp()) <<  "\n";);
-    ptr_buffer<equation> to_insert;
-    ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
     for (equation* target : m_to_simplify) {
-        equation * new_target = simplify_source_target(eq, target);
-        if (new_target != nullptr && new_target != target) {
-            to_insert.push_back(new_target);
-            to_remove.push_back(target);
-            target = new_target;
-        }
-        if (is_trivial(target))
+        if (simplify_source_target(eq, target) && is_trivial(target))
             to_delete.push_back(target);
     }
-    for (equation* eq : to_insert)
-        insert_to_simplify(eq);
-    for (equation* eq : to_remove)
-        m_to_simplify.erase(eq);
     for (equation* eq : to_delete)
         del_equation(eq);
-
 }
 
 // if e is the sum then add to r all children of e multiplied by beta, except the first one
