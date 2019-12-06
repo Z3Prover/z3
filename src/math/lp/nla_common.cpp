@@ -129,8 +129,10 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
     if (!c().is_monic_var(j)) {
         if (fixed_as_scalars && c().var_is_fixed(j)) {
             auto & b = c().m_lar_solver.get_lower_bound(j).x;
-            if (b.is_zero())
+            if (b.is_zero()) {
+                TRACE("nla_grobner", tout << "[" << j << "] is fixed to zero\n";); 
                 return nullptr;
+            }
             return cn.mk_scalar(coeff * b);
         } 
         c().insert_to_active_var_set(j);
@@ -150,9 +152,9 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
         }  
         c().insert_to_active_var_set(k);
         e->add_child(cn.mk_var(k));
-        CTRACE("nla_horner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
+        CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
-    TRACE("nla_cn", tout << *e;);
+    TRACE("nla_grobner", tout << *e;);
     return e;
 }
 

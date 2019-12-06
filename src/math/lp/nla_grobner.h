@@ -78,7 +78,6 @@ class nla_grobner : common {
     typedef ptr_vector<equation> equation_vector;
     
     // fields
-    equation_vector                              m_equations_to_unfreeze;
     equation_vector                              m_equations_to_delete;    
     lp::int_set                                  m_rows;
     unsigned                                     m_num_of_equations;
@@ -95,6 +94,7 @@ class nla_grobner : common {
     bool                                         m_changed_leading_term;
     unsigned                                     m_reported;
     bool                                         m_conflict;
+    bool                                         m_look_for_fixed_vars_in_rows;
 public:
     nla_grobner(core *core, intervals *);
     void grobner_lemmas();
