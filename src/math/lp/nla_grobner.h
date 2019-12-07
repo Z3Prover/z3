@@ -113,11 +113,11 @@ private:
     bool compute_basis_loop();
     bool compute_basis_step();
     bool simplify_source_target(equation * source, equation * target);
-    equation* simplify_using_processed(equation*);
+    equation* simplify_using_to_superpose(equation*);
     bool simplify_target_monomials(equation * source, equation * target);
     void process_simplified_target(equation* target, ptr_buffer<equation>& to_remove);    
     bool simplify_to_superpose_with_eq(equation*);
-    void simplify_to_superpose(equation*);
+    void simplify_m_to_simplify(equation*);
     equation* pick_next();
     void set_gb_exhausted();
     bool canceled() const;
@@ -139,8 +139,6 @@ private:
     bool internalize_gb_eq(equation*);
     void add_row(unsigned);
     void assert_eq_0(nex*, ci_dependency * dep);
-    void process_var(nex_mul*, lpvar j, ci_dependency *& dep, rational&);
-
     void init_equation(equation* eq, nex*, ci_dependency* d);
     
     std::ostream& display_dependency(std::ostream& out, ci_dependency*) const;
@@ -150,9 +148,10 @@ private:
     }
     void insert_to_superpose(equation *eq) {
         SASSERT(m_nex_creator.is_simplified(eq->exp()));
+        TRACE("nla_grobner", display_equation(tout, *eq););
         m_to_superpose.insert(eq);
     }
-    void simplify_equations_to_process();
+    void simplify_equations_in_m_to_simplify();
     const nex * get_highest_monomial(const nex * e) const;
     ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
     bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    

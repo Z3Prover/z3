@@ -35,7 +35,7 @@ bool nla_grobner::internalize_gb_eq(equation* ) {
 }
 
 void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
-    SASSERT(!c().active_var_set_contains(j));
+    SASSERT(!c().active_var_set_contains(j) &&  !c().var_is_fixed(j));
     TRACE("grobner", tout << "j = " << j << ", "; c().print_var(j, tout) << "\n";);
     const auto& matrix = c().m_lar_solver.A_r();
     c().insert_to_active_var_set(j);
@@ -45,13 +45,12 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
         if (m_rows.contains(row)) continue;
         lpvar basic_in_row = core_slv.m_r_basis[row];
         if (c().var_is_free(basic_in_row)) {
-            TRACE("grobner", tout << "ignore the row " << row << " with the free basic var\n";); 
-            continue; // mimic the behavior of the legacy solver
-            
+             TRACE("grobner", tout << "ignore the row " << row << " with the free basic var\n";); 
+             continue; // mimic the behavior of the legacy solver
         }
         m_rows.insert(row);
         for (auto& rc : matrix.m_rows[row]) {
-            if (c().active_var_set_contains(rc.var()))
+            if (c().active_var_set_contains(rc.var()) || c().var_is_fixed(rc.var()))
                 continue;
             q.push(rc.var());
         }
@@ -64,7 +63,7 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
     for (auto fcn : factorization_factory_imp(m, c())) {
         for (const factor& fc: fcn) {
             lpvar j = var(fc);
-            if (! c().active_var_set_contains(j))
+            if (!c().active_var_set_contains(j) && !c().var_is_fixed(j))
                 add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
         }
     }            
@@ -75,6 +74,10 @@ void nla_grobner::find_nl_cluster() {
     std::queue<lpvar> q;
     for (lpvar j : c().m_to_refine) {        
         TRACE("grobner", c().print_monic(c().emons()[j], tout) << "\n";);
+        if (c().var_is_fixed(j)) {
+            TRACE("grobner", tout << "skip fixed var " << j << "\n";);
+            continue;
+        }
         q.push(j);
     }
 
@@ -110,21 +113,6 @@ std::ostream & nla_grobner::display(std::ostream & out) const {
     return out;
 }
 
-void nla_grobner::process_var(nex_mul* m, lpvar j, ci_dependency* & dep, rational & coeff) {
-    if (c().var_is_fixed(j)) {                                       
-        if (!m_tmp_var_set.contains(j)) {
-            m_tmp_var_set.insert(j);
-            lp::constraint_index lc,uc;
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-            dep = m_dep_manager.mk_join(dep, m_dep_manager.mk_join(m_dep_manager.mk_leaf(lc), m_dep_manager.mk_leaf(uc))); 
-        }
-        coeff *= c().m_lar_solver.column_upper_bound(j).x; 
-    }                                                           
-    else {                                                      
-        m->add_child(m_nex_creator.mk_var(j));                                    
-    }                                                           
-}                                                               
-
 
 common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index> & cs) {
     ci_dependency * d = nullptr;
@@ -148,7 +136,7 @@ void nla_grobner::add_row(unsigned i) {
     assert_eq_0(e, m_look_for_fixed_vars_in_rows? get_fixed_vars_dep_from_row(row, m_dep_manager) : nullptr);
 }
 
-void nla_grobner::simplify_equations_to_process() {
+void nla_grobner::simplify_equations_in_m_to_simplify() {
     for (equation *eq : m_to_simplify) {
         eq->exp() = m_nex_creator.simplify(eq->exp());
     }
@@ -169,7 +157,7 @@ void nla_grobner::init() {
     for (unsigned i : m_rows) {
         add_row(i);
     }
-    simplify_equations_to_process();
+    simplify_equations_in_m_to_simplify();
 }
 
 bool nla_grobner::is_trivial(equation* eq) const {
@@ -184,7 +172,7 @@ bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
         return true;
     if (is_trivial(eq2))
         return false;
-    return m_nex_creator.lt(eq1->exp(), eq2->exp());
+    return m_nex_creator.lt(eq2->exp(), eq1->exp());
 }
 
 void nla_grobner::del_equation(equation * eq) {
@@ -201,8 +189,10 @@ nla_grobner::equation* nla_grobner::pick_next() {
     for (equation * curr : m_to_simplify) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
-        else if (is_better_choice(curr, r))
+        else if (is_better_choice(curr, r)) {
+            TRACE("grobner", tout << "preferring "; display_equation(tout, *curr););
             r = curr;
+        }
     }
     for (equation * e : to_delete) 
         del_equation(e);
@@ -212,7 +202,7 @@ nla_grobner::equation* nla_grobner::pick_next() {
     return r;
 }
 
-nla_grobner::equation* nla_grobner::simplify_using_processed(equation* eq) {
+nla_grobner::equation* nla_grobner::simplify_using_to_superpose(equation* eq) {
     bool result = false;
     bool simplified;
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
@@ -504,7 +494,10 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
     return !canceled();
 }
 
-void  nla_grobner::simplify_to_superpose(equation* eq) {
+/*
+    Use the given equation to simplify m_to_simplify equations
+*/
+void  nla_grobner::simplify_m_to_simplify(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->exp()) <<  "\n";);
     ptr_buffer<equation> to_delete;
     for (equation* target : m_to_simplify) {
@@ -557,6 +550,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner", tout << "ab="; if(ab) { tout << *ab; } else { tout << "null"; };
           tout  << " , " << " ac="; if(ac) { tout << *ac; } else { tout << "null"; }; tout << "\n";);
     if (!find_b_c(ab, ac, b, c)) {
+        TRACE("grobner", tout << "there is no non-trivial common divider, no superposing\n";);
         return;
     }
     equation* eq = alloc(equation);
@@ -658,27 +652,33 @@ bool nla_grobner::compute_basis_step() {
         return true;
     }
     m_stats.m_num_processed++;
-    equation * new_eq = simplify_using_processed(eq);
+    equation * new_eq = simplify_using_to_superpose(eq);
     if (new_eq != nullptr && eq != new_eq) {
         // equation was updated using non destructive updates
         eq = new_eq;
     }
     if (canceled()) return false;
-    if (!simplify_to_superpose_with_eq(eq)) return false;
+    if (!simplify_to_superpose_with_eq(eq))
+        return false;
     TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
     superpose(eq);
     insert_to_superpose(eq);
-    simplify_to_superpose(eq);
+    simplify_m_to_simplify(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
 }
 
 void nla_grobner::compute_basis(){
-    compute_basis_init();        
+    compute_basis_init();
+    if (m_rows.size() < 2) {
+        TRACE("nla_grobner", tout << "there are only " << m_rows.size() << " rows, exiting compute_basis()\n";);
+        return;
+    }
     if (!compute_basis_loop()) {
+        TRACE("grobner", tout << "false from compute_basis_loop\n";);
         set_gb_exhausted();
     } else {
-        TRACE("grobner", tout << "m_to_simplify.size() = " << m_to_simplify.size() << " , m_to_superpose.size() == " << m_to_superpose.size() << "\n";);
+        TRACE("grobner", display(tout););
         for (equation* e : m_to_simplify) {
             check_eq(e);
         }
@@ -707,7 +707,18 @@ bool nla_grobner::done() const {
         m_reported > 100000
         ||
         m_conflict) {
-        TRACE("grobner", tout << "done()\n";);
+        TRACE("grobner",
+              tout << "done() is true because of ";
+              if (m_num_of_equations >= c().m_nla_settings.grobner_eqs_threshold()) {
+                  tout << "m_num_of_equations = " << m_num_of_equations << "\n";
+              } else if (canceled()) {
+                  tout << "canceled\n";
+              } else if (m_reported > 100000) {
+                  tout << "m_reported = " << m_reported;
+              } else {
+                  tout << "m_conflict = " << m_conflict;
+              }
+              tout <<    "\n";);
         return true;
     }
     return false;
@@ -720,9 +731,7 @@ bool nla_grobner::compute_basis_loop(){
             TRACE("grobner", tout << "progress in compute_basis_step\n";);
             return true;
         }
-        TRACE("grobner", tout << "continue compute_basis_loop i= " << i << "\n";);
-        if (++i > 50)
-            exit(0);
+        TRACE("grobner", tout << "continue compute_basis_loop i= " << ++i << "\n";);
     }
     TRACE("grobner", tout << "return false from compute_basis_loop i= " << i << "\n";);
     return false;
@@ -792,7 +801,7 @@ void nla_grobner::display_equations(std::ostream & out, equation_set const & v, 
 
 std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) const {
     out << "expr = " << *eq.exp() << "\n";
-    out << "deps = "; display_dependency(out, eq.dep()) << "\n";
+    display_dependency(out, eq.dep());
     return out;
 }
 std::unordered_set<lpvar> nla_grobner::get_vars_of_expr_with_opening_terms(const nex *e ) {
@@ -852,10 +861,10 @@ std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* 
         if (!expl.empty()) {
             out << "constraints\n";    
             m_core->print_explanation(e, out);
-        }else {
-            out << "no constraints\n";
-        }
+            out << "\n";
+        }        
     }
+    
     return out;
 }
     

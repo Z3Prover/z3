@@ -176,7 +176,7 @@ protected:
 
     bool simplify_processed_with_eq(equation * eq);
 
-    void simplify_to_process(equation * eq);
+    void simplify_m_to_simplify(equation * eq);
 
     bool unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2);
 

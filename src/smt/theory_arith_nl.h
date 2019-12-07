@@ -99,8 +99,11 @@ void theory_arith<Ext>::mark_dependents(theory_var v, svector<theory_var> & vars
         typename vector<row_entry>::const_iterator it2  = r.begin_entries();
         typename vector<row_entry>::const_iterator end2 = r.end_entries();
         for (; it2 != end2; ++it2) {
-            if (!it2->is_dead() && !is_fixed(it2->m_var))
+            if (!it2->is_dead() && !is_fixed(it2->m_var)) 
                 mark_var(it2->m_var, vars, already_found);
+            if (!it2->is_dead() && is_fixed(it2->m_var)) {                
+                TRACE("non_linear", tout << "skipped fixed\n";);
+            }            
         }
     }
 }
@@ -2242,14 +2245,19 @@ void theory_arith<Ext>::set_gb_exhausted() {
 // Scan the grobner basis eqs, and look for inconsistencies.
 template<typename Ext>
 bool theory_arith<Ext>::get_gb_eqs_and_look_for_conflict(ptr_vector<grobner::equation>& eqs, grobner& gb) {
+    TRACE("grobner", );
+
     eqs.reset();
     gb.get_equations(eqs);
     TRACE("grobner_bug", tout << "after gb\n";);
     for (grobner::equation* eq : eqs) {
         TRACE("grobner_bug", gb.display_equation(tout, *eq););
-        if (is_inconsistent(eq, gb) || is_inconsistent2(eq, gb))
+        if (is_inconsistent(eq, gb) || is_inconsistent2(eq, gb)) {
+            TRACE("grobner", tout << "inconsistent: "; gb.display_equation(tout, *eq););
             return true;
+        }
     }
+    TRACE("grobner", tout << "not found\n"; );
     return false;
 }
 
