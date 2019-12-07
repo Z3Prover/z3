@@ -163,8 +163,8 @@ void grobner::display_equations(std::ostream & out, equation_set const & v, char
 }
 
 void grobner::display(std::ostream & out) const {
-    display_equations(out, m_to_superpose, "processed:");
-    display_equations(out, m_to_simplify, "to process:");
+    display_equations(out, m_to_superpose, "m_to_superpose:");
+    display_equations(out, m_to_simplify, "m_to_simplify:");
 }
 
 void grobner::set_weight(expr * n, int weight) {
@@ -751,9 +751,9 @@ bool grobner::simplify_processed_with_eq(equation * eq) {
 }
 
 /**
-   \brief Use the given equation to simplify to-process terms.
+   \brief Use the given equation to simplify m_to_simplify equation.
 */
-void grobner::simplify_to_process(equation * eq) {
+void grobner::simplify_m_to_simplify(equation * eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
@@ -832,6 +832,7 @@ void grobner::superpose(equation * eq1, equation * eq2) {
     rest1.reset();
     ptr_vector<expr> & rest2 = m_tmp_vars2;
     rest2.reset();
+    TRACE("grobner", tout << "trying to superpose:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2);); 
     if (unify(eq1->m_monomials[0], eq2->m_monomials[0], rest1, rest2)) {
         TRACE("grobner", tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
               tout << "rest1: "; display_vars(tout, rest1.size(), rest1.c_ptr()); tout << "\n";
@@ -853,6 +854,8 @@ void grobner::superpose(equation * eq1, equation * eq2) {
         init_equation(new_eq, m_dep_manager.mk_join(eq1->m_dep, eq2->m_dep));
         new_eq->m_lc = false;
         m_to_simplify.insert(new_eq);
+    } else {
+        TRACE("grobner", tout << "unify did not work\n";);
     }
 }
 
@@ -871,8 +874,9 @@ void grobner::compute_basis_init() {
 }
 
 bool grobner::compute_basis_step() {
+    TRACE("grobner", display(tout););
     equation * eq = pick_next();
-    if (!eq)
+    if (!eq) 
         return true;
     m_stats.m_num_processed++;
 #ifdef PROFILE_GB
@@ -890,10 +894,13 @@ bool grobner::compute_basis_step() {
         eq = new_eq;
     }
     if (m_manager.canceled()) return false;
-    if (!simplify_processed_with_eq(eq)) return false;
+    if (!simplify_processed_with_eq(eq)) {
+        TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+        return false;
+    }
     superpose(eq);
     m_to_superpose.insert(eq);
-    simplify_to_process(eq);
+    simplify_m_to_simplify(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
 }
@@ -901,7 +908,10 @@ bool grobner::compute_basis_step() {
 bool grobner::compute_basis(unsigned threshold) {
     compute_basis_init();
     while (m_num_new_equations < threshold && !m_manager.canceled()) {
-        if (compute_basis_step()) return true;
+        if (compute_basis_step()) {
+            
+            return true;
+        }
     }
     return false;
 }
