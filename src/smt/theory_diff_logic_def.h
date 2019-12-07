@@ -359,12 +359,21 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     }
 
     TRACE("arith_final", display(tout); );
-    // either will already be zero (as we don't do mixed constraints).
-    m_graph.set_to_zero(get_zero(true), get_zero(false));
     SASSERT(is_consistent());
     if (m_non_diff_logic_exprs) {
         return FC_GIVEUP; 
     }
+
+    for (enode* n : get_context().enodes()) {
+        family_id fid = n->get_owner()->get_family_id();
+        if (fid != get_family_id() && 
+            fid != get_manager().get_basic_family_id()) {
+            return FC_GIVEUP;
+        }
+    }
+    
+    // either will already be zero (as we don't do mixed constraints).
+    m_graph.set_to_zero(get_zero(true), get_zero(false));
 
     return FC_DONE;
 }
