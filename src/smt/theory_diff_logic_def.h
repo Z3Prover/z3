@@ -367,7 +367,9 @@ final_check_status theory_diff_logic<Ext>::final_check_eh() {
     for (enode* n : get_context().enodes()) {
         family_id fid = n->get_owner()->get_family_id();
         if (fid != get_family_id() && 
-            fid != get_manager().get_basic_family_id()) {
+            fid != get_manager().get_basic_family_id() &&
+            !is_uninterp_const(n->get_owner())) {
+            TRACE("arith", tout << mk_pp(n->get_owner(), get_manager()) << "\n";);
             return FC_GIVEUP;
         }
     }

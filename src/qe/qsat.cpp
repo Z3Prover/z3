@@ -1076,7 +1076,9 @@ namespace qe {
         bool validate_assumptions(model& mdl, expr_ref_vector const& core) {
             for (expr* c : core) {
                 if (!mdl.is_true(c)) {
-                    TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";);
+                    TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";
+                          tout << mdl << "\n";
+                          );
                     return false;
                 }
             }
