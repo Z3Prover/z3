@@ -214,22 +214,28 @@ namespace smt {
         row    & r          = m_rows[r_id];
         column & c          = m_columns[v];
         if (row_vars().contains(v)) {
-            typename vector<row_entry>::iterator it = r.begin_entries();
-            typename vector<row_entry>::iterator end = r.end_entries();
-            bool found = false;
-            for (; !found && it != end; ++it) {
-                SASSERT(!it->is_dead());
-                if (it->m_var == v) {
+            for (unsigned r_idx = 0; r_idx < r.size(); ++r_idx) {
+                row_entry& re = r[r_idx];
+                SASSERT(!re.is_dead());
+                if (re.m_var == v) {
                     if (invert) {
-                        it->m_coeff -= coeff;
+                        re.m_coeff -= coeff;
                     }
                     else {
-                        it->m_coeff += coeff;
+                        re.m_coeff += coeff;
                     }
-                    found = true;
+                    if (re.m_coeff.is_zero()) {
+                        unsigned c_idx = re.m_col_idx;
+                        r.del_row_entry(r_idx);
+                        c.del_col_entry(c_idx);
+                        row_vars().remove(v);
+                        r.compress(m_columns);
+                        c.compress(m_rows);
+                    }
+                    return;
                 }
             }
-            SASSERT(found);
+            SASSERT(false);
             return;
         }
         row_vars().insert(v);
