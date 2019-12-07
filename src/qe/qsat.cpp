@@ -1079,7 +1079,9 @@ namespace qe {
                     TRACE("qe", tout << "component of core is not true: " << mk_pp(c, m) << "\n";
                           tout << mdl << "\n";
                           );
-                    return false;
+                    if (mdl.is_false(c)) {
+                        return false;
+                    }
                 }
             }
             return true;
