@@ -251,7 +251,6 @@ namespace qe {
         stats                  m_stats;
         statistics             m_st;
         obj_hashtable<expr>    m_free_vars;
-        obj_hashtable<expr>    m_aux_vars;
         expr_ref_vector        m_answer;
         expr_safe_replace      m_answer_simplify;
         expr_ref_vector        m_trail;
@@ -661,7 +660,6 @@ namespace qe {
             m_st.reset();        
             s.m_solver.collect_statistics(m_st);
             m_free_vars.reset();
-            m_aux_vars.reset();
             m_answer.reset();
             m_answer_simplify.reset();
             m_trail.reset();
@@ -779,7 +777,7 @@ namespace qe {
             for (auto const& kv : s.m_t2x) {
                 nlsat::var x = kv.m_value;
                 expr * t = kv.m_key;
-                if (!is_uninterp_const(t) || !m_free_vars.contains(t) || m_aux_vars.contains(t))
+                if (!is_uninterp_const(t) || !m_free_vars.contains(t))
                     continue;
                 expr * v;
                 try {
@@ -797,7 +795,7 @@ namespace qe {
             for (auto const& kv : s.m_a2b) {
                 expr * a = kv.m_key;
                 nlsat::bool_var b = kv.m_value;
-                if (a == nullptr || !is_uninterp_const(a) || b == s.m_is_true.var() || !m_free_vars.contains(a) || m_aux_vars.contains(a))
+                if (a == nullptr || !is_uninterp_const(a) || b == s.m_is_true.var() || !m_free_vars.contains(a))
                     continue;
                 lbool val = s.m_bmodel0.get(b, l_undef);
                 if (val == l_undef)
@@ -879,6 +877,33 @@ namespace qe {
                     model_converter_ref mc;
                     VERIFY(mk_model(mc));
                     in->add(mc.get());
+                    
+                    model_ref mdl;
+                    model_converter2model(m, mc.get(), mdl);
+
+                    for (expr* f : fmls) {
+                        if (is_ground(f)) 
+                            std::cout << mk_pp(f, m) << " |-> " << (*mdl)(f) << "\n";
+                    }
+                    break;
+                    ptr_vector<expr> todo;
+                    todo.append(fmls.size(), fmls.c_ptr());
+                    ast_mark visited;
+                    while (!todo.empty()) {
+                        expr* e = todo.back();
+                        todo.pop_back();
+                        if (visited.is_marked(e)) continue;
+                        visited.mark(e, true);
+                        if (is_ground(e)) {
+                            std::cout << mk_pp(e, m) << " |-> " << (*mdl)(e) << "\n";
+                        }
+                        if (is_app(e)) {
+                            for (expr* arg : *to_app(e)) todo.push_back(arg);
+                        }
+                        else if (is_quantifier(e)) {
+                            todo.push_back(to_quantifier(e)->get_expr());
+                        }
+                    }
                 }
                 break;
             case l_undef:

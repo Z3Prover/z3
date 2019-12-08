@@ -953,6 +953,8 @@ namespace datatype {
         m_asts.push_back(ty);
         m_vectors.push_back(r);
         m_datatype2constructors.insert(ty, r);
+        if (!is_declared(ty)) 
+            m.raise_exception("datatype constructors have not been created");
         def const& d = get_def(ty);
         for (constructor const* c : d) {
             func_decl_ref f = c->instantiate(ty);
