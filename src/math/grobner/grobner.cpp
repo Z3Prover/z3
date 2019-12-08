@@ -780,7 +780,7 @@ void grobner::simplify_m_to_simplify(equation * eq) {
    \brief If m1 = (* c M M1) and m2 = (* d M M2) and M is non empty, then return true and store M1 in rest1 and M2 in rest2.
 */
 bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2) {
-    TRACE("grobner", tout << "unifying: "; display_monomial(tout, *m1); tout << " "; display_monomial(tout, *m2); tout << "\n";);
+    TRACE("grobner", tout << "unifying: "; display_monomial(tout, *m1); tout << " and "; display_monomial(tout, *m2); tout << "\n";);
     bool found_M = false;
     unsigned i1  = 0;
     unsigned i2  = 0;

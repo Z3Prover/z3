@@ -66,8 +66,8 @@ class nla_grobner : common {
             default: return 0;
             }
         }
-        nex* & exp() { return m_expr; }
-        const nex*  exp() const { return m_expr; }
+        nex* & expr() { return m_expr; }
+        const nex*  expr() const { return m_expr; }
         ci_dependency * dep() const { return m_dep; }
         ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
@@ -80,7 +80,6 @@ class nla_grobner : common {
     // fields
     equation_vector                              m_equations_to_delete;    
     lp::int_set                                  m_rows;
-    unsigned                                     m_num_of_equations;
     grobner_stats                                m_stats;
     equation_set                                 m_to_superpose;
     equation_set                                 m_to_simplify;
@@ -147,7 +146,7 @@ private:
         m_to_simplify.insert(eq);
     }
     void insert_to_superpose(equation *eq) {
-        SASSERT(m_nex_creator.is_simplified(eq->exp()));
+        SASSERT(m_nex_creator.is_simplified(eq->expr()));
         TRACE("nla_grobner", display_equation(tout, *eq););
         m_to_superpose.insert(eq);
     }
@@ -168,5 +167,6 @@ private:
     void check_eq(equation*);
     void register_report();
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex *e );
+    unsigned num_of_equations() const { return m_to_simplify.size() + m_to_superpose.size(); }
 }; // end of grobner
 }
