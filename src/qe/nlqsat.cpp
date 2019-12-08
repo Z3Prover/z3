@@ -878,6 +878,7 @@ namespace qe {
                     VERIFY(mk_model(mc));
                     in->add(mc.get());
                     
+#if 0
                     model_ref mdl;
                     model_converter2model(m, mc.get(), mdl);
 
@@ -904,6 +905,7 @@ namespace qe {
                             todo.push_back(to_quantifier(e)->get_expr());
                         }
                     }
+#endif
                 }
                 break;
             case l_undef:
