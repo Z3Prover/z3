@@ -72,7 +72,7 @@ bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
 template <typename T> 
 bool horner::lemmas_on_row(const T& row) {
     cross_nested cn(
-        [this](const nex* n) { return m_intervals->check_cross_nested_expr(n,  m_fixed_as_scalars? get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals->dep_manager()) : nullptr); },
+        [this](const nex* n) { return m_intervals->check_nex(n,  m_fixed_as_scalars? get_fixed_vars_dep_from_row(c().m_lar_solver.A_r().m_rows[m_row_index], m_intervals->dep_manager()) : nullptr); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
         [this]() { return c().random(); }, m_nex_creator);
 
