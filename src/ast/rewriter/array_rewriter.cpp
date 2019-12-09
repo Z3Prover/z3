@@ -216,7 +216,15 @@ br_status array_rewriter::mk_select_core(unsigned num_args, expr * const * args,
         quantifier* q = to_quantifier(args[0]);
         SASSERT(q->get_num_decls() == num_args - 1);
         var_subst subst(m());
-        result = subst(q->get_expr(), num_args - 1, args + 1);
+        expr_ref_vector _args(m());
+        var_shifter sh(m());
+        for (unsigned i = 1; i < num_args; ++i) {
+            sh(args[i],  num_args-1, result);
+            _args.push_back(result);
+        }
+        result = subst(q->get_expr(), _args.size(), _args.c_ptr());
+        inv_var_shifter invsh(m());
+        invsh(result, _args.size(), result);
         return BR_REWRITE_FULL;
         
     }
