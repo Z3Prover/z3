@@ -188,9 +188,12 @@ namespace smt {
 
         // A conflict is usually a single justification. That is, a justification
         // for false. If m_not_l is not null_literal, then m_conflict is a
-        // justification for l, and the conflict is union of m_no_l and m_conflict;
+        // justification for l, and the conflict is union of m_not_l and m_conflict;
+        // m_empty_clause is set to ensure that an empty clause generated in deep scope 
+        // levels survives to the base level.
         b_justification             m_conflict;
         literal                     m_not_l;
+        bool                        m_empty_clause;
         scoped_ptr<conflict_resolution> m_conflict_resolution;
         proof_ref                   m_unsat_proof;
 
