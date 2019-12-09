@@ -75,6 +75,7 @@ namespace smt {
         m_phase_default(false),
         m_conflict(null_b_justification),
         m_not_l(null_literal),
+        m_empty_clause(false),
         m_conflict_resolution(mk_conflict_resolution(m, *this, m_dyn_ack_manager, p, m_assigned_literals, m_watches)),
         m_unsat_proof(m),
         m_dyn_ack_manager(*this, p),
@@ -2396,9 +2397,10 @@ namespace smt {
                     m_unsat_proof = nullptr;
                 }
                 m_base_scopes.shrink(new_lvl);
+                m_empty_clause = false;
             }
             else {
-                m_conflict = null_b_justification;
+                m_conflict = m_empty_clause ? b_justification::mk_axiom() : null_b_justification;
                 m_not_l = null_literal;
             }
             del_clauses(m_aux_clauses, s.m_aux_clauses_lim);
