@@ -452,7 +452,7 @@ public:
         return false;
     }
     void reset() { m_alloc.reset(); }
-    bool check_cross_nested_expr(const nex*, ci_dependency*);
+    bool check_nex(const nex*, ci_dependency*);
     interval interval_of_expr_with_deps(const nex* e, unsigned power);
     interval interval_of_expr(const nex* e, unsigned power);
     interval interval_of_sum(const nex_sum*);

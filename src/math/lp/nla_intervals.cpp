@@ -244,19 +244,19 @@ intervals::interv intervals::interval_of_mul(const nex_mul* e) {
     return a;
 }
 
-
-bool intervals::check_cross_nested_expr(const nex* n, ci_dependency* initial_deps) {
-    TRACE("nla_intervals", tout << "cross-nested n = " << *n << ", n->type() == " << n->type() << "\n";);
+// return true iff the interval of n is does not contain 0
+bool intervals::check_nex(const nex* n, ci_dependency* initial_deps) {
+    TRACE("nla_grobner", tout << "cross-nested n = " << *n << ", n->type() == " << n->type() << "\n";);
     m_core->lp_settings().stats().m_cross_nested_forms++;
 
     auto i = interval_of_expr(n, 1);
-    TRACE("nla_intervals", tout << "callback n = " << *n << "\ni="; display(tout, i) << "\n";);
+    TRACE("nla_grobner", tout << "callback n = " << *n << "\ni="; display(tout, i) << "\n";);
     if (!separated_from_zero(i)) {
         reset();
         return false;
     }
     auto interv_wd = interval_of_expr_with_deps(n, 1);
-    TRACE("nla_intervals", tout << "conflict: interv_wd = "; display(tout, interv_wd ) << *n << "\n";);
+    TRACE("nla_grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) << *n << "\n";);
     check_interval_for_conflict_on_zero(interv_wd, initial_deps);
     reset(); // clean the memory allocated by the interval bound dependencies
     return true;

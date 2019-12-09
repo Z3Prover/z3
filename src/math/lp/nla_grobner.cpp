@@ -453,7 +453,7 @@ void nla_grobner::process_simplified_target(equation* target, ptr_buffer<equatio
 }
 
 void nla_grobner::check_eq(equation* target) {
-    if(m_intervals->check_cross_nested_expr(target->expr(), target->dep())) {
+    if(m_intervals->check_nex(target->expr(), target->dep())) {
         TRACE("grobner", tout << "created a lemma for "; display_equation(tout, *target) << "\n";
               tout << "vars = \n";
               for (lpvar j : get_vars_of_expr(target->expr())) {
