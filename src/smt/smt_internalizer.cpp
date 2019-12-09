@@ -1346,13 +1346,15 @@ namespace smt {
         bool  lemma = is_lemma(k);
         m_stats.m_num_mk_lits += num_lits;
         switch (num_lits) {
-        case 0:
+        case 0: {
             if (j && !j->in_region())
                 m_justifications.push_back(j);
             TRACE("mk_clause", tout << "empty clause... setting conflict\n";);
             set_conflict(j == nullptr ? b_justification::mk_axiom() : b_justification(j));
+            m_empty_clause = true;
             SASSERT(inconsistent());
             return nullptr;
+        }
         case 1:
             if (j && !j->in_region())
                 m_justifications.push_back(j);
