@@ -164,6 +164,9 @@ lbool pb_rewriter_util<PBU>::normalize(typename PBU::args_t& args, typename PBU:
         }            
     }
 
+    if (is_eq && k.is_neg()) {
+        return l_false;
+    }
     if (is_eq) {
         TRACE("pb_verbose", display(tout << "post-normalize:", args, k, is_eq););
         return l_undef;
