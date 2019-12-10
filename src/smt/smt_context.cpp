@@ -2399,8 +2399,8 @@ namespace smt {
                 m_empty_clause = false;
             }
             else {
-                // m_conflict = m_empty_clause ? b_justification::mk_axiom() : null_b_justification;
-                m_conflict = null_b_justification;
+                m_conflict = m_empty_clause ? b_justification::mk_axiom() : null_b_justification;
+                // m_conflict = null_b_justification;
                 m_not_l = null_literal;
             }
             del_clauses(m_aux_clauses, s.m_aux_clauses_lim);
