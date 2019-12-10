@@ -165,7 +165,6 @@ class theory_lra::imp {
     ast_manager&         m;
     theory_arith_params& m_arith_params;
     arith_util           a;
-    unsigned             m_final_check_idx;
     arith_eq_adapter     m_arith_eq_adapter;
     vector<rational>     m_columns;
       
@@ -943,8 +942,7 @@ public:
     imp(theory_lra& th, ast_manager& m, theory_arith_params& ap): 
         th(th), m(m), 
         m_arith_params(ap), 
-        a(m),
-        m_final_check_idx(0), 
+        a(m), 
         m_arith_eq_adapter(th, ap, a),            
         m_internalize_head(0),
         m_one_var(UINT_MAX),
@@ -999,7 +997,7 @@ public:
             return true;
         }
         else {
-            TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
+			TRACE("arith", tout << "Could not internalize " << mk_pp(atom, m) << "\n";);
             found_not_handled(atom);
             return true;
         }
@@ -1653,16 +1651,13 @@ public:
         if (lp().get_status() != lp::lp_status::OPTIMAL) {
             is_sat = make_feasible();
         }
-
         final_check_status st = FC_DONE;
-        unsigned old_idx = m_final_check_idx;
         switch (is_sat) {
         case l_true:
                 
             if (delayed_assume_eqs()) {
                 return FC_CONTINUE;
             }
-                   
 
             TRACE("arith", display(tout););
             switch (check_lia()) {
@@ -1686,7 +1681,7 @@ public:
                 st = FC_GIVEUP;
                 break;
             }
-             if (assume_eqs()) {
+            if (assume_eqs()) {
                 return FC_CONTINUE;
             }    
             if (m_not_handled != nullptr) {
@@ -1696,7 +1691,7 @@ public:
                 
             return st;
         case l_false:
-            set_conflict();
+            get_infeasibility_explanation_and_set_conflict();
             return FC_CONTINUE;
         case l_undef:
             TRACE("arith", tout << "check feasiable is undef\n";);
@@ -1705,7 +1700,6 @@ public:
             UNREACHABLE();
             break;
         }
-
         TRACE("arith", tout << "default giveup\n";);
         return FC_GIVEUP;
     }
@@ -2177,7 +2171,7 @@ public:
             for(const nla::lemma & l : lv) {
                 m_lemma = l; //todo avoid the copy
                 m_explanation = l.expl();
-                m_stats.m_nla_explanations += static_cast<unsigned>(l.expl().size());
+                m_stats.m_nla_explanations += l.expl().size();
                 false_case_of_check_nla();
             }
             break;
@@ -2776,14 +2770,10 @@ public:
             bool sign = ub->get_bound_kind() != lp_api::upper_t;
             lit2 = literal(ub->get_bv(), sign);
         }
-        if (ctx().get_assignment(lit2) == l_true) {
-            return;
-        }
         TRACE("arith", 
               ctx().display_literal_verbose(tout, lit1);
-              ctx().display_literal_verbose(tout << " => ", lit2) << "\n";
-              tout << ctx().get_assignment(lit2) << " " << ctx().get_assignment(lit1) << "\n";
-              );
+              ctx().display_literal_verbose(tout << " => ", lit2);
+              tout << "\n";);
         updt_unassigned_bounds(v, -1);
         ++m_stats.m_bound_propagations2;
         m_params.reset();
@@ -2983,15 +2973,15 @@ public:
         auto vi = register_theory_var_in_lar_solver(b.get_var());
         rational bound = b.get_value();
         lp::constraint_index ci;
-        TRACE("arith", tout << "v" << b.get_var() << ", vi =  " << vi << "\n";);
+        TRACE("arith", tout << "v" << b.get_var() << ", vi =  " << vi;);
         if (is_int && !is_true) {
             rational bound = b.get_value(false).get_rational();
             ci = m_solver->add_var_bound(vi, k, bound);
-            TRACE("arith", tout << "bound = " << bound << ", ci = " << ci << "\n";);
+            TRACE("arith", tout << "\bbound = " << bound << ", ci = " << ci << "\n";);
         }
         else {
             ci = m_solver->add_var_bound(vi, k, b.get_value());
-            TRACE("arith", tout << "bound = " << bound << ", ci = " << ci << "\n";);
+            TRACE("arith", tout << "\nbound = " << bound << ", ci = " << ci << "\n";);
         }
         add_ineq_constraint(ci, literal(bv, !is_true));
         if (is_infeasible()) {
