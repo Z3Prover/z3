@@ -2045,7 +2045,7 @@ bool theory_seq::is_pre(expr* e, expr*& s, expr*& i) {
 }
 
 bool theory_seq::is_post(expr* e, expr*& s, expr*& l) {
-    return is_skolem(m_post, e) && (s = to_app(e)->get_arg(0), l = to_app(e)->get_arg(2), true);
+    return is_skolem(m_post, e) && (s = to_app(e)->get_arg(0), l = to_app(e)->get_arg(1), true);
 }
 
 expr_ref theory_seq::mk_nth(expr* s, expr* idx) {
@@ -5318,12 +5318,12 @@ void theory_seq::add_extract_axiom(expr* e) {
         add_extract_suffix_axiom(e, s, i);
         return;
     }
-    expr_ref x(mk_skolem(m_pre, s, i), m);
+    expr_ref x(mk_skolem(m_pre, s, i, l), m);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
     expr_ref le = mk_len(e);
     expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i), l), m);
-    expr_ref y(mk_skolem(m_post, s, i, ls_minus_i_l), m);
+    expr_ref y(mk_skolem(m_post, s, ls_minus_i_l, i, l), m);
     expr_ref xe = mk_concat(x, e);
     expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(m_autil.mk_int(0), m);
