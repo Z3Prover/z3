@@ -81,9 +81,7 @@ class nla2bv_tactic : public tactic {
 
         ~imp() {}
 
-		void updt_params(params_ref const& p)  {
-		}
-        
+        void updt_params(params_ref const& p)  {} 
         
         void operator()(goal & g, model_converter_ref & mc) {
             TRACE("nla2bv", g.display(tout);
@@ -132,14 +130,13 @@ class nla2bv_tactic : public tactic {
             m_bv2int_ctx.collect_power2(g);
             obj_map<expr, expr*> const& p2 = m_bv2int_ctx.power2();
             if (p2.empty()) return;
-            obj_map<expr, expr*>::iterator it = p2.begin(), end = p2.end();
-            for (; it != end; ++it) {
-                expr* v = it->m_value;
+            for (auto const& kv : p2) {
+                expr* v = kv.m_value;
                 unsigned num_bits = m_bv.get_bv_size(v);
                 expr* w = m_bv.mk_bv2int(m_bv.mk_bv_shl(m_bv.mk_numeral(1, num_bits), v));
                 m_trail.push_back(w);
-                m_subst.insert(it->m_key, w);
-                TRACE("nla2bv", tout << mk_ismt2_pp(it->m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
+                m_subst.insert(kv.m_key, w);
+                TRACE("nla2bv", tout << mk_ismt2_pp(kv.m_key, m_manager) << " " << mk_ismt2_pp(w, m_manager) << "\n";);
             }
             // eliminate the variables that are power of two.
             substitute_vars(g);
