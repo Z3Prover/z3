@@ -125,7 +125,7 @@ private:
     bool find_b_c(const nex *ab, const nex* ac, nex_mul*& b, nex_mul*& c);
     bool find_b_c_check_only(const nex* ab, const nex* ac) const;
     bool is_trivial(equation* ) const; 
-    bool is_better_choice(equation * eq1, equation * eq2);
+    bool is_simpler(equation * eq1, equation * eq2);
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
     void display_equations(std::ostream & out, equation_set const & v, char const * header) const;

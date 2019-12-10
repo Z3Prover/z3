@@ -81,14 +81,14 @@ private:
 public:
     nex* simplify(nex* e);
     
-    bool less_than(lpvar j, lpvar k) const{
+    bool gt(lpvar j, lpvar k) const{
         unsigned wj = m_active_vars_weights[j];
         unsigned wk = m_active_vars_weights[k];
         return wj != wk ? wj > wk : j > k;
     }
 
-    bool less_than_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
-        return (a.pow() > b.pow()) || (a.pow() == b.pow() && lt(a.e(), b.e()));
+    bool gt_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
+        return (a.pow() > b.pow()) || (a.pow() == b.pow() && gt(a.e(), b.e()));
     }
     
     void simplify_children_of_mul(vector<nex_pow> & children, rational&);
@@ -239,19 +239,19 @@ public:
     void simplify_children_of_sum(ptr_vector<nex> & children);
     
     bool eat_scalar_pow(rational& r, const nex_pow& p, unsigned);
-    void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars lt, std::function<nex_scalar*()> mk_scalar);
+    void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars, std::function<nex_scalar*()> mk_scalar);
 
     bool children_are_simplified(const vector<nex_pow>& children) const;
-    bool lt(const nex* a, const nex* b) const;    
-    bool lt_nex_powers(const vector<nex_pow>&, const nex* b) const;    
-    bool less_than_on_powers_mul(const vector<nex_pow>&, const nex_mul& b) const;    
-    bool less_than_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul& b) const;    
-    bool lt_for_sort_join_sum(const nex* a, const nex* b) const;    
-    bool less_than_on_mul_mul(const nex_mul& a, const nex_mul& b) const;
-    bool less_than_on_mul_mul_same_degree(const nex_mul& a, const nex_mul& b) const;
-    bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
-    bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
-    bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;
+    bool gt(const nex* a, const nex* b) const;    
+    bool gt_nex_powers(const vector<nex_pow>&, const nex* b) const;    
+    bool gt_on_powers_mul(const vector<nex_pow>&, const nex_mul& b) const;    
+    bool gt_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul& b) const;    
+    bool gt_for_sort_join_sum(const nex* a, const nex* b) const;    
+    bool gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const;
+    bool gt_on_mul_mul_same_degree(const nex_mul& a, const nex_mul& b) const;
+    bool gt_on_var_nex(const nex_var* a, const nex* b) const;
+    bool gt_on_mul_nex(const nex_mul* a, const nex* b) const;
+    bool gt_on_sum_sum(const nex_sum* a, const nex_sum* b) const;
     void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
     void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);
 #ifdef Z3DEBUG

@@ -164,14 +164,15 @@ bool nla_grobner::is_trivial(equation* eq) const {
     return eq->expr()->size() == 0;
 }
 
-bool nla_grobner::is_better_choice(equation * eq1, equation * eq2) {
+// returns true if eq1 is simpler than eq2
+bool nla_grobner::is_simpler(equation * eq1, equation * eq2) {
     if (!eq2)
         return true;
     if (is_trivial(eq1))
         return true;
     if (is_trivial(eq2))
         return false;
-    return m_nex_creator.lt(eq2->expr(), eq1->expr());
+    return m_nex_creator.gt(eq2->expr(), eq1->expr());
 }
 
 void nla_grobner::del_equation(equation * eq) {
@@ -188,7 +189,7 @@ nla_grobner::equation* nla_grobner::pick_next() {
     for (equation * curr : m_to_simplify) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
-        else if (is_better_choice(curr, r)) {
+        else if (is_simpler(curr, r)) {
             TRACE("grobner", tout << "preferring "; display_equation(tout, *curr););
             r = curr;
         }
@@ -554,7 +555,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
     }
     equation* eq = alloc(equation);
     init_equation(eq, expr_superpose( eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
-    if (m_nex_creator.lt(eq->expr(), eq1->expr()) || m_nex_creator.lt(eq->expr(), eq2->expr())) {
+    if (m_nex_creator.gt(eq->expr(), eq1->expr()) || m_nex_creator.gt(eq->expr(), eq2->expr())) {
         TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
         del_equation(eq);
     } else {                         
@@ -580,11 +581,11 @@ bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& 
     for (;;) {
         const nex* m = ab->get_child_exp(i);
         const nex* n = ac->get_child_exp(j);
-        if (m_nex_creator.lt(m, n)) {
+        if (m_nex_creator.gt(m, n)) {
             b->add_child_in_power(const_cast<nex*>(m), ab->get_child_pow(i));
             if (++i == ab_size)
                 break;
-        } else if (m_nex_creator.lt(n, m)) {
+        } else if (m_nex_creator.gt(n, m)) {
             c->add_child_in_power(const_cast<nex*>(n), ac->get_child_pow(j));
             if (++j == ac_size)
                 break;
@@ -624,11 +625,11 @@ bool nla_grobner::find_b_c_check_only(const nex* ab, const nex* ac) const {
     for (;;) {
         const nex* m = ab->get_child_exp(i);
         const nex* n = ac->get_child_exp(j);
-        if (m_nex_creator.lt(m , n)) {
+        if (m_nex_creator.gt(m , n)) {
             i++;
             if (i == ab->number_of_child_powers())
                 return false;
-        } else if (m_nex_creator.lt(n, m)) {
+        } else if (m_nex_creator.gt(n, m)) {
             j++;
             if (j == ac->number_of_child_powers())
                 return false;
