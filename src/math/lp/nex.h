@@ -108,8 +108,7 @@ public:
     lpvar& var() {  return m_j; } // the setter
     std::ostream & print(std::ostream& out) const {
         //        out <<  (char)('a' + m_j);
-        out << "v" << m_j;
-        return out;
+        return out << "v" << m_j;
     }    
 
     bool contains(lpvar j) const { return j == m_j; }
@@ -125,10 +124,7 @@ public:
     expr_type type() const { return expr_type::SCALAR; }
     const rational& value() const {  return m_v; }
     rational& value() {  return m_v; } // the setter
-    std::ostream& print(std::ostream& out) const {
-        out << m_v;
-        return out;
-    }
+    std::ostream& print(std::ostream& out) const { return out << m_v; }
     
     int get_degree() const { return 0; }
     bool is_linear() const { return true; }
@@ -136,7 +132,6 @@ public:
 
 const nex_scalar * to_scalar(const nex* a);
 class nex_sum;
-const nex_sum* to_sum(const nex*a);
 
 class nex_pow {
     nex* m_e;
@@ -149,25 +144,30 @@ public:
     
     nex ** ee() { return & m_e; }
     int pow() const { return m_power; }
-    int& pow() { return m_power; }
-    std::string to_string() const {
-        std::stringstream s;
+
+    std::ostream& print(std::ostream& s) const {
         if (pow() == 1) {
             if (e()->is_elementary()) {
                 s << *e();
             } else {
                 s <<"(" <<  *e() << ")";
             }
-        } else {
+        } 
+        else {
             if (e()->is_elementary()){
                 s << "(" << *e() << "^" << pow() << ")";
             } else {
                 s << "((" << *e() << ")^" << pow() << ")";
             }
         }
+        return s;
+    }
+    std::string to_string() const {
+        std::stringstream s;
+        print(s);
         return s.str();
     }
-    friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { out << p.to_string(); return out; }
+    friend std::ostream& operator<<(std::ostream& out, const nex_pow & p) { return p.print(out); }
 };
 
 inline unsigned get_degree_children(const vector<nex_pow>& children) {
@@ -206,20 +206,19 @@ public:
     const vector<nex_pow>& children() const { return m_children;}
     // A monomial is 'pure' if does not have a numeric coefficient.
     bool is_pure_monomial() const { return size() == 0 || (!m_children[0].e()->is_scalar()); }    
-    std::ostream & print(std::ostream& out) const {
-        
+
+    std::ostream & print(std::ostream& out) const {        
         bool first = true;
         if (!m_coeff.is_one()) {
             out << m_coeff;
             first = false;
         }
         for (const nex_pow& v : m_children) {            
-            std::string s = v.to_string();
             if (first) {
                 first = false;
-                out << s;
+                out << v;
             } else {
-                out << "*" << s;                        
+                out << "*" << v;                        
             }
         }
         return out;
@@ -252,9 +251,10 @@ public:
     void add_child_in_power(nex* e, int power) {        
         if (e->is_scalar()) {
             m_coeff *= (to_scalar(e)->value()).expt(power);
-            return;
         }
-        m_children.push_back(nex_pow(e, power));
+        else {
+            m_children.push_back(nex_pow(e, power));
+        }
     }
 
     bool contains(lpvar j) const {
@@ -335,8 +335,7 @@ public:
         for (auto  e : *this) {
             int d = e->get_degree();
             if (d == 0) continue;
-            if (d > 1) return false;
-            
+            if (d > 1) return false;            
             number_of_non_scalars++;
         }
         TRACE("nex_details", tout << (number_of_non_scalars > 1?"linear":"non-linear") << "\n";); 
@@ -398,7 +397,7 @@ public:
 #endif
 };
 
-inline const nex_sum* to_sum(const nex*a) {
+inline const nex_sum* to_sum(const nex* a) {
     SASSERT(a->is_sum());
     return static_cast<const nex_sum*>(a);
 }
@@ -407,7 +406,6 @@ inline nex_sum* to_sum(nex * a) {
     SASSERT(a->is_sum());
     return static_cast<nex_sum*>(a);
 }
-
     
 inline const nex_var* to_var(const nex*a)  {
     SASSERT(a->is_var());
@@ -447,22 +445,20 @@ inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var
     switch (e->type()) {
     case expr_type::SCALAR:
         return to_scalar(e)->value();
-    case expr_type::SUM:
-        {
-            rational r(0);
-            for (auto c: *to_sum(e)) {
-                r += get_nex_val(c, var_val);
-            }
-            return r;
+    case expr_type::SUM: {
+        rational r(0);
+        for (auto c: *to_sum(e)) {
+            r += get_nex_val(c, var_val);
         }
-    case expr_type::MUL:
-        {
-            const nex_mul * m = to_mul(e);
-            rational t = m->coeff();
-            for (auto& c: *m)
-                t *= get_nex_val(c.e(), var_val).expt(c.pow());
-            return t;
-        }
+        return r;
+    }
+    case expr_type::MUL: {
+        auto & m = *to_mul(e);
+        rational t = m.coeff();
+        for (auto& c: m)
+            t *= get_nex_val(c.e(), var_val).expt(c.pow());
+        return t;
+    }
     case expr_type::VAR:
         return var_val(to_var(e)->var());
     default:
@@ -477,20 +473,18 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
     switch (e->type()) {
     case expr_type::SCALAR:
         return r;
-    case expr_type::SUM:
-        {
-            for (auto c: *to_sum(e))
-                for ( lpvar j : get_vars_of_expr(c))
-                    r.insert(j);
-        }
+    case expr_type::SUM: {
+        for (auto c: *to_sum(e))
+            for ( lpvar j : get_vars_of_expr(c))
+                r.insert(j);
         return r;
-    case expr_type::MUL:
-        {
-            for (auto &c: *to_mul(e))
-                for ( lpvar j : get_vars_of_expr(c.e()))
-                    r.insert(j);
-        }
+    }
+    case expr_type::MUL: {
+        for (auto &c: *to_mul(e))
+            for ( lpvar j : get_vars_of_expr(c.e()))
+                r.insert(j);
         return r;
+    }
     case expr_type::VAR:
         r.insert(to_var(e)->var());
         return r;

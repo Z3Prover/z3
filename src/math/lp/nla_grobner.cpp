@@ -178,7 +178,7 @@ void nla_grobner::del_equation(equation * eq) {
     m_to_superpose.erase(eq);
     m_to_simplify.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
-    m_equations_to_delete[eq->m_bidx] = 0;
+    m_equations_to_delete[eq->m_bidx] = nullptr;
     dealloc(eq);
 }
 

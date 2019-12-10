@@ -29,22 +29,21 @@ struct occ {
     occ(unsigned k, unsigned p) : m_occs(k), m_power(p) {}
     // use the "name injection rule here"
     friend std::ostream& operator<<(std::ostream& out, const occ& c) {
-        out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
-        return out;
+        return out << "(occs:" << c.m_occs <<", pow:" << c.m_power << ")";
     }
 };
 
-enum class var_weight {
-            FIXED = 0,
-            QUOTED_FIXED =  1,
-            BOUNDED    =    2,
-            QUOTED_BOUNDED = 3,
-            NOT_FREE      =  4,
-            QUOTED_NOT_FREE = 5,
-            FREE          =   6,
-            QUOTED_FREE    = 7,
-            MAX_DEFAULT_WEIGHT = 7
-            };
+enum var_weight {
+    FIXED = 0,
+    QUOTED_FIXED =  1,
+    BOUNDED    =    2,
+    QUOTED_BOUNDED = 3,
+    NOT_FREE      =  4,
+    QUOTED_NOT_FREE = 5,
+    FREE          =   6,
+    QUOTED_FREE    = 7,
+    MAX_DEFAULT_WEIGHT = 7
+};
 
 
 // the purpose of this class is to create nex objects, keep them,
@@ -54,14 +53,13 @@ class nex_creator {
     ptr_vector<nex>                              m_allocated;
     std::unordered_map<lpvar, occ>               m_occurences_map;
     std::unordered_map<lpvar, unsigned>          m_powers;
-    svector<unsigned>                            m_active_vars_weights;
+    unsigned_vector                              m_active_vars_weights;
 
 public:
     static std::string ch(unsigned j) {
         std::stringstream s;
         s << "v" << j;        
         return s.str();
-          // return (char)('a'+j);
     }
 
     // assuming that every lpvar is less than this number
@@ -72,11 +70,11 @@ public:
     unsigned get_number_of_vars() const {
         return m_active_vars_weights.size();
     }
-
     
     void set_var_weight(unsigned j, unsigned weight) {
         m_active_vars_weights[j] = weight;
     }
+
 private:
     svector<unsigned>& active_vars_weights() { return m_active_vars_weights;}
     const svector<unsigned>& active_vars_weights() const { return m_active_vars_weights;}
@@ -84,8 +82,8 @@ public:
     nex* simplify(nex* e);
     
     bool less_than(lpvar j, lpvar k) const{
-        unsigned wj = (unsigned)m_active_vars_weights[j];
-        unsigned wk = (unsigned)m_active_vars_weights[k];
+        unsigned wj = m_active_vars_weights[j];
+        unsigned wk = m_active_vars_weights[k];
         return wj != wk ? wj > wk : j > k;
     }
 
@@ -97,15 +95,10 @@ public:
 
     nex * clone(const nex* a) {        
         switch (a->type()) {
-        case expr_type::VAR: {
-            auto v = to_var(a);
-            return mk_var(v->var());
-        }
-            
-        case expr_type::SCALAR: {
-            auto v = to_scalar(a);
-            return mk_scalar(v->value());
-        }
+        case expr_type::VAR: 
+            return mk_var(to_var(a)->var());
+        case expr_type::SCALAR: 
+            return mk_scalar(to_scalar(a)->value());
         case expr_type::MUL: {
             auto m = to_mul(a);
             auto r = mk_mul();
@@ -116,9 +109,8 @@ public:
             return r;
         }
         case expr_type::SUM: {
-            auto m = to_sum(a);
             auto r = mk_sum();
-            for (nex * e : m->children()) {
+            for (nex * e : *to_sum(a)) {
                 r->add_child(clone(e));
             }
             return r;
@@ -181,7 +173,6 @@ public:
         r->children() = v;
         return r;
     }
-
     
     template <typename K, typename...Args>
     nex_sum* mk_sum(K e, Args... es) {
@@ -191,6 +182,7 @@ public:
         add_children(r, es...);
         return r;
     }
+
     nex_var* mk_var(lpvar j) {
         auto r = new nex_var(j);
         add_to_allocated(r);
@@ -239,8 +231,8 @@ public:
 
     void sort_join_sum(ptr_vector<nex> & children);
     bool fill_join_map_for_sum(ptr_vector<nex> & children,
-                           std::map<nex*, rational, nex_lt>& map,
-                           std::unordered_set<nex*>& existing_nex,
+                               std::map<nex*, rational, nex_lt>& map,
+                               std::unordered_set<nex*>& existing_nex,
                                nex_scalar*& common_scalar);
     bool register_in_join_map(std::map<nex*, rational, nex_lt>&, nex*, const rational&) const;
 
@@ -252,11 +244,11 @@ public:
     bool children_are_simplified(const vector<nex_pow>& children) const;
     bool lt(const nex* a, const nex* b) const;    
     bool lt_nex_powers(const vector<nex_pow>&, const nex* b) const;    
-    bool less_than_on_powers_mul(const vector<nex_pow>&, const nex_mul* b) const;    
-    bool less_than_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul* b) const;    
+    bool less_than_on_powers_mul(const vector<nex_pow>&, const nex_mul& b) const;    
+    bool less_than_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul& b) const;    
     bool lt_for_sort_join_sum(const nex* a, const nex* b) const;    
-    bool less_than_on_mul_mul(const nex_mul* a, const nex_mul* b) const;
-    bool less_than_on_mul_mul_same_degree(const nex_mul* a, const nex_mul* b) const;
+    bool less_than_on_mul_mul(const nex_mul& a, const nex_mul& b) const;
+    bool less_than_on_mul_mul_same_degree(const nex_mul& a, const nex_mul& b) const;
     bool less_than_on_var_nex(const nex_var* a, const nex* b) const;
     bool less_than_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool less_than_on_sum_sum(const nex_sum* a, const nex_sum* b) const;

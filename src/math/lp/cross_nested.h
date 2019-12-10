@@ -83,7 +83,7 @@ public:
         TRACE("nla_cn", tout << "c=" << *c << "\n"; tout << "occs:"; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
         unsigned size = c->size();
         bool have_factor = false;
-        for(const auto & p : m_nex_creator.occurences_map()) {
+        for (const auto & p : m_nex_creator.occurences_map()) {
             if (p.second.m_occs == size) {
                 have_factor = true;
                 break;
@@ -91,7 +91,7 @@ public:
         }
         if (have_factor == false) return nullptr;
         nex_mul* f = m_nex_creator.mk_mul();
-        for(const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
+        for (const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
             if (p.second.m_occs == size) {
                 f->add_child_in_power(m_nex_creator.mk_var(p.first), p.second.m_power);
             }
@@ -105,7 +105,7 @@ public:
         auto common_vars = get_vars_of_expr(ch[0]);
         for (lpvar j : common_vars) {
             bool divides_the_rest = true;
-            for(unsigned i = 1; i < ch.size() && divides_the_rest; i++) {
+            for (unsigned i = 1; i < ch.size() && divides_the_rest; i++) {
                 if (!ch[i]->contains(j))
                     divides_the_rest = false;
             }
@@ -163,7 +163,7 @@ public:
         nex* copy_of_c = *c;
         auto copy_of_front = copy_front(front);
         int alloc_size = m_nex_creator.size();
-        for(lpvar j : vars) {
+        for (lpvar j : vars) {
             if (m_var_is_fixed(j)) {
                 // it does not make sense to explore fixed multupliers
                 // because the interval products do not become smaller
@@ -184,9 +184,8 @@ public:
     template <typename T>
     static std::ostream& dump_occurences(std::ostream& out, const T& occurences) {
         out << "{";
-        for(const auto& p: occurences) {
-            const occ& o = p.second;
-            out << "(v" << p.first << "->" << o << ")";
+        for (const auto& p: occurences) {
+            out << "(v" << p.first << "->" << p.second << ")";
         }
         out << "}" << std::endl;
         return out;
@@ -252,7 +251,7 @@ public:
               print_vector(vars, tout) << "; front:"; print_front(front, tout) << "\n";);
     
         if (vars.empty()) {
-            if(front.empty()) {
+            if (front.empty()) {
                 TRACE("nla_cn", tout << "got the cn form: =" << *m_e << "\n";);
                 m_done = m_call_on_result(m_e) || ++m_reported > 100;
  #ifdef Z3DEBUG
