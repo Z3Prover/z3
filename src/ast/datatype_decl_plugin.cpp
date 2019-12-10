@@ -1213,6 +1213,7 @@ namespace datatype {
     }
 
     unsigned util::get_datatype_num_constructors(sort * ty) {
+		if (!is_declared(ty)) return 0;
         def const& d = get_def(ty->get_name());
         return d.constructors().size();
     }
