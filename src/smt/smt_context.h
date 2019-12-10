@@ -193,7 +193,6 @@ namespace smt {
         // levels survives to the base level.
         b_justification             m_conflict;
         literal                     m_not_l;
-        bool                        m_empty_clause;
         scoped_ptr<conflict_resolution> m_conflict_resolution;
         proof_ref                   m_unsat_proof;
 

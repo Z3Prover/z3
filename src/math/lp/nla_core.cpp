@@ -159,8 +159,8 @@ rational core::product_value(const unsigned_vector & m) const {
 }
     
 // return true iff the monic value is equal to the product of the values of the factors
-bool core::check_monic(const monic& m) const {
-    SASSERT(m_lar_solver.get_column_value(m.var()).is_int());        
+bool core::check_monic(const monic& m) const {    
+    SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());        
     return product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var());
 }
     
