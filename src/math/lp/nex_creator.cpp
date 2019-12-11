@@ -89,26 +89,26 @@ bool nex_creator::eat_scalar_pow(rational& r, const nex_pow& p, unsigned pow) {
 void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational& coeff) {
     TRACE("grobner_d", print_vector(children, tout););
     vector<nex_pow> to_promote;
-    int skipped = 0;
-    for(unsigned j = 0; j < children.size(); j++) {        
-        nex_pow& p = children[j];
+    bool skipped = false;
+    unsigned j = 0;
+    for (nex_pow& p : children) {        
         if (eat_scalar_pow(coeff, p, 1)) {
-            skipped++;
+            skipped = true;
             continue;
         }
         
         p.e() = simplify(p.e());
         if ((p.e())->is_mul()) {
+            skipped = true;
             to_promote.push_back(p);
         } else {
-            unsigned offset = to_promote.size() + skipped;
-            if (offset) {
-                children[j - offset] = p;
-            }
+            if (skipped) 
+                children[j] = p;
+            j++;
         }
     }
     
-    children.shrink(children.size() - to_promote.size() - skipped);
+    children.shrink(j);
 
     for (nex_pow & p : to_promote) {
         TRACE("grobner_d", tout << p << "\n";);
