@@ -202,9 +202,6 @@ public:
 
     nex_mul() : m_coeff(rational(1)) {}
 
-    template <typename T> 
-    nex_mul() : m_coeff() {}
-
     const rational& coeff() const {
         return m_coeff;
     }
