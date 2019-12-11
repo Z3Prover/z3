@@ -643,27 +643,29 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
 void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
     TRACE("grobner_d", print_vector_of_ptrs(children, tout););
     ptr_vector<nex> to_promote;
-    int skipped = 0;
-    for(unsigned j = 0; j < children.size(); j++) {
+    bool skipped = false;
+    unsigned k = 0; 
+    for (unsigned j = 0; j < children.size(); j++) {
         nex* e = children[j] = simplify(children[j]);
         if (e->is_sum()) {
+            skipped = true;
             to_promote.push_back(e);
         } else if (is_zero_scalar(e)) {
-            skipped ++;
+            skipped = true;
             continue;
         } else if (e->is_mul() && to_mul(e)->coeff().is_zero() ) {
-            skipped ++;
+            skipped = true;
             continue;
         }else {
-            unsigned offset = to_promote.size() + skipped;
-            if (offset) {
-                children[j - offset] = e;
+            if (skipped) {
+                children[k] = e;
             }
+            k++;
         }
     }
     
     TRACE("grobner_d", print_vector_of_ptrs(children, tout););
-    children.shrink(children.size() - to_promote.size() - skipped);
+    children.shrink(k);
     
     for (nex *e : to_promote) {
         for (nex *ee : *(to_sum(e)->children_ptr())) {
