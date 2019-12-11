@@ -125,127 +125,42 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
     
     TRACE("grobner_d", print_vector(children, tout););    
 }
-bool nex_creator:: gt_on_powers_mul_same_degree(const vector<nex_pow>& a, const nex_mul& b) const {
-    bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
-    bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
-    auto it_a  = a.begin();
-    auto it_b  = b.begin();
-    auto a_end = a.end();
-    auto b_end = b.end();
-    unsigned a_pow, b_pow;
-    lbool ret = l_undef;
-    while (true) {
-        if (!inside_a_p) { a_pow = it_a->pow(); }
-        if (!inside_b_p) { b_pow = it_b->pow(); }
+
+template <typename T>
+bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) const {
+    bool ret = false;
+    unsigned a_pow = a.begin()->pow();
+    unsigned b_pow = b.begin()->pow();
+    for (auto it_a = a.begin(), it_b = b.begin(); it_a != a.end() && it_b != b.end(); ) {
         if (gt(it_a->e(), it_b->e())){
-            ret = l_true;
+            ret = true;
             break;
         }
-        if (gt(it_b->e(), it_a->e())) {
-            ret = l_false;
+        if (gt(it_b->e(), it_a->e())){
+            ret = false;
             break;
         }
-        if (a_pow == b_pow) {
-            inside_a_p = inside_b_p = false;
-            it_a++; it_b++;
-            if (it_a == a_end) {
-                ret = l_false;
-                break;
-            }
-            if (it_b == b_end) { // it_a is not at the end
-                ret = l_false;
-                break;
-            }
-            // no iterator reached the end
-            continue;
-        }            
-        if (a_pow > b_pow) {
-            it_a++;
-            if (it_a == a_end) {
-                ret = l_true;
-                break;
-            }
-            inside_a_p = false;
-            inside_b_p = true;
+        if (a_pow > b_pow) { // b should be advanced
             b_pow -= a_pow;
-        } else {
-            SASSERT(a_pow < b_pow);
-            a_pow -= b_pow;
-            it_b++;
-            if (it_b == b_end) {
-                ret = l_false;
-                break;
-            }
-            inside_a_p = true;
-            inside_b_p = false;
+            ++it_b;
+            if (it_b != b.end()) b_pow = it_b->pow();
+            ret = true;
+        } 
+        else if (a_pow < b_pow) { // a should be advanced
+            b_pow -= a_pow;
+            ++it_a;
+            if (it_a != a.end()) a_pow = it_a->pow();
+            ret = false;
+        }
+        else {
+            ++it_a;
+            ++it_b;
+            if (it_a != a.end()) a_pow = it_a->pow();
+            if (it_b != b.end()) b_pow = it_b->pow();
         }
     }
-    TRACE("nex_less", tout << "a = "; print_vector(a, tout) << (ret != l_false?" < ":" >= ") << b << "\n";);
-    return ret != l_false;
-}
-
-bool nex_creator::gt_on_mul_mul_same_degree(const nex_mul& a, const nex_mul& b) const {
-    bool inside_a_p = false; // inside_a_p is true means we still compare the old position of it_a
-    bool inside_b_p = false; // inside_b_p is true means we still compare the old position of it_b
-    auto it_a  = a.begin();
-    auto it_b  = b.begin();
-    auto a_end = a.end();
-    auto b_end = b.end();
-    unsigned a_pow, b_pow;
-    lbool ret = l_undef;
-    while (true) {
-        if (!inside_a_p) { a_pow = it_a->pow(); }
-        if (!inside_b_p) { b_pow = it_b->pow(); }
-        if (gt(it_a->e(), it_b->e())){
-            ret = l_true;
-            break;
-        }
-        if (gt(it_b->e(), it_a->e())) {
-            ret = l_false;
-            break;
-        }
-        if (a_pow == b_pow) {
-            inside_a_p = inside_b_p = false;
-            it_a++; it_b++;
-            if (it_a == a_end) {
-                if (it_b != b_end) {
-                    ret = l_false;
-                    break;
-                }
-                SASSERT(it_a == a_end && it_b == b_end);
-                ret = to_lbool(a.coeff() > b.coeff());
-                break;
-            }
-            if (it_b == b_end) { // it_a is not at the end
-                ret = l_false;
-                break;
-            }
-            // no iterator reached the end
-            continue;
-        }            
-        if (a_pow > b_pow) {
-            it_a++;
-            if (it_a == a_end) {
-                ret = l_true;
-                break;
-            }
-            inside_a_p = false;
-            inside_b_p = true;
-            b_pow -= a_pow;
-        } else {
-            SASSERT(a_pow < b_pow);
-            a_pow -= b_pow;
-            it_b++;
-            if (it_b == b_end) {
-                ret = l_false;
-                break;
-            }
-            inside_a_p = true;
-            inside_b_p = false;
-        }
-    } 
-    TRACE("grobner_d", tout << "a = " << a << (ret != l_false?" < ":" >= ") << b << "\n";);
-    return ret != l_false;
+    TRACE("nex_less", tout << "a = "; print_vector(a, tout) << (ret?" > ":" <= ") << b << "\n";);
+    return ret;
 }
 
 bool nex_creator::children_are_simplified(const vector<nex_pow>& children) const {
@@ -269,7 +184,7 @@ bool nex_creator::gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const {
     SASSERT(is_simplified(&a) && is_simplified(&b));
     unsigned a_deg = a.get_degree();
     unsigned b_deg = b.get_degree();
-    return a_deg == b_deg ? gt_on_mul_mul_same_degree(a, b) : a_deg > b_deg;
+    return a_deg == b_deg ? gt_on_powers_mul_same_degree(a, b) : a_deg > b_deg;
 }
 
 bool nex_creator::gt_on_var_nex(const nex_var* a, const nex* b) const {
