@@ -579,26 +579,29 @@ bool intervals::check_interval_for_conflict_on_zero_upper(
     ci_dependency* dep) {
     if (!separated_from_zero_on_upper(i))
         return false;
-        
-     m_core->add_empty_lemma();
-     svector<lp::constraint_index> expl;
-     dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
-     m_dep_manager.linearize(dep, expl); 
-     m_core->current_expl().add_expl(expl);
-     TRACE("nla_solver", m_core->print_lemma(tout););
-     return true;
+
+    TRACE("grobner", display(tout, i););
+    m_core->add_empty_lemma();
+    svector<lp::constraint_index> expl;
+    dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
+    m_dep_manager.linearize(dep, expl); 
+    m_core->current_expl().add_expl(expl);
+    TRACE("nla_solver", m_core->print_lemma(tout););
+    return true;
 }
 
 bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency* dep) {
-    if (!separated_from_zero_on_lower(i))
+    if (!separated_from_zero_on_lower(i)) {
         return false;
-     m_core->add_empty_lemma();
-     svector<lp::constraint_index> expl;
-     dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
-     m_dep_manager.linearize(dep, expl); 
-     m_core->current_expl().add_expl(expl);
-     TRACE("nla_solver", m_core->print_lemma(tout););
-     return true;
+    }
+    TRACE("grobner", display(tout, i););
+    m_core->add_empty_lemma();
+    svector<lp::constraint_index> expl;
+    dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
+    m_dep_manager.linearize(dep, expl); 
+    m_core->current_expl().add_expl(expl);
+    TRACE("nla_solver", m_core->print_lemma(tout););
+    return true;
 }
 
 common::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
