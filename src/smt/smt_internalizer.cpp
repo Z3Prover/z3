@@ -1351,7 +1351,6 @@ namespace smt {
                 m_justifications.push_back(j);
             TRACE("mk_clause", tout << "empty clause... setting conflict\n";);
             set_conflict(j == nullptr ? b_justification::mk_axiom() : b_justification(j));
-            m_empty_clause = (j == nullptr);
             SASSERT(inconsistent());
             return nullptr;
         case 1:
