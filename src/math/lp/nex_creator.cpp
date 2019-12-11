@@ -89,8 +89,8 @@ bool nex_creator::eat_scalar_pow(rational& r, const nex_pow& p, unsigned pow) {
 void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational& coeff) {
     TRACE("grobner_d", print_vector(children, tout););
     vector<nex_pow> to_promote;
-    bool skipped = false;
-    for (nex_pow& p : children.size()) {        
+    int skipped = 0;
+    for(unsigned j = 0; j < children.size(); j++) {        
         nex_pow& p = children[j];
         if (eat_scalar_pow(coeff, p, 1)) {
             skipped++;
@@ -112,13 +112,13 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
 
     for (nex_pow & p : to_promote) {
         TRACE("grobner_d", tout << p << "\n";);
-        nex_mul & pm = *to_mul(p.e());
-        for (nex_pow & pp : pm) {
+        nex_mul *pm = to_mul(p.e());
+        for (nex_pow& pp : *pm) {
             TRACE("grobner_d", tout << pp << "\n";);
             if (!eat_scalar_pow(coeff, pp, p.pow()))
                 children.push_back(nex_pow(pp.e(), pp.pow() * p.pow()));            
         }
-        coeff *= pm.coeff().expt(p.pow());
+        coeff *= pm->coeff().expt(p.pow());
     }
 
     mul_to_powers(children);
@@ -643,24 +643,28 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
 void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
     TRACE("grobner_d", print_vector_of_ptrs(children, tout););
     ptr_vector<nex> to_promote;
-    bool skipped = false;
-    unsigned j = 0;
-    for (nex* e : children) {
-        e = simplify(e);
+    int skipped = 0;
+    for(unsigned j = 0; j < children.size(); j++) {
+        nex* e = children[j] = simplify(children[j]);
         if (e->is_sum()) {
-            to_promote.push_back(e); }
-        else if (is_zero_scalar(e) || (e->is_mul() && e->to_mul().coeff().is_zero())) {
-            skipped = true;
+            to_promote.push_back(e);
+        } else if (is_zero_scalar(e)) {
+            skipped ++;
             continue;
-        }
-        else {
-            if (skipped) 
-                children[j] = e;
-            j++;
+        } else if (e->is_mul() && to_mul(e)->coeff().is_zero() ) {
+            skipped ++;
+            continue;
+        }else {
+            unsigned offset = to_promote.size() + skipped;
+            if (offset) {
+                children[j - offset] = e;
+            }
         }
     }
-    children.shrink(j);
+    
     TRACE("grobner_d", print_vector_of_ptrs(children, tout););
+    children.shrink(children.size() - to_promote.size() - skipped);
+    
     for (nex *e : to_promote) {
         for (nex *ee : *(to_sum(e)->children_ptr())) {
             if (!is_zero_scalar(ee))
