@@ -129,7 +129,7 @@ public:
 
     bool contains(lpvar j) const { return j == m_j; }
     int get_degree() const { return 1; }
-    bool virtual is_linear() const { return true; }
+    bool is_linear() const override { return true; }
 };
 
 class nex_scalar : public nex {
@@ -195,8 +195,8 @@ class nex_mul : public nex {
     rational        m_coeff;
     vector<nex_pow> m_children;
 public:
-    virtual const nex* get_child_exp(unsigned j) const { return m_children[j].e(); }
-    virtual unsigned get_child_pow(unsigned j) const { return m_children[j].pow(); }
+    const nex* get_child_exp(unsigned j) const override { return m_children[j].e(); }
+    unsigned get_child_pow(unsigned j) const override { return m_children[j].pow(); }
 
     unsigned number_of_child_powers() const { return m_children.size(); }
 
@@ -391,7 +391,7 @@ public:
 
     void add_child(nex* e) { m_children.push_back(e); }
 #ifdef Z3DEBUG
-    virtual void sort() {
+    void sort() override {
         NOT_IMPLEMENTED_YET();
         /*
         for (nex * c : m_children) {
