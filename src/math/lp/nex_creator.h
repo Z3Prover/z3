@@ -244,11 +244,11 @@ public:
     bool children_are_simplified(const vector<nex_pow>& children) const;
     bool gt(const nex* a, const nex* b) const;    
     bool gt_nex_powers(const vector<nex_pow>&, const nex* b) const;    
-    bool gt_on_powers_mul(const vector<nex_pow>&, const nex_mul& b) const;    
-    bool gt_on_powers_mul_same_degree(const vector<nex_pow>&, const nex_mul& b) const;    
+    bool gt_on_powers_mul(const vector<nex_pow>&, const nex_mul& b) const;
+    template <typename T>
+    bool gt_on_powers_mul_same_degree(const T&, const nex_mul& b) const;    
     bool gt_for_sort_join_sum(const nex* a, const nex* b) const;    
     bool gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const;
-    bool gt_on_mul_mul_same_degree(const nex_mul& a, const nex_mul& b) const;
     bool gt_on_var_nex(const nex_var* a, const nex* b) const;
     bool gt_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool gt_on_sum_sum(const nex_sum* a, const nex_sum* b) const;
