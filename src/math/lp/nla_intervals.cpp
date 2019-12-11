@@ -244,9 +244,24 @@ intervals::interv intervals::interval_of_mul(const nex_mul* e) {
     return a;
 }
 
+std::ostream & intervals::print_dependencies(ci_dependency* deps , std::ostream& out) const {
+    svector<lp::constraint_index> expl;
+    m_dep_manager.linearize(deps, expl);
+    {
+        lp::explanation e(expl);
+        if (!expl.empty()) {
+            m_core->print_explanation(e, out);
+            expl.clear();
+        } else {
+            out << "\nno constraints\n";
+        }
+    }
+    return out;
+}
+
 // return true iff the interval of n is does not contain 0
 bool intervals::check_nex(const nex* n, ci_dependency* initial_deps) {
-    TRACE("nla_grobner", tout << "cross-nested n = " << *n << ", n->type() == " << n->type() << "\n";);
+    TRACE("nla_grobner", tout << "n = " << *n << "\n";);
     m_core->lp_settings().stats().m_cross_nested_forms++;
 
     auto i = interval_of_expr(n, 1);
@@ -256,7 +271,7 @@ bool intervals::check_nex(const nex* n, ci_dependency* initial_deps) {
         return false;
     }
     auto interv_wd = interval_of_expr_with_deps(n, 1);
-    TRACE("nla_grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) << *n << "\n";);
+    TRACE("nla_grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout););
     check_interval_for_conflict_on_zero(interv_wd, initial_deps);
     reset(); // clean the memory allocated by the interval bound dependencies
     return true;
@@ -615,26 +630,13 @@ std::ostream& intervals::display(std::ostream& out, const interval& i) const {
         out << rational(m_imanager.upper(i)) << (m_imanager.upper_is_open(i)? ")":"]");         
     }
     svector<lp::constraint_index> expl;
-    m_dep_manager.linearize(i.m_lower_dep, expl);
-    {
-        lp::explanation e(expl);
-        if (!expl.empty()) {
-            out << "\nlower constraints\n";
-            m_core->print_explanation(e, out);
-            expl.clear();
-        } else {
-            out << "\nno lower constraints\n";
-        }
+    if (i.m_lower_dep) {
+        out << "\nlower deps\n";
+        print_dependencies(i.m_lower_dep, out);
     }
-    m_dep_manager.linearize(i.m_upper_dep, expl);   
-    {
-        lp::explanation e(expl);
-        if (!expl.empty()) {
-            out << "upper constraints\n";    
-            m_core->print_explanation(e, out);
-        }else {
-            out << "no upper constraints\n";
-        }
+    if (i.m_upper_dep) {
+        out << "\nupper deps\n";
+        print_dependencies(i.m_upper_dep, out);   
     }
     return out;
 }
