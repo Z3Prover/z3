@@ -196,7 +196,8 @@ bool nex_creator::gt_on_var_nex(const nex_var* a, const nex* b) const {
     case expr_type::MUL: 
         return b->get_degree() <= 1 && gt_on_var_nex(a, (*to_mul(b))[0].e());
     case expr_type::SUM:
-        return !gt((*to_sum(b))[0], a);        
+        SASSERT(b->size() > 1);
+        return gt(a, (*to_sum(b))[0]);        
     default:
         UNREACHABLE();
         return false;
