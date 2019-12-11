@@ -2106,6 +2106,7 @@ namespace smt {
             enode * p = *it1;
             if (p->get_decl() == j2->m_decl &&
                 m_context.is_relevant(p) &&
+                p->get_num_args() > j2->m_arg_pos && 
                 p->is_cgr() &&
                 p->get_arg(j2->m_arg_pos)->get_root() == n) {
                 // p is in joint2

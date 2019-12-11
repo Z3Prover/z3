@@ -71,7 +71,7 @@ private:
     buffer<char>       m_buffer;
     unsigned           m_bpos;
     unsigned           m_bend;
-    char        m_last_char;
+    char               m_last_char;
     bool               m_is_interactive;
     bool               m_smt2;
     bool               m_bv_token;
