@@ -167,6 +167,7 @@ public:
     interval mul(const svector<lpvar>&) const;
     void get_explanation_of_upper_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
     void get_explanation_of_lower_bound_for_monomial(lpvar j, svector<lp::constraint_index>& expl) const;
+    std::ostream & print_dependencies(ci_dependency* , std::ostream&) const;
     std::ostream& print_explanations(const svector<lp::constraint_index> &, std::ostream&) const;
     std::ostream& display(std::ostream& out, const intervals::interval& i) const;
     void set_lower(interval & a, rational const & n) const { m_config.set_lower(a, n.to_mpq()); }

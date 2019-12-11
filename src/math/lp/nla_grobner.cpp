@@ -129,11 +129,10 @@ void nla_grobner::add_row(unsigned i) {
           }
           );
     nex_sum * ns = m_nex_creator.mk_sum();
-    create_sum_from_row(row, m_nex_creator, *ns, m_look_for_fixed_vars_in_rows);
+    ci_dependency* dep = create_sum_from_row(row, m_nex_creator, *ns, m_look_for_fixed_vars_in_rows, &m_dep_manager);
     nex* e = m_nex_creator.simplify(ns);
     TRACE("grobner", tout << "e = " << *e << "\n";);
-    m_tmp_var_set.clear();    
-    assert_eq_0(e, m_look_for_fixed_vars_in_rows? get_fixed_vars_dep_from_row(row, m_dep_manager) : nullptr);
+    assert_eq_0(e, dep);
 }
 
 void nla_grobner::simplify_equations_in_m_to_simplify() {
@@ -144,7 +143,6 @@ void nla_grobner::simplify_equations_in_m_to_simplify() {
 
 void nla_grobner::init() {
     m_reported = 0;
-    m_conflict = false;
     del_equations(0);
     SASSERT(m_equations_to_delete.size() == 0);    
     m_to_superpose.reset();
@@ -566,8 +564,7 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
 
 void nla_grobner::register_report() {
     m_reported++;
-    if (c().current_lemma().expl().size() == 0)
-        m_conflict = true;
+    m_conflict = true;
 }
 // Let a be the greatest common divider of ab and bc,
 // then ab/a is stored in b, and ac/a is stored in c
@@ -833,10 +830,12 @@ std::unordered_set<lpvar> nla_grobner::get_vars_of_expr_with_opening_terms(const
 void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
     if (e == nullptr || is_zero_scalar(e))
         return;
+    m_tmp_var_set.clear();
     equation * eq = alloc(equation);
     init_equation(eq, e, dep);
     TRACE("grobner",
           display_equation(tout, *eq);
+          tout << "\nvars\n";
           for (unsigned j : get_vars_of_expr_with_opening_terms(e)) {
               tout << "(";
               c().print_var(j, tout) << ")\n";
@@ -866,7 +865,9 @@ std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* 
             out << "constraints\n";    
             m_core->print_explanation(e, out);
             out << "\n";
-        }        
+        }  else {
+            out << "no deps\n";
+        }
     }
     
     return out;

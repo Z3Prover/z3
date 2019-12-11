@@ -159,20 +159,33 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
 }
 
 
-template <typename T> void common::create_sum_from_row(const T& row,
-                                                       nex_creator& cn,
-                                                       nex_sum& sum, bool fixed_as_scalars) {
+template <typename T> common::ci_dependency* common::create_sum_from_row(const T& row,
+                                                                         nex_creator& cn,
+                                                                         nex_sum& sum,
+                                                                         bool fixed_as_scalars,
+                                                                         ci_dependency_manager* dep_manager
+                                                                         ) {
 
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
-
+    ci_dependency * dep = nullptr;
     SASSERT(row.size() > 1);
     sum.children().clear();
     for (const auto &p : row) {
         nex* e = nexvar(p.coeff(), p.var(), cn, fixed_as_scalars);
-        if (e)
-            sum.add_child(e);        
+        if (!e)
+            continue;
+        unsigned lc, uc;
+        if (dep_manager) {
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(p.var(), lc, uc);
+            if (lc + 1)
+                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
+            if (uc + 1) 
+                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));                    
+            sum.add_child(e);
+        }
     }
-    TRACE("nla_horner", tout << "sum =" << sum << "\n";);
+    TRACE("nla_grobner", tout << "sum =" << sum << "\ndep="; m_intervals->print_dependencies(dep, tout););
+    return dep;
 }
 
 template <typename T>
@@ -242,6 +255,6 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, bool);  
+template nla::common::ci_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, bool, ci_dependency_manager*);  
 
 template dependency_manager<nla::common::ci_dependency_config>::dependency* nla::common::get_fixed_vars_dep_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, dependency_manager<nla::common::ci_dependency_config>&);
