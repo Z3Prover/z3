@@ -36,13 +36,11 @@ struct grobner_stats {
     grobner_stats() { reset(); }
 };
 
-
-class nla_grobner : common {
+class grobner : common {
     class equation {
         unsigned                   m_bidx;       //!< position at m_equations_to_delete
-
-        nex *                      m_expr;           //  simplified expressionted monomials
-        ci_dependency *            m_dep;           //!< justification for the equality
+        nex *                      m_expr;       //   simplified expressionted monomials
+        ci_dependency *            m_dep;        //!< justification for the equality
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
@@ -71,7 +69,7 @@ class nla_grobner : common {
         ci_dependency * dep() const { return m_dep; }
         ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
-        friend class nla_grobner;
+        friend class grobner;
     };
 
     typedef obj_hashtable<equation> equation_set;
@@ -95,9 +93,9 @@ class nla_grobner : common {
     bool                                         m_conflict;
     bool                                         m_look_for_fixed_vars_in_rows;
 public:
-    nla_grobner(core *core, intervals *);
+    grobner(core *, intervals *);
     void grobner_lemmas();
-    ~nla_grobner();
+    ~grobner();
 private:
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
@@ -105,8 +103,6 @@ private:
     void init();
     void compute_basis();
     void update_statistics();
-    bool find_conflict(ptr_vector<equation>& eqs);
-    bool is_inconsistent(equation*);
     bool push_calculation_forward(ptr_vector<equation>& eqs, unsigned&);
     void compute_basis_init();        
     bool compute_basis_loop();
@@ -133,7 +129,6 @@ private:
 
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream & out) const;
-    void get_equations(ptr_vector<equation>& eqs);
     bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
     void add_row(unsigned);
@@ -146,13 +141,13 @@ private:
         m_to_simplify.insert(eq);
     }
     void insert_to_superpose(equation *eq) {
-        SASSERT(m_nex_creator.is_simplified(eq->expr()));
+        SASSERT(m_nex_creator.is_simplified(*eq->expr()));
         TRACE("nla_grobner", display_equation(tout, *eq););
         m_to_superpose.insert(eq);
     }
     void simplify_equations_in_m_to_simplify();
     const nex * get_highest_monomial(const nex * e) const;
-    ci_dependency* dep_from_vector( svector<lp::constraint_index> & fixed_vars_constraints);
+    ci_dependency* dep_from_vector(svector<lp::constraint_index> & fixed_vars_constraints);
     bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    
     unsigned find_divisible(nex_sum*, const nex*) const;    
     void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned);

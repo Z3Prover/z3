@@ -20,8 +20,9 @@
 #include "math/lp/nla_grobner.h"
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
-namespace nla {
-nla_grobner::nla_grobner(core *c, intervals *s)
+using namespace nla;
+
+grobner::grobner(core *c, intervals *s)
     : common(c, s),
       m_nl_gb_exhausted(false),
       m_dep_manager(m_val_manager, m_alloc),
@@ -29,12 +30,30 @@ nla_grobner::nla_grobner(core *c, intervals *s)
       m_look_for_fixed_vars_in_rows(false)
 {}
 
-bool nla_grobner::internalize_gb_eq(equation* ) {
+void grobner::grobner_lemmas() {
+    c().lp_settings().stats().m_grobner_calls++;
+
+    init();
+
+    ptr_vector<equation> eqs;
+    unsigned next_weight =
+        (unsigned)(var_weight::MAX_DEFAULT_WEIGHT) + 1; // next weight using during perturbation phase. 
+    do {
+        TRACE("grobner", tout << "before:\n"; display(tout););
+        compute_basis();
+        update_statistics();
+        TRACE("grobner", tout << "after:\n"; display(tout););
+        // if (find_conflict(eqs))
+        //     return;
+    } while (push_calculation_forward(eqs, next_weight));
+}
+
+bool grobner::internalize_gb_eq(equation* ) {
     NOT_IMPLEMENTED_YET();
     return false;
 }
 
-void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
+void grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::queue<lpvar> & q) {
     SASSERT(!c().active_var_set_contains(j) &&  !c().var_is_fixed(j));
     TRACE("grobner", tout << "j = " << j << ", "; c().print_var(j, tout) << "\n";);
     const auto& matrix = c().m_lar_solver.A_r();
@@ -69,7 +88,7 @@ void nla_grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std
     }            
 }
 
-void nla_grobner::find_nl_cluster() {
+void grobner::find_nl_cluster() {
     prepare_rows_and_active_vars();
     std::queue<lpvar> q;
     for (lpvar j : c().m_to_refine) {        
@@ -92,13 +111,13 @@ void nla_grobner::find_nl_cluster() {
     TRACE("grobner", display(tout););
 }
 
-void nla_grobner::prepare_rows_and_active_vars() {
+void grobner::prepare_rows_and_active_vars() {
     m_rows.clear();
     m_rows.resize(c().m_lar_solver.row_count());
     c().clear_and_resize_active_var_set();
 }
 
-void nla_grobner::display_matrix(std::ostream & out) const {
+void grobner::display_matrix(std::ostream & out) const {
     const auto& matrix = c().m_lar_solver.A_r();
     out << m_rows.size() << " rows" <<"\n";
     out << "the matrix\n";
@@ -107,21 +126,21 @@ void nla_grobner::display_matrix(std::ostream & out) const {
         c().print_term(r, out) << std::endl;
     }
 }
-std::ostream & nla_grobner::display(std::ostream & out) const {
+std::ostream & grobner::display(std::ostream & out) const {
     display_equations(out, m_to_superpose, "m_to_superpose:");
     display_equations(out, m_to_simplify, "m_to_simplify:");
     return out;
 }
 
 
-common::ci_dependency* nla_grobner::dep_from_vector(svector<lp::constraint_index> & cs) {
+common::ci_dependency* grobner::dep_from_vector(svector<lp::constraint_index> & cs) {
     ci_dependency * d = nullptr;
     for (auto c : cs)
         d = m_dep_manager.mk_join(d, m_dep_manager.mk_leaf(c));
     return d;
 }
 
-void nla_grobner::add_row(unsigned i) {    
+void grobner::add_row(unsigned i) {    
     const auto& row = c().m_lar_solver.A_r().m_rows[i];    
     TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout) << '\n';
           for (auto p : row) {
@@ -135,13 +154,13 @@ void nla_grobner::add_row(unsigned i) {
     assert_eq_0(e, dep);
 }
 
-void nla_grobner::simplify_equations_in_m_to_simplify() {
+void grobner::simplify_equations_in_m_to_simplify() {
     for (equation *eq : m_to_simplify) {
         eq->expr() = m_nex_creator.simplify(eq->expr());
     }
 }
 
-void nla_grobner::init() {
+void grobner::init() {
     m_reported = 0;
     del_equations(0);
     SASSERT(m_equations_to_delete.size() == 0);    
@@ -157,13 +176,13 @@ void nla_grobner::init() {
     simplify_equations_in_m_to_simplify();
 }
 
-bool nla_grobner::is_trivial(equation* eq) const {
-    SASSERT(m_nex_creator.is_simplified(eq->expr()));
+bool grobner::is_trivial(equation* eq) const {
+    SASSERT(m_nex_creator.is_simplified(*eq->expr()));
     return eq->expr()->size() == 0;
 }
 
 // returns true if eq1 is simpler than eq2
-bool nla_grobner::is_simpler(equation * eq1, equation * eq2) {
+bool grobner::is_simpler(equation * eq1, equation * eq2) {
     if (!eq2)
         return true;
     if (is_trivial(eq1))
@@ -173,7 +192,7 @@ bool nla_grobner::is_simpler(equation * eq1, equation * eq2) {
     return m_nex_creator.gt(eq2->expr(), eq1->expr());
 }
 
-void nla_grobner::del_equation(equation * eq) {
+void grobner::del_equation(equation * eq) {
     m_to_superpose.erase(eq);
     m_to_simplify.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
@@ -181,7 +200,7 @@ void nla_grobner::del_equation(equation * eq) {
     dealloc(eq);
 }
 
-nla_grobner::equation* nla_grobner::pick_next() {
+grobner::equation* grobner::pick_next() {
     equation * r = nullptr;
     ptr_buffer<equation> to_delete;
     for (equation * curr : m_to_simplify) {
@@ -200,7 +219,7 @@ nla_grobner::equation* nla_grobner::pick_next() {
     return r;
 }
 
-nla_grobner::equation* nla_grobner::simplify_using_to_superpose(equation* eq) {
+grobner::equation* grobner::simplify_using_to_superpose(equation* eq) {
     bool result = false;
     bool simplified;
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
@@ -229,7 +248,7 @@ nla_grobner::equation* nla_grobner::simplify_using_to_superpose(equation* eq) {
     return result ? eq : nullptr;
 }
 
-const nex* nla_grobner::get_highest_monomial(const nex* e) const {
+const nex* grobner::get_highest_monomial(const nex* e) const {
     switch (e->type()) {
     case expr_type::MUL:
         return to_mul(e);
@@ -245,7 +264,7 @@ const nex* nla_grobner::get_highest_monomial(const nex* e) const {
 // source 3f + k + l = 0, so f = (-k - l)/3
 // target 2fg + 3fp + e = 0  
 // target is replaced by 2(-k/3 - l/3)g + 3(-k/3 - l/3)p + e = -2/3kg -2/3lg - kp -lp + e
-bool nla_grobner::simplify_target_monomials(equation * source, equation * target) {
+bool grobner::simplify_target_monomials(equation * source, equation * target) {
     auto * high_mon = get_highest_monomial(source->expr());
     if (high_mon == nullptr)
         return false;
@@ -266,7 +285,7 @@ bool nla_grobner::simplify_target_monomials(equation * source, equation * target
     return simplify_target_monomials_sum(source, target, targ_sum, high_mon);   
 }
 
-unsigned nla_grobner::find_divisible(nex_sum* targ_sum,
+unsigned grobner::find_divisible(nex_sum* targ_sum,
                                                            const nex* high_mon) const {
     for (unsigned j = 0; j < targ_sum->size(); j++) {
         auto t = (*targ_sum)[j];
@@ -280,7 +299,7 @@ unsigned nla_grobner::find_divisible(nex_sum* targ_sum,
 }
 
 
-bool nla_grobner::simplify_target_monomials_sum(equation * source,
+bool grobner::simplify_target_monomials_sum(equation * source,
                                                 equation * target, nex_sum* targ_sum,
                                                 const nex* high_mon) {
     unsigned j = find_divisible(targ_sum, high_mon);
@@ -298,16 +317,16 @@ bool nla_grobner::simplify_target_monomials_sum(equation * source,
     return true;
 }
 
-nex_mul* nla_grobner::divide_ignore_coeffs(nex* ej, const nex* h) {
+nex_mul* grobner::divide_ignore_coeffs(nex* ej, const nex* h) {
     TRACE("grobner", tout << "ej = " << *ej << " , h = " << *h << "\n";);
     if (!divide_ignore_coeffs_check_only(ej, h))
         return nullptr;
     return divide_ignore_coeffs_perform(ej, h);
 }
 
-bool nla_grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex* h) const {
+bool grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex* h) const {
     TRACE("grobner", tout << "t = " << *t << ", h=" << *h << "\n";);  
-    SASSERT(m_nex_creator.is_simplified(t) && m_nex_creator.is_simplified(h));
+    SASSERT(m_nex_creator.is_simplified(*t) && m_nex_creator.is_simplified(*h));
     unsigned j = 0; // points to t
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
         lpvar h_var = to_var(h->get_child_exp(k))->var();
@@ -331,7 +350,7 @@ bool nla_grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex
 }
 
 // return true if h divides t
-bool nla_grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
+bool grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
     if (n->is_mul())
         return divide_ignore_coeffs_check_only_nex_mul(to_mul(n), h);
     if (!n->is_var())
@@ -354,7 +373,7 @@ bool nla_grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
     return false;        
 }
 
-nex_mul * nla_grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h) {
+nex_mul * grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h) {
     nex_mul * r = m_nex_creator.mk_mul();
     unsigned j = 0; // points to t
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
@@ -379,7 +398,7 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const ne
 
 // perform the division t / h, but ignores the coefficients
 // h does not change
-nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
+nex_mul * grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
     if (e->is_mul())
         return divide_ignore_coeffs_perform_nex_mul(to_mul(e), h);
     SASSERT(e->is_var());
@@ -390,7 +409,7 @@ nex_mul * nla_grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
 // and  b*high_mon + e = 0, so high_mon = -e/b
 // then targ_sum->children()[j] =  - (c/b) * e*p
 
-void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
+void grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
     nex * ej = (*targ_sum)[j];
     TRACE("grobner_d", tout << "high_mon = " << *high_mon << ", ej = " << *ej << "\n";);
     nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
@@ -409,11 +428,11 @@ void nla_grobner::simplify_target_monomials_sum_j(equation * source, equation *t
 }
 
 // return true iff simplified
-bool nla_grobner::simplify_source_target(equation * source, equation * target) {
+bool grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     TRACE("grobner_d", tout << "simplifying: " << *(target->expr()) <<  " using " << *(source->expr()) << "\n";);
-    SASSERT(m_nex_creator.is_simplified(source->expr()));
-    SASSERT(m_nex_creator.is_simplified(target->expr()));
+    SASSERT(m_nex_creator.is_simplified(*source->expr()));
+    SASSERT(m_nex_creator.is_simplified(*target->expr()));
     if (target->expr()->is_scalar()) {
         TRACE("grobner_d", tout << "no simplification\n";);
         return false;
@@ -442,7 +461,7 @@ bool nla_grobner::simplify_source_target(equation * source, equation * target) {
     return false;
 }
  
-void nla_grobner::process_simplified_target(equation* target, ptr_buffer<equation>& to_remove) {
+void grobner::process_simplified_target(equation* target, ptr_buffer<equation>& to_remove) {
     if (is_trivial(target)) {
         to_remove.push_back(target);
     } else if (m_changed_leading_term) {
@@ -451,7 +470,7 @@ void nla_grobner::process_simplified_target(equation* target, ptr_buffer<equatio
     }
 }
 
-void nla_grobner::check_eq(equation* target) {
+void grobner::check_eq(equation* target) {
     if(m_intervals->check_nex(target->expr(), target->dep())) {
         TRACE("grobner", tout << "created a lemma for "; display_equation(tout, *target) << "\n";
               tout << "vars = \n";
@@ -463,7 +482,7 @@ void nla_grobner::check_eq(equation* target) {
     }
 }
 
-bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
+bool grobner::simplify_to_superpose_with_eq(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->expr()) <<  "\n";);
 
     ptr_buffer<equation> to_insert;
@@ -481,7 +500,7 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
         if (is_trivial(target))
             to_delete.push_back(target);
         else 
-            SASSERT(m_nex_creator.is_simplified(target->expr()));
+            SASSERT(m_nex_creator.is_simplified(*target->expr()));
     }
     for (equation* eq : to_insert) 
         insert_to_superpose(eq);
@@ -495,7 +514,7 @@ bool nla_grobner::simplify_to_superpose_with_eq(equation* eq) {
 /*
     Use the given equation to simplify m_to_simplify equations
 */
-void  nla_grobner::simplify_m_to_simplify(equation* eq) {
+void  grobner::simplify_m_to_simplify(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->expr()) <<  "\n";);
     ptr_buffer<equation> to_delete;
     for (equation* target : m_to_simplify) {
@@ -509,7 +528,7 @@ void  nla_grobner::simplify_m_to_simplify(equation* eq) {
 // if e is the sum then add to r all children of e multiplied by beta, except the first one
 // which corresponds to the highest monomial,
 // otherwise do nothing
-void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
+void grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c) {
     if (e->is_sum()) {
         nex_sum *es = to_sum(e);
         for (unsigned j = 1; j < es->size(); j++) {
@@ -523,7 +542,7 @@ void nla_grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, n
 
 
 // let e1: alpha*ab+q=0, and e2: beta*ac+e=0, then beta*qc - alpha*eb = 0
-nex * nla_grobner::expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c) {
+nex * grobner::expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c) {
     TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\n";);    
     nex_sum * r = m_nex_creator.mk_sum();
     rational alpha = - ab->coeff();
@@ -540,7 +559,7 @@ nex * nla_grobner::expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac
     return ret;
 }
 // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
-void nla_grobner::superpose(equation * eq1, equation * eq2) {
+void grobner::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
     const nex * ab = get_highest_monomial(eq1->expr()); 
     const nex * ac = get_highest_monomial(eq2->expr());
@@ -562,13 +581,13 @@ void nla_grobner::superpose(equation * eq1, equation * eq2) {
 
 }
 
-void nla_grobner::register_report() {
+void grobner::register_report() {
     m_reported++;
     m_conflict = true;
 }
 // Let a be the greatest common divider of ab and bc,
 // then ab/a is stored in b, and ac/a is stored in c
-bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& c) {
+bool grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& c) {
     if (!find_b_c_check_only(ab, ac))
         return false;
     b = m_nex_creator.mk_mul(); c = m_nex_creator.mk_mul();
@@ -614,10 +633,10 @@ bool nla_grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& 
     return true;
 }
 // Finds out if ab and bc have a non-trivial common divider
-bool nla_grobner::find_b_c_check_only(const nex* ab, const nex* ac) const {
+bool grobner::find_b_c_check_only(const nex* ab, const nex* ac) const {
     if (ab == nullptr || ac == nullptr)
         return false;
-    SASSERT(m_nex_creator.is_simplified(ab) && m_nex_creator.is_simplified(ab));
+    SASSERT(m_nex_creator.is_simplified(*ab) && m_nex_creator.is_simplified(*ac));
     unsigned i = 0, j = 0; // i points to ab, j points to ac
     for (;;) {
         const nex* m = ab->get_child_exp(i);
@@ -641,14 +660,14 @@ bool nla_grobner::find_b_c_check_only(const nex* ab, const nex* ac) const {
 }
 
 
-void nla_grobner::superpose(equation * eq) {
+void grobner::superpose(equation * eq) {
     for (equation * target : m_to_superpose) {
         superpose(eq, target);
     }
 }
 
 // return true iff cannot pick_next()
-bool nla_grobner::compute_basis_step() {
+bool grobner::compute_basis_step() {
     equation * eq = pick_next();
     if (!eq) {
         TRACE("grobner", tout << "cannot pick an equation\n";);
@@ -671,7 +690,7 @@ bool nla_grobner::compute_basis_step() {
     return false;
 }
 
-void nla_grobner::compute_basis(){
+void grobner::compute_basis(){
     compute_basis_init();
     if (m_rows.size() < 2) {
         TRACE("nla_grobner", tout << "there are only " << m_rows.size() << " rows, exiting compute_basis()\n";);
@@ -690,16 +709,16 @@ void nla_grobner::compute_basis(){
         }
     }
 }
-void nla_grobner::compute_basis_init(){
+void grobner::compute_basis_init(){
     c().lp_settings().stats().m_grobner_basis_computatins++;    
 }        
 
-bool nla_grobner::canceled() const {
+bool grobner::canceled() const {
     return c().lp_settings().get_cancel_flag();
 }
 
 
-bool nla_grobner::done() const {
+bool grobner::done() const {
     if (
         num_of_equations() >= c().m_nla_settings.grobner_eqs_threshold() 
         ||
@@ -725,7 +744,7 @@ bool nla_grobner::done() const {
     return false;
 }
 
-bool nla_grobner::compute_basis_loop(){
+bool grobner::compute_basis_loop(){
     int i = 0;
     while (!done()) {
         if (compute_basis_step()) {
@@ -738,11 +757,11 @@ bool nla_grobner::compute_basis_loop(){
     return false;
 }
 
-void nla_grobner::set_gb_exhausted(){
+void grobner::set_gb_exhausted(){
     m_nl_gb_exhausted = true;
 }
 
-void nla_grobner::update_statistics(){
+void grobner::update_statistics(){
     /* todo : implement
       m_stats.m_gb_simplify      += gb.m_stats.m_simplify;
     m_stats.m_gb_superpose     += gb.m_stats.m_superpose;
@@ -751,36 +770,17 @@ void nla_grobner::update_statistics(){
 }
 
 
-bool nla_grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned & next_weight) {
+bool grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned & next_weight) {
     return  (!m_nl_gb_exhausted) &&
         try_to_modify_eqs(eqs, next_weight);
 }
 
-bool nla_grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight) {
+bool grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight) {
     //    NOT_IMPLEMENTED_YET();
     return false;
 }
 
-
-void nla_grobner::grobner_lemmas() {
-    c().lp_settings().stats().m_grobner_calls++;
-
-    init();
-    
-    ptr_vector<equation> eqs;
-    unsigned next_weight =
-        (unsigned)(var_weight::MAX_DEFAULT_WEIGHT) + 1; // next weight using during perturbation phase. 
-    do {
-        TRACE("grobner", tout << "before:\n"; display(tout););
-        compute_basis();
-        update_statistics();
-        TRACE("grobner", tout << "after:\n"; display(tout););
-        // if (find_conflict(eqs))
-        //     return;
-    }
-    while(push_calculation_forward(eqs, next_weight));
-}
-void nla_grobner:: del_equations(unsigned old_size) {
+void grobner:: del_equations(unsigned old_size) {
     TRACE("grobner", );
     SASSERT(m_equations_to_delete.size() >= old_size);
     equation_vector::iterator it  = m_equations_to_delete.begin();
@@ -794,18 +794,18 @@ void nla_grobner:: del_equations(unsigned old_size) {
     m_equations_to_delete.shrink(old_size);    
 }
 
-void nla_grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
+void grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
     out << header << "\n";
     for (const equation* e : v) 
         display_equation(out, *e);
 }
 
-std::ostream& nla_grobner::display_equation(std::ostream & out, const equation & eq) const {
+std::ostream& grobner::display_equation(std::ostream & out, const equation & eq) const {
     out << "expr = " << *eq.expr() << "\n";
     display_dependency(out, eq.dep());
     return out;
 }
-std::unordered_set<lpvar> nla_grobner::get_vars_of_expr_with_opening_terms(const nex *e ) {
+std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex *e ) {
     auto ret = get_vars_of_expr(e);
     auto & ls = c().m_lar_solver;
     do {
@@ -827,7 +827,7 @@ std::unordered_set<lpvar> nla_grobner::get_vars_of_expr_with_opening_terms(const
     } while (true);
 }
 
-void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
+void grobner::assert_eq_0(nex* e, ci_dependency * dep) {
     if (e == nullptr || is_zero_scalar(e))
         return;
     m_tmp_var_set.clear();
@@ -843,7 +843,7 @@ void nla_grobner::assert_eq_0(nex* e, ci_dependency * dep) {
     insert_to_simplify(eq);
 }
 
-void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
+void grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
     eq->dep()       = dep;
@@ -852,11 +852,11 @@ void nla_grobner::init_equation(equation* eq, nex*e, ci_dependency * dep) {
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
 }
 
-nla_grobner::~nla_grobner() {
+grobner::~grobner() {
     del_equations(0);
 }
 
-std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* dep) const {
+std::ostream& grobner::display_dependency(std::ostream& out, ci_dependency* dep) const {
     svector<lp::constraint_index> expl;
     m_dep_manager.linearize(dep, expl);   
     {
@@ -872,5 +872,4 @@ std::ostream& nla_grobner::display_dependency(std::ostream& out, ci_dependency* 
     
     return out;
 }
-    
-} // end of nla namespace
+   
