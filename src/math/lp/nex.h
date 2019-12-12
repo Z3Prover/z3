@@ -100,7 +100,7 @@ public:
     std::string str() const { std::stringstream ss; print(ss); return ss.str(); }
     virtual ~nex() {}
     virtual bool contains(lpvar j) const { return false; }
-    virtual int get_degree() const = 0;
+    virtual unsigned get_degree() const = 0;
     // simplifies the expression and also assigns the address of "this" to *e
     virtual const rational& coeff() const { return rational::one(); }
 
@@ -125,7 +125,7 @@ public:
     std::ostream & print(std::ostream& out) const override { return out << "v" << m_j; }    
 
     bool contains(lpvar j) const { return j == m_j; }
-    int get_degree() const override { return 1; }
+    unsigned get_degree() const override { return 1; }
     bool is_linear() const override { return true; }
 };
 
@@ -139,21 +139,21 @@ public:
     rational& value() {  return m_v; } // the setter
     std::ostream& print(std::ostream& out) const override { return out << m_v; }
     
-    int get_degree() const override { return 0; }
+    unsigned get_degree() const override { return 0; }
     bool is_linear() const override { return true; }
 };
 
 class nex_pow {
     nex* m_e;
-    int  m_power;
+    unsigned  m_power;
 public:
     explicit nex_pow(nex* e): m_e(e), m_power(1) {}
-    explicit nex_pow(nex* e, int p): m_e(e), m_power(p) {}
+    explicit nex_pow(nex* e, unsigned p): m_e(e), m_power(p) {}
     const nex * e() const { return m_e; }
     nex *& e() { return m_e; }
     
     nex ** ee() { return & m_e; }
-    int pow() const { return m_power; }
+    unsigned pow() const { return m_power; }
 
     std::ostream& print(std::ostream& s) const {
         if (pow() == 1) {
@@ -286,7 +286,7 @@ public:
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
     }
 
-    int get_degree() const override {
+    unsigned get_degree() const override {
         return get_degree_children(children());
     }    
     
@@ -316,7 +316,6 @@ public:
     ptr_vector<nex>& children() { return m_children;}
     const ptr_vector<nex>& children() const { return m_children;}    
     const ptr_vector<nex>* children_ptr() const { return &m_children;}
-    ptr_vector<nex>* children_ptr() { return &m_children;}
     unsigned size() const override { return m_children.size(); }
 
 
@@ -369,8 +368,8 @@ public:
         return out;
     }
 
-    int get_degree() const override {
-        int degree = 0;       
+    unsigned get_degree() const override {
+        unsigned degree = 0;       
         for (auto  e : *this) {
             degree = std::max(degree, e->get_degree());
         }
