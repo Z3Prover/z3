@@ -90,7 +90,6 @@ class grobner : common {
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
     unsigned                                     m_reported;
-    bool                                         m_conflict;
     bool                                         m_look_for_fixed_vars_in_rows;
 public:
     grobner(core *, intervals *);

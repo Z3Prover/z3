@@ -583,7 +583,6 @@ void grobner::superpose(equation * eq1, equation * eq2) {
 
 void grobner::register_report() {
     m_reported++;
-    m_conflict = true;
 }
 // Let a be the greatest common divider of ab and bc,
 // then ab/a is stored in b, and ac/a is stored in c
@@ -724,20 +723,17 @@ bool grobner::done() const {
         ||
         canceled()
         ||
-        m_reported > 100000
-        ||
-        m_conflict) {
+        m_reported > 0
+) {
         TRACE("grobner",
               tout << "done() is true because of ";
               if (num_of_equations() >= c().m_nla_settings.grobner_eqs_threshold()) {
                   tout << "m_num_of_equations = " << num_of_equations() << "\n";
               } else if (canceled()) {
                   tout << "canceled\n";
-              } else if (m_reported > 100000) {
+              } else if (m_reported > 0) {
                   tout << "m_reported = " << m_reported;
-              } else {
-                  tout << "m_conflict = " << m_conflict;
-              }
+              } 
               tout <<    "\n";);
         return true;
     }
