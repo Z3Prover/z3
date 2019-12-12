@@ -561,7 +561,7 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
     children.shrink(k);
     
     for (nex *e : to_promote) {
-        for (nex *ee : *(e->to_sum().children_ptr())) {
+        for (nex *ee : e->to_sum()) {
             if (!is_zero_scalar(ee))
                 children.push_back(ee);            
         }
