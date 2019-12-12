@@ -122,13 +122,10 @@ public:
     expr_type type() const { return expr_type::VAR; }
     lpvar var() const {  return m_j; }
     lpvar& var() {  return m_j; } // the setter
-    std::ostream & print(std::ostream& out) const {
-        //        out <<  (char)('a' + m_j);
-        return out << "v" << m_j;
-    }    
+    std::ostream & print(std::ostream& out) const override { return out << "v" << m_j; }    
 
     bool contains(lpvar j) const { return j == m_j; }
-    int get_degree() const { return 1; }
+    int get_degree() const override { return 1; }
     bool is_linear() const override { return true; }
 };
 
@@ -140,10 +137,10 @@ public:
     expr_type type() const { return expr_type::SCALAR; }
     const rational& value() const {  return m_v; }
     rational& value() {  return m_v; } // the setter
-    std::ostream& print(std::ostream& out) const { return out << m_v; }
+    std::ostream& print(std::ostream& out) const override { return out << m_v; }
     
-    int get_degree() const { return 0; }
-    bool is_linear() const { return true; }
+    int get_degree() const override { return 0; }
+    bool is_linear() const override { return true; }
 };
 
 class nex_pow {
@@ -200,7 +197,7 @@ public:
 
     unsigned number_of_child_powers() const { return m_children.size(); }
 
-    nex_mul() : m_coeff(rational(1)) {}
+    nex_mul() : m_coeff(1) {}
 
     const rational& coeff() const {
         return m_coeff;
@@ -210,14 +207,14 @@ public:
         return m_coeff;
     }
     
-    unsigned size() const { return m_children.size(); }
-    expr_type type() const { return expr_type::MUL; }
+    unsigned size() const override { return m_children.size(); }
+    expr_type type() const override { return expr_type::MUL; }
     vector<nex_pow>& children() { return m_children;}
     const vector<nex_pow>& children() const { return m_children;}
     // A monomial is 'pure' if does not have a numeric coefficient.
     bool is_pure_monomial() const { return size() == 0 || (!m_children[0].e()->is_scalar()); }    
 
-    std::ostream & print(std::ostream& out) const {        
+    std::ostream & print(std::ostream& out) const override {
         bool first = true;
         if (!m_coeff.is_one()) {
             out << m_coeff;
@@ -289,11 +286,11 @@ public:
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
     }
 
-    int get_degree() const {
+    int get_degree() const override {
         return get_degree_children(children());
     }    
     
-    bool is_linear() const {
+    bool is_linear() const override {
         return get_degree() < 2; // todo: make it more efficient
     }
 
@@ -315,15 +312,15 @@ class nex_sum : public nex {
     ptr_vector<nex> m_children;
 public:
     nex_sum()  {}
-    expr_type type() const { return expr_type::SUM; }
+    expr_type type() const override { return expr_type::SUM; }
     ptr_vector<nex>& children() { return m_children;}
     const ptr_vector<nex>& children() const { return m_children;}    
     const ptr_vector<nex>* children_ptr() const { return &m_children;}
     ptr_vector<nex>* children_ptr() { return &m_children;}
-    unsigned size() const { return m_children.size(); }
+    unsigned size() const override { return m_children.size(); }
 
 
-    bool is_linear() const {
+    bool is_linear() const override {
         TRACE("nex_details", tout << *this << "\n";);
         for (auto  e : *this) {
             if (!e->is_linear())
@@ -347,7 +344,7 @@ public:
         return number_of_non_scalars > 1;
     }
     
-    std::ostream & print(std::ostream& out) const {
+    std::ostream & print(std::ostream& out) const override {
         bool first = true;
         for (const nex* v : m_children) {            
             std::string s = v->str();
@@ -372,7 +369,7 @@ public:
         return out;
     }
 
-    int get_degree() const {
+    int get_degree() const override {
         int degree = 0;       
         for (auto  e : *this) {
             degree = std::max(degree, e->get_degree());

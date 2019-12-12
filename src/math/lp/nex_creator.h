@@ -19,6 +19,7 @@
   --*/
 #pragma once
 #include <map>
+#include "util/map.h"
 #include "math/lp/nex.h"
 namespace nla {
 
@@ -209,20 +210,20 @@ public:
         return r;
     }
 
-    nex * mk_div(const nex* a, lpvar j);
-    nex * mk_div(const nex* a, const nex* b);
-    nex * mk_div_by_mul(const nex* a, const nex_mul* b);
-    nex * mk_div_sum_by_mul(const nex_sum* a, const nex_mul* b);
-    nex * mk_div_mul_by_mul(const nex_mul* a, const nex_mul* b);
+    nex * mk_div(const nex& a, lpvar j);
+    nex * mk_div(const nex& a, const nex& b);
+    nex * mk_div_by_mul(const nex& a, const nex_mul& b);
+    nex * mk_div_sum_by_mul(const nex_sum& a, const nex_mul& b);
+    nex * mk_div_mul_by_mul(const nex_mul& a, const nex_mul& b);
     
     nex * simplify_mul(nex_mul *e);    
-    bool is_sorted(const nex_mul * e) const;    
+    bool is_sorted(const nex_mul & e) const;    
 
     nex* simplify_sum(nex_sum *e);
 
-    bool is_simplified(const nex *e) const;
-    bool sum_is_simplified(const nex_sum* e) const;
-    bool mul_is_simplified(const nex_mul*e ) const;
+    bool is_simplified(const nex &e) const;
+    bool sum_is_simplified(const nex_sum& e) const;
+    bool mul_is_simplified(const nex_mul& e) const;
     
     void mul_to_powers(vector<nex_pow>& children);
     
