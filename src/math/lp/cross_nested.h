@@ -59,7 +59,7 @@ public:
     
     void run(nex *e) {
         TRACE("nla_cn", tout << *e << "\n";);
-        SASSERT(m_nex_creator.is_simplified(e));
+        SASSERT(m_nex_creator.is_simplified(*e));
         m_e = e;
 #ifdef Z3DEBUG
         m_e_clone = m_nex_creator.clone(m_e);
@@ -126,7 +126,7 @@ public:
         }
         TRACE("nla_cn", tout << "common factor f=" << *f << "\n";);
         
-        nex* c_over_f = m_nex_creator.mk_div(*c, f);
+        nex* c_over_f = m_nex_creator.mk_div(**c, *f);
         c_over_f = m_nex_creator.simplify(c_over_f);
         TRACE("nla_cn", tout << "c_over_f = " << *c_over_f << std::endl;);
         nex_mul* cm; 
@@ -376,13 +376,13 @@ public:
     // all factors of j go to a, the rest to b
     void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {
         TRACE("nla_cn_details", tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
-        SASSERT(m_nex_creator.is_simplified(e));
+        SASSERT(m_nex_creator.is_simplified(*e));
         a = m_nex_creator.mk_sum();
         m_b_split_vec.clear();
         for (nex * ce: *e) {
             TRACE("nla_cn_details", tout << "ce = " << *ce << "\n";);
             if (is_divisible_by_var(ce, j)) {
-                a->add_child(m_nex_creator.mk_div(ce , j));
+                a->add_child(m_nex_creator.mk_div(*ce , j));
             } else {
                 m_b_split_vec.push_back(ce);
             }        
