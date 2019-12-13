@@ -410,7 +410,7 @@ public:
         }
         
         if (b->is_sum() && !to_sum(b)->is_linear()) {
-            nex **ptr_to_a = &((*to_sum(e))[1]);
+            nex **ptr_to_a = &(e->to_sum()[1]);
             push_to_front(front, ptr_to_a);
         }
     }
@@ -419,7 +419,7 @@ public:
         if (b == nullptr) {
             e = m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a);
             if (!to_sum(a)->is_linear())
-                push_to_front(front, (*to_mul(e))[1].ee());
+                push_to_front(front, e->to_mul()[1].ee());
         } else {
             update_front_with_split_with_non_empty_b(e, j, front, a, b);
         }

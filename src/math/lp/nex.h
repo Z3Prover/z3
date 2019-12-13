@@ -114,17 +114,15 @@ std::ostream& operator<<(std::ostream& out, const nex&);
 
 class nex_var : public nex {
     lpvar m_j;
-public:
-    unsigned number_of_child_powers() const { return 1; }
-    nex_pow get_nex_pow(unsigned j);
+public:    
     nex_var(lpvar j) : m_j(j) {}
-    nex_var() {}
-    expr_type type() const { return expr_type::VAR; }
+    
     lpvar var() const {  return m_j; }
-    lpvar& var() {  return m_j; } // the setter
-    std::ostream & print(std::ostream& out) const override { return out << "v" << m_j; }    
 
-    bool contains(lpvar j) const { return j == m_j; }
+    std::ostream & print(std::ostream& out) const override { return out << "v" << m_j; }    
+    expr_type type() const override { return expr_type::VAR; }
+    unsigned number_of_child_powers() const override { return 1; }
+    bool contains(lpvar j) const override { return j == m_j; }
     unsigned get_degree() const override { return 1; }
     bool is_linear() const override { return true; }
 };
@@ -133,12 +131,11 @@ class nex_scalar : public nex {
     rational m_v;
 public:
     nex_scalar(const rational& v) : m_v(v) {}
-    nex_scalar() {}
-    expr_type type() const { return expr_type::SCALAR; }
-    const rational& value() const {  return m_v; }
-    rational& value() {  return m_v; } // the setter
-    std::ostream& print(std::ostream& out) const override { return out << m_v; }
     
+    const rational& value() const {  return m_v; }
+
+    std::ostream& print(std::ostream& out) const override { return out << m_v; }
+    expr_type type() const override { return expr_type::SCALAR; }
     unsigned get_degree() const override { return 0; }
     bool is_linear() const override { return true; }
 };
@@ -146,8 +143,7 @@ public:
 class nex_pow {
     nex* m_e;
     unsigned  m_power;
-public:
-    explicit nex_pow(nex* e): m_e(e), m_power(1) {}
+public:  
     explicit nex_pow(nex* e, unsigned p): m_e(e), m_power(p) {}
     const nex * e() const { return m_e; }
     nex *& e() { return m_e; }
@@ -212,7 +208,7 @@ public:
     vector<nex_pow>& children() { return m_children;}
     const vector<nex_pow>& children() const { return m_children;}
     // A monomial is 'pure' if does not have a numeric coefficient.
-    bool is_pure_monomial() const { return size() == 0 || (!m_children[0].e()->is_scalar()); }    
+    bool is_pure_monomial() const { return size() == 0 || !m_children[0].e()->is_scalar(); }    
 
     std::ostream & print(std::ostream& out) const override {
         bool first = true;
@@ -247,7 +243,6 @@ public:
         add_child_in_power(p.e(), p.pow());
     }
 
-
     const nex_pow& operator[](unsigned j) const { return m_children[j]; }
     nex_pow& operator[](unsigned j) { return m_children[j]; }
     const nex_pow* begin() const { return m_children.begin(); }
@@ -276,12 +271,11 @@ public:
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n";);
         r.clear();
         for (const auto & c : *this) {
-            if (!c.e()->is_var()) {
-                continue;
+            if (c.e()->is_var()) {
+                lpvar j = c.e()->to_var().var();
+                SASSERT(r.find(j) == r.end());
+                r[j] = c.pow();
             }
-            lpvar j = c.e()->to_var().var();
-            SASSERT(r.find(j) == r.end());
-            r[j] = c.pow();
         }
         TRACE("nla_cn_details", tout << "powers of " << *this << "\n"; print_vector(r, tout)<< "\n";);
     }
@@ -312,12 +306,12 @@ class nex_sum : public nex {
     ptr_vector<nex> m_children;
 public:
     nex_sum()  {}
-    expr_type type() const override { return expr_type::SUM; }
-    ptr_vector<nex>& children() { return m_children;}
-    const ptr_vector<nex>& children() const { return m_children;}    
-    const ptr_vector<nex>* children_ptr() const { return &m_children;}
-    unsigned size() const override { return m_children.size(); }
+    nex_sum(ptr_vector<nex> const& ch) : m_children(ch) {}
 
+    expr_type type() const override { return expr_type::SUM; }
+    ptr_vector<nex>& children() { return m_children; }
+    const ptr_vector<nex>& children() const { return m_children; }    
+    unsigned size() const override { return m_children.size(); }
 
     bool is_linear() const override {
         TRACE("nex_details", tout << *this << "\n";);
@@ -379,8 +373,6 @@ public:
     nex*& operator[](unsigned j) { return m_children[j]; }
     const ptr_vector<nex>::const_iterator begin() const { return m_children.begin(); }
     const ptr_vector<nex>::const_iterator end() const { return m_children.end(); }
-    ptr_vector<nex>::iterator begin() { return m_children.begin(); }
-    ptr_vector<nex>::iterator end() { return m_children.end(); }
 
     void add_child(nex* e) { m_children.push_back(e); }
 #ifdef Z3DEBUG
@@ -432,20 +424,20 @@ inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var
         return to_scalar(e)->value();
     case expr_type::SUM: {
         rational r(0);
-        for (auto c: *to_sum(e)) {
+        for (nex* c: e->to_sum()) {
             r += get_nex_val(c, var_val);
         }
         return r;
     }
     case expr_type::MUL: {
-        auto & m = *to_mul(e);
+        auto & m = e->to_mul();
         rational t = m.coeff();
-        for (auto& c: m)
+        for (nex_pow const& c: m)
             t *= get_nex_val(c.e(), var_val).expt(c.pow());
         return t;
     }
     case expr_type::VAR:
-        return var_val(to_var(e)->var());
+        return var_val(e->to_var().var());
     default:
         TRACE("nla_cn_details", tout << e->type() << "\n";);
         SASSERT(false);
@@ -458,20 +450,18 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
     switch (e->type()) {
     case expr_type::SCALAR:
         return r;
-    case expr_type::SUM: {
-        for (auto c: *to_sum(e))
+    case expr_type::SUM: 
+        for (auto c: e->to_sum())
             for ( lpvar j : get_vars_of_expr(c))
                 r.insert(j);
-        return r;
-    }
-    case expr_type::MUL: {
-        for (auto &c: *to_mul(e))
+        return r;    
+    case expr_type::MUL: 
+        for (auto &c: e->to_mul())
             for ( lpvar j : get_vars_of_expr(c.e()))
                 r.insert(j);
-        return r;
-    }
+        return r;    
     case expr_type::VAR:
-        r.insert(to_var(e)->var());
+        r.insert(e->to_var().var());
         return r;
     default:
         TRACE("nla_cn_details", tout << e->type() << "\n";);
@@ -481,7 +471,7 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
 }
 
 inline bool is_zero_scalar(nex *e) {
-    return e->is_scalar() && to_scalar(e)->value().is_zero();
+    return e->is_scalar() && e->to_scalar().value().is_zero();
 }
 }
     
