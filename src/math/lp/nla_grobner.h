@@ -149,8 +149,7 @@ private:
     ci_dependency* dep_from_vector(svector<lp::constraint_index> & fixed_vars_constraints);
     bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    
     unsigned find_divisible(nex_sum*, const nex*) const;    
-    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned);
-    nex_mul * divide_ignore_coeffs(nex* ej, const nex*);
+    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned, bool);
     bool divide_ignore_coeffs_check_only(nex* , const nex*) const;
     bool divide_ignore_coeffs_check_only_nex_mul(nex_mul* , const nex*) const;
     nex_mul * divide_ignore_coeffs_perform(nex* , const nex*);

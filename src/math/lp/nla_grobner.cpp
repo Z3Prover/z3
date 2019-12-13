@@ -247,7 +247,7 @@ bool grobner::simplify_target_monomials(equation * source, equation * target) {
     if (high_mon == nullptr)
         return false;
     SASSERT(high_mon->all_factors_are_elementary());
-    TRACE("grobner", tout << "source = "; display_equation(tout, *source) << "target = "; display_equation(tout, *target) << "high_mon = " << *high_mon << "\n";);
+    TRACE("grobner_d", tout << "source = "; display_equation(tout, *source) << "target = "; display_equation(tout, *target) << "high_mon = " << *high_mon << "\n";);
 
     nex * te = target->expr();    
     nex_sum * targ_sum;
@@ -256,7 +256,7 @@ bool grobner::simplify_target_monomials(equation * source, equation * target) {
     } else if (te->is_mul()) {
         targ_sum = m_nex_creator.mk_sum(te);
     } else {
-        TRACE("grobner", tout << "return false\n";);
+        TRACE("grobner_d", tout << "return false\n";);
         return false;
     }
 
@@ -267,12 +267,12 @@ unsigned grobner::find_divisible(nex_sum* targ_sum, const nex* high_mon) const {
     unsigned j = 0;
     for (auto t : *targ_sum) {
         if (divide_ignore_coeffs_check_only(t, high_mon)) {
-            TRACE("grobner", tout << "yes div: " << *t << " / " << *high_mon << "\n";);
+            TRACE("grobner_d", tout << "yes div: " << *t << " / " << *high_mon << "\n";);
             return j;
         }
         ++j;
     }
-    TRACE("grobner", tout << "no div: " << *targ_sum << " / " << *high_mon << "\n";);
+    TRACE("grobner_d", tout << "no div: " << *targ_sum << " / " << *high_mon << "\n";);
     return -1;
 }
 
@@ -284,8 +284,9 @@ bool grobner::simplify_target_monomials_sum(equation * source,
         return false;
     m_changed_leading_term = (j == 0);
     unsigned targ_orig_size = targ_sum->size();
-    for (; j < targ_orig_size; j++) {
-        simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j);
+    simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j, false); // false to avoid divisibility test
+    for (j++; j < targ_orig_size; j++) {
+        simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j, true);
     }
     TRACE("grobner_d", tout << "targ_sum = " << *targ_sum << "\n";);    
     target->expr() = m_nex_creator.simplify(targ_sum);
@@ -294,15 +295,8 @@ bool grobner::simplify_target_monomials_sum(equation * source,
     return true;
 }
 
-nex_mul* grobner::divide_ignore_coeffs(nex* ej, const nex* h) {
-    TRACE("grobner", tout << "ej = " << *ej << " , h = " << *h << "\n";);
-    if (!divide_ignore_coeffs_check_only(ej, h))
-        return nullptr;
-    return divide_ignore_coeffs_perform(ej, h);
-}
-
 bool grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex* h) const {
-    TRACE("grobner", tout << "t = " << *t << ", h=" << *h << "\n";);  
+    TRACE("grobner_d", tout << "t = " << *t << ", h=" << *h << "\n";);  
     SASSERT(m_nex_creator.is_simplified(*t) && m_nex_creator.is_simplified(*h));
     unsigned j = 0; // points to t
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
@@ -317,11 +311,11 @@ bool grobner::divide_ignore_coeffs_check_only_nex_mul(nex_mul* t , const nex* h)
             }
         }
         if (!p_swallowed) {
-            TRACE("grobner", tout << "no div " << *t << " / " << *h << "\n";);
+            TRACE("grobner_d", tout << "no div " << *t << " / " << *h << "\n";);
             return false;
         }
     }
-    TRACE("grobner", tout << "division " << *t << " / " << *h << "\n";);
+    TRACE("grobner_d", tout << "division " << *t << " / " << *h << "\n";);
     return true;   
 }
 
@@ -351,7 +345,7 @@ bool grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
 
 nex_mul * grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h) {
     nex_mul * r = m_nex_creator.mk_mul();
-    unsigned j = 0; // points to t
+    unsigned j = 0; // points to t and k runs over h
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
         lpvar h_var = to_var(h->get_child_exp(k))->var();
         for (; j < t->size(); j++) {
@@ -369,7 +363,12 @@ nex_mul * grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h
             }
         }
     }
-    TRACE("grobner", tout << "r = " << *r << " = " << *t << " / " << *h << "\n";);
+
+    for (; j < t->size(); j++) {
+        r->add_child_in_power((*t)[j]);
+    }
+    
+    TRACE("grobner_d", tout << "r = " << *r << " = " << *t << " / " << *h << "\n";);
     return r;
 }
 
@@ -386,14 +385,14 @@ nex_mul * grobner::divide_ignore_coeffs_perform(nex* e, const nex* h) {
 // and  b*high_mon + e = 0, so high_mon = -e/b
 // then targ_sum->children()[j] =  - (c/b) * e*p
 
-void grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j) {    
+void grobner::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex* high_mon, unsigned j, bool test_divisibility) { 
     nex * ej = (*targ_sum)[j];
     TRACE("grobner_d", tout << "high_mon = " << *high_mon << ", ej = " << *ej << "\n";);
-    nex_mul * ej_over_high_mon = divide_ignore_coeffs(ej, high_mon);
-    if (ej_over_high_mon == nullptr) {
+    if (test_divisibility && !divide_ignore_coeffs_check_only(ej, high_mon)) {
         TRACE("grobner_d", tout << "no div\n";);
         return;
     }
+    nex_mul * ej_over_high_mon = divide_ignore_coeffs_perform(ej, high_mon);
     TRACE("grobner_d", tout << "ej_over_high_mon = " << *ej_over_high_mon << "\n";);
     rational c = ej->is_mul()? to_mul(ej)->coeff() : rational(1);
     TRACE("grobner_d", tout << "c = " << c << "\n";);
@@ -512,9 +511,9 @@ void grobner::add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_m
         for (unsigned j = 1; j < es->size(); j++) {
             r->add_child(m_nex_creator.mk_mul(beta, (*es)[j], c));
         }
-        TRACE("grobner", tout << "r = " << *r << "\n";);        
+        TRACE("grobner_d", tout << "r = " << *r << "\n";);        
     } else {
-        TRACE("grobner", tout << "e = " << *e << "\n";);
+        TRACE("grobner_d", tout << "e = " << *e << "\n";);
     }
 }
 
