@@ -162,9 +162,8 @@ public:
     }
 
     nex_sum* mk_sum(const ptr_vector<nex>& v) {
-        auto r = new nex_sum();
+        auto r = new nex_sum(v);
         add_to_allocated(r);
-        r->children() = v;
         return r;
     }
 
@@ -227,20 +226,17 @@ public:
     
     void mul_to_powers(vector<nex_pow>& children);
     
-    nex* create_child_from_nex_and_coeff(nex *e,
-                                         const rational& coeff) ;
 
     void sort_join_sum(ptr_vector<nex> & children);
     bool fill_join_map_for_sum(ptr_vector<nex> & children,
                                std::map<nex*, rational, nex_lt>& map,
                                std::unordered_set<nex*>& existing_nex,
-                               nex_scalar*& common_scalar);
+                               rational& common_scalar);
     bool register_in_join_map(std::map<nex*, rational, nex_lt>&, nex*, const rational&) const;
 
     void simplify_children_of_sum(ptr_vector<nex> & children);
     
     bool eat_scalar_pow(rational& r, const nex_pow& p, unsigned);
-    void simplify_children_of_mul(vector<nex_pow> & children, lt_on_vars, std::function<nex_scalar*()> mk_scalar);
 
     bool children_are_simplified(const vector<nex_pow>& children) const;
     bool gt(const nex* a, const nex* b) const;    
@@ -253,7 +249,6 @@ public:
     bool gt_on_var_nex(const nex_var* a, const nex* b) const;
     bool gt_on_mul_nex(const nex_mul* a, const nex* b) const;
     bool gt_on_sum_sum(const nex_sum* a, const nex_sum* b) const;
-    void fill_map_with_children(std::map<nex*, rational, nex_lt> & m, ptr_vector<nex> & children);
     void process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>&);
 #ifdef Z3DEBUG
     static
