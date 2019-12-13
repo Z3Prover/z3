@@ -5632,17 +5632,10 @@ void theory_seq::add_axiom(literal l1, literal l2, literal l3, literal l4, liter
     TRACE("seq", ctx.display_literals_verbose(tout << "assert:", lits) << "\n";);
     m_new_propagation = true;
     ++m_stats.m_add_axiom;
-    {
-        std::function<expr*(void)> fn = [&]() { return m.mk_or(exprs.size(), exprs.c_ptr()); };
-        scoped_trace_stream _sts(*this, fn);
-        ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());
-    }
-
-#if 0
-    if (!ctx.at_base_level() && l2 == null_literal) {
-        m_trail_stack.push(push_replay(alloc(replay_unit_literal, m, ctx.bool_var2expr(l1.var()), l1.sign())));        
-    }
-#endif
+    
+    std::function<expr*(void)> fn = [&]() { return m.mk_or(exprs.size(), exprs.c_ptr()); };
+    scoped_trace_stream _sts(*this, fn);
+    ctx.mk_th_axiom(get_id(), lits.size(), lits.c_ptr());    
 }
 
 

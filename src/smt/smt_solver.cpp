@@ -88,24 +88,24 @@ namespace smt {
             smt_solver * result = alloc(smt_solver, m, p, m_logic);
             smt::kernel::copy(m_context, result->m_context);
 
-
             if (mc0()) 
                 result->set_model_converter(mc0()->translate(translator));
 
             for (auto & kv : m_name2assertion) { 
                 expr* val = translator(kv.m_value);
-                expr* t = translator(kv.m_key);
-                result->m_name2assertion.insert(t, val);
-                result->solver_na2as::assert_expr(val, t);
-                m.inc_ref(val);
+                expr* key = translator(kv.m_key);
+                result->assert_expr(val, key);
             }
 
             return result;
         }
 
         ~smt_solver() override {
-            dec_ref_values(get_manager(), m_name2assertion);
             dealloc(m_cuber);
+            for (auto& kv : m_name2assertion) {
+                get_manager().dec_ref(kv.m_key);
+                get_manager().dec_ref(kv.m_value);
+            }
         }
 
         void updt_params(params_ref const & p) override {
@@ -159,6 +159,7 @@ namespace smt {
             }
             solver_na2as::assert_expr_core2(t, a);
             get_manager().inc_ref(t);
+            get_manager().inc_ref(a);
             m_name2assertion.insert(a, t);
         }
 
@@ -173,13 +174,12 @@ namespace smt {
                 SASSERT(n <= lvl);
                 unsigned new_lvl = lvl - n;
                 unsigned old_sz = m_scopes[new_lvl];
-                for (unsigned i = cur_sz; i > old_sz; ) {
-                    --i;
-                    expr * key = m_assumptions[i].get();
-                    SASSERT(m_name2assertion.contains(key));
+                for (unsigned i = cur_sz; i-- > old_sz; ) {
+                    expr * key = m_assumptions.get(i);
                     expr * value = m_name2assertion.find(key);
-                    m.dec_ref(value);
                     m_name2assertion.erase(key);
+                    m.dec_ref(value);
+                    m.dec_ref(key);
                 }
             }
             m_context.pop(n);
