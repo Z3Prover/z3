@@ -62,7 +62,7 @@ void grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, std::qu
     for (auto & s : matrix.m_columns[j]) {
         unsigned row = s.var();
         if (m_rows.contains(row)) continue;
-        if (false && c().var_is_free(core_slv.m_r_basis[row])) {
+        if (c().var_is_free(core_slv.m_r_basis[row])) {
              TRACE("grobner", tout << "ignore the row " << row << " with the free basic var\n";); 
              continue; // mimic the behavior of the legacy solver
         }
@@ -345,7 +345,7 @@ bool grobner::divide_ignore_coeffs_check_only(nex* n , const nex* h) const {
 
 nex_mul * grobner::divide_ignore_coeffs_perform_nex_mul(nex_mul* t, const nex* h) {
     nex_mul * r = m_nex_creator.mk_mul();
-    unsigned j = 0; // points to t and k runs over h
+    unsigned j = 0; // j points to t and k runs over h
     for(unsigned k = 0; k < h->number_of_child_powers(); k++) {
         lpvar h_var = to_var(h->get_child_exp(k))->var();
         for (; j < t->size(); j++) {
@@ -701,15 +701,14 @@ bool grobner::done() const {
 }
 
 bool grobner::compute_basis_loop(){
-    int i = 0;
     while (!done()) {
         if (compute_basis_step()) {
             TRACE("grobner", tout << "progress in compute_basis_step\n";);
             return true;
         }
-        TRACE("grobner", tout << "continue compute_basis_loop i= " << ++i << "\n";);
+        TRACE("grobner", tout << "continue compute_basis_loop\n";);
     }
-    TRACE("grobner", tout << "return false from compute_basis_loop i= " << i << "\n";);
+    TRACE("grobner", tout << "return false from compute_basis_loop\n";);
     return false;
 }
 
@@ -793,8 +792,7 @@ void grobner::assert_eq_0(nex* e, ci_dependency * dep) {
           display_equation(tout, *eq);
           tout << "\nvars\n";
           for (unsigned j : get_vars_of_expr_with_opening_terms(e)) {
-              tout << "(";
-              c().print_var(j, tout) << ")\n";
+              c().print_var(j, tout << "(") << ")\n";
           });
     insert_to_simplify(eq);
 }

@@ -39,7 +39,7 @@ nex * nex_creator::mk_div(const nex& a, lpvar j) {
         if (!seenj && c->contains(j)) {
             SASSERT(!c->is_var() || c->to_var().var() == j);
             if (!c->is_var()) {
-                bv.push_back(nex_pow(mk_div(*c, j)));
+                bv.push_back(nex_pow(mk_div(*c, j), 1));
             }
             if (pow != 1) {
                 bv.push_back(nex_pow(clone(c), pow - 1));
@@ -437,42 +437,6 @@ void nex_creator::mul_to_powers(vector<nex_pow>& children) {
                                                 });
 }
 
-nex* nex_creator::create_child_from_nex_and_coeff(nex *e,
-                                                  const rational& coeff) {
-    TRACE("grobner_d", tout << *e << ", coeff = " << coeff << "\n";);
-    if (coeff.is_one())
-        return e;
-    SASSERT(is_simplified(*e));
-    switch (e->type()) {
-    case expr_type::VAR: {
-        if (coeff.is_one())
-            return e;
-        return mk_mul(mk_scalar(coeff), e);
-    }
-    case expr_type::SCALAR: {
-        return mk_scalar(coeff);
-    }        
-    case expr_type::MUL: {
-        nex_mul * em = to_mul(e);
-        nex_pow *np = em->begin();
-        if (np->e()->is_scalar()) {
-            SASSERT(np->pow() == 1);
-            to_scalar(np->e())->value() = coeff;
-            return e;
-        }
-        em->add_child(mk_scalar(coeff));
-        std::sort(em->begin(), em->end(), [this](const nex_pow& a,
-                                                 const nex_pow& b) {return gt_on_nex_pow(a, b); });
-        return em;
-    }
-    case expr_type::SUM: 
-        return mk_mul(mk_scalar(coeff), e);
-    default:
-        UNREACHABLE();
-        return nullptr;
-    }
-        
-}
 // returns true if the key exists already
 bool nex_creator::register_in_join_map(std::map<nex*, rational, nex_lt>& map, nex* e, const rational& r) const{
     TRACE("grobner_d",  tout << *e << ", r = " << r << std::endl;);
@@ -492,18 +456,12 @@ bool nex_creator::fill_join_map_for_sum(
     ptr_vector<nex> & children,
     std::map<nex*, rational, nex_lt>& map,
     std::unordered_set<nex*>& existing_nex,
-    nex_scalar*& common_scalar) {
-    common_scalar = nullptr;
+    rational& common_scalar) {
     bool simplified = false;
     for (auto e : children) {
         if (e->is_scalar()) {
-            nex_scalar * es = to_scalar(e);
-            if (common_scalar == nullptr) {
-                common_scalar = es;
-            } else {
-                simplified = true;
-                common_scalar->value() += es->value();
-            }
+            simplified = true;
+            common_scalar += e->to_scalar().value();           
             continue;
         }
         existing_nex.insert(e);
@@ -523,7 +481,7 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
     std::map<nex*, rational, nex_lt> map([this](const nex *a , const nex *b)
                                        { return gt_for_sort_join_sum(a, b); });
     std::unordered_set<nex*> allocated_nexs; // handling (nex*) as numbers
-    nex_scalar * common_scalar = nullptr;
+    rational common_scalar(0);
     fill_join_map_for_sum(children, map, allocated_nexs, common_scalar);
 
     TRACE("grobner_d", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
@@ -531,8 +489,8 @@ void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
     for (auto& p : map) {
         process_map_pair(p.first, p.second, children, allocated_nexs);
     }
-    if (common_scalar && !common_scalar->value().is_zero()) {
-        children.push_back(common_scalar);
+    if (!common_scalar.is_zero()) {
+        children.push_back(mk_scalar(common_scalar));
     }
     TRACE("grobner_d",
           tout << "map=";

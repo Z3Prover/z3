@@ -52,7 +52,7 @@ class grobner : common {
             }
         }
         // can return not a nex_mul
-        nex* get_monomial(unsigned idx) const {
+        nex const* get_monomial(unsigned idx) const {
             switch(m_expr->type()) {
             case expr_type::VAR:
             case expr_type::SCALAR: UNREACHABLE();;
@@ -60,7 +60,7 @@ class grobner : common {
                 SASSERT(idx == 0);
                 return m_expr;
             case expr_type::SUM:
-                return (*to_sum(m_expr))[idx];
+                return m_expr->to_sum()[idx];
             default: return 0;
             }
         }
