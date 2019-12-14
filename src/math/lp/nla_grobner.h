@@ -160,8 +160,10 @@ private:
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex *e );
     unsigned num_of_equations() const { return m_to_simplify.size() + m_to_superpose.size(); }
     std::ostream& print_stats(std::ostream&) const;
-    template <typename T>
-    std::ostream& print_stats_eqs(T&, std::ostream&) const;
-    void update_stats_max_degree_and_size(const equation *e);
+    void update_stats_max_degree_and_size(const equation*);
+#ifdef Z3DEBUG
+    bool test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c);
+    bool test_find_b(const nex* ab, const nex_mul* b);
+#endif
 }; // end of grobner
 }
