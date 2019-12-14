@@ -32,20 +32,11 @@ grobner::grobner(core *c, intervals *s)
 
 void grobner::grobner_lemmas() {
     c().lp_settings().stats().m_grobner_calls++;
-
     init();
-
     ptr_vector<equation> eqs;
-    unsigned next_weight =
-        (unsigned)(var_weight::MAX_DEFAULT_WEIGHT) + 1; // next weight using during perturbation phase. 
-    do {
-        TRACE("grobner", tout << "before:\n"; display(tout););
-        compute_basis();
-        update_statistics();
-        TRACE("grobner", tout << "after:\n"; display(tout););
-        // if (find_conflict(eqs))
-        //     return;
-    } while (push_calculation_forward(eqs, next_weight));
+    TRACE("grobner", tout << "before:\n"; display(tout););
+    compute_basis();
+    TRACE("grobner", tout << "after:\n"; display(tout););
 }
 
 bool grobner::internalize_gb_eq(equation* ) {
@@ -141,6 +132,7 @@ void grobner::add_row(unsigned i) {
 }
 
 void grobner::init() {
+    
     m_reported = 0;
     del_equations(0);
     SASSERT(m_equations_to_delete.size() == 0);    
@@ -417,7 +409,7 @@ bool grobner::simplify_source_target(equation * source, equation * target) {
         TRACE("grobner_d", tout << "no simplification\n";);
         return false;
     }
-    m_stats.m_simplify++;
+    m_stats.m_simplified++;
     bool result = false;
     do {
         if (simplify_target_monomials(source, target)) {
@@ -429,6 +421,7 @@ bool grobner::simplify_source_target(equation * source, equation * target) {
     } while (!canceled());
     if (result) {
         target->dep() = m_dep_manager.mk_join(target->dep(), source->dep());
+        update_stats_max_degree_and_size(target);
         TRACE("grobner", tout << "simplified "; display_equation(tout, *target) << "\n";);
         TRACE("grobner_d", tout << "simplified to " << *(target->expr()) << "\n";);
         return true;
@@ -548,12 +541,9 @@ void grobner::superpose(equation * eq1, equation * eq2) {
     }
     equation* eq = alloc(equation);
     init_equation(eq, expr_superpose( eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
-    if (m_nex_creator.gt(eq->expr(), eq1->expr()) || m_nex_creator.gt(eq->expr(), eq2->expr())) {
-        TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
-        del_equation(eq);
-    } else {                         
-        insert_to_simplify(eq);
-    }
+    m_stats.m_superposed++;
+    update_stats_max_degree_and_size(eq);
+    insert_to_simplify(eq);
 }
 
 void grobner::register_report() {
@@ -603,6 +593,10 @@ bool grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& c) {
         j++;
     }
     TRACE("nla_grobner", tout << "b=" << *b << ", c=" <<*c << "\n";);
+    // debug region
+    nex_mul *a = divide_ignore_coeffs_perform(m_nex_creator.clone(ab), b);
+    SASSERT(ab->get_degree() == a->get_degree() + b->get_degree());
+    SASSERT(ac->get_degree() == a->get_degree() + c->get_degree());
     return true;
 }
 
@@ -646,7 +640,7 @@ bool grobner::compute_basis_step() {
         TRACE("grobner", tout << "cannot pick an equation\n";);
         return true;
     }
-    m_stats.m_num_processed++;
+    m_stats.m_compute_steps++;
     equation * new_eq = simplify_using_to_superpose(eq);
     if (new_eq != nullptr && eq != new_eq) {
         // equation was updated using non destructive updates
@@ -683,7 +677,8 @@ void grobner::compute_basis(){
     }
 }
 void grobner::compute_basis_init(){
-    c().lp_settings().stats().m_grobner_basis_computatins++;    
+    c().lp_settings().stats().m_grobner_basis_computatins++;
+    m_stats.reset();
 }        
 
 bool grobner::canceled() const {
@@ -700,15 +695,19 @@ bool grobner::done() const {
         canceled() || m_reported > 0;    
 }
 
+
 bool grobner::compute_basis_loop(){
     while (!done()) {
         if (compute_basis_step()) {
             TRACE("grobner", tout << "progress in compute_basis_step\n";);
+            TRACE("grobner_stats", print_stats(tout););
             return true;
         }
         TRACE("grobner", tout << "continue compute_basis_loop\n";);
+        TRACE("grobner_stats", print_stats(tout););
     }
     TRACE("grobner", tout << "return false from compute_basis_loop\n";);
+    TRACE("grobner_stats", print_stats(tout););
     return false;
 }
 
@@ -716,23 +715,6 @@ void grobner::set_gb_exhausted(){
     m_nl_gb_exhausted = true;
 }
 
-void grobner::update_statistics(){
-    /* todo : implement
-      m_stats.m_gb_simplify      += gb.m_stats.m_simplify;
-    m_stats.m_gb_superpose     += gb.m_stats.m_superpose;
-    m_stats.m_gb_num_to_superpose += gb.m_stats.m_num_to_superpose;
-    m_stats.m_gb_compute_basis++;*/
-}
-
-bool grobner::push_calculation_forward(ptr_vector<equation>& eqs, unsigned & next_weight) {
-    return  (!m_nl_gb_exhausted) &&
-        try_to_modify_eqs(eqs, next_weight);
-}
-
-bool grobner::try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight) {
-    //    NOT_IMPLEMENTED_YET();
-    return false;
-}
 
 void grobner:: del_equations(unsigned old_size) {
     TRACE("grobner", );
@@ -746,6 +728,18 @@ void grobner:: del_equations(unsigned old_size) {
             del_equation(eq);
     }
     m_equations_to_delete.shrink(old_size);    
+}
+
+std::ostream& grobner::print_stats(std::ostream & out) const {
+    return out << "stats:\nsteps = " << m_stats.m_compute_steps << "\nsimplified: " <<
+        m_stats.m_simplified << "\nsuperposed: " <<
+        m_stats.m_superposed << "\nexpr degree: " << m_stats.m_max_expr_degree <<
+        "\nexpr size: " << m_stats.m_max_expr_size << "\n";
+}
+
+void grobner::update_stats_max_degree_and_size(const equation *e) {
+    m_stats.m_max_expr_size = std::max(m_stats.m_max_expr_size, e->expr()->size());
+    m_stats.m_max_expr_degree = std::max(m_stats.m_max_expr_degree, e->expr()->get_degree());
 }
 
 void grobner::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
