@@ -88,8 +88,9 @@ public:
         return wj != wk ? wj > wk : j > k;
     }
 
+    // just compare the underlying expressions
     bool gt_on_nex_pow(const nex_pow & a, const nex_pow& b) const {
-        return (a.pow() > b.pow()) || (a.pow() == b.pow() && gt(a.e(), b.e()));
+        return  gt(a.e(), b.e());
     }
     
     void simplify_children_of_mul(vector<nex_pow> & children, rational&);

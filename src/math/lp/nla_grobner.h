@@ -28,10 +28,11 @@ namespace nla {
 class core;
 
 struct grobner_stats {
-    long m_simplify;
-    long m_superpose;
-    long m_compute_basis;
-    long m_num_processed;
+    long m_simplified;
+    long m_superposed;
+    long m_compute_steps;
+    unsigned m_max_expr_size;
+    unsigned m_max_expr_degree;
     void reset() { memset(this, 0, sizeof(grobner_stats)); }
     grobner_stats() { reset(); }
 };
@@ -101,8 +102,6 @@ private:
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
     void init();
     void compute_basis();
-    void update_statistics();
-    bool push_calculation_forward(ptr_vector<equation>& eqs, unsigned&);
     void compute_basis_init();        
     bool compute_basis_loop();
     bool compute_basis_step();
@@ -128,7 +127,6 @@ private:
 
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream & out) const;
-    bool try_to_modify_eqs(ptr_vector<equation>& eqs, unsigned& next_weight);
     bool internalize_gb_eq(equation*);
     void add_row(unsigned);
     void assert_eq_0(nex*, ci_dependency * dep);
@@ -161,5 +159,9 @@ private:
     void register_report();
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex *e );
     unsigned num_of_equations() const { return m_to_simplify.size() + m_to_superpose.size(); }
+    std::ostream& print_stats(std::ostream&) const;
+    template <typename T>
+    std::ostream& print_stats_eqs(T&, std::ostream&) const;
+    void update_stats_max_degree_and_size(const equation *e);
 }; // end of grobner
 }
