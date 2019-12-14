@@ -429,7 +429,9 @@ bool grobner::simplify_source_target(equation * source, equation * target) {
     TRACE("grobner_d", tout << "no simplification\n";);
     return false;
 }
- 
+
+
+
 void grobner::process_simplified_target(equation* target, ptr_buffer<equation>& to_remove) {
     if (is_trivial(target)) {
         to_remove.push_back(target);
@@ -597,6 +599,7 @@ bool grobner::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*& c) {
     nex_mul *a = divide_ignore_coeffs_perform(m_nex_creator.clone(ab), b);
     SASSERT(ab->get_degree() == a->get_degree() + b->get_degree());
     SASSERT(ac->get_degree() == a->get_degree() + c->get_degree());
+    SASSERT(test_find_b_c(ab, ac, b, c));
     return true;
 }
 
@@ -700,11 +703,9 @@ bool grobner::compute_basis_loop(){
     while (!done()) {
         if (compute_basis_step()) {
             TRACE("grobner", tout << "progress in compute_basis_step\n";);
-            TRACE("grobner_stats", print_stats(tout););
             return true;
         }
         TRACE("grobner", tout << "continue compute_basis_loop\n";);
-        TRACE("grobner_stats", print_stats(tout););
     }
     TRACE("grobner", tout << "return false from compute_basis_loop\n";);
     TRACE("grobner_stats", print_stats(tout););
@@ -816,4 +817,19 @@ std::ostream& grobner::display_dependency(std::ostream& out, ci_dependency* dep)
     }    
     return out;
 }
-   
+#ifdef Z3DEBUG
+bool grobner::test_find_b(const nex* ab, const nex_mul* b) {
+    nex_mul& ab_clone = m_nex_creator.clone(ab)->to_mul();
+    nex_mul * a= divide_ignore_coeffs_perform(&ab_clone, b);
+    ab_clone.coeff() = rational(1);
+    SASSERT(b->coeff().is_one());
+    nex * m = m_nex_creator.mk_mul(a, m_nex_creator.clone(b));
+    m = m_nex_creator.simplify(m);
+    return m_nex_creator.equal(m, &ab_clone);
+}
+
+bool grobner::test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c) {
+    return test_find_b(ab, b) && test_find_b(ac, c);    
+}
+
+#endif
