@@ -86,28 +86,28 @@ void test_nex_order() {
     nex_var* a = r.mk_var(0);
     nex_var* b = r.mk_var(1);
     nex_var* c = r.mk_var(2);
-    SASSERT(r.lt(a, b));
-    SASSERT(r.lt(b, c));
-    SASSERT(r.lt(a, c));
+    SASSERT(r.gt(a, b));
+    SASSERT(r.gt(b, c));
+    SASSERT(r.gt(a, c));
     
 
     
     nex* ab = r.mk_mul(a, b);
     nex* ba = r.mk_mul(b, a);
     nex* ac = r.mk_mul(a, c);
-    SASSERT(r.lt(ab, ac));
-    SASSERT(!r.lt(ac, ab));
+    SASSERT(r.gt(ab, ac));
+    SASSERT(!r.gt(ac, ab));
     nex* _3ac = r.mk_mul(rational(3), a, c);
     nex* _2ab = r.mk_mul(rational(2), a, b);
-    SASSERT(r.lt(ab, _3ac));
-    SASSERT(!r.lt(_3ac, ab));
-    SASSERT(!r.lt(a, ab));
-    SASSERT(r.lt(ab, a));
-    SASSERT(r.lt(_2ab, _3ac));
-    SASSERT(!r.lt(_3ac, _2ab));
+    SASSERT(r.gt(ab, _3ac));
+    SASSERT(!r.gt(_3ac, ab));
+    SASSERT(!r.gt(a, ab));
+    SASSERT(r.gt(ab, a));
+    SASSERT(r.gt(_2ab, _3ac));
+    SASSERT(!r.gt(_3ac, _2ab));
     nex* _2a = r.mk_mul(rational(2), a);
-    SASSERT(!r.lt(_2a, _2ab));
-    SASSERT(r.lt(_2ab, _2a));
+    SASSERT(!r.gt(_2a, _2ab));
+    SASSERT(r.gt(_2ab, _2a));
     SASSERT(nex_creator::equal(ab, ba));
     nex_sum * five_a_pl_one = r.mk_sum(r.mk_mul(rational(5), a), r.mk_scalar(rational(1)));
     nex_mul * poly = r.mk_mul(five_a_pl_one, b);
@@ -145,17 +145,19 @@ void test_simplify() {
     SASSERT(nex_creator::equal(simp_two_a_plus_bc, two_a_plus_bc));
     auto simp_a_plus_bc = r.simplify(a_plus_bc);
     SASSERT(to_sum(simp_a_plus_bc)->size() > 1);
+
     auto three_ab = r.mk_mul(r.mk_scalar(rational(3)), a, b);
-    auto three_ab_square = r.mk_mul();
-    three_ab_square->add_child_in_power(three_ab, 3);
+    auto three_ab_square = r.mk_mul(three_ab, three_ab, three_ab);
+    
     TRACE("nla_test", tout << "before simplify " << *three_ab_square << "\n";);
     three_ab_square = to_mul(r.simplify(three_ab_square));
     TRACE("nla_test", tout << *three_ab_square << "\n";);
     const rational& s = three_ab_square->coeff();
     SASSERT(s == rational(27));
-    auto m = r.mk_mul(); m->add_child_in_power(c, 2);
-    TRACE("nla_test_", tout << "m = " << *m << "\n";); 
-    auto n = r.mk_mul(a);
+    auto m = r.mk_mul(a, a);
+    TRACE("nla_test_", tout << "m = " << *m << "\n";);
+    /*
+    auto n = r.mk_mul(b, b, b, b, b, b, b);
     n->add_child_in_power(b, 7);
     n->add_child(r.mk_scalar(rational(3)));
     n->add_child_in_power(r.mk_scalar(rational(2)), 2);
@@ -187,6 +189,7 @@ void test_simplify() {
     TRACE("nla_test", tout << "before simplify pr = " << *pr << "\n";);
     r.simplify(pr);
     TRACE("nla_test", tout << "simplified sum e = " << *pr << "\n";);
+    */
 #endif
 }
 
@@ -222,6 +225,7 @@ void test_cn_shorter() {
     nex* min_1 = cr.mk_scalar(rational(-1));
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
     nex_mul* bcg = cr.mk_mul(b, c, g);
+    /*
     bcg->add_child(min_1);
     nex* abcd = cr.mk_mul(a, b, c, d);
     nex* eae = cr.mk_mul(e, a, e);
@@ -232,6 +236,7 @@ void test_cn_shorter() {
     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
     test_cn_on_expr(clone, cn);
+    */
 }
 
 void test_cn() {
@@ -267,6 +272,7 @@ void test_cn() {
     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
     nex* bcd = cr.mk_mul(b, c, d);
     nex_mul* bcg = cr.mk_mul(b, c, g);
+    /*
     bcg->add_child(min_1);
     nex_sum* t = cr.mk_sum(bcd, bcg);
     test_cn_on_expr(t, cn);
@@ -290,7 +296,7 @@ void test_cn() {
     test_cn_on_expr(to_sum(clone), cn);
     TRACE("nla_test", tout << "done\n";);
     test_cn_on_expr(cr.mk_sum(abd,  abc, cbd, acd), cn);
-    TRACE("nla_test", tout << "done\n";);
+    TRACE("nla_test", tout << "done\n";);*/
 #endif
     // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
     // TRACE("nla_test", tout << "done\n";);
