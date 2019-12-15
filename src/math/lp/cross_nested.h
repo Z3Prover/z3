@@ -90,18 +90,18 @@ public:
             }
         }
         if (have_factor == false) return nullptr;
-        nex_mul* f = m_nex_creator.mk_mul();
+        m_nex_creator.m_mk_mul.reset();
         for (const auto & p : m_nex_creator.occurences_map()) { // randomize here: todo
             if (p.second.m_occs == size) {
-                f->add_child_in_power(m_nex_creator.mk_var(p.first), p.second.m_power);
+                m_nex_creator.m_mk_mul *= nex_pow(m_nex_creator.mk_var(p.first), p.second.m_power);
             }
         }
-        return f;
+        return m_nex_creator.m_mk_mul.mk();
     }
 
     static bool has_common_factor(const nex_sum* c) {
         TRACE("nla_cn", tout << "c=" << *c << "\n";);
-        auto & ch = c->children();
+        auto & ch = *c;
         auto common_vars = get_vars_of_expr(ch[0]);
         for (lpvar j : common_vars) {
             bool divides_the_rest = true;
@@ -195,10 +195,10 @@ public:
         clear_maps();
         for (const auto * ce : *e) {
             if (ce->is_mul()) {
-                to_mul(ce)->get_powers_from_mul(m_nex_creator.powers());
+                ce->to_mul().get_powers_from_mul(m_nex_creator.powers());
                 update_occurences_with_powers();
             } else if (ce->is_var()) {
-                add_var_occs(to_var(ce)->var());
+                add_var_occs(ce->to_var().var());
             }
         }
         remove_singular_occurences();
@@ -317,9 +317,7 @@ public:
             }
         }
         TRACE("nla_cn_details", tout << "occs="; dump_occurences(tout, m_nex_creator.occurences_map()) << "\n";);
-    }
-
-    
+    }    
     
     void remove_singular_occurences() {
         svector<lpvar> r;
@@ -369,27 +367,28 @@ public:
         return ret;
     }
 
-    static bool is_divisible_by_var(nex* ce, lpvar j) {
+    static bool is_divisible_by_var(nex const* ce, lpvar j) {
         return (ce->is_mul() && to_mul(ce)->contains(j))
             || (ce->is_var() && to_var(ce)->var() == j);
     }
     // all factors of j go to a, the rest to b
-    void pre_split(nex_sum * e, lpvar j, nex_sum*& a, nex*& b) {
+    void pre_split(nex_sum * e, lpvar j, nex_sum const*& a, nex const*& b) {
         TRACE("nla_cn_details", tout << "e = " << * e << ", j = " << m_nex_creator.ch(j) << std::endl;);
         SASSERT(m_nex_creator.is_simplified(*e));
-        a = m_nex_creator.mk_sum();
+        nex_creator::sum_factory sf(m_nex_creator);
         m_b_split_vec.clear();
-        for (nex * ce: *e) {
+        for (nex const* ce: *e) {
             TRACE("nla_cn_details", tout << "ce = " << *ce << "\n";);
             if (is_divisible_by_var(ce, j)) {
-                a->add_child(m_nex_creator.mk_div(*ce , j));
+                sf += m_nex_creator.mk_div(*ce , j);
             } else {
-                m_b_split_vec.push_back(ce);
+                m_b_split_vec.push_back(const_cast<nex*>(ce));
             }        
         }
+        a = sf.mk();
         TRACE("nla_cn_details", tout << "a = " << *a << "\n";);
         SASSERT(a->size() >= 2 && m_b_split_vec.size());
-        a = to_sum(m_nex_creator.simplify_sum(a));
+        a = to_sum(m_nex_creator.simplify_sum(const_cast<nex_sum*>(a)));
         
         if (m_b_split_vec.size() == 1) {
             b = m_b_split_vec[0];
@@ -401,11 +400,11 @@ public:
         }
     }
 
-    void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
+    void update_front_with_split_with_non_empty_b(nex* &e, lpvar j, vector<nex**> & front, nex_sum const* a, nex const* b) {
         TRACE("nla_cn_details", tout << "b = " << *b << "\n";);
         e = m_nex_creator.mk_sum(m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a), b); // e = j*a + b
         if (!a->is_linear()) {
-            nex **ptr_to_a = ((*to_mul((*to_sum(e))[0])))[1].ee();
+            nex **ptr_to_a = e->to_sum()[0]->to_mul()[1].ee();
             push_to_front(front, ptr_to_a);
         }
         
@@ -415,7 +414,7 @@ public:
         }
     }
     
-   void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex_sum* a, nex* b) {
+   void update_front_with_split(nex* & e, lpvar j, vector<nex**> & front, nex_sum const* a, nex const* b) {
         if (b == nullptr) {
             e = m_nex_creator.mk_mul(m_nex_creator.mk_var(j), a);
             if (!to_sum(a)->is_linear())
@@ -428,7 +427,7 @@ public:
     bool split_with_var(nex*& e, lpvar j, vector<nex**> & front) {
         SASSERT(e->is_sum());
         TRACE("nla_cn", tout << "e = " << *e << ", j=" << nex_creator::ch(j) << "\n";);
-        nex_sum* a; nex * b;
+        nex_sum const* a; nex const* b;
         pre_split(to_sum(e), j, a, b);
         /*
           When we have e without a non-trivial common factor then
@@ -451,6 +450,7 @@ public:
     }
 
     bool done() const { return m_done; }
+
 #if Z3DEBUG
     nex * normalize_sum(nex_sum* a) {
         NOT_IMPLEMENTED_YET();
@@ -461,41 +461,7 @@ public:
         TRACE("nla_cn", tout << *a << "\n";);
         NOT_IMPLEMENTED_YET();
         return nullptr;
-        /*
-        int sum_j = -1;
-        for (unsigned j = 0; j < a->size(); j ++) {
-            a->children()[j] = normalize(a->children()[j]);
-            if (a->children()[j]->is_sum())
-                sum_j = j;
-        }
-
-        if (sum_j == -1) {
-            nex * r;
-            a->simplify(&r);
-            SASSERT(r->is_simplified());
-            return r;
-        }
-        
-        nex_sum *r = m_nex_creator.mk_sum();
-        nex_sum *as = to_sum(a->children()[sum_j]);
-        for (unsigned k = 0; k < as->size(); k++) {
-            nex_mul *b = m_nex_creator.mk_mul(as->children()[k]);
-            for (unsigned j = 0; j < a->size(); j ++) {
-                if ((int)j != sum_j)
-                    b->add_child(a->children()[j]);
-            }
-            nex *e;
-            b->simplify(&e);
-            r->add_child(e);
-        }
-        TRACE("nla_cn", tout << *r << "\n";);
-        nex *rs = normalize_sum(r);
-        SASSERT(rs->is_simplified());
-        return rs;
-        */
-    }
-
-    
+    }    
     
     nex * normalize(nex* a) {
         if (a->is_elementary())

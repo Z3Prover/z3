@@ -30,7 +30,7 @@ nex * nex_creator::mk_div(const nex& a, lpvar j) {
     SASSERT(a.is_mul() || (a.is_var() && a.to_var().var() == j));
     if (a.is_var())
         return mk_scalar(rational(1));
-    vector<nex_pow> bv; 
+    mul_factory mf(*this);
     bool seenj = false;
     auto ma = a.to_mul();
     for (auto& p : ma) {
@@ -39,54 +39,41 @@ nex * nex_creator::mk_div(const nex& a, lpvar j) {
         if (!seenj && c->contains(j)) {
             SASSERT(!c->is_var() || c->to_var().var() == j);
             if (!c->is_var()) {
-                bv.push_back(nex_pow(mk_div(*c, j), 1));
+                mf *= nex_pow(mk_div(*c, j), 1);
             }
             if (pow != 1) {
-                bv.push_back(nex_pow(clone(c), pow - 1));
+                mf *= nex_pow(clone(c), pow - 1);
             }
             seenj = true;
         } else {
-            bv.push_back(nex_pow(clone(c), pow));
+            mf *= nex_pow(clone(c), pow);
         }
     }
-    if (bv.size() == 1 && bv.begin()->pow() == 1 && ma.coeff().is_one()) {
-        return bv.begin()->e();
-    }
-    if (bv.empty()) {
-        return mk_scalar(rational(ma.coeff()));
-    }
-    
-    auto m = mk_mul(bv);
-    m->coeff() = ma.coeff();
-    return m;
-
+    mf *= ma.coeff();
+    return mf.mk_reduced();
 }
 
-// TBD: describe what this does
+// return true if p is a constant, update r with value of p raised to pow.
 bool nex_creator::eat_scalar_pow(rational& r, const nex_pow& p, unsigned pow) {
-    if (p.e()->is_mul()) {
-        const nex_mul & m = p.e()->to_mul();
-        if (m.size() == 0) {
-            const rational& coeff = m.coeff();
-            if (coeff.is_one())
-                return true;
-            r *= coeff.expt(p.pow() * pow);
-            return true;
+    if (p.e()->is_mul() && p.e()->to_mul().size() == 0) {
+        auto const& m = p.e()->to_mul();
+        if (!m.coeff().is_one()) {
+            r *= m.coeff().expt(p.pow() * pow);
         }
-        return false;
+        return true;
     }
     if (!p.e()->is_scalar())
         return false;
     const nex_scalar &pe = p.e()->to_scalar();
-    if (pe.value().is_one())
-        return true; // r does not change here
-    r *= pe.value().expt(p.pow() * pow);
+    if (!pe.value().is_one()) {
+        r *= pe.value().expt(p.pow() * pow);
+    }
     return true;
 }
 
 
 void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational& coeff) {
-    TRACE("grobner_d", print_vector(children, tout););
+    TRACE("grobner_d", print_vector(children, tout << "children_of_mul: "); tout << "\n";);
     vector<nex_pow> to_promote;
     unsigned j = 0;
     for (nex_pow& p : children) {        
@@ -163,14 +150,6 @@ bool nex_creator::children_are_simplified(const vector<nex_pow>& children) const
     return true;
 }
 
-bool nex_creator::gt_on_powers_mul(const vector<nex_pow>& children, const nex_mul& b) const {
-    TRACE("nex_gt", tout << "children = "; print_vector(children, tout) << " , b = " << b << "\n";);
-    SASSERT(children_are_simplified(children) && is_simplified(b));
-    unsigned a_deg = get_degree_children(children);
-    unsigned b_deg = b.get_degree();
-    return a_deg == b_deg ? gt_on_powers_mul_same_degree(children, b) : a_deg > b_deg;
-}
-
 bool nex_creator::gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const {
     TRACE("grobner_d", tout << "a = " << a << " , b = " << b << "\n";);
     SASSERT(is_simplified(a) && is_simplified(b));
@@ -179,72 +158,52 @@ bool nex_creator::gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const {
     return a_deg == b_deg ? gt_on_powers_mul_same_degree(a, b) : a_deg > b_deg;
 }
 
-bool nex_creator::gt_on_var_nex(const nex_var* a, const nex* b) const {
-    switch (b->type()) {
+bool nex_creator::gt_on_var_nex(const nex_var& a, const nex& b) const {
+    switch (b.type()) {
     case expr_type::SCALAR: 
         return true;
     case expr_type::VAR:            
-        return gt(a->var() , to_var(b)->var());
+        return gt(a.var(), b.to_var().var());
     case expr_type::MUL: 
-        return b->get_degree() <= 1 && gt_on_var_nex(a, (*to_mul(b))[0].e());
+        return b.get_degree() <= 1 && gt_on_var_nex(a, *b.to_mul()[0].e());
     case expr_type::SUM:
-        SASSERT(b->size() > 1);
-        return gt(a, (*to_sum(b))[0]);        
+        SASSERT(b.size() > 1);
+        return gt(&a, b.to_sum()[0]);        
     default:
         UNREACHABLE();
         return false;
     }
 }
 
-bool nex_creator::gt_nex_powers(const vector<nex_pow>& children, const nex* b) const {
-    switch (b->type()) {
+bool nex_creator::gt_on_mul_nex(nex_mul const& m, nex const& b) const {
+    switch (b.type()) {
     case expr_type::SCALAR: 
         return false;
     case expr_type::VAR: 
-        if (get_degree_children(children) > 1)
+        if (m.get_degree() > 1)
             return true;
-        SASSERT(children[0].pow() == 1);
-        SASSERT(!children[0].e()->is_scalar());
-        return gt(children[0].e(), b);    
+        SASSERT(m[0].pow() == 1);
+        SASSERT(!m[0].e()->is_scalar());
+        return gt(m[0].e(), &b);    
     case expr_type::MUL:
-        return gt_on_powers_mul(children, *to_mul(b));            
+        return gt_on_mul_mul(m, b.to_mul());            
     case expr_type::SUM:
-        return gt_nex_powers(children, (*to_sum(b))[0]);
+        return gt_on_mul_nex(m, *b.to_sum()[0]);
     default:
         UNREACHABLE();
         return false;
     }    
 }
 
-bool nex_creator::gt_on_mul_nex(const nex_mul* a, const nex* b) const {
-    switch (b->type()) {
-    case expr_type::SCALAR: 
-        return false;
-    case expr_type::VAR: 
-        if (a->get_degree() > 1)
-            return true;
-        SASSERT(a->begin()->pow() == 1);
-        SASSERT(!a->begin()->e()->is_scalar());
-        return gt(a->begin()->e(), b);    
-    case expr_type::MUL:
-        return gt_on_mul_mul(*a, *to_mul(b));            
-    case expr_type::SUM:
-        return gt(a, (*to_sum(b))[0]);
-    default:
-        UNREACHABLE();
-        return false;
-    }    
-}
-
-bool nex_creator::gt_on_sum_sum(const nex_sum* a, const nex_sum* b) const {
-    unsigned size = std::min(a->size(), b->size());
+bool nex_creator::gt_on_sum_sum(const nex_sum& a, const nex_sum& b) const {
+    unsigned size = std::min(a.size(), b.size());
     for (unsigned j = 0; j < size; j++) {
-        if (gt((*a)[j], (*b)[j]))
+        if (gt(a[j], b[j]))
             return true;
-        if (gt((*b)[j], (*a)[j]))
+        if (gt(b[j], a[j]))
             return false;
     }
-    return a->size() > size;
+    return a.size() > size;
 }
 
 // the only difference with gt() that it disregards the coefficient in nex_mul
@@ -255,21 +214,21 @@ bool nex_creator::gt_for_sort_join_sum(const nex* a, const nex* b) const {
     bool ret;
     switch (a->type()) {
     case expr_type::VAR: 
-        ret = gt_on_var_nex(to_var(a), b);
+        ret = gt_on_var_nex(a->to_var(), *b);
         break;
     case expr_type::SCALAR: 
         if (b->is_scalar())
-            ret = to_scalar(a)->value() > to_scalar(b)->value();
+            ret = a->to_scalar().value() > b->to_scalar().value();
         else
             ret = false; // the scalars are the largest
         break;
     case expr_type::MUL: 
-        ret = gt_nex_powers(to_mul(a)->children(), b);
+        ret = gt_on_mul_nex(a->to_mul(), *b);
         break;
     case expr_type::SUM: 
         if (b->is_sum())
-            return gt_on_sum_sum(to_sum(a), to_sum(b));
-        return gt((*to_sum(a))[0], b);
+            return gt_on_sum_sum(a->to_sum(), b->to_sum());
+        return gt(a->to_sum()[0], b);
     default:
         UNREACHABLE();
         return false;
@@ -278,31 +237,31 @@ bool nex_creator::gt_for_sort_join_sum(const nex* a, const nex* b) const {
     return ret;
 }
 
-bool nex_creator::gt(const nex* a, const nex* b) const {
-    TRACE("grobner_d_", tout << *a << " ? " << *b <<  "\n";);
-    if (a == b)
+bool nex_creator::gt(const nex& a, const nex& b) const {
+    TRACE("grobner_d_", tout << a << " ? " << b <<  "\n";);
+    if (&a == &b)
         return false;
     bool ret;
-    switch (a->type()) {
+    switch (a.type()) {
     case expr_type::VAR: 
-        ret = gt_on_var_nex(to_var(a), b);
+        ret = gt_on_var_nex(a.to_var(), b);
         break;
     case expr_type::SCALAR: 
-        ret = b->is_scalar() && to_scalar(a)->value() > to_scalar(b)->value();
+        ret = b.is_scalar() && a.to_scalar().value() > b.to_scalar().value();
         // the scalars are the largest
         break;
     case expr_type::MUL: 
-        ret = gt_on_mul_nex(to_mul(a), b);
+        ret = gt_on_mul_nex(a.to_mul(), b);
         break;
     case expr_type::SUM: 
-        if (b->is_sum())
-            return gt_on_sum_sum(to_sum(a), to_sum(b));
-        return gt((*to_sum(a))[0], b);
+        if (b.is_sum())
+            return gt_on_sum_sum(a.to_sum(), b.to_sum());
+        return gt(*a.to_sum()[0], b);
     default:
         UNREACHABLE();
         return false;
     }
-    TRACE("grobner_d_", tout << *a << (ret?" < ":" >= ") << *b << "\n";);
+    TRACE("grobner_d_", tout << a << (ret?" < ":" >= ") << b << "\n";);
     return ret;
 }
 
@@ -357,8 +316,8 @@ bool nex_creator::mul_is_simplified(const nex_mul& e) const {
 
 nex * nex_creator::simplify_mul(nex_mul *e) {
     TRACE("grobner_d", tout << *e << "\n";);
-    rational& coeff = e->coeff();
-    simplify_children_of_mul(e->children(), coeff);
+    rational& coeff = e->m_coeff;
+    simplify_children_of_mul(e->m_children, coeff);
     if (e->size() == 1 && (*e)[0].pow() == 1 && coeff.is_one()) 
         return (*e)[0].e();
     
@@ -371,14 +330,14 @@ nex * nex_creator::simplify_mul(nex_mul *e) {
 
 nex* nex_creator::simplify_sum(nex_sum *e) {
     TRACE("grobner_d", tout << "was e = " << *e << "\n";);
-    simplify_children_of_sum(e->children());
+    simplify_children_of_sum(*e);
     nex *r;
     if (e->size() == 1) {
-        r = (*e)[0];
+        r = const_cast<nex*>((*e)[0]);
     } else if (e->size() == 0) {
         r = mk_scalar(rational(0));
     } else {
-        r = e;
+        r = const_cast<nex_sum*>(e);
     }
     TRACE("grobner_d", tout << "became r = " << *r << "\n";);    
     return r;
@@ -387,7 +346,7 @@ nex* nex_creator::simplify_sum(nex_sum *e) {
 bool nex_creator::sum_is_simplified(const nex_sum& e) const {
     if (e.size() < 2)  return false;
     bool scalar = false;
-    for (nex * ee : e) {
+    for (nex const* ee : e) {
         TRACE("nla_cn_details", tout << "ee = " << *ee << "\n";);
         if (ee->is_sum()) {
             TRACE("nla_cn", tout << "not simplified e = " << e << "\n"
@@ -438,7 +397,7 @@ void nex_creator::mul_to_powers(vector<nex_pow>& children) {
 }
 
 // returns true if the key exists already
-bool nex_creator::register_in_join_map(std::map<nex*, rational, nex_lt>& map, nex* e, const rational& r) const{
+bool nex_creator::register_in_join_map(std::map<nex const*, rational, nex_lt>& map, nex const* e, const rational& r) const{
     TRACE("grobner_d",  tout << *e << ", r = " << r << std::endl;);
     auto map_it = map.find(e);
     if (map_it == map.end()) {
@@ -453,12 +412,12 @@ bool nex_creator::register_in_join_map(std::map<nex*, rational, nex_lt>& map, ne
 }
 
 bool nex_creator::fill_join_map_for_sum(
-    ptr_vector<nex> & children,
-    std::map<nex*, rational, nex_lt>& map,
-    std::unordered_set<nex*>& existing_nex,
+    nex_sum & sum,
+    std::map<nex const*, rational, nex_lt>& map,
+    std::unordered_set<nex const*>& existing_nex,
     rational& common_scalar) {
     bool simplified = false;
-    for (auto e : children) {
+    for (auto e : sum) {
         if (e->is_scalar()) {
             simplified = true;
             common_scalar += e->to_scalar().value();           
@@ -466,7 +425,7 @@ bool nex_creator::fill_join_map_for_sum(
         }
         existing_nex.insert(e);
         if (e->is_mul()) {
-            nex_mul * m = to_mul(e);
+            nex_mul const * m = to_mul(e);
             simplified |= register_in_join_map(map, m, m->coeff());
         } else {
             SASSERT(e->is_var());
@@ -476,34 +435,33 @@ bool nex_creator::fill_join_map_for_sum(
     return simplified;
 }
     // a + 3bc + 2bc => a + 5bc 
-void nex_creator::sort_join_sum(ptr_vector<nex> & children) {
-    TRACE("grobner_d", print_vector_of_ptrs(children, tout););
-    std::map<nex*, rational, nex_lt> map([this](const nex *a , const nex *b)
+void nex_creator::sort_join_sum(nex_sum& sum) {
+    TRACE("grobner_d", tout << sum << "\n";);
+    std::map<nex const*, rational, nex_lt> map([this](const nex *a , const nex *b)
                                        { return gt_for_sort_join_sum(a, b); });
-    std::unordered_set<nex*> allocated_nexs; // handling (nex*) as numbers
+    std::unordered_set<nex const*> allocated_nexs; // handling (nex*) as numbers
     rational common_scalar(0);
-    fill_join_map_for_sum(children, map, allocated_nexs, common_scalar);
+    fill_join_map_for_sum(sum, map, allocated_nexs, common_scalar);
 
     TRACE("grobner_d", for (auto & p : map ) { tout << "(" << *p.first << ", " << p.second << ") ";});
-    children.clear();
+    sum.m_children.reset();
     for (auto& p : map) {
-        process_map_pair(p.first, p.second, children, allocated_nexs);
+        process_map_pair(const_cast<nex*>(p.first), p.second, sum, allocated_nexs);
     }
     if (!common_scalar.is_zero()) {
-        children.push_back(mk_scalar(common_scalar));
+        sum.m_children.push_back(mk_scalar(common_scalar));
     }
     TRACE("grobner_d",
           tout << "map=";
           for (auto & p : map ) tout << "(" << *p.first << ", " << p.second << ") "; 
-          tout << "\nchildren="; print_vector_of_ptrs(children, tout) << "\n";);    
+          tout << "\nchildren=" << sum << "\n";);    
 }
 
-void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
-    TRACE("grobner_d", print_vector_of_ptrs(children, tout););
+void nex_creator::simplify_children_of_sum(nex_sum& s) {
     ptr_vector<nex> to_promote;
-    unsigned k = 0; 
-    for (unsigned j = 0; j < children.size(); j++) {
-        nex* e = children[j] = simplify(children[j]);
+    unsigned k = 0;
+    for (unsigned j = 0; j < s.size(); j++) {
+        nex* e = s[j] = simplify(s[j]);
         if (e->is_sum()) {
             to_promote.push_back(e);
         } else if (is_zero_scalar(e)) {
@@ -511,21 +469,19 @@ void nex_creator::simplify_children_of_sum(ptr_vector<nex> & children) {
         } else if (e->is_mul() && to_mul(e)->coeff().is_zero() ) {
             continue;
         } else {
-            children[k++] = e;
+            s.m_children[k++] = e;
         }
     }
-    
-    TRACE("grobner_d", print_vector_of_ptrs(children, tout););
-    children.shrink(k);
-    
+    s.m_children.shrink(k);
+       
     for (nex *e : to_promote) {
-        for (nex *ee : e->to_sum()) {
+        for (nex const*ee : e->to_sum()) {
             if (!is_zero_scalar(ee))
-                children.push_back(ee);            
+                s.m_children.push_back(const_cast<nex*>(ee));           
         }
     }
-
-    sort_join_sum(children);
+    
+    sort_join_sum(s);
 }
 
 
@@ -544,10 +500,11 @@ bool nex_mul::all_factors_are_elementary() const {
 }
 
 nex * nex_creator::mk_div_sum_by_mul(const nex_sum& m, const nex_mul& b) {
-    nex_sum * r = mk_sum();
+    sum_factory sf(*this);
     for (auto e : m) {
-        r->add_child(mk_div_by_mul(*e, b));
+        sf += mk_div_by_mul(*e, b);
     }
+    nex* r = sf.mk();
     TRACE("grobner_d", tout << *r << "\n";);
     return r;
 }
@@ -555,12 +512,12 @@ nex * nex_creator::mk_div_sum_by_mul(const nex_sum& m, const nex_mul& b) {
 nex * nex_creator::mk_div_mul_by_mul(const nex_mul& a, const nex_mul& b) {
     SASSERT(a.all_factors_are_elementary() && b.all_factors_are_elementary());
     b.get_powers_from_mul(m_powers);
-    nex_mul* ret = new nex_mul();
+    m_mk_mul.reset();
     for (auto& p_from_a : a) {
         TRACE("grobner_d", tout << "p_from_a = " << p_from_a << "\n";);
         const nex* e = p_from_a.e();
         if (e->is_scalar()) {
-            ret->add_child_in_power(clone(e), p_from_a.pow());
+            m_mk_mul *= nex_pow(clone(e), p_from_a.pow());
             TRACE("grobner_d", tout << "processed scalar\n";);
             continue;
         }
@@ -568,13 +525,13 @@ nex * nex_creator::mk_div_mul_by_mul(const nex_mul& a, const nex_mul& b) {
         lpvar j = to_var(e)->var();
         auto it = m_powers.find(j);
         if (it == m_powers.end()) {
-            ret->add_child_in_power(clone(e), p_from_a.pow());
+            m_mk_mul *= nex_pow(clone(e), p_from_a.pow());
         } else {
             unsigned pa = p_from_a.pow(); 
             unsigned& pb = it->second;
             SASSERT(pa);
             if (pa > pb) {
-                ret->add_child_in_power(mk_var(j), pa - pb);
+                m_mk_mul *= nex_pow(mk_var(j), pa - pb);
                 m_powers.erase(it); 
             } else if (pa == pb) {
                 m_powers.erase(it);                 
@@ -584,17 +541,11 @@ nex * nex_creator::mk_div_mul_by_mul(const nex_mul& a, const nex_mul& b) {
                 // but the key j in m_powers remains
                 pb -= pa; 
             }
-        }
-        TRACE("grobner_d", tout << *ret << "\n";);            
+        }          
     }
     SASSERT(m_powers.size() == 0);
-    if (ret->size() == 0) {
-        delete ret;
-        TRACE("grobner_d", tout << "return scalar\n";);
-        return mk_scalar(a.coeff() / b.coeff());
-    }
-    ret->coeff() = a.coeff() / b.coeff();
-    add_to_allocated(ret);
+    m_mk_mul *= (a.coeff() / b.coeff());
+    nex* ret = m_mk_mul.mk_reduced();
     TRACE("grobner_d", tout << *ret << "\n";);        
     return ret;
 }
@@ -634,7 +585,7 @@ nex* nex_creator::simplify(nex* e) {
 }
 
 // adds to children the corrected expression and also adds to allocated the new expressions
-void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex> & children, std::unordered_set<nex*>& allocated_nexs) {
+void nex_creator::process_map_pair(nex*e, const rational& coeff, nex_sum & sum, std::unordered_set<nex const*>& allocated_nexs) {
     TRACE("grobner_d", tout << "e=" << *e << " , coeff= " << coeff << "\n";);
     if (coeff.is_zero()) {
         TRACE("grobner_d", tout << "did nothing\n";);   
@@ -645,14 +596,17 @@ void nex_creator::process_map_pair(nex *e, const rational& coeff, ptr_vector<nex
         m_allocated.push_back(e);
     }
     if (e->is_mul()) {
-        e->to_mul().coeff() = coeff;
-        children.push_back(simplify(e));
+        e->to_mul().m_coeff = coeff;
+        sum.m_children.push_back(simplify(e));
     } else {
         SASSERT(e->is_var());
         if (coeff.is_one()) {
-            children.push_back(e);
+            sum.m_children.push_back(e);
         } else {
-            children.push_back(mk_mul(mk_scalar(coeff), e));
+            mul_factory mf(*this);
+            mf *= coeff;
+            mf *= e;
+            sum.m_children.push_back(mf.mk());
         }
     }
 }
@@ -684,20 +638,21 @@ nex* nex_creator::canonize_mul(nex_mul *a) {
     SASSERT(np.pow());
     unsigned power = np.pow();
     nex_sum const& s = np.e()->to_sum(); // s is going to explode        
-    nex_sum * r = mk_sum();
+    sum_factory sf(*this);
     nex *sclone = power > 1 ? clone(&s) : nullptr;
-    for (nex *e : s) {
-        nex_mul *m = mk_mul();
+    for (nex const*e : s) {
+        mul_factory mf(*this);
         if (power > 1)
-            m->add_child_in_power(sclone, power - 1);
-        m->add_child(e);
+            mf *= nex_pow(sclone, power - 1);
+        mf *= nex_pow(e, 1);
         for (unsigned k = 0; k < a->size(); k++) {
             if (k == j)
                 continue;
-            m->add_child_in_power(clone((*a)[k].e()), (*a)[k].pow());
+            mf *= nex_pow(clone((*a)[k].e()), (*a)[k].pow());
         }
-        r->add_child(m);
+        sf += mf.mk();
     }
+    nex* r = sf.mk();
     TRACE("grobner_d", tout << "canonized a = " <<  *r << "\n";);
     return canonize(r);
 }

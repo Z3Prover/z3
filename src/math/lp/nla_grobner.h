@@ -22,7 +22,6 @@
 #include "math/lp/nla_common.h"
 #include "math/lp/nex.h"
 #include "math/lp/nex_creator.h"
-//#include "util/dependency.h"
 
 namespace nla {
 class core;
@@ -37,11 +36,12 @@ struct grobner_stats {
     grobner_stats() { reset(); }
 };
 
-class grobner : common {
+class grobner_core {
+public:
     class equation {
         unsigned                   m_bidx;       //!< position at m_equations_to_delete
         nex *                      m_expr;       //   simplified expressionted monomials
-        ci_dependency *            m_dep;        //!< justification for the equality
+        common::ci_dependency *            m_dep;        //!< justification for the equality
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
@@ -67,18 +67,21 @@ class grobner : common {
         }
         nex* & expr() { return m_expr; }
         const nex*  expr() const { return m_expr; }
-        ci_dependency * dep() const { return m_dep; }
-        ci_dependency *& dep() { return m_dep; }
+        common::ci_dependency * dep() const { return m_dep; }
+        common::ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
         friend class grobner;
+        friend class grobner_core;
     };
-
+private:
     typedef obj_hashtable<equation> equation_set;
     typedef ptr_vector<equation> equation_vector;
-    
+    typedef std::function<void (lp::explanation const& e, std::ostream& out)> print_expl_t;
     // fields
+    nex_creator&                                 m_nex_creator;
+    reslimit&                                    m_limit;
+    print_expl_t                                 m_print_explanation;
     equation_vector                              m_equations_to_delete;    
-    lp::int_set                                  m_rows;
     grobner_stats                                m_stats;
     equation_set                                 m_to_superpose;
     equation_set                                 m_to_simplify;
@@ -86,34 +89,46 @@ class grobner : common {
     ptr_vector<nex>                              m_allocated;
     lp::int_set                                  m_tmp_var_set;
     region                                       m_alloc;
-    ci_value_manager                             m_val_manager;
-    mutable ci_dependency_manager                m_dep_manager;
+    common::ci_value_manager                     m_val_manager;
+    mutable common::ci_dependency_manager        m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
-    unsigned                                     m_reported;
-    bool                                         m_look_for_fixed_vars_in_rows;
+    equation_set                                 m_all_eqs;
+    unsigned                                     m_grobner_eqs_threshold;
 public:
-    grobner(core *, intervals *);
-    void grobner_lemmas();
-    ~grobner();
-private:
-    void find_nl_cluster();
-    void prepare_rows_and_active_vars();
-    void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  std::queue<lpvar>& q);
-    void init();
-    void compute_basis();
-    void compute_basis_init();        
+    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold) : 
+        m_nex_creator(nc), 
+        m_limit(lim), 
+        m_nl_gb_exhausted(false),
+        m_dep_manager(m_val_manager, m_alloc),
+        m_changed_leading_term(false),
+        m_grobner_eqs_threshold(eqs_threshold)
+    {}
+
+    ~grobner_core();
+    void reset();
     bool compute_basis_loop();
+    void assert_eq_0(nex*, common::ci_dependency * dep);
+    equation_set const& equations();
+    common::ci_dependency_manager& dep() const { return m_dep_manager;  }
+
+    void display_equations(std::ostream& out, equation_set const& v, char const* header) const;
+    std::ostream& display_equation(std::ostream& out, const equation& eq) const;
+    std::ostream& display(std::ostream& out) const;
+
+    void operator=(print_expl_t& pe) { m_print_explanation = pe; }
+
+private:
     bool compute_basis_step();
     bool simplify_source_target(equation * source, equation * target);
-    equation* simplify_using_to_superpose(equation*);
+    void simplify_using_to_superpose(equation &);
     bool simplify_target_monomials(equation * source, equation * target);
     void process_simplified_target(equation* target, ptr_buffer<equation>& to_remove);    
     bool simplify_to_superpose_with_eq(equation*);
     void simplify_m_to_simplify(equation*);
     equation* pick_next();
     void set_gb_exhausted();
-    bool canceled() const;
+    bool canceled();
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
     bool find_b_c(const nex *ab, const nex* ac, nex_mul*& b, nex_mul*& c);
@@ -122,42 +137,29 @@ private:
     bool is_simpler(equation * eq1, equation * eq2);
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
-    void display_equations(std::ostream & out, equation_set const & v, char const * header) const;
-    std::ostream& display_equation(std::ostream & out, const equation & eq) const;
-
-    void display_matrix(std::ostream & out) const;
-    std::ostream& display(std::ostream & out) const;
-    bool internalize_gb_eq(equation*);
-    void add_row(unsigned);
-    void assert_eq_0(nex*, ci_dependency * dep);
-    void init_equation(equation* eq, nex*, ci_dependency* d);
+    void init_equation(equation* eq, nex*, common::ci_dependency* d);
     
-    std::ostream& display_dependency(std::ostream& out, ci_dependency*) const;
+    std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
     void insert_to_simplify(equation *eq) {
-        TRACE("nla_grobner", display_equation(tout, *eq););
+        TRACE("grobner", display_equation(tout, *eq););
         m_to_simplify.insert(eq);
     }
     void insert_to_superpose(equation *eq) {
         SASSERT(m_nex_creator.is_simplified(*eq->expr()));
-        TRACE("nla_grobner", display_equation(tout, *eq););
+        TRACE("grobner", display_equation(tout, *eq););
         m_to_superpose.insert(eq);
     }
-    void simplify_equations_in_m_to_simplify();
     const nex * get_highest_monomial(const nex * e) const;
-    ci_dependency* dep_from_vector(svector<lp::constraint_index> & fixed_vars_constraints);
-    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex*);    
-    unsigned find_divisible(nex_sum*, const nex*) const;    
-    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex*, unsigned, bool);
-    bool divide_ignore_coeffs_check_only(nex* , const nex*) const;
-    bool divide_ignore_coeffs_check_only_nex_mul(nex_mul* , const nex*) const;
-    nex_mul * divide_ignore_coeffs_perform(nex* , const nex*);
-    nex_mul * divide_ignore_coeffs_perform_nex_mul(nex_mul* , const nex*);
+    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex&);    
+    unsigned find_divisible(nex_sum const&, const nex&) const;    
+    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex&, unsigned, bool);
+    bool divide_ignore_coeffs_check_only(nex const* , const nex&) const;
+    bool divide_ignore_coeffs_check_only_nex_mul(nex_mul const&, nex const&) const;
+    nex_mul * divide_ignore_coeffs_perform(nex* , const nex&);
+    nex_mul * divide_ignore_coeffs_perform_nex_mul(nex_mul const& , const nex&);
     nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
-    void add_mul_skip_first(nex_sum* r, const rational& beta, nex *e, nex_mul* c);
-    bool done() const;
-    void check_eq(equation*);
-    void register_report();
-    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex *e );
+    void add_mul_skip_first(nex_creator::sum_factory& sf, const rational& beta, nex *e, nex_mul* c);
+    bool done();
     unsigned num_of_equations() const { return m_to_simplify.size() + m_to_superpose.size(); }
     std::ostream& print_stats(std::ostream&) const;
     void update_stats_max_degree_and_size(const equation*);
@@ -165,5 +167,30 @@ private:
     bool test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c);
     bool test_find_b(const nex* ab, const nex_mul* b);
 #endif
+};
+
+class grobner : common {
+    grobner_core m_gc;
+    unsigned     m_reported;
+    lp::int_set  m_rows;
+    bool         m_look_for_fixed_vars_in_rows;
+public:
+    grobner(core *, intervals *);
+    void grobner_lemmas();
+    ~grobner() {}
+private:
+    void find_nl_cluster();
+    void prepare_rows_and_active_vars();
+    void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
+    void init();
+    void compute_basis();
+    void compute_basis_init();        
+    std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex* e);
+    void display_matrix(std::ostream & out) const;
+    std::ostream& display(std::ostream& out) const { return m_gc.display(out); }
+    void add_row(unsigned);
+    void check_eq(grobner_core::equation*);
+    void register_report();
+
 }; // end of grobner
 }

@@ -129,7 +129,7 @@ intervals::interv intervals::interval_of_expr(const nex* e, unsigned power) {
 }
 
 const nex* intervals::get_inf_interval_child(const nex_sum* e) const {
-    for (auto * c : e->children()) {
+    for (auto * c : *e) {
         if (has_inf_interval(c))
             return c;        
     }
@@ -138,7 +138,7 @@ const nex* intervals::get_inf_interval_child(const nex_sum* e) const {
 
 bool intervals::mul_has_inf_interval(const nex_mul* e) const {
     bool has_inf = false;
-    for (const auto & p  : e->children()) {
+    for (const auto & p  : *e) {
         const nex *c = p.e();
         if (!c->is_elementary())
             return false; 
@@ -157,7 +157,7 @@ bool intervals::has_inf_interval(const nex* e) const {
     }
     if (e->is_scalar())
         return false;
-    for (auto * c : to_sum(e)->children()) {
+    for (auto * c : e->to_sum()) {
         if (has_inf_interval(c))
             return true;        
     }
@@ -166,13 +166,11 @@ bool intervals::has_inf_interval(const nex* e) const {
 
 bool intervals::has_zero_interval(const nex* e) const {
     SASSERT(!e->is_scalar() || !to_scalar(e)->value().is_zero());
-    if (! e->is_var())
-        return false;
-    return m_core->var_is_fixed_to_zero(to_var(e)->var());
+    return e->is_var() && m_core->var_is_fixed_to_zero(e->to_var().var());
 }
 
 const nex* intervals::get_zero_interval_child(const nex_mul* e) const {
-    for (const auto & p : e->children()) {
+    for (const auto & p : *e) {
         const nex * c = p.e();
         if (has_zero_interval(c))
             return c;        
@@ -279,7 +277,7 @@ intervals::interv intervals::interval_of_sum_no_term_with_deps(const nex_sum* e)
     if (inf_e) {
         return interv();
     }
-    auto & es = e->children(); 
+    auto & es = *e; 
     interv a = interval_of_expr_with_deps(es[0], 1);
     for (unsigned k = 1; k < es.size(); k++) {
         TRACE("nla_intervals_details_sum", tout <<  "es[" << k << "]= " << *es[k] << "\n";);
@@ -303,7 +301,7 @@ intervals::interv intervals::interval_of_sum_no_term(const nex_sum* e) {
     if (inf_e) {
         return interv();
     }
-    auto & es = e->children(); 
+    auto & es = *e; 
     interv a = interval_of_expr(es[0], 1);
     for (unsigned k = 1; k < es.size(); k++) {
         TRACE("nla_intervals_details_sum", tout <<  "es[" << k << "]= " << *es[k] << "\n";);
@@ -351,7 +349,7 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
     vector<std::pair<rational, lpvar>> v;
     b = rational(0);
     unsigned a_index;
-    for (const nex* c : e->children()) {
+    for (const nex* c : *e) {
         if (c->is_scalar()) {
             b += to_scalar(c)->value();
         } else {

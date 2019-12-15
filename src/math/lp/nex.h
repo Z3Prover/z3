@@ -20,7 +20,6 @@
 #include <initializer_list>
 #include "math/lp/nla_defs.h"
 #include <functional>
-#include <set>
 namespace nla {
 class nex;
 typedef std::function<bool (const nex*, const nex*)> nex_lt;
@@ -141,14 +140,18 @@ public:
 };
 
 class nex_pow {
-    nex* m_e;
+    friend class cross_nested;
+    friend class nex_creator;
+
+    nex const* m_e;
     unsigned  m_power;
+    nex ** ee() const { return & const_cast<nex*&>(m_e); }
+    nex *& e() { return const_cast<nex*&>(m_e); }
+
 public:  
-    explicit nex_pow(nex* e, unsigned p): m_e(e), m_power(p) {}
+    explicit nex_pow(nex const* e, unsigned p): m_e(e), m_power(p) {}
     const nex * e() const { return m_e; }
-    nex *& e() { return m_e; }
     
-    nex ** ee() { return & m_e; }
     unsigned pow() const { return m_power; }
 
     std::ostream& print(std::ostream& s) const {
@@ -168,6 +171,7 @@ public:
         }
         return s;
     }
+
     std::string to_string() const {
         std::stringstream s;
         print(s);
@@ -177,16 +181,24 @@ public:
 };
 
 inline unsigned get_degree_children(const vector<nex_pow>& children) {
-    int degree = 0;       
+    int degree = 0;
     for (const auto& p : children) {
-        degree +=  p.e()->get_degree() * p.pow();
+        degree += p.e()->get_degree() * p.pow();
     }
     return degree;
 }
 
 class nex_mul : public nex {
+    friend class nex_creator;
+    friend class cross_nested;
+    friend class grobner_core; // only debug.
     rational        m_coeff;
     vector<nex_pow> m_children;
+
+    nex_pow* begin() { return m_children.begin(); }
+    nex_pow* end() { return m_children.end(); }
+    nex_pow& operator[](unsigned j) { return m_children[j]; }    
+
 public:
     const nex* get_child_exp(unsigned j) const override { return m_children[j].e(); }
     unsigned get_child_pow(unsigned j) const override { return m_children[j].pow(); }
@@ -194,26 +206,19 @@ public:
     unsigned number_of_child_powers() const { return m_children.size(); }
 
     nex_mul() : m_coeff(1) {}
+    nex_mul(rational const& c, vector<nex_pow> const& args) : m_coeff(c), m_children(args) {}
 
-    const rational& coeff() const {
-        return m_coeff;
-    }
-
-    rational& coeff() {
-        return m_coeff;
-    }
+    const rational& coeff() const { return m_coeff; }
     
     unsigned size() const override { return m_children.size(); }
     expr_type type() const override { return expr_type::MUL; }
-    vector<nex_pow>& children() { return m_children;}
-    const vector<nex_pow>& children() const { return m_children;}
     // A monomial is 'pure' if does not have a numeric coefficient.
     bool is_pure_monomial() const { return size() == 0 || !m_children[0].e()->is_scalar(); }    
 
     std::ostream & print(std::ostream& out) const override {
         bool first = true;
         if (!m_coeff.is_one()) {
-            out << m_coeff;
+            out << m_coeff << " ";
             first = false;
         }
         for (const nex_pow& v : m_children) {            
@@ -227,37 +232,9 @@ public:
         return out;
     }
 
-    void add_child(const rational& r) {
-        m_coeff *= r;
-    }
-    
-    void add_child(nex* e) {
-        if (e->is_scalar()) {
-            m_coeff *= e->to_scalar().value();
-            return;
-        }
-        add_child_in_power(e, 1);
-    }
-
-    void add_child_in_power(nex_pow&  p) {
-        add_child_in_power(p.e(), p.pow());
-    }
-
     const nex_pow& operator[](unsigned j) const { return m_children[j]; }
-    nex_pow& operator[](unsigned j) { return m_children[j]; }
     const nex_pow* begin() const { return m_children.begin(); }
     const nex_pow* end() const { return m_children.end(); }
-    nex_pow* begin() { return m_children.begin(); }
-    nex_pow* end() { return m_children.end(); }
-    
-    void add_child_in_power(nex* e, int power) {        
-        if (e->is_scalar()) {
-            m_coeff *= (e->to_scalar().value()).expt(power);
-        }
-        else {
-            m_children.push_back(nex_pow(e, power));
-        }
-    }
 
     bool contains(lpvar j) const {
         for (const nex_pow& c : *this) {
@@ -281,8 +258,12 @@ public:
     }
 
     unsigned get_degree() const override {
-        return get_degree_children(children());
-    }    
+        int degree = 0;
+        for (const auto& p : *this) {
+            degree += p.e()->get_degree() * p.pow();
+        }
+        return degree;
+    }
     
     bool is_linear() const override {
         return get_degree() < 2; // todo: make it more efficient
@@ -303,14 +284,19 @@ public:
 
 
 class nex_sum : public nex {
+    friend class nex_creator;
+    friend class cross_nested;
+    friend class grobner_core;
     ptr_vector<nex> m_children;
-public:
-    nex_sum()  {}
-    nex_sum(ptr_vector<nex> const& ch) : m_children(ch) {}
 
+    nex*& operator[](unsigned j) { return m_children[j]; }
+
+public:
+
+    nex_sum(ptr_vector<nex> const& ch) : m_children(ch) {}
+    
     expr_type type() const override { return expr_type::SUM; }
-    ptr_vector<nex>& children() { return m_children; }
-    const ptr_vector<nex>& children() const { return m_children; }    
+  
     unsigned size() const override { return m_children.size(); }
 
     bool is_linear() const override {
@@ -339,7 +325,7 @@ public:
     
     std::ostream & print(std::ostream& out) const override {
         bool first = true;
-        for (const nex* v : m_children) {            
+        for (const nex* v : *this) {            
             std::string s = v->str();
             if (first) {
                 first = false;
@@ -369,12 +355,10 @@ public:
         }
         return degree;
     }
-    const nex* operator[](unsigned j) const { return m_children[j]; }
-    nex*& operator[](unsigned j) { return m_children[j]; }
-    const ptr_vector<nex>::const_iterator begin() const { return m_children.begin(); }
-    const ptr_vector<nex>::const_iterator end() const { return m_children.end(); }
+    nex const* operator[](unsigned j) const { return m_children[j]; }
+    const nex * const* begin() const { return m_children.c_ptr(); }
+    const nex * const* end() const { return m_children.c_ptr() + m_children.size(); }
 
-    void add_child(nex* e) { m_children.push_back(e); }
 #ifdef Z3DEBUG
     void sort() override {
         NOT_IMPLEMENTED_YET();
@@ -413,20 +397,14 @@ inline std::ostream& operator<<(std::ostream& out, const nex& e ) {
     return e.print(out);
 }
 
-// inline bool less_than_nex_standard(const nex* a, const nex* b) {
-//     lt_on_vars lt = [](lpvar j, lpvar k) { return j < k; };
-//     return less_than_nex(a, b, lt);
-// }
-
 inline rational get_nex_val(const nex* e, std::function<rational (unsigned)> var_val) {
     switch (e->type()) {
     case expr_type::SCALAR:
         return to_scalar(e)->value();
     case expr_type::SUM: {
         rational r(0);
-        for (nex* c: e->to_sum()) {
+        for (nex const* c: e->to_sum()) 
             r += get_nex_val(c, var_val);
-        }
         return r;
     }
     case expr_type::MUL: {
@@ -470,7 +448,7 @@ inline std::unordered_set<lpvar> get_vars_of_expr(const nex *e ) {
     }
 }
 
-inline bool is_zero_scalar(nex *e) {
+inline bool is_zero_scalar(nex const*e) {
     return e->is_scalar() && e->to_scalar().value().is_zero();
 }
 }
