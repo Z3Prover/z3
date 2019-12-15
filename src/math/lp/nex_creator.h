@@ -298,8 +298,9 @@ public:
     bool gt_on_sum_sum(const nex_sum& a, const nex_sum& b) const;
     bool gt_on_var_nex(const nex_var& a, const nex& b) const;
     bool gt_on_mul_nex(nex_mul const&, const nex& b) const;
+    // just compare the underlying expressions
     bool gt_on_nex_pow(const nex_pow& a, const nex_pow& b) const {
-        return (a.pow() > b.pow()) || (a.pow() == b.pow() && gt(a.e(), b.e()));
+        return gt(a.e(), b.e());
     }
     void process_map_pair(nex*e, const rational& coeff, nex_sum & sum, std::unordered_set<nex const*>&);
 #ifdef Z3DEBUG

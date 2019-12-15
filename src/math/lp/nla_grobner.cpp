@@ -255,9 +255,9 @@ void grobner_core::reset() {
     m_stats.reset();
 }
 
+// Return true if the equation is of the form 0 = 0.
 bool grobner_core::is_trivial(equation* eq) const {
-    SASSERT(m_nex_creator.is_simplified(*eq->expr()));
-    return eq->expr()->size() == 0;
+    return eq->expr()->is_scalar() && eq->expr()->to_scalar().value().is_zero();
 }
 
 // returns true if eq1 is simpler than eq2
@@ -605,17 +605,18 @@ nex * grobner_core::expr_superpose(nex const* e1, nex const* e2, const nex* ab, 
 
 // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
 void grobner_core::superpose(equation * eq1, equation * eq2) {
-    TRACE("grobner", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
+    TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
     const nex * ab = get_highest_monomial(eq1->expr()); 
     const nex * ac = get_highest_monomial(eq2->expr());
     nex_mul *b = nullptr, *c = nullptr;
-    TRACE("grobner", tout << "ab="; if(ab) { tout << *ab; } else { tout << "null"; };
+    TRACE("grobner_d", tout << "ab="; if(ab) { tout << *ab; } else { tout << "null"; };
           tout  << " , " << " ac="; if(ac) { tout << *ac; } else { tout << "null"; }; tout << "\n";);
     if (!find_b_c(ab, ac, b, c)) {
-        TRACE("grobner", tout << "there is no non-trivial common divider, no superposing\n";);
+        TRACE("grobner_d", tout << "there is no non-trivial common divider, no superposing\n";);
         return;
     }
     equation* eq = alloc(equation);
+    TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
     init_equation(eq, expr_superpose( eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
     m_stats.m_superposed++;
     update_stats_max_degree_and_size(eq);
