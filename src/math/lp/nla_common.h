@@ -122,7 +122,7 @@ struct common {
     //    nex* nexvar(lpvar j, nex_creator&, svector<lp::constraint_index> & fixed_vars_constraints);
     nex* nexvar(const rational& coeff, lpvar j, nex_creator&, bool);
     template <typename T>
-    ci_dependency* create_sum_from_row(const T&, nex_creator&, nex_sum&, bool, ci_dependency_manager*);
+    ci_dependency* create_sum_from_row(const T&, nex_creator&, nex_creator::sum_factory&, bool, ci_dependency_manager*);
     template <typename T>
     ci_dependency* get_fixed_vars_dep_from_row(const T&, ci_dependency_manager& dep_manager);
     void set_active_vars_weights();

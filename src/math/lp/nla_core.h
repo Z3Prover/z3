@@ -90,7 +90,7 @@ public:
     intervals                m_intervals;                
     horner                   m_horner;
     nla_settings             m_nla_settings;
-    grobner              m_grobner;
+    grobner                  m_grobner;
 private:
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;

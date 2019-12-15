@@ -139,7 +139,8 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
     }
     const monic& m = c().emons()[j];
-    nex_mul * e = cn.mk_mul(cn.mk_scalar(coeff));
+    nex_creator::mul_factory mf(cn);
+    mf *= coeff;
     for (lpvar k : m.vars()) {
         if (fixed_as_scalars && c().var_is_fixed(k)) {
             auto & b = c().m_lar_solver.get_lower_bound(k).x;
@@ -147,13 +148,14 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
                 TRACE("nla_grobner", tout << "[" << k << "] is fixed to zero\n";); 
                 return nullptr;
             }
-            e->coeff() *=  b;
+            mf *=  b;
             continue;
         }  
         c().insert_to_active_var_set(k);
-        e->add_child(cn.mk_var(k));
+        mf *= cn.mk_var(k);
         CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
     }
+    nex* e = mf.mk();
     TRACE("nla_grobner", tout << *e;);
     return e;
 }
@@ -161,7 +163,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
 
 template <typename T> common::ci_dependency* common::create_sum_from_row(const T& row,
                                                                          nex_creator& cn,
-                                                                         nex_sum& sum,
+                                                                         nex_creator::sum_factory& sum,
                                                                          bool fixed_as_scalars,
                                                                          ci_dependency_manager* dep_manager
                                                                          ) {
@@ -169,7 +171,7 @@ template <typename T> common::ci_dependency* common::create_sum_from_row(const T
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     ci_dependency * dep = nullptr;
     SASSERT(row.size() > 1);
-    sum.children().clear();
+    sum.reset();
     for (const auto &p : row) {
         nex* e = nexvar(p.coeff(), p.var(), cn, fixed_as_scalars);
         if (!e)
@@ -181,10 +183,9 @@ template <typename T> common::ci_dependency* common::create_sum_from_row(const T
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
             if (uc + 1) 
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));                    
-            sum.add_child(e);
+            sum += e;
         }
     }
-    TRACE("nla_grobner", tout << "sum =" << sum << "\ndep="; m_intervals->print_dependencies(dep, tout););
     return dep;
 }
 
@@ -255,6 +256,6 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template nla::common::ci_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_sum&, bool, ci_dependency_manager*);  
+template nla::common::ci_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, bool, ci_dependency_manager*);  
 
 template dependency_manager<nla::common::ci_dependency_config>::dependency* nla::common::get_fixed_vars_dep_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, dependency_manager<nla::common::ci_dependency_config>&);
