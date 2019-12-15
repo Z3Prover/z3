@@ -199,7 +199,6 @@ bool grobner_core::compute_basis_loop() {
     }
     TRACE("grobner", tout << "return false from compute_basis_loop\n";);
     TRACE("grobner_stats", print_stats(tout););
-    set_gb_exhausted();
     return false;
 }
 
@@ -212,14 +211,13 @@ bool grobner_core::compute_basis_step() {
     }
     m_stats.m_compute_steps++;
     simplify_using_to_superpose(*eq);
-    if (canceled()) return false;
-    if (!simplify_to_superpose_with_eq(eq))
-        return false;
-    TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
-    superpose(eq);
-    insert_to_superpose(eq);
-    simplify_m_to_simplify(eq);
-    TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    if (!canceled() && simplify_to_superpose_with_eq(eq)) {
+        TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
+        superpose(eq);
+        insert_to_superpose(eq);
+        simplify_m_to_simplify(eq);
+        TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+    }
     return false;
 }
 
@@ -241,6 +239,7 @@ grobner_core::equation* grobner_core::pick_next() {
     TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
     return r;
 }
+
 grobner_core::equation_set const& grobner_core::equations() {
     m_all_eqs.reset();
     for (auto e : m_to_simplify) m_all_eqs.insert(e);
@@ -250,7 +249,7 @@ grobner_core::equation_set const& grobner_core::equations() {
 
 void grobner_core::reset() {
     del_equations(0);
-    SASSERT(m_equations_to_delete.size() == 0);    
+    SASSERT(m_equations_to_delete.empty());    
     m_to_superpose.reset();
     m_to_simplify.reset();
     m_stats.reset();
@@ -317,15 +316,15 @@ const nex* grobner_core::get_highest_monomial(const nex* e) const {
 // source 3f + k + l = 0, so f = (-k - l)/3
 // target 2fg + 3fp + e = 0  
 // target is replaced by 2(-k/3 - l/3)g + 3(-k/3 - l/3)p + e = -2/3kg -2/3lg - kp -lp + e
-bool grobner_core::simplify_target_monomials(equation * source, equation * target) {
+bool grobner_core::simplify_target_monomials(equation const* source, equation * target) {
     nex const* high_mon = get_highest_monomial(source->expr());
     if (high_mon == nullptr)
         return false;
     SASSERT(high_mon->all_factors_are_elementary());
     TRACE("grobner_d", tout << "source = "; display_equation(tout, *source) << "target = "; display_equation(tout, *target) << "high_mon = " << *high_mon << "\n";);
 
-    nex * te = target->expr();    
-    nex_sum * targ_sum;
+    nex * te = target->m_expr;    
+    nex_sum  * targ_sum;
     if (te->is_sum()) {
         targ_sum = to_sum(te);
     } else if (te->is_mul()) {
@@ -351,7 +350,7 @@ unsigned grobner_core::find_divisible(nex_sum const& targ_sum, const nex& high_m
     return -1;
 }
 
-bool grobner_core::simplify_target_monomials_sum(equation * source,
+bool grobner_core::simplify_target_monomials_sum(equation const* source,
                                             equation * target, nex_sum* targ_sum,
                                             const nex& high_mon) {
     unsigned j = find_divisible(*targ_sum, high_mon);
@@ -364,13 +363,13 @@ bool grobner_core::simplify_target_monomials_sum(equation * source,
         simplify_target_monomials_sum_j(source, target, targ_sum, high_mon, j, true);
     }
     TRACE("grobner_d", tout << "targ_sum = " << *targ_sum << "\n";);    
-    target->expr() = m_nex_creator.simplify(targ_sum);
-    target->dep() = m_dep_manager.mk_join(source->dep(), target->dep());
+    target->m_expr = m_nex_creator.simplify(targ_sum);
+    target->m_dep = m_dep_manager.mk_join(source->dep(), target->dep());
     TRACE("grobner_d", tout << "target = "; display_equation(tout, *target););
     return true;
 }
 
-bool grobner_core::divide_ignore_coeffs_check_only_nex_mul(nex_mul const& t , const nex& h) const {
+bool grobner_core::divide_ignore_coeffs_check_only_nex_mul(nex_mul const& t, const nex& h) const {
     TRACE("grobner_d", tout << "t = " << t << ", h=" << h << "\n";);  
     SASSERT(m_nex_creator.is_simplified(t) && m_nex_creator.is_simplified(h));
     unsigned j = 0; // points to t
@@ -445,9 +444,7 @@ nex_mul * grobner_core::divide_ignore_coeffs_perform_nex_mul(nex_mul const& t, c
     }
 
     nex_mul* r = m_nex_creator.m_mk_mul.mk();
-    TRACE("grobner", tout << "r = " << *r << " = " << t << " / " << h << "\n";);
-
-    
+    TRACE("grobner", tout << "r = " << *r << " = " << t << " / " << h << "\n";);    
     TRACE("grobner_d", tout << "r = " << *r << " = " << t << " / " << h << "\n";);
     return r;
 }
@@ -465,7 +462,7 @@ nex_mul * grobner_core::divide_ignore_coeffs_perform(nex* e, const nex& h) {
 // and  b*high_mon + e = 0, so high_mon = -e/b
 // then targ_sum->children()[j] =  - (c/b) * e*p
 
-void grobner_core::simplify_target_monomials_sum_j(equation * source, equation *target, nex_sum* targ_sum, const nex& high_mon, unsigned j, bool test_divisibility) { 
+void grobner_core::simplify_target_monomials_sum_j(equation const * source, equation *target, nex_sum* targ_sum, const nex& high_mon, unsigned j, bool test_divisibility) { 
     nex * ej = (*targ_sum)[j];
     TRACE("grobner_d", tout << "high_mon = " << high_mon << ", ej = " << *ej << "\n";);
     if (test_divisibility && !divide_ignore_coeffs_check_only(ej, high_mon)) {
@@ -474,7 +471,7 @@ void grobner_core::simplify_target_monomials_sum_j(equation * source, equation *
     }
     nex_mul * ej_over_high_mon = divide_ignore_coeffs_perform(ej, high_mon);
     TRACE("grobner_d", tout << "ej_over_high_mon = " << *ej_over_high_mon << "\n";);
-    rational c = ej->is_mul()? to_mul(ej)->coeff() : rational(1);
+    rational c = ej->is_mul() ? to_mul(ej)->coeff() : rational(1);
     TRACE("grobner_d", tout << "c = " << c << "\n";);
 
     nex_creator::sum_factory sf(m_nex_creator);
@@ -485,7 +482,7 @@ void grobner_core::simplify_target_monomials_sum_j(equation * source, equation *
 }
 
 // return true iff simplified
-bool grobner_core::simplify_source_target(equation * source, equation * target) {
+bool grobner_core::simplify_source_target(equation const* source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "\nusing: "; display_equation(tout, *source););
     TRACE("grobner_d", tout << "simplifying: " << *(target->expr()) <<  " using " << *(source->expr()) << "\n";);
     SASSERT(m_nex_creator.is_simplified(*source->expr()));
@@ -510,7 +507,7 @@ bool grobner_core::simplify_source_target(equation * source, equation * target) 
     } 
     while (!canceled());
     if (result) {
-        target->dep() = m_dep_manager.mk_join(target->dep(), source->dep());
+        target->m_dep = m_dep_manager.mk_join(target->dep(), source->dep());
         update_stats_max_degree_and_size(target);
         TRACE("grobner", tout << "simplified "; display_equation(tout, *target) << "\n";);
         TRACE("grobner_d", tout << "simplified to " << *(target->expr()) << "\n";);
@@ -577,9 +574,9 @@ void  grobner_core::simplify_m_to_simplify(equation* eq) {
 // if e is the sum then add to r all children of e multiplied by beta, except the first one
 // which corresponds to the highest monomial,
 // otherwise do nothing
-void grobner_core::add_mul_skip_first(nex_creator::sum_factory& sf, const rational& beta, nex *e, nex_mul* c) {
+void grobner_core::add_mul_skip_first(nex_creator::sum_factory& sf, const rational& beta, nex const*e, nex_mul* c) {
     if (e->is_sum()) {
-        nex_sum & es = e->to_sum();
+        nex_sum const & es = e->to_sum();
         for (unsigned j = 1; j < es.size(); j++) {
             sf += m_nex_creator.mk_mul(beta, es[j], c);
         }
@@ -590,7 +587,7 @@ void grobner_core::add_mul_skip_first(nex_creator::sum_factory& sf, const ration
 
 
 // let e1: alpha*ab+q=0, and e2: beta*ac+e=0, then beta*qc - alpha*eb = 0
-nex * grobner_core::expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c) {
+nex * grobner_core::expr_superpose(nex const* e1, nex const* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c) {
     TRACE("grobner", tout << "e1 = " << *e1 << "\ne2 = " << *e2 <<"\n";);    
     nex_creator::sum_factory sf(m_nex_creator);
     rational alpha = - ab->coeff();
@@ -621,7 +618,7 @@ void grobner_core::superpose(equation * eq1, equation * eq2) {
     init_equation(eq, expr_superpose( eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
     m_stats.m_superposed++;
     update_stats_max_degree_and_size(eq);
-    eq->expr() = m_nex_creator.simplify(eq->expr());
+    eq->m_expr = m_nex_creator.simplify(eq->m_expr);
     insert_to_simplify(eq);
 }
 
@@ -722,18 +719,12 @@ bool grobner_core::done() {
     return num_of_equations() >= m_grobner_eqs_threshold || canceled();    
 }
 
-void grobner_core::set_gb_exhausted(){
-    m_nl_gb_exhausted = true;
-}
 
 void grobner_core::del_equations(unsigned old_size) {
     TRACE("grobner", );
     SASSERT(m_equations_to_delete.size() >= old_size);
-    equation_vector::iterator it  = m_equations_to_delete.begin();
-    equation_vector::iterator end = m_equations_to_delete.end();
-    it += old_size;
-    for (; it != end; ++it) {
-        equation * eq = *it;
+    for (unsigned i = m_equations_to_delete.size(); i-- > old_size; ) {
+        equation* eq = m_equations_to_delete[i];
         if (eq)
             del_equation(eq);
     }
@@ -772,7 +763,6 @@ std::ostream& grobner_core::display(std::ostream& out) const {
 void grobner_core::assert_eq_0(nex* e, common::ci_dependency * dep) {
     if (e == nullptr || is_zero_scalar(e))
         return;
-    m_tmp_var_set.clear();
     equation * eq = alloc(equation);
     init_equation(eq, e, dep);
     TRACE("grobner",
@@ -786,8 +776,8 @@ void grobner_core::assert_eq_0(nex* e, common::ci_dependency * dep) {
 
 void grobner_core::init_equation(equation* eq, nex*e, common::ci_dependency * dep) {
     eq->m_bidx      = m_equations_to_delete.size();
-    eq->dep()       = dep;
-    eq->expr()      = e;
+    eq->m_dep       = dep;
+    eq->m_expr      = e;
     m_equations_to_delete.push_back(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
 }
