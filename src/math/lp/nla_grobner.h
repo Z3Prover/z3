@@ -41,7 +41,7 @@ public:
     class equation {
         unsigned                   m_bidx;       //!< position at m_equations_to_delete
         nex *                      m_expr;       //   simplified expressionted monomials
-        common::ci_dependency *            m_dep;        //!< justification for the equality
+        common::ci_dependency *    m_dep;        //!< justification for the equality
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
@@ -52,7 +52,7 @@ public:
             default: return 0;
             }
         }
-        // can return not a nex_mul
+        // not guaranteed to return a nex_mul
         nex const* get_monomial(unsigned idx) const {
             switch(m_expr->type()) {
             case expr_type::VAR:
@@ -62,15 +62,12 @@ public:
                 return m_expr;
             case expr_type::SUM:
                 return m_expr->to_sum()[idx];
-            default: return 0;
+            default: return nullptr;
             }
         }
-        nex* & expr() { return m_expr; }
-        const nex*  expr() const { return m_expr; }
+        const nex* expr() const { return m_expr; }
         common::ci_dependency * dep() const { return m_dep; }
-        common::ci_dependency *& dep() { return m_dep; }
         unsigned hash() const { return m_bidx; }
-        friend class grobner;
         friend class grobner_core;
     };
 private:
@@ -85,9 +82,6 @@ private:
     grobner_stats                                m_stats;
     equation_set                                 m_to_superpose;
     equation_set                                 m_to_simplify;
-    bool                                         m_nl_gb_exhausted;
-    ptr_vector<nex>                              m_allocated;
-    lp::int_set                                  m_tmp_var_set;
     region                                       m_alloc;
     common::ci_value_manager                     m_val_manager;
     mutable common::ci_dependency_manager        m_dep_manager;
@@ -99,7 +93,6 @@ public:
     grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold) : 
         m_nex_creator(nc), 
         m_limit(lim), 
-        m_nl_gb_exhausted(false),
         m_dep_manager(m_val_manager, m_alloc),
         m_changed_leading_term(false),
         m_grobner_eqs_threshold(eqs_threshold)
@@ -120,14 +113,13 @@ public:
 
 private:
     bool compute_basis_step();
-    bool simplify_source_target(equation * source, equation * target);
+    bool simplify_source_target(equation const* source, equation * target);
     void simplify_using_to_superpose(equation &);
-    bool simplify_target_monomials(equation * source, equation * target);
+    bool simplify_target_monomials(equation const* source, equation * target);
     void process_simplified_target(equation* target, ptr_buffer<equation>& to_remove);    
     bool simplify_to_superpose_with_eq(equation*);
     void simplify_m_to_simplify(equation*);
     equation* pick_next();
-    void set_gb_exhausted();
     bool canceled();
     void superpose(equation * eq1, equation * eq2);
     void superpose(equation * eq);
@@ -139,7 +131,6 @@ private:
     void del_equation(equation * eq);
     void init_equation(equation* eq, nex*, common::ci_dependency* d);
     
-    std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
     void insert_to_simplify(equation *eq) {
         TRACE("grobner", display_equation(tout, *eq););
         m_to_simplify.insert(eq);
@@ -150,19 +141,22 @@ private:
         m_to_superpose.insert(eq);
     }
     const nex * get_highest_monomial(const nex * e) const;
-    bool simplify_target_monomials_sum(equation *, equation *, nex_sum*, const nex&);    
+    bool simplify_target_monomials_sum(equation const*, equation *, nex_sum*, const nex&);    
     unsigned find_divisible(nex_sum const&, const nex&) const;    
-    void simplify_target_monomials_sum_j(equation *, equation *, nex_sum*, const nex&, unsigned, bool);
+    void simplify_target_monomials_sum_j(equation const*, equation *, nex_sum*, const nex&, unsigned, bool);
     bool divide_ignore_coeffs_check_only(nex const* , const nex&) const;
     bool divide_ignore_coeffs_check_only_nex_mul(nex_mul const&, nex const&) const;
     nex_mul * divide_ignore_coeffs_perform(nex* , const nex&);
     nex_mul * divide_ignore_coeffs_perform_nex_mul(nex_mul const& , const nex&);
-    nex * expr_superpose(nex* e1, nex* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
-    void add_mul_skip_first(nex_creator::sum_factory& sf, const rational& beta, nex *e, nex_mul* c);
+    nex * expr_superpose(nex const* e1, nex const* e2, const nex* ab, const nex* ac, nex_mul* b, nex_mul* c);
+    void add_mul_skip_first(nex_creator::sum_factory& sf, const rational& beta, nex const*e, nex_mul* c);
     bool done();
     unsigned num_of_equations() const { return m_to_simplify.size() + m_to_superpose.size(); }
-    std::ostream& print_stats(std::ostream&) const;
     void update_stats_max_degree_and_size(const equation*);
+
+    std::ostream& print_stats(std::ostream&) const;
+    std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
+
 #ifdef Z3DEBUG
     bool test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c);
     bool test_find_b(const nex* ab, const nex_mul* b);
