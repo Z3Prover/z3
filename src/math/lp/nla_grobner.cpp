@@ -280,14 +280,12 @@ void grobner_core::del_equation(equation * eq) {
 }
 
 void grobner_core::simplify_using_to_superpose(equation& eq) {
-    bool result = false;
     bool simplified;
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
     do {
         simplified = false;
         for (equation* p : m_to_superpose) {
             if (simplify_source_target(p, &eq)) {
-                result = true;
                 simplified = true;
             }
             if (canceled() || eq.expr()->is_scalar()) {
@@ -297,8 +295,11 @@ void grobner_core::simplify_using_to_superpose(equation& eq) {
     }
     while (simplified && !eq.expr()->is_scalar());
 
-    TRACE("grobner", tout << "simplification result: "; display_equation(tout, eq););
+    TRACE("grobner",
+          if (simplified) { tout << "simplification result: ";  display_equation(tout, eq);}
+          else  {tout << "no simplification\n";});
 }
+           
 
 const nex* grobner_core::get_highest_monomial(const nex* e) const {
     switch (e->type()) {

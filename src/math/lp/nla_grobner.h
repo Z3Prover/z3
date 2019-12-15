@@ -179,7 +179,7 @@ private:
     void init();
     void compute_basis();
     void compute_basis_init();        
-    std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex* e);
+    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream& out) const { return m_gc.display(out); }
     void add_row(unsigned);
