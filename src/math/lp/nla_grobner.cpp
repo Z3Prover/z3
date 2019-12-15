@@ -26,7 +26,8 @@ grobner::grobner(core *c, intervals *s)
     : common(c, s),
       m_gc(m_nex_creator, 
            c->m_reslim,
-           c->m_nla_settings.grobner_eqs_threshold()
+           c->m_nla_settings.grobner_eqs_threshold(),
+           c->m_nla_settings.grobner_superposed_expr_size_limit()
            ),
       m_look_for_fixed_vars_in_rows(false) {
     std::function<void (lp::explanation const& e, std::ostream & out)> de;
@@ -78,13 +79,12 @@ void grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector
     TRACE("grobner", tout << "j = " << j << ", "; c().print_var(j, tout) << "\n";);
     const auto& matrix = c().m_lar_solver.A_r();
     c().insert_to_active_var_set(j);
-    const auto & core_slv = c().m_lar_solver.m_mpq_lar_core_solver;
     for (auto & s : matrix.m_columns[j]) {
         unsigned row = s.var();
-        if (m_rows.contains(row)) continue;
-        if (c().var_is_free(core_slv.m_r_basis[row])) {
-             TRACE("grobner", tout << "ignore the row " << row << " with the free basic var\n";); 
-             continue; // mimic the behavior of the legacy solver
+        if (m_rows.contains(row)) continue;       
+        if (matrix.m_rows[row].size() > c().m_nla_settings.grobner_row_length_limit()) {
+            TRACE("grobner", tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
+            continue;
         }
         m_rows.insert(row);
         for (auto& rc : matrix.m_rows[row]) {
@@ -611,11 +611,16 @@ void grobner_core::superpose(equation * eq1, equation * eq2) {
     }
     equation* eq = alloc(equation);
     TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
-    init_equation(eq, expr_superpose( eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
-    m_stats.m_superposed++;
-    update_stats_max_degree_and_size(eq);
-    eq->m_expr = m_nex_creator.simplify(eq->m_expr);
-    insert_to_simplify(eq);
+    init_equation(eq, expr_superpose(eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
+    if (m_nex_creator.gt(eq->expr(), eq1->expr()) || m_nex_creator.gt(eq->expr(), eq2->expr()) ||
+        eq->expr()->size() > m_superposed_exp_size_limit) {
+        TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
+        del_equation(eq);
+    } else {
+        m_stats.m_superposed++;
+        update_stats_max_degree_and_size(eq);
+        insert_to_simplify(eq);
+    }
 }
 
 
@@ -734,8 +739,17 @@ std::ostream& grobner_core::print_stats(std::ostream & out) const {
 }
 
 void grobner_core::update_stats_max_degree_and_size(const equation *e) {
-    m_stats.m_max_expr_size = std::max(m_stats.m_max_expr_size, e->expr()->size());
-    m_stats.m_max_expr_degree = std::max(m_stats.m_max_expr_degree, e->expr()->get_degree());
+    if (m_stats.m_max_expr_size < e->expr()->size()) {
+        TRACE("grobner_stats_d", tout << "expr size = " << e->expr()->size() << "\n";);
+        TRACE("grobner_stats_d", display_equation(tout, *e););
+        
+        m_stats.m_max_expr_size = e->expr()->size();
+    }
+    auto deg = e->expr()->get_degree();
+    if (m_stats.m_max_expr_degree < deg) {
+        TRACE("grobner_stats_d", tout << "expr degree = " << deg << "\n";);
+        m_stats.m_max_expr_degree = deg;
+    }
 }
 
 void grobner_core::display_equations(std::ostream & out, equation_set const & v, char const * header) const {
@@ -767,6 +781,7 @@ void grobner_core::assert_eq_0(nex* e, common::ci_dependency * dep) {
               c().print_var(j, tout << "(") << ")\n";
           } */);
     insert_to_simplify(eq);
+    update_stats_max_degree_and_size(eq);
 }
 
 void grobner_core::init_equation(equation* eq, nex*e, common::ci_dependency * dep) {

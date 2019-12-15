@@ -89,13 +89,15 @@ private:
     bool                                         m_changed_leading_term;
     equation_set                                 m_all_eqs;
     unsigned                                     m_grobner_eqs_threshold;
+    unsigned                                     m_superposed_exp_size_limit;
 public:
-    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold) : 
+    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold, unsigned superposed_expr_size_limit) : 
         m_nex_creator(nc), 
         m_limit(lim), 
         m_dep_manager(m_val_manager, m_alloc),
         m_changed_leading_term(false),
-        m_grobner_eqs_threshold(eqs_threshold)
+        m_grobner_eqs_threshold(eqs_threshold),
+        m_superposed_exp_size_limit(superposed_expr_size_limit)
     {}
 
     ~grobner_core();
@@ -179,7 +181,7 @@ private:
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
     void init();
     void compute_basis();       
-    std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex* e);
+    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream& out) const { return m_gc.display(out); }
     void add_row(unsigned);
