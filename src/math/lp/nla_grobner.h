@@ -113,9 +113,10 @@ public:
 
 private:
     bool compute_basis_step();
-    bool simplify_source_target(equation const* source, equation * target);
+
+    bool simplify_source_target(equation const& source, equation& target);
     void simplify_using_to_superpose(equation &);
-    bool simplify_target_monomials(equation const* source, equation * target);
+    bool simplify_target_monomials(equation const& source, equation& target);
     void process_simplified_target(equation* target, ptr_buffer<equation>& to_remove);    
     bool simplify_to_superpose_with_eq(equation*);
     void simplify_m_to_simplify(equation*);
@@ -141,10 +142,10 @@ private:
         m_to_superpose.insert(eq);
     }
     const nex * get_highest_monomial(const nex * e) const;
-    bool simplify_target_monomials_sum(equation const*, equation *, nex_sum*, const nex&);    
-    unsigned find_divisible(nex_sum const&, const nex&) const;    
-    void simplify_target_monomials_sum_j(equation const*, equation *, nex_sum*, const nex&, unsigned, bool);
-    bool divide_ignore_coeffs_check_only(nex const* , const nex&) const;
+    bool simplify_target_monomials_sum(equation const&, equation&, nex_sum&, const nex&);    
+    unsigned find_divisible(nex_sum const&, const nex&) const;
+    void simplify_target_monomials_sum_j(equation const&, equation&, nex_sum&, const nex&, unsigned, bool);
+    bool divide_ignore_coeffs_check_only(nex const& , const nex&) const;
     bool divide_ignore_coeffs_check_only_nex_mul(nex_mul const&, nex const&) const;
     nex_mul * divide_ignore_coeffs_perform(nex* , const nex&);
     nex_mul * divide_ignore_coeffs_perform_nex_mul(nex_mul const& , const nex&);
@@ -177,9 +178,8 @@ private:
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
     void init();
-    void compute_basis();
-    void compute_basis_init();        
-    std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
+    void compute_basis();       
+    std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream& out) const { return m_gc.display(out); }
     void add_row(unsigned);
