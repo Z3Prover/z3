@@ -32,7 +32,7 @@ class nla_settings {
     unsigned m_grobner_frequency;
     unsigned m_grobner_eqs_threshold;
     unsigned m_grobner_row_length_limit;
-    unsigned m_grobner_superposed_expr_size_limit;
+    unsigned m_grobner_expr_size_limit;
 
 public:
     nla_settings() : m_run_order(true),
@@ -44,7 +44,7 @@ public:
                      m_grobner_frequency(5),
                      m_grobner_eqs_threshold(512),
                      m_grobner_row_length_limit(10),
-                     m_grobner_superposed_expr_size_limit(50)
+                     m_grobner_expr_size_limit(50)
     {}
     
     unsigned grobner_eqs_threshold() const { return m_grobner_eqs_threshold; }
@@ -70,6 +70,6 @@ public:
     unsigned grobner_frequency() const { return m_grobner_frequency; }
     unsigned& grobner_frequency() { return m_grobner_frequency; }
     unsigned grobner_row_length_limit() const { return m_grobner_row_length_limit; }
-    unsigned grobner_superposed_expr_size_limit() const { return m_grobner_superposed_expr_size_limit; }
+    unsigned grobner_expr_size_limit() const { return m_grobner_expr_size_limit; }
 };
 }

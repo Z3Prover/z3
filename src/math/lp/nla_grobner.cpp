@@ -27,7 +27,7 @@ grobner::grobner(core *c, intervals *s)
       m_gc(m_nex_creator, 
            c->m_reslim,
            c->m_nla_settings.grobner_eqs_threshold(),
-           c->m_nla_settings.grobner_superposed_expr_size_limit()
+           c->m_nla_settings.grobner_expr_size_limit()
            ),
       m_look_for_fixed_vars_in_rows(false) {
     std::function<void (lp::explanation const& e, std::ostream & out)> de;
@@ -205,12 +205,19 @@ bool grobner_core::compute_basis_step() {
     }
     m_stats.m_compute_steps++;
     simplify_using_to_superpose(*eq);
+    if (equation_is_too_complex(eq))
+        return false;
     if (!canceled() && simplify_to_superpose_with_eq(eq)) {
         TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
         superpose(eq);
-        insert_to_superpose(eq);
-        simplify_m_to_simplify(eq);
-        TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+        if (equation_is_too_complex(eq)) {
+            TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
+            del_equation(eq);
+        } else {
+            insert_to_superpose(eq);
+            simplify_m_to_simplify(eq);
+            TRACE("grobner", tout << "end of iteration:\n"; display(tout););
+        }
     }
     return false;
 }
@@ -486,7 +493,9 @@ void grobner_core::simplify_target_monomials_sum_j(equation const& source, equat
 bool grobner_core::simplify_source_target(equation const& source, equation& target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, target); tout << "\nusing: "; display_equation(tout, source););
     TRACE("grobner_d", tout << "simplifying: " << *(target.expr()) <<  " using " << *(source.expr()) << "\n";);
-    SASSERT(m_nex_creator.is_simplified(*source.expr()));
+    SASSERT(m_nex_creator.is_simplified(*source.expr()) && !equation_is_too_complex(&source));
+    if (equation_is_too_complex(&target))
+        return false;
     SASSERT(m_nex_creator.is_simplified(*target.expr()));
     if (target.expr()->is_scalar()) {
         TRACE("grobner_d", tout << "no simplification\n";);
@@ -514,7 +523,7 @@ bool grobner_core::simplify_source_target(equation const& source, equation& targ
 }
 
 void grobner_core::process_simplified_target(equation* target, ptr_buffer<equation>& to_remove) {
-    if (is_trivial(target)) {
+    if (is_trivial(target) || equation_is_too_complex(target)) {
         to_remove.push_back(target);
     } else if (m_changed_leading_term) {
         insert_to_simplify(target);
@@ -525,8 +534,7 @@ void grobner_core::process_simplified_target(equation* target, ptr_buffer<equati
 
 bool grobner_core::simplify_to_superpose_with_eq(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->expr()) <<  "\n";);
-
-    ptr_buffer<equation> to_insert;
+    SASSERT(!equation_is_too_complex(eq));
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
     for (equation * target : m_to_superpose) {
@@ -537,15 +545,14 @@ bool grobner_core::simplify_to_superpose_with_eq(equation* eq) {
         if (simplify_source_target(*eq, *target)) {
             process_simplified_target(target, to_remove);
         }
-        if (is_trivial(target)) {
+        if (is_trivial(target)||equation_is_too_complex(target)) {
             to_delete.push_back(target);
         }
         else {
             SASSERT(m_nex_creator.is_simplified(*target->expr()));
         }
     }
-    for (equation* eq : to_insert) 
-        insert_to_superpose(eq);
+
     for (equation* eq : to_remove)
         m_to_superpose.erase(eq);
     for (equation* eq : to_delete) 
@@ -560,7 +567,7 @@ void  grobner_core::simplify_m_to_simplify(equation* eq) {
     TRACE("grobner_d", tout << "eq->exp " << *(eq->expr()) <<  "\n";);
     ptr_buffer<equation> to_delete;
     for (equation* target : m_to_simplify) {
-        if (simplify_source_target(*eq, *target) && is_trivial(target))
+        if (simplify_source_target(*eq, *target) && (is_trivial(target) || equation_is_too_complex(target)))
             to_delete.push_back(target);
     }
     for (equation* eq : to_delete)
@@ -613,7 +620,7 @@ void grobner_core::superpose(equation * eq1, equation * eq2) {
     TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
     init_equation(eq, expr_superpose(eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
     if (m_nex_creator.gt(eq->expr(), eq1->expr()) || m_nex_creator.gt(eq->expr(), eq2->expr()) ||
-        eq->expr()->size() > m_superposed_exp_size_limit) {
+        equation_is_too_complex(eq)) {
         TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
         del_equation(eq);
     } else {
