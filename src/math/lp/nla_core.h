@@ -30,6 +30,8 @@
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
 #include "math/lp/nla_grobner.h"
+#include "math/lp/nla_intervals.h"
+
 namespace nla {
 
 template <typename A, typename B>
