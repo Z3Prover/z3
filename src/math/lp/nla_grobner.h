@@ -89,15 +89,15 @@ private:
     bool                                         m_changed_leading_term;
     equation_set                                 m_all_eqs;
     unsigned                                     m_grobner_eqs_threshold;
-    unsigned                                     m_superposed_exp_size_limit;
+    unsigned                                     m_expr_size_limit;  
 public:
-    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold, unsigned superposed_expr_size_limit) : 
+    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold, unsigned expr_size_limit) : 
         m_nex_creator(nc), 
         m_limit(lim), 
         m_dep_manager(m_val_manager, m_alloc),
         m_changed_leading_term(false),
         m_grobner_eqs_threshold(eqs_threshold),
-        m_superposed_exp_size_limit(superposed_expr_size_limit)
+        m_expr_size_limit(expr_size_limit)
     {}
 
     ~grobner_core();
@@ -159,7 +159,9 @@ private:
 
     std::ostream& print_stats(std::ostream&) const;
     std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
-
+    bool equation_is_too_complex(const equation* eq) const {
+        return eq->expr()->size() > m_expr_size_limit;
+    }
 #ifdef Z3DEBUG
     bool test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c);
     bool test_find_b(const nex* ab, const nex_mul* b);
