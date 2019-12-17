@@ -695,10 +695,6 @@ bool grobner_core::find_b_c(const nex* ab, const nex* ac, nex_mul*& b, nex_mul*&
     b = fb.mk();
     c = fc.mk();
     TRACE("nla_grobner", tout << "b=" << *b << ", c=" <<*c << "\n";);
-    // debug region
-    nex_mul *a = divide_ignore_coeffs_perform(m_nex_creator.clone(ab), *b);
-    SASSERT(ab->get_degree() == a->get_degree() + b->get_degree());
-    SASSERT(ac->get_degree() == a->get_degree() + c->get_degree());
     SASSERT(test_find_b_c(ab, ac, b, c));
     return true;
 }
