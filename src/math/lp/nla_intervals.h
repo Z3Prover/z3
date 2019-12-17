@@ -293,6 +293,7 @@ public:
         if (wd == with_deps) {
             i.m_lower_dep = a.m_lower_dep;
         }
+
     }
 
     template <enum with_deps_t wd>
@@ -313,7 +314,9 @@ public:
     }
 
     template <enum with_deps_t wd>
+
     bool interval_from_term(const nex& e, interval& i) const; 
+
 
     template <enum with_deps_t wd>
     interval interval_of_sum_no_term(const nex_sum& e);

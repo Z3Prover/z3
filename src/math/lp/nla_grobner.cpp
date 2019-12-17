@@ -24,15 +24,15 @@ using namespace nla;
 
 grobner::grobner(core *c, intervals *s)
     : common(c, s),
-      m_gc(m_nex_creator, 
-           c->m_reslim,
-           c->m_nla_settings.grobner_eqs_threshold(),
-           c->m_nla_settings.grobner_expr_size_limit()
-           ),
+      m_gc(m_nex_creator, c->m_reslim),
       m_look_for_fixed_vars_in_rows(false) {
     std::function<void (lp::explanation const& e, std::ostream & out)> de;
     de = [this](lp::explanation const& e, std::ostream& out) { m_core->print_explanation(e, out); };
+    grobner_core::params p;
+    p.m_expr_size_limit = c->m_nla_settings.grobner_expr_size_limit();
+    p.m_grobner_eqs_threshold = c->m_nla_settings.grobner_eqs_threshold();
     m_gc = de;
+    m_gc = p;
 }
 
 void grobner::grobner_lemmas() {
@@ -183,6 +183,22 @@ void grobner::add_row(unsigned i) {
 /// -------------------------------
 /// grobner_core
 
+/***
+The main algorithm maintains two sets (S, A), 
+where S is m_to_superpose, and A is m_to_simplify.
+Initially S is empty and A contains the initial equations.
+
+Each step proceeds as follows:
+   - pick a in A, and remove a from A
+   - simplify a using S
+   - simplify S using a
+   - for s in S:
+         b = superpose(a, s)
+         add b to A
+    - add a to S
+    - simplify A using a
+*/
+
 bool grobner_core::compute_basis_loop() {
     while (!done()) {
         if (compute_basis_step()) {
@@ -205,20 +221,22 @@ bool grobner_core::compute_basis_step() {
     }
     m_stats.m_compute_steps++;
     simplify_using_to_superpose(*eq);
+
     if (equation_is_too_complex(eq))
         return false;
-    if (!canceled() && simplify_to_superpose_with_eq(eq)) {
-        TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
-        superpose(eq);
-        if (equation_is_too_complex(eq)) {
-            TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
-            del_equation(eq);
-        } else {
-            insert_to_superpose(eq);
-            simplify_m_to_simplify(eq);
-            TRACE("grobner", tout << "end of iteration:\n"; display(tout););
-        }
+    if (!simplify_to_superpose_with_eq(eq)) {
+        return false;
     }
+    TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
+    superpose(eq);
+    if (equation_is_too_complex(eq)) {
+        TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
+        del_equation(eq);
+        return false;
+    }
+    insert_to_superpose(eq);
+    simplify_m_to_simplify(eq);
+    TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
 }
 
@@ -239,6 +257,26 @@ grobner_core::equation* grobner_core::pick_next() {
         m_to_simplify.erase(r);
     TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
     return r;
+}
+
+void grobner_core::simplify_using_to_superpose(equation& eq) {
+    bool simplified;
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
+    do {
+        simplified = false;
+        for (equation* p : m_to_superpose) {
+            if (simplify_source_target(*p, eq)) {
+                simplified = true;
+            }
+            if (canceled() || eq.expr()->is_scalar()) {
+                break;
+            }
+        }
+    } while (simplified && !eq.expr()->is_scalar());
+
+    TRACE("grobner",
+        if (simplified) { tout << "simplification result: ";  display_equation(tout, eq); }
+        else { tout << "no simplification\n"; });
 }
 
 grobner_core::equation_set const& grobner_core::equations() {
@@ -279,29 +317,7 @@ void grobner_core::del_equation(equation * eq) {
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
     m_equations_to_delete[eq->m_bidx] = nullptr;
     dealloc(eq);
-}
-
-void grobner_core::simplify_using_to_superpose(equation& eq) {
-    bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
-    do {
-        simplified = false;
-        for (equation* p : m_to_superpose) {
-            if (simplify_source_target(*p, eq)) {
-                simplified = true;
-            }
-            if (canceled() || eq.expr()->is_scalar()) {
-                break;
-            }
-        }
-    }
-    while (simplified && !eq.expr()->is_scalar());
-
-    TRACE("grobner",
-          if (simplified) { tout << "simplification result: ";  display_equation(tout, eq);}
-          else  {tout << "no simplification\n";});
-}
-           
+}          
 
 const nex* grobner_core::get_highest_monomial(const nex* e) const {
     switch (e->type()) {
@@ -725,7 +741,7 @@ bool grobner_core::canceled() {
 }
 
 bool grobner_core::done() {
-    return num_of_equations() >= m_grobner_eqs_threshold || canceled();    
+    return num_of_equations() >= m_params.m_grobner_eqs_threshold || canceled();    
 }
 
 void grobner_core::del_equations(unsigned old_size) {
