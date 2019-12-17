@@ -121,7 +121,7 @@ private:
     bool compute_basis_step();
 
     bool simplify_source_target(equation const& source, equation& target);
-    void simplify_using_to_superpose(equation &);
+    void simplify_eq_by_using_to_superpose(equation &);
     bool simplify_target_monomials(equation const& source, equation& target);
     void process_simplified_target(equation* target, ptr_buffer<equation>& to_remove);    
     bool simplify_to_superpose_with_eq(equation*);
