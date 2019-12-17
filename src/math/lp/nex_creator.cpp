@@ -593,7 +593,7 @@ void nex_creator::process_map_pair(nex*e, const rational& coeff, nex_sum & sum, 
     }
     bool e_is_old = allocated_nexs.find(e) != allocated_nexs.end();
     if (!e_is_old) {
-        m_allocated.push_back(e);
+        add_to_allocated(e);
     }
     if (e->is_mul()) {
         e->to_mul().m_coeff = coeff;
