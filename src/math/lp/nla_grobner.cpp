@@ -250,6 +250,7 @@ grobner_core::equation_set const& grobner_core::equations() {
 
 void grobner_core::reset() {
     del_equations(0);
+    m_nex_creator.pop(0);
     SASSERT(m_equations_to_delete.empty());    
     m_to_superpose.reset();
     m_to_simplify.reset();
@@ -617,7 +618,7 @@ void grobner_core::superpose(equation * eq1, equation * eq2) {
         return;
     }
     equation* eq = alloc(equation);
-    TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););
+    TRACE("grobner_d", tout << "eq1="; display_equation(tout, *eq1) << "eq2="; display_equation(tout, *eq2););    
     init_equation(eq, expr_superpose(eq1->expr(), eq2->expr(), ab, ac, b, c), m_dep_manager.mk_join(eq1->dep(), eq2->dep()));
     if (m_nex_creator.gt(eq->expr(), eq1->expr()) || m_nex_creator.gt(eq->expr(), eq2->expr()) ||
         equation_is_too_complex(eq)) {
