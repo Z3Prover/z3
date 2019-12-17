@@ -30,6 +30,7 @@ z3_add_component(sat
     sat_watched.cpp
   COMPONENT_DEPENDENCIES
     util
+    dd
   PYG_FILES
     sat_asymm_branch_params.pyg
     sat_params.pyg
