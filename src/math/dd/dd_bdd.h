@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    sat_bdd
+    dd_bdd
 
 Abstract:
 
@@ -16,14 +16,14 @@ Author:
 Revision History:
 
 --*/
-#ifndef SAT_BDD_H_
-#define SAT_BDD_H_
+#ifndef DD_BDD_H_
+#define DD_BDD_H_
 
 #include "util/vector.h"
 #include "util/map.h"
 #include "util/small_object_allocator.h"
 
-namespace sat {
+namespace dd {
 
     class bdd;
 

@@ -3,7 +3,6 @@ z3_add_component(sat
     ba_solver.cpp
     dimacs.cpp
     sat_asymm_branch.cpp
-    sat_bdd.cpp
     sat_big.cpp
     sat_binspr.cpp
     sat_clause.cpp

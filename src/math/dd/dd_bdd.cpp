@@ -3,7 +3,7 @@ Copyright (c) 2017 Microsoft Corporation
 
 Module Name:
 
-    sat_bdd.cpp
+    dd_bdd.cpp
 
 Abstract:
 
@@ -17,11 +17,11 @@ Revision History:
 
 --*/
 
-#include "sat/sat_bdd.h"
 #include "util/trace.h"
 #include "util/stopwatch.h"
+#include "math/dd/dd_bdd.h"
 
-namespace sat {
+namespace dd {
 
     bdd_manager::bdd_manager(unsigned num_vars) {
         m_cost_metric = bdd_cost;
