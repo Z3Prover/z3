@@ -38,6 +38,11 @@ struct grobner_stats {
 
 class grobner_core {
 public:
+    struct params {
+        unsigned                                 m_grobner_eqs_threshold;
+        unsigned                                 m_expr_size_limit;
+    };
+
     class equation {
         unsigned                   m_bidx;       //!< position at m_equations_to_delete
         nex *                      m_expr;       //   simplified expressionted monomials
@@ -88,16 +93,14 @@ private:
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
     equation_set                                 m_all_eqs;
-    unsigned                                     m_grobner_eqs_threshold;
-    unsigned                                     m_expr_size_limit;  
+    params                                       m_params;
+
 public:
-    grobner_core(nex_creator& nc, reslimit& lim, unsigned eqs_threshold, unsigned expr_size_limit) : 
+    grobner_core(nex_creator& nc, reslimit& lim) : 
         m_nex_creator(nc), 
         m_limit(lim), 
         m_dep_manager(m_val_manager, m_alloc),
-        m_changed_leading_term(false),
-        m_grobner_eqs_threshold(eqs_threshold),
-        m_expr_size_limit(expr_size_limit)
+        m_changed_leading_term(false)
     {}
 
     ~grobner_core();
@@ -112,6 +115,7 @@ public:
     std::ostream& display(std::ostream& out) const;
 
     void operator=(print_expl_t& pe) { m_print_explanation = pe; }
+    void operator=(params const& p) { m_params = p; }
 
 private:
     bool compute_basis_step();
@@ -160,7 +164,7 @@ private:
     std::ostream& print_stats(std::ostream&) const;
     std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
     bool equation_is_too_complex(const equation* eq) const {
-        return eq->expr()->size() > m_expr_size_limit;
+        return eq->expr()->size() > m_params.m_expr_size_limit;
     }
 #ifdef Z3DEBUG
     bool test_find_b_c(const nex* ab, const nex* ac, const nex_mul* b, const nex_mul* c);

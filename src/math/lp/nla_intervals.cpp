@@ -5,6 +5,7 @@
 
 namespace nla {
 
+
 typedef intervals::interval interv;
 typedef enum intervals::with_deps_t e_with_deps;
 
