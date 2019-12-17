@@ -217,6 +217,9 @@ public:
 
     void mul_two_intervals(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
 
+    void mul_two_intervals(const interval& a, const interval& b, interval& c) { m_imanager.mul(a, b, c); }
+
+    
     void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);

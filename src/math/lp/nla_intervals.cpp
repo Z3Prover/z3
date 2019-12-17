@@ -438,7 +438,8 @@ interv intervals::interval_of_mul(const nex_mul& e) {
     const nex* zero_interval_child = get_zero_interval_child(e);
     if (zero_interval_child) {
         interv a = interval_of_expr<wd>(zero_interval_child, 1);
-        set_zero_interval_deps_for_mult(a);
+        if(wd == with_deps)
+            set_zero_interval_deps_for_mult(a);
         TRACE("nla_intervals_details", tout << "zero_interval_child = " << *zero_interval_child << std::endl << "a = "; display(tout, a); );
         return a;
     }
@@ -450,10 +451,14 @@ interv intervals::interval_of_mul(const nex_mul& e) {
         interv b = interval_of_expr<wd>(ep.e(), ep.pow());
         TRACE("nla_intervals_details", tout << "ep = " << ep << ", "; display(tout, b); );
         interv c;
-        interval_deps_combine_rule comb_rule;
-        mul_two_intervals(a, b, c, comb_rule);
-        TRACE("nla_intervals_details", tout << "c before combine_deps() "; display(tout, c););
-        combine_deps(a, b, comb_rule, c);
+        if (wd == with_deps) {
+            interval_deps_combine_rule comb_rule;
+            mul_two_intervals(a, b, c, comb_rule);
+            TRACE("nla_intervals_details", tout << "c before combine_deps() "; display(tout, c););
+            combine_deps(a, b, comb_rule, c);
+        } else {
+            mul_two_intervals(a, b, c);
+        }
         TRACE("nla_intervals_details", tout << "a "; display(tout, a););
         TRACE("nla_intervals_details", tout << "c "; display(tout, c););
         set<wd>(a, c);
