@@ -220,18 +220,24 @@ bool grobner_core::compute_basis_step() {
         return true;
     }
     m_stats.m_compute_steps++;
-    simplify_using_to_superpose(*eq);
-
-    if (equation_is_too_complex(eq))
+    unsigned mem_size = m_nex_creator.size();
+    simplify_eq_by_using_to_superpose(*eq);
+    if (equation_is_too_complex(eq)) {
+        m_nex_creator.pop(mem_size);
         return false;
+    }
+    mem_size = m_nex_creator.size();
     if (!simplify_to_superpose_with_eq(eq)) {
+        m_nex_creator.pop(mem_size);
         return false;
     }
     TRACE("grobner", tout << "eq = "; display_equation(tout, *eq););
+    mem_size = m_nex_creator.size();
     superpose(eq);
-    if (equation_is_too_complex(eq)) {
+    if (equation_is_too_complex(eq)) {        
         TRACE("grobner", display_equation(tout, *eq) << " is too complex: deleting it\n;";);
         del_equation(eq);
+        m_nex_creator.pop(mem_size);
         return false;
     }
     insert_to_superpose(eq);
@@ -259,7 +265,7 @@ grobner_core::equation* grobner_core::pick_next() {
     return r;
 }
 
-void grobner_core::simplify_using_to_superpose(equation& eq) {
+void grobner_core::simplify_eq_by_using_to_superpose(equation& eq) {
     bool simplified;
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, eq); tout << "using equalities of m_to_superpose of size " << m_to_superpose.size() << "\n";);
     do {
