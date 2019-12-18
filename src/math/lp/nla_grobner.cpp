@@ -247,7 +247,7 @@ grobner_core::equation* grobner_core::pick_next() {
         if (is_trivial(curr))
             to_delete.push_back(curr);
         else if (is_simpler(curr, r)) {
-            TRACE("grobner", tout << "preferring "; display_equation(tout, *curr););
+            TRACE("grobner", tout << "preferring " << *(curr->expr()) << "\n";);;
             r = curr;
         }
     }
@@ -255,7 +255,7 @@ grobner_core::equation* grobner_core::pick_next() {
         del_equation(e);
     if (r)
         m_to_simplify.erase(r);
-    TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
+    TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else tout << *r->expr() << "\n";);
     return r;
 }
 
@@ -279,11 +279,8 @@ void grobner_core::simplify_eq_by_using_to_superpose(equation& eq) {
         else { tout << "no simplification\n"; });
 }
 
-grobner_core::equation_set const& grobner_core::equations() {
-    m_all_eqs.reset();
-    for (auto e : m_to_simplify) m_all_eqs.insert(e);
-    for (auto e : m_to_superpose) m_all_eqs.insert(e);
-    return m_all_eqs;
+concat<grobner_core::equation_set, grobner_core::equation_set, grobner_core::equation*>  grobner_core::equations() {
+    return concat<grobner_core::equation_set, grobner_core::equation_set, grobner_core::equation*>(m_to_superpose, m_to_simplify);
 }
 
 void grobner_core::reset() {
@@ -778,14 +775,20 @@ void grobner_core::display_equations(std::ostream & out, equation_set const & v,
         display_equation(out, *e);
 }
 
+void grobner_core::display_equations_no_deps(std::ostream & out, equation_set const & v, char const * header) const {
+    out << header << "\n";
+    for (const equation* e : v) 
+        out << *(e->expr()) << "\n";
+}
+
 std::ostream& grobner_core::display_equation(std::ostream & out, const equation & eq) const {
     out << "expr = " << *eq.expr() << "\n";
     return display_dependency(out, eq.dep());
 }
 
 std::ostream& grobner_core::display(std::ostream& out) const {
-    display_equations(out, m_to_superpose, "m_to_superpose:");
-    display_equations(out, m_to_simplify, "m_to_simplify:");
+    display_equations_no_deps(out, m_to_superpose, "m_to_superpose:");
+    display_equations_no_deps(out, m_to_simplify, "m_to_simplify:");
     return out;
 }
 
