@@ -57,13 +57,12 @@ namespace dd {
     }
 
     pdd pdd_manager::add(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_add_op), this); }
-    pdd pdd_manager::sub(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_sub_op), this); }
+    pdd pdd_manager::sub(pdd const& a, pdd const& b) { pdd m(minus(b)); return pdd(apply(a.root, m.root, pdd_add_op), this); }
     pdd pdd_manager::mul(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::reduce(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_reduce_op), this); }
     pdd pdd_manager::mk_val(rational const& r) { return pdd(imk_val(r), this); }
     pdd pdd_manager::mul(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
-    pdd pdd_manager::minus(pdd const& b) { return pdd(apply(zero_pdd, b.root, pdd_sub_op), this); }
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
@@ -108,11 +107,6 @@ namespace dd {
             if (is_val(a) && is_val(b)) return imk_val(val(a) + val(b));
             if (level(a) < level(b)) std::swap(a, b);
             break;
-        case pdd_sub_op:
-            if (a == b) return zero_pdd;
-            if (is_zero(b)) return a;            
-            if (is_val(a) && is_val(b)) return imk_val(val(a) - val(b));
-            break;
         case pdd_mul_op:
             if (is_zero(a) || is_zero(b)) return zero_pdd;
             if (is_one(a)) return b;
@@ -142,18 +136,11 @@ namespace dd {
                 
         switch (op) {
         case pdd_add_op:
-        case pdd_sub_op:
             if (is_val(a)) {
                 SASSERT(!is_val(b));
                 push(apply_rec(a, lo(b), op));
-                if (op == pdd_sub_op) {
-                    push(apply_rec(zero_pdd, hi(b), op));
-                    r = make_node(level_b, read(2), read(1));
-                }
-                else {
-                    r = make_node(level_b, read(1), hi(b));
-                    npop = 1;
-                }
+                r = make_node(level_b, read(1), hi(b));
+                npop = 1;                
             }
             else if (is_val(b)) {
                 SASSERT(!is_val(a));
@@ -172,10 +159,7 @@ namespace dd {
                 npop = 1;
             }
             else {
-                SASSERT(op == pdd_sub_op);
-                push(apply_rec(a, lo(b), op));
-                push(apply_rec(zero_pdd, hi(b), op));
-                r = make_node(level_b, read(2), read(1));
+                UNREACHABLE();
             }
             break;
         case pdd_mul_op:
@@ -232,14 +216,45 @@ namespace dd {
         return r;
     }
 
+    pdd pdd_manager::minus(pdd const& a) {
+        bool first = true;
+        SASSERT(well_formed());
+        scoped_push _sp(*this);
+        while (true) {
+            try {
+                return pdd(minus_rec(a.root), this);
+            }
+            catch (const mem_out &) {
+                try_gc();
+                if (!first) throw;
+                first = false;
+            }
+        }
+        SASSERT(well_formed());        
+    }
+
+    pdd_manager::PDD pdd_manager::minus_rec(PDD a) {
+        if (is_zero(a)) return zero_pdd;
+        if (is_val(a)) return imk_val(-val(a));
+        op_entry* e1 = pop_entry(a, a, pdd_minus_op);
+        op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
+        if (check_result(e1, e2, a, a, pdd_minus_op)) 
+            return e2->m_result;
+        push(minus_rec(lo(a)));
+        push(minus_rec(hi(a)));
+        PDD r = make_node(level(a), read(2), read(1));
+        pop(2);
+        e1->m_result = r;
+        return r;
+    }
+
     // q = lt(a)/lt(b), return a - b*q
     pdd_manager::PDD pdd_manager::reduce_on_match(PDD a, PDD b) {
         SASSERT(level(a) == level(b) && !is_val(a) && !is_val(b));
         if (lm_divides(b, a)) {
             PDD q = lt_quotient(b, a);
-            std::cout << pdd(b, this) << " divides " << pdd(a, this) << " q: " << pdd(q, this) << "\n";
             PDD r = apply(q, b, pdd_mul_op);
-            return apply(a, r, pdd_sub_op);
+            return apply(a, r, pdd_add_op);
         }
         else {
             return a;
@@ -268,7 +283,7 @@ namespace dd {
         SASSERT(is_val(p) || !is_val(q));
         if (is_val(p)) {
             if (is_val(q)) {
-                return imk_val(val(q)/val(p));
+                return imk_val(-val(q)/val(p));
             }     
         }   
         else if (level(p) == level(q)) {
@@ -289,9 +304,9 @@ namespace dd {
     pdd pdd_manager::spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc) { 
         pdd r1 = mul(qc, a);
         for (unsigned i = q.size(); i-- > 0; ) r1 = mul(mk_var(q[i]), r1);
-        pdd r2 = mul(pc, b);
+        pdd r2 = mul(-pc, b);
         for (unsigned i = p.size(); i-- > 0; ) r2 = mul(mk_var(p[i]), r2);
-        return sub(r1, r2);
+        return add(r1, r2);
     }
 
     bool pdd_manager::common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc) { 
@@ -444,15 +459,19 @@ namespace dd {
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
             m_todo.pop_back();
-            if (!is_marked(r)) {
-                ++sz;
-                set_mark(r);
-                if (!is_marked(lo(r))) {
-                    m_todo.push_back(lo(r));
-                }
-                if (!is_marked(hi(r))) {
-                    m_todo.push_back(hi(r));
-                }
+            if (is_marked(r)) {
+                continue;
+            }
+            ++sz;
+            set_mark(r);
+            if (is_val(r)) {
+                continue;
+            }
+            if (!is_marked(lo(r))) {
+                m_todo.push_back(lo(r));
+            }
+            if (!is_marked(hi(r))) {
+                m_todo.push_back(hi(r));
             }
         }
         return sz;
@@ -544,7 +563,6 @@ namespace dd {
     }
 
     pdd_manager::monomials_t pdd_manager::to_monomials(pdd const& p) {
-
         if (p.is_val()) {
             std::pair<rational, unsigned_vector> m;
             m.first = p.val();

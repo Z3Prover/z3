@@ -44,7 +44,7 @@ namespace dd {
 
         enum pdd_op {
             pdd_add_op = 2,
-            pdd_sub_op = 3,
+            pdd_minus_op = 3,
             pdd_mul_op = 4,
             pdd_reduce_op = 5,
             pdd_no_op = 6
@@ -148,6 +148,7 @@ namespace dd {
 
         PDD apply(PDD arg1, PDD arg2, pdd_op op);
         PDD apply_rec(PDD arg1, PDD arg2, pdd_op op);
+        PDD minus_rec(PDD p);
 
         PDD reduce_on_match(PDD a, PDD b);
         bool lm_divides(PDD p, PDD q) const;
