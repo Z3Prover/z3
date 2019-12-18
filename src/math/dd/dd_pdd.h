@@ -9,11 +9,16 @@ Abstract:
 
     Poly DD package
 
-    Internal nodes are of the form x*hi + lo
+    Non-leaf nodes are of the form x*hi + lo
     where 
     - maxdegree(x, lo) = 0, 
 
     Leaf nodes are of the form (0*idx + 0), where idx is an index into m_values.
+
+    - reduce(a, b) reduces a using the polynomial equality b = 0. That is, given b = lt(b) + tail(b), 
+      the occurrences in a where lm(b) divides a monomial a_i,      replace a_i in a by -tail(b)*a_i/lt(b)
+
+    - try_spoly(a, b, c) returns true if lt(a) and lt(b) have a non-trivial overlap. c is the resolvent (S polynomial).
 
 Author:
 
@@ -196,7 +201,6 @@ namespace dd {
 
         monomials_t to_monomials(pdd const& p);
 
-
         struct scoped_push {
             pdd_manager& m;
             unsigned     m_size;
@@ -252,9 +256,9 @@ namespace dd {
         pdd operator+(pdd const& other) const { return m->add(*this, other); }
         pdd operator-(pdd const& other) const { return m->sub(*this, other); }
         pdd operator*(pdd const& other) const { return m->mul(*this, other); }
-        pdd operator*(rational const& other) { return m->mul(other, *this); }
-        pdd operator+(rational const& other) { return m->add(other, *this); }
-        pdd reduce(pdd const& other) { return m->reduce(*this, other); }
+        pdd operator*(rational const& other) const { return m->mul(other, *this); }
+        pdd operator+(rational const& other) const { return m->add(other, *this); }
+        pdd reduce(pdd const& other) const { return m->reduce(*this, other); }
 
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
@@ -262,13 +266,15 @@ namespace dd {
         unsigned size() const { return m->pdd_size(*this); }
     };
 
-    inline pdd operator*(rational const& r, pdd& b) { return b * r; }
-    inline pdd operator*(int x, pdd& b) { return b * rational(x); }
-    inline pdd operator*(pdd& b, int x) { return b * rational(x); }
+    inline pdd operator*(rational const& r, pdd const& b) { return b * r; }
+    inline pdd operator*(int x, pdd const& b) { return b * rational(x); }
+    inline pdd operator*(pdd const& b, int x) { return b * rational(x); }
 
     inline pdd operator+(rational const& r, pdd& b) { return b + r; }
-    inline pdd operator+(int x, pdd& b) { return b + rational(x); }
-    inline pdd operator+(pdd& b, int x) { return b + rational(x); }
+    inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
+    inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
+
+    inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 
