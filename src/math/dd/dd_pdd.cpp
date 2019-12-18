@@ -64,6 +64,8 @@ namespace dd {
     pdd pdd_manager::mul(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
     pdd pdd_manager::minus(pdd const& b) { return pdd(apply(zero_pdd, b.root, pdd_sub_op), this); }
+    pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
+    pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -144,12 +146,18 @@ namespace dd {
             if (is_val(a)) {
                 SASSERT(!is_val(b));
                 push(apply_rec(a, lo(b), op));
-                r = make_node(level_b, read(1), hi(b));
-                npop = 1;
+                if (op == pdd_sub_op) {
+                    push(apply_rec(zero_pdd, hi(b), op));
+                    r = make_node(level_b, read(2), read(1));
+                }
+                else {
+                    r = make_node(level_b, read(1), hi(b));
+                    npop = 1;
+                }
             }
             else if (is_val(b)) {
                 SASSERT(!is_val(a));
-                push(apply_rec(b, lo(a), op));
+                push(apply_rec(lo(a), b, op));
                 r = make_node(level_a, read(1), hi(a));
                 npop = 1;
             }
@@ -164,9 +172,10 @@ namespace dd {
                 npop = 1;
             }
             else {
-                push(apply_rec(lo(b), a, op));
-                r = make_node(level_b, read(1), hi(b));
-                npop = 1;
+                SASSERT(op == pdd_sub_op);
+                push(apply_rec(a, lo(b), op));
+                push(apply_rec(zero_pdd, hi(b), op));
+                r = make_node(level_b, read(2), read(1));
             }
             break;
         case pdd_mul_op:
@@ -217,6 +226,7 @@ namespace dd {
         }
         pop(npop);
         e1->m_result = r;
+
         // SASSERT(well_formed());
         SASSERT(!m_free_nodes.contains(r));
         return r;
@@ -227,6 +237,7 @@ namespace dd {
         SASSERT(level(a) == level(b) && !is_val(a) && !is_val(b));
         if (lm_divides(b, a)) {
             PDD q = lt_quotient(b, a);
+            std::cout << pdd(b, this) << " divides " << pdd(a, this) << " q: " << pdd(q, this) << "\n";
             PDD r = apply(q, b, pdd_mul_op);
             return apply(a, r, pdd_sub_op);
         }
@@ -254,16 +265,16 @@ namespace dd {
     // assume lm_divides(p, q)
     pdd_manager::PDD pdd_manager::lt_quotient(PDD p, PDD q) {
         SASSERT(lm_divides(p, q));
+        SASSERT(is_val(p) || !is_val(q));
         if (is_val(p)) {
             if (is_val(q)) {
                 return imk_val(val(q)/val(p));
             }     
         }   
         else if (level(p) == level(q)) {
-            p = hi(p);
+            return lt_quotient(hi(p), hi(q));
         }
-        SASSERT(!is_val(q));
-        return lt_quotient(p, hi(q));
+        return apply(m_var2pdd[var(p)], lt_quotient(p, hi(q)), pdd_mul_op);
     }
 
     //
@@ -277,9 +288,9 @@ namespace dd {
 
     pdd pdd_manager::spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc) { 
         pdd r1 = mul(qc, a);
-        for (unsigned i = p.size(); i-- > 0; ) r1 = mul(mk_var(p[i]), r1);
-        pdd r2 = mul(qc, b);
-        for (unsigned i = q.size(); i-- > 0; ) r2 = mul(mk_var(q[i]), r2);
+        for (unsigned i = q.size(); i-- > 0; ) r1 = mul(mk_var(q[i]), r1);
+        pdd r2 = mul(pc, b);
+        for (unsigned i = p.size(); i-- > 0; ) r2 = mul(mk_var(p[i]), r2);
         return sub(r1, r2);
     }
 
@@ -290,8 +301,8 @@ namespace dd {
         while (true) {
             if (is_val(x) || is_val(y)) {
                 if (!has_common) return false;
-                while (!is_val(y)) y = hi(y);
-                while (!is_val(x)) x = hi(x);
+                while (!is_val(y)) q.push_back(var(y)), y = hi(y);
+                while (!is_val(x)) p.push_back(var(x)), x = hi(x);
                 pc = val(x);
                 qc = val(y);
                 return true;
@@ -532,29 +543,50 @@ namespace dd {
         }
     }
 
+    pdd_manager::monomials_t pdd_manager::to_monomials(pdd const& p) {
+
+        if (p.is_val()) {
+            std::pair<rational, unsigned_vector> m;
+            m.first = p.val();
+            monomials_t mons;
+            if (!m.first.is_zero()) {
+                mons.push_back(m);
+            }
+            return mons;
+        }
+        else {
+            monomials_t mons = to_monomials(p.hi());
+            for (auto & m : mons) {
+                m.second.push_back(p.var());
+            }
+            mons.append(to_monomials(p.lo()));
+            return mons;
+        }
+    }
+
     std::ostream& pdd_manager::display(std::ostream& out, pdd const& b) {
-        init_mark();
-        m_todo.push_back(b.root);
-        while (!m_todo.empty()) {
-            PDD r = m_todo.back();
-            if (is_marked(r)) {
-                m_todo.pop_back();
-            }
-            else if (is_val(r)) {
-                set_mark(r);
-                out << r << " : " << val(r) << "\n";
-                m_todo.pop_back();
-            }
-            else if (!is_marked(lo(r))) {
-                m_todo.push_back(lo(r));
-            }
-            else if (!is_marked(hi(r))) {
-                m_todo.push_back(hi(r));
+        auto mons = to_monomials(b);
+        bool first = true;
+        for (auto& m : mons) {
+            if (!first) {
+                if (m.first.is_neg()) out << " - ";
+                else out << " + ";
             }
             else {
-                out << r << " : " << var(r) << " @ " << level(r) << " " << lo(r) << " " << hi(r) << "\n";
-                set_mark(r);
-                m_todo.pop_back();
+                if (m.first.is_neg()) out << "- ";
+            }
+            first = false;
+            rational c = abs(m.first);
+            m.second.reverse();
+            if (!c.is_one()) {
+                out << c;
+                if (!m.second.empty()) out << "*";
+            }
+            bool f = true;
+            for (unsigned v : m.second) {
+                if (!f) out << "*";
+                f = false;
+                out << "v" << v;
             }
         }
         return out;
@@ -577,6 +609,7 @@ namespace dd {
             unsigned lvl = n.m_level;
             PDD lo = n.m_lo;
             PDD hi = n.m_hi;
+            if (hi == 0) continue; // it is a value
             ok &= is_val(lo) || level(lo) <= lvl;
             ok &= is_val(hi) || level(hi) <= lvl;
             ok &= is_val(lo) || !m_nodes[lo].is_internal();
@@ -593,8 +626,15 @@ namespace dd {
     std::ostream& pdd_manager::display(std::ostream& out) {
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
             pdd_node const& n = m_nodes[i];
-            if (n.is_internal()) continue;
-            out << i << " : v" << m_level2var[n.m_level] << " " << n.m_lo << " " << n.m_hi << "\n";
+            if (i != 0 && n.is_internal()) {
+                continue;
+            }
+            else if (is_val(i)) {
+                out << i << " : " << val(i) << "\n";
+            }
+            else {
+                out << i << " : v" << m_level2var[n.m_level] << " " << n.m_lo << " " << n.m_hi << "\n";
+            }
         }
         return out;
     }

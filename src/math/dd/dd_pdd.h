@@ -36,6 +36,7 @@ namespace dd {
         friend pdd;
 
         typedef unsigned PDD;
+        typedef vector<std::pair<rational,unsigned_vector>> monomials_t;
 
         const PDD null_pdd = UINT_MAX;
         const PDD zero_pdd = 0;
@@ -192,6 +193,9 @@ namespace dd {
         pdd spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc);
         bool common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc);
 
+        monomials_t to_monomials(pdd const& p);
+
+
         struct scoped_push {
             pdd_manager& m;
             unsigned     m_size;
@@ -211,6 +215,8 @@ namespace dd {
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);
+        pdd zero(); 
+        pdd one(); 
         pdd minus(pdd const& a);
         pdd add(pdd const& a, pdd const& b);
         pdd add(rational const& a, pdd const& b);
@@ -256,7 +262,12 @@ namespace dd {
     };
 
     inline pdd operator*(rational const& r, pdd& b) { return b * r; }
+    inline pdd operator*(int x, pdd& b) { return b * rational(x); }
+    inline pdd operator*(pdd& b, int x) { return b * rational(x); }
+
     inline pdd operator+(rational const& r, pdd& b) { return b + r; }
+    inline pdd operator+(int x, pdd& b) { return b + rational(x); }
+    inline pdd operator+(pdd& b, int x) { return b + rational(x); }
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 

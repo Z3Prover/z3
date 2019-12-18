@@ -2,7 +2,7 @@
 
 namespace dd {
     static void test1() {
-        pdd_manager m(20);
+        pdd_manager m(3);
         pdd v0 = m.mk_var(0);
         pdd v1 = m.mk_var(1);
         pdd v2 = m.mk_var(2);
@@ -18,6 +18,35 @@ namespace dd {
         c2 = v2 + v1 + v0;
         std::cout << c1 << "\n";
         SASSERT(c1 == c2);
+
+        c1 = (v0+v1) * v2;
+        c2 = (v0*v2) + (v1*v2);
+        std::cout << c1 << "\n";
+        SASSERT(c1 == c2);
+        c1 = (c1 + 3) + 1;
+        c2 = (c2 + 1) + 3;
+        std::cout << c1 << "\n";
+        SASSERT(c1 == c2);
+        c1 = v0 - v1;
+        c2 = v1 - v0;
+        std::cout << c1 << " " << c2 << "\n";
+
+        c1 = v1*v2;
+        c2 = (v0*v2) + (v2*v2);
+        pdd c3 = m.zero();
+        VERIFY(m.try_spoly(c1, c2, c3));
+        std::cout << c1 << " " << c2 << " spoly: " << c3 << "\n";
+
+        c1 = v1*v2;
+        c2 = (v0*v2) + (v1*v1);
+        VERIFY(m.try_spoly(c1, c2, c3));
+        std::cout << c1 << " " << c2 << " spoly: " << c3 << "\n";
+
+        c1 = (v0*v1) - (v0*v0);
+        c2 = (v0*v1*(v2 + v0)) + v2;
+        c3 = c2.reduce(c1);
+        std::cout << c1 << " " << c2 << " reduce: " << c3 << "\n";
+
     }
 }
 
