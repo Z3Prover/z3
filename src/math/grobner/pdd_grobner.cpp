@@ -72,16 +72,12 @@ namespace dd {
     
     grobner::equation* grobner::pick_next() {
         equation* eq = nullptr;
-        ptr_buffer<equation> to_delete;
         for (auto* curr : m_to_simplify) {
-            if (!eq|| is_simpler(*curr, *eq)) {
+            if (!eq || is_simpler(*curr, *eq)) {
                 eq = curr;
             }
         }
-        for (auto* e : to_delete)
-            del_equation(e);
-        if (eq) 
-            m_to_simplify.erase(eq);
+        if (eq) m_to_simplify.erase(eq);
         return eq;
     }
 
@@ -174,10 +170,9 @@ namespace dd {
         if (!m.try_spoly(eq1.poly(), eq2.poly(), r)) return;
         m_stats.m_superposed++;
         if (r.is_zero()) return;
-        unsigned idx = m_equations.size();
-        equation* eq = alloc(equation, r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()), idx);
+        equation* eq = alloc(equation, r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()), m_equations.size());
         update_stats_max_degree_and_size(*eq);
-        if (r.is_val()) set_conflict();
+        check_conflict(*eq);
         m_to_simplify.insert(eq);
     }
 

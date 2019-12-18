@@ -441,7 +441,7 @@ namespace dd {
     pdd_manager::PDD pdd_manager::make_node(unsigned lvl, PDD l, PDD h) {
         m_is_new_node = false;
         if (is_zero(h)) return l;
-        SASSERT(is_val(l) || level(l) <= lvl);
+        SASSERT(is_val(l) || level(l) < lvl);
         SASSERT(is_val(h) || level(h) <= lvl);
         pdd_node n(lvl, l, h, tree_size(l) + tree_size(h) + 1);
         return insert_node(n);
@@ -706,7 +706,7 @@ namespace dd {
             PDD lo = n.m_lo;
             PDD hi = n.m_hi;
             if (hi == 0) continue; // it is a value
-            ok &= is_val(lo) || level(lo) <= lvl;
+            ok &= is_val(lo) || level(lo) < lvl;
             ok &= is_val(hi) || level(hi) <= lvl;
             ok &= is_val(lo) || !m_nodes[lo].is_internal();
             ok &= is_val(hi) || !m_nodes[hi].is_internal();
