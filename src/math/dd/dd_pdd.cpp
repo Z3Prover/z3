@@ -63,6 +63,7 @@ namespace dd {
     pdd pdd_manager::mk_val(rational const& r) { return pdd(imk_val(r), this); }
     pdd pdd_manager::mul(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
+    pdd pdd_manager::minus(pdd const& b) { return pdd(apply(zero_pdd, b.root, pdd_sub_op), this); }
     
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -422,43 +423,7 @@ namespace dd {
 
     pdd pdd_manager::mk_var(unsigned i) {
         reserve_var(i);
-        std::cout << m_var2pdd[i] << "\n";
         return pdd(m_var2pdd[i], this);        
-    }
-
-    pdd pdd_manager::minus(pdd const &b) {
-        bool first = true;
-        while (true) {
-            try {
-                return pdd(minus_rec(b.root), this);
-            }
-            catch (const mem_out &) {
-                if (!first) throw;
-                try_gc();
-                first = false;
-            }
-        }
-    }
-
-    pdd_manager::PDD pdd_manager::minus_rec(PDD b) {
-        if (is_zero(b)) {
-            return zero_pdd;
-        }
-
-        if (is_val(b)) {
-            return imk_val(-val(b));
-        }
-
-        op_entry* e1 = pop_entry(b, b, pdd_minus_op);
-        op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-        if (check_result(e1, e2, b, b, pdd_minus_op)) 
-            return e2->m_result;
-        push(minus_rec(lo(b)));
-        push(minus_rec(hi(b)));
-        PDD r = make_node(level(b), read(2), read(1));
-        pop(2);
-        e1->m_result = r;
-        return r;
     }
     
     unsigned pdd_manager::pdd_size(pdd const& b) {

@@ -45,9 +45,8 @@ namespace dd {
             pdd_add_op = 2,
             pdd_sub_op = 3,
             pdd_mul_op = 4,
-            pdd_minus_op = 5,
-            pdd_reduce_op = 6,
-            pdd_no_op = 7
+            pdd_reduce_op = 5,
+            pdd_no_op = 6
         };
 
         struct pdd_node {
@@ -147,14 +146,13 @@ namespace dd {
         bool is_new_node() const { return m_is_new_node; }
 
         PDD apply(PDD arg1, PDD arg2, pdd_op op);
+        PDD apply_rec(PDD arg1, PDD arg2, pdd_op op);
+
         PDD reduce_on_match(PDD a, PDD b);
         bool lm_divides(PDD p, PDD q) const;
         PDD lt_quotient(PDD p, PDD q);
 
-        PDD apply_rec(PDD arg1, PDD arg2, pdd_op op);
-        PDD imk_val(rational const& r);
-        PDD minus_rec(PDD a);
-        
+        PDD imk_val(rational const& r);        
 
         void push(PDD b);
         void pop(unsigned num_scopes);
