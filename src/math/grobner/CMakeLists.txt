@@ -4,4 +4,5 @@ z3_add_component(grobner
     pdd_grobner.cpp
   COMPONENT_DEPENDENCIES
     ast
+    dd
 )

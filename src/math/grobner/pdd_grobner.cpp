@@ -43,8 +43,14 @@ namespace dd {
     }
 
     void grobner::compute_basis() {
-        while (!done() && compute_basis_step()) {
-            TRACE("grobner", display(tout););
+        try {
+            while (!done() && compute_basis_step()) {
+                TRACE("grobner", display(tout););
+                DEBUG_CODE(invariant(););
+            }
+        }
+        catch (pdd_manager::mem_out) {
+            // don't reduce further
         }
     }
 
@@ -85,6 +91,9 @@ namespace dd {
         }
     }
 
+    /*
+      Use a set of equations to simplify eq
+    */
     bool grobner::simplify_using(equation& eq, equation_set const& eqs) {
         bool simplified, changed_leading_term;
         TRACE("grobner", tout << "simplifying: "; display_equation(tout, eq); tout << "using equalities of size " << eqs.size() << "\n";);
@@ -134,8 +143,12 @@ namespace dd {
             toggle_processed(*eq);
         return true;
     }    
-    
-    // return true iff simplified
+
+    /*
+      simplify target using source.
+      return true if the target was simplified. 
+      set changed_leading_term if the target is in the m_processed set and the leading term changed.
+     */
     bool grobner::simplify_source_target(equation const& source, equation& target, bool& changed_leading_term) {
         TRACE("grobner", tout << "simplifying: " << target.poly() << "\nusing: " << source.poly() << "\n";);
         m_stats.m_simplified++;
@@ -152,7 +165,9 @@ namespace dd {
         return true;
     }
 
-    // let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
+    /*
+       let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
+    */
     void grobner::superpose(equation const& eq1, equation const& eq2) {
         TRACE("grobner_d", tout << "eq1="; display_equation(tout, eq1) << "eq2="; display_equation(tout, eq2););
         pdd r(m);
@@ -226,15 +241,16 @@ namespace dd {
     }
     
     void grobner::update_stats_max_degree_and_size(const equation& e) {
-        // TBD m_stats.m_max_expr_size = std::max(m_stats.m_max_expr_size, e.poly().size());
-        // TBD m_stats.m_max_expr_degree = std::max(m_stats.m_max_expr_degree, e.poly.degree());
+        m_stats.m_max_expr_size = std::max(m_stats.m_max_expr_size, e.poly().tree_size());
+        m_stats.m_max_expr_degree = std::max(m_stats.m_max_expr_degree, e.poly().degree());
     }
     
-    std::ostream& grobner::print_stats(std::ostream & out) const {
-        return out << "stats:\nsteps = " << m_stats.m_compute_steps << "\nsimplified: " <<
-            m_stats.m_simplified << "\nsuperposed: " <<
-            m_stats.m_superposed << "\nexpr degree: " << m_stats.m_max_expr_degree <<
-            "\nexpr size: " << m_stats.m_max_expr_size << "\n";
+    void grobner::collect_statistics(statistics& st) const {
+        st.update("steps", m_stats.m_compute_steps);
+        st.update("simplified", m_stats.m_simplified);
+        st.update("superposed", m_stats.m_superposed);
+        st.update("degree", m_stats.m_max_expr_degree);
+        st.update("size", m_stats.m_max_expr_size);
     }
             
     std::ostream& grobner::display_equation(std::ostream & out, const equation & eq) const {
@@ -246,8 +262,28 @@ namespace dd {
     std::ostream& grobner::display(std::ostream& out) const {
         out << "processed\n"; for (auto e : m_processed) display_equation(out, *e);
         out << "to_simplify\n"; for (auto e : m_to_simplify) display_equation(out, *e);
+        statistics st;
+        collect_statistics(st);
+        st.display(out);
         return out;
     }
+
+    void grobner::invariant() const {
+        for (auto* e : m_processed) {
+            SASSERT(e->is_processed());            
+        }
+        for (auto* e : m_to_simplify) {
+            SASSERT(!e->is_processed());            
+        }
+        for (auto* e : m_equations) {
+            if (e) {
+                SASSERT(!e->is_processed() || m_processed.contains(e));
+                SASSERT(e->is_processed() || m_to_simplify.contains(e));
+                SASSERT(!is_trivial(*e));
+            }
+        }
+    }
+
 
 }
 

@@ -33,7 +33,7 @@ def init_project_def():
     add_lib('tactic', ['ast', 'model'])
     add_lib('substitution', ['ast', 'rewriter'], 'ast/substitution')
     add_lib('parser_util', ['ast'], 'parsers/util')
-    add_lib('grobner', ['ast'], 'math/grobner')
+    add_lib('grobner', ['ast', 'dd'], 'math/grobner')
     add_lib('euclid', ['util'], 'math/euclid')
     add_lib('proofs', ['rewriter', 'util'], 'ast/proofs')
     add_lib('solver', ['model', 'tactic', 'proofs'])

@@ -35,7 +35,7 @@ namespace dd {
         imk_val(rational::zero()); // becomes pdd_zero
         imk_val(rational::one());  // becomes pdd_one
         for (unsigned i = 2; i <= pdd_no_op + 2; ++i) {
-            m_nodes.push_back(pdd_node(0,0,0));
+            m_nodes.push_back(pdd_node(0,0,0,0));
             m_nodes.back().m_refcount = max_rc;
             m_nodes.back().m_index = m_nodes.size()-1;
         }
@@ -388,6 +388,9 @@ namespace dd {
         }
     }
 
+    double pdd_manager::tree_size(pdd const& p) const { return tree_size(p.root); }
+
+
     void pdd_manager::push(PDD b) {
         m_pdd_stack.push_back(b);
     }
@@ -440,7 +443,7 @@ namespace dd {
         if (is_zero(h)) return l;
         SASSERT(is_val(l) || level(l) <= lvl);
         SASSERT(is_val(h) || level(h) <= lvl);
-        pdd_node n(lvl, l, h);
+        pdd_node n(lvl, l, h, tree_size(l) + tree_size(h) + 1);
         return insert_node(n);
     }
 
@@ -500,7 +503,7 @@ namespace dd {
         return pdd(m_var2pdd[i], this);        
     }
     
-    unsigned pdd_manager::pdd_size(pdd const& b) {
+    unsigned pdd_manager::dag_size(pdd const& b) {
         init_mark();
         set_mark(0);
         set_mark(1);
@@ -525,6 +528,31 @@ namespace dd {
             }
         }
         return sz;
+    }
+
+    unsigned pdd_manager::degree(pdd const& b) {
+        init_mark();
+        m_degree.reserve(m_nodes.size());
+        m_todo.push_back(b.root);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            if (is_marked(r)) {
+                m_todo.pop_back();
+            }
+            else if (is_val(r)) {
+                m_degree[r] = 0;
+                set_mark(r);
+            }
+            else if (!is_marked(lo(r)) || !is_marked(hi(r))) {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+            else {
+                m_degree[r] = std::max(m_degree[lo(r)], m_degree[hi(r)]+1); 
+                set_mark(r);
+            }
+        }
+        return m_degree[b.root];
     }
 
     void pdd_manager::alloc_free_nodes(unsigned n) {

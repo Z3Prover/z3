@@ -19,11 +19,12 @@
   --*/
 #pragma once
 
-#include "math/dd/dd_pdd.h"
 #include "util/dependency.h"
 #include "util/obj_hashtable.h"
 #include "util/region.h"
 #include "util/rlimit.h"
+#include "util/statistics.h"
+#include "math/dd/dd_pdd.h"
 
 namespace dd {
 
@@ -31,7 +32,7 @@ class grobner {
 public:
     struct stats {
         unsigned m_simplified;
-        unsigned m_max_expr_size;
+        double   m_max_expr_size;
         unsigned m_max_expr_degree;
         unsigned m_superposed;
         unsigned m_compute_steps;
@@ -40,13 +41,14 @@ public:
 
     struct config {
         unsigned m_eqs_threshold;
+        unsigned m_expr_size_limit;
     };
 
 private:
     class equation {
         bool                       m_processed;  //!< state
         unsigned                   m_idx;        //!< position at m_equations
-        pdd                        m_poly;       //   simplified expressionted monomials
+        pdd                        m_poly;       //!< polynomial in pdd form
         u_dependency *             m_dep;        //!< justification for the equality
     public:
         equation(pdd const& p, u_dependency* d, unsigned idx): 
@@ -89,10 +91,14 @@ public:
     void operator=(config const& c) { m_config = c; }
 
     void reset();
-    void compute_basis();
     void add(pdd const&, u_dependency * dep);
+
+    void compute_basis();
+
     equation_set const& equations();
     u_dependency_manager& dep() const { return m_dep_manager;  }
+
+    void collect_statistics(statistics & st) const;
     std::ostream& display_equation(std::ostream& out, const equation& eq) const;
     std::ostream& display(std::ostream& out) const;
 
@@ -117,10 +123,9 @@ private:
     void del_equations(unsigned old_size);
     void del_equation(equation* eq);    
 
+    void invariant() const;
+
     void update_stats_max_degree_and_size(const equation& e);
-
-    std::ostream& print_stats(std::ostream&) const;
-
 };
 
 }

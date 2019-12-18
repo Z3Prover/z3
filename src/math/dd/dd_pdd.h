@@ -56,27 +56,30 @@ namespace dd {
         };
 
         struct pdd_node {
-            pdd_node(unsigned level, PDD lo, PDD hi):
+            pdd_node(unsigned level, PDD lo, PDD hi, double tree_size):
                 m_refcount(0),
                 m_level(level),
                 m_lo(lo),
                 m_hi(hi),
-                m_index(0)
+                m_index(0),
+                m_tree_size(tree_size)
             {}
             pdd_node(unsigned value):
                 m_refcount(0),
                 m_level(0),
                 m_lo(value),
                 m_hi(0),
-                m_index(0)
+                m_index(0),
+                m_tree_size(1)
             {}
 
-            pdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
+            pdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0), m_tree_size(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
             PDD      m_lo;
             PDD      m_hi;
             unsigned m_index;
+            double   m_tree_size;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); } 
             bool is_internal() const { return m_lo == 0 && m_hi == 0; }
             void set_internal() { m_lo = 0; m_hi = 0; }
@@ -142,6 +145,7 @@ namespace dd {
         mutable svector<unsigned>  m_mark;
         mutable unsigned           m_mark_level;
         mutable svector<PDD>       m_todo;
+        mutable unsigned_vector    m_degree;
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_pdd_nodes;
@@ -186,8 +190,10 @@ namespace dd {
         inline void inc_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; SASSERT(!m_free_nodes.contains(b)); }
         inline void dec_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; SASSERT(!m_free_nodes.contains(b)); }
         inline PDD level2pdd(unsigned l) const { return m_var2pdd[m_level2var[l]]; }
+        inline double tree_size(PDD p) const { return m_nodes[p].m_tree_size; }
 
-        unsigned pdd_size(pdd const& b);
+        unsigned dag_size(pdd const& b);
+        unsigned degree(pdd const& p);
 
         void try_gc();
         void reserve_var(unsigned v);
@@ -231,6 +237,7 @@ namespace dd {
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
         bool lt(pdd const& a, pdd const& b);
         bool different_leading_term(pdd const& a, pdd const& b);
+        double tree_size(pdd const& p) const;
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, pdd const& b);
@@ -269,7 +276,9 @@ namespace dd {
         bool operator!=(pdd const& other) const { return root != other.root; }
         bool operator<(pdd const& b) const { return m->lt(*this, b); }
 
-        unsigned size() const { return m->pdd_size(*this); }
+        unsigned dag_size() const { return m->dag_size(*this); }
+        double tree_size() const { return m->tree_size(*this); }
+        unsigned degree() const { return m->degree(*this); }
     };
 
     inline pdd operator*(rational const& r, pdd const& b) { return b * r; }
