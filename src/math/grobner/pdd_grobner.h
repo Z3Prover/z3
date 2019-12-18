@@ -119,6 +119,9 @@ private:
     bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
     bool check_conflict(equation const& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(), true); }    
     void set_conflict() { m_conflict = true; }
+    bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
+    bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
+
 
     void del_equations(unsigned old_size);
     void del_equation(equation* eq);    

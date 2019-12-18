@@ -126,6 +126,8 @@ namespace dd {
             if (simplify_source_target(eq, *target, changed_leading_term)) {
                 if (is_trivial(*target))
                     to_delete.push_back(target);
+                else if (is_too_complex(*target))
+                    to_delete.push_back(target);
                 else if (check_conflict(*target))
                     return false;
                 else if (changed_leading_term && target->is_processed()) {
@@ -170,6 +172,7 @@ namespace dd {
         if (!m.try_spoly(eq1.poly(), eq2.poly(), r)) return;
         m_stats.m_superposed++;
         if (r.is_zero()) return;
+        if (is_too_complex(r)) return;
         equation* eq = alloc(equation, r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()), m_equations.size());
         m_equations.push_back(eq);
         update_stats_max_degree_and_size(*eq);
