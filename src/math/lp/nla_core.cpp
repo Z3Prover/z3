@@ -1280,10 +1280,11 @@ lbool core::incremental_linearization(bool constraint_derived) {
 // obtain the lemmas
 lbool core::inner_check(bool constraint_derived) {
     if (constraint_derived) {
-        if (need_to_call_horner())
-            m_horner.horner_lemmas();
-        else if (need_to_call_grobner())
-            m_grobner.grobner_lemmas();
+        if (need_to_call_algebraic_methods())
+            if (!(m_nla_settings.run_horner() && m_horner.horner_lemmas())) {
+                if (m_nla_settings.run_grobner())
+                    m_grobner.grobner_lemmas();
+            }
         if (done()) {
             return l_false;
         }

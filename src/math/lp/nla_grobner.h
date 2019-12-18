@@ -36,6 +36,37 @@ struct grobner_stats {
     grobner_stats() { reset(); }
 };
 
+template <typename A, typename B, typename C>
+class concat {    
+    const A& m_a; // the first container
+    const B& m_b; // the second container    
+public:
+    class iterator {
+        const concat& m_c;
+        typename A::iterator m_a_it;
+        typename B::iterator m_b_it;
+    public:
+        iterator(const concat& c, bool begin):
+            m_c(c), m_a_it(begin? m_c.m_a.begin() : m_c.m_a.end()), m_b_it(begin? m_c.m_b.begin() : m_c.m_b.end()) {}
+        const C operator*() { return m_a_it != m_c.m_a.end() ? *m_a_it : *m_b_it; }
+        iterator& operator++() {
+            if (m_a_it != m_c.m_a.end())
+                m_a_it++;
+            else
+                m_b_it++;
+            return *this;
+        }
+        iterator operator++(int) { iterator tmp = *this; ++*this; return tmp; }
+        bool operator==(iterator const& other) const { return m_a_it == other.m_a_it && m_b_it == other.m_b_it; }
+        bool operator!=(iterator const& other) const { return m_a_it != other.m_a_it || m_b_it != other.m_b_it; }
+    };
+
+    concat(const A& a, const B& b) : m_a(a), m_b(b) {}
+    iterator begin() { return iterator(*this, true); }
+    iterator end() { return iterator(*this, false); }
+
+};
+
 class grobner_core {
 public:
     struct params {
@@ -92,7 +123,6 @@ private:
     mutable common::ci_dependency_manager        m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
-    equation_set                                 m_all_eqs;
     params                                       m_params;
 
 public:
@@ -107,9 +137,10 @@ public:
     void reset();
     bool compute_basis_loop();
     void assert_eq_0(nex*, common::ci_dependency * dep);
-    equation_set const& equations();
+    concat<equation_set, equation_set, equation*> equations();
     common::ci_dependency_manager& dep() const { return m_dep_manager;  }
 
+    void display_equations_no_deps(std::ostream& out, equation_set const& v, char const* header) const;
     void display_equations(std::ostream& out, equation_set const& v, char const* header) const;
     std::ostream& display_equation(std::ostream& out, const equation& eq) const;
     std::ostream& display(std::ostream& out) const;
