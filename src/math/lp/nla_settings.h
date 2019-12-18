@@ -44,7 +44,7 @@ public:
                      m_grobner_frequency(5),
                      m_grobner_eqs_threshold(512),
                      m_grobner_row_length_limit(10),
-                     m_grobner_expr_size_limit(50)
+                     m_grobner_expr_size_limit(20)
     {}
     
     unsigned grobner_eqs_threshold() const { return m_grobner_eqs_threshold; }
