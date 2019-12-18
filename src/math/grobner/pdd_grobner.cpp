@@ -171,6 +171,7 @@ namespace dd {
         m_stats.m_superposed++;
         if (r.is_zero()) return;
         equation* eq = alloc(equation, r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()), m_equations.size());
+        m_equations.push_back(eq);
         update_stats_max_degree_and_size(*eq);
         check_conflict(*eq);
         m_to_simplify.insert(eq);
