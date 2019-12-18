@@ -145,12 +145,12 @@ public:
     
     lpvar var(const factor& f) const { return f.var(); }
 
-    bool need_to_call_horner() const { return lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; }
-
-    bool need_to_call_grobner() const {
-        return m_nla_settings.run_grobner() &&
-            lp_settings().stats().m_nla_calls % m_nla_settings.grobner_frequency() == 0;
-    }
+    // returns true if the combination of the Horner's schema and Grobner Basis should be called
+    bool need_to_call_algebraic_methods() const { 
+	return
+            lp_settings().stats().m_nla_calls < 20 ||
+            lp_settings().stats().m_nla_calls % m_nla_settings.horner_frequency() == 0; 
+			}
 
     lbool incremental_linearization(bool);
     

@@ -36,7 +36,7 @@ class horner : common {
 public:
     typedef intervals::interval interv;
     horner(core *core, intervals*);
-    void horner_lemmas();
+    bool horner_lemmas();
     template <typename T> // T has an iterator of (coeff(), var())
     bool lemmas_on_row(const T&);
     template <typename T>  bool row_is_interesting(const T&) const;

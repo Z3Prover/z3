@@ -90,15 +90,15 @@ bool horner::lemmas_on_row(const T& row) {
     return lemmas_on_expr(cn, to_sum(e));
 }
 
-void horner::horner_lemmas() {
+bool horner::horner_lemmas() {
     if (!c().m_nla_settings.run_horner()) {
         TRACE("nla_solver", tout << "not generating horner lemmas\n";);
-        return;
+        return false;
     }
     c().lp_settings().stats().m_horner_calls++;
     const auto& matrix = c().m_lar_solver.A_r();
     // choose only rows that depend on m_to_refine variables
-    std::set<unsigned> rows_to_check; // we need it to be determenistic: cannot work with the unordered_set
+    std::set<unsigned> rows_to_check;
     for (lpvar j : c().m_to_refine) {
         for (auto & s : matrix.m_columns[j])
             rows_to_check.insert(s.var());
@@ -112,13 +112,15 @@ void horner::horner_lemmas() {
 
     unsigned r = c().random();
     unsigned sz = rows.size();
-    for (unsigned i = 0; i < sz; i++) {
+    bool conflict = false;
+    for (unsigned i = 0; i < sz && !conflict; i++) {
         m_row_index = rows[(i + r) % sz];
         if (lemmas_on_row(matrix.m_rows[m_row_index])) {
             c().lp_settings().stats().m_horner_conflicts++;
-            break;
+            conflict = true;
         }
     }
+    return conflict;
 }
 }
 

@@ -67,8 +67,6 @@ public:
     bool run_grobner() const { return m_run_grobner; }
     bool& run_grobner() { return m_run_grobner; }    
 
-    unsigned grobner_frequency() const { return m_grobner_frequency; }
-    unsigned& grobner_frequency() { return m_grobner_frequency; }
     unsigned grobner_row_length_limit() const { return m_grobner_row_length_limit; }
     unsigned grobner_expr_size_limit() const { return m_grobner_expr_size_limit; }
 };
