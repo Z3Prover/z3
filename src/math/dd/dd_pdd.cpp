@@ -81,6 +81,7 @@ namespace dd {
             }
         }
         SASSERT(well_formed());
+        return 0;
     }
 
     bool pdd_manager::check_result(op_entry*& e1, op_entry const* e2, PDD a, PDD b, PDD c) {
@@ -231,6 +232,7 @@ namespace dd {
             }
         }
         SASSERT(well_formed());        
+        return pdd(zero_pdd, this);
     }
 
     pdd_manager::PDD pdd_manager::minus_rec(PDD a) {
