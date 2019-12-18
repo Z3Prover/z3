@@ -338,6 +338,56 @@ namespace dd {
         }
     }
 
+    /*
+     * Compare leading monomials.
+     * The pdd format makes lexicographic comparison easy: compare based on
+     * the top variable and descend depending on whether hi(x) == hi(y)
+     */
+    bool pdd_manager::lt(pdd const& a, pdd const& b) {
+        PDD x = a.root;
+        PDD y = b.root;
+        if (x == y) return false;
+        while (true) {
+            SASSERT(x != y);
+            if (is_val(x)) 
+                return !is_val(y) || val(x) < val(y);
+            if (is_val(y)) 
+                return false;
+            if (level(x) == level(y)) {
+                if (hi(x) == hi(y)) {
+                    x = lo(x);
+                    y = lo(y);
+                }
+                else {
+                    x = hi(x);
+                    y = hi(y);
+                }
+            }
+            else {
+                return level(x) > level(y);
+            }
+        }
+    }
+
+    /**
+       Compare leading terms of pdds
+     */
+    bool pdd_manager::different_leading_term(pdd const& a, pdd const& b) {
+        PDD x = a.root;
+        PDD y = b.root;
+        while (true) {
+            if (x == y) return false;
+            if (is_val(x) || is_val(y)) return true;
+            if (level(x) == level(y)) {
+                x = hi(x);
+                y = hi(y);
+            }
+            else {
+                return false;
+            }
+        }
+    }
+
     void pdd_manager::push(PDD b) {
         m_pdd_stack.push_back(b);
     }

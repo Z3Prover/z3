@@ -141,7 +141,6 @@ namespace dd {
         small_object_allocator     m_alloc;
         mutable svector<unsigned>  m_mark;
         mutable unsigned           m_mark_level;
-        mutable svector<double>    m_count;
         mutable svector<PDD>       m_todo;
         bool                       m_disable_gc;
         bool                       m_is_new_node;
@@ -230,6 +229,8 @@ namespace dd {
         pdd mul(rational const& c, pdd const& b);
         pdd reduce(pdd const& a, pdd const& b);
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
+        bool lt(pdd const& a, pdd const& b);
+        bool different_leading_term(pdd const& a, pdd const& b);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, pdd const& b);
@@ -243,7 +244,8 @@ namespace dd {
         pdd_manager* m;
         pdd(unsigned root, pdd_manager* m): root(root), m(m) { m->inc_ref(root); }
     public:
-        pdd(pdd & other): root(other.root), m(other.m) { m->inc_ref(root); }
+        pdd(pdd_manager& pm): root(0), m(&pm) { SASSERT(is_zero()); }
+        pdd(pdd const& other): root(other.root), m(other.m) { m->inc_ref(root); }
         pdd(pdd && other): root(0), m(other.m) { std::swap(root, other.root); }
         pdd& operator=(pdd const& other);
         ~pdd() { m->dec_ref(root); }
@@ -252,6 +254,7 @@ namespace dd {
         unsigned var() const { return m->var(root); }
         rational const& val() const { SASSERT(is_val()); return m->val(root); }
         bool is_val() const { return m->is_val(root); }
+        bool is_zero() const { return m->is_zero(root); }
 
         pdd operator+(pdd const& other) const { return m->add(*this, other); }
         pdd operator-(pdd const& other) const { return m->sub(*this, other); }
@@ -259,10 +262,13 @@ namespace dd {
         pdd operator*(rational const& other) const { return m->mul(other, *this); }
         pdd operator+(rational const& other) const { return m->add(other, *this); }
         pdd reduce(pdd const& other) const { return m->reduce(*this, other); }
+        bool different_leading_term(pdd const& other) const { return m->different_leading_term(*this, other); }
 
         std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
+        bool operator<(pdd const& b) const { return m->lt(*this, b); }
+
         unsigned size() const { return m->pdd_size(*this); }
     };
 
@@ -275,6 +281,7 @@ namespace dd {
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
+
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 
