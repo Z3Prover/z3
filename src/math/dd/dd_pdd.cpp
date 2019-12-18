@@ -272,9 +272,7 @@ namespace dd {
     // compute a*q*qc - b*p*pc
     //
     bool pdd_manager::try_spoly(pdd const& a, pdd const& b, pdd& r) {
-        if (!common_factors(a, b, m_p, m_q, m_pc, m_qc)) return false;
-        r = spoly(a, b, m_p, m_q, m_pc, m_qc);
-        return true;
+        return common_factors(a, b, m_p, m_q, m_pc, m_qc) && (r = spoly(a, b, m_p, m_q, m_pc, m_qc), true);
     }
 
     pdd pdd_manager::spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc) { 
