@@ -12,7 +12,7 @@
   Author:
   Nikolaj Bjorner (nbjorner)
   Lev Nachmanson (levnach)
-
+  
   Revision History:
 
 
@@ -29,12 +29,9 @@ namespace nla {
 class core;
 
 class intervals {
-    typedef common::ci_dependency_manager ci_dependency_manager;
-    typedef ci_dependency_manager::dependency ci_dependency;
-
     class im_config {
         unsynch_mpq_manager& m_manager;
-        common::ci_dependency_manager& m_dep_manager;
+        u_dependency_manager& m_dep_manager;
 
     public:
         typedef unsynch_mpq_manager numeral_manager;
@@ -52,8 +49,8 @@ class intervals {
             unsigned  m_upper_open : 1;
             unsigned  m_lower_inf : 1;
             unsigned  m_upper_inf : 1;
-            ci_dependency* m_lower_dep; // justification for the lower bound
-            ci_dependency* m_upper_dep; // justification for the upper bound
+            u_dependency* m_lower_dep; // justification for the lower bound
+            u_dependency* m_upper_dep; // justification for the upper bound
         };
 
         void add_deps(interval const& a, interval const& b,
@@ -105,10 +102,10 @@ class intervals {
         // Reference to numeral manager
         numeral_manager& m() const { return m_manager; }
 
-        im_config(numeral_manager& m, ci_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
+        im_config(numeral_manager& m, u_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
     private:
-        ci_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
-            ci_dependency* dep = nullptr;
+        u_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
+            u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
             }
@@ -124,8 +121,8 @@ class intervals {
             return dep;
         }
 
-        ci_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
-            ci_dependency* dep = nullptr;
+        u_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
+            u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
             }
@@ -140,17 +137,17 @@ class intervals {
     region                              m_alloc;
     common::ci_value_manager            m_val_manager;
     mutable unsynch_mpq_manager         m_num_manager;
-    mutable ci_dependency_manager       m_dep_manager;
+    mutable u_dependency_manager        m_dep_manager;
     im_config                           m_config;
     mutable interval_manager<im_config> m_imanager;
     core* m_core;
 
 public:
-    ci_dependency_manager& dep_manager() { return m_dep_manager; }
+    u_dependency_manager& dep_manager() { return m_dep_manager; }
     typedef interval_manager<im_config>::interval interval;
 private:
-    ci_dependency* mk_dep(lp::constraint_index ci) const;
-    ci_dependency* mk_dep(lp::explanation const&) const;
+    u_dependency* mk_dep(lp::constraint_index ci) const;
+    u_dependency* mk_dep(lp::explanation const&) const;
     lp::lar_solver& ls();
     const lp::lar_solver& ls() const;
 public:
@@ -158,15 +155,15 @@ public:
 
     intervals(core* c, reslimit& lim) :
         m_alloc(),
-        m_dep_manager(m_val_manager, m_alloc),
+        m_dep_manager(),
         m_config(m_num_manager, m_dep_manager),
         m_imanager(lim, im_config(m_num_manager, m_dep_manager)),
         m_core(c)
     {}
-    ci_dependency* mk_join(ci_dependency* a, ci_dependency* b) { return m_dep_manager.mk_join(a, b); }
-    ci_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_manager.mk_leaf(ci); }
+    u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_manager.mk_join(a, b); }
+    u_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_manager.mk_leaf(ci); }
 
-    std::ostream& print_dependencies(ci_dependency*, std::ostream&) const;
+    std::ostream& print_dependencies(u_dependency*, std::ostream&) const;
     std::ostream& display(std::ostream& out, const intervals::interval& i) const;
     void set_lower(interval& a, rational const& n) const { m_config.set_lower(a, n.to_mpq()); }
     void set_upper(interval& a, rational const& n) const { m_config.set_upper(a, n.to_mpq()); }
@@ -345,9 +342,9 @@ public:
         return separated_from_zero_on_upper(i) ||
             separated_from_zero_on_lower(i);
     }
-    bool check_interval_for_conflict_on_zero(const interval& i, ci_dependency*);
-    bool check_interval_for_conflict_on_zero_lower(const interval& i, ci_dependency*);
-    bool check_interval_for_conflict_on_zero_upper(const interval& i, ci_dependency*);
+    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency*);
+    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency*);
+    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency*);
     mpq const& lower(interval const& a) const { return m_config.lower(a); }
     mpq const& upper(interval const& a) const { return m_config.upper(a); }
     inline bool is_empty(interval const& a) const {
@@ -362,7 +359,7 @@ public:
         return false;
     }
     void reset() { m_alloc.reset(); }
-    bool check_nex(const nex*, ci_dependency*);
+    bool check_nex(const nex*, u_dependency*);
     typedef interval interv;
     void set_interval_for_scalar(interv&, const rational&);
     const nex* get_zero_interval_child(const nex_mul&) const;
