@@ -54,14 +54,14 @@ private:
             u_dependency* m_upper_dep; // justification for the upper bound
         };
 
-        void add_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
-            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_lower_deps);
-            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_upper_deps);
+        void add_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
+            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_lower_combine);
+            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, b, deps.m_upper_combine);
         }
 
-        void add_deps(interval const& a, interval_deps const& deps, interval& i) const {
-            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, deps.m_lower_deps);
-            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, deps.m_upper_deps);
+        void add_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
+            i.m_lower_dep = lower_is_inf(i) ? nullptr : mk_dependency(a, deps.m_lower_combine);
+            i.m_upper_dep = upper_is_inf(i) ? nullptr : mk_dependency(a, deps.m_upper_combine);
         }
 
 
@@ -103,7 +103,7 @@ private:
 
         im_config(numeral_manager& m, u_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
     private:
-        u_dependency* mk_dependency(interval const& a, interval const& b, bound_deps bd) const {
+        u_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
             u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
@@ -120,7 +120,7 @@ private:
             return dep;
         }
 
-        u_dependency* mk_dependency(interval const& a, bound_deps bd) const {
+        u_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
             u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
@@ -148,15 +148,15 @@ private:
     template <enum with_deps_t wd>
     void update_upper_for_intersection(const interval& a, const interval& b, interval& i) const;
 
-    void mul(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.mul(a, b, c, deps); }
-    void add(const interval& a, const interval& b, interval& c, interval_deps& deps) { m_imanager.add(a, b, c, deps); }
+    void mul(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.mul(a, b, c, deps); }
+    void add(const interval& a, const interval& b, interval& c, interval_deps_combine_rule& deps) { m_imanager.add(a, b, c, deps); }
     
-    void combine_deps(interval const& a, interval const& b, interval_deps const& deps, interval& i) const {
+    void combine_deps(interval const& a, interval const& b, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i && &b != &i);
         m_config.add_deps(a, b, deps, i);
     }
 
-    void combine_deps(interval const& a, interval_deps const& deps, interval& i) const {
+    void combine_deps(interval const& a, interval_deps_combine_rule const& deps, interval& i) const {
         SASSERT(&a != &i);
         m_config.add_deps(a, deps, i);
     }
