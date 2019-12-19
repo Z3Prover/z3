@@ -38,6 +38,7 @@ private:
     public:
         typedef unsynch_mpq_manager numeral_manager;
         typedef bound_deps deps_combine_rule;
+        typedef deps_combine_rule interval_deps_combine_rule;
 
         struct interval {
             interval() :
