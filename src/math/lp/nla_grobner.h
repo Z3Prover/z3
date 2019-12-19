@@ -77,7 +77,7 @@ public:
     class equation {
         unsigned                   m_bidx;       //!< position at m_equations_to_delete
         nex *                      m_expr;       //   simplified expressionted monomials
-        common::ci_dependency *    m_dep;        //!< justification for the equality
+        u_dependency *    m_dep;        //!< justification for the equality
     public:
         unsigned get_num_monomials() const {
             switch(m_expr->type()) {
@@ -102,7 +102,7 @@ public:
             }
         }
         const nex* expr() const { return m_expr; }
-        common::ci_dependency * dep() const { return m_dep; }
+        u_dependency * dep() const { return m_dep; }
         unsigned hash() const { return m_bidx; }
         friend class grobner_core;
     };
@@ -119,8 +119,7 @@ private:
     equation_set                                 m_to_superpose;
     equation_set                                 m_to_simplify;
     region                                       m_alloc;
-    common::ci_value_manager                     m_val_manager;
-    mutable common::ci_dependency_manager        m_dep_manager;
+    mutable u_dependency_manager        m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
     params                                       m_params;
@@ -129,16 +128,16 @@ public:
     grobner_core(nex_creator& nc, reslimit& lim) : 
         m_nex_creator(nc), 
         m_limit(lim), 
-        m_dep_manager(m_val_manager, m_alloc),
+        m_dep_manager(),
         m_changed_leading_term(false)
     {}
 
     ~grobner_core();
     void reset();
     bool compute_basis_loop();
-    void assert_eq_0(nex*, common::ci_dependency * dep);
+    void assert_eq_0(nex*, u_dependency * dep);
     concat<equation_set, equation_set, equation*> equations();
-    common::ci_dependency_manager& dep() const { return m_dep_manager;  }
+    u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void display_equations_no_deps(std::ostream& out, equation_set const& v, char const* header) const;
     void display_equations(std::ostream& out, equation_set const& v, char const* header) const;
@@ -167,7 +166,7 @@ private:
     bool is_simpler(equation * eq1, equation * eq2);
     void del_equations(unsigned old_size);
     void del_equation(equation * eq);
-    void init_equation(equation* eq, nex*, common::ci_dependency* d);
+    void init_equation(equation* eq, nex*, u_dependency* d);
     
     void insert_to_simplify(equation *eq) {
         TRACE("grobner", display_equation(tout, *eq););
@@ -193,7 +192,7 @@ private:
     void update_stats_max_degree_and_size(const equation*);
 
     std::ostream& print_stats(std::ostream&) const;
-    std::ostream& display_dependency(std::ostream& out, common::ci_dependency*) const;
+    std::ostream& display_dependency(std::ostream& out, u_dependency*) const;
     bool equation_is_too_complex(const equation* eq) const {
         return eq->expr()->size() > m_params.m_expr_size_limit;
     }

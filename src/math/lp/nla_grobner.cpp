@@ -174,7 +174,7 @@ void grobner::add_row(unsigned i) {
     TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout) << '\n';
           for (auto p : row) c().print_var(p.var(), tout) << "\n"; );
     nex_creator::sum_factory sf(m_nex_creator);
-    ci_dependency* dep = create_sum_from_row(row, m_nex_creator, sf, m_look_for_fixed_vars_in_rows, &m_gc.dep());
+    u_dependency* dep = create_sum_from_row(row, m_nex_creator, sf, m_look_for_fixed_vars_in_rows, &m_gc.dep());
     nex* e = m_nex_creator.simplify(sf.mk());
     TRACE("grobner", tout << "e = " << *e << "\n";);
     m_gc.assert_eq_0(e, dep);
@@ -792,7 +792,7 @@ std::ostream& grobner_core::display(std::ostream& out) const {
     return out;
 }
 
-void grobner_core::assert_eq_0(nex* e, common::ci_dependency * dep) {
+void grobner_core::assert_eq_0(nex* e, u_dependency * dep) {
     if (e == nullptr || is_zero_scalar(e))
         return;
     equation * eq = alloc(equation);
@@ -807,7 +807,7 @@ void grobner_core::assert_eq_0(nex* e, common::ci_dependency * dep) {
     update_stats_max_degree_and_size(eq);
 }
 
-void grobner_core::init_equation(equation* eq, nex*e, common::ci_dependency * dep) {
+void grobner_core::init_equation(equation* eq, nex*e, u_dependency * dep) {
     eq->m_bidx      = m_equations_to_delete.size();
     eq->m_dep       = dep;
     eq->m_expr      = e;
@@ -819,7 +819,7 @@ grobner_core::~grobner_core() {
     del_equations(0);
 }
 
-std::ostream& grobner_core::display_dependency(std::ostream& out, common::ci_dependency* dep) const {
+std::ostream& grobner_core::display_dependency(std::ostream& out, u_dependency* dep) const {
     svector<lp::constraint_index> expl;
     m_dep_manager.linearize(dep, expl);       
     lp::explanation e(expl);
