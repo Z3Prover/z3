@@ -92,6 +92,7 @@ namespace dd {
     }
 
     void grobner::saturate() {
+        if (is_tuned()) tuned_init();
         try {
             while (!done() && step()) {
                 TRACE("grobner", display(tout););
@@ -105,6 +106,15 @@ namespace dd {
 
     bool grobner::step() {
         m_stats.m_compute_steps++;
+        if (is_tuned()) {
+            return tuned_step();
+        }
+        else {
+            return basic_step();
+        }
+    }
+
+    bool grobner::basic_step() {
         equation* e = pick_next();
         if (!e) return false;
         equation& eq = *e;
@@ -132,9 +142,18 @@ namespace dd {
     }
 
     void grobner::superpose(equation const & eq) {
-        for (equation * target : m_processed) {
-            superpose(eq, *target);
+        unsigned j = 0;
+        for (equation* target : m_processed) {
+            if (superpose(eq, *target)) {
+                // remove from watch lists
+                retire(target); 
+            }
+            else {
+                target->set_index(j);
+                m_processed[j++] = target;
+            }
         }
+        m_processed.shrink(j);
     }
 
     /*
@@ -172,18 +191,15 @@ namespace dd {
             equation& target = *set[i];
             bool changed_leading_term = false;
             bool simplified = !done() && simplify_source_target(eq, target, changed_leading_term); 
-            if (simplified && (is_trivial(target) || is_too_complex(target))) {
+            if (simplified && is_trivial(target)) {
                 retire(&target);
             }
-            else if (simplified && !check_conflict(target) && changed_leading_term && target.is_processed()) {
-                target.set_index(m_to_simplify.size());
-                target.set_processed(false);
-                m_to_simplify.push_back(&target);                    
+            else if (simplified && !check_conflict(target) && changed_leading_term) {
+                push_equation(target, m_to_simplify);               
             }
             else {
-                set[j] = &target;
-                target.set_index(j);
-                ++j;
+                set[j] = set[i];
+                target.set_index(j++);                
             } 
         }
         set.shrink(j);
@@ -198,14 +214,32 @@ namespace dd {
     bool grobner::simplify_source_target(equation const& source, equation& target, bool& changed_leading_term) {
         TRACE("grobner", tout << "simplifying: " << target.poly() << "\nusing: " << source.poly() << "\n";);
         m_stats.m_simplified++;
-        pdd r = source.poly().reduce(target.poly());
-        if (r == source.poly()) {
+        pdd t = target.poly();
+        pdd r = source.poly().reduce(t);
+        if (r == source.poly() || is_too_complex(r)) {
             return false;
         }
         changed_leading_term = target.is_processed() && m.different_leading_term(r, source.poly());
         target = r;
         target = m_dep_manager.mk_join(target.dep(), source.dep());
         update_stats_max_degree_and_size(target);
+        if (changed_leading_term) {
+            target.set_processed(false);
+        }
+        if (is_tuned()) {
+            if (r == t) {
+                // noop
+            }
+            else if (changed_leading_term) {
+                add_to_watch(target);
+            }
+            else if (target.is_processed()) {
+                add_diff_to_watch(target, t);
+            }
+            else {
+                add_to_watch(target);
+            }            
+        }
 
         TRACE("grobner", tout << "simplified " << target.poly() << "\n";);
         return true;
@@ -214,14 +248,104 @@ namespace dd {
     /*
        let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
     */
-    void grobner::superpose(equation const& eq1, equation const& eq2) {
+    bool grobner::superpose(equation const& eq1, equation const& eq2) {
         TRACE("grobner_d", tout << "eq1="; display_equation(tout, eq1) << "eq2="; display_equation(tout, eq2););
         pdd r(m);
-        if (!m.try_spoly(eq1.poly(), eq2.poly(), r)) return;
+        if (!m.try_spoly(eq1.poly(), eq2.poly(), r)) return false;
         m_stats.m_superposed++;
-        if (r.is_zero()) return;
-        if (is_too_complex(r)) return;
+        if (r.is_zero() || is_too_complex(r)) return false;
         add(r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()));
+        return is_tuned() && m.spoly_is_invertible(eq1.poly(), eq2.poly());
+    }
+
+    bool grobner::tuned_step() {
+        equation* e = tuned_pick_next();
+        if (!e) return false;
+        equation& eq = *e;
+        SASSERT(!eq.is_processed());
+        if (!simplify_watch(eq, true)) return false;
+        if (eliminate(eq)) return true;
+        if (check_conflict(eq)) return false;
+        if (!simplify_using(m_processed, eq)) return false;
+        TRACE("grobner", tout << "eq = "; display_equation(tout, eq););
+        superpose(eq);
+        eq.set_processed(true);
+        m_processed.push_back(e);
+        add_diff_to_watch(eq, m.zero());
+        return simplify_watch(eq, false);
+    }
+
+    void grobner::tuned_init() {
+        // TBD: extract free variables, order them, set pointer into variable list.
+        NOT_IMPLEMENTED_YET();
+        m_watch.reserve(m_vars.size());
+        for (equation* eq : m_to_simplify) add_to_watch(*eq);
+        SASSERT(m_processed.empty());
+    }
+
+    // watch top variable
+    void grobner::add_to_watch(equation& eq) {
+        SASSERT(!eq.is_processed());
+        pdd const& p = eq.poly();
+        if (is_tuned() && !p.is_val()) {
+            m_watch[p.var()].push_back(&eq);
+        }
+    }
+
+    // add all variables in q but not p into watch.
+    void grobner::add_diff_to_watch(equation& eq, pdd const& p) {
+        SASSERT(eq.is_processed());
+        pdd const& q = eq.poly();
+        if (is_tuned() && !q.is_val()) {
+            for (unsigned v : m.free_vars_except(q, p)) {
+                m_watch[v].push_back(&eq);
+            }
+        }
+    }
+
+    bool grobner::simplify_watch(equation const& eq, bool is_processed) {
+        unsigned v = m_vars[m_var];
+        auto& watch = m_watch[v];
+        unsigned j = 0;
+        for (equation* _target : watch) {
+            equation& target = *_target;
+            bool changed_leading_term = false;
+            bool simplified = !done() && simplify_source_target(eq, target, changed_leading_term);
+            if (simplified && is_trivial(target)) {
+                retire(&target);
+            }
+            else if (simplified && !check_conflict(target) && changed_leading_term) {
+                SASSERT(!target.is_processed());
+                pop_equation(target.idx(), m_processed);
+                push_equation(target, m_to_simplify);
+            }
+            else {
+                watch[++j] = _target;
+            }
+        }
+        watch.shrink(j);        
+        return false;
+    }
+
+    grobner::equation* grobner::tuned_pick_next() {
+        while (m_var < m_vars.size()) {
+            unsigned v = m_vars[m_var];
+            equation_vector const& watch = m_watch[v];
+            equation* eq = nullptr;
+            for (equation* curr : watch) {
+                pdd const& p = curr->poly();
+                if (!curr->is_processed() && !p.is_val() && p.var() == v) {
+                    if (!eq || is_simpler(*curr, *eq))
+                        eq = curr;
+                }
+            }
+            if (eq) {
+                pop_equation(eq->idx(), m_to_simplify);
+                return eq;
+            }
+            ++m_var;
+        }
+        return nullptr;
     }
 
     grobner::equation_vector const& grobner::equations() {
@@ -262,10 +386,17 @@ namespace dd {
     }
 
     void grobner::pop_equation(unsigned idx, equation_vector& v) {
-        equation* eq2 = v.back();
-        eq2->set_index(idx);
-        v[idx] = eq2;
+        if (idx != v.size() - 1) {
+            equation* eq2 = v.back();
+            eq2->set_index(idx);
+            v[idx] = eq2;
+        }
         v.pop_back();            
+    }
+
+    void grobner::push_equation(equation& eq, equation_vector& v) {
+        eq.set_index(v.size());
+        v.push_back(&eq);
     }
     
     void grobner::update_stats_max_degree_and_size(const equation& e) {

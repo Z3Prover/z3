@@ -148,6 +148,7 @@ namespace dd {
         bool                       m_is_new_node;
         unsigned                   m_max_num_pdd_nodes;
         bool                       m_mod2_semantics;
+        unsigned_vector            m_free_vars;
 
         PDD make_node(unsigned level, PDD l, PDD r);
         PDD insert_node(pdd_node const& n);
@@ -221,7 +222,7 @@ namespace dd {
 
         void set_mod2_semantics() { m_mod2_semantics = true; }
         void set_max_num_nodes(unsigned n) { m_max_num_pdd_nodes = n; }
-        void set_var_order(unsigned_vector const& levels);  // TBD: set variable order (m_var2level, m_level2var) before doing anything else.
+        void set_var_order(unsigned_vector const& levels);  // TBD: set variable order (m_var2level, m_level2var) before doing anything else.        
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);
@@ -234,10 +235,18 @@ namespace dd {
         pdd mul(pdd const& a, pdd const& b);
         pdd mul(rational const& c, pdd const& b);
         pdd reduce(pdd const& a, pdd const& b);
+
+        // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
+
+        // true if b can be computed using a and the result of spoly
+        bool spoly_is_invertible(pdd const& a, pdd const& b);
         bool lt(pdd const& a, pdd const& b);
         bool different_leading_term(pdd const& a, pdd const& b);
         double tree_size(pdd const& p);
+
+        unsigned_vector const& free_vars(pdd const& p);
+        unsigned_vector const& free_vars_except(pdd const& p, pdd const& q);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, pdd const& b);
@@ -260,6 +269,7 @@ namespace dd {
         pdd hi() const { return pdd(m->hi(root), m); }
         unsigned var() const { return m->var(root); }
         rational const& val() const { SASSERT(is_val()); return m->val(root); }
+        bool is_var() const { return !m->is_val(root); }
         bool is_val() const { return m->is_val(root); }
         bool is_zero() const { return m->is_zero(root); }
 

@@ -42,6 +42,12 @@ public:
     struct config {
         unsigned m_eqs_threshold;
         unsigned m_expr_size_limit;
+        enum { basic, tuned } m_algorithm;
+        config() :
+            m_eqs_threshold(UINT_MAX),
+            m_expr_size_limit(UINT_MAX),
+            m_algorithm(basic)
+        {}
     };
 
 private:
@@ -80,7 +86,7 @@ private:
     equation_vector                              m_to_simplify;
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
-    equation const*                              m_conflict;
+    equation const*                              m_conflict;   
 public:
     grobner(reslimit& lim, pdd_manager& m);
     ~grobner();
@@ -102,10 +108,11 @@ public:
 
 private:
     bool step();
+    bool basic_step();
     equation* pick_next();
     bool canceled();
     bool done();
-    void superpose(equation const& eq1, equation const& eq2);
+    bool superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     bool simplify_source_target(equation const& source, equation& target, bool& changed_leading_term);
     bool simplify_using(equation_vector& set, equation const& eq);
@@ -119,13 +126,33 @@ private:
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
+
+    // tuned implementation
+    vector<equation_vector> m_watch;           // watch list mapping variables to vector of equations where they occur (generally a subset)
+    unsigned                m_var;             // index into vars with current variable
+    unsigned_vector         m_vars;            // variables sorted by priority, higher priority first.
+
+    bool tuned_step();
+    void tuned_init();
+    equation* tuned_pick_next();
+    bool simplify_watch(equation const& eq, bool is_processed);
+    void add_to_watch(equation& eq);
+    void add_diff_to_watch(equation& eq, pdd const& p);
+
     void del_equation(equation& eq);    
-    void retire(equation* eq) { dealloc(eq); }
+    void retire(equation* eq) {
+        if (is_tuned())
+            for (auto v : m.free_vars(eq->poly())) m_watch[v].erase(eq);
+        dealloc(eq);
+    }
     void pop_equation(unsigned idx, equation_vector& v);
+    void push_equation(equation& eq, equation_vector& v);
 
     void invariant() const;
 
     void update_stats_max_degree_and_size(const equation& e);
+    bool is_tuned() const { return m_config.m_algorithm == config::tuned;  }
+    bool is_basic() const { return m_config.m_algorithm == config::basic; }
 };
 
 }

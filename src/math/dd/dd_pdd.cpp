@@ -362,6 +362,13 @@ namespace dd {
         }
     }
 
+    // a = s*x + t, where s is a constant, b = u*x + v, where u is a constant.
+    // since x is the maximal variable, it does not occur in t or v.
+    // thus, both a and b are linear in x
+    bool pdd_manager::spoly_is_invertible(pdd const& a, pdd const& b) {
+        return a.is_var() && b.is_var() && a.hi().is_val() && b.hi().is_val() && a.var() == b.var();
+    }
+
     /*
      * Compare leading monomials.
      * The pdd format makes lexicographic comparison easy: compare based on
@@ -607,6 +614,38 @@ namespace dd {
             }
         }
         return m_tree_size[p.root];
+    }
+
+    unsigned_vector const& pdd_manager::free_vars(pdd const& p) { 
+        return free_vars_except(p, zero()); 
+    }
+
+    unsigned_vector const& pdd_manager::free_vars_except(pdd const& p, pdd const& q) {
+        init_mark();
+        m_free_vars.reset();
+        m_todo.push_back(q.root);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_val(r) || is_marked(r)) continue;            
+            set_mark(r);            
+            set_mark(m_var2pdd[var(r)]);            
+            if (!is_marked(lo(r))) m_todo.push_back(lo(r));
+            if (!is_marked(hi(r))) m_todo.push_back(hi(r));
+        }
+        m_todo.push_back(p.root);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_val(r) || is_marked(r)) continue;
+            PDD v = m_var2pdd[var(r)];
+            if (!is_marked(v)) m_free_vars.push_back(var(r));
+            set_mark(r);
+            set_mark(v);
+            if (!is_marked(lo(r))) m_todo.push_back(lo(r));
+            if (!is_marked(hi(r))) m_todo.push_back(hi(r));
+        }
+        return m_free_vars;
     }
 
 
