@@ -37,8 +37,6 @@ private:
 
     public:
         typedef unsynch_mpq_manager numeral_manager;
-        typedef bound_deps deps_combine_rule;
-        typedef deps_combine_rule interval_deps_combine_rule;
 
         struct interval {
             interval() :
@@ -105,7 +103,7 @@ private:
 
         im_config(numeral_manager& m, u_dependency_manager& d) :m_manager(m), m_dep_manager(d) {}
     private:
-        u_dependency* mk_dependency(interval const& a, interval const& b, deps_combine_rule bd) const {
+        u_dependency* mk_dependency(interval const& a, interval const& b, bound_deps bd) const {
             u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);
@@ -122,7 +120,7 @@ private:
             return dep;
         }
 
-        u_dependency* mk_dependency(interval const& a, deps_combine_rule bd) const {
+        u_dependency* mk_dependency(interval const& a, bound_deps bd) const {
             u_dependency* dep = nullptr;
             if (dep_in_lower1(bd)) {
                 dep = m_dep_manager.mk_join(dep, a.m_lower_dep);

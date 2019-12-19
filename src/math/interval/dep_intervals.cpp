@@ -172,7 +172,7 @@ template <e_with_deps wd>
 dep_intervals::interval dep_intervals::power(const interval& a, unsigned n) {
     interval b;
     if (with_deps == wd) {
-        interval_deps_combine_rule combine_rule;
+        interval_deps combine_rule;
         m_imanager.power(a, n, b, combine_rule);
         combine_deps(a, combine_rule, b);
     }
