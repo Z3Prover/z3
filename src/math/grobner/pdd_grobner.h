@@ -47,7 +47,7 @@ public:
 private:
     class equation {
         bool                       m_processed;  //!< state
-        unsigned                   m_idx;        //!< position at m_equations
+        unsigned                   m_idx;        //!< unique index
         pdd                        m_poly;       //!< polynomial in pdd form
         u_dependency *             m_dep;        //!< justification for the equality
     public:
@@ -60,15 +60,14 @@ private:
 
         const pdd& poly() const { return m_poly; }        
         u_dependency * dep() const { return m_dep; }
-        unsigned hash() const { return m_idx; }
         unsigned idx() const { return m_idx; }
         void operator=(pdd& p) { m_poly = p; }
         void operator=(u_dependency* d) { m_dep = d; }
         bool is_processed() const { return m_processed; }
         void set_processed(bool p) { m_processed = p; }
+        void set_index(unsigned idx) { m_idx = idx; }
     };
 
-    typedef obj_hashtable<equation> equation_set;
     typedef ptr_vector<equation> equation_vector;
     typedef std::function<void (u_dependency* d, std::ostream& out)> print_dep_t;
 
@@ -77,12 +76,11 @@ private:
     stats                                        m_stats;
     config                                       m_config;
     print_dep_t                                  m_print_dep;
-    equation_vector                              m_equations;
-    equation_set                                 m_processed;
-    equation_set                                 m_to_simplify;
+    equation_vector                              m_processed;
+    equation_vector                              m_to_simplify;
     mutable u_dependency_manager                 m_dep_manager;
-    equation_set                                 m_all_eqs;
-    bool                                         m_conflict;
+    equation_vector                              m_all_eqs;
+    equation const*                              m_conflict;
 public:
     grobner(reslimit& lim, pdd_manager& m);
     ~grobner();
@@ -93,9 +91,9 @@ public:
     void reset();
     void add(pdd const&, u_dependency * dep);
 
-    void compute_basis();
+    void saturate();
 
-    equation_set const& equations();
+    equation_vector const& equations();
     u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void collect_statistics(statistics & st) const;
@@ -103,28 +101,27 @@ public:
     std::ostream& display(std::ostream& out) const;
 
 private:
-    bool compute_basis_step();
+    bool step();
     equation* pick_next();
     bool canceled();
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     bool simplify_source_target(equation const& source, equation& target, bool& changed_leading_term);
-    bool simplify_using(equation_set& set, equation const& eq);
-    bool simplify_using(equation& eq, equation_set const& eqs);
-    void toggle_processed(equation& eq);
+    bool simplify_using(equation_vector& set, equation const& eq);
+    bool simplify_using(equation& eq, equation_vector const& eqs);
 
-    bool eliminate(equation& eq) { return is_trivial(eq) && (del_equation(&eq), true); }
+    bool eliminate(equation& eq) { return is_trivial(eq) && (del_equation(eq), true); }
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
     bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
-    bool check_conflict(equation const& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(), true); }    
-    void set_conflict() { m_conflict = true; }
+    bool check_conflict(equation const& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(eq), true); }    
+    void set_conflict(equation const& eq) { m_conflict = &eq; }
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
-
-    void del_equations(unsigned old_size);
-    void del_equation(equation* eq);    
+    void del_equation(equation& eq);    
+    void retire(equation* eq) { dealloc(eq); }
+    void pop_equation(unsigned idx, equation_vector& v);
 
     void invariant() const;
 

@@ -107,7 +107,7 @@ namespace dd {
         case pdd_add_op:
             if (is_zero(a)) return b;
             if (is_zero(b)) return a;
-            if (is_val(a) && is_val(b)) return imk_val(m_mod2_semantics ? ((val(a) + val(b)) % rational(2)) : val(a) + val(b));
+            if (is_val(a) && is_val(b)) return imk_val(val(a) + val(b));
             if (level(a) < level(b)) std::swap(a, b);
             break;
         case pdd_mul_op:
@@ -249,6 +249,7 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::minus_rec(PDD a) {
+        SASSERT(!m_mod2_semantics);
         if (is_zero(a)) return zero_pdd;
         if (is_val(a)) return imk_val(-val(a));
         op_entry* e1 = pop_entry(a, a, pdd_minus_op);
@@ -299,7 +300,7 @@ namespace dd {
         if (is_val(p)) {
             if (is_val(q)) {
                 SASSERT(!val(p).is_zero());
-                return m_mod2_semantics ? imk_val(val(q)) : imk_val(-val(q)/val(p));
+                return imk_val(-val(q)/val(p));
             }     
         }   
         else if (level(p) == level(q)) {
@@ -321,7 +322,7 @@ namespace dd {
         pdd r1 = mk_val(qc);  
         for (unsigned i = q.size(); i-- > 0; ) r1 = mul(mk_var(q[i]), r1);
         r1 = mul(a, r1);
-        pdd r2 = mk_val(m_mod2_semantics ? pc : -pc);
+        pdd r2 = mk_val(-pc);
         for (unsigned i = p.size(); i-- > 0; ) r2 = mul(mk_var(p[i]), r2);
         r2 = mul(b, r2);
         return add(r1, r2);
@@ -338,6 +339,11 @@ namespace dd {
                 while (!is_val(x)) p.push_back(var(x)), x = hi(x);
                 pc = val(x);
                 qc = val(y);
+                if (!m_mod2_semantics && pc.is_int() && qc.is_int()) {
+                    rational g = gcd(pc, qc);
+                    pc /= g;
+                    qc /= g;
+                }
                 return true;
             }
             if (level(x) == level(y)) {
@@ -443,6 +449,7 @@ namespace dd {
     pdd_manager::PDD pdd_manager::imk_val(rational const& r) {
         if (r.is_zero()) return zero_pdd;
         if (r.is_one()) return one_pdd;
+        if (m_mod2_semantics) return imk_val(mod(r, rational(2)));
         const_info info;
         if (!m_mpq_table.find(r, info)) {
             init_value(info, r);
