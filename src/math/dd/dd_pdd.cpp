@@ -30,12 +30,14 @@ namespace dd {
         alloc_free_nodes(1024 + num_vars);
         m_disable_gc = false;
         m_is_new_node = false;
+        m_mod2_semantics = false;
 
         // add dummy nodes for operations, and 0, 1 pdds.
-        imk_val(rational::zero()); // becomes pdd_zero
-        imk_val(rational::one());  // becomes pdd_one
+        const_info info;
+        init_value(info, rational::zero()); // becomes pdd_zero
+        init_value(info, rational::one());  // becomes pdd_one
         for (unsigned i = 2; i <= pdd_no_op + 2; ++i) {
-            m_nodes.push_back(pdd_node(0,0,0,0));
+            m_nodes.push_back(pdd_node(0,0,0));
             m_nodes.back().m_refcount = max_rc;
             m_nodes.back().m_index = m_nodes.size()-1;
         }
@@ -105,7 +107,7 @@ namespace dd {
         case pdd_add_op:
             if (is_zero(a)) return b;
             if (is_zero(b)) return a;
-            if (is_val(a) && is_val(b)) return imk_val(val(a) + val(b));
+            if (is_val(a) && is_val(b)) return imk_val(m_mod2_semantics ? ((val(a) + val(b)) % rational(2)) : val(a) + val(b));
             if (level(a) < level(b)) std::swap(a, b);
             break;
         case pdd_mul_op:
@@ -176,15 +178,23 @@ namespace dd {
             }
             else if (level_a == level_b) {
                 // (xa+b)*(xc+d) = x(x*ac + (ad+bc)) + bd
+                // (xa+b)*(xc+d) mod2 == x(ac+bc+ad) + bd
                 push(apply_rec(hi(a), hi(b), op));
                 push(apply_rec(hi(a), lo(b), op));
                 push(apply_rec(lo(a), hi(b), op));
                 push(apply_rec(lo(a), lo(b), op));
                 unsigned ac = read(4), ad = read(3), bc = read(2), bd = read(1);
                 push(apply_rec(ad, bc, pdd_add_op));
-                r = make_node(level_a, read(1), ac);
-                r = make_node(level_a, bd, r);
-                npop = 5;
+                if (m_mod2_semantics) {
+                    push(apply_rec(read(1), ac, pdd_add_op));
+                    r = make_node(level_a, bd, read(1));
+                    npop = 6;
+                }
+                else {
+                    r = make_node(level_a, read(1), ac);
+                    r = make_node(level_a, bd, r);
+                    npop = 5;
+                }
             }
             else {
                 // (xa+b)*c = x(ac) + bc
@@ -218,6 +228,9 @@ namespace dd {
     }
 
     pdd pdd_manager::minus(pdd const& a) {
+        if (m_mod2_semantics) {
+            return a;
+        }
         bool first = true;
         SASSERT(well_formed());
         scoped_push _sp(*this);
@@ -285,7 +298,8 @@ namespace dd {
         SASSERT(is_val(p) || !is_val(q));
         if (is_val(p)) {
             if (is_val(q)) {
-                return imk_val(-val(q)/val(p));
+                SASSERT(!val(p).is_zero());
+                return m_mod2_semantics ? imk_val(val(q)) : imk_val(-val(q)/val(p));
             }     
         }   
         else if (level(p) == level(q)) {
@@ -304,10 +318,12 @@ namespace dd {
     }
 
     pdd pdd_manager::spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc) { 
-        pdd r1 = mul(qc, a);
+        pdd r1 = mk_val(qc);  
         for (unsigned i = q.size(); i-- > 0; ) r1 = mul(mk_var(q[i]), r1);
-        pdd r2 = mul(-pc, b);
+        r1 = mul(a, r1);
+        pdd r2 = mk_val(m_mod2_semantics ? pc : -pc);
         for (unsigned i = p.size(); i-- > 0; ) r2 = mul(mk_var(p[i]), r2);
+        r2 = mul(b, r2);
         return add(r1, r2);
     }
 
@@ -385,13 +401,10 @@ namespace dd {
                 y = hi(y);
             }
             else {
-                return false;
+                return true;
             }
         }
     }
-
-    double pdd_manager::tree_size(pdd const& p) const { return tree_size(p.root); }
-
 
     void pdd_manager::push(PDD b) {
         m_pdd_stack.push_back(b);
@@ -428,16 +441,22 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::imk_val(rational const& r) {
+        if (r.is_zero()) return zero_pdd;
+        if (r.is_one()) return one_pdd;
         const_info info;
         if (!m_mpq_table.find(r, info)) {
-            pdd_node n(m_values.size());
-            info.m_value_index = m_values.size();
-            info.m_node_index = insert_node(n);
-            m_mpq_table.insert(r, info);
-            m_values.push_back(r);
-            m_nodes[info.m_node_index].m_refcount = max_rc;
+            init_value(info, r);
         }      
         return info.m_node_index;
+    }
+
+    void pdd_manager::init_value(const_info& info, rational const& r) {
+        pdd_node n(m_values.size());
+        info.m_value_index = m_values.size();
+        info.m_node_index = insert_node(n);
+        m_mpq_table.insert(r, info);
+        m_values.push_back(r);
+        m_nodes[info.m_node_index].m_refcount = max_rc;
     }
 
     pdd_manager::PDD pdd_manager::make_node(unsigned lvl, PDD l, PDD h) {
@@ -445,7 +464,7 @@ namespace dd {
         if (is_zero(h)) return l;
         SASSERT(is_val(l) || level(l) < lvl);
         SASSERT(is_val(h) || level(h) <= lvl);
-        pdd_node n(lvl, l, h, tree_size(l) + tree_size(h) + 1);
+        pdd_node n(lvl, l, h);
         return insert_node(n);
     }
 
@@ -556,6 +575,33 @@ namespace dd {
         }
         return m_degree[b.root];
     }
+
+
+    double pdd_manager::tree_size(pdd const& p) {
+        init_mark();
+        m_tree_size.reserve(m_nodes.size());
+        m_todo.push_back(p.root);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            if (is_marked(r)) {
+                m_todo.pop_back();
+            }
+            else if (is_val(r)) {
+                m_tree_size[r] = 1;
+                set_mark(r);
+            }
+            else if (!is_marked(lo(r)) || !is_marked(hi(r))) {
+                m_todo.push_back(lo(r));
+                m_todo.push_back(hi(r));
+            }
+            else {
+                m_tree_size[r] = 1 + m_tree_size[lo(r)] + m_tree_size[hi(r)]; 
+                set_mark(r);
+            }
+        }
+        return m_tree_size[p.root];
+    }
+
 
     void pdd_manager::alloc_free_nodes(unsigned n) {
         for (unsigned i = 0; i < n; ++i) {

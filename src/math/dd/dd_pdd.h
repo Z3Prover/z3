@@ -56,30 +56,27 @@ namespace dd {
         };
 
         struct pdd_node {
-            pdd_node(unsigned level, PDD lo, PDD hi, double tree_size):
+            pdd_node(unsigned level, PDD lo, PDD hi):
                 m_refcount(0),
                 m_level(level),
                 m_lo(lo),
                 m_hi(hi),
-                m_index(0),
-                m_tree_size(tree_size)
+                m_index(0)
             {}
             pdd_node(unsigned value):
                 m_refcount(0),
                 m_level(0),
                 m_lo(value),
                 m_hi(0),
-                m_index(0),
-                m_tree_size(1)
+                m_index(0)
             {}
 
-            pdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0), m_tree_size(0) {}
+            pdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
             PDD      m_lo;
             PDD      m_hi;
             unsigned m_index;
-            double   m_tree_size;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); } 
             bool is_internal() const { return m_lo == 0 && m_hi == 0; }
             void set_internal() { m_lo = 0; m_hi = 0; }
@@ -146,9 +143,11 @@ namespace dd {
         mutable unsigned           m_mark_level;
         mutable svector<PDD>       m_todo;
         mutable unsigned_vector    m_degree;
+        mutable svector<double>    m_tree_size;
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_pdd_nodes;
+        bool                       m_mod2_semantics;
 
         PDD make_node(unsigned level, PDD l, PDD r);
         PDD insert_node(pdd_node const& n);
@@ -162,7 +161,8 @@ namespace dd {
         bool lm_divides(PDD p, PDD q) const;
         PDD lt_quotient(PDD p, PDD q);
 
-        PDD imk_val(rational const& r);        
+        PDD imk_val(rational const& r);       
+        void init_value(const_info& info, rational const& r);
 
         void push(PDD b);
         void pop(unsigned num_scopes);
@@ -190,7 +190,6 @@ namespace dd {
         inline void inc_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; SASSERT(!m_free_nodes.contains(b)); }
         inline void dec_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; SASSERT(!m_free_nodes.contains(b)); }
         inline PDD level2pdd(unsigned l) const { return m_var2pdd[m_level2var[l]]; }
-        inline double tree_size(PDD p) const { return m_nodes[p].m_tree_size; }
 
         unsigned dag_size(pdd const& b);
         unsigned degree(pdd const& p);
@@ -220,6 +219,7 @@ namespace dd {
         pdd_manager(unsigned nodes);
         ~pdd_manager();
 
+        void set_mod2_semantics() { m_mod2_semantics = true; }
         void set_max_num_nodes(unsigned n) { m_max_num_pdd_nodes = n; }
         void set_var_order(unsigned_vector const& levels);  // TBD: set variable order (m_var2level, m_level2var) before doing anything else.
 
@@ -237,7 +237,7 @@ namespace dd {
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
         bool lt(pdd const& a, pdd const& b);
         bool different_leading_term(pdd const& a, pdd const& b);
-        double tree_size(pdd const& p) const;
+        double tree_size(pdd const& p);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, pdd const& b);
