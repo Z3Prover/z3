@@ -66,7 +66,7 @@ const nex* intervals::get_zero_interval_child(const nex_mul& e) const {
     return nullptr;
 }
 
-std::ostream & intervals::print_dependencies(ci_dependency* deps , std::ostream& out) const {
+std::ostream & intervals::print_dependencies(u_dependency* deps , std::ostream& out) const {
     svector<lp::constraint_index> expl;
     m_dep_manager.linearize(deps, expl);
     {
@@ -82,7 +82,7 @@ std::ostream & intervals::print_dependencies(ci_dependency* deps , std::ostream&
 }
 
 // return true iff the interval of n is does not contain 0
-bool intervals::check_nex(const nex* n, ci_dependency* initial_deps) {
+bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     auto i = interval_of_expr<without_deps>(n, 1);
     if (!separated_from_zero(i)) {
@@ -221,13 +221,13 @@ bool intervals::separated_from_zero_on_upper(const interval& i) const {
     return true;
 }
 
-bool intervals::check_interval_for_conflict_on_zero(const interval & i, ci_dependency* dep) {
+bool intervals::check_interval_for_conflict_on_zero(const interval & i, u_dependency* dep) {
     return check_interval_for_conflict_on_zero_lower(i, dep) || check_interval_for_conflict_on_zero_upper(i, dep);
 }
 
 bool intervals::check_interval_for_conflict_on_zero_upper(
     const interval & i,
-    ci_dependency* dep) {
+    u_dependency* dep) {
     if (!separated_from_zero_on_upper(i))
         return false;
 
@@ -241,7 +241,7 @@ bool intervals::check_interval_for_conflict_on_zero_upper(
     return true;
 }
 
-bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, ci_dependency* dep) {
+bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, u_dependency* dep) {
     if (!separated_from_zero_on_lower(i)) {
         return false;
     }
@@ -255,12 +255,12 @@ bool intervals::check_interval_for_conflict_on_zero_lower(const interval & i, ci
     return true;
 }
 
-common::ci_dependency *intervals::mk_dep(lp::constraint_index ci) const {
+u_dependency *intervals::mk_dep(lp::constraint_index ci) const {
     return m_dep_manager.mk_leaf(ci);
 }
 
-common::ci_dependency *intervals::mk_dep(const lp::explanation& expl) const {
-    intervals::ci_dependency * r = nullptr;
+u_dependency *intervals::mk_dep(const lp::explanation& expl) const {
+    u_dependency * r = nullptr;
     for (auto p : expl) {
         if (r == nullptr) {
             r = m_dep_manager.mk_leaf(p.second);
