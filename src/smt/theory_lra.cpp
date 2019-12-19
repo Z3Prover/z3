@@ -32,7 +32,6 @@
 #include "util/cancel_eh.h"
 #include "util/scoped_timer.h"
 #include "util/nat_set.h"
-#include "util/lp/nra_solver.h"
 #include "ast/ast_pp.h"
 #include "model/numeral_factory.h"
 #include "smt/smt_theory.h"
@@ -1079,7 +1078,7 @@ public:
     void apply_sort_cnstr(enode* n, sort*) {
         if (!th.is_attached_to_var(n)) {
             theory_var v = mk_var(n->get_owner(), false);
-            get_var_index(v);
+            register_theory_var_in_lar_solver(v);
         }
     }
 
