@@ -9,6 +9,9 @@ Abstract:
 
     Poly DD package
 
+    It is a mild variant of ZDDs. 
+    In PDDs arithmetic is either standard or using mod 2 (over GF2).
+
     Non-leaf nodes are of the form x*hi + lo
     where 
     - maxdegree(x, lo) = 0, 

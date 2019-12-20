@@ -425,7 +425,7 @@ namespace dd {
         // they watch the top most variable in poly
         i = 0;
         for (auto const& w : m_watch) {
-            for (equation const* e : w) {
+            for (equation* e : w) {
                 VERIFY(!e->poly().is_val());
                 VERIFY(e->poly().var() == i);
                 VERIFY(!e->is_processed());
