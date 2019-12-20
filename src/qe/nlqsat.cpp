@@ -254,7 +254,8 @@ namespace qe {
         expr_ref_vector        m_answer;
         expr_safe_replace      m_answer_simplify;
         expr_ref_vector        m_trail;
-        
+        ref<generic_model_converter> m_div_mc;
+
         lbool check_sat() {
             while (true) {
                 ++m_stats.m_num_rounds;
@@ -630,7 +631,6 @@ namespace qe {
              p = p', q = q' => div_pq = div_pq'
 
          */
-
         void ackermanize_div(expr_ref& fml, expr_ref_vector& paxioms) {
             is_pure_proc is_pure(*this);
             {
@@ -643,6 +643,7 @@ namespace qe {
                 div_rewriter_star rw(*this);
                 rw(fml, fml, pr);
                 vector<div> const& divs = rw.divs();
+                m_div_mc = alloc(generic_model_converter, m, "purify");
                 for (unsigned i = 0; i < divs.size(); ++i) {
                     expr_ref den_is0(m.mk_eq(divs[i].den, arith.mk_real(0)), m);
                     paxioms.push_back(m.mk_or(den_is0, m.mk_eq(divs[i].num, arith.mk_mul(divs[i].den, divs[i].name))));
@@ -652,6 +653,13 @@ namespace qe {
                                                   m.mk_eq(divs[i].name, divs[j].name)));
                     }
                 }
+                expr_ref body(arith.mk_real(0), m);
+                expr_ref v0(m.mk_var(0, arith.mk_real()), m);
+                expr_ref v1(m.mk_var(1, arith.mk_real()), m);
+                for (auto const& p : divs) {
+                    body = m.mk_ite(m.mk_and(m.mk_eq(v0, p.num), m.mk_eq(v1, p.den)), p.name, body);
+                }
+                m_div_mc->add(arith.mk_div0(), body);
             }
         }
 
@@ -815,8 +823,8 @@ namespace qe {
             m_nftactic(nullptr),
             m_answer(m),
             m_answer_simplify(m),
-            m_trail(m)
-        {
+            m_trail(m),
+            m_div_mc(nullptr) {
             s.m_solver.get_explain().set_signed_project(true);
             m_nftactic = mk_tseitin_cnf_tactic(m);
         }
@@ -876,6 +884,7 @@ namespace qe {
                 if (in->models_enabled()) {
                     model_converter_ref mc;
                     VERIFY(mk_model(mc));
+                    mc = concat(m_div_mc.get(), mc.get());                    
                     in->add(mc.get());
                     
 #if 0
