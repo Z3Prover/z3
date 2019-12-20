@@ -135,14 +135,11 @@ private:
     bool tuned_step();
     void tuned_init();
     equation* tuned_pick_next();
-    bool simplify_watch(equation const& eq, bool is_processed);
+    bool simplify_to_simplify(equation const& eq);
     void add_to_watch(equation& eq);
-    void add_diff_to_watch(equation& eq, pdd const& p);
 
     void del_equation(equation& eq);    
     void retire(equation* eq) {
-        if (is_tuned())
-            for (auto v : m.free_vars(eq->poly())) m_watch[v].erase(eq);
         dealloc(eq);
     }
     void pop_equation(unsigned idx, equation_vector& v);

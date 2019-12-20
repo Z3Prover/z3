@@ -246,7 +246,6 @@ namespace dd {
         double tree_size(pdd const& p);
 
         unsigned_vector const& free_vars(pdd const& p);
-        unsigned_vector const& free_vars_except(pdd const& p, pdd const& q);
 
         std::ostream& display(std::ostream& out);
         std::ostream& display(std::ostream& out, pdd const& b);
@@ -269,7 +268,6 @@ namespace dd {
         pdd hi() const { return pdd(m->hi(root), m); }
         unsigned var() const { return m->var(root); }
         rational const& val() const { SASSERT(is_val()); return m->val(root); }
-        bool is_var() const { return !m->is_val(root); }
         bool is_val() const { return m->is_val(root); }
         bool is_zero() const { return m->is_zero(root); }
 

@@ -55,7 +55,7 @@ namespace dd {
         For p in A:
             populate watch list by maxvar(p) |-> p
         For p in S:
-            populate watch list by vars(p) |-> p
+            do not occur in watch list
 
         - the variable ordering should be chosen from a candidate model M, 
           in a way that is compatible with weights that draw on the number of occurrences
@@ -69,7 +69,7 @@ namespace dd {
         The alternative version maintains the following invariant:
         - polynomials not in the watch list cannot be simplified using a
           Justification:
-          - elements in S have all variables watched
+          - elements in S have no variables watched
           - elements in A are always reduced modulo all variables above the current x_i.
 
         Invertible rules:
@@ -106,12 +106,7 @@ namespace dd {
 
     bool grobner::step() {
         m_stats.m_compute_steps++;
-        if (is_tuned()) {
-            return tuned_step();
-        }
-        else {
-            return basic_step();
-        }
+        return is_tuned() ? tuned_step() : basic_step();
     }
 
     bool grobner::basic_step() {
@@ -226,20 +221,6 @@ namespace dd {
         if (changed_leading_term) {
             target.set_processed(false);
         }
-        if (is_tuned()) {
-            if (r == t) {
-                // noop
-            }
-            else if (changed_leading_term) {
-                add_to_watch(target);
-            }
-            else if (target.is_processed()) {
-                add_diff_to_watch(target, t);
-            }
-            else {
-                add_to_watch(target);
-            }            
-        }
 
         TRACE("grobner", tout << "simplified " << target.poly() << "\n";);
         return true;
@@ -262,8 +243,9 @@ namespace dd {
         equation* e = tuned_pick_next();
         if (!e) return false;
         equation& eq = *e;
+        SASSERT(!m_watch[eq.poly().var()].contains(e));
         SASSERT(!eq.is_processed());
-        if (!simplify_watch(eq, true)) return false;
+        if (!simplify_using(eq, m_processed)) return false;
         if (eliminate(eq)) return true;
         if (check_conflict(eq)) return false;
         if (!simplify_using(m_processed, eq)) return false;
@@ -271,8 +253,7 @@ namespace dd {
         superpose(eq);
         eq.set_processed(true);
         m_processed.push_back(e);
-        add_diff_to_watch(eq, m.zero());
-        return simplify_watch(eq, false);
+        return simplify_to_simplify(eq);
     }
 
     void grobner::tuned_init() {
@@ -292,23 +273,13 @@ namespace dd {
         }
     }
 
-    // add all variables in q but not p into watch.
-    void grobner::add_diff_to_watch(equation& eq, pdd const& p) {
-        SASSERT(eq.is_processed());
-        pdd const& q = eq.poly();
-        if (is_tuned() && !q.is_val()) {
-            for (unsigned v : m.free_vars_except(q, p)) {
-                m_watch[v].push_back(&eq);
-            }
-        }
-    }
-
-    bool grobner::simplify_watch(equation const& eq, bool is_processed) {
+    bool grobner::simplify_to_simplify(equation const& eq) {
         unsigned v = m_vars[m_var];
         auto& watch = m_watch[v];
         unsigned j = 0;
         for (equation* _target : watch) {
             equation& target = *_target;
+            if (target.is_processed()) continue;
             bool changed_leading_term = false;
             bool simplified = !done() && simplify_source_target(eq, target, changed_leading_term);
             if (simplified && is_trivial(target)) {
@@ -341,6 +312,7 @@ namespace dd {
             }
             if (eq) {
                 pop_equation(eq->idx(), m_to_simplify);
+                m_watch[eq->poly().var()].erase(eq);
                 return eq;
             }
             ++m_var;
@@ -428,16 +400,37 @@ namespace dd {
     }
 
     void grobner::invariant() const {
+        // equations in processed have correct indices
+        // they are labled as processed
         unsigned i = 0;
         for (auto* e : m_processed) {
-            SASSERT(e->is_processed());            
-            SASSERT(e->idx() == i);
+            VERIFY(e->is_processed());            
+            VERIFY(e->idx() == i);
             ++i;
         }
+        // equations in to_simplify have correct indices
+        // they are labeled as non-processed
+        // their top-most variable is watched
         i = 0;
         for (auto* e : m_to_simplify) {
-            SASSERT(!e->is_processed());            
-            SASSERT(e->idx() == i);
+            VERIFY(!e->is_processed());            
+            VERIFY(e->idx() == i);
+            if (is_tuned()) {
+                pdd const& p = e->poly();
+                VERIFY(p.is_val() || m_watch[p.var()].contains(e));
+            }
+            ++i;
+        }
+        // the watch list consists of equations in to_simplify
+        // they watch the top most variable in poly
+        i = 0;
+        for (auto const& w : m_watch) {
+            for (equation const* e : w) {
+                VERIFY(!e->poly().is_val());
+                VERIFY(e->poly().var() == i);
+                VERIFY(!e->is_processed());
+                VERIFY(m_to_simplify.contains(e));
+            }
             ++i;
         }
     }
