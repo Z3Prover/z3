@@ -667,11 +667,18 @@ namespace smt {
         l = ctx.get_literal(bound);
         ctx.mark_as_relevant(l);
         dump_lemmas(l, ante);
-        ctx.assign(l, ctx.mk_justification(
-                       gomory_cut_justification(
-                           get_id(), ctx.get_region(), 
-                           ante.lits().size(), ante.lits().c_ptr(), 
-                           ante.eqs().size(), ante.eqs().c_ptr(), ante, l)));
+        auto js = ctx.mk_justification(
+            gomory_cut_justification(
+                get_id(), ctx.get_region(),
+                ante.lits().size(), ante.lits().c_ptr(),
+                ante.eqs().size(), ante.eqs().c_ptr(), ante, l));
+
+        if (l == false_literal) {
+            ctx.mk_clause(0, nullptr, js, CLS_TH_LEMMA, nullptr);
+        }
+        else {
+            ctx.assign(l, js);
+        }
         return true;
     }
     

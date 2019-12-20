@@ -956,7 +956,7 @@ namespace smt {
 
     public:
         void assign(literal l, const b_justification & j, bool decision = false) {
-            SASSERT(l != false_literal);
+            // SASSERT(l != false_literal);
             SASSERT(l != null_literal);
             switch (get_assignment(l)) {
             case l_false:
