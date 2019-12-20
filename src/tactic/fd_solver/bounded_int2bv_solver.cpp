@@ -82,6 +82,7 @@ public:
         for (func_decl* f : m_bv_fns) result->m_bv_fns.push_back(tr(f));
         for (func_decl* f : m_int_fns) result->m_int_fns.push_back(tr(f));
         for (bound_manager* b : m_bounds) result->m_bounds.push_back(b->translate(dst_m));
+        result->m_flushed = true;
         model_converter_ref mc = external_model_converter();
         if (mc) {
             ast_translation tr(m, dst_m);
