@@ -130,7 +130,7 @@ jobs:
     inputs:
      artifactName: 'Manylinux'
      targetPath: $(Agent.TempDirectory)
-  - script: cd $(Agent.TempDirectory); mkdir macos-bin; cd macos-bin; unzip ../*osx*.zip
+  - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
   - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
   - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
   - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
@@ -140,7 +140,7 @@ jobs:
   - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
   - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
   - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-  - script: cd src/api/python; echo $(Agent.TempDirectory)/macos-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+  - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
   - task: PublishPipelineArtifact@0
     inputs:
       artifactName: 'Python packages'
