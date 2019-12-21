@@ -152,6 +152,7 @@ jobs:
   - Mac
   - Ubuntu
   - Windows
+  - Python
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -164,6 +165,10 @@ jobs:
   - task: DownloadPipelineArtifact@0
     inputs:
      artifactName: 'Ubuntu'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Python'
      targetPath: tmp
 #  - task: DownloadPipelineArtifact@0
 #    inputs:
