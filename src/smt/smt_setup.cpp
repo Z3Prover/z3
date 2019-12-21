@@ -302,12 +302,6 @@ namespace smt {
         if (m_manager.proofs_enabled()) {
             m_context.register_plugin(alloc(smt::theory_mi_arith, m_manager, m_params));
         }
-        else if (!m_params.m_arith_auto_config_simplex && is_dense(st)) {
-            if (!st.m_has_rational && !m_params.m_model && st.arith_k_sum_is_small())
-                m_context.register_plugin(alloc(smt::theory_dense_smi, m_manager, m_params));
-            else
-                m_context.register_plugin(alloc(smt::theory_dense_mi, m_manager, m_params));
-        }
         else {
             if (m_params.m_arith_auto_config_simplex || st.m_num_uninterpreted_constants > 4 * st.m_num_bool_constants 
                 || st.m_num_ite_terms > 0 /* theory_rdl and theory_frdl do not support ite-terms */) {

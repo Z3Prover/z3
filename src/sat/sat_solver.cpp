@@ -473,7 +473,7 @@ namespace sat {
         VERIFY(ENABLE_TERNARY);
         bool reinit = false;
         if (m_config.m_drat) m_drat.add(c, c.is_learned());
-        TRACE("sat", tout << c << "\n";);
+        TRACE("sat_verbose", tout << c << "\n";);
         SASSERT(!c.was_removed());
         m_watches[(~c[0]).index()].push_back(watched(c[1], c[2]));
         m_watches[(~c[1]).index()].push_back(watched(c[0], c[2]));

@@ -52,6 +52,7 @@ namespace opt {
         if (m_params.m_case_split_strategy == CS_ACTIVITY_DELAY_NEW) {            
             m_params.m_relevancy_lvl = 0;
         }
+        m_params.m_arith_auto_config_simplex = false;
         // m_params.m_auto_config = false;
     }
 
@@ -65,6 +66,7 @@ namespace opt {
         m_dump_benchmarks = p.dump_benchmarks();
         m_params.updt_params(_p);
         m_context.updt_params(_p);
+        m_params.m_arith_auto_config_simplex = false;
     }
 
     solver* opt_solver::translate(ast_manager& m, params_ref const& p) {
@@ -435,6 +437,11 @@ namespace opt {
         if (typeid(smt::theory_dense_smi) == typeid(opt) &&
             val.get_infinitesimal().is_zero()) {
             smt::theory_dense_smi& th = dynamic_cast<smt::theory_dense_smi&>(opt);
+            return th.mk_ge(m_fm, v, val);
+        }
+
+        if (typeid(smt::theory_dense_mi) == typeid(opt)) {
+            smt::theory_dense_mi& th = dynamic_cast<smt::theory_dense_mi&>(opt);
             return th.mk_ge(m_fm, v, val);
         }
         
