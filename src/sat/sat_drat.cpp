@@ -738,7 +738,6 @@ namespace sat {
     void drat::del(literal l1, literal l2) {
         ++m_num_del;
         literal ls[2] = {l1, l2};
-        SASSERT(!(l1 == literal(13923, false) && l2 == literal(14020, true)));
         if (m_out) dump(2, ls, status::deleted);
         if (m_bout) bdump(2, ls, status::deleted);
         if (m_check) append(l1, l2, status::deleted);
