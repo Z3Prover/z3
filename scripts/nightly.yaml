@@ -172,7 +172,7 @@ jobs:
      targetPath: tmp
   - task: DownloadPipelineArtifact@0
     inputs:
-     artifactName: 'Python'
+     artifactName: 'Python packages'
      targetPath: tmp
 #  - task: DownloadPipelineArtifact@0
 #    inputs:
