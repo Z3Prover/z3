@@ -763,6 +763,22 @@ br_status bool_rewriter::mk_distinct_core(unsigned num_args, expr * const * args
         return BR_DONE;
     }
 
+    bool all_diff = true, some_eq = false;
+    for (unsigned i = 0; all_diff && !some_eq && i < num_args; i++) {
+        for (unsigned j = i + 1; all_diff && !some_eq && j < num_args; j++) {
+            all_diff = m().are_distinct(args[i], args[j]);
+            some_eq = m().are_equal(args[i], args[j]);
+        }        
+    }
+    if (all_diff) {
+        result = m().mk_true();
+        return BR_DONE;
+    }
+    if (some_eq) {
+        result = m().mk_false();
+        return BR_DONE;
+    }
+
     if (m_blast_distinct && num_args < m_blast_distinct_threshold) {
         ptr_buffer<expr> new_diseqs;
         for (unsigned i = 0; i < num_args; i++) {
