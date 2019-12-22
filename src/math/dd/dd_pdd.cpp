@@ -299,7 +299,7 @@ namespace dd {
         }
     }
 
-    // return quotient r, such that lt(q) = lt(p)*r
+    // return minus quotient -r, such that lt(q) = lt(p)*r
     // assume lm_divides(p, q)
     pdd_manager::PDD pdd_manager::lt_quotient(PDD p, PDD q) {
         SASSERT(lm_divides(p, q));
