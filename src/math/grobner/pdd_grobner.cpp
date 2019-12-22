@@ -139,7 +139,6 @@ namespace dd {
         unsigned j = 0;
         for (equation* target : m_processed) {
             if (superpose(eq, *target)) {
-                // remove from watch lists
                 retire(target); 
             }
             else {
@@ -189,6 +188,11 @@ namespace dd {
                 retire(&target);
             }
             else if (simplified && !check_conflict(target) && changed_leading_term) {
+                SASSERT(target.is_processed());
+                target.set_processed(false);
+                if (is_tuned()) {
+                    m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
+                }
                 push_equation(target, m_to_simplify);               
             }
             else {
@@ -217,10 +221,6 @@ namespace dd {
         target = r;
         target = m_dep_manager.mk_join(target.dep(), source.dep());
         update_stats_max_degree_and_size(target);
-        if (changed_leading_term) {
-            target.set_processed(false);
-        }
-
         TRACE("grobner", tout << "simplified " << target.poly() << "\n";);
         return true;
     }
@@ -255,8 +255,13 @@ namespace dd {
     }
 
     void grobner::tuned_init() {
-        // TBD: extract free variables, order them, set pointer into variable list.
-        NOT_IMPLEMENTED_YET();
+        unsigned_vector const& l2v = m.get_level2var();
+        m_level2var.resize(l2v.size());
+        m_var2level.resize(l2v.size());
+        for (unsigned i = 0; i < l2v.size(); ++i) {
+            m_level2var[i] = l2v[i];
+            m_var2level[l2v[i]] = i;
+        }
         m_watch.reserve(m_level2var.size());
         m_levelp1 = m_level2var.size();
         for (equation* eq : m_to_simplify) add_to_watch(*eq);
@@ -278,17 +283,20 @@ namespace dd {
         for (equation* _target : watch) {
             equation& target = *_target;
             SASSERT(!target.is_processed());
+            SASSERT(target.poly().var() == v);
             bool changed_leading_term = false;
-            bool simplified = !done() && simplify_source_target(eq, target, changed_leading_term);
-            if (simplified && is_trivial(target)) {
+            if (!done()) simplify_source_target(eq, target, changed_leading_term);
+            if (is_trivial(target)) {
                 retire(&target);
             }
-            else if (simplified && !check_conflict(target) && changed_leading_term) {
-                SASSERT(!target.is_processed());
-                pop_equation(target.idx(), m_processed);
-                push_equation(target, m_to_simplify);
+            else if (check_conflict(target)) {
+                // remove from watch
+            } else if (target.poly().var() != v) {
+                // move to other watch list
+                m_watch[target.poly().var()].push_back(_target);
             }
             else {
+                // keep watching same variable
                 watch[++j] = _target;
             }
         }

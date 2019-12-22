@@ -225,7 +225,8 @@ namespace dd {
 
         void set_mod2_semantics() { m_mod2_semantics = true; }
         void set_max_num_nodes(unsigned n) { m_max_num_pdd_nodes = n; }
-        void set_var_order(unsigned_vector const& levels);  // TBD: set variable order (m_var2level, m_level2var) before doing anything else.        
+        void set_level2var(unsigned_vector const& level2var);  
+        unsigned_vector const& get_level2var() const { return m_level2var; }
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);

@@ -544,6 +544,14 @@ namespace dd {
         reserve_var(i);
         return pdd(m_var2pdd[i], this);        
     }
+
+    void pdd_manager::set_level2var(unsigned_vector const& level2var) {
+        SASSERT(level2var.size() == m_level2var.size());
+        for (unsigned i = 0; i < level2var.size(); ++i) {
+            m_var2level[level2var[i]] = i;
+            m_level2var[i] = level2var[i];
+        }
+    }
     
     unsigned pdd_manager::dag_size(pdd const& b) {
         init_mark();

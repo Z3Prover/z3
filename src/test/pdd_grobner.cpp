@@ -36,6 +36,7 @@ namespace dd {
         print_eqs(gb.equations());
         gb.reset();
 
+        // stop early on contradiction
         gb.add(v1*v3*v3 + v3*v1 + 2);
         gb.add(v1*v3*v3 + v3*v1);
         gb.add(v3*v1 + v1*v2 + v2*v3);
@@ -45,6 +46,24 @@ namespace dd {
         print_eqs(gb.equations());
         gb.reset();
 
+        // result is v1 = 0, v2 = 0.
+        gb.add(v1*v3*v3 + v3*v1);
+        gb.add(v3*v1 + v1*v2 + v2*v3);
+        gb.add(v3*v1 + v1*v2 + v2*v3 + v1);
+        gb.add(v3*v1 + v1*v2 + v2*v3 + v2);
+        gb.saturate();        
+        print_eqs(gb.equations());
+        gb.reset();
+
+        // everything rewrites to a multiple of v0
+        gb.add(v3 - 2*v2);
+        gb.add(v2 - 2*v1);
+        gb.add(v1 - 2*v0);
+        gb.saturate();        
+        print_eqs(gb.equations());
+        gb.reset();
+
+        // 
     }
 }
 
