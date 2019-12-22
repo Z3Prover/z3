@@ -193,6 +193,13 @@ namespace dd {
         void reserve_var(unsigned v);
         bool well_formed();
 
+        struct scoped_push {
+            bdd_manager& m;
+            unsigned     m_size;
+            scoped_push(bdd_manager& m) :m(m), m_size(m.m_bdd_stack.size()) {}
+            ~scoped_push() { m.m_bdd_stack.shrink(m_size); }
+        };
+
     public:
         struct mem_out {};
 

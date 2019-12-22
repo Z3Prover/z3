@@ -83,13 +83,14 @@ namespace dd {
     bdd_manager::BDD bdd_manager::apply(BDD arg1, BDD arg2, bdd_op op) {
         bool first = true;
         SASSERT(well_formed());
+        scoped_push _sp(*this);
         while (true) {
             try {
                 return apply_rec(arg1, arg2, op);
             }
             catch (const mem_out &) {
-                try_reorder();
                 if (!first) throw;
+                try_reorder();
                 first = false;
             }
         }
@@ -542,13 +543,14 @@ namespace dd {
 
     bdd bdd_manager::mk_not(bdd b) {
         bool first = true;
+        scoped_push _sp(*this);
         while (true) {
             try {
                 return bdd(mk_not_rec(b.root), this);
             }
             catch (const mem_out &) {
-                try_reorder();
                 if (!first) throw;
+                try_reorder();
                 first = false;
             }
         }
@@ -571,13 +573,14 @@ namespace dd {
     
     bdd bdd_manager::mk_ite(bdd const& c, bdd const& t, bdd const& e) {         
         bool first = true;
+        scoped_push _sp(*this);
         while (true) {
             try {
                 return bdd(mk_ite_rec(c.root, t.root, e.root), this); 
             }
             catch (const mem_out &) {
-                try_reorder();
                 if (!first) throw;
+                try_reorder();
                 first = false;
             }
         }
