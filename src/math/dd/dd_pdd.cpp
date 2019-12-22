@@ -761,7 +761,7 @@ namespace dd {
             first = false;
             rational c = abs(m.first);
             m.second.reverse();
-            if (!c.is_one()) {
+            if (!c.is_one() || m.second.empty()) {
                 out << c;
                 if (!m.second.empty()) out << "*";
             }

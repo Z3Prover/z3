@@ -37,6 +37,7 @@ public:
         unsigned m_superposed;
         unsigned m_compute_steps;
         void reset() { memset(this, 0, sizeof(*this)); }
+        stats() { reset(); }
     };
 
     struct config {
@@ -50,7 +51,6 @@ public:
         {}
     };
 
-private:
     class equation {
         bool                       m_processed;  //!< state
         unsigned                   m_idx;        //!< unique index
@@ -73,6 +73,7 @@ private:
         void set_processed(bool p) { m_processed = p; }
         void set_index(unsigned idx) { m_idx = idx; }
     };
+private:
 
     typedef ptr_vector<equation> equation_vector;
     typedef std::function<void (u_dependency* d, std::ostream& out)> print_dep_t;
@@ -95,7 +96,8 @@ public:
     void operator=(config const& c) { m_config = c; }
 
     void reset();
-    void add(pdd const&, u_dependency * dep);
+    void add(pdd const& p) { add(p, nullptr); }
+    void add(pdd const& p, u_dependency * dep);
 
     void saturate();
 
@@ -103,7 +105,7 @@ public:
     u_dependency_manager& dep() const { return m_dep_manager;  }
 
     void collect_statistics(statistics & st) const;
-    std::ostream& display_equation(std::ostream& out, const equation& eq) const;
+    std::ostream& display(std::ostream& out, const equation& eq) const;
     std::ostream& display(std::ostream& out) const;
 
 private:
@@ -129,8 +131,9 @@ private:
 
     // tuned implementation
     vector<equation_vector> m_watch;           // watch list mapping variables to vector of equations where they occur (generally a subset)
-    unsigned                m_var;             // index into vars with current variable
-    unsigned_vector         m_vars;            // variables sorted by priority, higher priority first.
+    unsigned                m_levelp1;         // index into level+1
+    unsigned_vector         m_level2var;       // level -> var
+    unsigned_vector         m_var2level;       // var -> level
 
     bool tuned_step();
     void tuned_init();
@@ -146,6 +149,18 @@ private:
     void push_equation(equation& eq, equation_vector& v);
 
     void invariant() const;
+    struct scoped_detach {
+        grobner& g;
+        equation* e;
+        scoped_detach(grobner& g, equation* e): g(g), e(e) {}
+        ~scoped_detach() {
+            if (e) {
+                e->set_processed(true);
+                e->set_index(g.m_processed.size());
+                g.m_processed.push_back(e);
+            }
+        }
+    };
 
     void update_stats_max_degree_and_size(const equation& e);
     bool is_tuned() const { return m_config.m_algorithm == config::tuned;  }
