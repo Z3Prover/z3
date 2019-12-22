@@ -177,27 +177,36 @@ namespace dd {
                 r = make_node(level_a, read(2), read(1));
             }
             else if (level_a == level_b) {
-                // (xa+b)*(xc+d) = x(x*ac + (ad+bc)) + bd
-                // (xa+b)*(xc+d) mod2 == x(ac+bc+ad) + bd
-                push(apply_rec(hi(a), hi(b), op));
-                push(apply_rec(hi(a), lo(b), op));
-                push(apply_rec(lo(a), hi(b), op));
-                push(apply_rec(lo(a), lo(b), op));
-                unsigned ac = read(4), ad = read(3), bc = read(2), bd = read(1);
-                push(apply_rec(ad, bc, pdd_add_op));
                 if (m_mod2_semantics) {
-                    push(apply_rec(read(1), ac, pdd_add_op));
+                    //
+                    // (xa+b)*(xc+d) mod2 == x(ac+bc+ad) + bd
+                    //                    == x((a+b)(c+d)+bd) + bd
+                    //
+                    push(apply_rec(lo(a), lo(b), pdd_mul_op));
+                    unsigned bd = read(3);
+                    push(apply_rec(hi(a), lo(a), pdd_add_op));
+                    push(apply_rec(hi(b), lo(b), pdd_add_op));
+                    push(apply_rec(read(1), read(2), pdd_mul_op));
+                    push(apply_rec(read(1), bd, pdd_add_op));
                     r = make_node(level_a, bd, read(1));
-                    npop = 6;
                 }
                 else {
+                    //
+                    // (xa+b)*(xc+d) = x(x*ac + (ad+bc)) + bd
+                    //
+                    push(apply_rec(hi(a), hi(b), op));
+                    push(apply_rec(hi(a), lo(b), op));
+                    push(apply_rec(lo(a), hi(b), op));
+                    push(apply_rec(lo(a), lo(b), op));
+                    unsigned ac = read(4), ad = read(3), bc = read(2), bd = read(1);
+                    push(apply_rec(ad, bc, pdd_add_op));
                     r = make_node(level_a, read(1), ac);
                     r = make_node(level_a, bd, r);
-                    npop = 5;
                 }
+                npop = 5;
             }
             else {
-                // (xa+b)*c = x(ac) + bc
+                // (x*hi(a)+lo(a))*b = x*hi(a)*b + lo(a)*b
                 SASSERT(level_a > level_b);
                 push(apply_rec(lo(a), b, op));
                 push(apply_rec(hi(a), b, op));
@@ -267,14 +276,12 @@ namespace dd {
     // q = lt(a)/lt(b), return a - b*q
     pdd_manager::PDD pdd_manager::reduce_on_match(PDD a, PDD b) {
         SASSERT(level(a) == level(b) && !is_val(a) && !is_val(b));
-        if (lm_divides(b, a)) {
+        while (lm_divides(b, a)) {
             PDD q = lt_quotient(b, a);
             PDD r = apply(q, b, pdd_mul_op);
-            return apply(a, r, pdd_add_op);
+            a = apply(a, r, pdd_add_op);
         }
-        else {
-            return a;
-        }
+        return a;
     }
 
     // true if leading monomial of p divides leading monomial of q
@@ -306,7 +313,7 @@ namespace dd {
         else if (level(p) == level(q)) {
             return lt_quotient(hi(p), hi(q));
         }
-        return apply(m_var2pdd[var(p)], lt_quotient(p, hi(q)), pdd_mul_op);
+        return apply(m_var2pdd[var(q)], lt_quotient(p, hi(q)), pdd_mul_op);
     }
 
     //

@@ -46,10 +46,29 @@ namespace dd {
         c2 = (v0*v1*(v2 + v0)) + v2;
         c3 = c2.reduce(c1);
         std::cout << c1 << " " << c2 << " reduce: " << c3 << "\n";
-
     }
+
+    static void test2() {
+        std::cout << "\ntest2\n";
+        // a(b^2)cd + abc + bcd + bc + cd + 3 reduce by  bc
+        pdd_manager m(4);
+        pdd a = m.mk_var(0);
+        pdd b = m.mk_var(1);
+        pdd c = m.mk_var(2);
+        pdd d = m.mk_var(3);
+        pdd e = (a * b * b * c * d) + (2*a*b*c) + (b*c*d) + (b*c) + (c*d) + 3;
+        std::cout << e << "\n";
+        pdd f = b * c;
+        pdd r_ef = m.reduce(e, f);
+        m.display(std::cout);
+        std::cout << "result of reduce " << e << " by " << f << " is " << r_ef <<  "\n";
+        pdd r_fe = m.reduce(f, e);
+        std::cout << "result of reduce " << f << " by " << e << " is " << r_fe << "\n" ;
+    }
+
 }
 
 void tst_pdd() {
     dd::test1();
+    dd::test2();
 }
