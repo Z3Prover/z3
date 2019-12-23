@@ -295,8 +295,9 @@ namespace dd {
 
     void grobner::add_to_watch(equation& eq) {
         SASSERT(!eq.is_processed());
+        SASSERT(is_tuned());
         pdd const& p = eq.poly();
-        if (is_tuned() && !p.is_val()) {
+        if (!p.is_val()) {
             m_watch[p.var()].push_back(&eq);
         }
     }

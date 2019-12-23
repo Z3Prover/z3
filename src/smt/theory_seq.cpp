@@ -2540,13 +2540,18 @@ bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs
 }
 
 bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
-    rational n; 
     expr* s = nullptr, *idx = nullptr;
-    if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
-        expr_ref lhs(m_util.str.mk_at(s, idx), m);
+    if (false && ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
+        expr_ref idx1(m_autil.mk_add(m_autil.mk_int(1), idx), m);
+        m_rewrite(idx1);
+        expr_ref hd = mk_skolem(m_pre, s, idx);        
+        expr_ref tl = mk_skolem(m_tail, s, idx1);
         expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr()), m);
-        expr_ref_vector ls1(m); ls1.push_back(lhs);
-        expr_ref_vector rs1(m); rs1.push_back(m_util.str.mk_unit(rhs));
+        rhs = m_util.str.mk_unit(rhs);
+        expr_ref_vector rs1(m); rs1.push_back(hd); rs1.push_back(rhs); rs1.push_back(tl);
+        expr_ref_vector ls1(m); ls1.push_back(s);
+        std::cout << ls << "\n" << rs << "\n-> \n" << rs1 << "\n" << ls1 << "\n";
+        
         m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
         return true;
     }   
