@@ -64,6 +64,23 @@ namespace dd {
         std::cout << "result of reduce " << e << " by " << f << " is " << r_ef <<  "\n";
         pdd r_fe = m.reduce(f, e);
         std::cout << "result of reduce " << f << " by " << e << " is " << r_fe << "\n" ;
+        VERIFY(r_fe == f);
+    }
+
+    static void test3() {
+        std::cout << "\ntest3\n";
+        pdd_manager m(4);
+        pdd a = m.mk_var(0);
+        pdd b = m.mk_var(1);
+        pdd c = m.mk_var(2);
+        pdd d = m.mk_var(3);
+        
+        pdd e = a + c;
+        for (unsigned i = 0; i < 5; i++) {
+            e = e * e;
+        }
+        e = e * b;
+        std::cout << e << "\n";
     }
 
 }
@@ -71,4 +88,5 @@ namespace dd {
 void tst_pdd() {
     dd::test1();
     dd::test2();
+    dd::test3();
 }
