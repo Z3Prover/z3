@@ -27,7 +27,7 @@ namespace dd {
         m_spare_entry = nullptr;
         m_max_num_pdd_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
-        alloc_free_nodes(1024 + num_vars);
+        alloc_free_nodes(10*1024 + num_vars);
         m_disable_gc = false;
         m_is_new_node = false;
         m_mod2_semantics = false;
@@ -102,63 +102,59 @@ namespace dd {
         }
     }
 
-    pdd_manager::PDD pdd_manager::apply_rec(PDD a, PDD b, pdd_op op) {
+    pdd_manager::PDD pdd_manager::apply_rec(PDD p, PDD q, pdd_op op) {
         switch (op) {
         case pdd_add_op:
-            if (is_zero(a)) return b;
-            if (is_zero(b)) return a;
-            if (is_val(a) && is_val(b)) return imk_val(val(a) + val(b));
-            if (level(a) < level(b)) std::swap(a, b);
+            if (is_zero(p)) return q;
+            if (is_zero(q)) return p;
+            if (is_val(p) && is_val(q)) return imk_val(val(p) + val(q));
+            if (!is_val(p) && level(p) < level(q)) std::swap(p, q);
+            if (is_val(p)) std::swap(p, q);
             break;
         case pdd_mul_op:
-            if (is_zero(a) || is_zero(b)) return zero_pdd;
-            if (is_one(a)) return b;
-            if (is_one(b)) return a;
-            if (is_val(a) && is_val(b)) return imk_val(val(a) * val(b));
-            if (level(a) < level(b)) std::swap(a, b);
+            if (is_zero(p) || is_zero(q)) return zero_pdd;
+            if (is_one(p)) return q;
+            if (is_one(q)) return p;
+            if (is_val(p) && is_val(q)) return imk_val(val(p) * val(q));
+            if (!is_val(p) && level(p) < level(q)) std::swap(p, q);
+            if (is_val(p)) std::swap(p, q);
             break;
         case pdd_reduce_op:
-            if (is_zero(b)) return a;
-            if (is_val(a)) return a;
-            if (level(a) < level(b)) return a;
+            if (is_zero(q)) return p;
+            if (is_val(p)) return p;
+            if (level(p) < level(q)) return p;
             break;
         default:
             UNREACHABLE();
             break;
         }
 
-        op_entry * e1 = pop_entry(a, b, op);
+        op_entry * e1 = pop_entry(p, q, op);
         op_entry const* e2 = m_op_cache.insert_if_not_there(e1);
-        if (check_result(e1, e2, a, b, op)) {
+        if (check_result(e1, e2, p, q, op)) {
             SASSERT(!m_free_nodes.contains(e2->m_result));
             return e2->m_result;
         }
         PDD r;
-        unsigned level_a = level(a), level_b = level(b);
+        unsigned level_p = level(p), level_q = level(q);
         unsigned npop = 2;
                 
         switch (op) {
         case pdd_add_op:
-            if (is_val(a)) {
-                SASSERT(!is_val(b));
-                push(apply_rec(a, lo(b), op));
-                r = make_node(level_b, read(1), hi(b));
-                npop = 1;                
-            }
-            else if (is_val(b)) {
-                SASSERT(!is_val(a));
-                push(apply_rec(lo(a), b, op));
-                r = make_node(level_a, read(1), hi(a));
+            SASSERT(!is_val(p));
+            if (is_val(q)) {
+                push(apply_rec(lo(p), q, op));
+                r = make_node(level_p, read(1), hi(p));
                 npop = 1;
             }
-            else if (level_a == level_b) {
-                push(apply_rec(lo(a), lo(b), op));
-                push(apply_rec(hi(a), hi(b), op));
-                r = make_node(level_a, read(2), read(1));                           
+            else if (level_p == level_q) {
+                push(apply_rec(lo(p), lo(q), op));
+                push(apply_rec(hi(p), hi(q), op));
+                r = make_node(level_p, read(2), read(1));                           
             }
-            else if (level_a > level_b) {
-                push(apply_rec(lo(a), b, op));
-                r = make_node(level_a, read(1), hi(a));
+            else if (level_p > level_q) {
+                push(apply_rec(lo(p), q, op));
+                r = make_node(level_p, read(1), hi(p));
                 npop = 1;
             }
             else {
@@ -166,62 +162,72 @@ namespace dd {
             }
             break;
         case pdd_mul_op:
-            if (is_val(a)) {
-                push(apply_rec(a, lo(b), op));
-                push(apply_rec(a, hi(b), op));
-                r = make_node(level_b, read(2), read(1));
+            SASSERT(!is_val(p));
+            if (is_val(q)) {
+                push(apply_rec(lo(p), q, op));
+                push(apply_rec(hi(p), q, op));
+                r = make_node(level_p, read(2), read(1));
             }
-            else if (is_val(b)) {
-                push(apply_rec(b, lo(a), op));
-                push(apply_rec(b, hi(a), op));
-                r = make_node(level_a, read(2), read(1));
-            }
-            else if (level_a == level_b) {
+            else if (level_p == level_q) {
                 if (m_mod2_semantics) {
                     //
                     // (xa+b)*(xc+d) mod2 == x(ac+bc+ad) + bd
                     //                    == x((a+b)(c+d)+bd) + bd
                     //
-                    push(apply_rec(lo(a), lo(b), pdd_mul_op));
+                    push(apply_rec(lo(p), lo(q), pdd_mul_op));
                     unsigned bd = read(3);
-                    push(apply_rec(hi(a), lo(a), pdd_add_op));
-                    push(apply_rec(hi(b), lo(b), pdd_add_op));
+                    push(apply_rec(hi(p), lo(p), pdd_add_op));
+                    push(apply_rec(hi(q), lo(q), pdd_add_op));
                     push(apply_rec(read(1), read(2), pdd_mul_op));
                     push(apply_rec(read(1), bd, pdd_add_op));
-                    r = make_node(level_a, bd, read(1));
+                    r = make_node(level_p, bd, read(1));
+                    npop = 5;
                 }
                 else {
-                    //
-                    // (xa+b)*(xc+d) = x(x*ac + (ad+bc)) + bd
-                    //
-                    push(apply_rec(hi(a), hi(b), op));
-                    push(apply_rec(hi(a), lo(b), op));
-                    push(apply_rec(lo(a), hi(b), op));
-                    push(apply_rec(lo(a), lo(b), op));
+                    /*
+                      In this case the code should have checked if level(read(1)) == level_a,
+                      Then it should have converted read(1) into e := hi(read(1)), f := lo(read(1)),                    
+                      Such that read(1) stands for x*e+f.                      
+                      The task is then to create the term:                      
+                      x*(x*ac + x*e + f) + bd, which is the same as: x*(x*(ac + e) + f) + bd
+                    */
+
+                    push(apply_rec(hi(p), hi(q), op));
+                    push(apply_rec(hi(p), lo(q), op));
+                    push(apply_rec(lo(p), hi(q), op));
+                    push(apply_rec(lo(p), lo(q), op));
                     unsigned ac = read(4), ad = read(3), bc = read(2), bd = read(1);
                     push(apply_rec(ad, bc, pdd_add_op));
-                    r = make_node(level_a, read(1), ac);
-                    r = make_node(level_a, bd, r);
+                    unsigned n = read(1); // n = ad + bc
+                    if (!is_val(n) && level(n) == level_p) {
+                        push(apply_rec(ac, hi(n), pdd_add_op));
+                        r = make_node(level_p, lo(n), read(1));
+                        r = make_node(level_p, bd, r);
+                        npop = 6;
+                    } else {
+                        r = make_node(level_p, n, ac);
+                        r = make_node(level_p, bd, r);
+                        npop = 5;
+                    }                         
                 }
-                npop = 5;
             }
             else {
-                // (x*hi(a)+lo(a))*b = x*hi(a)*b + lo(a)*b
-                SASSERT(level_a > level_b);
-                push(apply_rec(lo(a), b, op));
-                push(apply_rec(hi(a), b, op));
-                r = make_node(level_a, read(2), read(1));
+                // (x*hi(p)+lo(p))*b = x*hi(p)*b + lo(p)*b
+                SASSERT(level_p > level_q);
+                push(apply_rec(lo(p), q, op));
+                push(apply_rec(hi(p), q, op));
+                r = make_node(level_p, read(2), read(1));
             }
             break;
         case pdd_reduce_op:
-            if (level_a > level_b) {
-                push(apply_rec(lo(a), b, op));
-                push(apply_rec(hi(a), b, op));
-                r = make_node(level_a, read(2), read(1));
+            if (level_p > level_q) {
+                push(apply_rec(lo(p), q, op));
+                push(apply_rec(hi(p), q, op));
+                r = make_node(level_p, read(2), read(1));
             }
             else {
-                SASSERT(level_a == level_b);
-                r = reduce_on_match(a, b);
+                SASSERT(level_p == level_q);
+                r = reduce_on_match(p, q);
                 npop = 0;
             }
             break;
