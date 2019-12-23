@@ -240,11 +240,12 @@ namespace dd {
         pdd mul(rational const& c, pdd const& b);
         pdd reduce(pdd const& a, pdd const& b);
 
+        bool is_linear(PDD p);
+        bool is_linear(pdd const& p);
+
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
 
-        // true if b can be computed using a and the result of spoly
-        bool spoly_is_invertible(pdd const& a, pdd const& b);
         bool lt(pdd const& a, pdd const& b);
         bool different_leading_term(pdd const& a, pdd const& b);
         double tree_size(pdd const& p);
@@ -274,6 +275,7 @@ namespace dd {
         rational const& val() const { SASSERT(is_val()); return m->val(root); }
         bool is_val() const { return m->is_val(root); }
         bool is_zero() const { return m->is_zero(root); }
+        bool is_linear() const { return m->is_linear(root); }
 
         pdd operator+(pdd const& other) const { return m->add(*this, other); }
         pdd operator-(pdd const& other) const { return m->sub(*this, other); }

@@ -114,7 +114,7 @@ private:
     equation* pick_next();
     bool canceled();
     bool done();
-    bool superpose(equation const& eq1, equation const& eq2);
+    void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     bool simplify_source_target(equation const& source, equation& target, bool& changed_leading_term);
     bool simplify_using(equation_vector& set, equation const& eq);

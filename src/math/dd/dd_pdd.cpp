@@ -369,13 +369,6 @@ namespace dd {
         }
     }
 
-    // a = s*x + t, where s is a constant, b = u*x + v, where u is a constant.
-    // since x is the maximal variable, it does not occur in t or v.
-    // thus, both a and b are linear in x
-    bool pdd_manager::spoly_is_invertible(pdd const& a, pdd const& b) {
-        return !a.is_val() && !b.is_val() && a.hi().is_val() && b.hi().is_val() && a.var() == b.var();
-    }
-
     /*
      * Compare leading monomials.
      * The pdd format makes lexicographic comparison easy: compare based on
@@ -424,6 +417,23 @@ namespace dd {
                 return true;
             }
         }
+    }
+
+    /*
+      Determine whether p is a linear polynomials.
+      A linear polynomial is of the form x*v1 + y*v2 + .. + vn,
+      where v1, v2, .., vn are values.      
+     */
+    bool pdd_manager::is_linear(PDD p) {
+        while (true) {
+            if (is_val(p)) return true;
+            if (!is_val(hi(p))) return false;
+            p = lo(p);
+        }
+    }
+
+    bool pdd_manager::is_linear(pdd const& p) { 
+        return is_linear(p.root); 
     }
 
     void pdd_manager::push(PDD b) {

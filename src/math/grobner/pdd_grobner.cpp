@@ -40,7 +40,6 @@ namespace dd {
           - if a does not contains x_i, put it back into A and pick again (determine whether possible)
           - for s in S:
                b = superpose(a, s)
-               if superposition is invertible, then remove s
                add b to A
           - add a to S
           - simplify A using a
@@ -72,13 +71,47 @@ namespace dd {
           - elements in S have no variables watched
           - elements in A are always reduced modulo all variables above the current x_i.
 
-        Invertible rules:
-          when p, q are linear in x, e.g., is of the form p = k*x + a, q = l*x + b 
-          where k, l are constant and x is maximal, then 
-          from l*a - k*b and k*x + a we have the equality lkx+al+kb-al, which is lx+b
-          So we can throw away q after superposition without losing solutions.
-          - this corresponds to triangulating a matrix during Gauss.
 
+        TBD: 
+
+        Linear Elimination:
+        - comprises of a simplification pass that puts linear equations in to_processed
+        - so before simplifying with respect to the variable ordering, eliminate linear equalities.
+
+        Extended Linear Simplification (as exploited in Bosphorus AAAI 2019):
+        - multiply each polynomial by one variable from their orbits.
+        - The orbit of a varible are the variables that occur in the same monomial as it in some polynomial.
+        - The extended set of polynomials is fed to a linear Gauss Jordan Eliminator that extracts
+          additional linear equalities.
+        - Bosphorus uses M4RI to perform efficient GJE to scale on large bit-matrices.
+
+        Long distance vanishing polynomials (used by PolyCleaner ICCAD 2019):
+        - identify polynomials p, q, such that p*q = 0
+        - main case is half-adders and full adders (p := x + y, q := x * y) over GF2
+          because (x+y)*x*y = 0 over GF2
+          To work beyond GF2 we would need to rely on simplification with respect to asserted equalities.
+          The method seems rather specific to hardware multipliers so not clear it is useful to 
+          generalize.
+        - find monomials that contain pairs of vanishing polynomials, transitively 
+          withtout actually inlining.
+          Then color polynomial variables w by p, resp, q if they occur in polynomial equalities
+          w - r = 0, such that all paths in r contain a node colored by p, resp q. 
+          polynomial variables that get colored by both p and q can be set to 0.
+          When some variable gets colored, other variables can be colored.
+        - We can walk pdd nodes by level to perform coloring in a linear sweep.
+          PDD nodes that are equal to 0 using some equality are marked as definitions.
+          First walk definitions to search for vanishing polynomial pairs. 
+          Given two definition polynomials d1, d2, it must be the case that 
+          level(lo(d1)) = level(lo(d1)) for the polynomial lo(d1)*lo(d2) to be vanishing.        
+          Then starting from the lowest level examine pdd nodes. 
+          The the current node be called p, check if the pdd node is used in an equation
+          w - r = 0, in which case, w inherits the labels from r.
+          Otherwise, label the node by the intersection of vanishing polynomials from lo(p) and hi(p).
+
+       Eliminating multiplier variables, but not adders [Kaufmann et al FMCAD 2019 for GF2];
+       - Only apply GB saturation with respect to variables that are part of multipliers.
+       - Perhaps this amounts to figuring out whether a variable is used in an xor or more
+       
     */
 
     grobner::grobner(reslimit& lim, pdd_manager& m) : 
@@ -136,17 +169,9 @@ namespace dd {
     }
 
     void grobner::superpose(equation const & eq) {
-        unsigned j = 0;
         for (equation* target : m_processed) {
-            if (superpose(eq, *target)) {
-                retire(target); 
-            }
-            else {
-                target->set_index(j);
-                m_processed[j++] = target;
-            }
+            retire(target);             
         }
-        m_processed.shrink(j);
     }
 
     /*
@@ -228,14 +253,14 @@ namespace dd {
     /*
        let eq1: ab+q=0, and eq2: ac+e=0, then qc - eb = 0
     */
-    bool grobner::superpose(equation const& eq1, equation const& eq2) {
-        TRACE("grobner_d", tout << "eq1="; display(tout, eq1) << "eq2="; display(tout, eq2););
+    void grobner::superpose(equation const& eq1, equation const& eq2) {
+        TRACE("grobner_d", display(tout << "eq1=", eq1); display(tout << "eq2=", eq2););
         pdd r(m);
-        if (!m.try_spoly(eq1.poly(), eq2.poly(), r)) return false;
-        m_stats.m_superposed++;
-        if (r.is_zero() || is_too_complex(r)) return false;
-        add(r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()));
-        return is_tuned() && m.spoly_is_invertible(eq1.poly(), eq2.poly());
+        if (m.try_spoly(eq1.poly(), eq2.poly(), r) && 
+            !r.is_zero() && !is_too_complex(r)) {
+            m_stats.m_superposed++;
+            add(r, m_dep_manager.mk_join(eq1.dep(), eq2.dep()));
+        }
     }
 
     bool grobner::tuned_step() {
@@ -249,7 +274,7 @@ namespace dd {
         if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
         if (check_conflict(eq)) return false;
         if (!simplify_using(m_processed, eq)) return false;
-        TRACE("grobner", tout << "eq = "; display(tout, eq););
+        TRACE("grobner", display(tout << "eq = ", eq););
         superpose(eq);
         return simplify_to_simplify(eq);
     }
@@ -357,7 +382,10 @@ namespace dd {
     }
     
     bool grobner::done() {
-        return m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || canceled() || m_conflict != nullptr;
+        return 
+            m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || 
+            canceled() || 
+            m_conflict != nullptr;
     }
 
     void grobner::del_equation(equation& eq) {
