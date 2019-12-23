@@ -104,8 +104,8 @@ namespace dd {
           Given two definition polynomials d1, d2, it must be the case that 
           level(lo(d1)) = level(lo(d1)) for the polynomial lo(d1)*lo(d2) to be vanishing.        
           Then starting from the lowest level examine pdd nodes. 
-          The the current node be called p, check if the pdd node is used in an equation
-          w - r = 0, in which case, w inherits the labels from r.
+          Let the current node be called p, check if the pdd node p is used in an equation
+          w - r = 0. In which case, w inherits the labels from r.
           Otherwise, label the node by the intersection of vanishing polynomials from lo(p) and hi(p).
 
        Eliminating multiplier variables, but not adders [Kaufmann et al FMCAD 2019 for GF2];
