@@ -30,8 +30,9 @@ public:
     
     pdd_eval(pdd_manager& m): m(m) {}
     
-    void operator=(std::function<rational (unsigned)>& i2v) { m_var2val = i2v; }
-
+    std::function<rational (unsigned)>& var2val() { return m_var2val; } // setter
+    const std::function<rational (unsigned)>& var2val() const { return m_var2val; } // getter
+    
     rational operator()(pdd const& p) {
         if (p.is_val()) {
             return p.val();
