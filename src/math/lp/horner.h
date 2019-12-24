@@ -32,7 +32,6 @@ class core;
 class horner : common {
     nex_creator::sum_factory  m_row_sum;
     unsigned         m_row_index;                      
-    bool             m_fixed_as_scalars;
 public:
     typedef intervals::interval interv;
     horner(core *core, intervals*);

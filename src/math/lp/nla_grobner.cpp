@@ -24,8 +24,7 @@ using namespace nla;
 
 grobner::grobner(core *c, intervals *s)
     : common(c, s),
-      m_gc(m_nex_creator, c->m_reslim),
-      m_look_for_fixed_vars_in_rows(false) {
+      m_gc(m_nex_creator, c->m_reslim) {
     std::function<void (lp::explanation const& e, std::ostream & out)> de;
     de = [this](lp::explanation const& e, std::ostream& out) { m_core->print_explanation(e, out); };
     grobner_core::params p;
@@ -174,7 +173,7 @@ void grobner::add_row(unsigned i) {
     TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout) << '\n';
           for (auto p : row) c().print_var(p.var(), tout) << "\n"; );
     nex_creator::sum_factory sf(m_nex_creator);
-    u_dependency* dep = create_sum_from_row(row, m_nex_creator, sf, m_look_for_fixed_vars_in_rows, &m_gc.dep());
+    u_dependency* dep = create_sum_from_row(row, m_nex_creator, sf, &m_gc.dep());
     nex* e = m_nex_creator.simplify(sf.mk());
     TRACE("grobner", tout << "e = " << *e << "\n";);
     m_gc.assert_eq_0(e, dep);
