@@ -206,7 +206,6 @@ class grobner : common {
     grobner_core m_gc;
     unsigned     m_reported;
     lp::int_set  m_rows;
-    bool         m_look_for_fixed_vars_in_rows;
 public:
     grobner(core *, intervals *);
     void grobner_lemmas();

@@ -123,18 +123,9 @@ unsigned common::random() {
 }
 
 // creates a nex expression for the coeff and var, 
-// replaces the fixed vars with scalars
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixed_as_scalars) {
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     SASSERT(!coeff.is_zero());
     if (!c().is_monic_var(j)) {
-        if (fixed_as_scalars && c().var_is_fixed(j)) {
-            auto & b = c().m_lar_solver.get_lower_bound(j).x;
-            if (b.is_zero()) {
-                TRACE("nla_grobner", tout << "[" << j << "] is fixed to zero\n";); 
-                return nullptr;
-            }
-            return cn.mk_scalar(coeff * b);
-        } 
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
     }
@@ -142,15 +133,6 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
     nex_creator::mul_factory mf(cn);
     mf *= coeff;
     for (lpvar k : m.vars()) {
-        if (fixed_as_scalars && c().var_is_fixed(k)) {
-            auto & b = c().m_lar_solver.get_lower_bound(k).x;
-            if (b.is_zero()) {
-                TRACE("nla_grobner", tout << "[" << k << "] is fixed to zero\n";); 
-                return nullptr;
-            }
-            mf *=  b;
-            continue;
-        }  
         c().insert_to_active_var_set(k);
         mf *= cn.mk_var(k);
         CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
@@ -162,18 +144,17 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn, bool fixe
 
 
 template <typename T> u_dependency* common::create_sum_from_row(const T& row,
-                                                                         nex_creator& cn,
-                                                                         nex_creator::sum_factory& sum,
-                                                                         bool fixed_as_scalars,
-                                                                         u_dependency_manager* dep_manager
-                                                                         ) {
+                                                                nex_creator& cn,
+                                                                nex_creator::sum_factory& sum,
+                                                                u_dependency_manager* dep_manager
+                                                                ) {
 
     TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
     u_dependency * dep = nullptr;
     SASSERT(row.size() > 1);
     sum.reset();
     for (const auto &p : row) {
-        nex* e = nexvar(p.coeff(), p.var(), cn, fixed_as_scalars);
+        nex* e = nexvar(p.coeff(), p.var(), cn);
         if (!e)
             continue;
         unsigned lc, uc;
@@ -256,5 +237,4 @@ var_weight common::get_var_weight(lpvar j) const {
 
 
 }
-template u_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, bool, u_dependency_manager*);  
-template dependency_manager<scoped_dependency_manager<unsigned int>::config>::dependency* nla::common::get_fixed_vars_dep_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, scoped_dependency_manager<unsigned int>&);
+template u_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, u_dependency_manager*);  
