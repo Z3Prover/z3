@@ -152,6 +152,8 @@ namespace dd {
         unsigned                   m_max_num_pdd_nodes;
         bool                       m_mod2_semantics;
         unsigned_vector            m_free_vars;
+        unsigned_vector            m_free_values;
+        rational                   m_freeze_value;
 
         PDD make_node(unsigned level, PDD l, PDD r);
         PDD insert_node(pdd_node const& n);
@@ -201,6 +203,7 @@ namespace dd {
         void try_gc();
         void reserve_var(unsigned v);
         bool well_formed();
+        bool well_formed(pdd_node const& n);
 
         unsigned_vector m_p, m_q;
         rational m_pc, m_qc;
