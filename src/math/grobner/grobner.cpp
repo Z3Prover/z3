@@ -56,8 +56,8 @@ void grobner::del_equations(unsigned old_size) {
 }
 
 void grobner::del_equation(equation * eq) {
-    m_to_superpose.erase(eq);
-    m_to_simplify.erase(eq);
+    m_processed.erase(eq);
+    m_to_process.erase(eq);
     SASSERT(m_equations_to_delete[eq->m_bidx] == eq);
     m_equations_to_delete[eq->m_bidx] = 0;
     del_monomials(eq->m_monomials);
@@ -85,9 +85,34 @@ void grobner::unfreeze_equations(unsigned old_size) {
     it += old_size;
     for (; it != end; ++it) {
         equation * eq = *it;
-        m_to_simplify.insert(eq);
+        m_to_process.insert(eq);
     }
     m_equations_to_unfreeze.shrink(old_size);
+}
+
+void grobner::push_scope() {
+    m_scopes.push_back(scope());
+    scope & s = m_scopes.back();
+    s.m_equations_to_unfreeze_lim = m_equations_to_unfreeze.size();
+    s.m_equations_to_delete_lim   = m_equations_to_delete.size();
+}
+
+void grobner::pop_scope(unsigned num_scopes) {
+    SASSERT(num_scopes >= get_scope_level());
+    unsigned new_lvl = get_scope_level() - num_scopes;
+    scope & s        = m_scopes[new_lvl];
+    unfreeze_equations(s.m_equations_to_unfreeze_lim);
+    del_equations(s.m_equations_to_delete_lim);
+    m_scopes.shrink(new_lvl);
+}
+
+void grobner::reset() {
+    flush();
+    m_processed.reset();
+    m_to_process.reset();
+    m_equations_to_unfreeze.reset();
+    m_equations_to_delete.reset();
+    m_unsat = nullptr;
 }
 
 void grobner::display_var(std::ostream & out, expr * var) const {
@@ -163,8 +188,8 @@ void grobner::display_equations(std::ostream & out, equation_set const & v, char
 }
 
 void grobner::display(std::ostream & out) const {
-    display_equations(out, m_to_superpose, "m_to_superpose:");
-    display_equations(out, m_to_simplify, "m_to_simplify:");
+    display_equations(out, m_processed, "processed:");
+    display_equations(out, m_to_process, "to process:");
 }
 
 void grobner::set_weight(expr * n, int weight) {
@@ -196,7 +221,7 @@ void grobner::update_order(equation_set & s, bool processed) {
         if (update_order(eq)) {
             if (processed) {
                 to_remove.push_back(eq);
-                m_to_simplify.insert(eq);
+                m_to_process.insert(eq);
             }
         }
     }
@@ -205,8 +230,8 @@ void grobner::update_order(equation_set & s, bool processed) {
 }
 
 void grobner::update_order() {
-    update_order(m_to_simplify, false);
-    update_order(m_to_superpose, true);
+    update_order(m_to_process, false);
+    update_order(m_processed, true);
 }
 
 bool grobner::var_lt::operator()(expr * v1, expr * v2) const {
@@ -287,6 +312,7 @@ grobner::monomial * grobner::mk_monomial(rational const & coeff, expr * m) {
 }
 
 void grobner::init_equation(equation * eq, v_dependency * d) {
+    eq->m_scope_lvl = get_scope_level();
     unsigned bidx   = m_equations_to_delete.size();
     eq->m_bidx      = bidx;
     eq->m_dep       = d;
@@ -305,7 +331,7 @@ void grobner::assert_eq_0(unsigned num_monomials, monomial * const * monomials, 
         equation * eq       = alloc(equation); 
         eq->m_monomials.swap(ms);
         init_equation(eq, ex);                                                   
-        m_to_simplify.insert(eq);
+        m_to_process.insert(eq);
     }
 }
 
@@ -321,7 +347,7 @@ void grobner::assert_eq_0(unsigned num_monomials, rational const * coeffs, expr 
         normalize_coeff(ms);                            \
         eq->m_monomials.swap(ms);                       \
         init_equation(eq, ex);                          \
-        m_to_simplify.insert(eq);                        \
+        m_to_process.insert(eq);                        \
     }
 
     MK_EQ(coeffs[i]);
@@ -371,7 +397,7 @@ void grobner::assert_monomial_tautology(expr * m) {
     eq->m_monomials.push_back(m1);
     normalize_coeff(eq->m_monomials);                                          
     init_equation(eq, static_cast<v_dependency*>(nullptr));                                                          \
-    m_to_simplify.insert(eq);
+    m_to_process.insert(eq);
 }
 
 /**
@@ -450,7 +476,7 @@ void grobner::normalize_coeff(ptr_vector<monomial> & monomials) {
 /**
    \brief Simplify the given monomials
 */
-void grobner::simplify_ptr_monomials(ptr_vector<monomial> & monomials) {
+void grobner::simplify(ptr_vector<monomial> & monomials) {
     std::stable_sort(monomials.begin(), monomials.end(), m_monomial_lt);
     merge_monomials(monomials);
     normalize_coeff(monomials);
@@ -476,22 +502,19 @@ inline bool grobner::is_trivial(equation * eq) const {
 /**
    \brief Sort monomials, and merge monomials with the same body.
 */
-void grobner::simplify_eq(equation * eq) {
-    simplify_ptr_monomials(eq->m_monomials);
+void grobner::simplify(equation * eq) {
+    simplify(eq->m_monomials);
     if (is_inconsistent(eq) && !m_unsat)
         m_unsat = eq;
 }
 
 /**
    \brief Return true if monomial m1 is (* c1 M) and m2 is (* c2 M M').
-   Store M' in m_tmp_vars1.
+   Store M' in rest.
    
    \remark This method assumes the variables of m1 and m2 are sorted.
 */
-bool grobner::divide_ignore_coeffs(monomial const * m2, monomial const * m1) {
-    SASSERT(m1 != m2);
-    ptr_vector<expr>  & rest = m_tmp_vars1;
-    rest.reset();
+bool grobner::is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const {
     unsigned i1  = 0;
     unsigned i2  = 0;
     unsigned sz1 = m1->m_vars.size();
@@ -532,11 +555,12 @@ bool grobner::divide_ignore_coeffs(monomial const * m2, monomial const * m1) {
 }
 
 /**
-   \brief Multiply the monomials of source starting at position start_idx by (coeff * vars), and store the resultant monomials in m_tmp_monomials
+   \brief Multiply the monomials of source starting at position start_idx by (coeff * vars), and store the resultant monomials
+   at result.
 */
-void grobner::mul_append_skip_first(equation const * source, rational const & coeff, ptr_vector<expr> const & vars) {
+void grobner::mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result) {
     unsigned sz = source->get_num_monomials();
-    for (unsigned i = 1; i < sz; i++) {
+    for (unsigned i = start_idx; i < sz; i++) {
         monomial const * m = source->get_monomial(i);
         monomial * new_m   = alloc(monomial);
         new_m->m_coeff     = m->m_coeff;
@@ -546,7 +570,7 @@ void grobner::mul_append_skip_first(equation const * source, rational const & co
         for (expr* e : new_m->m_vars) 
             m_manager.inc_ref(e);
         std::stable_sort(new_m->m_vars.begin(), new_m->m_vars.end(), m_var_lt);
-        m_tmp_monomials.push_back(new_m);
+        result.push_back(new_m);
     }
 }
 
@@ -574,65 +598,67 @@ grobner::equation * grobner::copy_equation(equation const * eq) {
     return r;
 }
 
-// source 3f + k = 0, so f = -k/3
-// target 2fg + e = 0  
-// target is replaced by 2(-k/3)g + e = -2/3kg + e
-bool grobner::simplify_target_monomials(equation const * source, equation * target) {
-    unsigned i          = 0;
-    unsigned new_target_sz = 0;
-    unsigned target_sz         = target->m_monomials.size();
-    monomial const * LT = source->get_monomial(0);
-    m_tmp_monomials.reset();
-    for (; i < target_sz; i++) {
-        monomial * targ_i = target->m_monomials[i];
-        if (divide_ignore_coeffs(targ_i, LT)) {
-            if (i == 0)
-                m_changed_leading_term = true;
-            if (!m_tmp_vars1.empty())
-                target->m_lc = false;
-            mul_append_skip_first(source, - targ_i->m_coeff / (LT->m_coeff), m_tmp_vars1);
-            del_monomial(targ_i);
-        }
-        else {
-            if (i != new_target_sz) {
-                target->m_monomials[new_target_sz] = targ_i;
-            }
-            new_target_sz++;
-        }
-    }
-    if (new_target_sz < target_sz) {
-        target->m_monomials.shrink(new_target_sz);
-        target->m_monomials.append(m_tmp_monomials.size(), m_tmp_monomials.c_ptr());
-        simplify_eq(target);
-        TRACE("grobner", tout << "result: "; display_equation(tout, *target););
-        return true;
-    }
-    return false;
-}
-
 /**
    \brief Simplify the target equation using the source as a rewrite rule.
    Return 0 if target was not simplified.
+   Return target if target was simplified but source->m_scope_lvl <= target->m_scope_lvl.
+   Return new_equation if source->m_scope_lvl > target->m_scope_lvl, moreover target is freezed, and new_equation contains the result.
 */
-grobner::equation * grobner::simplify_source_target(equation const * source, equation * target) {
+grobner::equation * grobner::simplify(equation const * source, equation * target) {
     TRACE("grobner", tout << "simplifying: "; display_equation(tout, *target); tout << "using: "; display_equation(tout, *source););
     if (source->get_num_monomials() == 0)
         return nullptr;
     m_stats.m_simplify++;
     bool result = false;
+    bool simplified;
     do {
-        if (simplify_target_monomials(source, target)) {
-            result = true;
-        } else {
-            break;
+        simplified          = false;
+        unsigned i          = 0;
+        unsigned j          = 0;
+        unsigned sz         = target->m_monomials.size();
+        monomial const * LT = source->get_monomial(0); 
+        ptr_vector<monomial> & new_monomials = m_tmp_monomials;
+        new_monomials.reset();
+        ptr_vector<expr>  & rest = m_tmp_vars1;
+        for (; i < sz; i++) {
+            monomial * curr = target->m_monomials[i];
+            rest.reset();
+            if (is_subset(LT, curr, rest)) {
+                if (i == 0)
+                    m_changed_leading_term = true;
+                if (source->m_scope_lvl > target->m_scope_lvl) {
+                    target = copy_equation(target);
+                    SASSERT(target->m_scope_lvl >= source->m_scope_lvl);
+                }
+                if (!result) {
+                    // first time that source is being applied.
+                    target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
+                }
+                simplified     = true;
+                result         = true;
+                rational coeff = curr->m_coeff;
+                coeff         /= LT->m_coeff;
+                coeff.neg();
+                if (!rest.empty())
+                    target->m_lc = false;
+                mul_append(1, source, coeff, rest, new_monomials);
+                del_monomial(curr);
+                target->m_monomials[i] = 0;
+            }
+            else {
+                target->m_monomials[j] = curr;
+                j++;
+            }
         }
-    } while (!m_manager.canceled());
-    TRACE("grobner", tout << "result: " << result << "\n"; if (result) display_equation(tout, *target););
-    if (result) {
-        target->m_dep = m_dep_manager.mk_join(target->m_dep, source->m_dep);
-        return target;
+        if (simplified) {
+            target->m_monomials.shrink(j);
+            target->m_monomials.append(new_monomials.size(), new_monomials.c_ptr());
+            simplify(target);
+        }
     }
-    return nullptr;
+    while (simplified && !m_manager.canceled());
+    TRACE("grobner", tout << "result: "; display_equation(tout, *target););
+    return result ? target : nullptr;
 }
 
 /**
@@ -644,11 +670,11 @@ grobner::equation * grobner::simplify_source_target(equation const * source, equ
 grobner::equation * grobner::simplify_using_processed(equation * eq) {
     bool result = false;
     bool simplified;
-    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities of size " << m_to_superpose.size() <<  "\n";);
+    TRACE("grobner", tout << "simplifying: "; display_equation(tout, *eq); tout << "using already processed equalities\n";);
     do {
         simplified = false;
-        for (equation const* p : m_to_superpose) {
-            equation * new_eq  = simplify_source_target(p, eq);
+        for (equation const* p : m_processed) {
+            equation * new_eq  = simplify(p, eq);
             if (new_eq) {
                 result     = true;
                 simplified = true;
@@ -687,7 +713,7 @@ bool grobner::is_better_choice(equation * eq1, equation * eq2) {
 grobner::equation * grobner::pick_next() {
     equation * r = nullptr;
     ptr_buffer<equation> to_delete;
-    for (equation * curr : m_to_simplify) {
+    for (equation * curr : m_to_process) {
         if (is_trivial(curr))
             to_delete.push_back(curr);
         else if (is_better_choice(curr, r))
@@ -696,82 +722,79 @@ grobner::equation * grobner::pick_next() {
     for (equation * e : to_delete) 
         del_equation(e);
     if (r)
-        m_to_simplify.erase(r);
+        m_to_process.erase(r);
     TRACE("grobner", tout << "selected equation: "; if (!r) tout << "<null>\n"; else display_equation(tout, *r););
     return r;
 }
 
-void grobner::process_simplified_target(ptr_buffer<equation>& to_insert, equation* new_target, equation*& target, ptr_buffer<equation>& to_remove) {
-    if (new_target != target) {
-        m_equations_to_unfreeze.push_back(target);
-        to_remove.push_back(target);
-        if (m_changed_leading_term) {
-            m_to_simplify.insert(new_target);
-            to_remove.push_back(target);
-        }
-        else {
-            to_insert.push_back(new_target);
-        }
-        target = new_target;
-    }
-    else {
-        if (m_changed_leading_term) {
-            m_to_simplify.insert(target);
-            to_remove.push_back(target);
-        }
-    }
-}
 /**
    \brief Use the given equation to simplify processed terms.
 */
-bool grobner::simplify_processed_with_eq(equation * eq) {
+bool grobner::simplify_processed(equation * eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
-    equation_set::iterator it  = m_to_superpose.begin();
-    equation_set::iterator end = m_to_superpose.end();
+    equation_set::iterator it  = m_processed.begin();
+    equation_set::iterator end = m_processed.end();
     for (; it != end && !m_manager.canceled(); ++it) {
-        equation * target        = *it;
+        equation * curr        = *it;
         m_changed_leading_term = false;
-        // if the leading term is simplified, then the equation has to be moved to m_to_simplify
-        equation * new_target    = simplify_source_target(eq, target);
-        if (new_target != nullptr) {
-            process_simplified_target(to_insert, new_target, target, to_remove);
+        // if the leading term is simplified, then the equation has to be moved to m_to_process
+        equation * new_curr    = simplify(eq, curr);
+        if (new_curr != nullptr) {
+            if (new_curr != curr) {
+                m_equations_to_unfreeze.push_back(curr);
+                to_remove.push_back(curr);
+                if (m_changed_leading_term) {
+                    m_to_process.insert(new_curr);
+                    to_remove.push_back(curr);
+                }
+                else {
+                    to_insert.push_back(new_curr);
+                }
+                curr = new_curr;
+            }
+            else {
+                if (m_changed_leading_term) {
+                    m_to_process.insert(curr);
+                    to_remove.push_back(curr);
+                }
+            }
         }
-        if (is_trivial(target))
-            to_delete.push_back(target);
+        if (is_trivial(curr))
+            to_delete.push_back(curr);
     }
     for (equation* eq : to_insert) 
-        m_to_superpose.insert(eq);
+        m_processed.insert(eq);
     for (equation* eq : to_remove)
-        m_to_superpose.erase(eq);
+        m_processed.erase(eq);
     for (equation* eq : to_delete) 
         del_equation(eq);
     return !m_manager.canceled();
 }
 
 /**
-   \brief Use the given equation to simplify m_to_simplify equation.
+   \brief Use the given equation to simplify to-process terms.
 */
-void grobner::simplify_m_to_simplify(equation * eq) {
+void grobner::simplify_to_process(equation * eq) {
     ptr_buffer<equation> to_insert;
     ptr_buffer<equation> to_remove;
     ptr_buffer<equation> to_delete;
-    for (equation* target : m_to_simplify) {
-        equation * new_target = simplify_source_target(eq, target);
-        if (new_target != nullptr && new_target != target) {
-            m_equations_to_unfreeze.push_back(target);
-            to_insert.push_back(new_target);
-            to_remove.push_back(target);
-            target = new_target;
+    for (equation* curr : m_to_process) {
+        equation * new_curr = simplify(eq, curr);
+        if (new_curr != nullptr && new_curr != curr) {
+            m_equations_to_unfreeze.push_back(curr);
+            to_insert.push_back(new_curr);
+            to_remove.push_back(curr);
+            curr = new_curr;
         }
-        if (is_trivial(target))
-            to_delete.push_back(target);
+        if (is_trivial(curr))
+            to_delete.push_back(curr);
     }
     for (equation* eq : to_insert)
-        m_to_simplify.insert(eq);
+        m_to_process.insert(eq);
     for (equation* eq : to_remove)
-        m_to_simplify.erase(eq);
+        m_to_process.erase(eq);
     for (equation* eq : to_delete)
         del_equation(eq);
 }
@@ -780,7 +803,7 @@ void grobner::simplify_m_to_simplify(equation * eq) {
    \brief If m1 = (* c M M1) and m2 = (* d M M2) and M is non empty, then return true and store M1 in rest1 and M2 in rest2.
 */
 bool grobner::unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2) {
-    TRACE("grobner", tout << "unifying: "; display_monomial(tout, *m1); tout << " and "; display_monomial(tout, *m2); tout << "\n";);
+    TRACE("grobner", tout << "unifying: "; display_monomial(tout, *m1); tout << " "; display_monomial(tout, *m2); tout << "\n";);
     bool found_M = false;
     unsigned i1  = 0;
     unsigned i2  = 0;
@@ -832,39 +855,35 @@ void grobner::superpose(equation * eq1, equation * eq2) {
     rest1.reset();
     ptr_vector<expr> & rest2 = m_tmp_vars2;
     rest2.reset();
-    TRACE("grobner", tout << "trying to superpose:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2);); 
     if (unify(eq1->m_monomials[0], eq2->m_monomials[0], rest1, rest2)) {
         TRACE("grobner", tout << "superposing:\n"; display_equation(tout, *eq1); display_equation(tout, *eq2); 
               tout << "rest1: "; display_vars(tout, rest1.size(), rest1.c_ptr()); tout << "\n";
               tout << "rest2: "; display_vars(tout, rest2.size(), rest2.c_ptr()); tout << "\n";);
         ptr_vector<monomial> & new_monomials = m_tmp_monomials;
         new_monomials.reset();
-        mul_append_skip_first(eq1, eq2->m_monomials[0]->m_coeff, rest2);
+        mul_append(1, eq1, eq2->m_monomials[0]->m_coeff, rest2, new_monomials);
         rational c = eq1->m_monomials[0]->m_coeff;
         c.neg();
-        mul_append_skip_first(eq2, c, rest1);
-        simplify_ptr_monomials(new_monomials);
+        mul_append(1, eq2, c, rest1, new_monomials);
+        simplify(new_monomials);
         TRACE("grobner", tout << "resulting monomials: "; display_monomials(tout, new_monomials.size(), new_monomials.c_ptr()); tout << "\n";);
         if (new_monomials.empty())
             return;
         m_num_new_equations++;
-        TRACE("grobner", tout << "success superposing\n";);
         equation * new_eq = alloc(equation);
         new_eq->m_monomials.swap(new_monomials);
         init_equation(new_eq, m_dep_manager.mk_join(eq1->m_dep, eq2->m_dep));
         new_eq->m_lc = false;
-        m_to_simplify.insert(new_eq);
-    } else {
-        TRACE("grobner", tout << "unify did not work\n";);
+        m_to_process.insert(new_eq);
     }
 }
 
 /**
-   \brief Superpose the given equations with the equations in m_to_superpose.
+   \brief Superpose the given equations with the equations in m_processed.
 */
 void grobner::superpose(equation * eq) {
-    for (equation * target : m_to_superpose) {
-        superpose(eq, target);
+    for (equation * curr : m_processed) {
+        superpose(eq, curr);
     }
 }
 
@@ -874,33 +893,26 @@ void grobner::compute_basis_init() {
 }
 
 bool grobner::compute_basis_step() {
-    TRACE("grobner", display(tout););
     equation * eq = pick_next();
-    if (!eq) 
+    if (!eq)
         return true;
     m_stats.m_num_processed++;
 #ifdef PROFILE_GB
-    if (m_stats.m_num_to_superpose % 100 == 0) {
-        verbose_stream() << "[grobner] " << m_to_superpose.size() << " " << m_to_simplify.size() << "\n";
+    if (m_stats.m_num_processed % 100 == 0) {
+        verbose_stream() << "[grobner] " << m_processed.size() << " " << m_to_process.size() << "\n";
     }
 #endif
     equation * new_eq = simplify_using_processed(eq);
-    if (new_eq == nullptr || new_eq->get_num_monomials() == 0) {
-        TRACE("grobner",);
-    }
     if (new_eq != nullptr && eq != new_eq) {
         // equation was updated using non destructive updates
         m_equations_to_unfreeze.push_back(eq);
         eq = new_eq;
     }
     if (m_manager.canceled()) return false;
-    if (!simplify_processed_with_eq(eq)) {
-        TRACE("grobner", tout << "end of iteration:\n"; display(tout););
-        return false;
-    }
+    if (!simplify_processed(eq)) return false;
     superpose(eq);
-    m_to_superpose.insert(eq);
-    simplify_m_to_simplify(eq);
+    m_processed.insert(eq);
+    simplify_to_process(eq);
     TRACE("grobner", tout << "end of iteration:\n"; display(tout););
     return false;
 }
@@ -908,10 +920,7 @@ bool grobner::compute_basis_step() {
 bool grobner::compute_basis(unsigned threshold) {
     compute_basis_init();
     while (m_num_new_equations < threshold && !m_manager.canceled()) {
-        if (compute_basis_step()) {
-            
-            return true;
-        }
+        if (compute_basis_step()) return true;
     }
     return false;
 }
@@ -922,12 +931,12 @@ void grobner::copy_to(equation_set const & s, ptr_vector<equation> & result) con
 }
 
 /**
-   \brief Copy the equations in m_to_superpose and m_to_simplify to result.
+   \brief Copy the equations in m_processed and m_to_process to result.
    
    \warning This equations can be deleted when compute_basis is invoked.
 */
 void grobner::get_equations(ptr_vector<equation> & result) const {
-    copy_to(m_to_superpose, result);
-    copy_to(m_to_simplify, result);
+    copy_to(m_processed, result);
+    copy_to(m_to_process, result);
 }
 
