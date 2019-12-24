@@ -486,7 +486,7 @@ interv intervals::interval_of_expr(const nex* e, unsigned p) {
         return b;
     }
     case expr_type::MUL: {
-        interv b = interval_of_mul<with_deps>(e->to_mul());
+        interv b = interval_of_mul<wd>(e->to_mul());
         if (p != 1)
             return power<wd>(b, p);
         return b;

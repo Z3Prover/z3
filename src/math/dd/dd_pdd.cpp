@@ -723,6 +723,7 @@ namespace dd {
         bool do_gc = m_free_nodes.empty();
         if (do_gc && !m_disable_gc) {
             gc();
+            SASSERT(n.m_hi == 0 || (!m_free_nodes.contains(n.m_hi) && !m_free_nodes.contains(n.m_lo)));            
             e = m_node_table.insert_if_not_there2(n);
             e->get_data().m_refcount = 0;      
         }

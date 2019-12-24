@@ -135,7 +135,6 @@ class intervals {
     };
 
     region                              m_alloc;
-    common::ci_value_manager            m_val_manager;
     mutable unsynch_mpq_manager         m_num_manager;
     mutable u_dependency_manager        m_dep_manager;
     im_config                           m_config;

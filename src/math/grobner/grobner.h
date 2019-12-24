@@ -58,6 +58,7 @@ public:
     };
 
     class equation {
+        unsigned             m_scope_lvl;     //!< scope level when this equation was created.
         unsigned             m_bidx:31;       //!< position at m_equations_to_delete
         unsigned             m_lc:1;          //!< true if equation if a linear combination of the input equations.
         ptr_vector<monomial> m_monomials;     //!< sorted monomials
@@ -97,8 +98,8 @@ protected:
     obj_map<expr, int>      m_var2weight;
     var_lt                  m_var_lt;
     monomial_lt             m_monomial_lt;
-    equation_set            m_to_superpose;
-    equation_set            m_to_simplify;
+    equation_set            m_processed;
+    equation_set            m_to_process;
     equation_vector         m_equations_to_unfreeze;
     equation_vector         m_equations_to_delete;
     bool                    m_changed_leading_term; // set to true, if the leading term was simplified.
@@ -107,6 +108,7 @@ protected:
         unsigned m_equations_to_unfreeze_lim;
         unsigned m_equations_to_delete_lim;
     };
+    svector<scope>          m_scopes;
     ptr_vector<monomial>    m_tmp_monomials;
     ptr_vector<monomial>    m_del_monomials;
     ptr_vector<expr>        m_tmp_vars1;
@@ -153,20 +155,19 @@ protected:
     
     void normalize_coeff(ptr_vector<monomial> & monomials);
 
-    void simplify_ptr_monomials(ptr_vector<monomial> & monomials);
+    void simplify(ptr_vector<monomial> & monomials);
 
-    void simplify_eq(equation * eq);
+    void simplify(equation * eq);
 
-    bool divide_ignore_coeffs(monomial const * m1, monomial const * m2);
+    bool is_subset(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest) const;
 
-    void mul_append_skip_first(equation const * source, rational const & coeff, ptr_vector<expr> const & vars);
+    void mul_append(unsigned start_idx, equation const * source, rational const & coeff, ptr_vector<expr> const & vars, ptr_vector<monomial> & result);
 
     monomial * copy_monomial(monomial const * m);
 
     equation * copy_equation(equation const * eq);
 
-    equation * simplify_source_target(equation const * source, equation * target);
-    bool simplify_target_monomials(equation const * source, equation * target);
+    equation * simplify(equation const * source, equation * target);
 
     equation * simplify_using_processed(equation * eq);
 
@@ -174,9 +175,9 @@ protected:
 
     equation * pick_next();
 
-    bool simplify_processed_with_eq(equation * eq);
+    bool simplify_processed(equation * eq);
 
-    void simplify_m_to_simplify(equation * eq);
+    void simplify_to_process(equation * eq);
 
     bool unify(monomial const * m1, monomial const * m2, ptr_vector<expr> & rest1, ptr_vector<expr> & rest2);
 
@@ -190,6 +191,8 @@ public:
     grobner(ast_manager & m, v_dependency_manager & dep_m);
 
     ~grobner();
+
+    unsigned get_scope_level() const { return m_scopes.size(); }
 
     /**
        \brief Set the weight of a term that is viewed as a variable by this module.
@@ -271,14 +274,19 @@ public:
     /**
        \brief Reset state. Remove all equalities asserted with assert_eq.
     */
+    void reset();
+
     void get_equations(ptr_vector<equation> & result) const;
     
+    void push_scope();
+
+    void pop_scope(unsigned num_scopes);
+
     void display_equation(std::ostream & out, equation const & eq) const;
 
     void display_monomial(std::ostream & out, monomial const & m) const;
 
     void display(std::ostream & out) const;
-    void process_simplified_target(ptr_buffer<equation>& to_delete, equation* new_curr, equation*& curr, ptr_buffer<equation>& to_remove);
 };
 
 #endif /* GROBNER_H_ */
