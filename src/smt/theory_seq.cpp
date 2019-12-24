@@ -307,7 +307,7 @@ theory_seq::theory_seq(ast_manager& m, theory_seq_params const & params):
     m_indexof_right  = "seq.idx.right";
     m_aut_step       = "aut.step";
     m_pre            = "seq.pre";  // (seq.pre s l):  prefix of string s of length l
-    m_post           = "seq.post"; // (seq.post s i l): suffix of string s of length l, starting at index i
+    m_post           = "seq.post"; // (seq.post s l): suffix of string s of length k, based on extract starting at index i of length l
     m_eq             = "seq.eq";
     m_seq_align      = "seq.align";
 }
@@ -2541,17 +2541,21 @@ bool theory_seq::solve_itos(expr_ref_vector const& ls, expr_ref_vector const& rs
 
 bool theory_seq::solve_nth_eq2(expr_ref_vector const& ls, expr_ref_vector const& rs, dependency* deps) {
     expr* s = nullptr, *idx = nullptr;
-    if (false && ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
+    if (ls.size() == 1 && m_util.str.is_nth_i(ls[0], s, idx)) {
+        rational r;
+        bool idx_is_zero = m_autil.is_numeral(idx, r) && r.is_zero();
+        expr_ref_vector ls1(m), rs1(m); 
         expr_ref idx1(m_autil.mk_add(m_autil.mk_int(1), idx), m);
-        m_rewrite(idx1);
+        expr_ref lent(m_autil.mk_sub(mk_len(ls[0]), idx1), m);
+        m_rewrite(lent);
         expr_ref hd = mk_skolem(m_pre, s, idx);        
-        expr_ref tl = mk_skolem(m_tail, s, idx1);
+        expr_ref tl = mk_skolem(m_post, s, lent);
         expr_ref rhs(m_util.str.mk_concat(rs.size(), rs.c_ptr()), m);
         rhs = m_util.str.mk_unit(rhs);
-        expr_ref_vector rs1(m); rs1.push_back(hd); rs1.push_back(rhs); rs1.push_back(tl);
-        expr_ref_vector ls1(m); ls1.push_back(s);
-        std::cout << ls << "\n" << rs << "\n-> \n" << rs1 << "\n" << ls1 << "\n";
-        
+        if (!idx_is_zero) rs1.push_back(hd); 
+        rs1.push_back(rhs); 
+        rs1.push_back(tl);
+        ls1.push_back(s);        
         m_eqs.push_back(eq(m_eq_id++, ls1, rs1, deps));        
         return true;
     }   
@@ -5323,12 +5327,12 @@ void theory_seq::add_extract_axiom(expr* e) {
         add_extract_suffix_axiom(e, s, i);
         return;
     }
-    expr_ref x(mk_skolem(m_pre, s, i, l), m);
+    expr_ref x(mk_skolem(m_pre, s, i), m);
     expr_ref ls = mk_len(s);
     expr_ref lx = mk_len(x);
     expr_ref le = mk_len(e);
     expr_ref ls_minus_i_l(mk_sub(mk_sub(ls, i), l), m);
-    expr_ref y(mk_skolem(m_post, s, ls_minus_i_l, i, l), m);
+    expr_ref y(mk_skolem(m_post, s, ls_minus_i_l), m);
     expr_ref xe = mk_concat(x, e);
     expr_ref xey = mk_concat(x, e, y);
     expr_ref zero(m_autil.mk_int(0), m);
@@ -5426,7 +5430,7 @@ void theory_seq::add_extract_prefix_axiom(expr* e, expr* s, expr* l) {
     expr_ref ls = mk_len(s);
     expr_ref ls_minus_l(mk_sub(ls, l), m);
     expr_ref zero(m_autil.mk_int(0), m);
-    expr_ref y(mk_skolem(m_post, s, zero, ls_minus_l), m);
+    expr_ref y(mk_skolem(m_post, s, ls_minus_l), m);
     expr_ref ey = mk_concat(e, y);
     literal l_ge_0 = mk_simplified_literal(m_autil.mk_ge(l, zero));
     literal l_le_s = mk_simplified_literal(m_autil.mk_le(mk_sub(l, ls), zero));
