@@ -207,7 +207,6 @@ namespace dd {
             }
         }
         if (linear.empty()) return false;
-        std::cout << "linear eqs: " << linear.size() << "\n";
         vector<equation_vector> use_list;
         for (equation * e : m_to_simplify) {
             add_to_use(e, use_list);
@@ -227,7 +226,7 @@ namespace dd {
                 if (dst->is_processed() && changed_leading_term) {
                     dst->set_processed(false);
                     pop_equation(dst, m_processed);
-                    push_equation(src, m_to_simplify);
+                    push_equation(dst, m_to_simplify);
                 }
             }            
         } 
