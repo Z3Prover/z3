@@ -1,5 +1,6 @@
 #include "math/dd/dd_pdd.h"
 #include "math/dd/pdd_eval.h"
+#include "math/dd/pdd_interval.h"
 
 namespace dd {
 static void test1() {
