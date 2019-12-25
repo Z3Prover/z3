@@ -332,5 +332,4 @@ public:
 
         copy_upper_bound<wd>(b, i);
     }
-
 };
