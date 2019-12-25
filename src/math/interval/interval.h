@@ -107,6 +107,9 @@ inline deps_combine_rule dep1_to_dep2(deps_combine_rule d) {
 struct interval_deps_combine_rule {
     deps_combine_rule m_lower_combine;
     deps_combine_rule m_upper_combine;
+    void reset() {
+        m_lower_combine = m_upper_combine = 0;
+    }
 };
 
 template<typename C>
