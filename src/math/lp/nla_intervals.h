@@ -34,7 +34,7 @@ class intervals {
     core*                     m_core;
     
 public:
-    typedef dep_intervals::interv interval;
+    typedef dep_intervals::interval interval;
 private:
     u_dependency* mk_dep(lp::constraint_index ci);
     u_dependency* mk_dep(lp::explanation const&);
