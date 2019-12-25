@@ -143,7 +143,10 @@ namespace dd {
     }
 
     bool grobner::basic_step() {
-        equation* e = pick_next();
+        return basic_step(pick_next());
+    }
+
+    bool grobner::basic_step(equation* e) {
         if (!e) return false;
         scoped_detach sd(*this, e);
         equation& eq = *e;
@@ -164,13 +167,89 @@ namespace dd {
                 eq = curr;
             }
         }
-        if (eq) pop_equation(eq->idx(), m_to_simplify);
+        if (eq) pop_equation(eq, m_to_simplify);
         return eq;
+    }
+
+    grobner::equation* grobner::pick_linear() {
+        equation* eq = nullptr;
+        for (auto* curr : m_to_simplify) {
+            if (!eq || curr->poly().is_linear() && is_simpler(*curr, *eq)) {
+                eq = curr;
+            }
+        }
+        if (eq) pop_equation(eq, m_to_simplify);
+        return eq;
+    }
+
+    void grobner::simplify_linear() {
+        try {
+            while (simplify_linear_step()) {
+                DEBUG_CODE(invariant(););
+            }
+        }
+        catch (pdd_manager::mem_out) {
+            // done reduce
+        }
+    }
+
+    struct grobner::compare_top_var {
+        bool operator()(equation* a, equation* b) const {
+            return a->poly().var() < b->poly().var();
+        }
+    };
+
+    bool grobner::simplify_linear_step() {
+        equation_vector linear;
+        for (equation* e : m_to_simplify) {
+            if (e->poly().is_linear()) {
+                linear.push_back(e);
+            }
+        }
+        if (linear.empty()) return false;
+        std::cout << "linear eqs: " << linear.size() << "\n";
+        vector<equation_vector> use_list;
+        for (equation * e : m_to_simplify) {
+            add_to_use(e, use_list);
+        }
+        for (equation * e : m_processed) {
+            add_to_use(e, use_list);
+        }
+        compare_top_var ctv;
+        std::stable_sort(linear.begin(), linear.end(), ctv);
+        for (equation* src : linear) {
+            equation_vector const& uses = use_list[src->poly().var()];
+            bool changed_leading_term;
+            for (equation* dst : uses) {
+                if (src == dst || !simplify_source_target(*src, *dst, changed_leading_term)) {
+                    continue;                    
+                }
+                if (dst->is_processed() && changed_leading_term) {
+                    dst->set_processed(false);
+                    pop_equation(dst, m_processed);
+                    push_equation(src, m_to_simplify);
+                }
+            }            
+        } 
+        for (equation* src : linear) {
+            pop_equation(src, m_to_simplify);
+            push_equation(src, m_processed);
+            src->set_processed(true);
+        }
+        return true;
+    }
+
+    void grobner::add_to_use(equation* e, vector<equation_vector>& use_list) {
+        unsigned_vector const& fv = m.free_vars(e->poly());
+        for (unsigned v : fv) {
+            use_list.reserve(v + 1);
+            use_list[v].push_back(e);
+        }
     }
 
     void grobner::superpose(equation const & eq) {
         for (equation* target : m_processed) {
-            retire(target);             
+            superpose(eq, *target);
         }
     }
 
@@ -343,7 +422,7 @@ namespace dd {
                 }
             }
             if (eq) {
-                pop_equation(eq->idx(), m_to_simplify);
+                pop_equation(eq, m_to_simplify);
                 m_watch[eq->poly().var()].erase(eq);
                 return eq;
             }
@@ -390,11 +469,12 @@ namespace dd {
     }
 
     void grobner::del_equation(equation& eq) {
-        pop_equation(eq.idx(), eq.is_processed() ? m_processed : m_to_simplify);
+        pop_equation(eq, eq.is_processed() ? m_processed : m_to_simplify);
         retire(&eq);
     }
 
-    void grobner::pop_equation(unsigned idx, equation_vector& v) {
+    void grobner::pop_equation(equation& eq, equation_vector& v) {
+        unsigned idx = eq.idx();
         if (idx != v.size() - 1) {
             equation* eq2 = v.back();
             eq2->set_index(idx);

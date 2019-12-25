@@ -25,24 +25,24 @@ namespace dd {
 
     pdd_manager::pdd_manager(unsigned num_vars) {
         m_spare_entry = nullptr;
-        m_max_num_pdd_nodes = 1 << 24; // up to 16M nodes
+        m_max_num_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
-        alloc_free_nodes(1024 + num_vars);
         m_disable_gc = false;
         m_is_new_node = false;
         m_mod2_semantics = false;
 
         // add dummy nodes for operations, and 0, 1 pdds.
-        const_info info;
-        init_value(info, rational::zero()); // becomes pdd_zero
-        init_value(info, rational::one());  // becomes pdd_one
-        m_nodes[0].m_refcount = max_rc;
-        m_nodes[1].m_refcount = max_rc;
-        for (unsigned i = 2; i <= pdd_no_op + 2; ++i) {
-            m_nodes.push_back(pdd_node(0,0,0));
-            m_nodes.back().m_refcount = max_rc;
-            m_nodes.back().m_index = m_nodes.size()-1;
+        for (unsigned i = 0; i < pdd_no_op; ++i) {
+            m_nodes.push_back(node());
+            m_nodes[i].m_refcount = max_rc;
+            m_nodes[i].m_index = i;
         }
+        init_value(rational::zero(), 0);
+        init_value(rational::one(), 1);
+        SASSERT(is_val(0));
+        SASSERT(is_val(1));
+
+        alloc_free_nodes(1024 + num_vars);
         
         // add variables
         for (unsigned i = 0; i < num_vars; ++i) {
@@ -70,6 +70,8 @@ namespace dd {
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
+    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p*q + p + q; }
+
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
         SASSERT(well_formed());
@@ -284,11 +286,16 @@ namespace dd {
     // q = lt(a)/lt(b), return a - b*q
     pdd_manager::PDD pdd_manager::reduce_on_match(PDD a, PDD b) {
         SASSERT(level(a) == level(b) && !is_val(a) && !is_val(b));
-        while (lm_divides(b, a)) {
-            PDD q = lt_quotient(b, a);
-            PDD r = apply(q, b, pdd_mul_op);
-            a = apply(a, r, pdd_add_op);
+        push(a);
+        while (lm_divides(b, a)) {           
+            push(lt_quotient(b, a));
+            push(apply_rec(read(1), b, pdd_mul_op));
+            push(apply_rec(a, read(1), pdd_add_op));
+            a = read(1);
+            pop(4);
+            push(a);
         }
+        pop(1);
         return a;
     }
 
@@ -315,13 +322,16 @@ namespace dd {
         if (is_val(p)) {
             if (is_val(q)) {
                 SASSERT(!val(p).is_zero());
-                return imk_val(-val(q)/val(p));
-            }     
-        }   
+                return imk_val(-val(q) / val(p));
+            }
+        }
         else if (level(p) == level(q)) {
             return lt_quotient(hi(p), hi(q));
         }
-        return apply(m_var2pdd[var(q)], lt_quotient(p, hi(q)), pdd_mul_op);
+        push(lt_quotient(p, hi(q)));
+        PDD r = apply_rec(m_var2pdd[var(q)], read(1), pdd_mul_op);
+        pop(1);
+        return r;                   
     }
 
     //
@@ -335,12 +345,10 @@ namespace dd {
 
     pdd pdd_manager::spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc) { 
         pdd r1 = mk_val(qc);  
-        for (unsigned i = q.size(); i-- > 0; ) r1 = mul(mk_var(q[i]), r1);
-        r1 = mul(a, r1);
+        for (unsigned i = q.size(); i-- > 0; ) r1 *= mk_var(q[i]);
         pdd r2 = mk_val(-pc);
-        for (unsigned i = p.size(); i-- > 0; ) r2 = mul(mk_var(p[i]), r2);
-        r2 = mul(b, r2);
-        return add(r1, r2);
+        for (unsigned i = p.size(); i-- > 0; ) r2 *= mk_var(p[i]);
+        return (r1*a) + (r2*b);
     }
 
     bool pdd_manager::common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc) { 
@@ -502,10 +510,20 @@ namespace dd {
         }
 
         m_freeze_value = r;
-        pdd_node n(vi);
+        node n(vi);
         info.m_value_index = vi;        
         info.m_node_index = insert_node(n);
         m_mpq_table.insert(r, info);
+    }
+
+    void pdd_manager::init_value(rational const& v, unsigned node_index) {
+        const_info info;
+        m_nodes[node_index].m_hi = 0;
+        m_nodes[node_index].m_lo = node_index;
+        info.m_value_index = m_values.size();
+        info.m_node_index = node_index;
+        m_mpq_table.insert(v, info);
+        m_values.push_back(v);
     }
 
     pdd_manager::PDD pdd_manager::make_node(unsigned lvl, PDD l, PDD h) {
@@ -513,11 +531,11 @@ namespace dd {
         if (is_zero(h)) return l;
         SASSERT(is_val(l) || level(l) < lvl);
         SASSERT(is_val(h) || level(h) <= lvl);
-        pdd_node n(lvl, l, h);
+        node n(lvl, l, h);
         return insert_node(n);
     }
 
-    pdd_manager::PDD pdd_manager::insert_node(pdd_node const& n) {
+    pdd_manager::PDD pdd_manager::insert_node(node const& n) {
         node_table::entry* e = m_node_table.insert_if_not_there2(n);
         if (e->get_data().m_index != 0) {
             unsigned result = e->get_data().m_index;
@@ -528,12 +546,11 @@ namespace dd {
         bool do_gc = m_free_nodes.empty();
         if (do_gc && !m_disable_gc) {
             gc();
-            SASSERT(n.m_hi == 0 || (!m_free_nodes.contains(n.m_hi) && !m_free_nodes.contains(n.m_lo)));            
             e = m_node_table.insert_if_not_there2(n);
             e->get_data().m_refcount = 0;      
         }
         if (do_gc) {
-            if (m_nodes.size() > m_max_num_pdd_nodes) {
+            if (m_nodes.size() > m_max_num_nodes) {
                 throw mem_out();
             }
             alloc_free_nodes(m_nodes.size()/2);
@@ -686,22 +703,28 @@ namespace dd {
     void pdd_manager::alloc_free_nodes(unsigned n) {
         for (unsigned i = 0; i < n; ++i) {
             m_free_nodes.push_back(m_nodes.size());
-            m_nodes.push_back(pdd_node());
+            m_nodes.push_back(node());
             m_nodes.back().m_index = m_nodes.size() - 1;
         }        
+        std::sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
     }
 
-    void pdd_manager::gc() {
-        m_free_nodes.reset();
-        SASSERT(well_formed());
-        IF_VERBOSE(13, verbose_stream() << "(pdd :gc " << m_nodes.size() << ")\n";);
+    bool pdd_manager::is_reachable(PDD p) {
         svector<bool> reachable(m_nodes.size(), false);
+        compute_reachable(reachable);
+        return reachable[p];
+    }
+
+    void pdd_manager::compute_reachable(svector<bool>& reachable) {
         for (unsigned i = m_pdd_stack.size(); i-- > 0; ) {
             reachable[m_pdd_stack[i]] = true;
             m_todo.push_back(m_pdd_stack[i]);
         }
-        for (unsigned i = m_nodes.size(); i-- > 2; ) {
+        for (unsigned i = pdd_no_op; i-- > 0; ) {
+            reachable[i] = true;
+        }
+        for (unsigned i = m_nodes.size(); i-- > pdd_no_op; ) {
             if (m_nodes[i].m_refcount > 0) {
                 reachable[i] = true;
                 m_todo.push_back(i);
@@ -711,7 +734,9 @@ namespace dd {
             PDD p = m_todo.back();
             m_todo.pop_back();
             SASSERT(reachable[p]);
-            if (is_val(p)) continue;
+            if (is_val(p)) { 
+                continue;
+            }
             if (!reachable[lo(p)]) {
                 reachable[lo(p)] = true;
                 m_todo.push_back(lo(p));
@@ -721,7 +746,15 @@ namespace dd {
                 m_todo.push_back(hi(p));
             }
         }
-        for (unsigned i = m_nodes.size(); i-- > 2; ) {
+    }
+
+    void pdd_manager::gc() {
+        m_free_nodes.reset();
+        SASSERT(well_formed());
+        IF_VERBOSE(13, verbose_stream() << "(pdd :gc " << m_nodes.size() << ")\n";);
+        svector<bool> reachable(m_nodes.size(), false);
+        compute_reachable(reachable);
+        for (unsigned i = m_nodes.size(); i-- > pdd_no_op; ) {
             if (!reachable[i]) {
                 if (is_val(i)) {
                     if (m_freeze_value == val(i)) continue;
@@ -835,7 +868,7 @@ namespace dd {
                 return false;
             }
         }
-        for (pdd_node const& n : m_nodes) {
+        for (node const& n : m_nodes) {
             if (!well_formed(n)) {
                 IF_VERBOSE(0, display(verbose_stream() << n.m_index << " lo " << n.m_lo << " hi " << n.m_hi << "\n"););
                 UNREACHABLE();
@@ -845,7 +878,7 @@ namespace dd {
         return ok;
     }
 
-    bool pdd_manager::well_formed(pdd_node const& n) {
+    bool pdd_manager::well_formed(node const& n) {
         PDD lo = n.m_lo;
         PDD hi = n.m_hi;        
         if (n.is_internal() || hi == 0) return true;
@@ -856,7 +889,7 @@ namespace dd {
 
     std::ostream& pdd_manager::display(std::ostream& out) {
         for (unsigned i = 0; i < m_nodes.size(); ++i) {
-            pdd_node const& n = m_nodes[i];
+            node const& n = m_nodes[i];
             if (i != 0 && n.is_internal()) {
                 continue;
             }
@@ -870,7 +903,14 @@ namespace dd {
         return out;
     }
 
-    pdd& pdd::operator=(pdd const& other) { unsigned r1 = root; root = other.root; m->inc_ref(root); m->dec_ref(r1); return *this; }
+    pdd& pdd::operator=(pdd const& other) { 
+        unsigned r1 = root; 
+        root = other.root; 
+        m.inc_ref(root); 
+        m.dec_ref(r1); 
+        return *this; 
+    }
+
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
 }

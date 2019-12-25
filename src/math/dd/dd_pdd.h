@@ -58,15 +58,15 @@ namespace dd {
             pdd_no_op = 6
         };
 
-        struct pdd_node {
-            pdd_node(unsigned level, PDD lo, PDD hi):
+        struct node {
+            node(unsigned level, PDD lo, PDD hi):
                 m_refcount(0),
                 m_level(level),
                 m_lo(lo),
                 m_hi(hi),
                 m_index(0)
             {}
-            pdd_node(unsigned value):
+            node(unsigned value):
                 m_refcount(0),
                 m_level(0),
                 m_lo(value),
@@ -74,28 +74,29 @@ namespace dd {
                 m_index(0)
             {}
 
-            pdd_node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
+            node(): m_refcount(0), m_level(0), m_lo(0), m_hi(0), m_index(0) {}
             unsigned m_refcount : 10;
             unsigned m_level : 22;
             PDD      m_lo;
             PDD      m_hi;
             unsigned m_index;
             unsigned hash() const { return mk_mix(m_level, m_lo, m_hi); } 
-            bool is_internal() const { return m_lo == 0 && m_hi == 0; }
+            bool is_val() const { return m_hi == 0 && (m_lo != 0 || m_index == 0); }
+            bool is_internal() const { return m_hi == 0 && m_lo == 0 && m_index != 0; }
             void set_internal() { m_lo = 0; m_hi = 0; }
         };
 
         struct hash_node {
-            unsigned operator()(pdd_node const& n) const { return n.hash(); }
+            unsigned operator()(node const& n) const { return n.hash(); }
         };
 
         struct eq_node {
-            bool operator()(pdd_node const& a, pdd_node const& b) const {
+            bool operator()(node const& a, node const& b) const {
                 return a.m_lo == b.m_lo && a.m_hi == b.m_hi && a.m_level == b.m_level;
             }
         };
         
-        typedef hashtable<pdd_node, hash_node, eq_node> node_table;
+        typedef hashtable<node, hash_node, eq_node> node_table;
 
         struct const_info {
             unsigned m_value_index;
@@ -131,7 +132,7 @@ namespace dd {
 
         typedef ptr_hashtable<op_entry, hash_entry, eq_entry> op_table;
 
-        svector<pdd_node>          m_nodes;
+        svector<node>          m_nodes;
         vector<rational>           m_values;
         op_table                   m_op_cache;
         node_table                 m_node_table;
@@ -149,14 +150,14 @@ namespace dd {
         mutable svector<double>    m_tree_size;
         bool                       m_disable_gc;
         bool                       m_is_new_node;
-        unsigned                   m_max_num_pdd_nodes;
+        unsigned                   m_max_num_nodes;
         bool                       m_mod2_semantics;
         unsigned_vector            m_free_vars;
         unsigned_vector            m_free_values;
         rational                   m_freeze_value;
 
         PDD make_node(unsigned level, PDD l, PDD r);
-        PDD insert_node(pdd_node const& n);
+        PDD insert_node(node const& n);
         bool is_new_node() const { return m_is_new_node; }
 
         PDD apply(PDD arg1, PDD arg2, pdd_op op);
@@ -169,6 +170,7 @@ namespace dd {
 
         PDD imk_val(rational const& r);       
         void init_value(const_info& info, rational const& r);
+        void init_value(rational const& v, unsigned r);
 
         void push(PDD b);
         void pop(unsigned num_scopes);
@@ -185,25 +187,28 @@ namespace dd {
 
         static const unsigned max_rc = (1 << 10) - 1;
 
-        inline bool is_zero(PDD b) const { return b == zero_pdd; } 
-        inline bool is_one(PDD b) const { return b == one_pdd; } 
-        inline bool is_val(PDD b) const { return hi(b) == 0; }
-        inline unsigned level(PDD b) const { return m_nodes[b].m_level; }
-        inline unsigned var(PDD b) const { return m_level2var[level(b)]; }
-        inline PDD lo(PDD b) const { return m_nodes[b].m_lo; }
-        inline PDD hi(PDD b) const { return m_nodes[b].m_hi; }
-        inline rational const& val(PDD b) const { SASSERT(is_val(b)); return m_values[lo(b)]; }
-        inline void inc_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount++; SASSERT(!m_free_nodes.contains(b)); }
-        inline void dec_ref(PDD b) { if (m_nodes[b].m_refcount != max_rc) m_nodes[b].m_refcount--; SASSERT(!m_free_nodes.contains(b)); }
+        inline bool is_zero(PDD p) const { return p == zero_pdd; } 
+        inline bool is_one(PDD p) const { return p == one_pdd; } 
+        inline bool is_val(PDD p) const { return m_nodes[p].is_val(); }
+        inline bool is_internal(PDD p) const { return m_nodes[p].is_internal(); }
+        inline unsigned level(PDD p) const { return m_nodes[p].m_level; }
+        inline unsigned var(PDD p) const { return m_level2var[level(p)]; }
+        inline PDD lo(PDD p) const { return m_nodes[p].m_lo; }
+        inline PDD hi(PDD p) const { return m_nodes[p].m_hi; }
+        inline rational const& val(PDD p) const { SASSERT(is_val(p)); return m_values[lo(p)]; }
+        inline void inc_ref(PDD p) { if (m_nodes[p].m_refcount != max_rc) m_nodes[p].m_refcount++; SASSERT(!m_free_nodes.contains(p)); }
+        inline void dec_ref(PDD p) { if (m_nodes[p].m_refcount != max_rc) m_nodes[p].m_refcount--; SASSERT(!m_free_nodes.contains(p)); }
         inline PDD level2pdd(unsigned l) const { return m_var2pdd[m_level2var[l]]; }
 
-        unsigned dag_size(pdd const& b);
+        unsigned dag_size(pdd const& p);
         unsigned degree(pdd const& p);
 
+        bool is_reachable(PDD p);
+        void compute_reachable(svector<bool>& reachable);
         void try_gc();
         void reserve_var(unsigned v);
         bool well_formed();
-        bool well_formed(pdd_node const& n);
+        bool well_formed(node const& n);
 
         unsigned_vector m_p, m_q;
         rational m_pc, m_qc;
@@ -227,7 +232,7 @@ namespace dd {
         ~pdd_manager();
 
         void set_mod2_semantics() { m_mod2_semantics = true; }
-        void set_max_num_nodes(unsigned n) { m_max_num_pdd_nodes = n; }
+        void set_max_num_nodes(unsigned n) { m_max_num_nodes = n; }
         void set_level2var(unsigned_vector const& level2var);  
         unsigned_vector const& get_level2var() const { return m_level2var; }
 
@@ -241,6 +246,7 @@ namespace dd {
         pdd sub(pdd const& a, pdd const& b);
         pdd mul(pdd const& a, pdd const& b);
         pdd mul(rational const& c, pdd const& b);
+        pdd mk_or(pdd const& p, pdd const& q);
         pdd reduce(pdd const& a, pdd const& b);
 
         bool is_linear(PDD p);
@@ -264,38 +270,40 @@ namespace dd {
     class pdd {
         friend class pdd_manager;
         unsigned     root;
-        pdd_manager* m;
-        pdd(unsigned root, pdd_manager* m): root(root), m(m) { m->inc_ref(root); }
+        pdd_manager& m;
+        pdd(unsigned root, pdd_manager& m): root(root), m(m) { m.inc_ref(root); }
+        pdd(unsigned root, pdd_manager* _m): root(root), m(*_m) { m.inc_ref(root); }
     public:
-        pdd(pdd_manager& pm): root(0), m(&pm) { SASSERT(is_zero()); }
-        pdd(pdd const& other): root(other.root), m(other.m) { m->inc_ref(root); }
+        pdd(pdd_manager& pm): root(0), m(pm) { SASSERT(is_zero()); }
+        pdd(pdd const& other): root(other.root), m(other.m) { m.inc_ref(root); }
         pdd(pdd && other): root(0), m(other.m) { std::swap(root, other.root); }
         pdd& operator=(pdd const& other);
-        ~pdd() { m->dec_ref(root); }
-        pdd lo() const { return pdd(m->lo(root), m); }
-        pdd hi() const { return pdd(m->hi(root), m); }
-        unsigned var() const { return m->var(root); }
-        rational const& val() const { SASSERT(is_val()); return m->val(root); }
-        bool is_val() const { return m->is_val(root); }
-        bool is_zero() const { return m->is_zero(root); }
-        bool is_linear() const { return m->is_linear(root); }
+        ~pdd() { m.dec_ref(root); }
+        pdd lo() const { return pdd(m.lo(root), m); }
+        pdd hi() const { return pdd(m.hi(root), m); }
+        unsigned var() const { return m.var(root); }
+        rational const& val() const { SASSERT(is_val()); return m.val(root); }
+        bool is_val() const { return m.is_val(root); }
+        bool is_zero() const { return m.is_zero(root); }
+        bool is_linear() const { return m.is_linear(root); }
 
-        pdd operator+(pdd const& other) const { return m->add(*this, other); }
-        pdd operator-(pdd const& other) const { return m->sub(*this, other); }
-        pdd operator*(pdd const& other) const { return m->mul(*this, other); }
-        pdd operator*(rational const& other) const { return m->mul(other, *this); }
-        pdd operator+(rational const& other) const { return m->add(other, *this); }
-        pdd reduce(pdd const& other) const { return m->reduce(*this, other); }
-        bool different_leading_term(pdd const& other) const { return m->different_leading_term(*this, other); }
+        pdd operator+(pdd const& other) const { return m.add(*this, other); }
+        pdd operator-(pdd const& other) const { return m.sub(*this, other); }
+        pdd operator*(pdd const& other) const { return m.mul(*this, other); }
+        pdd operator*(rational const& other) const { return m.mul(other, *this); }
+        pdd operator+(rational const& other) const { return m.add(other, *this); }
+        pdd operator|(pdd const& other) const { return m.mk_or(*this, other); }
+        pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
+        bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
 
-        std::ostream& display(std::ostream& out) const { return m->display(out, *this); }
+        std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
-        bool operator<(pdd const& b) const { return m->lt(*this, b); }
+        bool operator<(pdd const& b) const { return m.lt(*this, b); }
 
-        unsigned dag_size() const { return m->dag_size(*this); }
-        double tree_size() const { return m->tree_size(*this); }
-        unsigned degree() const { return m->degree(*this); }
+        unsigned dag_size() const { return m.dag_size(*this); }
+        double tree_size() const { return m.tree_size(*this); }
+        unsigned degree() const { return m.degree(*this); }
     };
 
     inline pdd operator*(rational const& r, pdd const& b) { return b * r; }
@@ -307,6 +315,8 @@ namespace dd {
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
+    inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
+    inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
 
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);

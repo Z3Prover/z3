@@ -99,6 +99,7 @@ public:
     void add(pdd const& p) { add(p, nullptr); }
     void add(pdd const& p, u_dependency * dep);
 
+    void simplify_linear();
     void saturate();
 
     equation_vector const& equations();
@@ -111,7 +112,9 @@ public:
 private:
     bool step();
     bool basic_step();
+    bool basic_step(equation* e);
     equation* pick_next();
+    equation* pick_linear();
     bool canceled();
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
@@ -128,7 +131,6 @@ private:
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
-
     // tuned implementation
     vector<equation_vector> m_watch;           // watch list mapping variables to vector of equations where they occur (generally a subset)
     unsigned                m_levelp1;         // index into level+1
@@ -142,11 +144,16 @@ private:
     void add_to_watch(equation& eq);
 
     void del_equation(equation& eq);    
-    void retire(equation* eq) {
-        dealloc(eq);
-    }
-    void pop_equation(unsigned idx, equation_vector& v);
+    void retire(equation* eq) { dealloc(eq); }
+    void pop_equation(equation& eq, equation_vector& v);
+    void pop_equation(equation* eq, equation_vector& v) { pop_equation(*eq, v); }
     void push_equation(equation& eq, equation_vector& v);
+    void push_equation(equation* eq, equation_vector& v) { push_equation(*eq, v); }
+
+    struct compare_top_var;
+    bool simplify_linear_step();
+    void add_to_use(equation* e, vector<equation_vector>& use_list);
+
 
     void invariant() const;
     struct scoped_detach {
