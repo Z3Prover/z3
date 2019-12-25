@@ -332,5 +332,5 @@ public:
 
         copy_upper_bound<wd>(b, i);
     }
-    typedef im_config::interval interv;
+
 };
