@@ -1282,7 +1282,7 @@ lbool core::inner_check(bool constraint_derived) {
     if (constraint_derived) {
         if (need_to_call_algebraic_methods())
             if (!(m_nla_settings.run_horner() && m_horner.horner_lemmas())) {
-                if (m_nla_settings.run_grobner())
+                if (m_nla_settings.run_grobner() == nla_settings::NEX_GROBNER || m_nla_settings.run_grobner() == nla_settings::BOTH_GROBNER)
                     m_grobner.grobner_lemmas();
             }
         if (done()) {
