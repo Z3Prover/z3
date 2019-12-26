@@ -23,7 +23,7 @@ namespace nla {
 class nla_settings {
 public:
     enum run_grobner_enum {
-                           NO_GROBNER, NEX_GROBNER, PDD_GROBNER, BOTH_GROBNER };
+                           NO_GROBNER, NEX_GROBNER, PDD_GROBNER, NEX_AND_BDD_GROBNER };
 private:
     bool     m_run_order;
     bool     m_run_tangents;

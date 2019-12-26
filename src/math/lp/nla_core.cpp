@@ -1284,9 +1284,11 @@ lbool core::incremental_linearization(bool constraint_derived) {
 lbool core::inner_check(bool constraint_derived) {
     if (constraint_derived) {
         if (need_to_call_algebraic_methods())
-            if (m_horner.horner_lemmas()) {
-                switch( m_nla_settings.run_grobner()) {                    
-                case nla_settings::BOTH_GROBNER:
+            if (!m_horner.horner_lemmas()) {
+                clear_and_resize_active_var_set();
+                find_nl_cluster();
+                switch(m_nla_settings.run_grobner()) {                    
+                case nla_settings::NEX_AND_BDD_GROBNER:
                     init_nex_grobner(m_nex_grobner.get_nex_creator());
                     m_nex_grobner.grobner_lemmas();
                     run_pdd_grobner();
@@ -1410,6 +1412,16 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 
 void core::run_pdd_grobner() {
     m_pdd_manager.resize(m_lar_solver.number_of_vars());
+    for (unsigned i : m_rows) {
+        add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
+    }
+    m_pdd_grobner.saturate();
+    for (auto eq : m_pdd_grobner.equations()) {
+        check_pdd_eq(eq);
+    }
+}
+
+void core::check_pdd_eq(const dd::grobner::equation* e) {
     NOT_IMPLEMENTED_YET();
 }
 
@@ -1442,7 +1454,12 @@ void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lp
     }            
 }
 
-void core::find_nl_cluster(nex_creator& nc) {
+void core::add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row) {
+    NOT_IMPLEMENTED_YET();
+}
+
+
+void core::find_nl_cluster() {
     prepare_rows_and_active_vars();
     svector<lpvar> q;
     for (lpvar j : m_to_refine) {        
@@ -1455,7 +1472,6 @@ void core::find_nl_cluster(nex_creator& nc) {
         q.pop_back();
         add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
     }
-    set_active_vars_weights(nc);
     TRACE("grobner", display_matrix_of_m_rows(tout););
 }
 
@@ -1498,9 +1514,8 @@ void core::display_matrix_of_m_rows(std::ostream & out) const {
 }
 
 void core::init_nex_grobner(nex_creator & nc) {   
-    find_nl_cluster(nc);
-    clear_and_resize_active_var_set();
     TRACE("grobner", tout << "m_rows.size() = " << m_rows.size() << "\n";);
+    set_active_vars_weights(nc);
     for (unsigned i : m_rows) {
         m_nex_grobner.add_row(m_lar_solver.A_r().m_rows[i]);
     }
