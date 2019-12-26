@@ -252,6 +252,9 @@ namespace dd {
         bool is_linear(PDD p);
         bool is_linear(pdd const& p);
 
+        bool is_binary(PDD p);
+        bool is_binary(pdd const& p);
+
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
 
@@ -287,7 +290,10 @@ namespace dd {
         bool is_val() const { return m.is_val(root); }
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
+        bool is_binary() const { return m.is_binary(root); }
 
+        pdd minus() const { return m.minus(*this); }
+        pdd operator-() const { return m.minus(*this); }
         pdd operator+(pdd const& other) const { return m.add(*this, other); }
         pdd operator-(pdd const& other) const { return m.sub(*this, other); }
         pdd operator*(pdd const& other) const { return m.mul(*this, other); }
@@ -315,7 +321,10 @@ namespace dd {
     inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
+    inline pdd operator-(rational const& r, pdd const& b) { return r + (-b); }
+    inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
+
     inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }

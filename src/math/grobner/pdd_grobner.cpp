@@ -184,20 +184,14 @@ namespace dd {
         return eq;
     }
 
-    grobner::equation* grobner::pick_linear() {
-        equation* eq = nullptr;
-        for (auto* curr : m_to_simplify) {
-            if (!eq || (curr->poly().is_linear() && is_simpler(*curr, *eq))) {
-                eq = curr;
-            }
-        }
-        if (eq) pop_equation(eq);
-        return eq;
-    }
-
     void grobner::simplify() {
         try {
-            while (simplify_linear_step(true) || simplify_linear_step(false) /*|| simplify_cc_step() */ || simplify_elim_step()) {
+            while (simplify_linear_step(true) || 
+                   simplify_elim_pure_step() ||
+                   simplify_linear_step(false) || 
+                   simplify_cc_step() ||  
+                   /*simplify_elim_dual_step() ||*/
+                false) {
                 DEBUG_CODE(invariant(););
                 TRACE("grobner", display(tout););
             }
@@ -217,41 +211,62 @@ namespace dd {
         equation_vector linear;
         for (equation* e : m_to_simplify) {
             pdd p = e->poly();
-            if (p.is_linear()) {
-                if (!binary || p.lo().is_val() || p.lo().lo().is_val()) {
-                    linear.push_back(e);
-                }
+            if (p.is_linear() && (!binary || p.is_binary())) {
+                linear.push_back(e);
             }
         }
+        return simplify_linear_step(linear);
+    }
+
+    /**
+       \brief simplify linear equations by using top variable as solution.
+       The linear equation is moved to set of solved equations.
+    */
+    bool grobner::simplify_linear_step(equation_vector& linear) {
         if (linear.empty()) return false;
         use_list_t use_list = get_use_list();
         compare_top_var ctv;
         std::stable_sort(linear.begin(), linear.end(), ctv);
+        equation_vector trivial;
+        unsigned j = 0;
         for (equation* src : linear) {
             equation_vector const& uses = use_list[src->poly().var()];
             bool changed_leading_term;
+            bool all_reduced = true;
             for (equation* dst : uses) {
-                if (src == dst) {
+                if (src == dst || is_trivial(*dst)) {
                     continue;                    
+                }
+                if (!src->poly().is_binary() && !dst->poly().is_linear()) {
+                    all_reduced = false;
+                    continue;
                 }
                 simplify_using(*dst, *src, changed_leading_term);
                 if (check_conflict(*dst)) {
                     return false;
                 }
                 if (is_trivial(*dst)) {
-                    SASSERT(false);
+                    trivial.push_back(dst);
                 }
-                if (changed_leading_term) {
+                else if (changed_leading_term) {
                     pop_equation(dst);
                     push_equation(to_simplify, dst);
                 }
-            }            
+            }          
+            if (all_reduced) {
+                linear[j++] = src;              
+            }
         } 
+        linear.shrink(j);      
         for (equation* src : linear) {
             pop_equation(src);
             push_equation(solved, src);
         }
-        return true;
+        for (equation* e : trivial) {
+            del_equation(e);
+        }
+        DEBUG_CODE(invariant(););
+        return j > 0;
     }
 
     /**
@@ -269,7 +284,8 @@ namespace dd {
             pdd p = eq1->poly();
             auto* e = los.insert_if_not_there2(p.lo().index(), eq1);
             equation* eq2 = e->get_data().m_value;
-            if (eq2 != eq1 && p.hi().is_val() && !p.lo().is_val()) {
+            pdd q = eq2->poly();
+            if (eq2 != eq1 && (p.hi().is_val() || q.hi().is_val()) && !p.lo().is_val()) {
                 *eq1 = p - eq2->poly();
                 *eq1 = m_dep_manager.mk_join(eq1->dep(), eq2->dep());
                 reduced = true;
@@ -290,9 +306,8 @@ namespace dd {
 
     /**
        \brief treat equations as processed if top variable occurs only once.
-       reduce equations where top variable occurs only twice and linear in one of the occurrences.       
-     */
-    bool grobner::simplify_elim_step() {
+    */
+    bool grobner::simplify_elim_pure_step() {
         use_list_t use_list = get_use_list();        
         unsigned j = 0;
         for (equation* e : m_to_simplify) {
@@ -309,7 +324,16 @@ namespace dd {
             m_to_simplify.shrink(j);
             return true;
         }
-        j = 0;
+        return false;
+    }
+
+    /**
+       \brief 
+       reduce equations where top variable occurs only twice and linear in one of the occurrences.       
+     */
+    bool grobner::simplify_elim_dual_step() {
+        use_list_t use_list = get_use_list();        
+        unsigned j = 0;
         for (unsigned i = 0; i < m_to_simplify.size(); ++i) {
             equation* e = m_to_simplify[i];            
             pdd p = e->poly();
@@ -653,9 +677,9 @@ namespace dd {
         return m_to_simplify;
     }
 
-    void grobner::del_equation(equation& eq) {
+    void grobner::del_equation(equation* eq) {
         pop_equation(eq);
-        retire(&eq);
+        retire(eq);
     }
 
     void grobner::pop_equation(equation& eq) {

@@ -121,7 +121,6 @@ private:
     bool basic_step();
     bool basic_step(equation* e);
     equation* pick_next();
-    equation* pick_linear();
     bool canceled();
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
@@ -151,7 +150,8 @@ private:
     bool simplify_to_simplify(equation const& eq);
     void add_to_watch(equation& eq);
 
-    void del_equation(equation& eq);    
+    void del_equation(equation& eq) { del_equation(&eq); }    
+    void del_equation(equation* eq);    
     equation_vector& get_queue(equation const& eq);
     void retire(equation* eq) { dealloc(eq); }
     void pop_equation(equation& eq);
@@ -161,13 +161,15 @@ private:
 
     struct compare_top_var;
     bool simplify_linear_step(bool binary);
+    bool simplify_linear_step(equation_vector& linear);
     typedef vector<equation_vector> use_list_t;
     use_list_t get_use_list();
     void add_to_use(equation* e, use_list_t& use_list);
     void remove_from_use(equation* e, use_list_t& use_list);
 
     bool simplify_cc_step();
-    bool simplify_elim_step();
+    bool simplify_elim_pure_step();
+    bool simplify_elim_dual_step();
 
     void invariant() const;
     struct scoped_process {

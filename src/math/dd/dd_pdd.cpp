@@ -70,7 +70,7 @@ namespace dd {
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
-    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p*q + p + q; }
+    pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -446,6 +446,19 @@ namespace dd {
 
     bool pdd_manager::is_linear(pdd const& p) { 
         return is_linear(p.root); 
+    }
+
+    /*
+      Determine whether p is a binary polynomials 
+      of the form v1, x*v1 + v2, or x*v1 + y*v2 + v3
+      where v1, v2 are values.      
+     */
+    bool pdd_manager::is_binary(PDD p) {
+        return is_val(p) || (is_val(hi(p)) && (is_val(lo(p)) || (is_val(hi(lo(p))) && is_val(lo(lo(p))))));
+    }
+
+    bool pdd_manager::is_binary(pdd const& p) { 
+        return is_binary(p.root); 
     }
 
     void pdd_manager::push(PDD b) {
