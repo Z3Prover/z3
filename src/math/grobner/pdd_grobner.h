@@ -73,7 +73,7 @@ public:
         const pdd& poly() const { return m_poly; }        
         u_dependency * dep() const { return m_dep; }
         unsigned idx() const { return m_idx; }
-        void operator=(pdd& p) { m_poly = p; }
+        void operator=(pdd const& p) { m_poly = p; }
         void operator=(u_dependency* d) { m_dep = d; }
         eq_state state() const { return m_state; }
         void set_state(eq_state st) { m_state = st; }
@@ -160,7 +160,7 @@ private:
     void push_equation(eq_state st, equation* eq) { push_equation(st, *eq); }
 
     struct compare_top_var;
-    bool simplify_linear_step();
+    bool simplify_linear_step(bool binary);
     typedef vector<equation_vector> use_list_t;
     use_list_t get_use_list();
     void add_to_use(equation* e, use_list_t& use_list);
@@ -170,15 +170,11 @@ private:
     bool simplify_elim_step();
 
     void invariant() const;
-    struct scoped_detach {
+    struct scoped_process {
         grobner& g;
         equation* e;
-        scoped_detach(grobner& g, equation* e): g(g), e(e) {}
-        ~scoped_detach() {
-            if (e) {
-                g.push_equation(processed, *e);
-            }
-        }
+        scoped_process(grobner& g, equation* e): g(g), e(e) {}
+        ~scoped_process();        
     };
 
     void update_stats_max_degree_and_size(const equation& e);

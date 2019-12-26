@@ -146,9 +146,22 @@ namespace dd {
         return basic_step(pick_next());
     }
 
+    grobner::scoped_process::~scoped_process() {
+        if (e) {
+            pdd p = e->poly();
+            SASSERT(!p.is_val());
+            if (p.hi().is_val()) {
+                g.push_equation(solved, e);
+            }
+            else {
+                g.push_equation(processed, e);
+            }
+        }
+    }
+
     bool grobner::basic_step(equation* e) {
         if (!e) return false;
-        scoped_detach sd(*this, e);
+        scoped_process sd(*this, e);
         equation& eq = *e;
         TRACE("grobner", display(tout << "eq = ", eq); display(tout););
         SASSERT(eq.state() == to_simplify);
@@ -174,7 +187,7 @@ namespace dd {
     grobner::equation* grobner::pick_linear() {
         equation* eq = nullptr;
         for (auto* curr : m_to_simplify) {
-            if (!eq || curr->poly().is_linear() && is_simpler(*curr, *eq)) {
+            if (!eq || (curr->poly().is_linear() && is_simpler(*curr, *eq))) {
                 eq = curr;
             }
         }
@@ -184,8 +197,9 @@ namespace dd {
 
     void grobner::simplify() {
         try {
-            while (simplify_linear_step() /*|| simplify_cc_step() */ || simplify_elim_step()) {
+            while (simplify_linear_step(true) || simplify_linear_step(false) /*|| simplify_cc_step() */ || simplify_elim_step()) {
                 DEBUG_CODE(invariant(););
+                TRACE("grobner", display(tout););
             }
         }
         catch (pdd_manager::mem_out) {
@@ -199,11 +213,14 @@ namespace dd {
         }
     };
 
-    bool grobner::simplify_linear_step() {
+    bool grobner::simplify_linear_step(bool binary) {
         equation_vector linear;
         for (equation* e : m_to_simplify) {
-            if (e->poly().is_linear()) {
-                linear.push_back(e);
+            pdd p = e->poly();
+            if (p.is_linear()) {
+                if (!binary || p.lo().is_val() || p.lo().lo().is_val()) {
+                    linear.push_back(e);
+                }
             }
         }
         if (linear.empty()) return false;
@@ -252,7 +269,7 @@ namespace dd {
             pdd p = eq1->poly();
             auto* e = los.insert_if_not_there2(p.lo().index(), eq1);
             equation* eq2 = e->get_data().m_value;
-            if (eq2 != eq1 && !p.lo().is_val()) {
+            if (eq2 != eq1 && p.hi().is_val() && !p.lo().is_val()) {
                 *eq1 = p - eq2->poly();
                 *eq1 = m_dep_manager.mk_join(eq1->dep(), eq2->dep());
                 reduced = true;
@@ -495,7 +512,7 @@ namespace dd {
     bool grobner::tuned_step() {
         equation* e = tuned_pick_next();
         if (!e) return false;
-        scoped_detach sd(*this, e);
+        scoped_process sd(*this, e);
         equation& eq = *e;
         SASSERT(!m_watch[eq.poly().var()].contains(e));
         SASSERT(eq.state() == to_simplify);
