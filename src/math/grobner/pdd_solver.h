@@ -130,7 +130,6 @@ public:
 private:
     bool step();
     equation* pick_next();
-    equation* pick_linear();
     bool canceled();
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
