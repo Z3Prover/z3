@@ -41,6 +41,9 @@ namespace dd {
     class pdd;
 
     class pdd_manager {
+    public:
+        enum semantics { free_e, mod2_e, zero_one_vars_e };
+    private:
         friend pdd;
 
         typedef unsigned PDD;
@@ -52,10 +55,11 @@ namespace dd {
 
         enum pdd_op {
             pdd_add_op = 2,
-            pdd_minus_op = 3,
-            pdd_mul_op = 4,
-            pdd_reduce_op = 5,
-            pdd_no_op = 6
+            pdd_sub_op = 3,
+            pdd_minus_op = 4,
+            pdd_mul_op = 5,
+            pdd_reduce_op = 6,
+            pdd_no_op = 7
         };
 
         struct node {
@@ -151,7 +155,7 @@ namespace dd {
         bool                       m_disable_gc;
         bool                       m_is_new_node;
         unsigned                   m_max_num_nodes;
-        bool                       m_mod2_semantics;
+        semantics                  m_semantics;
         unsigned_vector            m_free_vars;
         unsigned_vector            m_free_values;
         rational                   m_freeze_value;
@@ -230,10 +234,9 @@ namespace dd {
 
         struct mem_out {};
 
-        pdd_manager(unsigned nodes);
+        pdd_manager(unsigned nodes, semantics s = free_e);
         ~pdd_manager();
 
-        void set_mod2_semantics() { m_mod2_semantics = true; }
         void set_max_num_nodes(unsigned n) { m_max_num_nodes = n; }
         void set_level2var(unsigned_vector const& level2var);  
         unsigned_vector const& get_level2var() const { return m_level2var; }
@@ -249,6 +252,8 @@ namespace dd {
         pdd mul(pdd const& a, pdd const& b);
         pdd mul(rational const& c, pdd const& b);
         pdd mk_or(pdd const& p, pdd const& q);
+        pdd mk_xor(pdd const& p, pdd const& q);
+        pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
 
         bool is_linear(PDD p);
@@ -256,6 +261,8 @@ namespace dd {
 
         bool is_binary(PDD p);
         bool is_binary(pdd const& p);
+
+        bool is_monomial(PDD p);
 
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
@@ -293,22 +300,28 @@ namespace dd {
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
         bool is_binary() const { return m.is_binary(root); }
+        bool is_monomial() const { return m.is_monomial(root); }
         bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
-        pdd minus() const { return m.minus(*this); }
+        pdd operator-() const { return m.minus(*this); }
         pdd operator+(pdd const& other) const { return m.add(*this, other); }
         pdd operator-(pdd const& other) const { return m.sub(*this, other); }
         pdd operator*(pdd const& other) const { return m.mul(*this, other); }
+        pdd operator&(pdd const& other) const { return m.mul(*this, other); }
+        pdd operator|(pdd const& other) const { return m.mk_or(*this, other); }
+        pdd operator^(pdd const& other) const { return m.mk_xor(*this, other); }        
+
         pdd operator*(rational const& other) const { return m.mul(other, *this); }
         pdd operator+(rational const& other) const { return m.add(other, *this); }
-        pdd operator|(pdd const& other) const { return m.mk_or(*this, other); }
+        pdd operator~() const { return m.mk_not(*this); }
+        pdd rev_sub(rational const& r) const { return m.sub(m.mk_val(r), *this); }
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
 
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
-        bool operator<(pdd const& b) const { return m.lt(*this, b); }
+        bool operator<(pdd const& other) const { return m.lt(*this, other); }
 
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }
@@ -323,15 +336,16 @@ namespace dd {
     inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
-    inline pdd operator-(rational const& r, pdd const& b) { return r + b.minus(); }
+    inline pdd operator-(rational const& r, pdd const& b) { return b.rev_sub(r); }
     inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
 
+    inline pdd& operator&=(pdd & p, pdd const& q) { p = p & q; return p; }
+    inline pdd& operator^=(pdd & p, pdd const& q) { p = p ^ q; return p; }
     inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
     inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
     inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
-
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);
 

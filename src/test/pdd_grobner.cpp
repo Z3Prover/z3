@@ -2,6 +2,7 @@
 #include "math/grobner/pdd_grobner.h"
 
 #include "ast/bv_decl_plugin.h"
+#include "ast/ast_util.h"
 #include "ast/ast_pp.h"
 #include "ast/ast_ll_pp.h"
 #include "ast/reg_decl_plugins.h"
@@ -74,6 +75,71 @@ namespace dd {
         // 
     }
 
+    expr_ref elim_or(ast_manager& m, expr* e) {
+        obj_map<expr, expr*> cache;
+        expr_ref_vector trail(m), todo(m), args(m);
+        todo.push_back(e);
+        while (!todo.empty()) {
+            expr* f = todo.back(), *g;
+            
+            if (!is_app(f)) {
+                cache.insert(f, f);
+            }
+
+            if (cache.contains(f)) {
+                todo.pop_back();
+                continue;
+            }
+
+            app* a = to_app(f);
+            args.reset();
+            for (expr* arg : *a) {
+                if (cache.find(arg, g)) {
+                    args.push_back(g);
+                }
+                else {
+                    todo.push_back(arg);
+                }
+            }
+            if (args.size() != a->get_num_args()) {
+                continue;
+            }
+            todo.pop_back();
+            if (m.is_or(a)) {
+                for (unsigned i = 0; i < args.size(); ++i) {
+                    args[i] = mk_not(m, args.get(i));
+                }
+                g = m.mk_not(m.mk_and(args.size(), args.c_ptr()));
+            }
+            else if (m.is_and(a)) {
+                g = m.mk_and(args.size(), args.c_ptr());
+                trail.push_back(g);
+            }
+            else if (m.is_eq(a)) {
+                expr* x = args.get(0);
+                expr* y = args.get(1);
+                if (m.is_not(x, x)) {
+                    g = m.mk_xor(x, y);
+                }
+                else if (m.is_not(y, y)) {
+                    g = m.mk_xor(x, y);
+                }
+                else {
+                    g = m.mk_not(m.mk_xor(x, y));
+                }
+            }
+            else if (m.is_not(a)) {
+                g = mk_not(m, args.get(0));
+            }
+            else {
+                g = m.mk_app(a->get_decl(), args.size(), args.c_ptr());
+            }
+            trail.push_back(g);
+            cache.insert(a, g);
+        }
+        return expr_ref(cache[e], m);
+    }
+
     void add_def(unsigned_vector const& id2var, app* e, ast_manager& m, pdd_manager& p, grobner& g) {
         expr* a, *b;
         pdd v1 = p.mk_var(id2var[e->get_id()]);
@@ -90,17 +156,17 @@ namespace dd {
         }
         else if (m.is_not(e, a)) {
             pdd v2 = p.mk_var(id2var[a->get_id()]);
-            q = v1 + v2 - 1;
+            q = v1 - ~v2;
         }
         else if (m.is_eq(e, a, b)) {
             pdd v2 = p.mk_var(id2var[a->get_id()]);
             pdd v3 = p.mk_var(id2var[b->get_id()]);
-            // v1 = (v2 = v3)
-            // 111, 100 = 0
-            // 001, 010 = 0
-            // 000, 011 = 1
-            // 110, 101 = 1
-            q = v1 - v2 - v3 + 1 + 2*v2*v3 - 2*v1*v2*v3;
+            q = v1 - ~(v2 ^ v3);
+        }
+        else if (m.is_xor(e, a, b)) {
+            pdd v2 = p.mk_var(id2var[a->get_id()]);
+            pdd v3 = p.mk_var(id2var[b->get_id()]);
+            q = v1 - (v2 ^ v3);
         }
         else if (is_uninterp_const(e)) {
             return;
@@ -131,12 +197,17 @@ namespace dd {
         unsigned_vector id2var;
 
         collect_id2var(id2var, fmls);
-        pdd_manager p(id2var.size());
-        if (use_mod2) p.set_mod2_semantics();
+        pdd_manager p(id2var.size(), use_mod2 ? pdd_manager::mod2_e : pdd_manager::zero_one_vars_e);
         grobner g(m.limit(), p);
 
         for (expr* e : subterms(fmls)) {
             add_def(id2var, to_app(e), m, p, g);
+        }
+        if (!use_mod2) { // should be built-in 
+            for (expr* e : subterms(fmls)) {
+                pdd v = p.mk_var(id2var[e->get_id()]);
+                g.add(v*v - v);
+            }
         }
         for (expr* e : fmls) {
             g.add(1 - p.mk_var(id2var[e->get_id()]));
@@ -152,8 +223,8 @@ namespace dd {
         ast_manager m;
         reg_decl_plugins(m);
         bv_util bv(m);
-        expr_ref x(m.mk_const("x", bv.mk_sort(4)), m);
-        expr_ref y(m.mk_const("y", bv.mk_sort(4)), m);
+        expr_ref x(m.mk_const("x", bv.mk_sort(3)), m);
+        expr_ref y(m.mk_const("y", bv.mk_sort(3)), m);
         expr_ref xy(bv.mk_bv_mul(x, y), m);
         expr_ref yx(bv.mk_bv_mul(y, x), m);
         expr_ref eq(m.mk_not(m.mk_eq(xy,yx)), m);
@@ -166,7 +237,7 @@ namespace dd {
 
         expr_ref_vector fmls(m);
         for (unsigned i = 0; i < g->size(); ++i) {
-            fmls.push_back(g->form(i));        
+            fmls.push_back(elim_or(m, g->form(i)));        
         }
         test_simplify(fmls, true);
         test_simplify(fmls, false);

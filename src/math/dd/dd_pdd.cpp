@@ -23,13 +23,13 @@ Revision History:
 
 namespace dd {
 
-    pdd_manager::pdd_manager(unsigned num_vars) {
+    pdd_manager::pdd_manager(unsigned num_vars, semantics s) {
         m_spare_entry = nullptr;
         m_max_num_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
         m_disable_gc = false;
         m_is_new_node = false;
-        m_mod2_semantics = false;
+        m_semantics = s;
 
         // add dummy nodes for operations, and 0, 1 pdds.
         for (unsigned i = 0; i < pdd_no_op; ++i) {
@@ -61,7 +61,7 @@ namespace dd {
     }
 
     pdd pdd_manager::add(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_add_op), this); }
-    pdd pdd_manager::sub(pdd const& a, pdd const& b) { pdd m(minus(b)); return pdd(apply(a.root, m.root, pdd_add_op), this); }
+    pdd pdd_manager::sub(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_sub_op), this); }
     pdd pdd_manager::mul(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::reduce(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_reduce_op), this); }
     pdd pdd_manager::mk_val(rational const& r) { return pdd(imk_val(r), this); }
@@ -71,6 +71,8 @@ namespace dd {
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
     pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
+    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { return (p*q*2) - p - q; }
+    pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
 
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
@@ -108,6 +110,11 @@ namespace dd {
 
     pdd_manager::PDD pdd_manager::apply_rec(PDD p, PDD q, pdd_op op) {
         switch (op) {
+        case pdd_sub_op:
+            if (is_zero(q)) return p;
+            if (is_val(p) && is_val(q)) return imk_val(val(p) - val(q));
+            if (m_semantics != mod2_e) break;
+            op = pdd_add_op;
         case pdd_add_op:
             if (is_zero(p)) return q;
             if (is_zero(q)) return p;
@@ -163,6 +170,35 @@ namespace dd {
                 npop = 1;
             }
             break;
+        case pdd_sub_op:
+            if (is_val(p)) {
+                push(apply_rec(p, lo(q), op));
+                r = make_node(level_q, read(1), hi(q));
+                npop = 1;                
+            }
+            else if (is_val(q)) {
+                push(apply_rec(lo(p), q, op));
+                r = make_node(level_p, read(1), hi(p));
+                npop = 1;
+            }
+            else if (level_p == level_q) {
+                push(apply_rec(lo(p), lo(q), op));
+                push(apply_rec(hi(p), hi(q), op));
+                r = make_node(level_p, read(2), read(1));                           
+            }
+            else if (level_p > level_q) {
+                // x*hi(p) + (lo(p) - q)
+                push(apply_rec(lo(p), q, op));
+                r = make_node(level_p, read(1), hi(p));
+                npop = 1;
+            }
+            else {
+                // x*hi(q) + (p - lo(q))
+                push(apply_rec(p, lo(q), op));
+                r = make_node(level_q, read(1), hi(q));
+                npop = 1;                
+            }
+            break;
         case pdd_mul_op:
             SASSERT(!is_val(p));
             if (is_val(q)) {
@@ -171,17 +207,18 @@ namespace dd {
                 r = make_node(level_p, read(2), read(1));
             }
             else if (level_p == level_q) {
-                if (m_mod2_semantics) {
+                if (m_semantics != free_e) {
                     //
-                    // (xa+b)*(xc+d) mod2 == x(ac+bc+ad) + bd
-                    //                    == x((a+b)(c+d)+bd) + bd
+                    // (xa+b)*(xc+d)  == x(ac+bc+ad) + bd
+                    //                == x((a+b)(c+d)-bd) + bd
+                    // because x*x = x
                     //
                     push(apply_rec(lo(p), lo(q), pdd_mul_op));
                     unsigned bd = read(1);
                     push(apply_rec(hi(p), lo(p), pdd_add_op));
                     push(apply_rec(hi(q), lo(q), pdd_add_op));
                     push(apply_rec(read(1), read(2), pdd_mul_op));
-                    push(apply_rec(read(1), bd, pdd_add_op));
+                    push(apply_rec(read(1), bd, pdd_sub_op));
                     r = make_node(level_p, bd, read(1));
                     npop = 5;
                 }
@@ -243,7 +280,7 @@ namespace dd {
     }
 
     pdd pdd_manager::minus(pdd const& a) {
-        if (m_mod2_semantics) {
+        if (m_semantics == mod2_e) {
             return a;
         }
         bool first = true;
@@ -264,7 +301,7 @@ namespace dd {
     }
 
     pdd_manager::PDD pdd_manager::minus_rec(PDD a) {
-        SASSERT(!m_mod2_semantics);
+        SASSERT(m_semantics != mod2_e);
         if (is_zero(a)) return zero_pdd;
         if (is_val(a)) return imk_val(-val(a));
         op_entry* e1 = pop_entry(a, a, pdd_minus_op);
@@ -358,7 +395,7 @@ namespace dd {
                 while (!is_val(x)) p.push_back(var(x)), x = hi(x);
                 pc = val(x);
                 qc = val(y);
-                if (!m_mod2_semantics && pc.is_int() && qc.is_int()) {
+                if (m_semantics != mod2_e && pc.is_int() && qc.is_int()) {
                     rational g = gcd(pc, qc);
                     pc /= g;
                     qc /= g;
@@ -461,6 +498,17 @@ namespace dd {
         return is_binary(p.root); 
     }
 
+    /**
+       Determine if p is a monomial.
+    */
+    bool pdd_manager::is_monomial(PDD p) {
+        while (true) {
+            if (is_val(p)) return true;
+            if (!is_zero(lo(p))) return false;
+            p = hi(p);
+        }
+    }
+
     /*
       \brief determine if v occurs as a leaf variable.
      */
@@ -522,7 +570,7 @@ namespace dd {
     pdd_manager::PDD pdd_manager::imk_val(rational const& r) {
         if (r.is_zero()) return zero_pdd;
         if (r.is_one()) return one_pdd;
-        if (m_mod2_semantics) return imk_val(mod(r, rational(2)));
+        if (m_semantics == mod2_e) return imk_val(mod(r, rational(2)));
         const_info info;
         if (!m_mpq_table.find(r, info)) {
             init_value(info, r);

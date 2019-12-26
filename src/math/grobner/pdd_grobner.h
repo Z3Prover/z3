@@ -125,16 +125,18 @@ private:
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
-    bool simplify_source_target(equation const& source, equation& target, bool& changed_leading_term);
     bool simplify_using(equation& eq, equation_vector const& eqs);
     bool simplify_using(equation_vector& set, equation const& eq);
     void simplify_using(equation & dst, equation const& src, bool& changed_leading_term);
+    bool try_simplify_using(equation& target, equation const& source, bool& changed_leading_term);
 
-    bool eliminate(equation& eq) { return is_trivial(eq) && (del_equation(eq), true); }
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
     bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
-    bool check_conflict(equation& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(eq), true); }    
+    bool is_conflict(equation const* eq) const { return is_conflict(*eq); }
+    bool is_conflict(equation const& eq) const { return eq.poly().is_val() && !is_trivial(eq); }
+    bool check_conflict(equation& eq) { return is_conflict(eq) && (set_conflict(eq), true); }    
     void set_conflict(equation& eq) { m_conflict = &eq; push_equation(solved, eq); }
+    void set_conflict(equation* eq) { m_conflict = eq; push_equation(solved, eq); }
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
@@ -147,7 +149,7 @@ private:
     bool tuned_step();
     void tuned_init();
     equation* tuned_pick_next();
-    bool simplify_to_simplify(equation const& eq);
+    bool simplify_watch(equation const& eq);
     void add_to_watch(equation& eq);
 
     void del_equation(equation& eq) { del_equation(&eq); }    

@@ -186,13 +186,14 @@ namespace dd {
 
     void grobner::simplify() {
         try {
-            while (simplify_linear_step(true) || 
-                   simplify_elim_pure_step() ||
-                   simplify_linear_step(false) || 
-                   simplify_cc_step() || 
-                   simplify_leaf_step() ||
-                   /*simplify_elim_dual_step() ||*/
-                false) {
+            while (!done() &&
+                   (simplify_linear_step(true) || 
+                    simplify_elim_pure_step() ||
+                    simplify_cc_step() || 
+                    simplify_linear_step(false) || 
+                    simplify_leaf_step() ||
+                    /*simplify_elim_dual_step() ||*/
+                    false)) {
                 DEBUG_CODE(invariant(););
                 TRACE("grobner", display(tout););
             }
@@ -209,6 +210,7 @@ namespace dd {
     };
 
     bool grobner::simplify_linear_step(bool binary) {
+        TRACE("grobner", tout << "binary " << binary << "\n";);
         equation_vector linear;
         for (equation* e : m_to_simplify) {
             pdd p = e->poly();
@@ -243,11 +245,13 @@ namespace dd {
                     continue;
                 }
                 simplify_using(*dst, *src, changed_leading_term);
-                if (check_conflict(*dst)) {
-                    return false;
-                }
                 if (is_trivial(*dst)) {
                     trivial.push_back(dst);
+                }
+                else if (is_conflict(dst)) {
+                    pop_equation(dst);
+                    set_conflict(dst);
+                    return true;
                 }
                 else if (changed_leading_term) {
                     pop_equation(dst);
@@ -257,7 +261,7 @@ namespace dd {
             if (all_reduced) {
                 linear[j++] = src;              
             }
-        } 
+        }
         linear.shrink(j);      
         for (equation* src : linear) {
             pop_equation(src);
@@ -277,6 +281,7 @@ namespace dd {
        since px = ry
      */
     bool grobner::simplify_cc_step() {
+        TRACE("grobner", tout << "cc\n";);
         u_map<equation*> los;
         bool reduced = false;
         unsigned j = 0;
@@ -309,6 +314,7 @@ namespace dd {
        \brief remove ax+b from p if x occurs as a leaf in p and a is a constant.
     */
     bool grobner::simplify_leaf_step() {
+        TRACE("grobner", tout << "leaf\n";);
         use_list_t use_list = get_use_list();
         bool reduced = false;
         equation_vector leaves;
@@ -329,8 +335,14 @@ namespace dd {
                 remove_from_use(e2, use_list);
                 simplify_using(*e2, *e, changed_leading_term);
                 add_to_use(e2, use_list);
-                if (check_conflict(*e2)) {
-                    return false;
+                if (is_trivial(*e2)) {
+                    pop_equation(e2);
+                    retire(e2);
+                }
+                else if (e2->poly().is_val()) {
+                    pop_equation(e2);
+                    set_conflict(*e2);
+                    return true;
                 }
                 else if (changed_leading_term) {
                     pop_equation(e2);
@@ -346,6 +358,7 @@ namespace dd {
        \brief treat equations as processed if top variable occurs only once.
     */
     bool grobner::simplify_elim_pure_step() {
+        TRACE("grobner", tout << "pure\n";);
         use_list_t use_list = get_use_list();        
         unsigned j = 0;
         for (equation* e : m_to_simplify) {
@@ -387,8 +400,9 @@ namespace dd {
 
                     remove_from_use(e2, use_list);
                     simplify_using(*e2, *e, changed_leading_term);
-                    if (check_conflict(*e2)) { 
-                        break;
+                    if (is_conflict(e2)) {
+                        pop_equation(e2);
+                        set_conflict(e2);
                     }
                     // when e2 is trivial, leading term is changed
                     SASSERT(!is_trivial(*e2) || changed_leading_term);
@@ -470,7 +484,7 @@ namespace dd {
         do {
             simplified = false;
             for (equation* p : eqs) {
-                if (simplify_source_target(*p, eq, changed_leading_term)) {
+                if (try_simplify_using(eq, *p, changed_leading_term)) {
                     simplified = true;
                 }
                 if (canceled() || eq.poly().is_val()) {
@@ -493,7 +507,7 @@ namespace dd {
         for (unsigned i = 0; i < sz; ++i) {
             equation& target = *set[i];
             bool changed_leading_term = false;
-            bool simplified = !done() && simplify_source_target(eq, target, changed_leading_term); 
+            bool simplified = !done() && try_simplify_using(target, eq, changed_leading_term); 
             if (simplified && is_trivial(target)) {
                 retire(&target);
             }
@@ -521,7 +535,7 @@ namespace dd {
       return true if the target was simplified. 
       set changed_leading_term if the target is in the m_processed set and the leading term changed.
      */
-    bool grobner::simplify_source_target(equation const& src, equation& dst, bool& changed_leading_term) {
+    bool grobner::try_simplify_using(equation& dst, equation const& src, bool& changed_leading_term) {
         if (&src == &dst) {
             return false;
         }
@@ -585,7 +599,7 @@ namespace dd {
         if (!simplify_using(m_processed, eq)) return false;
         TRACE("grobner", display(tout << "eq = ", eq););
         superpose(eq);
-        return simplify_to_simplify(eq);
+        return simplify_watch(eq);
     }
 
     void grobner::tuned_init() {
@@ -596,6 +610,7 @@ namespace dd {
             m_level2var[i] = l2v[i];
             m_var2level[l2v[i]] = i;
         }
+        m_watch.reset();
         m_watch.reserve(m_level2var.size());
         m_levelp1 = m_level2var.size();
         for (equation* eq : m_to_simplify) add_to_watch(*eq);
@@ -611,7 +626,7 @@ namespace dd {
         }
     }
 
-    bool grobner::simplify_to_simplify(equation const& eq) {
+    bool grobner::simplify_watch(equation const& eq) {
         unsigned v = eq.poly().var();
         auto& watch = m_watch[v];
         unsigned j = 0;
@@ -620,13 +635,16 @@ namespace dd {
             SASSERT(target.state() == to_simplify);
             SASSERT(target.poly().var() == v);
             bool changed_leading_term = false;
-            if (!done()) simplify_source_target(eq, target, changed_leading_term);
+            if (!done()) {
+                try_simplify_using(target, eq, changed_leading_term);
+            }
             if (is_trivial(target)) {
                 retire(&target);
             }
-            else if (check_conflict(target)) {
-                // pushed to solved
-            } 
+            else if (is_conflict(target)) {
+                pop_equation(target);
+                set_conflict(target);
+            }
             else if (target.poly().var() != v) {
                 // move to other watch list
                 m_watch[target.poly().var()].push_back(_target);
