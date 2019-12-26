@@ -1410,6 +1410,7 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 
 void core::run_pdd_grobner() {
     m_pdd_manager.resize(m_lar_solver.number_of_vars());
+    NOT_IMPLEMENTED_YET();
 }
 
 void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
