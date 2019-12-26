@@ -65,7 +65,7 @@ public:
     }
 
     bool separated_from_zero(pdd const& p, u_dependency*& dep) {
-        return m_dep_intervals.check_interval_for_conflict_on_zero((*this)(p), dep);
+        return m_dep_intervals.check_interval_for_conflict_on_zero(get_interval<w_dep::with_deps>(p), dep);
     }
 
 };
