@@ -36,10 +36,13 @@ grobner::grobner(core *c, intervals *s)
 
 void grobner::grobner_lemmas() {
     c().lp_settings().stats().m_grobner_calls++;
-    init();
-    ptr_vector<grobner_core::equation> eqs;
+    m_gc.reset();
+    m_reported = 0;
     TRACE("grobner", tout << "before:\n"; display(tout););
-    compute_basis();
+    m_gc.compute_basis_loop();
+    for (grobner_core::equation* e : m_gc.equations()) {
+        check_eq(e);
+    }
     TRACE("grobner", tout << "after:\n"; display(tout););
 }
 
@@ -51,125 +54,11 @@ void grobner::check_eq(grobner_core::equation* target) {
                   c().print_var(j, tout);
               }
               tout << "\ntarget->expr() val = " << get_nex_val(target->expr(), [this](unsigned j) { return c().val(j); }) << "\n";);
-        register_report();       
+        m_reported++;       
     }
 }
 
-void grobner::register_report() {
-    m_reported++;
-}
-
-void grobner::compute_basis(){
-    c().lp_settings().stats().m_grobner_basis_computatins++;
-    if (m_rows.size() < 2) {
-        TRACE("nla_grobner", tout << "there are only " << m_rows.size() << " rows, exiting compute_basis()\n";);
-        return;
-    }
-    m_gc.compute_basis_loop();
-
-    TRACE("grobner", display(tout););
-    for (grobner_core::equation* e : m_gc.equations()) {
-        check_eq(e);
-    }
-}
-
-void grobner::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
-    if (c().active_var_set_contains(j) || c().var_is_fixed(j)) return;
-    TRACE("grobner", tout << "j = " << j << ", "; c().print_var(j, tout) << "\n";);
-    const auto& matrix = c().m_lar_solver.A_r();
-    c().insert_to_active_var_set(j);
-    for (auto & s : matrix.m_columns[j]) {
-        unsigned row = s.var();
-        if (m_rows.contains(row)) continue;       
-        if (matrix.m_rows[row].size() > c().m_nla_settings.grobner_row_length_limit()) {
-            TRACE("grobner", tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
-            continue;
-        }
-        m_rows.insert(row);
-        for (auto& rc : matrix.m_rows[row]) {
-            add_var_and_its_factors_to_q_and_collect_new_rows(rc.var(), q);
-        }
-    }
-
-    if (!c().is_monic_var(j))
-        return;
-
-    const monic& m = c().emons()[j];
-    for (auto fcn : factorization_factory_imp(m, c())) {
-        for (const factor& fc: fcn) {
-            q.push_back(var(fc));
-        }
-    }            
-}
-
-void grobner::find_nl_cluster() {
-    prepare_rows_and_active_vars();
-    svector<lpvar> q;
-    for (lpvar j : c().m_to_refine) {        
-        TRACE("grobner", c().print_monic(c().emons()[j], tout) << "\n";);
-        q.push_back(j);
-    }
-    
-    while (!q.empty()) {
-        lpvar j = q.back();        
-        q.pop_back();
-        add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
-    }
-    set_active_vars_weights();
-    TRACE("grobner", display(tout););
-}
-
-void grobner::prepare_rows_and_active_vars() {
-    m_rows.clear();
-    m_rows.resize(c().m_lar_solver.row_count());
-    c().clear_and_resize_active_var_set();
-}
-
-
-std::unordered_set<lpvar> grobner::get_vars_of_expr_with_opening_terms(const nex *e ) {
-    auto ret = get_vars_of_expr(e);
-    auto & ls = c().m_lar_solver;
-    svector<lpvar> added;
-    for (auto j : ret) {
-        added.push_back(j);
-    }
-    for (unsigned i = 0; i < added.size(); ++i) {
-        lpvar j = added[i];
-        if (ls.column_corresponds_to_term(j)) {
-            const auto& t = c().m_lar_solver.get_term(ls.local_to_external(j));
-            for (auto p : t) {
-                if (ret.find(p.var()) == ret.end()) {
-                    added.push_back(p.var());
-                    ret.insert(p.var());
-                }
-            }
-        }
-    }
-    return ret;
-}
-
-void grobner::display_matrix(std::ostream & out) const {
-    const auto& matrix = c().m_lar_solver.A_r();
-    out << m_rows.size() << " rows" <<"\n";
-    out << "the matrix\n";          
-    for (const auto & r : matrix.m_rows) {
-        c().print_term(r, out) << std::endl;
-    }
-}
-
-void grobner::init() {
-    m_gc.reset();
-    m_reported = 0;
-    find_nl_cluster();
-    c().clear_and_resize_active_var_set();
-    TRACE("grobner", tout << "m_rows.size() = " << m_rows.size() << "\n";);
-    for (unsigned i : m_rows) {
-        add_row(i);
-    }
-}
-
-void grobner::add_row(unsigned i) {    
-    const auto& row = c().m_lar_solver.A_r().m_rows[i];    
+void grobner::add_row(const vector<lp::row_cell<rational>> & row) {    
     TRACE("grobner", tout << "adding row to gb\n"; c().m_lar_solver.print_row(row, tout) << '\n';
           for (auto p : row) c().print_var(p.var(), tout) << "\n"; );
     nex_creator::sum_factory sf(m_nex_creator);

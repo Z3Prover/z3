@@ -32,7 +32,9 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_monotone(this),
     m_intervals(this, lim),
     m_horner(this, &m_intervals),
-    m_grobner(this, &m_intervals),
+    m_nex_grobner(this, &m_intervals),
+    m_pdd_manager(0),
+    m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
     m_reslim(lim)
 {}
@@ -1282,9 +1284,26 @@ lbool core::incremental_linearization(bool constraint_derived) {
 lbool core::inner_check(bool constraint_derived) {
     if (constraint_derived) {
         if (need_to_call_algebraic_methods())
-            if (!(m_nla_settings.run_horner() && m_horner.horner_lemmas())) {
-                if (m_nla_settings.run_grobner() == nla_settings::NEX_GROBNER || m_nla_settings.run_grobner() == nla_settings::BOTH_GROBNER)
-                    m_grobner.grobner_lemmas();
+            if (m_horner.horner_lemmas()) {
+                switch( m_nla_settings.run_grobner()) {                    
+                case nla_settings::BOTH_GROBNER:
+                    init_nex_grobner(m_nex_grobner.get_nex_creator());
+                    m_nex_grobner.grobner_lemmas();
+                    run_pdd_grobner();
+                    break;
+                case nla_settings::NEX_GROBNER:
+                    init_nex_grobner(m_nex_grobner.get_nex_creator());
+                    m_nex_grobner.grobner_lemmas();
+                    break;
+                case nla_settings::PDD_GROBNER:
+                    run_pdd_grobner();
+                    break;
+                case nla_settings::NO_GROBNER:
+                    break;
+                default:
+                    UNREACHABLE();
+                    break;
+                }
             }
         if (done()) {
             return l_false;
@@ -1361,42 +1380,6 @@ lbool core::test_check(
     return check(l);
 }
 
-// nla_expr<rational> core::mk_expr(lpvar j)  const {
-//     return nla_expr<rational>::var(j);
-// }
-
-// nla_expr<rational> core::mk_expr(const rational &a, lpvar j)  const {
-//     if (a == 1)
-//         return mk_expr(j);
-//     nla_expr<rational> r(expr_type::MUL);
-//     r.add_child(nla_expr<rational>::scalar(a));
-//     r.add_child(nla_expr<rational>::var(j));
-//     return r;            
-// }
-
-// nla_expr<rational> core::mk_expr(const rational &a, const svector<lpvar>& vs) const {
-//     nla_expr<rational> r(expr_type::MUL);
-//     r.add_child(nla_expr<rational>::scalar(a));
-//     for (lpvar j : vs)
-//         r.add_child(nla_expr<rational>::var(j));
-//     return r;            
-// }
-// nla_expr<rational> core::mk_expr(const lp::lar_term& t) const {
-//     auto coeffs = t.coeffs_as_vector();
-//     if (coeffs.size() == 1) {
-//         return mk_expr(coeffs[0].first, coeffs[0].second);
-//     }
-//     nla_expr<rational> r(expr_type::SUM);
-//     for (const auto & p : coeffs) {
-//         lpvar j = p.second;
-//         if (is_monic_var(j))
-//             r.add_child(mk_expr(p.first, m_emons[j].vars()));
-//         else
-//             r.add_child(mk_expr(p.first, j));
-//     }
-//     return r;
-// }
-
 std::ostream& core::print_terms(std::ostream& out) const {
     for (unsigned i=0; i< m_lar_solver.m_terms.size(); i++) {
         unsigned ext = i + m_lar_solver.terms_start_index();
@@ -1424,4 +1407,136 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
         [this](lpvar j) { return var_str(j); },
         out);
 }
+
+void core::run_pdd_grobner() {
+    m_pdd_manager.resize(m_lar_solver.number_of_vars());
+}
+
+void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
+    if (active_var_set_contains(j) || var_is_fixed(j)) return;
+    TRACE("grobner", tout << "j = " << j << ", "; print_var(j, tout) << "\n";);
+    const auto& matrix = m_lar_solver.A_r();
+    insert_to_active_var_set(j);
+    for (auto & s : matrix.m_columns[j]) {
+        unsigned row = s.var();
+        if (m_rows.contains(row)) continue;       
+        if (matrix.m_rows[row].size() > m_nla_settings.grobner_row_length_limit()) {
+            TRACE("grobner", tout << "ignore the row " << row << " with the size " << matrix.m_rows[row].size() << "\n";); 
+            continue;
+        }
+        m_rows.insert(row);
+        for (auto& rc : matrix.m_rows[row]) {
+            add_var_and_its_factors_to_q_and_collect_new_rows(rc.var(), q);
+        }
+    }
+
+    if (!is_monic_var(j))
+        return;
+
+    const monic& m = emons()[j];
+    for (auto fcn : factorization_factory_imp(m, *this)) {
+        for (const factor& fc: fcn) {
+            q.push_back(var(fc));
+        }
+    }            
+}
+
+void core::find_nl_cluster(nex_creator& nc) {
+    prepare_rows_and_active_vars();
+    svector<lpvar> q;
+    for (lpvar j : m_to_refine) {        
+        TRACE("grobner", print_monic(emons()[j], tout) << "\n";);
+        q.push_back(j);
+    }
+    
+    while (!q.empty()) {
+        lpvar j = q.back();        
+        q.pop_back();
+        add_var_and_its_factors_to_q_and_collect_new_rows(j, q);
+    }
+    set_active_vars_weights(nc);
+    TRACE("grobner", display_matrix_of_m_rows(tout););
+}
+
+void core::prepare_rows_and_active_vars() {
+    m_rows.clear();
+    m_rows.resize(m_lar_solver.row_count());
+    clear_and_resize_active_var_set();
+}
+
+
+std::unordered_set<lpvar> core::get_vars_of_expr_with_opening_terms(const nex *e ) {
+    auto ret = get_vars_of_expr(e);
+    auto & ls = m_lar_solver;
+    svector<lpvar> added;
+    for (auto j : ret) {
+        added.push_back(j);
+    }
+    for (unsigned i = 0; i < added.size(); ++i) {
+        lpvar j = added[i];
+        if (ls.column_corresponds_to_term(j)) {
+            const auto& t = m_lar_solver.get_term(ls.local_to_external(j));
+            for (auto p : t) {
+                if (ret.find(p.var()) == ret.end()) {
+                    added.push_back(p.var());
+                    ret.insert(p.var());
+                }
+            }
+        }
+    }
+    return ret;
+}
+
+void core::display_matrix_of_m_rows(std::ostream & out) const {
+    const auto& matrix = m_lar_solver.A_r();
+    out << m_rows.size() << " rows" <<"\n";
+    out << "the matrix\n";          
+    for (const auto & r : matrix.m_rows) {
+        print_term(r, out) << std::endl;
+    }
+}
+
+void core::init_nex_grobner(nex_creator & nc) {   
+    find_nl_cluster(nc);
+    clear_and_resize_active_var_set();
+    TRACE("grobner", tout << "m_rows.size() = " << m_rows.size() << "\n";);
+    for (unsigned i : m_rows) {
+        m_nex_grobner.add_row(m_lar_solver.A_r().m_rows[i]);
+    }
+}
+
+void core::set_active_vars_weights(nex_creator& nc) {
+    nc.set_number_of_vars(m_lar_solver.column_count());
+    for (lpvar j : active_var_set()) {
+        nc.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
+    }
+}
+
+var_weight core::get_var_weight(lpvar j) const {
+    var_weight k;
+    switch (m_lar_solver.get_column_type(j)) {
+        
+    case lp::column_type::fixed:
+        k = var_weight::FIXED;
+        break;
+    case lp::column_type::boxed:
+        k = var_weight::BOUNDED;
+        break;
+    case lp::column_type::lower_bound:
+    case lp::column_type::upper_bound:
+        k = var_weight::NOT_FREE;
+    case lp::column_type::free_column:
+        k = var_weight::FREE;
+        break;
+    default:
+        UNREACHABLE();
+        break;
+    }
+    if (is_monic_var(j)) {
+        return (var_weight)((int)k + 1);
+    }
+    return k;
+}
+
+
 } // end of nla
