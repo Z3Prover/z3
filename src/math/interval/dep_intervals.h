@@ -255,15 +255,44 @@ public:
     inline bool separated_from_zero(const interval& i) const {
         return separated_from_zero_on_upper(i) || separated_from_zero_on_lower(i);
     }
-    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency*&);
-    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency*&);
-    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency*&);
+    template <typename T> 
+    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+        return check_interval_for_conflict_on_zero_lower(i, dep, f) || check_interval_for_conflict_on_zero_upper(i, dep, f);
+    }
+    template <typename T> 
+    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+        if (!separated_from_zero_on_lower(i)) {
+            return false;
+        }
+        TRACE("dep_intervals", display(tout, i););
+        dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
+        T expl;
+        linearize(dep, expl);
+        f(expl);
+        return true;
+    }
+    template <typename T> 
+    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+        if (!separated_from_zero_on_upper(i))
+            return false;
+        TRACE("dep_intervals", display(tout, i););
+        dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
+        T expl;
+        linearize(dep, expl);
+        f(expl);
+        return true;
+    }
     mpq const& lower(interval const& a) const { return m_config.lower(a); }
     mpq const& upper(interval const& a) const { return m_config.upper(a); }
     bool is_empty(interval const& a) const;
     void set_interval_for_scalar(interval&, const rational&);
     template <typename T> 
-    void linearize(u_dependency* dep, T& expl) const { m_dep_manager.linearize(dep, expl); }
+    void linearize(u_dependency* dep, T& expl) const {
+        vector<unsigned, false> v;
+        m_dep_manager.linearize(dep, v);
+        for (unsigned ci: v)
+            expl.push_back(ci);
+    }
 
     void reset() { m_dep_manager.reset(); }
     

@@ -79,7 +79,11 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     }
     auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1);
     TRACE("grobner", tout << "conflict: interv_wd = "; display(tout, interv_wd ) <<"expr = " << *n << "\n, initial deps\n"; print_dependencies(initial_deps, tout););
-    m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps);
+    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
+                                                         m_core->add_empty_lemma();
+                                                         m_core->current_expl().add(e);
+                                                     };
+    m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
     m_dep_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
 }

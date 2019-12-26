@@ -86,28 +86,6 @@ bool dep_intervals::separated_from_zero_on_upper(const interval& i) const {
     return true;
 }
 
-bool dep_intervals::check_interval_for_conflict_on_zero(const interval & i, u_dependency*& dep) {
-    return check_interval_for_conflict_on_zero_lower(i, dep) || check_interval_for_conflict_on_zero_upper(i, dep);
-}
-
-bool dep_intervals::check_interval_for_conflict_on_zero_upper(const interval & i, u_dependency*& dep) {
-    if (!separated_from_zero_on_upper(i))
-        return false;
-    TRACE("dep_intervals", display(tout, i););
-    dep = m_dep_manager.mk_join(dep, i.m_upper_dep);
-    return true;
-}
-
-bool dep_intervals::check_interval_for_conflict_on_zero_lower(const interval & i, u_dependency*& dep) {
-    if (!separated_from_zero_on_lower(i)) {
-        return false;
-    }
-    TRACE("dep_intervals", display(tout, i););
-    dep = m_dep_manager.mk_join(dep, i.m_lower_dep);
-    return true;
-}
-
-
 std::ostream& dep_intervals::display(std::ostream& out, const interval& i) const {
     if (m_imanager.lower_is_inf(i)) {
         out << "(-oo";

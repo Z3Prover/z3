@@ -391,7 +391,7 @@ public:
     std::ostream& print_terms(std::ostream&) const;
     std::ostream& print_term( const lp::lar_term&, std::ostream&) const;
     void run_pdd_grobner();
-    void find_nl_cluster(nex_creator&);
+    void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
     void init_nex_grobner(nex_creator&);
@@ -399,6 +399,8 @@ public:
     void display_matrix_of_m_rows(std::ostream & out) const;
     void set_active_vars_weights(nex_creator&);
     var_weight get_var_weight(lpvar) const;
+    void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
+    void check_pdd_eq(const dd::grobner::equation*);
 };  // end of core
 
 struct pp_mon {
