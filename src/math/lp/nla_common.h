@@ -121,7 +121,5 @@ struct common {
     u_dependency* create_sum_from_row(const T&, nex_creator&, nex_creator::sum_factory&, u_dependency_manager*);
     template <typename T>
     u_dependency* get_fixed_vars_dep_from_row(const T&, u_dependency_manager& dep_manager);
-    void set_active_vars_weights();
-    var_weight get_var_weight(lpvar) const;
 };
 }
