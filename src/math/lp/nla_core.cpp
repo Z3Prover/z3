@@ -20,6 +20,7 @@ Revision History:
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 #include "math/lp/nex.h"
+#include "math/grobner/pdd_grobner.h"
 namespace nla {
 
 core::core(lp::lar_solver& s, reslimit & lim) :
