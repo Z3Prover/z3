@@ -170,6 +170,7 @@ private:
     bool simplify_cc_step();
     bool simplify_elim_pure_step();
     bool simplify_elim_dual_step();
+    bool simplify_leaf_step();
 
     void invariant() const;
     struct scoped_process {

@@ -189,7 +189,8 @@ namespace dd {
             while (simplify_linear_step(true) || 
                    simplify_elim_pure_step() ||
                    simplify_linear_step(false) || 
-                   simplify_cc_step() ||  
+                   simplify_cc_step() || 
+                   simplify_leaf_step() ||
                    /*simplify_elim_dual_step() ||*/
                 false) {
                 DEBUG_CODE(invariant(););
@@ -305,6 +306,43 @@ namespace dd {
     }
 
     /**
+       \brief remove ax+b from p if x occurs as a leaf in p and a is a constant.
+    */
+    bool grobner::simplify_leaf_step() {
+        use_list_t use_list = get_use_list();
+        bool reduced = false;
+        equation_vector leaves;
+        for (unsigned i = 0; i < m_to_simplify.size(); ++i) {
+            equation* e = m_to_simplify[i];
+            pdd p = e->poly();
+            if (!p.hi().is_val()) {
+                continue;
+            }
+            leaves.reset();
+            for (equation* e2 : use_list[p.var()]) {
+                if (e != e2 && e2->poly().var_is_leaf(p.var())) {
+                    leaves.push_back(e2);
+                }
+            }
+            for (equation* e2 : leaves) {
+                bool changed_leading_term;
+                remove_from_use(e2, use_list);
+                simplify_using(*e2, *e, changed_leading_term);
+                add_to_use(e2, use_list);
+                if (check_conflict(*e2)) {
+                    return false;
+                }
+                else if (changed_leading_term) {
+                    pop_equation(e2);
+                    push_equation(to_simplify, e2);
+                }
+                reduced = true;
+            }
+        }
+        return reduced;
+    }
+
+    /**
        \brief treat equations as processed if top variable occurs only once.
     */
     bool grobner::simplify_elim_pure_step() {
@@ -334,12 +372,13 @@ namespace dd {
     bool grobner::simplify_elim_dual_step() {
         use_list_t use_list = get_use_list();        
         unsigned j = 0;
+        bool reduced = false;
         for (unsigned i = 0; i < m_to_simplify.size(); ++i) {
             equation* e = m_to_simplify[i];            
             pdd p = e->poly();
             // check that e is linear in top variable.
             if (e->state() != to_simplify) {
-                // this was moved before this pass
+                reduced = true;
             }
             else if (!done() && !is_trivial(*e) && p.hi().is_val() && use_list[p.var()].size() == 2) {
                 for (equation* e2 : use_list[p.var()]) {
@@ -351,9 +390,8 @@ namespace dd {
                     if (check_conflict(*e2)) { 
                         break;
                     }
-                    if (is_trivial(*e2)) {
-                        break;
-                    }
+                    // when e2 is trivial, leading term is changed
+                    SASSERT(!is_trivial(*e2) || changed_leading_term);
                     if (changed_leading_term) {
                         pop_equation(e2);
                         push_equation(to_simplify, e2);
@@ -361,6 +399,7 @@ namespace dd {
                     add_to_use(e2, use_list);
                     break;
                 }
+                reduced = true;
                 push_equation(solved, e);
             }
             else {
@@ -368,7 +407,7 @@ namespace dd {
                 e->set_index(j++);
             }
         }
-        if (j != m_to_simplify.size()) {
+        if (reduced) {
             // clean up elements in m_to_simplify 
             // they may have moved.
             m_to_simplify.shrink(j);

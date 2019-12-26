@@ -203,6 +203,8 @@ namespace dd {
         unsigned dag_size(pdd const& p);
         unsigned degree(pdd const& p);
 
+        bool var_is_leaf(PDD p, unsigned v);
+
         bool is_reachable(PDD p);
         void compute_reachable(svector<bool>& reachable);
         void try_gc();
@@ -291,9 +293,9 @@ namespace dd {
         bool is_zero() const { return m.is_zero(root); }
         bool is_linear() const { return m.is_linear(root); }
         bool is_binary() const { return m.is_binary(root); }
+        bool var_is_leaf(unsigned v) const { return m.var_is_leaf(root, v); }
 
         pdd minus() const { return m.minus(*this); }
-        pdd operator-() const { return m.minus(*this); }
         pdd operator+(pdd const& other) const { return m.add(*this, other); }
         pdd operator-(pdd const& other) const { return m.sub(*this, other); }
         pdd operator*(pdd const& other) const { return m.mul(*this, other); }
@@ -317,11 +319,11 @@ namespace dd {
     inline pdd operator*(int x, pdd const& b) { return b * rational(x); }
     inline pdd operator*(pdd const& b, int x) { return b * rational(x); }
 
-    inline pdd operator+(rational const& r, const pdd& b) { return b + r; }
+    inline pdd operator+(rational const& r, pdd const& b) { return b + r; }
     inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
-    inline pdd operator-(rational const& r, pdd const& b) { return r + (-b); }
+    inline pdd operator-(rational const& r, pdd const& b) { return r + b.minus(); }
     inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
 

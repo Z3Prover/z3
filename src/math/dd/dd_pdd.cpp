@@ -461,6 +461,30 @@ namespace dd {
         return is_binary(p.root); 
     }
 
+    /*
+      \brief determine if v occurs as a leaf variable.
+     */
+    bool pdd_manager::var_is_leaf(PDD p, unsigned v) {
+        init_mark();
+        m_todo.push_back(p);
+        while (!m_todo.empty()) {
+            PDD r = m_todo.back();
+            m_todo.pop_back();
+            if (is_val(r) || is_marked(r)) continue;
+            set_mark(r);
+            if (var(r) == v) {
+                if (!is_val(lo(r)) || !is_val(hi(r))) {
+                    m_todo.reset();
+                    return false;
+                }
+                continue;
+            }
+            if (!is_marked(lo(r))) m_todo.push_back(lo(r));
+            if (!is_marked(hi(r))) m_todo.push_back(hi(r));
+        }
+        return true;
+    }
+
     void pdd_manager::push(PDD b) {
         m_pdd_stack.push_back(b);
     }
