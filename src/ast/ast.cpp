@@ -2190,6 +2190,21 @@ bool ast_manager::coercion_needed(func_decl * decl, unsigned num_args, expr * co
     return false;
 }
 
+expr* ast_manager::coerce_to(expr* e, sort* s) {
+    sort* se = get_sort(e);
+    if (s != se && s->get_family_id() == m_arith_family_id && se->get_family_id() == m_arith_family_id) {
+        if (s->get_decl_kind() == REAL_SORT) {
+            return mk_app(m_arith_family_id, OP_TO_REAL, e);
+        }
+        else {
+            return mk_app(m_arith_family_id, OP_TO_INT, e);        
+        }
+    }
+    else {
+        return e;
+    }
+}
+
 app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const * args) {
     app * r = nullptr;
     app * new_node = nullptr;
@@ -2198,35 +2213,9 @@ app * ast_manager::mk_app_core(func_decl * decl, unsigned num_args, expr * const
     try {
         if (m_int_real_coercions && coercion_needed(decl, num_args, args)) {
             expr_ref_buffer new_args(*this);
-            if (decl->is_associative()) {
-                sort * d = decl->get_domain(0);
-                for (unsigned i = 0; i < num_args; i++) {
-                    sort * s = get_sort(args[i]);
-                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                        if (d->get_decl_kind() == REAL_SORT)
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                        else
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                    }
-                    else {
-                        new_args.push_back(args[i]);
-                    }
-                }
-            }
-            else {
-                for (unsigned i = 0; i < num_args; i++) {
-                    sort * d = decl->get_domain(i);
-                    sort * s = get_sort(args[i]);
-                    if (d != s && d->get_family_id() == m_arith_family_id && s->get_family_id() == m_arith_family_id) {
-                        if (d->get_decl_kind() == REAL_SORT)
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_REAL, args[i]));
-                        else
-                            new_args.push_back(mk_app(m_arith_family_id, OP_TO_INT, args[i]));
-                    }
-                    else {
-                        new_args.push_back(args[i]);
-                    }
-                }
+            for (unsigned i = 0; i < num_args; i++) {
+                sort * d = decl->is_associative() ? decl->get_domain(0) : decl->get_domain(i);
+                new_args.push_back(coerce_to(args[i], d));
             }
             check_args(decl, num_args, new_args.c_ptr());
             SASSERT(new_args.size() == num_args);
@@ -2446,10 +2435,9 @@ bool ast_manager::is_label_lit(expr const * n, buffer<symbol> & names) const {
 }
 
 app * ast_manager::mk_pattern(unsigned num_exprs, app * const * exprs) {
-    DEBUG_CODE({
-            for (unsigned i = 0; i < num_exprs; ++i) {
-                SASSERT(is_app(exprs[i]));
-            }});
+    for (unsigned i = 0; i < num_exprs; ++i) {
+        if (!is_app(exprs[i])) throw default_exception("patterns cannot be variables or quantifiers");
+    }
     return mk_app(m_pattern_family_id, OP_PATTERN, 0, nullptr, num_exprs, (expr*const*)exprs);
 }
 

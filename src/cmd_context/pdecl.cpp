@@ -300,7 +300,7 @@ psort_user_decl::psort_user_decl(unsigned id, unsigned num_params, pdecl_manager
     m_def(p) {
     m_psort_kind = PSORT_USER;
     m.inc_ref(p);
-    SASSERT(p == 0 || num_params == p->get_num_params());
+//    SASSERT(p == 0 || num_params == p->get_num_params());
 }
 
 void psort_user_decl::finalize(pdecl_manager & m) {
