@@ -317,7 +317,7 @@ namespace dd {
     inline pdd operator*(int x, pdd const& b) { return b * rational(x); }
     inline pdd operator*(pdd const& b, int x) { return b * rational(x); }
 
-    inline pdd operator+(rational const& r, pdd& b) { return b + r; }
+    inline pdd operator+(rational const& r, const pdd& b) { return b + r; }
     inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
 
