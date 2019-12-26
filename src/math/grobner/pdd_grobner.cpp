@@ -151,10 +151,10 @@ namespace dd {
         scoped_detach sd(*this, e);
         equation& eq = *e;
         TRACE("grobner", display(tout << "eq = ", eq); display(tout););
-        SASSERT(!eq.is_processed());
+        SASSERT(eq.state() == to_simplify);
         if (!simplify_using(eq, m_processed)) return false;
         if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
-        if (check_conflict(eq)) return false;
+        if (check_conflict(eq)) { sd.e = nullptr; return false; }
         if (!simplify_using(m_processed, eq)) return false;
         superpose(eq);
         return simplify_using(m_to_simplify, eq);
@@ -167,7 +167,7 @@ namespace dd {
                 eq = curr;
             }
         }
-        if (eq) pop_equation(eq, m_to_simplify);
+        if (eq) pop_equation(eq);
         return eq;
     }
 
@@ -178,13 +178,13 @@ namespace dd {
                 eq = curr;
             }
         }
-        if (eq) pop_equation(eq, m_to_simplify);
+        if (eq) pop_equation(eq);
         return eq;
     }
 
-    void grobner::simplify_linear() {
+    void grobner::simplify() {
         try {
-            while (simplify_linear_step()) {
+            while (simplify_linear_step() /*|| simplify_cc_step() */ || simplify_elim_step()) {
                 DEBUG_CODE(invariant(););
             }
         }
@@ -207,43 +207,173 @@ namespace dd {
             }
         }
         if (linear.empty()) return false;
-        vector<equation_vector> use_list;
-        for (equation * e : m_to_simplify) {
-            add_to_use(e, use_list);
-        }
-        for (equation * e : m_processed) {
-            add_to_use(e, use_list);
-        }
+        use_list_t use_list = get_use_list();
         compare_top_var ctv;
         std::stable_sort(linear.begin(), linear.end(), ctv);
         for (equation* src : linear) {
             equation_vector const& uses = use_list[src->poly().var()];
             bool changed_leading_term;
             for (equation* dst : uses) {
-                if (src == dst || !simplify_source_target(*src, *dst, changed_leading_term)) {
+                if (src == dst) {
                     continue;                    
                 }
-                if (dst->is_processed() && changed_leading_term) {
-                    dst->set_processed(false);
-                    pop_equation(dst, m_processed);
-                    push_equation(dst, m_to_simplify);
+                simplify_using(*dst, *src, changed_leading_term);
+                if (check_conflict(*dst)) {
+                    return false;
+                }
+                if (is_trivial(*dst)) {
+                    SASSERT(false);
+                }
+                if (changed_leading_term) {
+                    pop_equation(dst);
+                    push_equation(to_simplify, dst);
                 }
             }            
         } 
         for (equation* src : linear) {
-            pop_equation(src, m_to_simplify);
-            push_equation(src, m_processed);
-            src->set_processed(true);
+            pop_equation(src);
+            push_equation(solved, src);
         }
         return true;
     }
 
-    void grobner::add_to_use(equation* e, vector<equation_vector>& use_list) {
+    /**
+       \brief simplify using congruences
+       replace pair px + q and ry + q by
+       px + q, px - ry
+       since px = ry
+     */
+    bool grobner::simplify_cc_step() {
+        u_map<equation*> los;
+        bool reduced = false;
+        unsigned j = 0;
+        for (equation* eq1 : m_to_simplify) {
+            SASSERT(eq1->state() == to_simplify);
+            pdd p = eq1->poly();
+            auto* e = los.insert_if_not_there2(p.lo().index(), eq1);
+            equation* eq2 = e->get_data().m_value;
+            if (eq2 != eq1 && !p.lo().is_val()) {
+                *eq1 = p - eq2->poly();
+                *eq1 = m_dep_manager.mk_join(eq1->dep(), eq2->dep());
+                reduced = true;
+                if (is_trivial(*eq1)) {
+                    retire(eq1);
+                    continue;
+                }
+                else if (check_conflict(*eq1)) {
+                    continue;
+                }
+            }
+            m_to_simplify[j] = eq1;
+            eq1->set_index(j++);
+        }
+        m_to_simplify.shrink(j);
+        return reduced;
+    }
+
+    /**
+       \brief treat equations as processed if top variable occurs only once.
+       reduce equations where top variable occurs only twice and linear in one of the occurrences.       
+     */
+    bool grobner::simplify_elim_step() {
+        use_list_t use_list = get_use_list();        
+        unsigned j = 0;
+        for (equation* e : m_to_simplify) {
+            pdd p = e->poly();
+            if (!p.is_val() && p.hi().is_val() && use_list[p.var()].size() == 1) {
+                push_equation(solved, e);
+            }
+            else {
+                m_to_simplify[j] = e;
+                e->set_index(j++);
+            }
+        }
+        if (j != m_to_simplify.size()) {
+            m_to_simplify.shrink(j);
+            return true;
+        }
+        j = 0;
+        for (unsigned i = 0; i < m_to_simplify.size(); ++i) {
+            equation* e = m_to_simplify[i];            
+            pdd p = e->poly();
+            // check that e is linear in top variable.
+            if (e->state() != to_simplify) {
+                // this was moved before this pass
+            }
+            else if (!done() && !is_trivial(*e) && p.hi().is_val() && use_list[p.var()].size() == 2) {
+                for (equation* e2 : use_list[p.var()]) {
+                    if (e2 == e) continue;
+                    bool changed_leading_term;
+
+                    remove_from_use(e2, use_list);
+                    simplify_using(*e2, *e, changed_leading_term);
+                    if (check_conflict(*e2)) { 
+                        break;
+                    }
+                    if (is_trivial(*e2)) {
+                        break;
+                    }
+                    if (changed_leading_term) {
+                        pop_equation(e2);
+                        push_equation(to_simplify, e2);
+                    }
+                    add_to_use(e2, use_list);
+                    break;
+                }
+                push_equation(solved, e);
+            }
+            else {
+                m_to_simplify[j] = e;
+                e->set_index(j++);
+            }
+        }
+        if (j != m_to_simplify.size()) {
+            // clean up elements in m_to_simplify 
+            // they may have moved.
+            m_to_simplify.shrink(j);
+            j = 0;
+            for (equation* e : m_to_simplify) {
+                if (is_trivial(*e)) {
+                    retire(e);
+                }
+                else if (e->state() == to_simplify) {
+                    m_to_simplify[j] = e;
+                    e->set_index(j++);
+                }
+            }
+            m_to_simplify.shrink(j);
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    void grobner::add_to_use(equation* e, use_list_t& use_list) {
         unsigned_vector const& fv = m.free_vars(e->poly());
         for (unsigned v : fv) {
             use_list.reserve(v + 1);
             use_list[v].push_back(e);
         }
+    }
+
+    void grobner::remove_from_use(equation* e, use_list_t& use_list) {
+        unsigned_vector const& fv = m.free_vars(e->poly());
+        for (unsigned v : fv) {
+            use_list.reserve(v + 1);
+            use_list[v].erase(e);
+        }
+    }
+
+    grobner::use_list_t grobner::get_use_list() {
+        use_list_t use_list;
+        for (equation * e : m_to_simplify) {
+            add_to_use(e, use_list);
+        }
+        for (equation * e : m_processed) {
+            add_to_use(e, use_list);
+        }
+        return use_list;
     }
 
     void grobner::superpose(equation const & eq) {
@@ -257,7 +387,6 @@ namespace dd {
     */
     bool grobner::simplify_using(equation& eq, equation_vector const& eqs) {
         bool simplified, changed_leading_term;
-        TRACE("grobner", display(tout << "simplifying: ", eq); tout << "using equalities of size " << eqs.size() << "\n";);
         do {
             simplified = false;
             for (equation* p : eqs) {
@@ -273,7 +402,6 @@ namespace dd {
 
         TRACE("grobner", display(tout << "simplification result: ", eq););
 
-        check_conflict(eq);
         return !done();
     }
 
@@ -281,7 +409,6 @@ namespace dd {
       Use the given equation to simplify equations in set
     */
     bool grobner::simplify_using(equation_vector& set, equation const& eq) {
-        TRACE("grobner", tout << "poly " << eq.poly() <<  "\n";);
         unsigned j = 0, sz = set.size();
         for (unsigned i = 0; i < sz; ++i) {
             equation& target = *set[i];
@@ -290,13 +417,15 @@ namespace dd {
             if (simplified && is_trivial(target)) {
                 retire(&target);
             }
-            else if (simplified && !check_conflict(target) && changed_leading_term) {
-                SASSERT(target.is_processed());
-                target.set_processed(false);
+            else if (simplified && check_conflict(target)) {
+                // pushed to solved
+            }
+            else if (simplified && changed_leading_term) {
+                SASSERT(target.state() == processed);
                 if (is_tuned()) {
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
                 }
-                push_equation(target, m_to_simplify);               
+                push_equation(to_simplify, target);
             }
             else {
                 set[j] = set[i];
@@ -312,20 +441,42 @@ namespace dd {
       return true if the target was simplified. 
       set changed_leading_term if the target is in the m_processed set and the leading term changed.
      */
-    bool grobner::simplify_source_target(equation const& source, equation& target, bool& changed_leading_term) {
-        TRACE("grobner", tout << "simplifying: " << target.poly() << "\nusing: " << source.poly() << "\n";);
-        m_stats.m_simplified++;
-        pdd t = source.poly();
-        pdd r = target.poly().reduce(t);
-        if (r == target.poly() || is_too_complex(r)) {
+    bool grobner::simplify_source_target(equation const& src, equation& dst, bool& changed_leading_term) {
+        if (&src == &dst) {
             return false;
         }
-        changed_leading_term = target.is_processed() && m.different_leading_term(r, target.poly());
-        target = r;
-        target = m_dep_manager.mk_join(target.dep(), source.dep());
-        update_stats_max_degree_and_size(target);
-        TRACE("grobner", tout << "simplified " << target.poly() << "\n";);
+        m_stats.m_simplified++;
+        pdd t = src.poly();
+        pdd r = dst.poly().reduce(t);
+        if (r == dst.poly() || is_too_complex(r)) {
+            return false;
+        }
+        TRACE("grobner", 
+              tout << "reduce: " << dst.poly() << "\n";
+              tout << "using:  " << t << "\n";
+              tout << "to:     " << r << "\n";);
+        changed_leading_term = dst.state() == processed && m.different_leading_term(r, dst.poly());
+        dst = r;
+        dst = m_dep_manager.mk_join(dst.dep(), src.dep());
+        update_stats_max_degree_and_size(dst);
         return true;
+    }
+
+    void grobner::simplify_using(equation & dst, equation const& src, bool& changed_leading_term) {
+        if (&src == &dst) return;        
+        m_stats.m_simplified++;
+        pdd t = src.poly();
+        pdd r = dst.poly().reduce(t);
+        changed_leading_term = dst.state() == processed && m.different_leading_term(r, dst.poly());
+        TRACE("grobner", 
+              tout << "reduce: " << dst.poly() << "\n";
+              tout << "using:  " << t << "\n";
+              tout << "to:     " << r << "\n";);
+
+        if (r == dst.poly()) return;
+        dst = r;
+        dst = m_dep_manager.mk_join(dst.dep(), src.dep());
+        update_stats_max_degree_and_size(dst);
     }
 
     /*
@@ -347,10 +498,10 @@ namespace dd {
         scoped_detach sd(*this, e);
         equation& eq = *e;
         SASSERT(!m_watch[eq.poly().var()].contains(e));
-        SASSERT(!eq.is_processed());
+        SASSERT(eq.state() == to_simplify);
         if (!simplify_using(eq, m_processed)) return false;
         if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
-        if (check_conflict(eq)) return false;
+        if (check_conflict(eq)) { sd.e = nullptr; return false; }
         if (!simplify_using(m_processed, eq)) return false;
         TRACE("grobner", display(tout << "eq = ", eq););
         superpose(eq);
@@ -372,7 +523,7 @@ namespace dd {
     }
 
     void grobner::add_to_watch(equation& eq) {
-        SASSERT(!eq.is_processed());
+        SASSERT(eq.state() == to_simplify);
         SASSERT(is_tuned());
         pdd const& p = eq.poly();
         if (!p.is_val()) {
@@ -386,7 +537,7 @@ namespace dd {
         unsigned j = 0;
         for (equation* _target : watch) {
             equation& target = *_target;
-            SASSERT(!target.is_processed());
+            SASSERT(target.state() == to_simplify);
             SASSERT(target.poly().var() == v);
             bool changed_leading_term = false;
             if (!done()) simplify_source_target(eq, target, changed_leading_term);
@@ -394,8 +545,9 @@ namespace dd {
                 retire(&target);
             }
             else if (check_conflict(target)) {
-                // remove from watch
-            } else if (target.poly().var() != v) {
+                // pushed to solved
+            } 
+            else if (target.poly().var() != v) {
                 // move to other watch list
                 m_watch[target.poly().var()].push_back(_target);
             }
@@ -415,13 +567,13 @@ namespace dd {
             equation* eq = nullptr;
             for (equation* curr : watch) {
                 pdd const& p = curr->poly();
-                if (!curr->is_processed() && !p.is_val() && p.var() == v) {
+                if (curr->state() == to_simplify && !p.is_val() && p.var() == v) {
                     if (!eq || is_simpler(*curr, *eq))
                         eq = curr;
                 }
             }
             if (eq) {
-                pop_equation(eq, m_to_simplify);
+                pop_equation(eq);
                 m_watch[eq->poly().var()].erase(eq);
                 return eq;
             }
@@ -432,14 +584,17 @@ namespace dd {
 
     grobner::equation_vector const& grobner::equations() {
         m_all_eqs.reset();
+        for (equation* eq : m_solved) m_all_eqs.push_back(eq);
         for (equation* eq : m_to_simplify) m_all_eqs.push_back(eq);
         for (equation* eq : m_processed) m_all_eqs.push_back(eq);
         return m_all_eqs;
     }
 
     void grobner::reset() {
+        for (equation* e : m_solved) dealloc(e);
         for (equation* e : m_to_simplify) dealloc(e);
         for (equation* e : m_processed) dealloc(e);
+        m_solved.reset();
         m_processed.reset();
         m_to_simplify.reset();
         m_stats.reset();
@@ -448,9 +603,13 @@ namespace dd {
 
     void grobner::add(pdd const& p, u_dependency * dep) {
         if (p.is_zero()) return;
-        equation * eq = alloc(equation, p, dep, m_to_simplify.size());
-        m_to_simplify.push_back(eq);
-        if (!check_conflict(*eq) && is_tuned()) {
+        equation * eq = alloc(equation, p, dep);
+        if (check_conflict(*eq)) {
+            return;
+        }
+        push_equation(to_simplify, eq);
+        
+        if (is_tuned()) {
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
         }
         update_stats_max_degree_and_size(*eq);
@@ -467,12 +626,23 @@ namespace dd {
             m_conflict != nullptr;
     }
 
+    grobner::equation_vector& grobner::get_queue(equation const& eq) {
+        switch (eq.state()) {
+        case processed: return m_processed;
+        case to_simplify: return m_to_simplify;
+        case solved: return m_solved;
+        }
+        UNREACHABLE();
+        return m_to_simplify;
+    }
+
     void grobner::del_equation(equation& eq) {
-        pop_equation(eq, eq.is_processed() ? m_processed : m_to_simplify);
+        pop_equation(eq);
         retire(&eq);
     }
 
-    void grobner::pop_equation(equation& eq, equation_vector& v) {
+    void grobner::pop_equation(equation& eq) {
+        equation_vector& v = get_queue(eq);
         unsigned idx = eq.idx();
         if (idx != v.size() - 1) {
             equation* eq2 = v.back();
@@ -482,7 +652,9 @@ namespace dd {
         v.pop_back();            
     }
 
-    void grobner::push_equation(equation& eq, equation_vector& v) {
+    void grobner::push_equation(eq_state st, equation& eq) {
+        eq.set_state(st);
+        equation_vector& v = get_queue(eq);
         eq.set_index(v.size());
         v.push_back(&eq);
     }
@@ -507,6 +679,7 @@ namespace dd {
     }
 
     std::ostream& grobner::display(std::ostream& out) const {
+        out << "solved\n"; for (auto e : m_solved) display(out, *e);
         out << "processed\n"; for (auto e : m_processed) display(out, *e);
         out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
         statistics st;
@@ -520,17 +693,27 @@ namespace dd {
         // they are labled as processed
         unsigned i = 0;
         for (auto* e : m_processed) {
-            VERIFY(e->is_processed());            
+            VERIFY(e->state() == processed);
+            VERIFY(e->idx() == i);
+            VERIFY(!e->poly().is_val());
+            ++i;
+        }
+
+        i = 0;
+        for (auto* e : m_solved) {
+            VERIFY(e->state() == solved);
             VERIFY(e->idx() == i);
             ++i;
         }
+
         // equations in to_simplify have correct indices
         // they are labeled as non-processed
         // their top-most variable is watched
         i = 0;
         for (auto* e : m_to_simplify) {
-            VERIFY(!e->is_processed());            
             VERIFY(e->idx() == i);
+            VERIFY(e->state() == to_simplify);
+            VERIFY(!e->poly().is_val());
             if (is_tuned()) {
                 pdd const& p = e->poly();
                 VERIFY(p.is_val() || m_watch[p.var()].contains(e));
@@ -544,7 +727,7 @@ namespace dd {
             for (equation* e : w) {
                 VERIFY(!e->poly().is_val());
                 VERIFY(e->poly().var() == i);
-                VERIFY(!e->is_processed());
+                VERIFY(e->state() == to_simplify);
                 VERIFY(m_to_simplify.contains(e));
             }
             ++i;

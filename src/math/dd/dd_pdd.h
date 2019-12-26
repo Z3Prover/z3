@@ -281,6 +281,7 @@ namespace dd {
         ~pdd() { m.dec_ref(root); }
         pdd lo() const { return pdd(m.lo(root), m); }
         pdd hi() const { return pdd(m.hi(root), m); }
+        unsigned index() const { return root; }
         unsigned var() const { return m.var(root); }
         rational const& val() const { SASSERT(is_val()); return m.val(root); }
         bool is_val() const { return m.is_val(root); }
@@ -317,6 +318,8 @@ namespace dd {
     inline pdd operator-(pdd const& b, int x) { return b + (-rational(x)); }
     inline pdd& operator*=(pdd & p, pdd const& q) { p = p * q; return p; }
     inline pdd& operator|=(pdd & p, pdd const& q) { p = p | q; return p; }
+    inline pdd& operator-=(pdd & p, pdd const& q) { p = p - q; return p; }
+    inline pdd& operator+=(pdd & p, pdd const& q) { p = p + q; return p; }
 
 
     std::ostream& operator<<(std::ostream& out, pdd const& b);

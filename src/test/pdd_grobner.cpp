@@ -3,6 +3,7 @@
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_pp.h"
+#include "ast/ast_ll_pp.h"
 #include "ast/reg_decl_plugins.h"
 #include "tactic/goal.h"
 #include "tactic/tactic.h"
@@ -76,31 +77,33 @@ namespace dd {
     void add_def(unsigned_vector const& id2var, app* e, ast_manager& m, pdd_manager& p, grobner& g) {
         expr* a, *b;
         pdd v1 = p.mk_var(id2var[e->get_id()]);
+        pdd q(p);
         if (m.is_and(e)) {
             pdd r = p.one();
             for (expr* arg : *e) r *= p.mk_var(id2var[arg->get_id()]);
-            g.add(v1 + r + 1);
+            q = v1 + r;
         }
         else if (m.is_or(e)) {
             pdd r = p.zero();
             for (expr* arg : *e) r |= p.mk_var(id2var[arg->get_id()]);
-            g.add(v1 + r + 1);
+            q = v1 + r;
         }
         else if (m.is_not(e, a)) {
             pdd v2 = p.mk_var(id2var[a->get_id()]);
-            g.add(v1 + v2 + 1);
+            q = v1 + v2 + 1;
         }
         else if (m.is_eq(e, a, b)) {
             pdd v2 = p.mk_var(id2var[a->get_id()]);
             pdd v3 = p.mk_var(id2var[b->get_id()]);
-            g.add(v1 + v2 + v3 + 1);
+            q = v1 + v2 + v3 + 1;
         }
         else if (is_uninterp_const(e)) {
-            // pass
+            return;
         }
         else {
             UNREACHABLE();
         }
+        g.add(q);
     }
 
     void collect_id2var(unsigned_vector& id2var, expr_ref_vector const& fmls) {
@@ -133,7 +136,10 @@ namespace dd {
         for (expr* e : fmls) {
             g.add(p.mk_var(id2var[e->get_id()]) + 1);
         }
-        g.simplify_linear();
+        g.display(std::cout);
+        g.simplify();
+        g.display(std::cout);
+        g.saturate();
         g.display(std::cout);
     }
 
@@ -141,8 +147,8 @@ namespace dd {
         ast_manager m;
         reg_decl_plugins(m);
         bv_util bv(m);
-        expr_ref x(m.mk_const("x", bv.mk_sort(4)), m);
-        expr_ref y(m.mk_const("y", bv.mk_sort(4)), m);
+        expr_ref x(m.mk_const("x", bv.mk_sort(3)), m);
+        expr_ref y(m.mk_const("y", bv.mk_sort(3)), m);
         expr_ref xy(bv.mk_bv_mul(x, y), m);
         expr_ref yx(bv.mk_bv_mul(y, x), m);
         expr_ref eq(m.mk_not(m.mk_eq(xy,yx)), m);

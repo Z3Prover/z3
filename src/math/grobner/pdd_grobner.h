@@ -51,15 +51,21 @@ public:
         {}
     };
 
+    enum eq_state {
+        solved,
+        processed,
+        to_simplify
+    };
+
     class equation {
-        bool                       m_processed;  //!< state
+        eq_state                   m_state; 
         unsigned                   m_idx;        //!< unique index
         pdd                        m_poly;       //!< polynomial in pdd form
         u_dependency *             m_dep;        //!< justification for the equality
     public:
-        equation(pdd const& p, u_dependency* d, unsigned idx): 
-            m_processed(false),
-            m_idx(idx),
+        equation(pdd const& p, u_dependency* d): 
+            m_state(to_simplify),
+            m_idx(0),
             m_poly(p),
             m_dep(d)
         {}
@@ -69,8 +75,8 @@ public:
         unsigned idx() const { return m_idx; }
         void operator=(pdd& p) { m_poly = p; }
         void operator=(u_dependency* d) { m_dep = d; }
-        bool is_processed() const { return m_processed; }
-        void set_processed(bool p) { m_processed = p; }
+        eq_state state() const { return m_state; }
+        void set_state(eq_state st) { m_state = st; }
         void set_index(unsigned idx) { m_idx = idx; }
     };
 private:
@@ -83,11 +89,12 @@ private:
     stats                                        m_stats;
     config                                       m_config;
     print_dep_t                                  m_print_dep;
+    equation_vector                              m_solved; // equations with solved variables, triangular
     equation_vector                              m_processed;
     equation_vector                              m_to_simplify;
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
-    equation const*                              m_conflict;   
+    equation*                                    m_conflict;   
 public:
     grobner(reslimit& lim, pdd_manager& m);
     ~grobner();
@@ -99,7 +106,7 @@ public:
     void add(pdd const& p) { add(p, nullptr); }
     void add(pdd const& p, u_dependency * dep);
 
-    void simplify_linear();
+    void simplify();
     void saturate();
 
     equation_vector const& equations();
@@ -120,14 +127,15 @@ private:
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     bool simplify_source_target(equation const& source, equation& target, bool& changed_leading_term);
-    bool simplify_using(equation_vector& set, equation const& eq);
     bool simplify_using(equation& eq, equation_vector const& eqs);
+    bool simplify_using(equation_vector& set, equation const& eq);
+    void simplify_using(equation & dst, equation const& src, bool& changed_leading_term);
 
     bool eliminate(equation& eq) { return is_trivial(eq) && (del_equation(eq), true); }
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
     bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
-    bool check_conflict(equation const& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(eq), true); }    
-    void set_conflict(equation const& eq) { m_conflict = &eq; }
+    bool check_conflict(equation& eq) { return eq.poly().is_val() && !is_trivial(eq) && (set_conflict(eq), true); }    
+    void set_conflict(equation& eq) { m_conflict = &eq; push_equation(solved, eq); }
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
@@ -144,16 +152,22 @@ private:
     void add_to_watch(equation& eq);
 
     void del_equation(equation& eq);    
+    equation_vector& get_queue(equation const& eq);
     void retire(equation* eq) { dealloc(eq); }
-    void pop_equation(equation& eq, equation_vector& v);
-    void pop_equation(equation* eq, equation_vector& v) { pop_equation(*eq, v); }
-    void push_equation(equation& eq, equation_vector& v);
-    void push_equation(equation* eq, equation_vector& v) { push_equation(*eq, v); }
+    void pop_equation(equation& eq);
+    void pop_equation(equation* eq) { pop_equation(*eq); }
+    void push_equation(eq_state st, equation& eq);
+    void push_equation(eq_state st, equation* eq) { push_equation(st, *eq); }
 
     struct compare_top_var;
     bool simplify_linear_step();
-    void add_to_use(equation* e, vector<equation_vector>& use_list);
+    typedef vector<equation_vector> use_list_t;
+    use_list_t get_use_list();
+    void add_to_use(equation* e, use_list_t& use_list);
+    void remove_from_use(equation* e, use_list_t& use_list);
 
+    bool simplify_cc_step();
+    bool simplify_elim_step();
 
     void invariant() const;
     struct scoped_detach {
@@ -162,9 +176,7 @@ private:
         scoped_detach(grobner& g, equation* e): g(g), e(e) {}
         ~scoped_detach() {
             if (e) {
-                e->set_processed(true);
-                e->set_index(g.m_processed.size());
-                g.m_processed.push_back(e);
+                g.push_equation(processed, *e);
             }
         }
     };

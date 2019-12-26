@@ -87,7 +87,7 @@ namespace dd {
             }
         }
         SASSERT(well_formed());
-        return 0;
+        return null_pdd;
     }
 
     bool pdd_manager::check_result(op_entry*& e1, op_entry const* e2, PDD a, PDD b, PDD c) {
@@ -112,21 +112,21 @@ namespace dd {
             if (is_zero(p)) return q;
             if (is_zero(q)) return p;
             if (is_val(p) && is_val(q)) return imk_val(val(p) + val(q));
-            if (!is_val(p) && level(p) < level(q)) std::swap(p, q);
             if (is_val(p)) std::swap(p, q);
+            else if (!is_val(q) && level(p) < level(q)) std::swap(p, q);            
             break;
         case pdd_mul_op:
             if (is_zero(p) || is_zero(q)) return zero_pdd;
             if (is_one(p)) return q;
             if (is_one(q)) return p;
             if (is_val(p) && is_val(q)) return imk_val(val(p) * val(q));
-            if (!is_val(p) && level(p) < level(q)) std::swap(p, q);
             if (is_val(p)) std::swap(p, q);
+            else if (!is_val(q) && level(p) < level(q)) std::swap(p, q);            
             break;
         case pdd_reduce_op:
             if (is_zero(q)) return p;
             if (is_val(p)) return p;
-            if (level(p) < level(q)) return p;
+            if (!is_val(q) && level(p) < level(q)) return p;
             break;
         default:
             UNREACHABLE();
@@ -156,13 +156,11 @@ namespace dd {
                 push(apply_rec(hi(p), hi(q), op));
                 r = make_node(level_p, read(2), read(1));                           
             }
-            else if (level_p > level_q) {
+            else {
+                SASSERT(level_p > level_q);
                 push(apply_rec(lo(p), q, op));
                 r = make_node(level_p, read(1), hi(p));
                 npop = 1;
-            }
-            else {
-                UNREACHABLE();
             }
             break;
         case pdd_mul_op:
@@ -179,7 +177,7 @@ namespace dd {
                     //                    == x((a+b)(c+d)+bd) + bd
                     //
                     push(apply_rec(lo(p), lo(q), pdd_mul_op));
-                    unsigned bd = read(3);
+                    unsigned bd = read(1);
                     push(apply_rec(hi(p), lo(p), pdd_add_op));
                     push(apply_rec(hi(q), lo(q), pdd_add_op));
                     push(apply_rec(read(1), read(2), pdd_mul_op));
@@ -239,9 +237,7 @@ namespace dd {
             UNREACHABLE();
         }
         pop(npop);
-        e1->m_result = r;
-
-        // SASSERT(well_formed());
+        e1->m_result = r;        
         SASSERT(!m_free_nodes.contains(r));
         return r;
     }
@@ -852,6 +848,7 @@ namespace dd {
                 out << "v" << v;
             }
         }
+        if (first) out << "0";
         return out;
     }
 
