@@ -63,9 +63,10 @@ public:
             return ret;                
         }
     }
-
-    bool separated_from_zero(pdd const& p, u_dependency*& dep) {
-        return m_dep_intervals.check_interval_for_conflict_on_zero(get_interval<w_dep::with_deps>(p), dep);
+	// f meant to be called when the separation happens
+    template <typename T>
+    bool separated_from_zero(pdd const& p, u_dependency*& dep, std::function<void (const T)>& f) {
+        return m_dep_intervals.check_interval_for_conflict_on_zero(get_interval<w_dep::with_deps>(p), dep, f);
     }
 
 };
