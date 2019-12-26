@@ -530,7 +530,7 @@ namespace smt {
             if (!(m_qm->mbqi_enabled(q) &&
                   m_context->is_relevant(q) &&
                   m_context->get_assignment(q) == l_true &&
-                  !m.is_lambda_def(q))) {
+                  (!m_context->get_fparams().m_ematching || !m.is_lambda_def(q)))) {
                 continue;
             }
 
