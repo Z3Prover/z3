@@ -452,7 +452,7 @@ class theory_lra::imp {
             m_nla->get_core()->m_nla_settings.run_horner() = nla.horner();
             m_nla->get_core()->m_nla_settings.horner_frequency() = nla.horner_frequency();
             m_nla->get_core()->m_nla_settings.horner_row_length_limit() = nla.horner_row_length_limit();
-            m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
+            m_nla->get_core()->m_nla_settings.run_grobner() = static_cast<nla::nla_settings::run_grobner_enum>(nla.grobner());
             m_nla->get_core()->m_nla_settings.grobner_eqs_threshold() = nla.grobner_eqs_threshold();
         }
     }
