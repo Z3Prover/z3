@@ -698,6 +698,7 @@ namespace dd {
                 }
             }
             if (eq) {
+
                 pop_equation(eq);
                 m_watch[eq->poly().var()].erase(eq);
                 return eq;
