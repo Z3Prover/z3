@@ -255,12 +255,13 @@ public:
     inline bool separated_from_zero(const interval& i) const {
         return separated_from_zero_on_upper(i) || separated_from_zero_on_lower(i);
     }
+    // if the separation happens then call f()
     template <typename T> 
-    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         return check_interval_for_conflict_on_zero_lower(i, dep, f) || check_interval_for_conflict_on_zero_upper(i, dep, f);
     }
     template <typename T> 
-    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero_lower(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         if (!separated_from_zero_on_lower(i)) {
             return false;
         }
@@ -272,7 +273,7 @@ public:
         return true;
     }
     template <typename T> 
-    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency*& dep, std::function<void (const T&)> f) {
+    bool check_interval_for_conflict_on_zero_upper(const interval& i, u_dependency* dep, std::function<void (const T&)> f) {
         if (!separated_from_zero_on_upper(i))
             return false;
         TRACE("dep_intervals", display(tout, i););

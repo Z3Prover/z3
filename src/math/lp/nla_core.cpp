@@ -21,6 +21,7 @@ Revision History:
 #include "math/lp/factorization_factory_imp.h"
 #include "math/lp/nex.h"
 #include "math/grobner/pdd_grobner.h"
+#include "math/dd/pdd_interval.h"
 namespace nla {
 
 core::core(lp::lar_solver& s, reslimit & lim) :
@@ -33,7 +34,7 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_intervals(this, lim),
     m_horner(this, &m_intervals),
     m_nex_grobner(this, &m_intervals),
-    m_pdd_manager(0),
+    m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
     m_reslim(lim)
@@ -1410,8 +1411,15 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
         out);
 }
 
+void core::create_vars_used_in_mrows() {
+    for (unsigned i : m_rows) {
+        add_row_vars_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
+    }
+}
+
 void core::run_pdd_grobner() {
     m_pdd_manager.resize(m_lar_solver.number_of_vars());
+    create_vars_used_in_mrows();
     for (unsigned i : m_rows) {
         add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
     }
@@ -1422,7 +1430,24 @@ void core::run_pdd_grobner() {
 }
 
 void core::check_pdd_eq(const dd::grobner::equation* e) {
-    NOT_IMPLEMENTED_YET();
+    dd::pdd_interval eval(m_pdd_manager, m_reslim);
+    eval.var2interval() =
+        [this](lpvar j, bool deps) {
+            intervals::interval a;
+            if (deps) m_intervals.set_var_interval<dd::w_dep::with_deps>(j, a);
+            else m_intervals.set_var_interval<dd::w_dep::without_deps>(j, a);
+            return a;
+        };
+    auto i = eval.get_interval<dd::w_dep::without_deps>(e->poly());    
+    dep_intervals di(m_reslim);
+    if (!di.separated_from_zero(i))
+        return;
+    auto i_wd = eval.get_interval<dd::w_dep::with_deps>(e->poly());  
+    std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
+                                                         add_empty_lemma();
+                                                         current_expl().add(e);
+                                                     };
+    di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f);
 }
 
 void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
@@ -1454,8 +1479,47 @@ void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lp
     }            
 }
 
+void core::add_row_vars_to_pdd_grobner(const vector<lp::row_cell<rational>> & row) {
+   for (const auto &p : row) {
+       lpvar j = p.var();
+       if (!is_monic_var(j)) {
+           m_pdd_manager.mk_var(j);
+       } else {
+           const monic& m = emons()[j];
+           for (lpvar k : m.vars()) {
+               m_pdd_manager.mk_var(k);
+           }
+       }
+    }
+}
+
+dd::pdd core::pdd_expr(const rational& c, lpvar j) {
+    if (!is_monic_var(j))
+        return c * m_pdd_manager.mk_var(j);
+
+    // j is a monic var
+    dd::pdd r = m_pdd_manager.mk_val(c);
+    const monic& m = emons()[j];
+    for (lpvar k : m.vars()) {
+        r *= m_pdd_manager.mk_var(k);
+    }
+    return r;
+}
+
 void core::add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row) {
-    NOT_IMPLEMENTED_YET();
+    u_dependency *dep = nullptr;
+    dd::pdd sum = m_pdd_manager.mk_val(rational(0));
+    for (const auto &p : row) {
+        dd::pdd e = pdd_expr(p.coeff(), p.var());
+        sum  +=  e; 
+        unsigned lc, uc;
+        m_lar_solver.get_bound_constraint_witnesses_for_column(p.var(), lc, uc);
+        if (lc != null_lpvar)
+            dep = m_intervals.mk_join(dep, m_intervals.mk_leaf(lc));
+        if (uc != null_lpvar) 
+            dep = m_intervals.mk_join(dep, m_intervals.mk_leaf(uc));                    
+    }
+    m_pdd_grobner.add(sum, dep);    
 }
 
 

@@ -119,7 +119,7 @@ private:
     equation_set                                 m_to_superpose;
     equation_set                                 m_to_simplify;
     region                                       m_alloc;
-    mutable u_dependency_manager        m_dep_manager;
+    mutable u_dependency_manager                 m_dep_manager;
     nex_lt                                       m_lt;
     bool                                         m_changed_leading_term;
     params                                       m_params;
