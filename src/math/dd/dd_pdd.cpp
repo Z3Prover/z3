@@ -171,32 +171,24 @@ namespace dd {
             }
             break;
         case pdd_sub_op:
-            if (is_val(p)) {
+            if (is_val(p) || (!is_val(q) && level_p < level_q)) {
+                // p - (ax + b) = -ax + (p - b)
                 push(apply_rec(p, lo(q), op));
-                r = make_node(level_q, read(1), hi(q));
-                npop = 1;                
+                push(minus_rec(hi(q)));
+                r = make_node(level_q, read(2), read(1));
             }
-            else if (is_val(q)) {
-                push(apply_rec(lo(p), q, op));
-                r = make_node(level_p, read(1), hi(p));
-                npop = 1;
-            }
-            else if (level_p == level_q) {
-                push(apply_rec(lo(p), lo(q), op));
-                push(apply_rec(hi(p), hi(q), op));
-                r = make_node(level_p, read(2), read(1));                           
-            }
-            else if (level_p > level_q) {
-                // x*hi(p) + (lo(p) - q)
+            else if (is_val(q) || (level_p > level_q)) {
+                // (ax + b) - k = ax + (b - k)
                 push(apply_rec(lo(p), q, op));
                 r = make_node(level_p, read(1), hi(p));
                 npop = 1;
             }
             else {
-                // x*hi(q) + (p - lo(q))
-                push(apply_rec(p, lo(q), op));
-                r = make_node(level_q, read(1), hi(q));
-                npop = 1;                
+                SASSERT(level_p == level_q);
+                // (ax + b) - (cx + d) = (a - c)x + (b - d)
+                push(apply_rec(lo(p), lo(q), op));
+                push(apply_rec(hi(p), hi(q), op));
+                r = make_node(level_p, read(2), read(1));                           
             }
             break;
         case pdd_mul_op:

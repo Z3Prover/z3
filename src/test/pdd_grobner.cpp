@@ -28,21 +28,23 @@ namespace dd {
         grobner gb(lim, m);
         gb.add(v1*v2 + v1*v3);
         gb.add(v1 - 1);
-        print_eqs(gb.equations());
+        gb.display(std::cout);
         gb.saturate();
-        print_eqs(gb.equations());
+        gb.display(std::cout);
         gb.reset();
 
         gb.add(v1*v1*v2 + v2*v3);
         gb.add(v1*v1*v2 + v2*v1);
+        gb.display(std::cout);
         gb.saturate();
-        print_eqs(gb.equations());
+        gb.display(std::cout);
         gb.reset();
 
         gb.add(v1*v1*v2 + v2*v1);
         gb.add(v1*v1*v2 + v2*v1);
+        gb.display(std::cout);
         gb.saturate();
-        print_eqs(gb.equations());
+        gb.display(std::cout);
         gb.reset();
 
         // stop early on contradiction
@@ -52,7 +54,7 @@ namespace dd {
         gb.add(v3*v1 + v1*v2 + v2*v3 + v1);
         gb.add(v3*v1 + v1*v2 + v2*v3 + v2);
         gb.saturate();        
-        print_eqs(gb.equations());
+        gb.display(std::cout << "early contradiction\n");
         gb.reset();
 
         // result is v1 = 0, v2 = 0.
@@ -61,15 +63,15 @@ namespace dd {
         gb.add(v3*v1 + v1*v2 + v2*v3 + v1);
         gb.add(v3*v1 + v1*v2 + v2*v3 + v2);
         gb.saturate();        
-        print_eqs(gb.equations());
+        gb.display(std::cout << "v1 = v2 = 0\n");
         gb.reset();
 
         // everything rewrites to a multiple of v0
         gb.add(v3 - 2*v2);
         gb.add(v2 - 2*v1);
         gb.add(v1 - 2*v0);
-        gb.saturate();        
-        print_eqs(gb.equations());
+        gb.saturate();    
+        gb.display(std::cout << "multiple of v0\n");
         gb.reset();
 
         // 

@@ -12,6 +12,7 @@
   --*/
 
 #include "math/grobner/pdd_grobner.h"
+#include "util/uint_set.h"
 
 namespace dd {
 
@@ -125,6 +126,7 @@ namespace dd {
     }
 
     void grobner::saturate() {
+        simplify();
         if (is_tuned()) tuned_init();
         try {
             while (!done() && step()) {
@@ -214,7 +216,10 @@ namespace dd {
         equation_vector linear;
         for (equation* e : m_to_simplify) {
             pdd p = e->poly();
-            if (p.is_linear() && (!binary || p.is_binary())) {
+            if (binary) {
+                if (p.is_binary()) linear.push_back(e);
+            }
+            else if (p.is_linear()) {
                 linear.push_back(e);
             }
         }
@@ -798,10 +803,17 @@ namespace dd {
         }
 
         i = 0;
+        uint_set head_vars;
         for (auto* e : m_solved) {
             VERIFY(e->state() == solved);
             VERIFY(e->idx() == i);
             ++i;
+            pdd p = e->poly();
+            if (!p.is_val() && p.hi().is_val()) {
+                unsigned v = p.var();
+                SASSERT(!head_vars.contains(v));
+                head_vars.insert(v);
+            }
         }
 
         // equations in to_simplify have correct indices
@@ -811,11 +823,9 @@ namespace dd {
         for (auto* e : m_to_simplify) {
             VERIFY(e->idx() == i);
             VERIFY(e->state() == to_simplify);
-            VERIFY(!e->poly().is_val());
-            if (is_tuned()) {
-                pdd const& p = e->poly();
-                VERIFY(p.is_val() || m_watch[p.var()].contains(e));
-            }
+            pdd const& p = e->poly();
+            VERIFY(!p.is_val());
+            VERIFY(!is_tuned() || m_watch[p.var()].contains(e));            
             ++i;
         }
         // the watch list consists of equations in to_simplify
