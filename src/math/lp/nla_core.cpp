@@ -1420,6 +1420,7 @@ void core::create_vars_used_in_mrows() {
 void core::run_pdd_grobner() {
     //    m_pdd_manager.resize(m_lar_solver.number_of_vars());
     create_vars_used_in_mrows();
+    m_pdd_grobner.reset();
     for (unsigned i : m_rows) {
         add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
     }
