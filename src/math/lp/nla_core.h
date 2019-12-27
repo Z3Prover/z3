@@ -50,6 +50,7 @@ typedef lp::lconstraint_kind     llc;
 typedef lp::constraint_index     lpci;
 typedef lp::explanation          expl_set;
 typedef lp::var_index            lpvar;
+const lpvar null_lpvar = UINT_MAX;
 
 inline int rat_sign(const rational& r) { return r.is_pos()? 1 : ( r.is_neg()? -1 : 0); }
 inline rational rrat_sign(const rational& r) { return rational(rat_sign(r)); }
@@ -122,7 +123,7 @@ public:
         m_active_var_set.resize(m_lar_solver.number_of_vars());
     }
     
-    reslimit &               reslim() { return m_reslim; }  
+    reslimit& reslim() { return m_reslim; }  
     emonics& emons() { return m_emons; }
     const emonics& emons() const { return m_emons; }
     // constructor
@@ -401,6 +402,9 @@ public:
     var_weight get_var_weight(lpvar) const;
     void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
     void check_pdd_eq(const dd::grobner::equation*);
+    void create_vars_used_in_mrows();
+    void add_row_vars_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);
+    dd::pdd pdd_expr(const rational& c, lpvar j);
 };  // end of core
 
 struct pp_mon {

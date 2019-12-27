@@ -46,6 +46,7 @@ public:
         m_dep_intervals(lim),
         m_core(c)
     {}
+    dep_intervals& get_dep_intervals() { return m_dep_intervals; }
     u_dependency* mk_join(u_dependency* a, u_dependency* b) { return m_dep_intervals.mk_join(a, b); }
     u_dependency* mk_leaf(lp::constraint_index ci) { return m_dep_intervals.mk_leaf(ci); }
 
