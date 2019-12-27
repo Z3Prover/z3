@@ -43,7 +43,7 @@ public:
             m_dep_intervals.set_interval_for_scalar(k, p.val());
             return k;
         }
-        bool deps = (wd == w_dep::with_deps);
+        bool deps = wd == w_dep::with_deps;
         interval a = m_var2interval(p.var(), deps);
         interval hi = get_interval<wd>(p.hi());
         interval la = get_interval<wd>(p.lo());
