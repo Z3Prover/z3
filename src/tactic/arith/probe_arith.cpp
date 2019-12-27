@@ -153,7 +153,7 @@ struct has_nlmul {
             case OP_IDIV: case OP_DIV: case OP_REM: case OP_MOD:
                 if (!a.is_numeral(n->get_arg(1)))
                     throw_found(n);
-				break;
+                break;
             case OP_POWER:
                 throw_found(n);
             default:
@@ -499,6 +499,8 @@ struct is_non_nira_functor {
                 return;
             case OP_POWER:
                 if (m_linear)
+                    throw_found(n);
+                if (!u.is_numeral(n->get_arg(0), r) || !r.is_unsigned() || r.is_zero())
                     throw_found(n);
                 return;
             case OP_IRRATIONAL_ALGEBRAIC_NUM:
