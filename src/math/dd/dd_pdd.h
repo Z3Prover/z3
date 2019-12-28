@@ -160,6 +160,10 @@ namespace dd {
         unsigned_vector            m_free_values;
         rational                   m_freeze_value;
 
+        void reset_op_cache();
+        void init_nodes(unsigned_vector const& l2v);
+        void init_vars(unsigned_vector const& l2v);
+
         PDD make_node(unsigned level, PDD l, PDD r);
         PDD insert_node(node const& n);
         bool is_new_node() const { return m_is_new_node; }
@@ -237,8 +241,8 @@ namespace dd {
         pdd_manager(unsigned nodes, semantics s = free_e);
         ~pdd_manager();
 
+        void reset(unsigned_vector const& level2var);
         void set_max_num_nodes(unsigned n) { m_max_num_nodes = n; }
-        void set_level2var(unsigned_vector const& level2var);  
         unsigned_vector const& get_level2var() const { return m_level2var; }
 
         pdd mk_var(unsigned i);

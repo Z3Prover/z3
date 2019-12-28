@@ -168,6 +168,7 @@ private:
     use_list_t get_use_list();
     void add_to_use(equation* e, use_list_t& use_list);
     void remove_from_use(equation* e, use_list_t& use_list);
+    void remove_from_use(equation* e, use_list_t& use_list, unsigned except_v);
 
     bool simplify_cc_step();
     bool simplify_elim_pure_step();

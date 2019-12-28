@@ -83,10 +83,31 @@ namespace dd {
         std::cout << e << "\n";
     }
 
+    static void test_reset() {
+        std::cout << "\ntest reset\n";
+        pdd_manager m(4);
+        pdd a = m.mk_var(0);
+        pdd b = m.mk_var(1);
+        pdd c = m.mk_var(2);
+        pdd d = m.mk_var(3);
+        std::cout << (a + b)*(c + d) << "\n";
+
+        unsigned_vector l2v;
+        for (unsigned i = 0; i < 4; ++i) 
+            l2v.push_back(3 - i);
+        m.reset(l2v);
+        a = m.mk_var(0);
+        b = m.mk_var(1);
+        c = m.mk_var(2);
+        d = m.mk_var(3);
+        std::cout << (a + b)*(c + d) << "\n";
+    }
+
 }
 
 void tst_pdd() {
     dd::test1();
     dd::test2();
     dd::test3();
+    dd::test_reset();
 }

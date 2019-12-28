@@ -30,7 +30,27 @@ namespace dd {
         m_disable_gc = false;
         m_is_new_node = false;
         m_semantics = s;
+        unsigned_vector l2v;
+        for (unsigned i = 0; i < num_vars; ++i) l2v.push_back(i);
+        init_nodes(l2v);
+    }
 
+    pdd_manager::~pdd_manager() {
+        if (m_spare_entry) {
+            m_alloc.deallocate(sizeof(*m_spare_entry), m_spare_entry);
+            m_spare_entry = nullptr;
+        }
+        reset_op_cache();
+    }
+
+    void pdd_manager::reset(unsigned_vector const& level2var) {
+        reset_op_cache();
+        m_node_table.reset();
+        m_nodes.reset();
+        init_nodes(level2var);
+    }
+
+    void pdd_manager::init_nodes(unsigned_vector const& l2v) {
         // add dummy nodes for operations, and 0, 1 pdds.
         for (unsigned i = 0; i < pdd_no_op; ++i) {
             m_nodes.push_back(node());
@@ -41,23 +61,30 @@ namespace dd {
         init_value(rational::one(), 1);
         SASSERT(is_val(0));
         SASSERT(is_val(1));
-
-        alloc_free_nodes(1024 + num_vars);
-        
-        // add variables
-        for (unsigned i = 0; i < num_vars; ++i) {
-            reserve_var(i);
-        }            
+        alloc_free_nodes(1024 + l2v.size());   
+        init_vars(l2v);
     }
 
-    pdd_manager::~pdd_manager() {
-        if (m_spare_entry) {
-            m_alloc.deallocate(sizeof(*m_spare_entry), m_spare_entry);
+    void pdd_manager::init_vars(unsigned_vector const& level2var) {
+        unsigned n = level2var.size();
+        m_level2var.resize(n);
+        m_var2level.resize(n);
+        m_var2pdd.resize(n);
+        for (unsigned l = 0; l < n; ++l) {
+            unsigned v = level2var[l];
+            m_var2pdd[v] = make_node(l, zero_pdd, one_pdd);
+            m_nodes[m_var2pdd[v]].m_refcount = max_rc;
+            m_var2level[v] = l;
+            m_level2var[l] = v;
         }
+    }
+
+    void pdd_manager::reset_op_cache() {
         for (auto* e : m_op_cache) {
             SASSERT(e != m_spare_entry);
             m_alloc.deallocate(sizeof(*e), e);
         }
+        m_op_cache.reset();
     }
 
     pdd pdd_manager::add(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_add_op), this); }
@@ -645,10 +672,7 @@ namespace dd {
 
     void pdd_manager::try_gc() {
         gc();        
-        for (auto* e : m_op_cache) {
-            m_alloc.deallocate(sizeof(*e), e);
-        }
-        m_op_cache.reset();
+        reset_op_cache();
         SASSERT(m_op_cache.empty());
         SASSERT(well_formed());
     }
@@ -666,14 +690,6 @@ namespace dd {
     pdd pdd_manager::mk_var(unsigned i) {
         reserve_var(i);
         return pdd(m_var2pdd[i], this);        
-    }
-
-    void pdd_manager::set_level2var(unsigned_vector const& level2var) {
-        SASSERT(level2var.size() == m_level2var.size());
-        for (unsigned i = 0; i < level2var.size(); ++i) {
-            m_var2level[level2var[i]] = i;
-            m_level2var[i] = level2var[i];
-        }
     }
     
     unsigned pdd_manager::dag_size(pdd const& b) {

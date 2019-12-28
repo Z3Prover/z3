@@ -58,7 +58,7 @@ namespace dd {
         SASSERT(c2 == ((v0 && v1) || v1 || !v0));
     }
 
-    void test4() {
+    static void test4() {
         bdd_manager m(3);
         bdd v0 = m.mk_var(0);
         bdd v1 = m.mk_var(1);

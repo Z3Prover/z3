@@ -240,17 +240,25 @@ namespace dd {
         equation_vector trivial;
         unsigned j = 0;
         for (equation* src : linear) {
-            equation_vector const& uses = use_list[src->poly().var()];
+            unsigned v = src->poly().var();
+            equation_vector const& uses = use_list[v];
+            TRACE("grobner", 
+                  display(tout << "uses of: ", *src) << "\n";
+                  for (equation* e : uses) {
+                      display(tout, *e) << "\n";
+                  });
             bool changed_leading_term;
             bool all_reduced = true;
             for (equation* dst : uses) {
                 if (src == dst || is_trivial(*dst)) {
                     continue;                    
                 }
-                if (!src->poly().is_binary() && !dst->poly().is_linear()) {
+                pdd q = dst->poly();
+                if (!src->poly().is_binary() && !q.is_linear()) {
                     all_reduced = false;
                     continue;
                 }
+                remove_from_use(dst, use_list, v);
                 simplify_using(*dst, *src, changed_leading_term);
                 if (is_trivial(*dst)) {
                     trivial.push_back(dst);
@@ -264,6 +272,9 @@ namespace dd {
                     pop_equation(dst);
                     push_equation(to_simplify, dst);
                 }
+                // v has been eliminated.
+                SASSERT(!m.free_vars(dst->poly()).contains(v));
+                add_to_use(dst, use_list);                
             }          
             if (all_reduced) {
                 linear[j++] = src;              
@@ -463,6 +474,16 @@ namespace dd {
         for (unsigned v : fv) {
             use_list.reserve(v + 1);
             use_list[v].erase(e);
+        }
+    }
+
+    void grobner::remove_from_use(equation* e, use_list_t& use_list, unsigned except_v) {
+        unsigned_vector const& fv = m.free_vars(e->poly());
+        for (unsigned v : fv) {
+            if (v != except_v) {
+                use_list.reserve(v + 1);
+                use_list[v].erase(e);
+            }
         }
     }
 
@@ -820,6 +841,15 @@ namespace dd {
                 unsigned v = p.var();
                 SASSERT(!head_vars.contains(v));
                 head_vars.insert(v);
+            }
+        }
+
+        if (!head_vars.empty()) {
+            for (auto * e : m_to_simplify) {
+                for (auto v : m.free_vars(e->poly())) VERIFY(!head_vars.contains(v));
+            }
+            for (auto * e : m_processed) {
+                for (auto v : m.free_vars(e->poly())) VERIFY(!head_vars.contains(v));
             }
         }
 
