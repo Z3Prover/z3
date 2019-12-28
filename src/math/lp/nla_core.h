@@ -405,6 +405,7 @@ public:
     void create_vars_used_in_mrows();
     void add_row_vars_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);
     dd::pdd pdd_expr(const rational& c, lpvar j);
+    void set_level2var_for_pdd_grobner();
 };  // end of core
 
 struct pp_mon {

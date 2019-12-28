@@ -1421,6 +1421,7 @@ void core::run_pdd_grobner() {
     //    m_pdd_manager.resize(m_lar_solver.number_of_vars());
     create_vars_used_in_mrows();
     m_pdd_grobner.reset();
+    set_level2var_for_pdd_grobner();
     for (unsigned i : m_rows) {
         add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
     }
@@ -1589,8 +1590,20 @@ void core::init_nex_grobner(nex_creator & nc) {
 void core::set_active_vars_weights(nex_creator& nc) {
     nc.set_number_of_vars(m_lar_solver.column_count());
     for (lpvar j : active_var_set()) {
-        nc.set_var_weight(j, static_cast<unsigned>(get_var_weight(j)));
+        nc.set_var_weight(j, get_var_weight(j));
     }
+}
+
+void core::set_level2var_for_pdd_grobner() {
+    unsigned_vector level2var(m_lar_solver.column_count());
+    for (unsigned j = 0; j < level2var.size(); j++)
+        level2var[j] = j;
+    // sort that the larger weights are in beginning
+    std::sort(level2var.begin(), level2var.end(), [this](unsigned a, unsigned b) {
+                                                      unsigned wa = get_var_weight(a);
+                                                      unsigned wb = get_var_weight(b);
+                                                      return wa > wb || (wa == wb && a > b); });
+    m_pdd_manager.set_level2var(level2var);
 }
 
 unsigned core::get_var_weight(lpvar j) const {
