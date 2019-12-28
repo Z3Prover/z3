@@ -217,8 +217,8 @@ namespace dd {
         g.display(std::cout);
         g.simplify();
         g.display(std::cout);
-        //g.saturate();
-        //g.display(std::cout);
+        g.saturate();
+        g.display(std::cout);
     }
 
     void test2() {

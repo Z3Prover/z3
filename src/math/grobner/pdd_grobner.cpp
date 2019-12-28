@@ -128,11 +128,13 @@ namespace dd {
     void grobner::saturate() {
         simplify();
         if (is_tuned()) tuned_init();
+        TRACE("grobner", display(tout););
         try {
             while (!done() && step()) {
                 TRACE("grobner", display(tout););
                 DEBUG_CODE(invariant(););
             }
+            DEBUG_CODE(invariant(););
         }
         catch (pdd_manager::mem_out) {
             // don't reduce further
@@ -521,10 +523,11 @@ namespace dd {
             }
             else if (simplified && changed_leading_term) {
                 SASSERT(target.state() == processed);
-                if (is_tuned()) {
-                    m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
-                }
                 push_equation(to_simplify, target);
+                if (!m_watch.empty()) {
+                    m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
+                    add_to_watch(target);
+                }
             }
             else {
                 set[j] = set[i];
@@ -604,7 +607,8 @@ namespace dd {
         if (!simplify_using(m_processed, eq)) return false;
         TRACE("grobner", display(tout << "eq = ", eq););
         superpose(eq);
-        return simplify_watch(eq);
+        simplify_watch(eq);
+        return true;
     }
 
     void grobner::tuned_init() {
@@ -619,7 +623,6 @@ namespace dd {
         m_watch.reserve(m_level2var.size());
         m_levelp1 = m_level2var.size();
         for (equation* eq : m_to_simplify) add_to_watch(*eq);
-        SASSERT(m_processed.empty());
     }
 
     void grobner::add_to_watch(equation& eq) {
@@ -631,7 +634,7 @@ namespace dd {
         }
     }
 
-    bool grobner::simplify_watch(equation const& eq) {
+    void grobner::simplify_watch(equation const& eq) {
         unsigned v = eq.poly().var();
         auto& watch = m_watch[v];
         unsigned j = 0;
@@ -644,6 +647,7 @@ namespace dd {
                 try_simplify_using(target, eq, changed_leading_term);
             }
             if (is_trivial(target)) {
+                pop_equation(target);
                 retire(&target);
             }
             else if (is_conflict(target)) {
@@ -656,11 +660,10 @@ namespace dd {
             }
             else {
                 // keep watching same variable
-                watch[++j] = _target;
+                watch[j++] = _target;
             }
         }
         watch.shrink(j);        
-        return false;
     }
 
     grobner::equation* grobner::tuned_pick_next() {
@@ -670,7 +673,7 @@ namespace dd {
             equation* eq = nullptr;
             for (equation* curr : watch) {
                 pdd const& p = curr->poly();
-                if (curr->state() == to_simplify && !p.is_val() && p.var() == v) {
+                if (curr->state() == to_simplify && p.var() == v) {
                     if (!eq || is_simpler(*curr, *eq))
                         eq = curr;
                 }
@@ -701,6 +704,9 @@ namespace dd {
         m_processed.reset();
         m_to_simplify.reset();
         m_stats.reset();
+        m_watch.reset();
+        m_level2var.reset();
+        m_var2level.reset();
         m_conflict = nullptr;
     }
 
@@ -712,8 +718,9 @@ namespace dd {
         }
         push_equation(to_simplify, eq);
         
-        if (is_tuned()) {
+        if (!m_watch.empty()) {
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
+            add_to_watch(*eq);
         }
         update_stats_max_degree_and_size(*eq);
     }   
@@ -825,13 +832,15 @@ namespace dd {
             VERIFY(e->state() == to_simplify);
             pdd const& p = e->poly();
             VERIFY(!p.is_val());
-            VERIFY(!is_tuned() || m_watch[p.var()].contains(e));            
+            CTRACE("grobner", !m_watch.empty() && !m_watch[p.var()].contains(e), 
+                   display(tout << "not watched: ", *e) << "\n";);
+            VERIFY(m_watch.empty() || m_watch[p.var()].contains(e));            
             ++i;
         }
         // the watch list consists of equations in to_simplify
         // they watch the top most variable in poly
         i = 0;
-        for (auto const& w : m_watch) {
+        for (auto const& w : m_watch) {            
             for (equation* e : w) {
                 VERIFY(!e->poly().is_val());
                 VERIFY(e->poly().var() == i);

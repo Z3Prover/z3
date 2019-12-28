@@ -500,8 +500,8 @@ struct is_non_nira_functor {
             case OP_POWER:
                 if (m_linear)
                     throw_found(n);
-                if (!u.is_numeral(n->get_arg(0), r) || !r.is_unsigned() || r.is_zero())
-                    throw_found(n);
+                //if (!u.is_numeral(n->get_arg(0), r) || !r.is_unsigned() || r.is_zero())
+                //    throw_found(n);
                 return;
             case OP_IRRATIONAL_ALGEBRAIC_NUM:
                 if (m_linear || !m_real)

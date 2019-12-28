@@ -47,7 +47,7 @@ public:
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
-            m_algorithm(basic)
+                m_algorithm(tuned)
         {}
     };
 
@@ -149,7 +149,7 @@ private:
     bool tuned_step();
     void tuned_init();
     equation* tuned_pick_next();
-    bool simplify_watch(equation const& eq);
+    void simplify_watch(equation const& eq);
     void add_to_watch(equation& eq);
 
     void del_equation(equation& eq) { del_equation(&eq); }    
