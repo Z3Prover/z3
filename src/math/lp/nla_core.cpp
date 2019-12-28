@@ -1593,28 +1593,30 @@ void core::set_active_vars_weights(nex_creator& nc) {
     }
 }
 
-var_weight core::get_var_weight(lpvar j) const {
-    var_weight k;
+unsigned core::get_var_weight(lpvar j) const {
+    unsigned k;
     switch (m_lar_solver.get_column_type(j)) {
         
     case lp::column_type::fixed:
-        k = var_weight::FIXED;
+        k = 0;
         break;
     case lp::column_type::boxed:
-        k = var_weight::BOUNDED;
+        k = 2;
         break;
     case lp::column_type::lower_bound:
     case lp::column_type::upper_bound:
-        k = var_weight::NOT_FREE;
+        k = 4;
     case lp::column_type::free_column:
-        k = var_weight::FREE;
+        k = 6;
         break;
     default:
         UNREACHABLE();
         break;
     }
     if (is_monic_var(j)) {
-        return (var_weight)((int)k + 1);
+        k++;
+        if (m_to_refine.contains(j))
+            k++;
     }
     return k;
 }
