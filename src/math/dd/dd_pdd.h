@@ -259,6 +259,7 @@ namespace dd {
         void reset(unsigned_vector const& level2var);
         void set_max_num_nodes(unsigned n) { m_max_num_nodes = n; }
         unsigned_vector const& get_level2var() const { return m_level2var; }
+        unsigned_vector& get_level2var() { return m_level2var; }
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);
