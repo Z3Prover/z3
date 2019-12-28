@@ -1595,15 +1595,18 @@ void core::set_active_vars_weights(nex_creator& nc) {
 }
 
 void core::set_level2var_for_pdd_grobner() {
-    unsigned_vector level2var(m_lar_solver.column_count());
-    for (unsigned j = 0; j < level2var.size(); j++)
+    unsigned n = m_pdd_manager.get_level2var().size();
+    unsigned_vector level2var(n);
+    for (unsigned j = 0; j < n; j++)
         level2var[j] = j;
     // sort that the larger weights are in beginning
     std::sort(level2var.begin(), level2var.end(), [this](unsigned a, unsigned b) {
                                                       unsigned wa = get_var_weight(a);
                                                       unsigned wb = get_var_weight(b);
                                                       return wa > wb || (wa == wb && a > b); });
-    m_pdd_manager.set_level2var(level2var);
+    unsigned_vector& l2v = m_pdd_manager.get_level2var();
+    for (unsigned j = 0; j < n; j++)
+        l2v[j] = level2var[j];
 }
 
 unsigned core::get_var_weight(lpvar j) const {
