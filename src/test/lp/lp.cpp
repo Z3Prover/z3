@@ -194,113 +194,113 @@ void test_simplify() {
 }
 
 void test_cn_shorter() {
-    nex_sum *clone;
-    nex_creator cr;
-    cross_nested cn(
-        [](const nex* n) {
-            TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";
+//     nex_sum *clone;
+//     nex_creator cr;
+//     cross_nested cn(
+//         [](const nex* n) {
+//             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";
                   
-);
-            return false;
-        } ,
-        [](unsigned) { return false; },
-        []{ return 1; }, cr);
-    enable_trace("nla_test");
-    enable_trace("nla_cn");
-    enable_trace("nla_cn_test");
-    enable_trace("nla_cn_details");
-    //    enable_trace("nla_cn_details_");
-    enable_trace("nla_test_details");
-    cr.set_number_of_vars(20);
-    for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
-        cr.set_var_weight(j,j);
+// );
+//             return false;
+//         } ,
+//         [](unsigned) { return false; },
+//         []{ return 1; }, cr);
+//     enable_trace("nla_test");
+//     enable_trace("nla_cn");
+//     enable_trace("nla_cn_test");
+//     enable_trace("nla_cn_details");
+//     //    enable_trace("nla_cn_details_");
+//     enable_trace("nla_test_details");
+//     cr.set_number_of_vars(20);
+//     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+//         cr.set_var_weight(j,j);
         
-    nex_var* a = cr.mk_var(0);
-    nex_var* b = cr.mk_var(1);
-    nex_var* c = cr.mk_var(2);
-    nex_var* d = cr.mk_var(3);
-    nex_var* e = cr.mk_var(4);
-    nex_var* g = cr.mk_var(6);
+//     nex_var* a = cr.mk_var(0);
+//     nex_var* b = cr.mk_var(1);
+//     nex_var* c = cr.mk_var(2);
+//     nex_var* d = cr.mk_var(3);
+//     nex_var* e = cr.mk_var(4);
+//     nex_var* g = cr.mk_var(6);
 
-    nex* min_1 = cr.mk_scalar(rational(-1));
-    // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
-    nex_mul* bcg = cr.mk_mul(b, c, g);
-    /*
-    bcg->add_child(min_1);
-    nex* abcd = cr.mk_mul(a, b, c, d);
-    nex* eae = cr.mk_mul(e, a, e);
-    nex* three_eac = cr.mk_mul(e, a, c); to_mul(three_eac)->coeff() = rational(3);
-    nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
-    clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, three_eac)));
-    clone = to_sum(cr.simplify(clone));
-    TRACE("nla_test", tout << "clone = " << *clone << "\n";);
-    //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
-    test_cn_on_expr(clone, cn);
-    */
+//     nex* min_1 = cr.mk_scalar(rational(-1));
+//     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
+//     nex_mul* bcg = cr.mk_mul(b, c, g);
+//     /*
+//     bcg->add_child(min_1);
+//     nex* abcd = cr.mk_mul(a, b, c, d);
+//     nex* eae = cr.mk_mul(e, a, e);
+//     nex* three_eac = cr.mk_mul(e, a, c); to_mul(three_eac)->coeff() = rational(3);
+//     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
+//     clone = to_sum(cr.clone(cr.mk_sum(_6aad, abcd, eae, three_eac)));
+//     clone = to_sum(cr.simplify(clone));
+//     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
+//     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
+//     test_cn_on_expr(clone, cn);
+//     */
 }
 
 void test_cn() {
-#ifdef Z3DEBUG
-    test_cn_shorter();
-    nex_creator cr;
-    cross_nested cn(
-        [](const nex* n) {
-            TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";);
-            return false;
-        } ,
-        [](unsigned) { return false; },
-        []{ return 1; }, cr);
-    enable_trace("nla_test");
-    enable_trace("nla_cn_test");
-    //    enable_trace("nla_cn");
-    //   enable_trace("nla_test_details");
-    cr.set_number_of_vars(20);
-    for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
-        cr.set_var_weight(j, j);
+// #ifdef Z3DEBUG
+//     test_cn_shorter();
+//     nex_creator cr;
+//     cross_nested cn(
+//         [](const nex* n) {
+//             TRACE("nla_test", tout <<"cn form = " <<  *n << "\n";);
+//             return false;
+//         } ,
+//         [](unsigned) { return false; },
+//         []{ return 1; }, cr);
+//     enable_trace("nla_test");
+//     enable_trace("nla_cn_test");
+//     //    enable_trace("nla_cn");
+//     //   enable_trace("nla_test_details");
+//     cr.set_number_of_vars(20);
+//     for (unsigned j = 0; j < cr.get_number_of_vars(); j++)
+//         cr.set_var_weight(j, j);
         
-    nex_var* a = cr.mk_var(0);
-    nex_var* b = cr.mk_var(1);
-    nex_var* c = cr.mk_var(2);
-    nex_var* d = cr.mk_var(3);
-    nex_var* e = cr.mk_var(4);
-    nex_var* g = cr.mk_var(6);
-    nex_sum * a_p_ae_sq = cr.mk_sum(a, cr.mk_mul(a, e, e));
-    a_p_ae_sq = to_sum(cr.simplify(a_p_ae_sq));
-    test_cn_on_expr(a_p_ae_sq, cn);
+//     nex_var* a = cr.mk_var(0);
+//     nex_var* b = cr.mk_var(1);
+//     nex_var* c = cr.mk_var(2);
+//     nex_var* d = cr.mk_var(3);
+//     nex_var* e = cr.mk_var(4);
+//     nex_var* g = cr.mk_var(6);
+//     nex_sum * a_p_ae_sq = cr.mk_sum(a, cr.mk_mul(a, e, e));
+//     a_p_ae_sq = to_sum(cr.simplify(a_p_ae_sq));
+//     test_cn_on_expr(a_p_ae_sq, cn);
 
-    nex* min_1 = cr.mk_scalar(rational(-1));
-    // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
-    nex* bcd = cr.mk_mul(b, c, d);
-    nex_mul* bcg = cr.mk_mul(b, c, g);
-    /*
-    bcg->add_child(min_1);
-    nex_sum* t = cr.mk_sum(bcd, bcg);
-    test_cn_on_expr(t, cn);
-    nex* abd = cr.mk_mul(a, b, d);
-    nex* abc = cr.mk_mul(a, b, c);
-    nex* abcd = cr.mk_mul(a, b, c, d);
-    nex* aaccd = cr.mk_mul(a, a, c, c, d);
-    nex* add = cr.mk_mul(a, d, d);
-    nex* eae = cr.mk_mul(e, a, e);
-    nex* eac = cr.mk_mul(e, a, c);
-    nex* ed = cr.mk_mul(e, d);
-    nex* cbd = cr.mk_mul(c, b, d);
-    nex* acd = cr.mk_mul(a, c, d);
+//     nex* min_1 = cr.mk_scalar(rational(-1));
+//     // test_cn_on_expr(min_1*c*e + min_1*b*d + min_1*a*b + a*c);
+//     nex* bcd = cr.mk_mul(b, c, d);
+//     nex_mul* bcg = cr.mk_mul(b, c, g);
+//     /*
+//     bcg->add_child(min_1);
+//     nex_sum* t = cr.mk_sum(bcd, bcg);
+//     test_cn_on_expr(t, cn);
+//     nex* abd = cr.mk_mul(a, b, d);
+//     nex* abc = cr.mk_mul(a, b, c);
+//     nex* abcd = cr.mk_mul(a, b, c, d);
+//     nex* aaccd = cr.mk_mul(a, a, c, c, d);
+//     nex* add = cr.mk_mul(a, d, d);
+//     nex* eae = cr.mk_mul(e, a, e);
+//     nex* eac = cr.mk_mul(e, a, c);
+//     nex* ed = cr.mk_mul(e, d);
+//     nex* cbd = cr.mk_mul(c, b, d);
+//     nex* acd = cr.mk_mul(a, c, d);
         
-    nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
-    nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
-    clone = cr.simplify(clone);
-    SASSERT(cr.is_simplified(clone));
-    TRACE("nla_test", tout << "clone = " << *clone << "\n";);
-    //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
-    test_cn_on_expr(to_sum(clone), cn);
-    TRACE("nla_test", tout << "done\n";);
-    test_cn_on_expr(cr.mk_sum(abd,  abc, cbd, acd), cn);
-    TRACE("nla_test", tout << "done\n";);*/
-#endif
-    // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
-    // TRACE("nla_test", tout << "done\n";);
-    // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
+//     nex* _6aad = cr.mk_mul(cr.mk_scalar(rational(6)), a, a, d);
+//     nex * clone = cr.clone(cr.mk_sum(_6aad, abcd, aaccd, add, eae, eac, ed));
+//     clone = cr.simplify(clone);
+//     SASSERT(cr.is_simplified(clone));
+//     TRACE("nla_test", tout << "clone = " << *clone << "\n";);
+//     //    test_cn_on_expr(cr.mk_sum(aad,  abcd, aaccd, add, eae, eac, ed), cn);
+//     test_cn_on_expr(to_sum(clone), cn);
+//     TRACE("nla_test", tout << "done\n";);
+//     test_cn_on_expr(cr.mk_sum(abd,  abc, cbd, acd), cn);
+//     TRACE("nla_test", tout << "done\n";);*/
+// #endif
+//     // test_cn_on_expr(a*b*b*d*d + a*b*b*c*d + c*b*b*d);
+//     // TRACE("nla_test", tout << "done\n";);
+//     // test_cn_on_expr(a*b*d + a*b*c + c*b*d);
 }
 
 } // end of namespace nla

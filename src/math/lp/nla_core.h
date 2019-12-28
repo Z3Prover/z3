@@ -399,7 +399,7 @@ public:
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix_of_m_rows(std::ostream & out) const;
     void set_active_vars_weights(nex_creator&);
-    var_weight get_var_weight(lpvar) const;
+    unsigned get_var_weight(lpvar) const;
     void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
     void check_pdd_eq(const dd::grobner::equation*);
     void create_vars_used_in_mrows();
