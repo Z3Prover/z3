@@ -35,18 +35,6 @@ struct occ {
     }
 };
 
-enum var_weight {
-    FIXED = 0,
-    QUOTED_FIXED =  1,
-    BOUNDED    =    2,
-    QUOTED_BOUNDED = 3,
-    NOT_FREE      =  4,
-    QUOTED_NOT_FREE = 5,
-    FREE          =   6,
-    QUOTED_FREE    = 7,
-    MAX_DEFAULT_WEIGHT = 7
-};
-
 
 // the purpose of this class is to create nex objects, keep them,
 // sort them, and delete them
