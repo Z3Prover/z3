@@ -188,9 +188,6 @@ struct expr2polynomial::imp {
                     store_var_poly(t);
                 return true;
             }
-            if (k.is_zero()) {
-                throw_not_polynomial();
-            }
             push_frame(t);
             return false;
         }
