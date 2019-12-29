@@ -367,7 +367,6 @@ void lar_solver::pop(unsigned k) {
               (!use_tableau()) || m_mpq_lar_core_solver.m_r_solver.reduced_costs_are_correct_tableau());
         
         
-    lp_assert(ax_is_correct());
     m_constraint_count.pop(k);
     for (unsigned i = m_constraint_count; i < m_constraints.size(); i++)
         delete m_constraints[i];
