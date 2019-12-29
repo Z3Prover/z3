@@ -1576,8 +1576,8 @@ void core::display_matrix_of_m_rows(std::ostream & out) const {
     }
 }
 
-void core::init_nex_grobner(nex_creator & nc) {   
-    TRACE("grobner", tout << "m_rows.size() = " << m_rows.size() << "\n";);
+void core::init_nex_grobner(nex_creator & nc) {
+    m_nex_grobner.init();
     set_active_vars_weights(nc);
     for (unsigned i : m_rows) {
         m_nex_grobner.add_row(m_lar_solver.A_r().m_rows[i]);
