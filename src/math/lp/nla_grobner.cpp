@@ -54,7 +54,7 @@ void grobner::check_eq(grobner_core::equation* target) {
                   c().print_var(j, tout);
               }
               tout << "\ntarget->expr() val = " << get_nex_val(target->expr(), [this](unsigned j) { return c().val(j); }) << "\n";);
-        m_reported++;       
+        c().lp_settings().stats().m_grobner_conflicts++;
     }
 }
 

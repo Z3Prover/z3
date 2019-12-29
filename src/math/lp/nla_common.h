@@ -116,7 +116,7 @@ struct common {
         typedef lp::constraint_index value;
     };
         
-    nex* nexvar(const rational& coeff, lpvar j, nex_creator&);
+    nex* nexvar(const rational& coeff, lpvar j, nex_creator&, u_dependency*&, u_dependency_manager*);
     template <typename T>
     u_dependency* create_sum_from_row(const T&, nex_creator&, nex_creator::sum_factory&, u_dependency_manager*);
     template <typename T>

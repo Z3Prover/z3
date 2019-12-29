@@ -123,8 +123,19 @@ unsigned common::random() {
 }
 
 // creates a nex expression for the coeff and var, 
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
+                     u_dependency*& dep,
+                     u_dependency_manager* dep_manager) {
     SASSERT(!coeff.is_zero());
+    unsigned lc, uc;
+    if (c().var_is_fixed(j)) {
+        if (dep_manager) {
+            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+            dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
+            dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
+        }
+        return cn.mk_scalar(c().m_lar_solver.column_lower_bound(j).x);
+    }
     if (!c().is_monic_var(j)) {
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
@@ -133,9 +144,18 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     nex_creator::mul_factory mf(cn);
     mf *= coeff;
     for (lpvar k : m.vars()) {
-        c().insert_to_active_var_set(k);
-        mf *= cn.mk_var(k);
-        CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
+        if (c().var_is_fixed(j)) {
+            if (dep_manager) {
+                c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
+                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
+            }
+            mf *= c().m_lar_solver.column_lower_bound(j).x;
+        } else {
+            c().insert_to_active_var_set(k);
+            mf *= cn.mk_var(k);
+            CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
+        }
     }
     nex* e = mf.mk();
     TRACE("nla_grobner", tout << *e;);
@@ -154,7 +174,7 @@ template <typename T> u_dependency* common::create_sum_from_row(const T& row,
     SASSERT(row.size() > 1);
     sum.reset();
     for (const auto &p : row) {
-        nex* e = nexvar(p.coeff(), p.var(), cn);
+        nex* e = nexvar(p.coeff(), p.var(), cn, dep, dep_manager);
         if (!e)
             continue;
         unsigned lc, uc;
