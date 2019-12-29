@@ -1413,7 +1413,7 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 
 
 void core::run_pdd_grobner() {
-    //    m_pdd_manager.resize(m_lar_solver.number_of_vars());
+    lp_settings().stats().m_grobner_calls++;
     m_pdd_grobner.reset();
     set_level2var_for_pdd_grobner();
     for (unsigned i : m_rows) {
@@ -1444,7 +1444,7 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
                                                          current_expl().add(e);
                                                      };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
-        m_pdd_grobner.get_stats().m_conflicts++;
+        lp_settings().stats().m_grobner_conflicts++;
         IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
     }
     else {
