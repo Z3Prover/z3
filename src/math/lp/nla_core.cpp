@@ -1411,15 +1411,9 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
         out);
 }
 
-void core::create_vars_used_in_mrows() {
-    for (unsigned i : m_rows) {
-        add_row_vars_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
-    }
-}
 
 void core::run_pdd_grobner() {
     //    m_pdd_manager.resize(m_lar_solver.number_of_vars());
-    create_vars_used_in_mrows();
     m_pdd_grobner.reset();
     set_level2var_for_pdd_grobner();
     for (unsigned i : m_rows) {
@@ -1449,8 +1443,9 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
                                                          add_empty_lemma();
                                                          current_expl().add(e);
                                                      };
-    di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f);
-    m_pdd_grobner.get_stats().m_conflicts++;
+    if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
+        m_pdd_grobner.get_stats().m_conflicts++;
+    }
 }
 
 void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {
@@ -1482,19 +1477,6 @@ void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lp
     }            
 }
 
-void core::add_row_vars_to_pdd_grobner(const vector<lp::row_cell<rational>> & row) {
-   for (const auto &p : row) {
-       lpvar j = p.var();
-       if (!is_monic_var(j)) {
-           m_pdd_manager.mk_var(j);
-       } else {
-           const monic& m = emons()[j];
-           for (lpvar k : m.vars()) {
-               m_pdd_manager.mk_var(k);
-           }
-       }
-    }
-}
 
 dd::pdd core::pdd_expr(const rational& c, lpvar j) {
     if (!is_monic_var(j))
@@ -1596,7 +1578,7 @@ void core::set_active_vars_weights(nex_creator& nc) {
 }
 
 void core::set_level2var_for_pdd_grobner() {
-    unsigned n = m_pdd_manager.get_level2var().size();
+    unsigned n = m_lar_solver.column_count();
     unsigned_vector sorted_vars(n);
     for (unsigned j = 0; j < n; j++)
         sorted_vars[j] = j;
