@@ -799,7 +799,6 @@ namespace dd {
         st.update("superposed", m_stats.m_superposed);
         st.update("degree", m_stats.m_max_expr_degree);
         st.update("size", m_stats.m_max_expr_size);
-        st.update("conflicts", m_stats.m_conflicts);
     }
             
     std::ostream& grobner::display(std::ostream & out, const equation & eq) const {
