@@ -1450,6 +1450,7 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
                                                          current_expl().add(e);
                                                      };
     di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f);
+    m_pdd_grobner.get_stats().m_conflicts++;
 }
 
 void core::add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j, svector<lpvar> & q) {

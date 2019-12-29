@@ -37,6 +37,7 @@ public:
         unsigned m_max_expr_degree;
         unsigned m_superposed;
         unsigned m_compute_steps;
+        unsigned m_conflicts;
         void reset() { memset(this, 0, sizeof(*this)); }
         stats() { reset(); }
     };
