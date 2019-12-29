@@ -402,7 +402,7 @@ public:
     unsigned get_var_weight(lpvar) const;
     void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
     void check_pdd_eq(const dd::grobner::equation*);
-    dd::pdd pdd_expr(const rational& c, lpvar j);
+    dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*&);
     void set_level2var_for_pdd_grobner();
 };  // end of core
 
