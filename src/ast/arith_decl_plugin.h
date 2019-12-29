@@ -369,6 +369,8 @@ public:
 
     func_decl* mk_div0();
     func_decl* mk_idiv0();
+    func_decl* mk_ipower0();
+    func_decl* mk_rpower0();
 
 
     app * mk_numeral(rational const & val, bool is_int) const {

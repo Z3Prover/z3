@@ -194,6 +194,7 @@ struct purify_arith_proc {
         expr_ref_vector      m_new_cnstrs;
         proof_ref_vector     m_new_cnstr_prs;
         svector<div_def>     m_divs, m_idivs;
+        expr_ref             m_ipower0, m_rpower0;
         expr_ref             m_subst;
         proof_ref            m_subst_pr;
         expr_ref_vector      m_new_vars;
@@ -203,7 +204,9 @@ struct purify_arith_proc {
             m_pinned(o.m()),
             m_new_cnstrs(o.m()),
             m_new_cnstr_prs(o.m()),
-            m_subst(o.m()),
+            m_ipower0(o.m()),
+            m_rpower0(o.m()),
+            m_subst(o.m()),           
             m_subst_pr(o.m()),
             m_new_vars(o.m()) {
         }
@@ -407,11 +410,8 @@ struct purify_arith_proc {
             if (already_processed(t, result, result_pr))
                 return BR_DONE;
 
-            bool is_int = u().is_int(args[0]);
             expr * x = args[0];
-            rational xr;
-            if (u().is_numeral(x, xr) && xr.is_zero())
-                return BR_FAILED;
+            bool is_int = u().is_int(x);
 
             expr * k = mk_fresh_var(is_int);
             result = k;
@@ -421,10 +421,20 @@ struct purify_arith_proc {
             expr_ref zero(u().mk_numeral(rational(0), is_int), m());
             expr_ref one(u().mk_numeral(rational(1), is_int), m());
             if (y.is_zero()) {
+                expr* p0;
+                if (is_int) {
+                    if (!m_ipower0) m_ipower0 = mk_fresh_var(true);
+                    p0 = m_ipower0;
+                }
+                else {
+                    if (!m_rpower0) m_rpower0 = mk_fresh_var(false);
+                    p0 = m_rpower0;
+                }
+
                 // (^ x 0) --> k  |  x != 0 implies k = 1,   x = 0 implies k = 0^0 
                 push_cnstr(OR(EQ(x, zero), EQ(k, one)));
                 push_cnstr_pr(result_pr);
-                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, u().mk_power(zero, zero))));
+                push_cnstr(OR(NOT(EQ(x, zero)), EQ(k, p0)));
                 push_cnstr_pr(result_pr);
             }
             else if (!is_int) {
@@ -823,6 +833,12 @@ struct purify_arith_proc {
                     body = m().mk_ite(m().mk_and(m().mk_eq(v0, p.x), m().mk_eq(v1, p.y)), p.d, body);
                 }
                 fmc->add(u().mk_idiv0(), body);
+            }
+            if (r.cfg().m_ipower0) {
+                fmc->add(u().mk_ipower0(), r.cfg().m_ipower0);
+            }
+            if (r.cfg().m_rpower0) {
+                fmc->add(u().mk_rpower0(), r.cfg().m_rpower0);
             }
         }
         if (produce_models && !m_sin_cos.empty()) {

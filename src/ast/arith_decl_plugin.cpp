@@ -811,11 +811,22 @@ bool arith_util::is_considered_uninterpreted(func_decl* f, unsigned n, expr* con
         return true;
     }
     if (is_decl_of(f, m_afid, OP_POWER) && is_numeral(args[1], r) && r.is_zero() && is_numeral(args[0], r) && r.is_zero()) {
-        sort* rs[2] = { mk_real(), mk_real() };
-        f_out = m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, mk_real());
+        f_out = is_int(args[0]) ? mk_ipower0() : mk_rpower0();
         return true;
     }
     return plugin().is_considered_uninterpreted(f);
+}
+
+func_decl* arith_util::mk_ipower0() {
+    sort* s = mk_int();
+    sort* rs[2] = { s, s };
+    return m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, s);
+}
+
+func_decl* arith_util::mk_rpower0() {
+    sort* s = mk_real();
+    sort* rs[2] = { s, s };
+    return m_manager.mk_func_decl(m_afid, OP_POWER0, 0, nullptr, 2, rs, s);
 }
 
 func_decl* arith_util::mk_div0() {
