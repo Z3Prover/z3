@@ -47,6 +47,9 @@ namespace dd {
         reset_op_cache();
         m_node_table.reset();
         m_nodes.reset();
+        m_free_nodes.reset();
+        m_pdd_stack.reset();
+        m_mpq_table.reset();        
         init_nodes(level2var);
     }
 
