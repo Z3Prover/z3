@@ -212,13 +212,13 @@ public:
 private:
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
-    void init();
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix(std::ostream & out) const;
     std::ostream& display(std::ostream& out) const { return m_gc.display(out); }
 public:
     void add_row(const vector<lp::row_cell<rational>> & row);
     void check_eq(grobner_core::equation*);
+    void init();
     nex_creator& get_nex_creator() { return m_nex_creator; }
 }; // end of grobner
 }

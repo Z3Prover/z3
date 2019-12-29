@@ -36,7 +36,6 @@ grobner::grobner(core *c, intervals *s)
 
 void grobner::grobner_lemmas() {
     c().lp_settings().stats().m_grobner_calls++;
-    m_gc.reset();
     m_reported = 0;
     TRACE("grobner", tout << "before:\n"; display(tout););
     m_gc.compute_basis_loop();
@@ -86,6 +85,10 @@ Each step proceeds as follows:
     - add a to S
     - simplify A using a
 */
+
+void grobner::init() {
+    m_gc.reset();
+}
 
 bool grobner_core::compute_basis_loop() {
     while (!done()) {
