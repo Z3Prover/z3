@@ -1445,6 +1445,10 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
                                                      };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
         m_pdd_grobner.get_stats().m_conflicts++;
+        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
+    }
+    else {
+        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
     }
 }
 
