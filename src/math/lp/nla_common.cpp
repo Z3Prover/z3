@@ -134,7 +134,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
             dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
             dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
         }
-        return cn.mk_scalar(c().m_lar_solver.column_lower_bound(j).x);
+        return cn.mk_scalar(coeff * c().m_lar_solver.column_lower_bound(j).x);
     }
     if (!c().is_monic_var(j)) {
         c().insert_to_active_var_set(j);
@@ -144,13 +144,13 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
     nex_creator::mul_factory mf(cn);
     mf *= coeff;
     for (lpvar k : m.vars()) {
-        if (c().var_is_fixed(j)) {
+        if (c().var_is_fixed(k)) {
             if (dep_manager) {
-                c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
+                c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
             }
-            mf *= c().m_lar_solver.column_lower_bound(j).x;
+            mf *= c().m_lar_solver.column_lower_bound(k).x;
         } else {
             c().insert_to_active_var_set(k);
             mf *= cn.mk_var(k);
@@ -184,8 +184,8 @@ template <typename T> u_dependency* common::create_sum_from_row(const T& row,
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
             if (uc + 1) 
                 dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));                    
-            sum += e;
         }
+        sum += e;
     }
     return dep;
 }
