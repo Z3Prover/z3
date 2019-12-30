@@ -50,6 +50,7 @@ namespace dd {
         m_free_nodes.reset();
         m_pdd_stack.reset();
         m_mpq_table.reset();        
+        m_values.reset();
         init_nodes(level2var);
     }
 
