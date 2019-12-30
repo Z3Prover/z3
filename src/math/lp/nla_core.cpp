@@ -1419,13 +1419,40 @@ void core::run_pdd_grobner() {
     for (unsigned i : m_rows) {
         add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
     }
+
+   
+    // configure grobner
+    // TBD: move this code somewhere self-contained, and tune it.
+    double tree_size = 100;
+    for (auto* e : m_pdd_grobner.equations()) {
+        tree_size = std::max(tree_size, e->poly().tree_size());
+    }
+    tree_size *= 10;
+    struct dd::grobner::config cfg;
+    cfg.m_expr_size_limit = (unsigned)tree_size;
+    cfg.m_eqs_threshold = m_pdd_grobner.equations().size()*5;
+    cfg.m_max_steps = m_pdd_grobner.equations().size();
+    m_pdd_grobner = cfg;
+
+    m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
+
     m_pdd_grobner.saturate();
+    bool conflict = false;
     for (auto eq : m_pdd_grobner.equations()) {
-        check_pdd_eq(eq);
+        if (check_pdd_eq(eq)) {
+            conflict = true;
+            break;
+        }
+    }
+    if (conflict) {
+        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
+    }
+    else {
+        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
     }
 }
 
-void core::check_pdd_eq(const dd::grobner::equation* e) {
+bool core::check_pdd_eq(const dd::grobner::equation* e) {
     dd::pdd_interval eval(m_pdd_manager, m_reslim);
     eval.var2interval() =
         [this](lpvar j, bool deps) {
@@ -1437,7 +1464,7 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
     auto i = eval.get_interval<dd::w_dep::without_deps>(e->poly());    
     dep_intervals di(m_reslim);
     if (!di.separated_from_zero(i))
-        return;
+        return false;
     auto i_wd = eval.get_interval<dd::w_dep::with_deps>(e->poly());  
     std::function<void (const lp::explanation&)> f = [this](const lp::explanation& e) {
                                                          add_empty_lemma();
@@ -1445,10 +1472,10 @@ void core::check_pdd_eq(const dd::grobner::equation* e) {
                                                      };
     if (di.check_interval_for_conflict_on_zero(i_wd, e->dep(), f)) {
         lp_settings().stats().m_grobner_conflicts++;
-        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
+        return true;
     }
     else {
-        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
+        return false;
     }
 }
 

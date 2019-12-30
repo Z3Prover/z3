@@ -133,10 +133,12 @@ namespace dd {
             while (!done() && step()) {
                 TRACE("grobner", display(tout););
                 DEBUG_CODE(invariant(););
+                IF_VERBOSE(3, display_statistics(verbose_stream()));
             }
             DEBUG_CODE(invariant(););
         }
         catch (pdd_manager::mem_out) {
+            IF_VERBOSE(1, verbose_stream() << "mem-out\n");
             // don't reduce further
         }
     }
@@ -752,6 +754,7 @@ namespace dd {
         return 
             m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || 
             canceled() || 
+            m_stats.m_compute_steps > m_config.m_max_steps ||
             m_conflict != nullptr;
     }
 
@@ -794,11 +797,14 @@ namespace dd {
     }
     
     void grobner::collect_statistics(statistics& st) const {
-        st.update("steps", m_stats.m_compute_steps);
-        st.update("simplified", m_stats.m_simplified);
-        st.update("superposed", m_stats.m_superposed);
-        st.update("degree", m_stats.m_max_expr_degree);
-        st.update("size", m_stats.m_max_expr_size);
+        st.update("dd.solver.steps", m_stats.m_compute_steps);
+        st.update("dd.solver.simplified", m_stats.m_simplified);
+        st.update("dd.solver.superposed", m_stats.m_superposed);
+        st.update("dd.solver.processed", m_processed.size());
+        st.update("dd.solver.solved", m_solved.size());
+        st.update("dd.solver.to_simplify", m_to_simplify.size());
+        st.update("dd.solver.degree", m_stats.m_max_expr_degree);
+        st.update("dd.solver.size", m_stats.m_max_expr_size);
     }
             
     std::ostream& grobner::display(std::ostream & out, const equation & eq) const {
@@ -811,6 +817,10 @@ namespace dd {
         out << "solved\n"; for (auto e : m_solved) display(out, *e);
         out << "processed\n"; for (auto e : m_processed) display(out, *e);
         out << "to_simplify\n"; for (auto e : m_to_simplify) display(out, *e);
+        return display_statistics(out);
+    }
+
+    std::ostream& grobner::display_statistics(std::ostream& out) const {
         statistics st;
         collect_statistics(st);
         st.display(out);
