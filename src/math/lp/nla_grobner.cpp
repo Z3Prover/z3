@@ -726,6 +726,10 @@ std::ostream& grobner_core::display_dependency(std::ostream& out, u_dependency* 
 
 #ifdef Z3DEBUG
 bool grobner_core::test_find_b(const nex* ab, const nex_mul* b) {
+    if (ab->is_var()) {
+        return b->size() == 0 || (b->get_degree() == 1 && b->get_child_exp(0)->to_var().var() ==
+                                  ab->to_var().var());
+    }
     nex_mul& ab_clone = m_nex_creator.clone(ab)->to_mul();
     nex_mul * a= divide_ignore_coeffs_perform(&ab_clone, *b);
     ab_clone.m_coeff = rational(1);
