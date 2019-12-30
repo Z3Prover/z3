@@ -194,8 +194,8 @@ namespace dd {
                    (simplify_linear_step(true) || 
                     simplify_elim_pure_step() ||
                     simplify_cc_step() || 
-                    simplify_linear_step(false) || 
                     simplify_leaf_step() ||
+                    simplify_linear_step(false) || 
                     /*simplify_elim_dual_step() ||*/
                     false)) {
                 DEBUG_CODE(invariant(););
@@ -334,7 +334,6 @@ namespace dd {
     bool grobner::simplify_leaf_step() {
         TRACE("grobner", tout << "leaf\n";);
         use_list_t use_list = get_use_list();
-        bool reduced = false;
         equation_vector leaves;
         for (unsigned i = 0; i < m_to_simplify.size(); ++i) {
             equation* e = m_to_simplify[i];
@@ -366,10 +365,9 @@ namespace dd {
                     pop_equation(e2);
                     push_equation(to_simplify, e2);
                 }
-                reduced = true;
             }
         }
-        return reduced;
+        return false;
     }
 
     /**
