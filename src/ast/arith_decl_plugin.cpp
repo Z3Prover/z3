@@ -838,3 +838,13 @@ func_decl* arith_util::mk_idiv0() {
     sort* rs[2] = { mk_int(), mk_int() };
     return m_manager.mk_func_decl(m_afid, OP_IDIV0, 0, nullptr, 2, rs, mk_int());
 }
+
+func_decl* arith_util::mk_rem0() {
+    sort* rs[2] = { mk_int(), mk_int() };
+    return m_manager.mk_func_decl(m_afid, OP_REM0, 0, nullptr, 2, rs, mk_int());
+}
+
+func_decl* arith_util::mk_mod0() {
+    sort* rs[2] = { mk_int(), mk_int() };
+    return m_manager.mk_func_decl(m_afid, OP_MOD0, 0, nullptr, 2, rs, mk_int());
+}

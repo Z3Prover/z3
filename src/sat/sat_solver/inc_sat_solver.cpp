@@ -556,8 +556,8 @@ public:
                      mk_card2bv_tactic(m, m_params),                  // updates model converter
                      using_params(mk_simplify_tactic(m), simp2_p),
                      mk_max_bv_sharing_tactic(m),
-                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()),   // updates model converter
-                     using_params(mk_simplify_tactic(m), simp2_p));
+                     mk_bit_blaster_tactic(m, m_bb_rewriter.get()) 
+                     );
         while (m_bb_rewriter->get_num_scopes() < m_num_scopes) {
             m_bb_rewriter->push();
         }

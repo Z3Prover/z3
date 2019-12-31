@@ -367,8 +367,10 @@ public:
     sort * mk_int() { return m_manager.mk_sort(m_afid, INT_SORT); }
     sort * mk_real() { return m_manager.mk_sort(m_afid, REAL_SORT); }
 
+    func_decl* mk_rem0();
     func_decl* mk_div0();
     func_decl* mk_idiv0();
+    func_decl* mk_mod0();
     func_decl* mk_ipower0();
     func_decl* mk_rpower0();
 
