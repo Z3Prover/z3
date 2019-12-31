@@ -29,6 +29,8 @@ class lar_term {
 public:
     lar_term() {}
     void add_monomial(const mpq& c, unsigned j) {
+        if (c.is_zero())
+            return;
         auto *e = m_coeffs.find_core(j);        
         if (e == nullptr) {
             m_coeffs.insert(j, c);
