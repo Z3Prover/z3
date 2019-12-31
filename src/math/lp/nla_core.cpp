@@ -34,7 +34,6 @@ core::core(lp::lar_solver& s, reslimit & lim) :
     m_monotone(this),
     m_intervals(this, lim),
     m_horner(this, &m_intervals),
-    m_nex_grobner(this, &m_intervals),
     m_pdd_manager(s.number_of_vars()),
     m_pdd_grobner(lim, m_pdd_manager),
     m_emons(m_evars),
@@ -1623,14 +1622,6 @@ void core::display_matrix_of_m_rows(std::ostream & out) const {
     out << "the matrix\n";          
     for (const auto & r : matrix.m_rows) {
         print_row(r, out) << std::endl;
-    }
-}
-
-void core::init_nex_grobner(nex_creator & nc) {
-    m_nex_grobner.init();
-    set_active_vars_weights(nc);
-    for (unsigned i : m_rows) {
-        m_nex_grobner.add_row(m_lar_solver.A_r().m_rows[i]);
     }
 }
 
