@@ -1288,25 +1288,9 @@ lbool core::inner_check(bool constraint_derived) {
         if (need_to_call_algebraic_methods())
             if (!m_horner.horner_lemmas()) {
                 clear_and_resize_active_var_set();
-                find_nl_cluster();
-                switch(m_nla_settings.run_grobner()) {                    
-                case nla_settings::NEX_AND_BDD_GROBNER:
-                    init_nex_grobner(m_nex_grobner.get_nex_creator());
-                    m_nex_grobner.grobner_lemmas();
+                if (m_nla_settings.run_grobner()) {
+                    find_nl_cluster();
                     run_pdd_grobner();
-                    break;
-                case nla_settings::NEX_GROBNER:
-                    init_nex_grobner(m_nex_grobner.get_nex_creator());
-                    m_nex_grobner.grobner_lemmas();
-                    break;
-                case nla_settings::PDD_GROBNER:
-                    run_pdd_grobner();
-                    break;
-                case nla_settings::NO_GROBNER:
-                    break;
-                default:
-                    UNREACHABLE();
-                    break;
                 }
             }
         if (done()) {
