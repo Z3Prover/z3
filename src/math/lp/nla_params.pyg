@@ -6,7 +6,7 @@ def_module_params('nla',
                    ('horner', BOOL, True, 'run horner\'s heuristic'),
                    ('horner_frequency', UINT, 4, 'horner\'s call frequency'),
                    ('horner_row_length_limit', UINT, 10, 'row is disregarded by the heuristic if its length is longer than the value'),
-                   ('grobner', UINT, 1, '1 - grobner nex, 2 - grobner pdd, 3 - both, 0 - none'),
+                   ('grobner', BOOL, True, 'run grobner\'s basis heuristic'),
                    ('grobner_frequency', UINT, 5, 'grobner\'s call frequency'),
                    ('grobner_eqs_threshold', UINT, 512, 'grobner\'s maximum number of equalities')
                           ))           

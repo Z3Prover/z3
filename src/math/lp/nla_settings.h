@@ -21,10 +21,6 @@ Revision History:
 #pragma once
 namespace nla {
 class nla_settings {
-public:
-    enum run_grobner_enum {
-                           NO_GROBNER, NEX_GROBNER, PDD_GROBNER, NEX_AND_BDD_GROBNER };
-private:
     bool     m_run_order;
     bool     m_run_tangents;
     bool     m_run_horner;
@@ -32,7 +28,7 @@ private:
     unsigned m_horner_frequency;
     unsigned m_horner_row_length_limit;
     // grobner fields
-    run_grobner_enum  m_run_grobner;
+    bool m_run_grobner;
     unsigned m_grobner_frequency;
     unsigned m_grobner_eqs_threshold;
     unsigned m_grobner_row_length_limit;
@@ -44,7 +40,7 @@ public:
                      m_run_horner(true),
                      m_horner_frequency(4),
                      m_horner_row_length_limit(10),
-                     m_run_grobner(NEX_GROBNER),
+                     m_run_grobner(true),
                      m_grobner_frequency(5),
                      m_grobner_eqs_threshold(512),
                      m_grobner_row_length_limit(10),
@@ -68,8 +64,8 @@ public:
     unsigned horner_row_length_limit() const { return m_horner_row_length_limit; }
     unsigned& horner_row_length_limit() { return m_horner_row_length_limit; }    
 
-    run_grobner_enum run_grobner() const { return m_run_grobner; }
-    run_grobner_enum& run_grobner() { return m_run_grobner; }    
+    bool run_grobner() const { return m_run_grobner; }
+    bool& run_grobner() { return m_run_grobner; }    
 
     unsigned grobner_row_length_limit() const { return m_grobner_row_length_limit; }
     unsigned grobner_expr_size_limit() const { return m_grobner_expr_size_limit; }
