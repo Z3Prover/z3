@@ -36,7 +36,6 @@ Revision History:
 
 #define ENABLE_TERNARY true
 
-
 namespace sat {
 
 
@@ -622,6 +621,7 @@ namespace sat {
     }
 
     void solver::defrag_clauses() {
+        m_defrag_threshold = 2;
         if (memory_pressure()) return;
         pop(scope_lvl());
         IF_VERBOSE(2, verbose_stream() << "(sat-defrag)\n");

@@ -21,12 +21,12 @@ Notes:
 #include "tactic/core/propagate_values_tactic.h"
 #include "tactic/core/solve_eqs_tactic.h"
 #include "tactic/core/elim_uncnstr_tactic.h"
-#include "smt/tactic/smt_tactic.h"
 #include "tactic/bv/bit_blaster_tactic.h"
 #include "tactic/bv/bv1_blaster_tactic.h"
 #include "tactic/bv/max_bv_sharing_tactic.h"
 #include "tactic/bv/bv_size_reduction_tactic.h"
 #include "tactic/aig/aig_tactic.h"
+#include "smt/tactic/smt_tactic.h"
 #include "sat/tactic/sat_tactic.h"
 #include "sat/sat_solver/inc_sat_solver.h"
 #include "ackermannization/ackermannize_bv_tactic.h"
@@ -60,6 +60,7 @@ static tactic * mk_qfbv_preamble(ast_manager& m, params_ref const& p) {
             mk_elim_uncnstr_tactic(m),
             if_no_proofs(if_no_unsat_cores(mk_bv_size_reduction_tactic(m))),
             using_params(mk_simplify_tactic(m), simp2_p),
+
             //
             // Z3 can solve a couple of extra benchmarks by using hoist_mul
             // but the timeout in SMT-COMP is too small.
