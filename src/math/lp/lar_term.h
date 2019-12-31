@@ -19,7 +19,7 @@
   --*/
 #pragma once
 #include "math/lp/indexed_vector.h"
-#include <map>
+#include "util/map.h"
 
 namespace lp {
 class lar_term {
@@ -70,7 +70,7 @@ public:
     vector<std::pair<mpq, lpvar>> coeffs_as_vector() const {
         vector<std::pair<mpq, lpvar>> ret;
         for (const auto & p :  m_coeffs) {
-            ret.push_back(std::make_pair(p.second, p.first));
+            ret.push_back(std::make_pair(p.m_value, p.m_key));
         }
         return ret;
     }
@@ -95,34 +95,34 @@ public:
         m_coeffs.insert(k, b);
     }
     
-    bool contains(lpvar j) const {
-        return m_coeffs.find(j) != m_coeffs.end();
+    bool contains(unsigned j) const {
+        return m_coeffs.contains(j);
     }
 
     void negate() {
         for (auto & t : m_coeffs)
-            t.second.neg();
+            t.m_value.neg();
     }
 
     template <typename T>
     T apply(const vector<T>& x) const {
         T ret(0);
         for (const auto & t : m_coeffs) {
-            ret += t.second * x[t.first];
+            ret += t.m_value * x[t.m_key];
         }
         return ret;
     }
    
     void clear() {
-        m_coeffs.clear();
+        m_coeffs.reset();
     }
 
     struct ival {
-        lpvar m_var;
+        unsigned m_var;
         const mpq & m_coeff;
-        ival(lpvar var, const mpq & val) : m_var(var), m_coeff(val) {
+        ival(unsigned var, const mpq & val) : m_var(var), m_coeff(val) {
         }
-        lpvar var() const { return m_var;}
+        unsigned var() const { return m_var;}
         const mpq & coeff() const { return m_coeff; }
     };
     
@@ -138,19 +138,20 @@ public:
         typedef std::forward_iterator_tag iterator_category;
 
         reference operator*() const {
-            return ival(m_it->first, m_it->second);
+            return ival(m_it->m_key, m_it->m_value);
         }
         
         self_type operator++() {  self_type i = *this; m_it++; return i;  }
         self_type operator++(int) { m_it++; return *this; }
 
-        const_iterator(std::map<lpvar, mpq>::const_iterator it) : m_it(it) {}
+        const_iterator(u_map<mpq>::iterator it) : m_it(it) {}
         bool operator==(const self_type &other) const {
             return m_it == other.m_it;
         }
         bool operator!=(const self_type &other) const { return !(*this == other); }
     };
 
+    
     bool is_normalized() const {
         lpvar min_var = -1;
         mpq c;
@@ -169,23 +170,22 @@ public:
         return false;        
     }
 
-    // a is the coefficient by which we diveded the term to normalize it
+    // a is the coefficient by which we divided the term to normalize it
     lar_term get_normalized_by_min_var(mpq& a) const {
-        a = m_coeffs.begin()->second;
+        a = m_coeffs.begin()->m_value;
         if (a.is_one()) {
             return *this;
         }
         lar_term r;
         auto it = m_coeffs.begin();
-        r.add_var(it->first);
+        r.add_var(it->m_key);
         it++;
         for(;it != m_coeffs.end(); it++) {
-            r.add_coeff_var(it->second / a, it->first);
+            r.add_monomial(it->m_value / a, it->m_key);
         }
         return r;        
     }
-    const_iterator begin() const { return const_iterator(m_coeffs.begin());}
-    const_iterator end() const { return const_iterator(m_coeffs.end()); }
-
+    const_iterator begin() const { return m_coeffs.begin();}
+    const_iterator end() const { return m_coeffs.end(); }
 };
 }

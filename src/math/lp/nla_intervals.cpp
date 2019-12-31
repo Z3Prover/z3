@@ -138,13 +138,13 @@ lp::lar_term intervals::expression_to_normalized_term(const nex_sum* e, rational
 
     if (a.is_one()) {
         for (auto& p : v) {
-            t.add_coeff_var(p.first, p.second);
+            t.add_monomial(p.first, p.second);
         }
     } else {
         for (unsigned k = 0; k < v.size(); k++) {
             auto& p = v[k];
             if (k != a_index) 
-                t.add_coeff_var(p.first/a, p.second);
+                t.add_monomial(p.first/a, p.second);
             else
                 t.add_var(p.second);
         }

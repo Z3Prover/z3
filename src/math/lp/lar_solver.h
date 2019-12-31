@@ -56,9 +56,9 @@ class lar_solver : public column_namer {
             using std::string;
             size_t seed = 0;
             int i = 0;
-            for (const auto& p : t.coeffs()) {
-                hash_combine(seed, p.first);
-                hash_combine(seed, p.second);
+            for (const auto p : t) {
+                hash_combine(seed, p.var());
+                hash_combine(seed, p.coeff());
                 if (i++ > 10)
                     break;
             }
@@ -69,7 +69,7 @@ class lar_solver : public column_namer {
     struct term_comparer {
         bool operator()(const lar_term &a, const lar_term& b) const
         {
-            return a.coeffs() == b.coeffs();            
+            return a == b;            
         }
     };
 
