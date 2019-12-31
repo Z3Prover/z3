@@ -29,7 +29,6 @@
 #include "math/lp/nla_settings.h"
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
-#include "math/lp/nla_grobner.h"
 #include "math/lp/nla_intervals.h"
 #include "math/grobner/pdd_grobner.h"
 
@@ -95,7 +94,6 @@ public:
     intervals                m_intervals;                
     horner                   m_horner;
     nla_settings             m_nla_settings;    
-    grobner                  m_nex_grobner;
     dd::pdd_manager          m_pdd_manager;
     dd::grobner              m_pdd_grobner;
    
@@ -405,7 +403,6 @@ public:
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
-    void init_nex_grobner(nex_creator&);
     std::unordered_set<lpvar> get_vars_of_expr_with_opening_terms(const nex* e);
     void display_matrix_of_m_rows(std::ostream & out) const;
     void set_active_vars_weights(nex_creator&);

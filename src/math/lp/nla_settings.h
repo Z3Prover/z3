@@ -29,10 +29,7 @@ class nla_settings {
     unsigned m_horner_row_length_limit;
     // grobner fields
     bool m_run_grobner;
-    unsigned m_grobner_frequency;
-    unsigned m_grobner_eqs_threshold;
     unsigned m_grobner_row_length_limit;
-    unsigned m_grobner_expr_size_limit;
 
 public:
     nla_settings() : m_run_order(true),
@@ -41,15 +38,9 @@ public:
                      m_horner_frequency(4),
                      m_horner_row_length_limit(10),
                      m_run_grobner(true),
-                     m_grobner_frequency(5),
-                     m_grobner_eqs_threshold(512),
-                     m_grobner_row_length_limit(10),
-                     m_grobner_expr_size_limit(50)
+                     m_grobner_row_length_limit(50)
     {}
     
-    unsigned grobner_eqs_threshold() const { return m_grobner_eqs_threshold; }
-    unsigned& grobner_eqs_threshold() { return m_grobner_eqs_threshold; }
-
     bool run_order() const { return m_run_order; }
     bool& run_order() { return m_run_order; }
 
@@ -65,9 +56,9 @@ public:
     unsigned& horner_row_length_limit() { return m_horner_row_length_limit; }    
 
     bool run_grobner() const { return m_run_grobner; }
-    bool& run_grobner() { return m_run_grobner; }    
+    bool& run_grobner() { return m_run_grobner; }
 
     unsigned grobner_row_length_limit() const { return m_grobner_row_length_limit; }
-    unsigned grobner_expr_size_limit() const { return m_grobner_expr_size_limit; }
+    unsigned& grobner_row_length_limit() { return m_grobner_row_length_limit; }
 };
 }
