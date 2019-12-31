@@ -271,8 +271,8 @@ public:
                     m_int_patch_only_integer_values(true),
                     limit_on_rows_for_hnf_cutter(75),
                     limit_on_columns_for_hnf_cutter(150),
-                    m_enable_hnf(true)
-                    m_print_external_var_name(false),
+                    m_enable_hnf(true),
+                    m_print_external_var_name(false)
 #ifdef Z3DEBUG
                   , m_counter_for_debug(0)
 #endif
