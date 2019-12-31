@@ -19,7 +19,6 @@ Revision History:
 --*/
 #pragma once
 #include "util/vector.h"
-#include "math/lp/indexed_vector.h"
 #include <ostream>
 namespace lp {
 // serves at a set of non-negative integers smaller than the set size

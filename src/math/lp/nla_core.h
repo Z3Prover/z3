@@ -220,6 +220,7 @@ public:
     std::ostream& print_product_with_vars(const T& m, std::ostream& out) const;
     std::ostream& print_monic_with_vars(const monic& m, std::ostream& out) const;
     std::ostream& print_explanation(const lp::explanation& exp, std::ostream& out) const;
+    std::ostream& diagnose_pdd_miss(std::ostream& out);
     template <typename T>
     void trace_print_rms(const T& p, std::ostream& out);
     void trace_print_monic_and_factorization(const monic& rm, const factorization& f, std::ostream& out) const;
