@@ -391,7 +391,16 @@ public:
     lbool  test_check(vector<lemma>& l);
     lpvar map_to_root(lpvar) const;
     std::ostream& print_terms(std::ostream&) const;
-    std::ostream& print_term( const lp::lar_term&, std::ostream&) const;
+    std::ostream& print_term(const lp::lar_term&, std::ostream&) const;
+    template <typename T>
+    std::ostream& print_row(const T & row , std::ostream& out) const {
+        vector<std::pair<rational, lpvar>> v;
+        for (auto p : row) {
+            v.push_back(std::make_pair(p.coeff(), p.var()));
+        }
+        return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); },
+        out);        
+    }
     void run_pdd_grobner();
     void find_nl_cluster();
     void prepare_rows_and_active_vars();

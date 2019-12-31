@@ -169,7 +169,7 @@ template <typename T> u_dependency* common::create_sum_from_row(const T& row,
                                                                 u_dependency_manager* dep_manager
                                                                 ) {
 
-    TRACE("nla_horner", tout << "row="; m_core->print_term(row, tout) << "\n";);
+    TRACE("nla_horner", tout << "row="; m_core->print_row(row, tout) << "\n";);
     u_dependency * dep = nullptr;
     SASSERT(row.size() > 1);
     sum.reset();

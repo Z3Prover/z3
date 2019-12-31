@@ -68,7 +68,7 @@ class gomory::imp {
             m_k.addmul(new_a, upper_bound(j).x);
             m_ex->push_justification(column_upper_bound_constraint(j));
         }
-        m_t.add_coeff_var(new_a, j);
+        m_t.add_monomial(new_a, j);
         m_lcm_den = lcm(m_lcm_den, denominator(new_a));
         TRACE("gomory_cut_detail", tout << "new_a = " << new_a << ", k = " << m_k << ", lcm_den = " << m_lcm_den << "\n";);
     }
@@ -99,7 +99,7 @@ class gomory::imp {
             m_ex->push_justification(column_upper_bound_constraint(j));
         }
         TRACE("gomory_cut_detail_real", tout << a << "*v" << j << " k: " << m_k << "\n";);
-        m_t.add_coeff_var(new_a, j);
+        m_t.add_monomial(new_a, j);
     }
 
     lia_move report_conflict_from_gomory_cut() {
@@ -124,12 +124,12 @@ class gomory::imp {
                 if (!m_k.is_int())
                     m_k = ceil(m_k);
                 // switch size
-                m_t.add_coeff_var(- mpq(1), v);
+                m_t.add_monomial(- mpq(1), v);
                 m_k.neg();
             } else {
                 if (!m_k.is_int())
                     m_k = floor(m_k);
-                m_t.add_coeff_var(mpq(1), v);
+                m_t.add_monomial(mpq(1), v);
             }
         } else {
             m_lcm_den = lcm(m_lcm_den, denominator(m_k));
@@ -145,7 +145,7 @@ class gomory::imp {
             }
             // negate everything to return -pol <= -m_k
             for (const auto & pi: pol)
-                m_t.add_coeff_var(-pi.first, pi.second);
+                m_t.add_monomial(-pi.first, pi.second);
             m_k.neg();
         }
         TRACE("gomory_cut_detail", tout << "k = " << m_k << std::endl;);

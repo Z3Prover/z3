@@ -39,7 +39,7 @@ bool horner::row_has_monomial_to_refine(const T& row) const {
 // Returns true if the row has at least two monomials sharing a variable
 template <typename T>
 bool horner::row_is_interesting(const T& row) const {
-    TRACE("nla_solver_details", m_core->print_term(row, tout););
+    TRACE("nla_solver_details", m_core->print_row(row, tout););
     if (row.size() > m_core->m_nla_settings.horner_row_length_limit()) {
         TRACE("nla_solver_details", tout << "disregard\n";);
         return false;
