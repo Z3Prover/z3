@@ -198,6 +198,9 @@ public:
     unsigned         limit_on_rows_for_hnf_cutter;
     unsigned         limit_on_columns_for_hnf_cutter;
     bool             m_enable_hnf;
+#ifdef Z3DEBUG
+    unsigned         m_counter_for_debug;
+#endif
 
 
     unsigned hnf_cut_period() const { return m_hnf_cut_period; }
@@ -266,6 +269,10 @@ public:
                     limit_on_rows_for_hnf_cutter(75),
                     limit_on_columns_for_hnf_cutter(150),
                     m_enable_hnf(true)
+                    #ifdef Z3DEBUG
+                  , m_counter_for_debug(0)
+                    #endif
+                    
     {}
 
     void set_resource_limit(lp_resource_limit& lim) { m_resource_limit = &lim; }
