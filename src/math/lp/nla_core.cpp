@@ -69,7 +69,7 @@ lp::lar_term core::subs_terms_to_columns(const lp::lar_term& t) const {
         lpvar j = p.var();
         if (m_lar_solver.is_term(j))
             j = m_lar_solver.map_term_index_to_column_index(j);
-        r.add_coeff_var(p.coeff(), j);
+        r.add_monomial(p.coeff(), j);
     }
     return r;
 } 
@@ -453,8 +453,8 @@ void core::mk_ineq_no_expl_check(lp::lar_term& t, llc cmp, const rational& rs) {
 
 void core::mk_ineq(const rational& a, lpvar j, const rational& b, lpvar k, llc cmp, const rational& rs) {
     lp::lar_term t;
-    t.add_coeff_var(a, j);
-    t.add_coeff_var(b, k);
+    t.add_monomial(a, j);
+    t.add_monomial(b, k);
     mk_ineq(t, cmp, rs);
 }
 
@@ -484,7 +484,7 @@ void core:: mk_ineq(lpvar j, llc cmp, const rational& rs) {
 
 void core:: mk_ineq(const rational& a, lpvar j, llc cmp, const rational& rs) {
     lp::lar_term t;        
-    t.add_coeff_var(a, j);
+    t.add_monomial(a, j);
     mk_ineq(t, cmp, rs);
 }
 
@@ -1157,7 +1157,7 @@ void core::add_abs_bound(lpvar v, llc cmp) {
 void core::add_abs_bound(lpvar v, llc cmp, rational const& bound) {
     SASSERT(!val(v).is_zero());
     lp::lar_term t;  // t = abs(v)
-    t.add_coeff_var(rrat_sign(val(v)), v);
+    t.add_monomial(rrat_sign(val(v)), v);
 
     switch (cmp) {
     case llc::GT:
@@ -1638,7 +1638,7 @@ void core::display_matrix_of_m_rows(std::ostream & out) const {
     out << m_rows.size() << " rows" <<"\n";
     out << "the matrix\n";          
     for (const auto & r : matrix.m_rows) {
-        print_term(r, out) << std::endl;
+        print_row(r, out) << std::endl;
     }
 }
 

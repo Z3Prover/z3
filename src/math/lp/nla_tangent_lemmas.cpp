@@ -63,8 +63,8 @@ void tangents::generate_tang_plane(const rational & a, const rational& b, const 
 #endif
 
     lp::lar_term t;
-    t.add_coeff_var(-a, jy);
-    t.add_coeff_var(-b, jx);
+    t.add_monomial(-a, jy);
+    t.add_monomial(-b, jx);
     t.add_var(j);
     c().mk_ineq(t, below? llc::GT : llc::LT, - a*b);
 }

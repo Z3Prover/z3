@@ -118,10 +118,10 @@ void test_basic_lemma_for_mon_neutral_from_factors_to_monomial_0() {
     i0.m_term.add_var(lp_ac);
     ineq i1(llc::EQ, lp::lar_term(), rational(0));
     i1.m_term.add_var(lp_bde);
-    i1.m_term.add_coeff_var(-rational(1), lp_abcde);
+    i1.m_term.add_monomial(-rational(1), lp_abcde);
     ineq i2(llc::EQ, lp::lar_term(), rational(0));
     i2.m_term.add_var(lp_abcde);
-    i2.m_term.add_coeff_var(-rational(1), lp_bde);
+    i2.m_term.add_monomial(-rational(1), lp_bde);
     bool found0 = false;
     bool found1 = false;
     bool found2 = false;
@@ -428,7 +428,7 @@ void test_horner() {
 
     lp::lar_term t;
     t.add_var(lp_c);
-    t.add_coeff_var(rational(-1), lp_b);
+    t.add_monomial(rational(-1), lp_b);
     lpvar lp_c_min_b = s.add_term(t.coeffs_as_vector(), c_min_b);
     
     reslimit l;
@@ -573,7 +573,7 @@ void test_order_lemma_params(bool var_equiv, int sign) {
     if (var_equiv) { // make k equivalent to j
         lp::lar_term t;
         t.add_var(lp_k);
-        t.add_coeff_var(-rational(1), lp_j);
+        t.add_monomial(-rational(1), lp_j);
         lpvar kj = s.add_term(t.coeffs_as_vector(), -1);
         s.add_var_bound(kj, llc::LE, rational(0));
         s.add_var_bound(kj, llc::GE, rational(0));
@@ -630,15 +630,15 @@ void test_order_lemma_params(bool var_equiv, int sign) {
 
     SASSERT(nla.get_core()->test_check(lemma) == l_false);
     // lp::lar_term t;
-    // t.add_coeff_var(lp_bde);
-    // t.add_coeff_var(lp_acd);
+    // t.add_monomial(lp_bde);
+    // t.add_monomial(lp_acd);
     // ineq q(llc::EQ, t, rational(0));
    
     nla.get_core()->print_lemma(std::cout);
     // SASSERT(q == lemma.back());
     // ineq i0(llc::EQ, lp::lar_term(), rational(0));
-    // i0.m_term.add_coeff_var(lp_bde);
-    // i0.m_term.add_coeff_var(rational(1), lp_acd);
+    // i0.m_term.add_monomial(lp_bde);
+    // i0.m_term.add_monomial(rational(1), lp_acd);
     // bool found = false;
     // for (const auto& k : lemma){
     //     if (k == i0) {
