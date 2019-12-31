@@ -22,6 +22,7 @@ Revision History:
 #include "math/lp/nex.h"
 #include "math/grobner/pdd_grobner.h"
 #include "math/dd/pdd_interval.h"
+#include "math/dd/pdd_eval.h"
 namespace nla {
 
 core::core(lp::lar_solver& s, reslimit & lim) :
@@ -1419,7 +1420,18 @@ void core::run_pdd_grobner() {
     for (unsigned i : m_rows) {
         add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
     }
-
+#if 0
+    IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
+    dd::pdd_eval eval(m_pdd_manager);
+    eval.var2val() = [&](unsigned j){ return val(j); };
+    for (auto* e : m_pdd_grobner.equations()) {
+        dd::pdd p = e->poly();
+        rational v = eval(p);
+        if (p.is_linear() && !eval(p).is_zero()) {
+            IF_VERBOSE(0, verbose_stream() << "violated linear constraint " << p << "\n");
+        }
+    }
+#endif
    
     // configure grobner
     // TBD: move this code somewhere self-contained, and tune it.
@@ -1449,7 +1461,34 @@ void core::run_pdd_grobner() {
     }
     else {
         IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
+        IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
     }
+}
+
+std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
+
+    // m_pdd_grobner.display(out);
+
+    dd::pdd_eval eval(m_pdd_manager);
+    eval.var2val() = [&](unsigned j){ return val(j); };
+    for (auto* e : m_pdd_grobner.equations()) {
+        dd::pdd p = e->poly();
+        rational v = eval(p);
+        if (!v.is_zero()) {
+            out << p << " := " << v << "\n";
+        }
+    }  
+  
+    for (unsigned j = 0; j < m_lar_solver.column_count(); ++j) {
+        if (m_lar_solver.column_has_lower_bound(j) || m_lar_solver.column_has_upper_bound(j)) {
+            out << j << ": [";
+                if (m_lar_solver.column_has_lower_bound(j)) out << m_lar_solver.get_lower_bound(j);
+                out << "..";
+                if (m_lar_solver.column_has_upper_bound(j)) out << m_lar_solver.get_upper_bound(j);
+                out << "]\n";
+        }
+    }              
+    return out;
 }
 
 bool core::check_pdd_eq(const dd::grobner::equation* e) {
@@ -1620,15 +1659,27 @@ void core::set_active_vars_weights(nex_creator& nc) {
 
 void core::set_level2var_for_pdd_grobner() {
     unsigned n = m_lar_solver.column_count();
-    unsigned_vector sorted_vars(n);
-    for (unsigned j = 0; j < n; j++)
+    unsigned_vector sorted_vars(n), weighted_vars(n);
+    for (unsigned j = 0; j < n; j++) {
         sorted_vars[j] = j;
-    // sort that the larger weights are in beginning
-    std::sort(sorted_vars.begin(), sorted_vars.end(), [this](unsigned a, unsigned b) {
-                                                      unsigned wa = get_var_weight(a);
-                                                      unsigned wb = get_var_weight(b);
+        weighted_vars[j] = get_var_weight(j);
+    }
+#if 1
+    // potential update to weights
+    for (unsigned j = 0; j < n; j++) {
+        if (is_monic_var(j) && m_to_refine.contains(j)) {
+            for (lpvar k : m_emons[j].vars()) {
+                weighted_vars[k] += 6;
+            }
+        }
+    }
+#endif
+
+    std::sort(sorted_vars.begin(), sorted_vars.end(), [&](unsigned a, unsigned b) {
+                                                      unsigned wa = weighted_vars[a];
+                                                      unsigned wb = weighted_vars[b];
                                                       return wa < wb || (wa == wb && a < b); });
-    
+
     unsigned_vector l2v(n);
     for (unsigned j = 0; j < n; j++)
         l2v[j] = sorted_vars[j];
@@ -1658,8 +1709,9 @@ unsigned core::get_var_weight(lpvar j) const {
     }
     if (is_monic_var(j)) {
         k++;
-        if (m_to_refine.contains(j))
+        if (m_to_refine.contains(j)) {
             k++;
+        }
     }
     return k;
 }
