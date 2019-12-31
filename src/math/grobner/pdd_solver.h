@@ -28,7 +28,7 @@
 
 namespace dd {
 
-class grobner {
+class solver {
 public:
     struct stats {
         unsigned m_simplified;
@@ -43,11 +43,11 @@ public:
     struct config {
         unsigned m_eqs_threshold;
         unsigned m_expr_size_limit;
-        enum { basic, tuned } m_algorithm;
+        unsigned m_max_steps;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
-                m_algorithm(tuned)
+            m_max_steps(UINT_MAX)
         {}
     };
 
@@ -95,9 +95,10 @@ private:
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict;   
+    bool                                         m_too_complex; 
 public:
-    grobner(reslimit& lim, pdd_manager& m);
-    ~grobner();
+    solver(reslimit& lim, pdd_manager& m);
+    ~solver();
 
     void operator=(print_dep_t& pd) { m_print_dep = pd; }
     void operator=(config const& c) { m_config = c; }
@@ -115,18 +116,19 @@ public:
     void collect_statistics(statistics & st) const;
     std::ostream& display(std::ostream& out, const equation& eq) const;
     std::ostream& display(std::ostream& out) const;
+    std::ostream& display_statistics(std::ostream& out) const;
+    const stats& get_stats() const { return m_stats; }
+    stats& get_stats() { return m_stats; }
 
 private:
     bool step();
-    bool basic_step();
-    bool basic_step(equation* e);
     equation* pick_next();
     bool canceled();
     bool done();
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
-    bool simplify_using(equation& eq, equation_vector const& eqs);
-    bool simplify_using(equation_vector& set, equation const& eq);
+    void simplify_using(equation& eq, equation_vector const& eqs);
+    void simplify_using(equation_vector& set, equation const& eq);
     void simplify_using(equation & dst, equation const& src, bool& changed_leading_term);
     bool try_simplify_using(equation& target, equation const& source, bool& changed_leading_term);
 
@@ -177,15 +179,14 @@ private:
 
     void invariant() const;
     struct scoped_process {
-        grobner& g;
+        solver& g;
         equation* e;
-        scoped_process(grobner& g, equation* e): g(g), e(e) {}
+        void done();
+        scoped_process(solver& g, equation* e): g(g), e(e) {}
         ~scoped_process();        
     };
 
     void update_stats_max_degree_and_size(const equation& e);
-    bool is_tuned() const { return m_config.m_algorithm == config::tuned;  }
-    bool is_basic() const { return m_config.m_algorithm == config::basic; }
 };
 
 }

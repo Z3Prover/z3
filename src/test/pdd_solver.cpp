@@ -1,5 +1,5 @@
 #include "util/rlimit.h"
-#include "math/grobner/pdd_grobner.h"
+#include "math/grobner/pdd_solver.h"
 
 #include "ast/bv_decl_plugin.h"
 #include "ast/ast_util.h"
@@ -247,7 +247,7 @@ namespace dd {
     }
 }
 
-void tst_pdd_grobner() {
+void tst_pdd_solver() {
     dd::test1();
     dd::test2();
 }

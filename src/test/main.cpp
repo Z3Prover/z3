@@ -254,7 +254,7 @@ int main(int argc, char ** argv) {
     TST_ARGV(cnf_backbones);
     TST(bdd);
     TST(pdd);
-    TST(pdd_grobner);
+    TST(pdd_solver);
     TST(solver_pool);
     //TST_ARGV(hs);
 }
