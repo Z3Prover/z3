@@ -2708,21 +2708,21 @@ public:
         lp::var_index vi = m_theory_var2var_index[v];
         SASSERT(m_solver->is_term(vi));
         lp::lar_term const& term = m_solver->get_term(vi);
-        for (auto const & coeff : term.m_coeffs) {
-            lp::var_index wi = coeff.first;
+        for (auto const mono : term) {
+            lp::var_index wi = mono.var();
             lp::constraint_index ci;
             rational value;
             bool is_strict;
             if (m_solver->is_term(wi)) {
                 return false;
             }
-            if (coeff.second.is_neg() == is_lub) {
+            if (mono.coeff().is_neg() == is_lub) {
                 // -3*x ... <= lub based on lower bound for x.
                 if (!m_solver->has_lower_bound(wi, ci, value, is_strict)) {
                     return false;
                 }
                 if (is_strict) {
-                    r += inf_rational(rational::zero(), coeff.second.is_pos());
+                    r += inf_rational(rational::zero(), mono.coeff().is_pos());
                 }
             }
             else {
@@ -2730,10 +2730,10 @@ public:
                     return false;
                 }
                 if (is_strict) {
-                    r += inf_rational(rational::zero(), coeff.second.is_pos());
+                    r += inf_rational(rational::zero(), mono.coeff().is_pos());
                 }
             }                
-            r += value * coeff.second;
+            r += value * mono.coeff();
             set_evidence(ci);                    
         }
         TRACE("arith_verbose", tout << (is_lub?"lub":"glb") << " is " << r << "\n";);

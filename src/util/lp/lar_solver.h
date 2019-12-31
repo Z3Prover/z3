@@ -545,17 +545,13 @@ public:
 
     void subs_term_columns(lar_term& t) {
         vector<std::pair<unsigned,unsigned>> columns_to_subs;
-        for (const auto & m : t.m_coeffs) {
-            unsigned tj = adjust_column_index_to_term_index(m.first);
-            if (tj == m.first) continue;
-            columns_to_subs.push_back(std::make_pair(m.first, tj));
+        for (const auto & m : t) {
+            unsigned tj = adjust_column_index_to_term_index(m.var());
+            if (tj == m.var()) continue;
+            columns_to_subs.push_back(std::make_pair(m.var(), tj));
         }
         for (const auto & p : columns_to_subs) {
-            auto it = t.m_coeffs.find(p.first);
-            lp_assert(it != t.m_coeffs.end());
-            mpq v = it->second;
-            t.m_coeffs.erase(it);
-            t.m_coeffs[p.second] = v;
+            t.subst_index(p.first, p.second);            
         }
     }
 

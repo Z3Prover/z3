@@ -128,18 +128,18 @@ bool lar_solver::implied_bound_is_correctly_explained(implied_bound const & be, 
         }
         rs_of_evidence /= ratio;
     } else {
-        const lar_term * t = m_terms[adjust_term_index(be.m_j)];
-        const auto first_coeff = *t->m_coeffs.begin();
-        unsigned j = first_coeff.first;
+        lar_term & t = *m_terms[adjust_term_index(be.m_j)];
+        auto first_coeff = t.begin();
+        unsigned j = (*first_coeff).var();
         auto it = coeff_map.find(j);
         if (it == coeff_map.end())
             return false;
-        mpq ratio = it->second / first_coeff.second;
-        for (auto & p : t->m_coeffs) {
-            it = coeff_map.find(p.first);
+        mpq ratio = it->second / (*first_coeff).coeff();
+        for (auto p : t) {
+            it = coeff_map.find(p.var());
             if (it == coeff_map.end())
                 return false;
-            if (p.second * ratio != it->second)
+            if (p.coeff() * ratio != it->second)
                 return false;
         }
         if (ratio < zero_of_type<mpq>()) {
@@ -686,8 +686,8 @@ void lar_solver::substitute_terms_in_linear_expression(const vector<std::pair<mp
             register_monoid_in_map(coeffs, t.first, j);
         } else {
             const lar_term & term = * m_terms[adjust_term_index(t.second)];
-            for (auto & p : term.coeffs()){
-                register_monoid_in_map(coeffs, t.first * p.second , p.first);
+            for (auto p : term){
+                register_monoid_in_map(coeffs, t.first * p.coeff() , p.var());
             }
         }
     }
@@ -943,10 +943,10 @@ void lar_solver::fill_last_row_of_A_r(static_matrix<mpq, numeric_pair<mpq>> & A,
     lp_assert(A.column_count() > 0);
     unsigned last_row = A.row_count() - 1;
     lp_assert(A.m_rows[last_row].size() == 0);
-    for (auto & t : ls->m_coeffs) {
-        lp_assert(!is_zero(t.second));
-        var_index j = t.first;
-        A.set(last_row, j, - t.second);
+    for (auto t : *ls) {
+        lp_assert(!is_zero(t.coeff()));
+        var_index j = t.var();
+        A.set(last_row, j, - t.coeff());
     }
     unsigned basis_j = A.column_count() - 1;
     A.set(last_row, basis_j, mpq(1));
@@ -1364,8 +1364,8 @@ void lar_solver::fill_var_set_for_random_update(unsigned sz, var_index const * v
     for (unsigned i = 0; i < sz; i++) {        
         var_index var = vars[i];
         if (var >= m_terms_start_index) { // handle the term
-            for (auto & it : m_terms[var - m_terms_start_index]->m_coeffs) {
-                column_list.push_back(it.first);
+            for (auto it : *m_terms[var - m_terms_start_index]) {
+                column_list.push_back(it.var());
             }
         } else {
             column_list.push_back(var);
@@ -1560,8 +1560,8 @@ bool lar_solver::model_is_int_feasible() const {
 }
 
 bool lar_solver::term_is_int(const lar_term * t) const {
-    for (auto const & p :  t->m_coeffs)
-        if (! (column_is_int(p.first)  && p.second.is_int()))
+    for (auto const p :  *t)
+        if (! (column_is_int(p.var())  && p.coeff().is_int()))
             return false;
     return true;
 }
@@ -1920,10 +1920,10 @@ void lar_solver::fill_last_row_of_A_d(static_matrix<double, double> & A, const l
     unsigned last_row = A.row_count() - 1;
     lp_assert(A.m_rows[last_row].empty());
 
-    for (auto & t : ls->m_coeffs) {
-        lp_assert(!is_zero(t.second));
-        var_index j = t.first;
-        A.set(last_row, j, -t.second.get_double());
+    for (auto t : *ls) {
+        lp_assert(!is_zero(t.coeff()));
+        var_index j = t.var();
+        A.set(last_row, j, -t.coeff().get_double());
     }
 
     unsigned basis_j = A.column_count() - 1;
