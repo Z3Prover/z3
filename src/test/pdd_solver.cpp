@@ -11,9 +11,9 @@
 #include "tactic/bv/bit_blaster_tactic.h"
 
 namespace dd {
-    void print_eqs(ptr_vector<grobner::equation> const& eqs) {
+    void print_eqs(ptr_vector<solver::equation> const& eqs) {
         std::cout << "eqs\n";
-        for (grobner::equation* e : eqs) {
+        for (solver::equation* e : eqs) {
             std::cout << e->poly() << "\n";
         }
     }
@@ -25,7 +25,7 @@ namespace dd {
         pdd v2 = m.mk_var(2);
         pdd v3 = m.mk_var(3);
         
-        grobner gb(lim, m);
+        solver gb(lim, m);
         gb.add(v1*v2 + v1*v3);
         gb.add(v1 - 1);
         gb.display(std::cout);
@@ -142,7 +142,7 @@ namespace dd {
         return expr_ref(cache[e], m);
     }
 
-    void add_def(unsigned_vector const& id2var, app* e, ast_manager& m, pdd_manager& p, grobner& g) {
+    void add_def(unsigned_vector const& id2var, app* e, ast_manager& m, pdd_manager& p, solver& g) {
         expr* a, *b;
         pdd v1 = p.mk_var(id2var[e->get_id()]);
         pdd q(p);
@@ -200,7 +200,7 @@ namespace dd {
 
         collect_id2var(id2var, fmls);
         pdd_manager p(id2var.size(), use_mod2 ? pdd_manager::mod2_e : pdd_manager::zero_one_vars_e);
-        grobner g(m.limit(), p);
+        solver g(m.limit(), p);
 
         for (expr* e : subterms(fmls)) {
             add_def(id2var, to_app(e), m, p, g);

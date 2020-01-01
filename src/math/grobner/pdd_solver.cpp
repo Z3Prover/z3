@@ -127,7 +127,7 @@ namespace dd {
 
     void solver::saturate() {
         simplify();
-        tuned_init();
+        init_saturate();
         TRACE("dd.solver", display(tout););
         try {
             while (!done() && step()) {
@@ -142,11 +142,6 @@ namespace dd {
             IF_VERBOSE(2, verbose_stream() << "mem-out\n");
             // don't reduce further
         }
-    }
-
-    bool solver::step() {
-        m_stats.m_compute_steps++;
-        return tuned_step();
     }
 
     void solver::scoped_process::done() {
@@ -167,19 +162,7 @@ namespace dd {
             SASSERT(!p.is_val());
             g.push_equation(processed, e);            
         }
-    }
-
-    
-    solver::equation* solver::pick_next() {
-        equation* eq = nullptr;
-        for (auto* curr : m_to_simplify) {
-            if (!eq || is_simpler(*curr, *eq)) {
-                eq = curr;
-            }
-        }
-        if (eq) pop_equation(eq);
-        return eq;
-    }
+    }    
 
     void solver::simplify() {
         try {
@@ -639,8 +622,9 @@ namespace dd {
         }
     }
 
-    bool solver::tuned_step() {
-        equation* e = tuned_pick_next();
+    bool solver::step() {
+        m_stats.m_compute_steps++;
+        equation* e = pick_next();
         if (!e) return false;
         scoped_process sd(*this, e);
         equation& eq = *e;
@@ -660,7 +644,7 @@ namespace dd {
         return true;
     }
 
-    void solver::tuned_init() {
+    void solver::init_saturate() {
         unsigned_vector const& l2v = m.get_level2var();
         m_level2var.resize(l2v.size());
         m_var2level.resize(l2v.size());
@@ -714,7 +698,7 @@ namespace dd {
         watch.shrink(j);        
     }
 
-    solver::equation* solver::tuned_pick_next() {
+    solver::equation* solver::pick_next() {
         while (m_levelp1 > 0) {
             unsigned v = m_level2var[m_levelp1-1];
             equation_vector const& watch = m_watch[v];
