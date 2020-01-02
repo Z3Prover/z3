@@ -103,6 +103,20 @@ namespace dd {
         std::cout << (a + b)*(c + d) << "\n";
     }
 
+    void test_iterator() {
+        std::cout << "test iterator\n";
+        pdd_manager m(4);
+        pdd a = m.mk_var(0);
+        pdd b = m.mk_var(1);
+        pdd c = m.mk_var(2);
+        pdd d = m.mk_var(3);
+        pdd p = (a + b)*(c + 3*d) + 2;
+        std::cout << p << "\n";
+        for (auto const& m : p) {
+            std::cout << m << "\n";
+        }
+    }
+
 }
 
 void tst_pdd() {
@@ -110,4 +124,5 @@ void tst_pdd() {
     dd::test2();
     dd::test3();
     dd::test_reset();
+    dd::test_iterator();
 }

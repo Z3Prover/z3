@@ -217,6 +217,13 @@ namespace dd {
         g.display(std::cout);
         g.simplify();
         g.display(std::cout);
+        if (use_mod2) {
+            solver::config cfg;
+            cfg.m_enable_exlin = true;
+            g = cfg;
+            g.simplify();
+            g.display(std::cout << "after exlin\n");
+        }
         g.saturate();
         g.display(std::cout);
     }

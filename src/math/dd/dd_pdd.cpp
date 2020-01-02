@@ -1007,4 +1007,58 @@ namespace dd {
 
     std::ostream& operator<<(std::ostream& out, pdd const& b) { return b.display(out); }
 
+    void pdd_iterator::next() {
+        auto& m = m_pdd.m;
+        while (!m_nodes.empty()) {
+            auto& p = m_nodes.back();
+            if (p.first && !m.is_val(p.second)) {
+                p.first = false;
+                m_mono.vars.pop_back();
+                unsigned n = m.lo(p.second);
+                if (m.is_val(n) && m.val(n).is_zero()) {
+                    m_nodes.pop_back();
+                    continue;
+                }
+                while (!m.is_val(n)) {
+                    m_nodes.push_back(std::make_pair(true, n));
+                    m_mono.vars.push_back(m.var(n));
+                    n = m.hi(n);
+                }
+                m_mono.coeff = m.val(n);
+                break;
+            }
+            else {
+                m_nodes.pop_back();
+            }
+        }
+    }
+
+    void pdd_iterator::first() {
+        unsigned n = m_pdd.root;
+        auto& m = m_pdd.m;
+        while (!m.is_val(n)) {
+            m_nodes.push_back(std::make_pair(true, n));
+            m_mono.vars.push_back(m.var(n));
+            n = m.hi(n);
+        }
+        m_mono.coeff = m.val(n);
+    }
+
+    pdd_iterator pdd::begin() const { return pdd_iterator(*this, true); }
+    pdd_iterator pdd::end() const { return pdd_iterator(*this, false); }
+
+    std::ostream& operator<<(std::ostream& out, pdd_monomial const& m) {
+        if (!m.coeff.is_one()) {
+            out << m.coeff;
+            if (!m.vars.empty()) out << "*";
+        }
+        bool first = true;
+        for (auto v : m.vars) {
+            if (first) first = false; else out << "*";
+            out << "v" << v;
+        }
+        return out;
+    }
+
+
 }

@@ -29,6 +29,7 @@
 namespace dd {
 
 class solver {
+    friend class simplifier;
 public:
     struct stats {
         unsigned m_simplified;
@@ -44,10 +45,14 @@ public:
         unsigned m_eqs_threshold;
         unsigned m_expr_size_limit;
         unsigned m_max_steps;
+        unsigned m_random_seed;
+        bool     m_enable_exlin;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
-            m_max_steps(UINT_MAX)
+            m_max_steps(UINT_MAX),
+            m_random_seed(0),
+            m_enable_exlin(false)
         {}
     };
 
@@ -159,20 +164,6 @@ private:
     void pop_equation(equation* eq) { pop_equation(*eq); }
     void push_equation(eq_state st, equation& eq);
     void push_equation(eq_state st, equation* eq) { push_equation(st, *eq); }
-
-    struct compare_top_var;
-    bool simplify_linear_step(bool binary);
-    bool simplify_linear_step(equation_vector& linear);
-    typedef vector<equation_vector> use_list_t;
-    use_list_t get_use_list();
-    void add_to_use(equation* e, use_list_t& use_list);
-    void remove_from_use(equation* e, use_list_t& use_list);
-    void remove_from_use(equation* e, use_list_t& use_list, unsigned except_v);
-
-    bool simplify_cc_step();
-    bool simplify_elim_pure_step();
-    bool simplify_elim_dual_step();
-    bool simplify_leaf_step();
 
     void invariant() const;
     struct scoped_process {
