@@ -1545,7 +1545,7 @@ const rational& core::val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep) {
 }
 
 dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
-    if (var_is_fixed(j)) {
+    if (m_nla_settings.grobner_subs_fixed() && var_is_fixed(j)) {
         return m_pdd_manager.mk_val(c * val_of_fixed_var_with_deps(j, dep));
     }
 
@@ -1556,7 +1556,7 @@ dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
     dd::pdd r = m_pdd_manager.mk_val(c);
     const monic& m = emons()[j];
     for (lpvar k : m.vars()) {
-        if (var_is_fixed(k)) {
+        if (m_nla_settings.grobner_subs_fixed() && var_is_fixed(k)) {
             r *= m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, dep));
         } else {
             r *= m_pdd_manager.mk_var(k);

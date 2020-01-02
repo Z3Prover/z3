@@ -78,7 +78,7 @@ bool horner::lemmas_on_row(const T& row) {
 
     SASSERT (row_is_interesting(row));
     c().clear_and_resize_active_var_set();
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum, nullptr);
+    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
     c().set_active_vars_weights(m_nex_creator); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(m_row_sum.mk());
     TRACE("nla_horner", tout << "e = " << * e << "\n";);
