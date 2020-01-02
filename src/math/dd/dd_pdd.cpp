@@ -285,7 +285,12 @@ namespace dd {
             if (level_p > level_q) {
                 push(apply_rec(lo(p), q, op));
                 push(apply_rec(hi(p), q, op));
-                r = make_node(level_p, read(2), read(1));
+                if (read(2) == lo(p) && read(1) == hi(p)) {
+                    r = p;
+                }
+                else {
+                    r = make_node(level_p, read(2), read(1));
+                }
             }
             else {
                 SASSERT(level_p == level_q);

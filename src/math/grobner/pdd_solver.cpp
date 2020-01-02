@@ -47,18 +47,6 @@ namespace dd {
           - add a to S
           - simplify A using a
 
-
-        Apply a watch list to filter out relevant elements of S
-        Index leading_term_watch: Var -> Equation*
-        Only need to simplify equations that contain eliminated variable.
-        The watch list can be used to index into equations that are useful to simplify.
-        A Bloom filter on leading term could further speed up test whether reduction applies.
-
-        For p in A:
-            populate watch list by maxvar(p) |-> p
-        For p in S:
-            do not occur in watch list
-
         - the variable ordering should be chosen from a candidate model M, 
           in a way that is compatible with weights that draw on the number of occurrences
           in polynomials with violated evaluations and with the maximal slack (degree of freedom).
@@ -67,12 +55,6 @@ namespace dd {
 
           slack is computed from interval assignments to variables, and is an interval in which x can possibly move
           (an over-approximation).
-
-        The alternative version maintains the following invariant:
-        - polynomials not in the watch list cannot be simplified using a
-          Justification:
-          - elements in S have no variables watched
-          - elements in A are always reduced modulo all variables above the current x_i.
        
     */
 
@@ -99,7 +81,6 @@ namespace dd {
             DEBUG_CODE(invariant(););
         }
         catch (pdd_manager::mem_out) {
-            m_watch.reset();
             IF_VERBOSE(2, verbose_stream() << "mem-out\n");
             // don't reduce further
         }
@@ -161,8 +142,7 @@ namespace dd {
     /*
       Use the given equation to simplify equations in set
     */
-    void solver::simplify_using(equation_vector& set, equation const& eq) {
-        
+    void solver::simplify_using(equation_vector& set, equation const& eq) {        
         struct scoped_update {
             equation_vector& set;
             unsigned i, j, sz;
@@ -195,9 +175,8 @@ namespace dd {
             else if (simplified && changed_leading_term) {
                 SASSERT(target.state() == processed);
                 push_equation(to_simplify, target);
-                if (!m_watch.empty()) {
+                if (!m_var2level.empty()) {
                     m_levelp1 = std::max(m_var2level[target.poly().var()]+1, m_levelp1);
-                    add_to_watch(target);
                 }
             }
             else {
@@ -276,7 +255,6 @@ namespace dd {
         if (!e) return false;
         scoped_process sd(*this, e);
         equation& eq = *e;
-        SASSERT(!m_watch[eq.poly().var()].contains(e));
         SASSERT(eq.state() == to_simplify);
         simplify_using(eq, m_processed);
         if (is_trivial(eq)) { sd.e = nullptr; retire(e); return true; }
@@ -286,7 +264,7 @@ namespace dd {
         if (done()) return false;
         TRACE("dd.solver", display(tout << "eq = ", eq););
         superpose(eq);
-        simplify_watch(eq);
+        simplify_using(m_to_simplify, eq);
         if (done()) return false;
         if (!m_too_complex) sd.done();
         return true;
@@ -300,58 +278,14 @@ namespace dd {
             m_level2var[i] = l2v[i];
             m_var2level[l2v[i]] = i;
         }
-        m_watch.reset();
-        m_watch.reserve(m_level2var.size());
         m_levelp1 = m_level2var.size();
-        for (equation* eq : m_to_simplify) add_to_watch(*eq);
-    }
-
-    void solver::add_to_watch(equation& eq) {
-        SASSERT(eq.state() == to_simplify);
-        pdd const& p = eq.poly();
-        if (!p.is_val()) {
-            m_watch[p.var()].push_back(&eq);
-        }
-    }
-
-    void solver::simplify_watch(equation const& eq) {
-        unsigned v = eq.poly().var();
-        auto& watch = m_watch[v];
-        unsigned j = 0;
-        for (equation* _target : watch) {
-            equation& target = *_target;
-            SASSERT(target.state() == to_simplify);
-            SASSERT(target.poly().var() == v);
-            bool changed_leading_term = false;
-            if (!done()) {
-                try_simplify_using(target, eq, changed_leading_term);
-            }
-            if (is_trivial(target)) {
-                pop_equation(target);
-                retire(&target);
-            }
-            else if (is_conflict(target)) {
-                pop_equation(target);
-                set_conflict(target);
-            }
-            else if (target.poly().var() != v) {
-                // move to other watch list
-                m_watch[target.poly().var()].push_back(_target);
-            }
-            else {
-                // keep watching same variable
-                watch[j++] = _target;
-            }
-        }
-        watch.shrink(j);        
     }
 
     solver::equation* solver::pick_next() {
         while (m_levelp1 > 0) {
             unsigned v = m_level2var[m_levelp1-1];
-            equation_vector const& watch = m_watch[v];
             equation* eq = nullptr;
-            for (equation* curr : watch) {
+            for (equation* curr : m_to_simplify) {
                 pdd const& p = curr->poly();
                 if (curr->state() == to_simplify && p.var() == v) {
                     if (!eq || is_simpler(*curr, *eq))
@@ -360,7 +294,6 @@ namespace dd {
             }
             if (eq) {
                 pop_equation(eq);
-                m_watch[eq->poly().var()].erase(eq);
                 return eq;
             }
             --m_levelp1;
@@ -384,7 +317,6 @@ namespace dd {
         m_processed.reset();
         m_to_simplify.reset();
         m_stats.reset();
-        m_watch.reset();
         m_level2var.reset();
         m_var2level.reset();
         m_conflict = nullptr;
@@ -398,9 +330,8 @@ namespace dd {
         }
         push_equation(to_simplify, eq);
         
-        if (!m_watch.empty()) {
+        if (!m_var2level.empty()) {
             m_levelp1 = std::max(m_var2level[p.var()]+1, m_levelp1);
-            add_to_watch(*eq);
         }
         update_stats_max_degree_and_size(*eq);
     }   
@@ -524,28 +455,12 @@ namespace dd {
 
         // equations in to_simplify have correct indices
         // they are labeled as non-processed
-        // their top-most variable is watched
         i = 0;
         for (auto* e : m_to_simplify) {
             VERIFY(e->idx() == i);
             VERIFY(e->state() == to_simplify);
             pdd const& p = e->poly();
             VERIFY(!p.is_val());
-            CTRACE("dd.solver", !m_watch.empty() && !m_watch[p.var()].contains(e), 
-                   display(tout << "not watched: ", *e) << "\n";);
-            VERIFY(m_watch.empty() || m_watch[p.var()].contains(e));            
-            ++i;
-        }
-        // the watch list consists of equations in to_simplify
-        // they watch the top most variable in poly
-        i = 0;
-        for (auto const& w : m_watch) {            
-            for (equation* e : w) {
-                VERIFY(!e->poly().is_val());
-                VERIFY(e->poly().var() == i);
-                VERIFY(e->state() == to_simplify);
-                VERIFY(m_to_simplify.contains(e));
-            }
             ++i;
         }
     }

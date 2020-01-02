@@ -56,7 +56,6 @@
 
 #include "math/grobner/pdd_simplifier.h"
 #include "math/simplex/bit_matrix.h"
-#include "util/uint_set.h"
 
 namespace dd {
 
@@ -395,34 +394,42 @@ namespace dd {
         vector<pdd> eqs, simp_eqs;
         for (auto* e : s.m_to_simplify) if (!e->dep()) eqs.push_back(e->poly());
         for (auto* e : s.m_processed) if (!e->dep()) eqs.push_back(e->poly());
-        exlin_augment(eqs);        
-        simplify_exlin(eqs, simp_eqs);
+        vector<uint_set> orbits(s.m.num_vars());
+        init_orbits(eqs, orbits);
+        exlin_augment(orbits, eqs);        
+        simplify_exlin(orbits, eqs, simp_eqs);
         for (pdd const& p : simp_eqs) {
             s.add(p);
         }        
         return !simp_eqs.empty() && simplify_linear_step(false);
     }
 
-    /**
-       augment set of equations by multiplying with selected variables.
-       Uses orbits to prune which variables are multiplied.
-       TBD: could also prune added polynomials based on a maximal degree.
-     */
-    void simplifier::exlin_augment(vector<pdd>& eqs) {
-        unsigned nv = s.m.num_vars();
-        vector<uint_set> orbits(nv);
-        random_gen rand(s.m_config.m_random_seed);
-        unsigned modest_num_eqs = std::min(eqs.size(), 500u);
-        unsigned max_xlin_eqs = modest_num_eqs*modest_num_eqs + eqs.size();
-        for (pdd p : eqs) {
+    void simplifier::init_orbits(vector<pdd> const& eqs, vector<uint_set>& orbits) {
+        for (pdd const& p : eqs) {
             auto const& fv = p.free_vars();
             for (unsigned i = fv.size(); i-- > 0; ) {
+                orbits[fv[i]].insert(fv[i]); // if v is used, it is in its own orbit.
                 for (unsigned j = i; j-- > 0; ) {
                     orbits[fv[i]].insert(fv[j]);
                     orbits[fv[j]].insert(fv[i]);
                 }
             }
         }
+    }
+
+
+    /**
+       augment set of equations by multiplying with selected variables.
+       Uses orbits to prune which variables are multiplied.
+       TBD: could also prune added polynomials based on a maximal degree.
+       TBD: for large systems, extract cluster of polynomials based on sampling orbits       
+     */
+
+    void simplifier::exlin_augment(vector<uint_set> const& orbits, vector<pdd>& eqs) {
+        unsigned nv = s.m.num_vars();
+        random_gen rand(s.m_config.m_random_seed);
+        unsigned modest_num_eqs = std::min(eqs.size(), 500u);
+        unsigned max_xlin_eqs = modest_num_eqs*modest_num_eqs + eqs.size();
         TRACE("dd.solver", tout << "augment " << nv << "\n";
               for (auto const& o : orbits) tout << o.num_elems() << "\n";
               );
@@ -435,7 +442,7 @@ namespace dd {
             pdd pv = s.m.mk_var(v);
             for (pdd p : eqs) {
                 for (unsigned w : p.free_vars()) {
-                    if (orbitv.contains(w)) {
+                    if (v != w && orbitv.contains(w)) {
                         n_eqs.push_back(pv * p);
                         break;
                     }
@@ -453,7 +460,7 @@ namespace dd {
             if (orbitv.empty()) continue;
             pdd pv = s.m.mk_var(v);
             for (unsigned w : orbitv) {
-                if (v > w) continue;
+                if (v >= w) continue;
                 pdd pw = s.m.mk_var(w);
                 for (pdd p : eqs) {
                     if (n_eqs.size() > max_xlin_eqs) {
@@ -474,7 +481,7 @@ namespace dd {
         TRACE("dd.solver", for (pdd const& p : eqs) tout << p << "\n";);
     }
 
-    void simplifier::simplify_exlin(vector<pdd> const& eqs, vector<pdd>& simp_eqs) {
+    void simplifier::simplify_exlin(vector<uint_set> const& orbits, vector<pdd> const& eqs, vector<pdd>& simp_eqs) {
 
         // create variables for each non-constant monomial.
         u_map<unsigned> mon2idx;
@@ -497,9 +504,11 @@ namespace dd {
         // insert variables last.
         unsigned nv = s.m.num_vars();
         for (unsigned v = 0; v < nv; ++v) {
-            pdd r = s.m.mk_var(v);
-            mon2idx.insert(r.index(), idx2mon.size());
-            idx2mon.push_back(r);                                    
+            if (!orbits[v].empty()) { // not all variables are used.
+                pdd r = s.m.mk_var(v);
+                mon2idx.insert(r.index(), idx2mon.size());
+                idx2mon.push_back(r);         
+            }                           
         }
 
         bit_matrix bm;

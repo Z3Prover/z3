@@ -147,14 +147,11 @@ private:
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
     bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
 
-    vector<equation_vector> m_watch;           // watch list mapping variables to vector of equations where they occur (generally a subset)
     unsigned                m_levelp1;         // index into level+1
     unsigned_vector         m_level2var;       // level -> var
     unsigned_vector         m_var2level;       // var -> level
 
     void init_saturate();
-    void simplify_watch(equation const& eq);
-    void add_to_watch(equation& eq);
 
     void del_equation(equation& eq) { del_equation(&eq); }    
     void del_equation(equation* eq);    

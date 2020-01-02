@@ -13,6 +13,7 @@
   --*/
 #pragma once
 
+#include "util/uint_set.h"
 #include "math/grobner/pdd_solver.h"
 
 namespace dd {
@@ -46,8 +47,9 @@ private:
     bool simplify_elim_dual_step();
     bool simplify_leaf_step();
     bool simplify_exlin();
-    void exlin_augment(vector<pdd>& eqs);
-    void simplify_exlin(vector<pdd> const& eqs, vector<pdd>& simp_eqs);
+    void init_orbits(vector<pdd> const& eqs, vector<uint_set>& orbits);
+    void exlin_augment(vector<uint_set> const& orbits, vector<pdd>& eqs);
+    void simplify_exlin(vector<uint_set> const& orbits, vector<pdd> const& eqs, vector<pdd>& simp_eqs);
 
 
 };

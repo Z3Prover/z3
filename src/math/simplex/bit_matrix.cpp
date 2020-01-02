@@ -49,6 +49,7 @@ std::ostream& bit_matrix::row::display(std::ostream& out) const {
 
 void bit_matrix::reset(unsigned num_columns) {
     m_region.reset();
+    m_rows.reset();
     m_num_columns = num_columns;
     m_num_chunks = (num_columns + 63)/64;
 }
