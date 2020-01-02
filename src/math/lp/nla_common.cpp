@@ -123,17 +123,9 @@ unsigned common::random() {
 }
 
 // creates a nex expression for the coeff and var, 
-nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
-                     u_dependency*& dep,
-                     u_dependency_manager* dep_manager) {
+nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     SASSERT(!coeff.is_zero());
-    unsigned lc, uc;
-    if (c().var_is_fixed(j)) {
-        if (dep_manager) {
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(j, lc, uc);
-            dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
-            dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
-        }
+    if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(j)) {
         return cn.mk_scalar(coeff * c().m_lar_solver.column_lower_bound(j).x);
     }
     if (!c().is_monic_var(j)) {
@@ -144,12 +136,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
     nex_creator::mul_factory mf(cn);
     mf *= coeff;
     for (lpvar k : m.vars()) {
-        if (c().var_is_fixed(k)) {
-            if (dep_manager) {
-                c().m_lar_solver.get_bound_constraint_witnesses_for_column(k, lc, uc);
-                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
-                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));
-            }
+        if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(k)) {
             mf *= c().m_lar_solver.column_lower_bound(k).x;
         } else {
             c().insert_to_active_var_set(k);
@@ -163,31 +150,20 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn,
 }
 
 
-template <typename T> u_dependency* common::create_sum_from_row(const T& row,
+template <typename T> void common::create_sum_from_row(const T& row,
                                                                 nex_creator& cn,
-                                                                nex_creator::sum_factory& sum,
-                                                                u_dependency_manager* dep_manager
+                                                                nex_creator::sum_factory& sum
                                                                 ) {
 
     TRACE("nla_horner", tout << "row="; m_core->print_row(row, tout) << "\n";);
-    u_dependency * dep = nullptr;
     SASSERT(row.size() > 1);
     sum.reset();
     for (const auto &p : row) {
-        nex* e = nexvar(p.coeff(), p.var(), cn, dep, dep_manager);
+        nex* e = nexvar(p.coeff(), p.var(), cn);
         if (!e)
             continue;
-        unsigned lc, uc;
-        if (dep_manager) {
-            c().m_lar_solver.get_bound_constraint_witnesses_for_column(p.var(), lc, uc);
-            if (lc + 1)
-                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(lc));
-            if (uc + 1) 
-                dep = dep_manager->mk_join(dep, dep_manager->mk_leaf(uc));                    
-        }
         sum += e;
     }
-    return dep;
 }
 
 template <typename T>
@@ -223,4 +199,4 @@ u_dependency* common::get_fixed_vars_dep_from_row(const T& row, u_dependency_man
 
 
 }
-template u_dependency* nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&, u_dependency_manager*);  
+template void nla::common::create_sum_from_row<old_vector<lp::row_cell<rational>, true, unsigned int> >(old_vector<lp::row_cell<rational>, true, unsigned int> const&, nla::nex_creator&, nla::nex_creator::sum_factory&);  
