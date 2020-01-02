@@ -52,7 +52,6 @@
        - Perhaps this amounts to figuring out whether a variable is used in an xor or more
 
   --*/
-#pragma once
 
 #include "math/grobner/pdd_simplifier.h"
 #include "math/simplex/bit_matrix.h"
