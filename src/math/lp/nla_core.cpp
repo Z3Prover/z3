@@ -1399,9 +1399,15 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 void core::run_pdd_grobner() {
     lp_settings().stats().m_grobner_calls++;
     m_pdd_grobner.reset();
-    set_level2var_for_pdd_grobner();
-    for (unsigned i : m_rows) {
-        add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
+    try {
+        set_level2var_for_pdd_grobner();
+        for (unsigned i : m_rows) {
+            add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
+        }
+    }
+    catch (...) {
+        IF_VERBOSE(2, verbose_stream() << "pdd throw\n");
+        return;
     }
 #if 0
     IF_VERBOSE(2, m_pdd_grobner.display(verbose_stream()));
