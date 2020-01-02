@@ -51,7 +51,7 @@ public:
         interval ret;
         if (deps) {
             interval_deps_combine_rule combine_rule;
-            m_dep_intervals.add(hi, a, t, combine_rule);
+            m_dep_intervals.mul(hi, a, t, combine_rule);
             m_dep_intervals.combine_deps(hi, a, combine_rule, t); 
             combine_rule.reset();
             m_dep_intervals.add(t, la, ret, combine_rule);
