@@ -122,6 +122,7 @@ namespace sat {
         svector<bool>           m_lit_mark;
         svector<bool>           m_eliminated;
         svector<bool>           m_external;
+        unsigned_vector         m_level;
         unsigned_vector         m_touched;
         unsigned                m_touch_index;
         literal_vector          m_replay_assign;
@@ -163,6 +164,9 @@ namespace sat {
         clause_wrapper_vector   m_clauses_to_reinit;
         std::string             m_reason_unknown;
 
+        svector<unsigned>       m_visited;
+        unsigned                m_visited_ts;
+
         struct scope {
             unsigned m_trail_lim;
             unsigned m_clauses_to_reinit_lim;
@@ -202,6 +206,7 @@ namespace sat {
         friend class mus;
         friend class drat;
         friend class ba_solver;
+        friend class anf_simplifier;
         friend class parallel;
         friend class lookahead;
         friend class local_search;
@@ -211,6 +216,7 @@ namespace sat {
         friend struct mk_stat;
         friend class elim_vars;
         friend class scoped_detach;
+        friend class xor_util;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;
@@ -241,9 +247,10 @@ namespace sat {
         //
         // -----------------------
         void add_clause(unsigned num_lits, literal * lits, bool learned) override { mk_clause(num_lits, lits, learned); }
-        bool_var add_var(bool ext) override { return mk_var(ext, true); }
+        bool_var add_var(bool ext, unsigned level = 0) override { return mk_var(ext, true, level); }
 
-        bool_var mk_var(bool ext = false, bool dvar = true);
+        bool_var mk_var(bool ext = false, bool dvar = true, unsigned level = 0);
+
         clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
         clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
         clause* mk_clause(literal l1, literal l2, bool learned = false);
@@ -302,6 +309,14 @@ namespace sat {
         void detach_ter_clause(clause & c);
         void push_reinit_stack(clause & c);
 
+        void init_visited();
+        void mark_visited(literal l) { m_visited[l.index()] = m_visited_ts; }
+        void mark_visited(bool_var v) { mark_visited(literal(v, false)); }
+        bool is_visited(bool_var v) const { return is_visited(literal(v, false)); }
+        bool is_visited(literal l) const { return m_visited[l.index()] == m_visited_ts; }
+        bool all_distinct(literal_vector const& lits);
+        bool all_distinct(clause const& cl);
+
         // -----------------------
         //
         // Basic
@@ -319,6 +334,7 @@ namespace sat {
         bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
+        unsigned def_level(bool_var v) const { return m_level[v]; }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }

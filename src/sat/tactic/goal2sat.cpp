@@ -121,7 +121,7 @@ struct goal2sat::imp {
     sat::literal mk_true() {
         if (m_true == sat::null_literal) {
             // create fake variable to represent true;
-            m_true = sat::literal(m_solver.add_var(false), false);
+            m_true = sat::literal(m_solver.add_var(false, 0), false);
             mk_clause(m_true); // v is true
         }
         return m_true;
@@ -140,7 +140,7 @@ struct goal2sat::imp {
             }
             else {
                 bool ext = m_default_external || !is_uninterp_const(t) || m_interface_vars.contains(t);
-                sat::bool_var v = m_solver.add_var(ext);
+                sat::bool_var v = m_solver.add_var(ext, get_depth(t));
                 m_map.insert(t, v);
                 l = sat::literal(v, sign);
                 TRACE("sat", tout << "new_var: " << v << ": " << mk_bounded_pp(t, m, 2) << "\n";);
@@ -248,7 +248,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = m_solver.add_var(false, get_depth(t));
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
@@ -287,7 +287,7 @@ struct goal2sat::imp {
         }
         else {
             SASSERT(num <= m_result_stack.size());
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = m_solver.add_var(false, get_depth(t));
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             // l => /\ lits
@@ -330,7 +330,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = m_solver.add_var(false, get_depth(n));
             sat::literal  l(k, false);
             m_cache.insert(n, l);
             mk_clause(~l, ~c, t);
@@ -367,7 +367,7 @@ struct goal2sat::imp {
             m_result_stack.reset();
         }
         else {
-            sat::bool_var k = m_solver.add_var(false);
+            sat::bool_var k = m_solver.add_var(false, get_depth(t));
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             mk_clause(~l, l1, ~l2);
@@ -391,7 +391,7 @@ struct goal2sat::imp {
             return;
         }
         sat::literal_vector lits;
-        sat::bool_var v = m_solver.add_var(true);
+        sat::bool_var v = m_solver.add_var(true, get_depth(t));
         lits.push_back(sat::literal(v, true));
         convert_pb_args(num, lits);
         // ensure that = is converted to xor
@@ -473,7 +473,7 @@ struct goal2sat::imp {
             m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
-            sat::bool_var v = m_solver.add_var(true);
+            sat::bool_var v = m_solver.add_var(true, get_depth(t));
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
@@ -504,7 +504,7 @@ struct goal2sat::imp {
             m_ext->add_pb_ge(sat::null_bool_var, wlits, k1);
         }
         else {
-            sat::bool_var v = m_solver.add_var(true);
+            sat::bool_var v = m_solver.add_var(true, get_depth(t));
             sat::literal lit(v, sign);
             m_ext->add_pb_ge(v, wlits, k.get_unsigned());
             TRACE("goal2sat", tout << "root: " << root << " lit: " << lit << "\n";);
@@ -518,8 +518,8 @@ struct goal2sat::imp {
         svector<wliteral> wlits;
         convert_pb_args(t, wlits);
         bool base_assert = (root && !sign && m_solver.num_user_scopes() == 0);
-        sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
-        sat::bool_var v2 = base_assert ? sat::null_bool_var : m_solver.add_var(true);
+        sat::bool_var v1 = base_assert ? sat::null_bool_var : m_solver.add_var(true, get_depth(t));
+        sat::bool_var v2 = base_assert ? sat::null_bool_var : m_solver.add_var(true, get_depth(t));
         m_ext->add_pb_ge(v1, wlits, k.get_unsigned());        
         k.neg();
         for (wliteral& wl : wlits) {
@@ -533,7 +533,7 @@ struct goal2sat::imp {
         }
         else {
             sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.add_var(false);
+            sat::bool_var v = m_solver.add_var(false, get_depth(t));
             sat::literal l(v, false);
             mk_clause(~l, l1);
             mk_clause(~l, l2);
@@ -558,7 +558,7 @@ struct goal2sat::imp {
             m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
-            sat::bool_var v = m_solver.add_var(true);
+            sat::bool_var v = m_solver.add_var(true, get_depth(t));
             sat::literal lit(v, false);
             m_ext->add_at_least(v, lits, k.get_unsigned());
             m_cache.insert(t, lit);
@@ -585,7 +585,7 @@ struct goal2sat::imp {
             m_ext->add_at_least(sat::null_bool_var, lits, k2);
         }
         else {
-            sat::bool_var v = m_solver.add_var(true);
+            sat::bool_var v = m_solver.add_var(true, get_depth(t));
             sat::literal lit(v, false);
             m_ext->add_at_least(v, lits, k2);
             m_cache.insert(t, lit);
@@ -598,8 +598,8 @@ struct goal2sat::imp {
         SASSERT(k.is_unsigned());
         sat::literal_vector lits;
         convert_pb_args(t->get_num_args(), lits);
-        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
-        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true);
+        sat::bool_var v1 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true, get_depth(t));
+        sat::bool_var v2 = (root && !sign) ? sat::null_bool_var : m_solver.add_var(true, get_depth(t));
         m_ext->add_at_least(v1, lits, k.get_unsigned());        
         for (sat::literal& l : lits) {
             l.neg();
@@ -612,7 +612,7 @@ struct goal2sat::imp {
         }
         else {
             sat::literal l1(v1, false), l2(v2, false);
-            sat::bool_var v = m_solver.add_var(false);
+            sat::bool_var v = m_solver.add_var(false, get_depth(t));
             sat::literal l(v, false);
             mk_clause(~l, l1);
             mk_clause(~l, l2);

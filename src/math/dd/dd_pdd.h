@@ -62,7 +62,8 @@ namespace dd {
             pdd_minus_op = 4,
             pdd_mul_op = 5,
             pdd_reduce_op = 6,
-            pdd_no_op = 7
+            pdd_subst_val_op = 7,
+            pdd_no_op = 8
         };
 
         struct node {
@@ -264,6 +265,7 @@ namespace dd {
         pdd mk_xor(pdd const& p, pdd const& q);
         pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
+        pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
 
         bool is_linear(PDD p);
         bool is_linear(pdd const& p);
@@ -330,10 +332,14 @@ namespace dd {
         pdd reduce(pdd const& other) const { return m.reduce(*this, other); }
         bool different_leading_term(pdd const& other) const { return m.different_leading_term(*this, other); }
 
+        pdd subst_val(vector<std::pair<unsigned, rational>> const& s) const { return m.subst_val(*this, s); }
+
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
         bool operator<(pdd const& other) const { return m.lt(*this, other); }
+
+
 
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }

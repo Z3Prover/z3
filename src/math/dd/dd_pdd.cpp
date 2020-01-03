@@ -105,6 +105,19 @@ namespace dd {
     pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { return (p*q*2) - p - q; }
     pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
 
+    pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
+        typedef std::pair<unsigned, rational> pr;
+        vector<pr> s(_s);        
+        std::function<bool (pr const&, pr const&)> compare_level = 
+            [&](pr const& a, pr const& b) { return m_var2level[a.first] < m_var2level[b.first]; };
+        std::sort(s.begin(), s.end(), compare_level);
+        pdd r(one());
+        for (auto const& q : s) {
+            r = (r*mk_var(q.first)) + q.second;            
+        }
+        return pdd(apply(p.root, r.root, pdd_subst_val_op), this);
+    }
+
     pdd_manager::PDD pdd_manager::apply(PDD arg1, PDD arg2, pdd_op op) {
         bool first = true;
         SASSERT(well_formed());
@@ -165,6 +178,14 @@ namespace dd {
             if (is_zero(q)) return p;
             if (is_val(p)) return p;
             if (!is_val(q) && level(p) < level(q)) return p;
+            break;
+        case pdd_subst_val_op:
+            while (!is_val(q) && !is_val(p)) {
+                if (level(p) == level(q)) break;
+                if (level(p) < level(q)) q = lo(q);
+                else p = lo(p);
+            }
+            if (is_val(p) || is_val(q)) return p;            
             break;
         default:
             UNREACHABLE();
@@ -297,6 +318,16 @@ namespace dd {
                 r = reduce_on_match(p, q);
                 npop = 0;
             }
+            break;
+        case pdd_subst_val_op:
+            SASSERT(!is_val(p));
+            SASSERT(!is_val(q));
+            SASSERT(level_p = level_q);
+            push(apply_rec(lo(p), hi(q), pdd_subst_val_op));   // lo := subst(lo(p), s)
+            push(apply_rec(hi(p), hi(q), pdd_subst_val_op));   // hi := subst(hi(p), s)
+            push(apply_rec(lo(q), read(1), pdd_mul_op));       // hi := hi*s[var(p)]
+            r = apply_rec(read(1), read(3), pdd_add_op);       // r := hi + lo := subst(lo(p),s) + s[var(p)]*subst(hi(p),s)
+            npop = 3;
             break;
         default:
             UNREACHABLE();

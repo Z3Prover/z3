@@ -70,6 +70,7 @@ def_module_params('sat',
                           ('unit_walk', BOOL, False, 'use unit-walk search instead of CDCL'),
                           ('unit_walk_threads', UINT, 0, 'number of unit-walk search threads to find satisfiable solution'),
                           ('binspr', BOOL, False, 'enable SPR inferences of binary propagation redundant clauses. This inprocessing step eliminates models'),
+	                  ('anf', BOOL, False, 'enable ANF based simplification in-processing'),
                           ('lookahead.cube.cutoff', SYMBOL, 'depth', 'cutoff type used to create lookahead cubes: depth, freevars, psat, adaptive_freevars, adaptive_psat'),
                           # - depth: the maximal cutoff is fixed to the value of lookahead.cube.depth.
                           #          So if the value is 10, at most 1024 cubes will be generated of length 10.

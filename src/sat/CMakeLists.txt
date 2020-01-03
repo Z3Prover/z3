@@ -2,6 +2,7 @@ z3_add_component(sat
   SOURCES
     ba_solver.cpp
     dimacs.cpp
+    sat_anf_simplifier.cpp
     sat_asymm_branch.cpp
     sat_big.cpp
     sat_binspr.cpp
@@ -28,9 +29,11 @@ z3_add_component(sat
     sat_solver.cpp
     sat_unit_walk.cpp
     sat_watched.cpp
+    sat_xor_util.cpp
   COMPONENT_DEPENDENCIES
     util
     dd
+    grobner
   PYG_FILES
     sat_asymm_branch_params.pyg
     sat_params.pyg

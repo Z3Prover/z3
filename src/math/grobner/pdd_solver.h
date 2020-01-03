@@ -105,8 +105,10 @@ public:
     solver(reslimit& lim, pdd_manager& m);
     ~solver();
 
-    void operator=(print_dep_t& pd) { m_print_dep = pd; }
-    void operator=(config const& c) { m_config = c; }
+    pdd_manager& get_manager() { return m; }
+
+    void set(print_dep_t& pd) { m_print_dep = pd; }
+    void set(config const& c) { m_config = c; }
 
     void reset();
     void add(pdd const& p) { add(p, nullptr); }

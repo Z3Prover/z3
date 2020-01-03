@@ -104,6 +104,7 @@ public:
 
 private:
     void basic_solve();
+    unsigned_vector gray(unsigned n);
 };
 
 inline std::ostream& operator<<(std::ostream& out, bit_matrix& m) { return m.display(out); }

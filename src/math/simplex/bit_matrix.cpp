@@ -91,3 +91,28 @@ std::ostream& bit_matrix::display(std::ostream& out) {
     return out;
 }
 
+/*
+  produce a sequence of bits forming a Gray code.
+  - All 2^n bit-sequences are covered.
+  - The Hamming distance between two entries it one.
+ */
+unsigned_vector bit_matrix::gray(unsigned n) {
+    SASSERT(n < 32);
+    if (n == 0) {
+        return unsigned_vector();
+    }
+    else if (n == 1) {
+        unsigned_vector v;
+        v.push_back(0);
+        v.push_back(1);
+        return v;
+    }
+    else {
+        auto v = gray(n-1);
+        auto w = v;
+        w.reverse();
+        for (auto & u : v) u |= (1 << (n-1));
+        v.append(w);
+        return v;
+    }
+}

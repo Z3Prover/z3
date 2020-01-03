@@ -30,6 +30,7 @@ Revision History:
 #include "sat/sat_unit_walk.h"
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
+#include "sat/sat_anf_simplifier.h"
 #if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
@@ -149,7 +150,8 @@ namespace sat {
             m_phase[v] = src.m_phase[v];
             m_best_phase[v] = src.m_best_phase[v];
             m_prev_phase[v] = src.m_prev_phase[v];
-            
+            m_level[v] = src.m_level[v];
+
             // inherit activity:
             m_activity[v] = src.m_activity[v];
             m_case_split_queue.activity_changed_eh(v, false);
@@ -236,7 +238,7 @@ namespace sat {
     //
     // -----------------------
 
-    bool_var solver::mk_var(bool ext, bool dvar) {
+    bool_var solver::mk_var(bool ext, bool dvar, unsigned level) {
         m_model_is_current = false;
         m_stats.m_mk_var++;
         bool_var v = m_justification.size();
@@ -248,6 +250,7 @@ namespace sat {
         m_decision.push_back(dvar);
         m_eliminated.push_back(false);
         m_external.push_back(ext);
+        m_level.push_back(level);
         m_touched.push_back(0);
         m_activity.push_back(0);
         m_mark.push_back(false);
@@ -1901,6 +1904,11 @@ namespace sat {
             lookahead lh(*this);
             lh.simplify(true);
             lh.collect_statistics(m_aux_stats);
+        }
+
+        if (m_config.m_anf_simplify) {
+            anf_simplifier anf(*this);
+            anf();
         }
 
         reinit_assumptions();
@@ -3852,6 +3860,7 @@ namespace sat {
             m_decision.shrink(v);
             m_eliminated.shrink(v);
             m_external.shrink(v);
+            m_level.shrink(v);
             m_touched.shrink(v);
             m_activity.shrink(v);
             m_mark.shrink(v);
@@ -4932,5 +4941,43 @@ namespace sat {
         stat.display(out);
         return out;
     }
+
+    bool solver::all_distinct(literal_vector const& lits) {
+        init_visited();
+        for (literal l : lits) {
+            if (is_visited(l.var())) {
+                return false;
+            }
+            mark_visited(l.var());
+        }
+        return true;
+    }
+
+    bool solver::all_distinct(clause const& c) {
+        init_visited();
+        for (literal l : c) {
+            if (is_visited(l.var())) {
+                return false;
+            }
+            mark_visited(l.var());
+        }
+        return true;
+    }
+
+    void solver::init_visited() {
+        if (m_visited.empty()) {
+            m_visited_ts = 0;
+        }
+        m_visited_ts++;
+        if (m_visited_ts == 0) {
+            m_visited_ts = 1;
+            m_visited.reset();
+        }
+        while (m_visited.size() < 2*num_vars()) {
+            m_visited.push_back(0);
+        }
+    }
+
+
 
 };
