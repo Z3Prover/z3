@@ -8,10 +8,7 @@ jobs:
   pool:
     vmImage: "macOS-10.14"
   steps:
-  - task: DownloadSecureFile@1
-    inputs:
-      secureFile: 'z3.snk'
-  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - script: git clone https://github.com/z3prover/z3test z3test
   - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
@@ -25,10 +22,7 @@ jobs:
   pool:
     vmImage: "ubuntu-16.04"
   steps:
-  - task: DownloadSecureFile@1
-    inputs:
-      secureFile: 'z3.snk'
-  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Agent.TempDirectory)/z3.snk
+  - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - script: git clone https://github.com/z3prover/z3test z3test
   - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
@@ -59,9 +53,6 @@ jobs:
   pool:
     vmImage: "vs2017-win2016"
   steps:
-  - task: DownloadSecureFile@1
-    inputs:
-      secureFile: 'z3.snk'
   - script: scripts\mk_win_dist.cmd
 #  - script: git clone https://github.com/z3prover/z3test z3test
 #  - script: python z3test/scripts/test_benchmarks.py build-dist\z3.exe z3test/regressions/smt2    
