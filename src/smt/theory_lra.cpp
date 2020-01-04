@@ -3127,7 +3127,10 @@ public:
                 auto vi1 = register_theory_var_in_lar_solver(v1);
                 auto vi2 = register_theory_var_in_lar_solver(v2);
                 lp::constraint_index ci1, ci2, ci3, ci4;
-                TRACE("arith", tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << has_lower_bound(vi2, ci3, bound) << "\n";);
+                
+                TRACE("arith",
+                      bool hlb = has_lower_bound(vi2, ci3, bound);
+                      tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << hlb << std::endl;);
                 if (has_lower_bound(vi2, ci3, bound) && has_upper_bound(vi2, ci4, bound)) {
                     VERIFY (has_lower_bound(vi1, ci1, bound));
                     VERIFY (has_upper_bound(vi1, ci2, bound));
