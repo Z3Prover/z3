@@ -3129,7 +3129,7 @@ public:
                 lp::constraint_index ci1, ci2, ci3, ci4;
                 
                 TRACE("arith",
-                      bool hlb = has_lower_bound(vi2, ci3, bound);
+                      bool hlb = has_lower_bound(vi2, ci3, bound); // has_lower_bound in turn trace "arith"
                       tout << "fixed: " << mk_pp(get_owner(v1), m) << " " << mk_pp(get_owner(v2), m) << " " << bound << " " << hlb << std::endl;);
                 if (has_lower_bound(vi2, ci3, bound) && has_upper_bound(vi2, ci4, bound)) {
                     VERIFY (has_lower_bound(vi1, ci1, bound));
