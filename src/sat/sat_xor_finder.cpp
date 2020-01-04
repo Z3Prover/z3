@@ -3,11 +3,11 @@
 
   Module Name:
 
-   sat_xor_util.cpp
+   sat_xor_finder.cpp
 
   Abstract:
    
-    xor utilities
+    xor finderities
 
   Author:
 
@@ -19,12 +19,12 @@
   --*/
 #pragma once;
 
-#include "sat/sat_xor_util.h"
+#include "sat/sat_xor_finder.h"
 #include "sat/sat_solver.h"
 
 namespace sat {
 
-    void xor_util::extract_xors() {
+    void xor_finder::extract_xors(clause_vector& clauses) {
         m_removed_clauses.reset();
         if (!s.get_config().m_xor_solver) {
             return;
@@ -37,11 +37,11 @@ namespace sat {
         SASSERT(sizeof(m_combination)*8 <= (1ull << static_cast<uint64_t>(max_size)));
         init_clause_filter();
         m_var_position.resize(s.num_vars());
-        for (clause* cp : s.m_clauses) {
+        for (clause* cp : clauses) {
             cp->unmark_used();
         }
         for (; max_size > 2; --max_size) {
-            for (clause* cp : s.m_clauses) {
+            for (clause* cp : clauses) {
                 clause& c = *cp;
                 if (c.size() == max_size && !c.was_removed() && !c.is_learned() && !c.was_used()) {
                     extract_xor(c);
@@ -51,7 +51,7 @@ namespace sat {
         m_clause_filters.clear();
     }
 
-    void xor_util::extract_xor(clause& c) {
+    void xor_finder::extract_xor(clause& c) {
         SASSERT(c.size() > 2);
         unsigned filter = get_clause_filter(c);
         s.init_visited();
@@ -99,20 +99,19 @@ namespace sat {
         }
     }
 
-    void xor_util::add_xor(bool parity, clause& c) {
+    void xor_finder::add_xor(bool parity, clause& c) {
         DEBUG_CODE(for (clause* cp : m_clauses_to_remove) VERIFY(cp->was_used()););
         m_removed_clauses.append(m_clauses_to_remove);
-        bool learned = false;
         literal_vector lits;
         for (literal l : c) {
             lits.push_back(literal(l.var(), false));
             s.set_external(l.var());
         }
         if (parity) lits[0].neg();
-        m_add_xr(lits, learned);
+        m_add_xr(lits);
     }
 
-    bool xor_util::extract_xor(bool parity, clause& c, literal l1, literal l2) {
+    bool xor_finder::extract_xor(bool parity, clause& c, literal l1, literal l2) {
         SASSERT(s.is_visited(l1.var()));
         SASSERT(s.is_visited(l2.var()));
         m_missing.reset();
@@ -131,7 +130,7 @@ namespace sat {
         return update_combinations(c, parity, mask);
     }
 
-    bool xor_util::extract_xor(bool parity, clause& c, clause& c2) {
+    bool xor_finder::extract_xor(bool parity, clause& c, clause& c2) {
         bool parity2 = false;
         for (literal l : c2) {            
             if (!s.is_visited(l.var())) return false;
@@ -168,7 +167,7 @@ namespace sat {
         return update_combinations(c, parity, mask);
     }
 
-    bool xor_util::update_combinations(clause& c, bool parity, unsigned mask) {
+    bool xor_finder::update_combinations(clause& c, bool parity, unsigned mask) {
         unsigned num_missing = m_missing.size();
         for (unsigned k = 0; k < (1ul << num_missing); ++k) {
             unsigned mask2 = mask;
@@ -189,7 +188,7 @@ namespace sat {
         return true;
     }
 
-    void xor_util::init_parity() {
+    void xor_finder::init_parity() {
         for (unsigned i = m_parity.size(); i <= m_max_xor_size; ++i) {
             bool_vector bv;
             for (unsigned j = 0; j < (1ul << i); ++j) {
@@ -203,14 +202,14 @@ namespace sat {
         }
     }
 
-    void xor_util::init_clause_filter() {
+    void xor_finder::init_clause_filter() {
         m_clause_filters.reset();
         m_clause_filters.resize(s.num_vars());
         init_clause_filter(s.m_clauses);
         init_clause_filter(s.m_learned);
     }
 
-    void xor_util::init_clause_filter(clause_vector& clauses) {
+    void xor_finder::init_clause_filter(clause_vector& clauses) {
         for (clause* cp : clauses) {
             clause& c = *cp;
             if (c.size() <= m_max_xor_size && s.all_distinct(c)) {
@@ -222,7 +221,7 @@ namespace sat {
         }
     }
 
-    unsigned xor_util::get_clause_filter(clause& c) {
+    unsigned xor_finder::get_clause_filter(clause& c) {
         unsigned filter = 0;
         for (literal l : c) {
             filter |= 1 << ((l.var() % 32));

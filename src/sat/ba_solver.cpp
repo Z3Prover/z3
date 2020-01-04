@@ -22,7 +22,7 @@ Revision History:
 #include "sat/sat_types.h"
 #include "util/mpz.h"
 #include "sat/sat_simplifier_params.hpp"
-#include "sat/sat_xor_util.h"
+#include "sat/sat_xor_finder.h"
 
 
 namespace sat {
@@ -2911,9 +2911,9 @@ namespace sat {
     void ba_solver::pre_simplify() {
         VERIFY(s().at_base_lvl());
         m_constraint_removed = false;
-        xor_util xu(s());
-        for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) pre_simplify(xu, *m_constraints[i]);
-        for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) pre_simplify(xu, *m_learned[i]);   
+        xor_finder xf(s());
+        for (unsigned sz = m_constraints.size(), i = 0; i < sz; ++i) pre_simplify(xf, *m_constraints[i]);
+        for (unsigned sz = m_learned.size(), i = 0; i < sz; ++i) pre_simplify(xf, *m_learned[i]);   
         bool change = m_constraint_removed;
         cleanup_constraints();
         if (change) {
@@ -2924,8 +2924,8 @@ namespace sat {
         }
     }
 
-    void ba_solver::pre_simplify(xor_util& xu, constraint& c) {
-        if (c.is_xr() && c.size() <= xu.max_xor_size()) {
+    void ba_solver::pre_simplify(xor_finder& xf, constraint& c) {
+        if (c.is_xr() && c.size() <= xf.max_xor_size()) {
             unsigned sz = c.size();
             literal_vector lits;
             bool parity = false;
@@ -2936,7 +2936,7 @@ namespace sat {
 
             // IF_VERBOSE(0, verbose_stream() << "blast: " << c << "\n");
             for (unsigned i = 0; i < (1ul << sz); ++i) {
-                if (xu.parity(sz, i) == parity) {
+                if (xf.parity(sz, i) == parity) {
                     lits.reset();
                     for (unsigned j = 0; j < sz; ++j) {
                         lits.push_back(literal(x[j].var(), (0 != (i & (1 << j)))));
@@ -3799,11 +3799,11 @@ namespace sat {
     }
 
     void ba_solver::extract_xor() {
-        xor_util xu(s());
-        std::function<void (literal_vector const&, bool)> f = [this](literal_vector const& l, bool b) { add_xr(l,b); };
-        xu.set(f);
-        xu.extract_xors();
-        for (clause* cp : xu.removed_clauses()) {
+        xor_finder xf(s());
+        std::function<void (literal_vector const&)> f = [this](literal_vector const& l) { add_xr(l, false); };
+        xf.set(f);
+        xf.extract_xors(s().m_clauses);
+        for (clause* cp : xf.removed_clauses()) {
             cp->set_removed(true);
             m_clause_removed = true;
         }

@@ -25,31 +25,70 @@
 #include "sat/sat_types.h"
 #include "sat/sat_solver.h"
 
+namespace dd {
+    class pdd;
+    class solver;
+};
+
 namespace sat {
 
-    class pdd_solver;
+    typedef dd::solver pdd_solver;
 
     class anf_simplifier {
     public:
         struct config {
             unsigned m_max_clause_size;
             unsigned m_max_clauses;
+            bool     m_compile_xor;
+            bool     m_compile_aig;
+            bool     m_anf2phase;
             config():
                 m_max_clause_size(10),
-                m_max_clauses(10000)
+                m_max_clauses(10000),
+                m_compile_xor(true),
+                m_compile_aig(true),
+                m_anf2phase(false)
             {}
         };
+
     private:
-        solver& s;
-        config  m_config;
-        svector<bool> m_relevant;
+        struct report;
+
+        struct stats {
+            unsigned m_num_units, m_num_eq;
+            unsigned m_num_aigs, m_num_xors;
+            stats() { reset(); }
+            void reset() { memset(this, 0, sizeof(*this)); }
+        };
+
+        solver&        s;
+        config         m_config;
+        svector<bool>  m_relevant;
+        stats          m_stats;
+        statistics     m_st;
+        unsigned_vector m_eval_cache;
+        unsigned        m_eval_ts;
+        svector<bool>   m_used_for_evaluation;
+
+        void clauses2anf(pdd_solver& solver);
+        void anf2clauses(pdd_solver& solver);
+        void anf2phase(pdd_solver& solver);
 
         void collect_clauses(clause_vector & clauses, svector<solver::bin_clause>& bins);
+
+        void compile_xors(clause_vector& clauses, pdd_solver& ps);
+        void compile_aigs(clause_vector& clauses, svector<solver::bin_clause>& bins, pdd_solver& ps);
+
         void collect_xors(vector<literal_vector>& xors);
         void configure_solver(pdd_solver& ps);
         void add_clause(clause const& c, pdd_solver& ps);
         void add_bin(solver::bin_clause const& b, pdd_solver& ps);
         void add_xor(literal_vector const& x, pdd_solver& ps);
+        void add_aig(literal head, literal_vector const& ands, pdd_solver& ps);        
+        void save_statistics(pdd_solver& ps);
+
+        bool eval(dd::pdd const& p);
+        void reset_eval();
 
         bool is_pre_satisfied(clause const& c);
         bool is_pre_satisfied(solver::bin_clause const& b);
@@ -65,11 +104,13 @@ namespace sat {
         void set_relevant(literal l) { set_relevant(l.var()); }
         void set_relevant(bool_var v) { m_relevant[v] = true; }
 
+
     public:
         anf_simplifier(solver& s) : s(s) {}
         ~anf_simplifier() {}
         
         void operator()();
         void set(config const& cfg) { m_config = cfg; }
+        void collect_statistics(statistics& st) const { st.copy(m_st); }
     };
 }

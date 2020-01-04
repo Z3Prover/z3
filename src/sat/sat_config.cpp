@@ -101,6 +101,7 @@ namespace sat {
         m_unit_walk_threads = p.unit_walk_threads();
         m_binspr            = p.binspr();
         m_anf_simplify      = p.anf();
+        m_aig_simplify      = p.aig();
         m_lookahead_simplify = p.lookahead_simplify();
         m_lookahead_double = p.lookahead_double();
         m_lookahead_simplify_bca = p.lookahead_simplify_bca();

@@ -32,7 +32,7 @@ Revision History:
 
 namespace sat {
 
-    class xor_util;
+    class xor_finder;
     
     class ba_solver : public extension {
 
@@ -347,7 +347,7 @@ namespace sat {
         lbool add_assign(constraint& c, literal l);
         bool incremental_mode() const;
         void simplify(constraint& c);
-        void pre_simplify(xor_util& xu, constraint& c);
+        void pre_simplify(xor_finder& xu, constraint& c);
         void nullify_tracking_literal(constraint& c);
         void set_conflict(constraint& c, literal lit);
         void assign(constraint& c, literal lit);

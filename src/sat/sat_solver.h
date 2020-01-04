@@ -216,7 +216,8 @@ namespace sat {
         friend struct mk_stat;
         friend class elim_vars;
         friend class scoped_detach;
-        friend class xor_util;
+        friend class xor_finder;
+        friend class aig_finder;
     public:
         solver(params_ref const & p, reslimit& l);
         ~solver() override;
@@ -402,6 +403,7 @@ namespace sat {
         bool       set_root(literal l, literal r);
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
+        struct bin_clause_hash { unsigned operator()(bin_clause const& b) const { return b.first.hash() + 2*b.second.hash(); } };
     protected:
         watch_list & get_wlist(literal l) { return m_watches[l.index()]; }
         watch_list const & get_wlist(literal l) const { return m_watches[l.index()]; }

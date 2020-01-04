@@ -2,6 +2,8 @@ z3_add_component(sat
   SOURCES
     ba_solver.cpp
     dimacs.cpp
+    sat_aig_finder.cpp
+    sat_aig_simplifier.cpp
     sat_anf_simplifier.cpp
     sat_asymm_branch.cpp
     sat_big.cpp
@@ -11,6 +13,7 @@ z3_add_component(sat
     sat_clause_use_list.cpp
     sat_cleaner.cpp
     sat_config.cpp
+    sat_cutset.cpp
     sat_ddfw.cpp
     sat_drat.cpp
     sat_elim_eqs.cpp
@@ -29,7 +32,7 @@ z3_add_component(sat
     sat_solver.cpp
     sat_unit_walk.cpp
     sat_watched.cpp
-    sat_xor_util.cpp
+    sat_xor_finder.cpp
   COMPONENT_DEPENDENCIES
     util
     dd

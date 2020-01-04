@@ -17,128 +17,195 @@
 
 #include "sat/sat_anf_simplifier.h"
 #include "sat/sat_solver.h"
-#include "sat/sat_xor_util.h"
+#include "sat/sat_xor_finder.h"
+#include "sat/sat_aig_finder.h"
 #include "math/grobner/pdd_solver.h"
 
 namespace sat {
 
-
-    class pdd_solver : public dd::solver {
-    public:
-        pdd_solver(reslimit& lim, dd::pdd_manager& m): dd::solver(lim, m) {}
+    struct anf_simplifier::report {
+        anf_simplifier& s;
+        stopwatch       m_watch;
+        report(anf_simplifier& s): s(s) { m_watch.start(); }
+        ~report() {
+            m_watch.stop();
+            IF_VERBOSE(2, 
+                       verbose_stream() << " (sat.anf.simplifier " 
+                       << " :num-units " << s.m_stats.m_num_units 
+                       << " :num-eqs " << s.m_stats.m_num_eq
+                       << mem_stat() << m_watch << ")\n");
+        }
     };
             
     void anf_simplifier::operator()() {
-        
-        vector<literal_vector> xors;
-        clause_vector clauses;
-        svector<solver::bin_clause> bins;
-        m_relevant.reset();
-        m_relevant.resize(s.num_vars(), false);
-        for (clause* cp : s.m_clauses) cp->unmark_used();
-        collect_xors(xors);
-        collect_clauses(clauses, bins);
-        
         dd::pdd_manager m(20, dd::pdd_manager::semantics::mod2_e);
+        report _report(*this);
         pdd_solver solver(s.rlimit(), m);
         configure_solver(solver);
-        
-        try {
-            for (literal_vector const& x : xors) {
-                add_xor(x, solver);
-            }
-            for (clause* cp : clauses) {
-                add_clause(*cp, solver);
-            }
-            for (auto const& b : bins) {
-                add_bin(b, solver);
-            }
-        }
-        catch (dd::pdd_manager::mem_out) {
-            IF_VERBOSE(2, verbose_stream() << "(sat.anf memout)\n");
-            return;
-        }
-
-        TRACE("anf_simplifier", solver.display(tout););
-
+        clauses2anf(solver);
+        TRACE("anf_simplifier", solver.display(tout); s.display(tout););
         solver.simplify();
-
         TRACE("anf_simplifier", solver.display(tout););
+        anf2clauses(solver);
+        anf2phase(solver);
+        save_statistics(solver);
+        IF_VERBOSE(10, m_st.display(verbose_stream() << "(sat.anf.simplifier\n"); verbose_stream() << ")\n");
+    }
 
-        unsigned num_units = 0, num_eq = 0;
+    /**
+       \brief extract learned units and equivalences from processed anf.
+
+       TBD: could learn binary clauses
+       TBD: could try simplify equations using BIG subsumption similar to asymm_branch
+     */
+    void anf_simplifier::anf2clauses(pdd_solver& solver) {
 
         for (auto* e : solver.equations()) {
             auto const& p = e->poly();
-            if (p.is_zero()) {
-                continue;
-            }
-            else if (p.is_val()) {
+            if (p.is_one()) {
                 s.set_conflict();
                 break;
             }
             else if (p.is_unary()) {
                 // unit
-                literal lit(p.var(), p.lo().val().is_zero());
+                SASSERT(!p.is_val() && p.lo().is_val() && p.hi().is_val());
+                literal lit(p.var(), p.lo().is_zero());
                 s.assign_unit(lit);
-                ++num_units;
+                ++m_stats.m_num_units;
+                TRACE("anf_simplifier", tout << "unit " << p << " : " << lit << "\n";);
             }
             else if (p.is_binary()) {
                 // equivalence
                 // x + y + c = 0
+                SASSERT(!p.is_val() && p.hi().is_one() && !p.lo().is_val() && p.lo().hi().is_one() && p.lo().lo().is_val());
                 literal x(p.var(), false);
-                literal y(p.lo().var(), p.lo().lo().val().is_zero());
+                literal y(p.lo().var(), p.lo().lo().is_zero());
                 s.mk_clause(x, y, true);
                 s.mk_clause(~x, ~y, true);
-                ++num_eq;
+                ++m_stats.m_num_eq;
+                TRACE("anf_simplifier", tout << "equivalence " << p << " : " << x << " == " << y << "\n";);
             }
-            // TBD: could learn binary clauses
-            // TBD: could try simplify equations using BIG subsumption similar to asymm_branch
         }
+    }
 
-        IF_VERBOSE(10, solver.display_statistics(verbose_stream() << "(sat.anf\n" ) 
-                   << "\n"
-                   << " :num-unit " << num_units 
-                   << " :num-eq "   << num_eq 
-                   << " :num-xor "  << xors.size() 
-                   << " :num-cls "  << clauses.size() 
-                   << " :num-bin "  << bins.size()
-                   << ")\n");
+    /**
+       \brief update best phase using solved equations
+       polynomials that are not satisfied evaluate to true.
+       In a satisfying assignment, all polynomials should evaluate to false.
+       assume that solutions are provided in reverse order.
+
+       As a simplifying assumption it relies on the property
+       that if an equation is of the form v + p, where v does not occur in p,
+       then all equations that come after it do not contain p.
+       In this way we can flip the assignment to v without 
+       invalidating the evaluation cache.
+     */
+    void anf_simplifier::anf2phase(pdd_solver& solver) {
+        if (!m_config.m_anf2phase) 
+            return;
+        m_eval_ts = 0;
+        reset_eval();
+        auto const& eqs = solver.equations();
+        for (unsigned i = eqs.size(); i-- > 0; ) {
+            dd::pdd const& p = eqs[i]->poly();
+            if (!p.is_val() && p.hi().is_one() && s.m_best_phase[p.var()] != eval(p.lo())) {
+                s.m_best_phase[p.var()] = !s.m_best_phase[p.var()];
+            }
+        }
+    }
+
+    bool anf_simplifier::eval(dd::pdd const& p) {
+        if (p.is_one()) return true;
+        if (p.is_zero()) return false;
+        unsigned index = p.index();
+        if (index < m_eval_cache.size()) {
+            if (m_eval_cache[index] == m_eval_ts) return false;
+            if (m_eval_cache[index] == m_eval_ts + 1) return true;
+        }
+        SASSERT(!p.is_val());
+        bool hi = eval(p.hi());
+        bool lo = eval(p.lo());
+        bool v = (hi && s.m_best_phase[p.var()]) ^ lo;
+        m_eval_cache.reserve(index + 1, 0);
+        m_eval_cache[index] = m_eval_ts + v;
+        return v;
+    }
+
+    void anf_simplifier::reset_eval() {
+        if (m_eval_ts + 2 < m_eval_ts) {
+            m_eval_cache.reset();
+            m_eval_ts = 0;
+        }
+        m_eval_ts += 2;
+    }
+
+    void anf_simplifier::clauses2anf(pdd_solver& solver) {
+        svector<solver::bin_clause> bins;
+        m_relevant.reset();
+        m_relevant.resize(s.num_vars(), false);
+        clause_vector clauses(s.clauses());
+        s.collect_bin_clauses(bins, false, false);
+        collect_clauses(clauses, bins);
+        try {
+            compile_xors(clauses, solver);
+            compile_aigs(clauses, bins, solver);
+
+            for (auto const& b : bins) {
+                add_bin(b, solver);
+            }                
+            for (clause* cp : clauses) {
+                add_clause(*cp, solver);
+            }
+        }
+        catch (dd::pdd_manager::mem_out) {
+            IF_VERBOSE(1, verbose_stream() << "(sat.anf memout)\n");
+        }
     }
 
     void anf_simplifier::collect_clauses(clause_vector & clauses, svector<solver::bin_clause>& bins) {
         clause_vector oclauses;
-        for (clause* cp : s.clauses()) {
+        svector<solver::bin_clause> obins;
+
+        unsigned j = 0;
+        for (clause* cp : clauses) {
             clause const& c = *cp;
-            if (c.was_used() || is_too_large(c)) 
+            if (is_too_large(c)) 
                 continue;
             else if (is_pre_satisfied(c)) {
                 oclauses.push_back(cp);
             }
             else {
-                clauses.push_back(cp);
+                clauses[j++] = cp;
             }
         }
-        svector<solver::bin_clause> obins;
-        s.collect_bin_clauses(obins, false, false);
-        unsigned j = 0;
-        for (auto const& b : obins) {
+        clauses.shrink(j);
+
+        j = 0;
+        for (auto const& b : bins) {
             if (is_pre_satisfied(b)) {
-                obins[j++] = b;
+                obins.push_back(b);
             }
             else {
-                bins.push_back(b);
+                bins[j++] = b;
             }
         }
-        obins.shrink(j);
+        bins.shrink(j);
 
-        while (bins.size() + clauses.size() < m_config.m_max_clauses) {
+        unsigned rounds = 0, max_rounds = 3;
+        bool added = true;
+        while (bins.size() + clauses.size() < m_config.m_max_clauses &&
+               (!obins.empty() || !oclauses.empty()) &&
+               added &&
+               rounds < max_rounds) {
 
+            added = false;
             for (auto const& b : bins) set_relevant(b);
             for (clause* cp : clauses) set_relevant(*cp);
     
             j = 0;
             for (auto const& b : obins) {
                 if (has_relevant_var(b)) {
+                    added = true;
                     bins.push_back(b);
                 }
                 else {
@@ -153,16 +220,24 @@ namespace sat {
             
             j = 0;
             for (clause* cp : oclauses) {
-                clause& c = *cp;
-                if (has_relevant_var(c)) {
+                if (has_relevant_var(*cp)) {
+                    added = true;
                     clauses.push_back(cp);
                 }
                 else {
-                    oclauses.push_back(cp);
+                    oclauses[j++] = cp;
                 }
             }
             oclauses.shrink(j);
         }
+
+        TRACE("anf_simplifier", 
+              tout << "kept:\n";
+              for (clause* cp : clauses) tout << *cp << "\n";
+              for (auto b : bins) tout << b.first << " " << b.second << "\n";
+              tout << "removed:\n";
+              for (clause* cp : oclauses) tout << *cp << "\n";
+              for (auto b : obins) tout << b.first << " " << b.second << "\n";);
     }
 
     void anf_simplifier::set_relevant(solver::bin_clause const& b) {
@@ -197,23 +272,77 @@ namespace sat {
         return is_relevant(b.first) || is_relevant(b.second);
     }
 
-    void anf_simplifier::collect_xors(vector<literal_vector>& xors) {
-        std::function<void(literal_vector const&, bool)> f =
-            [&](literal_vector const& l, bool) { xors.push_back(l); };
-
-        xor_util xu(s);
-        xu.set(f);
-        xu.extract_xors();
-        for (clause* cp : s.m_clauses) cp->unmark_used();
-        for (clause* cp : s.m_learned) cp->unmark_used();
-        for (clause* cp : xu.removed_clauses()) cp->mark_used();
+    /**
+       \brief extract xors from all s.clauses() 
+       (could be just filtered clauses, or clauses with relevant variables).
+       Add the extracted xors to pdd_solver.
+       Remove clauses from list that correspond to extracted xors
+     */
+    void anf_simplifier::compile_xors(clause_vector& clauses, pdd_solver& ps) {
+        if (!m_config.m_compile_xor) {
+            return;
+        }
+        std::function<void(literal_vector const&)> f =
+            [&,this](literal_vector const& x) { 
+            add_xor(x, ps);
+            m_stats.m_num_xors++;
+        };
+        xor_finder xf(s);
+        xf.set(f);
+        xf.extract_xors(clauses); 
+        for (clause* cp : clauses) cp->unmark_used();
+        for (clause* cp : xf.removed_clauses()) cp->mark_used();
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
     }
 
+    static solver::bin_clause normalize(solver::bin_clause const& b) {
+        if (b.first.index() > b.second.index()) {
+            return solver::bin_clause(b.second, b.first);
+        }
+        else {
+            return b;
+        }
+    }
+    /**
+       \brief extract AIGs from clauses.
+       Add the extracted AIGs to pdd_solver.
+       Remove clauses from list that correspond to extracted AIGs
+       Remove binary clauses that correspond to extracted AIGs.       
+     */
+    void anf_simplifier::compile_aigs(clause_vector& clauses, svector<solver::bin_clause>& bins, pdd_solver& ps) {
+        if (!m_config.m_compile_aig) {
+            return;
+        }
+        for (clause* cp : clauses) cp->unmark_used();
+        hashtable<solver::bin_clause, solver::bin_clause_hash, default_eq<solver::bin_clause>> seen_bin;
+
+        std::function<void(literal head, literal_vector const& tail, clause& c)> f =
+            [&,this](literal head, literal_vector const& tail, clause& c) {
+            c.mark_used();
+            add_aig(head, tail, ps);
+            for (literal l : tail) {                
+                seen_bin.insert(normalize(solver::bin_clause(~l, head)));
+            }
+            m_stats.m_num_aigs++;
+        };
+        aig_finder af(s);
+        af.set(f);
+        af(clauses);
+
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        std::function<bool(solver::bin_clause b)> not_seen = [&](solver::bin_clause b) { return !seen_bin.contains(normalize(b)); };
+        clauses.filter_update(not_used);
+        bins.filter_update(not_seen);
+    }
+
+    /**
+       assign levels to variables. 
+       use s.def_level as a primary source for the level of a variable.
+       secondarily, sort variables randomly (each variable is assigned
+       a random, unique, id).
+    */
     void anf_simplifier::configure_solver(pdd_solver& ps) {
-        // assign levels to variables. 
-        // use s.def_level as a primary source for the level of a variable.
-        // secondarily, sort variables randomly (each variable is assigned
-        // a random, unique, id).
         unsigned nv = s.num_vars();
         unsigned_vector l2v(nv), var2id(nv), id2var(nv);
         svector<std::pair<unsigned, unsigned>> vl(nv);
@@ -239,36 +368,48 @@ namespace sat {
         ps.set(cfg);
     }
 
+#define lit2pdd(_l_) _l_.sign() ? ~m.mk_var(_l_.var()) : m.mk_var(_l_.var()) 
+
     void anf_simplifier::add_bin(solver::bin_clause const& b, pdd_solver& ps) {
         auto& m = ps.get_manager();
-        auto v = m.mk_var(b.first.var());
-        auto w = m.mk_var(b.second.var());
-        if (b.first.sign()) v = ~v;
-        if (b.second.sign()) w = ~w;        
+        auto v = lit2pdd(b.first);
+        auto w = lit2pdd(b.second);
         dd::pdd p = v | w;
         ps.add(p);
+        TRACE("anf_simplifier", tout << "bin: " << b.first << " " << b.second << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_clause(clause const& c, pdd_solver& ps) {
         auto& m = ps.get_manager();
         dd::pdd p = m.zero();
-        for (literal l : c) {
-            auto v = m.mk_var(l.var());
-            if (l.sign()) v = ~v;
-            p |= v;
-        }
+        for (literal l : c) p |= lit2pdd(l);
         ps.add(p);
+        TRACE("anf_simplifier", tout << "clause: " << c << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_xor(literal_vector const& x, pdd_solver& ps) {
         auto& m = ps.get_manager();
         dd::pdd p = m.zero();
-        for (literal l : x) {
-            auto v = m.mk_var(l.var());
-            if (l.sign()) v = ~v;
-            p ^= v;
-        }
+        for (literal l : x) p ^= lit2pdd(l);
         ps.add(p);
+        TRACE("anf_simplifier", tout << "xor: " << x << " : " << p << "\n";);
+    }
+
+    void anf_simplifier::add_aig(literal head, literal_vector const& ands, pdd_solver& ps) {
+        auto& m = ps.get_manager();
+        dd::pdd q = m.one();
+        for (literal l : ands) q &= lit2pdd(l);
+        dd::pdd p = lit2pdd(head) ^ q;
+        ps.add(p);
+        TRACE("anf_simplifier", tout << "aig: " << head << " == " << ands << " : " << p << "\n";);
+    }
+
+    void anf_simplifier::save_statistics(pdd_solver& solver) {
+        solver.collect_statistics(m_st);
+        m_st.update("anf.num-units", m_stats.m_num_units);
+        m_st.update("anf.num-eqs",   m_stats.m_num_eq);
+        m_st.update("anf.num-aigs",  m_stats.m_num_aigs);
+        m_st.update("anf.num-xors",  m_stats.m_num_xors);
     }
 
 }

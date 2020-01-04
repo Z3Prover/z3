@@ -31,6 +31,7 @@ Revision History:
 #include "sat/sat_ddfw.h"
 #include "sat/sat_prob.h"
 #include "sat/sat_anf_simplifier.h"
+#include "sat/sat_aig_simplifier.h"
 #if defined(_MSC_VER) && !defined(_M_ARM) && !defined(_M_ARM64)
 # include <xmmintrin.h>
 #endif
@@ -1909,6 +1910,13 @@ namespace sat {
         if (m_config.m_anf_simplify) {
             anf_simplifier anf(*this);
             anf();
+            anf.collect_statistics(m_aux_stats);
+        }
+
+        if (m_config.m_aig_simplify) {
+            aig_simplifier aig(*this);
+            aig();
+            aig.collect_statistics(m_aux_stats);
         }
 
         reinit_assumptions();
