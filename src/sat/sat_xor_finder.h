@@ -47,7 +47,7 @@ namespace sat {
         literal_vector          m_clause;       // reference clause with literals sorted according to main clause
         unsigned_vector         m_missing;      // set of indices not occurring in clause.
         clause_vector           m_removed_clauses;
-        std::function<void (literal_vector const& lits)> m_add_xr;
+        std::function<void (literal_vector const& lits)> m_on_xor;
 
         inline void set_combination(unsigned mask) { m_combination |= (1 << mask); }
         inline bool get_combination(unsigned mask) const { return (m_combination & (1 << mask)) != 0; }
@@ -65,12 +65,12 @@ namespace sat {
         xor_finder(solver& s) : s(s), m_max_xor_size(5) { init_parity(); }
         ~xor_finder() {}        
 
-        void set(std::function<void (literal_vector const& lits)>& f) { m_add_xr = f; }
+        void set(std::function<void (literal_vector const& lits)>& f) { m_on_xor = f; }
 
         bool parity(unsigned i, unsigned j) const { return m_parity[i][j]; }
         unsigned max_xor_size() const { return m_max_xor_size; }
 
-        void extract_xors(clause_vector& clauses);        
-        clause_vector& removed_clauses() { return m_removed_clauses; }
+        void operator()(clause_vector& clauses);        
+        clause_vector const& removed_clauses() const { return m_removed_clauses; }
     };
 }

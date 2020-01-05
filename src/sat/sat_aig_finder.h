@@ -38,15 +38,18 @@ namespace sat {
         solver& s;
         big                     m_big;
         literal_vector          m_ands; 
-        std::function<void (literal head, literal_vector const& ands, clause& orig)> m_aig_def;
+        std::function<void (literal head, literal_vector const& ands)> m_on_aig;
+        std::function<void (literal head, literal cond, literal th, literal el)> m_on_if;
         bool implies(literal a, literal b);
         bool find_aig(clause& c);
-        bool find_if(clause& c);
+        void find_ifs(clause_vector& clauses);
+        void find_aigs(clause_vector& clauses);
 
     public:
         aig_finder(solver& s) : s(s), m_big(s.rand()) {}
         ~aig_finder() {}                
-        void set(std::function<void (literal head, literal_vector const& ands, clause& orig)>& f) { m_aig_def = f; }
-        void operator()(clause_vector const& clauses);
+        void set(std::function<void (literal head, literal_vector const& ands)>& f) { m_on_aig = f; }
+        void set(std::function<void (literal head, literal cond, literal th, literal el)>& f) { m_on_if = f; }
+        void operator()(clause_vector& clauses);
     };
 }

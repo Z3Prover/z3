@@ -30,10 +30,11 @@ namespace sat {
         ~report() {
             m_watch.stop();
             IF_VERBOSE(2, 
-                       verbose_stream() << " (sat.anf.simplifier " 
+                       verbose_stream() << " (sat.anf.simplifier" 
                        << " :num-units " << s.m_stats.m_num_units 
-                       << " :num-eqs " << s.m_stats.m_num_eq
-                       << mem_stat() << m_watch << ")\n");
+                       << " :num-eqs " << s.m_stats.m_num_eq 
+                       << " :mb " << mem_stat() 
+                       << m_watch << ")\n");
         }
     };
             
@@ -289,11 +290,7 @@ namespace sat {
         };
         xor_finder xf(s);
         xf.set(f);
-        xf.extract_xors(clauses); 
-        for (clause* cp : clauses) cp->unmark_used();
-        for (clause* cp : xf.removed_clauses()) cp->mark_used();
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        clauses.filter_update(not_used);
+        xf(clauses); 
     }
 
     static solver::bin_clause normalize(solver::bin_clause const& b) {
@@ -314,25 +311,28 @@ namespace sat {
         if (!m_config.m_compile_aig) {
             return;
         }
-        for (clause* cp : clauses) cp->unmark_used();
         hashtable<solver::bin_clause, solver::bin_clause_hash, default_eq<solver::bin_clause>> seen_bin;
 
-        std::function<void(literal head, literal_vector const& tail, clause& c)> f =
-            [&,this](literal head, literal_vector const& tail, clause& c) {
-            c.mark_used();
+        std::function<void(literal head, literal_vector const& tail)> on_aig =
+            [&,this](literal head, literal_vector const& tail) {
             add_aig(head, tail, ps);
             for (literal l : tail) {                
                 seen_bin.insert(normalize(solver::bin_clause(~l, head)));
             }
             m_stats.m_num_aigs++;
         };
+        std::function<void(literal head, literal c, literal th, literal el)> on_if = 
+            [&,this](literal head, literal c, literal th, literal el) {
+            add_if(head, c, th, el, ps);
+            m_stats.m_num_ifs++;
+        };
         aig_finder af(s);
-        af.set(f);
+        af.set(on_aig);
+        af.set(on_if);
         af(clauses);
 
-        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
-        std::function<bool(solver::bin_clause b)> not_seen = [&](solver::bin_clause b) { return !seen_bin.contains(normalize(b)); };
-        clauses.filter_update(not_used);
+        std::function<bool(solver::bin_clause b)> not_seen = 
+            [&](solver::bin_clause b) { return !seen_bin.contains(normalize(b)); };
         bins.filter_update(not_seen);
     }
 
@@ -361,14 +361,14 @@ namespace sat {
         cfg.m_expr_size_limit = 1000;
         cfg.m_max_steps = 1000;
         cfg.m_random_seed = s.rand()();
-        cfg.m_enable_exlin = true;
+        cfg.m_enable_exlin = m_config.m_enable_exlin;
 
         unsigned max_num_nodes = 1 << 18;
         ps.get_manager().set_max_num_nodes(max_num_nodes);
         ps.set(cfg);
     }
 
-#define lit2pdd(_l_) _l_.sign() ? ~m.mk_var(_l_.var()) : m.mk_var(_l_.var()) 
+#define lit2pdd(_l_) (_l_.sign() ? ~m.mk_var(_l_.var()) : m.mk_var(_l_.var()))
 
     void anf_simplifier::add_bin(solver::bin_clause const& b, pdd_solver& ps) {
         auto& m = ps.get_manager();
@@ -380,6 +380,7 @@ namespace sat {
     }
 
     void anf_simplifier::add_clause(clause const& c, pdd_solver& ps) {
+        if (c.size() > m_config.m_max_clause_size) return;
         auto& m = ps.get_manager();
         dd::pdd p = m.zero();
         for (literal l : c) p |= lit2pdd(l);
@@ -401,15 +402,23 @@ namespace sat {
         for (literal l : ands) q &= lit2pdd(l);
         dd::pdd p = lit2pdd(head) ^ q;
         ps.add(p);
-        TRACE("anf_simplifier", tout << "aig: " << head << " == " << ands << " : " << p << "\n";);
+        TRACE("anf_simplifier", tout << "aig: " << head << " == " << ands << " poly : " << p << "\n";);
+    }
+
+    void anf_simplifier::add_if(literal head, literal c, literal th, literal el, pdd_solver& ps) {
+        auto& m = ps.get_manager();
+        dd::pdd p = lit2pdd(head) ^ (lit2pdd(c) & lit2pdd(th)) ^ (~lit2pdd(c) & lit2pdd(el));        
+        ps.add(p);
+        TRACE("anf_simplifier", tout << "ite: " << head << " == " << c << "?" << th << ":" << el << " poly : " << p << "\n";);
     }
 
     void anf_simplifier::save_statistics(pdd_solver& solver) {
         solver.collect_statistics(m_st);
-        m_st.update("anf.num-units", m_stats.m_num_units);
-        m_st.update("anf.num-eqs",   m_stats.m_num_eq);
-        m_st.update("anf.num-aigs",  m_stats.m_num_aigs);
-        m_st.update("anf.num-xors",  m_stats.m_num_xors);
+        m_st.update("sat-anf.units", m_stats.m_num_units);
+        m_st.update("sat-anf.eqs",   m_stats.m_num_eq);
+        m_st.update("sat-anf.ands",  m_stats.m_num_aigs);
+        m_st.update("sat-anf.ites",  m_stats.m_num_ifs);
+        m_st.update("sat-anf.xors",  m_stats.m_num_xors);
     }
 
 }

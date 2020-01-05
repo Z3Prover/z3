@@ -22,6 +22,9 @@ Revision History:
 
 #include "util/debug.h"
 #include <chrono>
+#include <iostream>
+#include<iomanip>
+
 
 class stopwatch
 {
@@ -88,5 +91,10 @@ struct scoped_watch {
         m_sw.stop ();
     }
 };
+
+inline std::ostream& operator<<(std::ostream& out, stopwatch const& sw) {
+    return out << " :time " << std::fixed << std::setprecision(2) << sw.get_seconds();
+}
+
 
 #endif

@@ -3802,7 +3802,8 @@ namespace sat {
         xor_finder xf(s());
         std::function<void (literal_vector const&)> f = [this](literal_vector const& l) { add_xr(l, false); };
         xf.set(f);
-        xf.extract_xors(s().m_clauses);
+        clause_vector clauses(s().clauses());
+        xf(clauses);
         for (clause* cp : xf.removed_clauses()) {
             cp->set_removed(true);
             m_clause_removed = true;

@@ -14,6 +14,7 @@ Notes:
 --*/
 
 #include "math/simplex/bit_matrix.h"
+#include "util/stopwatch.h"
 
 
 bit_matrix::col_iterator bit_matrix::row::begin() const { 
@@ -68,11 +69,22 @@ bit_matrix::row& bit_matrix::row::operator+=(row const& other) {
     return *this;
 }
 
+struct bit_matrix::report {
+    bit_matrix& b;
+    stopwatch   m_watch;
+    report(bit_matrix& b) : b(b) { m_watch.start(); }
+    ~report() {
+        m_watch.stop();
+        IF_VERBOSE(10, verbose_stream() << "solve " << b.m_rows.size() << " " << b.m_num_columns << " " << m_watch << "\n");
+    }
+};
+
 void bit_matrix::solve() {
     basic_solve();
 }
 
 void bit_matrix::basic_solve() {
+    report _report(*this);
     for (row& r : *this) {
         auto ci = r.begin();
         if (ci != r.end()) {

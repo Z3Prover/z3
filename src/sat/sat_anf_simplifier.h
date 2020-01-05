@@ -42,12 +42,14 @@ namespace sat {
             bool     m_compile_xor;
             bool     m_compile_aig;
             bool     m_anf2phase;
+            bool     m_enable_exlin;
             config():
-                m_max_clause_size(10),
+                m_max_clause_size(3),
                 m_max_clauses(10000),
                 m_compile_xor(true),
                 m_compile_aig(true),
-                m_anf2phase(false)
+                m_anf2phase(false),
+                m_enable_exlin(false)
             {}
         };
 
@@ -56,7 +58,7 @@ namespace sat {
 
         struct stats {
             unsigned m_num_units, m_num_eq;
-            unsigned m_num_aigs, m_num_xors;
+            unsigned m_num_aigs, m_num_xors, m_num_ifs;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -84,6 +86,7 @@ namespace sat {
         void add_clause(clause const& c, pdd_solver& ps);
         void add_bin(solver::bin_clause const& b, pdd_solver& ps);
         void add_xor(literal_vector const& x, pdd_solver& ps);
+        void add_if(literal head, literal c, literal t, literal e, pdd_solver& ps);
         void add_aig(literal head, literal_vector const& ands, pdd_solver& ps);        
         void save_statistics(pdd_solver& ps);
 

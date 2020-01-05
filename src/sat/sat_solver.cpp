@@ -1907,18 +1907,6 @@ namespace sat {
             lh.collect_statistics(m_aux_stats);
         }
 
-        if (m_config.m_anf_simplify) {
-            anf_simplifier anf(*this);
-            anf();
-            anf.collect_statistics(m_aux_stats);
-        }
-
-        if (m_config.m_aig_simplify) {
-            aig_simplifier aig(*this);
-            aig();
-            aig.collect_statistics(m_aux_stats);
-        }
-
         reinit_assumptions();
         if (inconsistent()) return;
 
@@ -1942,18 +1930,21 @@ namespace sat {
             m_binspr();
         }
 
-#if 0
-        static unsigned file_no = 0;
-        #pragma omp critical (print_sat)
-        {
-            ++file_no;
-            std::ostringstream ostrm;
-            ostrm << "s" << file_no << ".txt";
-            std::ofstream ous(ostrm.str());
-            display(ous);
+        if (m_config.m_anf_simplify && m_simplifications > m_config.m_anf_delay && !inconsistent()) {
+            anf_simplifier anf(*this);
+            anf_simplifier::config cfg;
+            cfg.m_enable_exlin = m_config.m_anf_exlin;
+            anf();
+            anf.collect_statistics(m_aux_stats);
+            // TBD: throttle anf_delay based on yield
         }
-#endif
 
+        if (m_config.m_aig_simplify && m_simplifications > m_config.m_aig_delay && !inconsistent()) {
+            aig_simplifier aig(*this);
+            aig();
+            aig.collect_statistics(m_aux_stats);
+            // TBD: throttle aig_delay based on yield
+        }
     }
 
     bool solver::set_root(literal l, literal r) {

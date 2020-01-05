@@ -102,7 +102,7 @@ namespace dd {
     pdd pdd_manager::one() { return pdd(one_pdd, this); }
     
     pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
-    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { return (p*q*2) - p - q; }
+    pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
     pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
 
     pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {
@@ -152,7 +152,7 @@ namespace dd {
         }
     }
 
-    pdd_manager::PDD pdd_manager::apply_rec(PDD p, PDD q, pdd_op op) {
+    pdd_manager::PDD pdd_manager::apply_rec(PDD p, PDD q, pdd_op op) {        
         switch (op) {
         case pdd_sub_op:
             if (is_zero(q)) return p;

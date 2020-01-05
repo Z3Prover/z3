@@ -33,6 +33,8 @@ class bit_matrix {
     unsigned             m_num_chunks;
     ptr_vector<uint64_t> m_rows;
 
+    struct report;
+
 public:
 
     class col_iterator;

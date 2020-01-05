@@ -75,6 +75,7 @@ namespace dd {
             }
         }
         catch (pdd_manager::mem_out) {
+            IF_VERBOSE(2, verbose_stream() << "simplifier memout\n");
             // done reduce
             DEBUG_CODE(s.invariant(););
         }
@@ -400,6 +401,7 @@ namespace dd {
         for (pdd const& p : simp_eqs) {
             s.add(p);
         }        
+        IF_VERBOSE(10, verbose_stream() << "simp_linear " << simp_eqs.size() << "\n";);
         return !simp_eqs.empty() && simplify_linear_step(false);
     }
 
@@ -425,13 +427,14 @@ namespace dd {
      */
 
     void simplifier::exlin_augment(vector<uint_set> const& orbits, vector<pdd>& eqs) {
+        IF_VERBOSE(10, verbose_stream() << "pdd-exlin augment\n";);
         unsigned nv = s.m.num_vars();
         random_gen rand(s.m_config.m_random_seed);
-        unsigned modest_num_eqs = std::min(eqs.size(), 500u);
-        unsigned max_xlin_eqs = modest_num_eqs*modest_num_eqs + eqs.size();
+        unsigned modest_num_eqs = std::max(eqs.size(), 500u);
+        unsigned max_xlin_eqs = modest_num_eqs;
+        unsigned max_degree = 5;
         TRACE("dd.solver", tout << "augment " << nv << "\n";
-              for (auto const& o : orbits) tout << o.num_elems() << "\n";
-              );
+              for (auto const& o : orbits) tout << o.num_elems() << "\n";);
         vector<pdd> n_eqs;
         unsigned start = rand();
         for (unsigned _v = 0; _v < nv; ++_v) {
@@ -440,14 +443,15 @@ namespace dd {
             if (orbitv.empty()) continue;
             pdd pv = s.m.mk_var(v);
             for (pdd p : eqs) {
+                if (p.degree() > max_degree) continue;
                 for (unsigned w : p.free_vars()) {
                     if (v != w && orbitv.contains(w)) {
                         n_eqs.push_back(pv * p);
+                        if (n_eqs.size() > max_xlin_eqs) {
+                            goto end_of_new_eqs;
+                        }
                         break;
                     }
-                }
-                if (n_eqs.size() > max_xlin_eqs) {
-                    goto end_of_new_eqs;
                 }
             }
         }
@@ -462,12 +466,13 @@ namespace dd {
                 if (v >= w) continue;
                 pdd pw = s.m.mk_var(w);
                 for (pdd p : eqs) {
-                    if (n_eqs.size() > max_xlin_eqs) {
-                        goto end_of_new_eqs;
-                    }
+                    if (p.degree() + 1 > max_degree) continue;
                     for (unsigned u : p.free_vars()) {
                         if (orbits[w].contains(u) || orbits[v].contains(u)) {
                             n_eqs.push_back(pw * pv * p);
+                            if (n_eqs.size() > max_xlin_eqs) {
+                                goto end_of_new_eqs;
+                            }
                             break;
                         }
                     }
@@ -481,22 +486,53 @@ namespace dd {
     }
 
     void simplifier::simplify_exlin(vector<uint_set> const& orbits, vector<pdd> const& eqs, vector<pdd>& simp_eqs) {
+        IF_VERBOSE(10, verbose_stream() << "pdd simplify-exlin\n";);
+        // index monomials
+        unsigned_vector vars;
+        struct mon {
+            unsigned sz;
+            unsigned offset;
+            unsigned index;
+            unsigned_vector* vars;
+            mon(unsigned sz, unsigned offset, unsigned_vector* vars): sz(sz), offset(offset), index(UINT_MAX), vars(vars) {}
+            mon(): sz(0), offset(0), index(UINT_MAX), vars(nullptr) {}
+            bool is_valid() const { return index != UINT_MAX; }
+            struct hash { 
+                bool operator()(mon const& m) const {
+                    if (!m.vars) return 0;
+                    return string_hash((const char*)(m.vars->c_ptr() + m.offset), m.sz*4, 1);
+                };
+            };
+            struct eq {
+                bool operator()(mon const& a, mon const& b) const {
+                    if (a.sz != b.sz) return false;
+                    for (unsigned i = 0; i < a.sz; ++i) 
+                        if ((*a.vars)[a.offset+i] != (*b.vars)[b.offset+i]) return false;
+                    return true;
+                }
+            };
+        };
+        hashtable<mon, mon::hash, mon::eq> mon2idx;
+        svector<mon> idx2mon;
 
-        // create variables for each non-constant monomial.
-        u_map<unsigned> mon2idx;
-        vector<pdd> idx2mon;
+        auto insert_mon = [&,this](unsigned n, unsigned const* vs) {
+            mon mm(n, vars.size(), &vars);
+            vars.append(n, vs);
+            auto* e = mon2idx.insert_if_not_there2(mm);
+            if (!e->get_data().is_valid()) {
+                e->get_data().index = idx2mon.size();
+                idx2mon.push_back(e->get_data());
+            }
+            else {
+                vars.shrink(vars.size() - n);
+            }
+        };
         
         // insert monomials of degree > 1
         for (pdd const& p : eqs) {
             for (auto const& m : p) {
                 if (m.vars.size() <= 1) continue;
-                pdd r = s.m.mk_val(m.coeff);                
-                for (unsigned i = m.vars.size(); i-- > 0; )
-                    r *= s.m.mk_var(m.vars[i]);
-                if (!mon2idx.contains(r.index())) {
-                    mon2idx.insert(r.index(), idx2mon.size());
-                    idx2mon.push_back(r);                    
-                }
+                insert_mon(m.vars.size(), m.vars.c_ptr());
             }
         }
         
@@ -504,11 +540,12 @@ namespace dd {
         unsigned nv = s.m.num_vars();
         for (unsigned v = 0; v < nv; ++v) {
             if (!orbits[v].empty()) { // not all variables are used.
-                pdd r = s.m.mk_var(v);
-                mon2idx.insert(r.index(), idx2mon.size());
-                idx2mon.push_back(r);         
+                insert_mon(1, &v);
             }                           
         }
+
+        IF_VERBOSE(10, verbose_stream() << "extracted monomials: " << idx2mon.size() << "\n";);
+
 
         bit_matrix bm;
         unsigned const_idx = idx2mon.size();
@@ -526,19 +563,22 @@ namespace dd {
                     row.set(const_idx);
                     continue;
                 }
-                pdd r = s.m.one();   
-                for (unsigned i = m.vars.size(); i-- > 0; )
-                    r *= s.m.mk_var(m.vars[i]);
-                unsigned v = mon2idx[r.index()];
-                row.set(v);
+                unsigned n = m.vars.size();
+                mon mm(n, vars.size(), &vars);
+                vars.append(n, m.vars.c_ptr());
+                VERIFY(mon2idx.find(mm, mm));
+                vars.shrink(vars.size() - n);
+                row.set(mm.index);
             }
         }
 
         TRACE("dd.solver", tout << bm << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "bit-matrix solving\n");
 
         bm.solve();
 
         TRACE("dd.solver", tout << bm << "\n";);
+        IF_VERBOSE(10, verbose_stream() << "bit-matrix solved\n");
 
         for (auto const& r : bm) {
             bool is_linear = true;
@@ -547,8 +587,7 @@ namespace dd {
                 if (c == const_idx) {
                     break;
                 }
-                pdd const& p = idx2mon[c];
-                if (!p.is_unary()) {
+                if (idx2mon[c].sz != 1) {
                     is_linear = false;
                     break;
                 }
@@ -561,7 +600,8 @@ namespace dd {
                         p += s.m.one();
                     }
                     else {
-                        p += idx2mon[c];
+                        mon const& mm = idx2mon[c];
+                        p += s.m.mk_var(vars[mm.offset]);
                     }
                 }
                 if (!p.is_zero()) {

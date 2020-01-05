@@ -24,7 +24,7 @@
 
 namespace sat {
 
-    void xor_finder::extract_xors(clause_vector& clauses) {
+    void xor_finder::operator()(clause_vector& clauses) {
         m_removed_clauses.reset();
         if (!s.get_config().m_xor_solver) {
             return;
@@ -49,6 +49,11 @@ namespace sat {
             }
         }
         m_clause_filters.clear();
+        
+        for (clause* cp : clauses) cp->unmark_used();
+        for (clause* cp : m_removed_clauses) cp->mark_used();
+        std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
+        clauses.filter_update(not_used);
     }
 
     void xor_finder::extract_xor(clause& c) {
@@ -108,7 +113,7 @@ namespace sat {
             s.set_external(l.var());
         }
         if (parity) lits[0].neg();
-        m_add_xr(lits);
+        m_on_xor(lits);
     }
 
     bool xor_finder::extract_xor(bool parity, clause& c, literal l1, literal l2) {
