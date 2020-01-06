@@ -220,7 +220,7 @@ namespace dd {
         if (use_mod2) {
             solver::config cfg;
             cfg.m_enable_exlin = true;
-            g = cfg;
+            g.set(cfg);
             g.simplify();
             g.display(std::cout << "after exlin\n");
         }
