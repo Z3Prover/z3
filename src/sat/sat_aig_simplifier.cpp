@@ -145,9 +145,6 @@ namespace sat {
             }
         }
 
-
-
-
         while (true) {
             unsigned j = 0;
             for (auto a : aig_defs) {
