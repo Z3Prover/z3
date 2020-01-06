@@ -75,6 +75,7 @@ namespace sat {
                 for (literal tail : c) 
                     if (tail != head) 
                         m_ands.push_back(~tail);
+                // DEBUG_CODE(validate_and(head, m_ands, c););
                 m_on_aig(head, m_ands);
                 break;
             }
@@ -202,6 +203,7 @@ namespace sat {
                         if (c1) c1->mark_used();
                         if (c2) c2->mark_used();
                         if (c3) c3->mark_used();
+                        // DEBUG_CODE(validate_if(~x, ~y, z, u, c, c1, c2, c3););
                         m_on_if(~x, ~y, z, u);
                         return true;
                     }
@@ -221,6 +223,68 @@ namespace sat {
         
         std::function<bool(clause*)> not_used = [](clause* cp) { return !cp->was_used(); };
         clauses.filter_update(not_used);        
+    }
+
+    void aig_finder::validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses) {
+        solver vs(s.params(), s.rlimit());
+        for (unsigned i = 0; i < s.num_vars(); ++i) {
+            vs.mk_var();
+        }
+        svector<solver::bin_clause> bins;
+        s.collect_bin_clauses(bins, true, false);
+        for (auto b : bins) {
+            vs.mk_clause(b.first, b.second);
+        }
+        for (auto const& cl : clauses) {
+            vs.mk_clause(cl);
+        }
+        for (literal l : clause) {
+            literal nl = ~l;
+            vs.mk_clause(1, &nl);
+        }
+        lbool r = vs.check();
+        if (r != l_false) {
+            vs.display(verbose_stream());
+            UNREACHABLE();
+        }
+    }
+
+    void aig_finder::validate_clause(literal x, literal y, literal z, vector<literal_vector> const& clauses) {
+        literal_vector clause;
+        clause.push_back(x);
+        clause.push_back(y);
+        clause.push_back(z);
+        validate_clause(clause, clauses);
+    }
+
+    void aig_finder::validate_and(literal head, literal_vector const& ands, clause const& c) {
+        IF_VERBOSE(2, verbose_stream() << "validate and: " << head << " == " << ands << "\n");
+        vector<literal_vector> clauses;
+        clauses.push_back(literal_vector(c.size(), c.begin()));
+        literal_vector clause;
+        clause.push_back(head);
+        for (literal l : ands) clause.push_back(~l);
+        validate_clause(clause, clauses);
+        for (literal l : ands) {
+            clause.reset();
+            clause.push_back(~head);
+            clause.push_back(l);
+            validate_clause(clause, clauses);
+        }
+    }
+
+    void aig_finder::validate_if(literal x, literal c, literal t, literal e, clause const& c0, clause const* c1, clause const* c2, clause const* c3) {
+        IF_VERBOSE(2, verbose_stream() << "validate if: " << x << " == " << c << " ? " << t << " : " << e << "\n");
+        vector<literal_vector> clauses;
+        clauses.push_back(literal_vector(c0.size(), c0.begin()));
+        if (c1) clauses.push_back(literal_vector(c1->size(), c1->begin()));
+        if (c2) clauses.push_back(literal_vector(c2->size(), c2->begin()));
+        if (c3) clauses.push_back(literal_vector(c3->size(), c3->begin()));
+        literal_vector clause;
+        validate_clause(~x, ~c, t, clauses);
+        validate_clause(~x,  c, e, clauses);
+        validate_clause(~t, ~c, x, clauses);
+        validate_clause(~e,  c, x, clauses);
     }
 
 

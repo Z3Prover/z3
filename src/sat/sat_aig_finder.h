@@ -44,6 +44,10 @@ namespace sat {
         bool find_aig(clause& c);
         void find_ifs(clause_vector& clauses);
         void find_aigs(clause_vector& clauses);
+        void validate_and(literal head, literal_vector const& ands, clause const& c);
+        void validate_if(literal x, literal c, literal t, literal e, clause const& c0, clause const* c1, clause const* c2, clause const* c3);
+        void validate_clause(literal x, literal y, literal z, vector<literal_vector> const& clauses);
+        void validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses);
 
     public:
         aig_finder(solver& s) : s(s), m_big(s.rand()) {}
