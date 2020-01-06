@@ -1,3 +1,15 @@
+/*++
+  Copyright (c) 2020 Microsoft Corporation
+
+  Module Name:
+
+   sat_cutset.cpp
+
+  Author:
+
+    Nikolaj Bjorner 2020-01-02
+
+  --*/
 
 #pragma once;
 #include "util/region.h"

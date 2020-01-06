@@ -1,3 +1,24 @@
+/*++
+  Copyright (c) 2020 Microsoft Corporation
+
+  Module Name:
+
+   sat_cutset_compute_shift.h
+
+  Author:
+
+    Nikolaj Bjorner 2020-01-02
+
+  Notes:
+    
+    shifts truth table x using 'code'.
+    code encodes a mapping from bit-positions of the 
+    input truth table encoded with x into bit-positions
+    in the output truth table.
+    The truth table covers up to 6 inputs, which fits in 64 bits.
+
+  --*/
+
 static uint64_t compute_shift(uint64_t x, unsigned code) {
     switch (code) {
 #define _x0 (x & 1)

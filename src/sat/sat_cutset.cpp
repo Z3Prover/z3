@@ -11,7 +11,6 @@
 
   --*/
 
-#pragma once;
 
 #include "util/hashtable.h"
 #include "sat/sat_cutset.h"
