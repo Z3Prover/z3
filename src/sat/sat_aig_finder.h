@@ -23,7 +23,7 @@
     AIG finder
   --*/
 
-#pragma once;
+#pragma once
 
 #include "util/params.h"
 #include "util/statistics.h"
