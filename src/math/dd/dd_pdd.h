@@ -253,6 +253,7 @@ namespace dd {
 
         pdd mk_var(unsigned i);
         pdd mk_val(rational const& r);
+        pdd mk_val(unsigned r);
         pdd zero(); 
         pdd one(); 
         pdd minus(pdd const& a);
@@ -263,6 +264,7 @@ namespace dd {
         pdd mul(rational const& c, pdd const& b);
         pdd mk_or(pdd const& p, pdd const& q);
         pdd mk_xor(pdd const& p, pdd const& q);
+        pdd mk_xor(pdd const& p, unsigned q);
         pdd mk_not(pdd const& p);
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
@@ -325,6 +327,7 @@ namespace dd {
         pdd operator&(pdd const& other) const { return m.mul(*this, other); }
         pdd operator|(pdd const& other) const { return m.mk_or(*this, other); }
         pdd operator^(pdd const& other) const { return m.mk_xor(*this, other); }        
+        pdd operator^(unsigned other) const { return m.mk_xor(*this, other); }        
 
         pdd operator*(rational const& other) const { return m.mul(other, *this); }
         pdd operator+(rational const& other) const { return m.add(other, *this); }
@@ -359,6 +362,9 @@ namespace dd {
     inline pdd operator+(rational const& r, pdd const& b) { return b + r; }
     inline pdd operator+(int x, pdd const& b) { return b + rational(x); }
     inline pdd operator+(pdd const& b, int x) { return b + rational(x); }
+
+    inline pdd operator^(unsigned x, pdd const& b) { return b + x; }
+    inline pdd operator^(bool x, pdd const& b) { return b + x; }
 
     inline pdd operator-(rational const& r, pdd const& b) { return b.rev_sub(r); }
     inline pdd operator-(int x, pdd const& b) { return rational(x) - b; }

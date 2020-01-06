@@ -96,6 +96,7 @@ namespace dd {
     pdd pdd_manager::mul(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::reduce(pdd const& a, pdd const& b) { return pdd(apply(a.root, b.root, pdd_reduce_op), this); }
     pdd pdd_manager::mk_val(rational const& r) { return pdd(imk_val(r), this); }
+    pdd pdd_manager::mk_val(unsigned r) { return mk_val(rational(r)); }
     pdd pdd_manager::mul(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_mul_op), this); }
     pdd pdd_manager::add(rational const& r, pdd const& b) { pdd c(mk_val(r)); return pdd(apply(c.root, b.root, pdd_add_op), this); }
     pdd pdd_manager::zero() { return pdd(zero_pdd, this); }
@@ -103,6 +104,7 @@ namespace dd {
     
     pdd pdd_manager::mk_or(pdd const& p, pdd const& q) { return p + q - (p*q); }
     pdd pdd_manager::mk_xor(pdd const& p, pdd const& q) { if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
+    pdd pdd_manager::mk_xor(pdd const& p, unsigned x) { pdd q(mk_val(x)); if (m_semantics == mod2_e) return p + q; return (p*q*2) - p - q; }
     pdd pdd_manager::mk_not(pdd const& p) { return 1 - p; }
 
     pdd pdd_manager::subst_val(pdd const& p, vector<std::pair<unsigned, rational>> const& _s) {

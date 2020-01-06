@@ -372,9 +372,7 @@ namespace sat {
 
     void anf_simplifier::add_bin(solver::bin_clause const& b, pdd_solver& ps) {
         auto& m = ps.get_manager();
-        auto v = lit2pdd(b.first);
-        auto w = lit2pdd(b.second);
-        dd::pdd p = (v | w) + 1;
+        dd::pdd p = (lit2pdd(b.first) | lit2pdd(b.second)) ^ true;
         ps.add(p);
         TRACE("anf_simplifier", tout << "bin: " << b.first << " " << b.second << " : " << p << "\n";);
     }
@@ -384,7 +382,7 @@ namespace sat {
         auto& m = ps.get_manager();
         dd::pdd p = m.zero();
         for (literal l : c) p |= lit2pdd(l);
-        p = p + 1;
+        p = p ^ true;
         ps.add(p);
         TRACE("anf_simplifier", tout << "clause: " << c << " : " << p << "\n";);
     }
@@ -408,7 +406,8 @@ namespace sat {
 
     void anf_simplifier::add_if(literal head, literal c, literal th, literal el, pdd_solver& ps) {
         auto& m = ps.get_manager();
-        dd::pdd p = lit2pdd(head) ^ (lit2pdd(c) & lit2pdd(th)) ^ (~lit2pdd(c) & lit2pdd(el));        
+        dd::pdd cond = lit2pdd(c);
+        dd::pdd p = lit2pdd(head) ^ (cond & lit2pdd(th)) ^ (~cond & lit2pdd(el));        
         ps.add(p);
         TRACE("anf_simplifier", tout << "ite: " << head << " == " << c << "?" << th << ":" << el << " poly : " << p << "\n";);
     }
