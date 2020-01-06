@@ -493,30 +493,35 @@ namespace dd {
             unsigned sz;
             unsigned offset;
             unsigned index;
-            unsigned_vector* vars;
-            mon(unsigned sz, unsigned offset, unsigned_vector* vars): sz(sz), offset(offset), index(UINT_MAX), vars(vars) {}
-            mon(): sz(0), offset(0), index(UINT_MAX), vars(nullptr) {}
+            mon(unsigned sz, unsigned offset): sz(sz), offset(offset), index(UINT_MAX) {}
+            mon(): sz(0), offset(0), index(UINT_MAX) {}
             bool is_valid() const { return index != UINT_MAX; }
             struct hash { 
+                unsigned_vector& vars;
+                hash(unsigned_vector& vars):vars(vars) {}
                 bool operator()(mon const& m) const {
-                    if (!m.vars) return 0;
-                    return string_hash((const char*)(m.vars->c_ptr() + m.offset), m.sz*4, 1);
+                    return unsigned_ptr_hash(vars.c_ptr() + m.offset, m.sz, 1);
                 };
             };
             struct eq {
+                unsigned_vector& vars;
+                eq(unsigned_vector& vars):vars(vars) {}
                 bool operator()(mon const& a, mon const& b) const {
                     if (a.sz != b.sz) return false;
                     for (unsigned i = 0; i < a.sz; ++i) 
-                        if ((*a.vars)[a.offset+i] != (*b.vars)[b.offset+i]) return false;
+                        if (vars[a.offset+i] != vars[b.offset+i]) 
+                            return false;
                     return true;
                 }
             };
         };
-        hashtable<mon, mon::hash, mon::eq> mon2idx;
+        mon::hash mon_hash(vars);
+        mon::eq mon_eq(vars);
+        hashtable<mon, mon::hash, mon::eq> mon2idx(DEFAULT_HASHTABLE_INITIAL_CAPACITY, mon_hash, mon_eq);
         svector<mon> idx2mon;
 
-        auto insert_mon = [&,this](unsigned n, unsigned const* vs) {
-            mon mm(n, vars.size(), &vars);
+        auto insert_mon = [&](unsigned n, unsigned const* vs) {
+            mon mm(n, vars.size());
             vars.append(n, vs);
             auto* e = mon2idx.insert_if_not_there2(mm);
             if (!e->get_data().is_valid()) {
@@ -564,7 +569,7 @@ namespace dd {
                     continue;
                 }
                 unsigned n = m.vars.size();
-                mon mm(n, vars.size(), &vars);
+                mon mm(n, vars.size());
                 vars.append(n, m.vars.c_ptr());
                 VERIFY(mon2idx.find(mm, mm));
                 vars.shrink(vars.size() - n);

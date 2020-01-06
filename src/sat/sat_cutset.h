@@ -17,12 +17,12 @@
 namespace sat {
 
     struct cut {
-        static const unsigned max_cut_size = 6;
+        unsigned max_cut_size;
         unsigned m_filter;
         unsigned m_size;
-        unsigned m_elems[max_cut_size];
+        unsigned m_elems[6];
         uint64_t m_table;
-        cut(): m_filter(0), m_size(0), m_table(0) {}
+        cut(): m_filter(0), m_size(0), m_table(0), max_cut_size(6) {}
 
         cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
 
@@ -61,13 +61,13 @@ namespace sat {
 
         uint64_t shift_table(cut const& other) const;
 
-        bool merge(cut const& a, cut const& b, unsigned max_cut_size) {
+        bool merge(cut const& a, cut const& b, unsigned max_sz) {
             SASSERT(a.m_size > 0 && b.m_size > 0);
             unsigned i = 0, j = 0;
             unsigned x = a[i];
             unsigned y = b[j];
             while (x != UINT_MAX || y != UINT_MAX) {
-                if (!add(std::min(x, y), max_cut_size)) {
+                if (!add(std::min(x, y), max_sz)) {
                     return false;
                 }
                 if (x < y) {

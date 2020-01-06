@@ -68,6 +68,10 @@ inline unsigned hash_u_u(unsigned a, unsigned b) {
 
 unsigned string_hash(const char * str, unsigned len, unsigned init_value);
 
+inline unsigned unsigned_ptr_hash(unsigned const* vec, unsigned len, unsigned init_value) {
+    return string_hash((char const*)(vec), len*4, init_value);
+}
+
 template<typename Composite, typename GetKindHashProc, typename GetChildHashProc>
 unsigned get_composite_hash(Composite app, unsigned n, GetKindHashProc const & khasher = GetKindHashProc(), GetChildHashProc const & chasher = GetChildHashProc()) {
     unsigned a, b, c;

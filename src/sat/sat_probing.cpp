@@ -19,11 +19,13 @@ Revision History:
 --*/
 #include "sat/sat_probing.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_elim_eqs.h"
 #include "sat/sat_simplifier_params.hpp"
 
 namespace sat {
     probing::probing(solver & _s, params_ref const & p):
-        s(_s) {
+        s(_s),
+        m_big(s.rand()) {
         updt_params(p);
         reset_statistics();
         m_stopped_at = 0;
@@ -137,9 +139,21 @@ namespace sat {
         m_assigned.reset();
         unsigned tr_sz = s.m_trail.size();
         for (unsigned i = old_tr_sz; i < tr_sz; i++) {
-            m_assigned.insert(s.m_trail[i]);
+            literal lit = s.m_trail[i];
+            m_assigned.insert(lit);
+
+#if 0
+            // learn equivalences during probing:
+            if (implies(lit, l)) {
+                if (nullptr == find_binary_watch(s.get_wlist(lit), l) ||
+                    nullptr == find_binary_watch(s.get_wlist(~l), ~lit)) {
+                    m_equivs.push_back(std::make_pair(lit, l));
+                }
+            }
+#endif
         }
         cache_bins(l, old_tr_sz);
+        
         s.pop(1);
 
         if (!try_lit(~l, true))
@@ -177,23 +191,24 @@ namespace sat {
     }
 
     struct probing::report {
-        probing    & m_probing;
+        probing    & p;
         stopwatch    m_watch;
         unsigned     m_num_assigned;        
         report(probing & p):
-            m_probing(p),
+            p(p),
             m_num_assigned(p.m_num_assigned) {
             m_watch.start();
         }
 
         ~report() {
             m_watch.stop();
-            unsigned units = (m_probing.m_num_assigned - m_num_assigned);
+            unsigned units = (p.m_num_assigned - m_num_assigned);
             IF_VERBOSE(2,
                        verbose_stream() << " (sat-probing";
                        if (units > 0) verbose_stream() << " :probing-assigned " << units;
-                       verbose_stream() << " :cost " << m_probing.m_counter;
-                       if (m_probing.m_stopped_at != 0) verbose_stream() << " :stopped-at " << m_probing.m_stopped_at;
+                       if (!p.m_equivs.empty()) verbose_stream() << " :equivs " << p.m_equivs.size();
+                       verbose_stream() << " :cost " << p.m_counter;
+                       if (p.m_stopped_at != 0) verbose_stream() << " :stopped-at " << p.m_stopped_at;
                        verbose_stream() << mem_stat() << m_watch << ")\n";);
         }
     };
@@ -215,6 +230,8 @@ namespace sat {
         report rpt(*this);
         bool r    = true;
         m_counter = 0;
+        m_equivs.reset();
+        m_big.init(s, true);
         int limit = -static_cast<int>(m_probing_limit);
         unsigned i;
         unsigned num = s.num_vars();
@@ -248,7 +265,24 @@ namespace sat {
         }
         CASSERT("probing", s.check_invariant());
         finalize();
+        if (!m_equivs.empty()) {
+            union_find_default_ctx ctx;
+            union_find<> uf(ctx);
+            for (unsigned i = 2*s.num_vars(); i--> 0; ) uf.mk_var();
+            for (auto const& p : m_equivs) {
+                literal l1 = p.first, l2 = p.second;
+                uf.merge(l1.index(), l2.index());
+                uf.merge((~l1).index(), (~l2).index());
+            }
+            elim_eqs elim(s);
+            elim(uf);
+        }
+        
         return r;
+    }
+
+    bool probing::implies(literal a, literal b) {
+        return m_big.connected(a, b);
     }
 
     void probing::updt_params(params_ref const & _p) {

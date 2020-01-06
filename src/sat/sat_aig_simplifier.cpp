@@ -121,7 +121,7 @@ namespace sat {
             }
         }
 
-        std::function<void(aig_def)> force_var = [&, this] (aig_def a) {
+        std::function<void(aig_def)> force_var = [&] (aig_def a) {
             for (unsigned i = 0; i < a.sz; ++i) {
                 unsigned v = literals[a.offset + i].var();
                 if (!ins[v]) {
@@ -130,7 +130,7 @@ namespace sat {
                 }
             }
         };
-        std::function<void(unsigned)> add_var = [&, this] (unsigned v) {
+        std::function<void(unsigned)> add_var = [&] (unsigned v) {
             if (!outs[v] && ins[v]) {
                 aigc.add_var(v);
                 outs[v] = true;
@@ -229,7 +229,7 @@ namespace sat {
         unsigned_vector sorted = top_sort();
         vector<cut_set> cuts;    
         cuts.resize(m_aig.size());
-        max_cut_size = std::min(cut::max_cut_size, max_cut_size);
+        max_cut_size = std::min(cut().max_cut_size, max_cut_size);
         cut_set cut_set2;
         cut_set2.init(m_region, max_cutset_size + 1);
         for (unsigned id : sorted) {
