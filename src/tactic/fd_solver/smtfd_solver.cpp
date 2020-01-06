@@ -1620,7 +1620,6 @@ namespace smtfd {
         unsigned_vector m_toggles_lim;
         model_ref       m_model;
         std::string     m_reason_unknown;
-        unsigned        m_max_conflicts;
 
         void set_delay_simplify() {
             params_ref p;
@@ -1863,8 +1862,7 @@ namespace smtfd {
             m_assertions(m),
             m_assertions_qhead(0),
             m_axioms(m),
-            m_toggles(m),
-            m_max_conflicts(50)
+            m_toggles(m)
         {            
             updt_params(p);
             add_toggle(m.mk_true());

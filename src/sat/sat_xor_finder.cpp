@@ -17,7 +17,6 @@
   
 
   --*/
-#pragma once;
 
 #include "sat/sat_xor_finder.h"
 #include "sat/sat_solver.h"

@@ -40,8 +40,8 @@ namespace sat {
             
     void anf_simplifier::operator()() {
         dd::pdd_manager m(20, dd::pdd_manager::semantics::mod2_e);
-        report _report(*this);
         pdd_solver solver(s.rlimit(), m);
+        report _report(*this);
         configure_solver(solver);
         clauses2anf(solver);
         TRACE("anf_simplifier", solver.display(tout); s.display(tout););

@@ -16,7 +16,7 @@
 
   --*/
 
-#pragma once;
+#pragma once
 
 #include "sat/sat_aig_finder.h"
 #include "sat/sat_cutset.h"

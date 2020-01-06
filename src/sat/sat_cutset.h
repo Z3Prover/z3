@@ -11,7 +11,7 @@
 
   --*/
 
-#pragma once;
+#pragma once
 #include "util/region.h"
 
 namespace sat {
