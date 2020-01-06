@@ -57,8 +57,9 @@ namespace sat {
         struct report;
 
         struct stats {
-            unsigned m_num_units, m_num_eq;
+            unsigned m_num_units, m_num_eqs;
             unsigned m_num_aigs, m_num_xors, m_num_ifs;
+            unsigned m_num_phase_flips;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };
@@ -109,7 +110,7 @@ namespace sat {
 
 
     public:
-        anf_simplifier(solver& s) : s(s) {}
+        anf_simplifier(solver& s) : s(s), m_eval_ts(0) {}
         ~anf_simplifier() {}
         
         void operator()();

@@ -15,8 +15,10 @@
 
   --*/
 
+#include "util/union_find.h"
 #include "sat/sat_anf_simplifier.h"
 #include "sat/sat_solver.h"
+#include "sat/sat_elim_eqs.h"
 #include "sat/sat_xor_finder.h"
 #include "sat/sat_aig_finder.h"
 #include "math/grobner/pdd_solver.h"
@@ -32,7 +34,7 @@ namespace sat {
             IF_VERBOSE(2, 
                        verbose_stream() << " (sat.anf.simplifier" 
                        << " :num-units " << s.m_stats.m_num_units 
-                       << " :num-eqs " << s.m_stats.m_num_eq 
+                       << " :num-eqs " << s.m_stats.m_num_eqs 
                        << " :mb " << mem_stat() 
                        << m_watch << ")\n");
         }
@@ -61,6 +63,15 @@ namespace sat {
      */
     void anf_simplifier::anf2clauses(pdd_solver& solver) {
 
+        union_find_default_ctx ctx;
+        union_find<> uf(ctx);
+        for (unsigned i = 2*s.num_vars(); i--> 0; ) uf.mk_var();
+        auto add_eq = [&](literal l1, literal l2) {
+            uf.merge(l1.index(), l2.index());
+            uf.merge((~l1).index(), (~l2).index());
+        };
+
+        unsigned old_num_eqs = m_stats.m_num_eqs;
         for (auto* e : solver.equations()) {
             auto const& p = e->poly();
             if (p.is_one()) {
@@ -80,12 +91,16 @@ namespace sat {
                 // x + y + c = 0
                 SASSERT(!p.is_val() && p.hi().is_one() && !p.lo().is_val() && p.lo().hi().is_one() && p.lo().lo().is_val());
                 literal x(p.var(), false);
-                literal y(p.lo().var(), p.lo().lo().is_zero());
-                s.mk_clause(x, y, true);
-                s.mk_clause(~x, ~y, true);
-                ++m_stats.m_num_eq;
+                literal y(p.lo().var(), p.lo().lo().is_one());
+                add_eq(x, y);
+                ++m_stats.m_num_eqs;
                 TRACE("anf_simplifier", tout << "equivalence " << p << " : " << x << " == " << y << "\n";);
             }
+        }
+
+        if (old_num_eqs < m_stats.m_num_eqs) {
+            elim_eqs elim(s);
+            elim(uf);
         }
     }
 
@@ -104,13 +119,13 @@ namespace sat {
     void anf_simplifier::anf2phase(pdd_solver& solver) {
         if (!m_config.m_anf2phase) 
             return;
-        m_eval_ts = 0;
         reset_eval();
         auto const& eqs = solver.equations();
         for (unsigned i = eqs.size(); i-- > 0; ) {
             dd::pdd const& p = eqs[i]->poly();
             if (!p.is_val() && p.hi().is_one() && s.m_best_phase[p.var()] != eval(p.lo())) {
                 s.m_best_phase[p.var()] = !s.m_best_phase[p.var()];
+                ++m_stats.m_num_phase_flips;
             }
         }
     }
@@ -415,10 +430,11 @@ namespace sat {
     void anf_simplifier::save_statistics(pdd_solver& solver) {
         solver.collect_statistics(m_st);
         m_st.update("sat-anf.units", m_stats.m_num_units);
-        m_st.update("sat-anf.eqs",   m_stats.m_num_eq);
+        m_st.update("sat-anf.eqs",   m_stats.m_num_eqs);
         m_st.update("sat-anf.ands",  m_stats.m_num_aigs);
         m_st.update("sat-anf.ites",  m_stats.m_num_ifs);
         m_st.update("sat-anf.xors",  m_stats.m_num_xors);
+        m_st.update("sat-anf.phase_flips", m_stats.m_num_phase_flips);
     }
 
 }

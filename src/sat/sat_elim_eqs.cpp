@@ -284,4 +284,21 @@ namespace sat {
         SASSERT(check_clauses(roots));
         TRACE("elim_eqs", tout << "after full cleanup\n"; m_solver.display(tout););
     }
+
+    void elim_eqs::operator()(union_find<>& uf) {
+        literal_vector roots(m_solver.num_vars(), null_literal);
+        bool_var_vector to_elim;
+        for (unsigned i = m_solver.num_vars(); i-- > 0; ) {
+            literal l1(i, false);
+            unsigned idx = uf.find(l1.index());
+            if (idx != l1.index()) {
+                roots[i] = to_literal(idx);
+                to_elim.push_back(i);
+            }
+            else {
+                roots[i] = l1;
+            }
+        }
+        (*this)(roots, to_elim);
+    }
 };

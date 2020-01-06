@@ -176,7 +176,6 @@ namespace sat {
     void aig_simplifier::aig2clauses(aig_cuts& aigc) {
         vector<cut_set> cuts = aigc.get_cuts(m_config.m_max_cut_size, m_config.m_max_cutset_size);
         map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;
-        literal_vector roots(s.num_vars(), null_literal);
         
         union_find_default_ctx ctx;
         union_find<> uf(ctx);
@@ -212,23 +211,10 @@ namespace sat {
                 cut2id.insert(&cut, i);                
             }
         }        
-        if (old_num_eqs == m_stats.m_num_eqs) {
-            return;
+        if (old_num_eqs < m_stats.m_num_eqs) {
+            elim_eqs elim(s);
+            elim(uf);
         }
-        bool_var_vector to_elim;
-        for (unsigned i = s.num_vars(); i-- > 0; ) {
-            literal l1(i, false);
-            unsigned idx = uf.find(l1.index());
-            if (idx != l1.index()) {
-                roots[i] = to_literal(idx);
-                to_elim.push_back(i);
-            }
-            else {
-                roots[i] = l1;
-            }
-        }
-        elim_eqs elim(s);
-        elim(roots, to_elim);
     }
 
     void aig_simplifier::collect_statistics(statistics& st) const {

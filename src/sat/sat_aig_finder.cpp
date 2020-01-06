@@ -35,15 +35,13 @@ namespace sat {
         return false;
     }
 
-
     void aig_finder::find_aigs(clause_vector& clauses) {
         if (!m_on_aig) {
             return;
         }
         unsigned j = 0;
         for (clause* cp : clauses) {
-            clause& c = *cp;
-            if (!find_aig(c)) {
+            if (!find_aig(*cp)) {
                 clauses[j++] = cp;
             }
         }
@@ -61,9 +59,7 @@ namespace sat {
         for (literal head : c) {
             is_aig = true;
             for (literal tail : c) {
-                if (head == tail) 
-                    continue;
-                if (!implies(head, ~tail)) {
+                if (head != tail && !implies(head, ~tail)) {
                     is_aig = false;
                     break;
                 }
@@ -187,25 +183,28 @@ namespace sat {
             insert_ternary(*cp);
         }
         auto try_ite = [&,this](literal x, literal y, literal z, clause& c) {
-            clause* c1, *c3;
-            if (has_ternary(y, ~z, ~x, c1)) {
-                binary b(~y, x, nullptr);
-                if (!binaries.find(b, b)) {
-                    return false;
+            literal u;
+            clause* c1, *c2, *c3;
+            if (!has_ternary(y, ~z, ~x, c1)) {
+                return false;
+            }
+            binary b(~y, x, nullptr);
+            if (!binaries.find(b, b)) {
+                return false;
+            }
+            for (auto p : *b.use_list) {
+                u  = p.first;
+                c2 = p.second;
+                if (!has_ternary(~u, ~x, ~y, c3)) {
+                    continue;
                 }
-                for (auto p : *b.use_list) {
-                    literal u = p.first;
-                    clause* c2 = p.second;
-                    if (has_ternary(~u, ~x, ~y, c3)) {
-                        c.mark_used();
-                        if (c1) c1->mark_used();
-                        if (c2) c2->mark_used();
-                        if (c3) c3->mark_used();
-                        // DEBUG_CODE(validate_if(~x, ~y, z, u, c, c1, c2, c3););
-                        m_on_if(~x, ~y, z, u);
-                        return true;
-                    }
-                }
+                c.mark_used();
+                if (c1) c1->mark_used();
+                if (c2) c2->mark_used();
+                if (c3) c3->mark_used();
+                // DEBUG_CODE(validate_if(~x, ~y, z, u, c, c1, c2, c3););
+                m_on_if(~x, ~y, z, u);
+                return true;
             }
             return false;
         };
@@ -214,7 +213,7 @@ namespace sat {
             clause& c = *cp;
             if (c.size() != 3 || c.was_used()) continue;
             literal x = c[0], y = c[1], z = c[2];
-            if (try_ite(x, y, z, c)) continue;
+            if (try_ite(x, z, y, c)) continue;
             if (try_ite(y, x, z, c)) continue;
             if (try_ite(z, y, x, c)) continue;            
         }
