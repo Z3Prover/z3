@@ -80,7 +80,6 @@ namespace sat {
         clause_vector clauses(s.clauses());
         af(clauses);
 
-        literal_vector _xors;
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
             SASSERT(xors.size() > 1);

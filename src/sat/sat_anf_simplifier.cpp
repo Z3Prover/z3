@@ -374,7 +374,7 @@ namespace sat {
         auto& m = ps.get_manager();
         auto v = lit2pdd(b.first);
         auto w = lit2pdd(b.second);
-        dd::pdd p = v | w;
+        dd::pdd p = (v | w) + 1;
         ps.add(p);
         TRACE("anf_simplifier", tout << "bin: " << b.first << " " << b.second << " : " << p << "\n";);
     }
@@ -384,13 +384,14 @@ namespace sat {
         auto& m = ps.get_manager();
         dd::pdd p = m.zero();
         for (literal l : c) p |= lit2pdd(l);
+        p = p + 1;
         ps.add(p);
         TRACE("anf_simplifier", tout << "clause: " << c << " : " << p << "\n";);
     }
 
     void anf_simplifier::add_xor(literal_vector const& x, pdd_solver& ps) {
         auto& m = ps.get_manager();
-        dd::pdd p = m.zero();
+        dd::pdd p = m.one();
         for (literal l : x) p ^= lit2pdd(l);
         ps.add(p);
         TRACE("anf_simplifier", tout << "xor: " << x << " : " << p << "\n";);
