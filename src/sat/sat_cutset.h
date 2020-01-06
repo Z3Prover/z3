@@ -22,7 +22,7 @@ namespace sat {
         unsigned m_size;
         unsigned m_elems[6];
         uint64_t m_table;
-        cut(): m_filter(0), m_size(0), m_table(0), max_cut_size(6) {}
+        cut(): max_cut_size(6), m_filter(0), m_size(0), m_table(0) {}
 
         cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
 

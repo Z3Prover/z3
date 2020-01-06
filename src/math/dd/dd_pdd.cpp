@@ -332,7 +332,9 @@ namespace dd {
             npop = 3;
             break;
         default:
+            r = null_pdd;
             UNREACHABLE();
+            break;
         }
         pop(npop);
         e1->m_result = r;        
