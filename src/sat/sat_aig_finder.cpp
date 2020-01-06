@@ -112,7 +112,7 @@ namespace sat {
             }
             binary():x(null_literal), y(null_literal), use_list(nullptr) {}
             struct hash {
-                unsigned operator()(binary const& t) const { return t.x.hash() + 2* t.y.hash(); }
+                unsigned operator()(binary const& t) const { return mk_mix(t.x.index(), t.y.index(), 3); }
             };
             struct eq {
                 bool operator()(binary const& a, binary const& b) const { 
