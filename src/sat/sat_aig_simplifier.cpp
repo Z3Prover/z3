@@ -16,8 +16,6 @@
 
   --*/
 
-#pragma once;
-
 #include "util/union_find.h"
 #include "sat/sat_aig_simplifier.h"
 #include "sat/sat_xor_finder.h"

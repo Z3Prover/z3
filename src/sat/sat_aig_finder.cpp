@@ -15,8 +15,6 @@
 
   --*/
 
-#pragma once;
-
 #include "sat/sat_aig_finder.h"
 
 namespace sat {
