@@ -79,7 +79,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
-        project: z3release
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
         pipeline: 7
         runVersion: specific
         runId: 19
@@ -88,7 +88,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
-        project: z3release
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
         pipeline: 7
         runVersion: specific
         runId: 19
@@ -97,7 +97,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
-        project: z3release
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
         pipeline: 7
         runVersion: specific
         runId: 19
