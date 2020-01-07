@@ -76,33 +76,33 @@ stages:
       vmImage: "windows-latest"
     steps:
     - powershell: write-host $(System.DefinitionId)
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
         project: z3release
         pipeline: 7
         runVersion: specific
         runId: 19
-        artifactName: 'Windows'
-        targetPath: $(Agent.TempDirectory)/windows
-    - task: DownloadPipelineArtifact@0
+        artifact: 'Windows'
+        path: $(Agent.TempDirectory)/windows
+    - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
         project: z3release
         pipeline: 7
         runVersion: specific
         runId: 19
-        artifactName: 'Windows'
-        targetPath: $(Agent.TempDirectory)/ubuntu
-    - task: DownloadPipelineArtifact@0
+        artifact: 'Windows'
+        path: $(Agent.TempDirectory)/ubuntu
+    - task: DownloadPipelineArtifact@2
       inputs:
         source: specific
         project: z3release
         pipeline: 7
         runVersion: specific
         runId: 19
-        artifactName: 'Mac'
-        targetPath: $(Agent.TempDirectory)/mac
+        artifact: 'Mac'
+        path: $(Agent.TempDirectory)/mac
     - task: ExtractFiles@1
       inputs:
         archiveFilePatterns: $(Agent.TempDirectory)/windows/*.zip
