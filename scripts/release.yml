@@ -75,7 +75,24 @@ stages:
     pool:
       vmImage: "windows-latest"
     steps:
-    - powershell: Write-Host "NuGet packaging"
+    - powershell: write-host $(System.DefinitionId)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'Windows'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'Ubuntu'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'Mac'
+        targetPath: $(Agent.TempDirectory)
+    - task: ExtractFiles@1
+      inputs:
+        archiveFilePatterns: $(Agent.TempDirectory)/*.zip
+        destinationFolder: $(Agent.TempDirectory)
+    - powershell: get-childitem -recurse $(Agent.TempDirectory)
 
   - job: PythonPackage
     displayName: "Python packaging"
