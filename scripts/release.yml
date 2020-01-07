@@ -130,13 +130,13 @@ stages:
     - script: python -m pip install --user -U setuptools wheel
     - script: cd src/api/python; python setup.py sdist
    # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
-   - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-   - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-   - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-   - task: PublishPipelineArtifact@0
-     inputs:
-       artifactName: 'Python packages'
-       targetPath: src/api/python/dist
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Python packages'
+        targetPath: src/api/python/dist
 
 # Uploads Z3 packages to various package stores
   stage: Publish
@@ -197,7 +197,7 @@ stages:
         secureFile: 'pypirc'
     - script: pip install --upgrade pip
     - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
-  # Uncomment on release:
+    # Uncomment on release:
     - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
 
 # TBD: run regression tests on generated binaries.
