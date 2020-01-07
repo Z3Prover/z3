@@ -22,7 +22,7 @@ Revision History:
 #include "util/region.h"
 #include "util/string_buffer.h"
 #include <cstring>
-
+#include <thread>
 
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));

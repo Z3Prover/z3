@@ -92,6 +92,7 @@ namespace dd {
                 if (!first) throw;
                 try_reorder();
                 first = false;
+                return null_bdd;
             }
         }
         SASSERT(well_formed());
