@@ -853,10 +853,10 @@ bool bv_recognizers::mult_inverse(rational const & n, unsigned bv_size, rational
 }
 
 bv_util::bv_util(ast_manager & m):
-    bv_recognizers(m.mk_family_id(m_plugin->m_bv_sym)),
+    bv_recognizers(m.mk_family_id(symbol("bv"))),
     m_manager(m) {
-    SASSERT(m.has_plugin(m_plugin->m_bv_sym));
     m_plugin = static_cast<bv_decl_plugin*>(m.get_plugin(m.mk_family_id("bv")));
+    SASSERT(m.has_plugin(symbol("bv")));
     }
 
 app * bv_util::mk_numeral(rational const & val, sort* s) const {
