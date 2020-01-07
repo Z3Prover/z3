@@ -106,7 +106,7 @@ stages:
     - task: ExtractFiles@1
       inputs:
         archiveFilePatterns: $(Agent.TempDirectory)/windows/*.zip
-        destinationFolder: $(Agent.TempDirectory)/windows
+        destinationFolder: $(Agent.TempDirectory)/windows/out
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
 
   - job: PythonPackage
