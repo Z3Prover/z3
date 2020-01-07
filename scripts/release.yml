@@ -82,7 +82,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 20200107
+        runId: 1
         artifactName: 'Windows'
         targetPath: $(Agent.TempDirectory)/windows
     - task: DownloadPipelineArtifact@0
@@ -91,7 +91,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 20200107
+        runId: 1
         artifactName: 'Windows'
         targetPath: $(Agent.TempDirectory)/ubuntu
     - task: DownloadPipelineArtifact@0
@@ -100,7 +100,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 20200107
+        runId: 1
         artifactName: 'Mac'
         targetPath: $(Agent.TempDirectory)/mac
     - task: ExtractFiles@1
