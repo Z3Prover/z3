@@ -82,7 +82,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 1
+        runId: 19
         artifactName: 'Windows'
         targetPath: $(Agent.TempDirectory)/windows
     - task: DownloadPipelineArtifact@0
@@ -91,7 +91,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 1
+        runId: 19
         artifactName: 'Windows'
         targetPath: $(Agent.TempDirectory)/ubuntu
     - task: DownloadPipelineArtifact@0
@@ -100,7 +100,7 @@ stages:
         project: z3release
         pipeline: 7
         runVersion: specific
-        runId: 1
+        runId: 19
         artifactName: 'Mac'
         targetPath: $(Agent.TempDirectory)/mac
     - task: ExtractFiles@1
@@ -110,6 +110,7 @@ stages:
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
 
   - job: PythonPackage
+    condition: false
     displayName: "Python packaging"
     pool:
       vmImage: "ubuntu-16.04"
