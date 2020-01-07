@@ -139,7 +139,7 @@ stages:
         targetPath: src/api/python/dist
 
 # Uploads Z3 packages to various package stores
-  stage: Publish
+- stage: Publish
   jobs:
 
   - job: GitHubPublish
