@@ -20,7 +20,7 @@ Revision History:
 #include "math/lp/nla_core.h"
 #include "math/lp/factorization_factory_imp.h"
 #include "math/lp/nex.h"
-#include "math/grobner/pdd_grobner.h"
+#include "math/grobner/pdd_solver.h"
 #include "math/dd/pdd_interval.h"
 #include "math/dd/pdd_eval.h"
 namespace nla {
@@ -1429,11 +1429,11 @@ void core::run_pdd_grobner() {
         tree_size = std::max(tree_size, e->poly().tree_size());
     }
     tree_size *= 10;
-    struct dd::grobner::config cfg;
+    struct dd::solver::config cfg;
     cfg.m_expr_size_limit = (unsigned)tree_size;
     cfg.m_eqs_threshold = m_pdd_grobner.equations().size()*5;
     cfg.m_max_steps = m_pdd_grobner.equations().size();
-    m_pdd_grobner = cfg;
+    m_pdd_grobner.set(cfg);
 
     m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
 
@@ -1480,7 +1480,7 @@ std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
     return out;
 }
 
-bool core::check_pdd_eq(const dd::grobner::equation* e) {
+bool core::check_pdd_eq(const dd::solver::equation* e) {
     dd::pdd_interval eval(m_pdd_manager, m_reslim);
     eval.var2interval() =
         [this](lpvar j, bool deps) {

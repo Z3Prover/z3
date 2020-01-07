@@ -130,8 +130,8 @@ public:
 private:
     bool step();
     equation* pick_next();
-    bool canceled() const;
-    bool done() const;
+    bool canceled();
+    bool done();
     void superpose(equation const& eq1, equation const& eq2);
     void superpose(equation const& eq);
     void simplify_using(equation& eq, equation_vector const& eqs);

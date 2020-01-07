@@ -30,7 +30,7 @@
 #include "math/lp/nex.h"
 #include "math/lp/horner.h"
 #include "math/lp/nla_intervals.h"
-#include "math/grobner/pdd_grobner.h"
+#include "math/grobner/pdd_solver.h"
 
 
 namespace nla {
@@ -95,7 +95,7 @@ public:
     horner                   m_horner;
     nla_settings             m_nla_settings;    
     dd::pdd_manager          m_pdd_manager;
-    dd::grobner              m_pdd_grobner;
+    dd::solver               m_pdd_grobner;
    
 private:
     emonics                  m_emons;
@@ -408,7 +408,7 @@ public:
     void set_active_vars_weights(nex_creator&);
     unsigned get_var_weight(lpvar) const;
     void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
-    bool check_pdd_eq(const dd::grobner::equation*);
+    bool check_pdd_eq(const dd::solver::equation*);
     const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
     dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*&);
     void set_level2var_for_pdd_grobner();
