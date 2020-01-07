@@ -95,54 +95,6 @@ Linux Dependencies:
     with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
         f.write(contents)
         
-nuget_sign_input = """
-{
-  "Version": "1.0.0",
-  "SignBatches"
-  :
-  [
-   {
-    "SourceLocationType": "UNC",
-    "SourceRootDirectory": "%s",
-    "DestinationLocationType": "UNC",
-    "DestinationRootDirectory": "%s",
-    "SignRequestFiles": [
-     {
-      "CustomerCorrelationId": "42fc9577-af9e-4ac9-995d-1788d8721d17",
-      "SourceLocation": "Microsoft.Z3.x64.%s.nupkg",
-      "DestinationLocation": "Microsoft.Z3.x64.%s.nupkg"
-     }
-    ],
-    "SigningInfo": {
-     "Operations": [
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetSign",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      },
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetVerify",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      }
-     ]
-    }
-   }
-  ]
-}"""
-
-def create_sign_input(release_version):
-    package_name = "Microsoft.Z3.x64.%s.nupkg" % release_version
-    input_file = "out/nuget_sign_input.json"
-    output_path = os.path.abspath("out").replace("\\","\\\\") 
-    with open(input_file, 'w') as f:
-        f.write(nuget_sign_input % (output_path, output_path, release_version, release_version))
-    
-    
 def main():
     packages = sys.argv[1]
     release_version = sys.argv[2]
@@ -152,9 +104,6 @@ def main():
     unpack(packages)
     mk_targets()
     create_nuget_spec(release_version, release_commit)
-    create_sign_input(release_version)
 #    create_nuget_package()
-#    sign_nuget_package(release_version)
-
 
 main()
