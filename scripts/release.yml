@@ -85,7 +85,6 @@ stages:
         runVersion: specific
         runId: 20200107
         artifactName: 'Windows'
-        artifactName: 'Windows'
         targetPath: $(Agent.TempDirectory)/windows
     - task: DownloadPipelineArtifact@0
       inputs:
@@ -95,7 +94,6 @@ stages:
         runVersion: specific
         runId: 20200107
         artifactName: 'Windows'
-        artifactName: 'Ubuntu'
         targetPath: $(Agent.TempDirectory)/ubuntu
     - task: DownloadPipelineArtifact@0
       inputs:
@@ -104,7 +102,6 @@ stages:
         pipeline: 7
         runVersion: specific
         runId: 20200107
-        artifactName: 'Windows'
         artifactName: 'Mac'
         targetPath: $(Agent.TempDirectory)/mac
     - task: ExtractFiles@1
@@ -121,6 +118,7 @@ stages:
     steps:
     - task: DownloadPipelineArtifact@0
       inputs:
+        artifactName: 'Ubuntu'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@0
       inputs:
