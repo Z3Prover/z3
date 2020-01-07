@@ -1691,7 +1691,7 @@ def write_log_h_preamble(log_h):
   log_h.write('#include<atomic>\n')
   log_h.write('extern std::ostream * g_z3_log;\n')
   log_h.write('extern std::atomic<bool>      g_z3_log_enabled;\n')
-  log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx() { m_prev = g_z3_log_enabled.exchange(false); } ~z3_log_ctx() { g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
+  log_h.write('class z3_log_ctx { bool m_prev; public: z3_log_ctx() { m_prev = g_z3_log && g_z3_log_enabled.exchange(false); } ~z3_log_ctx() { if (g_z3_log) g_z3_log_enabled = m_prev; } bool enabled() const { return m_prev; } };\n')
   log_h.write('inline void SetR(void * obj) { *g_z3_log << "= " << obj << "\\n"; }\ninline void SetO(void * obj, unsigned pos) { *g_z3_log << "* " << obj << " " << pos << "\\n"; } \ninline void SetAO(void * obj, unsigned pos, unsigned idx) { *g_z3_log << "@ " << obj << " " << pos << " " << idx << "\\n"; }\n')
   log_h.write('#define RETURN_Z3(Z3RES) if (_LOG_CTX.enabled()) { SetR(Z3RES); } return Z3RES\n')
   log_h.write('void _Z3_append_log(char const * msg);\n')
