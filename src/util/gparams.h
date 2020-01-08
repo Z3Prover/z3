@@ -101,8 +101,6 @@ public:
        params_ref const & p = get_module_params("pp")
     */
     static params_ref get_module(char const * module_name);
-    static params_ref get_module(symbol const & module_name);
-
     /**
        \brief Return the global parameter set (i.e., parameters that are not associated with any particular module).
     */
