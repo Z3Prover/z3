@@ -109,6 +109,7 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
 template <typename T>
 bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) const {
     bool ret = false;
+    std::cout << "'";
     unsigned a_pow = a.begin()->pow();
     unsigned b_pow = b.begin()->pow();
     for (auto it_a = a.begin(), it_b = b.begin(); it_a != a.end() && it_b != b.end(); ) {
@@ -120,24 +121,19 @@ bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) con
             ret = false;
             break;
         }
-        if (a_pow > b_pow) { // b should be advanced
-            b_pow -= a_pow;
-            ++it_b;
-            if (it_b != b.end()) b_pow = it_b->pow();
+        if (a_pow > b_pow) {
             ret = true;
+            break;
         } 
-        else if (a_pow < b_pow) { // a should be advanced
-            b_pow -= a_pow;
-            ++it_a;
-            if (it_a != a.end()) a_pow = it_a->pow();
+        if (a_pow < b_pow) {
             ret = false;
+            break;
         }
-        else {
-            ++it_a;
-            ++it_b;
-            if (it_a != a.end()) a_pow = it_a->pow();
-            if (it_b != b.end()) b_pow = it_b->pow();
-        }
+        ++it_a;
+        ++it_b;
+        if (it_a != a.end()) a_pow = it_a->pow();
+        if (it_b != b.end()) b_pow = it_b->pow();
+
     }
     TRACE("nex_gt", tout << "a = "; print_vector(a, tout) << (ret?" > ":" <= ") << b << "\n";);
     return ret;
