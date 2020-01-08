@@ -2000,7 +2000,7 @@ namespace smt2 {
             TRACE("skid", tout << "fr->m_skid: " << fr->m_skid << "\n";);
             TRACE("parse_quantifier", tout << "body:\n" << mk_pp(expr_stack().back(), m()) << "\n";);
             if (fr->m_qid == symbol::null)
-                fr->m_qid = symbol(m_scanner.get_line());
+                fr->m_qid = symbol((unsigned)m_scanner.get_line());
             if (fr->m_kind != lambda_k && !m().is_bool(expr_stack().back()))
                 throw parser_exception("quantifier body must be a Boolean expression");
             quantifier* new_q = m().mk_quantifier(fr->m_kind,

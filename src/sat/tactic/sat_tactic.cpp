@@ -157,13 +157,15 @@ class sat_tactic : public tactic {
     imp *      m_imp;
     params_ref m_params;
     statistics m_stats;
+    symbol     m_xor_solver;
 
 public:
     sat_tactic(ast_manager & m, params_ref const & p):
         m_imp(nullptr),
-        m_params(p) {
+        m_params(p),
+        m_xor_solver("xor_solver") {
         sat_params p1(p);
-        m_params.set_bool("xor_solver", p1.xor_solver());
+        m_params.set_bool(m_xor_solver, p1.xor_solver());
     }
 
     tactic * translate(ast_manager & m) override {
@@ -177,7 +179,7 @@ public:
     void updt_params(params_ref const & p) override {
         m_params = p;
         sat_params p1(p);
-        m_params.set_bool("xor_solver", p1.xor_solver());
+        m_params.set_bool(m_xor_solver, p1.xor_solver());
         if (m_imp) m_imp->updt_params(p);
     }
 

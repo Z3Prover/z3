@@ -523,7 +523,7 @@ void seq_decl_plugin::init() {
     if (m_init) return;
     ast_manager& m = *m_manager;
     m_init = true;
-    sort* A = m.mk_uninterpreted_sort(symbol((unsigned)0));
+    sort* A = m.mk_uninterpreted_sort(symbol(0u));
     sort* strT = m_string;
     parameter paramA(A);
     parameter paramS(strT);
