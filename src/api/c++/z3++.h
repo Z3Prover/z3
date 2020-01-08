@@ -427,7 +427,7 @@ namespace z3 {
         if (s.kind() == Z3_INT_SYMBOL)
             out << "k!" << s.to_int();
         else
-            out << s.str().c_str();
+            out << s.str();
         return out;
     }
 
