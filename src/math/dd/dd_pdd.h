@@ -213,7 +213,14 @@ namespace dd {
         inline PDD level2pdd(unsigned l) const { return m_var2pdd[m_level2var[l]]; }
 
         unsigned dag_size(pdd const& p);
-        unsigned degree(pdd const& p);
+
+        mutable svector<unsigned>  m_dmark;
+        mutable unsigned           m_dmark_level;
+        void init_dmark();
+        void set_dmark(unsigned i) const { m_dmark[i] = m_dmark_level; }
+        bool is_dmarked(unsigned i) const { return m_dmark[i] == m_dmark_level; }
+        unsigned degree(pdd const& p) const;
+        unsigned degree(PDD p) const;
 
         bool var_is_leaf(PDD p, unsigned v);
 
@@ -228,6 +235,8 @@ namespace dd {
         rational m_pc, m_qc;
         pdd spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc);
         bool common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc);
+        PDD first_leading(PDD p) const;
+        PDD next_leading(PDD p) const;
 
         monomials_t to_monomials(pdd const& p);
 
