@@ -5,6 +5,7 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
+#include "ast/reg_decl_plugins.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
 #include "muz/rel/dl_finite_product_relation.h"
@@ -29,6 +30,7 @@ namespace datalog {
 
     void test_functional_columns(smt_params fparams, params_ref& params) {
         ast_manager m;
+        reg_decl_plugins(m);
         register_engine re;
         context ctx(m, re, fparams);
         rel_context_base& rctx = *ctx.get_rel_context();
@@ -133,6 +135,7 @@ namespace datalog {
 
     void test_finite_product_relation(smt_params fparams, params_ref& params) {
         ast_manager m;
+        reg_decl_plugins(m);
         register_engine re;
         context ctx(m, re, fparams);
         ctx.updt_params(params);
