@@ -5,7 +5,12 @@
 #ifndef Z3_API_H_
 #define Z3_API_H_
 
+#if 0
+// new_symbol:
+typedef unsigned long long Z3_symbol;
+#else
 DEFINE_TYPE(Z3_symbol);
+#endif
 DEFINE_TYPE(Z3_literals);
 DEFINE_TYPE(Z3_config);
 DEFINE_TYPE(Z3_context);
