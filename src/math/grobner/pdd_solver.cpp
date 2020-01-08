@@ -14,6 +14,7 @@
 #include "math/grobner/pdd_solver.h"
 #include "math/grobner/pdd_simplifier.h"
 #include "util/uint_set.h"
+#include <math.h>
 
 
 namespace dd {
@@ -68,6 +69,29 @@ namespace dd {
         reset();
     }
 
+
+    void solver::set_thresholds() {
+        IF_VERBOSE(3, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
+        if (m_to_simplify.size() == 0)
+            return;
+        m_config.m_eqs_threshold = 10 * ceil(log(m_to_simplify.size()))*m_to_simplify.size();
+        m_config.m_expr_size_limit = 0;
+        m_config.m_expr_degree_limit = 0;
+        for (equation* e: m_to_simplify) {
+            m_config.m_expr_size_limit = std::max(m_config.m_expr_size_limit, (unsigned)e->poly().tree_size());
+            m_config.m_expr_degree_limit = std::max(m_config.m_expr_degree_limit, e->poly().degree());            
+        }
+        m_config.m_expr_size_limit *= 2;
+        m_config.m_expr_degree_limit *= 2;
+        
+        IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold to 10 * " << 10 * ceil(log(m_to_simplify.size())) << "* " << m_to_simplify.size() << " = " <<  m_config.m_eqs_threshold  << "\n";
+                   verbose_stream() << "set m_config.m_expr_size_limit to " <<  m_config.m_expr_size_limit << "\n";
+                   verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
+                   );
+        m_config.m_max_steps = 700;
+        m_config.m_max_simplified = 7000;
+        
+    }
     void solver::saturate() {
         simplify();
         init_saturate();
@@ -194,7 +218,7 @@ namespace dd {
         if (&src == &dst) {
             return false;
         }
-        m_stats.m_simplified++;
+        m_stats.incr_simplified();
         pdd t = src.poly();
         pdd r = dst.poly().reduce(t);
         if (r == dst.poly()){
@@ -217,7 +241,7 @@ namespace dd {
 
     void solver::simplify_using(equation & dst, equation const& src, bool& changed_leading_term) {
         if (&src == &dst) return;        
-        m_stats.m_simplified++;
+        m_stats.incr_simplified();
         pdd t = src.poly();
         pdd r = dst.poly().reduce(t);
         changed_leading_term = dst.state() == processed && m.different_leading_term(r, dst.poly());
@@ -251,6 +275,7 @@ namespace dd {
 
     bool solver::step() {
         m_stats.m_compute_steps++;
+        IF_VERBOSE(3, if (m_stats.m_compute_steps % 100 == 0) verbose_stream() << "compute steps = " << m_stats.m_compute_steps << "\n";);
         equation* e = pick_next();
         if (!e) return false;
         scoped_process sd(*this, e);
@@ -342,7 +367,8 @@ namespace dd {
     
     bool solver::done() {
         return 
-            m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold || 
+            m_to_simplify.size() + m_processed.size() >= m_config.m_eqs_threshold ||
+            m_stats.simplified() >= m_config.m_max_simplified ||
             canceled() || 
             m_stats.m_compute_steps > m_config.m_max_steps ||
             m_conflict != nullptr;
@@ -390,7 +416,7 @@ namespace dd {
     
     void solver::collect_statistics(statistics& st) const {
         st.update("dd.solver.steps", m_stats.m_compute_steps);
-        st.update("dd.solver.simplified", m_stats.m_simplified);
+        st.update("dd.solver.simplified", m_stats.simplified());
         st.update("dd.solver.superposed", m_stats.m_superposed);
         st.update("dd.solver.processed", m_processed.size());
         st.update("dd.solver.solved", m_solved.size());
@@ -416,6 +442,7 @@ namespace dd {
         statistics st;
         collect_statistics(st);
         st.display(out);
+        out << "\n----\n";
         return out;
     }
 

@@ -1436,7 +1436,7 @@ void core::run_pdd_grobner() {
     m_pdd_grobner.set(cfg);
 
     m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
-
+    m_pdd_grobner.set_thresholds();
     m_pdd_grobner.saturate();
     bool conflict = false;
     for (auto eq : m_pdd_grobner.equations()) {
