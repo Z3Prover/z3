@@ -127,19 +127,72 @@ static void test5() {
 }
 
 
-    void test_iterator() {
-        std::cout << "test iterator\n";
-        pdd_manager m(4);
-        pdd a = m.mk_var(0);
-        pdd b = m.mk_var(1);
-        pdd c = m.mk_var(2);
-        pdd d = m.mk_var(3);
-        pdd p = (a + b)*(c + 3*d) + 2;
-        std::cout << p << "\n";
-        for (auto const& m : p) {
-            std::cout << m << "\n";
-        }
+void test_iterator() {
+    std::cout << "test iterator\n";
+    pdd_manager m(4);
+    pdd a = m.mk_var(0);
+    pdd b = m.mk_var(1);
+    pdd c = m.mk_var(2);
+    pdd d = m.mk_var(3);
+    pdd p = (a + b)*(c + 3*d) + 2;
+    std::cout << p << "\n";
+    for (auto const& m : p) {
+        std::cout << m << "\n";
     }
+}
+
+void order() {
+    std::cout << "order\n";
+    pdd_manager m(4);
+    unsigned va = 0;
+    unsigned vb = 1;
+    unsigned vc = 2;
+    unsigned vd = 3;
+    pdd a = m.mk_var(va);
+    pdd b = m.mk_var(vb);
+    pdd c = m.mk_var(vc);
+    pdd d = m.mk_var(vd);
+    pdd p = a + b;
+    std::cout << p << "\n";
+    unsigned i = 0;
+    for (auto const& m : p) {
+        std::cout << m << "\n";        
+        SASSERT(i != 0 ||( m.vars.size() == 1 && m.vars[0] == vb));
+        SASSERT(i != 1 ||( m.vars.size() == 1 && m.vars[0] == va));
+        i++;
+        //        SASSERT(i != 1 || m == a);
+    }
+    pdd ccbbaa = c*c*b*b*a*a;
+    pdd ccbbba = c*c*b*b*b*a;
+    p = ccbbaa + ccbbba;
+
+    i = 0;
+    std::cout << "p = " <<  p << "\n";
+    for (auto const& m : p) {
+        std::cout << m << "\n";
+        SASSERT(i != 0 ||( m.vars.size() == 6 && m.vars[4] == vb)); // the first one has to be ccbbba
+        SASSERT(i != 1 ||( m.vars.size() == 6 && m.vars[4] == va)); // the second one has to be ccbbaa
+        i++;
+        //        SASSERT(i != 1 || m == a);
+    }
+    pdd dcbba = c*c*b*b*a*a;
+    pdd dd = d * d;
+    p = dcbba + ccbbba + d;
+    std::cout << "p = " <<  p << "\n";
+    std::cout << "more complex\n";
+    i = 0;
+    for (auto const& m : p) {
+        std::cout << m << "\n";
+        SASSERT(i != 0 ||( m.vars.size() == 6 && m.vars[0] == vc)); // the first one has to be ccbbba
+        SASSERT(i != 1 ||( m.vars.size() == 5 && m.vars[0] == vd)); // the second one has to be dcbba
+        SASSERT(i != 2 ||( m.vars.size() == 2 && m.vars[1] == vd)); // the second one has to be dd
+        
+        i++;
+        //        SASSERT(i != 1 || m == a);
+    }
+    
+    
+}
 
 }
 
@@ -150,4 +203,5 @@ void tst_pdd() {
     dd::test5();
     dd::test_reset();
     dd::test_iterator();
+    dd::order();
 }

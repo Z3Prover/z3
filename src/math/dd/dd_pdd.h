@@ -14,7 +14,7 @@ Abstract:
 
     Non-leaf nodes are of the form x*hi + lo
     where 
-    - maxdegree(x, lo) = 0, 
+    - maxdegree(x, lo) = 0, meaning x does not appear in lo
 
     Leaf nodes are of the form (0*idx + 0), where idx is an index into m_values.
 
