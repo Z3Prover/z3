@@ -37,8 +37,8 @@ extern "C" {
             c,
             is_forall,
             weight,
-            nullptr,
-            nullptr,
+            of_symbol(symbol::null),
+            of_symbol(symbol::null),
             num_patterns, patterns,
             0, nullptr,
             num_decls, sorts,
@@ -290,7 +290,7 @@ extern "C" {
                                          unsigned num_patterns,
                                          Z3_pattern const patterns[],
                                          Z3_ast body) {
-        return Z3_mk_quantifier_const_ex(c, is_forall, weight, nullptr, nullptr,
+        return Z3_mk_quantifier_const_ex(c, is_forall, weight, of_symbol(symbol::null), of_symbol(symbol::null),
                                          num_bound, bound,
                                          num_patterns, patterns,
                                          0, nullptr,
@@ -456,9 +456,9 @@ extern "C" {
         }
         else {
             SET_ERROR_CODE(Z3_SORT_ERROR, nullptr);
-            return nullptr;
+            return of_symbol(symbol::null);
         }
-        Z3_CATCH_RETURN(nullptr);
+        Z3_CATCH_RETURN(of_symbol(symbol::null));
     }
 
     Z3_sort Z3_API Z3_get_quantifier_bound_sort(Z3_context c, Z3_ast a, unsigned i) {

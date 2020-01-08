@@ -172,11 +172,11 @@ extern "C" {
         RESET_ERROR_CODE();
         if (i >= to_param_descrs_ptr(p)->size()) {
             SET_ERROR_CODE(Z3_IOB, nullptr);
-            RETURN_Z3(nullptr);
+            return of_symbol(symbol::null);
         }
         Z3_symbol result = of_symbol(to_param_descrs_ptr(p)->get_param_name(i));
         return result;
-        Z3_CATCH_RETURN(nullptr);
+        Z3_CATCH_RETURN(of_symbol(symbol::null));
     }
 
     Z3_string Z3_API Z3_param_descrs_get_documentation(Z3_context c, Z3_param_descrs p, Z3_symbol s) {
