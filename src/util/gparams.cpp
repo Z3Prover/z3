@@ -86,9 +86,52 @@ static char const * get_new_param_name(std::string const & p) {
 template <typename T>
 class smap : public map<char const*, T, str_hash_proc, str_eq_proc> {};
 
+typedef std::function<param_descrs*(void)> lazy_descrs_t;
+
+class lazy_param_descrs {
+    param_descrs*      m_descrs;
+    ptr_vector<lazy_descrs_t>      m_mk;
+
+    void apply(lazy_descrs_t& f) {
+        param_descrs* d = f();
+        if (m_descrs) {
+            m_descrs->copy(*d);
+            dealloc(d);            
+        }
+        else {
+            m_descrs = d;
+        }
+    }
+    
+    void reset_mk() {
+        for (auto* f : m_mk) dealloc(f);
+        m_mk.reset();
+    }
+
+public:
+    lazy_param_descrs(lazy_descrs_t& f): m_descrs(nullptr) {
+        m_mk.push_back(alloc(lazy_descrs_t, f));
+    }
+
+    ~lazy_param_descrs() { 
+        dealloc(m_descrs);  
+        reset_mk();
+    }
+
+    param_descrs* get() {
+        for (auto* f : m_mk) apply(*f);
+        reset_mk();        
+        return m_descrs;
+    }
+
+    void append(lazy_descrs_t& f) {
+        m_mk.push_back(alloc(lazy_descrs_t, f));        
+    }
+};
+
 struct gparams::imp {
     bool                 m_modules_registered;
-    smap<param_descrs*>  m_module_param_descrs;
+    smap<lazy_param_descrs*> m_module_param_descrs;
     smap<char const *>   m_module_descrs;
     param_descrs         m_param_descrs;
     smap<params_ref* >   m_module_params;
@@ -102,7 +145,10 @@ struct gparams::imp {
         gparams_register_modules();
     }
 
-    smap<param_descrs*> & get_module_param_descrs() { check_registered(); return m_module_param_descrs; }
+    smap<lazy_param_descrs*> & get_module_param_descrs() { 
+        check_registered(); return m_module_param_descrs; 
+    }
+
     smap<char const *> & get_module_descrs() { check_registered(); return m_module_descrs; }
     param_descrs & get_param_descrs() { check_registered(); return m_param_descrs; }
 
@@ -110,6 +156,12 @@ struct gparams::imp {
         char * r = new (m_region) char[strlen(s)+1];
         memcpy(r, s, strlen(s)+1);
         return r;
+    }
+
+    bool get_module_param_descr(char const* m, param_descrs*& d) {
+        check_registered(); 
+        lazy_param_descrs* ld;
+        return m_module_param_descrs.find(m, ld) && (d = ld->get(), true);
     }
 
 public:
@@ -147,16 +199,17 @@ public:
         m_param_descrs.copy(d);
     }
 
-    void register_module(char const * module_name, param_descrs * d) {
+    void register_module(char const * module_name, lazy_descrs_t& f) {
         // Don't need synchronization here, this method
         // is invoked from check_registered that is already protected.
-        param_descrs * old_d;
-        if (m_module_param_descrs.find(module_name, old_d)) {
-            old_d->copy(*d);
-            dealloc(d);
+        
+        lazy_param_descrs * ld;
+        if (m_module_param_descrs.find(module_name, ld)) {
+            ld->append(f);
         }
         else {
-            m_module_param_descrs.insert(cpy(module_name), d);
+            ld = alloc(lazy_param_descrs, f);
+            m_module_param_descrs.insert(cpy(module_name), ld);
         }
     }
 
@@ -343,7 +396,7 @@ public:
         }
         else {
             param_descrs * d;
-            if (get_module_param_descrs().find(m.c_str(), d)) {
+            if (get_module_param_descr(m.c_str(), d)) {
                 validate_type(p, value, *d);
                 set(*d, p, value, m);
             }
@@ -393,7 +446,7 @@ public:
             }
             else {
                 param_descrs * d;
-                if (get_module_param_descrs().find(m.c_str(), d)) {
+                if (get_module_param_descr(m.c_str(), d)) {
                     return get_default(*d, p, m);
                 }
             }
@@ -444,7 +497,8 @@ public:
                 out << ", description: " << descr;
             }
             out << "\n";
-            kv.m_value->display(out, indent + 4, smt2_style, include_descr);
+            auto* d = kv.m_value->get();
+            d->display(out, indent + 4, smt2_style, include_descr);
         }
     }
 
@@ -463,7 +517,7 @@ public:
     void display_module(std::ostream & out, char const* module_name) {
         lock_guard lock(*gparams_mux);
         param_descrs * d = nullptr;
-        if (!get_module_param_descrs().find(module_name, d)) {
+        if (!get_module_param_descr(module_name, d)) {
             std::stringstream strm;
             strm << "unknown module '" << module_name << "'";                    
             throw exception(strm.str());
@@ -488,7 +542,7 @@ public:
             d = &get_param_descrs();
         }
         else {
-            if (!get_module_param_descrs().find(m.c_str(), d)) {
+            if (!get_module_param_descr(m.c_str(), d)) {
                 std::stringstream strm;
                 strm << "unknown module '" << m << "'";                    
                 throw exception(strm.str());
@@ -540,9 +594,9 @@ void gparams::register_global(param_descrs & d) {
     g_imp->register_global(d);
 }
 
-void gparams::register_module(char const * module_name, param_descrs * d) {
+void gparams::register_module(char const * module_name, lazy_descrs_t& f) {
     SASSERT(g_imp);
-    g_imp->register_module(module_name, d);
+    g_imp->register_module(module_name, f);
 }
 
 void gparams::register_module_descr(char const * module_name, char const * descr) {

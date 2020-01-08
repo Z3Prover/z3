@@ -82,7 +82,9 @@ public:
        "tells" the automatic code generator how to register the parameters for the given
        module.
     */
-    static void register_module(char const * module_name, param_descrs * d); 
+
+    typedef std::function<param_descrs*(void)> lazy_descrs_t;
+    static void register_module(char const* module_name, lazy_descrs_t& get_descrs);
 
     /**
        \brief Add a (small) description to the given module.
