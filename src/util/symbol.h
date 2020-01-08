@@ -17,7 +17,7 @@ Revision History:
 
 --*/
 #if 0
-#include "util/new_symbol.h"
+  // include "util/new_symbol.h"
 #else
 #ifndef SYMBOL_H_
 #define SYMBOL_H_
