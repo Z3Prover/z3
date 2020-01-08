@@ -399,16 +399,18 @@ namespace dd {
 
     // true if leading monomial of p divides leading monomial of q
     bool pdd_manager::lm_divides(PDD p, PDD q) const {
+        p = first_leading(p);
+        q = first_leading(q);
         while (true) {
             if (is_val(p)) return true;
             if (is_val(q)) return false;
             if (level(p) > level(q)) return false;
             if (level(p) == level(q)) {
-                p = leading_child(p);
-                q = leading_child(q);
+                p = next_leading(p);
+                q = next_leading(q);
             }
             else {
-                q = leading_child(q);
+                q = next_leading(q);
             }
         }
     }
@@ -417,6 +419,8 @@ namespace dd {
     // assume lm_divides(p, q)
     pdd_manager::PDD pdd_manager::lt_quotient(PDD p, PDD q) {
         SASSERT(lm_divides(p, q));
+        p = first_leading(p);
+        q = first_leading(q);
         SASSERT(is_val(p) || !is_val(q));
         if (is_val(p)) {
             if (is_val(q)) {
@@ -425,11 +429,11 @@ namespace dd {
             }
         }
         else if (level(p) == level(q)) {
-            return lt_quotient(leading_child(p), leading_child(q));
+            return lt_quotient(next_leading(p), next_leading(q));
         }
 
         SASSERT(!is_val(q));
-        push(lt_quotient(p, leading_child(q)));
+        push(lt_quotient(p, next_leading(q)));
         PDD r = apply_rec(m_var2pdd[var(q)], read(1), pdd_mul_op);
         pop(1);
         return r;  
@@ -455,13 +459,13 @@ namespace dd {
 
     bool pdd_manager::common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc) { 
         p.reset(); q.reset(); 
-        PDD x = a.root, y = b.root;
+        PDD x = first_leading(a.root), y = first_leading(b.root);
         bool has_common = false;
         while (true) {
             if (is_val(x) || is_val(y)) {
                 if (!has_common) return false;
-                while (!is_val(y)) q.push_back(var(y)), y = leading_child(y);
-                while (!is_val(x)) p.push_back(var(x)), x = leading_child(x);
+                while (!is_val(y)) q.push_back(var(y)), y = next_leading(y);
+                while (!is_val(x)) p.push_back(var(x)), x = next_leading(x);
                 pc = val(x);
                 qc = val(y);
                 if (m_semantics != mod2_e && pc.is_int() && qc.is_int()) {
@@ -473,16 +477,16 @@ namespace dd {
             }
             if (level(x) == level(y)) {
                 has_common = true;
-                x = leading_child(x);
-                y = leading_child(y);
+                x = next_leading(x);
+                y = next_leading(y);
             }
             else if (level(x) > level(y)) {
                 p.push_back(var(x));
-                x = leading_child(x);
+                x = next_leading(x);
             }
             else {
                 q.push_back(var(y));
-                y = leading_child(y);
+                y = next_leading(y);
             }
         }
     }
@@ -523,14 +527,14 @@ namespace dd {
        Compare leading terms of pdds
      */
     bool pdd_manager::different_leading_term(pdd const& a, pdd const& b) {
-        PDD x = a.root;
-        PDD y = b.root;
+        PDD x = first_leading(a.root);
+        PDD y = first_leading(b.root);
         while (true) {
             if (x == y) return false;
             if (is_val(x) || is_val(y)) return true;
             if (level(x) == level(y)) {
-                x = leading_child(x);
-                y = leading_child(y);
+                x = next_leading(x);
+                y = next_leading(y);
             }
             else {
                 return true;
@@ -538,11 +542,26 @@ namespace dd {
         }
     }
 
-    pdd_manager::PDD pdd_manager::leading_child(PDD p) const {
+    /**
+     * The assumption is that var(p) is part of the leading monomial.
+     * Then the next leading monomial that uses var(p) has to be under hi(p)
+     * because lo(p) does not use var(p).
+     */
+    pdd_manager::PDD pdd_manager::next_leading(PDD p) const {
         SASSERT(!is_val(p));
-        unsigned dlo = degree(lo(p));
-        unsigned dhi = degree(hi(p));
-        return dlo > 1 + dhi ? lo(p) : hi(p);
+        return first_leading(hi(p));
+    }
+
+    /**
+     * The first node that contains a term from the leading monomial
+     * is a node of highest degree and highest variable.
+     * Thus, when the degree of hi(p) + 1 is not dominated by degree of lo(p).
+     */
+    pdd_manager::PDD pdd_manager::first_leading(PDD p) const {
+        while (!is_val(p) && degree(hi(p)) + 1 < degree(lo(p))) {
+            p = lo(p);
+        }
+        return p;
     }
 
     /*

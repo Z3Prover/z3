@@ -235,7 +235,8 @@ namespace dd {
         rational m_pc, m_qc;
         pdd spoly(pdd const& a, pdd const& b, unsigned_vector const& p, unsigned_vector const& q, rational const& pc, rational const& qc);
         bool common_factors(pdd const& a, pdd const& b, unsigned_vector& p, unsigned_vector& q, rational& pc, rational& qc);
-        PDD leading_child(PDD p) const;
+        PDD first_leading(PDD p) const;
+        PDD next_leading(PDD p) const;
 
         monomials_t to_monomials(pdd const& p);
 
