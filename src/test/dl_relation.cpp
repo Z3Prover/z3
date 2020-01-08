@@ -5,6 +5,8 @@ Copyright (c) 2015 Microsoft Corporation
 --*/
 
 #ifdef _WINDOWS
+
+#include "ast/reg_decl_plugins.h"
 #include "muz/base/dl_context.h"
 #include "muz/fp/dl_register_engine.h"
 #include "muz/rel/dl_relation_manager.h"
@@ -18,6 +20,7 @@ namespace datalog {
     static void test_interval_relation() {
         smt_params params;
         ast_manager ast_m;
+        reg_decl_plugins(ast_m);
         register_engine re;
         context ctx(ast_m, re, params);    
         arith_util autil(ast_m);
@@ -122,6 +125,7 @@ namespace datalog {
 
         smt_params params;
         ast_manager ast_m;
+        reg_decl_plugins(ast_m);
         register_engine re;
         context ctx(ast_m, re, params);    
         arith_util autil(ast_m);
