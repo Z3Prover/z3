@@ -151,7 +151,6 @@ namespace sat {
             m_phase[v] = src.m_phase[v];
             m_best_phase[v] = src.m_best_phase[v];
             m_prev_phase[v] = src.m_prev_phase[v];
-            m_level[v] = src.m_level[v];
 
             // inherit activity:
             m_activity[v] = src.m_activity[v];
@@ -239,7 +238,7 @@ namespace sat {
     //
     // -----------------------
 
-    bool_var solver::mk_var(bool ext, bool dvar, unsigned level) {
+    bool_var solver::mk_var(bool ext, bool dvar) {
         m_model_is_current = false;
         m_stats.m_mk_var++;
         bool_var v = m_justification.size();
@@ -251,7 +250,6 @@ namespace sat {
         m_decision.push_back(dvar);
         m_eliminated.push_back(false);
         m_external.push_back(ext);
-        m_level.push_back(level);
         m_touched.push_back(0);
         m_activity.push_back(0);
         m_mark.push_back(false);
@@ -3859,7 +3857,6 @@ namespace sat {
             m_decision.shrink(v);
             m_eliminated.shrink(v);
             m_external.shrink(v);
-            m_level.shrink(v);
             m_touched.shrink(v);
             m_activity.shrink(v);
             m_mark.shrink(v);

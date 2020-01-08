@@ -32,7 +32,7 @@ namespace sat {
     };
 
     class aig_cuts {
-        // encodes one of var, n1 & n2 & .. & nk, !(n1 & n2 & .. & nk)
+        // encodes one of var, and, !and, xor, !xor, ite, !ite.
         class node {
             bool     m_sign;
             bool_op  m_op;
@@ -54,11 +54,20 @@ namespace sat {
             unsigned num_children() const { SASSERT(!is_var()); return m_num_children; }
             unsigned offset() const { return m_offset; }
         };
-        svector<node>      m_aig;       // vector of aig nodes.
+        svector<node>         m_aig;        // vector of main aig nodes.
+        vector<svector<node>> m_aux_aig;    // vector of auxiliary aig nodes.
         literal_vector     m_literals;
         region             m_region;
+        unsigned           m_max_cut_size;
+        unsigned           m_max_cutset_size;
+        cut_set            m_cut_set1, m_cut_set2;
 
         unsigned_vector top_sort();
+        void augment(unsigned_vector const& ids, vector<cut_set>& cuts);
+        void augment_ite(node const& n, cut_set& cs, vector<cut_set>& cuts);
+        void augment_aig2(node const& n, cut_set& cs, vector<cut_set>& cuts);
+        void augment_aigN(node const& n, cut_set& cs, vector<cut_set>& cuts);
+
     public:
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);

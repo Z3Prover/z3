@@ -353,7 +353,7 @@ namespace sat {
 
     /**
        assign levels to variables. 
-       use s.def_level as a primary source for the level of a variable.
+       use variable id as a primary source for the level of a variable.
        secondarily, sort variables randomly (each variable is assigned
        a random, unique, id).
     */
@@ -365,7 +365,7 @@ namespace sat {
         for (unsigned i = 0; i < nv; ++i) var2id[i] = i;
         shuffle(var2id.size(), var2id.c_ptr(), s.rand());
         for (unsigned i = 0; i < nv; ++i) id2var[var2id[i]] = i;
-        for (unsigned i = 0; i < nv; ++i) vl[i] = std::make_pair(s.def_level(i), var2id[i]);
+        for (unsigned i = 0; i < nv; ++i) vl[i] = std::make_pair(i, var2id[i]);
         std::sort(vl.begin(), vl.end());
         for (unsigned i = 0; i < nv; ++i) l2v[i] = id2var[vl[i].second];
 

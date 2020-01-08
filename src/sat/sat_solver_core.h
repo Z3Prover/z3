@@ -63,9 +63,7 @@ namespace sat {
             add_clause(3, lits, is_redundant);
         }
         // create boolean variable, tagged as external (= true) or internal (can be eliminated).
-        // the level indicates the depth in an ast the variable comes from.
-        // variables of higher levels are outputs gates relative to lower levels
-        virtual bool_var add_var(bool ext, unsigned level = 0) = 0;
+        virtual bool_var add_var(bool ext) = 0;
 
         // update parameters
         virtual void updt_params(params_ref const& p) {}

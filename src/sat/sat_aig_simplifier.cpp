@@ -83,12 +83,12 @@ namespace sat {
         std::function<void (literal_vector const&)> on_xor = 
             [&,this](literal_vector const& xors) {
             SASSERT(xors.size() > 1);
-            unsigned max_level = s.def_level(xors.back().var());
+            unsigned max_level = xors.back().var();
             unsigned index = xors.size() - 1;
             for (unsigned i = index; i-- > 0; ) {
                 literal l = xors[i];
-                if (s.def_level(l.var()) > max_level) {
-                    max_level = s.def_level(l.var());
+                if (l.var() > max_level) {
+                    max_level = l.var();
                     index = i;
                 }
             }
@@ -227,109 +227,138 @@ namespace sat {
 
     vector<cut_set> aig_cuts::get_cuts(unsigned max_cut_size, unsigned max_cutset_size) {
         unsigned_vector sorted = top_sort();
-        vector<cut_set> cuts;    
-        cuts.resize(m_aig.size());
-        max_cut_size = std::min(cut().max_cut_size, max_cut_size);
-        cut_set cut_set2;
-        cut_set2.init(m_region, max_cutset_size + 1);
+        vector<cut_set> cuts(m_aig.size());
+        m_max_cut_size = std::min(cut().max_cut_size, max_cut_size);
+        m_max_cutset_size = max_cutset_size;
+        m_cut_set1.init(m_region, m_max_cutset_size + 1);
+        m_cut_set2.init(m_region, m_max_cutset_size + 1);
+
+        unsigned j = 0;
         for (unsigned id : sorted) {
             node const& n = m_aig[id];
-            if (!n.is_valid()) {
-                continue;
+            if (n.is_valid()) {
+                auto& cut_set = cuts[id];
+                cut_set.init(m_region, m_max_cutset_size + 1);
+                cut_set.push_back(cut(id));
+                sorted[j++] = id;
             }
+        }
+        sorted.shrink(j);
+        augment(sorted, cuts);
+        return cuts;
+    }
+
+    void aig_cuts::augment(unsigned_vector const& ids, vector<cut_set>& cuts) {
+        for (unsigned id : ids) {
+            node const& n = m_aig[id];
+            SASSERT(n.is_valid());
             auto& cut_set = cuts[id];
-            cut_set.init(m_region, max_cutset_size + 1);
             if (n.is_var()) {
                 SASSERT(!n.sign());
             }
             else if (n.is_ite()) {
-                literal l1 = child(n, 0);
-                literal l2 = child(n, 1);
-                literal l3 = child(n, 2);
-                for (auto const& a : cuts[l1.var()]) {
-                    for (auto const& b : cuts[l2.var()]) {
-                        cut ab;
-                        if (!ab.merge(a, b, max_cut_size)) {
-                            continue;
-                        }
-                        for (auto const& c : cuts[l3.var()]) {
-                            cut abc;
-                            if (!abc.merge(ab, c, max_cut_size)) {
-                                continue;
-                            }
-                            if (cut_set.size() >= max_cutset_size) break;
-                            uint64_t t1 = a.shift_table(abc);
-                            uint64_t t2 = b.shift_table(abc);
-                            uint64_t t3 = c.shift_table(abc);
-                            if (l1.sign()) t1 = ~t1;
-                            if (l2.sign()) t2 = ~t2;
-                            if (l3.sign()) t3 = ~t3;
-                            abc.set_table((t1 & t2) | (~t1 & t3));
-                            if (n.sign()) abc.negate();
-                            // extract tree size: abc.m_tree_size = a.m_tree_size + b.m_tree_size + c.m_tree_size + 1;
-                            cut_set.insert(abc);
-                        } 
-                    }
-                }
+                augment_ite(n, cut_set, cuts);
             }
             else if (n.num_children() == 2) {
-                SASSERT(n.is_and() || n.is_xor());
-                literal l1 = child(n, 0);
-                literal l2 = child(n, 1);
-                for (auto const& a : cuts[l1.var()]) {
-                    for (auto const& b : cuts[l2.var()]) {
-                        if (cut_set.size() >= max_cutset_size) break;
-                        cut c;
-                        if (c.merge(a, b, max_cut_size)) {
-                            uint64_t t1 = a.shift_table(c);
-                            uint64_t t2 = b.shift_table(c);
-                            if (l1.sign()) t1 = ~t1;
-                            if (l2.sign()) t2 = ~t2;
-                            uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
-                            c.set_table(t3);
-                            if (n.sign()) c.negate();
-                            cut_set.insert(c);
-                        }
-                    }
-                    if (cut_set.size() >= max_cutset_size) break;
-                }
+                augment_aig2(n, cut_set, cuts);
             }
-            else if (n.num_children() < max_cut_size) {
-                SASSERT(n.is_and() || n.is_xor());
-                literal lit = child(n, 0);
-                for (auto const& a : cuts[lit.var()]) {
-                    cut_set.push_back(a);
-                    if (lit.sign()) {
-                        cut_set.back().negate();
-                    }
-                }
-                for (unsigned i = 1; i < n.num_children(); ++i) {
-                    cut_set2.reset();
-                    literal lit = child(n, i);
-                    for (auto const& a : cut_set) {
-                        for (auto const& b : cuts[lit.var()]) {
-                            cut c;
-                            if (cut_set2.size() >= max_cutset_size) 
-                                break;
-                            if (c.merge(a, b, max_cut_size)) {
-                                uint64_t t1 = a.shift_table(c);
-                                uint64_t t2 = b.shift_table(c);
-                                if (lit.sign()) t2 = ~t2;
-                                uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
-                                c.set_table(t3);
-                                if (i + 1 == n.num_children() && n.sign()) c.negate();
-                                cut_set2.insert(c);
-                            }
-                        }
-                        if (cut_set2.size() >= max_cutset_size) 
-                            break;
-                    }
-                    cut_set.swap(cut_set2);
-                }
+            else if (n.num_children() < m_max_cut_size && cut_set.size() < m_max_cutset_size) {
+                augment_aigN(n, cut_set, cuts);
             }
-            cut_set.push_back(cut(id));
         }
-        return cuts;
+    }
+
+    void aig_cuts::augment_ite(node const& n, cut_set& cs, vector<cut_set>& cuts) {
+        literal l1 = child(n, 0);
+        literal l2 = child(n, 1);
+        literal l3 = child(n, 2);
+        for (auto const& a : cuts[l1.var()]) {
+            for (auto const& b : cuts[l2.var()]) {
+                cut ab;
+                if (!ab.merge(a, b, m_max_cut_size)) {
+                    continue;
+                }
+                for (auto const& c : cuts[l3.var()]) {
+                    cut abc;
+                    if (!abc.merge(ab, c, m_max_cut_size)) {
+                        continue;
+                    }
+                    if (cs.size() >= m_max_cutset_size) break;
+                    uint64_t t1 = a.shift_table(abc);
+                    uint64_t t2 = b.shift_table(abc);
+                    uint64_t t3 = c.shift_table(abc);
+                    if (l1.sign()) t1 = ~t1;
+                    if (l2.sign()) t2 = ~t2;
+                    if (l3.sign()) t3 = ~t3;
+                    abc.set_table((t1 & t2) | (~t1 & t3));
+                    if (n.sign()) abc.negate();
+                    // extract tree size: abc.m_tree_size = a.m_tree_size + b.m_tree_size + c.m_tree_size + 1;
+                    cs.insert(abc);
+                } 
+            }
+        }
+    }
+
+    void aig_cuts::augment_aig2(node const& n, cut_set& cs, vector<cut_set>& cuts) {
+        SASSERT(n.is_and() || n.is_xor());
+        literal l1 = child(n, 0);
+        literal l2 = child(n, 1);
+        for (auto const& a : cuts[l1.var()]) {
+            for (auto const& b : cuts[l2.var()]) {
+                if (cs.size() >= m_max_cutset_size) break;
+                cut c;
+                if (c.merge(a, b, m_max_cut_size)) {
+                    uint64_t t1 = a.shift_table(c);
+                    uint64_t t2 = b.shift_table(c);
+                    if (l1.sign()) t1 = ~t1;
+                    if (l2.sign()) t2 = ~t2;
+                    uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
+                    c.set_table(t3);
+                    if (n.sign()) c.negate();
+                    cs.insert(c);
+                }
+            }
+            if (cs.size() >= m_max_cutset_size) 
+                break;
+        }
+    }
+
+    void aig_cuts::augment_aigN(node const& n, cut_set& cs, vector<cut_set>& cuts) {
+        m_cut_set1.reset();
+        SASSERT(n.is_and() || n.is_xor());
+        literal lit = child(n, 0);
+        for (auto const& a : cuts[lit.var()]) {
+            m_cut_set1.push_back(a);
+            if (lit.sign()) {
+                m_cut_set1.back().negate();
+            }
+        }
+        for (unsigned i = 1; i < n.num_children(); ++i) {
+            m_cut_set2.reset();
+            literal lit = child(n, i);
+            for (auto const& a : m_cut_set1) {
+                for (auto const& b : cuts[lit.var()]) {
+                    cut c;
+                    if (m_cut_set2.size() + cs.size() >= m_max_cutset_size) 
+                        break;
+                    if (c.merge(a, b, m_max_cut_size)) {
+                        uint64_t t1 = a.shift_table(c);
+                        uint64_t t2 = b.shift_table(c);
+                        if (lit.sign()) t2 = ~t2;
+                        uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
+                        c.set_table(t3);
+                        if (i + 1 == n.num_children() && n.sign()) c.negate();
+                        m_cut_set2.insert(c);
+                    }
+                }
+                if (m_cut_set2.size() + cs.size() >= m_max_cutset_size) 
+                    break;
+            }
+            m_cut_set1.swap(m_cut_set2);
+        }
+        for (auto & cut : m_cut_set1) {
+            cs.insert(cut);
+        }
     }
 
     void aig_cuts::add_var(unsigned v) {

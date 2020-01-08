@@ -122,7 +122,6 @@ namespace sat {
         svector<bool>           m_lit_mark;
         svector<bool>           m_eliminated;
         svector<bool>           m_external;
-        unsigned_vector         m_level;
         unsigned_vector         m_touched;
         unsigned                m_touch_index;
         literal_vector          m_replay_assign;
@@ -248,9 +247,9 @@ namespace sat {
         //
         // -----------------------
         void add_clause(unsigned num_lits, literal * lits, bool learned) override { mk_clause(num_lits, lits, learned); }
-        bool_var add_var(bool ext, unsigned level = 0) override { return mk_var(ext, true, level); }
+        bool_var add_var(bool ext) override { return mk_var(ext, true); }
 
-        bool_var mk_var(bool ext = false, bool dvar = true, unsigned level = 0);
+        bool_var mk_var(bool ext = false, bool dvar = true);
 
         clause* mk_clause(literal_vector const& lits, bool learned = false) { return mk_clause(lits.size(), lits.c_ptr(), learned); }
         clause* mk_clause(unsigned num_lits, literal * lits, bool learned = false);
@@ -335,7 +334,6 @@ namespace sat {
         bool was_eliminated(bool_var v) const { return m_eliminated[v]; }
         void set_eliminated(bool_var v, bool f) override;
         bool was_eliminated(literal l) const { return was_eliminated(l.var()); }
-        unsigned def_level(bool_var v) const { return m_level[v]; }
         unsigned scope_lvl() const { return m_scope_lvl; }
         unsigned search_lvl() const { return m_search_lvl; }
         bool  at_search_lvl() const { return m_scope_lvl == m_search_lvl; }
