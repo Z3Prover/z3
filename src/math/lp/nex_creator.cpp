@@ -109,7 +109,6 @@ void nex_creator::simplify_children_of_mul(vector<nex_pow> & children, rational&
 template <typename T>
 bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) const {
     bool ret = false;
-    std::cout << "'";
     unsigned a_pow = a.begin()->pow();
     unsigned b_pow = b.begin()->pow();
     for (auto it_a = a.begin(), it_b = b.begin(); it_a != a.end() && it_b != b.end(); ) {
