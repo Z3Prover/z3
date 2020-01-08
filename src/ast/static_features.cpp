@@ -30,7 +30,7 @@ static_features::static_features(ast_manager & m):
     m_afid(m.mk_family_id("arith")),
     m_lfid(m.mk_family_id("label")),
     m_arrfid(m.mk_family_id("array")),
-    m_srfid(m.mk_family_id("special_relations")),
+    m_srfid(m.mk_family_id("specrels")),
     m_label_sym("label"),
     m_pattern_sym("pattern"),
     m_expr_list_sym("expr-list") {
