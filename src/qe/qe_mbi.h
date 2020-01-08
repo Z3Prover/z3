@@ -107,7 +107,6 @@ namespace qe {
         void block(expr_ref_vector const& lits) override;
     };
 
-
     class uflia_mbi : public mbi_plugin {
         expr_ref_vector     m_atoms;
         obj_hashtable<expr> m_atom_set;

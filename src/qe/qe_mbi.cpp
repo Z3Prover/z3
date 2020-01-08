@@ -65,22 +65,19 @@ namespace qe {
     bool mbi_plugin::is_shared(expr* e) {
         e = m_rep ? m_rep(e) : e;
         if (!is_app(e)) return false;
-        m_is_shared.reserve(e->get_id() + 1, l_undef);
-        lbool r = m_is_shared[e->get_id()];
+        unsigned id = e->get_id();
+        m_is_shared.reserve(id + 1, l_undef);
+        lbool r = m_is_shared[id];
         if (r != l_undef) return r == l_true;
         app* a = to_app(e);
-        if (!is_shared(a->get_decl())) {
-            m_is_shared[e->get_id()] = l_false;
-            return false;
-        }
-        bool all_shared = true;
+        bool all_shared = is_shared(a->get_decl());
         for (expr* arg : *a) {
-            if (!is_shared(arg)) {
-                all_shared = false;
+            if (!all_shared)
                 break;
-            }
+            if (!is_shared(arg)) 
+                all_shared = false;
         }
-        m_is_shared[e->get_id()] = all_shared ? l_true : l_false;
+        m_is_shared[id] = all_shared ? l_true : l_false;
         return all_shared;
     }
 
@@ -212,7 +209,7 @@ namespace qe {
         svector<bool> seen;
         arith_util a(m);
         for (expr* e : subterms(lits)) {
-            if (m.is_eq(e) || a.is_arith_expr(e)) {
+            if ((m.is_eq(e) && a.is_int_real(to_app(e)->get_arg(0))) || a.is_arith_expr(e)) {
                 for (expr* arg : *to_app(e)) {
                     unsigned id = arg->get_id();
                     seen.reserve(id + 1, false);
@@ -276,7 +273,6 @@ namespace qe {
         project_euf(mdl, lits);
     }
 
-
     /**
        \brief add difference certificates to formula.
        
@@ -289,7 +285,6 @@ namespace qe {
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
         tg.add_lits(lits);
-        lits.reset();
         lits.append(tg.get_ackerman_disequalities());
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }

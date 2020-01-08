@@ -110,7 +110,7 @@ class lazy_param_descrs {
 
 public:
     lazy_param_descrs(lazy_descrs_t& f): m_descrs(nullptr) {
-        m_mk.push_back(alloc(lazy_descrs_t, f));
+        append(f);
     }
 
     ~lazy_param_descrs() { 
@@ -118,7 +118,7 @@ public:
         reset_mk();
     }
 
-    param_descrs* get() {
+    param_descrs* deref() {
         for (auto* f : m_mk) apply(*f);
         reset_mk();        
         return m_descrs;
@@ -161,7 +161,7 @@ struct gparams::imp {
     bool get_module_param_descr(char const* m, param_descrs*& d) {
         check_registered(); 
         lazy_param_descrs* ld;
-        return m_module_param_descrs.find(m, ld) && (d = ld->get(), true);
+        return m_module_param_descrs.find(m, ld) && (d = ld->deref(), true);
     }
 
 public:
@@ -497,7 +497,7 @@ public:
                 out << ", description: " << descr;
             }
             out << "\n";
-            auto* d = kv.m_value->get();
+            auto* d = kv.m_value->deref();
             d->display(out, indent + 4, smt2_style, include_descr);
         }
     }

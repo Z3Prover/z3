@@ -584,7 +584,6 @@ namespace qe {
         u_map<expr*> m_term2app;
         u_map<expr*> m_root2rep;
 
-
         model_ref m_model;
         expr_ref_vector m_pinned;  // tracks expr in the maps
 
@@ -1183,4 +1182,50 @@ namespace qe {
         SASSERT(t && "only get representatives");
         return m_projector->find_term2app(*t);
     }
+
+    expr_ref_vector term_graph::dcert(model& mdl, expr_ref_vector const& lits) {
+#if 0
+        obj_pair_hashtable<expr, expr> diseqs;
+        extract_disequalities(lits, diseqs);
+        svector<std::pair<expr*, expr*>> todo;
+        for (auto const& p : diseqs) todo.push_back(p);
+        expr_ref_vector result(m);
+
+        // make sure that diseqs is closed under function applications
+        // of uninterpreted functions.
+        for (unsigned idx = 0; idx < todo.size(); ++idx) {
+            auto p = todo[idx];
+            for (app* t1 : partition_of(p.first)) {
+                for (app* t2 : partition_of(p.second)) {
+                    if (same_function(t1, t2)) {
+                        unsigned sz = t1->get_num_args();
+                        bool found = false;
+                        std::pair<expr*, expr*> q(nullptr, nullptr);
+                        for (unsigned i = 0; i < sz; ++i) {
+                            expr* arg1 = t1->get_arg(i);
+                            expr* arg2 = t2->get_arg(i);
+                            if (mdl(arg1) == mdl(t2)) {
+                                continue;
+                            }
+                            if (in_table(diseqs, arg1, arg2)) {
+                                found = true;
+                                break;
+                            }
+                            q = make_diseq(arg1, arg2);
+                        }
+                        if (!found) {
+                            diseqs.insert(q);
+                            todo.push_back(q);
+                            result.push_back(m.mk_not(m.mk_eq(q.first, q.second)));
+                        }
+                    }
+                }
+            }
+        }
+        return result;
+#endif
+        NOT_IMPLEMENTED_YET();
+        return expr_ref_vector(m);
+    }
+
 }
