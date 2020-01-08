@@ -18,7 +18,7 @@ Revision History:
 --*/
 #if 0
 
-#include "util/new_symbol.cpp"
+ // include "util/new_symbol.cpp"
 #else
 
 #include "util/symbol.h"
