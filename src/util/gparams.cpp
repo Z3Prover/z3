@@ -87,13 +87,13 @@ template <typename T>
 class smap : public map<char const*, T, str_hash_proc, str_eq_proc> {};
 
 struct gparams::imp {
-    bool                      m_modules_registered;
-    smap<param_descrs*> m_module_param_descrs;
-    smap<char const *>  m_module_descrs;
-    param_descrs              m_param_descrs;
-    smap<params_ref* > m_module_params;
-    params_ref                m_params;
-    region                    m_region;
+    bool                 m_modules_registered;
+    smap<param_descrs*>  m_module_param_descrs;
+    smap<char const *>   m_module_descrs;
+    param_descrs         m_param_descrs;
+    smap<params_ref* >   m_module_params;
+    params_ref           m_params;
+    region               m_region;
 
     void check_registered() {
         if (m_modules_registered)
@@ -163,7 +163,9 @@ public:
     void register_module_descr(char const * module_name, char const * descr) {
         // Don't need synchronization here, this method
         // is invoked from check_registered that is already protected.
-        m_module_descrs.insert(cpy(module_name), descr);
+        if (!m_module_descrs.contains(module_name)) {
+            m_module_descrs.insert(cpy(module_name), descr);
+        }
     }
 
     // -----------------------------------------------
@@ -195,18 +197,17 @@ public:
         mod_name   = "";
     }
 
-    params_ref & get_params(char const* mod_name) {
-        if (!mod_name) {
+    params_ref & get_params(std::string const& mod_name) {
+        if (!mod_name[0]) {
             return m_params;
         }
         else {
             params_ref * p = nullptr;
-            if (!m_module_params.find(mod_name, p)) {
+            if (!m_module_params.find(mod_name.c_str(), p)) {
                 p = alloc(params_ref);
-                char * s = cpy(mod_name);
-                m_module_params.insert(s, p);                
+                m_module_params.insert(cpy(mod_name.c_str()), p);                
             }
-            SASSERT(p != 0);
+            SASSERT(p);
             return *p;
         }
     }
@@ -246,7 +247,7 @@ public:
     }
 
     void validate_type(std::string& name, char const* value, param_descrs const& d) {
-        param_kind k = d.get_kind(symbol(name.c_str()));
+        param_kind k = d.get_kind(name.c_str());
         std::stringstream strm;
         char const* _value = value;
         switch (k) {
@@ -283,9 +284,9 @@ public:
 
 
     void set(param_descrs const & d, std::string const & _param_name, char const * value, std::string const & mod_name) {
-        symbol param_name(_param_name.c_str());
+        char const* param_name = _param_name.c_str();
         param_kind k = d.get_kind(param_name);
-        params_ref & ps = get_params(mod_name.c_str());
+        params_ref & ps = get_params(mod_name);
         if (k == CPK_INVALID) {
             throw_unknown_parameter(_param_name, d, mod_name);
         }
