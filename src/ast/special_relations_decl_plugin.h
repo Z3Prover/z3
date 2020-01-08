@@ -78,7 +78,7 @@ class special_relations_util {
         return m.mk_func_decl(m_fid, k, 1, &p, 2, f->get_domain(), f->get_range()); 
     }    
 public:
-    special_relations_util(ast_manager& m) : m(m), m_fid(m.get_family_id("special_relations")) {}
+    special_relations_util(ast_manager& m) : m(m), m_fid(m.get_family_id("specrels")) { }
     
     bool is_special_relation(func_decl* f) const { return f->get_family_id() == m_fid; }
     bool is_special_relation(app* e) const { return is_special_relation(e->get_decl()); }
