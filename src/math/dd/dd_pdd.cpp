@@ -27,6 +27,7 @@ namespace dd {
         m_spare_entry = nullptr;
         m_max_num_nodes = 1 << 24; // up to 16M nodes
         m_mark_level = 0;
+        m_dmark_level = 0;
         m_disable_gc = false;
         m_is_new_node = false;
         m_semantics = s;
@@ -403,10 +404,11 @@ namespace dd {
             if (is_val(q)) return false;
             if (level(p) > level(q)) return false;
             if (level(p) == level(q)) {
-                p = hi(p); q = hi(q);
+                p = leading_child(p);
+                q = leading_child(q);
             }
             else {
-                q = hi(q);
+                q = leading_child(q);
             }
         }
     }
@@ -423,12 +425,15 @@ namespace dd {
             }
         }
         else if (level(p) == level(q)) {
-            return lt_quotient(hi(p), hi(q));
+            return lt_quotient(leading_child(p), leading_child(q));
         }
-        push(lt_quotient(p, hi(q)));
+
+        SASSERT(!is_val(q));
+        push(lt_quotient(p, leading_child(q)));
         PDD r = apply_rec(m_var2pdd[var(q)], read(1), pdd_mul_op);
         pop(1);
-        return r;                   
+        return r;  
+                         
     }
 
     //
@@ -455,8 +460,8 @@ namespace dd {
         while (true) {
             if (is_val(x) || is_val(y)) {
                 if (!has_common) return false;
-                while (!is_val(y)) q.push_back(var(y)), y = hi(y);
-                while (!is_val(x)) p.push_back(var(x)), x = hi(x);
+                while (!is_val(y)) q.push_back(var(y)), y = leading_child(y);
+                while (!is_val(x)) p.push_back(var(x)), x = leading_child(x);
                 pc = val(x);
                 qc = val(y);
                 if (m_semantics != mod2_e && pc.is_int() && qc.is_int()) {
@@ -468,24 +473,25 @@ namespace dd {
             }
             if (level(x) == level(y)) {
                 has_common = true;
-                x = hi(x);
-                y = hi(y);
+                x = leading_child(x);
+                y = leading_child(y);
             }
             else if (level(x) > level(y)) {
                 p.push_back(var(x));
-                x = hi(x);
+                x = leading_child(x);
             }
             else {
                 q.push_back(var(y));
-                y = hi(y);
+                y = leading_child(y);
             }
         }
     }
 
-    /*
-     * Compare leading monomials.
+    /*.
      * The pdd format makes lexicographic comparison easy: compare based on
      * the top variable and descend depending on whether hi(x) == hi(y)
+     *
+     * NB. this does not compare leading monomials.
      */
     bool pdd_manager::lt(pdd const& a, pdd const& b) {
         PDD x = a.root;
@@ -523,13 +529,20 @@ namespace dd {
             if (x == y) return false;
             if (is_val(x) || is_val(y)) return true;
             if (level(x) == level(y)) {
-                x = hi(x);
-                y = hi(y);
+                x = leading_child(x);
+                y = leading_child(y);
             }
             else {
                 return true;
             }
         }
+    }
+
+    pdd_manager::PDD pdd_manager::leading_child(PDD p) const {
+        SASSERT(!is_val(p));
+        unsigned dlo = degree(lo(p));
+        unsigned dhi = degree(hi(p));
+        return dlo > 1 + dhi ? lo(p) : hi(p);
     }
 
     /*
@@ -764,29 +777,44 @@ namespace dd {
         return sz;
     }
 
-    unsigned pdd_manager::degree(pdd const& b) {
-        init_mark();
+    void pdd_manager::init_dmark() {
+        m_dmark.resize(m_nodes.size());
         m_degree.reserve(m_nodes.size());
-        m_todo.push_back(b.root);
+        ++m_dmark_level;
+        if (m_dmark_level == 0) {
+            m_dmark.fill(0);
+            ++m_dmark_level;
+        }
+    }
+
+    unsigned pdd_manager::degree(pdd const& b) const {
+        return degree(b.root);
+    }
+
+    unsigned pdd_manager::degree(PDD p) const {
+        if (is_dmarked(p)) {
+            return m_degree[p];
+        }        
+        m_todo.push_back(p);
         while (!m_todo.empty()) {
             PDD r = m_todo.back();
-            if (is_marked(r)) {
+            if (is_dmarked(r)) {
                 m_todo.pop_back();
             }
             else if (is_val(r)) {
                 m_degree[r] = 0;
-                set_mark(r);
+                set_dmark(r);
             }
-            else if (!is_marked(lo(r)) || !is_marked(hi(r))) {
+            else if (!is_dmarked(lo(r)) || !is_dmarked(hi(r))) {
                 m_todo.push_back(lo(r));
                 m_todo.push_back(hi(r));
             }
             else {
                 m_degree[r] = std::max(m_degree[lo(r)], m_degree[hi(r)]+1); 
-                set_mark(r);
+                set_dmark(r);
             }
         }
-        return m_degree[b.root];
+        return m_degree[p];
     }
 
 
@@ -833,7 +861,6 @@ namespace dd {
         return m_free_vars;
     }
 
-
     void pdd_manager::alloc_free_nodes(unsigned n) {
         for (unsigned i = 0; i < n; ++i) {
             m_free_nodes.push_back(m_nodes.size());
@@ -842,6 +869,7 @@ namespace dd {
         }        
         std::sort(m_free_nodes.begin(), m_free_nodes.end());
         m_free_nodes.reverse();
+        init_dmark();
     }
 
     bool pdd_manager::is_reachable(PDD p) {
@@ -883,6 +911,7 @@ namespace dd {
     }
 
     void pdd_manager::gc() {
+        init_dmark();
         m_free_nodes.reset();
         SASSERT(well_formed());
         IF_VERBOSE(13, verbose_stream() << "(pdd :gc " << m_nodes.size() << ")\n";);
