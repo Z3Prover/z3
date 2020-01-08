@@ -31,26 +31,36 @@ namespace dd {
 class solver {
     friend class simplifier;
 public:
-    struct stats {
+    class stats {
         unsigned m_simplified;
+    public:
         double   m_max_expr_size;
         unsigned m_max_expr_degree;
         unsigned m_superposed;
         unsigned m_compute_steps;
         void reset() { memset(this, 0, sizeof(*this)); }
         stats() { reset(); }
+        unsigned simplified() const { return m_simplified; }
+        void incr_simplified() {
+            m_simplified++;
+        }
+        
     };
 
     struct config {
         unsigned m_eqs_threshold;
         unsigned m_expr_size_limit;
+        unsigned m_expr_degree_limit;
         unsigned m_max_steps;
+        unsigned m_max_simplified;
         unsigned m_random_seed;
         bool     m_enable_exlin;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
+            m_expr_degree_limit(UINT_MAX),
             m_max_steps(UINT_MAX),
+            m_max_simplified(UINT_MAX),
             m_random_seed(0),
             m_enable_exlin(false)
         {}
@@ -73,7 +83,9 @@ public:
             m_idx(0),
             m_poly(p),
             m_dep(d)
-        {}
+        {
+            
+        }
 
         const pdd& poly() const { return m_poly; }        
         u_dependency * dep() const { return m_dep; }
@@ -100,7 +112,7 @@ private:
     mutable u_dependency_manager                 m_dep_manager;
     equation_vector                              m_all_eqs;
     equation*                                    m_conflict;   
-    bool                                         m_too_complex; 
+    bool                                         m_too_complex;
 public:
     solver(reslimit& lim, pdd_manager& m);
     ~solver();
@@ -126,6 +138,7 @@ public:
     std::ostream& display_statistics(std::ostream& out) const;
     const stats& get_stats() const { return m_stats; }
     stats& get_stats() { return m_stats; }
+    void set_thresholds();
 
 private:
     bool step();
@@ -147,12 +160,12 @@ private:
     void set_conflict(equation& eq) { m_conflict = &eq; push_equation(solved, eq); }
     void set_conflict(equation* eq) { m_conflict = eq; push_equation(solved, eq); }
     bool is_too_complex(const equation& eq) const { return is_too_complex(eq.poly()); }
-    bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit;  }
+    bool is_too_complex(const pdd& p) const { return p.tree_size() > m_config.m_expr_size_limit
+            || p.degree() > m_config.m_expr_degree_limit;  }
 
     unsigned                m_levelp1;         // index into level+1
     unsigned_vector         m_level2var;       // level -> var
     unsigned_vector         m_var2level;       // var -> level
-
     void init_saturate();
 
     void del_equation(equation& eq) { del_equation(&eq); }    
