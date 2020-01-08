@@ -644,7 +644,7 @@ def mk_gparams_register_modules_internal(h_files_full_path, path):
     for code in cmds:
         fout.write('{ param_descrs d; %s(d); gparams::register_global(d); }\n' % code)
     for (mod, code) in mod_cmds:
-        fout.write('{ param_descrs * d = alloc(param_descrs); %s(*d); gparams::register_module("%s", d); }\n' % (code, mod))
+        fout.write('{ std::function<param_descrs *(void)> f = []() { auto* d = alloc(param_descrs); %s(*d); return d; }; gparams::register_module("%s", f); }\n' % (code, mod))
     for (mod, descr) in mod_descrs:
         fout.write('gparams::register_module_descr("%s", "%s");\n' % (mod, descr))
     fout.write('}\n')
