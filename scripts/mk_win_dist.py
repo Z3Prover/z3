@@ -194,17 +194,6 @@ def mk_z3s():
     mk_z3(False)
     mk_z3(True)
 
-def get_z3_name(x64):
-    major, minor, build, revision = get_version()
-    if x64:
-        platform = "x64"
-    else:
-        platform = "x86"
-    if GIT_HASH:
-        return 'z3-%s.%s.%s.%s-%s-win' % (major, minor, build, mk_util.git_hash(), platform)
-    else:
-        return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
-
 def mk_dist_dir(x64):
     if x64:
         platform = "x64"
@@ -212,7 +201,7 @@ def mk_dist_dir(x64):
     else:
         platform = "x86"
         build_path = BUILD_X86_DIR
-    dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
+    dist_path = DIST_DIR
     mk_dir(dist_path)
     mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
@@ -227,7 +216,7 @@ def mk_dist_dirs():
     mk_dist_dir(True)
 
 def get_dist_path(x64):
-    return get_z3_name(x64)
+    return DIST_DIR
 
 def mk_zip(x64):
     dist_path = get_dist_path(x64)
