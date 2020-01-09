@@ -70,11 +70,9 @@ namespace dd {
     }
 
 
+// some of the config fields are set, others are calculated
     void solver::set_thresholds() {
         IF_VERBOSE(3, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
-        if (m_to_simplify.size() == 0)
-            return;
-        m_config.m_eqs_threshold = 10 * ceil(log(m_to_simplify.size()))*m_to_simplify.size();
         m_config.m_expr_size_limit = 0;
         m_config.m_expr_degree_limit = 0;
         for (equation* e: m_to_simplify) {
@@ -89,9 +87,9 @@ namespace dd {
                    verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
                    );
         m_config.m_max_steps = 700;
-        m_config.m_max_simplified = 7000;
-        
+        m_config.m_max_simplified = 7000;        
     }
+
     void solver::saturate() {
         simplify();
         init_saturate();

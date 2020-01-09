@@ -29,9 +29,10 @@ class nla_settings {
     unsigned m_horner_row_length_limit;
     bool m_horner_subs_fixed;
     // grobner fields
-    bool m_run_grobner;
+    bool     m_run_grobner;
     unsigned m_grobner_row_length_limit;
-    bool m_grobner_subs_fixed;
+    bool     m_grobner_subs_fixed;
+    unsigned m_grobner_eqs_growth;
 public:
     nla_settings() : m_run_order(true),
                      m_run_tangents(true),
@@ -43,7 +44,8 @@ public:
                      m_grobner_row_length_limit(50),
                      m_grobner_subs_fixed(false)
     {}
-    
+    unsigned grobner_eqs_growth() const { return m_grobner_eqs_growth;}
+    unsigned& grobner_eqs_growth() { return m_grobner_eqs_growth;}
     bool run_order() const { return m_run_order; }
     bool& run_order() { return m_run_order; }
 
