@@ -16,6 +16,7 @@
 #include "util/debug.h"
 #include "util/util.h"
 #include <algorithm>
+#include <cstring>
 
 namespace sat {
 
