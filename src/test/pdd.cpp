@@ -140,8 +140,9 @@ void test_iterator() {
         std::cout << m << "\n";
     }
 }
-
-void order() {
+class test {
+public :
+    static void order() {
     std::cout << "order\n";
     pdd_manager m(4);
     unsigned va = 0;
@@ -160,7 +161,6 @@ void order() {
         SASSERT(i != 0 ||( m.vars.size() == 1 && m.vars[0] == vb));
         SASSERT(i != 1 ||( m.vars.size() == 1 && m.vars[0] == va));
         i++;
-        //        SASSERT(i != 1 || m == a);
     }
     pdd ccbbaa = c*c*b*b*a*a;
     pdd ccbbba = c*c*b*b*b*a;
@@ -173,26 +173,61 @@ void order() {
         SASSERT(i != 0 ||( m.vars.size() == 6 && m.vars[4] == vb)); // the first one has to be ccbbba
         SASSERT(i != 1 ||( m.vars.size() == 6 && m.vars[4] == va)); // the second one has to be ccbbaa
         i++;
-        //        SASSERT(i != 1 || m == a);
     }
-    pdd dcbba = c*c*b*b*a*a;
+    pdd dcbba = d*c*b*b*a;
     pdd dd = d * d;
-    p = dcbba + ccbbba + d;
+    p = dcbba + ccbbba + dd;
+    vector<unsigned> v;
     std::cout << "p = " <<  p << "\n";
-    std::cout << "more complex\n";
-    i = 0;
-    for (auto const& m : p) {
-        std::cout << m << "\n";
-        SASSERT(i != 0 ||( m.vars.size() == 6 && m.vars[0] == vc)); // the first one has to be ccbbba
-        SASSERT(i != 1 ||( m.vars.size() == 5 && m.vars[0] == vd)); // the second one has to be dcbba
-        SASSERT(i != 2 ||( m.vars.size() == 2 && m.vars[1] == vd)); // the second one has to be dd
-        
-        i++;
-        //        SASSERT(i != 1 || m == a);
+    unsigned k = p.index();
+    std::cout << "pdd(k) = " << pdd(k, m) << "\n";
+    k = m.first_leading(k);
+    do {
+        if (m.is_val(k)) {
+            SASSERT(m.val(k).is_one());
+            break;
+        }
+        v.push_back(m.var(k));        
+        std::cout << "pdd(k) = " << pdd(k, m) << "\n";
+        std::cout << "push v" << m.var(k) << "\n";
+        k = m.next_leading(k);
+    } while(true);
+    auto it = v.begin();
+    std::cout << "v" << *it;
+    it++;
+    for( ; it != v.end(); it ++) {
+        std::cout << "*v" << *it;
     }
-    
+    SASSERT(v.size() == 6);
+    SASSERT(v[0] == vc);
+    std::cout << "\n";
+    v.reset();
+    p = d*c*c*d + b*c*c*b + d*d*d;
+    k = p.index();
+    std::cout << "pdd(k) = " << pdd(k, m) << "\n";
+    k = m.first_leading(k);
+    do {
+        if (m.is_val(k)) {
+            SASSERT(m.val(k).is_one());
+            break;
+        }
+        v.push_back(m.var(k));        
+        std::cout << "pdd(k) = " << pdd(k, m) << "\n";
+        std::cout << "push v" << m.var(k) << "\n";
+        k = m.next_leading(k);
+    } while(true);
+    it = v.begin();
+    std::cout << "v" << *it;
+    it++;
+    for( ; it != v.end(); it ++) {
+        std::cout << "*v" << *it;
+    }
+    SASSERT(v.size() == 4);
+    SASSERT(v[0] == vd);
+    std::cout << "\n";
     
 }
+};
 
 }
 
@@ -203,5 +238,5 @@ void tst_pdd() {
     dd::test5();
     dd::test_reset();
     dd::test_iterator();
-    dd::order();
+    dd::test::order();
 }
