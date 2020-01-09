@@ -290,7 +290,12 @@ namespace dd {
         // create an spoly r if leading monomials of a and b overlap
         bool try_spoly(pdd const& a, pdd const& b, pdd& r);
 
-        bool lt(pdd const& a, pdd const& b);
+        // simple lexicographic comparison
+        bool lex_lt(pdd const& a, pdd const& b); 
+
+        // more elaborate comparison based on leading monomials
+        bool lm_lt(pdd const& a, pdd const& b);
+
         bool different_leading_term(pdd const& a, pdd const& b);
         double tree_size(pdd const& p);
         unsigned num_vars() const { return m_var2pdd.size(); }
@@ -352,9 +357,6 @@ namespace dd {
         std::ostream& display(std::ostream& out) const { return m.display(out, *this); }
         bool operator==(pdd const& other) const { return root == other.root; }
         bool operator!=(pdd const& other) const { return root != other.root; }
-        bool operator<(pdd const& other) const { return m.lt(*this, other); }
-
-
 
         unsigned dag_size() const { return m.dag_size(*this); }
         double tree_size() const { return m.tree_size(*this); }
