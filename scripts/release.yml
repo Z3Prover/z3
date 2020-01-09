@@ -59,11 +59,7 @@ stages:
     pool:
       vmImage: "vs2017-win2016"
     steps:
-    - task: PythonScript@0
-      inputs:
-        scriptSource: 'filePath'
-        scriptPath: $(Build.SourcesDirectory)/scripts/mk_win_dist.py
-        arguments: --x86-only --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --build=$(Build.ArtifactStagingDirectory)
+    - script: scripts/mk_win_dist.cmd x86
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
@@ -74,11 +70,7 @@ stages:
     pool:
       vmImage: "vs2017-win2016"
     steps:
-    - task: PythonScript@0
-      inputs:
-        scriptSource: 'filePath'
-        scriptPath: $(Build.SourcesDirectory)/scripts/mk_win_dist.py
-        arguments: --x64-only --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --build=$(Build.ArtifactStagingDirectory)
+    - script: scripts/mk_win_dist.cmd x64
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)

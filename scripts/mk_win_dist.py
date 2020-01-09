@@ -27,6 +27,7 @@ FORCE_MK=False
 DOTNET_CORE_ENABLED=True
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
+ZIP_BUILD_OUTPUTS=False
 GIT_HASH=False
 PYTHON_ENABLED=True
 X86ONLY=False
@@ -62,9 +63,10 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
-    print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
+    print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
+    print("  --zip                         package build outputs in zip file.")
     print("  --githash                     include git hash in the Zip file.")
     print("  --x86-only                    x86 dist only.")
     print("  --x64-only                    x64 dist only.")
@@ -81,6 +83,7 @@ def parse_options():
                                                                    'nojava',
                                                                    'nodotnet',
                                                                    'dotnet-key=',
+                                                                   'zip',
                                                                    'githash',
                                                                    'nopython',
                                                                    'x86-only',
@@ -106,6 +109,8 @@ def parse_options():
             DOTNET_KEY_FILE = arg
         elif opt == '--nojava':
             JAVA_ENABLED = False
+        elif opt == '--zip':
+            ZIP_BUILD_OUTPUTS = True
         elif opt == '--githash':
             GIT_HASH = True
         elif opt == '--x86-only' and not X64ONLY:
@@ -311,7 +316,8 @@ def main():
         mk_dist_dir(False)
         cp_license(False)
         cp_vs_runtime(False)
-        mk_zip(False)
+        if ZIP_BUILD_OUTPUTS:
+            mk_zip(False)
     elif X64ONLY:
         mk_build_dir(BUILD_X64_DIR, True)
         mk_z3(True)
@@ -319,7 +325,8 @@ def main():
         mk_dist_dir(True)
         cp_license(True)
         cp_vs_runtime(True)
-        mk_zip(True)
+        if ZIP_BUILD_OUTPUTS:
+            mk_zip(True)
     else:
         mk_build_dirs()
         mk_z3s()
@@ -327,7 +334,8 @@ def main():
         mk_dist_dirs()
         cp_licenses()
         cp_vs_runtimes()
-        mk_zips()
+        if ZIP_BUILD_OUTPUTS:
+            mk_zips()
 
 main()
 
