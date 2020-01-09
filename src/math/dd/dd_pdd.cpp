@@ -495,12 +495,9 @@ namespace dd {
     }
 
     /*.
-     * The pdd format makes lexicographic comparison easy: compare based on
-     * the top variable and descend depending on whether hi(x) == hi(y)
-     *
-     * NB. this does not compare leading monomials.
+     * compare pdds based on leading monomials
      */
-    bool pdd_manager::lt(pdd const& a, pdd const& b) {
+    bool pdd_manager::lex_lt(pdd const& a, pdd const& b) {
         PDD x = a.root;
         PDD y = b.root;
         if (x == y) return false;
@@ -524,6 +521,48 @@ namespace dd {
                 return level(x) > level(y);
             }
         }
+    }
+
+    bool pdd_manager::lm_lt(pdd const& a, pdd const& b) {
+        PDD x = first_leading(a.root);
+        PDD y = first_leading(b.root);
+        while (true) {
+            if (x == y) break;
+            if (is_val(x) && is_val(y)) break;
+            if (is_val(x)) return true;
+            if (is_val(y)) return false;
+            if (level(x) == level(y)) {
+                x = next_leading(x);
+                y = next_leading(y);
+            }
+            else {
+                return level(x) < level(y);
+            }
+        }
+        vector<unsigned_vector> ma, mb;
+        for (auto const& m : a) {
+            ma.push_back(m.vars);
+        }
+        for (auto const& m : b) {
+            mb.push_back(m.vars);
+        }
+        std::function<bool (unsigned_vector const& a, unsigned_vector const& b)> degree_lex_gt = 
+            [this](unsigned_vector const& a, unsigned_vector const& b) {
+            unsigned i = 0;
+            if (a.size() > b.size()) return true;
+            if (a.size() < b.size()) return false;
+            for (; i < a.size() && a[i] == b[i]; ++i) {};
+            return i < a.size() && m_var2level[a[i]] > m_var2level[b[i]];
+        };
+        std::sort(ma.begin(), ma.end(), degree_lex_gt);
+        std::sort(mb.begin(), mb.end(), degree_lex_gt);
+        auto ita = ma.begin();
+        auto itb = mb.begin();
+        for (; ita != ma.end() && itb != mb.end(); ++ita, ++itb) {
+            if (degree_lex_gt(*itb, *ita)) return true;
+            if (degree_lex_gt(*ita, *itb)) return false;
+        }
+        return ita == ma.end() && itb != mb.end();
     }
 
     /**
