@@ -55,7 +55,6 @@ public:
         unsigned m_max_simplified;
         unsigned m_random_seed;
         bool     m_enable_exlin;
-        unsigned m_eqs_growth;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
@@ -154,7 +153,7 @@ private:
     bool try_simplify_using(equation& target, equation const& source, bool& changed_leading_term);
 
     bool is_trivial(equation const& eq) const { return eq.poly().is_zero(); }    
-    bool is_simpler(equation const& eq1, equation const& eq2) { return eq1.poly() < eq2.poly(); }
+    bool is_simpler(equation const& eq1, equation const& eq2) { return m.lm_lt(eq1.poly(), eq2.poly()); }
     bool is_conflict(equation const* eq) const { return is_conflict(*eq); }
     bool is_conflict(equation const& eq) const { return eq.poly().is_val() && !is_trivial(eq); }
     bool check_conflict(equation& eq) { return is_conflict(eq) && (set_conflict(eq), true); }    
