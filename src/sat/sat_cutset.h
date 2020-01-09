@@ -111,9 +111,11 @@ namespace sat {
     public:
         cut_set(): m_region(nullptr), m_size(0), m_max_size(0), m_cuts(nullptr) {}
         void init(region& r, unsigned sz) { 
+            m_max_size = sz;
+            SASSERT(!m_region || m_cuts);
+            if (m_region) return;
             m_region = &r; 
             m_cuts = new (r) cut[sz]; 
-            m_max_size = sz; 
         }
         bool insert(cut const& c);
         bool no_duplicates() const;
@@ -121,7 +123,8 @@ namespace sat {
         cut * begin() const { return m_cuts; }
         cut * end() const { return m_cuts + m_size; }
         cut & back() { return m_cuts[m_size-1]; }
-        void push_back(cut const& c) { 
+        void push_back(cut const& c) {
+            SASSERT(c.m_size > 0);
             if (m_size == m_max_size) {
                 m_max_size *= 2;
                 cut* new_cuts = new (*m_region) cut[m_max_size]; 
@@ -135,6 +138,7 @@ namespace sat {
         void shrink(unsigned j) { m_size = j; }
         void swap(cut_set& other) { std::swap(m_size, other.m_size); std::swap(m_cuts, other.m_cuts); std::swap(m_max_size, other.m_max_size); }
         void evict(unsigned idx) {  m_cuts[idx] = m_cuts[--m_size]; }
+        std::ostream& display(std::ostream& out) const;
     };
 
 }

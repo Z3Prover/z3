@@ -76,6 +76,10 @@ namespace sat {
         m_stats.m_num_xors++;
     }
 
+    void aig_simplifier::set_root(bool_var v, literal r) {
+        m_aig_cuts.set_root(v, r);
+    }
+
     void aig_simplifier::operator()() {
         report _report(*this);
         TRACE("aig_simplifier", s.display(tout););
@@ -159,6 +163,7 @@ namespace sat {
             for (auto& cut : cuts[i]) {
                 unsigned j = 0;
                 if (cut2id.find(&cut, j)) {
+                    if (i == j) std::cout << "dup: " << i << "\n";
                     VERIFY(i != j);
                     literal v(i, false);
                     literal w(j, false);

@@ -33,6 +33,7 @@ namespace sat {
     */
     
     bool cut_set::insert(cut const& c) {
+        SASSERT(c.m_size > 0);
         unsigned i = 0, j = 0;
         for (; i < size(); ++i) {
             cut const& a = (*this)[i];
@@ -61,6 +62,14 @@ namespace sat {
         }
         return true;
     }
+
+    std::ostream& cut_set::display(std::ostream& out) const {
+        for (auto const& cut : *this) {
+            cut.display(out) << "\n";
+        }
+        return out;
+    }
+
     
     /**
        \brief shift table 'a' by adding elements from 'c'.
@@ -116,10 +125,12 @@ namespace sat {
     }
     
     std::ostream& cut::display(std::ostream& out) const {
+        out << "{";
         for (unsigned i = 0; i < m_size; ++i) {
-            out << (*this)[i] << " ";
-        }
-        out << "t: ";
+            out << (*this)[i];
+            if (i + 1 < m_size) out << " ";
+        }        
+        out << "} t: ";
         for (unsigned i = 0; i < (1u << m_size); ++i) {
             if (0 != (m_table & (1ull << i))) out << "1"; else out << "0";
         }    

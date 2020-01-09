@@ -31,6 +31,16 @@ namespace sat {
         no_op
     };
 
+    inline std::ostream& operator<<(std::ostream& out, bool_op op) {
+        switch (op) {
+        case var_op: return out << "v";
+        case and_op: return out << "&";
+        case ite_op: return out << "?";
+        case xor_op: return out << "^";
+        default: return out << "";
+        }
+    }
+
     class aig_cuts {
 
         struct config {
@@ -50,14 +60,15 @@ namespace sat {
         public:
             node(): m_sign(false), m_op(no_op), m_num_children(UINT_MAX), m_offset(UINT_MAX) {}
             explicit node(unsigned v): m_sign(false), m_op(var_op), m_num_children(UINT_MAX), m_offset(v) {}
-            explicit node(bool negate, bool_op op, unsigned num_children, unsigned offset): 
-                m_sign(negate), m_op(op), m_num_children(num_children), m_offset(offset) {}
+            explicit node(bool negate, bool_op op, unsigned nc, unsigned o): 
+                m_sign(negate), m_op(op), m_num_children(nc), m_offset(o) {}
             bool is_valid() const { return m_offset != UINT_MAX; }
             bool_op op() const { return m_op; }
             bool is_var() const { return m_op == var_op; }
             bool is_and() const { return m_op == and_op; }
             bool is_xor() const { return m_op == xor_op; }
             bool is_ite() const { return m_op == ite_op; }
+            bool is_const() const { return is_and() && num_children() == 0; }
             unsigned var() const { SASSERT(is_var()); return m_offset; }
             bool sign() const { return m_sign; }
             unsigned num_children() const { SASSERT(!is_var()); return m_num_children; }
@@ -71,6 +82,8 @@ namespace sat {
         region                m_region;
         cut_set               m_cut_set1, m_cut_set2;
         vector<cut_set>       m_cuts;
+        bool_var              m_true;
+        svector<std::pair<bool_var, literal>> m_roots;
 
         void reserve(unsigned v);
         bool insert_aux(unsigned v, node const& n);
@@ -89,6 +102,10 @@ namespace sat {
 
         bool insert_cut(cut const& c, cut_set& cs);
 
+        void flush_roots();
+        void flush_roots(literal_vector const& to_root, node& n);
+        void flush_roots(literal_vector const& to_root, cut_set& cs);
+
         std::ostream& display(std::ostream& out, node const& n) const;
 
         literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.num_children()); return m_literals[n.offset() + idx]; }
@@ -97,6 +114,7 @@ namespace sat {
         aig_cuts();
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
+        void set_root(bool_var v, literal r);
 
         vector<cut_set> const & get_cuts();
 

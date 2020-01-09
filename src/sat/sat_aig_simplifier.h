@@ -51,6 +51,7 @@ namespace sat {
         void add_xor(literal head, unsigned sz, literal const* args);
         void add_ite(literal head, literal c, literal t, literal e);
         void add_iff(literal head, literal l1, literal l2);
+        void set_root(bool_var v, literal r);
     };
 }
 
