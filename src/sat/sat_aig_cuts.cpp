@@ -300,7 +300,7 @@ namespace sat {
                 lit = lit.sign() ? ~to_root[lit.var()] : to_root[lit.var()];
             }
         }
-        if (changed) {
+        if (changed && (n.is_and() || n.is_xor())) {
             std::sort(m_literals.c_ptr() + n.offset(), m_literals.c_ptr() + n.offset() + n.num_children());
         }
     }
