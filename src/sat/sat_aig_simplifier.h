@@ -100,6 +100,8 @@ namespace sat {
         stats   m_stats;
         config  m_config;
         aig_cuts m_aig_cuts;
+        unsigned m_trail_size;
+        literal_vector m_lits;
 
         struct report;
         void clauses2aig();
