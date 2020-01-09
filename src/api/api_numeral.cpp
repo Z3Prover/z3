@@ -82,7 +82,7 @@ extern "C" {
             // avoid expanding floats into huge rationals.
             fpa_util & fu = mk_c(c)->fpautil();
             scoped_mpf t(fu.fm());
-            fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_TOWARD_ZERO, n);
+            fu.fm().set(t, fu.get_ebits(_ty), fu.get_sbits(_ty), MPF_ROUND_NEAREST_TEVEN, n);
             a = fu.mk_value(t);
             mk_c(c)->save_ast_trail(a);
         }
