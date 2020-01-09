@@ -59,7 +59,14 @@ stages:
     pool:
       vmImage: "vs2017-win2016"
     steps:
-    - script: scripts/mk_win_dist.cmd x86
+    - task: CmdLine@2
+      inputs:
+        script:
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat"
+          python scripts\mk_win_dist.py ^
+              --x86-only ^
+              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk ^
+              --build=$(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
@@ -70,7 +77,14 @@ stages:
     pool:
       vmImage: "vs2017-win2016"
     steps:
-    - script: scripts/mk_win_dist.cmd x64
+    - task: CmdLine@2
+      inputs:
+        script:
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          python scripts\mk_win_dist.py ^
+              --x64-only ^
+              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk ^
+              --build=$(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
