@@ -293,6 +293,9 @@ namespace sat {
 
     void aig_cuts::flush_roots(literal_vector const& to_root, node& n) {
         bool changed = false;
+        if (n.is_var()) {
+            return;
+        }
         for (unsigned i = 0; i < n.num_children(); ++i) {
             literal& lit = m_literals[n.offset() + i];
             if (to_root[lit.var()] != lit) {

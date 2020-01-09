@@ -14,6 +14,7 @@
 #pragma once
 #include "util/region.h"
 #include "util/debug.h"
+#include "util/util.h"
 #include <algorithm>
 
 namespace sat {
