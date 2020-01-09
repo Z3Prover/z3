@@ -61,18 +61,26 @@ namespace sat {
         unsigned           m_max_cut_size;
         unsigned           m_max_cutset_size;
         cut_set            m_cut_set1, m_cut_set2;
+        vector<cut_set>    m_cuts;
 
-        unsigned_vector top_sort();
+        void insert_aux(unsigned v, node const& n);
+        void init_cut_set(unsigned id);
+
+        unsigned_vector filter_valid_nodes();
         void augment(unsigned_vector const& ids, vector<cut_set>& cuts);
         void augment_ite(node const& n, cut_set& cs, vector<cut_set>& cuts);
+        void augment_aig0(node const& n, cut_set& cs, vector<cut_set>& cuts);
+        void augment_aig1(node const& n, cut_set& cs, vector<cut_set>& cuts);
         void augment_aig2(node const& n, cut_set& cs, vector<cut_set>& cuts);
         void augment_aigN(node const& n, cut_set& cs, vector<cut_set>& cuts);
 
     public:
+        aig_cuts(unsigned max_cut_size, unsigned max_cutset_size);
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
+
         literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.num_children()); return m_literals[n.offset() + idx]; }
-        vector<cut_set> get_cuts(unsigned max_cut_size, unsigned max_cutset_size);
+        vector<cut_set> const & get_cuts();
     };
 
     class aig_simplifier {
@@ -91,14 +99,22 @@ namespace sat {
         solver& s;
         stats   m_stats;
         config  m_config;
+        aig_cuts m_aig_cuts;
+
         struct report;
-        void clauses2aig(aig_cuts& aigc);
-        void aig2clauses(aig_cuts& aigc);
+        void clauses2aig();
+        void aig2clauses();
     public:
-        aig_simplifier(solver& s) : s(s) {}
+        aig_simplifier(solver& s);
         ~aig_simplifier() {}                
         void operator()();
         void collect_statistics(statistics& st) const;
+
+        void add_and(literal head, unsigned sz, literal const* args);
+        void add_or(literal head, unsigned sz, literal const* args);
+        void add_xor(literal head, unsigned sz, literal const* args);
+        void add_ite(literal head, literal c, literal t, literal e);
+        void add_iff(literal head, literal l1, literal l2);
     };
 }
 

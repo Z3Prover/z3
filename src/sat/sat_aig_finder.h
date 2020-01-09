@@ -29,10 +29,11 @@
 #include "util/statistics.h"
 #include "sat/sat_clause.h"
 #include "sat/sat_types.h"
-#include "sat/sat_solver.h"
 #include "sat/sat_big.h"
 
 namespace sat {
+
+    class solver;
 
     class aig_finder {
         solver& s;
@@ -50,7 +51,7 @@ namespace sat {
         void validate_clause(literal_vector const& clause, vector<literal_vector> const& clauses);
 
     public:
-        aig_finder(solver& s) : s(s), m_big(s.rand()) {}
+        aig_finder(solver& s);
         ~aig_finder() {}                
         void set(std::function<void (literal head, literal_vector const& ands)>& f) { m_on_aig = f; }
         void set(std::function<void (literal head, literal cond, literal th, literal el)>& f) { m_on_if = f; }

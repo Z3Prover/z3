@@ -35,6 +35,7 @@ Notes:
 #include "ast/for_each_expr.h"
 #include "sat/tactic/goal2sat.h"
 #include "sat/ba_solver.h"
+#include "sat/sat_aig_simplifier.h"
 #include "model/model_evaluator.h"
 #include "model/model_v2_pp.h"
 #include "tactic/tactic.h"
@@ -53,6 +54,7 @@ struct goal2sat::imp {
     ast_manager &               m;
     pb_util                     pb;
     sat::ba_solver*             m_ext;
+    sat::aig_simplifier*        m_aig;
     svector<frame>              m_frame_stack;
     svector<sat::literal>       m_result_stack;
     obj_map<app, sat::literal>  m_cache;
@@ -73,6 +75,7 @@ struct goal2sat::imp {
         m(_m),
         pb(m),
         m_ext(nullptr),
+        m_aig(nullptr),
         m_solver(s),
         m_map(map),
         m_dep2asm(dep2asm),
@@ -82,6 +85,7 @@ struct goal2sat::imp {
         m_is_lemma(false) {
         updt_params(p);
         m_true = sat::null_literal;
+        m_aig = s.get_aig_simplifier();
     }
         
     void updt_params(params_ref const & p) {
@@ -252,6 +256,9 @@ struct goal2sat::imp {
             sat::literal  l(k, false);
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
+
+            if (m_aig) m_aig->add_or(l, num, lits);
+
             for (unsigned i = 0; i < num; i++) {
                 mk_clause(~lits[i], l);
             }
@@ -290,8 +297,11 @@ struct goal2sat::imp {
             sat::bool_var k = m_solver.add_var(false);
             sat::literal  l(k, false);
             m_cache.insert(t, l);
-            // l => /\ lits
             sat::literal * lits = m_result_stack.end() - num;
+
+            if (m_aig) m_aig->add_and(l, num, lits);
+
+            // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
                 mk_clause(~l, lits[i]);
             }
@@ -341,6 +351,7 @@ struct goal2sat::imp {
                 mk_clause(~t, ~e, l, false);
                 mk_clause(t,  e, ~l, false);
             }
+            if (m_aig) m_aig->add_ite(l, c, t, e);
             m_result_stack.shrink(sz-3);
             if (sign)
                 l.neg();
@@ -374,6 +385,7 @@ struct goal2sat::imp {
             mk_clause(~l, ~l1, l2);
             mk_clause(l,  l1, l2);
             mk_clause(l, ~l1, ~l2);
+            if (m_aig) m_aig->add_iff(l, l1, l2);
             m_result_stack.shrink(sz-2);
             if (sign)
                 l.neg();
@@ -400,6 +412,7 @@ struct goal2sat::imp {
         }
         ensure_extension();
         m_ext->add_xr(lits);
+        if (m_aig) m_aig->add_xor(~lits.back(), lits.size() - 1, lits.c_ptr() + 1);
         sat::literal lit(v, sign);
         if (root) {            
             m_result_stack.reset();
@@ -634,7 +647,7 @@ struct goal2sat::imp {
                 m_ext = alloc(sat::ba_solver);
                 m_solver.set_extension(m_ext);
             }
-        }
+        }        
     }
 
     void convert(app * t, bool root, bool sign) {

@@ -31,6 +31,7 @@ Revision History:
 #include "sat/sat_simplifier.h"
 #include "sat/sat_scc.h"
 #include "sat/sat_asymm_branch.h"
+#include "sat/sat_aig_simplifier.h"
 #include "sat/sat_iff3_finder.h"
 #include "sat/sat_probing.h"
 #include "sat/sat_mus.h"
@@ -89,6 +90,7 @@ namespace sat {
         config                  m_config;
         stats                   m_stats;
         scoped_ptr<extension>   m_ext;
+        scoped_ptr<aig_simplifier> m_aig_simplifier;
         parallel*               m_par;
         drat                    m_drat;          // DRAT for generating proofs
         clause_allocator        m_cls_allocator[2];
@@ -398,6 +400,7 @@ namespace sat {
         bool is_incremental() const { return m_config.m_incremental; }
         extension* get_extension() const override { return m_ext.get(); }
         void       set_extension(extension* e) override;
+        aig_simplifier* get_aig_simplifier() override { return m_aig_simplifier.get(); }
         bool       set_root(literal l, literal r);
         void       flush_roots();
         typedef std::pair<literal, literal> bin_clause;
