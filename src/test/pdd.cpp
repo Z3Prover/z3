@@ -266,55 +266,6 @@ public :
         SASSERT(m.lm_lt(p, p0));
         SASSERT(m.lm_lt(p0 + a * b, p0 + b * b));
         
-        // vector<unsigned> v;
-        // std::cout << "p = " <<  p << "\n";
-        // unsigned k = p.index();
-        // std::cout << "pdd(k) = " << pdd(k, m) << "\n";
-        // k = m.first_leading(k);
-        // do {
-        //     if (m.is_val(k)) {
-        //         SASSERT(m.val(k).is_one());
-        //         break;
-        //     }
-        //     v.push_back(m.var(k));        
-        //     std::cout << "pdd(k) = " << pdd(k, m) << "\n";
-        //     std::cout << "push v" << m.var(k) << "\n";
-        //     k = m.next_leading(k);
-        // } while(true);
-        // auto it = v.begin();
-        // std::cout << "v" << *it;
-        // it++;
-        // for( ; it != v.end(); it ++) {
-        //     std::cout << "*v" << *it;
-        // }
-        // SASSERT(v.size() == 6);
-        // SASSERT(v[0] == vc);
-        // std::cout << "\n";
-        // v.reset();
-        // p = d*c*c*d + b*c*c*b + d*d*d;
-        // k = p.index();
-        // std::cout << "pdd(k) = " << pdd(k, m) << "\n";
-        // k = m.first_leading(k);
-        // do {
-        //     if (m.is_val(k)) {
-        //         SASSERT(m.val(k).is_one());
-        //         break;
-        //     }
-        //     v.push_back(m.var(k));        
-        //     std::cout << "pdd(k) = " << pdd(k, m) << "\n";
-        //     std::cout << "push v" << m.var(k) << "\n";
-        //     k = m.next_leading(k);
-        // } while(true);
-        // it = v.begin();
-        // std::cout << "v" << *it;
-        // it++;
-        // for( ; it != v.end(); it ++) {
-        //     std::cout << "*v" << *it;
-        // }
-        // SASSERT(v.size() == 4);
-        // SASSERT(v[0] == vd);
-        // std::cout << "\n";
-    
     }
 };
 
