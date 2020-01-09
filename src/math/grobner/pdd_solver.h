@@ -55,6 +55,7 @@ public:
         unsigned m_max_simplified;
         unsigned m_random_seed;
         bool     m_enable_exlin;
+        unsigned m_eqs_growth;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
