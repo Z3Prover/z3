@@ -4,11 +4,11 @@ def_module_params('nla',
                    ('order', BOOL, True, 'run order lemmas'),
                    ('tangents', BOOL, True, 'run tangent lemmas'),
                    ('horner', BOOL, True, 'run horner\'s heuristic'),
-                   ('horner_subs_fixed', BOOL, True, 'substitute fixed variables by constants'),
+                   ('horner_subs_fixed', BOOL, False, 'substitute fixed variables by constants'),
                    ('horner_frequency', UINT, 4, 'horner\'s call frequency'),
                    ('horner_row_length_limit', UINT, 10, 'row is disregarded by the heuristic if its length is longer than the value'),
                    ('grobner', BOOL, True, 'run grobner\'s basis heuristic'),
-                   ('grobner_eqs_threshold', UINT, 512, 'grobner\'s maximum number of equalities'),
+                   ('grobner_eqs_growth', UINT, 10, 'grobner\'s maximum number of equalities'),
                    ('grobner_subs_fixed', BOOL, False, 'substitute fixed variables by constants')
                           ))           
 

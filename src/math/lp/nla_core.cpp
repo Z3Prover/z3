@@ -1425,18 +1425,21 @@ void core::run_pdd_grobner() {
     // configure grobner
     // TBD: move this code somewhere self-contained, and tune it.
     double tree_size = 100;
+    unsigned gr_eq_size = 0;
     for (auto* e : m_pdd_grobner.equations()) {
         tree_size = std::max(tree_size, e->poly().tree_size());
+        gr_eq_size ++;
     }
     tree_size *= 10;
     struct dd::solver::config cfg;
     cfg.m_expr_size_limit = (unsigned)tree_size;
-    cfg.m_eqs_threshold = m_pdd_grobner.equations().size()*5;
-    cfg.m_max_steps = m_pdd_grobner.equations().size();
+    cfg.m_max_steps = gr_eq_size;
+    cfg.m_eqs_threshold = m_nla_settings.grobner_eqs_growth() * ceil(log(gr_eq_size + 1)) * gr_eq_size;;
+
     m_pdd_grobner.set(cfg);
+    m_pdd_grobner.set_thresholds();
 
     m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
-    m_pdd_grobner.set_thresholds();
     m_pdd_grobner.saturate();
     bool conflict = false;
     for (auto eq : m_pdd_grobner.equations()) {

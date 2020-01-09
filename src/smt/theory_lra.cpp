@@ -456,6 +456,8 @@ class theory_lra::imp {
             m_nla->get_core()->m_nla_settings.horner_row_length_limit() = nla.horner_row_length_limit();
             m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
             m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = nla.grobner_subs_fixed();
+            m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  nla.grobner_eqs_growth();
+            
         }
     }
 
