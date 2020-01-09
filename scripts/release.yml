@@ -68,7 +68,7 @@ stages:
               --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: build-dist
+        targetPath: dist
         artifactName: 'Windows32'
 
   - job: WindowsBuild64
@@ -85,7 +85,7 @@ stages:
               --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: build-dist
+        targetPath: dist
         artifactName: 'Windows64'
 
 # Creates Z3 packages in various formats
