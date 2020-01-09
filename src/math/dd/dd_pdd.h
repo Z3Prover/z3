@@ -37,7 +37,7 @@ Author:
 #include "util/rational.h"
 
 namespace dd {
-
+    class test;
     class pdd;
     class pdd_manager;
     class pdd_iterator;
@@ -46,6 +46,7 @@ namespace dd {
     public:
         enum semantics { free_e, mod2_e, zero_one_vars_e };
     private:
+        friend test;
         friend pdd;
         friend pdd_iterator;
 
@@ -303,6 +304,7 @@ namespace dd {
     };
 
     class pdd {
+        friend test;
         friend class pdd_manager;
         friend class pdd_iterator;
         unsigned     root;
