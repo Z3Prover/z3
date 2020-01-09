@@ -115,7 +115,7 @@ namespace sat {
             m_cuts = new (r) cut[sz]; 
             m_max_size = sz; 
         }
-        void insert(cut const& c);
+        bool insert(cut const& c);
         bool no_duplicates() const;
         unsigned size() const { return m_size; }
         cut * begin() const { return m_cuts; }
@@ -134,6 +134,7 @@ namespace sat {
         cut & operator[](unsigned idx) { return m_cuts[idx]; }
         void shrink(unsigned j) { m_size = j; }
         void swap(cut_set& other) { std::swap(m_size, other.m_size); std::swap(m_cuts, other.m_cuts); std::swap(m_max_size, other.m_max_size); }
+        void evict(unsigned idx) {  m_cuts[idx] = m_cuts[--m_size]; }
     };
 
 }

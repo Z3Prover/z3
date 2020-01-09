@@ -32,12 +32,12 @@ namespace sat {
        - pre-allocate fixed array instead of vector for cut_set to avoid overhead for memory allocation.
     */
     
-    void cut_set::insert(cut const& c) {
+    bool cut_set::insert(cut const& c) {
         unsigned i = 0, j = 0;
         for (; i < size(); ++i) {
             cut const& a = (*this)[i];
             if (a.subset_of(c)) {
-                return;
+                return false;
             }
             if (c.subset_of(a)) {
                 continue;
@@ -50,6 +50,7 @@ namespace sat {
         }
         shrink(j);    
         push_back(c);
+        return true;
     }
     
     bool cut_set::no_duplicates() const {

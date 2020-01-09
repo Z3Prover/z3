@@ -1939,8 +1939,6 @@ namespace sat {
 
         if (m_aig_simplifier && m_simplifications > m_config.m_aig_delay && !inconsistent()) {
             (*m_aig_simplifier)();
-            m_aig_simplifier->collect_statistics(m_aux_stats);
-            // TBD: throttle aig_delay based on yield
         }
     }
 
@@ -3770,6 +3768,7 @@ namespace sat {
         bool_var new_v = mk_var(true, false);
         lit = literal(new_v, false);
         m_user_scope_literals.push_back(lit);
+        m_aig_simplifier = nullptr; // for simplicity, wipe it out
         TRACE("sat", tout << "user_push: " << lit << "\n";);
     }
 
@@ -3922,7 +3921,7 @@ namespace sat {
         m_slow_glue_backup.set_alpha(m_config.m_slow_glue_avg);
         m_trail_avg.set_alpha(m_config.m_slow_glue_avg);
 
-        if (m_config.m_aig_simplify && !m_aig_simplifier) {
+        if (m_config.m_aig_simplify && !m_aig_simplifier && m_user_scope_literals.empty()) {
             m_aig_simplifier = alloc(aig_simplifier, *this);
         }
     }
@@ -3944,6 +3943,7 @@ namespace sat {
         m_probing.collect_statistics(st);
         if (m_ext) m_ext->collect_statistics(st);
         if (m_local_search) m_local_search->collect_statistics(st);
+        if (m_aig_simplifier) m_aig_simplifier->collect_statistics(st);
         st.copy(m_aux_stats);
     }
 
