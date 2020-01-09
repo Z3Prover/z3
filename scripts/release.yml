@@ -66,10 +66,9 @@ stages:
           python scripts\mk_win_dist.py
               --x86-only
               --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#              --build=$(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
+        targetPath: build-dist
         artifactName: 'Windows32'
 
   - job: WindowsBuild64
@@ -84,10 +83,9 @@ stages:
           python scripts\mk_win_dist.py
               --x64-only
               --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#              --build=$(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)
+        targetPath: build-dist
         artifactName: 'Windows64'
 
 # Creates Z3 packages in various formats
