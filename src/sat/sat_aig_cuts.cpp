@@ -251,6 +251,7 @@ namespace sat {
                 augment_aig0(n, m_cuts[v]);
             }
             touch(v);
+            IF_VERBOSE(2, display(verbose_stream() << "add " << head.var() << " == ", n) << "\n");
         }
         else if (m_aig[v][0].is_const() || !insert_aux(v, n)) {
             m_literals.shrink(m_literals.size() - sz);
