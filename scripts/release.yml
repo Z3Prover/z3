@@ -6,22 +6,22 @@
 stages:
 
 # Builds Z3 on various platforms
-- stage: Build
-  jobs:
-
- # - job: MacBuild
- #   displayName: "Mac Build"
- #   pool:
- #     vmImage: "macOS-10.14"
- #   steps:
- #   - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
- #   - script: git clone https://github.com/z3prover/z3test z3test
- #   - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
- #   - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
- #   - task: PublishPipelineArtifact@0
- #     inputs:
- #       artifactName: 'Mac'
- #       targetPath: $(Build.ArtifactStagingDirectory)
+#- stage: Build
+#  jobs:
+#
+#  - job: MacBuild
+#    displayName: "Mac Build"
+#    pool:
+#      vmImage: "macOS-10.14"
+#    steps:
+#    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+#    - script: git clone https://github.com/z3prover/z3test z3test
+#    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+#    - task: PublishPipelineArtifact@0
+#      inputs:
+#        artifactName: 'Mac'
+#        targetPath: $(Build.ArtifactStagingDirectory)
 #
 #  - job: UbuntuBuild
 #    displayName: "Ubuntu build"
@@ -53,105 +53,101 @@ stages:
 #      inputs:
 #        artifactName: 'Manylinux'
 #        targetPath: $(Build.ArtifactStagingDirectory)
-  
-  - job: WindowsBuild32
-    displayName: "Windows build (32-bit)"
-    pool:
-      vmImage: "vs2017-win2016"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
-          python scripts\mk_win_dist.py
-              --x86-only
-              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: dist
-        artifactName: 'Windows32'
-
-  - job: WindowsBuild64
-    displayName: "Windows build (64-bit)"
-    pool:
-      vmImage: "vs2017-win2016"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
-          python scripts\mk_win_dist.py
-              --x64-only
-              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: dist
-        artifactName: 'Windows64'
-
-#- stage: Sign
-#  jobs:
-#  - job: SignWindowsAssemblies
-#    displayName: "Sign Windows Assemblies"
+#  
+#  - job: WindowsBuild32
+#    displayName: "Windows build (32-bit)"
 #    pool:
-#      vmImage: "windows-latest"
+#      vmImage: "vs2017-win2016"
 #    steps:
-#    - task: DownloadPipelineArtifact@2
+#    - task: CmdLine@2
 #      inputs:
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 47
-#        artifact: 'Windows64'
-#        path: $(Agent.TempDirectory)
-#    - task: CopyFiles@2
-#      inputs:
-#        sourceFolder: $(Agent.TempDirectory)/*
-#        targetFolder: $(Build.ArtifactStagingDirectory)/win64
-#    - task: EsrpCodeSigning@1
-#      inputs:
-#        ConnectedServiceName: 'z3-esrp-signing'
-#        FolderPath: '$(Build.ArtifactStagingDirectory)/win64/bin'
-#        Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
-#        signConfigType: 'inlineSignParams'
-#        inlineOperation: |
-#          [
-#            {
-#              "keyCode": "CP-230012",
-#              "operationSetCode": "SigntoolSign",
-#              "parameters": [
-#                {
-#                  "parameterName": "OpusName",
-#                  "parameterValue": "Microsoft"
-#                },
-#                {
-#                  "parameterName": "OpusInfo",
-#                  "parameterValue": "http://www.microsoft.com"
-#                },
-#                {
-#                  "parameterName": "PageHash",
-#                  "parameterValue": "/NPH"
-#                },
-#                {
-#                  "parameterName": "FileDigest",
-#                  "parameterValue": "/fd sha256"
-#                },
-#                {
-#                  "parameterName": "TimeStamp",
-#                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-#                }
-#              ],
-#              "toolName": "signtool.exe",
-#              "toolVersion": "6.2.9304.0"
-#            }
-#          ]
-#        SessionTimeout: '60'
-#        MaxConcurrency: '50'
-#        MaxRetryAttempts: '5'
+#        script:
+#          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
+#          python scripts\mk_win_dist.py
+#              --x86-only
+#              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
 #    - task: PublishPipelineArtifact@1
 #      inputs:
-#        targetPath: $(Build.ArtifactStagingDirectory)/win64
-#        artifactName: 'Windows64Signed'
+#        targetPath: dist
+#        artifactName: 'Windows32'
+#
+#  - job: WindowsBuild64
+#    displayName: "Windows build (64-bit)"
+#    pool:
+#      vmImage: "vs2017-win2016"
+#    steps:
+#    - task: CmdLine@2
+#      inputs:
+#        script:
+#          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+#          python scripts\mk_win_dist.py
+#              --x64-only
+#              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+#    - task: PublishPipelineArtifact@1
+#      inputs:
+#        targetPath: dist
+#        artifactName: 'Windows64'
+
+- stage: Sign
+  jobs:
+  - job: SignWindowsAssemblies
+    displayName: "Sign Windows Assemblies"
+    pool:
+      vmImage: "windows-latest"
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 51
+        artifact: 'Windows64'
+        path: $(Build.ArtifactStagingDirectory)/win64
+    - task: EsrpCodeSigning@1
+      inputs:
+        ConnectedServiceName: 'z3-esrp-signing'
+        FolderPath: '$(Build.ArtifactStagingDirectory)/win64/bin'
+        Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
+        signConfigType: 'inlineSignParams'
+        inlineOperation: |
+          [
+            {
+              "keyCode": "CP-230012",
+              "operationSetCode": "SigntoolSign",
+              "parameters": [
+                {
+                  "parameterName": "OpusName",
+                  "parameterValue": "Microsoft"
+                },
+                {
+                  "parameterName": "OpusInfo",
+                  "parameterValue": "http://www.microsoft.com"
+                },
+                {
+                  "parameterName": "PageHash",
+                  "parameterValue": "/NPH"
+                },
+                {
+                  "parameterName": "FileDigest",
+                  "parameterValue": "/fd sha256"
+                },
+                {
+                  "parameterName": "TimeStamp",
+                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                }
+              ],
+              "toolName": "signtool.exe",
+              "toolVersion": "6.2.9304.0"
+            }
+          ]
+        SessionTimeout: '60'
+        MaxConcurrency: '50'
+        MaxRetryAttempts: '5'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/win64
+        artifactName: 'Windows64Signed'
 
 # Creates Z3 packages in various formats
 - stage: Package
