@@ -16,8 +16,11 @@
   --*/
 
 #include "sat/sat_aig_finder.h"
+#include "sat/sat_solver.h"
 
 namespace sat {
+
+    aig_finder::aig_finder(solver& s): s(s), m_big(s.rand()) {}
 
     void aig_finder::operator()(clause_vector& clauses) {
         m_big.init(s, true);

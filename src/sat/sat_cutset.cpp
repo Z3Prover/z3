@@ -32,12 +32,13 @@ namespace sat {
        - pre-allocate fixed array instead of vector for cut_set to avoid overhead for memory allocation.
     */
     
-    void cut_set::insert(cut const& c) {
+    bool cut_set::insert(cut const& c) {
+        SASSERT(c.m_size > 0);
         unsigned i = 0, j = 0;
         for (; i < size(); ++i) {
             cut const& a = (*this)[i];
             if (a.subset_of(c)) {
-                return;
+                return false;
             }
             if (c.subset_of(a)) {
                 continue;
@@ -50,6 +51,7 @@ namespace sat {
         }
         shrink(j);    
         push_back(c);
+        return true;
     }
     
     bool cut_set::no_duplicates() const {
@@ -60,7 +62,14 @@ namespace sat {
         }
         return true;
     }
-    
+
+    std::ostream& cut_set::display(std::ostream& out) const {
+        for (auto const& cut : *this) {
+            cut.display(out) << "\n";
+        }
+        return out;
+    }
+
     /**
        \brief shift table 'a' by adding elements from 'c'.
        a.shift_table(c)
@@ -82,9 +91,7 @@ namespace sat {
        - pre-compute some shift operations.
        - use strides on some common cases.
        - what ABC does?
-    */
-    
-    
+    */       
     uint64_t cut::shift_table(cut const& c) const {
         SASSERT(subset_of(c));
         unsigned index = 0;
@@ -115,10 +122,12 @@ namespace sat {
     }
     
     std::ostream& cut::display(std::ostream& out) const {
+        out << "{";
         for (unsigned i = 0; i < m_size; ++i) {
-            out << (*this)[i] << " ";
-        }
-        out << "t: ";
+            out << (*this)[i];
+            if (i + 1 < m_size) out << " ";
+        }        
+        out << "} t: ";
         for (unsigned i = 0; i < (1u << m_size); ++i) {
             if (0 != (m_table & (1ull << i))) out << "1"; else out << "0";
         }    

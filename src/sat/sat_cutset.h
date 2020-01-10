@@ -13,6 +13,10 @@
 
 #pragma once
 #include "util/region.h"
+#include "util/debug.h"
+#include "util/util.h"
+#include <algorithm>
+#include <cstring>
 
 namespace sat {
 
@@ -25,6 +29,10 @@ namespace sat {
         cut(): max_cut_size(6), m_filter(0), m_size(0), m_table(0) {}
 
         cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
+
+        cut(cut const& other): m_filter(other.m_filter), m_size(other.m_size), m_table(other.m_table) {
+            for (unsigned i = 0; i < m_size; ++i) m_elems[i] = other.m_elems[i];
+        }
 
         unsigned const* begin() const { return m_elems; }
         unsigned const* end() const  { return m_elems + m_size; }
@@ -42,7 +50,11 @@ namespace sat {
         }
         void sort();
         void negate() { set_table(~m_table); }
-        void set_table(uint64_t t) { m_table = t & ((1ull << (1ull << m_size)) - 1ull); }
+        uint64_t table_mask() const { return (1ull << (1ull << m_size)) - 1ull; }
+        void set_table(uint64_t t) { m_table = t & table_mask(); }
+
+        bool is_true()  const { return 0 == (table_mask() & ~m_table); }
+        bool is_false() const { return 0 == (table_mask() &  m_table); }
 
         bool operator==(cut const& other) const;
         unsigned hash() const;
@@ -62,7 +74,6 @@ namespace sat {
         uint64_t shift_table(cut const& other) const;
 
         bool merge(cut const& a, cut const& b, unsigned max_sz) {
-            SASSERT(a.m_size > 0 && b.m_size > 0);
             unsigned i = 0, j = 0;
             unsigned x = a[i];
             unsigned y = b[j];
@@ -111,17 +122,20 @@ namespace sat {
     public:
         cut_set(): m_region(nullptr), m_size(0), m_max_size(0), m_cuts(nullptr) {}
         void init(region& r, unsigned sz) { 
+            m_max_size = sz;
+            SASSERT(!m_region || m_cuts);
+            if (m_region) return;
             m_region = &r; 
             m_cuts = new (r) cut[sz]; 
-            m_max_size = sz; 
         }
-        void insert(cut const& c);
+        bool insert(cut const& c);
         bool no_duplicates() const;
         unsigned size() const { return m_size; }
         cut * begin() const { return m_cuts; }
         cut * end() const { return m_cuts + m_size; }
         cut & back() { return m_cuts[m_size-1]; }
-        void push_back(cut const& c) { 
+        void push_back(cut const& c) {
+            SASSERT(c.m_size > 0);
             if (m_size == m_max_size) {
                 m_max_size *= 2;
                 cut* new_cuts = new (*m_region) cut[m_max_size]; 
@@ -134,6 +148,8 @@ namespace sat {
         cut & operator[](unsigned idx) { return m_cuts[idx]; }
         void shrink(unsigned j) { m_size = j; }
         void swap(cut_set& other) { std::swap(m_size, other.m_size); std::swap(m_cuts, other.m_cuts); std::swap(m_max_size, other.m_max_size); }
+        void evict(unsigned idx) {  m_cuts[idx] = m_cuts[--m_size]; }
+        std::ostream& display(std::ostream& out) const;
     };
 
 }
