@@ -37,6 +37,7 @@ class nla_settings {
     unsigned m_grobner_expr_size_growth;
     unsigned m_grobner_expr_degree_growth;
     unsigned m_grobner_max_simplified;
+    unsigned m_grobner_number_of_conflicts_to_report;
 public:
     nla_settings() : m_run_order(true),
                      m_run_tangents(true),
@@ -85,6 +86,9 @@ public:
 
     unsigned grobner_max_simplified() const { return m_grobner_max_simplified; }
     unsigned & grobner_max_simplified() { return m_grobner_max_simplified; }
+
+    unsigned grobner_number_of_conflicts_to_report() const { return m_grobner_number_of_conflicts_to_report; }
+    unsigned & grobner_number_of_conflicts_to_report() { return m_grobner_number_of_conflicts_to_report; }
 
     
 };

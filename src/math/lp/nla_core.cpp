@@ -1401,10 +1401,13 @@ void core::run_grobner() {
     configure_grobner();
     m_pdd_grobner.saturate();
     bool conflict = false;
+    unsigned n = m_pdd_grobner.number_of_conflicts_to_report();
+    SASSERT(n > 0);
     for (auto eq : m_pdd_grobner.equations()) {
         if (check_pdd_eq(eq)) {
             conflict = true;
-            break;
+            if (--n == 0)
+                break;
         }
     }
     if (conflict) {
@@ -1452,11 +1455,12 @@ void core::configure_grobner() {
     cfg.m_expr_size_limit = (unsigned)tree_size;
     cfg.m_max_steps = gr_eq_size;
     cfg.m_max_simplified = m_nla_settings.grobner_max_simplified();
-
+    cfg.m_eqs_growth = m_nla_settings.grobner_eqs_growth();
+    cfg.m_expr_size_growth = m_nla_settings.grobner_expr_size_growth();
+    cfg.m_expr_degree_growth = m_nla_settings.grobner_expr_degree_growth();
+    cfg.m_number_of_conflicts_to_report = m_nla_settings.grobner_number_of_conflicts_to_report();
     m_pdd_grobner.set(cfg);
-    m_pdd_grobner.set_thresholds(m_nla_settings.grobner_eqs_growth(), m_nla_settings.grobner_expr_size_growth(),
-                                 m_nla_settings.grobner_expr_degree_growth());
-
+    m_pdd_grobner.adjust_cfg();
     m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
 }
 
