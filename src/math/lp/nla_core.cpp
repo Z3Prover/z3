@@ -1289,7 +1289,7 @@ lbool core::inner_check(bool constraint_derived) {
                 clear_and_resize_active_var_set();
                 if (m_nla_settings.run_grobner()) {
                     find_nl_cluster();
-                    run_pdd_grobner();
+                    run_grobner();
                 }
             }
         if (done()) {
@@ -1396,13 +1396,32 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 }
 
 
-void core::run_pdd_grobner() {
+void core::run_grobner() {
     lp_settings().stats().m_grobner_calls++;
+    configure_grobner();
+    m_pdd_grobner.saturate();
+    bool conflict = false;
+    for (auto eq : m_pdd_grobner.equations()) {
+        if (check_pdd_eq(eq)) {
+            conflict = true;
+            break;
+        }
+    }
+    if (conflict) {
+        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
+    }
+    else {
+        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
+        IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
+    }
+}
+
+void core::configure_grobner() {
     m_pdd_grobner.reset();
     try {
-        set_level2var_for_pdd_grobner();
+        set_level2var_for_grobner();
         for (unsigned i : m_rows) {
-            add_row_to_pdd_grobner(m_lar_solver.A_r().m_rows[i]);
+            add_row_to_grobner(m_lar_solver.A_r().m_rows[i]);
         }
     }
     catch (...) {
@@ -1422,8 +1441,6 @@ void core::run_pdd_grobner() {
     }
 #endif
    
-    // configure grobner
-    // TBD: move this code somewhere self-contained, and tune it.
     double tree_size = 100;
     unsigned gr_eq_size = 0;
     for (auto* e : m_pdd_grobner.equations()) {
@@ -1434,27 +1451,13 @@ void core::run_pdd_grobner() {
     struct dd::solver::config cfg;
     cfg.m_expr_size_limit = (unsigned)tree_size;
     cfg.m_max_steps = gr_eq_size;
-    cfg.m_eqs_threshold = m_nla_settings.grobner_eqs_growth() * ceil(log(gr_eq_size + 1)) * gr_eq_size;;
+    cfg.m_max_simplified = m_nla_settings.grobner_max_simplified();
 
     m_pdd_grobner.set(cfg);
-    m_pdd_grobner.set_thresholds();
+    m_pdd_grobner.set_thresholds(m_nla_settings.grobner_eqs_growth(), m_nla_settings.grobner_expr_size_growth(),
+                                 m_nla_settings.grobner_expr_degree_growth());
 
     m_pdd_manager.set_max_num_nodes(10000); // or something proportional to the number of initial nodes.
-    m_pdd_grobner.saturate();
-    bool conflict = false;
-    for (auto eq : m_pdd_grobner.equations()) {
-        if (check_pdd_eq(eq)) {
-            conflict = true;
-            break;
-        }
-    }
-    if (conflict) {
-        IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
-    }
-    else {
-        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
-        IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
-    }
 }
 
 std::ostream& core::diagnose_pdd_miss(std::ostream& out) {
@@ -1568,7 +1571,7 @@ dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
     return r;
 }
 
-void core::add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row) {
+void core::add_row_to_grobner(const vector<lp::row_cell<rational>> & row) {
     u_dependency *dep = nullptr;
     dd::pdd sum = m_pdd_manager.mk_val(rational(0));
     for (const auto &p : row) {
@@ -1639,7 +1642,7 @@ void core::set_active_vars_weights(nex_creator& nc) {
     }
 }
 
-void core::set_level2var_for_pdd_grobner() {
+void core::set_level2var_for_grobner() {
     unsigned n = m_lar_solver.column_count();
     unsigned_vector sorted_vars(n), weighted_vars(n);
     for (unsigned j = 0; j < n; j++) {

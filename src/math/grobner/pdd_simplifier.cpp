@@ -152,7 +152,7 @@ namespace dd {
                     s.push_equation(solver::to_simplify, dst);
                 }
                 // v has been eliminated.
-                SASSERT(!dst->poly().free_vars().contains(v));
+                //                SASSERT(!dst->poly().free_vars().contains(v));
                 add_to_use(dst, use_list);                
             }          
             if (all_reduced) {

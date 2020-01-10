@@ -33,6 +33,10 @@ class nla_settings {
     unsigned m_grobner_row_length_limit;
     bool     m_grobner_subs_fixed;
     unsigned m_grobner_eqs_growth;
+    unsigned m_grobner_tree_size_growth;
+    unsigned m_grobner_expr_size_growth;
+    unsigned m_grobner_expr_degree_growth;
+    unsigned m_grobner_max_simplified;
 public:
     nla_settings() : m_run_order(true),
                      m_run_tangents(true),
@@ -69,5 +73,19 @@ public:
     unsigned& grobner_row_length_limit() { return m_grobner_row_length_limit; }
     bool grobner_subs_fixed() const { return m_grobner_subs_fixed; }
     bool& grobner_subs_fixed() { return m_grobner_subs_fixed; }
+
+    unsigned grobner_tree_size_growth() const { return m_grobner_tree_size_growth; }
+    unsigned & grobner_tree_size_growth() { return m_grobner_tree_size_growth; }
+
+    unsigned grobner_expr_size_growth() const { return m_grobner_expr_size_growth; }
+    unsigned & grobner_expr_size_growth() { return m_grobner_expr_size_growth; }
+
+    unsigned grobner_expr_degree_growth() const { return m_grobner_expr_degree_growth; }
+    unsigned & grobner_expr_degree_growth() { return m_grobner_expr_degree_growth; }
+
+    unsigned grobner_max_simplified() const { return m_grobner_max_simplified; }
+    unsigned & grobner_max_simplified() { return m_grobner_max_simplified; }
+
+    
 };
 }
