@@ -371,10 +371,8 @@ namespace smt {
         literal n1_eq_n2 = mk_eq(e1, e2, true);
         ctx.mark_as_relevant(n1_eq_n2);
         expr_ref_vector args1(m), args2(m);
-        expr_ref f1 = instantiate_lambda(e1);
-        expr_ref f2 = instantiate_lambda(e2);
-        args1.push_back(f1);
-        args2.push_back(f2);
+        args1.push_back(instantiate_lambda(e1));
+        args2.push_back(instantiate_lambda(e2));
         svector<symbol> names;
         sort_ref_vector sorts(m);
         for (unsigned i = 0; i < dimension; i++) {
@@ -403,7 +401,7 @@ namespace smt {
         quantifier * q = m.is_lambda_def(e->get_decl());
         expr_ref f(e, m);
         if (q) {
-            var_subst sub(m, false);
+            var_subst sub(m);
             f = sub(q, e->get_num_args(), e->get_args());
         }
         return f;
