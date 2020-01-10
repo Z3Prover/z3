@@ -156,8 +156,8 @@ namespace datalog {
             TRACE("dl", m_context.display(tout););
             //IF_VERBOSE(3, m_context.display_smt2(0,0,verbose_stream()););
 
-            if (m_context.print_aig().size()) {
-                const char *filename = static_cast<const char*>(m_context.print_aig().c_ptr());
+            if (!m_context.print_aig().is_null()) {
+                const char *filename = m_context.print_aig().bare_str();
                 aig_exporter aig(m_context.get_rules(), get_context(), &m_table_facts);
                 std::ofstream strm(filename, std::ios_base::binary);
                 aig(strm);
@@ -549,7 +549,7 @@ namespace datalog {
     void rel_context::add_fact(func_decl* pred, relation_fact const& fact) {
         get_rmanager().reset_saturated_marks();
         get_relation(pred).add_fact(fact);
-        if (m_context.print_aig().size()) {
+        if (!m_context.print_aig().is_null()) {
             m_table_facts.push_back(std::make_pair(pred, fact));
         }
     }

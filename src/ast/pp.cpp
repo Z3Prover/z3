@@ -26,8 +26,8 @@ static std::pair<unsigned, bool> space_upto_line_break(ast_manager & m, format *
     decl_kind k = f->get_decl_kind();
     switch(k) {
     case OP_STRING: {
-        size_t len = strlen(f->get_decl()->get_parameter(0).get_symbol().bare_str());
-        return std::make_pair(static_cast<unsigned>(len), false);
+        unsigned len = f->get_decl()->get_parameter(0).get_symbol().display_size();
+        return std::make_pair(len, false);
     }
     case OP_CHOICE:
         return space_upto_line_break(m, to_app(f->get_arg(0)));

@@ -16,6 +16,11 @@ Author:
 Revision History:
 
 --*/
+#if 0
+
+ // include "util/new_symbol.cpp"
+#else
+
 #include "util/symbol.h"
 #include "util/mutex.h"
 #include "util/str_hashtable.h"
@@ -23,6 +28,7 @@ Revision History:
 #include "util/string_buffer.h"
 #include <cstring>
 #include <thread>
+
 
 
 symbol symbol::m_dummy(TAG(void*, nullptr, 2));
@@ -145,7 +151,7 @@ bool symbol::contains(char ch) const {
     }
 }
  
-unsigned symbol::size() const {
+unsigned symbol::display_size() const {
     SASSERT(!is_marked());
     if (GET_TAG(m_data) == 0) {
         return static_cast<unsigned>(strlen(m_data));
@@ -183,3 +189,5 @@ bool lt(symbol const & s1, symbol const & s2) {
     SASSERT(cmp != 0);
     return cmp < 0;
 }
+
+#endif
