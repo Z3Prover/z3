@@ -679,8 +679,8 @@ extern "C" {
         for (unsigned i = 0; i < names.size(); ++i) {
             ss << ";" << names[i].str();
         }
-        RETURN_Z3(of_symbol(symbol(ss.str().substr(1).c_str())));
-        Z3_CATCH_RETURN(nullptr);
+        return of_symbol(symbol(ss.str().substr(1).c_str()));
+        Z3_CATCH_RETURN(of_symbol(symbol::null));
     }
 
     void Z3_API Z3_fixedpoint_add_invariant(Z3_context c, Z3_fixedpoint d, Z3_func_decl pred, Z3_ast property) {

@@ -468,7 +468,7 @@ public:
         solver_ref sNotB = sf(m, p, false /* no proofs */, true, true, symbol::null);
         sA->assert_expr(a);
         sB->assert_expr(b);
-        qe::euf_arith_mbi_plugin pA(sA.get(), sNotA.get());
+        qe::uflia_mbi pA(sA.get(), sNotA.get());
         qe::prop_mbi_plugin pB(sB.get());
         pA.set_shared(vars);
         pB.set_shared(vars);
@@ -518,7 +518,7 @@ public:
         }
         model_ref mdl;
         s->get_model(mdl);
-        qe::euf_arith_mbi_plugin plugin(s.get(), se.get());
+        qe::uflia_mbi plugin(s.get(), se.get());
         plugin.set_shared(vars);
         plugin.project(mdl, lits);
         ctx.regular_stream() << lits << "\n";

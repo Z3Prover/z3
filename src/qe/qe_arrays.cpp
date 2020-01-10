@@ -1092,7 +1092,7 @@ namespace qe {
                 }
                 constructor_decl* constrs[1] = { mk_constructor_decl(symbol("tuple"), symbol("is-tuple"), acc.size(), acc.c_ptr()) };
                 datatype::def* dts = mk_datatype_decl(dt, symbol("tuple"), 0, nullptr, 1, constrs);
-                VERIFY(dt.get_plugin()->mk_datatypes(1, &dts, 0, nullptr, srts));
+                VERIFY(dt.plugin().mk_datatypes(1, &dts, 0, nullptr, srts));
                 del_datatype_decl(dts);
                 sort* tuple = srts.get(0);
                 ptr_vector<func_decl> const & decls = *dt.get_datatype_constructors(tuple);

@@ -40,7 +40,7 @@ public:
         m(m), m_params(p), m_solver(m, m_front_p),  
         m_arith(m), m_mk_app(m), m_fn(m), m_num_steps(0) {
         sort* i_sort = m_arith.mk_int();
-        m_fn = m.mk_func_decl(symbol(0xbeef101), i_sort, m.mk_bool_sort());
+        m_fn = m.mk_func_decl(symbol(0xbeef101u), i_sort, m.mk_bool_sort());
     }
 
     tactic * translate(ast_manager & m) override {

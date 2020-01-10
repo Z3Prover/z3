@@ -124,6 +124,16 @@ namespace qe {
         expr_ref_vector get_ackerman_disequalities();
 
         /**
+         * Produce model-based disequality 
+         * certificate corresponding to 
+         * definition in BGVS 2020.
+         * A disequality certificate is a reduced set of 
+         * disequalities, true under mdl, such that the literals
+         * can be satisfied when non-shared symbols are projected.
+         */
+        expr_ref_vector dcert(model& mdl, expr_ref_vector const& lits);
+
+        /**
          * Produce a model-based partition.
          */
         vector<expr_ref_vector> get_partition(model& mdl);

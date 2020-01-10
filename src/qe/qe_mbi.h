@@ -33,18 +33,37 @@ namespace qe {
     class mbi_plugin {
     protected:
         ast_manager& m;
-        func_decl_ref_vector m_shared;
+        func_decl_ref_vector     m_shared_trail;
+        obj_hashtable<func_decl> m_shared;
+        svector<lbool>           m_is_shared;
+        std::function<expr*(expr*)> m_rep;
+
+        lbool is_shared_cached(expr* e);
     public:
-        mbi_plugin(ast_manager& m): m(m), m_shared(m) {}
+        mbi_plugin(ast_manager& m): m(m), m_shared_trail(m) {}
         virtual ~mbi_plugin() {}
 
         /**
          * Set the shared symbols.
          */
-        virtual void set_shared(func_decl_ref_vector const& vars) {
+        void set_shared(func_decl_ref_vector const& vars) {
+            m_shared_trail.reset();
             m_shared.reset();
-            m_shared.append(vars);
+            m_is_shared.reset();
+            m_shared_trail.append(vars);
+            for (auto* f : vars) m_shared.insert(f);
         }
+
+        /**
+         * Set representative (shared) expression finder.
+         */
+        void set_rep(std::function<expr*(expr*)>& rep) { m_rep = rep; }
+
+        /**
+         * determine whether expression/function is shared.
+         */
+        bool is_shared(expr* e);
+        bool is_shared(func_decl* f);
 
         /**
          * \brief Utility that works modulo a background state.
@@ -77,11 +96,6 @@ namespace qe {
          */
         lbool check(expr_ref_vector& lits, model_ref& mdl);
 
-        virtual lbool check_ag(expr_ref_vector& lits, model_ref& mdl, bool force_model) {
-            return l_undef;
-        }
-
-
     };
 
     class prop_mbi_plugin : public mbi_plugin {
@@ -93,28 +107,26 @@ namespace qe {
         void block(expr_ref_vector const& lits) override;
     };
 
-
-    class euf_arith_mbi_plugin : public mbi_plugin {
+    class uflia_mbi : public mbi_plugin {
         expr_ref_vector     m_atoms;
         obj_hashtable<expr> m_atom_set;
         expr_ref_vector     m_fmls;
         solver_ref          m_solver;
         solver_ref          m_dual_solver;
         struct is_atom_proc;
-        struct is_arith_var_proc;
 
-        app_ref_vector get_arith_vars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& proxies);
         bool get_literals(model_ref& mdl, expr_ref_vector& lits);
         void collect_atoms(expr_ref_vector const& fmls);
-        void project_euf(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars);
-        vector<std::pair<rational, app*>> sort_proxies(model_ref& mdl, app_ref_vector const& proxies);
-        void minimize_span(model_ref& mdl, app_ref_vector& avars, app_ref_vector const& proxies);
-        void order_avars(model_ref& mdl, expr_ref_vector& lits, app_ref_vector& avars, app_ref_vector const& proxies);
+        void order_avars(app_ref_vector& avars);
+
+        void add_dcert(model_ref& mdl, expr_ref_vector& lits);
+        app_ref_vector get_arith_vars(expr_ref_vector& lits);
+        vector<def> arith_project(model_ref& mdl, app_ref_vector& avars, expr_ref_vector& lits);
         void substitute(vector<def> const& defs, expr_ref_vector& lits);
-        void filter_private_arith(app_ref_vector& avars);
+        void project_euf(model_ref& mdl, expr_ref_vector& lits);
     public:
-        euf_arith_mbi_plugin(solver* s, solver* emptySolver);
-        ~euf_arith_mbi_plugin() override {}
+        uflia_mbi(solver* s, solver* emptySolver);
+        ~uflia_mbi() override {}
         mbi_result operator()(expr_ref_vector& lits, model_ref& mdl) override;
         void project(model_ref& mdl, expr_ref_vector& lits);
         void block(expr_ref_vector const& lits) override;
@@ -129,7 +141,6 @@ namespace qe {
         interpolator(ast_manager& m):m(m) {}
         lbool pingpong(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
         lbool pogo(mbi_plugin& a, mbi_plugin& b, expr_ref& itp);
-        lbool vurtego(mbi_plugin &a, mbi_plugin &b, expr_ref &itp, model_ref &mdl);
     };
 
 };
