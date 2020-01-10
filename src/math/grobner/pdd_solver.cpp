@@ -70,26 +70,22 @@ namespace dd {
     }
 
 
-    void solver::set_thresholds() {
+void solver::set_thresholds(unsigned eqs_growth, unsigned expr_size_growth, unsigned expr_degree_growth) {
         IF_VERBOSE(3, verbose_stream() << "start saturate\n"; display_statistics(verbose_stream()));
-        if (m_to_simplify.size() == 0)
-            return;
-        m_config.m_eqs_threshold = static_cast<unsigned>(10 * ceil(log(m_to_simplify.size()))*m_to_simplify.size());
+        m_config.m_eqs_threshold = static_cast<unsigned>(eqs_growth * ceil(log(1 + m_to_simplify.size()))* m_to_simplify.size());
         m_config.m_expr_size_limit = 0;
         m_config.m_expr_degree_limit = 0;
         for (equation* e: m_to_simplify) {
             m_config.m_expr_size_limit = std::max(m_config.m_expr_size_limit, (unsigned)e->poly().tree_size());
             m_config.m_expr_degree_limit = std::max(m_config.m_expr_degree_limit, e->poly().degree());            
         }
-        m_config.m_expr_size_limit *= 2;
-        m_config.m_expr_degree_limit *= 2;
+        m_config.m_expr_size_limit *= expr_size_growth;
+        m_config.m_expr_degree_limit *= expr_degree_growth;;
         
         IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold to 10 * " << 10 * ceil(log(m_to_simplify.size())) << "* " << m_to_simplify.size() << " = " <<  m_config.m_eqs_threshold  << "\n";
                    verbose_stream() << "set m_config.m_expr_size_limit to " <<  m_config.m_expr_size_limit << "\n";
                    verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
                    );
-        m_config.m_max_steps = 700;
-        m_config.m_max_simplified = 7000;
         
     }
     void solver::saturate() {

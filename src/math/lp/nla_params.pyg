@@ -8,7 +8,10 @@ def_module_params('nla',
                    ('horner_frequency', UINT, 4, 'horner\'s call frequency'),
                    ('horner_row_length_limit', UINT, 10, 'row is disregarded by the heuristic if its length is longer than the value'),
                    ('grobner', BOOL, True, 'run grobner\'s basis heuristic'),
-                   ('grobner_eqs_growth', UINT, 10, 'grobner\'s maximum number of equalities'),
+                   ('grobner_eqs_growth', UINT, 10, 'grobner\'s number of equalities growth '),
+                   ('grobner_expr_size_growth', UINT, 10, 'grobner\'s maximum expr size growth'),
+                   ('grobner_expr_degree_growth', UINT, 10, 'grobner\'s maximum expr degree growth'),
+                   ('grobner_max_simplified', UINT, 10000, 'grobner\'s maximum number of simplifications'),
                    ('grobner_subs_fixed', BOOL, False, 'substitute fixed variables by constants')
                           ))           
 
