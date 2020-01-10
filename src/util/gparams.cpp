@@ -158,6 +158,10 @@ struct gparams::imp {
         return r;
     }
 
+    bool get_module_param_descr(std::string const& m, param_descrs*& d) {
+        return get_module_param_descr(m.c_str(), d);
+    }
+
     bool get_module_param_descr(char const* m, param_descrs*& d) {
         check_registered(); 
         lazy_param_descrs* ld;
@@ -242,11 +246,11 @@ public:
             if (tmp[i] == '.') {
                 param_name = tmp.c_str() + i + 1;
                 tmp.resize(i);
-                mod_name   = tmp.c_str();
+                mod_name   = tmp;
                 return;
             }
         }
-        param_name = tmp.c_str();
+        param_name = tmp;
         mod_name   = "";
     }
 
@@ -396,7 +400,7 @@ public:
         }
         else {
             param_descrs * d;
-            if (get_module_param_descr(m.c_str(), d)) {
+            if (get_module_param_descr(m, d)) {
                 validate_type(p, value, *d);
                 set(*d, p, value, m);
             }
@@ -446,7 +450,7 @@ public:
             }
             else {
                 param_descrs * d;
-                if (get_module_param_descr(m.c_str(), d)) {
+                if (get_module_param_descr(m, d)) {
                     return get_default(*d, p, m);
                 }
             }
@@ -542,14 +546,14 @@ public:
             d = &get_param_descrs();
         }
         else {
-            if (!get_module_param_descr(m.c_str(), d)) {
+            if (!get_module_param_descr(m, d)) {
                 std::stringstream strm;
                 strm << "unknown module '" << m << "'";                    
                 throw exception(strm.str());
             }
         }
         if (!d->contains(sp))
-            throw_unknown_parameter(p.c_str(), *d, m.c_str());
+            throw_unknown_parameter(p, *d, m);
         out << "  name:           " << p << "\n";
         if (m[0]) {
             out << "  module:         " << m << "\n";
