@@ -42,11 +42,12 @@ namespace sat {
             if (m_aig[id].empty()) {
                 continue;
             }
-            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
+            bool t = false;
             for (node const& n : m_aig[id]) {
-                augment(id, n);
+                IF_VERBOSE(3, if (!t && is_touched(n)) { t = true; m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"); });
+                augment(id, n); 
             }
-            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "after\n"));            
+            IF_VERBOSE(3, if (t) m_cuts[id].display(verbose_stream() << "after\n"));            
         }
     }
 
