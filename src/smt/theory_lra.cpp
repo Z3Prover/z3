@@ -457,6 +457,9 @@ class theory_lra::imp {
             m_nla->get_core()->m_nla_settings.run_grobner() = nla.grobner();
             m_nla->get_core()->m_nla_settings.grobner_subs_fixed() = nla.grobner_subs_fixed();
             m_nla->get_core()->m_nla_settings.grobner_eqs_growth() =  nla.grobner_eqs_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  nla.grobner_expr_size_growth();
+            m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  nla.grobner_expr_degree_growth();
+            m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      nla.grobner_max_simplified();
             
         }
     }

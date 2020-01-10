@@ -399,7 +399,7 @@ public:
         return lp::print_linear_combination_customized(v, [this](lpvar j) { return var_str(j); },
         out);        
     }
-    void run_pdd_grobner();
+    void run_grobner();
     void find_nl_cluster();
     void prepare_rows_and_active_vars();
     void add_var_and_its_factors_to_q_and_collect_new_rows(lpvar j,  svector<lpvar>& q);
@@ -407,11 +407,12 @@ public:
     void display_matrix_of_m_rows(std::ostream & out) const;
     void set_active_vars_weights(nex_creator&);
     unsigned get_var_weight(lpvar) const;
-    void add_row_to_pdd_grobner(const vector<lp::row_cell<rational>> & row);    
+    void add_row_to_grobner(const vector<lp::row_cell<rational>> & row);    
     bool check_pdd_eq(const dd::solver::equation*);
     const rational& val_of_fixed_var_with_deps(lpvar j, u_dependency*& dep);
     dd::pdd pdd_expr(const rational& c, lpvar j, u_dependency*&);
-    void set_level2var_for_pdd_grobner();
+    void set_level2var_for_grobner();
+    void configure_grobner();
 };  // end of core
 
 struct pp_mon {

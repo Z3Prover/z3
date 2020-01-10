@@ -138,7 +138,7 @@ public:
     std::ostream& display_statistics(std::ostream& out) const;
     const stats& get_stats() const { return m_stats; }
     stats& get_stats() { return m_stats; }
-    void set_thresholds();
+    void set_thresholds(unsigned eqs_growth, unsigned expr_size_growth, unsigned expr_degree_growth);
 
 private:
     bool step();
