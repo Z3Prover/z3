@@ -26,7 +26,8 @@ namespace sat {
     class aig_simplifier {
     public:
         struct stats {
-            unsigned m_num_eqs, m_num_cuts, m_num_xors, m_num_ands, m_num_ites;
+            unsigned m_num_eqs, m_num_units, m_num_cuts, m_num_xors, m_num_ands, m_num_ites;
+            unsigned m_num_calls;
             stats() { reset(); }
             void reset() { memset(this, 0, sizeof(*this)); }
         };

@@ -7,8 +7,19 @@
 
   Abstract:
    
-    extract AIG definitions from clauses
+    Extract AIG definitions from clauses.
     Perform cut-set enumeration to identify equivalences.
+
+    AIG extraction is incremental.
+    It can be called repeatedly.
+    Initially, a main aig node is inserted 
+    (from initial clauses or the input 
+    clausification in goal2sat).
+    Then, auxiliary AIG nodes can be inserted
+    by walking the current set of main and learned 
+    clauses. AIG nodes with fewer arguments are preferred.
+    
+    
 
   Author:
 
@@ -48,43 +59,50 @@ namespace sat {
             unsigned m_max_cutset_size;
             unsigned m_max_aux;
             unsigned m_max_insertions;
-            config(): m_max_cut_size(4), m_max_cutset_size(10), m_max_aux(3), m_max_insertions(10) {}
+            config(): m_max_cut_size(4), m_max_cutset_size(10), m_max_aux(5), m_max_insertions(10) {}
         };
 
         // encodes one of var, and, !and, xor, !xor, ite, !ite.
         class node {
             bool     m_sign;
             bool_op  m_op;
-            unsigned m_num_children;
+            unsigned m_size;
             unsigned m_offset;
         public:
-            node(): m_sign(false), m_op(no_op), m_num_children(UINT_MAX), m_offset(UINT_MAX) {}
-            explicit node(unsigned v): m_sign(false), m_op(var_op), m_num_children(UINT_MAX), m_offset(v) {}
-            explicit node(bool negate, bool_op op, unsigned nc, unsigned o): 
-                m_sign(negate), m_op(op), m_num_children(nc), m_offset(o) {}
+            node(): 
+                m_sign(false), m_op(no_op), m_size(UINT_MAX), m_offset(UINT_MAX) {}
+            explicit node(unsigned v) : 
+                m_sign(false), m_op(var_op), m_size(0), m_offset(v) {}
+            explicit node(bool sign, bool_op op, unsigned nc, unsigned o) : 
+                m_sign(sign), m_op(op), m_size(nc), m_offset(o) {}
             bool is_valid() const { return m_offset != UINT_MAX; }
             bool_op op() const { return m_op; }
             bool is_var() const { return m_op == var_op; }
             bool is_and() const { return m_op == and_op; }
             bool is_xor() const { return m_op == xor_op; }
             bool is_ite() const { return m_op == ite_op; }
-            bool is_const() const { return is_and() && num_children() == 0; }
+            bool is_const() const { return is_and() && size() == 0; }
             unsigned var() const { SASSERT(is_var()); return m_offset; }
             bool sign() const { return m_sign; }
-            unsigned num_children() const { SASSERT(!is_var()); return m_num_children; }
+            unsigned size() const { return m_size; }
             unsigned offset() const { return m_offset; }
         };
         random_gen            m_rand;
         config                m_config;
-        svector<node>         m_aig;        // vector of main aig nodes.
-        vector<svector<node>> m_aux_aig;    // vector of auxiliary aig nodes.
+        vector<svector<node>> m_aig;    
         literal_vector        m_literals;
         region                m_region;
         cut_set               m_cut_set1, m_cut_set2;
         vector<cut_set>       m_cuts;
-        bool_var              m_true;
+        unsigned_vector       m_last_touched;
+        unsigned              m_num_cut_calls;
         svector<std::pair<bool_var, literal>> m_roots;
+        unsigned              m_insertions;
 
+        bool is_touched(node const& n);
+        bool is_touched(literal lit) const { return is_touched(lit.var()); }
+        bool is_touched(bool_var v) const { return m_last_touched[v] + m_aig.size() >= m_num_cut_calls * m_aig.size(); }
+        void touch(bool_var v) { m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
         void reserve(unsigned v);
         bool insert_aux(unsigned v, node const& n);
         void init_cut_set(unsigned id);
@@ -93,7 +111,7 @@ namespace sat {
 
         unsigned_vector filter_valid_nodes() const;
         void augment(unsigned_vector const& ids);
-        void augment(node const& n, cut_set& cs);
+        void augment(unsigned id, node const& n);
         void augment_ite(node const& n, cut_set& cs);
         void augment_aig0(node const& n, cut_set& cs);
         void augment_aig1(node const& n, cut_set& cs);
@@ -108,7 +126,7 @@ namespace sat {
 
         std::ostream& display(std::ostream& out, node const& n) const;
 
-        literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.num_children()); return m_literals[n.offset() + idx]; }
+        literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.size()); return m_literals[n.offset() + idx]; }
 
     public:
         aig_cuts();
@@ -116,7 +134,7 @@ namespace sat {
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
         void set_root(bool_var v, literal r);
 
-        vector<cut_set> const & get_cuts();
+        vector<cut_set> const & operator()();
 
         std::ostream& display(std::ostream& out) const;
     };

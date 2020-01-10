@@ -26,15 +26,24 @@ namespace sat {
     struct aig_simplifier::report {
         aig_simplifier& s;
         stopwatch       m_watch;
-        report(aig_simplifier& s): s(s) { m_watch.start(); }
+        unsigned        m_num_eqs, m_num_units, m_num_cuts;
+        
+        report(aig_simplifier& s): s(s) { 
+            m_watch.start(); 
+            m_num_eqs   = s.m_stats.m_num_eqs;
+            m_num_units = s.m_stats.m_num_units;
+            m_num_cuts  = s.m_stats.m_num_cuts;
+        }
         ~report() {
+            unsigned ne = s.m_stats.m_num_eqs - m_num_eqs;
+            unsigned nu = s.m_stats.m_num_units - m_num_units;
+            unsigned nc = s.m_stats.m_num_cuts - m_num_cuts;
             IF_VERBOSE(2, 
-                       verbose_stream() << "(sat.aig-simplifier" 
-                       << " :num-eqs " << s.m_stats.m_num_eqs 
-                       << " :num-cuts " << s.m_stats.m_num_cuts 
-                       << " :mb " << mem_stat()
-                       << m_watch 
-                       << ")\n");
+                       verbose_stream() << "(sat.aig-simplifier";
+                       if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
+                       if (nu > 0) verbose_stream() << " :num-units " << nu;
+                       if (nc > 0) verbose_stream() << " :num-cuts "  << nc;
+                       verbose_stream() << " :mb " << mem_stat() << m_watch << ")\n");
         }
     };
 
@@ -83,8 +92,15 @@ namespace sat {
     void aig_simplifier::operator()() {
         report _report(*this);
         TRACE("aig_simplifier", s.display(tout););
-        clauses2aig();
-        aig2clauses();
+        unsigned n = 0, i = 0;
+        ++m_stats.m_num_calls;
+        do {
+            n = m_stats.m_num_eqs + m_stats.m_num_units;
+            clauses2aig();
+            aig2clauses();
+            ++i;
+        }
+        while (i < m_stats.m_num_calls && n < m_stats.m_num_eqs + m_stats.m_num_units);
     }
 
     /**
@@ -114,6 +130,7 @@ namespace sat {
         af.set(on_and);
         af.set(on_ite);
         clause_vector clauses(s.clauses());
+        clauses.append(s.learned());
         af(clauses);
 
         std::function<void (literal_vector const&)> on_xor = 
@@ -147,7 +164,7 @@ namespace sat {
     }
 
     void aig_simplifier::aig2clauses() {
-        vector<cut_set> const& cuts = m_aig_cuts.get_cuts();
+        vector<cut_set> const& cuts = m_aig_cuts();
         map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;
         
         union_find_default_ctx ctx;
@@ -160,8 +177,25 @@ namespace sat {
         bool new_eq = false;
         for (unsigned i = cuts.size(); i-- > 0; ) {
             m_stats.m_num_cuts += cuts[i].size();
+
             for (auto& cut : cuts[i]) {
                 unsigned j = 0;
+                if (cut.is_true()) {
+                    if (s.value(i) == l_undef) {
+                        IF_VERBOSE(2, verbose_stream() << "!!!new unit " << literal(i, false) << "\n");
+                        s.assign_unit(literal(i, false));
+                        ++m_stats.m_num_units;
+                    }
+                    break;
+                }
+                if (cut.is_false()) {
+                    if (s.value(i) == l_undef) {
+                        IF_VERBOSE(2, verbose_stream() << "!!!new unit " << literal(i, true) << "\n");
+                        s.assign_unit(literal(i, true));
+                        ++m_stats.m_num_units;
+                    }
+                    break;
+                }
                 if (cut2id.find(&cut, j)) {
                     if (i == j) std::cout << "dup: " << i << "\n";
                     VERIFY(i != j);

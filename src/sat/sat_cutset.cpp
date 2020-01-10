@@ -70,7 +70,6 @@ namespace sat {
         return out;
     }
 
-    
     /**
        \brief shift table 'a' by adding elements from 'c'.
        a.shift_table(c)
@@ -92,9 +91,7 @@ namespace sat {
        - pre-compute some shift operations.
        - use strides on some common cases.
        - what ABC does?
-    */
-    
-    
+    */       
     uint64_t cut::shift_table(cut const& c) const {
         SASSERT(subset_of(c));
         unsigned index = 0;
