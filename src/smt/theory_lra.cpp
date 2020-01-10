@@ -460,6 +460,7 @@ class theory_lra::imp {
             m_nla->get_core()->m_nla_settings.grobner_expr_size_growth() =  nla.grobner_expr_size_growth();
             m_nla->get_core()->m_nla_settings.grobner_expr_degree_growth() =  nla.grobner_expr_degree_growth();
             m_nla->get_core()->m_nla_settings.grobner_max_simplified() =      nla.grobner_max_simplified();
+            m_nla->get_core()->m_nla_settings.grobner_number_of_conflicts_to_report() =      nla.grobner_cnfl_to_report();
             
         }
     }

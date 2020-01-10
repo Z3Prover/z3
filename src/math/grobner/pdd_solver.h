@@ -55,6 +55,10 @@ public:
         unsigned m_max_simplified;
         unsigned m_random_seed;
         bool     m_enable_exlin;
+        unsigned m_eqs_growth;
+        unsigned m_expr_size_growth;
+        unsigned m_expr_degree_growth;
+        unsigned m_number_of_conflicts_to_report;
         config() :
             m_eqs_threshold(UINT_MAX),
             m_expr_size_limit(UINT_MAX),
@@ -62,7 +66,11 @@ public:
             m_max_steps(UINT_MAX),
             m_max_simplified(UINT_MAX),
             m_random_seed(0),
-            m_enable_exlin(false)
+            m_enable_exlin(false),
+            m_eqs_growth(10),
+            m_expr_size_growth(10),
+            m_expr_degree_growth(5),
+            m_number_of_conflicts_to_report(1)
         {}
     };
 
@@ -121,6 +129,7 @@ public:
 
     void set(print_dep_t& pd) { m_print_dep = pd; }
     void set(config const& c) { m_config = c; }
+    void adjust_cfg();
 
     void reset();
     void add(pdd const& p) { add(p, nullptr); }
@@ -138,7 +147,7 @@ public:
     std::ostream& display_statistics(std::ostream& out) const;
     const stats& get_stats() const { return m_stats; }
     stats& get_stats() { return m_stats; }
-    void set_thresholds(unsigned eqs_growth, unsigned expr_size_growth, unsigned expr_degree_growth);
+    unsigned number_of_conflicts_to_report() const { return m_config.m_number_of_conflicts_to_report; }
 
 private:
     bool step();
@@ -185,7 +194,6 @@ private:
         scoped_process(solver& g, equation* e): g(g), e(e) {}
         ~scoped_process();        
     };
-
     void update_stats_max_degree_and_size(const equation& e);
 };
 
