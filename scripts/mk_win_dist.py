@@ -215,11 +215,8 @@ def mk_dist_dirs():
     mk_dist_dir(False)
     mk_dist_dir(True)
 
-def get_dist_path(x64):
-    return DIST_DIR
-
 def mk_zip(x64):
-    dist_path = get_dist_path(x64)
+    dist_path = DIST_DIR
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
@@ -273,7 +270,7 @@ def cp_vs_runtime(x64):
                             vs_runtime_files.append(fname)
     if not vs_runtime_files:
         raise MKException("Did not find any runtime files to include")       
-    bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
+    bin_dist_path = os.path.join(DIST_DIR, 'bin')
     for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
@@ -284,7 +281,7 @@ def cp_vs_runtimes():
     cp_vs_runtime(False)
 
 def cp_license(x64):
-    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(x64)))
+    shutil.copy("LICENSE.txt", DIST_DIR)
 
 def cp_licenses():
     cp_license(True)
