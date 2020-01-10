@@ -110,7 +110,7 @@ namespace dd {
     void solver::scoped_process::done() {
         pdd p = e->poly();
         SASSERT(!p.is_val());
-        if (p.hi().is_val()) {
+        if (p.degree() == 1) {
             g.push_equation(solved, e);
         }
         else {
@@ -462,7 +462,7 @@ namespace dd {
             VERIFY(e->idx() == i);
             ++i;
             pdd p = e->poly();
-            if (!p.is_val() && p.hi().is_val()) {
+            if (p.degree() == 1) {
                 unsigned v = p.var();
                 SASSERT(!head_vars.contains(v));
                 head_vars.insert(v);
