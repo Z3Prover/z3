@@ -46,7 +46,6 @@ namespace dd {
     public:
         enum semantics { free_e, mod2_e, zero_one_vars_e };
     private:
-        friend test;
         friend pdd;
         friend pdd_iterator;
 
@@ -178,8 +177,9 @@ namespace dd {
         PDD minus_rec(PDD p);
 
         PDD reduce_on_match(PDD a, PDD b);
-        bool lm_divides(PDD p, PDD q) const;
+        bool lm_occurs(PDD p, PDD q) const;
         PDD lt_quotient(PDD p, PDD q);
+        PDD lt_quotient_hi(PDD p, PDD q);
 
         PDD imk_val(rational const& r);       
         void init_value(const_info& info, rational const& r);
@@ -279,7 +279,7 @@ namespace dd {
         pdd reduce(pdd const& a, pdd const& b);
         pdd subst_val(pdd const& a, vector<std::pair<unsigned, rational>> const& s);
 
-        bool is_linear(PDD p);
+        bool is_linear(PDD p) { return degree(p) == 1; }
         bool is_linear(pdd const& p);
 
         bool is_binary(PDD p);

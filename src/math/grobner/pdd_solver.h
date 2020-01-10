@@ -194,6 +194,7 @@ private:
         scoped_process(solver& g, equation* e): g(g), e(e) {}
         ~scoped_process();        
     };
+
     void update_stats_max_degree_and_size(const equation& e);
 };
 
