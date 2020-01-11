@@ -83,7 +83,7 @@ namespace dd {
         cfg.m_expr_size_limit *= cfg.m_expr_size_growth;
         cfg.m_expr_degree_limit *= cfg.m_expr_degree_growth;;
         
-        IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold to 10 * " << 10 * ceil(log(m_to_simplify.size())) << "* " << m_to_simplify.size() << " = " <<  m_config.m_eqs_threshold  << "\n";
+        IF_VERBOSE(3, verbose_stream() << "set m_config.m_eqs_threshold " <<  m_config.m_eqs_threshold  << "\n";
                    verbose_stream() << "set m_config.m_expr_size_limit to " <<  m_config.m_expr_size_limit << "\n";
                    verbose_stream() << "set m_config.m_expr_degree_limit to " <<  m_config.m_expr_degree_limit << "\n";
                    );
@@ -91,6 +91,9 @@ namespace dd {
     }
     void solver::saturate() {
         simplify();
+        if (done()) {
+            return;
+        }
         init_saturate();
         TRACE("dd.solver", display(tout););
         try {
