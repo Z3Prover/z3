@@ -1397,6 +1397,10 @@ std::ostream& core::print_term( const lp::lar_term& t, std::ostream& out) const 
 
 
 void core::run_grobner() {
+    static unsigned quota = 8;
+    if (quota == 0) {
+        return;
+    }
     lp_settings().stats().m_grobner_calls++;
     configure_grobner();
     m_pdd_grobner.saturate();
@@ -1414,7 +1418,11 @@ void core::run_grobner() {
         IF_VERBOSE(2, verbose_stream() << "grobner conflict\n");
     }
     else {
-        IF_VERBOSE(2, verbose_stream() << "grobner miss\n");
+        if (quota == 1)
+            quota = 0;
+        else
+            quota /= 2; 
+        IF_VERBOSE(2, verbose_stream() << "grobner miss, quota " << quota <<  "\n");
         IF_VERBOSE(4, diagnose_pdd_miss(verbose_stream()));
     }
 }
