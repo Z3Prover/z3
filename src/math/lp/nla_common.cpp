@@ -125,9 +125,13 @@ unsigned common::random() {
 // creates a nex expression for the coeff and var, 
 nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     SASSERT(!coeff.is_zero());
-    if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(j)) {
+    if (c().m_nla_settings.horner_subs_fixed() == 1 && c().var_is_fixed(j)) {
         return cn.mk_scalar(coeff * c().m_lar_solver.column_lower_bound(j).x);
     }
+    if (c().m_nla_settings.horner_subs_fixed() == 2 && c().var_is_fixed_to_zero(j)) {
+        return cn.mk_scalar(rational(0));
+    }
+    
     if (!c().is_monic_var(j)) {
         c().insert_to_active_var_set(j);
         return cn.mk_mul(cn.mk_scalar(coeff), cn.mk_var(j));
@@ -138,7 +142,11 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
     for (lpvar k : m.vars()) {
         if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(k)) {
             mf *= c().m_lar_solver.column_lower_bound(k).x;
-        } else {
+        } else if (c().m_nla_settings.horner_subs_fixed() == 2 &&
+                   c().var_is_fixed_to_zero(j)) {
+            return cn.mk_scalar(rational(0));
+        }
+        else {
             c().insert_to_active_var_set(k);
             mf *= cn.mk_var(k);
             CTRACE("nla_grobner", c().is_monic_var(k), c().print_var(k, tout) << "\n";);
