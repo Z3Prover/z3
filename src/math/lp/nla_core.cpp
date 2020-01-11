@@ -1452,16 +1452,8 @@ void core::configure_grobner() {
     }
 #endif
    
-    double tree_size = 100;
-    unsigned gr_eq_size = 0;
-    for (auto* e : m_pdd_grobner.equations()) {
-        tree_size = std::max(tree_size, e->poly().tree_size());
-        gr_eq_size ++;
-    }
-    tree_size *= 10;
     struct dd::solver::config cfg;
-    cfg.m_expr_size_limit = (unsigned)tree_size;
-    cfg.m_max_steps = gr_eq_size;
+    cfg.m_max_steps = m_pdd_grobner.equations().size();
     cfg.m_max_simplified = m_nla_settings.grobner_max_simplified();
     cfg.m_eqs_growth = m_nla_settings.grobner_eqs_growth();
     cfg.m_expr_size_growth = m_nla_settings.grobner_expr_size_growth();

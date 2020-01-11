@@ -46,6 +46,7 @@ namespace dd {
     public:
         enum semantics { free_e, mod2_e, zero_one_vars_e };
     private:
+        friend test;
         friend pdd;
         friend pdd_iterator;
 
