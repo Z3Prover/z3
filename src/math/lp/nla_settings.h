@@ -27,11 +27,11 @@ class nla_settings {
     // how often to call the horner heuristic
     unsigned m_horner_frequency;
     unsigned m_horner_row_length_limit;
-    bool m_horner_subs_fixed;
+    unsigned m_horner_subs_fixed;
     // grobner fields
     bool     m_run_grobner;
     unsigned m_grobner_row_length_limit;
-    bool     m_grobner_subs_fixed;
+    unsigned m_grobner_subs_fixed;
     unsigned m_grobner_eqs_growth;
     unsigned m_grobner_tree_size_growth;
     unsigned m_grobner_expr_size_growth;
@@ -44,7 +44,7 @@ public:
                      m_run_horner(true),
                      m_horner_frequency(4),
                      m_horner_row_length_limit(10),
-                     m_horner_subs_fixed(true),
+                     m_horner_subs_fixed(2),
                      m_run_grobner(true),
                      m_grobner_row_length_limit(50),
                      m_grobner_subs_fixed(false)
@@ -64,16 +64,16 @@ public:
     unsigned& horner_frequency() { return m_horner_frequency; }
     unsigned horner_row_length_limit() const { return m_horner_row_length_limit; }
     unsigned& horner_row_length_limit() { return m_horner_row_length_limit; }    
-    bool horner_subs_fixed() const { return m_horner_subs_fixed; }
-    bool& horner_subs_fixed() { return m_horner_subs_fixed; }
+    unsigned horner_subs_fixed() const { return m_horner_subs_fixed; }
+    unsigned& horner_subs_fixed() { return m_horner_subs_fixed; }
 
     bool run_grobner() const { return m_run_grobner; }
     bool& run_grobner() { return m_run_grobner; }
 
     unsigned grobner_row_length_limit() const { return m_grobner_row_length_limit; }
     unsigned& grobner_row_length_limit() { return m_grobner_row_length_limit; }
-    bool grobner_subs_fixed() const { return m_grobner_subs_fixed; }
-    bool& grobner_subs_fixed() { return m_grobner_subs_fixed; }
+    unsigned grobner_subs_fixed() const { return m_grobner_subs_fixed; }
+    unsigned& grobner_subs_fixed() { return m_grobner_subs_fixed; }
 
     unsigned grobner_tree_size_growth() const { return m_grobner_tree_size_growth; }
     unsigned & grobner_tree_size_growth() { return m_grobner_tree_size_growth; }
