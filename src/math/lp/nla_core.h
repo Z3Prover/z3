@@ -96,14 +96,13 @@ public:
     nla_settings             m_nla_settings;    
     dd::pdd_manager          m_pdd_manager;
     dd::solver               m_pdd_grobner;
-   
 private:
     emonics                  m_emons;
     svector<lpvar>           m_add_buffer;
     mutable lp::int_set      m_active_var_set;
     lp::int_set              m_rows;
-
 public:
+    unsigned                 m_grobner_quota;
     reslimit                 m_reslim;
 
     
