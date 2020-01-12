@@ -1564,6 +1564,7 @@ dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
     if (!is_monic_var(j))
         return c * m_pdd_manager.mk_var(j);
 
+    u_dependency* zero_dep = dep;
     // j is a monic var
     dd::pdd r = m_pdd_manager.mk_val(c);
     const monic& m = emons()[j];
@@ -1571,7 +1572,9 @@ dd::pdd core::pdd_expr(const rational& c, lpvar j, u_dependency*& dep) {
         if (m_nla_settings.grobner_subs_fixed() && var_is_fixed(k)) {
             r *= m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, dep));
         } else if (m_nla_settings.grobner_subs_fixed() == 2 && var_is_fixed_to_zero(k)) {
-            return m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, dep));
+            r = m_pdd_manager.mk_val(val_of_fixed_var_with_deps(k, zero_dep));
+            dep = zero_dep;
+            return r;
         } else {
             r *= m_pdd_manager.mk_var(k);
         }
