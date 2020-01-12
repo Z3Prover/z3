@@ -531,7 +531,6 @@ nex * nex_creator::mk_div_mul_by_mul(const nex_mul& a, const nex_mul& b) {
 }
 
 nex * nex_creator::mk_div_by_mul(const nex& a, const nex_mul& b) {
-    SASSERT(have_no_scalars(b));
     SASSERT(!a.is_var() || (b.get_degree() == 1 && get_vars_of_expr(&a) == get_vars_of_expr(&b) && b.coeff().is_one()));
     if (a.is_sum()) {
         return mk_div_sum_by_mul(a.to_sum(), b);
