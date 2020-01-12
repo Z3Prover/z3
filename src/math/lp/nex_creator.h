@@ -279,8 +279,6 @@ public:
     void simplify_children_of_sum(nex_sum & sum);
     
     bool eat_scalar_pow(rational& r, const nex_pow& p, unsigned);
-
-    bool children_are_simplified(const vector<nex_pow>& children) const;
     bool gt(const nex& a, const nex& b) const; 
     bool gt(const nex* a, const nex* b) const { return gt(*a, *b); }
     template <typename T>

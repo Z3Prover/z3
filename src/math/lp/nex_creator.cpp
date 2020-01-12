@@ -138,13 +138,6 @@ bool nex_creator::gt_on_powers_mul_same_degree(const T& a, const nex_mul& b) con
     return ret;
 }
 
-bool nex_creator::children_are_simplified(const vector<nex_pow>& children) const {
-    for (auto c : children) 
-        if (!is_simplified(*c.e()) || c.pow() == 0)
-            return false;
-    return true;
-}
-
 bool nex_creator::gt_on_mul_mul(const nex_mul& a, const nex_mul& b) const {
     TRACE("grobner_d", tout << "a = " << a << " , b = " << b << "\n";);
     SASSERT(is_simplified(a) && is_simplified(b));
@@ -477,14 +470,6 @@ void nex_creator::simplify_children_of_sum(nex_sum& s) {
     }
     
     sort_join_sum(s);
-}
-
-
-static bool have_no_scalars(const nex_mul& a) {
-    for (auto & p : a)
-        if (p.e()->is_scalar() && !to_scalar(p.e())->value().is_one())
-            return false;
-    return true;
 }
 
 bool nex_mul::all_factors_are_elementary() const {
