@@ -71,14 +71,10 @@ bool horner::lemmas_on_expr(cross_nested& cn, nex_sum* e) {
 
 template <typename T> 
 bool horner::lemmas_on_row(const T& row) {
-    cross_nested cn(
-        [this](const nex* n) { return m_intervals->check_nex(n, nullptr); },
-        [this](unsigned j)   { return c().var_is_fixed(j); },
-        [this]() { return c().random(); }, m_nex_creator);
-
     SASSERT (row_is_interesting(row));
     c().clear_and_resize_active_var_set();
-    create_sum_from_row(row, cn.get_nex_creator(), m_row_sum);
+    u_dependency* dep = nullptr;
+    create_sum_from_row(row, m_nex_creator, m_row_sum, dep);
     c().set_active_vars_weights(m_nex_creator); // without this call the comparisons will be incorrect
     nex* e =  m_nex_creator.simplify(m_row_sum.mk());
     TRACE("nla_horner", tout << "e = " << * e << "\n";);
@@ -87,6 +83,10 @@ bool horner::lemmas_on_row(const T& row) {
     if (!e->is_sum())
         return false;
     
+    cross_nested cn(
+        [this, dep](const nex* n) { return m_intervals->check_nex(n, dep); },
+        [this](unsigned j)   { return c().var_is_fixed(j); },
+        [this]() { return c().random(); }, m_nex_creator);
     return lemmas_on_expr(cn, to_sum(e));
 }
 
