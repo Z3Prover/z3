@@ -257,8 +257,6 @@ struct goal2sat::imp {
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
 
-            if (m_aig) m_aig->add_or(l, num, lits);
-
             for (unsigned i = 0; i < num; i++) {
                 mk_clause(~lits[i], l);
             }
@@ -267,6 +265,7 @@ struct goal2sat::imp {
             // remark: mk_clause may perform destructive updated to lits.
             // I have to execute it after the binary mk_clause above.
             mk_clause(num+1, lits);
+            if (m_aig) m_aig->add_or(l, num, lits);
             unsigned old_sz = m_result_stack.size() - num - 1;
             m_result_stack.shrink(old_sz);
             if (sign)
@@ -299,7 +298,6 @@ struct goal2sat::imp {
             m_cache.insert(t, l);
             sat::literal * lits = m_result_stack.end() - num;
 
-            if (m_aig) m_aig->add_and(l, num, lits);
 
             // l => /\ lits
             for (unsigned i = 0; i < num; i++) {
@@ -312,6 +310,7 @@ struct goal2sat::imp {
             m_result_stack.push_back(l);
             lits = m_result_stack.end() - num - 1;
             mk_clause(num+1, lits);
+            if (m_aig) m_aig->add_and(l, num, lits);
             unsigned old_sz = m_result_stack.size() - num - 1;
             m_result_stack.shrink(old_sz);
             if (sign)

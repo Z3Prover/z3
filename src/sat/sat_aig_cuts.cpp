@@ -16,19 +16,20 @@
   --*/
 
 #include "sat/sat_aig_cuts.h"
+#include "sat/sat_solver.h"
 #include "util/trace.h"
 
 namespace sat {
         
     aig_cuts::aig_cuts() {
-        m_config.m_max_cut_size = std::min(cut().max_cut_size, m_config.m_max_cut_size);
-        m_cut_set1.init(m_region, m_config.m_max_cutset_size + 1);
-        m_cut_set2.init(m_region, m_config.m_max_cutset_size + 1);
+        m_cut_set1.init(m_region, m_config.m_max_cutset_size + 1, UINT_MAX);
+        m_cut_set2.init(m_region, m_config.m_max_cutset_size + 1, UINT_MAX);
         m_num_cut_calls = 0;
+        m_num_cuts = 0;
     }
 
     vector<cut_set> const& aig_cuts::operator()() {
-        flush_roots();
+        if (true || m_config.m_full) flush_roots();
         unsigned_vector node_ids = filter_valid_nodes();
         TRACE("aig_simplifier", display(tout););
         augment(node_ids);
@@ -42,12 +43,11 @@ namespace sat {
             if (m_aig[id].empty()) {
                 continue;
             }
-            bool t = false;
+            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
             for (node const& n : m_aig[id]) {
-                IF_VERBOSE(3, if (!t && is_touched(n)) { t = true; m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"); });
-                augment(id, n); 
+                augment(id, n);
             }
-            IF_VERBOSE(3, if (t) m_cuts[id].display(verbose_stream() << "after\n"));            
+            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "after\n"));            
         }
     }
 
@@ -62,53 +62,55 @@ namespace sat {
             SASSERT(!n.sign());
         }
         else if (n.is_ite()) {
-            augment_ite(n, cs);
+            augment_ite(id, n, cs);
         }
-        else if (nc == 0) {
-            augment_aig0(n, cs);
+        else if (nc == 0) { 
+            augment_aig0(id, n, cs);
         }
         else if (nc == 1) {
-            augment_aig1(n, cs);
+            augment_aig1(id, n, cs);
         }
         else if (nc == 2) {
-            augment_aig2(n, cs);
+            augment_aig2(id, n, cs);
         }
-        else if (nc < m_config.m_max_cut_size) {
-            augment_aigN(n, cs);
+        else if (nc <= cut::max_cut_size()) {
+            augment_aigN(id, n, cs);
         }
         if (m_insertions > 0) {
             touch(id);
         }
     }
 
-    bool aig_cuts::insert_cut(cut const& c, cut_set& cs) {
-        if (!cs.insert(c)) {
+    bool aig_cuts::insert_cut(unsigned v, cut const& c, cut_set& cs) {
+        if (!cs.insert(&m_on_cut_add, &m_on_cut_del, c)) {
             return true;
         }
+        m_num_cuts++;
         if (++m_insertions > m_config.m_max_insertions) {
             return false;
         }
         while (cs.size() >= m_config.m_max_cutset_size) {
             // never evict the first entry, it is used for the starting point
             unsigned idx = 1 + (m_rand() % (cs.size() - 1));
-            cs.evict(idx);
+            evict(cs, idx);
         }
         return true;
     }
 
-    void aig_cuts::augment_ite(node const& n, cut_set& cs) {
+    void aig_cuts::augment_ite(unsigned v, node const& n, cut_set& cs) {
+        IF_VERBOSE(2, display(verbose_stream() << "augment_ite " << v << " ", n) << "\n");
         literal l1 = child(n, 0);
         literal l2 = child(n, 1);
         literal l3 = child(n, 2);
         for (auto const& a : m_cuts[l1.var()]) {
             for (auto const& b : m_cuts[l2.var()]) {
                 cut ab;
-                if (!ab.merge(a, b, m_config.m_max_cut_size)) {
+                if (!ab.merge(a, b)) {
                     continue;
                 }
                 for (auto const& c : m_cuts[l3.var()]) {
                     cut abc;
-                    if (!abc.merge(ab, c, m_config.m_max_cut_size)) {
+                    if (!abc.merge(ab, c)) {
                         continue;
                     }
                     uint64_t t1 = a.shift_table(abc);
@@ -117,79 +119,84 @@ namespace sat {
                     if (l1.sign()) t1 = ~t1;
                     if (l2.sign()) t2 = ~t2;
                     if (l3.sign()) t3 = ~t3;
-                    abc.set_table((t1 & t2) | (~t1 & t3));
+                    abc.set_table((t1 & t2) | ((~t1) & t3));
                     if (n.sign()) abc.negate();
-                    // extract tree size: abc.m_tree_size = a.m_tree_size + b.m_tree_size + c.m_tree_size + 1;
-                    if (!insert_cut(abc, cs)) return;
+                    if (!insert_cut(v, abc, cs)) return;
                 } 
             }
         }
     }
 
-    void aig_cuts::augment_aig0(node const& n, cut_set& cs) {
-        SASSERT(n.is_and());
-        cs.reset();
+    void aig_cuts::augment_aig0(unsigned v, node const& n, cut_set& cs) {
+        IF_VERBOSE(4, display(verbose_stream() << "augment_unit " << v << " ", n) << "\n");
+        SASSERT(n.is_and() && n.size() == 0);
+        reset(cs);
         cut c;          
         c.m_table = (n.sign() ? 0x0 : 0x1);
-        cs.push_back(c);
+        push_back(cs, c);
     }
 
-    void aig_cuts::augment_aig1(node const& n, cut_set& cs) {
+    void aig_cuts::augment_aig1(unsigned v, node const& n, cut_set& cs) {
+        IF_VERBOSE(4, display(verbose_stream() << "augment_aig1 " << v << " ", n) << "\n");
         SASSERT(n.is_and());
         literal lit = child(n, 0);
         for (auto const& a : m_cuts[lit.var()]) {
             cut c(a);
             if (n.sign()) c.negate();
-            if (!insert_cut(c, cs)) return; 
+            if (!insert_cut(v, c, cs)) return; 
         }
     }
 
-    void aig_cuts::augment_aig2(node const& n, cut_set& cs) {
+    void aig_cuts::augment_aig2(unsigned v, node const& n, cut_set& cs) {
+        IF_VERBOSE(4, display(verbose_stream() << "augment_aig2 " << v << " ", n) << "\n");
         SASSERT(n.is_and() || n.is_xor());
         literal l1 = child(n, 0);
         literal l2 = child(n, 1);
         for (auto const& a : m_cuts[l1.var()]) {
             for (auto const& b : m_cuts[l2.var()]) {
                 cut c;
-                if (c.merge(a, b, m_config.m_max_cut_size)) {
+                if (c.merge(a, b)) {
                     uint64_t t1 = a.shift_table(c);
                     uint64_t t2 = b.shift_table(c);
                     if (l1.sign()) t1 = ~t1;
                     if (l2.sign()) t2 = ~t2;
-                    uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
+                    uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
                     c.set_table(t3);
                     if (n.sign()) c.negate();
-                    if (!insert_cut(c, cs)) return;
+                    // validate_aig2(a, b, v, n, c); 
+                    if (!insert_cut(v, c, cs)) return;
                 }
             }
         }
     }
 
-    void aig_cuts::augment_aigN(node const& n, cut_set& cs) {
-        m_cut_set1.reset();
+    void aig_cuts::augment_aigN(unsigned v, node const& n, cut_set& cs) {
+        IF_VERBOSE(4, display(verbose_stream() << "augment_aigN " << v << " ", n) << "\n");
+        m_cut_set1.reset(nullptr);
         SASSERT(n.is_and() || n.is_xor());
         literal lit = child(n, 0);
         for (auto const& a : m_cuts[lit.var()]) {
-            m_cut_set1.push_back(a);
+            cut b(a);
             if (lit.sign()) {
-                m_cut_set1.back().negate();
-            }
+                b.negate();
+            }            
+            m_cut_set1.push_back(nullptr, b);
         }
         for (unsigned i = 1; i < n.size(); ++i) {
-            m_cut_set2.reset();
-            literal lit = child(n, i);
+            m_cut_set2.reset(nullptr);
+            lit = child(n, i);
             m_insertions = 0;
             for (auto const& a : m_cut_set1) {
                 for (auto const& b : m_cuts[lit.var()]) {
                     cut c;
-                    if (c.merge(a, b, m_config.m_max_cut_size)) {
+                    if (c.merge(a, b)) {
                         uint64_t t1 = a.shift_table(c);
                         uint64_t t2 = b.shift_table(c);
                         if (lit.sign()) t2 = ~t2;
-                        uint64_t t3 = n.is_and() ? t1 & t2 : t1 ^ t2;
+                        uint64_t t3 = n.is_and() ? (t1 & t2) : (t1 ^ t2);
                         c.set_table(t3);
                         if (i + 1 == n.size() && n.sign()) c.negate();
-                        if (!insert_cut(c, m_cut_set2)) goto next_child;
+                        if (!insert_cut(UINT_MAX, c, m_cut_set2)) goto next_child;
                     }
                 }
             }
@@ -198,7 +205,8 @@ namespace sat {
         }
         m_insertions = 0;
         for (auto & cut : m_cut_set1) {
-            if (!insert_cut(cut, cs)) {
+            // validate_aigN(v, n, cut);
+            if (!insert_cut(v, cut, cs)) {
                 break;
             }
         }        
@@ -240,19 +248,22 @@ namespace sat {
             std::sort(m_literals.c_ptr() + offset, m_literals.c_ptr() + offset + sz);
         }
         for (unsigned i = 0; i < sz; ++i) {
+            reserve(args[i].var());
             if (m_aig[args[i].var()].empty()) {
                 add_var(args[i].var());
             }
         }
         if (m_aig[v].empty() || n.is_const()) {
             m_aig[v].reset();
-            m_aig[v].push_back(n);
+            m_aig[v].push_back(n); 
+            on_node_add(v, n);            
             init_cut_set(v);
             if (n.is_const()) {
-                augment_aig0(n, m_cuts[v]);
+                augment_aig0(v, n, m_cuts[v]);
             }
             touch(v);
-            IF_VERBOSE(2, display(verbose_stream() << "add " << head.var() << " == ", n) << "\n");
+            IF_VERBOSE(12, display(verbose_stream() << "add " << head.var() << " == ", n) << "\n");
+            
         }
         else if (m_aig[v][0].is_const() || !insert_aux(v, n)) {
             m_literals.shrink(m_literals.size() - sz);
@@ -262,7 +273,7 @@ namespace sat {
     }
 
     void aig_cuts::set_root(bool_var v, literal r) {
-        IF_VERBOSE(2, verbose_stream() << "set-root " << v << " -> " << r << "\n");
+        IF_VERBOSE(10, verbose_stream() << "set-root " << v << " -> " << r << "\n");
         m_roots.push_back(std::make_pair(v, r));
     }
 
@@ -282,7 +293,7 @@ namespace sat {
             // invalidate nodes that have been rooted
             if (to_root[i] != literal(i, false)) {
                 m_aig[i].reset();
-                m_cuts[i].reset();
+                reset(m_cuts[i]);
             }
             else {
                 for (node & n : m_aig[i]) {
@@ -312,17 +323,14 @@ namespace sat {
     }
 
     void aig_cuts::flush_roots(literal_vector const& to_root, cut_set& cs) {
-        unsigned j = 0;        
-        for (cut& c : cs) {
-            bool has_stale = false;
-            for (unsigned v : c) {
-                has_stale |= (to_root[v] != literal(v, false));
-            }
-            if (!has_stale) {
-                cs[j++] = c;
+        for (unsigned j = 0; j < cs.size(); ++j) {
+            for (unsigned v : cs[j]) {
+                if (to_root[v] != literal(v, false)) {
+                    evict(cs, j--);
+                    break;
+                }
             }
         }
-        cs.shrink(j);
     }
 
     void aig_cuts::init_cut_set(unsigned id) {
@@ -330,9 +338,9 @@ namespace sat {
         node const& n = m_aig[id][0];
         SASSERT(n.is_valid());
         auto& cut_set = m_cuts[id];
-        cut_set.init(m_region, m_config.m_max_cutset_size + 1);
-        cut_set.reset();
-        cut_set.push_back(cut(id));  
+        reset(cut_set);
+        cut_set.init(m_region, m_config.m_max_cutset_size + 1, id);
+        push_back(cut_set, cut(id));
     }
 
     bool aig_cuts::eq(node const& a, node const& b) {
@@ -346,6 +354,7 @@ namespace sat {
     }
 
     bool aig_cuts::insert_aux(unsigned v, node const& n) {
+        if (false && !m_config.m_full) return false;
         unsigned num_gt = 0, num_eq = 0;
         for (node const& n2 : m_aig[v]) {
             if (eq(n, n2)) return false;
@@ -353,6 +362,7 @@ namespace sat {
             else if (n.size() == n2.size()) num_eq++;
         }
         if (m_aig[v].size() < m_config.m_max_aux) {
+            on_node_add(v, n);
             m_aig[v].push_back(n);
             touch(v);
             return true;
@@ -362,6 +372,8 @@ namespace sat {
             for (node const& n2 : m_aig[v]) {
                 if (n.size() < n2.size()) {
                     if (idx == 0) {
+                        on_node_del(v, m_aig[v][idx]);
+                        on_node_add(v, n);
                         m_aig[v][idx] = n;
                         touch(v);
                         return true;
@@ -375,6 +387,8 @@ namespace sat {
             for (node const& n2 : m_aig[v]) {
                 if (n.size() == n2.size()) {
                     if (idx == 0) {
+                        on_node_del(v, m_aig[v][idx]);
+                        on_node_add(v, n);
                         m_aig[v][idx] = n;
                         touch(v);
                         return true;
@@ -395,6 +409,216 @@ namespace sat {
         }
         return result;
     }
+
+    void aig_cuts::on_node_add(unsigned v, node const& n) {
+        if (m_on_clause_add) {
+            node2def(m_on_clause_add, n, literal(v, false));
+        }
+    }
+
+    void aig_cuts::on_node_del(unsigned v, node const& n) {
+        if (m_on_clause_del) {
+            node2def(m_on_clause_del, n, literal(v, false));        
+        }
+    }
+
+    void aig_cuts::set_on_clause_add(on_clause_t& on_clause_add) {
+        m_on_clause_add = on_clause_add;
+        std::function<void(unsigned v, cut const& c)> _on_cut_add = 
+            [this](unsigned v, cut const& c) { cut2def(m_on_clause_add, c, literal(v, false)); };
+        m_on_cut_add = _on_cut_add;
+    }
+
+    void aig_cuts::set_on_clause_del(on_clause_t& on_clause_del) {
+        m_on_clause_del = on_clause_del;
+        std::function<void(unsigned v, cut const& c)> _on_cut_del = 
+            [this](unsigned v, cut const& c) { cut2def(m_on_clause_del, c, literal(v, false)); };
+        m_on_cut_del = _on_cut_del;
+    }
+
+    /**
+     * Encode the cut (variables and truth-table) in a set of clauses.
+     * r is the result.
+     */
+
+    void aig_cuts::cut2def(on_clause_t& on_clause, cut const& c, literal r) {
+        IF_VERBOSE(10, verbose_stream() << "cut2def: " << r << " == " << c << "\n");
+        VERIFY(r != null_literal);
+        unsigned sz = c.size();
+        unsigned num_assigns = 1 << sz;
+        for (unsigned i = 0; i < num_assigns; ++i) {
+            m_clause.reset();
+            for (unsigned j = 0; j < sz; ++j) {
+                literal lit(c[j], 0 != (i & (1ull << j)));
+                m_clause.push_back(lit);                
+            }
+            literal rr = r;
+            if (0 == (c.m_table & (1ull << i))) rr.neg();
+            m_clause.push_back(rr);
+            on_clause(m_clause);
+        }
+    }
+
+    void aig_cuts::node2def(on_clause_t& on_clause, node const& n, literal r) {
+        IF_VERBOSE(10, display(verbose_stream() << "node2def " << r << " == ", n) << "\n");
+        SASSERT(on_clause);
+        literal c, t, e;
+        if (n.sign()) r.neg();
+        m_clause.reset();
+        switch (n.op()) {
+        case var_op:
+            return;
+        case and_op:
+            for (unsigned i = 0; i < n.size(); ++i) {
+                m_clause.push_back(~r);
+                m_clause.push_back(m_literals[n.offset() + i]);
+                on_clause(m_clause);
+                m_clause.reset();
+            }
+            for (unsigned i = 0; i < n.size(); ++i) {
+                m_clause.push_back(~m_literals[n.offset()+i]);
+            }
+            m_clause.push_back(r);
+            on_clause(m_clause);
+            return;
+        case ite_op:
+            // r & c => t, r & ~c => e
+            // ~r & c => ~t, ~r & ~c => ~e
+            SASSERT(n.size() == 3);
+            c = m_literals[n.offset()+0];
+            t = m_literals[n.offset()+1];
+            e = m_literals[n.offset()+2];
+            m_clause.push_back(~r, ~c, t);
+            on_clause(m_clause);
+            m_clause.reset();
+            m_clause.push_back(~r, c, e);
+            on_clause(m_clause);
+            m_clause.reset();
+            m_clause.push_back(r, ~c, ~t);
+            on_clause(m_clause);
+            m_clause.reset();
+            m_clause.push_back(r, c, ~e);
+            on_clause(m_clause);
+            return;
+        case xor_op: {
+            // r = a ^ b ^ c
+            // <=>
+            // ~r ^ a ^ b ^ c = 1
+            if (n.size() > 10) {
+                throw default_exception("cannot handle large xors");
+            }
+            unsigned num_comp = (1 << n.size());
+            for (unsigned i = 0; i < num_comp; ++i) {
+                unsigned parity = 0;
+                m_clause.reset();
+                for (unsigned j = 0; j < n.size(); ++j) {
+                    literal lit = m_literals[n.offset() + j];
+                    if (0 == (i & (1 << j))) {
+                        lit.neg();
+                    }
+                    else {
+                        ++parity;
+                    }
+                    m_clause.push_back(lit);
+                }
+                m_clause.push_back(1 == (parity % 2) ? r : ~r);
+                on_clause(m_clause);
+            }
+            return;
+        }
+        default:
+            UNREACHABLE();
+            break;
+        }
+    }
+
+    /**
+     * compile the truth table from c into clauses that define ~v.
+     * compile definitions for nodes until all inputs have been covered.
+     * Assume only the first definition for a node is used for all cuts.
+     */
+    void aig_cuts::cut2clauses(on_clause_t& on_clause, unsigned v, cut const& c) {
+        svector<bool> visited(m_aig.size(), false);
+        for (unsigned u : c) visited[u] = true;
+        unsigned_vector todo;
+        todo.push_back(v);
+
+        while (!todo.empty()) {
+            unsigned u = todo.back();
+            todo.pop_back();
+            if (visited[u]) {
+                continue;
+            }
+            visited[u] = true;
+            node const& n = m_aig[u][0];
+            node2def(on_clause, n, literal(u, false));
+            for (unsigned i = 0; i < n.size(); ++i) {
+                todo.push_back(m_literals[n.offset()+i].var());
+            }
+        }        
+        cut2def(on_clause, c, literal(v, true));
+    }
+
+    struct aig_cuts::validator {
+        aig_cuts& t;
+        params_ref p;
+        reslimit lim;
+        solver s;
+        unsigned_vector vars;
+        svector<bool>   is_var;
+
+        validator(aig_cuts& t):t(t),s(p, lim) {
+            p.set_bool("aig_simplifier", false);
+            s.updt_params(p);
+        }
+
+        void on_clause(literal_vector const& clause) {
+            IF_VERBOSE(20, verbose_stream() << clause << "\n");
+            for (literal lit : clause) {
+                while (lit.var() >= s.num_vars()) s.mk_var();
+                is_var.reserve(lit.var() + 1, false);
+                if (!is_var[lit.var()]) { vars.push_back(lit.var()); is_var[lit.var()] = true; }
+            }
+            s.mk_clause(clause);            
+        }
+        
+        void check() {
+            lbool r = s.check();
+            IF_VERBOSE(10, verbose_stream() << "check: " << r << "\n");
+            if (r == l_true) {
+                std::sort(vars.begin(), vars.end());
+                s.display(std::cout);
+                for (auto v : vars) std::cout << v << " := " << s.get_model()[v] << "\n";
+                std::string line;
+                std::getline(std::cin, line);
+            }
+        }
+    };
+
+    void aig_cuts::validate_aig2(cut const& a, cut const& b, unsigned v, node const& n, cut const& c) {
+        validator val(*this);
+        on_clause_t on_clause = [&](literal_vector const& clause) { val.on_clause(clause); };
+        cut2def(on_clause, a, literal(child(n, 0).var(), false));
+        cut2def(on_clause, b, literal(child(n, 1).var(), false));
+        cut2def(on_clause, c, literal(v, false));
+        node2def(on_clause, n, literal(v, true));
+        val.check();
+    } 
+
+    void aig_cuts::validate_aigN(unsigned v, node const& n, cut const& c) {
+        IF_VERBOSE(10, verbose_stream() << "validate_aigN " << v << " == " << c << "\n");
+        validator val(*this);
+        on_clause_t on_clause = [&](literal_vector const& clause) { val.on_clause(clause); };
+        for (unsigned i = 0; i < n.size(); ++i) {
+            unsigned w = m_literals[n.offset() + i].var();
+            for (cut const& d : m_cuts[w]) {
+                cut2def(on_clause, d, literal(w, false));
+            }
+        }
+        cut2def(on_clause, c, literal(v, false));
+        node2def(on_clause, n, literal(v, true));
+        val.check();
+    } 
 
     std::ostream& aig_cuts::display(std::ostream& out) const {
         auto ids = filter_valid_nodes();

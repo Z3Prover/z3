@@ -1211,7 +1211,7 @@ namespace sat {
             init_assumptions(num_lits, lits);
             propagate(false);
             if (check_inconsistent()) return l_false;
-            do_cleanup(m_config.m_force_cleanup);
+            if (m_config.m_force_cleanup) do_cleanup(true);
 
             if (m_config.m_unit_walk) {
                 return do_unit_walk();
@@ -1236,7 +1236,7 @@ namespace sat {
             while (is_sat == l_undef && !should_cancel()) {
                 if (inconsistent()) is_sat = resolve_conflict_core();
                 else if (should_propagate()) propagate(true);
-                else if (do_cleanup(false)) continue;
+                else if (m_conflicts_since_init > 0 && do_cleanup(false)) continue;
                 else if (should_gc()) do_gc();
                 else if (should_rephase()) do_rephase();
                 else if (should_reorder()) do_reorder();

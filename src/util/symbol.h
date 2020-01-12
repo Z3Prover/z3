@@ -70,6 +70,7 @@ public:
     friend bool operator!=(symbol const & s1, symbol const & s2) { return s1.m_data != s2.m_data; }
     bool is_numerical() const { return GET_TAG(m_data) == 1; }
     bool is_null() const { return m_data == nullptr; }
+    bool is_non_empty_string() const { return !is_null() && !is_numerical() && 0 != bare_str()[0]; }
     unsigned int get_num() const { SASSERT(is_numerical()); return UNBOXINT(m_data); }
     std::string str() const;
     friend bool operator==(symbol const & s1, char const * s2) {

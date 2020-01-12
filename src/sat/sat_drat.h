@@ -98,6 +98,7 @@ namespace sat {
         bool is_cleaned(clause& c) const;        
         void del(literal l);
         void del(literal l1, literal l2);
+        void del(literal_vector const& lits);
         void del(clause& c);
 
         void verify(clause const& c) { verify(c.size(), c.begin()); }

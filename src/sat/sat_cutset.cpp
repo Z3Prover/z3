@@ -19,7 +19,6 @@
 
 namespace sat {
 
-
     /**
        \brief
        if c is subsumed by a member in cut_set, then c is not inserted.
@@ -32,25 +31,19 @@ namespace sat {
        - pre-allocate fixed array instead of vector for cut_set to avoid overhead for memory allocation.
     */
     
-    bool cut_set::insert(cut const& c) {
-        SASSERT(c.m_size > 0);
-        unsigned i = 0, j = 0;
-        for (; i < size(); ++i) {
+    bool cut_set::insert(on_update_t* on_add, on_update_t* on_del, cut const& c) {
+        unsigned i = 0, j = 0, k = m_size;
+        for (; i < k; ++i) {
             cut const& a = (*this)[i];
             if (a.subset_of(c)) {
                 return false;
             }
             if (c.subset_of(a)) {
-                continue;
+                std::swap(m_cuts[i--], m_cuts[--k]);
             }
-            else if (j < i) {
-                (*this)[j] = a;
-            }
-            SASSERT(!(a == c));
-            ++j;
         }
-        shrink(j);    
-        push_back(c);
+        shrink(on_del, i);    
+        push_back(on_add, c);
         return true;
     }
     
@@ -68,6 +61,37 @@ namespace sat {
             cut.display(out) << "\n";
         }
         return out;
+    }
+
+
+    void cut_set::shrink(on_update_t* on_del, unsigned j) { 
+        if (m_var != UINT_MAX && on_del && *on_del) {
+            for (unsigned i = j; i < m_size; ++i) {
+                (*on_del)(m_var, m_cuts[i]);
+            }
+        }
+        m_size = j; 
+    }
+
+    void cut_set::push_back(on_update_t* on_add, cut const& c) {
+        SASSERT(m_max_size > 0);
+        if (m_size == m_max_size) {
+            m_max_size *= 2;
+            cut* new_cuts = new (*m_region) cut[m_max_size]; 
+            memcpy(new_cuts, m_cuts, sizeof(cut)*m_size);
+            m_cuts = new_cuts;
+        }
+        if (m_var != UINT_MAX && on_add && *on_add) (*on_add)(m_var, c);
+        m_cuts[m_size++] = c; 
+    }
+
+    void cut_set::init(region& r, unsigned max_sz, unsigned v) { 
+        m_var = v;
+        m_max_size = max_sz;
+        SASSERT(!m_region || m_cuts);
+        if (m_region) return;
+        m_region = &r; 
+        m_cuts = new (r) cut[max_sz]; 
     }
 
     /**
@@ -127,7 +151,7 @@ namespace sat {
             out << (*this)[i];
             if (i + 1 < m_size) out << " ";
         }        
-        out << "} t: ";
+        out << "} ";
         for (unsigned i = 0; i < (1u << m_size); ++i) {
             if (0 != (m_table & (1ull << i))) out << "1"; else out << "0";
         }    

@@ -399,7 +399,7 @@ namespace sat {
         }
         m_units.shrink(num_units);
         bool ok = m_inconsistent;
-        IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
+        // IF_VERBOSE(9, verbose_stream() << "is-drup " << m_inconsistent << "\n");
         m_inconsistent = false;
 
         return ok;
@@ -465,7 +465,9 @@ namespace sat {
         if (!is_drup(n, c) && !is_drat(n, c)) {
             literal_vector lits(n, c);
             std::cout << "Verification of " << lits << " failed\n";
-            s.display(std::cout);
+            // s.display(std::cout);
+            std::string line;
+            std::getline(std::cin, line);                
             SASSERT(false);
             exit(0);
             UNREACHABLE();
@@ -756,11 +758,20 @@ namespace sat {
         }
 #endif
         ++m_num_del;
-        //SASSERT(!(c.size() == 2 && c[0] == literal(13923, false) && c[1] == literal(14020, true)));
         if (m_out) dump(c.size(), c.begin(), status::deleted);
         if (m_bout) bdump(c.size(), c.begin(), status::deleted);
         if (m_check) {
             clause* c1 = m_alloc.mk_clause(c.size(), c.begin(), c.is_learned()); 
+            append(*c1, status::deleted);
+        }
+    }
+
+    void drat::del(literal_vector const& c) {
+        ++m_num_del;
+        if (m_out) dump(c.size(), c.begin(), status::deleted);
+        if (m_bout) bdump(c.size(), c.begin(), status::deleted);
+        if (m_check) {
+            clause* c1 = m_alloc.mk_clause(c.size(), c.begin(), true); 
             append(*c1, status::deleted);
         }
     }

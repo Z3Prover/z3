@@ -35,9 +35,9 @@ namespace sat {
             m_num_cuts  = s.m_stats.m_num_cuts;
         }
         ~report() {
-            unsigned ne = s.m_stats.m_num_eqs - m_num_eqs;
+            unsigned ne = s.m_stats.m_num_eqs   - m_num_eqs;
             unsigned nu = s.m_stats.m_num_units - m_num_units;
-            unsigned nc = s.m_stats.m_num_cuts - m_num_cuts;
+            unsigned nc = s.m_stats.m_num_cuts  - m_num_cuts;
             IF_VERBOSE(2, 
                        verbose_stream() << "(sat.aig-simplifier";
                        if (ne > 0) verbose_stream() << " :num-eqs "   << ne;
@@ -47,9 +47,71 @@ namespace sat {
         }
     };
 
-    aig_simplifier::aig_simplifier(solver& s):
-        s(s), 
-        m_trail_size(0) {        
+    struct aig_simplifier::validator {
+        solver& _s;
+        params_ref p;
+        literal_vector m_assumptions;
+
+        validator(solver& _s, params_ref const& p): _s(_s), p(p) {
+        }
+
+        void validate(unsigned n, literal const* clause) {
+            validate(literal_vector(n, clause));
+        }
+
+        void validate(literal_vector const& clause) {
+            if (clause.size() == 2 && clause[0] == ~clause[1]) return;
+            solver s(p, _s.rlimit());
+            s.copy(_s, false);
+            IF_VERBOSE(10, verbose_stream() << "validate: " << clause << "\n");
+            m_assumptions.reset();
+            for (literal lit : clause) m_assumptions.push_back(~lit);           
+            lbool r = s.check(clause.size(), m_assumptions.c_ptr());
+            if (r != l_false) {
+                std::cout << "not validated: " << clause << "\n";
+                s.display(std::cout);
+                std::string line;
+                std::getline(std::cin, line);                
+            }
+        }
+    };
+
+    void aig_simplifier::ensure_validator() {
+        if (!m_validator) {
+            std::cout << "init validator\n";
+            params_ref p;
+            p.set_bool("aig", false);
+            p.set_bool("drat.check_unsat", false);
+            p.set_sym("drat.file", symbol());
+            p.set_uint("max_conflicts", 10000);
+            m_validator = alloc(validator, s, p);
+        }
+    }
+
+    aig_simplifier::aig_simplifier(solver& _s):
+        s(_s), 
+        m_trail_size(0),
+        m_validator(nullptr) {  
+        if (false) {
+            ensure_validator();
+            std::function<void(literal_vector const& clause)> _on_add = 
+                [this](literal_vector const& clause) { 
+                std::cout << "add " << clause << "\n"; m_validator->validate(clause); 
+            };
+            m_aig_cuts.set_on_clause_add(_on_add);
+        }
+        else if (s.get_config().m_drat) {
+            std::function<void(literal_vector const& clause)> _on_add = 
+                [this](literal_vector const& clause) { s.m_drat.add(clause); };
+            std::function<void(literal_vector const& clause)> _on_del = 
+                [this](literal_vector const& clause) { s.m_drat.del(clause); };
+            m_aig_cuts.set_on_clause_add(_on_add);
+            m_aig_cuts.set_on_clause_del(_on_del);
+        }
+    }
+
+    aig_simplifier::~aig_simplifier() {
+        dealloc(m_validator);
     }
 
     void aig_simplifier::add_and(literal head, unsigned sz, literal const* lits) {
@@ -96,7 +158,7 @@ namespace sat {
         ++m_stats.m_num_calls;
         do {
             n = m_stats.m_num_eqs + m_stats.m_num_units;
-            clauses2aig();
+            if (m_config.m_full || true) clauses2aig();
             aig2clauses();
             ++i;
         }
@@ -110,7 +172,7 @@ namespace sat {
     void aig_simplifier::clauses2aig() {
 
         // update units
-        for (; m_trail_size < s.init_trail_size(); ++m_trail_size) {
+        for (; m_config.m_full && m_trail_size < s.init_trail_size(); ++m_trail_size) {
             literal lit = s.trail_literal(m_trail_size);
             m_aig_cuts.add_node(lit, and_op, 0, 0);
         }
@@ -130,7 +192,7 @@ namespace sat {
         af.set(on_and);
         af.set(on_ite);
         clause_vector clauses(s.clauses());
-        clauses.append(s.learned());
+        if (m_config.m_full || true) clauses.append(s.learned());
         af(clauses);
 
         std::function<void (literal_vector const&)> on_xor = 
@@ -165,8 +227,10 @@ namespace sat {
 
     void aig_simplifier::aig2clauses() {
         vector<cut_set> const& cuts = m_aig_cuts();
+        m_stats.m_num_cuts = m_aig_cuts.num_cuts();
+
         map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;
-        
+                
         union_find_default_ctx ctx;
         union_find<> uf(ctx), uf2(ctx);
         for (unsigned i = 2*s.num_vars(); i--> 0; ) uf.mk_var();
@@ -176,47 +240,60 @@ namespace sat {
         };
         bool new_eq = false;
         for (unsigned i = cuts.size(); i-- > 0; ) {
-            m_stats.m_num_cuts += cuts[i].size();
-
-            for (auto& cut : cuts[i]) {
+            for (auto& c : cuts[i]) {
                 unsigned j = 0;
-                if (cut.is_true()) {
+                if (m_config.m_full && c.is_true()) {
                     if (s.value(i) == l_undef) {
-                        IF_VERBOSE(2, verbose_stream() << "!!!new unit " << literal(i, false) << "\n");
-                        s.assign_unit(literal(i, false));
+                        literal lit(i, false);
+                        validate_unit(lit);
+                        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
+                        s.assign_unit(lit);
                         ++m_stats.m_num_units;
                     }
                     break;
                 }
-                if (cut.is_false()) {
+                if (m_config.m_full && c.is_false()) {
                     if (s.value(i) == l_undef) {
-                        IF_VERBOSE(2, verbose_stream() << "!!!new unit " << literal(i, true) << "\n");
-                        s.assign_unit(literal(i, true));
+                        literal lit(i, true);
+                        validate_unit(lit);
+                        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
+                        s.assign_unit(lit);
                         ++m_stats.m_num_units;
                     }
                     break;
                 }
-                if (cut2id.find(&cut, j)) {
-                    if (i == j) std::cout << "dup: " << i << "\n";
+                if (cut2id.find(&c, j)) {
                     VERIFY(i != j);
-                    literal v(i, false);
-                    literal w(j, false);
-                    add_eq(v, w);
-                    TRACE("aig_simplifier", tout << v << " == " << ~w << "\n";);
+                    literal u(i, false);
+                    literal v(j, false);
+                    IF_VERBOSE(0,
+                               verbose_stream() << u << " " << c << "\n";
+                               verbose_stream() << v << ": ";
+                               for (cut const& d : cuts[v.var()]) verbose_stream() << d << "\n";);
+
+                    certify_equivalence(u, v, c);                    
+                    //validate_eq(u, v);
+                    add_eq(u, v);
+                    TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                    
                     new_eq = true;
                     break;
                 }
-                cut.negate();
-                if (cut2id.find(&cut, j)) {
-                    literal v(i, false);
-                    literal w(j, true);
-                    add_eq(v, w);
-                    TRACE("aig_simplifier", tout << v << " == " << w << "\n";);
-                    new_eq = true;
-                    break;
+                if (true || m_config.m_full) {
+                    cut nc(c);
+                    nc.negate();
+                    if (cut2id.find(&nc, j)) {
+                        VERIFY(i != j); // maybe possible with don't cares
+                        literal u(i, false);
+                        literal v(j, true);
+                        certify_equivalence(u, v, c);
+                        // validate_eq(u, v);
+                        add_eq(u, v);
+                        TRACE("aig_simplifier", tout << u << " == " << v << "\n";);
+                        new_eq = true;
+                        break;
+                    }
                 }
-                cut.negate();
-                cut2id.insert(&cut, i);                
+                cut2id.insert(&c, i);                
             }
         }        
         if (!new_eq) {
@@ -252,6 +329,134 @@ namespace sat {
         elim(uf2);        
     }
 
+    /**
+     * Equilvalences modulo cuts are not necessarily DRAT derivable.
+     * To ensure that there is a DRAT derivation we create all resolvents
+     * of the LUT clauses until deriving binary u or ~v and ~u or v.
+     * each resolvent is DRAT derivable because there are two previous lemmas that
+     * contain complementary literals.
+     */
+    void aig_simplifier::certify_equivalence(literal u, literal v, cut const& c) {
+        if (!s.m_config.m_drat) return;
+        
+        vector<literal_vector> clauses;
+        std::function<void(literal_vector const& clause)> on_clause = 
+            [&](literal_vector const& clause) { SASSERT(clause.back().var() == u.var()); clauses.push_back(clause); };        
+        m_aig_cuts.cut2def(on_clause, c, u);
+
+        // create C or u or ~v for each clause C or u
+        // create C or ~u or v for each clause C or ~u
+        for (auto& clause : clauses) { 
+            literal w = clause.back();
+            SASSERT(w.var() == u.var());
+            clause.push_back(w == u ? ~v : v); 
+            s.m_drat.add(clause);
+        }
+        // create C or ~u or v for each clause 
+        unsigned i = 0, sz = clauses.size();
+        for (; i < sz; ++i) {
+            literal_vector clause(clauses[i]);
+            clause[clause.size()-2] = ~clause[clause.size()-2];
+            clause[clause.size()-1] = ~clause[clause.size()-1];
+            clauses.push_back(clause);
+            s.m_drat.add(clause);
+        }
+        
+        // create all resolvents over C. C is assumed to 
+        // contain all combinations of some set of literals.
+        i = 0; sz = clauses.size();
+        while (sz - i > 2) {
+            SASSERT((sz & (sz - 1)) == 0);
+            for (; i < sz; ++i) {
+                auto const& clause = clauses[i];
+                if (clause[0].sign()) {
+                    literal_vector cl(clause.size() - 1, clause.c_ptr() + 1);
+                    clauses.push_back(cl);
+                    s.m_drat.add(cl);
+                }
+            }
+            i = sz;
+            sz = clauses.size();
+        }
+
+        IF_VERBOSE(10, for (auto const& clause : clauses) verbose_stream() << clause << "\n";);
+
+        // once we established equivalence, don't need auxiliary clauses for DRAT.
+        for (auto const& clause : clauses) {
+            if (clause.size() > 2) {
+                s.m_drat.del(clause);
+            }
+        }                
+    }
+
+    /**
+     * collect pairs of variables that occur in cut sets.
+     */
+    void aig_simplifier::collect_pairs(vector<cut_set> const& cuts) {
+        m_pairs.reset();
+        for (unsigned k = cuts.size(); k-- > 0; ) {
+            for (auto const& c : cuts[k]) {
+                for (unsigned i = c.size(); i-- > 0; ) {
+                    for (unsigned j = i; j-- > 0; ) {
+                        m_pairs.insert(var_pair(c[i],c[j]));
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * compute masks for pairs.
+     */
+    void aig_simplifier::add_masks_to_pairs() {
+        big b(s.rand());
+        b.init(s, true);
+        for (auto& p : m_pairs) {
+            literal u(p.u, false), v(p.v, false);
+            // u -> v, then u & ~v is impossible
+            if (b.connected(u, v)) {
+                add_mask(u, ~v, p);
+            }
+            else if (b.connected(u, ~v)) {                
+                add_mask(u, v, p);
+            }
+            else if (b.connected(~u, v)) {
+                add_mask(~u, ~v, p);
+            }
+            else if (b.connected(~u, ~v)) {
+                add_mask(~u, v, p);
+            }
+            else {
+                memset(p.masks, 0xFF, var_pair::size());
+            }
+        }
+    }
+
+    /*
+     * compute masks for each possible occurrence of u, v within 2-6 elements.
+     * combinaions relative to u.sign(), v.sign() are impossible.
+     */ 
+    void aig_simplifier::add_mask(literal u, literal v, var_pair& p) {
+        unsigned offset = 0;
+        bool su = u.sign(), sv = v.sign();
+        for (unsigned k = 2; k <= 6; ++k) {
+            for (unsigned i = 0; i < k; ++i) {
+                for (unsigned j = i + 1; j < k; ++j) {
+                    // convert su, sv, k, i, j into a mask for 2^k bits.
+                    // for outputs 
+                    p.masks[offset++] = 0;
+                }
+            }
+        }
+    }
+
+    /**
+     * apply obtained masks to cut sets.
+     */
+    void aig_simplifier::apply_masks() {
+        
+    }
+
     void aig_simplifier::collect_statistics(statistics& st) const {
         st.update("sat-aig.eqs",  m_stats.m_num_eqs);
         st.update("sat-aig.cuts", m_stats.m_num_cuts);
@@ -259,6 +464,20 @@ namespace sat {
         st.update("sat-aig.ites", m_stats.m_num_ites);
         st.update("sat-aig.xors", m_stats.m_num_xors);
     }
+
+    void aig_simplifier::validate_unit(literal lit) {
+        ensure_validator();
+        m_validator->validate(1, &lit);
+    }
+
+    void aig_simplifier::validate_eq(literal a, literal b) {
+        ensure_validator();
+        literal lits1[2] = { a, ~b };
+        literal lits2[2] = { ~a, b };
+        m_validator->validate(2, lits1);
+        m_validator->validate(2, lits1);
+    }
+
     
 }
 

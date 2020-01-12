@@ -17,29 +17,41 @@
 #include "util/util.h"
 #include <algorithm>
 #include <cstring>
+#include <functional>
 
 namespace sat {
 
-    struct cut {
-        unsigned max_cut_size;
+    class cut {
         unsigned m_filter;
         unsigned m_size;
-        unsigned m_elems[6];
+        unsigned m_elems[4];
+    public:
         uint64_t m_table;
-        cut(): max_cut_size(6), m_filter(0), m_size(0), m_table(0) {}
+        cut(): m_filter(0), m_size(0), m_table(0) {}
 
         cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
 
-        cut(cut const& other): m_filter(other.m_filter), m_size(other.m_size), m_table(other.m_table) {
-            for (unsigned i = 0; i < m_size; ++i) m_elems[i] = other.m_elems[i];
+        cut(cut const& other) {
+            *this = other;
         }
+
+        cut& operator=(cut const& other) { 
+            m_filter = other.m_filter;
+            m_size = other.m_size;
+            m_table = other.m_table;
+            for (unsigned i = 0; i < m_size; ++i) m_elems[i] = other.m_elems[i];
+            return *this;
+        }
+
+        unsigned size() const { return m_size; }
+
+        static unsigned max_cut_size() { return 4; }
 
         unsigned const* begin() const { return m_elems; }
         unsigned const* end() const  { return m_elems + m_size; }
 
-        bool add(unsigned i, unsigned max_sz) {
-            SASSERT(max_sz <= max_cut_size);
-            if (m_size >= max_sz) {
+        bool add(unsigned i) {
+            if (m_size >= max_cut_size()) {
                 return false;
             }
             else {
@@ -73,12 +85,12 @@ namespace sat {
 
         uint64_t shift_table(cut const& other) const;
 
-        bool merge(cut const& a, cut const& b, unsigned max_sz) {
+        bool merge(cut const& a, cut const& b) {
             unsigned i = 0, j = 0;
             unsigned x = a[i];
             unsigned y = b[j];
             while (x != UINT_MAX || y != UINT_MAX) {
-                if (!add(std::min(x, y), max_sz)) {
+                if (!add(std::min(x, y))) {
                     return false;
                 }
                 if (x < y) {
@@ -115,41 +127,32 @@ namespace sat {
     };
 
     class cut_set {
+        unsigned m_var;
         region*  m_region;
         unsigned m_size;
         unsigned m_max_size;
         cut *    m_cuts;
     public:
-        cut_set(): m_region(nullptr), m_size(0), m_max_size(0), m_cuts(nullptr) {}
-        void init(region& r, unsigned sz) { 
-            m_max_size = sz;
-            SASSERT(!m_region || m_cuts);
-            if (m_region) return;
-            m_region = &r; 
-            m_cuts = new (r) cut[sz]; 
-        }
-        bool insert(cut const& c);
+        typedef std::function<void(unsigned v, cut const& c)> on_update_t;
+
+        cut_set(): m_var(UINT_MAX), m_region(nullptr), m_size(0), m_max_size(0), m_cuts(nullptr) {}
+        void init(region& r, unsigned max_sz, unsigned v);
+        bool insert(on_update_t* on_add, on_update_t* on_del, cut const& c);
         bool no_duplicates() const;
         unsigned size() const { return m_size; }
-        cut * begin() const { return m_cuts; }
-        cut * end() const { return m_cuts + m_size; }
-        cut & back() { return m_cuts[m_size-1]; }
-        void push_back(cut const& c) {
-            SASSERT(c.m_size > 0);
-            if (m_size == m_max_size) {
-                m_max_size *= 2;
-                cut* new_cuts = new (*m_region) cut[m_max_size]; 
-                memcpy(new_cuts, m_cuts, sizeof(cut)*m_size);
-                m_cuts = new_cuts;
-            }
-            m_cuts[m_size++] = c; 
-        }
-        void reset() { m_size = 0; }
-        cut & operator[](unsigned idx) { return m_cuts[idx]; }
-        void shrink(unsigned j) { m_size = j; }
+        cut const * begin() const { return m_cuts; }
+        cut const * end() const { return m_cuts + m_size; }
+        cut const & back() { return m_cuts[m_size-1]; }
+        void push_back(on_update_t* on_add, cut const& c);
+        void reset(on_update_t* on_del) { shrink(on_del, 0); }
+        cut const & operator[](unsigned idx) { return m_cuts[idx]; }
+        void shrink(on_update_t* on_del, unsigned j); 
         void swap(cut_set& other) { std::swap(m_size, other.m_size); std::swap(m_cuts, other.m_cuts); std::swap(m_max_size, other.m_max_size); }
-        void evict(unsigned idx) {  m_cuts[idx] = m_cuts[--m_size]; }
+        void evict(on_update_t* on_del, unsigned idx) { if (m_var != UINT_MAX && on_del && *on_del) (*on_del)(m_var, m_cuts[idx]); m_cuts[idx] = m_cuts[--m_size]; }
         std::ostream& display(std::ostream& out) const;
     };
+
+    inline std::ostream& operator<<(std::ostream& out, cut const& c) { return c.display(out); }
+    inline std::ostream& operator<<(std::ostream& out, cut_set const& cs) { return cs.display(out); }
 
 }

@@ -208,6 +208,7 @@ namespace sat {
         friend class drat;
         friend class ba_solver;
         friend class anf_simplifier;
+        friend class aig_simplifier;
         friend class parallel;
         friend class lookahead;
         friend class local_search;

@@ -53,14 +53,17 @@ namespace sat {
     }
 
     class aig_cuts {
+    public:
+        typedef std::function<void(literal_vector const&)> on_clause_t;
 
         struct config {
-            unsigned m_max_cut_size;
             unsigned m_max_cutset_size;
             unsigned m_max_aux;
             unsigned m_max_insertions;
-            config(): m_max_cut_size(4), m_max_cutset_size(10), m_max_aux(5), m_max_insertions(10) {}
+            bool     m_full;
+        config(): m_max_cutset_size(10), m_max_aux(5), m_max_insertions(10), m_full(false) {}
         };
+    private:
 
         // encodes one of var, and, !and, xor, !xor, ite, !ite.
         class node {
@@ -96,8 +99,12 @@ namespace sat {
         vector<cut_set>       m_cuts;
         unsigned_vector       m_last_touched;
         unsigned              m_num_cut_calls;
+        unsigned              m_num_cuts;
         svector<std::pair<bool_var, literal>> m_roots;
         unsigned              m_insertions;
+        on_clause_t           m_on_clause_add, m_on_clause_del;
+        cut_set::on_update_t  m_on_cut_add, m_on_cut_del;
+        literal_vector        m_clause;
 
         bool is_touched(node const& n);
         bool is_touched(literal lit) const { return is_touched(lit.var()); }
@@ -112,13 +119,13 @@ namespace sat {
         unsigned_vector filter_valid_nodes() const;
         void augment(unsigned_vector const& ids);
         void augment(unsigned id, node const& n);
-        void augment_ite(node const& n, cut_set& cs);
-        void augment_aig0(node const& n, cut_set& cs);
-        void augment_aig1(node const& n, cut_set& cs);
-        void augment_aig2(node const& n, cut_set& cs);
-        void augment_aigN(node const& n, cut_set& cs);
+        void augment_ite(unsigned v, node const& n, cut_set& cs);
+        void augment_aig0(unsigned v, node const& n, cut_set& cs);
+        void augment_aig1(unsigned v, node const& n, cut_set& cs);
+        void augment_aig2(unsigned v, node const& n, cut_set& cs);
+        void augment_aigN(unsigned v, node const& n, cut_set& cs);
 
-        bool insert_cut(cut const& c, cut_set& cs);
+        bool insert_cut(unsigned v, cut const& c, cut_set& cs);
 
         void flush_roots();
         void flush_roots(literal_vector const& to_root, node& n);
@@ -128,15 +135,40 @@ namespace sat {
 
         literal child(node const& n, unsigned idx) const { SASSERT(!n.is_var()); SASSERT(idx < n.size()); return m_literals[n.offset() + idx]; }
 
+        void on_node_add(unsigned v, node const& n);
+        void on_node_del(unsigned v, node const& n);
+
+        void evict(cut_set& cs, unsigned idx) { cs.evict(&m_on_cut_del, idx); }
+        void reset(cut_set& cs) { cs.reset(&m_on_cut_del); }
+        void push_back(cut_set& cs, cut const& c) { cs.push_back(&m_on_cut_add, c); }
+        void shrink(cut_set& cs, unsigned j) { cs.shrink(&m_on_cut_del, j); }
+
+        void cut2clauses(on_clause_t& on_clause, unsigned v, cut const& c);
+        void node2def(on_clause_t& on_clause, node const& n, literal r);
+
+        struct validator;
+        void validate_cut(unsigned v, cut const& c);
+        void validate_aig2(cut const& a, cut const& b, unsigned v, node const& n, cut const& c);
+        void validate_aigN(unsigned v, node const& n, cut const& c); 
+
     public:
+
         aig_cuts();
         void add_var(unsigned v);
         void add_node(literal head, bool_op op, unsigned sz, literal const* args);
         void set_root(bool_var v, literal r);
 
+        void set_on_clause_add(on_clause_t& on_clause_add);
+        void set_on_clause_del(on_clause_t& on_clause_del);
+
         vector<cut_set> const & operator()();
+        unsigned num_cuts() const { return m_num_cuts; }
+
+        void cut2def(on_clause_t& on_clause, cut const& c, literal r);
+
 
         std::ostream& display(std::ostream& out) const;
+
     };
 
 }
