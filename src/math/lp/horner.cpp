@@ -87,7 +87,10 @@ bool horner::lemmas_on_row(const T& row) {
         [this, dep](const nex* n) { return m_intervals->check_nex(n, dep); },
         [this](unsigned j)   { return c().var_is_fixed(j); },
         [this]() { return c().random(); }, m_nex_creator);
-    return lemmas_on_expr(cn, to_sum(e));
+    bool ret = lemmas_on_expr(cn, to_sum(e));
+    c().m_intervals.get_dep_intervals().reset(); // clean the memory allocated by the interval bound dependencies
+    return ret;
+
 }
 
 bool horner::horner_lemmas() {

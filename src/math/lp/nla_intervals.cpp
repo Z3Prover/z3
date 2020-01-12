@@ -74,7 +74,6 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
     m_core->lp_settings().stats().m_cross_nested_forms++;
     auto i = interval_of_expr<e_with_deps::without_deps>(n, 1);
     if (!m_dep_intervals.separated_from_zero(i)) {
-        m_dep_intervals.reset();
         return false;
     }
     auto interv_wd = interval_of_expr<e_with_deps::with_deps>(n, 1);
@@ -84,7 +83,6 @@ bool intervals::check_nex(const nex* n, u_dependency* initial_deps) {
                                                          m_core->current_expl().add(e);
                                                      };
     m_dep_intervals.check_interval_for_conflict_on_zero(interv_wd, initial_deps, f);
-    m_dep_intervals.reset(); // clean the memory allocated by the interval bound dependencies
     return true;
 }
 
