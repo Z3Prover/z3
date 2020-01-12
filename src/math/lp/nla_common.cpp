@@ -143,7 +143,7 @@ nex * common::nexvar(const rational & coeff, lpvar j, nex_creator& cn) {
         if (c().m_nla_settings.horner_subs_fixed() && c().var_is_fixed(k)) {
             mf *= c().m_lar_solver.column_lower_bound(k).x;
         } else if (c().m_nla_settings.horner_subs_fixed() == 2 &&
-                   c().var_is_fixed_to_zero(j)) {
+                   c().var_is_fixed_to_zero(k)) {
             return cn.mk_scalar(rational(0));
         }
         else {
