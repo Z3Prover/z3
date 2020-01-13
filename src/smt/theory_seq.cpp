@@ -133,13 +133,14 @@ void theory_seq::solution_map::update(expr* e, expr* r, dependency* d) {
         return;
     }
     m_cache.reset();
-    std::pair<expr*, dependency*> value;
-    if (m_map.find(e, value)) {
-        add_trail(DEL, e, value.first, value.second);
+    expr_dep value;
+    if (find(e, value)) {
+        add_trail(DEL, e, value.e, value.d);
     }
-    value.first = r;
-    value.second = d;
-    m_map.insert(e, value);
+    value.v = e;
+    value.e = r;
+    value.d = d;
+    insert(value);
     add_trail(INS, e, r, d);
 }
 
@@ -151,7 +152,7 @@ void theory_seq::solution_map::add_trail(map_update op, expr* l, expr* r, depend
 }
 
 bool theory_seq::solution_map::is_root(expr* e) const {
-    return !m_map.contains(e);
+    return e->get_id() >= m_map.size() || m_map[e->get_id()].e == nullptr;
 }
 
 // e1 -> ... -> e2
@@ -159,22 +160,22 @@ bool theory_seq::solution_map::is_root(expr* e) const {
 // e1 -> .... -> e3
 
 // e1 -> ... x, e2 -> ... x
-void theory_seq::solution_map::find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds) {
+void theory_seq::solution_map::find_rec(expr* e, svector<expr_dep >& finds) {
     dependency* d = nullptr;
-    std::pair<expr*, dependency*> value(e, d);
+    expr_dep value(e, e, d);
     do {
-        e = value.first;
-        d = m_dm.mk_join(d, value.second);
+        e = value.e;
+        d = m_dm.mk_join(d, value.d);
         finds.push_back(value);
     }
-    while (m_map.find(e, value));
+    while (find(e, value));
 }
 
 bool theory_seq::solution_map::find1(expr* e, expr*& r, dependency*& d) {
-    std::pair<expr*, dependency*> value;    
-    if (m_map.find(e, value)) {
-        d = m_dm.mk_join(d, value.second);
-        r = value.first;
+    expr_dep value;
+    if (find(e, value)) {
+        d = m_dm.mk_join(d, value.d);
+        r = value.e;
         return true;
     }
     else {
@@ -183,22 +184,22 @@ bool theory_seq::solution_map::find1(expr* e, expr*& r, dependency*& d) {
 }
 
 expr* theory_seq::solution_map::find(expr* e, dependency*& d) {
-    std::pair<expr*, dependency*> value;
+    expr_dep value;
     d = nullptr;
     expr* result = e;
-    while (m_map.find(result, value)) {
-        d = m_dm.mk_join(d, value.second);
-        SASSERT(result != value.first);
-        SASSERT(e != value.first);
-        result = value.first;
+    while (find(result, value)) {
+        d = m_dm.mk_join(d, value.d);
+        SASSERT(result != value.e);
+        SASSERT(e != value.e);
+        result = value.e;
     }
     return result;
 }
 
 expr* theory_seq::solution_map::find(expr* e) {
-    std::pair<expr*, dependency*> value;
-    while (m_map.find(e, value)) {
-        e = value.first;
+    expr_dep value;
+    while (find(e, value)) {
+        e = value.e;
     }
     return e;
 }
@@ -209,10 +210,11 @@ void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
     unsigned start = m_limit[m_limit.size() - num_scopes];
     for (unsigned i = m_updates.size(); i-- > start; ) {
         if (m_updates[i] == INS) {
-            m_map.remove(m_lhs.get(i));
+            unsigned id = m_lhs.get(i)->get_id();
+            if (id < m_map.size()) m_map[id] = expr_dep();
         }
         else {
-            m_map.insert(m_lhs.get(i), std::make_pair(m_rhs.get(i), m_deps[i]));
+            insert(expr_dep(m_lhs.get(i), m_rhs.get(i), m_deps[i]));
         }
     }
     m_updates.resize(start);
@@ -223,8 +225,8 @@ void theory_seq::solution_map::pop_scope(unsigned num_scopes) {
 }
 
 void theory_seq::solution_map::display(std::ostream& out) const {
-    for (auto const& kv : m_map) {
-        out << mk_bounded_pp(kv.m_key, m, 2) << " |-> " << mk_bounded_pp(kv.m_value.first, m, 2) << "\n";
+    for (auto const& ed : m_map) {
+        if (ed.v) out << mk_bounded_pp(ed.v, m, 2) << " |-> " << mk_bounded_pp(ed.e, m, 2) << "\n";
     }
 }
 
@@ -4313,6 +4315,7 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     }
 }
 
+
 app* theory_seq::mk_value(app* e) {
     expr_ref result(m);
     e = get_ite_value(e);
@@ -4489,10 +4492,10 @@ expr_ref theory_seq::try_expand(expr* e, dependency*& eqs){
     expr_ref result(m);
     expr_dep ed;
     if (m_rep.find_cache(e, ed)) {
-        if (e != ed.first) {
-            eqs = m_dm.mk_join(eqs, ed.second);
+        if (e != ed.e) {
+            eqs = m_dm.mk_join(eqs, ed.d);
         }
-        result = ed.first;
+        result = ed.e;
     }
     else {
         m_expand_todo.push_back(e);
@@ -4626,8 +4629,8 @@ bool theory_seq::expand1(expr* e0, dependency*& eqs, expr_ref& result) {
     if (result == e0) {
         deps = nullptr;
     }
-    expr_dep edr(result, deps);
-    m_rep.add_cache(e0, edr);
+    expr_dep edr(e0, result, deps);
+    m_rep.add_cache(edr);
     eqs = m_dm.mk_join(eqs, deps);
     TRACE("seq_verbose", tout << mk_pp(e0, m) << " |--> " << result << "\n";
           if (eqs) display_deps(tout, eqs););

@@ -45,8 +45,14 @@ namespace smt {
         typedef dependency_manager::dependency dependency;        
 
         typedef trail_stack<theory_seq> th_trail_stack;
-        typedef std::pair<expr*, dependency*> expr_dep;
-        typedef obj_map<expr, expr_dep> eqdep_map_t; 
+        struct expr_dep {
+            expr* v;
+            expr* e;
+            dependency* d;
+            expr_dep(expr* v, expr* e, dependency* d): v(v), e(e), d(d) {}
+            expr_dep():v(nullptr), e(nullptr), d(nullptr) {}
+        };
+        typedef svector<expr_dep> eqdep_map_t;
         typedef union_find<theory_seq> th_union_find;
 
         class seq_value_proc;
@@ -59,8 +65,15 @@ namespace smt {
             expr_ref_vector         m_trail;
         public:
             eval_cache(ast_manager& m): m_trail(m) {}
-            bool find(expr* v, expr_dep& r) const { return m_map.find(v, r); }
-            void insert(expr* v, expr_dep& r) { m_trail.push_back(v); m_trail.push_back(r.first); m_map.insert(v, r); }
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_trail.push_back(r.v); 
+                m_trail.push_back(r.e);
+                m_map.reserve(2*r.v->get_id() + 1);
+                m_map[r.v->get_id()] = r;
+            }
             void reset() { m_map.reset(); m_trail.reset(); }
         };
         
@@ -77,18 +90,25 @@ namespace smt {
             svector<map_update>    m_updates;
             unsigned_vector        m_limit;
 
+            bool find(expr* v, expr_dep& r) const { 
+                return v->get_id() < m_map.size() && m_map[v->get_id()].e && (r = m_map[v->get_id()], true); 
+            }
+            void insert(expr_dep const& r) { 
+                m_map.reserve(2*r.v->get_id() + 1);                
+                m_map[r.v->get_id()] = r;
+            }
             void add_trail(map_update op, expr* l, expr* r, dependency* d);
         public:
             solution_map(ast_manager& m, dependency_manager& dm): 
                 m(m),  m_dm(dm), m_cache(m), m_lhs(m), m_rhs(m) {}
             bool  empty() const { return m_map.empty(); }
             void  update(expr* e, expr* r, dependency* d);
-            void  add_cache(expr* v, expr_dep& r) { m_cache.insert(v, r); }
+            void  add_cache(expr_dep& r) { m_cache.insert(r); }
             bool  find_cache(expr* v, expr_dep& r) { return m_cache.find(v, r); }
             expr* find(expr* e, dependency*& d);
             expr* find(expr* e);
             bool  find1(expr* a, expr*& b, dependency*& dep);
-            void  find_rec(expr* e, svector<std::pair<expr*, dependency*> >& finds);
+            void  find_rec(expr* e, svector<expr_dep>& finds);
             bool  is_root(expr* e) const;
             void  cache(expr* e, expr* r, dependency* d);
             void  reset_cache() { m_cache.reset(); }
