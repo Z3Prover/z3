@@ -16,7 +16,6 @@
 
   --*/
 
-#include "util/union_find.h"
 #include "sat/sat_aig_simplifier.h"
 #include "sat/sat_xor_finder.h"
 #include "sat/sat_elim_eqs.h"
@@ -231,79 +230,77 @@ namespace sat {
     void aig_simplifier::aig2clauses() {
         vector<cut_set> const& cuts = m_aig_cuts();
         m_stats.m_num_cuts = m_aig_cuts.num_cuts();
-
         add_dont_cares(cuts);
+        cuts2equiv(cuts);
+    }
 
-        map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;
-                
+    void aig_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
+        map<cut const*, unsigned, cut::hash_proc, cut::eq_proc> cut2id;                
+        bool new_eq = false;
         union_find_default_ctx ctx;
-        union_find<> uf(ctx), uf2(ctx);
+        union_find<> uf(ctx);
+
         for (unsigned i = 2*s.num_vars(); i--> 0; ) uf.mk_var();
         auto add_eq = [&](literal l1, literal l2) {
             uf.merge(l1.index(), l2.index());
             uf.merge((~l1).index(), (~l2).index());
+            new_eq = true;
         };
-        bool new_eq = false;
+
         for (unsigned i = cuts.size(); i-- > 0; ) {
+            literal u(i, false);
             for (auto& c : cuts[i]) {
                 unsigned j = 0;
-                if (m_config.m_enable_units && c.is_true()) {
-                    if (s.value(i) == l_undef) {
-                        literal lit(i, false);
-                        // validate_unit(lit);
-                        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
-                        s.assign_unit(lit);
-                        ++m_stats.m_num_units;
-                    }
-                    break;
-                }
-                if (m_config.m_enable_units && c.is_false()) {
-                    if (s.value(i) == l_undef) {
-                        literal lit(i, true);
-                        // validate_unit(lit);
-                        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
-                        s.assign_unit(lit);
-                        ++m_stats.m_num_units;
-                    }
-                    break;
-                }
-                if (cut2id.find(&c, j)) {
-                    VERIFY(i != j);
-                    literal u(i, false);
-                    literal v(j, false);
-                    IF_VERBOSE(10,
-                               verbose_stream() << u << " " << c << "\n";
-                               verbose_stream() << v << ": ";
-                               for (cut const& d : cuts[v.var()]) verbose_stream() << d << "\n";);
-
-                    certify_equivalence(u, v, c);                    
-                    //validate_eq(u, v);
-                    add_eq(u, v);
-                    TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                    
-                    new_eq = true;
-                    break;
-                }
-
                 cut nc(c);
                 nc.negate();
-                if (cut2id.find(&nc, j)) {
-                    if (i == j) continue;
-                    literal u(i, false);
-                    literal v(j, true);
-                    certify_equivalence(u, v, c);
-                    // validate_eq(u, v);
-                    add_eq(u, v);
-                    TRACE("aig_simplifier", tout << u << " == " << v << "\n";);
-                    new_eq = true;
-                    break;
+                if (m_config.m_enable_units && c.is_true()) {
+                    assign_unit(u);
                 }
-                cut2id.insert(&c, i);                
+                else if (m_config.m_enable_units && c.is_false()) {
+                    assign_unit(~u);
+                }
+                else if (cut2id.find(&c, j)) {
+                    literal v(j, false);
+                    assign_equiv(c, u, v);
+                    add_eq(u, v);
+                }
+                else if (cut2id.find(&nc, j)) {
+                    literal v(j, true);
+                    assign_equiv(c, u, v);
+                    add_eq(u, v);
+                }
+                else {
+                    cut2id.insert(&c, i);
+                }
             }
         }        
-        if (!new_eq) {
-            return;
+        if (new_eq) {
+            uf2equiv(uf);
         }
-        new_eq = false;
+    }
+
+    void aig_simplifier::assign_unit(literal lit) {
+        if (s.value(lit) == l_undef) {
+            // validate_unit(lit);
+            IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
+            s.assign_unit(lit);
+            ++m_stats.m_num_units;
+        }
+    }
+
+    void aig_simplifier::assign_equiv(cut const& c, literal u, literal v) {
+        if (u.var() == v.var()) return;
+        IF_VERBOSE(10, verbose_stream() << u << " " << v << " " << c << "\n";);
+        TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                    
+        
+        certify_equivalence(u, v, c);                    
+        //validate_eq(u, v);
+    }
+
+    void aig_simplifier::uf2equiv(union_find<> const& uf) {
+        union_find_default_ctx ctx;
+        union_find<> uf2(ctx);
+        bool new_eq = false;
         for (unsigned i = 2*s.num_vars(); i--> 0; ) uf2.mk_var();
         // extract equivalences over non-eliminated literals.
         for (unsigned idx = 0; idx < uf.get_num_vars(); ++idx) {
@@ -326,11 +323,10 @@ namespace sat {
             }
             while (first != idx);
         }
-        if (!new_eq) {
-            return;
+        if (new_eq) {
+            elim_eqs elim(s);
+            elim(uf2);        
         }
-        elim_eqs elim(s);
-        elim(uf2);        
     }
 
     /**
@@ -396,45 +392,45 @@ namespace sat {
 
     void aig_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
         if (m_config.m_enable_dont_cares) {
-            cuts2pairs(cuts);
-            pairs2dont_cares();
+            cuts2bins(cuts);
+            bins2dont_cares();
             dont_cares2cuts(cuts);
         }
     }
 
     /**
-     * collect pairs of variables that occur in cut sets.
+     * collect binary relations between variables that occur in cut sets.
      */
-    void aig_simplifier::cuts2pairs(vector<cut_set> const& cuts) {
-        svector<var_pair> dcs;
-        for (auto const& p : m_pairs) {
+    void aig_simplifier::cuts2bins(vector<cut_set> const& cuts) {
+        svector<bin_rel> dcs;
+        for (auto const& p : m_bins) {
             if (p.op != none) 
                 dcs.push_back(p);
         }
-        m_pairs.reset();
+        m_bins.reset();
         for (auto const& cs : cuts) {
             for (auto const& c : cs) {
                 for (unsigned i = c.size(); i-- > 0; ) {
                     for (unsigned j = i; j-- > 0; ) {
-                        m_pairs.insert(var_pair(c[j],c[i]));
+                        m_bins.insert(bin_rel(c[j],c[i]));
                     }
                 }
             }
         }
         // don't lose previous don't cares
         for (auto const& p : dcs) {
-            if (m_pairs.contains(p)) 
-                m_pairs.insert(p);
+            if (m_bins.contains(p)) 
+                m_bins.insert(p);
         }
     }
     
     /**
-     * compute masks for pairs.
+     * compute masks for binary relations.
      */
-    void aig_simplifier::pairs2dont_cares() {
+    void aig_simplifier::bins2dont_cares() {
         big b(s.rand());
         b.init(s, true);
-        for (auto& p : m_pairs) {
+        for (auto& p : m_bins) {
             if (p.op != none) continue;
             literal u(p.u, false), v(p.v, false);
             // u -> v, then u & ~v is impossible
@@ -452,8 +448,8 @@ namespace sat {
             }
         }
         IF_VERBOSE(2, {
-                unsigned n = 0; for (auto const& p : m_pairs) if (p.op != none) ++n;
-                verbose_stream() << n << " / " << m_pairs.size() << " don't cares\n";
+                unsigned n = 0; for (auto const& p : m_bins) if (p.op != none) ++n;
+                verbose_stream() << n << " / " << m_bins.size() << " don't cares\n";
             });
     }
 
@@ -476,7 +472,7 @@ namespace sat {
     /*
      * compute masks for position i, j and op-code p.op
      */ 
-    uint64_t aig_simplifier::op2dont_care(unsigned i, unsigned j, var_pair const& p) {
+    uint64_t aig_simplifier::op2dont_care(unsigned i, unsigned j, bin_rel const& p) {
         SASSERT(i < j && j < 6);
         if (p.op == none) return 0ull;
         // first position of mask is offset into output bits contributed by i and j
@@ -496,13 +492,12 @@ namespace sat {
         uint64_t dc = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             for (unsigned j = i + 1; j < c.size(); ++j) {
-                var_pair p(c[i], c[j]);
-                if (m_pairs.find(p, p) && p.op != none) {
+                bin_rel p(c[i], c[j]);
+                if (m_bins.find(p, p) && p.op != none) {
                     dc |= op2dont_care(i, j, p);
                 }
             }
-        }
-        
+        }        
         return (dc != c.dont_care()) && (c.add_dont_care(dc), true);
     }
 
@@ -525,7 +520,7 @@ namespace sat {
         literal lits1[2] = { a, ~b };
         literal lits2[2] = { ~a, b };
         m_validator->validate(2, lits1);
-        m_validator->validate(2, lits1);
+        m_validator->validate(2, lits2);
     }
 
     

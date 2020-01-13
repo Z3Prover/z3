@@ -32,7 +32,7 @@ namespace sat {
     */
     
     bool cut_set::insert(on_update_t& on_add, on_update_t& on_del, cut const& c) {
-        unsigned i = 0, j = 0, k = m_size;
+        unsigned i = 0, k = m_size;
         for (; i < k; ++i) {
             cut const& a = (*this)[i];
             if (a.subset_of(c)) {

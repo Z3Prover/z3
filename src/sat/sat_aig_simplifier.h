@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "util/union_find.h"
 #include "sat/sat_aig_finder.h"
 #include "sat/sat_aig_cuts.h"
 
@@ -56,6 +57,10 @@ namespace sat {
 
         void clauses2aig();
         void aig2clauses();
+        void cuts2equiv(vector<cut_set> const& cuts);
+        void uf2equiv(union_find<> const& uf);
+        void assign_unit(literal lit);
+        void assign_equiv(cut const& c, literal u, literal v);
         void ensure_validator();
         void validate_unit(literal lit);
         void validate_eq(literal a, literal b);
@@ -63,40 +68,40 @@ namespace sat {
         
         /**
          * collect pairs of literal combinations that are impossible
-         * base on binary implication graph queries.
-         * Apply the masks on cut sets so to allow detecting 
-         * equivalences modulo implications.
+         * base on binary implication graph queries.  Apply the masks
+         * on cut sets so to allow detecting equivalences modulo
+         * implications.
          */
 
         enum op_code { pp, pn, np, nn, none };
 
-        struct var_pair {
+        struct bin_rel {
             unsigned u, v;
             op_code op;
-            var_pair(unsigned _u, unsigned _v): u(_u), v(_v), op(none) {
+            bin_rel(unsigned _u, unsigned _v): u(_u), v(_v), op(none) {
                 if (u > v) std::swap(u, v);
             }
-            var_pair(): u(UINT_MAX), v(UINT_MAX), op(none) {}
+            bin_rel(): u(UINT_MAX), v(UINT_MAX), op(none) {}
 
             struct hash {
-                unsigned operator()(var_pair const& p) const { 
+                unsigned operator()(bin_rel const& p) const { 
                     return mk_mix(p.u, p.v, 1); 
                 }
             };
             struct eq {
-                bool operator()(var_pair const& a, var_pair const& b) const {
+                bool operator()(bin_rel const& a, bin_rel const& b) const {
                     return a.u == b.u && a.v == b.v;
                 }
             };
         };
-        hashtable<var_pair, var_pair::hash, var_pair::eq> m_pairs;
+        hashtable<bin_rel, bin_rel::hash, bin_rel::eq> m_bins;
         
         void add_dont_cares(vector<cut_set> const& cuts);
-        void cuts2pairs(vector<cut_set> const& cuts);
-        void pairs2dont_cares();
+        void cuts2bins(vector<cut_set> const& cuts);
+        void bins2dont_cares();
         void dont_cares2cuts(vector<cut_set> const& cuts);
         bool add_dont_care(cut const & c);
-        uint64_t op2dont_care(unsigned i, unsigned j, var_pair const& p);
+        uint64_t op2dont_care(unsigned i, unsigned j, bin_rel const& p);
 
     public:
         aig_simplifier(solver& s);

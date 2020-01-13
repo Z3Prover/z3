@@ -336,8 +336,7 @@ namespace sat {
 
     void aig_cuts::init_cut_set(unsigned id) {
         SASSERT(m_aig[id].size() == 1);
-        node const& n = m_aig[id][0];
-        SASSERT(n.is_valid());
+        SASSERT(m_aig[id][0].is_valid());
         auto& cut_set = m_cuts[id];
         reset(cut_set);
         cut_set.init(m_region, m_config.m_max_cutset_size + 1, id);

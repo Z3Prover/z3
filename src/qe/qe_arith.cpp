@@ -325,6 +325,7 @@ namespace qe {
                 }
             }
             fmls.shrink(j);
+            TRACE("qe", tout << "formulas\n" << fmls << "\n";);
 
             // fmls holds residue,
             // mbo holds linear inequalities that are in scope
@@ -380,7 +381,11 @@ namespace qe {
                   }
                   mbo.display(tout););
             vector<opt::model_based_opt::def> defs = mbo.project(real_vars.size(), real_vars.c_ptr(), compute_def);
-            TRACE("qe", mbo.display(tout););
+            TRACE("qe", mbo.display(tout << "mbo result\n");
+                  for (auto const& d : defs) {
+                      tout << "def: " << d << "\n";
+                  }
+                  );
             vector<row> rows;
             mbo.get_live_rows(rows);
             

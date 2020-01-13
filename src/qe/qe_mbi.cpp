@@ -117,7 +117,8 @@ namespace qe {
     }
 
     void prop_mbi_plugin::block(expr_ref_vector const& lits) {
-        m_solver->assert_expr(mk_not(mk_and(lits)));
+        expr_ref clause(mk_not(mk_and(lits)), m);
+        m_solver->assert_expr(clause);
     }
 
     // -------------------------------
@@ -171,6 +172,7 @@ namespace qe {
 
     bool uflia_mbi::get_literals(model_ref& mdl, expr_ref_vector& lits) {
         lits.reset();
+        IF_VERBOSE(10, verbose_stream() << "atoms: " << m_atoms << "\n");
         for (expr* e : m_atoms) {
             if (mdl->is_true(e)) {
                 lits.push_back(e);
@@ -204,7 +206,7 @@ namespace qe {
      * 
      *  The result is ordered using deepest term first.
      */
-    app_ref_vector uflia_mbi::get_arith_vars(expr_ref_vector& lits) {
+    app_ref_vector uflia_mbi::get_arith_vars(expr_ref_vector const& lits) {
         app_ref_vector avars(m); 
         svector<bool> seen;
         arith_util a(m);
@@ -221,7 +223,7 @@ namespace qe {
             }
         }
         order_avars(avars);
-        TRACE("qe", tout << "vars: " << avars << "\n";);
+        TRACE("qe", tout << "vars: " << avars << " from " << lits << "\n";);
         return avars;
     }
 
@@ -263,14 +265,57 @@ namespace qe {
     */
     void uflia_mbi::project(model_ref& mdl, expr_ref_vector& lits) {
         TRACE("qe", 
-              tout << lits << "\n" << *mdl << "\n";
+              tout << "project literals: " << lits << "\n" << *mdl << "\n";
               tout << m_solver->get_assertions() << "\n";);
 
         add_dcert(mdl, lits);
+        expr_ref_vector alits(m), uflits(m);
+        split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
-        auto defs = arith_project(mdl, avars, lits);
-        substitute(defs, lits);
-        project_euf(mdl, lits);
+        vector<def> defs = arith_project(mdl, avars, alits);
+        prune_defs(defs);
+        substitute(defs, uflits);
+        project_euf(mdl, uflits);
+        lits.reset();
+        lits.append(alits);
+        lits.append(uflits);
+        IF_VERBOSE(10, verbose_stream() << "projection : " << lits << "\n");
+    }
+
+    void uflia_mbi::split_arith(expr_ref_vector const& lits, 
+                                expr_ref_vector& alits,
+                                expr_ref_vector& uflits) {
+        arith_util a(m);
+        for (expr* lit : lits) {
+            expr* atom = lit, *x = nullptr, *y = nullptr;
+            m.is_not(lit, atom);
+            if (m.is_eq(atom, x, y)) {
+                if (a.is_int_real(x)) {
+                    alits.push_back(lit);
+                }
+                uflits.push_back(lit);
+            }
+            else if (a.is_arith_expr(atom)) {
+                alits.push_back(lit);
+            }
+            else {
+                uflits.push_back(lit);
+            }
+        }
+    }
+
+
+    /**
+     * prune defs to only contain substitutions of terms with leading uninterpreted function.
+     */
+    void uflia_mbi::prune_defs(vector<def>& defs) {
+        unsigned i = 0; 
+        for (auto& d : defs) {
+            if (!is_shared(to_app(d.var)->get_decl())) {
+                defs[i++] = d;
+            }
+        }
+        defs.shrink(i);
     }
 
     /**
@@ -284,8 +329,7 @@ namespace qe {
         term_graph tg(m);
         func_decl_ref_vector shared(m_shared_trail);
         tg.set_vars(shared, false);
-        tg.add_lits(lits);
-        lits.append(tg.get_ackerman_disequalities());
+        lits.append(tg.dcert(*mdl.get(), lits));
         TRACE("qe", tout << "project: " << lits << "\n";);                
     }
 
@@ -293,13 +337,14 @@ namespace qe {
      * \brief substitute solution to arithmetical variables into lits
      */
     void uflia_mbi::substitute(vector<def> const& defs, expr_ref_vector& lits) {
+        TRACE("qe", tout << "start substitute: " << lits << "\n";);
         for (auto const& def : defs) {
             expr_safe_replace rep(m);
             rep.insert(def.var, def.term);
             rep(lits);
+            TRACE("qe", tout << "substitute: " << def.var << " |-> " << def.term << ": " << lits << "\n";);
         }
-        TRACE("qe", tout << "substitute: " << lits << "\n";);
-        IF_VERBOSE(1, verbose_stream() << lits << "\n");
+        IF_VERBOSE(1, verbose_stream() << "substituted: " << lits << "\n");
     }
 
     /**
@@ -333,10 +378,11 @@ namespace qe {
     }
 
     void uflia_mbi::block(expr_ref_vector const& lits) {
-        // want to rely only on atoms from original literals: collect_atoms(lits);
-        expr_ref conj(mk_not(mk_and(lits)), m);
+        expr_ref clause(mk_not(mk_and(lits)), m);
+        collect_atoms(lits);
+        m_fmls.push_back(clause);
         TRACE("qe", tout << "block " << lits << "\n";);
-        m_solver->assert_expr(conj);
+        m_solver->assert_expr(clause);
     }
 
 

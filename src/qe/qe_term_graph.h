@@ -87,7 +87,7 @@ namespace qe {
         void display(std::ostream &out);
 
         bool is_pure_def(expr* atom, expr *& v);
-
+        
     public:
         term_graph(ast_manager &m);
         ~term_graph();
@@ -150,7 +150,7 @@ namespace qe {
          * Map expression that occurs in added literals into representative if it exists.
          */
         void  add_model_based_terms(model& mdl, expr_ref_vector const& terms);
-        expr* get_model_based_rep(expr* e);
+        expr* rep_of(expr* e);
 
     };
 
