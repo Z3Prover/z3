@@ -109,7 +109,6 @@ namespace sat {
         bool is_touched(node const& n);
         bool is_touched(literal lit) const { return is_touched(lit.var()); }
         bool is_touched(bool_var v) const { return m_last_touched[v] + m_aig.size() >= m_num_cut_calls * m_aig.size(); }
-        void touch(bool_var v) { m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
         void reserve(unsigned v);
         bool insert_aux(unsigned v, node const& n);
         void init_cut_set(unsigned id);
@@ -166,7 +165,7 @@ namespace sat {
 
         void cut2def(on_clause_t& on_clause, cut const& c, literal r);
 
-        void replace(unsigned v, cut const& src, cut const& dst);
+        void touch(bool_var v) { m_last_touched[v] = v + m_num_cut_calls * m_aig.size(); }
 
 
         std::ostream& display(std::ostream& out) const;

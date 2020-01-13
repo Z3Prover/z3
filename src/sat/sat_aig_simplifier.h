@@ -95,7 +95,7 @@ namespace sat {
         void cuts2pairs(vector<cut_set> const& cuts);
         void pairs2dont_cares();
         void dont_cares2cuts(vector<cut_set> const& cuts);
-        bool rewrite_cut(cut const& c, cut& r);
+        bool add_dont_care(cut const & c);
         uint64_t op2dont_care(unsigned i, unsigned j, var_pair const& p);
 
     public:

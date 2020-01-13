@@ -88,17 +88,6 @@ namespace sat {
         m_cuts[m_size++] = c; 
     }
 
-    void cut_set::replace(on_update_t& on_add, on_update_t& on_del, cut const& src, cut const& dst) {
-        SASSERT(src != dst);
-        insert(on_add, on_del, dst);
-        for (unsigned i = 0; i < size(); ++i) {
-            if (src == (*this)[i]) {
-                evict(on_del, i);
-                break;
-            }
-        }
-    }
-
     void cut_set::evict(on_update_t& on_del, unsigned idx) {
         if (m_var != UINT_MAX && on_del) on_del(m_var, m_cuts[idx]); 
         m_cuts[idx] = m_cuts[--m_size]; 
@@ -146,12 +135,12 @@ namespace sat {
             y = c[++j];
         }
         index |= (1 << c.m_size);
-        return compute_shift(m_table, index);
+        return compute_shift(table(), index);
     }
     
     bool cut::operator==(cut const& other) const {
         if (m_size != other.m_size) return false;
-        if (m_table != other.m_table) return false;
+        if (table() != other.table()) return false;
         for (unsigned i = 0; i < m_size; ++i) {
             if ((*this)[i] != other[i]) return false;
         }
@@ -160,7 +149,7 @@ namespace sat {
     
     unsigned cut::hash() const {
         return get_composite_hash(*this, m_size, 
-                                  [](cut const& c) { return (unsigned)c.m_table; }, 
+                                  [](cut const& c) { return (unsigned)c.table(); }, 
                                   [](cut const& c, unsigned i) { return c[i]; });
     }
     
@@ -172,7 +161,7 @@ namespace sat {
         }        
         out << "} ";
         for (unsigned i = 0; i < (1u << m_size); ++i) {
-            if (0 != (m_table & (1ull << i))) out << "1"; else out << "0";
+            if (0 != (table() & (1ull << i))) out << "1"; else out << "0";
         }    
         return out;
     }

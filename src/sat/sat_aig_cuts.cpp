@@ -132,7 +132,7 @@ namespace sat {
         SASSERT(n.is_and() && n.size() == 0);
         reset(cs);
         cut c;          
-        c.m_table = (n.sign() ? 0x0 : 0x1);
+        c.set_table(n.sign() ? 0x0 : 0x1);
         push_back(cs, c);
     }
 
@@ -210,11 +210,6 @@ namespace sat {
                 break;
             }
         }        
-    }
-
-    void aig_cuts::replace(unsigned v, cut const& src, cut const& dst) {
-        m_cuts[v].replace(m_on_cut_add, m_on_cut_del, src, dst);
-        touch(v);
     }
 
 
@@ -459,7 +454,7 @@ namespace sat {
                 m_clause.push_back(lit);                
             }
             literal rr = r;
-            if (0 == (c.m_table & (1ull << i))) rr.neg();
+            if (0 == (c.table() & (1ull << i))) rr.neg();
             m_clause.push_back(rr);
             on_clause(m_clause);
         }

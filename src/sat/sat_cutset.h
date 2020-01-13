@@ -25,11 +25,17 @@ namespace sat {
         unsigned m_filter;
         unsigned m_size;
         unsigned m_elems[4];
-    public:
         uint64_t m_table;
-        cut(): m_filter(0), m_size(0), m_table(0) {}
+        mutable uint64_t m_dont_care;
 
-        cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2) { m_elems[0] = id; }
+        uint64_t table_mask() const { return (1ull << (1ull << m_size)) - 1ull; }
+
+    public:
+        cut(): m_filter(0), m_size(0), m_table(0), m_dont_care(0) {}
+
+        cut(unsigned id): m_filter(1u << (id & 0x1F)), m_size(1), m_table(2), m_dont_care(0) { 
+            m_elems[0] = id; 
+        }
 
         cut(cut const& other) {
             *this = other;
@@ -39,6 +45,7 @@ namespace sat {
             m_filter = other.m_filter;
             m_size = other.m_size;
             m_table = other.m_table;
+            m_dont_care = other.m_dont_care;
             for (unsigned i = 0; i < m_size; ++i) m_elems[i] = other.m_elems[i];
             return *this;
         }
@@ -62,11 +69,14 @@ namespace sat {
         }
         void sort();
         void negate() { set_table(~m_table); }
-        uint64_t table_mask() const { return (1ull << (1ull << m_size)) - 1ull; }
         void set_table(uint64_t t) { m_table = t & table_mask(); }
+        uint64_t table() const { return (m_table | m_dont_care) & table_mask(); }
 
-        bool is_true()  const { return 0 == (table_mask() & ~m_table); }
-        bool is_false() const { return 0 == (table_mask() &  m_table); }
+        uint64_t dont_care() const { return m_dont_care; }
+        void add_dont_care(uint64_t t) const { m_dont_care |= t; }
+
+        bool is_true()  const { return 0 == (table_mask() & ~table()); }
+        bool is_false() const { return 0 == (table_mask() & ~m_dont_care & m_table); }
 
         bool operator==(cut const& other) const;
         bool operator!=(cut const& other) const { return !(*this == other); }
@@ -156,8 +166,6 @@ namespace sat {
             std::swap(m_cuts, other.m_cuts); 
         }
         void evict(on_update_t& on_del, unsigned idx);
-
-        void replace(on_update_t& on_add, on_update_t& on_del, cut const& src, cut const& dst);
 
         std::ostream& display(std::ostream& out) const;
     };

@@ -463,19 +463,14 @@ namespace sat {
             rep(cut const& s, cut const& d, unsigned v):src(s), dst(d), v(v) {} 
             rep():v(UINT_MAX) {}
         };
-        vector<rep> to_replace;
-        cut d;
-        for (auto const& cs : cuts) {
+        for (auto& cs : cuts) {
             for (auto const& c : cs) {
-                if (rewrite_cut(c, d)) {
-                    to_replace.push_back(rep(c, d, cs.var()));
+                if (add_dont_care(c)) {
+                    m_aig_cuts.touch(cs.var());
+                    m_stats.m_num_dont_care_reductions++;
                 }
             }
         }
-        for (auto const& p : to_replace) {
-            m_aig_cuts.replace(p.v, p.src, p.dst);
-        }
-        m_stats.m_num_dont_care_reductions += to_replace.size();
     }
 
     /*
@@ -497,18 +492,18 @@ namespace sat {
     /**
      * apply obtained dont_cares to cut sets.
      */
-    bool aig_simplifier::rewrite_cut(cut const& c, cut& d) {
-        bool init = false;
+    bool aig_simplifier::add_dont_care(cut const & c) {
+        uint64_t dc = 0;
         for (unsigned i = 0; i < c.size(); ++i) {
             for (unsigned j = i + 1; j < c.size(); ++j) {
                 var_pair p(c[i], c[j]);
                 if (m_pairs.find(p, p) && p.op != none) {
-                    if (!init) { d = c; init = true; }
-                    d.set_table(d.m_table | op2dont_care(i, j, p));
+                    dc |= op2dont_care(i, j, p);
                 }
             }
         }
-        return init && d.m_table != c.m_table;
+        
+        return (dc != c.dont_care()) && (c.add_dont_care(dc), true);
     }
 
     void aig_simplifier::collect_statistics(statistics& st) const {
