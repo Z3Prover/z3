@@ -69,6 +69,7 @@ namespace sat {
         bool is_false() const { return 0 == (table_mask() &  m_table); }
 
         bool operator==(cut const& other) const;
+        bool operator!=(cut const& other) const { return !(*this == other); }
         unsigned hash() const;
         struct eq_proc { 
             bool operator()(cut const& a, cut const& b) const { return a == b; }
