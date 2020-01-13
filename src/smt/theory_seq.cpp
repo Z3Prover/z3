@@ -4275,13 +4275,17 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
     TRACE("seq", tout << mk_pp(n->get_owner(), m) << "\n";);
     e = get_ite_value(e);    
     if (m_util.is_seq(e)) {
-        ptr_vector<expr> concats;
-        get_ite_concat(e, concats);
+        unsigned start = m_concat.size();
+        SASSERT(m_todo.empty());
+        m_todo.push_back(e);
+        get_ite_concat(m_concat, m_todo);
         sort* srt = m.get_sort(e);
         seq_value_proc* sv = alloc(seq_value_proc, *this, srt);
        
+        unsigned end = m_concat.size();
         TRACE("seq", tout << mk_pp(e, m) << "\n";);
-        for (expr* c : concats) {
+        for (unsigned i = start; i < end; ++i) {
+            expr* c = m_concat[i];
             expr *c1;
             TRACE("seq", tout << mk_pp(c, m) << "\n";);
             if (m_util.str.is_unit(c, c1)) {
@@ -4301,13 +4305,13 @@ model_value_proc * theory_seq::mk_value(enode * n, model_generator & mg) {
                 sv->add_string(mk_value(to_app(c)));
             }
         }
+        m_concat.shrink(start);
         return sv;
     }
     else {
         return alloc(expr_wrapper_proc, mk_value(e));
     }
 }
-
 
 app* theory_seq::mk_value(app* e) {
     expr_ref result(m);
@@ -6407,17 +6411,18 @@ bool theory_seq::canonizes(bool sign, expr* e) {
 }
 
 
-void theory_seq::get_ite_concat(expr* e, ptr_vector<expr>& concats) {
+void theory_seq::get_ite_concat(ptr_vector<expr>& concats, ptr_vector<expr>& todo) {
     expr* e1 = nullptr, *e2 = nullptr;
-    while (true) {
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
         e = m_rep.find(e);
         e = get_ite_value(e);
         if (m_util.str.is_concat(e, e1, e2)) {
-            get_ite_concat(e1, concats);
-            e = e2;
-            continue;
+            todo.push_back(e2, e1);
         }        
-        concats.push_back(e);        
-        return;
+        else {
+            concats.push_back(e);        
+        }
     }
 }

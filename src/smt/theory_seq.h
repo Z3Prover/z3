@@ -383,7 +383,7 @@ namespace smt {
         symbol           m_prefix, m_suffix, m_accept, m_reject;
         symbol           m_tail, m_seq_first, m_seq_last, m_indexof_left, m_indexof_right, m_aut_step;
         symbol           m_pre, m_post, m_eq, m_seq_align;
-        ptr_vector<expr> m_todo;
+        ptr_vector<expr> m_todo, m_concat;
         unsigned         m_internalize_depth;
         expr_ref_vector  m_ls, m_rs, m_lhs, m_rhs;
 
@@ -432,7 +432,7 @@ namespace smt {
 
         void init_model(expr_ref_vector const& es);
         app* get_ite_value(expr* a);
-        void get_ite_concat(expr* e, ptr_vector<expr>& concats);
+        void get_ite_concat(ptr_vector<expr>& head, ptr_vector<expr>& tail);
         
         void len_offset(expr* e, rational val);
         void prop_arith_to_len_offset();

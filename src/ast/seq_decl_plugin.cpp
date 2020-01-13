@@ -206,31 +206,45 @@ static const char esc_table[32][6] =
 std::string zstring::encode() const {
     SASSERT(m_encoding == ascii);
     std::ostringstream strm;
+    char buffer[100];
+    unsigned offset = 0;
+#define _flush() if (offset > 0) { buffer[offset] = 0; strm << buffer; offset = 0; }
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
         unsigned char ch = m_buffer[i];
         if (0 <= ch && ch < 32) {
+            _flush();
             strm << esc_table[ch];
         }
         else if (ch == '\\') {
+            _flush();
             strm << "\\\\";
         }
         else if (ch >= 128) {
+            _flush();
             strm << "\\x" << std::hex << (unsigned)ch << std::dec; 
         }
         else {
-            strm << (char)(ch);
+            if (offset == 99) { 
+                _flush();
+            }
+            buffer[offset++] = (char)ch;
         }
     }
+    _flush();
     return strm.str();
 }
 
 std::string zstring::as_string() const {
     SASSERT(m_encoding == ascii);
     std::ostringstream strm;
+    char buffer[100];
+    unsigned offset = 0;
     for (unsigned i = 0; i < m_buffer.size(); ++i) {
+        if (offset == 99) { _flush(); }
         unsigned char ch = m_buffer[i];
-        strm << (char)(ch);        
+        buffer[offset++] = (char)(ch);        
     }
+    _flush();
     return strm.str();
 }
 
@@ -1007,8 +1021,7 @@ app* seq_util::str::mk_string(zstring const& s) const {
 }
 
 app*  seq_util::str::mk_char(zstring const& s, unsigned idx) const {
-    bv_util bvu(m);
-    return bvu.mk_numeral(s[idx], s.num_bits());
+    return u.bv().mk_numeral(s[idx], s.num_bits());
 }
 
 app*  seq_util::str::mk_char(char ch) const {
@@ -1016,26 +1029,27 @@ app*  seq_util::str::mk_char(char ch) const {
     return mk_char(s, 0);
 }
 
+bv_util& seq_util::bv() const {
+    if (!m_bv) m_bv = alloc(bv_util, m);
+    return *m_bv.get();
+}
+
 bool seq_util::is_const_char(expr* e, unsigned& c) const {
-    bv_util bv(m);
     rational r;    
     unsigned sz;
-    return bv.is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
+    return bv().is_numeral(e, r, sz) && sz == 8 && r.is_unsigned() && (c = r.get_unsigned(), true);
 }
 
 app* seq_util::mk_char(unsigned ch) const {
-    bv_util bv(m);
-    return bv.mk_numeral(rational(ch), 8);
+    return bv().mk_numeral(rational(ch), 8);
 }
 
 app* seq_util::mk_le(expr* ch1, expr* ch2) const {
-    bv_util bv(m);
-    return bv.mk_ule(ch1, ch2);
+    return bv().mk_ule(ch1, ch2);
 }
 
 app* seq_util::mk_lt(expr* ch1, expr* ch2) const {
-    bv_util bv(m);
-    return m.mk_not(bv.mk_ule(ch2, ch1));
+    return m.mk_not(bv().mk_ule(ch2, ch1));
 }
 
 bool seq_util::str::is_string(expr const* n, zstring& s) const {

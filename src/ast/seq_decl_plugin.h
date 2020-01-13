@@ -22,6 +22,7 @@ Revision History:
 #define SEQ_DECL_PLUGIN_H_
 
 #include "ast/ast.h"
+#include "ast/bv_decl_plugin.h"
 
 
 enum seq_sort_kind {
@@ -216,6 +217,8 @@ class seq_util {
     ast_manager& m;
     seq_decl_plugin& seq;
     family_id m_fid;
+    mutable scoped_ptr<bv_util> m_bv;
+    bv_util& bv() const;
 public:
 
     ast_manager& get_manager() const { return m; }
