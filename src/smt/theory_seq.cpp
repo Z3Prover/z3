@@ -5480,6 +5480,7 @@ void theory_seq::add_at_axiom(expr* e) {
     expr_ref len_s = mk_len(s);
     literal i_ge_0 = mk_simplified_literal(m_autil.mk_ge(i, zero));
     literal i_ge_len_s = mk_simplified_literal(m_autil.mk_ge(mk_sub(i, mk_len(s)), zero));
+    expr_ref len_e = mk_len(e);
 
     rational iv;
     if (m_autil.is_numeral(i, iv) && iv.is_unsigned()) {
@@ -5501,7 +5502,6 @@ void theory_seq::add_at_axiom(expr* e) {
         }
     }
     else {
-        expr_ref len_e = mk_len(e);
         expr_ref x =     mk_skolem(m_pre, s, i);
         expr_ref y =     mk_skolem(m_tail, s, i);
         expr_ref xey   = mk_concat(x, e, y);
@@ -5513,6 +5513,7 @@ void theory_seq::add_at_axiom(expr* e) {
 
     add_axiom(i_ge_0, mk_eq(e, emp, false));
     add_axiom(~i_ge_len_s, mk_eq(e, emp, false));
+    add_axiom(mk_literal(m_autil.mk_le(len_e, one)));
 }
 
 /**
