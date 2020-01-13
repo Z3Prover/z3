@@ -196,6 +196,10 @@ namespace smt {
 
         app_ref wrap(expr * e);
         app_ref unwrap(expr * e, sort * s);
+
+        enode* ensure_enode(expr* e);
+        enode* get_root(expr* a) { return ensure_enode(a)->get_root(); }
+        app* get_ite_value(expr* e);
     };
 
 };
