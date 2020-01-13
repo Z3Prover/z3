@@ -43,11 +43,11 @@ namespace sat {
             if (m_aig[id].empty()) {
                 continue;
             }
-            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
+            IF_VERBOSE(10, m_cuts[id].display(verbose_stream() << "augment " << id << "\nbefore\n"));
             for (node const& n : m_aig[id]) {
                 augment(id, n);
             }
-            IF_VERBOSE(3, m_cuts[id].display(verbose_stream() << "after\n"));            
+            IF_VERBOSE(10, m_cuts[id].display(verbose_stream() << "after\n"));            
         }
     }
 
@@ -82,7 +82,7 @@ namespace sat {
     }
 
     bool aig_cuts::insert_cut(unsigned v, cut const& c, cut_set& cs) {
-        if (!cs.insert(&m_on_cut_add, &m_on_cut_del, c)) {
+        if (!cs.insert(m_on_cut_add, m_on_cut_del, c)) {
             return true;
         }
         m_num_cuts++;
@@ -98,7 +98,7 @@ namespace sat {
     }
 
     void aig_cuts::augment_ite(unsigned v, node const& n, cut_set& cs) {
-        IF_VERBOSE(2, display(verbose_stream() << "augment_ite " << v << " ", n) << "\n");
+        IF_VERBOSE(4, display(verbose_stream() << "augment_ite " << v << " ", n) << "\n");
         literal l1 = child(n, 0);
         literal l2 = child(n, 1);
         literal l3 = child(n, 2);
@@ -172,7 +172,7 @@ namespace sat {
 
     void aig_cuts::augment_aigN(unsigned v, node const& n, cut_set& cs) {
         IF_VERBOSE(4, display(verbose_stream() << "augment_aigN " << v << " ", n) << "\n");
-        m_cut_set1.reset(nullptr);
+        m_cut_set1.reset(m_on_cut_del);
         SASSERT(n.is_and() || n.is_xor());
         literal lit = child(n, 0);
         for (auto const& a : m_cuts[lit.var()]) {
@@ -180,10 +180,10 @@ namespace sat {
             if (lit.sign()) {
                 b.negate();
             }            
-            m_cut_set1.push_back(nullptr, b);
+            m_cut_set1.push_back(m_on_cut_add, b);
         }
         for (unsigned i = 1; i < n.size(); ++i) {
-            m_cut_set2.reset(nullptr);
+            m_cut_set2.reset(m_on_cut_del);
             lit = child(n, i);
             m_insertions = 0;
             for (auto const& a : m_cut_set1) {
@@ -211,6 +211,12 @@ namespace sat {
             }
         }        
     }
+
+    void aig_cuts::replace(unsigned v, cut const& src, cut const& dst) {
+        m_cuts[v].replace(m_on_cut_add, m_on_cut_del, src, dst);
+        touch(v);
+    }
+
 
     bool aig_cuts::is_touched(node const& n) {
         for (unsigned i = 0; i < n.size(); ++i) {

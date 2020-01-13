@@ -137,18 +137,27 @@ namespace sat {
 
         cut_set(): m_var(UINT_MAX), m_region(nullptr), m_size(0), m_max_size(0), m_cuts(nullptr) {}
         void init(region& r, unsigned max_sz, unsigned v);
-        bool insert(on_update_t* on_add, on_update_t* on_del, cut const& c);
+        bool insert(on_update_t& on_add, on_update_t& on_del, cut const& c);
         bool no_duplicates() const;
+        unsigned var() const { return m_var; }
         unsigned size() const { return m_size; }
         cut const * begin() const { return m_cuts; }
         cut const * end() const { return m_cuts + m_size; }
         cut const & back() { return m_cuts[m_size-1]; }
-        void push_back(on_update_t* on_add, cut const& c);
-        void reset(on_update_t* on_del) { shrink(on_del, 0); }
+        void push_back(on_update_t& on_add, cut const& c);
+        void reset(on_update_t& on_del) { shrink(on_del, 0); }
         cut const & operator[](unsigned idx) { return m_cuts[idx]; }
-        void shrink(on_update_t* on_del, unsigned j); 
-        void swap(cut_set& other) { std::swap(m_size, other.m_size); std::swap(m_cuts, other.m_cuts); std::swap(m_max_size, other.m_max_size); }
-        void evict(on_update_t* on_del, unsigned idx) { if (m_var != UINT_MAX && on_del && *on_del) (*on_del)(m_var, m_cuts[idx]); m_cuts[idx] = m_cuts[--m_size]; }
+        void shrink(on_update_t& on_del, unsigned j); 
+        void swap(cut_set& other) { 
+            std::swap(m_var, other.m_var);
+            std::swap(m_size, other.m_size); 
+            std::swap(m_max_size, other.m_max_size); 
+            std::swap(m_cuts, other.m_cuts); 
+        }
+        void evict(on_update_t& on_del, unsigned idx);
+
+        void replace(on_update_t& on_add, on_update_t& on_del, cut const& src, cut const& dst);
+
         std::ostream& display(std::ostream& out) const;
     };
 

@@ -31,7 +31,7 @@ namespace sat {
        - pre-allocate fixed array instead of vector for cut_set to avoid overhead for memory allocation.
     */
     
-    bool cut_set::insert(on_update_t* on_add, on_update_t* on_del, cut const& c) {
+    bool cut_set::insert(on_update_t& on_add, on_update_t& on_del, cut const& c) {
         unsigned i = 0, j = 0, k = m_size;
         for (; i < k; ++i) {
             cut const& a = (*this)[i];
@@ -42,8 +42,11 @@ namespace sat {
                 std::swap(m_cuts[i--], m_cuts[--k]);
             }
         }
-        shrink(on_del, i);    
+        // for DRAT make sure to add new element before removing old cuts
+        // the new cut may need to be justified relative to the old cut
         push_back(on_add, c);
+        std::swap(m_cuts[i++], m_cuts[m_size-1]);
+        shrink(on_del, i);    
         return true;
     }
     
@@ -64,16 +67,16 @@ namespace sat {
     }
 
 
-    void cut_set::shrink(on_update_t* on_del, unsigned j) { 
-        if (m_var != UINT_MAX && on_del && *on_del) {
+    void cut_set::shrink(on_update_t& on_del, unsigned j) { 
+        if (m_var != UINT_MAX && on_del) {
             for (unsigned i = j; i < m_size; ++i) {
-                (*on_del)(m_var, m_cuts[i]);
+                on_del(m_var, m_cuts[i]);
             }
         }
         m_size = j; 
     }
 
-    void cut_set::push_back(on_update_t* on_add, cut const& c) {
+    void cut_set::push_back(on_update_t& on_add, cut const& c) {
         SASSERT(m_max_size > 0);
         if (m_size == m_max_size) {
             m_max_size *= 2;
@@ -81,8 +84,24 @@ namespace sat {
             memcpy(new_cuts, m_cuts, sizeof(cut)*m_size);
             m_cuts = new_cuts;
         }
-        if (m_var != UINT_MAX && on_add && *on_add) (*on_add)(m_var, c);
+        if (m_var != UINT_MAX && on_add) on_add(m_var, c);
         m_cuts[m_size++] = c; 
+    }
+
+    void cut_set::replace(on_update_t& on_add, on_update_t& on_del, cut const& src, cut const& dst) {
+        SASSERT(src != dst);
+        insert(on_add, on_del, dst);
+        for (unsigned i = 0; i < size(); ++i) {
+            if (src == (*this)[i]) {
+                evict(on_del, i);
+                break;
+            }
+        }
+    }
+
+    void cut_set::evict(on_update_t& on_del, unsigned idx) {
+        if (m_var != UINT_MAX && on_del) on_del(m_var, m_cuts[idx]); 
+        m_cuts[idx] = m_cuts[--m_size]; 
     }
 
     void cut_set::init(region& r, unsigned max_sz, unsigned v) { 

@@ -122,7 +122,7 @@ symbol::symbol(char const * d) {
 }
 
 symbol & symbol::operator=(char const * d) {
-    m_data = g_symbol_tables->get_str(d);
+    m_data = d ? g_symbol_tables->get_str(d) : nullptr;
     return *this;
 }
 

@@ -138,10 +138,10 @@ namespace sat {
         void on_node_add(unsigned v, node const& n);
         void on_node_del(unsigned v, node const& n);
 
-        void evict(cut_set& cs, unsigned idx) { cs.evict(&m_on_cut_del, idx); }
-        void reset(cut_set& cs) { cs.reset(&m_on_cut_del); }
-        void push_back(cut_set& cs, cut const& c) { cs.push_back(&m_on_cut_add, c); }
-        void shrink(cut_set& cs, unsigned j) { cs.shrink(&m_on_cut_del, j); }
+        void evict(cut_set& cs, unsigned idx) { cs.evict(m_on_cut_del, idx); }
+        void reset(cut_set& cs) { cs.reset(m_on_cut_del); }
+        void push_back(cut_set& cs, cut const& c) { cs.push_back(m_on_cut_add, c); }
+        void shrink(cut_set& cs, unsigned j) { cs.shrink(m_on_cut_del, j); }
 
         void cut2clauses(on_clause_t& on_clause, unsigned v, cut const& c);
         void node2def(on_clause_t& on_clause, node const& n, literal r);
@@ -165,6 +165,8 @@ namespace sat {
         unsigned num_cuts() const { return m_num_cuts; }
 
         void cut2def(on_clause_t& on_clause, cut const& c, literal r);
+
+        void replace(unsigned v, cut const& src, cut const& dst);
 
 
         std::ostream& display(std::ostream& out) const;
