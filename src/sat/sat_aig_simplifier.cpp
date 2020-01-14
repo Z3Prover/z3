@@ -395,6 +395,9 @@ namespace sat {
             return;
         if (big.connected(u, v)) 
             return;
+        for (auto const& w : s.get_wlist(u))
+            if (w.is_binary_clause() && v == w.get_literal())
+                return;
         certify_implies(u, v, c);
         s.mk_clause(~u, v, true);
         // m_bins owns reference to ~u or v created by certify_implies
