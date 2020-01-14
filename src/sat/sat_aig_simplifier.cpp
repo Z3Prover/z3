@@ -91,8 +91,6 @@ namespace sat {
         s(_s), 
         m_trail_size(0),
         m_validator(nullptr) {  
-        m_config.m_enable_dont_cares = true;
-        m_config.m_enable_units = true;
         if (s.get_config().m_drat) {
             std::function<void(literal_vector const& clause)> _on_add = 
                 [this](literal_vector const& clause) { s.m_drat.add(clause); };
@@ -101,7 +99,7 @@ namespace sat {
             m_aig_cuts.set_on_clause_add(_on_add);
             m_aig_cuts.set_on_clause_del(_on_del);
         }
-        else if (m_config.m_validate) {
+        else if (m_config.m_validate_cuts) {
             ensure_validator();
             std::function<void(literal_vector const& clause)> _on_add = 
                 [this](literal_vector const& clause) { 
@@ -193,7 +191,7 @@ namespace sat {
         af.set(on_and);
         af.set(on_ite);
         clause_vector clauses(s.clauses());
-        if (m_config.m_add_learned) clauses.append(s.learned());
+        if (m_config.m_learned2aig) clauses.append(s.learned());
         af(clauses);
 
         std::function<void (literal_vector const&)> on_xor = 
@@ -339,7 +337,7 @@ namespace sat {
      * that u implies v.
      */
     void aig_simplifier::cuts2implies(vector<cut_set> const& cuts) {
-        if (!m_config.m_enable_implies) return;
+        if (!m_config.m_learn_implies) return;
         vector<vector<std::pair<unsigned, cut const*>>> var_tables;
         map<cut const*, unsigned, cut::dom_hash_proc, cut::dom_eq_proc> cut2tables;
         unsigned j = 0;
@@ -631,13 +629,13 @@ namespace sat {
     }
 
     void aig_simplifier::validate_unit(literal lit) {
-        if (!m_config.m_validate_enabled) return;
+        if (!m_config.m_validate_lemmas) return;
         ensure_validator();
         m_validator->validate(1, &lit);
     }
 
     void aig_simplifier::validate_eq(literal a, literal b) {
-        if (!m_config.m_validate_enabled) return;
+        if (!m_config.m_validate_lemmas) return;
         ensure_validator();
         literal lits1[2] = { a, ~b };
         literal lits2[2] = { ~a, b };

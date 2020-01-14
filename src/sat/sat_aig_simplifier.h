@@ -33,19 +33,19 @@ namespace sat {
             void reset() { memset(this, 0, sizeof(*this)); }
         };
         struct config {
-            bool m_validate;
-            bool m_enable_units;
-            bool m_enable_dont_cares;
-            bool m_enable_implies;
-            bool m_add_learned;
-            bool m_validate_enabled;
+            bool m_enable_units;            // enable learning units
+            bool m_enable_dont_cares;       // enable applying don't cares to LUTs
+            bool m_learn_implies;           // learn binary clauses
+            bool m_learned2aig;             // add learned clauses to AIGs used by cut-set enumeration
+            bool m_validate_cuts;           // enable direct validation of generated cuts
+            bool m_validate_lemmas;         // enable direct validation of learned lemmas 
             config():
-                m_validate(false), 
-                m_enable_units(false),
-                m_enable_dont_cares(false),
-                m_enable_implies(false),
-                m_add_learned(true),
-                m_validate_enabled(false) {}
+                m_enable_units(true),
+                m_enable_dont_cares(true),
+                m_learn_implies(false),
+                m_learned2aig(true),
+                m_validate_cuts(false), 
+                m_validate_lemmas(false) {}
         };
     private:
         struct report;
@@ -151,6 +151,13 @@ namespace sat {
         void operator()();
         void collect_statistics(statistics& st) const;
 
+        /**
+         * The clausifier may know that some literal is defined as a 
+         * function of other literals. This API is exposed so that 
+         * the clausifier can instrument the simplifier with an initial
+         * AIG.
+         * set_root is issued from the equivalence finder.
+         */
         void add_and(literal head, unsigned sz, literal const* args);
         void add_or(literal head, unsigned sz, literal const* args);
         void add_xor(literal head, unsigned sz, literal const* args);
