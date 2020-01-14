@@ -90,7 +90,73 @@ stages:
 
 - stage: Sign
   jobs:
-  - job: SignWindowsAssemblies
+
+  - job: SignWindows32Assemblies
+    displayName: "Sign Windows Assemblies"
+    pool:
+      vmImage: "windows-latest"
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 51
+        artifact: 'Windows32'
+        path: $(Build.ArtifactStagingDirectory)/win32
+    - task: EsrpCodeSigning@1
+      inputs:
+        ConnectedServiceName: 'z3-esrp-signing'
+        FolderPath: '$(Build.ArtifactStagingDirectory)/win32/bin'
+        Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
+        signConfigType: 'inlineSignParams'
+        inlineOperation: |
+          [
+            {
+              "keyCode": "CP-230012",
+              "operationSetCode": "SigntoolSign",
+              "parameters": [
+                {
+                  "parameterName": "OpusName",
+                  "parameterValue": "Microsoft"
+                },
+                {
+                  "parameterName": "OpusInfo",
+                  "parameterValue": "http://www.microsoft.com"
+                },
+                {
+                  "parameterName": "PageHash",
+                  "parameterValue": "/NPH"
+                },
+                {
+                  "parameterName": "FileDigest",
+                  "parameterValue": "/fd sha256"
+                },
+                {
+                  "parameterName": "TimeStamp",
+                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
+                }
+              ],
+              "toolName": "signtool.exe",
+              "toolVersion": "6.2.9304.0"
+            }
+          ]
+        SessionTimeout: '60'
+        MaxConcurrency: '50'
+        MaxRetryAttempts: '5'
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/win32'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/z3-x86-win.zip'
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Build.ArtifactStagingDirectory)/z3-x86-win.zip
+        artifactName: 'Windows32Signed'
+
+  - job: SignWindows64Assemblies
     displayName: "Sign Windows Assemblies"
     pool:
       vmImage: "windows-latest"
@@ -144,9 +210,15 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
+    - task: ArchiveFiles@2
+      inputs:
+        rootFolderOrFile: $(Build.ArtifactStagingDirectory)/win64
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: $(Build.ArtifactStagingDirectory)/z3-x64-win.zip
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/win64
+        targetPath: $(Build.ArtifactStagingDirectory)/z3-x64-win.zip
         artifactName: 'Windows64Signed'
 
 # Creates Z3 packages in various formats
@@ -170,38 +242,18 @@ stages:
       displayName: "System.TeamProjectId"
     - task: DownloadPipelineArtifact@2
       inputs:
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 19
-        artifact: 'Windows64'
-        path: $(Agent.TempDirectory)/win64
+        artifact: 'Windows64Signed'
+        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 19
-        artifact: 'Windows32'
+        artifact: 'Windows32Signed'
         path: $(Agent.TempDirectory)/win32
     - task: DownloadPipelineArtifact@2
       inputs:
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 19
         artifact: 'Ubuntu'
         path: $(Agent.TempDirectory)/ubuntu
     - task: DownloadPipelineArtifact@2
       inputs:
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 19
         artifact: 'Mac'
         path: $(Agent.TempDirectory)/mac
 #    - task: ExtractFiles@1
