@@ -273,8 +273,12 @@ namespace qe {
         split_arith(lits, alits, uflits);
         auto avars = get_arith_vars(lits);
         vector<def> defs = arith_project(mdl, avars, alits);
+#if 0
         prune_defs(defs);
         substitute(defs, uflits);
+#else
+        for (auto const& d : defs) uflits.push_back(m.mk_eq(d.var, d.term));
+#endif
         project_euf(mdl, uflits);
         lits.reset();
         lits.append(alits);
@@ -337,7 +341,7 @@ namespace qe {
      * \brief substitute solution to arithmetical variables into lits
      */
     void uflia_mbi::substitute(vector<def> const& defs, expr_ref_vector& lits) {
-        TRACE("qe", tout << "start substitute: " << lits << "\n";);
+        TRACE("qe", tout << "start substitute: " << lits << "\n";);        
         for (auto const& def : defs) {
             expr_safe_replace rep(m);
             rep.insert(def.var, def.term);
