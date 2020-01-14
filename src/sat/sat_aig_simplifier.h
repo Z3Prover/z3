@@ -38,12 +38,14 @@ namespace sat {
             bool m_enable_dont_cares;
             bool m_enable_implies;
             bool m_add_learned;
+            bool m_validate_enabled;
             config():
                 m_validate(false), 
                 m_enable_units(false),
                 m_enable_dont_cares(false),
                 m_enable_implies(false),
-                m_add_learned(true) {}
+                m_add_learned(true),
+                m_validate_enabled(false) {}
         };
     private:
         struct report;

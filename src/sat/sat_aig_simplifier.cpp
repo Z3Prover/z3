@@ -109,7 +109,6 @@ namespace sat {
             };
             m_aig_cuts.set_on_clause_add(_on_add);
         }
-
     }
 
     aig_simplifier::~aig_simplifier() {
@@ -281,24 +280,26 @@ namespace sat {
     }
 
     void aig_simplifier::assign_unit(cut const& c, literal lit) {
-        if (s.value(lit) == l_undef) {
-            // validate_unit(lit);
-            IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
-            s.assign_unit(lit);
-            certify_unit(lit, c);
-            ++m_stats.m_num_units;
-        }
+        if (s.value(lit) != l_undef) 
+            return;
+        validate_unit(lit);
+        IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
+        s.assign_unit(lit);
+        certify_unit(lit, c);
+        ++m_stats.m_num_units;        
     }
 
     void aig_simplifier::assign_equiv(cut const& c, literal u, literal v) {
         if (u.var() == v.var()) return;
         IF_VERBOSE(10, verbose_stream() << u << " " << v << " " << c << "\n";);
-        TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                    
-        
+        TRACE("aig_simplifier", tout << u << " == " << v << "\n";);                            
         certify_equivalence(u, v, c);                    
-        //validate_eq(u, v);
+        validate_eq(u, v);
     }
 
+    /**
+     * Convert a union-find over literals into input for eim_eqs.
+     */
     void aig_simplifier::uf2equiv(union_find<> const& uf) {
         union_find_default_ctx ctx;
         union_find<> uf2(ctx);
@@ -331,6 +332,12 @@ namespace sat {
         }
     }
 
+    /**
+     * Extract binary clauses from cuts.
+     * A bit encoding of a LUT of u 
+     * that sets a subset of bits for LUT' of v establishes
+     * that u implies v.
+     */
     void aig_simplifier::cuts2implies(vector<cut_set> const& cuts) {
         if (!m_config.m_enable_implies) return;
         vector<vector<std::pair<unsigned, cut const*>>> var_tables;
@@ -364,7 +371,7 @@ namespace sat {
                     uint64_t t2 = c2.table();
                     uint64_t n2 = c2.ntable();
                     // 
-                    if (t1 == t2 || t1 == n2) {
+                    if (u.var() == v.var() || t1 == t2 || t1 == n2) {
                         // already handled
                     }
                     else if ((t1 | t2) == t2) {
@@ -390,26 +397,26 @@ namespace sat {
             return;
         if (big.connected(u, v)) 
             return;
-        s.mk_clause(~u, v, true);
-        m_bins.insert(p);
         certify_implies(u, v, c);
-        track_binary(~u, v);
+        s.mk_clause(~u, v, true);
+        // m_bins owns reference to ~u or v created by certify_implies
+        m_bins.insert(p); 
     }
 
     void aig_simplifier::track_binary(bin_rel const& p) {
-        if (s.m_config.m_drat) {
-            literal u, v;
-            p.to_binary(u, v);
-            track_binary(u, v);
-        }
+        if (!s.m_config.m_drat) 
+            return;
+        literal u, v;
+        p.to_binary(u, v);
+        track_binary(u, v);
     }
 
     void aig_simplifier::untrack_binary(bin_rel const& p) {
-        if (s.m_config.m_drat) {
-            literal u, v;
-            p.to_binary(u, v);
-            untrack_binary(u, v);
-        }
+        if (!s.m_config.m_drat) 
+            return;
+        literal u, v;
+        p.to_binary(u, v);
+        untrack_binary(u, v);
     }
 
     void aig_simplifier::track_binary(literal u, literal v) {
@@ -482,10 +489,9 @@ namespace sat {
         IF_VERBOSE(10, for (auto const& clause : clauses) verbose_stream() << clause << "\n";);
 
         // once we established equivalence, don't need auxiliary clauses for DRAT.
+        clauses.pop_back();
         for (auto const& clause : clauses) {
-            if (clause.size() > 1) {
-                s.m_drat.del(clause);
-            }
+            s.m_drat.del(clause);            
         }                      
     }
 
@@ -498,7 +504,7 @@ namespace sat {
     }
 
     /**
-     * collect binary relations between variables that occur in cut sets.
+     * Collect binary relations between variables that occur in cut sets.
      */
     void aig_simplifier::cuts2bins(vector<cut_set> const& cuts) {
         svector<bin_rel> dcs;
@@ -528,7 +534,7 @@ namespace sat {
     }
     
     /**
-     * compute masks for binary relations.
+     * Compute masks for binary relations.
      */
     void aig_simplifier::bins2dont_cares() {
         big b(s.rand());
@@ -549,7 +555,9 @@ namespace sat {
             else if (b.connected(~u, ~v)) {
                 p.op = np;
             }
-            track_binary(p);
+            if (p.op != none) {
+                track_binary(p);
+            }
         }
         IF_VERBOSE(2, {
                 unsigned n = 0; for (auto const& p : m_bins) if (p.op != none) ++n;
@@ -557,12 +565,12 @@ namespace sat {
             });
     }
 
+    /**
+     * Loop over cuts, if it is possible to add a new don't care combination 
+     * to a cut, then ensure that the variable is "touched" so that it participates
+     * in the next propagation.
+     */
     void aig_simplifier::dont_cares2cuts(vector<cut_set> const& cuts) {
-        struct rep { 
-            cut src, dst; unsigned v; 
-            rep(cut const& s, cut const& d, unsigned v):src(s), dst(d), v(v) {} 
-            rep():v(UINT_MAX) {}
-        };
         for (auto& cs : cuts) {
             for (auto const& c : cs) {
                 if (add_dont_care(c)) {
@@ -573,8 +581,14 @@ namespace sat {
         }
     }
 
-    /*
+    /**
      * compute masks for position i, j and op-code p.op
+     * For the don't care combination false, false, the first don't care
+     * position is 0. If it is true, false, the first don't care position
+     * is the position that encodes the first occurrence where i is true.
+     * It is 2^i. Cases for false, true and true, true are similar.
+     * Don't care positions are spaced apart by 2^{j+1}, 
+     * where j is the second variable position.
      */ 
     uint64_t aig_simplifier::op2dont_care(unsigned i, unsigned j, bin_rel const& p) {
         SASSERT(i < j && j < 6);
@@ -590,7 +604,9 @@ namespace sat {
     }
 
     /**
-     * apply obtained dont_cares to cut sets.
+     * Apply obtained dont_cares to cut sets.
+     * The don't care bits are added to the LUT, so that the
+     * output is always 1 on don't care combinations.
      */
     bool aig_simplifier::add_dont_care(cut const & c) {
         uint64_t dc = 0;
@@ -615,11 +631,13 @@ namespace sat {
     }
 
     void aig_simplifier::validate_unit(literal lit) {
+        if (!m_config.m_validate_enabled) return;
         ensure_validator();
         m_validator->validate(1, &lit);
     }
 
     void aig_simplifier::validate_eq(literal a, literal b) {
+        if (!m_config.m_validate_enabled) return;
         ensure_validator();
         literal lits1[2] = { a, ~b };
         literal lits2[2] = { ~a, b };
