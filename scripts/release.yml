@@ -92,7 +92,7 @@ stages:
   jobs:
 
   - job: SignWindows32Assemblies
-    displayName: "Sign Windows Assemblies"
+    displayName: "Sign 32-bit Windows Assemblies"
     pool:
       vmImage: "windows-latest"
     steps:
@@ -104,11 +104,11 @@ stages:
         runVersion: specific
         runId: 51
         artifact: 'Windows32'
-        path: $(Build.ArtifactStagingDirectory)/win32
+        path: $(Build.ArtifactStagingDirectory)/z3-x86-win
     - task: EsrpCodeSigning@1
       inputs:
         ConnectedServiceName: 'z3-esrp-signing'
-        FolderPath: '$(Build.ArtifactStagingDirectory)/win32/bin'
+        FolderPath: '$(Build.ArtifactStagingDirectory)/z3-x86-win/bin'
         Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
         signConfigType: 'inlineSignParams'
         inlineOperation: |
@@ -147,8 +147,8 @@ stages:
         MaxRetryAttempts: '5'
     - task: ArchiveFiles@2
       inputs:
-        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/win32'
-        includeRootFolder: false
+        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/z3-x86-win'
+        includeRootFolder: true
         archiveType: 'zip'
         archiveFile: '$(Build.ArtifactStagingDirectory)/z3-x86-win.zip'
     - task: PublishPipelineArtifact@1
@@ -157,7 +157,7 @@ stages:
         artifactName: 'Windows32Signed'
 
   - job: SignWindows64Assemblies
-    displayName: "Sign Windows Assemblies"
+    displayName: "Sign 64-bit Windows Assemblies"
     pool:
       vmImage: "windows-latest"
     steps:
@@ -169,11 +169,11 @@ stages:
         runVersion: specific
         runId: 51
         artifact: 'Windows64'
-        path: $(Build.ArtifactStagingDirectory)/win64
+        path: $(Build.ArtifactStagingDirectory)/z3-x64-win
     - task: EsrpCodeSigning@1
       inputs:
         ConnectedServiceName: 'z3-esrp-signing'
-        FolderPath: '$(Build.ArtifactStagingDirectory)/win64/bin'
+        FolderPath: '$(Build.ArtifactStagingDirectory)/z3-x64-win/bin'
         Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
         signConfigType: 'inlineSignParams'
         inlineOperation: |
@@ -212,8 +212,8 @@ stages:
         MaxRetryAttempts: '5'
     - task: ArchiveFiles@2
       inputs:
-        rootFolderOrFile: $(Build.ArtifactStagingDirectory)/win64
-        includeRootFolder: false
+        rootFolderOrFile: $(Build.ArtifactStagingDirectory)/z3-x64-win
+        includeRootFolder: true
         archiveType: 'zip'
         archiveFile: $(Build.ArtifactStagingDirectory)/z3-x64-win.zip
     - task: PublishPipelineArtifact@1
