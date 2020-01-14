@@ -232,6 +232,7 @@ namespace sat {
         m_stats.m_num_cuts = m_aig_cuts.num_cuts();
         add_dont_cares(cuts);
         cuts2equiv(cuts);
+        cuts2implies(cuts);
     }
 
     void aig_simplifier::cuts2equiv(vector<cut_set> const& cuts) {
@@ -254,10 +255,10 @@ namespace sat {
                 cut nc(c);
                 nc.negate();
                 if (m_config.m_enable_units && c.is_true()) {
-                    assign_unit(u);
+                    assign_unit(c, u);
                 }
                 else if (m_config.m_enable_units && c.is_false()) {
-                    assign_unit(~u);
+                    assign_unit(nc, ~u);
                 }
                 else if (cut2id.find(&c, j)) {
                     literal v(j, false);
@@ -279,11 +280,12 @@ namespace sat {
         }
     }
 
-    void aig_simplifier::assign_unit(literal lit) {
+    void aig_simplifier::assign_unit(cut const& c, literal lit) {
         if (s.value(lit) == l_undef) {
             // validate_unit(lit);
             IF_VERBOSE(2, verbose_stream() << "new unit " << lit << "\n");
             s.assign_unit(lit);
+            certify_unit(lit, c);
             ++m_stats.m_num_units;
         }
     }
@@ -329,6 +331,103 @@ namespace sat {
         }
     }
 
+    void aig_simplifier::cuts2implies(vector<cut_set> const& cuts) {
+        if (!m_config.m_enable_implies) return;
+        vector<vector<std::pair<unsigned, cut const*>>> var_tables;
+        map<cut const*, unsigned, cut::dom_hash_proc, cut::dom_eq_proc> cut2tables;
+        unsigned j = 0;
+        big big(s.rand());
+        big.init(s, true);
+        for (auto const& cs : cuts) {
+            for (auto const& c : cs) {
+                if (c.is_false() || c.is_true()) 
+                    continue;
+                if (!cut2tables.find(&c, j)) {
+                    j = var_tables.size();
+                    var_tables.push_back(vector<std::pair<unsigned, cut const*>>());
+                    cut2tables.insert(&c, j);
+                }
+                var_tables[j].push_back(std::make_pair(cs.var(), &c));
+            }
+        }
+        for (unsigned i = 0; i < var_tables.size(); ++i) {
+            auto const& vt = var_tables[i];
+            for (unsigned j = 0; j < vt.size(); ++j) {
+                literal u(vt[j].first, false);
+                cut const& c1 = *vt[j].second;
+                cut nc1(c1);
+                uint64_t t1 = c1.table();
+                uint64_t n1 = nc1.table();
+                for (unsigned k = j + 1; k < vt.size(); ++k) {
+                    literal v(vt[k].first, false);
+                    cut const& c2 = *vt[k].second;                
+                    uint64_t t2 = c2.table();
+                    uint64_t n2 = c2.ntable();
+                    // 
+                    if (t1 == t2 || t1 == n2) {
+                        // already handled
+                    }
+                    else if ((t1 | t2) == t2) {
+                        learn_implies(big, c1, u, v);
+                    }
+                    else if ((t1 | n2) == n2) {
+                        learn_implies(big, c1, u, ~v);
+                    }
+                    else if ((n1 | t2) == t2) {
+                        learn_implies(big, nc1, ~u, v);
+                    }
+                    else if ((n1 | n2) == n2) {
+                        learn_implies(big, nc1, ~u, ~v);
+                    }
+                }
+            }
+        }
+    }
+
+    void aig_simplifier::learn_implies(big& big, cut const& c, literal u, literal v) {
+        bin_rel q, p(~u, v);
+        if (m_bins.find(p, q) && q.op != none) 
+            return;
+        if (big.connected(u, v)) 
+            return;
+        s.mk_clause(~u, v, true);
+        m_bins.insert(p);
+        certify_implies(u, v, c);
+        track_binary(~u, v);
+    }
+
+    void aig_simplifier::track_binary(bin_rel const& p) {
+        if (s.m_config.m_drat) {
+            literal u, v;
+            p.to_binary(u, v);
+            track_binary(u, v);
+        }
+    }
+
+    void aig_simplifier::untrack_binary(bin_rel const& p) {
+        if (s.m_config.m_drat) {
+            literal u, v;
+            p.to_binary(u, v);
+            untrack_binary(u, v);
+        }
+    }
+
+    void aig_simplifier::track_binary(literal u, literal v) {
+        if (s.m_config.m_drat) {
+            s.m_drat.add(u, v, true);
+        }
+    }
+
+    void aig_simplifier::untrack_binary(literal u, literal v) {
+        if (s.m_config.m_drat) {
+            s.m_drat.del(u, v);
+        }
+    }
+
+    void aig_simplifier::certify_unit(literal u, cut const& c) {
+        certify_implies(~u, u, c);
+    }
+
     /**
      * Equilvalences modulo cuts are not necessarily DRAT derivable.
      * To ensure that there is a DRAT derivation we create all resolvents
@@ -337,36 +436,37 @@ namespace sat {
      * contain complementary literals.
      */
     void aig_simplifier::certify_equivalence(literal u, literal v, cut const& c) {
+        certify_implies(u, v, c);
+        certify_implies(v, u, c);
+    }
+
+    /**
+     * certify that u implies v, where c is the cut for u.
+     * Then every position in c where u is true, it has to be 
+     * the case that v is too.
+     * Where u is false, v can have any value.
+     * Thus, for every clause C or u', where u' is u or ~u,
+     * it follows that C or ~u or v
+     */
+    void aig_simplifier::certify_implies(literal u, literal v, cut const& c) {
         if (!s.m_config.m_drat) return;
         
         vector<literal_vector> clauses;
         std::function<void(literal_vector const& clause)> on_clause = 
-            [&](literal_vector const& clause) { SASSERT(clause.back().var() == u.var()); clauses.push_back(clause); };        
+            [&,this](literal_vector const& clause) { 
+            SASSERT(clause.back().var() == u.var()); 
+            clauses.push_back(clause);
+            clauses.back().back() = ~u;
+            if (~u != v) clauses.back().push_back(v);
+            s.m_drat.add(clauses.back());
+        };        
         m_aig_cuts.cut2def(on_clause, c, u);
 
-        // create C or u or ~v for each clause C or u
-        // create C or ~u or v for each clause C or ~u
-        for (auto& clause : clauses) { 
-            literal w = clause.back();
-            SASSERT(w.var() == u.var());
-            clause.push_back(w == u ? ~v : v); 
-            s.m_drat.add(clause);
-        }
-        // create C or ~u or v for each clause 
-        unsigned i = 0, sz = clauses.size();
-        for (; i < sz; ++i) {
-            literal_vector clause(clauses[i]);
-            clause[clause.size()-2] = ~clause[clause.size()-2];
-            clause[clause.size()-1] = ~clause[clause.size()-1];
-            clauses.push_back(clause);
-            s.m_drat.add(clause);
-        }
-        
         // create all resolvents over C. C is assumed to 
         // contain all combinations of some set of literals.
-        i = 0; sz = clauses.size();
-        while (sz - i > 2) {
-            SASSERT((sz & (sz - 1)) == 0);
+        unsigned i = 0, sz = clauses.size();
+        while (sz - i > 1) {
+            SASSERT((sz & (sz - 1)) == 0 && "sz is a power of 2");
             for (; i < sz; ++i) {
                 auto const& clause = clauses[i];
                 if (clause[0].sign()) {
@@ -383,12 +483,11 @@ namespace sat {
 
         // once we established equivalence, don't need auxiliary clauses for DRAT.
         for (auto const& clause : clauses) {
-            if (clause.size() > 2) {
+            if (clause.size() > 1) {
                 s.m_drat.del(clause);
             }
-        }                
+        }                      
     }
-
 
     void aig_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
         if (m_config.m_enable_dont_cares) {
@@ -419,8 +518,12 @@ namespace sat {
         }
         // don't lose previous don't cares
         for (auto const& p : dcs) {
-            if (m_bins.contains(p)) 
+            if (m_bins.contains(p)) {
                 m_bins.insert(p);
+            }
+            else {
+                untrack_binary(p);
+            }
         }
     }
     
@@ -446,6 +549,7 @@ namespace sat {
             else if (b.connected(~u, ~v)) {
                 p.op = np;
             }
+            track_binary(p);
         }
         IF_VERBOSE(2, {
                 unsigned n = 0; for (auto const& p : m_bins) if (p.op != none) ++n;

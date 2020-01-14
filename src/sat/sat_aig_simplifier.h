@@ -36,41 +36,31 @@ namespace sat {
             bool m_validate;
             bool m_enable_units;
             bool m_enable_dont_cares;
+            bool m_enable_implies;
             bool m_add_learned;
             config():
                 m_validate(false), 
                 m_enable_units(false),
                 m_enable_dont_cares(false),
+                m_enable_implies(false),
                 m_add_learned(true) {}
         };
     private:
         struct report;
         struct validator;
 
-        solver&  s;
-        stats    m_stats;
-        config   m_config;
-        aig_cuts m_aig_cuts;
-        unsigned m_trail_size;
-        literal_vector m_lits;
-        validator* m_validator;
-
-        void clauses2aig();
-        void aig2clauses();
-        void cuts2equiv(vector<cut_set> const& cuts);
-        void uf2equiv(union_find<> const& uf);
-        void assign_unit(literal lit);
-        void assign_equiv(cut const& c, literal u, literal v);
-        void ensure_validator();
-        void validate_unit(literal lit);
-        void validate_eq(literal a, literal b);
-        void certify_equivalence(literal u, literal v, cut const& c);
-        
         /**
          * collect pairs of literal combinations that are impossible
          * base on binary implication graph queries.  Apply the masks
          * on cut sets so to allow detecting equivalences modulo
          * implications.
+         *
+         * The encoding is as follows:
+         * a or b   -> op = nn because (~a & ~b) is a don't care
+         * ~a or b  -> op = pn because (a & ~b)  is a don't care
+         * a or ~b  -> op = np because (~a & b)  is a don't care
+         * ~a or ~b -> op = pp because (a & b)   is a don't care
+         *
          */
 
         enum op_code { pp, pn, np, nn, none };
@@ -80,6 +70,18 @@ namespace sat {
             op_code op;
             bin_rel(unsigned _u, unsigned _v): u(_u), v(_v), op(none) {
                 if (u > v) std::swap(u, v);
+            }
+            // convert binary clause into a bin-rel
+            bin_rel(literal _u, literal _v): u(_u.var()), v(_v.var()), op(none) {
+                if (_u.sign() && _v.sign()) op = pp;
+                else if (_u.sign()) op = pn;
+                else if (_v.sign()) op = np;
+                else op = nn;
+                if (u > v) {
+                    std::swap(u, v);
+                    if (op == np) op = pn;
+                    else if (op == pn) op = np;
+                }
             }
             bin_rel(): u(UINT_MAX), v(UINT_MAX), op(none) {}
 
@@ -93,8 +95,46 @@ namespace sat {
                     return a.u == b.u && a.v == b.v;
                 }
             };
+            void to_binary(literal& lu, literal& lv) const {
+                switch (op) {
+                case pp: lu = literal(u, true); lv = literal(v, true); break;
+                case pn: lu = literal(u, true); lv = literal(v, false); break;
+                case np: lu = literal(u, false); lv = literal(v, true); break;
+                case nn: lu = literal(u, false); lv = literal(v, false); break;
+                default: UNREACHABLE(); break;
+                }
+            }
         };
+
+
+        solver&  s;
+        stats    m_stats;
+        config   m_config;
+        aig_cuts m_aig_cuts;
+        unsigned m_trail_size;
+        literal_vector m_lits;
+        validator* m_validator;
         hashtable<bin_rel, bin_rel::hash, bin_rel::eq> m_bins;
+
+        void clauses2aig();
+        void aig2clauses();
+        void cuts2equiv(vector<cut_set> const& cuts);
+        void cuts2implies(vector<cut_set> const& cuts);
+        void uf2equiv(union_find<> const& uf);
+        void assign_unit(cut const& c, literal lit);
+        void assign_equiv(cut const& c, literal u, literal v);
+        void learn_implies(big& big, cut const& c, literal u, literal v);
+        void ensure_validator();
+        void validate_unit(literal lit);
+        void validate_eq(literal a, literal b);
+        void certify_unit(literal u, cut const& c);
+        void certify_implies(literal u, literal v, cut const& c);
+        void certify_equivalence(literal u, literal v, cut const& c);
+        void track_binary(literal u, literal v);
+        void untrack_binary(literal u, literal v);
+        void track_binary(bin_rel const& p);
+        void untrack_binary(bin_rel const& p);        
+
         
         void add_dont_cares(vector<cut_set> const& cuts);
         void cuts2bins(vector<cut_set> const& cuts);

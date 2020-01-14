@@ -71,6 +71,7 @@ namespace sat {
         void negate() { set_table(~m_table); }
         void set_table(uint64_t t) { m_table = t & table_mask(); }
         uint64_t table() const { return (m_table | m_dont_care) & table_mask(); }
+        uint64_t ntable() const { return (~m_table | m_dont_care) & table_mask(); }
 
         uint64_t dont_care() const { return m_dont_care; }
         void add_dont_care(uint64_t t) const { m_dont_care |= t; }
@@ -81,6 +82,8 @@ namespace sat {
         bool operator==(cut const& other) const;
         bool operator!=(cut const& other) const { return !(*this == other); }
         unsigned hash() const;
+        unsigned dom_hash() const;
+        bool dom_eq(cut const& other) const;
         struct eq_proc { 
             bool operator()(cut const& a, cut const& b) const { return a == b; }
             bool operator()(cut const* a, cut const* b) const { return *a == *b; }
@@ -88,6 +91,16 @@ namespace sat {
         struct hash_proc {
             unsigned operator()(cut const& a) const { return a.hash(); }
             unsigned operator()(cut const* a) const { return a->hash(); }
+        };
+
+        struct dom_eq_proc {
+            bool operator()(cut const& a, cut const& b) const { return a.dom_eq(b); }
+            bool operator()(cut const* a, cut const* b) const { return a->dom_eq(*b); }
+        };
+
+        struct dom_hash_proc {
+            unsigned operator()(cut const& a) const { return a.dom_hash(); }
+            unsigned operator()(cut const* a) const { return a->dom_hash(); }
         };
 
         unsigned operator[](unsigned idx) const {

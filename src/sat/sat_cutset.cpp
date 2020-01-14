@@ -139,18 +139,27 @@ namespace sat {
     }
     
     bool cut::operator==(cut const& other) const {
-        if (m_size != other.m_size) return false;
-        if (table() != other.table()) return false;
-        for (unsigned i = 0; i < m_size; ++i) {
-            if ((*this)[i] != other[i]) return false;
-        }
-        return true;
+        return table() == other.table() && dom_eq(other);
     }
     
     unsigned cut::hash() const {
         return get_composite_hash(*this, m_size, 
                                   [](cut const& c) { return (unsigned)c.table(); }, 
                                   [](cut const& c, unsigned i) { return c[i]; });
+    }
+
+    unsigned cut::dom_hash() const {
+        return get_composite_hash(*this, m_size, 
+                                  [](cut const& c) { return 3; }, 
+                                  [](cut const& c, unsigned i) { return c[i]; });
+    }
+
+    bool cut::dom_eq(cut const& other) const {
+        if (m_size != other.m_size) return false;
+        for (unsigned i = 0; i < m_size; ++i) {
+            if ((*this)[i] != other[i]) return false;
+        }
+        return true;
     }
     
     std::ostream& cut::display(std::ostream& out) const {
