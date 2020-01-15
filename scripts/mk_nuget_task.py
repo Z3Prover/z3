@@ -64,9 +64,9 @@ def unpack(packages):
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
-def mk_targets():
+def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.targets")
+    shutil.copy("%s/src/api/dotnet/Microsoft.Z3.targets.in" % source_root, "out/build/Microsoft.Z3.targets")
     
 def create_nuget_spec(release_version, release_commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
@@ -99,10 +99,11 @@ def main():
     packages = sys.argv[1]
     release_version = sys.argv[2]
     release_commit = sys.argv[3]
+    source_root = sys.argv[4]
     print(packages)
     mk_dir(packages)    
     unpack(packages)
-    mk_targets()
+    mk_targets(source_root)
     create_nuget_spec(release_version, release_commit)
 #    create_nuget_package()
 
