@@ -38,7 +38,7 @@ def classify_package(f):
     return None
 
 
-def unpack(packages):
+def unpack(package_dir):
     # unzip files in packages
     # out
     # +- runtimes
@@ -49,26 +49,26 @@ def unpack(packages):
     #    +- debian.8-x64
     #    +- macos
     # +
-    for f in os.listdir(packages):
+    for f in os.listdir(package_dir):
         print(f)
         if f.endswith(".zip") and classify_package(f):
             os_name, package_dir, ext, dst = classify_package(f)
-            path = os.path.abspath(os.path.join(packages, f))
+            path = os.path.abspath(os.path.join(package_dir, f))
             zip_ref = zipfile.ZipFile(path, 'r')
-            zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
-            mk_dir("out/runtimes/%s/native" % dst)
-            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst)
+            zip_ref.extract("{0}/bin/libz3.{1}".format(package_dir, ext), "tmp")
+            mk_dir("out/runtimes/{0}/native".format(dst))
+            shutil.move("tmp/{0}/bin/libz3.{1}".format(package_dir, ext), "out/runtimes/{}/native/.".format(dst))
             if "x64-win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
-                    zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
-                    shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
+                    zip_ref.extract("{0}/bin/{1}".format(package_dir, b), "tmp")
+                    shutil.move("tmp/{0}/bin/{1}".format(package_dir, b), "out/lib/netstandard1.4/{}".format(b))
 
 def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy("%s/src/api/dotnet/Microsoft.Z3.targets.in" % source_root, "out/build/Microsoft.Z3.targets")
+    shutil.copy("{}/src/api/dotnet/Microsoft.Z3.targets.in".format(source_root), "out/build/Microsoft.Z3.targets")
     
-def create_nuget_spec(release_version, release_commit):
+def create_nuget_spec(version, repo, branch, commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -83,28 +83,29 @@ Linux Dependencies:
         </description>
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
-        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/resources/icon.jpg</iconUrl>
+        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{3}/resources/icon.jpg</iconUrl>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-        <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/LICENSE.txt</licenseUrl>
-        <repository type="git" url="https://github.com/Z3Prover/z3.git" branch="master" commit="{1}" />
+        <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{3}/LICENSE.txt</licenseUrl>
+        <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
     </metadata>
-</package>""".format(release_version, release_commit)
+</package>""".format(version, repo, branch, commit)
     print(contents)
     with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
         f.write(contents)
         
 def main():
-    packages = sys.argv[1]
-    release_version = sys.argv[2]
-    release_commit = sys.argv[3]
-    source_root = sys.argv[4]
-    print(packages)
-    mk_dir(packages)    
-    unpack(packages)
+    package_dir = sys.argv[1]
+    version = sys.argv[2]
+    repo = sys.argv[3]
+    branch = sys.argv[4]
+    commit = sys.argv[5]
+    source_root = sys.argv[6]
+    print(package_dir)
+    mk_dir(package_dir)
+    unpack(package_dir)
     mk_targets(source_root)
-    create_nuget_spec(release_version, release_commit)
-#    create_nuget_package()
+    create_nuget_spec(version, repo, branch, commit)
 
 main()

@@ -248,10 +248,6 @@ stages:
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       inputs:
-        artifact: 'Windows32Signed'
-        path: $(Agent.TempDirectory)\package
-    - task: DownloadPipelineArtifact@2
-      inputs:
         artifact: 'Ubuntu'
         source: specific
         project: c6e283d3-5018-4982-b28f-8a88c50174e2
@@ -268,7 +264,6 @@ stages:
         runVersion: specific
         runId: 47
         path: $(Agent.TempDirectory)\package
-    - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PythonScript@0
       inputs:
         scriptSource: 'filepath'
@@ -277,13 +272,21 @@ stages:
         arguments:
           $(Agent.TempDirectory)\package
           $(ReleaseVersion)
+          $(Build.Repository.Uri)
+          $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
+    - task: NugetCommand@2
+      inputs:
+        command: pack
+        basePath: $(Agent.TempDirectory)\package\out
+        packDestination: $(Build.ArtifactStagingDirectory)
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
-        targetPath: $(Agent.TempDirectory)\package\out
+        targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'NugetPackage'
+    - 
 
 #  - job: PythonPackage
 #    condition: false
