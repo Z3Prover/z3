@@ -286,7 +286,6 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'NugetPackage'
-    - 
 
 #  - job: PythonPackage
 #    condition: false
