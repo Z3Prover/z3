@@ -1329,6 +1329,15 @@ void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_in
 }
 
 void lar_solver::get_rid_of_inf_eps() {
+    bool y_is_zero = true;
+    for (unsigned j = 0; j < number_of_vars(); j++) {
+        if (!m_mpq_lar_core_solver.m_r_x[j].y.is_zero()) {
+            y_is_zero = false;
+            break;
+        }
+    }
+    if (y_is_zero)
+        return;
     mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1));
     for (unsigned j = 0; j < number_of_vars(); j++) {
         auto & r = m_mpq_lar_core_solver.m_r_x[j];
