@@ -2783,7 +2783,7 @@ namespace z3 {
         optimize(context& c, optimize& src):object(c) {
             m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt);
             add(expr_vector(c, src.assertions()));
-            for (expr& o : expr_vector(c, src.objectives())) minimize(o);            
+            for (expr const& o : expr_vector(c, src.objectives())) minimize(o);            
         }
         optimize& operator=(optimize const& o) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
@@ -2799,7 +2799,7 @@ namespace z3 {
             Z3_optimize_assert(ctx(), m_opt, e);
         }
         void add(expr_vector const& es) {
-            for (expr& e : es) add(e);
+            for (expr const& e : es) add(e);
         }
         handle add(expr const& e, unsigned weight) {
             assert(e.is_bool());
