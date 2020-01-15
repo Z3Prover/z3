@@ -245,6 +245,11 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         artifact: 'Windows64Signed'
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 61
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       inputs:

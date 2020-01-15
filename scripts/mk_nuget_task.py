@@ -38,7 +38,7 @@ def classify_package(f):
     return None
 
 
-def unpack(package_dir):
+def unpack(packages):
     # unzip files in packages
     # out
     # +- runtimes
@@ -49,20 +49,20 @@ def unpack(package_dir):
     #    +- debian.8-x64
     #    +- macos
     # +
-    for f in os.listdir(package_dir):
+    for f in os.listdir(packages):
         print(f)
         if f.endswith(".zip") and classify_package(f):
             os_name, package_dir, ext, dst = classify_package(f)
-            path = os.path.abspath(os.path.join(package_dir, f))
+            path = os.path.abspath(os.path.join(packages, f))
             zip_ref = zipfile.ZipFile(path, 'r')
-            zip_ref.extract("{0}/bin/libz3.{1}".format(package_dir, ext), "tmp")
-            mk_dir("out/runtimes/{0}/native".format(dst))
-            shutil.move("tmp/{0}/bin/libz3.{1}".format(package_dir, ext), "out/runtimes/{}/native/.".format(dst))
+            zip_ref.extract("%s/bin/libz3.%s" % (package_dir, ext), "tmp")
+            mk_dir("out/runtimes/%s/native" % dst)
+            shutil.move("tmp/%s/bin/libz3.%s" % (package_dir, ext), "out/runtimes/%s/native/." % dst)
             if "x64-win" in f:
                 mk_dir("out/lib/netstandard1.4/")
                 for b in ["Microsoft.Z3.dll"]:
-                    zip_ref.extract("{0}/bin/{1}".format(package_dir, b), "tmp")
-                    shutil.move("tmp/{0}/bin/{1}".format(package_dir, b), "out/lib/netstandard1.4/{}".format(b))
+                    zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
+                    shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
 def mk_targets(source_root):
     mk_dir("out/build")
@@ -96,15 +96,15 @@ Linux Dependencies:
         f.write(contents)
         
 def main():
-    package_dir = sys.argv[1]
+    packages = sys.argv[1]
     version = sys.argv[2]
     repo = sys.argv[3]
     branch = sys.argv[4]
     commit = sys.argv[5]
     source_root = sys.argv[6]
-    print(package_dir)
-    mk_dir(package_dir)
-    unpack(package_dir)
+    print(packages)
+    mk_dir(packages)    
+    unpack(packages)
     mk_targets(source_root)
     create_nuget_spec(version, repo, branch, commit)
 
