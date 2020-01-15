@@ -194,6 +194,17 @@ def mk_z3s():
     mk_z3(False)
     mk_z3(True)
 
+def get_z3_name(x64):
+    major, minor, build, revision = get_version()
+    if x64:
+        platform = "x64"
+    else:
+        platform = "x86"
+    if GIT_HASH:
+        return 'z3-%s.%s.%s.%s-%s-win' % (major, minor, build, mk_util.git_hash(), platform)
+    else:
+        return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
+
 def mk_dist_dir(x64):
     if x64:
         platform = "x64"
@@ -201,7 +212,7 @@ def mk_dist_dir(x64):
     else:
         platform = "x86"
         build_path = BUILD_X86_DIR
-    dist_path = DIST_DIR
+    dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
     mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
@@ -215,8 +226,11 @@ def mk_dist_dirs():
     mk_dist_dir(False)
     mk_dist_dir(True)
 
+def get_dist_path(x64):
+    return get_z3_name(x64)
+
 def mk_zip(x64):
-    dist_path = DIST_DIR
+    dist_path = get_dist_path(x64)
     old = os.getcwd()
     try:
         os.chdir(DIST_DIR)
@@ -270,7 +284,7 @@ def cp_vs_runtime(x64):
                             vs_runtime_files.append(fname)
     if not vs_runtime_files:
         raise MKException("Did not find any runtime files to include")       
-    bin_dist_path = os.path.join(DIST_DIR, 'bin')
+    bin_dist_path = os.path.join(DIST_DIR, get_dist_path(x64), 'bin')
     for f in vs_runtime_files:
         shutil.copy(f, bin_dist_path)
         if is_verbose():
@@ -281,7 +295,7 @@ def cp_vs_runtimes():
     cp_vs_runtime(False)
 
 def cp_license(x64):
-    shutil.copy("LICENSE.txt", DIST_DIR)
+    shutil.copy("LICENSE.txt", os.path.join(DIST_DIR, get_dist_path(x64)))
 
 def cp_licenses():
     cp_license(True)
