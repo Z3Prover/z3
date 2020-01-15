@@ -273,11 +273,12 @@ stages:
       inputs:
         scriptSource: 'filepath'
         scriptPath: scripts\mk_nuget_task.py
-        workingDirectory: scripts
+        workingDirectory: $(Agent.TempDirectory)\package
         arguments:
           $(Agent.TempDirectory)\package
           $(ReleaseVersion)
           $(Build.SourceVersion)
+          $(Build.SourcesDirectory)
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
