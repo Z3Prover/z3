@@ -1289,41 +1289,50 @@ void lar_solver::get_infeasibility_explanation_for_inf_sign(
     } 
 }
 
+// (x, y) != (x', y') => (x + delty*y) != (x' + delty*y')
 void lar_solver::get_model(std::unordered_map<var_index, mpq> & variable_values) const {
     lp_assert(m_mpq_lar_core_solver.m_r_solver.calc_current_x_is_feasible_include_non_basis());
     variable_values.clear();
-    mpq delta = mpq(1, 2); // start from 0.5 to have less clashes
+    mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1, 2)); // start from 0.5 to have less clashes
     unsigned j;
     unsigned n = m_mpq_lar_core_solver.m_r_x.size();
+    std::unordered_set<impq> set_of_different_pairs; 
+    std::unordered_set<mpq> set_of_different_singles;
     do {
-        // different pairs have to produce different singleton values
-        std::unordered_set<impq> set_of_different_pairs; 
-        std::unordered_set<mpq> set_of_different_singles;
-        delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
+        set_of_different_pairs.clear();
+        set_of_different_singles.clear();
         for (j = 0; j < n; j++ ) {
             const numeric_pair<mpq> & rp = m_mpq_lar_core_solver.m_r_x[j];
             set_of_different_pairs.insert(rp);
             mpq x = rp.x + delta * rp.y;
             set_of_different_singles.insert(x);
-            if (set_of_different_pairs.size()
-                != set_of_different_singles.size()) {
+            if (set_of_different_pairs.size() != set_of_different_singles.size()) {
                 delta /= mpq(2);
                 break;
             }
-            TRACE("get_model", tout << this->get_variable_name(j) << " := " << x << "\n";);
-            if (!column_corresponds_to_term(j))
-                variable_values[j] = x;
+            variable_values[j] = x;
         }
     } while (j != n);
+    TRACE("lar_solver_model", tout << "delta = " << delta << "\nmodel:\n";
+          for (auto p : variable_values ) {
+              tout << this->get_variable_name(p.first) << " = " << p.second << "\n";
+          });
 }
 
 
 void lar_solver::get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const {
-    mpq delta = mpq(1);
-    delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(delta);
+    mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1));
     for (unsigned i = 0; i < m_mpq_lar_core_solver.m_r_x.size(); i++ ) {
         const impq & rp = m_mpq_lar_core_solver.m_r_x[i];
         variable_values[i] = rp.x + delta * rp.y;
+    }
+}
+
+void lar_solver::get_rid_of_inf_eps() {
+    mpq delta = m_mpq_lar_core_solver.find_delta_for_strict_bounds(mpq(1));
+    for (unsigned j = 0; j < number_of_vars(); j++) {
+        auto & r = m_mpq_lar_core_solver.m_r_x[j];
+        r = impq(r.x + delta * r.y);
     }
 }
 
