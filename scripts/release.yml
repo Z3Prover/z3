@@ -3,6 +3,8 @@
 # * Creates packages for Python and NuGet
 # * Uploads build products to stores (GitHub, NuGet, PyPI)
 
+trigger: none
+
 stages:
 
 # Builds Z3 on various platforms
