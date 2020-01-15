@@ -45,9 +45,10 @@ Revision History:
 
 namespace lp {
 
+typedef unsigned lpvar;
+const lpvar null_lpvar = UINT_MAX;
 
 class lar_solver : public column_namer {
-    typedef unsigned lpvar;
     struct term_hasher {
         std::size_t operator()(const lar_term &t) const
         {            
@@ -483,6 +484,8 @@ public:
 
     void get_model(std::unordered_map<var_index, mpq> & variable_values) const;
 
+    void get_rid_of_inf_eps();
+    
     void get_model_do_not_care_about_diff_vars(std::unordered_map<var_index, mpq> & variable_values) const;
 
     std::string get_variable_name(var_index vi) const;

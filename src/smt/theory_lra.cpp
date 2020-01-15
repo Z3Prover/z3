@@ -752,7 +752,7 @@ class theory_lra::imp {
     
     lpvar register_theory_var_in_lar_solver(theory_var v) {
         lpvar lpv = lp().external_to_local(v);
-        if (lpv + 1)
+        if (lpv != lp::null_lpvar)
             return lpv;
         return lp().add_var(v, is_int(v));
     }
@@ -3717,12 +3717,17 @@ public:
     }
 
 
-    void display(std::ostream & out) const {
+    void display(std::ostream & out) {
         if (m_solver) {
             lp().print_constraints(out);
             lp().print_terms(out);
-            // auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(lp().m_mpq_lar_core_solver.m_r_solver, out);
-            // pp.print();
+            // the tableau
+            auto pp = lp ::core_solver_pretty_printer<lp::mpq, lp::impq>(
+                 lp().m_mpq_lar_core_solver.m_r_solver, out);
+            pp.print();
+            for (unsigned j = 0; j < lp().number_of_vars(); j++) {
+                lp().m_mpq_lar_core_solver.m_r_solver.print_column_info(j, out);
+            }
         }
         unsigned nv = th.get_num_vars();
         for (unsigned v = 0; v < nv; ++v) {
