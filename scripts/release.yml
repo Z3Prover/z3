@@ -281,6 +281,7 @@ stages:
       inputs:
         command: pack
         packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z4.x64.nuspec
+        basePath: $(Agent.TempDirectory)\package\out
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
