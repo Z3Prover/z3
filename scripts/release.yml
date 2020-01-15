@@ -280,8 +280,7 @@ stages:
     - task: NugetCommand@2
       inputs:
         command: pack
-        basePath: $(Agent.TempDirectory)\package\out
-        packagesToPack: 'Microsoft.Z3.x64.nuspec'
+        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z4.x64.nuspec
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
