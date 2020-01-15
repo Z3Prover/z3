@@ -8,87 +8,87 @@ trigger: none
 stages:
 
 # Builds Z3 on various platforms
-#- stage: Build
-#  jobs:
-#
-#  - job: MacBuild
-#    displayName: "Mac Build"
-#    pool:
-#      vmImage: "macOS-10.14"
-#    steps:
-#    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#    - script: git clone https://github.com/z3prover/z3test z3test
-#    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: 'Mac'
-#        targetPath: $(Build.ArtifactStagingDirectory)
-#
-#  - job: UbuntuBuild
-#    displayName: "Ubuntu build"
-#    pool:
-#      vmImage: "ubuntu-16.04"
-#    steps:
-#    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#    - script: git clone https://github.com/z3prover/z3test z3test
-#    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: 'Ubuntu'
-#        targetPath: $(Build.ArtifactStagingDirectory)
-#
-#  - job: ManylinuxBuild
-#    displayName: "Manylinux build"
-#    pool:
-#      vmImage: "ubuntu-16.04"
-#    container: "rhelmot/manylinux1_x86_64:latest"
-#    variables:
-#      python: "/opt/python/cp35-cp35m/bin/python"
-#    steps:
-#    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
-#    - script: git clone https://github.com/z3prover/z3test z3test
-#    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-#    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: 'Manylinux'
-#        targetPath: $(Build.ArtifactStagingDirectory)
-#  
-#  - job: WindowsBuild32
-#    displayName: "Windows build (32-bit)"
-#    pool:
-#      vmImage: "vs2017-win2016"
-#    steps:
-#    - task: CmdLine@2
-#      inputs:
-#        script:
-#          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
-#          python scripts\mk_win_dist.py
-#              --x86-only
-#              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#    - task: PublishPipelineArtifact@1
-#      inputs:
-#        targetPath: dist
-#        artifactName: 'Windows32'
-#
-#  - job: WindowsBuild64
-#    displayName: "Windows build (64-bit)"
-#    pool:
-#      vmImage: "vs2017-win2016"
-#    steps:
-#    - task: CmdLine@2
-#      inputs:
-#        script:
-#          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
-#          python scripts\mk_win_dist.py
-#              --x64-only
-#              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-#    - task: PublishPipelineArtifact@1
-#      inputs:
-#        targetPath: dist
-#        artifactName: 'Windows64'
+- stage: Build
+  jobs:
+
+  - job: MacBuild
+    displayName: "Mac Build"
+    pool:
+      vmImage: "macOS-10.14"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Mac'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: UbuntuBuild
+    displayName: "Ubuntu build"
+    pool:
+      vmImage: "ubuntu-16.04"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Ubuntu'
+        targetPath: $(Build.ArtifactStagingDirectory)
+
+  - job: ManylinuxBuild
+    displayName: "Manylinux build"
+    pool:
+      vmImage: "ubuntu-16.04"
+    container: "rhelmot/manylinux1_x86_64:latest"
+    variables:
+      python: "/opt/python/cp35-cp35m/bin/python"
+    steps:
+    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Manylinux'
+        targetPath: $(Build.ArtifactStagingDirectory)
+  
+  - job: WindowsBuild32
+    displayName: "Windows build (32-bit)"
+    pool:
+      vmImage: "vs2017-win2016"
+    steps:
+    - task: CmdLine@2
+      inputs:
+        script:
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
+          python scripts\mk_win_dist.py
+              --x86-only
+              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: dist
+        artifactName: 'Windows32'
+
+  - job: WindowsBuild64
+    displayName: "Windows build (64-bit)"
+    pool:
+      vmImage: "vs2017-win2016"
+    steps:
+    - task: CmdLine@2
+      inputs:
+        script:
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+          python scripts\mk_win_dist.py
+              --x64-only
+              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: dist
+        artifactName: 'Windows64'
 
 - stage: Sign
   jobs:
@@ -285,6 +285,7 @@ stages:
       inputs:
         command: pack
         basePath: $(Agent.TempDirectory)\package\out
+        packagesToPack: '*.nuspec'
         packDestination: $(Build.ArtifactStagingDirectory)
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PublishPipelineArtifact@1
