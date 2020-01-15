@@ -48,31 +48,67 @@ jobs:
       artifactName: 'Manylinux'
       targetPath: $(Build.ArtifactStagingDirectory)
 
-- job: Windows
-  displayName: "Windows build"
+- job: Windows32
+  displayName: "Windows 32-bit build"
   pool:
     vmImage: "vs2017-win2016"
   steps:
-  - script: scripts\mk_win_dist.cmd
-#  - script: git clone https://github.com/z3prover/z3test z3test
-#  - script: python z3test/scripts/test_benchmarks.py build-dist\z3.exe z3test/regressions/smt2    
-  - script: xcopy dist\*.zip $(Build.ArtifactStagingDirectory)\* /y
-  - task: PublishPipelineArtifact@0
+  - task: CmdLine@2
     inputs:
-      artifactName: 'Windows'
+      script:
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
+        python scripts\mk_win_dist.py
+            --x86-only
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+            --zip
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: dist
+      contents: '*.zip'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@1
+    inputs:
       targetPath: $(Build.ArtifactStagingDirectory)
+      artifactName: 'Windows32'
 
+- job: Windows64
+  displayName: "Windows 64-bit build"
+  pool:
+    vmImage: "vs2017-win2016"
+  steps:
+  - task: CmdLine@2
+    inputs:
+      script:
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
+        python scripts\mk_win_dist.py
+            --x64-only
+            --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+            --zip
+  - task: CopyFiles@2
+    inputs:
+      sourceFolder: dist
+      contents: '*.zip'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  - task: PublishPipelineArtifact@1
+    inputs:
+      targetPath: $(Build.ArtifactStagingDirectory)
+      artifactName: 'Windows64'
 
 - job: NuGet
   displayName: "Create Nuget Package"
   dependsOn:
   - Mac
   - Ubuntu
-  - Windows
+  - Windows32
+  - Windows64
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
-     artifactName: 'Windows'
+     artifactName: 'Windows32'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
      targetPath: tmp
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -108,14 +144,19 @@ jobs:
   displayName: "Python packaging"
   dependsOn:
   - Manylinux
-  - Windows
+  - Windows32
+  - Windows64
   - Mac
   pool:
     vmImage: "ubuntu-16.04"
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
-     artifactName: 'Windows'
+     artifactName: 'Windows32'
+     targetPath: $(Agent.TempDirectory)
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
      targetPath: $(Agent.TempDirectory)
   - task: DownloadPipelineArtifact@0
     inputs:
@@ -146,12 +187,17 @@ jobs:
   dependsOn: 
   - Mac
   - Ubuntu
-  - Windows
+  - Windows32
+  - Windows64
   - Python
   steps:
   - task: DownloadPipelineArtifact@0
     inputs:
-     artifactName: 'Windows'
+     artifactName: 'Windows32'
+     targetPath: tmp
+  - task: DownloadPipelineArtifact@0
+    inputs:
+     artifactName: 'Windows64'
      targetPath: tmp
   - task: DownloadPipelineArtifact@0
     inputs:

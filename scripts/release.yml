@@ -249,20 +249,39 @@ stages:
     - task: DownloadPipelineArtifact@2
       inputs:
         artifact: 'Windows32Signed'
-        path: $(Agent.TempDirectory)/win32
+        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
         artifact: 'Ubuntu'
-        path: $(Agent.TempDirectory)/ubuntu
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 47
+        path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       inputs:
         artifact: 'Mac'
-        path: $(Agent.TempDirectory)/mac
-#    - task: ExtractFiles@1
-#      inputs:
-#        archiveFilePatterns: $(Agent.TempDirectory)/windows/*.zip
-#        destinationFolder: $(Agent.TempDirectory)/windows/out
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 47
+        path: $(Agent.TempDirectory)
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
+    - task: PythonScript@0
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts\mk_nuget_task.py
+        arguments:
+          $(Agent.TempDirectory)
+          $(ReleaseVersion)
+          $(Build.SourceVersion)
+    - powershell: get-childitem -recurse $(Agent.TempDirectory)
+    - task: PublishPipelineArtifact@1
+      inputs:
+        targetPath: $(Agent.TempDirectory)\out
+        artifactName: 'NugetPackage'
 
 #  - job: PythonPackage
 #    condition: false
