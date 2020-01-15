@@ -1872,6 +1872,8 @@ namespace z3 {
         ast_vector_tpl(context & c):object(c) { init(Z3_mk_ast_vector(c)); }
         ast_vector_tpl(context & c, Z3_ast_vector v):object(c) { init(v); }
         ast_vector_tpl(ast_vector_tpl const & s):object(s), m_vector(s.m_vector) { Z3_ast_vector_inc_ref(ctx(), m_vector); }
+        ast_vector_tpl(context& c, ast_vector_tpl const& src): object(c) { init(Z3_ast_vector_translate(src.ctx(), src, c)); }
+
         ~ast_vector_tpl() { Z3_ast_vector_dec_ref(ctx(), m_vector); }
         operator Z3_ast_vector() const { return m_vector; }
         unsigned size() const { return Z3_ast_vector_size(ctx(), m_vector); }
@@ -2778,6 +2780,11 @@ namespace z3 {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
             m_opt = o.m_opt;
         }
+        optimize(context& c, optimize& src):object(c) {
+            m_opt = Z3_mk_optimize(c); Z3_optimize_inc_ref(c, m_opt);
+            add(expr_vector(c, src.assertions()));
+            for (expr& o : expr_vector(c, src.objectives())) minimize(o);            
+        }
         optimize& operator=(optimize const& o) {
             Z3_optimize_inc_ref(o.ctx(), o.m_opt);
             Z3_optimize_dec_ref(ctx(), m_opt);
@@ -2790,6 +2797,9 @@ namespace z3 {
         void add(expr const& e) {
             assert(e.is_bool());
             Z3_optimize_assert(ctx(), m_opt, e);
+        }
+        void add(expr_vector const& es) {
+            for (expr& e : es) add(e);
         }
         handle add(expr const& e, unsigned weight) {
             assert(e.is_bool());

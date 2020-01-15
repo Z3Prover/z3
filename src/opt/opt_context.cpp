@@ -217,7 +217,7 @@ namespace opt {
             break;
         case O_MAXIMIZE:
             result = o.m_term;
-            if (m_arith.is_arith_expr(result)) {
+            if (m_arith.is_int_real(result)) {
                 result = m_arith.mk_uminus(result);
             }
             else if (m_bv.is_bv(result)) {
