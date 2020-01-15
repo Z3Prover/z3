@@ -361,6 +361,7 @@ namespace sat {
                 literal u(vt[j].first, false);
                 cut const& c1 = *vt[j].second;
                 cut nc1(c1);
+                nc1.negate();
                 uint64_t t1 = c1.table();
                 uint64_t n1 = nc1.table();
                 for (unsigned k = j + 1; k < vt.size(); ++k) {
@@ -368,8 +369,7 @@ namespace sat {
                     cut const& c2 = *vt[k].second;                
                     uint64_t t2 = c2.table();
                     uint64_t n2 = c2.ntable();
-                    // 
-                    if (u.var() == v.var() || t1 == t2 || t1 == n2) {
+                    if (t1 == t2 || t1 == n2) {
                         // already handled
                     }
                     else if ((t1 | t2) == t2) {
@@ -390,6 +390,13 @@ namespace sat {
     }
 
     void aig_simplifier::learn_implies(big& big, cut const& c, literal u, literal v) {
+        if (u == ~v) {
+            assign_unit(c, v);
+            return;
+        }
+        if (u == v) { 
+            return;
+        }
         bin_rel q, p(~u, v);
         if (m_bins.find(p, q) && q.op != none) 
             return;
@@ -497,11 +504,11 @@ namespace sat {
     }
 
     void aig_simplifier::add_dont_cares(vector<cut_set> const& cuts) {
-        if (m_config.m_enable_dont_cares) {
-            cuts2bins(cuts);
-            bins2dont_cares();
-            dont_cares2cuts(cuts);
-        }
+        if (!m_config.m_enable_dont_cares) 
+            return;
+        cuts2bins(cuts);
+        bins2dont_cares();
+        dont_cares2cuts(cuts);        
     }
 
     /**

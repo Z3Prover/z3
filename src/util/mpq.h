@@ -640,6 +640,8 @@ public:
     void set(mpq & a, int n, int d) {
         SASSERT(d != 0);
         if (d < 0) {
+            SASSERT(d != INT_MIN);
+            SASSERT(n != INT_MIN);
             n = -n;
             d = -d;
         }

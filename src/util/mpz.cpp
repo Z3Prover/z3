@@ -97,36 +97,10 @@ unsigned u_gcd(unsigned u, unsigned v) {
     if (u == v) return u << shift;
     do {
         v >>= _trailing_zeros32(v);        
-#if 1
         unsigned diff = u - v;
         unsigned mdiff = diff & (unsigned)((int)diff >> 31);
         u = v + mdiff; // min
         v = diff - 2 * mdiff;   // if v <= u: u - v, if v > u: v - u = u - v - 2 * (u - v)
-#endif
-#if 0
-        unsigned t = _bit_max(u, v);
-        u = _bit_min(u, v);
-        v = t;
-        v -= u;        
-#endif
-#if 0
-        unsigned t = std::max(u, v);
-        u = std::min(u,v);
-        v = t;
-        v -= u;        
-#endif
-#if 0
-        if (u > v) std::swap(u, v);
-        v -= u;        
-#endif
-#if 0
-        unsigned d1 = u - v;
-        unsigned d2 = v - u;
-        unsigned md21 = d2 & (unsigned)((int)d1 >> 31);
-        unsigned md12 = d1 & (unsigned)((int)d2 >> 31);
-        u = _bit_min(u, v);
-        v = md12 | md21;
-#endif
     }
     while (v != 0);
     return u << shift;
