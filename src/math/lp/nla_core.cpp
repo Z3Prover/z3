@@ -164,7 +164,8 @@ rational core::product_value(const unsigned_vector & m) const {
     
 // return true iff the monic value is equal to the product of the values of the factors
 bool core::check_monic(const monic& m) const {    
-    SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());        
+    SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
+    TRACE("nla_solver", print_monic_with_vars(m, tout) << '\n';);
     return product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var());
 }
     
@@ -1122,13 +1123,9 @@ std::unordered_map<unsigned, unsigned_vector> core::get_rm_by_arity() {
     return m;
 }
 
-    
-
 bool core::rm_check(const monic& rm) const {
     return check_monic(m_emons[rm.var()]);
 }
-    
-
 
 /**
    \brief Add |v| ~ |bound|
@@ -1330,6 +1327,7 @@ bool core::elists_are_consistent(bool check_in_model) const {
 lbool core::check(vector<lemma>& l_vec) {
     lp_settings().stats().m_nla_calls++;
     TRACE("nla_solver", tout << "calls = " << lp_settings().stats().m_nla_calls << "\n";);
+    m_lar_solver.get_rid_of_inf_eps();
     m_lemma_vec =  &l_vec;
     if (!(m_lar_solver.get_status() == lp::lp_status::OPTIMAL || m_lar_solver.get_status() == lp::lp_status::FEASIBLE )) {
         TRACE("nla_solver", tout << "unknown because of the m_lar_solver.m_status = " << m_lar_solver.get_status() << "\n";);
