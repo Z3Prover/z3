@@ -236,10 +236,6 @@ stages:
       displayName: "System.DefinitionId"
     - powershell: write-host $(Build.BuildId)
       displayName: "Build.BuildId"
-    - powershell: write-host $(Build.BuildNumber)
-      displayName: "Build.BuildNumber"
-    - powershell: write-host $(Build.BuildUri)
-      displayName: "Build.BuildUri"
     - powershell: write-host $(System.TeamProjectId)
       displayName: "System.TeamProjectId"
     - task: DownloadPipelineArtifact@2
@@ -285,8 +281,9 @@ stages:
       inputs:
         command: pack
         basePath: $(Agent.TempDirectory)\package\out
-        packagesToPack: '*.nuspec'
+        packagesToPack: 'Microsoft.Z3.x64.nuspec'
         packDestination: $(Build.ArtifactStagingDirectory)
+        verbosityPack: detailed
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
