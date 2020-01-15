@@ -165,8 +165,9 @@ rational core::product_value(const unsigned_vector & m) const {
 // return true iff the monic value is equal to the product of the values of the factors
 bool core::check_monic(const monic& m) const {    
     SASSERT((!m_lar_solver.column_is_int(m.var())) || m_lar_solver.get_column_value(m.var()).is_int());
-    TRACE("nla_solver", print_monic_with_vars(m, tout) << '\n';);
-    return product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var());
+    bool ret = product_value(m.vars()) == m_lar_solver.get_column_value_rational(m.var()); 
+    CTRACE("nla_solver", !ret, print_monic(m, tout) << '\n';);
+    return ret;
 }
     
 void core::explain(const monic& m, lp::explanation& exp) const {       
@@ -1257,7 +1258,7 @@ bool core::done() const {
 }
 
 lbool core::incremental_linearization(bool constraint_derived) {
-    TRACE("nla_solver", print_terms(tout); m_lar_solver.print_constraints(tout););
+    TRACE("nla_solver_details", print_terms(tout); m_lar_solver.print_constraints(tout););
     for (int search_level = 0; search_level < 3 && !done(); search_level++) {
         TRACE("nla_solver", tout << "constraint_derived = " << constraint_derived << ", search_level = " << search_level << "\n";);
         if (search_level == 0) {

@@ -718,26 +718,18 @@ void test_monotone_lemma() {
 }
 
 void test_tangent_lemma_reg() {
-    /*
     enable_trace("nla_solver");
     lp::lar_solver s;
-    unsigned a = 0, b = 1, ab = 10;
+    unsigned a = s.number_of_vars();
+    unsigned b = a + 1;
+    unsigned ab = b + 1;
     
     lpvar lp_a = s.add_named_var(a, true, "a");
     lpvar lp_b = s.add_named_var(b, true, "b");
-    //    lpvar lp_c = s.add_named_var(c, true, "c");
-    //    lpvar lp_d = s.add_named_var(d, true, "d");
-    // lpvar lp_e = s.add_named_var(e, true, "e");
-    // lpvar lp_f = s.add_named_var(f, true, "f");
-    // lpvar lp_i = s.add_named_var(i, true, "i");
-    // lpvar lp_j = s.add_named_var(j, true, "j");
     lpvar lp_ab = s.add_named_var(ab, true, "ab");
-    int sign = 1;
-    for (unsigned j = 0; j < s.number_of_vars(); j++) {
-        sign *= -1;
-        s_set_column_value(s, j, sign * rational((j + 2) * (j + 2)));
-    }
-    
+    s_set_column_value(s, lp_a, rational(3));
+    s_set_column_value(s, lp_b, rational(4));
+    s_set_column_value(s, lp_ab, rational(11));
     reslimit l;
     params_ref p;
     solver nla(s);
@@ -745,13 +737,11 @@ void test_tangent_lemma_reg() {
     vector<unsigned> vec;
     vec.push_back(lp_a);
     vec.push_back(lp_b);
-    int mon_ab = nla.add_monic(lp_ab, vec.size(), vec.begin());
+    nla.add_monic(lp_ab, vec.size(), vec.begin());
     
-    s_set_column_value(s, lp_ab, nla.get_core()->mon_value_by_vars(mon_ab) + rational(10)); // greater by ten than the correct value
     vector<lemma> lemma;
     SASSERT(nla.get_core()->test_check(lemma) == l_false);
     nla.get_core()->print_lemma(std::cout);
-    */
 }
 
 void test_tangent_lemma_equiv() {
