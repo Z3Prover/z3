@@ -122,7 +122,6 @@ stages:
 
   - job: NuGetPackage
     displayName: "NuGet packaging"
-    condition: false
     pool:
       vmImage: "windows-latest"
     steps:
@@ -269,44 +268,71 @@ stages:
 - stage: Publish
   jobs:
 
+  - job: GitHubPublish
+    displayName: "Publish to GitHub"
+    pool:
+      vmImage: "windows-latest"
+    steps:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Build'
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifact: 'macOSBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win32 Build'
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifact: 'WindowsBuild-x86'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download Win64 Build'
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifact: 'WindowsBuild-x64'
+        path: $(Agent.TempDirectory)
+    - task: GitHubRelease@0
+      inputs:
+        gitHubConnection: Z3GitHub
+        repositoryName: $(Build.Repository.Name)
+        action: 'create'
+        target: '$(Build.SourceVersion)'
+        tagSource: 'manual'
+        tag: 'z3-$(ReleaseVersion)'
+        title: 'z3-$(ReleaseVersion)'
+        releaseNotesSource: 'input'
+        releaseNotes: '$(ReleaseVersion) release'
+        assets: '$(Agent.TempDirectory)/*.zip'
+        isDraft: true
+        isPreRelease: false
+
   - job: NuGetPublish
     displayName: "Publish to NuGet.org"
     steps:
+    - task: DownloadPipelineArtifact@2
+      displayName: 'Download NuGet Package'
+      inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifact: 'NugetPackage'
+        path: $(Agent.TempDirectory)
     - powershell: write-host "publish nuget"
-#
-#  - job: GitHubPublish
-#    displayName: "Publish to GitHub"
-#    pool:
-#      vmImage: "windows-latest"
-#    steps:
-#    - task: DownloadPipelineArtifact@0
-#      inputs:
-#        artifactName: 'WindowsBuild-x64'
-#        targetPath: tmp
-#    - task: DownloadPipelineArtifact@0
-#      inputs:
-#        artifactName: 'macOSBuild'
-#        targetPath: tmp
-#    - task: DownloadPipelineArtifact@0
-#      inputs:
-#        artifactName: 'UbuntuBuild'
-#        targetPath: tmp
-#    # TBD: this script should build a specific pre-specified tag
-#    - task: GitHubRelease@0
-#      inputs:
-#        gitHubConnection: Z3GitHub
-#        repositoryName: 'Z3Prover/z3'
-#        action: 'create'
-#        target: '$(Build.SourceVersion)'
-#        tagSource: 'manual'
-#        tag: 'z3-4.8.7'
-#        title: 'z3-4.8.7'
-#        releaseNotesSource: 'input'
-#        releaseNotes: '4.8.7 release'
-#        assets: 'tmp/*'
-#        isDraft: true
-#        isPreRelease: true
-#
+
 #  - job: PyPIPublish
 #    displayName: "Publish to PyPI"
 #    pool:
