@@ -277,6 +277,10 @@ stages:
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
+    - task: CmdLine@2
+      inputs:
+        script: nuget pack -OutputDirectory $(Build.ArtifactStagingDirectory)
+        workingDirectory: $(Agent.TempDirectory)\package\out
     - task: NugetCommand@2
       inputs:
         command: pack
