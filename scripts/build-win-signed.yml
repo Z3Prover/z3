@@ -78,4 +78,4 @@ jobs:
   - task: PublishPipelineArtifact@1
     inputs:
       targetPath: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'
-      artifactName: 'Windows-${{parameters.BuildArchitecture}}'
+      artifactName: 'WindowsBuild-${{parameters.BuildArchitecture}}'

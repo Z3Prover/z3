@@ -40,7 +40,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'macOS'
+        artifactName: 'macOSBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuBuild
@@ -69,7 +69,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Ubuntu'
+        artifactName: 'UbuntuBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: ManyLinuxBuild
@@ -103,7 +103,7 @@ stages:
         targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinux'
+        artifactName: 'ManyLinuxBuild'
         targetPath: $(Build.ArtifactStagingDirectory)
   
   - template: build-win-signed.yml
@@ -134,7 +134,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        artifact: 'Windows-x64'
+        artifact: 'WindowsBuild-x64'
 #        artifact: Windows64Signed
 #        source: specific
 #        project: c6e283d3-5018-4982-b28f-8a88c50174e2
@@ -145,7 +145,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
-        artifact: 'Ubuntu'
+        artifact: 'UbuntuBuild'
 #        source: specific
 #        project: c6e283d3-5018-4982-b28f-8a88c50174e2
 #        pipeline: 7
@@ -155,7 +155,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'macOS'
+        artifact: 'macOSBuild'
 #        artifact: 'Mac'
 #        source: specific
 #        project: c6e283d3-5018-4982-b28f-8a88c50174e2
@@ -227,24 +227,34 @@ stages:
     steps:
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'Ubuntu'
+        artifactName: 'UbuntuBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@0
       inputs:
-        artifactName: 'ManyLinux'
+        artifactName: 'ManyLinuxBuild'
         targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'WindowsBuild-x64'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'WindowsBuild-x86'
+        targetPath: $(Agent.TempDirectory)
+    - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
     - script: python -m pip install --user -U setuptools wheel
     - script: cd src/api/python; python setup.py sdist
     # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/osx-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Python packages'
+        artifactName: 'PythonPackage'
         targetPath: src/api/python/dist
 
 # Uploads Z3 packages to various package stores
@@ -263,15 +273,15 @@ stages:
 #    steps:
 #    - task: DownloadPipelineArtifact@0
 #      inputs:
-#        artifactName: 'Windows'
+#        artifactName: 'WindowsBuild-x64'
 #        targetPath: tmp
 #    - task: DownloadPipelineArtifact@0
 #      inputs:
-#        artifactName: 'Mac'
+#        artifactName: 'macOSBuild'
 #        targetPath: tmp
 #    - task: DownloadPipelineArtifact@0
 #      inputs:
-#        artifactName: 'Ubuntu'
+#        artifactName: 'UbuntuBuild'
 #        targetPath: tmp
 #    # TBD: this script should build a specific pre-specified tag
 #    - task: GitHubRelease@0
@@ -296,7 +306,7 @@ stages:
 #    steps:
 #    - task: DownloadPipelineArtifact@0
 #      inputs:
-#        artifactName: 'Python packages'
+#        artifactName: 'PythonPackage'
 #        targetPath: dist
 #    - task: DownloadSecureFile@1
 #      name: pypirc
