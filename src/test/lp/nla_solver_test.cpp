@@ -717,6 +717,34 @@ void test_monotone_lemma() {
     */
 }
 
+void test_tangent_lemma_rat() {
+    enable_trace("nla_solver");
+    lp::lar_solver s;
+    unsigned a = s.number_of_vars();
+    unsigned b = a + 1;
+    unsigned ab = b + 1;
+    
+    lpvar lp_a = s.add_named_var(a, true, "a");
+    lpvar lp_b = s.add_named_var(b, false, "b");
+    lpvar lp_ab = s.add_named_var(ab, false, "ab");
+    s_set_column_value(s, lp_a, rational(3));
+    s_set_column_value(s, lp_b, rational(4));
+    rational v = rational(12) + rational (1)/rational(7);
+    s_set_column_value(s, lp_ab, v);
+    reslimit l;
+    params_ref p;
+    solver nla(s);
+    // create monomial ab
+    vector<unsigned> vec;
+    vec.push_back(lp_a);
+    vec.push_back(lp_b);
+    nla.add_monic(lp_ab, vec.size(), vec.begin());
+    
+    vector<lemma> lemma;
+    SASSERT(nla.get_core()->test_check(lemma) == l_false);
+    nla.get_core()->print_lemma(std::cout);
+}
+
 void test_tangent_lemma_reg() {
     enable_trace("nla_solver");
     lp::lar_solver s;
@@ -793,7 +821,8 @@ void test_tangent_lemma_equiv() {
 
 
 void test_tangent_lemma() {
-    test_tangent_lemma_reg();
+    test_tangent_lemma_rat();
+    test_tangent_lemma_reg();    
     test_tangent_lemma_equiv();    
 }
 
