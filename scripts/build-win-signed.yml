@@ -8,6 +8,12 @@ jobs:
   pool:
     vmImage: "vs2017-win2016"
   steps:
+  - powershell: write-host $(System.TeamProjectId)
+    displayName: 'System.TeamProjectId'
+  - powershell: write-host $(System.DefinitionId)
+    displayName: 'System.DefinitionId'
+  - powershell: write-host $(Build.BuildId)
+    displayName: 'Build.BuildId'
   - task: CmdLine@2
     inputs:
       script:

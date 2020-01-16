@@ -33,6 +33,12 @@ stages:
     pool:
       vmImage: "ubuntu-16.04"
     steps:
+    - powershell: write-host $(System.DefinitionId)
+      displayName: 'System.DefinitionId'
+    - powershell: write-host $(Build.BuildId)
+      displayName: 'Build.BuildId'
+    - powershell: write-host $(System.TeamProjectId)
+      displayName: 'System.TeamProjectId'
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
