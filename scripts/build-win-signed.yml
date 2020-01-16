@@ -15,6 +15,7 @@ jobs:
   - powershell: write-host $(Build.BuildId)
     displayName: 'Build.BuildId'
   - task: CmdLine@2
+    displayName: Build
     inputs:
       script:
         call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
@@ -22,6 +23,7 @@ jobs:
             --${{parameters.BuildArchitecture}}-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - task: EsrpCodeSigning@1
+    displayName: Sign
     inputs:
       ConnectedServiceName: 'z3-esrp-signing'
       FolderPath: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
@@ -62,12 +64,14 @@ jobs:
       MaxConcurrency: '50'
       MaxRetryAttempts: '5'
   - task: DeleteFiles@1
+    displayName: Cleanup
     inputs:
       SourceFolder: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
       Contents: 'CodeSignSummary*'
   - task: ArchiveFiles@2
+    displayName: Zip
     inputs:
-      rootFolderOrFile: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win/bin'
+      rootFolderOrFile: 'dist/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win'
       includeRootFolder: true
       archiveType: 'zip'
       archiveFile: '$(Build.ArtifactStagingDirectory)/z3-${{parameters.ReleaseVersion}}-${{parameters.BuildArchitecture}}-win.zip'

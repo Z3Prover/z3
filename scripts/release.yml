@@ -1,4 +1,4 @@
-# Release pipeline
+# Release pipeline (must be triggered manually)
 # * Builds for all platforms (with code signing)
 # * Creates packages for Python and NuGet
 # * Uploads build products to stores (GitHub, NuGet, PyPI)
@@ -19,10 +19,25 @@ stages:
     pool:
       vmImage: "macOS-10.14"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'macOS'
@@ -33,10 +48,25 @@ stages:
     pool:
       vmImage: "ubuntu-16.04"
     steps:
-    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'Ubuntu'
@@ -50,10 +80,27 @@ stages:
     variables:
       python: "/opt/python/cp35-cp35m/bin/python"
     steps:
-    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
+    - task: PythonScript@0
+      displayName: Build
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: scripts/mk_unix_dist.py
+        arguments: --nodotnet --nojava
+        pythonInterpreter: $(python)
     - script: git clone https://github.com/z3prover/z3test z3test
-    - script: $(python) z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
-    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
+      displayName: 'Clone z3test'
+    - task: PythonScript@0
+      displayName: Test
+      inputs:
+        scriptSource: 'filepath'
+        scriptPath: z3test/scripts/test_benchmarks.py
+        arguments: build-dist/z3 z3test/regressions/smt2
+        pythonInterpreter: $(python)
+    - task: CopyFiles@2
+      inputs:
+        sourceFolder: dist
+        contents: '*.zip'
+        targetFolder: $(Build.ArtifactStagingDirectory)
     - task: PublishPipelineArtifact@0
       inputs:
         artifactName: 'ManyLinux'
@@ -191,7 +238,7 @@ stages:
     - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
     - script: python -m pip install --user -U setuptools wheel
     - script: cd src/api/python; python setup.py sdist
-   # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+    # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
     - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
     - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
