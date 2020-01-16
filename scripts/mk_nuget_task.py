@@ -106,9 +106,10 @@ def main():
     commit = sys.argv[5]
     source_root = sys.argv[6]
     print(packages)
-    mk_dir(packages)    
+    mk_dir(packages)
     unpack(packages)
     mk_targets(source_root)
+    mk_icon(source_root)
     create_nuget_spec(version, repo, branch, commit)
 
 main()

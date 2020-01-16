@@ -5,6 +5,9 @@
 
 trigger: none
 
+variables:
+  ReleaseVersion: '4.8.8'
+
 stages:
 
 # Builds Z3 on various platforms
