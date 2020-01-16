@@ -13,7 +13,7 @@ def_module_params('nla',
                    ('grobner_expr_degree_growth', UINT, 2, 'grobner\'s maximum expr degree growth'),
                    ('grobner_max_simplified', UINT, 10000, 'grobner\'s maximum number of simplifications'),
                    ('grobner_cnfl_to_report', UINT, 1, 'grobner\'s maximum number of conflicts to report'),
-                   ('gr_q', UINT, 8, 'grobner\'s quota'),
+                   ('gr_q', UINT, 10, 'grobner\'s quota'),
                    ('grobner_subs_fixed', UINT, 2, '0 - no subs, 1 - substitute, 2 - substitute fixed zeros only')
                           ))           
 

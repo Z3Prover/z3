@@ -1735,19 +1735,36 @@ public:
         bool is_int = offset.is_int();
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
-        TRACE("arith", 
-              lp().print_term(term, tout << "term: ") << "\n";
-              for (auto const& kv : coeffs) {
-                  tout << "v" << kv.m_key << " * " << kv.m_value << "\n";
+        TRACE("arith",
+              {
+                  bool all_ints = true;
+                  lp().print_term(term, tout << "term: ") << "\n";
+                  for (auto const& kv : coeffs) {
+                      if (kv.m_value.is_int() == false)
+                          all_ints = false;
+                      tout << "v" << kv.m_key << " * " << kv.m_value << "\n";
+                  }
+                  tout << offset << "\n";
+                  if (all_ints) {
+                      rational g(0);
+                      for (auto const& kv : coeffs) {
+                          g = gcd(g, kv.m_value);
+                      }
+                      tout << "gcd: " << g << "\n";
+                  }
               }
-              tout << offset << "\n";
-              rational g(0);
-              for (auto const& kv : coeffs) {
-                  g = gcd(g, kv.m_value);
-              }
-              tout << "gcd: " << g << "\n";
               );
+        bool all_ints = true;
         if (is_int) {
+            for (auto const& kv : coeffs) {
+                if (kv.m_value.is_int() == false) {
+                    all_ints = false;
+                    break;
+                }
+            }
+        }
+        
+        if (is_int && all_ints) {
             // 3x + 6y >= 5 -> x + 3y >= 5/3, then x + 3y >= 2
             // 3x + 6y <= 5 -> x + 3y <= 1
             
