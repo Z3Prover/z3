@@ -70,6 +70,9 @@ def mk_targets(source_root):
 
 def mk_icon(source_root):
     shutil.copy("{}/resources/icon.jpg".format(source_root), "out/icon.jpg")
+
+def mk_license(source_root):
+    shutil.copy("{}/LICENSE.txt".format(source_root), "out/LICENSE.txt")
     
 def create_nuget_spec(version, repo, branch, commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
@@ -84,11 +87,11 @@ Z3 is a satisfiability modulo theories solver from Microsoft Research.
 Linux Dependencies:
     libgomp.so.1 installed    
         </description>
-        <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
+        <copyright>© Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
         <icon>icon.jpg</icon>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-        <license type="expression">MIT</license>
+        <license type="file">LICENSE.txt</license>
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
@@ -110,6 +113,7 @@ def main():
     unpack(packages)
     mk_targets(source_root)
     mk_icon(source_root)
+    mk_license(source_root)
     create_nuget_spec(version, repo, branch, commit)
 
 main()
