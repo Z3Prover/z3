@@ -264,7 +264,7 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'macOS'
+        artifact: 'Mac'
         source: specific
         project: c6e283d3-5018-4982-b28f-8a88c50174e2
         pipeline: 7
