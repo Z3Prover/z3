@@ -277,18 +277,18 @@ stages:
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
-    - task: NuGetToolInstaller@0
-      inputs:
-        versionSpec: 5.x
-        checkLatest: true
-    - task: CmdLine@2
-      inputs:
-        script: nuget pack -OutputDirectory $(Build.ArtifactStagingDirectory)
-        workingDirectory: $(Agent.TempDirectory)\package\out
+#    - task: NuGetToolInstaller@0
+#      inputs:
+#        versionSpec: 5.x
+#        checkLatest: true
+#    - task: CmdLine@2
+#      inputs:
+#        script: nuget pack -OutputDirectory $(Build.ArtifactStagingDirectory)
+#        workingDirectory: $(Agent.TempDirectory)\package\out
     - task: NugetCommand@2
       inputs:
         command: pack
-        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z4.x64.nuspec
+        packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
         basePath: $(Agent.TempDirectory)\package\out
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
