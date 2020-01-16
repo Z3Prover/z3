@@ -280,6 +280,7 @@ stages:
         runId: 47
         path: $(Agent.TempDirectory)\package
     - task: PythonScript@0
+      displayName: 'Python: assemble files'
       inputs:
         scriptSource: 'filepath'
         scriptPath: scripts\mk_nuget_task.py
@@ -296,6 +297,7 @@ stages:
         versionSpec: 5.x
         checkLatest: false
     - task: NugetCommand@2
+      displayName: 'NuGet Pack'
       inputs:
         command: pack
         packagesToPack: $(Agent.TempDirectory)\package\out\Microsoft.Z3.x64.nuspec
@@ -303,6 +305,7 @@ stages:
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
     - task: EsrpCodeSigning@1
+      displayName: 'Sign Package'
       inputs:
         ConnectedServiceName: 'z3-esrp-signing'
         FolderPath: $(Build.ArtifactStagingDirectory)

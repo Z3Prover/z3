@@ -97,6 +97,9 @@ Linux Dependencies:
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
+        <dependencies>
+            <group targetFramework=".NETStandard1.4" />
+        </dependencies>
     </metadata>
 </package>""".format(version, repo, branch, commit)
     print(contents)
