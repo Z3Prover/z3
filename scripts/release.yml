@@ -277,6 +277,10 @@ stages:
           $(Build.SourceBranchName)
           $(Build.SourceVersion)
           $(Build.SourcesDirectory)
+    - task: NuGetToolInstaller@0
+      inputs:
+        versionSpec: 5.x
+        checkLatest: true
     - task: CmdLine@2
       inputs:
         script: nuget pack -OutputDirectory $(Build.ArtifactStagingDirectory)
