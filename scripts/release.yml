@@ -122,6 +122,7 @@ stages:
 
   - job: NuGetPackage
     displayName: "NuGet packaging"
+    condition: false
     pool:
       vmImage: "windows-latest"
     steps:
@@ -135,33 +136,16 @@ stages:
       displayName: 'Download Win64 Build'
       inputs:
         artifact: 'WindowsBuild-x64'
-#        artifact: Windows64Signed
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 61
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'UbuntuBuild'
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 47
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
         artifact: 'macOSBuild'
-#        artifact: 'Mac'
-#        source: specific
-#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-#        pipeline: 7
-#        runVersion: specific
-#        runId: 47
         path: $(Agent.TempDirectory)\package
     - task: PythonScript@0
       displayName: 'Python: assemble files'
@@ -226,20 +210,44 @@ stages:
       vmImage: "ubuntu-16.04"
     steps:
     - task: DownloadPipelineArtifact@0
+      displayName: 'Download macOS Build'
       inputs:
-        artifactName: 'UbuntuBuild'
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifactName: 'macOSBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@0
+      displayName: 'Download ManyLinux Build'
       inputs:
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
         artifactName: 'ManyLinuxBuild'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@0
+      displayName: 'Download Win32 Build'
       inputs:
-        artifactName: 'WindowsBuild-x64'
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifactName: 'WindowsBuild-x86'
         targetPath: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@0
+      displayName: 'Download Win64 Build'
       inputs:
-        artifactName: 'WindowsBuild-x86'
+        source: specific
+        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+        pipeline: 7
+        runVersion: specific
+        runId: 82
+        artifactName: 'WindowsBuild-x64'
         targetPath: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
