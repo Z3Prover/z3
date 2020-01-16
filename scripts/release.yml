@@ -33,12 +33,6 @@ stages:
     pool:
       vmImage: "ubuntu-16.04"
     steps:
-    - powershell: write-host $(System.DefinitionId)
-      displayName: 'System.DefinitionId'
-    - powershell: write-host $(Build.BuildId)
-      displayName: 'Build.BuildId'
-    - powershell: write-host $(System.TeamProjectId)
-      displayName: 'System.TeamProjectId'
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
     - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2
@@ -93,32 +87,34 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        artifact: 'Windows64Signed'
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 61
+        artifact: 'Windows-x64'
+#        artifact: Windows64Signed
+#        source: specific
+#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+#        pipeline: 7
+#        runVersion: specific
+#        runId: 61
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'Ubuntu'
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 47
+#        source: specific
+#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+#        pipeline: 7
+#        runVersion: specific
+#        runId: 47
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 47
+        artifact: 'macOS'
+#        artifact: 'Mac'
+#        source: specific
+#        project: c6e283d3-5018-4982-b28f-8a88c50174e2
+#        pipeline: 7
+#        runVersion: specific
+#        runId: 47
         path: $(Agent.TempDirectory)\package
     - task: PythonScript@0
       displayName: 'Python: assemble files'
