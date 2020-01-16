@@ -3,8 +3,8 @@ parameters:
   BuildArchitecture: ''
 
 jobs:
-- job: WindowsBuild${{parameters.BuildArchitecture}}
-  displayName: "Windows build ($(BuildArchitecture))"
+- job: WindowsBuild-${{parameters.BuildArchitecture}}
+  displayName: "Windows build (${{parameters.BuildArchitecture}})"
   pool:
     vmImage: "vs2017-win2016"
   steps:
@@ -17,14 +17,14 @@ jobs:
   - task: CmdLine@2
     inputs:
       script:
-        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" $(BuildArchitecture) &&
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{parameters.BuildArchitecture}} &&
         python scripts\mk_win_dist.py
-            --$(BuildArchitecture)-only
+            --${{parameters.BuildArchitecture}}-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
   - task: EsrpCodeSigning@1
     inputs:
       ConnectedServiceName: 'z3-esrp-signing'
-      FolderPath: 'dist/z3-$(ReleaseVersion)-$(BuildArchitecture)-win/bin'
+      FolderPath: 'dist/z3-$(ReleaseVersion)-${{parameters.BuildArchitecture}}-win/bin'
       Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
       signConfigType: 'inlineSignParams'
       inlineOperation: |
@@ -63,15 +63,15 @@ jobs:
       MaxRetryAttempts: '5'
   - task: DeleteFiles@1
     inputs:
-      SourceFolder: 'dist/z3-$(ReleaseVersion)-$(BuildArchitecture)-win/bin'
+      SourceFolder: 'dist/z3-$(ReleaseVersion)-${{parameters.BuildArchitecture}}-win/bin'
       Contents: 'CodeSignSummary*'
   - task: ArchiveFiles@2
     inputs:
-      rootFolderOrFile: 'dist/z3-$(ReleaseVersion)-$(BuildArchitecture)-win/bin'
+      rootFolderOrFile: 'dist/z3-$(ReleaseVersion)-${{parameters.BuildArchitecture}}-win/bin'
       includeRootFolder: true
       archiveType: 'zip'
-      archiveFile: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-$(BuildArchitecture)-win.zip'
+      archiveFile: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-${{parameters.BuildArchitecture}}-win.zip'
   - task: PublishPipelineArtifact@1
     inputs:
-      targetPath: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-$(BuildArchitecture)-win.zip'
-      artifactName: 'Windows-$(BuildArchitecture)'
+      targetPath: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-${{parameters.BuildArchitecture}}-win.zip'
+      artifactName: 'Windows-${{parameters.BuildArchitecture}}'
