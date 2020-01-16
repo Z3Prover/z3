@@ -31,10 +31,12 @@
 #include "smt/params/theory_str_params.h"
 #include "smt/smt_model_generator.h"
 #include "smt/smt_arith_value.h"
+#include "smt/smt_kernel.h"
 #include<set>
 #include<stack>
 #include<vector>
 #include<map>
+#include<functional>
 
 namespace smt {
 
@@ -106,6 +108,8 @@ public:
     }
 };
 
+struct c_hash { unsigned operator()(char u) const { return (unsigned)u; } };
+struct c_eq { bool operator()(char u1, char u2) const { return u1 == u2; } };
 
 class nfa {
 protected:
@@ -216,6 +220,113 @@ public:
     }
 };
 
+class char_union_find {
+    unsigned_vector   m_find;
+    unsigned_vector   m_size;
+    unsigned_vector   m_next;
+
+    integer_set char_const_set;
+
+    u_map<svector<expr*> > m_justification; // representative -> list of formulas justifying EQC
+
+    void ensure_size(unsigned v) {
+        while (v >= get_num_vars()) {
+            mk_var();
+        }
+    }
+ public:
+    unsigned mk_var() {
+        unsigned r = m_find.size();
+        m_find.push_back(r);
+        m_size.push_back(1);
+        m_next.push_back(r);
+        return r;
+    }
+    unsigned get_num_vars() const { return m_find.size(); }
+    void mark_as_char_const(unsigned r) {
+        char_const_set.insert((int)r);
+    }
+    bool is_char_const(unsigned r) {
+        return char_const_set.contains((int)r);
+    }
+
+    unsigned find(unsigned v) const {
+        if (v >= get_num_vars()) {
+            return v;
+        }
+        while (true) {
+            unsigned new_v = m_find[v];
+            if (new_v == v)
+                return v;
+            v = new_v;
+        }
+    }
+
+    unsigned next(unsigned v) const {
+        if (v >= get_num_vars()) {
+            return v;
+        }
+        return m_next[v];
+    }
+
+    bool is_root(unsigned v) const {
+        return v >= get_num_vars() || m_find[v] == v;
+    }
+
+    svector<expr*> get_justification(unsigned v) {
+        unsigned r = find(v);
+        svector<expr*> retval;
+        if (m_justification.find(r, retval)) {
+            return retval;
+        } else {
+            return svector<expr*>();
+        }
+    }
+
+    void merge(unsigned v1, unsigned v2, expr * justification) {
+        unsigned r1 = find(v1);
+        unsigned r2 = find(v2);
+        if (r1 == r2)
+            return;
+        ensure_size(v1);
+        ensure_size(v2);
+        // swap r1 and r2 if:
+        // 1. EQC of r1 is bigger than EQC of r2
+        // 2. r1 is a character constant and r2 is not.
+        // this maintains the invariant that if a character constant is in an eqc then it is the root of that eqc
+        if (m_size[r1] > m_size[r2] || (is_char_const(r1) && !is_char_const(r2))) {
+            std::swap(r1, r2);
+        }
+        m_find[r1] = r2;
+        m_size[r2] += m_size[r1];
+        std::swap(m_next[r1], m_next[r2]);
+
+        if (m_justification.contains(r1)) {
+            // add r1's justifications to r2
+            if (!m_justification.contains(r2)) {
+                m_justification.insert(r2, m_justification[r1]);
+            } else {
+                m_justification[r2].append(m_justification[r1]);
+            }
+            m_justification.remove(r1);
+        }
+        if (justification != nullptr) {
+            if (!m_justification.contains(r2)) {
+                m_justification.insert(r2, svector<expr*>());
+            }
+            m_justification[r2].push_back(justification);
+        }
+    }
+
+    void reset() {
+        m_find.reset();
+        m_next.reset();
+        m_size.reset();
+        char_const_set.reset();
+        m_justification.reset();
+    }
+};
+
 class theory_str : public theory {
     struct T_cut
     {
@@ -237,6 +348,17 @@ class theory_str : public theory {
         }
     };
     typedef map<zstring, expr*, zstring_hash_proc, default_eq<zstring> > string_map;
+
+    struct stats {
+        stats() { reset(); }
+        void reset() { memset(this, 0, sizeof(stats)); }
+        unsigned m_refine_eq;
+        unsigned m_refine_neq;
+        unsigned m_refine_f;
+        unsigned m_refine_nf;
+        unsigned m_solved_by;
+        unsigned m_fixed_length_iterations;
+    };
 
 protected:
     theory_str_params const & m_params;
@@ -484,6 +606,21 @@ protected:
     // finite model finding data
     // maps a finite model tester var to a list of variables that will be tested
     obj_map<expr, ptr_vector<expr> > finite_model_test_varlists;
+
+    // fixed length model construction
+    expr_ref_vector fixed_length_subterm_trail; // trail for subterms generated *in the subsolver*
+    expr_ref_vector fixed_length_assumptions; // cache of boolean terms to assert *into the subsolver*, unsat core is a subset of these
+    obj_map<expr, unsigned> fixed_length_used_len_terms; // constraints used in generating fixed length model
+    obj_map<expr, ptr_vector<expr> > var_to_char_subterm_map; // maps a var to a list of character terms *in the subsolver*
+    obj_map<expr, ptr_vector<expr> > uninterpreted_to_char_subterm_map; // maps an "uninterpreted" string term to a list of character terms *in the subsolver*
+    obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
+    unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
+    obj_map<expr, zstring> candidate_model;
+
+    expr_ref_vector bitvector_character_constants; // array-indexed map of bv.mk_numeral terms
+    
+    stats m_stats;
+
 protected:
     void assert_axiom(expr * e);
     void assert_implication(expr * premise, expr * conclusion);
@@ -528,6 +665,14 @@ protected:
     void try_eval_concat(enode * cat);
     void instantiate_basic_string_axioms(enode * str);
     void instantiate_str_eq_length_axiom(enode * lhs, enode * rhs);
+
+    // for count abstraction and refinement
+    expr* refine(expr* lhs, expr* rhs, rational offset);
+    expr* refine_eq(expr* lhs, expr* rhs, unsigned offset);
+    expr* refine_dis(expr* lhs, expr* rhs);
+    expr* refine_function(expr* f);
+    bool flatten(expr* ex, expr_ref_vector & flat);
+    unsigned get_refine_length(expr* ex, expr_ref_vector& extra_deps);
 
     void instantiate_axiom_CharAt(enode * e);
     void instantiate_axiom_prefixof(enode * e);
@@ -696,6 +841,19 @@ protected:
     bool finalcheck_str2int(app * a);
     bool finalcheck_int2str(app * a);
 
+    lbool fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
+            obj_map<expr, zstring> &model, expr_ref_vector &cex);
+    ptr_vector<expr> fixed_length_reduce_string_term(smt::kernel & subsolver, expr * term);
+    bool fixed_length_get_len_value(expr * e, rational & val);
+    bool fixed_length_reduce_eq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
+    bool fixed_length_reduce_diseq(smt::kernel & subsolver, expr_ref lhs, expr_ref rhs, expr_ref & cex);
+    bool fixed_length_reduce_contains(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_negative_contains(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_prefix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_negative_prefix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+    bool fixed_length_reduce_negative_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex);
+
     // strRegex
 
     void get_eqc_allUnroll(expr * n, expr * &constStr, std::set<expr*> & unrollFuncSet);
@@ -731,6 +889,8 @@ public:
 
     char const * get_name() const override { return "seq"; }
     void display(std::ostream & out) const override;
+
+    void collect_statistics(::statistics & st) const override;
 
     bool overlapping_variables_detected() const { return loopDetected; }
 

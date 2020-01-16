@@ -62,6 +62,7 @@ void smt_params::updt_params(params_ref const & p) {
     theory_pb_params::updt_params(p);
     // theory_array_params::updt_params(p);
     theory_datatype_params::updt_params(p);
+    theory_str_params::updt_params(p);
     updt_local_params(p);
 }
 
@@ -81,6 +82,7 @@ void smt_params::display(std::ostream & out) const {
     theory_bv_params::display(out);
     theory_pb_params::display(out);
     theory_datatype_params::display(out);
+    theory_str_params::display(out);
 
     DISPLAY_PARAM(m_display_proof);
     DISPLAY_PARAM(m_display_dot_proof);
@@ -139,6 +141,7 @@ void smt_params::display(std::ostream & out) const {
 
     DISPLAY_PARAM(m_smtlib_dump_lemmas);
     DISPLAY_PARAM(m_logic);
+    DISPLAY_PARAM(m_string_solver);
 
     DISPLAY_PARAM(m_profile_res_sub);
     DISPLAY_PARAM(m_display_bool_var2expr);
