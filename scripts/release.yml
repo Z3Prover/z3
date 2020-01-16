@@ -209,7 +209,7 @@ stages:
     pool:
       vmImage: "ubuntu-16.04"
     steps:
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
         source: specific
@@ -217,9 +217,9 @@ stages:
         pipeline: 7
         runVersion: specific
         runId: 82
-        artifactName: 'macOSBuild'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+        artifact: 'macOSBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Build'
       inputs:
         source: specific
@@ -227,9 +227,9 @@ stages:
         pipeline: 7
         runVersion: specific
         runId: 82
-        artifactName: 'ManyLinuxBuild'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+        artifact: 'ManyLinuxBuild'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
         source: specific
@@ -237,9 +237,9 @@ stages:
         pipeline: 7
         runVersion: specific
         runId: 82
-        artifactName: 'WindowsBuild-x86'
-        targetPath: $(Agent.TempDirectory)
-    - task: DownloadPipelineArtifact@0
+        artifact: 'WindowsBuild-x86'
+        path: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
         source: specific
@@ -247,8 +247,8 @@ stages:
         pipeline: 7
         runVersion: specific
         runId: 82
-        artifactName: 'WindowsBuild-x64'
-        targetPath: $(Agent.TempDirectory)
+        artifact: 'WindowsBuild-x64'
+        path: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
     - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
     - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
