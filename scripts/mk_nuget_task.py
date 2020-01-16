@@ -66,7 +66,10 @@ def unpack(packages):
 
 def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy("{}/src/api/dotnet/Microsoft.Z3.targets.in".format(source_root), "out/build/Microsoft.Z3.targets")
+    shutil.copy("{}/src/api/dotnet/Microsoft.Z3.targets.in".format(source_root), "out/build/Microsoft.Z3.x64.targets")
+
+def mk_icon(source_root):
+    shutil.copy("{}/resources/icon.jpg", "out/icon.jpg")
     
 def create_nuget_spec(version, repo, branch, commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
@@ -83,9 +86,9 @@ Linux Dependencies:
         </description>
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
-        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{3}/resources/icon.jpg</iconUrl>
+        <icon>icon.jpg</icon>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-        <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{3}/LICENSE.txt</licenseUrl>
+        <license type="expression">MIT</license>
         <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
