@@ -26,6 +26,7 @@
 #include "smt/theory_arith.h"
 #include "ast/ast_util.h"
 #include "ast/rewriter/seq_rewriter.h"
+#include "ast/rewriter/expr_replacer.h"
 #include "smt_kernel.h"
 
 namespace smt {
@@ -41,6 +42,689 @@ namespace smt {
         std::stringstream ss;
         ss << i;
         return ss.str();
+    }
+
+    /*
+     * Use the current model in the arithmetic solver to get the length of a term.
+     * Returns true if this could be done, placing result in 'termLen', or false otherwise.
+     * Works like get_len_value() except uses arithmetic solver model instead of EQCs.
+     */
+    bool theory_str::fixed_length_get_len_value(expr * e, rational & val) {
+        ast_manager & m = get_manager();
+
+        rational val1;
+        expr_ref len(m), len_val(m);
+        expr* e1, *e2;
+        expr_ref_vector todo(m);
+        todo.push_back(e);
+        val.reset();
+        while (!todo.empty()) {
+            expr* c = todo.back();
+            todo.pop_back();
+            if (u.str.is_concat(to_app(c))) {
+                e1 = to_app(c)->get_arg(0);
+                e2 = to_app(c)->get_arg(1);
+                todo.push_back(e1);
+                todo.push_back(e2);
+            }
+            else if (u.str.is_string(to_app(c))) {
+                zstring tmp;
+                u.str.is_string(to_app(c), tmp);
+                unsigned int sl = tmp.length();
+                val += rational(sl);
+            }
+            else {
+                len = mk_strlen(c);
+                arith_value v(get_manager());
+                v.init(&get_context());
+                if (v.get_value(len, val1)) {
+                    val += val1;
+                } else {
+                    return false;
+                }
+            }
+        }
+        return val.is_int();
+    }
+
+
+    bool theory_str::fixed_length_reduce_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * suff;
+        u.str.is_suffix(f, suff, full);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(suff, m);
+
+        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> suff_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+        if (suff_chars.size() == 0) {
+            // all strings endwith the empty one
+            return true;
+        }
+
+        if (full_chars.size() == 0 && suff_chars.size() > 0) {
+            // the empty string doesn't "endwith" any non-empty string
+            cex = m.mk_or(m.mk_not(f), ctx.mk_eq_atom(mk_strlen(suff), mk_int(0)),
+                    m_autil.mk_ge(mk_strlen(full), mk_int(0)));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (full_chars.size() < suff_chars.size()) {
+            // a string can't endwith a longer one
+            // X startswith Y -> len(X) >= len(Y)
+            expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
+            expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+            expr_ref lens(m_autil.mk_add(mk_strlen(full), m_autil.mk_mul(minus_one, mk_strlen(suff))), m);
+            cex = m.mk_or(m.mk_not(f), m_autil.mk_ge(lens, zero));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        expr_ref_vector branch(sub_m);
+        for (unsigned j = 0; j < suff_chars.size(); ++j) {
+            // full[j] == suff[j]
+            expr_ref cLHS(full_chars.get(full_chars.size() - j - 1), sub_m);
+            expr_ref cRHS(suff_chars.get(suff_chars.size() - j - 1), sub_m);
+            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            branch.push_back(_e);
+        }
+
+        expr_ref final_diseq(mk_and(branch), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+
+        return true;
+    }
+
+    bool theory_str::fixed_length_reduce_negative_suffix(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * suff;
+        u.str.is_suffix(f, suff, full);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(suff, m);
+
+        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> suff_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+        if (suff_chars.size() == 0) {
+            // all strings endwith the empty one
+            cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(suff), mk_int(0))));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (full_chars.size() == 0 && suff_chars.size() > 0) {
+            // the empty string doesn't "endwith" any non-empty string
+            return true;
+        }
+
+        if (full_chars.size() < suff_chars.size()) {
+            // a string can't endwith a longer one
+            // X startswith Y -> len(X) >= len(Y)
+            return true;
+        }
+
+        expr_ref_vector branch(sub_m);
+        for (unsigned j = 0; j < suff_chars.size(); ++j) {
+            // full[j] == suff[j]
+            expr_ref cLHS(full_chars.get(full_chars.size() - j - 1), sub_m);
+            expr_ref cRHS(suff_chars.get(suff_chars.size() - j - 1), sub_m);
+            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            branch.push_back(_e);
+        }
+
+        expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+
+        return true;
+    }
+
+    bool theory_str::fixed_length_reduce_prefix(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * pref;
+        u.str.is_prefix(f, pref, full);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(pref, m);
+
+        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> pref_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+
+        if (pref_chars.size() == 0) {
+            // all strings startwith the empty one
+            return true;
+        }
+
+        if (full_chars.size() == 0 && pref_chars.size() > 0) {
+            // the empty string doesn't "stratwith" any non-empty string
+            cex = m.mk_or(m.mk_not(f), ctx.mk_eq_atom(mk_strlen(pref), mk_int(0)),
+                    m_autil.mk_ge(mk_strlen(full), mk_int(0)));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (full_chars.size() < pref_chars.size()) {
+            // a string can't startwith a longer one
+            // X startswith Y -> len(X) >= len(Y)
+            expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
+            expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+            expr_ref lens(m_autil.mk_add(mk_strlen(full), m_autil.mk_mul(minus_one, mk_strlen(pref))), m);
+            cex = m.mk_or(m.mk_not(f), m_autil.mk_ge(lens, zero));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        expr_ref_vector branch(m);
+        for (unsigned j = 0; j < pref_chars.size(); ++j) {
+            // full[j] == pref[j]
+            expr_ref cLHS(full_chars.get(j), sub_m);
+            expr_ref cRHS(pref_chars.get(j), sub_m);
+            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            branch.push_back(_e);
+        }
+
+        expr_ref final_diseq(mk_and(branch), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+
+        return true;
+    }
+
+    bool theory_str::fixed_length_reduce_negative_prefix(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * pref;
+        u.str.is_prefix(f, pref, full);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(pref, m);
+
+        ptr_vector<expr> full_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> pref_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+        if (pref_chars.size() == 0) {
+            // all strings startwith the empty one
+            cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(pref), mk_int(0))));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (full_chars.size() == 0 && pref_chars.size() > 0) {
+            // the empty string doesn't "stratwith" any non-empty string
+            return true;
+        }
+
+        if (full_chars.size() < pref_chars.size()) {
+            // a string can't startwith a longer one
+            // X startswith Y -> len(X) >= len(Y)
+            return true;
+        }
+
+        expr_ref_vector branch(m);
+        for (unsigned j = 0; j < pref_chars.size(); ++j) {
+            // full[j] == pref[j]
+            expr_ref cLHS(full_chars.get(j), sub_m);
+            expr_ref cRHS(pref_chars.get(j), sub_m);
+            expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+            branch.push_back(_e);
+        }
+
+        expr_ref final_diseq(mk_not(sub_m, mk_and(branch)), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+
+        return true;
+    }
+
+    bool theory_str::fixed_length_reduce_contains(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * small;
+        u.str.is_contains(f, full, small);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(small, m);
+
+        ptr_vector<expr> haystack_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> needle_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+        if (needle_chars.size() == 0) {
+            // all strings "contain" the empty one
+            return true;
+        }
+
+        if (haystack_chars.size() == 0 && needle_chars.size() > 0) {
+            // the empty string doesn't "contain" any non-empty string
+            cex = m.mk_or(m.mk_not(f), ctx.mk_eq_atom(mk_strlen(needle), mk_int(0)),
+                    m_autil.mk_ge(mk_strlen(haystack), mk_int(0)));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (needle_chars.size() > haystack_chars.size()) {
+            // a string can't contain a longer one
+            // X contains Y -> len(X) >= len(Y)
+            expr_ref minus_one(m_autil.mk_numeral(rational::minus_one(), true), m);
+            expr_ref zero(m_autil.mk_numeral(rational::zero(), true), m);
+            expr_ref lens(m_autil.mk_add(mk_strlen(haystack), m_autil.mk_mul(minus_one, mk_strlen(needle))), m);
+            cex = m.mk_or(m.mk_not(f), m_autil.mk_ge(lens, zero));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+        // find all positions at which `needle` could occur in `haystack`
+        expr_ref_vector branches(m);
+        for (unsigned i = 0; i <= (haystack_chars.size() - needle_chars.size()); ++i) {
+            // i defines the offset into haystack_chars
+            expr_ref_vector branch(m);
+            for (unsigned j = 0; j < needle_chars.size(); ++j) {
+                // needle[j] == haystack[i+j]
+                ENSURE(i+j < haystack_chars.size());
+                expr_ref cLHS(needle_chars.get(j), sub_m);
+                expr_ref cRHS(haystack_chars.get(j), sub_m);
+                expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+                branch.push_back(_e);
+            }
+            branches.push_back(mk_and(branch));
+        }
+
+        expr_ref final_diseq(mk_or(branches), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-2), f, f));
+
+        return true;
+    }
+
+    bool theory_str::fixed_length_reduce_negative_contains(smt::kernel & subsolver, expr_ref f, expr_ref & cex) {
+        ast_manager & m = get_manager();
+        context & ctx = get_context();
+
+        ast_manager & sub_m = subsolver.m();
+        context & sub_ctx = subsolver.get_context();
+
+        expr * full;
+        expr * small;
+        u.str.is_contains(f, full, small);
+
+        expr_ref haystack(full, m);
+        expr_ref needle(small, m);
+
+        ptr_vector<expr> haystack_chars(fixed_length_reduce_string_term(subsolver, haystack));
+        ptr_vector<expr> needle_chars(fixed_length_reduce_string_term(subsolver, needle));
+
+        if (needle_chars.size() == 0) {
+            // all strings "contain" the empty one
+            cex = m.mk_or(m.mk_not(f), m.mk_not(ctx.mk_eq_atom(mk_strlen(needle), mk_int(0))));
+            th_rewriter m_rw(m);
+            m_rw(cex);
+            return false;
+        }
+
+        if (haystack_chars.size() == 0 && needle_chars.size() > 0) {
+            // the empty string doesn't "contain" any non-empty string
+            return true;
+        }
+
+        if (needle_chars.size() > haystack_chars.size()) {
+            // a string can't contain a longer one
+            // X contains Y -> len(X) >= len(Y)
+            return true;
+        }
+
+
+        // find all positions at which `needle` could occur in `haystack`
+        expr_ref_vector branches(m);
+        for (unsigned i = 0; i <= (haystack_chars.size() - needle_chars.size()); ++i) {
+            // i defines the offset into haystack_chars
+            expr_ref_vector branch(m);
+            for (unsigned j = 0; j < needle_chars.size(); ++j) {
+                // needle[j] == haystack[i+j]
+                ENSURE(i+j < haystack_chars.size());
+                expr_ref cLHS(needle_chars.get(j), sub_m);
+                expr_ref cRHS(haystack_chars.get(j), sub_m);
+                expr_ref _e(sub_ctx.mk_eq_atom(cLHS, cRHS), sub_m);
+                branch.push_back(_e);
+            }
+            branches.push_back(mk_and(branch));
+        }
+
+        expr_ref final_diseq(mk_not(sub_m, mk_and(branches)), sub_m);
+        fixed_length_assumptions.push_back(final_diseq);
+        fixed_length_lesson.insert(final_diseq, std::make_tuple(rational(-3), f, f));
+
+        return true;
+    }
+
+    lbool theory_str::fixed_length_model_construction(expr_ref_vector formulas, expr_ref_vector &precondition,
+            obj_map<expr, zstring> &model, expr_ref_vector &cex) {
+
+        ast_manager & m = get_manager();
+
+        if (bitvector_character_constants.empty()) {
+            bv_util bv(m);
+            sort * bv8_sort = bv.mk_sort(8);
+            for (unsigned i = 0; i < 256; ++i) {
+                rational ch(i);
+                expr_ref chTerm(bv.mk_numeral(ch, bv8_sort), m);
+                bitvector_character_constants.push_back(chTerm);
+                fixed_length_subterm_trail.push_back(chTerm);
+            }
+        }
+
+        if (is_trace_enabled("str")) {
+            TRACE_CODE(
+                    ast_manager & m = get_manager();
+            context & ctx = get_context();
+            tout << "dumping all formulas:" << std::endl;
+            for (expr_ref_vector::iterator i = formulas.begin(); i != formulas.end(); ++i) {
+                expr * ex = *i;
+                tout << mk_pp(ex, m) << (ctx.is_relevant(ex) ? "" : " (NOT REL)") << std::endl;
+            }
+            );
+        }
+
+        fixed_length_subterm_trail.reset();
+        fixed_length_used_len_terms.reset();
+        fixed_length_assumptions.reset();
+        var_to_char_subterm_map.reset();
+        uninterpreted_to_char_subterm_map.reset();
+        fixed_length_lesson.reset();
+
+        // Boolean formulas on which to apply abstraction refinement.
+        expr_ref_vector abstracted_boolean_formulas(m);
+
+        smt_params subsolver_params;
+        smt::kernel subsolver(m, subsolver_params);
+        subsolver.set_logic(symbol("QF_BV"));
+
+        sort * str_sort = u.str.mk_string_sort();
+        sort * bool_sort = m.mk_bool_sort();
+
+        for (expr * f : formulas) {
+            // reduce string formulas only. ignore others
+            sort * fSort = m.get_sort(f);
+            if (fSort == bool_sort && !is_quantifier(f)) {
+                // extracted terms
+                expr * subterm;
+                expr * lhs;
+                expr * rhs;
+                if (m.is_eq(f, lhs, rhs)) {
+                    sort * lhs_sort = m.get_sort(lhs);
+                    if (lhs_sort == str_sort) {
+                        TRACE("str_fl", tout << "reduce string equality: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << std::endl;);
+                        expr_ref cex(m);
+                        expr_ref left(lhs, m);
+                        expr_ref right(rhs, m);
+                        if (!fixed_length_reduce_eq(subsolver, left, right, cex)) {
+                            // missing a side condition. assert it and return unknown
+                            assert_axiom(cex);
+                            add_persisted_axiom(cex);
+                            return l_undef;
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not an equality over strings" << std::endl;);
+                    }
+                } else if (u.str.is_in_re(f)) {
+                    TRACE("str_fl", tout << "WARNING: regex constraints not yet implemented in fixed-length model construction!" << std::endl;);
+                    return l_undef;
+                } else if (u.str.is_contains(f)) {
+                    // TODO in some cases (e.g. len(haystack) is only slightly greater than len(needle))
+                    // we might be okay to assert the full disjunction because there are very few disjuncts
+                    if (m_params.m_FixedLengthRefinement) {
+                        TRACE("str_fl", tout << "abstracting out positive contains: " << mk_pp(f, m) << std::endl;);
+                        abstracted_boolean_formulas.push_back(f);
+                    } else {
+                        TRACE("str_fl", tout << "reduce positive contains: " << mk_pp(f, m) << std::endl;);
+                        expr_ref cex(m);
+                        expr_ref cont(f, m);
+                        if (!fixed_length_reduce_contains(subsolver, cont, cex)) {
+                            assert_axiom(cex);
+                            add_persisted_axiom(cex);
+                            return l_undef;
+                        }
+                    }
+                } else if (u.str.is_prefix(f)) {
+                    TRACE("str_fl", tout << "reduce positive prefix: " << mk_pp(f, m) << std::endl;);
+                    expr_ref cex(m);
+                    expr_ref pref(f, m);
+                    if (!fixed_length_reduce_prefix(subsolver, pref, cex)) {
+                        assert_axiom(cex);
+                        add_persisted_axiom(cex);
+                        return l_undef;
+                    }
+                } else if (u.str.is_suffix(f)) {
+                    TRACE("str_fl", tout << "reduce positive suffix: " << mk_pp(f, m) << std::endl;);
+                    expr_ref cex(m);
+                    expr_ref suf(f, m);
+                    if (!fixed_length_reduce_suffix(subsolver, suf, cex)) {
+                        assert_axiom(cex);
+                        add_persisted_axiom(cex);
+                        return l_undef;
+                    }
+                }else if (m.is_not(f, subterm)) {
+                    // if subterm is a string formula such as an equality, reduce it as a disequality
+                    if (m.is_eq(subterm, lhs, rhs)) {
+                        sort * lhs_sort = m.get_sort(lhs);
+                        if (lhs_sort == str_sort) {
+                            TRACE("str_fl", tout << "reduce string disequality: " << mk_pp(lhs, m) << " != " << mk_pp(rhs, m) << std::endl;);
+                            expr_ref cex(m);
+                            expr_ref left(lhs, m);
+                            expr_ref right(rhs, m);
+                            if (!fixed_length_reduce_diseq(subsolver, left, right, cex)) {
+                                // missing a side condition. assert it and return unknown
+                                assert_axiom(cex);
+                                add_persisted_axiom(cex);
+                                return l_undef;
+                            }
+                        }
+                    } else if (u.str.is_in_re(subterm)) {
+                        TRACE("str_fl", tout << "WARNING: negative regex constraints not yet implemented in fixed-length model construction!" << std::endl;);
+                        return l_undef;
+                    } else if (u.str.is_contains(subterm)) {
+                        TRACE("str_fl", tout << "reduce negative contains: " << mk_pp(subterm, m) << std::endl;);
+                        expr_ref cex(m);
+                        expr_ref cont(subterm, m);
+                        if (!fixed_length_reduce_negative_contains(subsolver, cont, cex)) {
+                            assert_axiom(cex);
+                            add_persisted_axiom(cex);
+                            return l_undef;
+                        }
+                    } else if (u.str.is_prefix(subterm)) {
+                        TRACE("str_fl", tout << "reduce negative prefix: " << mk_pp(subterm, m) << std::endl;);
+                        expr_ref cex(m);
+                        expr_ref pref(subterm, m);
+                        if (!fixed_length_reduce_negative_prefix(subsolver, pref, cex)) {
+                            assert_axiom(cex);
+                            add_persisted_axiom(cex);
+                            return l_undef;
+                        }
+                    } else if (u.str.is_suffix(subterm)) {
+                        TRACE("str_fl", tout << "reduce negative suffix: " << mk_pp(subterm, m) << std::endl;);
+                        expr_ref cex(m);
+                        expr_ref suf(subterm, m);
+                        if (!fixed_length_reduce_negative_suffix(subsolver, suf, cex)) {
+                            assert_axiom(cex);
+                            add_persisted_axiom(cex);
+                            return l_undef;
+                        }
+                    } else {
+                        TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not a boolean formula we handle" << std::endl;);
+                    }
+                } else {
+                    TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not a boolean formula we handle" << std::endl;);
+                    continue;
+                }
+            } else {
+                TRACE("str_fl", tout << "skip reducing formula " << mk_pp(f, m) << ", not relevant to strings" << std::endl;);
+                continue;
+            }
+        }
+
+        for (auto e : fixed_length_used_len_terms) {
+            expr * var = &e.get_key();
+            precondition.push_back(m.mk_eq(u.str.mk_length(var), mk_int(e.get_value())));
+        }
+
+        TRACE("str_fl", tout << "calling subsolver" << std::endl;);
+
+        lbool subproblem_status = subsolver.check(fixed_length_assumptions);
+
+        if (subproblem_status == l_true) {
+            bv_util bv(m);
+            TRACE("str_fl", tout << "subsolver found SAT; reconstructing model" << std::endl;);
+            model_ref subModel;
+            subsolver.get_model(subModel);
+
+            expr_substitution subst(m);
+
+            // model_smt2_pp(std::cout, m, *subModel, 2);
+            for (auto entry : var_to_char_subterm_map) {
+                svector<unsigned> assignment;
+                expr * var = entry.m_key;
+                ptr_vector<expr> char_subterms(entry.m_value);
+                for (expr * chExpr : char_subterms) {
+                    expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
+                    rational n;
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                        assignment.push_back(n.get_unsigned());
+                    } else {
+                        assignment.push_back((unsigned)'?');
+                    }
+                }
+                zstring strValue(assignment.size(), assignment.c_ptr());
+                model.insert(var, strValue);
+                subst.insert(var, mk_string(strValue));
+            }
+            for (auto entry : uninterpreted_to_char_subterm_map) {
+                svector<unsigned> assignment;
+                expr * var = entry.m_key;
+                ptr_vector<expr> char_subterms(entry.m_value);
+                for (expr * chExpr : char_subterms) {
+                    expr_ref chAssignment(subModel->get_const_interp(to_app(chExpr)->get_decl()), m);
+                    rational n;
+                    if (chAssignment != nullptr && bv.is_numeral(chAssignment, n)) {
+                        assignment.push_back(n.get_unsigned());
+                    } else {
+                        assignment.push_back((unsigned)'?');
+                    }
+                }
+                zstring strValue(assignment.size(), assignment.c_ptr());
+                model.insert(var, strValue);
+                subst.insert(var, mk_string(strValue));
+            }
+            // TODO insert length values into substitution table as well?
+            if (m_params.m_FixedLengthRefinement) {
+                scoped_ptr<expr_replacer> replacer = mk_default_expr_replacer(m);
+                replacer->set_substitution(&subst);
+                th_rewriter rw(m);
+                if (!abstracted_boolean_formulas.empty()) {
+                    for (auto f : abstracted_boolean_formulas) {
+                        TRACE("str_fl", tout << "refinement of boolean formula: " << mk_pp(f, m) << std::endl;);
+                        expr_ref f_new(m);
+                        (*replacer)(f, f_new);
+                        rw(f_new);
+                        TRACE("str_fl", tout << "after substitution and simplification, evaluates to: " << mk_pp(f_new, m) << std::endl;);
+                        // now there are three cases, depending on what f_new evaluates to:
+                        // true -> OK, do nothing
+                        // false -> refine abstraction by generating conflict clause
+                        // anything else -> error, probably our substitution was incomplete
+                        if (m.is_true(f_new)) {
+                            // do nothing
+                        } else if (m.is_false(f_new)) {
+                            context & ctx = get_context();
+                            if (u.str.is_contains(f)) {
+                                expr * haystack;
+                                expr * needle;
+                                u.str.is_contains(f, haystack, needle);
+                                expr_ref haystack_assignment(m);
+                                expr_ref needle_assignment(m);
+                                (*replacer)(haystack, haystack_assignment);
+                                (*replacer)(needle, needle_assignment);
+                                cex.push_back(f);
+                                cex.push_back(ctx.mk_eq_atom(haystack, haystack_assignment));
+                                cex.push_back(ctx.mk_eq_atom(needle, needle_assignment));
+                                return l_false;
+                            } else {
+                                TRACE("str_fl", tout << "error: unhandled refinement term " << mk_pp(f, m) << std::endl;);
+                                NOT_IMPLEMENTED_YET();
+                            }
+                        } else {
+                            NOT_IMPLEMENTED_YET();
+                        }
+                    }
+                }
+            }
+
+            return l_true;
+        } else if (subproblem_status == l_false) {
+            // TODO replace this with something simpler for now
+            NOT_IMPLEMENTED_YET();
+            TRACE("str_fl", tout << "subsolver found UNSAT; reconstructing unsat core" << std::endl;);
+            TRACE("str_fl", tout << "unsat core has size " << subsolver.get_unsat_core_size() << std::endl;);
+            bool negate_pre = false;
+            for (unsigned i = 0; i < subsolver.get_unsat_core_size(); ++i) {
+                TRACE("str", tout << "entry " << i << " = " << mk_pp(subsolver.get_unsat_core_expr(i), m) << std::endl;);
+                rational index;
+                expr* lhs;
+                expr* rhs;
+                std::tie(index, lhs, rhs) = fixed_length_lesson.find(subsolver.get_unsat_core_expr(i));
+                TRACE("str_fl", tout << "lesson: " << mk_pp(lhs, m) << " == " << mk_pp(rhs, m) << " at index " << index << std::endl;);
+                cex.push_back(refine(lhs, rhs, index));
+                if (index < rational(0)) {
+                    negate_pre = true;
+                }
+            }
+            if (negate_pre){
+                for (auto ex : precondition) {
+                    cex.push_back(ex);
+                }
+            }
+            return l_false;
+        } else { // l_undef
+            TRACE("str_fl", tout << "WARNING: subsolver found UNKNOWN" << std::endl;);
+            return l_undef;
+        }
     }
 
     expr * theory_str::gen_len_test_options(expr * freeVar, expr * indicator, int tries) {
