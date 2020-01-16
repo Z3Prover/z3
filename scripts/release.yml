@@ -287,10 +287,6 @@ stages:
       inputs:
         versionSpec: 5.x
         checkLatest: false
-#    - task: CmdLine@2
-#      inputs:
-#        script: nuget pack -OutputDirectory $(Build.ArtifactStagingDirectory)
-#        workingDirectory: $(Agent.TempDirectory)\package\out
     - task: NugetCommand@2
       inputs:
         command: pack
@@ -298,6 +294,32 @@ stages:
         basePath: $(Agent.TempDirectory)\package\out
         packDestination: $(Build.ArtifactStagingDirectory)
         verbosityPack: detailed
+    - task: EsrpCodeSigning@1
+      inputs:
+        ConnectedServiceName: 'z3-esrp-signing'
+        FolderPath: $(Build.ArtifactStagingDirectory)
+        Pattern: Microsoft.Z3.x64.$(ReleaseVersion).nupkg
+        signConfigType: 'inlineSignParams'
+        inlineOperation: |
+          [
+            {
+              "KeyCode" : "CP-401405",
+              "OperationCode" : "NuGetSign",
+              "Parameters" : {},
+              "ToolName" : "sign",
+              "ToolVersion" : "1.0"
+            },
+            {
+              "KeyCode" : "CP-401405",
+              "OperationCode" : "NuGetVerify",
+              "Parameters" : {},
+              "ToolName" : "sign",
+              "ToolVersion" : "1.0"
+            }
+          ]
+        SessionTimeout: '60'
+        MaxConcurrency: '50'
+        MaxRetryAttempts: '5'
     - powershell: get-childitem -recurse $(Agent.TempDirectory)
     - task: PublishPipelineArtifact@1
       inputs:
