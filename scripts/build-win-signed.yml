@@ -3,7 +3,7 @@ parameters:
   BuildArchitecture: ''
 
 jobs:
-- job: WindowsBuild$(BuildArchitecture)
+- job: WindowsBuild${{BuildArchitecture}}
   displayName: "Windows build ($(BuildArchitecture))"
   pool:
     vmImage: "vs2017-win2016"
