@@ -59,180 +59,15 @@ stages:
         artifactName: 'ManyLinux'
         targetPath: $(Build.ArtifactStagingDirectory)
   
-  - job: WindowsBuild32
-    displayName: "Windows build (32-bit)"
-    pool:
-      vmImage: "vs2017-win2016"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars32.bat" &&
-          python scripts\mk_win_dist.py
-              --x86-only
-              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: dist
-        artifactName: 'Windows32'
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x64'
 
-  - job: WindowsBuild64
-    displayName: "Windows build (64-bit)"
-    pool:
-      vmImage: "vs2017-win2016"
-    steps:
-    - task: CmdLine@2
-      inputs:
-        script:
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat" &&
-          python scripts\mk_win_dist.py
-              --x64-only
-              --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: dist
-        artifactName: 'Windows64'
-
-- stage: Sign
-  jobs:
-
-  - job: SignWindows32Assemblies
-    displayName: "Sign 32-bit Windows Assemblies"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 47
-        artifact: 'Windows32'
-        path: $(Build.ArtifactStagingDirectory)
-    - task: EsrpCodeSigning@1
-      inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
-        FolderPath: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x86-win/bin'
-        Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
-        signConfigType: 'inlineSignParams'
-        inlineOperation: |
-          [
-            {
-              "keyCode": "CP-230012",
-              "operationSetCode": "SigntoolSign",
-              "parameters": [
-                {
-                  "parameterName": "OpusName",
-                  "parameterValue": "Microsoft"
-                },
-                {
-                  "parameterName": "OpusInfo",
-                  "parameterValue": "http://www.microsoft.com"
-                },
-                {
-                  "parameterName": "PageHash",
-                  "parameterValue": "/NPH"
-                },
-                {
-                  "parameterName": "FileDigest",
-                  "parameterValue": "/fd sha256"
-                },
-                {
-                  "parameterName": "TimeStamp",
-                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-                }
-              ],
-              "toolName": "signtool.exe",
-              "toolVersion": "6.2.9304.0"
-            }
-          ]
-        SessionTimeout: '60'
-        MaxConcurrency: '50'
-        MaxRetryAttempts: '5'
-    - task: DeleteFiles@1
-      inputs:
-        SourceFolder: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win/bin'
-        Contents: 'CodeSignSummary*'
-    - task: ArchiveFiles@2
-      inputs:
-        rootFolderOrFile: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x86-win'
-        includeRootFolder: true
-        archiveType: 'zip'
-        archiveFile: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x86-win.zip'
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x86-win.zip
-        artifactName: 'Windows32Signed'
-
-  - job: SignWindows64Assemblies
-    displayName: "Sign 64-bit Windows Assemblies"
-    pool:
-      vmImage: "windows-latest"
-    steps:
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 47
-        artifact: 'Windows64'
-        path: $(Build.ArtifactStagingDirectory)
-    - task: EsrpCodeSigning@1
-      inputs:
-        ConnectedServiceName: 'z3-esrp-signing'
-        FolderPath: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win/bin'
-        Pattern: 'Microsoft.Z3.dll,libz3.dll,libz3java.dll,z3.exe'
-        signConfigType: 'inlineSignParams'
-        inlineOperation: |
-          [
-            {
-              "keyCode": "CP-230012",
-              "operationSetCode": "SigntoolSign",
-              "parameters": [
-                {
-                  "parameterName": "OpusName",
-                  "parameterValue": "Microsoft"
-                },
-                {
-                  "parameterName": "OpusInfo",
-                  "parameterValue": "http://www.microsoft.com"
-                },
-                {
-                  "parameterName": "PageHash",
-                  "parameterValue": "/NPH"
-                },
-                {
-                  "parameterName": "FileDigest",
-                  "parameterValue": "/fd sha256"
-                },
-                {
-                  "parameterName": "TimeStamp",
-                  "parameterValue": "/tr \"http://rfc3161.gtm.corp.microsoft.com/TSS/HttpTspServer\" /td sha256"
-                }
-              ],
-              "toolName": "signtool.exe",
-              "toolVersion": "6.2.9304.0"
-            }
-          ]
-        SessionTimeout: '60'
-        MaxConcurrency: '50'
-        MaxRetryAttempts: '5'
-    - task: DeleteFiles@1
-      inputs:
-        SourceFolder: '$(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win/bin'
-        Contents: 'CodeSignSummary*'
-    - task: ArchiveFiles@2
-      inputs:
-        rootFolderOrFile: $(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win
-        includeRootFolder: true
-        archiveType: 'zip'
-        archiveFile: $(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win.zip
-    - task: PublishPipelineArtifact@1
-      inputs:
-        targetPath: $(Build.ArtifactStagingDirectory)/z3-$(ReleaseVersion)-x64-win.zip
-        artifactName: 'Windows64Signed'
+  - template: build-win-signed.yml
+    parameters:
+      ReleaseVersion: $(ReleaseVersion)
+      BuildArchitecture: 'x86'
 
 # Creates Z3 packages in various formats
 - stage: Package
@@ -336,33 +171,32 @@ stages:
         targetPath: $(Build.ArtifactStagingDirectory)\Microsoft.Z3.x64.$(ReleaseVersion).nupkg
         artifactName: 'NugetPackage'
 
-#  - job: PythonPackage
-#    condition: false
-#    displayName: "Python packaging"
-#    pool:
-#      vmImage: "ubuntu-16.04"
-#    steps:
-#    - task: DownloadPipelineArtifact@0
-#      inputs:
-#        artifactName: 'Ubuntu'
-#        targetPath: $(Agent.TempDirectory)
-#    - task: DownloadPipelineArtifact@0
-#      inputs:
-#        artifactName: 'ManyLinux'
-#        targetPath: $(Agent.TempDirectory)
-#    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
-#    - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
-#    - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
-#    - script: python -m pip install --user -U setuptools wheel
-#    - script: cd src/api/python; python setup.py sdist
-#   # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
-#    - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-#    - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-#    - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
-#    - task: PublishPipelineArtifact@0
-#      inputs:
-#        artifactName: 'Python packages'
-#        targetPath: src/api/python/dist
+  - job: PythonPackage
+    displayName: "Python packaging"
+    pool:
+      vmImage: "ubuntu-16.04"
+    steps:
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'Ubuntu'
+        targetPath: $(Agent.TempDirectory)
+    - task: DownloadPipelineArtifact@0
+      inputs:
+        artifactName: 'ManyLinux'
+        targetPath: $(Agent.TempDirectory)
+    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
+    - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
+    - script: cd $(Agent.TempDirectory); mkdir win64-bin; cd win64-bin; unzip ../*x64-win*.zip
+    - script: python -m pip install --user -U setuptools wheel
+    - script: cd src/api/python; python setup.py sdist
+   # take a look at this PREMIUM HACK I came up with to get around the fact that the azure variable syntax overloads the bash syntax for subshells
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/linux-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/win32-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - script: cd src/api/python; echo $(Agent.TempDirectory)/win64-bin/* | xargs printf 'PACKAGE_FROM_RELEASE=%s\n' | xargs -I '{}' env '{}' python setup.py bdist_wheel
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Python packages'
+        targetPath: src/api/python/dist
 
 # Uploads Z3 packages to various package stores
 - stage: Publish
