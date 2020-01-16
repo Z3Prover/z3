@@ -15,7 +15,7 @@ stages:
   jobs:
 
   - job: MacBuild
-    displayName: "Mac Build"
+    displayName: "macOS Build"
     pool:
       vmImage: "macOS-10.14"
     steps:
@@ -25,7 +25,7 @@ stages:
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Mac'
+        artifactName: 'macOS'
         targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: UbuntuBuild
@@ -42,8 +42,8 @@ stages:
         artifactName: 'Ubuntu'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-  - job: ManylinuxBuild
-    displayName: "Manylinux build"
+  - job: ManyLinuxBuild
+    displayName: "ManyLinux build"
     pool:
       vmImage: "ubuntu-16.04"
     container: "rhelmot/manylinux1_x86_64:latest"
@@ -56,7 +56,7 @@ stages:
     - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/
     - task: PublishPipelineArtifact@0
       inputs:
-        artifactName: 'Manylinux'
+        artifactName: 'ManyLinux'
         targetPath: $(Build.ArtifactStagingDirectory)
   
   - job: WindowsBuild32
@@ -236,12 +236,13 @@ stages:
       vmImage: "windows-latest"
     steps:
     - powershell: write-host $(System.DefinitionId)
-      displayName: "System.DefinitionId"
+      displayName: 'System.DefinitionId'
     - powershell: write-host $(Build.BuildId)
-      displayName: "Build.BuildId"
+      displayName: 'Build.BuildId'
     - powershell: write-host $(System.TeamProjectId)
-      displayName: "System.TeamProjectId"
+      displayName: 'System.TeamProjectId'
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download 64-bit Windows Build'
       inputs:
         artifact: 'Windows64Signed'
         source: specific
@@ -251,6 +252,7 @@ stages:
         runId: 61
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download Ubuntu Build'
       inputs:
         artifact: 'Ubuntu'
         source: specific
@@ -260,8 +262,9 @@ stages:
         runId: 47
         path: $(Agent.TempDirectory)\package
     - task: DownloadPipelineArtifact@2
+      displayName: 'Download macOS Build'
       inputs:
-        artifact: 'Mac'
+        artifact: 'macOS'
         source: specific
         project: c6e283d3-5018-4982-b28f-8a88c50174e2
         pipeline: 7
@@ -313,7 +316,7 @@ stages:
 #        targetPath: $(Agent.TempDirectory)
 #    - task: DownloadPipelineArtifact@0
 #      inputs:
-#        artifactName: 'Manylinux'
+#        artifactName: 'ManyLinux'
 #        targetPath: $(Agent.TempDirectory)
 #    - script: cd $(Agent.TempDirectory); mkdir linux-bin; cd linux-bin; unzip ../*centos*.zip
 #    - script: cd $(Agent.TempDirectory); mkdir win32-bin; cd win32-bin; unzip ../*x86-win*.zip
