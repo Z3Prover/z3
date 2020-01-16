@@ -266,6 +266,7 @@ stages:
 
 # Uploads Z3 packages to various package stores
 - stage: Publish
+  condition: $(ConfirmRelease)
   jobs:
 
   - job: GitHubPublish
@@ -276,31 +277,16 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)
     - task: GitHubRelease@0
@@ -331,7 +317,15 @@ stages:
         runId: 82
         artifact: 'NugetPackage'
         path: $(Agent.TempDirectory)
-    - powershell: write-host "publish nuget"
+    - task: NuGetAuthenticate@0
+      inputs:
+        nuGetServiceConnections: Z3Nuget
+    - task: NuGetCommand@2
+      inputs:
+        command: push
+        nuGetFeedType: external
+        versioningScheme: byEnvVar
+        versionEnvVar: <VersionVariableName>
 
 #  - job: PyPIPublish
 #    displayName: "Publish to PyPI"
