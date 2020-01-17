@@ -52,9 +52,6 @@ namespace dd {
         m_pdd_stack.reset();
         m_values.reset();
         m_free_values.reset();
-        m_mpq_table.reset();        
-        m_values.reset();
-        m_free_values.reset();
         m_mpq_table.reset();  
         init_nodes(level2var);
     }
