@@ -1732,42 +1732,28 @@ public:
     // create a bound atom representing term >= k is lower_bound is true, and term <= k if it is false
     app_ref mk_bound(lp::lar_term const& term, rational const& k, bool lower_bound) {
         rational offset = k;
-        bool is_int = offset.is_int();
         u_map<rational> coeffs;
         term2coeffs(term, coeffs);
-        TRACE("arith",
-              {
-                  bool all_ints = true;
-                  lp().print_term(term, tout << "term: ") << "\n";
-                  for (auto const& kv : coeffs) {
-                      if (kv.m_value.is_int() == false)
-                          all_ints = false;
-                      tout << "v" << kv.m_key << " * " << kv.m_value << "\n";
-                  }
-                  tout << offset << "\n";
-                  if (all_ints) {
-                      rational g(0);
-                      for (auto const& kv : coeffs) {
-                          g = gcd(g, kv.m_value);
-                      }
-                      tout << "gcd: " << g << "\n";
-                  }
-              }
-              );
-        bool all_ints = true;
-        if (is_int) {
-            for (auto const& kv : coeffs) {
-                if (kv.m_value.is_int() == false) {
-                    all_ints = false;
-                    break;
-                }
-            }
+        bool is_int = true;
+        rational lc = denominator(k);
+        for (auto const& kv : coeffs) {
+            theory_var w = kv.m_key;
+            expr* o = get_enode(w)->get_owner();
+            is_int = a.is_int(o);
+            if (!is_int) break;
+            lc = lcm(lc, denominator(kv.m_value));
         }
-        
-        if (is_int && all_ints) {
+
+        // ensure that coefficients are integers when all variables are integers as well.
+        if (is_int && !lc.is_one()) {
+            SASSERT(lc.is_pos());
+            offset *= lc;
+            for (auto& kv : coeffs) kv.m_value *= lc;
+        }       
+
+        if (is_int) {
             // 3x + 6y >= 5 -> x + 3y >= 5/3, then x + 3y >= 2
             // 3x + 6y <= 5 -> x + 3y <= 1
-            
             rational g = gcd_reduce(coeffs);
             if (!g.is_one()) {
                 if (lower_bound) {
@@ -1786,11 +1772,9 @@ public:
             for (auto& kv : coeffs) kv.m_value.neg();
         }
 
-		for (auto const& kv : coeffs) {
-			theory_var w = kv.m_key;
-			expr* o = get_enode(w)->get_owner();
-			is_int &= a.is_int(o);
-		}
+        // CTRACE("arith", is_int,
+        //        lp().print_term(term, tout << "term: ") << "\n";
+        //        tout << "offset: " << offset << " gcd: " << g << "\n";);
 
         app_ref atom(m);
         app_ref t = coeffs2app(coeffs, rational::zero(), is_int);
