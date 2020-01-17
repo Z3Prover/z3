@@ -246,7 +246,6 @@ stages:
 
 # Uploads Z3 packages to various package stores
 - stage: Publish
-  condition: $(ConfirmRelease)
   jobs:
 
   - job: GitHubPublish
