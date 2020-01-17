@@ -196,16 +196,17 @@ namespace sat {
 
         friend class integrity_checker;
         friend class cleaner;
-        friend class simplifier;
-        friend class scc;
+        friend class asymm_branch;
         friend class big;
         friend class binspr;
+        friend class drat;
         friend class elim_eqs;
-        friend class asymm_branch;
-        friend class probing;
+        friend class bcd;
         friend class iff3_finder;
         friend class mus;
-        friend class drat;
+        friend class probing;
+        friend class simplifier;
+        friend class scc;
         friend class ba_solver;
         friend class anf_simplifier;
         friend class aig_simplifier;

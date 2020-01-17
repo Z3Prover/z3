@@ -175,8 +175,4 @@ namespace sat {
         return out;
     }
 
-    void cut::sort() {
-        std::sort(m_elems, m_elems + m_size);
-    }
-
 }

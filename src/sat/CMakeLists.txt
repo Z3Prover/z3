@@ -19,6 +19,7 @@ z3_add_component(sat
     sat_drat.cpp
     sat_elim_eqs.cpp
     sat_elim_vars.cpp
+    sat_bcd.cpp
     sat_iff3_finder.cpp
     sat_integrity_checker.cpp
     sat_local_search.cpp

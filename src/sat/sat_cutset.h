@@ -67,7 +67,6 @@ namespace sat {
                 return true;
             }
         }
-        void sort();
         void negate() { set_table(~m_table); }
         void set_table(uint64_t t) { m_table = t & table_mask(); }
         uint64_t table() const { return (m_table | m_dont_care) & table_mask(); }

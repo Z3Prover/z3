@@ -151,6 +151,7 @@ namespace sat {
     }
 
     void aig_simplifier::operator()() {
+
         report _report(*this);
         TRACE("aig_simplifier", s.display(tout););
         unsigned n = 0, i = 0;
