@@ -25,9 +25,9 @@ VERBOSE=True
 DIST_DIR='dist'
 FORCE_MK=False
 DOTNET_CORE_ENABLED=True
-ESRP_SIGN=False
 DOTNET_KEY_FILE=None
 JAVA_ENABLED=True
+ZIP_BUILD_OUTPUTS=False
 GIT_HASH=False
 PYTHON_ENABLED=True
 X86ONLY=False
@@ -63,10 +63,10 @@ def display_help():
     print("  -b <sudir>, --build=<subdir>  subdirectory where x86 and x64 Z3 versions will be built (default: build-dist).")
     print("  -f, --force                   force script to regenerate Makefiles.")
     print("  --nodotnet                    do not include .NET bindings in the binary distribution files.")
-    print("  --dotnet-key=<file>           sign the .NET assembly with the private key in <file>.")
-    print("  --esrp                        sign with esrp.")
+    print("  --dotnet-key=<file>           strongname sign the .NET assembly with the private key in <file>.")
     print("  --nojava                      do not include Java bindings in the binary distribution files.")
     print("  --nopython                    do not include Python bindings in the binary distribution files.")
+    print("  --zip                         package build outputs in zip file.")
     print("  --githash                     include git hash in the Zip file.")
     print("  --x86-only                    x86 dist only.")
     print("  --x64-only                    x64 dist only.")
@@ -74,7 +74,7 @@ def display_help():
 
 # Parse configuration option for mk_make script
 def parse_options():
-    global FORCE_MK, JAVA_ENABLED, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY, ESRP_SIGN
+    global FORCE_MK, JAVA_ENABLED, ZIP_BUILD_OUTPUTS, GIT_HASH, DOTNET_CORE_ENABLED, DOTNET_KEY_FILE, PYTHON_ENABLED, X86ONLY, X64ONLY
     path = BUILD_DIR
     options, remainder = getopt.gnu_getopt(sys.argv[1:], 'b:hsf', ['build=',
                                                                    'help',
@@ -83,7 +83,7 @@ def parse_options():
                                                                    'nojava',
                                                                    'nodotnet',
                                                                    'dotnet-key=',
-                                                                   'esrp',
+                                                                   'zip',
                                                                    'githash',
                                                                    'nopython',
                                                                    'x86-only',
@@ -107,10 +107,10 @@ def parse_options():
             PYTHON_ENABLED = False
         elif opt == '--dotnet-key':
             DOTNET_KEY_FILE = arg
-        elif opt == '--esrp':
-            ESRP_SIGN = True
         elif opt == '--nojava':
             JAVA_ENABLED = False
+        elif opt == '--zip':
+            ZIP_BUILD_OUTPUTS = True
         elif opt == '--githash':
             GIT_HASH = True
         elif opt == '--x86-only' and not X64ONLY:
@@ -138,8 +138,6 @@ def mk_build_dir(path, x64):
             opts.append('--java')
         if x64:
             opts.append('-x')
-        if ESRP_SIGN:
-            opts.append('--esrp')
         if GIT_HASH:
             opts.append('--githash=%s' % mk_util.git_hash())
             opts.append('--git-describe')
@@ -208,7 +206,6 @@ def get_z3_name(x64):
         return 'z3-%s.%s.%s-%s-win' % (major, minor, build, platform)
 
 def mk_dist_dir(x64):
-    global ESRP_SIGN
     if x64:
         platform = "x64"
         build_path = BUILD_X64_DIR
@@ -217,7 +214,6 @@ def mk_dist_dir(x64):
         build_path = BUILD_X86_DIR
     dist_path = os.path.join(DIST_DIR, get_z3_name(x64))
     mk_dir(dist_path)
-    mk_util.ESRP_SIGN = ESRP_SIGN
     mk_util.DOTNET_CORE_ENABLED = True
     mk_util.DOTNET_KEY_FILE = DOTNET_KEY_FILE
     mk_util.JAVA_ENABLED = JAVA_ENABLED
@@ -320,7 +316,8 @@ def main():
         mk_dist_dir(False)
         cp_license(False)
         cp_vs_runtime(False)
-        mk_zip(False)
+        if ZIP_BUILD_OUTPUTS:
+            mk_zip(False)
     elif X64ONLY:
         mk_build_dir(BUILD_X64_DIR, True)
         mk_z3(True)
@@ -328,7 +325,8 @@ def main():
         mk_dist_dir(True)
         cp_license(True)
         cp_vs_runtime(True)
-        mk_zip(True)
+        if ZIP_BUILD_OUTPUTS:
+            mk_zip(True)
     else:
         mk_build_dirs()
         mk_z3s()
@@ -336,7 +334,8 @@ def main():
         mk_dist_dirs()
         cp_licenses()
         cp_vs_runtimes()
-        mk_zips()
+        if ZIP_BUILD_OUTPUTS:
+            mk_zips()
 
 main()
 

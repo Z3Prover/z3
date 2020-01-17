@@ -64,11 +64,19 @@ def unpack(packages):
                     zip_ref.extract("%s/bin/%s" % (package_dir, b), "tmp")
                     shutil.move("tmp/%s/bin/%s" % (package_dir, b), "out/lib/netstandard1.4/%s" % b)
 
-def mk_targets():
+def mk_targets(source_root):
     mk_dir("out/build")
-    shutil.copy("../src/api/dotnet/Microsoft.Z3.targets.in", "out/build/Microsoft.Z3.targets")
+    shutil.copy("{}/src/api/dotnet/Microsoft.Z3.targets.in".format(source_root), "out/build/Microsoft.Z3.x64.targets")
+
+def mk_icon(source_root):
+    mk_dir("out/content")
+    shutil.copy("{}/resources/icon.jpg".format(source_root), "out/content/icon.jpg")
+
+def mk_license(source_root):
+    mk_dir("out/content")
+    shutil.copy("{}/LICENSE.txt".format(source_root), "out/content/LICENSE.txt")
     
-def create_nuget_spec(release_version, release_commit):
+def create_nuget_spec(version, repo, branch, commit):
     contents = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
     <metadata>
@@ -83,78 +91,34 @@ Linux Dependencies:
         </description>
         <copyright>&#169; Microsoft Corporation. All rights reserved.</copyright>
         <tags>smt constraint solver theorem prover</tags>
-        <iconUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/resources/icon.jpg</iconUrl>
+        <icon>content/icon.jpg</icon>
         <projectUrl>https://github.com/Z3Prover/z3</projectUrl>
-        <licenseUrl>https://raw.githubusercontent.com/Z3Prover/z3/{1}/LICENSE.txt</licenseUrl>
-        <repository type="git" url="https://github.com/Z3Prover/z3.git" branch="master" commit="{1}" />
+        <license type="file">content/LICENSE.txt</license>
+        <repository type="git" url="{1}" branch="{2}" commit="{3}" />
         <requireLicenseAcceptance>true</requireLicenseAcceptance>
         <language>en</language>
+        <dependencies>
+            <group targetFramework=".NETStandard1.4" />
+        </dependencies>
     </metadata>
-</package>""".format(release_version, release_commit)
+</package>""".format(version, repo, branch, commit)
     print(contents)
     with open("out/Microsoft.Z3.x64.nuspec", 'w') as f:
         f.write(contents)
         
-nuget_sign_input = """
-{
-  "Version": "1.0.0",
-  "SignBatches"
-  :
-  [
-   {
-    "SourceLocationType": "UNC",
-    "SourceRootDirectory": "%s",
-    "DestinationLocationType": "UNC",
-    "DestinationRootDirectory": "%s",
-    "SignRequestFiles": [
-     {
-      "CustomerCorrelationId": "42fc9577-af9e-4ac9-995d-1788d8721d17",
-      "SourceLocation": "Microsoft.Z3.x64.%s.nupkg",
-      "DestinationLocation": "Microsoft.Z3.x64.%s.nupkg"
-     }
-    ],
-    "SigningInfo": {
-     "Operations": [
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetSign",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      },
-      {
-       "KeyCode" : "CP-401405",
-       "OperationCode" : "NuGetVerify",
-       "Parameters" : {},
-       "ToolName" : "sign",
-       "ToolVersion" : "1.0"
-      }
-     ]
-    }
-   }
-  ]
-}"""
-
-def create_sign_input(release_version):
-    package_name = "Microsoft.Z3.x64.%s.nupkg" % release_version
-    input_file = "out/nuget_sign_input.json"
-    output_path = os.path.abspath("out").replace("\\","\\\\") 
-    with open(input_file, 'w') as f:
-        f.write(nuget_sign_input % (output_path, output_path, release_version, release_version))
-    
-    
 def main():
     packages = sys.argv[1]
-    release_version = sys.argv[2]
-    release_commit = sys.argv[3]
+    version = sys.argv[2]
+    repo = sys.argv[3]
+    branch = sys.argv[4]
+    commit = sys.argv[5]
+    source_root = sys.argv[6]
     print(packages)
-    mk_dir(packages)    
+    mk_dir(packages)
     unpack(packages)
-    mk_targets()
-    create_nuget_spec(release_version, release_commit)
-    create_sign_input(release_version)
-#    create_nuget_package()
-#    sign_nuget_package(release_version)
-
+    mk_targets(source_root)
+    mk_icon(source_root)
+    mk_license(source_root)
+    create_nuget_spec(version, repo, branch, commit)
 
 main()
