@@ -201,7 +201,7 @@ stages:
     - task: PublishPipelineArtifact@1
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)\Microsoft.Z3.x64.$(ReleaseVersion).nupkg
-        artifactName: 'NugetPackage'
+        artifactName: 'NuGetPackage'
 
   - job: PythonPackage
     displayName: "Python packaging"
@@ -211,41 +211,21 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download macOS Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'macOSBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download ManyLinux Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'ManyLinuxBuild'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win32 Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'WindowsBuild-x86'
         path: $(Agent.TempDirectory)
     - task: DownloadPipelineArtifact@2
       displayName: 'Download Win64 Build'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
         artifact: 'WindowsBuild-x64'
         path: $(Agent.TempDirectory)
     - script: cd $(Agent.TempDirectory); mkdir osx-bin; cd osx-bin; unzip ../*osx*.zip
@@ -310,32 +290,28 @@ stages:
     - task: DownloadPipelineArtifact@2
       displayName: 'Download NuGet Package'
       inputs:
-        source: specific
-        project: c6e283d3-5018-4982-b28f-8a88c50174e2
-        pipeline: 7
-        runVersion: specific
-        runId: 82
-        artifact: 'NugetPackage'
+        artifact: 'NuGetPackage'
         path: $(Agent.TempDirectory)
-    - task: NuGetAuthenticate@0
-      inputs:
-        nuGetServiceConnections: Z3Nuget
-    - task: NuGetCommand@2
-      inputs:
-        command: push
-        nuGetFeedType: external
-        versioningScheme: byEnvVar
-        versionEnvVar: <VersionVariableName>
-
-#  - job: PyPIPublish
-#    displayName: "Publish to PyPI"
-#    pool:
-#      vmImage: "ubuntu-16.04"
-#    steps:
-#    - task: DownloadPipelineArtifact@0
+#    - task: NuGetAuthenticate@0
 #      inputs:
-#        artifactName: 'PythonPackage'
-#        targetPath: dist
+#        nuGetServiceConnections: Z3Nuget
+#    - task: NuGetCommand@2
+#      inputs:
+#        command: push
+#        nuGetFeedType: external
+#        feedsToUse: select
+#        includeNuGetOrg: true
+#        packagesToPush: $(Agent.TempDirectory)
+
+  - job: PyPIPublish
+    displayName: "Publish to PyPI"
+    pool:
+      vmImage: "ubuntu-16.04"
+    steps:
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifact: 'PythonPackage'
+        path: dist
 #    - task: DownloadSecureFile@1
 #      name: pypirc
 #      inputs:
@@ -344,5 +320,3 @@ stages:
 #    - script: python -m pip install --user -U setuptools importlib_metadata wheel twine 
 #    # Uncomment on release:
 #    - script: python -m twine upload --config-file $(pypirc.secureFilePath) -r $(pypiReleaseServer) dist/*
-#
-# TBD: run regression tests on generated binaries.
