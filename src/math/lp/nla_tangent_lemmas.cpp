@@ -26,8 +26,6 @@ struct imp {
     point m_a;
     point m_b;
     point m_xy;
-    bool  m_a_is_ok;
-    bool  m_b_is_ok;
     rational m_correct_v;
     // "below" means that the incorrect value is less than the correct one, that is m_v < m_correct_v
     bool  m_below;
@@ -71,10 +69,8 @@ struct imp {
         get_tang_points();
         TRACE("nla_solver", tout << "tang domain = "; print_tangent_domain(tout) << std::endl;);
         generate_two_tang_lines();
-        if (m_a_is_ok) 
-            generate_tang_plane(m_a);
-        if (m_b_is_ok)
-            generate_tang_plane(m_b);
+        generate_tang_plane(m_a);
+        generate_tang_plane(m_b);
     }
 
 
@@ -110,9 +106,14 @@ struct imp {
     void get_initial_tang_points() {
         const rational& x = m_xy.x;
         const rational& y = m_xy.y;
+        bool all_ints = m_v.is_int() && x.is_int() && y.is_int();
+        rational delta = rational(1);
+        if (!all_ints )
+            delta = std::min(delta, abs(m_correct_v - m_v));
+        TRACE("nla_solver", tout << "delta = " << delta << "\n";);
         if (!m_below){
-            m_a = point(x - rational(1), y + rational(1));
-            m_b = point(x + rational(1), y - rational(1));
+            m_a = point(x - delta, y + delta);
+            m_b = point(x + delta, y - delta);
         }
         else {
             // denote x = xy.x and y = xy.y, and vx, vy - the value of x and y.
@@ -121,13 +122,16 @@ struct imp {
             // vx*y + vy*x - vx*vy + y + x - xv*vy - vx - vy - 1 = pl(x, y) - 1
             // For integers the last expression is greater than or equal to val(xy) when x = vx and y = vy.
             // If x <= vx+1 and y <= vy+1 then (vx+1-x)*(vy+1-y) > 0, that creates a cut
-            // - (vx + 1)y - (vy + 1)x + xy > - (vx+1)*(vx+1)
-            m_a = point(x - rational(1), y - rational(1));
-            m_b = point(x + rational(1), y + rational(1));
+            // - (vx + 1)y - (vy + 1)x + xy > - (vx+1)*(vx+1).
+            // If all_ints is false then we use the fact that
+            // tang_plane() will not change more than on delta*delta
+            m_a = point(x - delta, y - delta);
+            m_b = point(x + delta, y + delta);
         }
     }
 
     void push_tang_point(point & a) {
+        SASSERT(plane_is_correct_cut(a));
         int steps = 10;
         point del = a - m_xy;
         while (steps--) {
@@ -142,24 +146,6 @@ struct imp {
         }
     }
 
-    bool pull_tang_point(point & a ) {
-        if (plane_is_correct_cut(a))
-            return true;
-        point del = a - m_xy;
-        unsigned steps = 10;
-        while (steps--) {
-            del /= rational(2);
-            point na = m_xy + del;
-            TRACE("nla_solver_tp", tout << "del = " << del << std::endl;);
-            if (plane_is_correct_cut(na)) {
-                a = na;
-                TRACE("nla_solver_tp", tout << "exit";tout << std::endl;);
-                return true;
-            }
-        }
-        return false;
-    }
-    
     rational tang_plane(const point& a) const {
         return  a.x * m_xy.y + a.y * m_xy.x - a.x * a.y;
     }
@@ -168,37 +154,17 @@ struct imp {
         get_initial_tang_points();
         TRACE("nla_solver", tout << "xy = " << m_xy << ", correct val = " << m_correct_v;
               tout << "\ntang points:"; print_tangent_domain(tout);tout << std::endl;);
-        bool all_ints = m_v.is_int() && m_xy.x.is_int() && m_xy.y.is_int();
-        if (!all_ints) {
-            m_a_is_ok = pull_tang_point(m_a);
-            m_b_is_ok = pull_tang_point(m_b);
-        } else {
-            m_a_is_ok = m_b_is_ok = true;
-        }
-        if (m_a_is_ok) {
-            push_tang_point(m_a);
-            TRACE("nla_solver", tout << "pushed a = " << m_a << std::endl;);
-        }
-        if (m_b_is_ok) {
-            push_tang_point(m_b);
-            TRACE("nla_solver", tout << "pushed b = " << m_b << std::endl;);
-        }
+        push_tang_point(m_a);
+        TRACE("nla_solver", tout << "pushed a = " << m_a << std::endl;);
+        
+        push_tang_point(m_b);
+        TRACE("nla_solver", tout << "pushed b = " << m_b << std::endl;);
         TRACE("nla_solver",
-              if (m_a_is_ok) { tout << "tang_plane(a) = " << tang_plane(m_a) << " , val = " << m_v; }
-              if (m_b_is_ok) { tout << "\ntang_plane(b) = " << tang_plane(m_b) << " , val = " << m_v  << std::endl;});
+              tout << "tang_plane(a) = " << tang_plane(m_a) << " , val = " << m_v <<  ", tang_plane(b) = " << tang_plane(m_b) << " , val = " << std::endl;);
     }
 
     std::ostream& print_tangent_domain(std::ostream& out) {
-        if (m_a_is_ok && m_b_is_ok) {
-            out << "(" << m_a <<  ", " << m_b << ")";
-        } else if (m_a_is_ok) {
-            out << m_a;
-        }
-        else if (m_b_is_ok) {
-            out << m_b;
-        } else {
-            out << "no a, no b";
-        }        
+        out << "(" << m_a <<  ", " << m_b << ")";
         return out;
     }
 
