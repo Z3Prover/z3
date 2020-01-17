@@ -19,6 +19,7 @@ def init_project_def():
     add_lib('simplex', ['util'], 'math/simplex')
     add_lib('hilbert', ['util'], 'math/hilbert')
     add_lib('automata', ['util'], 'math/automata')
+    add_lib('interval', ['util'], 'math/interval')
     add_lib('realclosure', ['interval'], 'math/realclosure')
     add_lib('subpaving', ['interval'], 'math/subpaving')
     add_lib('ast', ['util', 'polynomial'])
